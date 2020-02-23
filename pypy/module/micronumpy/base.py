@@ -136,7 +136,7 @@ class W_NDimArray(W_NumpyObject):
         if w_val is not None:
             w_val = dtype.coerce(space, w_val)
         else:
-            w_val = dtype.coerce(space, space.wrap(0))
+            w_val = dtype.coerce(space, space.newint(0))
         return convert_to_array(space, w_val)
 
     @staticmethod

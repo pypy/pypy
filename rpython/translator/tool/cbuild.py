@@ -334,3 +334,9 @@ class ExternalCompilationInfo(object):
         d['separate_module_files'] = ()
         d['separate_module_sources'] = ()
         return ExternalCompilationInfo(**d)
+
+    def copy_without(self, *names):
+        d = self._copy_attributes()
+        for name in names:
+            del d[name]
+        return ExternalCompilationInfo(**d)

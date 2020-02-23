@@ -26,6 +26,9 @@ class FloatRepr(Repr):
     def get_ll_hash_function(self):
         return _hash_float
 
+    # no get_ll_fasthash_function: the hash is a bit slow, better cache
+    # it inside dict entries
+
     def rtype_bool(_, hop):
         vlist = hop.inputargs(Float)
         return hop.genop('float_is_true', vlist, resulttype=Bool)

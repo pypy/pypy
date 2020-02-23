@@ -25,8 +25,8 @@ def byteorder_converter(space, new_order):
 def clipmode_converter(space, w_mode):
     if space.is_none(w_mode):
         return NPY.RAISE
-    if space.isinstance_w(w_mode, space.w_str):
-        mode = space.str_w(w_mode)
+    if space.isinstance_w(w_mode, space.w_text):
+        mode = space.text_w(w_mode)
         if mode.startswith('C') or mode.startswith('c'):
             return NPY.CLIP
         if mode.startswith('W') or mode.startswith('w'):
@@ -42,7 +42,7 @@ def clipmode_converter(space, w_mode):
 
 def searchside_converter(space, w_obj):
     try:
-        s = space.str_w(w_obj)
+        s = space.text_w(w_obj)
     except OperationError:
         s = None
     if not s:
@@ -60,13 +60,13 @@ def searchside_converter(space, w_obj):
 def order_converter(space, w_order, default):
     if space.is_none(w_order):
         return default
-    if not space.isinstance_w(w_order, space.w_str):
+    if not space.isinstance_w(w_order, space.w_text):
         if space.is_true(w_order):
             return NPY.FORTRANORDER
         else:
             return NPY.CORDER
     else:
-        order = space.str_w(w_order)
+        order = space.text_w(w_order)
         if order.startswith('C') or order.startswith('c'):
             return NPY.CORDER
         elif order.startswith('F') or order.startswith('f'):

@@ -3611,8 +3611,6 @@ class AppTestSupport(BaseNumpyAppTest):
         import numpy as np
         exc = raises(AttributeError, np.frombuffer, None)
         assert str(exc.value) == "'NoneType' object has no attribute '__buffer__'"
-        exc = raises(AttributeError, np.frombuffer, memoryview(self.data))
-        assert str(exc.value) == "'memoryview' object has no attribute '__buffer__'"
         exc = raises(ValueError, np.frombuffer, self.data, 'S0')
         assert str(exc.value) == "itemsize cannot be zero in type"
         exc = raises(ValueError, np.frombuffer, self.data, offset=-1)
@@ -3684,7 +3682,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
         else:
             assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
- 
+
 
         dt1 = np.dtype(
              [('a', 'b'), ('b', 'i'), ('sub', np.dtype('b,i')), ('c', 'i')],
@@ -3695,7 +3693,7 @@ class AppTestSupport(BaseNumpyAppTest):
             assert y.format == 'T{b:a:xxxi:b:T{b:f0:i:f1:}:sub:xxxi:c:}'
         else:
             assert y.format == 'T{b:a:xxxi:b:T{b:f0:=i:f1:}:sub:xxx@i:c:}'
- 
+
 
     def test_fromstring(self):
         import sys

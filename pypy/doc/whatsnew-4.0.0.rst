@@ -6,23 +6,28 @@ What's new in PyPy 4.0.0
 .. startrev: 3a8f5481dab4
 
 .. branch: keys_with_hash
+
 Improve the performance of ``dict.update()`` and a bunch of methods from
 sets, by reusing the hash value stored in one dict when inspecting
 or changing another dict with that key.
 
 .. branch: optresult-unroll 
+
 A major refactoring of the ``ResOperations`` that kills Box. Also rewrote
 unrolling to enable future enhancements.  Should improve warmup time
 by 20% or so.
 
 .. branch: optimize-cond-call
+
 Optimize common sequences of operations like
 ``int_lt/cond_call`` in the JIT backends
 
 .. branch: missing_openssl_include
+
 Fix for missing headers in OpenBSD, already applied in downstream ports
 
 .. branch: gc-more-incremental
+
 Remove a source of non-incremental-ness in the GC: now
 ``external_malloc()`` no longer runs ``gc_step_until()`` any more. If there
 is a currently-running major collection, we do only so many steps
@@ -32,11 +37,13 @@ of these major collection steps and the size of old objects that
 keep adding up between them.
 
 .. branch: remember-tracing-counts
+
 Reenable jithooks
 
 .. branch: detect_egd2
 
 .. branch: shadowstack-no-move-2
+
 Issue #2141: fix a crash on Windows and OS/X and ARM when running
 at least 20 threads.
 
@@ -55,6 +62,7 @@ Fix performance regression on operations mixing numpy scalars and Python
 floats, cf. issue #2148.
 
 .. branch: cffi-stdcall
+
 Win32: support ``__stdcall`` in CFFI.
 
 .. branch: callfamily
@@ -93,6 +101,7 @@ The PowerPC JIT backend is merged.
 .. branch: osx-libffi
 
 .. branch: lazy-fast2locals
-improve the performance of simple trace functions by lazily calling
+
+Improve the performance of simple trace functions by lazily calling
 ``fast2locals`` and ``locals2fast`` only if ``f_locals`` is actually accessed.
 

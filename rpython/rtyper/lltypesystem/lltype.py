@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.rarithmetic import (
     base_int, intmask, is_emulated_long, is_valid_int, longlonglongmask,
     longlongmask, maxint, normalizedinttype, r_int, r_longfloat, r_longlong,
-    r_longlonglong, r_singlefloat, r_uint, r_ulonglong)
+    r_longlonglong, r_singlefloat, r_uint, r_ulonglong, r_ulonglonglong)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
@@ -676,6 +676,7 @@ _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
 _numbertypes[r_longlonglong] = Number("SignedLongLongLong", r_longlonglong,
                                       longlonglongmask)
+
 if r_longlong is not r_int:
     _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
                                       longlongmask)
@@ -700,6 +701,7 @@ Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 SignedLongLongLong = build_number("SignedLongLongLong", r_longlonglong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
+UnsignedLongLongLong = build_number("UnsignedLongLongLong", r_ulonglonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
 SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # 'float'
@@ -813,7 +815,11 @@ def typeOf(val):
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
-                return SignedLongLong
+                raise OverflowError("integer %r is out of bounds for Signed "
+                                    "(it would fit SignedLongLong, but we "
+                                    "won't implicitly return SignedLongLong "
+                                    "for typeOf(%r) where type(%r) is long)"
+                                    % (val, val, val))
             else:
                 raise OverflowError("integer %r is out of bounds" % (val,))
         if tp is bool:
@@ -1380,20 +1386,11 @@ class _abstract_ptr(object):
             return callb(*args)
         raise TypeError("%r instance is not a function" % (self._T,))
 
-    def _identityhash(self, cache=True):
+    def _identityhash(self):
         p = normalizeptr(self)
-        try:
-            return p._obj._hash_cache_
-        except AttributeError:
-            assert self._T._gckind == 'gc'
-            assert self      # not for NULL
-            result = hash(p._obj)
-            if cache:
-                try:
-                    p._obj._hash_cache_ = result
-                except AttributeError:
-                    pass
-            return result
+        assert self._T._gckind == 'gc'
+        assert self      # not for NULL
+        return hash(p._obj)
 
 class _ptr(_abstract_ptr):
     __slots__ = ('_TYPE',
@@ -1759,7 +1756,7 @@ def _get_empty_instance_of_struct_variety(flds):
 class _struct(_parentable):
     _kind = "structure"
 
-    __slots__ = ('_hash_cache_', '_compilation_info')
+    __slots__ = ('_compilation_info',)
 
     def __new__(self, TYPE, n=None, initialization=None, parent=None,
                 parentindex=None):
@@ -2217,7 +2214,7 @@ def malloc(T, n=None, flavor='gc', immortal=False, zero=False,
     return _ptr(Ptr(T), o, solid)
 
 @analyzer_for(malloc)
-def ann_malloc(s_T, s_n=None, s_flavor=None, s_zero=None,
+def ann_malloc(s_T, s_n=None, s_flavor=None, s_immortal=None, s_zero=None,
                s_track_allocation=None, s_add_memory_pressure=None,
                s_nonmovable=None):
     assert (s_n is None or s_n.knowntype == int
@@ -2441,24 +2438,6 @@ def ann_identityhash(s_obj):
     assert isinstance(s_obj, SomePtr)
     return SomeInteger()
 
-
-def identityhash_nocache(p):
-    """Version of identityhash() to use from backends that don't care about
-    caching."""
-    assert p
-    return p._identityhash(cache=False)
-
-def init_identity_hash(p, value):
-    """For a prebuilt object p, initialize its hash value to 'value'."""
-    assert isinstance(typeOf(p), Ptr)
-    p = normalizeptr(p)
-    if not p:
-        raise ValueError("cannot change hash(NULL)!")
-    if hasattr(p._obj, '_hash_cache_'):
-        raise ValueError("the hash of %r was already computed" % (p,))
-    if typeOf(p).TO._is_varsize():
-        raise ValueError("init_identity_hash(): not for varsized types")
-    p._obj._hash_cache_ = intmask(value)
 
 def isCompatibleType(TYPE1, TYPE2):
     return TYPE1._is_compatible(TYPE2)

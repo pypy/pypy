@@ -31,14 +31,15 @@
 RPY_EXTERN
 void RPyAssertFailed(const char* filename, long lineno,
                      const char* function, const char *msg);
-#  define RPY_ASSERT_VALUE 1
 #else
 #  define RPyAssert(x, msg)   /* nothing */
-#  define RPY_ASSERT_VALUE 0
 #endif
 
 RPY_EXTERN
 void RPyAbort(void);
+
+RPY_EXTERN
+double _PyPy_dg_stdnan(int sign);
 
 #if defined(RPY_LL_ASSERT) || defined(RPY_SANDBOXED)
 /* obscure macros that can be used as expressions and lvalues to refer

@@ -39,7 +39,7 @@ class FakeCPU:
 class FakeCallControl:
     class getcalldescr(AbstractDescr):
         def __init__(self, op, oopspecindex=0, extraeffect=None,
-                     extradescr=None):
+                     extradescr=None, calling_graph=None):
             self.op = op
             self.oopspecindex = oopspecindex
         def __repr__(self):

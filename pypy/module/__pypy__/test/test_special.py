@@ -101,7 +101,7 @@ class AppTest(object):
         l = ["a", "b", "c"]
         assert strategy(l) == "BytesListStrategy"
         l = [u"a", u"b", u"c"]
-        assert strategy(l) == "UnicodeListStrategy"
+        assert strategy(l) == "AsciiListStrategy"
         l = [1.1, 2.2, 3.3]
         assert strategy(l) == "FloatListStrategy"
         l = range(3)
@@ -139,7 +139,10 @@ class AppTestJitFeatures(object):
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
 
     def test_jit_backend_features(self):
-        from __pypy__ import jit_backend_features
+        try:
+            from __pypy__ import jit_backend_features
+        except ImportError:
+            skip("compiled without jit")
         supported_types = jit_backend_features
         assert isinstance(supported_types, list)
         for x in supported_types:

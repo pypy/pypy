@@ -96,6 +96,16 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert raises(TypeError, buffer_support.writebuffer_as_string, ro_mm)
         assert s == buffer_support.charbuffer_as_string(ro_mm)
 
+    def test_array(self):
+        import array
+        buffer_support = self.get_buffer_support()
+
+        s = 'a\0x'
+        a = array.array('B', [5, 0, 10])
+
+        buffer_support.zero_out_writebuffer(a)
+        assert list(a) == [0, 0, 0]
+
     def test_nonbuffer(self):
         # e.g. int
         buffer_support = self.get_buffer_support()

@@ -64,6 +64,8 @@ class UnicodeTraits(object):
         assert path is not None
         if isinstance(path, unicode):
             return path
+        elif isinstance(path, str):
+            raise RuntimeError('str given where unicode expected')
         else:
             return path.as_unicode()
 
@@ -99,6 +101,13 @@ if _WIN32:
             return unicode_traits
         else:
             return string_traits
+
+    @specialize.argtype(0, 1)
+    def _preferred_traits2(path1, path2):
+        if _prefer_unicode(path1) or _prefer_unicode(path2):
+            return unicode_traits
+        else:
+            return string_traits
 else:
     @specialize.argtype(0)
     def _prefer_unicode(path):
@@ -106,4 +115,8 @@ else:
 
     @specialize.argtype(0)
     def _preferred_traits(path):
+        return string_traits
+
+    @specialize.argtype(0, 1)
+    def _preferred_traits2(path1, path2):
         return string_traits

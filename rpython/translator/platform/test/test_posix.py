@@ -64,10 +64,3 @@ class TestMakefile(object):
         assert 'INCLUDEDIRS = %s/foo/baz/include' % include_prefix in Makefile
         assert 'LIBDIRS = %s/foo/baz/lib' % lib_prefix in Makefile
 
-class TestMaemo(TestMakefile):
-    strict_on_stderr = False
-    
-    def setup_class(cls):
-        from rpython.translator.platform.maemo import check_scratchbox, Maemo
-        check_scratchbox()
-        cls.platform = Maemo()

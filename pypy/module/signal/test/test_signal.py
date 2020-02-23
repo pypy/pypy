@@ -260,6 +260,17 @@ class AppTestSignal:
         finally:
             signal.signal(signum, oldhandler)
 
+    def test_default_int_handler(self):
+        import signal
+        for args in [(), (1, 2)]:
+            try:
+                signal.default_int_handler(*args)
+            except KeyboardInterrupt:
+                pass
+            else:
+                raise AssertionError("did not raise!")
+
+
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])
 

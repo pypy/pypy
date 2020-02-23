@@ -712,6 +712,7 @@ class CStringIOTest(PyStringIOTest):
 
     # XXX: For the Python version of io.StringIO, this is highly
     # dependent on the encoding used for the underlying buffer.
+    @support.cpython_only
     def test_widechar(self):
         buf = self.buftype("\U0002030a\U00020347")
         memio = self.ioclass(buf)

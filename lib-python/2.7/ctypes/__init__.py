@@ -360,18 +360,22 @@ class CDLL(object):
         self._FuncPtr = _FuncPtr
 
         if handle is None:
-            if flags & _FUNCFLAG_CDECL:
-                self._handle = _ffi.CDLL(name, mode)
-            else:
-                self._handle = _ffi.WinDLL(name, mode)
+            handle = 0
+        if flags & _FUNCFLAG_CDECL:
+            pypy_dll = _ffi.CDLL(name, mode, handle)
         else:
-            self._handle = handle
+            pypy_dll = _ffi.WinDLL(name, mode, handle)
+        self.__pypy_dll__ = pypy_dll
+        handle = int(pypy_dll)
+        if _sys.maxint > 2 ** 32:
+            handle = int(handle)   # long -> int
+        self._handle = handle
 
     def __repr__(self):
-        return "<%s '%s', handle %r at 0x%x>" % (
-            self.__class__.__name__, self._name, self._handle,
-            id(self) & (_sys.maxint * 2 + 1))
-
+        return "<%s '%s', handle %x at %x>" % \
+               (self.__class__.__name__, self._name,
+                (self._handle & (_sys.maxint*2 + 1)),
+                id(self) & (_sys.maxint*2 + 1))
 
     def __getattr__(self, name):
         if name.startswith('__') and name.endswith('__'):

@@ -336,11 +336,14 @@ class TestLLSpecializeListComprehension:
         interp = LLInterpreter(t.rtyper)
         return interp, graph
 
-    def no_resize(self, graph):
+    def no_resize(self, graph, expect_resize=0):
+        found_resize = 0
         for block in graph.iterblocks():
             for op in block.operations:
                 if op.opname == 'direct_call':
-                    assert 'list_resize' not in repr(op.args[0])
+                    if 'list_resize' in repr(op.args[0]):
+                        found_resize += 1
+        assert found_resize == expect_resize
 
     def test_simple(self):
         def main(n):
@@ -367,7 +370,8 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5
-        self.no_resize(graph)
+        self.no_resize(graph, expect_resize=1)
+        # the non-exactness disables preallocating now, for sanity
 
     def test_mutated_after_listcomp(self):
         def main(n):
@@ -379,6 +383,7 @@ class TestLLSpecializeListComprehension:
         assert res == 5 * 17
         res = interp.eval_graph(graph, [5])
         assert res == -42
+        self.no_resize(graph, expect_resize=1)   # after the loop
 
     def test_two_loops(self):
         def main(n, m):
@@ -397,6 +402,7 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int, int])
         res = interp.eval_graph(graph, [8, 3])
         assert res == 28 - 3
+        self.no_resize(graph)
 
     def test_dict(self):
         def main(n, m):
@@ -408,6 +414,7 @@ class TestLLSpecializeListComprehension:
         assert res == 2 + 8 * 17 + 5 * 17
         res = interp.eval_graph(graph, [4, 4])
         assert res == 1 + 4 * 17 + 4 * 17
+        self.no_resize(graph)
 
 
     def test_list_iterator(self):
@@ -452,3 +459,4 @@ class TestLLSpecializeListComprehension:
         interp, graph = self.specialize(main, [int])
         res = interp.eval_graph(graph, [10])
         assert res == 5 * 17
+        self.no_resize(graph)

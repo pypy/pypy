@@ -492,6 +492,7 @@ class MMap(object):
 
         self.setslice(start, data)
         self.pos = start + data_len
+        return data_len
 
     def write_byte(self, byte):
         if len(byte) != 1:
@@ -507,6 +508,8 @@ class MMap(object):
         return rffi.ptradd(self.data, offset)
 
     def getslice(self, start, length):
+        if length < 0:
+            return ''
         return rffi.charpsize2str(self.getptr(start), length)
 
     def setslice(self, start, newdata):
@@ -549,8 +552,9 @@ class MMap(object):
             if not has_mremap:
                 raise RValueError("mmap: resizing not available--no mremap()")
 
-            # resize the underlying file first
-            os.ftruncate(self.fd, self.offset + newsize)
+            # resize the underlying file first, if there is one
+            if self.fd >= 0:
+                os.ftruncate(self.fd, self.offset + newsize)
 
             # now resize the mmap
             newdata = c_mremap(self.getptr(0), self.size, newsize,
@@ -831,7 +835,7 @@ elif _MS_WINDOWS:
         # assume -1 and 0 both mean invalid file descriptor
         # to 'anonymously' map memory.
         if fileno != -1 and fileno != 0:
-            fh = rwin32.get_osfhandle(fileno)
+            fh = rffi.cast(HANDLE, rwin32.get_osfhandle(fileno))
             # Win9x appears to need us seeked to zero
             # SEEK_SET = 0
             # libc._lseek(fileno, 0, SEEK_SET)

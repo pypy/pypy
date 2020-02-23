@@ -6,8 +6,10 @@ Convention:
   'edges' is a dict mapping vertices to a list of edges with its source.
   Note that we can usually use 'edges' as the set of 'vertices' too.
 """
+from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool.identity_dict import identity_dict
 
+log = AnsiLogger('graphlib')
 
 class Edge:
     def __init__(self, source, target):
@@ -292,6 +294,7 @@ def break_cycles_v(vertices, edges):
             if root in roots_finished:
                 continue
             cycles = all_cycles(root, v_depths, edges)
+            log.dot()
             if not cycles:
                 roots_finished.add(root)
                 continue

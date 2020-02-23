@@ -29,6 +29,7 @@ Update cpyext C-API support After this branch, we are almost able to support
 upstream numpy via cpyext, so we created (yet another) fork of numpy at 
 github.com/pypy/numpy with the needed changes. Among the significant changes 
 to cpyext:
+
   - allow c-snippet tests to be run with -A so we can verify we are compatible
   - fix many edge cases exposed by fixing tests to run with -A
   - issequence() logic matches cpython

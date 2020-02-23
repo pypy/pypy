@@ -8,3 +8,4 @@ class TestW_NoneObject:
 
     def test_false(self):
         assert not self.space.is_true(self.space.w_None)
+

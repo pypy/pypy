@@ -839,15 +839,15 @@ class TestFlowObjSpace(Base):
             return x[s]
         graph = self.codetest(myfunc)
 
+    @py.test.mark.xfail
     def test_unichr_constfold(self):
-        py.test.skip("not working")
         def myfunc():
             return unichr(1234)
         graph = self.codetest(myfunc)
         assert graph.startblock.exits[0].target is graph.returnblock
 
+    @py.test.mark.xfail
     def test_unicode_constfold(self):
-        py.test.skip("not working for now")
         def myfunc():
             return unicode("1234")
         graph = self.codetest(myfunc)
@@ -1132,6 +1132,23 @@ class TestFlowObjSpace(Base):
             try:
                 f()
             except AssertionError:
+                pass
+        py.test.raises(FlowingError, "self.codetest(f)")
+
+    def test_cannot_catch_special_exceptions_2(self):
+        class MyNIE(NotImplementedError):
+            pass
+        def f():
+            try:
+                f()
+            except MyNIE:
+                pass
+        py.test.raises(FlowingError, "self.codetest(f)")
+        #
+        def f():
+            try:
+                f()
+            except (ValueError, MyNIE):
                 pass
         py.test.raises(FlowingError, "self.codetest(f)")
 

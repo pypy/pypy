@@ -147,8 +147,10 @@ class ParserGenerator(object):
                 for label, next in state.arcs.iteritems():
                     arcs.append((self.make_label(gram, label), dfa.index(next)))
                 states.append((arcs, state.is_final))
-            gram.dfas.append((states, self.make_first(gram, name)))
-            assert len(gram.dfas) - 1 == gram.symbol_ids[name] - 256
+            symbol_id = gram.symbol_ids[name]
+            dfa = parser.DFA(symbol_id, states, self.make_first(gram, name))
+            gram.dfas.append(dfa)
+            assert len(gram.dfas) - 1 == symbol_id - 256
         gram.start = gram.symbol_ids[self.start_symbol]
         return gram
 
@@ -162,6 +164,13 @@ class ParserGenerator(object):
                 else:
                     gram.labels.append(gram.symbol_ids[label])
                     gram.symbol_to_label[label] = label_index
+                    first = self.first[label]
+                    if len(first) == 1:
+                        first, = first
+                        if not first[0].isupper():
+                            first = first.strip("\"'")
+                            assert label_index not in gram.token_to_error_string
+                            gram.token_to_error_string[label_index] = first
                     return label_index
             elif label.isupper():
                 token_index = gram.TOKENS[label]
@@ -183,7 +192,7 @@ class ParserGenerator(object):
                 else:
                     gram.labels.append(gram.KEYWORD_TOKEN)
                     gram.keyword_ids[value] = label_index
-                    return label_index
+                    result = label_index
             else:
                 try:
                     token_index = gram.OPERATOR_MAP[value]
@@ -194,7 +203,10 @@ class ParserGenerator(object):
                 else:
                     gram.labels.append(token_index)
                     gram.token_ids[token_index] = label_index
-                    return label_index
+                    result = label_index
+            assert result not in gram.token_to_error_string
+            gram.token_to_error_string[result] = value
+            return result
 
     def make_first(self, gram, name):
         original_firsts = self.first[name]

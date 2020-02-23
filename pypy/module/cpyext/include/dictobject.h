@@ -7,6 +7,14 @@
 extern "C" {
 #endif
 
+typedef struct {
+    PyObject_HEAD
+    PyObject *_tmpkeys; /* a private place to put keys during PyDict_Next */
+} PyDictObject;
+
+#define PyDict_Check(op) \
+		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_DICT_SUBCLASS)
+#define PyDict_CheckExact(op) (Py_TYPE(op) == &PyDict_Type)
 
 #ifdef __cplusplus
 }

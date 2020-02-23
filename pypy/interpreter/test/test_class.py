@@ -131,3 +131,19 @@ class AppTestClass:
         c = C()
         assert c.one == "two"
         raises(AttributeError, getattr, c, "two")
+
+    def test_nonsensical_base_error_message(self):
+        with raises(TypeError) as exc:
+            class Foo('base'):
+                pass
+        assert str(exc.value).startswith(
+            "metaclass found to be 'str', but calling <type 'str'> "
+            "with args ('Foo', ('base',), dict) raised ")
+        #
+        def foo_func(): pass
+        with raises(TypeError) as exc:
+            class Foo(foo_func):
+                pass
+        assert str(exc.value).startswith(
+            "metaclass found to be 'function', but calling <type 'function'> "
+            "with args ('Foo', (<function foo_func at ")

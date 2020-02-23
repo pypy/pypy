@@ -2,7 +2,6 @@
 Plain Python definition of the builtin functions oriented towards
 functional programming.
 """
-from __future__ import with_statement
 import operator
 from __pypy__ import resizelist_hint, newlist_hint
 from __pypy__ import specialized_zip_2_lists

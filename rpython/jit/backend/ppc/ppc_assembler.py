@@ -315,6 +315,7 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         #   * r2 is the gcmap
         #   * the old value of these regs must already be stored in the jitframe
         #   * on exit, all registers are restored from the jitframe
+        #   * the result of the call, if any, is moved to r2
 
         mc = PPCBuilder()
         self.mc = mc
@@ -347,7 +348,11 @@ class AssemblerPPC(OpAssembler, BaseAssembler):
         # Finish
         self._reload_frame_if_necessary(mc)
 
+        # Move the result, if any, to r2
+        mc.mr(r.SCRATCH2.value, r.r3.value)
+
         mc.mtlr(r.RCS1.value)     # restore LR
+
         self._pop_core_regs_from_jitframe(mc, saved_regs)
         if supports_floats:
             self._pop_fp_regs_from_jitframe(mc)

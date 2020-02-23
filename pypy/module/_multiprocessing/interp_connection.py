@@ -22,18 +22,18 @@ class State(object):
     def init(self, space):
         w_builtins = space.getbuiltinmodule('__builtin__')
         w_module = space.call_method(
-            w_builtins, '__import__', space.wrap("multiprocessing"))
-        self.w_BufferTooShort = space.getattr(w_module, space.wrap("BufferTooShort"))
+            w_builtins, '__import__', space.newtext("multiprocessing"))
+        self.w_BufferTooShort = space.getattr(w_module, space.newtext("BufferTooShort"))
 
         self.w_picklemodule = space.call_method(
-            w_builtins, '__import__', space.wrap("pickle"))
+            w_builtins, '__import__', space.newtext("pickle"))
 
 def BufferTooShort(space, w_data):
     w_BufferTooShort = space.fromcache(State).w_BufferTooShort
     return OperationError(w_BufferTooShort, w_data)
 
 def w_handle(space, handle):
-    return space.wrap(rffi.cast(rffi.INTPTR_T, handle))
+    return space.newint(rffi.cast(rffi.INTPTR_T, handle))
 
 
 class W_BaseConnection(W_Root):
@@ -80,7 +80,7 @@ class W_BaseConnection(W_Root):
 
     def _repr(self, space, handle):
         conn_type = ["read-only", "write-only", "read-write"][self.flags - 1]
-        return space.wrap("<%s %s, handle %d>" % (
+        return space.newtext("<%s %s, handle %d>" % (
                 conn_type, space.type(self).getname(space), handle))
 
     def descr_repr(self, space):
@@ -145,18 +145,18 @@ class W_BaseConnection(W_Root):
             if newbuf:
                 rffi.free_charp(newbuf)
 
-        return space.wrap(res)
+        return space.newint(res)
 
     def send(self, space, w_obj):
         self._check_writable(space)
 
         w_picklemodule = space.fromcache(State).w_picklemodule
         w_protocol = space.getattr(
-            w_picklemodule, space.wrap("HIGHEST_PROTOCOL"))
+            w_picklemodule, space.newtext("HIGHEST_PROTOCOL"))
         w_pickled = space.call_method(
             w_picklemodule, "dumps", w_obj, w_protocol)
 
-        buf = space.str_w(w_pickled)
+        buf = space.bytes_w(w_pickled)
         self.do_send_string(space, buf, 0, len(buf))
 
     def recv(self, space):
@@ -254,13 +254,13 @@ class W_FileConnection(W_BaseConnection):
 
         self = space.allocate_instance(W_FileConnection, w_subtype)
         W_FileConnection.__init__(self, space, fd, flags)
-        return space.wrap(self)
+        return self
 
     def descr_repr(self, space):
         return self._repr(space, self.fd)
 
     def fileno(self, space):
-        return space.wrap(self.fd)
+        return space.newint(self.fd)
 
     def is_valid(self):
         return self.fd != self.INVALID_HANDLE_VALUE
@@ -379,7 +379,7 @@ class W_PipeConnection(W_BaseConnection):
 
         self = space.allocate_instance(W_PipeConnection, w_subtype)
         W_PipeConnection.__init__(self, space, handle, flags)
-        return space.wrap(self)
+        return self
 
     def descr_repr(self, space):
         return self._repr(space, rffi.cast(rffi.INTPTR_T, self.handle))

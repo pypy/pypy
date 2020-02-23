@@ -1,13 +1,22 @@
 from __future__ import with_statement
+import sys
 
 from pypy.interpreter.error import OperationError, oefmt
+from pypy.module._rawffi.interp_rawffi import wrap_dlopenerror
 
 from rpython.rlib import jit
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rdynload import dlopen, DLOpenError, DLLHANDLE
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+if sys.platform == 'win32':
+    from rpython.rlib.rdynload import dlopenU
+    WIN32 = True
+else:
+    WIN32 = False
 
 
 # ____________________________________________________________
@@ -102,6 +111,14 @@ def write_raw_float_data(target, source, size):
 def write_raw_longdouble_data(target, source):
     rffi.cast(rffi.LONGDOUBLEP, target)[0] = source
 
+@jit.dont_look_inside    # lets get_nonmovingbuffer_ll_final_null be inlined
+def write_string_as_charp(target, string):
+    from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
+    buf, llobj, buf_flag = rffi.get_nonmovingbuffer_ll_final_null(string)
+    set_mustfree_flag(target, ord(buf_flag))   # 4, 5 or 6
+    rffi.cast(rffi.CCHARPP, target)[0] = buf
+    return llobj
+
 # ____________________________________________________________
 
 sprintf_longdouble = rffi.llexternal(
@@ -128,7 +145,7 @@ def as_long_long(space, w_ob):
     # (possibly) convert and cast a Python object to a long long.
     # This version accepts a Python int too, and does convertions from
     # other types of objects.  It refuses floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -141,34 +158,25 @@ def as_long_long(space, w_ob):
     try:
         return bigint.tolonglong()
     except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+        raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
 
 def as_long(space, w_ob):
     # Same as as_long_long(), but returning an int instead.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         return space.int_w(w_ob)
-    try:
-        bigint = space.bigint_w(w_ob, allow_conversion=False)
-    except OperationError as e:
-        if not e.match(space, space.w_TypeError):
-            raise
-        if _is_a_float(space, w_ob):
-            raise
-        bigint = space.bigint_w(space.int(w_ob), allow_conversion=False)
-    try:
-        return bigint.toint()
-    except OverflowError:
-        raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+    if _is_a_float(space, w_ob):
+        space.bigint_w(w_ob, allow_conversion=False)   # raise the right error
+    return space.int_w(space.int(w_ob))
 
 def as_unsigned_long_long(space, w_ob, strict):
     # (possibly) convert and cast a Python object to an unsigned long long.
     # This accepts a Python int too, and does convertions from other types of
     # objects.  If 'strict', complains with OverflowError; if 'not strict',
     # mask the result and round floats.
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         value = space.int_w(w_ob)
         if strict and value < 0:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         return r_ulonglong(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -182,18 +190,20 @@ def as_unsigned_long_long(space, w_ob, strict):
         try:
             return bigint.toulonglong()
         except ValueError:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
     else:
         return bigint.ulonglongmask()
 
 def as_unsigned_long(space, w_ob, strict):
     # same as as_unsigned_long_long(), but returning just an Unsigned
-    if space.is_w(space.type(w_ob), space.w_int):   # shortcut
+    if space.isinstance_w(w_ob, space.w_int):  # shortcut
         value = space.int_w(w_ob)
+        if not we_are_translated():
+            value = getattr(value, 'constant', value)   # for NonConstant
         if strict and value < 0:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         return r_uint(value)
     try:
         bigint = space.bigint_w(w_ob, allow_conversion=False)
@@ -207,9 +217,9 @@ def as_unsigned_long(space, w_ob, strict):
         try:
             return bigint.touint()
         except ValueError:
-            raise OperationError(space.w_OverflowError, space.wrap(neg_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(neg_msg))
         except OverflowError:
-            raise OperationError(space.w_OverflowError, space.wrap(ovf_msg))
+            raise OperationError(space.w_OverflowError, space.newtext(ovf_msg))
     else:
         return bigint.uintmask()
 
@@ -287,21 +297,6 @@ def object_as_bool(space, w_ob):
         return _standard_object_as_bool(space, w_io)
     except _NotStandardObject:
         raise oefmt(space.w_TypeError, "integer/float expected")
-
-# ____________________________________________________________
-
-def get_new_array_length(space, w_value):
-    if (space.isinstance_w(w_value, space.w_list) or
-        space.isinstance_w(w_value, space.w_tuple)):
-        return (w_value, space.int_w(space.len(w_value)))
-    elif space.isinstance_w(w_value, space.w_basestring):
-        # from a string, we add the null terminator
-        return (w_value, space.int_w(space.len(w_value)) + 1)
-    else:
-        explicitlength = space.getindex_w(w_value, space.w_OverflowError)
-        if explicitlength < 0:
-            raise oefmt(space.w_ValueError, "negative array length")
-        return (space.w_None, explicitlength)
 
 # ____________________________________________________________
 
@@ -399,3 +394,48 @@ def unpack_cfloat_list_from_raw_array(float_list, source):
     ptr = rffi.cast(rffi.FLOATP, source)
     for i in range(len(float_list)):
         float_list[i] = rffi.cast(lltype.Float, ptr[i])
+
+# ____________________________________________________________
+
+def dlopen_w(space, w_filename, flags):
+    from pypy.module._cffi_backend.cdataobj import W_CData
+    from pypy.module._cffi_backend import ctypeptr
+
+    autoclose = True
+    if isinstance(w_filename, W_CData):
+        # 'flags' ignored in this case
+        w_ctype = w_filename.ctype
+        if (not isinstance(w_ctype, ctypeptr.W_CTypePointer) or
+            not w_ctype.is_void_ptr):
+            raise oefmt(space.w_TypeError,
+                    "dlopen() takes a file name or 'void *' handle, not '%s'",
+                    w_ctype.name)
+        handle = w_filename.unsafe_escaping_ptr()
+        if not handle:
+            raise oefmt(space.w_RuntimeError, "cannot call dlopen(NULL)")
+        fname = w_ctype.extra_repr(handle)
+        handle = rffi.cast(DLLHANDLE, handle)
+        autoclose = False
+        #
+    elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+        fname = space.text_w(space.repr(w_filename))
+        utf8_name = space.utf8_w(w_filename)
+        uni_len = space.len_w(w_filename)
+        with rffi.scoped_utf82wcharp(utf8_name, uni_len) as ll_libname:
+            try:
+                handle = dlopenU(ll_libname, flags)
+            except DLOpenError as e:
+                raise wrap_dlopenerror(space, e, fname)
+    else:
+        if space.is_none(w_filename):
+            fname = None
+        else:
+            fname = space.fsencode_w(w_filename)
+        with rffi.scoped_str2charp(fname) as ll_libname:
+            if fname is None:
+                fname = "<None>"
+            try:
+                handle = dlopen(ll_libname, flags)
+            except DLOpenError as e:
+                raise wrap_dlopenerror(space, e, fname)
+    return fname, handle, autoclose

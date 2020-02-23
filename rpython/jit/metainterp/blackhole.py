@@ -1,12 +1,15 @@
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.codewriter.jitcode import JitCode, SwitchDictDescr
 from rpython.jit.metainterp.compile import ResumeAtPositionDescr
 from rpython.jit.metainterp.jitexc import get_llexception, reraise
 from rpython.jit.metainterp import jitexc
 from rpython.jit.metainterp.history import MissingValue
+from rpython.jit.metainterp.support import (
+    adr2int, int2adr, ptr2int, int_signext)
 from rpython.rlib import longlong2float
 from rpython.rlib.debug import ll_assert, make_sure_not_resized
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import check_annotation
+from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.rarithmetic import intmask, LONG_BIT, r_uint, ovfcheck
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
@@ -50,12 +53,10 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self.blackholeinterps = []
+        self.blackholeinterps = None
 
     def _cleanup_(self):
-        # XXX don't assign a different list to blackholeinterp here,
-        # it confuses the annotator a lot
-        del self.blackholeinterps[:]
+        self.blackholeinterps = None
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"
@@ -132,20 +133,8 @@ class BlackholeInterpBuilder(object):
                 elif argtype == 'I' or argtype == 'R' or argtype == 'F':
                     assert argcodes[next_argcode] == argtype
                     next_argcode = next_argcode + 1
-                    length = ord(code[position])
-                    position += 1
-                    value = []
-                    for i in range(length):
-                        index = ord(code[position+i])
-                        if   argtype == 'I': reg = self.registers_i[index]
-                        elif argtype == 'R': reg = self.registers_r[index]
-                        elif argtype == 'F': reg = self.registers_f[index]
-                        if not we_are_translated():
-                            assert not isinstance(reg, MissingValue), (
-                                name, self.jitcode, position)
-                        value.append(reg)
-                    make_sure_not_resized(value)
-                    position += length
+                    value = self._get_list_of_values(code, position, argtype)
+                    position += 1 + len(value)
                 elif argtype == 'self':
                     value = self
                 elif argtype == 'cpu':
@@ -195,7 +184,7 @@ class BlackholeInterpBuilder(object):
                 if lltype.typeOf(result) is lltype.Bool:
                     result = int(result)
                 assert lltype.typeOf(result) is lltype.Signed
-                self.registers_i[ord(code[position])] = result
+                self.registers_i[ord(code[position])] = plain_int(result)
                 position += 1
             elif resulttype == 'r':
                 # argcode should be 'r' too
@@ -225,7 +214,7 @@ class BlackholeInterpBuilder(object):
                     if lltype.typeOf(result) is lltype.Bool:
                         result = int(result)
                     assert lltype.typeOf(result) is lltype.Signed
-                    self.registers_i[ord(code[position])] = result
+                    self.registers_i[ord(code[position])] = plain_int(result)
                     position += 1
             elif resulttype == 'L':
                 assert result >= 0
@@ -248,20 +237,40 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
-        if len(self.blackholeinterps) > 0:
-            return self.blackholeinterps.pop()
+        res = self.blackholeinterps
+        if res is not None:
+            self.blackholeinterps = res.back
+            return res
         else:
             self.num_interpreters += 1
             return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
         interp.cleanup_registers()
-        self.blackholeinterps.append(interp)
+        interp.back = self.blackholeinterps
+        self.blackholeinterps = interp
 
 def check_shift_count(b):
     if not we_are_translated():
         if b < 0 or b >= LONG_BIT:
             raise ValueError("Shift count, %d,  not in valid range, 0 .. %d." % (b, LONG_BIT-1))
+
+def check_list_of_plain_integers(s_arg, bookkeeper):
+    """Check that 'BlackhopeInterpreter.registers_i' is annotated as a
+    non-resizable list of plain integers (and not r_int's for example)."""
+    from rpython.annotator import model as annmodel
+    assert isinstance(s_arg, annmodel.SomeList)
+    s_arg.listdef.never_resize()
+    assert s_arg.listdef.listitem.s_value.knowntype is int
+
+def _check_int(s_arg, bookkeeper):
+    assert s_arg.knowntype is int
+
+def plain_int(x):
+    """Check that 'x' is annotated as a plain integer (and not r_int)"""
+    check_annotation(x, _check_int)
+    return x
+
 
 class BlackholeInterpreter(object):
 
@@ -289,6 +298,8 @@ class BlackholeInterpreter(object):
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
+        self.back = None # chain unused interpreters together via this
+        check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):
         return '<BHInterp #%d>' % self.count_interpreter
@@ -307,7 +318,7 @@ class BlackholeInterpreter(object):
 
     def setarg_i(self, index, value):
         assert lltype.typeOf(value) is lltype.Signed
-        self.registers_i[index] = value
+        self.registers_i[index] = plain_int(value)
 
     def setarg_r(self, index, value):
         assert lltype.typeOf(value) == llmemory.GCREF
@@ -532,7 +543,7 @@ class BlackholeInterpreter(object):
         return i
     @arguments("i", "i", returns="i")
     def bhimpl_int_signext(a, b):
-        return heaptracker.int_signext(a, b)
+        return int_signext(a, b)
 
     @arguments("i", "i", returns="i")
     def bhimpl_uint_lt(a, b):
@@ -574,6 +585,10 @@ class BlackholeInterpreter(object):
     def bhimpl_cast_int_to_ptr(i):
         ll_assert((i & 1) == 1, "bhimpl_cast_int_to_ptr: not an odd int")
         return lltype.cast_int_to_ptr(llmemory.GCREF, i)
+
+    @arguments("r")
+    def bhimpl_assert_not_none(a):
+        assert a
 
     @arguments("r", "i")
     def bhimpl_record_exact_class(a, b):
@@ -919,7 +934,7 @@ class BlackholeInterpreter(object):
 
     @arguments("self", "i", "L", "pc", returns="L")
     def bhimpl_goto_if_exception_mismatch(self, vtable, target, pc):
-        adr = heaptracker.int2adr(vtable)
+        adr = int2adr(vtable)
         bounding_class = llmemory.cast_adr_to_ptr(adr, rclass.CLASSTYPE)
         real_instance = self.exception_last_value
         assert real_instance
@@ -932,8 +947,7 @@ class BlackholeInterpreter(object):
     def bhimpl_last_exception(self):
         real_instance = self.exception_last_value
         assert real_instance
-        adr = llmemory.cast_ptr_to_adr(real_instance.typeptr)
-        return heaptracker.adr2int(adr)
+        return ptr2int(real_instance.typeptr)
 
     @arguments("self", returns="r")
     def bhimpl_last_exc_value(self):
@@ -1039,7 +1053,7 @@ class BlackholeInterpreter(object):
 
     def get_portal_runner(self, jdindex):
         jitdriver_sd = self.builder.metainterp_sd.jitdrivers_sd[jdindex]
-        fnptr = heaptracker.adr2int(jitdriver_sd.portal_runner_adr)
+        fnptr = adr2int(jitdriver_sd.portal_runner_adr)
         calldescr = jitdriver_sd.mainjitcode.calldescr
         return fnptr, calldescr
 
@@ -1199,54 +1213,68 @@ class BlackholeInterpreter(object):
     def bhimpl_residual_call_irf_v(cpu, func, args_i,args_r,args_f,calldescr):
         return cpu.bh_call_v(func, args_i, args_r, args_f, calldescr)
 
-    # conditional calls - note that they cannot return stuff
     @arguments("cpu", "i", "i", "I", "R", "d")
     def bhimpl_conditional_call_ir_v(cpu, condition, func, args_i, args_r,
                                      calldescr):
+        # conditional calls - condition is a flag, and they cannot return stuff
         if condition:
             cpu.bh_call_v(func, args_i, args_r, None, calldescr)
 
+    @arguments("cpu", "i", "i", "I", "R", "d", returns="i")
+    def bhimpl_conditional_call_value_ir_i(cpu, value, func, args_i, args_r,
+                                           calldescr):
+        if value == 0:
+            value = cpu.bh_call_i(func, args_i, args_r, None, calldescr)
+        return value
+
+    @arguments("cpu", "r", "i", "I", "R", "d", returns="r")
+    def bhimpl_conditional_call_value_ir_r(cpu, value, func, args_i, args_r,
+                                           calldescr):
+        if not value:
+            value = cpu.bh_call_r(func, args_i, args_r, None, calldescr)
+        return value
+
     @arguments("cpu", "j", "R", returns="i")
     def bhimpl_inline_call_r_i(cpu, jitcode, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R", returns="r")
     def bhimpl_inline_call_r_r(cpu, jitcode, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "R")
     def bhimpl_inline_call_r_v(cpu, jitcode, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              None, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", returns="i")
     def bhimpl_inline_call_ir_i(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", returns="r")
     def bhimpl_inline_call_ir_r(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R")
     def bhimpl_inline_call_ir_v(cpu, jitcode, args_i, args_r):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              args_i, args_r, None, jitcode.calldescr)
 
     @arguments("cpu", "j", "I", "R", "F", returns="i")
     def bhimpl_inline_call_irf_i(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_i(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_i(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="r")
     def bhimpl_inline_call_irf_r(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_r(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_r(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F", returns="f")
     def bhimpl_inline_call_irf_f(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_f(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_f(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
     @arguments("cpu", "j", "I", "R", "F")
     def bhimpl_inline_call_irf_v(cpu, jitcode, args_i, args_r, args_f):
-        return cpu.bh_call_v(jitcode.get_fnaddr_as_int(),
+        return cpu.bh_call_v(adr2int(jitcode.fnaddr),
                              args_i, args_r, args_f, jitcode.calldescr)
 
     @arguments("cpu", "i", "d", returns="r")
@@ -1453,6 +1481,18 @@ class BlackholeInterpreter(object):
     def bhimpl_gc_load_indexed_f(cpu, addr, index, scale, base_ofs, bytes):
         return cpu.bh_gc_load_indexed_f(addr, index,scale,base_ofs, bytes)
 
+    @arguments("cpu", "r", "i", "i", "i", "i", "i", "d")
+    def bhimpl_gc_store_indexed_i(cpu, addr, index, val, scale, base_ofs, bytes,
+                                  arraydescr):
+        return cpu.bh_gc_store_indexed_i(addr, index, val, scale,base_ofs, bytes,
+                                         arraydescr)
+
+    @arguments("cpu", "r", "i", "f", "i", "i", "i", "d")
+    def bhimpl_gc_store_indexed_f(cpu, addr, index, val, scale, base_ofs, bytes,
+                                  arraydescr):
+        return cpu.bh_gc_store_indexed_f(addr, index, val, scale,base_ofs, bytes,
+                                         arraydescr)
+
     @arguments("r", "d", "d")
     def bhimpl_record_quasiimmut_field(struct, fielddescr, mutatefielddescr):
         pass
@@ -1493,6 +1533,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copystrcontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copystrcontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_strhash(cpu, string):
+        return cpu.bh_strhash(string)
 
     @arguments("cpu", "i", returns="r")
     def bhimpl_newunicode(cpu, length):
@@ -1509,6 +1552,9 @@ class BlackholeInterpreter(object):
     @arguments("cpu", "r", "r", "i", "i", "i")
     def bhimpl_copyunicodecontent(cpu, src, dst, srcstart, dststart, length):
         cpu.bh_copyunicodecontent(src, dst, srcstart, dststart, length)
+    @arguments("cpu", "r", returns="i")
+    def bhimpl_unicodehash(cpu, unicode):
+        return cpu.bh_unicodehash(unicode)
 
     @arguments("i", "i")
     def bhimpl_rvmprof_code(leaving, unique_id):
@@ -1561,7 +1607,8 @@ class BlackholeInterpreter(object):
     # 'xxx_call_yyy' instructions from the caller frame
     def _setup_return_value_i(self, result):
         assert lltype.typeOf(result) is lltype.Signed
-        self.registers_i[ord(self.jitcode.code[self.position-1])] = result
+        self.registers_i[ord(self.jitcode.code[self.position-1])] = plain_int(
+                                                                        result)
     def _setup_return_value_r(self, result):
         assert lltype.typeOf(result) == llmemory.GCREF
         self.registers_r[ord(self.jitcode.code[self.position-1])] = result
@@ -1578,7 +1625,7 @@ class BlackholeInterpreter(object):
         elif kind == 'i':
             raise jitexc.DoneWithThisFrameInt(self.get_tmpreg_i())
         elif kind == 'r':
-            raise jitexc.DoneWithThisFrameRef(self.cpu, self.get_tmpreg_r())
+            raise jitexc.DoneWithThisFrameRef(self.get_tmpreg_r())
         elif kind == 'f':
             raise jitexc.DoneWithThisFrameFloat(self.get_tmpreg_f())
         else:
@@ -1587,7 +1634,7 @@ class BlackholeInterpreter(object):
     def _exit_frame_with_exception(self, e):
         sd = self.builder.metainterp_sd
         e = lltype.cast_opaque_ptr(llmemory.GCREF, e)
-        raise jitexc.ExitFrameWithExceptionRef(self.cpu, e)
+        raise jitexc.ExitFrameWithExceptionRef(e)
 
     def _handle_jitexception_in_portal(self, e):
         # This case is really rare, but can occur if
@@ -1636,6 +1683,24 @@ class BlackholeInterpreter(object):
                 continue
             if box is not None:
                 self.setarg_f(i, box.getfloatstorage())
+
+    @specialize.arg(3)
+    def _get_list_of_values(self, code, position, argtype):
+        length = ord(code[position])
+        position += 1
+        value = []
+        for i in range(length):
+            index = ord(code[position+i])
+            if   argtype == 'I': reg = self.registers_i[index]
+            elif argtype == 'R': reg = self.registers_r[index]
+            elif argtype == 'F': reg = self.registers_f[index]
+            else: assert 0
+            if not we_are_translated():
+                assert not isinstance(reg, MissingValue), (
+                    name, self.jitcode, position)
+            value.append(reg)
+        make_sure_not_resized(value)
+        return value
 
 # ____________________________________________________________
 

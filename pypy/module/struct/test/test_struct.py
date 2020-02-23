@@ -283,6 +283,7 @@ class AppTestStruct(object):
         assert pack(">?", False) == '\x00'
         assert pack("@?", True) == '\x01'
         assert pack("@?", False) == '\x00'
+        assert self.struct.unpack("?", 'X')[0] is True
 
     def test_transitiveness(self):
         c = 'a'
@@ -381,6 +382,7 @@ class AppTestStruct(object):
         raises(self.struct.error, self.struct.unpack, "i", b)
 
     def test_pack_unpack_buffer(self):
+        import sys
         import array
         b = array.array('c', '\x00' * 19)
         sz = self.struct.calcsize("ii")
@@ -390,9 +392,11 @@ class AppTestStruct(object):
                                       self.struct.pack("ii", 17, 42) +
                                       '\x00' * (19-sz-2))
         exc = raises(TypeError, self.struct.pack_into, "ii", buffer(b), 0, 17, 42)
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "must be read-write buffer, not buffer"
         exc = raises(TypeError, self.struct.pack_into, "ii", 'test', 0, 17, 42)
-        assert str(exc.value) == "must be read-write buffer, not str"
+        if '__pypy__' in sys.modules:
+            assert str(exc.value) == "must be read-write buffer, not str"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
         assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
 
@@ -427,6 +431,18 @@ class AppTestStruct(object):
         s = self.struct.Struct('i')
         assert s.unpack(s.pack(42)) == (42,)
         assert s.unpack_from(memoryview(s.pack(42))) == (42,)
+
+    def test_struct_weakrefable(self):
+        import weakref
+        weakref.ref(self.struct.Struct('i'))
+
+    def test_struct_subclass(self):
+        class S(self.struct.Struct):
+            def __init__(self):
+                assert self.size == -1
+                super(S, self).__init__('c')
+                assert self.size == 1
+        assert S().unpack('a') == ('a',)
 
     def test_overflow(self):
         raises(self.struct.error, self.struct.pack, 'i', 1<<65)
@@ -479,7 +495,7 @@ class AppTestStructBuffer(object):
 
 
 class AppTestFastPath(object):
-    spaceconfig = dict(usemodules=['struct', '__pypy__'])
+    spaceconfig = dict(usemodules=['array', 'struct', '__pypy__'])
 
     def setup_class(cls):
         from rpython.rlib.rstruct import standardfmttable
@@ -498,7 +514,43 @@ class AppTestFastPath(object):
         from rpython.rlib.rstruct import standardfmttable
         standardfmttable.ALLOW_SLOWPATH = True
 
+    def test_unpack_simple(self):
+        buf = self.struct.pack("iii", 0, 42, 43)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
     def test_unpack_from(self):
         buf = self.struct.pack("iii", 0, 42, 43)
         offset = self.struct.calcsize("i")
         assert self.struct.unpack_from("ii", buf, offset) == (42, 43)
+
+    def test_unpack_bytearray(self):
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = bytearray(data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_unpack_array(self):
+        import array
+        data = self.struct.pack("iii", 0, 42, 43)
+        buf = array.array('c', data)
+        assert self.struct.unpack("iii", buf) == (0, 42, 43)
+
+    def test_pack_into_bytearray(self):
+        expected = self.struct.pack("ii", 42, 43)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("ii", buf, 0, 42, 43)
+        assert buf == expected
+
+    def test_pack_into_bytearray_padding(self):
+        expected = self.struct.pack("xxi", 42)
+        buf = bytearray(len(expected))
+        self.struct.pack_into("xxi", buf, 0, 42)
+        assert buf == expected
+
+    def test_pack_into_bytearray_delete(self):
+        expected = self.struct.pack("i", 42)
+        # force W_BytearrayObject._delete_from_start
+        buf = bytearray(64)
+        del buf[:8]
+        self.struct.pack_into("i", buf, 0, 42)
+        buf = buf[:len(expected)]
+        assert buf == expected

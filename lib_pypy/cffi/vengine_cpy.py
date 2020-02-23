@@ -2,7 +2,8 @@
 # DEPRECATED: implementation for ffi.verify()
 #
 import sys, imp
-from . import model, ffiplatform
+from . import model
+from .error import VerificationError
 
 
 class VCPythonEngine(object):
@@ -155,7 +156,7 @@ class VCPythonEngine(object):
                                           self.verifier.modulefilename)
             except ImportError as e:
                 error = "importing %r: %s" % (self.verifier.modulefilename, e)
-                raise ffiplatform.VerificationError(error)
+                raise VerificationError(error)
             finally:
                 if hasattr(sys, "setdlopenflags"):
                     sys.setdlopenflags(previous_flags)
@@ -185,7 +186,7 @@ class VCPythonEngine(object):
             def __dir__(self):
                 return FFILibrary._cffi_dir + list(self.__dict__)
         library = FFILibrary()
-        if module._cffi_setup(lst, ffiplatform.VerificationError, library):
+        if module._cffi_setup(lst, VerificationError, library):
             import warnings
             warnings.warn("reimporting %r might overwrite older definitions"
                           % (self.verifier.get_module_name()))
@@ -212,7 +213,7 @@ class VCPythonEngine(object):
                 method = getattr(self, '_generate_cpy_%s_%s' % (kind,
                                                                 step_name))
             except AttributeError:
-                raise ffiplatform.VerificationError(
+                raise VerificationError(
                     "not implemented in verify(): %r" % name)
             try:
                 method(tp, realname)
@@ -274,28 +275,29 @@ class VCPythonEngine(object):
             tovar, tp.get_c_name(''), errvalue))
         self._prnt('    %s;' % errcode)
 
-    def _extra_local_variables(self, tp, localvars):
+    def _extra_local_variables(self, tp, localvars, freelines):
         if isinstance(tp, model.PointerType):
             localvars.add('Py_ssize_t datasize')
+            localvars.add('struct _cffi_freeme_s *large_args_free = NULL')
+            freelines.add('if (large_args_free != NULL)'
+                          ' _cffi_free_array_arguments(large_args_free);')
 
     def _convert_funcarg_to_c_ptr_or_array(self, tp, fromvar, tovar, errcode):
         self._prnt('  datasize = _cffi_prepare_pointer_call_argument(')
         self._prnt('      _cffi_type(%d), %s, (char **)&%s);' % (
             self._gettypenum(tp), fromvar, tovar))
         self._prnt('  if (datasize != 0) {')
-        self._prnt('    if (datasize < 0)')
-        self._prnt('      %s;' % errcode)
-        self._prnt('    %s = alloca((size_t)datasize);' % (tovar,))
-        self._prnt('    memset((void *)%s, 0, (size_t)datasize);' % (tovar,))
-        self._prnt('    if (_cffi_convert_array_from_object('
-                   '(char *)%s, _cffi_type(%d), %s) < 0)' % (
-            tovar, self._gettypenum(tp), fromvar))
+        self._prnt('    %s = ((size_t)datasize) <= 640 ? '
+                   'alloca((size_t)datasize) : NULL;' % (tovar,))
+        self._prnt('    if (_cffi_convert_array_argument(_cffi_type(%d), %s, '
+                   '(char **)&%s,' % (self._gettypenum(tp), fromvar, tovar))
+        self._prnt('            datasize, &large_args_free) < 0)')
         self._prnt('      %s;' % errcode)
         self._prnt('  }')
 
     def _convert_expr_from_c(self, tp, var, context):
         if isinstance(tp, model.PrimitiveType):
-            if tp.is_integer_type():
+            if tp.is_integer_type() and tp.name != '_Bool':
                 return '_cffi_from_c_int(%s, %s)' % (var, tp.name)
             elif tp.name != 'long double':
                 return '_cffi_from_c_%s(%s)' % (tp.name.replace(' ', '_'), var)
@@ -368,15 +370,17 @@ class VCPythonEngine(object):
             prnt('  %s;' % type.get_c_name(' x%d' % i, context))
         #
         localvars = set()
+        freelines = set()
         for type in tp.args:
-            self._extra_local_variables(type, localvars)
-        for decl in localvars:
+            self._extra_local_variables(type, localvars, freelines)
+        for decl in sorted(localvars):
             prnt('  %s;' % (decl,))
         #
         if not isinstance(tp.result, model.VoidType):
             result_code = 'result = '
             context = 'result of %s' % name
             prnt('  %s;' % tp.result.get_c_name(' result', context))
+            prnt('  PyObject *pyresult;')
         else:
             result_code = ''
         #
@@ -408,9 +412,14 @@ class VCPythonEngine(object):
         if numargs == 0:
             prnt('  (void)noarg; /* unused */')
         if result_code:
-            prnt('  return %s;' %
+            prnt('  pyresult = %s;' %
                  self._convert_expr_from_c(tp.result, 'result', 'result type'))
+            for freeline in freelines:
+                prnt('  ' + freeline)
+            prnt('  return pyresult;')
         else:
+            for freeline in freelines:
+                prnt('  ' + freeline)
             prnt('  Py_INCREF(Py_None);')
             prnt('  return Py_None;')
         prnt('}')
@@ -485,7 +494,7 @@ class VCPythonEngine(object):
                     prnt('  { %s = &p->%s; (void)tmp; }' % (
                         ftype.get_c_name('*tmp', 'field %r'%fname, quals=fqual),
                         fname))
-                except ffiplatform.VerificationError as e:
+                except VerificationError as e:
                     prnt('  /* %s */' % str(e))   # cannot verify it, ignore
         prnt('}')
         prnt('static PyObject *')
@@ -550,7 +559,7 @@ class VCPythonEngine(object):
             # check that the layout sizes and offsets match the real ones
             def check(realvalue, expectedvalue, msg):
                 if realvalue != expectedvalue:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "%s (we have %d, but C compiler says %d)"
                         % (msg, expectedvalue, realvalue))
             ffi = self.ffi
@@ -771,7 +780,7 @@ class VCPythonEngine(object):
                 BItemType = self.ffi._get_cached_btype(tp.item)
                 length, rest = divmod(size, self.ffi.sizeof(BItemType))
                 if rest != 0:
-                    raise ffiplatform.VerificationError(
+                    raise VerificationError(
                         "bad size: %r does not seem to be an array of %s" %
                         (name, tp.item))
                 tp = tp.resolve_length(length)
@@ -807,7 +816,8 @@ cffimod_header = r'''
 #include <stddef.h>
 
 /* this block of #ifs should be kept exactly identical between
-   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py */
+   c/_cffi_backend.c, cffi/vengine_cpy.py, cffi/vengine_gen.py
+   and cffi/_cffi_include.h */
 #if defined(_MSC_VER)
 # include <malloc.h>   /* for alloca() */
 # if _MSC_VER < 1600   /* MSVC < 2010 */
@@ -841,11 +851,13 @@ cffimod_header = r'''
 #  include <stdint.h>
 # endif
 # if _MSC_VER < 1800   /* MSVC < 2013 */
-   typedef unsigned char _Bool;
+#  ifndef __cplusplus
+    typedef unsigned char _Bool;
+#  endif
 # endif
 #else
 # include <stdint.h>
-# if (defined (__SVR4) && defined (__sun)) || defined(_AIX)
+# if (defined (__SVR4) && defined (__sun)) || defined(_AIX) || defined(__hpux)
 #  include <alloca.h>
 # endif
 #endif
@@ -868,6 +880,7 @@ cffimod_header = r'''
 #define _cffi_from_c_ulong PyLong_FromUnsignedLong
 #define _cffi_from_c_longlong PyLong_FromLongLong
 #define _cffi_from_c_ulonglong PyLong_FromUnsignedLongLong
+#define _cffi_from_c__Bool PyBool_FromLong
 
 #define _cffi_to_c_double PyFloat_AsDouble
 #define _cffi_to_c_float PyFloat_AsDouble
@@ -974,6 +987,59 @@ static PyObject *_cffi_setup(PyObject *self, PyObject *args)
     if (_cffi_setup_custom(library) < 0)
         return NULL;
     return PyBool_FromLong(was_alive);
+}
+
+union _cffi_union_alignment_u {
+    unsigned char m_char;
+    unsigned short m_short;
+    unsigned int m_int;
+    unsigned long m_long;
+    unsigned long long m_longlong;
+    float m_float;
+    double m_double;
+    long double m_longdouble;
+};
+
+struct _cffi_freeme_s {
+    struct _cffi_freeme_s *next;
+    union _cffi_union_alignment_u alignment;
+};
+
+#ifdef __GNUC__
+  __attribute__((unused))
+#endif
+static int _cffi_convert_array_argument(CTypeDescrObject *ctptr, PyObject *arg,
+                                        char **output_data, Py_ssize_t datasize,
+                                        struct _cffi_freeme_s **freeme)
+{
+    char *p;
+    if (datasize < 0)
+        return -1;
+
+    p = *output_data;
+    if (p == NULL) {
+        struct _cffi_freeme_s *fp = (struct _cffi_freeme_s *)PyObject_Malloc(
+            offsetof(struct _cffi_freeme_s, alignment) + (size_t)datasize);
+        if (fp == NULL)
+            return -1;
+        fp->next = *freeme;
+        *freeme = fp;
+        p = *output_data = (char *)&fp->alignment;
+    }
+    memset((void *)p, 0, (size_t)datasize);
+    return _cffi_convert_array_from_object(p, ctptr, arg);
+}
+
+#ifdef __GNUC__
+  __attribute__((unused))
+#endif
+static void _cffi_free_array_arguments(struct _cffi_freeme_s *freeme)
+{
+    do {
+        void *p = (void *)freeme;
+        freeme = freeme->next;
+        PyObject_Free(p);
+    } while (freeme != NULL);
 }
 
 static int _cffi_init(void)

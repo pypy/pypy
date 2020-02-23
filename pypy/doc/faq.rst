@@ -26,16 +26,16 @@ Is PyPy a drop in replacement for CPython?
 
 Almost!
 
-The mostly likely stumbling block for any given project is support for
+The most likely stumbling block for any given project is support for
 :ref:`extension modules <extension-modules>`.  PyPy supports a continually growing
 number of extension modules, but so far mostly only those found in the
 standard library.
 
 The language features (including builtin types and functions) are very
-complete and well tested, so if your project does not use many
+refined and well tested, so if your project doesn't use many
 extension modules there is a good chance that it will work with PyPy.
 
-We list the differences we know about in :doc:`cpython differences <cpython_differences>`.
+We list the known differences in :doc:`cpython differences <cpython_differences>`.
 
 
 Module xyz does not work with PyPy: ImportError
@@ -67,7 +67,7 @@ setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
 you may need to run the command with `sudo` for a global installation.
 The other commands of ``setup.py`` are available too, like ``build``.
 
-.. _PyPI: https://pypi.python.org/pypi
+.. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
 
 
@@ -76,10 +76,10 @@ Module xyz does not work in the sandboxed PyPy?
 
 You cannot import *any* extension module in a `sandboxed PyPy`_,
 sorry.  Even the built-in modules available are very limited.
-Sandboxing in PyPy is a good proof of concept, really safe IMHO, but
-it is only a proof of concept.  It seriously requires someone working
-on it.  Before this occurs, it can only be used it for "pure Python"
-examples: programs that import mostly nothing (or only pure Python
+Sandboxing in PyPy is a good proof of concept, and is without a doubt
+safe IMHO, however it is only a proof of concept.  It currently requires 
+some work from a motivated developer. However, until then it can only be used for "pure Python"
+example: programs that import mostly nothing (or only pure Python
 modules, recursively).
 
 .. _`sandboxed PyPy`: sandbox.html
@@ -156,19 +156,77 @@ features (such as set comprehensions).
 Does PyPy have a GIL?  Why?
 -------------------------------------------------
 
-Yes, PyPy has a GIL.  Removing the GIL is very hard.  The problems are
-essentially the same as with CPython (including the fact that our
-garbage collectors are not thread-safe so far).  Fixing it is possible,
-as shown by Jython and IronPython, but difficult.  It would require
-adapting the whole source code of PyPy, including subtle decisions about
-whether some effects are ok or not for the user (i.e. the Python
-programmer).
+Yes, PyPy has a GIL.  Removing the GIL is very hard.  On top of CPython,
+you have two problems:  (1) GC, in this case reference counting; (2) the
+whole Python language.
 
-Instead, since 2012, there is work going on on a still very experimental
-:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This should give
-an alternative PyPy which works without a GIL, while at the same time
-continuing to give the Python programmer the complete illusion of having
-one.
+For PyPy, the hard issue is (2): by that I mean issues like what occurs
+if a mutable object is changed from one thread and read from another
+concurrently.  This is a problem for *any* mutable type: it needs
+careful review and fixes (fine-grained locks, mostly) through the
+*whole* Python interpreter.  It is a major effort, although not
+completely impossible, as Jython/IronPython showed.  This includes
+subtle decisions about whether some effects are ok or not for the user
+(i.e. the Python programmer).
+
+CPython has additionally the problem (1) of reference counting.  With
+PyPy, this sub-problem is simpler: we need to make our GC
+multithread-aware.  This is easier to do efficiently in PyPy than in
+CPython.  It doesn't solve the issue (2), though.
+
+Note that since 2012 there is work going on on a still very experimental
+:doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This
+should give an alternative PyPy which works without a GIL, while at the
+same time continuing to give the Python programmer the complete illusion
+of having one.  This work is currently a bit stalled because of its own
+technical difficulties.
+
+
+What about numpy, numpypy, micronumpy?
+--------------------------------------
+
+Way back in 2011, the PyPy team `started to reimplement`_ numpy in PyPy.  It
+has two pieces:
+
+  * the builtin module :source:`pypy/module/micronumpy`: this is written in
+    RPython and roughly covers the content of the ``numpy.core.multiarray``
+    module. Confusingly enough, this is available in PyPy under the name
+    ``_numpypy``.  It is included by default in all the official releases of
+    PyPy (but it might be dropped in the future).
+
+  * a fork_ of the official numpy repository maintained by us and informally
+    called ``numpypy``: even more confusing, the name of the repo on bitbucket
+    is ``numpy``.  The main difference with the upstream numpy, is that it is
+    based on the micronumpy module written in RPython, instead of of
+    ``numpy.core.multiarray`` which is written in C.
+
+
+Should I install numpy or numpypy?
+-----------------------------------
+
+TL;DR version: you should use numpy. You can install it by doing ``pypy -m pip
+install numpy``.  You might also be interested in using the experimental `PyPy
+binary wheels`_ to save compilation time.
+
+The upstream ``numpy`` is written in C, and runs under the cpyext
+compatibility layer.  Nowadays, cpyext is mature enough that you can simply
+use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
+is infamously slow, and thus it has worse performance compared to
+``numpypy``. However, we are actively working on improving it, as we expect to
+reach the same speed, eventually.
+
+On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
+since it is written in RPython: but it is a reimplementation, and it's hard to
+be completely compatible: over the years the project slowly matured and
+eventually it was able to call out to the LAPACK and BLAS libraries to speed
+matrix calculations, and reached around an 80% parity with the upstream
+numpy. However, 80% is far from 100%.  Since cpyext/numpy compatibility is
+progressing fast, we have discontinued support for ``numpypy``.
+
+.. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
+.. _fork: https://bitbucket.org/pypy/numpy
+.. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
 
 
 Is PyPy more clever than CPython about Tail Calls?
@@ -298,7 +356,7 @@ interpreter; preliminary versions of a `JavaScript interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
-.. _Topaz: http://topazruby.com/
+.. _Topaz: http://docs.topazruby.com/en/latest/
 .. _Hippy: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
 .. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
@@ -344,7 +402,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -363,7 +421,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
 
 In more details:
 
@@ -403,14 +461,36 @@ various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
 
 
-Why doesn't PyPy move to GitHub, Gitlab, ...?
-----------------------------------------------
+.. _git:
+.. _github:
 
-We've been quite happy with bitbucket.org. Moving version control systems and
-hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
-long and gnarly. On the other hand, all our infrastructure (buildbots,
-benchmarking, etc) would have to be adapted. So unless somebody steps up and
-volunteers to do all that work, it will likely not happen.
+Why doesn't PyPy use Git and move to GitHub?
+---------------------------------------------
+
+We discussed it during the switch away from bitbucket.  We concluded that (1)
+the Git workflow is not as well suited as the Mercurial workflow for our style,
+and (2) moving to github "just because everybody else does" is a argument on
+thin grounds.
+
+For (1), there are a few issues, but maybe the most important one is that the
+PyPy repository has got thousands of *named* branches.  Git has no equivalent
+concept.  Git has *branches,* of course, which in Mercurial are called
+bookmarks.  We're not talking about bookmarks.
+
+The difference between git branches and named branches is not that important in
+a repo with 10 branches (no matter how big).  But in the case of PyPy, we have
+at the moment 1840 branches.  Most are closed by now, of course.  But we would
+really like to retain (both now and in the future) the ability to look at a
+commit from the past, and know in which branch it was made.  Please make sure
+you understand the difference between the Git and the Mercurial branches to
+realize that this is not always possible with Git--- we looked hard, and there
+is no built-in way to get this workflow.
+
+Still not convinced?  Consider this git repo with three commits: commit #2 with
+parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
+git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
+(It could also be yet another branch whose head was also moved forward, or even
+completely deleted.)
 
 
 What is needed for Windows 64 support of PyPy?
@@ -426,3 +506,11 @@ option would be to pay some PyPy developers to implement Windows 64 support,
 but so far there doesn't seem to be an overwhelming commercial interest in it.
 
 .. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation
+
+
+How long will PyPy support Python2?
+-----------------------------------
+
+Since RPython is built on top of Python2 and that is extremely unlikely to
+change, the Python2 version of PyPy will be around "forever", i.e. as long as
+PyPy itself is around.

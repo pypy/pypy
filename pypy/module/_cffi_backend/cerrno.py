@@ -13,7 +13,7 @@ _errno_before = rposix._errno_before
 _errno_after  = rposix._errno_after
 
 def get_errno(space):
-    return space.wrap(rposix.get_saved_alterrno())
+    return space.newint(rposix.get_saved_alterrno())
 
 @unwrap_spec(errno=int)
 def set_errno(space, errno):
@@ -27,4 +27,4 @@ def getwinerror(space, code=-1):
     if code == -1:
         code = GetLastError_alt_saved()
     message = FormatError(code)
-    return space.newtuple([space.wrap(code), space.wrap(message)])
+    return space.newtuple([space.newint(code), space.newtext(message)])

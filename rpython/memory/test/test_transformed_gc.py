@@ -14,7 +14,9 @@ from rpython.rlib import rgc
 from rpython.conftest import option
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.rtyper import llinterp_backend
+from rpython.memory.gc.hook import GcHooks
 
 
 WORD = LONG_BIT // 8
@@ -48,6 +50,7 @@ class GCTest(object):
     gcpolicy = None
     GC_CAN_MOVE = False
     taggedpointers = False
+    gchooks = None
 
     def setup_class(cls):
         cls.marker = lltype.malloc(rffi.CArray(lltype.Signed), 1,
@@ -112,7 +115,8 @@ class GCTest(object):
                 fixup(t)
 
         cbuild = CStandaloneBuilder(t, entrypoint, config=t.config,
-                                    gcpolicy=cls.gcpolicy)
+                                    gcpolicy=cls.gcpolicy,
+                                    gchooks=cls.gchooks)
         cbuild.make_entrypoint_wrapper = False
         db = cbuild.build_database()
         entrypointptr = cbuild.getentrypointptr()
@@ -1388,6 +1392,48 @@ class TestMiniMarkGC(TestHybridGC):
         assert res([]) == 0
 
 
+class GcHooksStats(object):
+    minors = 0
+    steps = 0
+    collects = 0
+
+    def reset(self):
+        # the NonConstant are needed so that the annotator annotates the
+        # fields as a generic SomeInteger(), instead of a constant 0. A call
+        # to this method MUST be seen during normal annotation, else the class
+        # is annotated only during GC transform, when it's too late
+        self.minors = NonConstant(0)
+        self.steps = NonConstant(0)
+        self.collects = NonConstant(0)
+
+
+class MyGcHooks(GcHooks):
+
+    def __init__(self, stats=None):
+        self.stats = stats or GcHooksStats()
+
+    def is_gc_minor_enabled(self):
+        return True
+
+    def is_gc_collect_step_enabled(self):
+        return True
+
+    def is_gc_collect_enabled(self):
+        return True
+
+    def on_gc_minor(self, duration, total_memory_used, pinned_objects):
+        self.stats.minors += 1
+
+    def on_gc_collect_step(self, duration, oldstate, newstate):
+        self.stats.steps += 1
+        
+    def on_gc_collect(self, num_major_collects,
+                      arenas_count_before, arenas_count_after,
+                      arenas_bytes, rawmalloc_bytes_before,
+                      rawmalloc_bytes_after):
+        self.stats.collects += 1
+
+
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcname = "incminimark"
 
@@ -1404,6 +1450,8 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                          'translated_to_c': False,
                          }
             root_stack_depth = 200
+
+    gchooks = MyGcHooks()
 
     def define_malloc_array_of_gcptr(self):
         S = lltype.GcStruct('S', ('x', lltype.Signed))
@@ -1437,6 +1485,34 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         run = self.runner("malloc_struct_of_gcptr")
         res = run([])
         assert res
+
+    def define_gc_hooks(cls):
+        gchooks = cls.gchooks
+        # it is important that we fish .stats OUTSIDE f(); we cannot see
+        # gchooks from within RPython code
+        stats = gchooks.stats
+        def f():
+            stats.reset()
+            # trigger two major collections
+            llop.gc__collect(lltype.Void)
+            llop.gc__collect(lltype.Void)
+            return (10000 * stats.collects +
+                      100 * stats.steps +
+                        1 * stats.minors)
+        return f
+
+    def test_gc_hooks(self):
+        run = self.runner("gc_hooks")
+        count = run([])
+        collects, count = divmod(count, 10000)
+        steps, minors = divmod(count, 100)
+        #
+        # note: the following asserts are slightly fragile, as they assume
+        # that we do NOT run any minor collection apart the ones triggered by
+        # major_collection_step
+        assert collects == 2           # 2 collections, manually triggered
+        assert steps == 4 * collects   # 4 steps for each major collection
+        assert minors == steps         # one minor collection for each step
 
 # ________________________________________________________________
 # tagged pointers

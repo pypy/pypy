@@ -62,7 +62,7 @@ if sys.platform == 'win32':
             self.size = size
             self.name = 'pym-%d-%d' % (os.getpid(), Arena._counter.next())
             self.buffer = mmap.mmap(-1, self.size, tagname=self.name)
-            assert win32.GetLastError() == 0, 'tagname already in use'
+            #assert win32.GetLastError() == 0, 'tagname already in use'
             self._state = (self.size, self.name)
 
         def __getstate__(self):
@@ -72,7 +72,7 @@ if sys.platform == 'win32':
         def __setstate__(self, state):
             self.size, self.name = self._state = state
             self.buffer = mmap.mmap(-1, self.size, tagname=self.name)
-            assert win32.GetLastError() == win32.ERROR_ALREADY_EXISTS
+            #assert win32.GetLastError() == win32.ERROR_ALREADY_EXISTS
 
 else:
 

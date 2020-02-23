@@ -105,6 +105,7 @@ class W_Stream(W_AbstractStream):
 
 for name, argtypes in streamio.STREAM_METHODS.iteritems():
     numargs = len(argtypes)
+    argtypes = [typ if typ is not str else 'bytes' for typ in argtypes]
     args = ", ".join(["v%s" % i for i in range(numargs)])
     exec py.code.Source("""
     def %(name)s(self, space, %(args)s):
@@ -114,7 +115,7 @@ for name, argtypes in streamio.STREAM_METHODS.iteritems():
                 result = self.stream.%(name)s(%(args)s)
             except streamio.StreamError, e:
                 raise OperationError(space.w_ValueError,
-                                     space.wrap(e.message))
+                                     space.newtext(e.message))
             except OSError, e:
                 raise wrap_oserror_as_ioerror(space, e)
         finally:

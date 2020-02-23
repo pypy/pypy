@@ -7,11 +7,8 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.runicode import MAXUNICODE
 from rpython.rlib.unicodedata import unicodedb_5_2_0, unicodedb_3_2_0
-from rpython.rlib.runicode import code_to_unichr, ord_accepts_surrogate
-import sys
+from rpython.rlib.rutf8 import Utf8StringBuilder, unichr_as_utf8
 
 
 # Contants for Hangul characters
@@ -30,53 +27,22 @@ SCount = (LCount*NCount)
 # unicode code point.
 
 
-if MAXUNICODE > 0xFFFF:
-    # Target is wide build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
+# Target is wide build
+def unichr_to_code_w(space, w_unichr):
+    if not space.isinstance_w(w_unichr, space.w_unicode):
+        raise oefmt(
+            space.w_TypeError, 'argument 1 must be unicode, not %T',
+            w_unichr)
 
-        if not we_are_translated() and sys.maxunicode == 0xFFFF:
-            # Host CPython is narrow build, accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-        else:
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-else:
-    # Target is narrow build
-    def unichr_to_code_w(space, w_unichr):
-        if not space.isinstance_w(w_unichr, space.w_unicode):
-            raise oefmt(
-                space.w_TypeError, 'argument 1 must be unicode, not %T',
-                w_unichr)
-
-        if not we_are_translated() and sys.maxunicode > 0xFFFF:
-            # Host CPython is wide build, forbid surrogates
-            if not space.len_w(w_unichr) == 1:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
-            return space.int_w(space.ord(w_unichr))
-
-        else:
-            # Accept surrogates
-            try:
-                return ord_accepts_surrogate(space.unicode_w(w_unichr))
-            except TypeError:
-                raise oefmt(space.w_TypeError,
-                            "need a single Unicode character as parameter")
+    if not space.len_w(w_unichr) == 1:
+        raise oefmt(space.w_TypeError,
+                    "need a single Unicode character as parameter")
+    return space.int_w(space.ord(w_unichr))
 
 
 class UCD(W_Root):
     def __init__(self, unicodedb):
+        self._unicodedb = unicodedb
         self._lookup = unicodedb.lookup
         self._name = unicodedb.name
         self._decimal = unicodedb.decimal
@@ -94,23 +60,24 @@ class UCD(W_Root):
 
         self.version = unicodedb.version
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def _get_code(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.wrap(code)
+        return space.newint(code)
 
-    @unwrap_spec(name=str)
+    @unwrap_spec(name='text')
     def lookup(self, space, name):
         try:
             code = self._lookup(name.upper())
         except KeyError:
-            msg = space.mod(space.wrap("undefined character name '%s'"), space.wrap(name))
+            msg = space.mod(space.newtext("undefined character name '%s'"), space.newtext(name))
             raise OperationError(space.w_KeyError, msg)
-        return space.wrap(code_to_unichr(code))
+        assert code >= 0
+        return space.newutf8(unichr_as_utf8(code), 1)
 
     def name(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
@@ -120,12 +87,12 @@ class UCD(W_Root):
             if w_default is not None:
                 return w_default
             raise oefmt(space.w_ValueError, "no such name")
-        return space.wrap(name)
+        return space.newtext(name)
 
     def decimal(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._decimal(code))
+            return space.newint(self._decimal(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -135,7 +102,7 @@ class UCD(W_Root):
     def digit(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._digit(code))
+            return space.newint(self._digit(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -145,7 +112,7 @@ class UCD(W_Root):
     def numeric(self, space, w_unichr, w_default=None):
         code = unichr_to_code_w(space, w_unichr)
         try:
-            return space.wrap(self._numeric(code))
+            return space.newfloat(self._numeric(code))
         except KeyError:
             pass
         if w_default is not None:
@@ -154,30 +121,30 @@ class UCD(W_Root):
 
     def category(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._category(code))
+        return space.newtext(self._category(code))
 
     def east_asian_width(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._east_asian_width(code))
+        return space.newtext(self._east_asian_width(code))
 
     def bidirectional(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._bidirectional(code))
+        return space.newtext(self._bidirectional(code))
 
     def combining(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._combining(code))
+        return space.newint(self._combining(code))
 
     def mirrored(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
         # For no reason, unicodedata.mirrored() returns an int, not a bool
-        return space.wrap(int(self._mirrored(code)))
+        return space.newint(int(self._mirrored(code)))
 
     def decomposition(self, space, w_unichr):
         code = unichr_to_code_w(space, w_unichr)
-        return space.wrap(self._decomposition(code))
+        return space.newtext(self._decomposition(code))
 
-    @unwrap_spec(form=str)
+    @unwrap_spec(form='text')
     def normalize(self, space, form, w_unistr):
         if not space.isinstance_w(w_unistr, space.w_unicode):
             raise oefmt(
@@ -204,7 +171,7 @@ class UCD(W_Root):
         resultlen = len(result)
         # Expand the character
         for i in range(strlen):
-            ch = space.int_w(space.ord(space.getitem(w_unistr, space.wrap(i))))
+            ch = space.int_w(space.ord(space.getitem(w_unistr, space.newint(i))))
             # Do Hangul decomposition
             if SBase <= ch < SBase + SCount:
                 SIndex = ch - SBase
@@ -259,10 +226,10 @@ class UCD(W_Root):
                 result[0] = ch
 
         if not composed: # If decomposed normalization we are done
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return self.build(space, result, stop=j)
 
         if j <= 1:
-            return space.wrap(u''.join([unichr(i) for i in result[:j]]))
+            return self.build(space, result, stop=j)
 
         current = result[0]
         starter_pos = 0
@@ -280,8 +247,9 @@ class UCD(W_Root):
                     # If L, V -> LV
                     current = SBase + ((current - LBase)*VCount + (next - VBase)) * TCount
                     continue
+                # Note: if next == TBase, leave LV unchanged
                 if (SBase <= current < SBase + SCount and
-                    TBase <= next < TBase + TCount and
+                    TBase < next < TBase + TCount and
                     (current - SBase) % TCount == 0):
                     # If LV, T -> LVT
                     current = current + (next - TBase)
@@ -309,7 +277,13 @@ class UCD(W_Root):
 
         result[starter_pos] = current
 
-        return space.wrap(u''.join([unichr(i) for i in result[:next_insert]]))
+        return self.build(space, result, stop=next_insert)
+
+    def build(self, space, r, stop):
+        builder = Utf8StringBuilder(stop * 3)
+        for i in range(stop):
+            builder.append_code(r[i])
+        return space.newutf8(builder.build(), stop)
 
 
 methods = {}
@@ -322,9 +296,15 @@ for methodname in """
 
 UCD.typedef = TypeDef("unicodedata.UCD",
                       __doc__ = "",
-                      unidata_version = interp_attrproperty('version', UCD),
+                      unidata_version = interp_attrproperty('version', UCD,
+                          wrapfn="newtext"),
                       **methods)
 
 ucd_3_2_0 = UCD(unicodedb_3_2_0)
 ucd_5_2_0 = UCD(unicodedb_5_2_0)
 ucd = ucd_5_2_0
+
+# This is the default unicodedb used in various places:
+# - the unicode type
+# - the regular expression engine
+unicodedb = ucd._unicodedb

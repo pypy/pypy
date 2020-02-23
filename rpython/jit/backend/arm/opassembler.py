@@ -357,8 +357,13 @@ class ResOpAssembler(BaseAssembler):
         return fcond
 
     def emit_op_cond_call(self, op, arglocs, regalloc, fcond):
-        [call_loc] = arglocs
-        gcmap = regalloc.get_gcmap([call_loc])
+        call_loc = arglocs[0]
+        if len(arglocs) == 2:
+            res_loc = arglocs[1]     # cond_call_value
+        else:
+            res_loc = None           # cond_call
+        # see x86.regalloc for why we skip res_loc in the gcmap
+        gcmap = regalloc.get_gcmap([res_loc])
 
         assert call_loc is r.r4
         jmp_adr = self.mc.currpos()
@@ -378,8 +383,13 @@ class ResOpAssembler(BaseAssembler):
                 floats = True
         cond_call_adr = self.cond_call_slowpath[floats * 2 + callee_only]
         self.mc.BL(cond_call_adr)
+        # if this is a COND_CALL_VALUE, we need to move the result in place
+        # from its current location (which is, unusually, in r4: see
+        # cond_call_slowpath)
+        if res_loc is not None and res_loc is not r.r4:
+            self.mc.MOV_rr(res_loc.value, r.r4.value)
+        #
         self.pop_gcmap(self.mc)
-        # never any result value
         cond = c.get_opposite_of(self.guard_success_cc)
         self.guard_success_cc = c.cond_none
         pmc = OverwritingBuilder(self.mc, jmp_adr, WORD)
@@ -388,6 +398,9 @@ class ResOpAssembler(BaseAssembler):
         # guard_no_exception too
         self.previous_cond_call_jcond = jmp_adr, cond
         return fcond
+
+    emit_op_cond_call_value_i = emit_op_cond_call
+    emit_op_cond_call_value_r = emit_op_cond_call
 
     def emit_op_jump(self, op, arglocs, regalloc, fcond):
         target_token = op.getdescr()
@@ -821,72 +834,11 @@ class ResOpAssembler(BaseAssembler):
         else:
             assert 0
 
-    #from ../x86/regalloc.py:928 ff.
-    def emit_op_copystrcontent(self, op, arglocs, regalloc, fcond):
-        assert len(arglocs) == 0
-        self._emit_copystrcontent(op, regalloc, fcond, is_unicode=False)
+    def emit_op_load_effective_address(self, op, arglocs, regalloc, fcond):
+        static_ofs = op.getarg(2).getint()
+        scale = op.getarg(3).getint()
+        self._gen_address(arglocs[2], arglocs[0], arglocs[1], scale, static_ofs)
         return fcond
-
-    def emit_op_copyunicodecontent(self, op, arglocs, regalloc, fcond):
-        assert len(arglocs) == 0
-        self._emit_copystrcontent(op, regalloc, fcond, is_unicode=True)
-        return fcond
-
-    def _emit_copystrcontent(self, op, regalloc, fcond, is_unicode):
-        # compute the source address
-        args = op.getarglist()
-        base_loc = regalloc.rm.make_sure_var_in_reg(args[0], args)
-        ofs_loc = regalloc.rm.make_sure_var_in_reg(args[2], args)
-        assert args[0] is not args[1]    # forbidden case of aliasing
-        srcaddr_box = TempVar()
-        forbidden_vars = [args[1], args[3], args[4], srcaddr_box]
-        srcaddr_loc = regalloc.rm.force_allocate_reg(srcaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, srcaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the destination address
-        base_loc = regalloc.rm.make_sure_var_in_reg(args[1], forbidden_vars)
-        ofs_loc = regalloc.rm.make_sure_var_in_reg(args[3], forbidden_vars)
-        forbidden_vars = [args[4], srcaddr_box]
-        dstaddr_box = TempVar()
-        dstaddr_loc = regalloc.rm.force_allocate_reg(dstaddr_box, forbidden_vars)
-        self._gen_address_inside_string(base_loc, ofs_loc, dstaddr_loc,
-                                        is_unicode=is_unicode)
-        # compute the length in bytes
-        length_box = args[4]
-        length_loc = regalloc.loc(length_box)
-        if is_unicode:
-            forbidden_vars = [srcaddr_box, dstaddr_box]
-            bytes_box = TempVar()
-            bytes_loc = regalloc.rm.force_allocate_reg(bytes_box, forbidden_vars)
-            scale = self._get_unicode_item_scale()
-            if not length_loc.is_core_reg():
-                self.regalloc_mov(length_loc, bytes_loc)
-                length_loc = bytes_loc
-            assert length_loc.is_core_reg()
-            self.mc.MOV_ri(r.ip.value, 1 << scale)
-            self.mc.MUL(bytes_loc.value, r.ip.value, length_loc.value)
-            length_box = bytes_box
-            length_loc = bytes_loc
-        # call memcpy()
-        regalloc.before_call()
-        self.simple_call_no_collect(imm(self.memcpy_addr),
-                                  [dstaddr_loc, srcaddr_loc, length_loc])
-        regalloc.rm.possibly_free_var(length_box)
-        regalloc.rm.possibly_free_var(dstaddr_box)
-        regalloc.rm.possibly_free_var(srcaddr_box)
-
-    def _gen_address_inside_string(self, baseloc, ofsloc, resloc, is_unicode):
-        if is_unicode:
-            ofs_items, _, _ = symbolic.get_array_token(rstr.UNICODE,
-                                              self.cpu.translate_support_code)
-            scale = self._get_unicode_item_scale()
-        else:
-            ofs_items, itemsize, _ = symbolic.get_array_token(rstr.STR,
-                                              self.cpu.translate_support_code)
-            assert itemsize == 1
-            ofs_items -= 1     # for the extra null character
-            scale = 0
-        self._gen_address(resloc, baseloc, ofsloc, scale, ofs_items)
 
    # result = base_loc  + (scaled_loc << scale) + static_offset
     def _gen_address(self, result, base_loc, scaled_loc, scale=0, static_offset=0):
@@ -901,16 +853,6 @@ class ResOpAssembler(BaseAssembler):
             scaled_loc = scaled_loc
         self.mc.ADD_rr(result.value, base_loc.value, scaled_loc.value)
         self.mc.ADD_ri(result.value, result.value, static_offset)
-
-    def _get_unicode_item_scale(self):
-        _, itemsize, _ = symbolic.get_array_token(rstr.UNICODE,
-                                              self.cpu.translate_support_code)
-        if itemsize == 4:
-            return 2
-        elif itemsize == 2:
-            return 1
-        else:
-            raise AssertionError("bad unicode item size")
 
     def store_force_descr(self, op, fail_locs, frame_depth):
         pos = self.mc.currpos()

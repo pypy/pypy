@@ -83,9 +83,9 @@ class GCManagedHeap(object):
     def gettypeid(self, obj):
         return self.get_type_id(lltype.typeOf(obj).TO)
 
-    def add_memory_pressure(self, size):
+    def add_memory_pressure(self, size, adr):
         if hasattr(self.gc, 'raw_malloc_memory_pressure'):
-            self.gc.raw_malloc_memory_pressure(size)
+            self.gc.raw_malloc_memory_pressure(size, adr)
 
     def shrink_array(self, p, smallersize):
         if hasattr(self.gc, 'shrink_array'):
@@ -188,6 +188,9 @@ class GCManagedHeap(object):
                 hdr.tid &= ~self.gc.gcflag_extra
             else:
                 hdr.tid |= self.gc.gcflag_extra
+        elif subopnum == 4:      # get_gcflag_dummy
+            # returns always False if gc.gcflag_dummy == 0
+            return (hdr.tid & self.gc.gcflag_dummy) != 0
         return (hdr.tid & self.gc.gcflag_extra) != 0
 
     def thread_run(self):
@@ -235,11 +238,11 @@ class GCManagedHeap(object):
             obj = deque.popleft()
         else:
             obj = llmemory.NULL
-        return llmemory.cast_adr_to_ptr(obj, rclass.OBJECTPTR)
+        return llmemory.cast_adr_to_ptr(obj, llmemory.GCREF)
 
     def gc_fq_register(self, fq_tag, ptr):
         index = self.get_finalizer_queue_index(fq_tag)
-        ptr = lltype.cast_opaque_ptr(llmemory.GCREF, ptr)
+        assert lltype.typeOf(ptr) == llmemory.GCREF
         self.gc.register_finalizer(index, ptr)
 
 # ____________________________________________________________

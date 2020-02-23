@@ -332,6 +332,7 @@ class TestLowLevelType(object):
         assert res == 3050
 
     def test_gcarray_nolength(self):
+        py.test.skip("GcArrays should never be 'nolength'")
         A = GcArray(Signed, hints={'nolength': True})
         a1 = malloc(A, 3, immortal=True)
         a1[0] = 30

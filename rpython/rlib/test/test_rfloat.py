@@ -1,20 +1,12 @@
-import sys, py
+import sys, py, math
 
 from rpython.rlib.rfloat import float_as_rbigint_ratio
-from rpython.rlib.rfloat import copysign
 from rpython.rlib.rfloat import round_away
 from rpython.rlib.rfloat import round_double
-from rpython.rlib.rfloat import erf, erfc, gamma, lgamma, isnan
+from rpython.rlib.rfloat import erf, erfc, gamma, lgamma
 from rpython.rlib.rfloat import ulps_check, acc_check
 from rpython.rlib.rfloat import string_to_float
 from rpython.rlib.rbigint import rbigint
-
-def test_copysign():
-    assert copysign(1, 1) == 1
-    assert copysign(-1, 1) == 1
-    assert copysign(-1, -1) == -1
-    assert copysign(1, -1) == -1
-    assert copysign(1, -0.) == -1
 
 def test_round_away():
     assert round_away(.1) == 0.
@@ -28,7 +20,7 @@ def test_round_away():
 
 def test_round_double():
     def almost_equal(x, y):
-        assert round(abs(x-y), 7) == 0
+        assert abs(x-y) < 1e-7
 
     almost_equal(round_double(0.125, 2), 0.13)
     almost_equal(round_double(0.375, 2), 0.38)
@@ -44,35 +36,35 @@ def test_round_double():
     almost_equal(round_double(-0.25, 1), -0.3)
     almost_equal(round_double(-0.75, 1), -0.8)
 
-    round_double(-6.5, 0) == -7.0
-    round_double(-5.5, 0) == -6.0
-    round_double(-1.5, 0) == -2.0
-    round_double(-0.5, 0) == -1.0
-    round_double(0.5, 0) == 1.0
-    round_double(1.5, 0) == 2.0
-    round_double(2.5, 0) == 3.0
-    round_double(3.5, 0) == 4.0
-    round_double(4.5, 0) == 5.0
-    round_double(5.5, 0) == 6.0
-    round_double(6.5, 0) == 7.0
+    assert round_double(-6.5, 0) == -7.0
+    assert round_double(-5.5, 0) == -6.0
+    assert round_double(-1.5, 0) == -2.0
+    assert round_double(-0.5, 0) == -1.0
+    assert round_double(0.5, 0) == 1.0
+    assert round_double(1.5, 0) == 2.0
+    assert round_double(2.5, 0) == 3.0
+    assert round_double(3.5, 0) == 4.0
+    assert round_double(4.5, 0) == 5.0
+    assert round_double(5.5, 0) == 6.0
+    assert round_double(6.5, 0) == 7.0
 
-    round_double(-25.0, -1) == -30.0
-    round_double(-15.0, -1) == -20.0
-    round_double(-5.0, -1) == -10.0
-    round_double(5.0, -1) == 10.0
-    round_double(15.0, -1) == 20.0
-    round_double(25.0, -1) == 30.0
-    round_double(35.0, -1) == 40.0
-    round_double(45.0, -1) == 50.0
-    round_double(55.0, -1) == 60.0
-    round_double(65.0, -1) == 70.0
-    round_double(75.0, -1) == 80.0
-    round_double(85.0, -1) == 90.0
-    round_double(95.0, -1) == 100.0
-    round_double(12325.0, -1) == 12330.0
+    assert round_double(-25.0, -1) == -30.0
+    assert round_double(-15.0, -1) == -20.0
+    assert round_double(-5.0, -1) == -10.0
+    assert round_double(5.0, -1) == 10.0
+    assert round_double(15.0, -1) == 20.0
+    assert round_double(25.0, -1) == 30.0
+    assert round_double(35.0, -1) == 40.0
+    assert round_double(45.0, -1) == 50.0
+    assert round_double(55.0, -1) == 60.0
+    assert round_double(65.0, -1) == 70.0
+    assert round_double(75.0, -1) == 80.0
+    assert round_double(85.0, -1) == 90.0
+    assert round_double(95.0, -1) == 100.0
+    assert round_double(12325.0, -1) == 12330.0
 
-    round_double(350.0, -2) == 400.0
-    round_double(450.0, -2) == 500.0
+    assert round_double(350.0, -2) == 400.0
+    assert round_double(450.0, -2) == 500.0
 
     almost_equal(round_double(0.5e21, -21), 1e21)
     almost_equal(round_double(1.5e21, -21), 2e21)
@@ -85,6 +77,13 @@ def test_round_double():
     almost_equal(round_double(0.5e22, -22), 1e22)
     almost_equal(round_double(1.5e22, -22), 2e22)
 
+    exact_integral = 5e15 + 1
+    assert round_double(exact_integral, 0) == exact_integral
+    assert round_double(exact_integral/2.0, 0) == 5e15/2.0 + 1.0
+    exact_integral = 5e15 - 1
+    assert round_double(exact_integral, 0) == exact_integral
+    assert round_double(exact_integral/2.0, 0) == 5e15/2.0
+
 def test_round_half_even():
     from rpython.rlib import rfloat
     func = rfloat.round_double
@@ -92,6 +91,15 @@ def test_round_half_even():
     assert func(2.5, 0, False) == 3.0
     # 3.x behavior
     assert func(2.5, 0, True) == 2.0
+    for i in range(-10, 10):
+        assert func(i + 0.5, 0, True) == i + (i & 1)
+        assert func(i * 10 + 5, -1, True) == (i + (i & 1)) * 10
+    exact_integral = 5e15 + 1
+    assert round_double(exact_integral, 0, True) == exact_integral
+    assert round_double(exact_integral/2.0, 0, True) == 5e15/2.0
+    exact_integral = 5e15 - 1
+    assert round_double(exact_integral, 0, True) == exact_integral
+    assert round_double(exact_integral/2.0, 0, True) == 5e15/2.0
 
 def test_float_as_rbigint_ratio():
     for f, ratio in [
@@ -163,9 +171,9 @@ def test_mtestfile():
 
         accuracy_failure = None
         if isinstance(got, float) and isinstance(expected, float):
-            if isnan(expected) and isnan(got):
+            if math.isnan(expected) and math.isnan(got):
                 continue
-            if not isnan(expected) and not isnan(got):
+            if not math.isnan(expected) and not math.isnan(got):
                 if fn == 'lgamma':
                     # we use a weaker accuracy test for lgamma;
                     # lgamma only achieves an absolute error of

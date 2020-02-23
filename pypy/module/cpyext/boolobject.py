@@ -1,9 +1,5 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (cpython_api, PyObject, CANNOT_FAIL,
-                                    build_type_checkers)
-
-# Inheriting from bool isn't actually possible.
-PyBool_Check = build_type_checkers("Bool")[1]
+from rpython.rtyper.lltypesystem import rffi
+from pypy.module.cpyext.api import cpython_api, PyObject
 
 @cpython_api([rffi.LONG], PyObject)
 def PyBool_FromLong(space, value):

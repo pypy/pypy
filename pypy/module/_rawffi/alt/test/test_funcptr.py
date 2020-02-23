@@ -32,7 +32,10 @@ class BaseAppTestFFI(object):
         #
         c_file.write(py.code.Source('\n'.join(snippets)))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
-        return str(platform.compile([c_file], eci, 'x', standalone=False))
+        # Windows note: can't reuse the same file name 'x.dll', because
+        # the previous one is likely still opened
+        return str(platform.compile([c_file], eci, 'x' + cls.__name__,
+                                    standalone=False))
 
     def setup_class(cls):
         space = cls.space

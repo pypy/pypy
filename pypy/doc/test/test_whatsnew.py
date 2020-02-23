@@ -101,6 +101,8 @@ def test_whatsnew():
     assert not not_documented
     if branch == 'default':
         assert not not_merged
+    else:
+        assert branch in documented, 'Please document this branch before merging: %s' % branch
 
 def test_startrev_on_default():
     doc = ROOT.join('pypy', 'doc')

@@ -149,10 +149,8 @@ class Test64Bits:
     def test_reuse_scratch_register(self):
         base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
-        cb.begin_reuse_scratch_register()
         cb.MOV(ecx, heap(base_addr))
         cb.MOV(ecx, heap(base_addr + 8))
-        cb.end_reuse_scratch_register()
 
         expected_instructions = (
                 # mov r11, 0xFEDCBA9876543210
@@ -213,12 +211,9 @@ class Test64Bits:
     def test_64bit_address_4(self):
         base_addr = intmask(0xFEDCBA9876543210)
         cb = LocationCodeBuilder64()
-        cb.begin_reuse_scratch_register()
-        assert cb._reuse_scratch_register is True
-        assert cb._scratch_register_known is False
+        assert cb._scratch_register_value == -1
         cb.MOV(ecx, AddressLoc(edx, esi, 2, base_addr))
-        assert cb._reuse_scratch_register is True
-        assert cb._scratch_register_known is False
+        assert cb._scratch_register_value == -1
         # this case is a CMP_ra
         #
         expected_instructions = (

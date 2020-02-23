@@ -1652,10 +1652,10 @@ class UnicodeTest(
         # when a string allocation fails with a MemoryError.
         # This used to crash the interpreter,
         # or leak references when the number was smaller.
-        charwidth = 4 if sys.maxunicode >= 0x10000 else 2
+        charwidth = 2   # pypy: the char \u0123 is stored in two utf-8 bytes
         # Note: sys.maxsize is half of the actual max allocation because of
         # the signedness of Py_ssize_t.
-        alloc = lambda: u"a" * (sys.maxsize // charwidth * 2)
+        alloc = lambda: u"\u0123" * (sys.maxsize // charwidth * 2)
         self.assertRaises(MemoryError, alloc)
         self.assertRaises(MemoryError, alloc)
 
@@ -1666,6 +1666,13 @@ class UnicodeTest(
         u = U(u'xxx')
         self.assertEqual("%s" % u, u'__unicode__ overridden')
         self.assertEqual("{}".format(u), '__unicode__ overridden')
+
+    def test_free_after_iterating(self):
+        test_support.check_free_after_iterating(self, iter, unicode)
+        test_support.check_free_after_iterating(self, reversed, unicode)
+
+
+class CAPITest(unittest.TestCase):
 
     # Test PyUnicode_FromFormat()
     def test_from_format(self):
@@ -1862,11 +1869,6 @@ class UnicodeTest(
             self.assertEqual(
                     unicode_encodedecimal(u"123" + s, "xmlcharrefreplace"),
                     '123' + exp)
-
-    def test_free_after_iterating(self):
-        test_support.check_free_after_iterating(self, iter, unicode)
-        test_support.check_free_after_iterating(self, reversed, unicode)
-
 
 def test_main():
     test_support.run_unittest(__name__)

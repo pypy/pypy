@@ -24,7 +24,6 @@ class AppTestMath:
                 expected = space.wrap(expected)
             cases.append(space.newtuple([space.wrap(a), space.wrap(b), expected]))
         cls.w_cases = space.newlist(cases)
-        cls.w_consistent_host = space.wrap(test_direct.consistent_host)
 
     @classmethod
     def make_callable_wrapper(cls, func):
@@ -36,8 +35,6 @@ class AppTestMath:
         assert abs(actual - expected) < 10E-5
 
     def test_all_cases(self):
-        if not self.consistent_host:
-            skip("please test this on top of PyPy or CPython >= 2.6")
         import math
         for fnname, args, expected in self.cases:
             fn = getattr(math, fnname)

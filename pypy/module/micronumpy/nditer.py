@@ -17,7 +17,7 @@ from pypy.module.micronumpy.converters import order_converter
 
 def parse_op_arg(space, name, w_op_flags, n, parse_one_arg):
     if space.is_w(w_op_flags, space.w_None):
-        w_op_flags = space.newtuple([space.wrap('readonly')])
+        w_op_flags = space.newtuple([space.newtext('readonly')])
     if not space.isinstance_w(w_op_flags, space.w_tuple) and not \
             space.isinstance_w(w_op_flags, space.w_list):
         raise oefmt(space.w_ValueError,
@@ -53,7 +53,7 @@ class OpFlag(object):
 def parse_op_flag(space, lst):
     op_flag = OpFlag()
     for w_item in lst:
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'readonly':
             op_flag.rw = 'r'
         elif item == 'readwrite':
@@ -102,12 +102,12 @@ def parse_func_flags(space, nditer, w_flags):
             'Iter global flags must be a list or tuple of strings')
     lst = space.listview(w_flags)
     for w_item in lst:
-        if not space.isinstance_w(w_item, space.w_str) and not \
+        if not space.isinstance_w(w_item, space.w_bytes) and not \
                 space.isinstance_w(w_item, space.w_unicode):
             raise oefmt(space.w_TypeError,
                         "expected string or Unicode object, %T found",
                         w_item)
-        item = space.str_w(w_item)
+        item = space.text_w(w_item)
         if item == 'external_loop':
             nditer.external_loop = True
         elif item == 'buffered':
@@ -365,7 +365,7 @@ class W_NDIter(W_NumpyObject):
         self.op_axes = []
         self.allow_backward = allow_backward
         if not space.is_w(w_casting, space.w_None):
-            self.casting = space.str_w(w_casting)
+            self.casting = space.text_w(w_casting)
         else:
             self.casting = 'safe'
         # convert w_seq operands to a list of W_NDimArray
@@ -483,11 +483,9 @@ class W_NDIter(W_NumpyObject):
                             if not can_cast_array(
                                     space, self.seq[i], self_d, self.casting):
                                 raise oefmt(space.w_TypeError, "Iterator operand %d"
-                                    " dtype could not be cast from %s to %s"
-                                    " according to the rule '%s'", i, 
-                                    space.str_w(seq_d.descr_repr(space)),
-                                    space.str_w(self_d.descr_repr(space)),
-                                    self.casting)
+                                    " dtype could not be cast from %R to %R"
+                                    " according to the rule '%s'",
+                                    i, seq_d, self_d, self.casting)
                             order = support.get_order_as_CF(impl.order, self.order)
                             new_impl = impl.astype(space, self_d, order).copy(space)
                             self.seq[i] = W_NDimArray(new_impl)
@@ -501,16 +499,14 @@ class W_NDIter(W_NumpyObject):
                                     space, self_d, seq_d, self.casting):
                                 raise oefmt(space.w_TypeError, "Iterator"
                                     " requested dtype could not be cast from "
-                                    " %s to %s, the operand %d dtype, accord"
-                                    "ing to the rule '%s'", 
-                                    space.str_w(self_d.descr_repr(space)),
-                                    space.str_w(seq_d.descr_repr(space)),
-                                    i, self.casting)
+                                    " %R to %R, the operand %d dtype, accord"
+                                    "ing to the rule '%s'",
+                                    self_d, seq_d, i, self.casting)
         elif self.buffered and not (self.external_loop and len(self.seq)<2):
             for i in range(len(self.seq)):
                 if i not in outargs:
                     self.seq[i] = self.seq[i].descr_copy(space,
-                                     w_order=space.wrap(self.order))
+                                     w_order=space.newint(self.order))
             self.dtypes = [s.get_dtype() for s in self.seq]
         else:
             #copy them from seq
@@ -592,7 +588,7 @@ class W_NDIter(W_NumpyObject):
         return oa_ndim
 
     def descr_iter(self, space):
-        return space.wrap(self)
+        return self
 
     def getitem(self, it, st):
         w_res = W_NDimArray(it.getoperand(st))
@@ -611,7 +607,7 @@ class W_NDIter(W_NumpyObject):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_len(self, space):
-        space.wrap(len(self.iters))
+        space.newint(len(self.iters))
 
     @jit.unroll_safe
     def descr_next(self, space):
@@ -648,7 +644,7 @@ class W_NDIter(W_NumpyObject):
         return self.done
 
     def descr_iternext(self, space):
-        return space.wrap(self.iternext())
+        return space.newbool(self.iternext())
 
     def descr_copy(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -682,30 +678,30 @@ class W_NDIter(W_NumpyObject):
         return space.newtuple(res)
 
     def descr_get_finished(self, space):
-        return space.wrap(self.done)
+        return space.newbool(self.done)
 
     def descr_get_has_delayed_bufalloc(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_has_index(self, space):
-        return space.wrap(self.tracked_index in ["C", "F"])
+        return space.newbool(self.tracked_index in ["C", "F"])
 
     def descr_get_index(self, space):
         if not self.tracked_index in ["C", "F"]:
             raise oefmt(space.w_ValueError, "Iterator does not have an index")
         if self.done:
             raise oefmt(space.w_ValueError, "Iterator is past the end")
-        return space.wrap(self.index_iter.getvalue())
+        return space.newint(self.index_iter.getvalue())
 
     def descr_get_has_multi_index(self, space):
-        return space.wrap(self.tracked_index == "multi")
+        return space.newbool(self.tracked_index == "multi")
 
     def descr_get_multi_index(self, space):
         if not self.tracked_index == "multi":
             raise oefmt(space.w_ValueError, "Iterator is not tracking a multi-index")
         if self.done:
             raise oefmt(space.w_ValueError, "Iterator is past the end")
-        return space.newtuple([space.wrap(x) for x in self.index_iter.index])
+        return space.newtuple([space.newint(x) for x in self.index_iter.index])
 
     def descr_get_iterationneedsapi(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
@@ -714,13 +710,13 @@ class W_NDIter(W_NumpyObject):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_itersize(self, space):
-        return space.wrap(support.product(self.shape))
+        return space.newint(support.product(self.shape))
 
     def descr_get_itviews(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")
 
     def descr_get_ndim(self, space):
-        return space.wrap(self.ndim)
+        return space.newint(self.ndim)
 
     def descr_get_nop(self, space):
         raise oefmt(space.w_NotImplementedError, "not implemented yet")

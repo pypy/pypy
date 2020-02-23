@@ -1,6 +1,24 @@
 Historical release notes
 ========================
 
+Combined releases
+-----------------
+
+.. toctree::
+
+   release-v7.3.0.rst
+   release-v7.2.0.rst
+   release-v7.1.1.rst
+   release-v7.1.0.rst
+   release-v7.0.0.rst
+   release-v6.0.0.rst
+   release-v5.10.1.rst
+   release-v5.10.0.rst
+   release-v5.9.0.rst
+   release-v5.8.0.rst
+   release-v5.7.1.rst
+   release-v5.7.0.rst
+
 CPython 2.7 compatible versions
 -------------------------------
 
@@ -53,12 +71,12 @@ CPython 2.7 compatible versions
    release-0.7.0.rst
    release-0.6
 
-
 CPython 3.3 compatible versions
 -------------------------------
 
 .. toctree::
 
+   release-pypy3.3-v5.5.0.rst
    release-pypy3.3-v5.2-alpha1.rst
 
 CPython 3.2 compatible versions

@@ -1,29 +1,8 @@
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper import rclass
-from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib.rarithmetic import r_uint, intmask
-
-
-def adr2int(addr):
-    # Cast an address to an int.  Returns an AddressAsInt object which
-    # can be cast back to an address.
-    return llmemory.cast_adr_to_int(addr, "symbolic")
-
-def int2adr(int):
-    return llmemory.cast_int_to_adr(int)
-
-def int_signext(value, numbytes):
-    b8 = numbytes * 8
-    a = r_uint(value)
-    a += r_uint(1 << (b8 - 1))     # a += 128
-    a &= r_uint((1 << b8) - 1)     # a &= 255
-    a -= r_uint(1 << (b8 - 1))     # a -= 128
-    return intmask(a)
 
 def is_immutable_struct(S):
     return isinstance(S, lltype.GcStruct) and S._hints.get('immutable', False)
-
-# ____________________________________________________________
 
 def has_gcstruct_a_vtable(GCSTRUCT):
     if not isinstance(GCSTRUCT, lltype.GcStruct):
@@ -94,6 +73,7 @@ def all_fielddescrs(gccache, STRUCT, only_gc=False, res=None,
 
 def all_interiorfielddescrs(gccache, ARRAY, get_field_descr=None):
     from rpython.jit.backend.llsupport import descr
+    from rpython.jit.codewriter.effectinfo import UnsupportedFieldExc
 
     if get_field_descr is None:
         get_field_descr = descr.get_field_descr
@@ -107,7 +87,7 @@ def all_interiorfielddescrs(gccache, ARRAY, get_field_descr=None):
         if name == 'typeptr':
             continue # dealt otherwise
         elif isinstance(FIELD, lltype.Struct):
-            raise Exception("unexpected array(struct(struct))")
+            raise UnsupportedFieldExc("unexpected array(struct(struct))")
         res.append(get_field_descr(gccache, ARRAY, name))
     return res
 
@@ -131,4 +111,3 @@ def get_fielddescr_index_in(STRUCT, fieldname, cur_index=0):
             return cur_index
         cur_index += 1
     return -cur_index - 1 # not found
-    

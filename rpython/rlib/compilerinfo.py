@@ -18,8 +18,8 @@ def get_compiler_info():
 
 
 if platform.name == 'msvc':
-    # XXX hard-code the MSC version, I don't feel like computing it dynamically
-    _C_COMPILER_INFO = '"MSC v.%d 32 bit"' % (platform.version * 10 + 600)
+    # XXX hard-code the bit name
+    _C_COMPILER_INFO = '"MSC v." Py_STR(_MSC_VER) " 32 bit"'
 else:
     _C_COMPILER_INFO = '("GCC " __VERSION__)'
 

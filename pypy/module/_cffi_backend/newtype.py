@@ -8,7 +8,7 @@ from rpython.rlib import jit, rweakref, clibffi
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.tool import rffi_platform
 
-from pypy.module import _cffi_backend
+from pypy.module._cffi_backend.moduledef import FFI_DEFAULT_ABI
 from pypy.module._cffi_backend import (ctypeobj, ctypeprim, ctypeptr,
     ctypearray, ctypestruct, ctypevoid, ctypeenum)
 
@@ -23,13 +23,34 @@ alignment_of_pointer = alignment(rffi.CCHARP)
 # ____________________________________________________________
 
 class UniqueCache:
+    for_testing = False    # set to True on the class level in test_c.py
+
     def __init__(self, space):
         self.ctvoid = None      # Cache for the 'void' type
         self.ctvoidp = None     # Cache for the 'void *' type
         self.ctchara = None     # Cache for the 'char[]' type
         self.primitives = {}    # Cache for {name: primitive_type}
         self.functions = []     # see _new_function_type()
-        self.for_testing = False
+        self.functions_packed = None     # only across translation
+
+    def _cleanup_(self):
+        import gc
+        assert self.functions_packed is None
+        # Note: a full PyPy translation may still have
+        # 'self.functions == []' at this point, possibly depending
+        # on details.  Code tested directly in test_ffi_obj
+        gc.collect()
+        funcs = []
+        for weakdict in self.functions:
+            funcs += weakdict._dict.values()
+        del self.functions[:]
+        self.functions_packed = funcs if len(funcs) > 0 else None
+
+    def unpack_functions(self):
+        for fct in self.functions_packed:
+            _record_function_type(self, fct)
+        self.functions_packed = None
+
 
 def _clean_cache(space):
     "NOT_RPYTHON"
@@ -45,8 +66,8 @@ def _clean_cache(space):
 
 PRIMITIVE_TYPES = {}
 
-def eptype(name, TYPE, ctypecls):
-    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE), alignment(TYPE)
+def eptype(name, TYPE, ctypecls, rep=1):
+    PRIMITIVE_TYPES[name] = ctypecls, rffi.sizeof(TYPE) * rep, alignment(TYPE)
 
 def eptypesize(name, size, ctypecls):
     for TYPE in [lltype.Signed, lltype.SignedLongLong, rffi.SIGNEDCHAR,
@@ -73,6 +94,9 @@ eptype("double", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveFloat)
 eptype("long double", rffi.LONGDOUBLE, ctypeprim.W_CTypePrimitiveLongDouble)
 eptype("_Bool",  lltype.Bool,          ctypeprim.W_CTypePrimitiveBool)
 
+eptype("float _Complex",  rffi.FLOAT,  ctypeprim.W_CTypePrimitiveComplex, rep=2)
+eptype("double _Complex", rffi.DOUBLE, ctypeprim.W_CTypePrimitiveComplex, rep=2)
+
 eptypesize("int8_t",   1, ctypeprim.W_CTypePrimitiveSigned)
 eptypesize("uint8_t",  1, ctypeprim.W_CTypePrimitiveUnsigned)
 eptypesize("int16_t",  2, ctypeprim.W_CTypePrimitiveSigned)
@@ -86,6 +110,9 @@ eptype("intptr_t",  rffi.INTPTR_T,  ctypeprim.W_CTypePrimitiveSigned)
 eptype("uintptr_t", rffi.UINTPTR_T, ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("size_t",    rffi.SIZE_T,    ctypeprim.W_CTypePrimitiveUnsigned)
 eptype("ssize_t",   rffi.SSIZE_T,   ctypeprim.W_CTypePrimitiveSigned)
+
+eptypesize("char16_t", 2, ctypeprim.W_CTypePrimitiveUniChar)
+eptypesize("char32_t", 4, ctypeprim.W_CTypePrimitiveUniChar)
 
 _WCTSigned = ctypeprim.W_CTypePrimitiveSigned
 _WCTUnsign = ctypeprim.W_CTypePrimitiveUnsigned
@@ -132,7 +159,7 @@ else:
     eptypesize("int_fast64_t",  8, _WCTSigned)
     eptypesize("uint_fast64_t", 8, _WCTUnsign)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_primitive_type(space, name):
     return _new_primitive_type(space, name)
 
@@ -146,7 +173,7 @@ def _new_primitive_type(space, name):
     try:
         ctypecls, size, align = PRIMITIVE_TYPES[name]
     except KeyError:
-        raise OperationError(space.w_KeyError, space.wrap(name))
+        raise OperationError(space.w_KeyError, space.newtext(name))
     ctype = ctypecls(space, size, name, len(name), align)
     unique_cache.primitives[name] = ctype
     return ctype
@@ -231,11 +258,17 @@ SF_GCC_LITTLE_ENDIAN  = 0x40
 SF_PACKED             = 0x08
 SF_STD_FIELD_POS      = 0x80
 
+if sys.platform == 'win32':
+    SF_DEFAULT_PACKING = 8
+else:
+    SF_DEFAULT_PACKING = 0x40000000    # a huge power of two
+
 
 if sys.platform == 'win32':
     DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
 else:
-    if rffi_platform.getdefined('__arm__', ''):
+    if (rffi_platform.getdefined('__arm__', '') or
+        rffi_platform.getdefined('__aarch64__', '')):
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_ARM_BITFIELDS
     else:
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS
@@ -259,11 +292,11 @@ def complete_sflags(sflags):
 # ____________________________________________________________
 
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_struct_type(space, name):
     return ctypestruct.W_CTypeStruct(space, name)
 
-@unwrap_spec(name=str)
+@unwrap_spec(name='text')
 def new_union_type(space, name):
     return ctypestruct.W_CTypeUnion(space, name)
 
@@ -275,17 +308,29 @@ def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
             w_FFIError = get_ffi_error(w_ctype.space)
             raise oefmt(w_FFIError,
                     '%s: %s%s%s (cdef says %d, but C compiler says %d).'
-                    ' fix it or use "...;" in the cdef for %s to '
-                    'make it flexible',
+                    ' fix it or use "...;" as the last field in the '
+                    'cdef for %s to make it flexible',
                     w_ctype.name, msg1, msg2, msg3,
                     cdef_value, compiler_value, w_ctype.name)
         w_ctype._custom_field_pos = True
 
+def roundup_bytes(bytes, bit):
+    assert bit == (bit & 7)
+    return bytes + (bit > 0)
+
 @unwrap_spec(w_ctype=ctypeobj.W_CType, totalsize=int, totalalignment=int,
-             sflags=int)
+             sflags=int, pack=int)
 def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
-                             totalsize=-1, totalalignment=-1, sflags=0):
+                             totalsize=-1, totalalignment=-1, sflags=0,
+                             pack=0):
     sflags = complete_sflags(sflags)
+    if sflags & SF_PACKED:
+        pack = 1
+    elif pack <= 0:
+        pack = SF_DEFAULT_PACKING
+    else:
+        sflags |= SF_PACKED
+
     if (not isinstance(w_ctype, ctypestruct.W_CTypeStructOrUnion)
             or w_ctype.size >= 0):
         raise oefmt(space.w_TypeError,
@@ -294,8 +339,9 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
     is_union = isinstance(w_ctype, ctypestruct.W_CTypeUnion)
     alignment = 1
-    boffset = 0         # this number is in *bits*, not bytes!
-    boffsetmax = 0      # the maximum value of boffset, in bits too
+    byteoffset = 0     # the real value is 'byteoffset+bitoffset*8', which
+    bitoffset = 0      #     counts the offset in bits
+    byteoffsetmax = 0  # the maximum value of byteoffset-rounded-up-to-byte
     prev_bitfield_size = 0
     prev_bitfield_free = 0
     fields_w = space.listview(w_fields)
@@ -303,13 +349,14 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     fields_dict = {}
     w_ctype._custom_field_pos = False
     with_var_array = False
+    with_packed_change = False
 
     for i in range(len(fields_w)):
         w_field = fields_w[i]
         field_w = space.fixedview(w_field)
         if not (2 <= len(field_w) <= 4):
             raise oefmt(space.w_TypeError, "bad field descr")
-        fname = space.str_w(field_w[0])
+        fname = space.text_w(field_w[0])
         ftype = space.interp_w(ctypeobj.W_CType, field_w[1])
         fbitsize = -1
         foffset = -1
@@ -327,13 +374,24 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 raise oefmt(space.w_TypeError,
                             "field '%s.%s' has ctype '%s' of unknown size",
                             w_ctype.name, fname, ftype.name)
+        elif isinstance(ftype, ctypestruct.W_CTypeStructOrUnion):
+            ftype.force_lazy_struct()
+            # GCC (or maybe C99) accepts var-sized struct fields that are not
+            # the last field of a larger struct.  That's why there is no
+            # check here for "last field": we propagate the flag
+            # '_with_var_array' to any struct that contains either an open-
+            # ended array or another struct that recursively contains an
+            # open-ended array.
+            if ftype._with_var_array:
+                with_var_array = True
         #
         if is_union:
-            boffset = 0         # reset each field at offset 0
+            byteoffset = bitoffset = 0        # reset each field at offset 0
         #
         # update the total alignment requirement, but skip it if the
         # field is an anonymous bitfield or if SF_PACKED
-        falign = 1 if sflags & SF_PACKED else ftype.alignof()
+        falignorg = ftype.alignof()
+        falign = min(pack, falignorg)
         do_align = True
         if (sflags & SF_GCC_ARM_BITFIELDS) == 0 and fbitsize >= 0:
             if (sflags & SF_MSVC_BITFIELDS) == 0:
@@ -358,26 +416,34 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             else:
                 bs_flag = ctypestruct.W_CField.BS_REGULAR
 
-            # align this field to its own 'falign' by inserting padding
-            boffset = (boffset + falign*8-1) & ~(falign*8-1)
+            # align this field to its own 'falign' by inserting padding.
+            # first, pad to the next byte,
+            # then pad to 'falign' or 'falignorg' bytes
+            byteoffset = roundup_bytes(byteoffset, bitoffset)
+            bitoffset = 0
+            byteoffsetorg = (byteoffset + falignorg-1) & ~(falignorg-1)
+            byteoffset = (byteoffset + falign-1) & ~(falign-1)
+
+            if byteoffsetorg != byteoffset:
+                with_packed_change = True
 
             if foffset >= 0:
                 # a forced field position: ignore the offset just computed,
                 # except to know if we must set 'custom_field_pos'
-                detect_custom_layout(w_ctype, sflags, boffset // 8, foffset,
+                detect_custom_layout(w_ctype, sflags, byteoffset, foffset,
                                      "wrong offset for field '",
                                      fname, "'")
-                boffset = foffset * 8
+                byteoffset = foffset
 
             if (fname == '' and
                     isinstance(ftype, ctypestruct.W_CTypeStructOrUnion)):
                 # a nested anonymous struct or union
+                # note: it seems we only get here with ffi.verify()
                 srcfield2names = {}
-                ftype.force_lazy_struct()
                 for name, srcfld in ftype._fields_dict.items():
                     srcfield2names[srcfld] = name
                 for srcfld in ftype._fields_list:
-                    fld = srcfld.make_shifted(boffset // 8, fflags)
+                    fld = srcfld.make_shifted(byteoffset, fflags)
                     fields_list.append(fld)
                     try:
                         fields_dict[srcfield2names[srcfld]] = fld
@@ -387,13 +453,13 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                 w_ctype._custom_field_pos = True
             else:
                 # a regular field
-                fld = ctypestruct.W_CField(ftype, boffset // 8, bs_flag, -1,
+                fld = ctypestruct.W_CField(ftype, byteoffset, bs_flag, -1,
                                            fflags)
                 fields_list.append(fld)
                 fields_dict[fname] = fld
 
             if ftype.size >= 0:
-                boffset += ftype.size * 8
+                byteoffset += ftype.size
             prev_bitfield_size = 0
 
         else:
@@ -419,7 +485,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
             # compute the starting position of the theoretical field
             # that covers a complete 'ftype', inside of which we will
             # locate the real bitfield
-            field_offset_bytes = boffset // 8
+            field_offset_bytes = byteoffset
             field_offset_bytes &= ~(falign - 1)
 
             if fbitsize == 0:
@@ -429,11 +495,13 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                 w_ctype.name, fname)
                 if (sflags & SF_MSVC_BITFIELDS) == 0:
                     # GCC's notion of "ftype :0;"
-                    # pad boffset to a value aligned for "ftype"
-                    if boffset > field_offset_bytes * 8:
+                    # pad byteoffset to a value aligned for "ftype"
+                    if (roundup_bytes(byteoffset, bitoffset) >
+                                                    field_offset_bytes):
                         field_offset_bytes += falign
-                        assert boffset < field_offset_bytes * 8
-                    boffset = field_offset_bytes * 8
+                        assert byteoffset < field_offset_bytes
+                    byteoffset = field_offset_bytes
+                    bitoffset = 0
                 else:
                     # MSVC's notion of "ftype :0;
                     # Mostly ignored.  It seems they only serve as
@@ -448,7 +516,8 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
 
                     # Can the field start at the offset given by 'boffset'?  It
                     # can if it would entirely fit into an aligned ftype field.
-                    bits_already_occupied = boffset - (field_offset_bytes * 8)
+                    bits_already_occupied = (
+                        (byteoffset-field_offset_bytes) * 8 + bitoffset)
 
                     if bits_already_occupied + fbitsize > 8 * ftype.size:
                         # it would not fit, we need to start at the next
@@ -461,13 +530,16 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                                         "the previous field",
                                         w_ctype.name, fname)
                         field_offset_bytes += falign
-                        assert boffset < field_offset_bytes * 8
-                        boffset = field_offset_bytes * 8
+                        assert byteoffset < field_offset_bytes
+                        byteoffset = field_offset_bytes
+                        bitoffset = 0
                         bitshift = 0
                     else:
                         bitshift = bits_already_occupied
                         assert bitshift >= 0
-                    boffset += fbitsize
+                    bitoffset += fbitsize
+                    byteoffset += (bitoffset >> 3)
+                    bitoffset &= 7
 
                 else:
                     # MSVC's algorithm
@@ -482,31 +554,34 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
                         bitshift = 8 * prev_bitfield_size - prev_bitfield_free
                     else:
                         # no: start a new full field
-                        boffset = (boffset + falign*8-1) & ~(falign*8-1)
-                        boffset += ftype.size * 8
+                        byteoffset = roundup_bytes(byteoffset, bitoffset)
+                        bitoffset = 0
+                        # align
+                        byteoffset = (byteoffset + falign-1) & ~(falign-1)
+                        byteoffset += ftype.size
                         bitshift = 0
                         prev_bitfield_size = ftype.size
                         prev_bitfield_free = 8 * prev_bitfield_size
                     #
                     prev_bitfield_free -= fbitsize
-                    field_offset_bytes = boffset / 8 - ftype.size
+                    field_offset_bytes = byteoffset - ftype.size
 
                 if sflags & SF_GCC_BIG_ENDIAN:
                     bitshift = 8 * ftype.size - fbitsize- bitshift
 
-                fld = ctypestruct.W_CField(ftype, field_offset_bytes,
-                                           bitshift, fbitsize, fflags)
-                fields_list.append(fld)
-                fields_dict[fname] = fld
+                if fname != '':
+                    fld = ctypestruct.W_CField(ftype, field_offset_bytes,
+                                               bitshift, fbitsize, fflags)
+                    fields_list.append(fld)
+                    fields_dict[fname] = fld
 
-        if boffset > boffsetmax:
-            boffsetmax = boffset
+        if roundup_bytes(byteoffset, bitoffset) > byteoffsetmax:
+            byteoffsetmax = roundup_bytes(byteoffset, bitoffset)
 
     # Like C, if the size of this structure would be zero, we compute it
     # as 1 instead.  But for ctypes support, we allow the manually-
     # specified totalsize to be zero in this case.
-    boffsetmax = (boffsetmax + 7) // 8      # bits -> bytes
-    alignedsize = (boffsetmax + alignment - 1) & ~(alignment - 1)
+    alignedsize = (byteoffsetmax + alignment - 1) & ~(alignment - 1)
     alignedsize = alignedsize or 1
 
     if totalsize < 0:
@@ -514,10 +589,10 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     else:
         detect_custom_layout(w_ctype, sflags, alignedsize, totalsize,
                              "wrong total size")
-        if totalsize < boffsetmax:
+        if totalsize < byteoffsetmax:
             raise oefmt(space.w_TypeError,
                 "%s cannot be of size %d: there are fields at least up to %d",
-                w_ctype.name, totalsize, boffsetmax)
+                w_ctype.name, totalsize, byteoffsetmax)
     if totalalignment < 0:
         totalalignment = alignment
     else:
@@ -530,6 +605,7 @@ def complete_struct_or_union(space, w_ctype, w_fields, w_ignored=None,
     w_ctype._fields_dict = fields_dict
     #w_ctype._custom_field_pos = ...set above already
     w_ctype._with_var_array = with_var_array
+    w_ctype._with_packed_change = with_packed_change
 
 # ____________________________________________________________
 
@@ -562,13 +638,13 @@ def _new_chara_type(space):
 
 # ____________________________________________________________
 
-@unwrap_spec(name=str, w_basectype=ctypeobj.W_CType)
+@unwrap_spec(name='text', w_basectype=ctypeobj.W_CType)
 def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
     enumerators_w = space.fixedview(w_enumerators)
     enumvalues_w  = space.fixedview(w_enumvalues)
     if len(enumerators_w) != len(enumvalues_w):
         raise oefmt(space.w_ValueError, "tuple args must have the same size")
-    enumerators = [space.str_w(w) for w in enumerators_w]
+    enumerators = [space.text_w(w) for w in enumerators_w]
     #
     if (not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveSigned) and
         not isinstance(w_basectype, ctypeprim.W_CTypePrimitiveUnsigned)):
@@ -599,7 +675,7 @@ def new_enum_type(space, name, w_enumerators, w_enumvalues, w_basectype):
 
 @unwrap_spec(w_fresult=ctypeobj.W_CType, ellipsis=int, abi=int)
 def new_function_type(space, w_fargs, w_fresult, ellipsis=0,
-                      abi=_cffi_backend.FFI_DEFAULT_ABI):
+                      abi=FFI_DEFAULT_ABI):
     fargs = []
     for w_farg in space.fixedview(w_fargs):
         if not isinstance(w_farg, ctypeobj.W_CType):
@@ -615,7 +691,7 @@ def _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi):
     for w_arg in fargs:
         y = compute_identity_hash(w_arg)
         x = intmask((1000003 * x) ^ y)
-    x ^= (ellipsis - abi)
+    x ^= ellipsis + 2 * abi
     if unique_cache.for_testing:    # constant-folded to False in translation;
         x &= 3                      # but for test, keep only 2 bits of hash
     return x
@@ -639,6 +715,8 @@ def _get_function_type(space, fargs, fresult, ellipsis, abi):
     # one such dict, but in case of hash collision, there might be
     # more.
     unique_cache = space.fromcache(UniqueCache)
+    if unique_cache.functions_packed is not None:
+        unique_cache.unpack_functions()
     func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
     for weakdict in unique_cache.functions:
         ctype = weakdict.get(func_hash)
@@ -667,13 +745,18 @@ def _build_function_type(space, fargs, fresult, ellipsis, abi):
     #
     fct = ctypefunc.W_CTypeFunc(space, fargs, fresult, ellipsis, abi)
     unique_cache = space.fromcache(UniqueCache)
-    func_hash = _func_key_hash(unique_cache, fargs, fresult, ellipsis, abi)
+    _record_function_type(unique_cache, fct)
+    return fct
+
+def _record_function_type(unique_cache, fct):
+    from pypy.module._cffi_backend import ctypefunc
+    #
+    func_hash = _func_key_hash(unique_cache, fct.fargs, fct.ctitem,
+                               fct.ellipsis, fct.abi)
     for weakdict in unique_cache.functions:
         if weakdict.get(func_hash) is None:
-            weakdict.set(func_hash, fct)
             break
     else:
         weakdict = rweakref.RWeakValueDictionary(int, ctypefunc.W_CTypeFunc)
         unique_cache.functions.append(weakdict)
-        weakdict.set(func_hash, fct)
-    return fct
+    weakdict.set(func_hash, fct)

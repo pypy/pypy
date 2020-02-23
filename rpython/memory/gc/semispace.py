@@ -48,9 +48,6 @@ class SemiSpaceGC(MovingGCBase):
 
     HDR = lltype.Struct('header', ('tid', lltype.Signed))   # XXX or rffi.INT?
     typeid_is_in_field = 'tid'
-    withhash_flag_is_in_field = 'tid', _GCFLAG_HASH_BASE * 0x2
-    # ^^^ prebuilt objects either have GC_HASH_TAKEN_ADDR or they
-    #     have GC_HASH_HASFIELD (and then they are one word longer).
     FORWARDSTUB = lltype.GcStruct('forwarding_stub',
                                   ('forw', llmemory.Address))
     FORWARDSTUBPTR = lltype.Ptr(FORWARDSTUB)

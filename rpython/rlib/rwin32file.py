@@ -8,29 +8,14 @@ from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 
-@specialize.memo()
-def make_win32_traits(traits):
+
+def GetCConfigGlobal():
     from rpython.rlib import rwin32
 
-    if traits.str is unicode:
-        suffix = 'W'
-    else:
-        suffix = 'A'
-
-    class CConfig:
+    class CConfigGlobal:
         _compilation_info_ = ExternalCompilationInfo(
             includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
         )
-        WIN32_FIND_DATA = platform.Struct(
-            'struct _WIN32_FIND_DATA' + suffix,
-            # Only interesting fields
-            [('dwFileAttributes', rwin32.DWORD),
-             ('nFileSizeHigh', rwin32.DWORD),
-             ('nFileSizeLow', rwin32.DWORD),
-             ('ftCreationTime', rwin32.FILETIME),
-             ('ftLastAccessTime', rwin32.FILETIME),
-             ('ftLastWriteTime', rwin32.FILETIME),
-             ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
         ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
             'ERROR_FILE_NOT_FOUND')
         ERROR_NO_MORE_FILES = platform.ConstantInteger(
@@ -46,6 +31,8 @@ def make_win32_traits(traits):
             'INVALID_FILE_ATTRIBUTES')
         ERROR_SHARING_VIOLATION = platform.ConstantInteger(
             'ERROR_SHARING_VIOLATION')
+        ERROR_ACCESS_DENIED = platform.ConstantInteger(
+            'ERROR_ACCESS_DENIED')
         MOVEFILE_REPLACE_EXISTING = platform.ConstantInteger(
             'MOVEFILE_REPLACE_EXISTING')
         _S_IFDIR = platform.ConstantInteger('_S_IFDIR')
@@ -56,10 +43,14 @@ def make_win32_traits(traits):
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
 
+        FILE_READ_ATTRIBUTES = platform.ConstantInteger(
+            'FILE_READ_ATTRIBUTES')
         FILE_WRITE_ATTRIBUTES = platform.ConstantInteger(
             'FILE_WRITE_ATTRIBUTES')
         OPEN_EXISTING = platform.ConstantInteger(
             'OPEN_EXISTING')
+        FILE_ATTRIBUTE_NORMAL = platform.ConstantInteger(
+            'FILE_ATTRIBUTE_NORMAL')
         FILE_FLAG_BACKUP_SEMANTICS = platform.ConstantInteger(
             'FILE_FLAG_BACKUP_SEMANTICS')
         VOLUME_NAME_DOS = platform.ConstantInteger('VOLUME_NAME_DOS')
@@ -87,7 +78,40 @@ def make_win32_traits(traits):
              ('nFileIndexHigh', rwin32.DWORD),
              ('nFileIndexLow', rwin32.DWORD)])
 
-    config = platform.configure(CConfig)
+    return CConfigGlobal
+
+config_global = None
+
+
+@specialize.memo()
+def make_win32_traits(traits):
+    from rpython.rlib import rwin32
+    global config_global
+
+    if traits.str is unicode:
+        suffix = 'W'
+    else:
+        suffix = 'A'
+
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+        )
+        WIN32_FIND_DATA = platform.Struct(
+            'struct _WIN32_FIND_DATA' + suffix,
+            # Only interesting fields
+            [('dwFileAttributes', rwin32.DWORD),
+             ('nFileSizeHigh', rwin32.DWORD),
+             ('nFileSizeLow', rwin32.DWORD),
+             ('ftCreationTime', rwin32.FILETIME),
+             ('ftLastAccessTime', rwin32.FILETIME),
+             ('ftLastWriteTime', rwin32.FILETIME),
+             ('cFileName', lltype.FixedSizeArray(traits.CHAR, 250))])
+
+    if config_global is None:
+        config_global = platform.configure(GetCConfigGlobal())
+    config = config_global.copy()
+    config.update(platform.configure(CConfig))
 
     def external(*args, **kwargs):
         kwargs['compilation_info'] = CConfig._compilation_info_
@@ -103,10 +127,12 @@ def make_win32_traits(traits):
                        INVALID_FILE_ATTRIBUTES
                        _S_IFDIR _S_IFREG _S_IFCHR _S_IFIFO
                        FILE_TYPE_UNKNOWN FILE_TYPE_CHAR FILE_TYPE_PIPE
+                       FILE_READ_ATTRIBUTES FILE_ATTRIBUTE_NORMAL
                        FILE_WRITE_ATTRIBUTES OPEN_EXISTING FILE_FLAG_BACKUP_SEMANTICS
                        VOLUME_NAME_DOS VOLUME_NAME_NT
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
+                       ERROR_ACCESS_DENIED
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)
@@ -122,7 +148,7 @@ def make_win32_traits(traits):
                                 save_err=rffi.RFFI_SAVE_LASTERROR)
         FindClose = external('FindClose',
                              [rwin32.HANDLE],
-                             rwin32.BOOL)
+                             rwin32.BOOL, releasegil=False)
 
         GetFileAttributes = external(
             'GetFileAttributes' + suffix,
@@ -205,6 +231,12 @@ def make_win32_traits(traits):
         MoveFileEx = external(
             'MoveFileEx' + suffix,
             [traits.CCHARP, traits.CCHARP, rwin32.DWORD],
+            rwin32.BOOL,
+            save_err=rffi.RFFI_SAVE_LASTERROR)
+
+        CreateHardLink = external(
+            'CreateHardLink' + suffix,
+            [traits.CCHARP, traits.CCHARP, rwin32.LPSECURITY_ATTRIBUTES],
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 

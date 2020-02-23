@@ -16,16 +16,16 @@ Adding a test here involves:
 5. make the test pass in pypy ('py.test test_c.py')
 """
 import py, sys, ctypes
-if sys.version_info < (2, 6):
-    py.test.skip("requires the b'' literal syntax")
 
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
-from pypy.module._cffi_backend import Module
+from pypy.module._cffi_backend.moduledef import Module
 from pypy.module._cffi_backend.newtype import _clean_cache, UniqueCache
 from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from .. import VERSION as TEST_VERSION
 
 
 class AppTestC(object):
@@ -34,8 +34,18 @@ class AppTestC(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO', 'array'))
 
     def setup_class(cls):
+        if cls.runappdirect:
+            _cffi_backend = py.test.importorskip('_cffi_backend')
+            if _cffi_backend.__version__ != TEST_VERSION:
+                py.test.skip(
+                    "These tests are for cffi version %s, this Python "
+                    "has version %s installed" %
+                    (TEST_VERSION, _cffi_backend.__version__))
+
+
         testfuncs_w = []
         keepalive_funcs = []
+        UniqueCache.for_testing = True
 
         def find_and_load_library_for_test(space, w_name, w_is_global=None):
             if w_is_global is None:
@@ -86,11 +96,12 @@ class AppTestC(object):
             _all_test_c.find_and_load_library = func
             _all_test_c._testfunc = testfunc
         """)
-        UniqueCache.for_testing = True
 
     def teardown_method(self, method):
-        UniqueCache.for_testing = False
         _clean_cache(self.space)
+
+    def teardown_class(cls):
+        UniqueCache.for_testing = False
 
 
 all_names = ', '.join(Module.interpleveldefs.keys())
@@ -122,6 +133,7 @@ with tmpname2.open('w') as f:
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
     print >> f, '        skip = staticmethod(skip)'
+    print >> f, 'pytest = py.test'
     print >> f, backend_test_c.read()
 
 

@@ -1,16 +1,17 @@
 import py
 from rpython.jit.backend.x86.regloc import *
+from rpython.jit.backend.llsupport.regalloc import Lifetime
 from rpython.jit.backend.x86.regalloc import (RegAlloc,
         X86FrameManager, X86XMMRegisterManager, X86RegisterManager)
 from rpython.jit.backend.x86.vector_ext import TempVector
 from rpython.jit.backend.x86.test import test_basic
 from rpython.jit.backend.x86.test.test_assembler import \
         (TestRegallocPushPop as BaseTestAssembler)
-from rpython.jit.metainterp.test import test_vector
+from rpython.jit.metainterp.test import test_zvector
 from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.detect_cpu import getcpuclass
 
-class TestBasic(test_basic.Jit386Mixin, test_vector.VectorizeTests):
+class TestBasic(test_basic.Jit386Mixin, test_zvector.VectorizeTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_basic.py
     def setup_method(self, method):
@@ -146,9 +147,9 @@ class TestAssembler(BaseTestAssembler):
         xrm = self.regalloc.xrm
         xrm.reg_bindings[arg1] = xmm0
         xrm.reg_bindings[arg2] = xmm1
-        xrm.longevity[arg1] = (0,1)
-        xrm.longevity[arg2] = (0,2)
-        xrm.longevity[arg] = (0,3)
+        xrm.longevity[arg1] = Lifetime(0,1)
+        xrm.longevity[arg2] = Lifetime(0,2)
+        xrm.longevity[arg] = Lifetime(0,3)
         fr = xrm.free_regs
         xrm.free_regs = []
         self.regalloc.fm.bindings[arg] = FrameLoc(0, 64, 'f')

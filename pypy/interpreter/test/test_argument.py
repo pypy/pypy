@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import py
+import pytest
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrCount, ArgErrCountMethod)
 from pypy.interpreter.signature import Signature
@@ -54,6 +55,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 
@@ -93,9 +97,12 @@ class DummySpace(object):
 
     def wrap(self, obj):
         return obj
+    newtext = wrap
 
     def str_w(self, s):
         return str(s)
+    def text_w(self, s):
+        return self.str_w(s)
 
     def len(self, x):
         return len(x)
@@ -119,6 +126,12 @@ class DummySpace(object):
         except AttributeError:
             raise OperationError(AttributeError, name)
         return method(*args)
+
+    def lookup_in_type(self, cls, name):
+        return getattr(cls, name)
+
+    def get_and_call_function(self, w_descr, w_obj, *args):
+        return w_descr.__get__(w_obj)(*args)
 
     def type(self, obj):
         class Type:
@@ -729,7 +742,7 @@ class AppTestArgument:
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_method(self):
         class A(object):
             def f0():
@@ -746,14 +759,14 @@ class AppTestArgument:
         # does not contain the warning about missing self
         assert exc.value.message == "f0() takes no arguments (1 given)"
 
-    @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_module_function(self):
         import operator # use repeat because it's defined at applevel
         exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
-        # does not contain the warning about missing self
-        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+        # does not contain the warning
+        # 'Did you forget 'self' in the function definition?'
+        assert 'self' not in str(exc.value)
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_bound_method(self):
         class A(object):
             def f0():
@@ -805,3 +818,19 @@ class AppTestArgument:
             assert str(e) == "myerror"
         else:
             assert False, "Expected TypeError"
+
+    def test_dict_subclass_with_weird_getitem(self):
+        # issue 2435: bug-to-bug compatibility with cpython. for a subclass of
+        # dict, just ignore the __getitem__ and behave like ext_do_call in ceval.c
+        # which just uses the underlying dict
+        class d(dict):
+            def __getitem__(self, key):
+                return key
+
+        for key in ["foo", u"foo"]:
+            q = d()
+            q[key] = "bar"
+
+            def test(**kwargs):
+                return kwargs
+            assert test(**q) == {"foo": "bar"}

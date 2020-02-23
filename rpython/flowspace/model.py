@@ -96,6 +96,13 @@ class FunctionGraph(object):
         from rpython.translator.tool.graphpage import FlowGraphPage
         FlowGraphPage(t, [self]).display()
 
+    def showbg(self, t=None):
+        import os
+        self.show(t)
+        if os.fork() == 0:
+            self.show(t)
+            os._exit(0)
+
     view = show
 
 
@@ -163,7 +170,7 @@ class Link(object):
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
-                exits blockcolor""".split()
+                exits blockcolor generation""".split()
 
     def __init__(self, inputargs):
         self.inputargs = list(inputargs)  # mixed list of variable/const XXX
@@ -191,6 +198,11 @@ class Block(object):
                 txt = "raise block"
             else:
                 txt = "codeless block"
+        if len(self.inputargs) > 0:
+            if len(self.inputargs) > 1:
+                txt += '[%s...]' % (self.inputargs[0],)
+            else:
+                txt += '[%s]' % (self.inputargs[0],)
         return txt
 
     def __repr__(self):

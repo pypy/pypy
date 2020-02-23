@@ -66,7 +66,7 @@ class ExceptionTransformer(object):
             assertion_error_ll_exc_type)
         self.c_n_i_error_ll_exc_type = constant_value(n_i_error_ll_exc_type)
 
-        def rpyexc_occured():
+        def rpyexc_occurred():
             exc_type = exc_data.exc_type
             return bool(exc_type)
 
@@ -109,9 +109,9 @@ class ExceptionTransformer(object):
                 exc_data.exc_type = ll_inst_type(evalue)
                 exc_data.exc_value = evalue
 
-        self.rpyexc_occured_ptr = self.build_func(
+        self.rpyexc_occurred_ptr = self.build_func(
             "RPyExceptionOccurred",
-            rpyexc_occured,
+            rpyexc_occurred,
             [], lltype.Bool)
 
         self.rpyexc_fetch_type_ptr = self.build_func(
@@ -452,7 +452,8 @@ class ExceptionTransformer(object):
     def setup_excdata(self):
         EXCDATA = lltype.Struct('ExcData',
             ('exc_type',  self.lltype_of_exception_type),
-            ('exc_value', self.lltype_of_exception_value))
+            ('exc_value', self.lltype_of_exception_value),
+            hints={'is_excdata': True})
         self.EXCDATA = EXCDATA
 
         exc_data = lltype.malloc(EXCDATA, immortal=True)

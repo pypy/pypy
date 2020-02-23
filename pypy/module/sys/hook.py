@@ -3,7 +3,7 @@ from pypy.interpreter.pyopcode import print_item_to, print_newline_to, sys_stdou
 def displayhook(space, w_obj):
     """Print an object to sys.stdout and also save it in __builtin__._"""
     if not space.is_w(w_obj, space.w_None): 
-        space.setitem(space.builtin.w_dict, space.wrap('_'), w_obj)
+        space.setitem(space.builtin.w_dict, space.newtext('_'), w_obj)
         # NB. this is slightly more complicated in CPython,
         # see e.g. the difference with  >>> print 5,; 8
         print_item_to(space, space.repr(w_obj), sys_stdout(space))

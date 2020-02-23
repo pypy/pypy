@@ -1,8 +1,9 @@
 import sys
 import weakref
 
-from rpython.jit.codewriter import support, heaptracker, longlong
+from rpython.jit.codewriter import support, longlong
 from rpython.jit.metainterp import resoperation, history, jitexc
+from rpython.jit.metainterp.support import ptr2int, int2adr
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 from rpython.rlib.debug import have_debug_prints_for
 from rpython.rlib.jit import PARAMETERS
@@ -11,6 +12,7 @@ from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib import rstack
 from rpython.rtyper.annlowlevel import (hlstr, cast_base_ptr_to_instance,
     cast_object_to_ptr)
 from rpython.rtyper.lltypesystem import lltype, llmemory, rstr, rffi
@@ -46,8 +48,7 @@ def unspecialize_value(value):
         if lltype.typeOf(value).TO._gckind == 'gc':
             return lltype.cast_opaque_ptr(llmemory.GCREF, value)
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            return heaptracker.adr2int(adr)
+            return ptr2int(value)
     elif isinstance(value, float):
         return longlong.getfloatstorage(value)
     else:
@@ -61,7 +62,7 @@ def unwrap(TYPE, box):
         if TYPE.TO._gckind == "gc":
             return box.getref(TYPE)
         else:
-            adr = heaptracker.int2adr(box.getint())
+            adr = int2adr(box.getint())
             return llmemory.cast_adr_to_ptr(adr, TYPE)
     if TYPE == lltype.Float:
         return box.getfloat()
@@ -80,8 +81,7 @@ def wrap(cpu, value, in_const_box=False):
                 res.setref_base(value)
                 return res
         else:
-            adr = llmemory.cast_ptr_to_adr(value)
-            value = heaptracker.adr2int(adr)
+            value = ptr2int(value)
             # fall through to the end of the function
     elif (isinstance(value, float) or
           longlong.is_longlong(lltype.typeOf(value))):
@@ -149,7 +149,7 @@ class BaseJitCell(object):
     app-level Python code.
 
     We create subclasses of BaseJitCell --one per jitdriver-- so that
-    they can store greenkeys of different types.  
+    they can store greenkeys of different types.
 
     Note that we don't create a JitCell the first time we see a given
     greenkey position in the interpreter.  At first, we only hash the
@@ -383,7 +383,7 @@ class WarmEnterState(object):
             if vinfo is not None:
                 virtualizable = args[index_of_virtualizable]
                 vinfo.clear_vable_token(virtualizable)
-            
+
             deadframe = func_execute_token(loop_token, *args)
             #
             # Record in the memmgr that we just ran this loop,
@@ -415,6 +415,8 @@ class WarmEnterState(object):
             if not confirm_enter_jit(*args):
                 return
             jitcounter.decay_all_counters()
+            if rstack.stack_almost_full():
+                return
             # start tracing
             from rpython.jit.metainterp.pyjitpl import MetaInterp
             metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
@@ -695,7 +697,7 @@ class WarmEnterState(object):
             drivername = jitdriver.name
         else:
             drivername = '<unknown jitdriver>'
-        # get_location returns 
+        # get_location returns
         get_location_ptr = getattr(self.jitdriver_sd, '_get_location_ptr', None)
         if get_location_ptr is not None:
             types = self.jitdriver_sd._get_loc_types

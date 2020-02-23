@@ -199,8 +199,8 @@ static long oneofstartswith(const char *str, const char *substr)
 #define PYPY_LONG_LONG_PRINTF_FORMAT "ll"
 #endif
 
-static void display_startstop(const char *prefix, const char *postfix,
-                              const char *category, const char *colors)
+static long long display_startstop(const char *prefix, const char *postfix,
+                                   const char *category, const char *colors)
 {
   long long timestamp;
   READ_TIMESTAMP(timestamp);
@@ -208,10 +208,12 @@ static void display_startstop(const char *prefix, const char *postfix,
           colors,
           timestamp, prefix, category, postfix,
           debug_stop_colors);
+  return timestamp;
 }
 
-void pypy_debug_start(const char *category)
+long long pypy_debug_start(const char *category, long timestamp)
 {
+  long long result = 42;
   pypy_debug_ensure_opened();
   /* Enter a nesting level.  Nested debug_prints are disabled by default
      because the following left shift introduces a 0 in the last bit.
@@ -224,19 +226,30 @@ void pypy_debug_start(const char *category)
       if (!debug_prefix || !startswithoneof(category, debug_prefix))
         {
           /* wrong section name, or no PYPYLOG at all, skip it */
-          return;
+          if (timestamp)
+            READ_TIMESTAMP(result);
+          return result;
         }
       /* else make this subsection active */
       pypy_have_debug_prints |= 1;
     }
-  display_startstop("{", "", category, debug_start_colors_1);
+  return display_startstop("{", "", category, debug_start_colors_1);
 }
 
-void pypy_debug_stop(const char *category)
+long long pypy_debug_stop(const char *category, long timestamp)
 {
+  long long result = 42;
   if (debug_profile | (pypy_have_debug_prints & 1))
-    display_startstop("", "}", category, debug_start_colors_2);
+    {
+      result = display_startstop("", "}", category, debug_start_colors_2);
+      fflush(pypy_debug_file);
+    }
+  else if (timestamp)
+    {
+      READ_TIMESTAMP(result);
+    }
   pypy_have_debug_prints >>= 1;
+  return result;
 }
 
 long pypy_have_debug_prints_for(const char *category_prefix)

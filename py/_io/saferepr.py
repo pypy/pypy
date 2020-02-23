@@ -21,6 +21,11 @@ class SafeRepr(reprlib.Repr):
                 return py.builtin._totext('"%s"') % u
             else:
                 return py.builtin._totext("'%s'") % u.replace("'", r"\'")
+
+        repr = builtin_repr
+        # ^^^ it's very annoying to display 'xx' instead of u'xx' when
+        # the difference can be essential, particularly in PyPy
+
         s = repr(x[:self.maxstring])
         if len(s) > self.maxstring:
             i = max(0, (self.maxstring-3)//2)

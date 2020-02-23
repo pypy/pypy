@@ -33,7 +33,7 @@ if sys.platform == 'win32':
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL,
-        save_err=rffi.RFFI_SAVE_LASTERROR)
+        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=True)
 
 else:
     from rpython.rlib import rposix
@@ -46,7 +46,8 @@ else:
     eci = ExternalCompilationInfo(
         includes = ['sys/time.h',
                     'limits.h',
-                    'semaphore.h'],
+                    'semaphore.h',
+                    ],
         libraries = libraries,
         )
 
@@ -57,7 +58,7 @@ else:
         TIMESPEC = platform.Struct('struct timespec', [('tv_sec', rffi.TIME_T),
                                                        ('tv_nsec', rffi.LONG)])
         SEM_FAILED = platform.ConstantInteger('SEM_FAILED')
-        SEM_VALUE_MAX = platform.ConstantInteger('SEM_VALUE_MAX')
+        SEM_VALUE_MAX = platform.DefinedConstantInteger('SEM_VALUE_MAX')
         SEM_TIMED_WAIT = platform.Has('sem_timedwait')
         SEM_T_SIZE = platform.SizeOf('sem_t')
 
@@ -70,6 +71,8 @@ else:
     #                rffi.cast(SEM_T, config['SEM_FAILED'])
     SEM_FAILED     = config['SEM_FAILED']
     SEM_VALUE_MAX  = config['SEM_VALUE_MAX']
+    if SEM_VALUE_MAX is None:      # on Hurd
+        SEM_VALUE_MAX = sys.maxint
     SEM_TIMED_WAIT = config['SEM_TIMED_WAIT']
     SEM_T_SIZE = config['SEM_T_SIZE']
     if sys.platform == 'darwin':
@@ -95,7 +98,7 @@ else:
                          save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_trywait = external('sem_trywait', [SEM_T], rffi.INT,
                             save_err=rffi.RFFI_SAVE_ERRNO)
-    _sem_post = external('sem_post', [SEM_T], rffi.INT,
+    _sem_post = external('sem_post', [SEM_T], rffi.INT, releasegil=False,
                          save_err=rffi.RFFI_SAVE_ERRNO)
     _sem_getvalue = external('sem_getvalue', [SEM_T, rffi.INTP], rffi.INT,
                              save_err=rffi.RFFI_SAVE_ERRNO)
@@ -257,6 +260,8 @@ if sys.platform == 'win32':
         res = rwin32.WaitForSingleObject(self.handle, 0)
 
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
 
         msecs = full_msecs
@@ -289,6 +294,8 @@ if sys.platform == 'win32':
 
         # handle result
         if res != rwin32.WAIT_TIMEOUT:
+            self.last_tid = rthread.get_ident()
+            self.count += 1
             return True
         return False
 
@@ -362,12 +369,14 @@ else:
                 except OSError as e:
                     if e.errno == errno.EINTR:
                         # again
+                        _check_signals(space)
                         continue
                     elif e.errno in (errno.EAGAIN, errno.ETIMEDOUT):
                         return False
                     raise
                 _check_signals(space)
-
+                self.last_tid = rthread.get_ident()
+                self.count += 1
                 return True
         finally:
             if deadline:
@@ -436,6 +445,7 @@ class W_SemLock(W_Root):
         self.count = 0
         self.maxvalue = maxvalue
         self.register_finalizer(space)
+        self.last_tid = -1
 
     def kind_get(self, space):
         return space.newint(self.kind)
@@ -445,27 +455,27 @@ class W_SemLock(W_Root):
         return w_handle(space, self.handle)
 
     def get_count(self, space):
-        return space.wrap(self.count)
+        return space.newint(self.count)
 
     def _ismine(self):
         return self.count > 0 and rthread.get_ident() == self.last_tid
 
     def is_mine(self, space):
-        return space.wrap(self._ismine())
+        return space.newbool(self._ismine())
 
     def is_zero(self, space):
         try:
             res = semlock_iszero(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(res)
+        return space.newbool(res)
 
     def get_value(self, space):
         try:
             val = semlock_getvalue(self, space)
         except OSError as e:
             raise wrap_oserror(space, e)
-        return space.wrap(val)
+        return space.newint(val)
 
     @unwrap_spec(block=bool)
     def acquire(self, space, block=True, w_timeout=None):
@@ -473,15 +483,15 @@ class W_SemLock(W_Root):
         if self.kind == RECURSIVE_MUTEX and self._ismine():
             self.count += 1
             return space.w_True
-
         try:
+            # sets self.last_tid and increments self.count
+            # those steps need to be as close as possible to
+            # acquiring the semlock for self._ismine() to support
+            # multiple threads
             got = semlock_acquire(self, space, block, w_timeout)
         except OSError as e:
             raise wrap_oserror(space, e)
-
         if got:
-            self.last_tid = rthread.get_ident()
-            self.count += 1
             return space.w_True
         else:
             return space.w_False
@@ -497,11 +507,13 @@ class W_SemLock(W_Root):
                 return
 
         try:
+            # Note: a succesful semlock_release() must not release the GIL,
+            # otherwise there is a race condition on self.count
             semlock_release(self, space)
+            self.count -= 1
         except OSError as e:
             raise wrap_oserror(space, e)
 
-        self.count -= 1
 
     def after_fork(self):
         self.count = 0
@@ -510,7 +522,7 @@ class W_SemLock(W_Root):
     def rebuild(space, w_cls, w_handle, kind, maxvalue):
         self = space.allocate_instance(W_SemLock, w_cls)
         self.__init__(space, handle_w(space, w_handle), kind, maxvalue)
-        return space.wrap(self)
+        return self
 
     def enter(self, space):
         return self.acquire(space, w_timeout=space.w_None)
@@ -537,7 +549,7 @@ def descr_new(space, w_subtype, kind, value, maxvalue):
     self = space.allocate_instance(W_SemLock, w_subtype)
     self.__init__(space, handle, kind, maxvalue)
 
-    return space.wrap(self)
+    return self
 
 W_SemLock.typedef = TypeDef(
     "SemLock",

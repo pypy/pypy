@@ -109,9 +109,8 @@ class AppTest_fast_path_from_list(object):
         P_BOOL = _cffi_backend.new_pointer_type(BOOL)
         BOOL_ARRAY = _cffi_backend.new_array_type(P_BOOL, None)
         buf = _cffi_backend.newp(BOOL_ARRAY, [1, 0])
-        assert buf[0] == 1
-        assert buf[1] == 0
-        assert type(buf[1]) is int
+        assert buf[0] is True
+        assert buf[1] is False
         raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [2])
         raises(OverflowError, _cffi_backend.newp, BOOL_ARRAY, [-1])
 
@@ -268,3 +267,17 @@ class AppTest_fast_path_to_list(object):
         assert lst == [1.25, -2.5, 3.75]
         if not self.runappdirect:
             assert self.get_count() == 1
+
+    def test_too_many_initializers(self):
+        import _cffi_backend
+        ffi = _cffi_backend.FFI()
+        raises(IndexError, ffi.new, "int[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "int[4]", tuple(range(999)))
+        raises(IndexError, ffi.new, "unsigned int[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "float[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "long double[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "char[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "wchar_t[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "_Bool[4]", [10, 20, 30, 40, 50])
+        raises(IndexError, ffi.new, "int[4][4]", [[3,4,5,6]] * 5)
+        raises(IndexError, ffi.new, "int[4][4]", [[3,4,5,6,7]] * 4)

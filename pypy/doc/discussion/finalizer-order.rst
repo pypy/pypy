@@ -60,7 +60,7 @@ Register_finalizer
 The interface for full finalizers is made with PyPy in mind, but should
 be generally useful.
 
-The idea is that you subclass the ``rgc.FinalizerQueue`` class::
+The idea is that you subclass the ``rgc.FinalizerQueue`` class:
 
 * You must give a class-level attribute ``base_class``, which is the
   base class of all instances with a finalizer.  (If you need

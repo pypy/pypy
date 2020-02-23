@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import jit
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.module import Module
@@ -9,13 +10,13 @@ from pypy.module._cffi_backend.lib_obj import W_LibObject
 
 
 VERSION_MIN    = 0x2601
-VERSION_MAX    = 0x27FF
+VERSION_MAX    = 0x28FF
 
 VERSION_EXPORT = 0x0A03
 
 INITFUNCPTR = lltype.Ptr(lltype.FuncType([rffi.VOIDPP], lltype.Void))
 
-
+@jit.dont_look_inside
 def load_cffi1_module(space, name, path, initptr):
     # This is called from pypy.module.cpyext.api.load_extension_module()
     from pypy.module._cffi_backend.call_python import get_ll_cffi_call_python
@@ -39,12 +40,13 @@ def load_cffi1_module(space, name, path, initptr):
     if src_ctx.c_includes:
         lib.make_includes_from(src_ctx.c_includes)
 
-    w_name = space.wrap(name)
+    w_name = space.newtext(name)
     module = Module(space, w_name)
     if path is not None:
-        module.setdictvalue(space, '__file__', space.wrap(path))
-    module.setdictvalue(space, 'ffi', space.wrap(ffi))
-    module.setdictvalue(space, 'lib', space.wrap(lib))
+        module.setdictvalue(space, '__file__', space.newtext(path))
+    module.setdictvalue(space, 'ffi', ffi)
+    module.setdictvalue(space, 'lib', lib)
     w_modules_dict = space.sys.get('modules')
-    space.setitem(w_modules_dict, w_name, space.wrap(module))
-    space.setitem(w_modules_dict, space.wrap(name + '.lib'), space.wrap(lib))
+    space.setitem(w_modules_dict, w_name, module)
+    space.setitem(w_modules_dict, space.newtext(name + '.lib'), lib)
+    return module

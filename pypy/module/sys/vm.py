@@ -3,7 +3,7 @@ Implementation of interpreter-level 'sys' routines.
 """
 
 from rpython.rlib import jit
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt
@@ -36,7 +36,7 @@ def getframe(space, depth):
             raise oefmt(space.w_ValueError, "call stack is not deep enough")
         if depth == 0:
             f.mark_as_escaped()
-            return space.wrap(f)
+            return f
         depth -= 1
         f = ec.getnextframe_nohidden(f)
 
@@ -49,24 +49,37 @@ approximative and checked at a lower level.  The default 1000
 reserves 768KB of stack space, which should suffice (on Linux,
 depending on the compiler settings) for ~1400 calls.  Setting the
 value to N reserves N/1000 times 768KB of stack space.
+
+Note that there are other factors that also limit the stack size.
+The operating system typically sets a maximum which can be changed
+manually (e.g. with "ulimit" on Linux) for the main thread.  For other
+threads you can configure the limit by calling "threading.stack_size()".
 """
     from rpython.rlib.rstack import _stack_set_length_fraction
+    from rpython.rlib.rgc import increase_root_stack_depth
     if new_limit <= 0:
         raise oefmt(space.w_ValueError, "recursion limit must be positive")
+    # Some programs use very large values to mean "don't check, I want to
+    # use as much as possible and then segfault".  Add a silent upper bound
+    # of 10**6 here, because huge values cause huge shadowstacks to be
+    # allocated (or MemoryErrors).
+    if new_limit > 1000000:
+        new_limit = 1000000
     space.sys.recursionlimit = new_limit
     _stack_set_length_fraction(new_limit * 0.001)
+    increase_root_stack_depth(int(new_limit * 0.001 * 163840))
 
 def getrecursionlimit(space):
     """Return the last value set by setrecursionlimit().
     """
-    return space.wrap(space.sys.recursionlimit)
+    return space.newint(space.sys.recursionlimit)
 
 @unwrap_spec(flag=bool)
 def set_track_resources(space, flag):
     space.sys.track_resources = flag
 
 def get_track_resources(space):
-    return space.wrap(space.sys.track_resources)
+    return space.newbool(space.sys.track_resources)
 
 @unwrap_spec(interval=int)
 def setcheckinterval(space, interval):
@@ -84,7 +97,7 @@ def getcheckinterval(space):
     result = space.actionflag.getcheckinterval()
     if result <= 1:
         result = 0
-    return space.wrap(result)
+    return space.newint(result)
 
 def exc_info(space):
     """Return the (type, value, traceback) of the most recent exception
@@ -98,7 +111,7 @@ def exc_info_with_tb(space):
         return space.newtuple([space.w_None, space.w_None, space.w_None])
     else:
         return space.newtuple([operror.w_type, operror.get_w_value(space),
-                               space.wrap(operror.get_traceback())])
+                               operror.get_w_traceback(space)])
 
 def exc_info_without_tb(space, frame):
     operror = frame.last_exception
@@ -220,22 +233,22 @@ def getwindowsversion(space):
     info = rwin32.GetVersionEx()
     w_windows_version_info = app.wget(space, "windows_version_info")
     raw_version = space.newtuple([
-        space.wrap(info[0]),
-        space.wrap(info[1]),
-        space.wrap(info[2]),
-        space.wrap(info[3]),
-        space.wrap(info[4]),
-        space.wrap(info[5]),
-        space.wrap(info[6]),
-        space.wrap(info[7]),
-        space.wrap(info[8]),
+        space.newint(info[0]),
+        space.newint(info[1]),
+        space.newint(info[2]),
+        space.newint(info[3]),
+        space.newtext(info[4]),
+        space.newint(info[5]),
+        space.newint(info[6]),
+        space.newint(info[7]),
+        space.newint(info[8]),
     ])
     return space.call_function(w_windows_version_info, raw_version)
 
 @jit.dont_look_inside
 def get_dllhandle(space):
     if not space.config.objspace.usemodules.cpyext:
-        return space.wrap(0)
+        return space.newint(0)
 
     return _get_dllhandle(space)
 
@@ -248,12 +261,26 @@ def _get_dllhandle(space):
     # from pypy.module._rawffi.interp_rawffi import W_CDLL
     # from rpython.rlib.clibffi import RawCDLL
     # cdll = RawCDLL(handle)
-    # return space.wrap(W_CDLL(space, "python api", cdll))
+    # return W_CDLL(space, "python api", cdll)
     # Provide a cpython-compatible int
     from rpython.rtyper.lltypesystem import lltype, rffi
-    return space.wrap(rffi.cast(lltype.Signed, handle))
+    return space.newint(rffi.cast(lltype.Signed, handle))
 
-getsizeof_missing = """sys.getsizeof() is not implemented on PyPy.
+getsizeof_missing = """getsizeof(...)
+    getsizeof(object, default) -> int
+    
+    Return the size of object in bytes.
+
+sys.getsizeof(object, default) will always return default on PyPy, and
+raise a TypeError if default is not provided.
+
+First note that the CPython documentation says that this function may
+raise a TypeError, so if you are seeing it, it means that the program
+you are using is not correctly handling this case.
+
+On PyPy, though, it always raises TypeError.  Before looking for
+alternatives, please take a moment to read the following explanation as
+to why it is the case.  What you are looking for may not be possible.
 
 A memory profiler using this function is most likely to give results
 inconsistent with reality on PyPy.  It would be possible to have

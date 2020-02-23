@@ -521,6 +521,10 @@ class LLFrame(object):
         if not x:
             raise LLAssertFailure(msg)
 
+    def op_debug_assert_not_none(self, x):
+        if not x:
+            raise LLAssertFailure("ll_assert_not_none() failed")
+
     def op_debug_fatalerror(self, ll_msg, ll_exc=None):
         msg = ''.join(ll_msg.chars)
         if ll_exc is None:
@@ -560,6 +564,9 @@ class LLFrame(object):
         pass
 
     def op_jit_conditional_call(self, *args):
+        raise NotImplementedError("should not be called while not jitted")
+
+    def op_jit_conditional_call_value(self, *args):
         raise NotImplementedError("should not be called while not jitted")
 
     def op_get_exception_addr(self, *args):
@@ -735,6 +742,9 @@ class LLFrame(object):
     def op_zero_gc_pointers_inside(self, obj):
         raise NotImplementedError("zero_gc_pointers_inside")
 
+    def op_gc_get_stats(self, obj):
+        raise NotImplementedError("gc_get_stats")
+
     def op_gc_writebarrier_before_copy(self, source, dest,
                                        source_start, dest_start, length):
         if hasattr(self.heap, 'writebarrier_before_copy'):
@@ -809,6 +819,18 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
+    def op_gc__collect_step(self):
+        return self.heap.collect_step()
+
+    def op_gc__enable(self):
+        self.heap.enable()
+
+    def op_gc__disable(self):
+        self.heap.disable()
+
+    def op_gc__isenabled(self):
+        return self.heap.isenabled()
+
     def op_gc_heap_stats(self):
         raise NotImplementedError
 
@@ -855,6 +877,9 @@ class LLFrame(object):
     def op_gc_adr_of_root_stack_top(self):
         raise NotImplementedError
 
+    def op_gc_modified_shadowstack(self):
+        raise NotImplementedError
+
     def op_gc_call_rtti_destructor(self, rtti, addr):
         if hasattr(rtti._obj, 'destructor_funcptr'):
             d = rtti._obj.destructor_funcptr
@@ -888,11 +913,11 @@ class LLFrame(object):
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
 
-    def op_gc_asmgcroot_static(self, index):
-        raise NotImplementedError("gc_asmgcroot_static")
-
     def op_gc_stack_bottom(self):
-        pass       # marker for trackgcroot.py
+        # Marker when we enter RPython code from C code.  It used to be
+        # essential for trackgcroot.py.  Nowaways it is mostly unused,
+        # except by revdb.
+        pass
 
     def op_gc_pin(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
@@ -905,11 +930,6 @@ class LLFrame(object):
     def op_gc__is_pinned(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
         return self.heap._is_pinned(addr)
-
-    def op_gc_detach_callback_pieces(self):
-        raise NotImplementedError("gc_detach_callback_pieces")
-    def op_gc_reattach_callback_pieces(self):
-        raise NotImplementedError("gc_reattach_callback_pieces")
 
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
@@ -956,6 +976,12 @@ class LLFrame(object):
     def op_gc_rawrefcount_create_link_pypy(self, *args):
         raise NotImplementedError("gc_rawrefcount_create_link_pypy")
 
+    def op_gc_rawrefcount_mark_deallocating(self, *args):
+        raise NotImplementedError("gc_rawrefcount_mark_deallocating")
+
+    def op_gc_rawrefcount_next_dead(self, *args):
+        raise NotImplementedError("gc_rawrefcount_next_dead")
+
     def op_do_malloc_fixedsize(self):
         raise NotImplementedError("do_malloc_fixedsize")
     def op_do_malloc_fixedsize_clear(self):
@@ -981,6 +1007,11 @@ class LLFrame(object):
         return self.op_raw_load(RESTYPE, _address_of_thread_local(), offset)
     op_threadlocalref_get.need_result_type = True
 
+    op_threadlocalref_load = op_threadlocalref_get
+
+    def op_threadlocalref_store(self, offset, value):
+        self.op_raw_store(_address_of_thread_local(), offset, value)
+
     def op_threadlocalref_acquire(self, prev):
         raise NotImplementedError
     def op_threadlocalref_release(self, prev):
@@ -991,11 +1022,15 @@ class LLFrame(object):
     # __________________________________________________________
     # operations on addresses
 
-    def op_raw_malloc(self, size):
+    def op_raw_malloc(self, size, zero):
         assert lltype.typeOf(size) == lltype.Signed
-        return llmemory.raw_malloc(size)
+        return llmemory.raw_malloc(size, zero=zero)
 
-    op_boehm_malloc = op_boehm_malloc_atomic = op_raw_malloc
+    def op_boehm_malloc(self, size):
+        assert lltype.typeOf(size) == lltype.Signed
+        raw = llmemory.raw_malloc(size)
+        return llmemory.cast_adr_to_ptr(raw, llmemory.GCREF)
+    op_boehm_malloc_atomic = op_boehm_malloc
 
     def op_boehm_register_finalizer(self, p, finalizer):
         pass
@@ -1059,12 +1094,11 @@ class LLFrame(object):
         elif getattr(addr, 'is_fake_thread_local_addr', False):
             assert type(offset) is CDefinedIntSymbolic
             self.llinterpreter.get_tlobj()[offset.expr] = value
+        elif isinstance(offset, llmemory.ArrayLengthOffset):
+            assert len(addr.ptr) == value  # invalid ArrayLengthOffset
         else:
             assert offset.TYPE == ARGTYPE
             getattr(addr, str(ARGTYPE).lower())[offset.repeat] = value
-
-    def op_stack_malloc(self, size): # mmh
-        raise NotImplementedError("backend only")
 
     def op_track_alloc_start(self, addr):
         # we don't do tracking at this level
@@ -1072,6 +1106,65 @@ class LLFrame(object):
 
     def op_track_alloc_stop(self, addr):
         checkadr(addr)
+
+    def op_gc_enter_roots_frame(self, gcdata, numcolors):
+        """Fetch from the gcdata the current root_stack_top; bump it
+        by 'numcolors'; and assert that the new area is fully
+        uninitialized so far.
+        """
+        assert not hasattr(self, '_inside_roots_frame')
+        p = gcdata.inst_root_stack_top.ptr
+        q = lltype.direct_ptradd(p, numcolors)
+        self._inside_roots_frame = (p, q, numcolors, gcdata)
+        gcdata.inst_root_stack_top = llmemory.cast_ptr_to_adr(q)
+        #
+        array = p._obj._parentstructure()
+        index = p._obj._parent_index
+        for i in range(index, index + numcolors):
+            assert isinstance(array.getitem(i), lltype._uninitialized)
+
+    def op_gc_leave_roots_frame(self):
+        """Cancel gc_enter_roots_frame() by removing the frame from
+        the root_stack_top.  Writes uninitialized entries in its old place.
+        """
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert gcdata.inst_root_stack_top.ptr == q
+        gcdata.inst_root_stack_top = llmemory.cast_ptr_to_adr(p)
+        del self._inside_roots_frame
+        #
+        array = p._obj._parentstructure()
+        index = p._obj._parent_index
+        for i in range(index, index + numcolors):
+            array.setitem(i, lltype._uninitialized(llmemory.Address))
+
+    def op_gc_save_root(self, num, value):
+        """Save one value (int or ptr) into the frame."""
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert 0 <= num < numcolors
+        if isinstance(value, int):
+            assert value & 1    # must be odd
+            v = llmemory.cast_int_to_adr(value)
+        else:
+            v = llmemory.cast_ptr_to_adr(value)
+        llmemory.cast_ptr_to_adr(p).address[num] = v
+
+    def op_gc_restore_root(self, c_num, v_value):
+        """Restore one value from the frame."""
+        num = c_num.value
+        (p, q, numcolors, gcdata) = self._inside_roots_frame
+        assert 0 <= num < numcolors
+        assert isinstance(v_value.concretetype, lltype.Ptr)
+        assert v_value.concretetype.TO._gckind == 'gc'
+        newvalue = llmemory.cast_ptr_to_adr(p).address[num]
+        newvalue = llmemory.cast_adr_to_ptr(newvalue, v_value.concretetype)
+        self.setvar(v_value, newvalue)
+    op_gc_restore_root.specialform = True
+
+    def op_gc_push_roots(self, *args):
+        raise NotImplementedError
+
+    def op_gc_pop_roots(self, *args):
+        raise NotImplementedError
 
     # ____________________________________________________________
     # Overflow-detecting variants
@@ -1124,6 +1217,45 @@ class LLFrame(object):
         exc_data.exc_type = lltype.typeOf(etype)._defl()
         exc_data.exc_value = lltype.typeOf(evalue)._defl()
         return bool(etype)
+
+    def op_gc_move_out_of_nursery(self, obj):
+        raise NotImplementedError("gc_move_out_of_nursery")
+
+    def op_gc_increase_root_stack_depth(self, new_depth):
+        raise NotImplementedError("gc_increase_root_stack_depth")
+
+    def op_revdb_stop_point(self, *args):
+        pass
+    def op_revdb_send_answer(self, *args):
+        raise NotImplementedError
+    def op_revdb_breakpoint(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_value(self, *args):
+        raise NotImplementedError
+    def op_revdb_get_unique_id(self, *args):
+        raise NotImplementedError
+    def op_revdb_watch_save_state(self, *args):
+        return False
+    def op_revdb_watch_restore_state(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_create(self, *args):
+        raise NotImplementedError
+    def op_revdb_weakref_deref(self, *args):
+        raise NotImplementedError
+    def op_revdb_call_destructor(self, *args):
+        raise NotImplementedError
+    def op_revdb_strtod(self, *args):
+        raise NotImplementedError
+    def op_revdb_frexp(self, *args):
+        raise NotImplementedError
+    def op_revdb_modf(self, *args):
+        raise NotImplementedError
+    def op_revdb_dtoa(self, *args):
+        raise NotImplementedError
+    def op_revdb_do_next_call(self):
+        pass
+    def op_revdb_set_thread_breakpoint(self, *args):
+        raise NotImplementedError
 
 
 class Tracer(object):

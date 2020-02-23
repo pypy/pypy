@@ -27,12 +27,12 @@ for name in ll_math.unary_math_functions:
 
 _register = [  # (module, [(method name, arg types, return type), ...], ...)
     (rfloat, [
-        ('isinf', [float], bool),
-        ('isnan', [float], bool),
         ('isfinite', [float], bool),
-        ('copysign', [float, float], float),
     ]),
     (math, [
+       ('copysign', [float, float], float),
+       ('isinf', [float], bool),
+       ('isnan', [float], bool),
        ('floor', [float], float),
        ('sqrt', [float], float),
        ('log', [float], float),

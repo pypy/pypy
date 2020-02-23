@@ -657,6 +657,23 @@ class BaseTestTextCRLFFilter(BaseRtypingTest):
             assert line == ''
         self.interpret(f, [])
 
+    def test_read1(self):
+        s_input = "abc\r\nabc\nd\r\nef\r\ngha\rbc\rdef\n\r\n\r"
+        s_output = "abc\nabc\nd\nef\ngha\rbc\rdef\n\n\r"
+        assert s_output == s_input.replace('\r\n', '\n')
+        packets = list(s_input)
+        expected = list(s_output)
+        crlf = streamio.TextCRLFFilter(TSource(packets))
+        def f():
+            blocks = []
+            while True:
+                block = crlf.read(1)
+                if not block:
+                    break
+                blocks.append(block)
+            assert blocks == expected
+        self.interpret(f, [])
+
 class TestTextCRLFFilterLLInterp(BaseTestTextCRLFFilter):
     pass
 

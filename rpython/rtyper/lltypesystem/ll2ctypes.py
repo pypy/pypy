@@ -175,7 +175,16 @@ def _setup_ctypes_cache():
                 if res >= (1 << 127):
                     res -= 1 << 128
                 return res
+        class c_uint128(ctypes.Array):   # based on 2 ulongs
+            _type_ = ctypes.c_uint64
+            _length_ = 2
+            @property
+            def value(self):
+                res = self[0] | (self[1] << 64)
+                return res
+
         _ctypes_cache[rffi.__INT128_T] = c_int128
+        _ctypes_cache[rffi.__UINT128_T] = c_uint128
 
     # for unicode strings, do not use ctypes.c_wchar because ctypes
     # automatically converts arrays into unicode strings.
@@ -815,6 +824,10 @@ def lltype2ctypes(llobj, normalize=True):
             else:
                 container = llobj._obj
             if isinstance(T.TO, lltype.FuncType):
+                if hasattr(llobj._obj0, '_real_integer_addr'):
+                    ctypes_func_type = get_ctypes_type(T)
+                    return ctypes.cast(llobj._obj0._real_integer_addr(),
+                                       ctypes_func_type)
                 # XXX a temporary workaround for comparison of lltype.FuncType
                 key = llobj._obj.__dict__.copy()
                 key['_TYPE'] = repr(key['_TYPE'])
@@ -1039,7 +1052,8 @@ def ctypes2lltype(T, cobj):
                     cobj = ctypes.cast(cobjkey, type(cobj))
                     _callable = get_ctypes_trampoline(T.TO, cobj)
                     return lltype.functionptr(T.TO, name,
-                                              _callable=_callable)
+                                              _callable=_callable,
+                                          _real_integer_addr=lambda: cobjkey)
             elif isinstance(T.TO, lltype.OpaqueType):
                 if T == llmemory.GCREF:
                     container = _llgcopaque(cobj)
@@ -1142,7 +1156,7 @@ if ctypes:
     libc_name = get_libc_name()     # Make sure the name is determined during import, not at runtime
     if _FREEBSD:
         RTLD_DEFAULT = -2  # see <dlfcn.h>
-        rtld_default_lib = ctypes.CDLL("RTLD_DEFAULT", handle=RTLD_DEFAULT, **load_library_kwargs)
+        rtld_default_lib = ctypes.CDLL("ld-elf.so.1", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
 
@@ -1238,7 +1252,7 @@ def get_ctypes_callable(funcptr, calling_conv):
 
     if cfunc is None:
         if _FREEBSD and funcname in ('dlopen', 'fdlopen', 'dlsym', 'dlfunc', 'dlerror', 'dlclose'):
-            cfunc = get_on_lib(rtld_default_lib, funcname)
+            cfunc = rtld_default_lib[funcname]
         else:
             cfunc = get_on_lib(standard_c_lib, funcname)
         # XXX magic: on Windows try to load the function from 'kernel32' too
@@ -1296,6 +1310,10 @@ class LL2CtypesCallable(object):
                 self.trampoline = get_ctypes_trampoline(self.FUNCTYPE, cfunc)
         # perform the call
         return self.trampoline(*argvalues)
+
+    def get_real_address(self):
+        cfunc = get_ctypes_callable(self.funcptr, self.calling_conv)
+        return ctypes.cast(cfunc, ctypes.c_void_p).value
 
 def get_ctypes_trampoline(FUNCTYPE, cfunc):
     RESULT = FUNCTYPE.RESULT
@@ -1437,7 +1455,7 @@ class _lladdress(long):
     def __new__(cls, void_p):
         if isinstance(void_p, (int, long)):
             void_p = ctypes.c_void_p(void_p)
-        self = long.__new__(cls, void_p.value)
+        self = long.__new__(cls, intmask(void_p.value))
         self.void_p = void_p
         self.intval = intmask(void_p.value)
         return self

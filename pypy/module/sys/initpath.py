@@ -117,7 +117,7 @@ def compute_stdlib_path(state, prefix):
 
     if state is not None:    # 'None' for testing only
         lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.wrap(lib_extensions)
+        state.w_lib_extensions = state.space.newtext(lib_extensions)
         importlist.append(lib_extensions)
 
     importlist.append(lib_pypy)
@@ -147,17 +147,17 @@ def compute_stdlib_path_maybe(state, prefix):
         return None
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_executable(space, executable):
-    return space.wrap(find_executable(executable))
+    return space.newtext(find_executable(executable))
 
 
-@unwrap_spec(filename='str0')
+@unwrap_spec(filename='fsencode')
 def pypy_resolvedirof(space, filename):
-    return space.wrap(resolvedirof(filename))
+    return space.newtext(resolvedirof(filename))
 
 
-@unwrap_spec(executable='str0')
+@unwrap_spec(executable='fsencode')
 def pypy_find_stdlib(space, executable):
     path, prefix = None, None
     if executable != '*':
@@ -171,10 +171,10 @@ def pypy_find_stdlib(space, executable):
                 path, prefix = find_stdlib(get_state(space), dyn_path)
         if path is None:
             return space.w_None
-    w_prefix = space.wrap(prefix)
-    space.setitem(space.sys.w_dict, space.wrap('prefix'), w_prefix)
-    space.setitem(space.sys.w_dict, space.wrap('exec_prefix'), w_prefix)
-    return space.newlist([space.wrap(p) for p in path])
+    w_prefix = space.newtext(prefix)
+    space.setitem(space.sys.w_dict, space.newtext('prefix'), w_prefix)
+    space.setitem(space.sys.w_dict, space.newtext('exec_prefix'), w_prefix)
+    return space.newlist([space.newtext(p) for p in path])
 
 
 # ____________________________________________________________
@@ -183,11 +183,13 @@ def pypy_find_stdlib(space, executable):
 if os.name == 'nt':
 
     _source_code = r"""
+#ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
+#endif
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-RPY_EXPORTED
 char *_pypy_init_home(void)
 {
     HMODULE hModule = 0;
@@ -223,7 +225,6 @@ else:
 #include <stdio.h>
 #include <stdlib.h>
 
-RPY_EXPORTED
 char *_pypy_init_home(void)
 {
     Dl_info info;
@@ -241,11 +242,27 @@ char *_pypy_init_home(void)
 }
 """
 
+_source_code += """
+inline
+void _pypy_init_free(char *p)
+{
+    free(p);
+}
+"""
+
+if we_are_translated():
+   post_include_bits = []
+else:
+    # for tests 
+    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);',
+                       'RPY_EXPORTED void _pypy_init_free(char*);',
+                      ]
+
 _eci = ExternalCompilationInfo(separate_module_sources=[_source_code],
-    post_include_bits=['RPY_EXPORTED char *_pypy_init_home(void);'])
+                               post_include_bits=post_include_bits)
 _eci = _eci.merge(rdynload.eci)
 
 pypy_init_home = rffi.llexternal("_pypy_init_home", [], rffi.CCHARP,
                                  _nowrapper=True, compilation_info=_eci)
-pypy_init_free = rffi.llexternal("free", [rffi.CCHARP], lltype.Void,
+pypy_init_free = rffi.llexternal("_pypy_init_free", [rffi.CCHARP], lltype.Void,
                                  _nowrapper=True, compilation_info=_eci)

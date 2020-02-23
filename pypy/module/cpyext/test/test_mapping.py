@@ -1,5 +1,8 @@
 from pypy.module.cpyext.test.test_api import BaseApiTest
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import lltype, rffi
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
+
 
 class TestMapping(BaseApiTest):
     def test_check(self, space, api):
@@ -25,8 +28,8 @@ class TestMapping(BaseApiTest):
         w_d = space.newdict()
         key = rffi.str2charp("key")
         api.PyMapping_SetItemString(w_d, key, space.wrap(42))
-        assert 42 == space.unwrap(
-            api.PyMapping_GetItemString(w_d, key))
+        assert 42 == space.unwrap(get_w_obj_and_decref(space,
+            api.PyMapping_GetItemString(w_d, key)))
         rffi.free_charp(key)
 
     def test_haskey(self, space, api):
@@ -38,3 +41,23 @@ class TestMapping(BaseApiTest):
 
         assert api.PyMapping_HasKey(w_d, w_d) == 0
         # and no error is set
+
+
+class AppTestMapping(AppTestCpythonExtensionBase):
+
+    def test_getitemstring_returns_new_but_borrowed_ref(self):
+        module = self.import_extension('foo', [
+           ("test_mapping", "METH_O",
+            '''
+                PyObject *value = PyMapping_GetItemString(args, "a");
+                /* officially, "value" can have a refcount equal to one,
+                   but some code out there assumes that it has a refcnt
+                   of at least two --- which is bogus --- because it
+                   is generally kept alive by the container. */
+                PyObject *refcnt = PyInt_FromLong(value->ob_refcnt);
+                Py_DECREF(value);
+                return refcnt;
+            '''),])
+        d = {"a": 42}
+        res = module.test_mapping(d)
+        assert res > 1

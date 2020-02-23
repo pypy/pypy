@@ -6,4 +6,4 @@ class Cache:
 
 def wrap_thread_error(space, msg):
     w_error = space.fromcache(Cache).w_error
-    return OperationError(w_error, space.wrap(msg))
+    return OperationError(w_error, space.newtext(msg))

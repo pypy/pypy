@@ -17,7 +17,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl import reader, commands
+from pyrepl import reader, commands, input
 from pyrepl.reader import Reader as R
 
 isearch_keymap = tuple(
@@ -111,7 +111,7 @@ class forward_history_isearch(commands.Command):
         r.isearch_term = ''
         r.dirty = 1
         r.push_input_trans(r.isearch_trans)
-        
+
 
 class reverse_history_isearch(commands.Command):
     def do(self):
@@ -214,11 +214,10 @@ class HistoricalReader(R):
                   isearch_forwards, isearch_backwards, operate_and_get_next]:
             self.commands[c.__name__] = c
             self.commands[c.__name__.replace('_', '-')] = c
-        from pyrepl import input
         self.isearch_trans = input.KeymapTranslator(
             isearch_keymap, invalid_cls=isearch_end,
             character_cls=isearch_add_character)
-        
+
     def select_item(self, i):
         self.transient_history[self.historyi] = self.get_unicode()
         buf = self.transient_history.get(i)
@@ -303,7 +302,7 @@ def test():
     reader.ps1 = "h**> "
     reader.ps2 = "h/*> "
     reader.ps3 = "h|*> "
-    reader.ps4 = "h\*> "
+    reader.ps4 = r"h\*> "
     while reader.readline():
         pass
 

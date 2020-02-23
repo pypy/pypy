@@ -17,6 +17,8 @@ typedef struct {
     PyObject *step;
 } PySliceObject;
 
+#define PySlice_Check(op) (Py_TYPE(op) == &PySlice_Type)
+    
 #ifdef __cplusplus
 }
 #endif

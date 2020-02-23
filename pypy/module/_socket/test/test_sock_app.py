@@ -1,4 +1,5 @@
 import sys, os
+import socket
 import pytest
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
@@ -9,8 +10,6 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=['_socket', 'array', 'struct'])
-    global socket
-    import socket
     mod.w_socket = space.appexec([], "(): import _socket as m; return m")
     mod.path = udir.join('fd')
     mod.path.write('fo')
@@ -56,15 +55,11 @@ def test_getservbyname():
                         "(_socket, name): return _socket.getservbyname(name, 'tcp')")
     assert space.unwrap(port) == 25
     # 1 arg version
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyname second argument is not optional before python 2.4")
     port = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getservbyname(name)")
     assert space.unwrap(port) == 25
 
 def test_getservbyport():
-    if sys.version_info < (2, 4):
-        pytest.skip("getservbyport does not exist before python 2.4")
     port = 25
     # 2 args version
     name = space.appexec([w_socket, space.wrap(port)],
@@ -83,21 +78,15 @@ def test_getservbyport():
                          "(_socket, port): return _socket.getservbyport(port)")
     assert space.unwrap(name) == "smtp"
 
-    from pypy.interpreter.error import OperationError
-    exc = raises(OperationError, space.appexec,
-           [w_socket], "(_socket): return _socket.getservbyport(-1)")
-    assert exc.value.match(space, space.w_ValueError)
-
 def test_getprotobyname():
     name = "tcp"
     w_n = space.appexec([w_socket, space.wrap(name)],
                         "(_socket, name): return _socket.getprotobyname(name)")
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
+@pytest.mark.skipif("not hasattr(socket, 'fromfd')")
 def test_fromfd():
     # XXX review
-    if not hasattr(socket, 'fromfd'):
-        pytest.skip("No socket.fromfd on this platform")
     orig_fd = path.open()
     fd = space.appexec([w_socket, space.wrap(orig_fd.fileno()),
             space.wrap(socket.AF_INET), space.wrap(socket.SOCK_STREAM),
@@ -155,9 +144,8 @@ def test_aton_ntoa():
                          "(_socket, p): return _socket.inet_ntoa(p)")
     assert space.unwrap(w_ip) == ip
 
+@pytest.mark.skipif("not hasattr(socket, 'inet_pton')")
 def test_pton_ntop_ipv4():
-    if not hasattr(socket, 'inet_pton'):
-        pytest.skip('No socket.inet_pton on this platform')
     tests = [
         ("123.45.67.89", "\x7b\x2d\x43\x59"),
         ("0.0.0.0", "\x00" * 4),
@@ -214,11 +202,6 @@ def test_pton_ipv6():
             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")
         assert space.unwrap(w_packed) == packed
 
-def test_has_ipv6():
-    pytest.skip("has_ipv6 is always True on PyPy for now")
-    res = space.appexec([w_socket], "(_socket): return _socket.has_ipv6")
-    assert space.unwrap(res) == socket.has_ipv6
-
 def test_getaddrinfo():
     host = "localhost"
     port = 25
@@ -229,10 +212,10 @@ def test_getaddrinfo():
     w_l = space.appexec([w_socket, space.wrap(host), space.wrap(port)],
                         "(_socket, host, port): return _socket.getaddrinfo(host, long(port))")
     assert space.unwrap(w_l) == info
-    pytest.skip("Unicode conversion is too slow")
-    w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
-                        "(_socket, host, port): return _socket.getaddrinfo(host, port)")
-    assert space.unwrap(w_l) == info
+    # Unicode conversion is too slow
+    # w_l = space.appexec([w_socket, space.wrap(unicode(host)), space.wrap(port)],
+    #                     "(_socket, host, port): return _socket.getaddrinfo(host, port)")
+    # assert space.unwrap(w_l) == info
 
 def test_unknown_addr_as_object():
     from pypy.module._socket.interp_socket import addr_as_object
@@ -309,10 +292,10 @@ def test_timeout():
 
 
 class AppTestSocket:
-    spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct'])
+    spaceconfig = dict(usemodules=['_socket', 'struct'])
 
     def setup_class(cls):
-        cls.space = space
+        space = cls.space
         cls.w_udir = space.wrap(str(udir))
         cls.w_regex_search = space.wrap(interp2app(regex_search))
 
@@ -324,6 +307,11 @@ class AppTestSocket:
         import _socket
         assert _socket.socket.__name__ == 'socket'
         assert _socket.socket.__module__ == '_socket'
+
+    def test_overflow_errors(self):
+        import _socket
+        raises(OverflowError, _socket.getservbyport, -1)
+        raises(OverflowError, _socket.getservbyport, 65536)
 
     def test_ntoa_exception(self):
         import _socket
@@ -418,9 +406,7 @@ class AppTestSocket:
     def test_track_resources(self):
         import os, gc, sys, cStringIO
         import _socket
-        if '__pypy__' not in sys.builtin_module_names:
-            skip("pypy specific test")
-        #
+
         def fn(flag1, flag2, do_close=False):
             sys.pypy_set_track_resources(flag1)
             mysock = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -495,7 +481,8 @@ class AppTestSocket:
     def test_socket_connect_typeerrors(self):
         tests = [
             "",
-            ("80"),
+            "80",
+            ("80",),
             ("80", "80"),
             (80, 80),
         ]
@@ -519,44 +506,25 @@ class AppTestSocket:
     def test_NtoH(self):
         import sys
         import _socket as socket
-        # This just checks that htons etc. are their own inverse,
-        # when looking at the lower 16 or 32 bits.
+        # This checks that htons etc. are their own inverse,
+        # when looking at the lower 16 or 32 bits.  It also
+        # checks that we get OverflowErrors when calling with -1,
+        # or (for XtoXl()) with too large values.  For XtoXs()
+        # large values are silently truncated instead, like CPython.
         sizes = {socket.htonl: 32, socket.ntohl: 32,
                  socket.htons: 16, socket.ntohs: 16}
         for func, size in sizes.items():
             mask = (1 << size) - 1
-            for i in (0, 1, 0xffff, ~0xffff, 2, 0x01234567, 0x76543210):
+            for i in (0, 1, 0xffff, 0xffff0000, 2, 0x01234567, 0x76543210):
                 assert i & mask == func(func(i&mask)) & mask
 
             swapped = func(mask)
             assert swapped & mask == mask
-            try:
-                func(-1)
-            except (OverflowError, ValueError):
-                pass
-            else:
-                assert False
-            try:
-                func(sys.maxint*2+2)
-            except OverflowError:
-                pass
-            else:
-                assert False
-
-    def test_NtoH_overflow(self):
-        skip("we are not checking for overflowing values yet")
-        import _socket as socket
-        # Checks that we cannot give too large values to htons etc.
-        # Skipped for now; CPython 2.6 is also not consistent.
-        sizes = {socket.htonl: 32, socket.ntohl: 32,
-                 socket.htons: 16, socket.ntohs: 16}
-        for func, size in sizes.items():
-            try:
-                func(1 << size)
-            except OverflowError:
-                pass
-            else:
-                assert False
+            raises(OverflowError, func, -1)
+            raises(OverflowError, func, -1L)
+            if size > 16:    # else, values too large are ignored
+                raises(OverflowError, func, 2 ** size)
+                raises(OverflowError, func, 2L ** size)
 
     def test_newsocket(self):
         import socket
@@ -599,6 +567,45 @@ class AppTestSocket:
                                 intsize)
         (reuse,) = struct.unpack('i', reusestr)
         assert reuse != 0
+        # try to call setsockopt() with a buffer argument
+        reusestr = struct.pack('i', 0)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, buffer(reusestr))
+        reusestr = s.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,
+                                intsize)
+        (reuse,) = struct.unpack('i', reusestr)
+        assert reuse == 0
+
+    def test_getsetsockopt_zero(self):
+        # related to issue #2561: when specifying the buffer size param:
+        # if 0 or None, should return the setted value,
+        # otherwise an empty buffer of the specified size
+        import _socket
+        s = _socket.socket()
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 0
+        ret = s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 2)
+        if len(ret) == 1:
+            # win32 returns a byte-as-bool
+            assert ret == b'\x00'
+        else:
+            assert ret == b'\x00\x00'
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+
+    def test_getsockopt_bad_length(self):
+        import _socket
+        s = _socket.socket()
+        buf = s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1024)
+        if len(buf) == 1:
+            # win32 returns a byte-as-bool
+            assert buf == b'\x00'
+        else:
+            assert buf == b'\x00' * 4
+        raises(_socket.error, s.getsockopt,
+               _socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1025)
+        raises(_socket.error, s.getsockopt,
+               _socket.IPPROTO_TCP, _socket.TCP_NODELAY, -1)
 
     def test_socket_ioctl(self):
         import _socket, sys
@@ -686,15 +693,15 @@ class AppTestSocket:
         self.foo = _socket.socket()
 
 
+@pytest.mark.skipif(not hasattr(os, 'getpid'),
+    reason="AF_NETLINK needs os.getpid()")
 class AppTestNetlink:
     def setup_class(cls):
-        if not hasattr(os, 'getpid'):
-            pytest.skip("AF_NETLINK needs os.getpid()")
+        cls.space = space
         w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_NETLINK')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_NETLINK on this platform")
-        cls.space = space
 
     def test_connect_to_kernel_netlink_routing_socket(self):
         import _socket, os
@@ -706,15 +713,15 @@ class AppTestNetlink:
         assert b == 0
 
 
+@pytest.mark.skipif(not hasattr(os, 'getuid') or os.getuid() != 0,
+    reason="AF_PACKET needs to be root for testing")
 class AppTestPacket:
     def setup_class(cls):
-        if not hasattr(os, 'getuid') or os.getuid() != 0:
-            pytest.skip("AF_PACKET needs to be root for testing")
+        cls.space = space
         w_ok = space.appexec([], "(): import _socket; " +
                                  "return hasattr(_socket, 'AF_PACKET')")
         if not space.is_true(w_ok):
             pytest.skip("no AF_PACKET on this platform")
-        cls.space = space
 
     def test_convert_between_tuple_and_sockaddr_ll(self):
         import _socket
@@ -857,6 +864,14 @@ class AppTestSocketTCP:
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         assert cli.family == socket.AF_INET
+
+    def test_missing_error_catching(self):
+        from _socket import socket, error
+        s = socket()
+        s.close()
+        s.settimeout(1)          # EBADF, but ignored on Python 2
+        s.setblocking(True)      # EBADF, but ignored on Python 2
+        raises(error, s.getsockopt, 42, 84, 8)    # EBADF
 
 
 class AppTestErrno:

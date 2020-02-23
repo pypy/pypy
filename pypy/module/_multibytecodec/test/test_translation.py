@@ -1,6 +1,7 @@
 from pypy.module._multibytecodec import c_codecs
 from rpython.translator.c.test import test_standalone
 from rpython.config.translationoption import get_combined_translation_config
+from rpython.rlib import rutf8
 
 
 class TestTranslation(test_standalone.StandaloneTests):
@@ -13,7 +14,8 @@ class TestTranslation(test_standalone.StandaloneTests):
             codecname, string = argv[1], argv[2]
             c = c_codecs.getcodec(codecname)
             u = c_codecs.decode(c, string)
-            r = c_codecs.encode(c, u)
+            lgt = rutf8.codepoints_in_utf8(u)
+            r = c_codecs.encode(c, u, lgt)
             print r
             return 0
         #

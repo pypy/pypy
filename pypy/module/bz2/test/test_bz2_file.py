@@ -28,7 +28,7 @@ def setup_module(mod):
         data = DATA[:100]
         f.write(data, 'wb')
 
-    @unwrap_spec(data=str)
+    @unwrap_spec(data='bytes')
     def decompress(space, data):
         import popen2
         import bz2

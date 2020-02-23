@@ -197,10 +197,8 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         self.rm = PPCRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
@@ -804,18 +802,6 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         temp_loc = r.SCRATCH2
         return [base_loc, temp_loc]
 
-    def prepare_copystrcontent(self, op):
-        src_ptr_loc = self.ensure_reg(op.getarg(0))
-        dst_ptr_loc = self.ensure_reg(op.getarg(1))
-        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
-        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
-        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
-        self._spill_before_call(gc_level=0)
-        return [src_ptr_loc, dst_ptr_loc,
-                src_ofs_loc, dst_ofs_loc, length_loc]
-
-    prepare_copyunicodecontent = prepare_copystrcontent
-
     prepare_same_as_i = helper.prepare_unary_op
     prepare_same_as_r = helper.prepare_unary_op
     prepare_same_as_f = helper.prepare_unary_op
@@ -949,7 +935,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in spp (=r31)
@@ -1038,14 +1024,33 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def prepare_cond_call(self, op):
         self.load_condition_into_cc(op.getarg(0))
-        locs = []
+        self.assembler.guard_success_cc = c.negate(
+            self.assembler.guard_success_cc)
+        # ^^^ if arg0==0, we jump over the next block of code (the call)
+        locs = [None]
         # support between 0 and 4 integer arguments
         assert 2 <= op.numargs() <= 2 + 4
         for i in range(1, op.numargs()):
             loc = self.loc(op.getarg(i))
             assert loc.type != FLOAT
             locs.append(loc)
-        return locs
+        return locs     # [None, function, args...]
+
+    def prepare_cond_call_value_i(self, op):
+        x = self.ensure_reg(op.getarg(0))
+        self.load_condition_into_cc(op.getarg(0))
+        self.rm.force_allocate_reg(op, selected_reg=x)   # spilled if survives
+        # ^^^ if arg0!=0, we jump over the next block of code (the call)
+        locs = [x]
+        # support between 0 and 4 integer arguments
+        assert 2 <= op.numargs() <= 2 + 4
+        for i in range(1, op.numargs()):
+            loc = self.loc(op.getarg(i))
+            assert loc.type != FLOAT
+            locs.append(loc)
+        return locs     # [res, function, args...]
+
+    prepare_cond_call_value_r = prepare_cond_call_value_i
 
 def notimplemented(self, op):
     msg = '[PPC/regalloc] %s not implemented\n' % op.getopname()

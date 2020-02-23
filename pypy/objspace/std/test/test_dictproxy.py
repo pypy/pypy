@@ -78,6 +78,8 @@ class AppTestUserObject:
         raises(TypeError, "proxy['a'] = 4")
         raises(TypeError, "del proxy['a']")
         raises(AttributeError, "proxy.clear()")
+        raises(TypeError, reversed, proxy)
+
 
 class AppTestUserObjectMethodCache(AppTestUserObject):
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

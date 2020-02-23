@@ -1,6 +1,8 @@
+import pytest
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct import standardfmttable
+from rpython.rlib.rstruct.error import StructError
 from rpython.rlib.rarithmetic import LONG_BIT
 import struct
 
@@ -21,6 +23,18 @@ class TestRStruct(BaseRtypingTest):
             return a * 1000 + b * 100 + c * 10 + d
         assert fn() == 124
         assert self.interpret(fn, []) == 124
+
+    def test_unpack_error(self):
+        data = '123' # 'i' expects 4 bytes, not 3
+        def fn():
+            try:
+                runpack('i', data)
+            except StructError:
+                return True
+            else:
+                return False
+        assert fn()
+        assert self.interpret(fn, [])
 
     def test_unpack_single(self):
         data = struct.pack('i', 123)
@@ -64,6 +78,10 @@ class TestRStruct(BaseRtypingTest):
         assert f != 12.34     # precision lost
         assert abs(f - 12.34) < 1E-6
 
+    def test_unpack_halffloat(self):
+        assert runpack(">e", b"\x7b\xef") == 64992.0
+        assert runpack("<e", b"\xef\x7b") == 64992.0
+
     def test_unpack_standard_little(self):
         def unpack(fmt, data):
             def fn():
@@ -91,6 +109,15 @@ class TestRStruct(BaseRtypingTest):
         assert unpack(">q", 'ABCDEFGH') == 0x4142434445464748
         assert unpack(">q", '\xbeMLKJIHH') == -0x41B2B3B4B5B6B7B8
         assert unpack(">Q", '\x81BCDEFGH') == 0x8142434445464748
+
+    def test_align(self):
+        data = struct.pack('BBhi', 1, 2, 3, 4)
+        def fn():
+            a, b, c, d = runpack('BBhi', data)
+            return a + (b << 4) + (c << 8) + (d << 12)
+        assert fn() == 0x4321
+        assert self.interpret(fn, []) == 0x4321
+
 
 
 class TestNoFastPath(TestRStruct):

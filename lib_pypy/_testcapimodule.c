@@ -2780,6 +2780,9 @@ init_testcapi(void)
     m = Py_InitModule("_testcapi", TestMethods);
     if (m == NULL)
         return;
+    
+    if (PyType_Ready(&_MemoryViewTester_Type) < 0)
+        return;
 
     Py_TYPE(&_HashInheritanceTester_Type)=&PyType_Type;
 

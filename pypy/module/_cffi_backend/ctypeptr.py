@@ -4,9 +4,9 @@ Pointers.
 
 from rpython.rlib import rposix
 from rpython.rlib.rarithmetic import ovfcheck
-from rpython.rtyper.annlowlevel import llstr, llunicode
+from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw, copy_unicode_to_raw
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
 
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
@@ -56,7 +56,7 @@ class W_CTypePtrOrArray(W_CType):
 
     def _convert_array_from_listview(self, cdata, lst_w):
         space = self.space
-        if self.length >= 0 and len(lst_w) > self.length:
+        if not self._within_bounds(len(lst_w), self.length):
             raise oefmt(space.w_IndexError,
                         "too many initializers for '%s' (got %d)",
                         self.name, len(lst_w))
@@ -69,46 +69,61 @@ class W_CTypePtrOrArray(W_CType):
         space = self.space
         if (space.isinstance_w(w_ob, space.w_list) or
             space.isinstance_w(w_ob, space.w_tuple)):
-            if self.ctitem.pack_list_of_items(cdata, w_ob):   # fast path
-                pass
+            if self.ctitem.pack_list_of_items(cdata, w_ob, self.length):
+                pass    # fast path
             else:
                 self._convert_array_from_listview(cdata, space.listview(w_ob))
         elif self.accept_str:
-            if not space.isinstance_w(w_ob, space.w_str):
+            if not space.isinstance_w(w_ob, space.w_bytes):
                 raise self._convert_error("str or list or tuple", w_ob)
-            s = space.str_w(w_ob)
+            s = space.bytes_w(w_ob)
             n = len(s)
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer string is too long for '%s' (got %d "
                             "characters)", self.name, n)
+            if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                self._must_be_string_of_zero_or_one(s)
             copy_string_to_raw(llstr(s), cdata, 0, n)
             if n != self.length:
                 cdata[n] = '\x00'
         elif isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveUniChar):
+            from pypy.module._cffi_backend import wchar_helper
             if not space.isinstance_w(w_ob, space.w_unicode):
                 raise self._convert_error("unicode or list or tuple", w_ob)
-            s = space.unicode_w(w_ob)
-            n = len(s)
+            w_u = space.convert_arg_to_w_unicode(w_ob)
+            s = w_u._utf8
+            if self.ctitem.size == 2:
+                n = wchar_helper.utf8_size_as_char16(s)
+            else:
+                n = w_u._len()
             if self.length >= 0 and n > self.length:
                 raise oefmt(space.w_IndexError,
                             "initializer unicode string is too long for '%s' "
                             "(got %d characters)", self.name, n)
-            unichardata = rffi.cast(rffi.CWCHARP, cdata)
-            copy_unicode_to_raw(llunicode(s), unichardata, 0, n)
-            if n != self.length:
-                unichardata[n] = u'\x00'
+            add_final_zero = (n != self.length)
+            if self.ctitem.size == 2:
+                wchar_helper.utf8_to_char16(s, cdata, n, add_final_zero)
+            else:
+                wchar_helper.utf8_to_char32(s, cdata, n, add_final_zero)
         else:
             raise self._convert_error("list or tuple", w_ob)
 
+    def _must_be_string_of_zero_or_one(self, s):
+        for c in s:
+            if ord(c) > 1:
+                raise oefmt(self.space.w_ValueError,
+                            "an array of _Bool can only contain \\x00 or \\x01")
+
     def string(self, cdataobj, maxlen):
         space = self.space
-        if isinstance(self.ctitem, ctypeprim.W_CTypePrimitive):
+        if (isinstance(self.ctitem, ctypeprim.W_CTypePrimitive) and
+               not isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool)):
             with cdataobj as ptr:
                 if not ptr:
                     raise oefmt(space.w_RuntimeError,
-                                "cannot use string() on %s",
-                                space.str_w(cdataobj.repr()))
+                                "cannot use string() on %R",
+                                cdataobj)
                 #
                 from pypy.module._cffi_backend import ctypearray
                 length = maxlen
@@ -125,22 +140,23 @@ class W_CTypePtrOrArray(W_CType):
                 #
                 # pointer to a wchar_t: builds and returns a unicode
                 if self.is_unichar_ptr_or_array():
-                    cdata = rffi.cast(rffi.CWCHARP, ptr)
-                    if length < 0:
-                        u = rffi.wcharp2unicode(cdata)
+                    from pypy.module._cffi_backend import wchar_helper
+                    if self.ctitem.size == 2:
+                        length = wchar_helper.measure_length_16(ptr, length)
                     else:
-                        u = rffi.wcharp2unicoden(cdata, length)
-                    return space.newunicode(u)
+                        length = wchar_helper.measure_length_32(ptr, length)
+                    return self.ctitem.unpack_ptr(self, ptr, length)
         #
         return W_CType.string(self, cdataobj, maxlen)
 
 
 class W_CTypePtrBase(W_CTypePtrOrArray):
     # base class for both pointers and pointers-to-functions
-    _attrs_ = ['is_void_ptr', 'is_voidchar_ptr']
-    _immutable_fields_ = ['is_void_ptr', 'is_voidchar_ptr']
+    _attrs_ = ['is_void_ptr', 'is_voidchar_ptr', 'is_onebyte_ptr']
+    _immutable_fields_ = ['is_void_ptr', 'is_voidchar_ptr', 'is_onebyte_ptr']
     is_void_ptr = False
     is_voidchar_ptr = False
+    is_onebyte_ptr = False
 
     def convert_to_object(self, cdata):
         ptrdata = rffi.cast(rffi.CCHARPP, cdata)[0]
@@ -160,12 +176,20 @@ class W_CTypePtrBase(W_CTypePtrOrArray):
             if self.is_void_ptr or other.is_void_ptr:
                 pass     # cast from or to 'void *'
             elif self.is_voidchar_ptr or other.is_voidchar_ptr:
-                space = self.space
-                msg = ("implicit cast from '%s' to '%s' "
-                    "will be forbidden in the future (check that the types "
-                    "are as you expect; use an explicit ffi.cast() if they "
-                    "are correct)" % (other.name, self.name))
-                space.warn(space.wrap(msg), space.w_UserWarning)
+                # for backward compatibility, accept "char *" as either
+                # source of target.  This is not what C does, though,
+                # so emit a warning that will eventually turn into an
+                # error.  The warning is turned off if both types are
+                # pointers to single bytes.
+                if self.is_onebyte_ptr and other.is_onebyte_ptr:
+                    pass   # no warning
+                else:
+                    space = self.space
+                    msg = ("implicit cast from '%s' to '%s' "
+                        "will be forbidden in the future (check that the types "
+                        "are as you expect; use an explicit ffi.cast() if they "
+                        "are correct)" % (other.name, self.name))
+                    space.warn(space.newtext(msg), space.w_UserWarning)
             else:
                 raise self._convert_error("compatible pointer", w_ob)
 
@@ -195,6 +219,7 @@ class W_CTypePointer(W_CTypePtrBase):
         self.is_void_ptr = isinstance(ctitem, ctypevoid.W_CTypeVoid)
         self.is_voidchar_ptr = (self.is_void_ptr or
                            isinstance(ctitem, ctypeprim.W_CTypePrimitiveChar))
+        self.is_onebyte_ptr = (ctitem.size == 1)
         W_CTypePtrBase.__init__(self, space, size, extra, 2, ctitem)
 
     def newp(self, w_init, allocator):
@@ -278,22 +303,23 @@ class W_CTypePointer(W_CTypePtrBase):
         else:
             return lltype.nullptr(rffi.CCHARP.TO)
 
-    def _prepare_pointer_call_argument(self, w_init, cdata, keepalives, i):
+    def _prepare_pointer_call_argument(self, w_init, cdata):
         space = self.space
-        if self.accept_str and space.isinstance_w(w_init, space.w_str):
-            # special case to optimize strings passed to a "char *" argument
-            value = w_init.str_w(space)
-            keepalives[i] = value
-            buf, buf_flag = rffi.get_nonmovingbuffer_final_null(value)
-            rffi.cast(rffi.CCHARPP, cdata)[0] = buf
-            return ord(buf_flag)    # 4, 5 or 6
-        #
         if (space.isinstance_w(w_init, space.w_list) or
             space.isinstance_w(w_init, space.w_tuple)):
             length = space.int_w(space.len(w_init))
-        elif space.isinstance_w(w_init, space.w_basestring):
+        elif space.isinstance_w(w_init, space.w_bytes):
             # from a string, we add the null terminator
-            length = space.int_w(space.len(w_init)) + 1
+            s = space.bytes_w(w_init)
+            length = len(s) + 1
+        elif space.isinstance_w(w_init, space.w_unicode):
+            from pypy.module._cffi_backend import wchar_helper
+            w_u = space.convert_arg_to_w_unicode(w_init)
+            if self.ctitem.size == 2:
+                length = wchar_helper.utf8_size_as_char16(w_u._utf8)
+            else:
+                length = w_u._len()
+            length += 1
         elif self.is_file:
             result = self.prepare_file(w_init)
             if result:
@@ -324,17 +350,33 @@ class W_CTypePointer(W_CTypePtrBase):
         return 1
 
     def convert_argument_from_object(self, cdata, w_ob, keepalives, i):
+        # writes the pointer to cdata[0], writes the must-free flag in
+        # the byte just before cdata[0], and returns True if something
+        # must be done later to free.
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
-        result = (not isinstance(w_ob, cdataobj.W_CData) and
-                  self._prepare_pointer_call_argument(w_ob, cdata,
-                                                      keepalives, i))
+        if isinstance(w_ob, cdataobj.W_CData):
+            result = 0
+        else:
+            space = self.space
+            if self.accept_str and space.isinstance_w(w_ob, space.w_bytes):
+                # special case to optimize strings passed to a "char *" argument
+                value = space.bytes_w(w_ob)
+                if isinstance(self.ctitem, ctypeprim.W_CTypePrimitiveBool):
+                    self._must_be_string_of_zero_or_one(value)
+                keepalives[i] = misc.write_string_as_charp(cdata, value)
+                return True
+            result = self._prepare_pointer_call_argument(w_ob, cdata)
+
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
-        return result
+        return result == 1      # 0 or 2 => False, nothing to do later
 
     def getcfield(self, attr):
-        return self.ctitem.getcfield(attr)
+        from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
+        if isinstance(self.ctitem, W_CTypeStructOrUnion):
+            return self.ctitem.getcfield(attr)
+        return W_CType.getcfield(self, attr)
 
     def typeoffsetof_field(self, fieldname, following):
         if following == 0:
@@ -368,7 +410,7 @@ class W_CTypePointer(W_CTypePtrBase):
 
     def _fget(self, attrchar):
         if attrchar == 'i':     # item
-            return self.space.wrap(self.ctitem)
+            return self.ctitem
         return W_CTypePtrBase._fget(self, attrchar)
 
 # ____________________________________________________________

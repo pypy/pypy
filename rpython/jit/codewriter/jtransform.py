@@ -6,10 +6,9 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
-from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.jit.metainterp.support import ptr2int
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -64,6 +63,7 @@ class Transformer(object):
         self.cpu = cpu
         self.callcontrol = callcontrol
         self.portal_jd = portal_jd   # non-None only for the portal graph(s)
+        self.graph = None
 
     def transform(self, graph):
         self.graph = graph
@@ -271,6 +271,9 @@ class Transformer(object):
     def rewrite_op_unlikely(self, op):
         return None   # "no real effect"
 
+    def rewrite_op_revdb_do_next_call(self, op):
+        return []    # ignored, only for revdb
+
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
             return   # the operation disappears
@@ -282,6 +285,12 @@ class Transformer(object):
 
     def rewrite_op_jit_record_exact_class(self, op):
         return SpaceOperation("record_exact_class", [op.args[0], op.args[1]], None)
+
+    def rewrite_op_debug_assert_not_none(self, op):
+        if isinstance(op.args[0], Variable):
+            return SpaceOperation('assert_not_none', [op.args[0]], None)
+        else:
+            return []
 
     def rewrite_op_cast_bool_to_int(self, op): pass
     def rewrite_op_cast_bool_to_uint(self, op): pass
@@ -418,7 +427,8 @@ class Transformer(object):
         of 'residual_call_xxx' are the function to call, and its calldescr."""
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex=oopspecindex,
                                                   extraeffect=extraeffect,
-                                                  extradescr=extradescr)
+                                                  extradescr=extradescr,
+                                                  calling_graph=self.graph)
         op1 = self.rewrite_call(op, 'residual_call',
                                 [op.args[0]] + extraargs, calldescr=calldescr)
         if may_call_jitcodes or self.callcontrol.calldescr_canraise(calldescr):
@@ -585,6 +595,23 @@ class Transformer(object):
             op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
                                  op.result)
             return [SpaceOperation('-live-', [], None), op1, None]
+        if (hints.get('promote_unicode') and
+            op.args[0].concretetype is not lltype.Void):
+            U = lltype.Ptr(rstr.UNICODE)
+            assert op.args[0].concretetype == U
+            self._register_extra_helper(EffectInfo.OS_UNIEQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [U, U],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_UNIEQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
         if hints.get('force_virtualizable'):
             return SpaceOperation('hint_force_virtualizable', [op.args[0]], None)
         if hints.get('force_no_const'):   # for tests only
@@ -593,6 +620,8 @@ class Transformer(object):
         log.WARNING('ignoring hint %r at %r' % (hints, self.graph))
 
     def _rewrite_raw_malloc(self, op, name, args):
+        # NB. the operation 'raw_malloc' is not supported; this is for
+        # the operation 'malloc'/'malloc_varsize' with {flavor: 'gc'}
         d = op.args[1].value.copy()
         d.pop('flavor')
         add_memory_pressure = d.pop('add_memory_pressure', False)
@@ -789,12 +818,20 @@ class Transformer(object):
                                                 arrayfielddescr,
                                                 arraydescr)
             return []
+        # check for the string or unicode hash field
+        STRUCT = v_inst.concretetype.TO
+        if STRUCT == rstr.STR:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('strhash', [v_inst], op.result)
+        elif STRUCT == rstr.UNICODE:
+            assert c_fieldname.value == 'hash'
+            return SpaceOperation('unicodehash', [v_inst], op.result)
         # check for _immutable_fields_ hints
-        immut = v_inst.concretetype.TO._immutable_field(c_fieldname.value)
+        immut = STRUCT._immutable_field(c_fieldname.value)
         need_live = False
         if immut:
             if (self.callcontrol is not None and
-                self.callcontrol.could_be_green_field(v_inst.concretetype.TO,
+                self.callcontrol.could_be_green_field(STRUCT,
                                                       c_fieldname.value)):
                 pure = '_greenfield'
                 need_live = True
@@ -802,10 +839,9 @@ class Transformer(object):
                 pure = '_pure'
         else:
             pure = ''
-        self.check_field_access(v_inst.concretetype.TO)
-        argname = getattr(v_inst.concretetype.TO, '_gckind', 'gc')
-        descr = self.cpu.fielddescrof(v_inst.concretetype.TO,
-                                      c_fieldname.value)
+        self.check_field_access(STRUCT)
+        argname = getattr(STRUCT, '_gckind', 'gc')
+        descr = self.cpu.fielddescrof(STRUCT, c_fieldname.value)
         kind = getkind(RESULT)[0]
         if argname != 'gc':
             assert argname == 'raw'
@@ -822,7 +858,7 @@ class Transformer(object):
         if immut in (IR_QUASIIMMUTABLE, IR_QUASIIMMUTABLE_ARRAY):
             op1.opname += "_pure"
             descr1 = self.cpu.fielddescrof(
-                v_inst.concretetype.TO,
+                STRUCT,
                 quasiimmut.get_mutate_field_name(c_fieldname.value))
             return [SpaceOperation('-live-', [], None),
                    SpaceOperation('record_quasiimmut_field',
@@ -1115,6 +1151,26 @@ class Transformer(object):
         return SpaceOperation('gc_load_indexed_%s' % kind,
                               [op.args[0], op.args[1],
                                op.args[2], op.args[3], c_bytes], op.result)
+
+    def rewrite_op_gc_store_indexed(self, op):
+        T = op.args[2].concretetype
+        kind = getkind(T)[0]
+        assert kind != 'r'
+        descr = self.cpu.arraydescrof(rffi.CArray(T))
+        if (not isinstance(op.args[3], Constant) or
+            not isinstance(op.args[4], Constant)):
+            raise NotImplementedError("gc_store_indexed: 'scale' and 'base_ofs'"
+                                      " should be constants")
+        # According to the comment in resoperation.py, "itemsize is not signed
+        # (always > 0)", so we don't need the "bytes = -bytes" line which is
+        # in rewrite_op_gc_load_indexed
+        bytes = descr.get_item_size_in_bytes()
+        c_bytes = Constant(bytes, lltype.Signed)
+        return SpaceOperation('gc_store_indexed_%s' % kind,
+                              [op.args[0], op.args[1], op.args[2],
+                               op.args[3], op.args[4], c_bytes, descr], None)
+
+
 
     def _rewrite_equality(self, op, opname):
         arg0, arg1 = op.args
@@ -1569,7 +1625,7 @@ class Transformer(object):
             return []
         return getattr(self, 'handle_jit_marker__%s' % key)(op, jitdriver)
 
-    def rewrite_op_jit_conditional_call(self, op):
+    def _rewrite_op_cond_call(self, op, rewritten_opname):
         have_floats = False
         for arg in op.args:
             if getkind(arg.concretetype) == 'float':
@@ -1578,14 +1634,21 @@ class Transformer(object):
         if len(op.args) > 4 + 2 or have_floats:
             raise Exception("Conditional call does not support floats or more than 4 arguments")
         callop = SpaceOperation('direct_call', op.args[1:], op.result)
-        calldescr = self.callcontrol.getcalldescr(callop)
+        calldescr = self.callcontrol.getcalldescr(
+                callop,
+                calling_graph=self.graph)
         assert not calldescr.get_extra_info().check_forces_virtual_or_virtualizable()
-        op1 = self.rewrite_call(op, 'conditional_call',
+        op1 = self.rewrite_call(op, rewritten_opname,
                                 op.args[:2], args=op.args[2:],
                                 calldescr=calldescr, force_ir=True)
         if self.callcontrol.calldescr_canraise(calldescr):
             op1 = [op1, SpaceOperation('-live-', [], None)]
         return op1
+
+    def rewrite_op_jit_conditional_call(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call')
+    def rewrite_op_jit_conditional_call_value(self, op):
+        return self._rewrite_op_cond_call(op, 'conditional_call_value')
 
     def handle_jit_marker__jit_merge_point(self, op, jitdriver):
         assert self.portal_jd is not None, (
@@ -1665,9 +1728,9 @@ class Transformer(object):
         (in which case the original call is written as a residual call).
         """
         if oopspec_name.startswith('new'):
-            LIST = deref(op.result.concretetype)
+            LIST = op.result.concretetype.TO
         else:
-            LIST = deref(args[0].concretetype)
+            LIST = args[0].concretetype.TO
         resizable = isinstance(LIST, lltype.GcStruct)
         assert resizable == (not isinstance(LIST, lltype.GcArray))
         if resizable:
@@ -1884,15 +1947,15 @@ class Transformer(object):
                              extradescr=None):
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
                                                   extraeffect,
-                                                  extradescr=extradescr)
+                                                  extradescr=extradescr,
+                                                  calling_graph=self.graph)
         if extraeffect is not None:
             assert (is_test_calldescr(calldescr)      # for tests
                     or calldescr.get_extra_info().extraeffect == extraeffect)
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(op.args[0].value))
+            func = ptr2int(op.args[0].value)
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
@@ -1914,12 +1977,12 @@ class Transformer(object):
                             [c_func] + [varoftype(T) for T in argtypes],
                             varoftype(resulttype))
         calldescr = self.callcontrol.getcalldescr(op, oopspecindex,
-                                                  effectinfo)
+                                                  effectinfo,
+                                                  calling_graph=self.graph)
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(c_func.value))
+            func = ptr2int(c_func.value)
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_int_special(self, op, oopspec_name, args):
@@ -2116,6 +2179,11 @@ class Transformer(object):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
+    def rewrite_op_ll_get_timestamp_unit(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_get_timestamp_unit", [])
+        return self.handle_residual_call(op1,
             extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):

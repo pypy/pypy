@@ -1,5 +1,5 @@
 from pypy.interpreter.pyparser.automata import DFA, DEFAULT
-from pypy.interpreter.pyparser.genpytokenize import output
+from pypy.interpreter.pyparser.gendfa import output
 
 def test_states():
     states = [{"\x00": 1}, {"\x01": 0}]
