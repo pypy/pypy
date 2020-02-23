@@ -196,6 +196,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
+        if os.path.exists(deps_destdir):
+            shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
 
 if __name__ == '__main__':
