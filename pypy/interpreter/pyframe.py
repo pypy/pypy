@@ -311,6 +311,8 @@ class PyFrame(W_Root):
         self.valuestackdepth = depth + 1
 
     def _check_stack_index(self, index):
+        if jit.we_are_jitted():
+            return True
         # will be completely removed by the optimizer if only used in an assert
         # and if asserts are disabled
         code = self.pycode

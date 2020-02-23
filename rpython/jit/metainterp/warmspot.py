@@ -425,9 +425,9 @@ class WarmRunnerDesc(object):
         graph = copygraph(graph)
         [jmpp] = find_jit_merge_points([graph])
         graph.startblock = support.split_before_jit_merge_point(*jmpp)
-        # XXX this is incredibly obscure, but this is sometiems necessary
+        # XXX this is incredibly obscure, but this is sometimes necessary
         #     so we don't explode in checkgraph. for reasons unknown this
-        #     is not contanied within simplify_graph
+        #     is not contained within simplify_graph
         removenoops.remove_same_as(graph)
         # a crash in the following checkgraph() means that you forgot
         # to list some variable in greens=[] or reds=[] in JitDriver,

@@ -72,7 +72,8 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if comp_op == NE and arr1.len != arr2.len:
         return space.w_True
     lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
+    i = 0
+    while i < lgt:
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
         w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
         w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
@@ -102,6 +103,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 return space.w_False
             elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
+        i += 1
     # we have some leftovers
     if comp_op == EQ:
         return space.w_True
@@ -128,7 +130,8 @@ def index_count_array(arr, w_val, count=False):
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    for i in range(arr.len):
+    i = 0
+    while i < arr.len:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
@@ -138,6 +141,7 @@ def index_count_array(arr, w_val, count=False):
                 cnt += 1
             else:
                 return i
+        i += 1
     if count:
         return cnt
     return -1
