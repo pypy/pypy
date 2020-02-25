@@ -267,7 +267,8 @@ else:
 if sys.platform == 'win32':
     DEFAULT_SFLAGS_PLATFORM = SF_MSVC_BITFIELDS
 else:
-    if rffi_platform.getdefined('__arm__', ''):
+    if (rffi_platform.getdefined('__arm__', '') or
+        rffi_platform.getdefined('__aarch64__', '')):
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_ARM_BITFIELDS
     else:
         DEFAULT_SFLAGS_PLATFORM = SF_GCC_X86_BITFIELDS
@@ -307,8 +308,8 @@ def detect_custom_layout(w_ctype, sflags, cdef_value, compiler_value,
             w_FFIError = get_ffi_error(w_ctype.space)
             raise oefmt(w_FFIError,
                     '%s: %s%s%s (cdef says %d, but C compiler says %d).'
-                    ' fix it or use "...;" in the cdef for %s to '
-                    'make it flexible',
+                    ' fix it or use "...;" as the last field in the '
+                    'cdef for %s to make it flexible',
                     w_ctype.name, msg1, msg2, msg3,
                     cdef_value, compiler_value, w_ctype.name)
         w_ctype._custom_field_pos = True

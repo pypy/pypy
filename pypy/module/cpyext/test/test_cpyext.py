@@ -82,23 +82,6 @@ def get_cpyext_info(space):
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
 
-def preload(space, name):
-    from pypy.module.cpyext.pyobject import make_ref
-    if '.' not in name:
-        w_obj = space.builtin.getdictvalue(space, name)
-    else:
-        module, localname = name.rsplit('.', 1)
-        code = "(): import {module}; return {module}.{localname}"
-        code = code.format(**locals())
-        w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
-def preload_expr(space, expr):
-    from pypy.module.cpyext.pyobject import make_ref
-    code = "(): return {}".format(expr)
-    w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
 def is_interned_string(space, w_obj):
     try:
         s = space.str_w(w_obj)
@@ -148,13 +131,37 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
-        for name in [
-                'buffer', 'mmap.mmap',
-                'types.FunctionType', 'types.CodeType',
-                'types.TracebackType', 'types.FrameType']:
-            preload(space, name)
-        for expr in ['type(str.join)']:
-            preload_expr(space, expr)
+        from pypy.module.cpyext.pyobject import make_ref
+        w_to_preload = space.appexec([], """():
+            import sys
+            import mmap
+            #
+            # copied&pasted to avoid importing the whole types.py, which is
+            # expensive on py3k
+            # <types.py>
+            def _f(): pass
+            FunctionType = type(_f)
+            CodeType = type(_f.__code__)
+            try:
+                raise TypeError
+            except TypeError:
+                tb = sys.exc_info()[2]
+                TracebackType = type(tb)
+                FrameType = type(tb.tb_frame)
+                del tb
+            # </types.py>
+            return [
+                buffer,
+                mmap.mmap,
+                FunctionType,
+                CodeType,
+                TracebackType,
+                FrameType,
+                type(str.join),
+            ]
+        """)
+        for w_obj in space.unpackiterable(w_to_preload):
+            make_ref(space, w_obj)
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()

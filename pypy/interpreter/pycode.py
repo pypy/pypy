@@ -425,6 +425,9 @@ class PyCode(eval.Code):
         return "<code object %s, file '%s', line %d>" % (
             self.co_name, self.co_filename, self.co_firstlineno)
 
+    def iterator_greenkey_printable(self):
+        return self.get_repr()
+
     def __repr__(self):
         return self.get_repr()
 

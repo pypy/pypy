@@ -230,6 +230,9 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeString)
         return w_obj.val
 
+    def fsencode_w(self, w_obj):
+        return self.bytes_w(w_obj)
+
     def text_w(self, w_obj):
         assert isinstance(w_obj, FakeString)
         return w_obj.val

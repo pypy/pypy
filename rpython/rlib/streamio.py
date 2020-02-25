@@ -317,7 +317,8 @@ class DiskFile(Stream):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        return os.lseek(self.fd, 0, 1)
+        result = os.lseek(self.fd, 0, 1)
+        return r_longlong(result)
 
     def read(self, n):
         assert isinstance(n, int)

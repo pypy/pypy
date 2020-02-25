@@ -80,7 +80,7 @@ class TestW_SetObject:
 
     def test_create_set_from_list(self):
         from pypy.interpreter.baseobjspace import W_Root
-        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy, UnicodeSetStrategy
+        from pypy.objspace.std.setobject import BytesSetStrategy, ObjectSetStrategy
         from pypy.objspace.std.floatobject import W_FloatObject
 
         w = self.space.wrap
@@ -105,8 +105,6 @@ class TestW_SetObject:
         w_list = self.space.iter(W_ListObject(self.space, [w(u"1"), w(u"2"), w(u"3")]))
         w_set = W_SetObject(self.space)
         _initialize_set(self.space, w_set, w_list)
-        #assert w_set.strategy is self.space.fromcache(UnicodeSetStrategy)
-        #assert w_set.strategy.unerase(w_set.sstorage) == {u"1":None, u"2":None, u"3":None}
 
         w_list = W_ListObject(self.space, [w("1"), w(2), w("3")])
         w_set = W_SetObject(self.space)
@@ -609,6 +607,40 @@ class AppTestAppSetTest:
             # obscure CPython behavior:
             assert type(t) is subset
             assert not hasattr(t, 'x')
+
+    def test_reverse_ops(self):
+        assert set.__rxor__
+        assert frozenset.__rxor__
+        assert set.__ror__
+        assert frozenset.__ror__
+        assert set.__rand__
+        assert frozenset.__rand__
+        assert set.__rsub__
+        assert frozenset.__rsub__
+
+        # actual behaviour test
+        for base in [set, frozenset]:
+            class S(base):
+                def __xor__(self, other):
+                    if type(other) is not S:
+                        return NotImplemented
+                    return 1
+                __or__ = __and__ = __sub__ = __xor__
+            assert S([1, 2, 3]) ^ S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) ^ {2, 3, 4} == {1, 4}
+            assert {1, 2, 3} ^ S([2, 3, 4]) == {1, 4}
+
+            assert S([1, 2, 3]) & S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) & {2, 3, 4} == {2, 3}
+            assert {1, 2, 3} & S([2, 3, 4]) == {2, 3}
+
+            assert S([1, 2, 3]) | S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) | {2, 3, 4} == {1, 2, 3, 4}
+            assert {1, 2, 3} | S([2, 3, 4]) == {1, 2, 3, 4}
+
+            assert S([1, 2, 3]) - S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) - {2, 3, 4} == {1}
+            assert {1, 2, 3} - S([2, 3, 4]) == {1}
 
     def test_isdisjoint(self):
         assert set([1,2,3]).isdisjoint(set([4,5,6]))

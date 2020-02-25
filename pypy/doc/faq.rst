@@ -200,10 +200,6 @@ has two pieces:
     based on the micronumpy module written in RPython, instead of of
     ``numpy.core.multiarray`` which is written in C.
 
-Moreover, it is also possible to install the upstream version of ``numpy``:
-its core is written in C and it runs on PyPy under the cpyext compatibility
-layer. This is what you get if you do ``pypy -m pip install numpy``.
-
 
 Should I install numpy or numpypy?
 -----------------------------------
@@ -406,7 +402,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -425,7 +421,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
 
 In more details:
 
@@ -465,14 +461,36 @@ various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
 
 
-Why doesn't PyPy move to GitHub, Gitlab, ...?
-----------------------------------------------
+.. _git:
+.. _github:
 
-We've been quite happy with bitbucket.org. Moving version control systems and
-hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
-long and gnarly. On the other hand, all our infrastructure (buildbots,
-benchmarking, etc) would have to be adapted. So unless somebody steps up and
-volunteers to do all that work, it will likely not happen.
+Why doesn't PyPy use Git and move to GitHub?
+---------------------------------------------
+
+We discussed it during the switch away from bitbucket.  We concluded that (1)
+the Git workflow is not as well suited as the Mercurial workflow for our style,
+and (2) moving to github "just because everybody else does" is a argument on
+thin grounds.
+
+For (1), there are a few issues, but maybe the most important one is that the
+PyPy repository has got thousands of *named* branches.  Git has no equivalent
+concept.  Git has *branches,* of course, which in Mercurial are called
+bookmarks.  We're not talking about bookmarks.
+
+The difference between git branches and named branches is not that important in
+a repo with 10 branches (no matter how big).  But in the case of PyPy, we have
+at the moment 1840 branches.  Most are closed by now, of course.  But we would
+really like to retain (both now and in the future) the ability to look at a
+commit from the past, and know in which branch it was made.  Please make sure
+you understand the difference between the Git and the Mercurial branches to
+realize that this is not always possible with Git--- we looked hard, and there
+is no built-in way to get this workflow.
+
+Still not convinced?  Consider this git repo with three commits: commit #2 with
+parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
+git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
+(It could also be yet another branch whose head was also moved forward, or even
+completely deleted.)
 
 
 What is needed for Windows 64 support of PyPy?

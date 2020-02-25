@@ -15,7 +15,8 @@ import sys
 import tempfile
 import unittest
 
-from test.test_support import requires, import_module, verbose, run_unittest
+from test.test_support import (requires, import_module, verbose, run_unittest,
+    cpython_only)
 
 # Optionally test curses module.  This currently requires that the
 # 'curses' resource be given on the regrtest command line using the -u
@@ -276,6 +277,7 @@ class TestCurses(unittest.TestCase):
                                msg='userptr should fail since not set'):
             p.userptr()
 
+    @cpython_only
     def test_userptr_memory_leak(self):
         w = curses.newwin(10, 10)
         p = curses.panel.new_panel(w)
@@ -288,6 +290,7 @@ class TestCurses(unittest.TestCase):
         self.assertEqual(sys.getrefcount(obj), nrefs,
                          "set_userptr leaked references")
 
+    @cpython_only
     def test_userptr_segfault(self):
         panel = curses.panel.new_panel(self.stdscr)
         class A:

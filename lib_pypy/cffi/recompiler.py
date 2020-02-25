@@ -560,23 +560,24 @@ class Recompiler:
             tovar, tp.get_c_name(''), errvalue))
         self._prnt('    %s;' % errcode)
 
-    def _extra_local_variables(self, tp, localvars):
+    def _extra_local_variables(self, tp, localvars, freelines):
         if isinstance(tp, model.PointerType):
             localvars.add('Py_ssize_t datasize')
+            localvars.add('struct _cffi_freeme_s *large_args_free = NULL')
+            freelines.add('if (large_args_free != NULL)'
+                          ' _cffi_free_array_arguments(large_args_free);')
 
     def _convert_funcarg_to_c_ptr_or_array(self, tp, fromvar, tovar, errcode):
         self._prnt('  datasize = _cffi_prepare_pointer_call_argument(')
         self._prnt('      _cffi_type(%d), %s, (char **)&%s);' % (
             self._gettypenum(tp), fromvar, tovar))
         self._prnt('  if (datasize != 0) {')
-        self._prnt('    if (datasize < 0)')
-        self._prnt('      %s;' % errcode)
-        self._prnt('    %s = (%s)alloca((size_t)datasize);' % (
+        self._prnt('    %s = ((size_t)datasize) <= 640 ? '
+                   '(%s)alloca((size_t)datasize) : NULL;' % (
             tovar, tp.get_c_name('')))
-        self._prnt('    memset((void *)%s, 0, (size_t)datasize);' % (tovar,))
-        self._prnt('    if (_cffi_convert_array_from_object('
-                   '(char *)%s, _cffi_type(%d), %s) < 0)' % (
-            tovar, self._gettypenum(tp), fromvar))
+        self._prnt('    if (_cffi_convert_array_argument(_cffi_type(%d), %s, '
+                   '(char **)&%s,' % (self._gettypenum(tp), fromvar, tovar))
+        self._prnt('            datasize, &large_args_free) < 0)')
         self._prnt('      %s;' % errcode)
         self._prnt('  }')
 
@@ -699,9 +700,10 @@ class Recompiler:
             prnt('  %s;' % arg)
         #
         localvars = set()
+        freelines = set()
         for type in tp.args:
-            self._extra_local_variables(type, localvars)
-        for decl in localvars:
+            self._extra_local_variables(type, localvars, freelines)
+        for decl in sorted(localvars):
             prnt('  %s;' % (decl,))
         #
         if not isinstance(tp.result, model.VoidType):
@@ -709,6 +711,7 @@ class Recompiler:
             context = 'result of %s' % name
             result_decl = '  %s;' % tp.result.get_c_name(' result', context)
             prnt(result_decl)
+            prnt('  PyObject *pyresult;')
         else:
             result_decl = None
             result_code = ''
@@ -742,9 +745,14 @@ class Recompiler:
         if numargs == 0:
             prnt('  (void)noarg; /* unused */')
         if result_code:
-            prnt('  return %s;' %
+            prnt('  pyresult = %s;' %
                  self._convert_expr_from_c(tp.result, 'result', 'result type'))
+            for freeline in freelines:
+                prnt('  ' + freeline)
+            prnt('  return pyresult;')
         else:
+            for freeline in freelines:
+                prnt('  ' + freeline)
             prnt('  Py_INCREF(Py_None);')
             prnt('  return Py_None;')
         prnt('}')
@@ -1216,7 +1224,8 @@ class Recompiler:
             size_of_result = '(int)sizeof(%s)' % (
                 tp.result.get_c_name('', context),)
         prnt('static struct _cffi_externpy_s _cffi_externpy__%s =' % name)
-        prnt('  { "%s.%s", %s };' % (self.module_name, name, size_of_result))
+        prnt('  { "%s.%s", %s, 0, 0 };' % (
+            self.module_name, name, size_of_result))
         prnt()
         #
         arguments = []

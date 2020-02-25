@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 
-bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl', 'tk', 'gdbm',
+bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel', 'panelw']
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath
-from shutil import copy2
+from shutil import copy2, copytree
 import sys
 from glob import glob
 from subprocess import check_output, check_call
@@ -62,6 +62,7 @@ def rpath_binaries(binaries):
     rpaths = {}
 
     for binary in binaries:
+        check_call(['chmod', 'a+w', binary])
         rpath = join('$ORIGIN', relpath('lib', dirname(binary)))
         check_call(['patchelf', '--set-rpath', rpath, binary])
 
@@ -84,6 +85,9 @@ def make_portable():
 
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
+
+    copytree('/usr/share/tcl8.5', 'lib/tcl')
+    copytree('/usr/share/tk8.5', 'lib/tk')
 
     binaries.extend(copied.values())
 

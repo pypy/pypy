@@ -28,20 +28,56 @@
 #endif
 #endif /* HAVE_LONG_LONG */
 
-/* Largest possible value of size_t.
-   SIZE_MAX is part of C99, so it might be defined on some
-   platforms. If it is not defined, (size_t)-1 is a portable
-   definition for C89, due to the way signed->unsigned 
-   conversion is defined. */
-#ifdef SIZE_MAX
-#define PY_SIZE_MAX SIZE_MAX
-#else
-#define PY_SIZE_MAX ((size_t)-1)
+/* a build with 30-bit digits for Python long integers needs an exact-width
+ * 32-bit unsigned integer type to store those digits.  (We could just use
+ * type 'unsigned long', but that would be wasteful on a system where longs
+ * are 64-bits.)  On Unix systems, the autoconf macro AC_TYPE_UINT32_T defines
+ * uint32_t to be such a type unless stdint.h or inttypes.h defines uint32_t.
+ * However, it doesn't set HAVE_UINT32_T, so we do that here.
+ */
+#ifdef uint32_t
+#define HAVE_UINT32_T 1
 #endif
 
-/* CPython needs this for the c-extension datetime, which is pure python on PyPy 
-   downstream packages assume it is here (Pandas for instance) */
-#include <time.h> 
+#ifdef HAVE_UINT32_T
+#ifndef PY_UINT32_T
+#define PY_UINT32_T uint32_t
+#endif
+#endif
+
+/* Macros for a 64-bit unsigned integer type; used for type 'twodigits' in the
+ * long integer implementation, when 30-bit digits are enabled.
+ */
+#ifdef uint64_t
+#define HAVE_UINT64_T 1
+#endif
+
+#ifdef HAVE_UINT64_T
+#ifndef PY_UINT64_T
+#define PY_UINT64_T uint64_t
+#endif
+#endif
+
+/* Signed variants of the above */
+#ifdef int32_t
+#define HAVE_INT32_T 1
+#endif
+
+#ifdef HAVE_INT32_T
+#ifndef PY_INT32_T
+#define PY_INT32_T int32_t
+#endif
+#endif
+
+#ifdef int64_t
+#define HAVE_INT64_T 1
+#endif
+
+#ifdef HAVE_INT64_T
+#ifndef PY_INT64_T
+#define PY_INT64_T int64_t
+#endif
+#endif
 
 /* uintptr_t is the C9X name for an unsigned integral type such that a
  * legitimate void* can be cast to uintptr_t and then back to void* again
@@ -49,25 +85,39 @@
  * integral type.
  */
 #ifdef HAVE_UINTPTR_T
-typedef uintptr_t   Py_uintptr_t;
-typedef intptr_t    Py_intptr_t;
+typedef uintptr_t       Py_uintptr_t;
+typedef intptr_t        Py_intptr_t;
 
 #elif SIZEOF_VOID_P <= SIZEOF_INT
 typedef unsigned int    Py_uintptr_t;
-typedef int     Py_intptr_t;
+typedef int             Py_intptr_t;
 
 #elif SIZEOF_VOID_P <= SIZEOF_LONG
 typedef unsigned long   Py_uintptr_t;
-typedef long        Py_intptr_t;
+typedef long            Py_intptr_t;
 
 #elif defined(HAVE_LONG_LONG) && (SIZEOF_VOID_P <= SIZEOF_LONG_LONG)
 typedef unsigned PY_LONG_LONG   Py_uintptr_t;
-typedef PY_LONG_LONG        Py_intptr_t;
+typedef PY_LONG_LONG            Py_intptr_t;
 
 #else
 #   error "Python needs a typedef for Py_uintptr_t in pyport.h."
 #endif /* HAVE_UINTPTR_T */
 
+/* Largest possible value of size_t.
+   SIZE_MAX is part of C99, so it might be defined on some
+   platforms. If it is not defined, (size_t)-1 is a portable
+   definition for C89, due to the way signed->unsigned
+   conversion is defined. */
+#ifdef SIZE_MAX
+#define PY_SIZE_MAX SIZE_MAX
+#else
+#define PY_SIZE_MAX ((size_t)-1)
+#endif
+
+/* CPython needs this for the c-extension datetime, which is pure python on PyPy
+   downstream packages assume it is here (Pandas for instance) */
+#include <time.h>
 
 /*******************************
  * stat() and fstat() fiddling *
@@ -128,6 +178,13 @@ typedef PY_LONG_LONG        Py_intptr_t;
 #define Py_ALIGNED(x) __attribute__((aligned(x)))
 #else
 #define Py_ALIGNED(x)
+#endif
+
+/* Eliminate end-of-loop code not reached warnings from SunPro C
+ * when using do{...}while(0) macros
+ */
+#ifdef __SUNPRO_C
+#pragma error_messages (off,E_END_OF_LOOP_CODE_NOT_REACHED)
 #endif
 
 /*

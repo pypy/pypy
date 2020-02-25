@@ -448,14 +448,19 @@ def find_in_meta_path(space, w_modulename, w_path):
             return w_loader
 
 def _getimporter(space, w_pathitem):
-    # the function 'imp._getimporter' is a pypy-only extension
+    # 'imp._getimporter' is somewhat like CPython's get_path_importer
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
         space.setitem(w_path_importer_cache, w_pathitem, space.w_None)
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
+            w_pathbytes = w_pathitem
+            if space.isinstance_w(w_pathitem, space.w_unicode):
+                from pypy.module.sys.interp_encoding import getfilesystemencoding
+                w_pathbytes = space.call_method(space.w_unicode, 'encode',
+                                     w_pathitem, getfilesystemencoding(space))
             try:
-                w_importer = space.call_function(w_hook, w_pathitem)
+                w_importer = space.call_function(w_hook, w_pathbytes)
             except OperationError as e:
                 if not e.match(space, space.w_ImportError):
                     raise

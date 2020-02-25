@@ -137,11 +137,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.expand_byte_mask_addr = float_constants + 64
         self.element_ones = [float_constants + 80 + 16*i for i in range(4)]
 
-    def set_extra_stack_depth(self, mc, value):
-        if self._is_asmgcc():
-            extra_ofs = self.cpu.get_ofs_of_frame_field('jf_extra_stack_depth')
-            mc.MOV_bi(extra_ofs, value)
-
     def build_frame_realloc_slowpath(self):
         mc = codebuf.MachineCodeBlockWrapper()
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
@@ -161,14 +156,20 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.MOV_sr(0, ebp.value)
         # align
 
-        self.set_extra_stack_depth(mc, align * WORD)
+        #
+        # * Note: these commented-out pieces of code about 'extra_stack_depth'
+        # * are not necessary any more, but they are kept around in case we
+        # * need in the future again to track the exact stack depth.
+        #
+        #self.set_extra_stack_depth(mc, align * WORD)
+
         self._store_and_reset_exception(mc, None, ebx, ecx)
 
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.MOV_rr(ebp.value, eax.value)
         self._restore_exception(mc, None, ebx, ecx)
         mc.ADD_ri(esp.value, (align - 1) * WORD)
-        self.set_extra_stack_depth(mc, 0)
+        #self.set_extra_stack_depth(mc, 0)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -196,12 +197,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # the caller already did push_gcmap(store=True)
         if IS_X86_64:
             mc.SUB(esp, imm(WORD))     # alignment
-            self.set_extra_stack_depth(mc, 2 * WORD)
+            #self.set_extra_stack_depth(mc, 2 * WORD)
             # the arguments are already in the correct registers
         else:
             # we want space for 4 arguments + call + alignment
             mc.SUB(esp, imm(WORD * 7))
-            self.set_extra_stack_depth(mc, 8 * WORD)
+            #self.set_extra_stack_depth(mc, 8 * WORD)
             # store the arguments at the correct place in the stack
             for i in range(4):
                 mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
@@ -211,7 +212,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.ADD(esp, imm(WORD))
         else:
             mc.ADD(esp, imm(WORD * 7))
-        self.set_extra_stack_depth(mc, 0)
+        #self.set_extra_stack_depth(mc, 0)
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [eax], supports_floats, callee_only)
         mc.RET()
@@ -275,11 +276,11 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 # (already in edx)              # length
                 mc.MOV_rr(esi.value, ecx.value) # tid
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
-        self.set_extra_stack_depth(mc, 16)
+        #self.set_extra_stack_depth(mc, 16)
         mc.CALL(imm(follow_jump(addr)))
         self._reload_frame_if_necessary(mc)
         mc.ADD_ri(esp.value, 16 - WORD)
-        self.set_extra_stack_depth(mc, 0)
+        #self.set_extra_stack_depth(mc, 0)
         #
         mc.TEST_rr(eax.value, eax.value)
         # common case: not taken
@@ -1018,8 +1019,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         from rpython.rlib.rvmprof.rvmprof import cintf
         # edx = address of pypy_threadlocal_s
         self.mc.MOV_rs(edx.value, THREADLOCAL_OFS)
-        if self._is_asmgcc():
-            self.mc.AND_ri(edx.value, ~1)
         # eax = (our local vmprof_tl_stack).next
         self.mc.MOV_rs(eax.value, (FRAME_FIXED_SIZE - 4 + 0) * WORD)
         # save in vmprof_tl_stack the value eax
@@ -2236,25 +2235,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_assembler_emit_call(self, addr, argloc, _):
         threadlocal_loc = RawEspLoc(THREADLOCAL_OFS, INT)
-        if self._is_asmgcc():
-            # We need to remove the bit "already seen during the
-            # previous minor collection" instead of passing this
-            # value directly.
-            if IS_X86_64:
-                tmploc = esi    # already the correct place
-                if argloc is tmploc:
-                    # this case is theoretical only so far: in practice,
-                    # argloc is always eax, never esi
-                    self.mc.MOV_rr(edi.value, esi.value)
-                    argloc = edi
-            else:
-                tmploc = eax
-                if tmploc is argloc:
-                    tmploc = edx
-            self.mc.MOV(tmploc, threadlocal_loc)
-            self.mc.AND_ri(tmploc.value, ~1)
-            threadlocal_loc = tmploc
-        #
         self.simple_call(addr, [argloc, threadlocal_loc])
 
     def _call_assembler_emit_helper_call(self, addr, arglocs, result_loc):
@@ -2672,8 +2652,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
-        if self._is_asmgcc():
-            self.mc.AND_ri(resloc.value, ~1)
         self.load_from_mem(resloc, addr_add_const(resloc, offset),
                            imm(size), imm(sign))
 
