@@ -37,6 +37,7 @@ class AppTestStringIO:
         buf = "1234567890"
         sio = io.StringIO(buf)
 
+        assert sio.read(0) == ''
         assert buf[:1] == sio.read(1)
         assert buf[1:5] == sio.read(4)
         assert buf[5:] == sio.read(900)
@@ -56,6 +57,7 @@ class AppTestStringIO:
     def test_readline(self):
         import io
         sio = io.StringIO('123\n456')
+        assert sio.readline(0) == ''
         assert sio.readline(2) == '12'
         assert sio.readline(None) == '3\n'
         assert sio.readline() == '456'
@@ -321,4 +323,4 @@ class AppTestStringIO:
         assert sio2.getvalue() == s
         assert sio2.foo == 42
         assert sio2.tell() == 2
-          
+

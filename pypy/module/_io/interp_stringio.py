@@ -315,6 +315,7 @@ class W_StringIO(W_TextIOBase):
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
+        #import pdb; pdb.set_trace()
         limit = convert_size(space, w_limit)
         if self.pos >= self.get_length():
             return W_UnicodeObject.EMPTY
@@ -329,6 +330,8 @@ class W_StringIO(W_TextIOBase):
                 it = Utf8StringIterator(self.w_value._utf8)
                 it._pos = start_offset
                 for ch in it:
+                    if self.pos >= end:
+                        break
                     if ch == ord(u'\n'):
                         self.pos += 1
                         break
@@ -343,8 +346,6 @@ class W_StringIO(W_TextIOBase):
                             # `it` has gone one char too far, but we don't care
                             break
                     self.pos += 1
-                    if self.pos >= end:
-                        break
                 w_res = self.w_value._unicode_sliced(space, start, self.pos)
                 return w_res
             else:
@@ -359,6 +360,8 @@ class W_StringIO(W_TextIOBase):
                 it = Utf8StringIterator(self.w_value._utf8)
                 it._pos = start_offset
                 for ch in it:
+                    if self.pos >= end:
+                        break
                     self.pos += 1
                     if ch == ord(newline[0]):
                         if len(newline) == 1 or self.pos >= end:
@@ -370,8 +373,6 @@ class W_StringIO(W_TextIOBase):
                                 break
                             else:
                                 continue
-                    if self.pos >= end:
-                        break
                 w_res = self.w_value._unicode_sliced(space, start, self.pos)
                 return w_res
 
