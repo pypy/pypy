@@ -310,6 +310,17 @@ class AppTestStringIO:
         sio.close()
         raises(ValueError, sio.__setstate__, ("closed", "", 0, None))
 
+    def test_roundtrip_translation(self):
+        from _io import StringIO
+        sio1 = StringIO('a\nb', newline='\r\n')
+        pos = sio1.seek(1)
+        assert sio1.getvalue() == 'a\r\nb'
+        state = sio1.__getstate__()
+        sio2 = StringIO()
+        sio2.__setstate__(state)
+        assert sio2.getvalue() == 'a\r\nb'
+        assert sio2.tell() == pos
+
     def test_roundtrip_state(self):
         import io
         s = u'12345678'

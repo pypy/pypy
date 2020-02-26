@@ -125,11 +125,7 @@ class W_StringIO(W_TextIOBase):
         else:
             return len(self.buf.data)
 
-    @unwrap_spec(w_newline = WrappedDefault(u"\n"))
-    def descr_init(self, space, w_initvalue=None, w_newline=None):
-        # In case __init__ is called multiple times
-        self.buf = None
-        self.pos = 0
+    def _init_newline(self, space, w_newline):
         self.w_decoder = None
         self.readnl = None
         self.writenl = None
@@ -164,11 +160,18 @@ class W_StringIO(W_TextIOBase):
                 space.newint(int(self.readtranslate))
             )
 
+
+    @unwrap_spec(w_newline = WrappedDefault(u"\n"))
+    def descr_init(self, space, w_initvalue=None, w_newline=None):
+        # In case __init__ is called multiple times
+        self.buf = None
+        self.pos = 0
+        self._init_newline(space, w_newline)
+
         if not space.is_none(w_initvalue):
             self.w_value = self._decode_string(space, w_initvalue)
         else:
             self.w_value = W_UnicodeObject.EMPTY
-        self.pos = 0
         self.state = READING
 
     def descr_getstate(self, space):
@@ -198,15 +201,11 @@ class W_StringIO(W_TextIOBase):
         if not space.isinstance_w(w_initval, space.w_unicode):
             raise oefmt(space.w_TypeError,
                         "unicode argument expected, got '%T'", w_initval)
-        # Initialize state
-        self.descr_init(space, w_initval, w_readnl)
-
-        # Restore the buffer state. We're not doing it via __init__
-        # because the string value in the state tuple has already been
-        # translated once by __init__. So we do not take any chance and replace
-        # object's buffer completely
-        initval = space.utf8_w(w_initval)
-        self.buf = UnicodeIO(initval)
+        self.w_value = w_initval
+        self.buf = None
+        self.builder = None
+        self.state = READING
+        self._init_newline(space, w_readnl)
 
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
@@ -315,7 +314,6 @@ class W_StringIO(W_TextIOBase):
 
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
-        #import pdb; pdb.set_trace()
         limit = convert_size(space, w_limit)
         if self.pos >= self.get_length():
             return W_UnicodeObject.EMPTY
