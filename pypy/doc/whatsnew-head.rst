@@ -27,3 +27,7 @@ adapt contributing documentation to heptapod
 Improve code generation for generators (and generator expressions in
 particular) when passing them to builtin functions that consume iterators, such
 as ``sum``, ``map``, ``max``, etc.
+
+.. branch: warmup-improvements-various
+
+Improves warmup time by up to 20%.
