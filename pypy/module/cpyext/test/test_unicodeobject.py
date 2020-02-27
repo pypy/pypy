@@ -162,7 +162,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("lower", "METH_O",
             """
-                PyObject *p, *self_arg, *res, *tup;
+                PyObject *p, *res, *tup;
                 p = PyObject_GetAttrString(args, "lower");
                 if (p == NULL) {
                     return NULL;
