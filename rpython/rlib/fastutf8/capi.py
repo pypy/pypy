@@ -23,7 +23,7 @@ IDXTAB.become(rffi.CStruct("fu8_idxtab",
 IDXTABP = lltype.Ptr(IDXTAB)
 
 def setup():
-    compile_extra = ['-DRPYTHON_LL2CTYPES', '-DALLOW_SURROGATES=0', '-fPIC']
+    compile_extra = ['-fPIC']
     eci_kwds = dict(
         include_dirs = [SRC],
         includes = ['utf8.h'],

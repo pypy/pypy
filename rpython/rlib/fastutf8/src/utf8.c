@@ -1,5 +1,6 @@
-#include "utf8.h"
+#define _GNU_SOURCE 1
 
+#include "utf8.h"
 #include <stdio.h>
 #include <assert.h>
 

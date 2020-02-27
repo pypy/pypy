@@ -4,18 +4,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#ifdef RPYTHON_LL2CTYPES
-   /* only for testing: ll2ctypes sets RPY_EXTERN from the command-line */
 #ifndef RPY_EXTERN
 #  define RPY_EXTERN RPY_EXPORTED
 #endif
 
 #ifdef _WIN32
-#  define RPY_EXPORTED __declspec(dllexport)
+#ifndef RPY_EXPORTED
+#define RPY_EXPORTED __declspec(dllexport)
+#endif
 #else
 #  define RPY_EXPORTED  extern __attribute__((visibility("default")))
-#endif
-
 #endif
 
 /**
