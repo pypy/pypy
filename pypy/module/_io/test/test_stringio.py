@@ -2,11 +2,11 @@ class AppTestStringIO:
     def test_stringio(self):
         import io
         sio = io.StringIO()
-        sio.write('Hello ')
-        sio.write('world')
-        assert sio.getvalue() == 'Hello world'
+        sio.write(u'Hello ')
+        sio.write(u'world')
+        assert sio.getvalue() == u'Hello world'
 
-        assert io.StringIO("hello").read() == 'hello'
+        assert io.StringIO(u"hello").read() == u'hello'
 
     def test_capabilities(self):
         import io
@@ -30,17 +30,18 @@ class AppTestStringIO:
         sio = io.StringIO()
         sio.close()
         raises(ValueError, sio.read, 1)
-        raises(ValueError, sio.write, "text")
+        raises(ValueError, sio.write, u"text")
 
     def test_read(self):
         import io
-        buf = "1234567890"
+        buf = u"1234567890"
         sio = io.StringIO(buf)
 
+        assert sio.read(0) == ''
         assert buf[:1] == sio.read(1)
         assert buf[1:5] == sio.read(4)
         assert buf[5:] == sio.read(900)
-        assert "" == sio.read()
+        assert u"" == sio.read()
 
     def test_read_binary(self):
         # data is from a test_imghdr test for a GIF file
@@ -55,7 +56,8 @@ class AppTestStringIO:
 
     def test_readline(self):
         import io
-        sio = io.StringIO('123\n456')
+        sio = io.StringIO(u'123\n456')
+        assert sio.readline(0) == ''
         assert sio.readline(2) == '12'
         assert sio.readline(None) == '3\n'
         assert sio.readline() == '456'
@@ -63,7 +65,7 @@ class AppTestStringIO:
     def test_seek(self):
         import io
 
-        s = "1234567890"
+        s = u"1234567890"
         sio = io.StringIO(s)
 
         sio.read(5)
@@ -77,7 +79,7 @@ class AppTestStringIO:
         raises(TypeError, sio.seek, 0.0)
 
         exc_info = raises(ValueError, sio.seek, -3)
-        assert exc_info.value.args[0] == "negative seek position: -3"
+        assert exc_info.value.args[0] == "Negative seek position -3"
 
         raises(ValueError, sio.seek, 3, -1)
         raises(ValueError, sio.seek, 3, -3)
@@ -88,24 +90,24 @@ class AppTestStringIO:
     def test_overseek(self):
         import io
 
-        s = "1234567890"
+        s = u"1234567890"
         sio = io.StringIO(s)
 
         res = sio.seek(11)
         assert res == 11
         res = sio.read()
-        assert res == ""
+        assert res == u""
         assert sio.tell() == 11
         assert sio.getvalue() == s
-        sio.write("")
+        sio.write(u"")
         assert sio.getvalue() == s
         sio.write(s)
-        assert sio.getvalue() == s + "\0" + s
+        assert sio.getvalue() == s + u"\0" + s
 
     def test_tell(self):
         import io
 
-        s = "1234567890"
+        s = u"1234567890"
         sio = io.StringIO(s)
 
         assert sio.tell() == 0
@@ -120,7 +122,7 @@ class AppTestStringIO:
     def test_truncate(self):
         import io
 
-        s = "1234567890"
+        s = u"1234567890"
         sio = io.StringIO(s)
 
         raises(ValueError, sio.truncate, -1)
@@ -149,104 +151,104 @@ class AppTestStringIO:
         exc_info = raises(TypeError, io.StringIO, 3)
         assert "int" in exc_info.value.args[0]
 
-        sio = io.StringIO("")
+        sio = io.StringIO(u"")
         exc_info = raises(TypeError, sio.write, 3)
         assert "int" in exc_info.value.args[0]
 
     def test_newline_none(self):
         import io
 
-        sio = io.StringIO("a\nb\r\nc\rd", newline=None)
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline=None)
         res = list(sio)
-        assert res == ["a\n", "b\n", "c\n", "d"]
+        assert res == [u"a\n", u"b\n", u"c\n", u"d"]
         sio.seek(0)
         res = sio.read(1)
-        assert res == "a"
+        assert res == u"a"
         res = sio.read(2)
-        assert res == "\nb"
+        assert res == u"\nb"
         res = sio.read(2)
-        assert res == "\nc"
+        assert res == u"\nc"
         res = sio.read(1)
-        assert res == "\n"
+        assert res == u"\n"
 
         sio = io.StringIO(newline=None)
-        res = sio.write("a\n")
+        res = sio.write(u"a\n")
         assert res == 2
-        res = sio.write("b\r\n")
+        res = sio.write(u"b\r\n")
         assert res == 3
-        res = sio.write("c\rd")
+        res = sio.write(u"c\rd")
         assert res == 3
         sio.seek(0)
         res = sio.read()
-        assert res == "a\nb\nc\nd"
-        sio = io.StringIO("a\r\nb", newline=None)
+        assert res == u"a\nb\nc\nd"
+        sio = io.StringIO(u"a\r\nb", newline=None)
         res = sio.read(3)
-        assert res == "a\nb"
+        assert res == u"a\nb"
 
     def test_newline_empty(self):
         import io
 
-        sio = io.StringIO("a\nb\r\nc\rd", newline="")
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="")
         res = list(sio)
-        assert res == ["a\n", "b\r\n", "c\r", "d"]
+        assert res == [u"a\n", u"b\r\n", u"c\r", u"d"]
         sio.seek(0)
         res = sio.read(4)
-        assert res == "a\nb\r"
+        assert res == u"a\nb\r"
         res = sio.read(2)
-        assert res == "\nc"
+        assert res == u"\nc"
         res = sio.read(1)
-        assert res == "\r"
+        assert res == u"\r"
 
         sio = io.StringIO(newline="")
-        res = sio.write("a\n")
+        res = sio.write(u"a\n")
         assert res == 2
-        res = sio.write("b\r")
+        res = sio.write(u"b\r")
         assert res == 2
-        res = sio.write("\nc")
+        res = sio.write(u"\nc")
         assert res == 2
-        res = sio.write("\rd")
+        res = sio.write(u"\rd")
         assert res == 2
         sio.seek(0)
         res = list(sio)
-        assert res == ["a\n", "b\r\n", "c\r", "d"]
+        assert res == [u"a\n", u"b\r\n", u"c\r", u"d"]
 
     def test_newline_lf(self):
         import io
 
-        sio = io.StringIO("a\nb\r\nc\rd")
+        sio = io.StringIO(u"a\nb\r\nc\rd")
         res = list(sio)
-        assert res == ["a\n", "b\r\n", "c\rd"]
+        assert res == [u"a\n", u"b\r\n", u"c\rd"]
 
     def test_newline_cr(self):
         import io
 
-        sio = io.StringIO("a\nb\r\nc\rd", newline="\r")
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="\r")
         res = sio.read()
-        assert res == "a\rb\r\rc\rd"
+        assert res == u"a\rb\r\rc\rd"
         sio.seek(0)
         res = list(sio)
-        assert res == ["a\r", "b\r", "\r", "c\r", "d"]
+        assert res == [u"a\r", u"b\r", u"\r", u"c\r", u"d"]
 
     def test_newline_crlf(self):
         import io
 
-        sio = io.StringIO("a\nb\r\nc\rd", newline="\r\n")
+        sio = io.StringIO(u"a\nb\r\nc\rd", newline="\r\n")
         res = sio.read()
-        assert res == "a\r\nb\r\r\nc\rd"
+        assert res == u"a\r\nb\r\r\nc\rd"
         sio.seek(0)
         res = list(sio)
-        assert res == ["a\r\n", "b\r\r\n", "c\rd"]
+        assert res == [u"a\r\n", u"b\r\r\n", u"c\rd"]
 
     def test_newline_property(self):
         import io
 
         sio = io.StringIO(newline=None)
         assert sio.newlines is None
-        sio.write("a\n")
+        sio.write(u"a\n")
         assert sio.newlines == "\n"
-        sio.write("b\r\n")
+        sio.write(u"b\r\n")
         assert sio.newlines == ("\n", "\r\n")
-        sio.write("c\rd")
+        sio.write(u"c\rd")
         assert sio.newlines == ("\r", "\n", "\r\n")
         exc = raises(TypeError, io.StringIO, newline=b'\n')
         assert 'bytes' in str(exc.value)
@@ -254,7 +256,7 @@ class AppTestStringIO:
     def test_iterator(self):
         import io
 
-        s = "1234567890\n"
+        s = u"1234567890\n"
         sio = io.StringIO(s * 10)
 
         assert iter(sio) is sio
@@ -287,7 +289,7 @@ class AppTestStringIO:
         assert isinstance(state[0], str)
         assert isinstance(state[1], str)
         assert isinstance(state[2], int)
-        assert isinstance(state[3], dict)
+        assert state[3] is None or isinstance(state[3], dict)
         sio.close()
         raises(ValueError, sio.__getstate__)
 
@@ -295,18 +297,29 @@ class AppTestStringIO:
         import io
 
         sio = io.StringIO()
-        sio.__setstate__(("no error", "\n", 0, None))
-        sio.__setstate__(("no error", "", 0, {"spam": 3}))
-        raises(ValueError, sio.__setstate__, ("", "f", 0, None))
-        raises(ValueError, sio.__setstate__, ("", "", -1, None))
-        raises(TypeError, sio.__setstate__, (b"", "", 0, None))
-        raises(TypeError, sio.__setstate__, ("", "", 0.0, None))
-        raises(TypeError, sio.__setstate__, ("", "", 0, 0))
-        raises(TypeError, sio.__setstate__, ("len-test", 0))
+        sio.__setstate__((u"no error", u"\n", 0, None))
+        sio.__setstate__((u"no error", u"", 0, {"spam": 3}))
+        raises(ValueError, sio.__setstate__, (u"", u"f", 0, None))
+        raises(ValueError, sio.__setstate__, (u"", u"", -1, None))
+        raises(TypeError, sio.__setstate__, (b"", u"", 0, None))
+        raises(TypeError, sio.__setstate__, (u"", u"", 0.0, None))
+        raises(TypeError, sio.__setstate__, (u"", u"", 0, 0))
+        raises(TypeError, sio.__setstate__, (u"len-test", 0))
         raises(TypeError, sio.__setstate__)
         raises(TypeError, sio.__setstate__, 0)
         sio.close()
-        raises(ValueError, sio.__setstate__, ("closed", "", 0, None))
+        raises(ValueError, sio.__setstate__, (u"closed", u"", 0, None))
+
+    def test_roundtrip_translation(self):
+        from _io import StringIO
+        sio1 = StringIO(u'a\nb', newline='\r\n')
+        pos = sio1.seek(1)
+        assert sio1.getvalue() == u'a\r\nb'
+        state = sio1.__getstate__()
+        sio2 = StringIO()
+        sio2.__setstate__(state)
+        assert sio2.getvalue() == u'a\r\nb'
+        assert sio2.tell() == pos
 
     def test_roundtrip_state(self):
         import io
@@ -321,4 +334,4 @@ class AppTestStringIO:
         assert sio2.getvalue() == s
         assert sio2.foo == 42
         assert sio2.tell() == 2
-          
+

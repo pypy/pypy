@@ -12,3 +12,8 @@ Make cpyext test faster, especially on py3.6
 .. branch: py3.6-sqlite
 
 Follow CPython's behaviour more closely in sqlite3
+
+.. branch: py3-StringIO-perf
+
+Improve performance of io.StringIO(). It should now be faster than CPython in
+common use cases.
