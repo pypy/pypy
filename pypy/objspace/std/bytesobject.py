@@ -38,7 +38,7 @@ class W_AbstractBytesObject(W_Root):
         if len(s2) > 1:
             return s1 is s2
         else:            # strings of len <= 1 are unique-ified
-            return s1 == s2
+            return s1[0] == s2[0]
 
     def immutable_unique_id(self, space):
         if self.user_overridden_class:
