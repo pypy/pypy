@@ -106,7 +106,7 @@ Meeting PyPy developers
 .. _here: https://quodlibet.duckdns.org/irc/pypy/latest.log.html#irc-end
 .. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
-.. _Development bug/feature tracker: https://bitbucket.org/pypy/pypy/issues
+.. _Development bug/feature tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 
 Indices and tables

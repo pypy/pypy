@@ -595,8 +595,9 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
-    if isinstance(buf, StringBuffer):
-        return str_getreadbuffer(space, w_buf, segment, ref)
+    # if isinstance(buf, StringBuffer):
+    #    # Link the data pointer of buf to ref[0]
+    #    return _str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -616,6 +617,9 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
+    return _str_getreadbuffer(space, w_str, segment, ref)
+
+def _str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise oefmt(space.w_SystemError,
@@ -641,7 +645,7 @@ def unicode_getreadbuffer(space, w_str, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
-    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+    return _str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def buf_getreadbuffer(space, pyref, segment, ref):

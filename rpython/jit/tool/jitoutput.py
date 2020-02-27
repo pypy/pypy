@@ -12,6 +12,7 @@ REGEXES = [
     (('backend_no', 'backend_time'), '^Backend:\s+([\d.]+)\s+([\d.]+)$'),
     (None, '^TOTAL.*$'),
     (('ops.total',), '^ops:\s+(\d+)$'),
+    (('heapcached_ops', ), '^heapcached ops:\s+(\d+)$'),
     (('recorded_ops.total',), '^recorded ops:\s+(\d+)$'),
     (('recorded_ops.calls',), '^\s+calls:\s+(\d+)$'),
     (('guards',), '^guards:\s+(\d+)$'),

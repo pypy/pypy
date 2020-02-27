@@ -13,6 +13,8 @@ from rpython.rtyper.rclass import (IR_IMMUTABLE, IR_IMMUTABLE_ARRAY,
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.translator.translator import TranslationContext, graphof
 
+from rpython.rtyper.annlowlevel import llstr, hlstr
+
 
 class EmptyBase(object):
     pass
@@ -1339,3 +1341,28 @@ class TestRclass(BaseRtypingTest):
         def f():
             return a.next.next.next.next is not None
         assert self.interpret(f, []) == True
+
+    def test_str_of_type(self):
+        class A(object):
+            pass
+
+        class B(A):
+            pass
+
+        def f(i):
+            if i:
+                a = A()
+            else:
+                a = B()
+            return str(type(a))
+        assert "A" in hlstr(self.interpret(f, [1]))
+        assert "B" in hlstr(self.interpret(f, [0]))
+
+        def g(i):
+            if i:
+                a = A()
+            else:
+                a = B()
+            return str(a.__class__)
+        assert "A" in hlstr(self.interpret(g, [1]))
+        assert "B" in hlstr(self.interpret(g, [0]))
