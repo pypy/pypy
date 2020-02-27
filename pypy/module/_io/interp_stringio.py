@@ -43,7 +43,8 @@ class UnicodeIO(object):
     def _convert_limit(self, limit, start):
         if limit < 0 or limit > len(self.data) - start:
             limit = len(self.data) - start
-        assert limit >= 0
+            if limit < 0:  # happens when self.pos > len(self.data)
+                limit = 0
         return limit
 
     def readline_universal(self, start, limit):
@@ -124,11 +125,7 @@ class W_StringIO(W_TextIOBase):
         else:
             return len(self.buf.data)
 
-    @unwrap_spec(w_newline=WrappedDefault("\n"))
-    def descr_init(self, space, w_initvalue=None, w_newline=None):
-        # In case __init__ is called multiple times
-        self.buf = None
-        self.pos = 0
+    def _init_newline(self, space, w_newline):
         self.w_decoder = None
         self.readnl = None
         self.writenl = None
@@ -160,11 +157,18 @@ class W_StringIO(W_TextIOBase):
                 space.newint(int(self.readtranslate))
             )
 
+
+    @unwrap_spec(w_newline = WrappedDefault(u"\n"))
+    def descr_init(self, space, w_initvalue=None, w_newline=None):
+        # In case __init__ is called multiple times
+        self.buf = None
+        self.pos = 0
+        self._init_newline(space, w_newline)
+
         if not space.is_none(w_initvalue):
             self.w_value = self._decode_string(space, w_initvalue)
         else:
             self.w_value = W_UnicodeObject.EMPTY
-        self.pos = 0
         self.state = READING
 
     def descr_getstate(self, space):
@@ -191,18 +195,11 @@ class W_StringIO(W_TextIOBase):
                         "%T.__setstate__ argument should be a 4-tuple, got %T",
                         self, w_state)
         w_initval, w_readnl, w_pos, w_dict = space.unpackiterable(w_state, 4)
-        if not space.isinstance_w(w_initval, space.w_unicode):
-            raise oefmt(space.w_TypeError,
-                        "unicode argument expected, got '%T'", w_initval)
-        # Initialize state
-        self.descr_init(space, w_initval, w_readnl)
-
-        # Restore the buffer state. We're not doing it via __init__
-        # because the string value in the state tuple has already been
-        # translated once by __init__. So we do not take any chance and replace
-        # object's buffer completely
-        initval = space.utf8_w(w_initval)
-        self.buf = UnicodeIO(initval)
+        self.w_value = space.interp_w(W_UnicodeObject, w_initval)
+        self.buf = None
+        self.builder = None
+        self.state = READING
+        self._init_newline(space, w_readnl)
 
         pos = space.getindex_w(w_pos, space.w_TypeError)
         if pos < 0:
@@ -292,6 +289,8 @@ class W_StringIO(W_TextIOBase):
     def read_w(self, space, w_size=None):
         self._check_closed(space)
         size = convert_size(space, w_size)
+        if self.pos >= self.get_length():
+            return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
             self._realize(space)
         if self.state == READING:
@@ -310,6 +309,8 @@ class W_StringIO(W_TextIOBase):
     def readline_w(self, space, w_limit=None):
         self._check_closed(space)
         limit = convert_size(space, w_limit)
+        if self.pos >= self.get_length():
+            return W_UnicodeObject.EMPTY
         if self.state == ACCUMULATING:
             self._realize(space)
         if self.state == READING:
@@ -321,6 +322,8 @@ class W_StringIO(W_TextIOBase):
                 it = Utf8StringIterator(self.w_value._utf8)
                 it._pos = start_offset
                 for ch in it:
+                    if self.pos >= end:
+                        break
                     if ch == ord(u'\n'):
                         self.pos += 1
                         break
@@ -335,8 +338,6 @@ class W_StringIO(W_TextIOBase):
                             # `it` has gone one char too far, but we don't care
                             break
                     self.pos += 1
-                    if self.pos >= end:
-                        break
                 w_res = self.w_value._unicode_sliced(space, start, self.pos)
                 return w_res
             else:
@@ -351,6 +352,8 @@ class W_StringIO(W_TextIOBase):
                 it = Utf8StringIterator(self.w_value._utf8)
                 it._pos = start_offset
                 for ch in it:
+                    if self.pos >= end:
+                        break
                     self.pos += 1
                     if ch == ord(newline[0]):
                         if len(newline) == 1 or self.pos >= end:
@@ -362,8 +365,6 @@ class W_StringIO(W_TextIOBase):
                                 break
                             else:
                                 continue
-                    if self.pos >= end:
-                        break
                 w_res = self.w_value._unicode_sliced(space, start, self.pos)
                 return w_res
 
@@ -387,7 +388,7 @@ class W_StringIO(W_TextIOBase):
             raise oefmt(space.w_ValueError,
                         "Invalid whence (%d, should be 0, 1 or 2)", mode)
         elif mode == 0 and pos < 0:
-            raise oefmt(space.w_ValueError, "negative seek position: %d", pos)
+            raise oefmt(space.w_ValueError, "Negative seek position %d", pos)
         elif mode != 0 and pos != 0:
             raise oefmt(space.w_IOError, "Can't do nonzero cur-relative seeks")
 
