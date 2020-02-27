@@ -20,3 +20,8 @@ Fixes incorrect error text for ``int('1', base=1000)``
 .. branch: heptapod
 
 adapt contributing documentation to heptapod
+
+.. branch: StringIO-perf
+
+Improve performance of io.StringIO(). It should now be faster than CPython in
+common use cases.
