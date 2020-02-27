@@ -236,7 +236,7 @@ def _init_timezone(space):
         timezone = c_get_timezone()
         altzone = timezone - 3600
         daylight = c_get_daylight()
-        for i in (0, 1):
+        for i in [0, 1]:
             blen = c_get_tzname(0, i, None)
             with rffi.scoped_alloc_buffer(blen) as buf:
                 s = c_get_tzname(blen, i, buf.raw)
