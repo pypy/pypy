@@ -171,8 +171,8 @@ class W_AbstractTupleObject(W_Root):
         list_w = self.tolist()
         i = 0
         while i < len(list_w):
-            w_item = list_w[i]
             contains_driver.jit_merge_point(tp=tp)
+            w_item = list_w[i]
             if space.eq_w(w_obj, w_item):
                 return space.w_True
             i += 1
