@@ -37,6 +37,7 @@ class AppTestStringIO:
         buf = u"1234567890"
         sio = io.StringIO(buf)
 
+        assert sio.read(0) == ''
         assert buf[:1] == sio.read(1)
         assert buf[1:5] == sio.read(4)
         assert buf[5:] == sio.read(900)
@@ -56,6 +57,7 @@ class AppTestStringIO:
     def test_readline(self):
         import io
         sio = io.StringIO(u'123\n456')
+        assert sio.readline(0) == ''
         assert sio.readline(2) == '12'
         assert sio.readline(None) == '3\n'
         assert sio.readline() == '456'
@@ -77,7 +79,7 @@ class AppTestStringIO:
         raises(TypeError, sio.seek, 0.0)
 
         exc_info = raises(ValueError, sio.seek, -3)
-        assert exc_info.value.args[0] == "negative seek position: -3"
+        assert exc_info.value.args[0] == "Negative seek position -3"
 
         raises(ValueError, sio.seek, 3, -1)
         raises(ValueError, sio.seek, 3, -3)
@@ -274,6 +276,8 @@ class AppTestStringIO:
             assert line == s
             i += 1
         assert i == 10
+        sio.seek(len(s) * 10 +1)
+        assert list(sio) == []
         sio = io.StringIO(s * 2)
         sio.close()
         raises(ValueError, next, sio)
@@ -287,7 +291,7 @@ class AppTestStringIO:
         assert isinstance(state[0], unicode)
         assert isinstance(state[1], str)
         assert isinstance(state[2], int)
-        assert isinstance(state[3], dict)
+        assert state[3] is None or isinstance(state[3], dict)
         sio.close()
         raises(ValueError, sio.__getstate__)
 
@@ -299,7 +303,7 @@ class AppTestStringIO:
         sio.__setstate__((u"no error", u"", 0, {"spam": 3}))
         raises(ValueError, sio.__setstate__, (u"", u"f", 0, None))
         raises(ValueError, sio.__setstate__, (u"", u"", -1, None))
-        raises(TypeError, sio.__setstate__, ("", u"", 0, None))
+        raises(TypeError, sio.__setstate__, (b"", u"", 0, None))
         raises(TypeError, sio.__setstate__, (u"", u"", 0.0, None))
         raises(TypeError, sio.__setstate__, (u"", u"", 0, 0))
         raises(TypeError, sio.__setstate__, (u"len-test", 0))
@@ -307,6 +311,17 @@ class AppTestStringIO:
         raises(TypeError, sio.__setstate__, 0)
         sio.close()
         raises(ValueError, sio.__setstate__, (u"closed", u"", 0, None))
+
+    def test_roundtrip_translation(self):
+        from _io import StringIO
+        sio1 = StringIO(u'a\nb', newline='\r\n')
+        pos = sio1.seek(1)
+        assert sio1.getvalue() == u'a\r\nb'
+        state = sio1.__getstate__()
+        sio2 = StringIO()
+        sio2.__setstate__(state)
+        assert sio2.getvalue() == u'a\r\nb'
+        assert sio2.tell() == pos
 
     def test_roundtrip_state(self):
         import io
@@ -321,3 +336,4 @@ class AppTestStringIO:
         assert sio2.getvalue() == s
         assert sio2.foo == 42
         assert sio2.tell() == 2
+
