@@ -21,7 +21,6 @@ Fixes incorrect error text for ``int('1', base=1000)``
 
 adapt contributing documentation to heptapod
 
-
 .. branch: pypy-jitdriver-greenkeys
 
 Improve code generation for generators (and generator expressions in
@@ -31,3 +30,8 @@ as ``sum``, ``map``, ``max``, etc.
 .. branch: warmup-improvements-various
 
 Improves warmup time by up to 20%.
+
+.. branch: StringIO-perf
+
+Improve performance of io.StringIO(). It should now be faster than CPython in
+common use cases.
