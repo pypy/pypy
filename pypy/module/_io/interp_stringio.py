@@ -198,10 +198,7 @@ class W_StringIO(W_TextIOBase):
                         "%T.__setstate__ argument should be a 4-tuple, got %T",
                         self, w_state)
         w_initval, w_readnl, w_pos, w_dict = space.unpackiterable(w_state, 4)
-        if not space.isinstance_w(w_initval, space.w_unicode):
-            raise oefmt(space.w_TypeError,
-                        "unicode argument expected, got '%T'", w_initval)
-        self.w_value = w_initval
+        self.w_value = space.interp_w(W_UnicodeObject, w_initval)
         self.buf = None
         self.builder = None
         self.state = READING
