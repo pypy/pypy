@@ -399,6 +399,32 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         s = module.asutf32(u)
         assert s == u.encode('utf-32')
 
+    def test_lower_cython(self):
+        # mimic exactly what cython does, without the extra checks
+        import time
+        module = self.import_extension('foo', [
+            ("lower", "METH_O",
+            """
+                PyObject *p, *res, *tup;
+                p = PyObject_GetAttrString(args, "lower");
+                if (p == NULL) {
+                    return NULL;
+                }
+                tup = PyTuple_New(0);
+                Py_INCREF(tup);
+                res = PyObject_Call(p, tup, NULL);
+                Py_DECREF(tup);
+                return res;
+            """)])
+        assert module.lower('ABC') == 'abc'
+        try:
+            time.tzset()
+        except AttributeError:
+            # only on posix
+            pass
+        tz1 = time.tzname[1]
+        assert module.lower(tz1) == tz1.lower()
+
     def test_UnicodeNew(self):
         module = self.import_extension('unicodenew', [
             ("make", "METH_VARARGS",
