@@ -391,7 +391,7 @@ class W_StringIO(W_TextIOBase):
             raise oefmt(space.w_ValueError,
                         "Invalid whence (%d, should be 0, 1 or 2)", mode)
         elif mode == 0 and pos < 0:
-            raise oefmt(space.w_ValueError, "negative seek position: %d", pos)
+            raise oefmt(space.w_ValueError, "Negative seek position %d", pos)
         elif mode != 0 and pos != 0:
             raise oefmt(space.w_IOError, "Can't do nonzero cur-relative seeks")
 

@@ -3,7 +3,7 @@ from hypothesis import given, strategies as st
 from io import StringIO
 from os import linesep
 
-LINE_ENDINGS = ['\n', '\r', '\r\n']
+LINE_ENDINGS = [u'\n', u'\r', u'\r\n']
 
 @given(txt=st.text(), newline=st.sampled_from(['', '\n']))
 def test_simple(txt, newline):
@@ -16,9 +16,9 @@ def test_simple(txt, newline):
         st.sampled_from(LINE_ENDINGS))))
 def test_universal(values):
     output_lines = [line + linesep for line, ending in values]
-    output = ''.join(output_lines)
+    output = u''.join(output_lines)
 
-    input = ''.join(line + ending for line, ending in values)
+    input = u''.join(line + ending for line, ending in values)
     sio = StringIO(input, newline=None)
     sio.seek(0)
     assert list(sio) == output_lines
@@ -37,9 +37,9 @@ def test_universal(values):
     newline=st.sampled_from(['\r', '\r\n']))
 def test_crlf(lines, newline):
     output_lines = [line + newline for line in lines]
-    output = ''.join(output_lines)
+    output = u''.join(output_lines)
 
-    input = ''.join(line + '\n' for line in lines)
+    input = u''.join(line + '\n' for line in lines)
     sio = StringIO(input, newline=newline)
     sio.seek(0)
     assert list(sio) == output_lines
@@ -48,7 +48,7 @@ def test_crlf(lines, newline):
     sio2 = StringIO(newline=newline)
     for line in lines:
         sio2.write(line)
-        sio2.write('\n')
+        sio2.write(u'\n')
     sio2.seek(0)
     assert list(sio2) == output_lines
     assert sio2.getvalue() == ''.join(output_lines)
