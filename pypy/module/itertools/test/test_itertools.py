@@ -291,6 +291,20 @@ class AppTestItertools(object):
         import sys
         raises((OverflowError, ValueError),    # ValueError on top of CPython
                itertools.islice, [], sys.maxsize + 1)
+    
+    def test_islice_intlike_args(self):
+        import itertools
+
+        class IntLike(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        it = itertools.islice([1, 2, 3, 4, 5], IntLike(0), IntLike(3), IntLike(2))
+        for x in [1, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_islice_wrongargs(self):
         import itertools

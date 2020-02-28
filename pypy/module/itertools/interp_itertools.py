@@ -362,7 +362,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
+            result = space.int_w(space.index(w_obj))
         except OperationError as e:
             if e.async(space):
                 raise
