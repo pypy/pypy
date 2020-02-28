@@ -31,33 +31,3 @@ RPY_EXTERN ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len);
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len);
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len);
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len);
-
-
-struct fu8_idxtab;
-
-/**
- * DO NOT USE! NOT READY
- * Looks up the byte position of the utf8 code point at the index.
- * Assumptions:
- *
- *  * utf8 parameter is utf8 encoded, otherwise the result is undefined.
- *  * passing one struct fu8_idxtab instance to several different utf8 strings
- *    yields undefined behaviour
- *
- * Return values:
- *
- * -1, if the index is out of bounds of utf8
- *  X, where X >= 0. X is the byte postion for the code point at index
- *
- * If table is not NULL, this routine builds up a lookup
- * table to speed up indexing.
- *
- */
-RPY_EXTERN ssize_t fu8_idx2bytepos(size_t index,
-                        const uint8_t * utf8, size_t bytelen,
-                        size_t cplen,
-                        struct fu8_idxtab ** tab);
-RPY_EXTERN void fu8_free_idxtab(struct fu8_idxtab * t);
-RPY_EXTERN ssize_t fu8_idx2bytepso_sse4(size_t index,
-                             const uint8_t * utf8, size_t len,
-                             struct fu8_idxtab ** t);

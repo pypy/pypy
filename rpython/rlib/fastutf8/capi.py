@@ -47,11 +47,6 @@ def setup():
                                   [rffi.CCHARP, rffi.SSIZE_T],
                                   rffi.SSIZE_T, compilation_info=eci,
                                   _nowrapper=True)
-    index2byteposition = rffi.llexternal("fu8_idx2bytepos",
-                                  [rffi.SIZE_T, rffi.CCHARP, rffi.SIZE_T, IDXTABP],
-                                  rffi.SSIZE_T, compilation_info=eci,
-                                  _nowrapper=True)
-
     return CInterface(locals())
 
 
