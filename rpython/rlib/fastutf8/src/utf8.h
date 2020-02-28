@@ -28,6 +28,6 @@
  * implementations (e.g. seq, SSE4, AVX)
  */
 RPY_EXTERN ssize_t fu8_count_utf8_codepoints(const char * utf8, size_t len);
-RPY_EXTERN ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len);
-RPY_EXTERN ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len);
-RPY_EXTERN ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len);
+ssize_t fu8_count_utf8_codepoints_seq(const char * utf8, size_t len);
+ssize_t fu8_count_utf8_codepoints_sse4(const char * utf8, size_t len);
+ssize_t fu8_count_utf8_codepoints_avx(const char * utf8, size_t len);
