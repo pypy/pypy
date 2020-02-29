@@ -17,3 +17,9 @@ Follow CPython's behaviour more closely in sqlite3
 
 Improve performance of io.StringIO(). It should now be faster than CPython in
 common use cases.
+
+.. branch: ignore-pyenv-launcher
+
+virtualenv on macOS defines an environment variable ``__PYVENV_LAUNCHER__`` to
+let the invoked python know it is inside a venv. This is not needed on PyPy so
+it is deleted when importing ``site`` and reset afterwards.
