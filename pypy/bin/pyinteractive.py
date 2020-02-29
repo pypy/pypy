@@ -54,13 +54,13 @@ def pypy_init(import_site):
             # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
             # since it (possibly) results in a wrong sys.prefix and
             # sys.exec_prefix (and consequently sys.path).
-            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__')
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             import sys
             print("'import site' failed", file=sys.stderr)
-        if _MACOSX:
+        if _MACOSX and old_pyvenv_launcher:
             os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 ''').interphook('pypy_init')
 
