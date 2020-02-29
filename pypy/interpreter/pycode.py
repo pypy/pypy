@@ -375,6 +375,10 @@ class PyCode(eval.Code):
             w_result = space.xor(w_result, space.hash(w_const))
         return w_result
 
+    @staticmethod
+    def const_comparison_key(space, w_obj):
+        return _convert_const(space, w_obj)
+
     @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
                  filename='fsencode', name='text', firstlineno=int,
@@ -473,14 +477,11 @@ def _convert_const(space, w_a):
     # frozensets of converted contents.
     w_type = space.type(w_a)
     if space.is_w(w_type, space.w_unicode):
-        # unicodes are supposed to compare by value
-        return w_a
+        # unicodes are supposed to compare by value, but not equal to bytes
+        return space.newtuple([w_type, w_a])
     if space.is_w(w_type, space.w_bytes):
-        # bytes too
-        return w_a
-    if isinstance(w_a, PyCode):
-        # for code objects we use the logic recursively
-        return w_a
+        # and vice versa
+        return space.newtuple([w_type, w_a])
     # for tuples and frozensets convert recursively
     if space.is_w(w_type, space.w_tuple):
         elements_w = [_convert_const(space, w_x)
