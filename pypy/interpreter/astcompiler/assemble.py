@@ -251,7 +251,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         # of the constant in the dictionary.  Moreover, we have to keep the
         # difference between -0.0 and 0.0 floats, and this recursively in
         # tuples.
-        w_key = self._make_key(w_obj)
+        w_key = PyCode.const_comparison_key(self.space, w_obj)
 
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is not None:
@@ -265,45 +265,6 @@ class PythonCodeMaker(ast.ASTVisitor):
             self.scope.doc_removable = False
         return length
 
-    def _make_key(self, obj):
-        # see the tests 'test_zeros_not_mixed*' in ../test/test_compiler.py
-        space = self.space
-        w_type = space.type(obj)
-        if space.is_w(w_type, space.w_float):
-            val = space.float_w(obj)
-            if val == 0.0 and math.copysign(1., val) < 0:
-                w_key = space.newtuple([obj, space.w_float, space.w_None])
-            else:
-                w_key = space.newtuple([obj, space.w_float])
-        elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.newtext("real"))
-            w_imag = space.getattr(obj, space.newtext("imag"))
-            real = space.float_w(w_real)
-            imag = space.float_w(w_imag)
-            real_negzero = (real == 0.0 and
-                            math.copysign(1., real) < 0)
-            imag_negzero = (imag == 0.0 and
-                            math.copysign(1., imag) < 0)
-            if real_negzero and imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None,
-                       space.w_None]
-            elif imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None]
-            elif real_negzero:
-                tup = [obj, space.w_complex, space.w_None]
-            else:
-                tup = [obj, space.w_complex]
-            w_key = space.newtuple(tup)
-        elif space.is_w(w_type, space.w_tuple):
-            result_w = [obj, w_type]
-            for w_item in space.fixedview(obj):
-                result_w.append(self._make_key(w_item))
-            w_key = space.newtuple(result_w[:])
-        elif isinstance(obj, PyCode):
-            w_key = space.newtuple([obj, w_type, space.id(obj)])
-        else:
-            w_key = space.newtuple([obj, w_type])
-        return w_key
 
     def load_const(self, obj):
         index = self.add_const(obj)
