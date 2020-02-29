@@ -602,12 +602,12 @@ def run_command_line(interactive,
             # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
             # since it (possibly) results in a wrong sys.prefix and
             # sys.exec_prefix (and consequently sys.path) set by site.py.
-            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__')
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             print("'import site' failed", file=sys.stderr)
-        if _MACOSX and old_pyvenv_launcher is not None:
+        if _MACOSX and old_pyvenv_launcher:
             os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')

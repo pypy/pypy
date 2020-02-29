@@ -146,14 +146,14 @@ def get_additional_entrypoints(space, w_initstdio):
                     # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
                     # since it (possibly) results in a wrong sys.prefix and
                     # sys.exec_prefix (and consequently sys.path).
-                    old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__')
+                    old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
                 try:
                     import site
                 except Exception as e:
                     sys.stderr.write("'import site' failed:\n")
                     import traceback
                     traceback.print_exc()
-                if _MACOSX:
+                if _MACOSX and old_pyvenv_launcher:
                     os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
             """)
             return rffi.cast(rffi.INT, 0)
