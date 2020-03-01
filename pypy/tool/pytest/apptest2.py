@@ -1,5 +1,7 @@
 import sys
 import os
+import re
+import json
 
 import pytest
 from pypy import pypydir
@@ -18,7 +20,8 @@ class AppTestModule(pytest.Module):
 
     def collect(self):
         _, source = app_rewrite._prepare_source(self.fspath)
-        space = objspace.gettestobjspace()
+        spaceconfig = extract_spaceconfig_from_source(source)
+        space = objspace.gettestobjspace(**spaceconfig)
         w_rootdir = space.newtext(
             os.path.join(pypydir, 'tool', 'pytest', 'ast-rewriter'))
         w_source = space.newtext(source)
@@ -59,6 +62,15 @@ def create_module(space, w_name, filename, source):
     space.exec_(source, w_dict, w_dict, filename=filename)
     return w_mod
 
+def extract_spaceconfig_from_source(source):
+    '''
+    spaceconfig is defined in a comment where it can be any valid json dictionary object
+    '''
+    for line in source.split('\n'):
+        match = re.search('#\s*spaceconfig\s*=\s*(\{.+\})\s*', line)
+        if match:
+            return json.loads(match.group(1))
+    return {}
 
 class AppError(Exception):
 

@@ -134,3 +134,16 @@ def test_apptest_fail_rewrite(testdir):
         "*E*- foo*",
         "*E*+ bar*",
     ])
+
+def test_apptest_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        # spaceconfig = {"usemodules":["array"]}
+        import array
+        def test_array():
+            a = array.array('i', [1,2,3])
+            assert len(a) == 3
+            assert a[2] == 3
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0

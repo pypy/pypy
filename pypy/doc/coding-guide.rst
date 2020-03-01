@@ -592,7 +592,7 @@ Python code that doesn't need to be aware of any particular
 coding style or restrictions. If we have a choice we often
 use application level tests which are in files whose name starts with the
 `apptest_` prefix and look like this::
-
+    # spaceconfig = {"usemodules":["array"]}
     def test_this():
         # application level test code
 
@@ -606,7 +606,9 @@ host interpreter, which is usually a translated pypy executable in this case::
     pypy3 -m pytest -D pypy/
 
 Note that in interpreted mode, only a small subset of pytest's functionality is
-available.
+available.  To configure the object space, the host interpreter will parse the
+optional spaceconfig declaration.  This declaration must be in the form of a
+valid json dict. 
 
 Mixed-level tests (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
