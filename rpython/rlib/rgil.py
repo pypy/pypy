@@ -3,7 +3,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, we_are_translated
 
 # these functions manipulate directly the GIL, whose definition does not
 # escape the C code itself
@@ -150,5 +150,8 @@ yield_thread._dont_inline_ = True
 # module from a helper function that also has this hint.
 
 def am_I_holding_the_GIL():
-    from rpython.rlib import rthread
-    return gil_get_holder() == rthread.get_ident()
+    if we_are_translated():
+        from rpython.rlib import rthread
+        return gil_get_holder() == rthread.get_ident()
+    else:
+        raise NotImplementedError("implement me if needed")

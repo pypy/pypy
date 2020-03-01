@@ -197,7 +197,7 @@ void RPython_ThreadLocals_ProgramInit(void)
                         "out of thread-local storage indexes");
         abort();
     }
-    _RPython_ThreadLocals_Build();
+    RPY_THREADLOCALREF_ENSURE();
 
 #ifndef _WIN32
     pthread_atfork(_RPython_ThreadLocals_Acquire,

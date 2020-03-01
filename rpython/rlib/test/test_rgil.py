@@ -1,5 +1,7 @@
 from rpython.rlib import rgil
+from rpython.rlib.debug import debug_print
 from rpython.translator.c.test.test_standalone import StandaloneTests
+from rpython.config.translationoption import get_combined_translation_config
 
 
 class BaseTestGIL(StandaloneTests):
@@ -39,10 +41,11 @@ class BaseTestGIL(StandaloneTests):
 
     def test_am_I_holding_the_GIL(self):
         def check(name, expected=True):
-            print name
+            # we may not have the GIL here, don't use "print"
+            debug_print(name)
             if rgil.am_I_holding_the_GIL() != expected:
-                print 'assert failed at point', name
-                print 'rgil.gil_get_holder() ==', rgil.gil_get_holder()
+                debug_print('assert failed at point', name)
+                debug_print('rgil.gil_get_holder() ==', rgil.gil_get_holder())
                 assert False
 
         def main(argv):
@@ -58,7 +61,7 @@ class BaseTestGIL(StandaloneTests):
             check('5')
             return 0
 
-        #main([]) #XXX
+        #main([])    -- not implemented for now
 
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')
