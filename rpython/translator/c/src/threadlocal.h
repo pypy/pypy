@@ -135,6 +135,7 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
 // XXX explain
+#include <src/thread.h>
 
 static inline long _rpygil_get_my_ident(void)
 {
