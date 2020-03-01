@@ -12,12 +12,9 @@ class TestCode:
             w_code1 = make_code_with_const(w_obj1)
             w_code2 = make_code_with_const(w_obj2)
 
-            w_codecode1 = make_code_with_const(w_code1)
-            w_codecode2 = make_code_with_const(w_code2)
             # code objects in co_consts are compared by identity
             # (we never share them in the bytecode compiler, it happens
             # extremely rarely and is not useful anyway)
-            assert not space.is_true(space.eq(w_codecode1, w_codecode2))
 
             res1 = space.is_true(space.eq(w_code1, w_code2))
             res2 = space.is_true(space.eq(w_code2, w_code1))
@@ -29,6 +26,12 @@ class TestCode:
 
             # check reflexivity
             assert res1 == res2
+
+
+            # wrapping as code doesn't change the result
+            w_codecode1 = make_code_with_const(w_code1)
+            w_codecode2 = make_code_with_const(w_code2)
+            assert space.is_true(space.eq(w_codecode1, w_codecode2)) == res1
 
             # check that tupleization doesn't change the result
             if not space.isinstance_w(w_obj1, space.w_tuple):
