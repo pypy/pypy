@@ -96,7 +96,7 @@ class BaseTestGIL(StandaloneTests):
         ops_by_thread = []
         for i in range(N_THREADS):
             ops = []
-            for j in range(1000):
+            for j in range(10000):
                 op = random.choice(OPS)
                 ops.append(op)
                 if op >= 2:

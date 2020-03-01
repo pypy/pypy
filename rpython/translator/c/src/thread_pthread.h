@@ -82,5 +82,7 @@ RPY_EXTERN
 void RPyThreadAfterFork(void);
 
 
+#define pypy_compare_and_swap(ptr, oldval, newval)  \
+                            __sync_bool_compare_and_swap(ptr, oldval, newval)
 #define pypy_lock_test_and_set(ptr, value)  __sync_lock_test_and_set(ptr, value)
 #define pypy_lock_release(ptr)              __sync_lock_release(ptr)

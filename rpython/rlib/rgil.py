@@ -126,6 +126,15 @@ def acquire():
 acquire._gctransformer_hint_cannot_collect_ = True
 acquire._dont_reach_me_in_del_ = True
 
+def acquire_maybe_in_new_thread():
+    from rpython.rlib import rthread
+    rthread.get_or_make_ident() #make sure that the threadlocals are initialized
+    _gil_acquire()
+    rthread.gc_thread_run()
+    _after_thread_switch()
+acquire_maybe_in_new_thread._gctransformer_hint_cannot_collect_ = True
+acquire_maybe_in_new_thread._dont_reach_me_in_del_ = True
+
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.
 # They tell the gctransformer not to save and restore the local GC

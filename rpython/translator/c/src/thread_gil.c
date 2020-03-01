@@ -49,20 +49,21 @@ The slow path works as follows:
   8. Once you are the stealer, you try to acquire the GIL by running the
      following loop:
 
-      A. Try to acquire 'mutex_gil' with a timeout. If you succeed, you set
-         rpy_fastgil and you are done.
+      A. We try again to lock the GIL using the fast-path.
 
-      B. If not, we try again to lock the GIL using the fast-path.
+      B. Try to acquire 'mutex_gil' with a timeout. If you succeed, you set
+         rpy_fastgil and you are done.  If not, go to A.
+
 
 
 To sum up, there are various possible patterns of interaction:
 
   - I release the GIL using the fast-path: the GIL will be acquired by a
-    thread in the fast path in point (2) OR the fast path in point (8.B). Note
+    thread in the fast path in point (2) OR the fast path in point (8.A). Note
     that this could be myself a bit later
 
   - I want to explicitly yield the control to ANOTHER thread: I do this by
-    releasing mutex_gil: the stealer will acquire the GIL in point (8.A).
+    releasing mutex_gil: the stealer will acquire the GIL in point (8.B).
 
   - I want the GIL and there are exactly 2 threads in total: I will
     immediately become the stealer and go to point 8
@@ -107,28 +108,16 @@ void RPyGilAllocate(void)
     }
 }
 
-static void check_and_save_old_fastgil(long old_fastgil)
-{
-    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    assert(old_fastgil == 0);
-}
-
 #define RPY_GIL_POKE_MIN   40
 #define RPY_GIL_POKE_MAX  400
 
-void RPyGilAcquireSlowPath(long old_fastgil)
+void RPyGilAcquireSlowPath(void)
 {
-    /* Acquires the GIL.  This assumes that we already did:
-
-          old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+    /* Acquires the GIL.  This is the slow path after which we failed
+       the compare-and-swap (after point (5)).  Another thread is busy
+       with the GIL.
      */
-    if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
-        /* The fastgil was not previously locked: success.
-           'mutex_gil' should still be locked at this point.
-        */
-    }
-    else {
-        /* Otherwise, another thread is busy with the GIL. */
+    if (1) {      /* preserve commit history */
         int n;
         long old_waiting_threads;
 
@@ -185,8 +174,7 @@ void RPyGilAcquireSlowPath(long old_fastgil)
             RPy_CompilerMemoryBarrier();
 
             if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
-                old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
-                if (!RPY_FASTGIL_LOCKED(old_fastgil)) {
+                if (_rpygil_acquire_fast_path()) {
                     /* We got the gil before entering the waiting
                        queue.  In case there are other threads waiting
                        for the GIL, wake up the stealer thread now and
@@ -194,12 +182,15 @@ void RPyGilAcquireSlowPath(long old_fastgil)
                        This will fall through if there are no other
                        threads waiting.
                     */
-                    check_and_save_old_fastgil(old_fastgil);
+                    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
                     mutex2_unlock(&mutex_gil);
                     break;
                 }
             }
         }
+
+        /* Now we are in point (3): mutex_gil might be released, but
+           rpy_fastgil might still contain an arbitrary tid */
 
         /* Enter the waiting queue from the end.  Assuming a roughly
            first-in-first-out order, this will nicely give the threads
@@ -214,20 +205,22 @@ void RPyGilAcquireSlowPath(long old_fastgil)
                released.
             */
             if (!RPY_FASTGIL_LOCKED(rpy_fastgil)) {
-                old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
-                if (!RPY_FASTGIL_LOCKED(old_fastgil))
-                    /* yes, got a non-held value!  Now we hold it. */
+                /* point (8.A) */
+                if (_rpygil_acquire_fast_path()) {
+                    /* we just acquired the GIL */
                     break;
+                }
             }
             /* Sleep for one interval of time.  We may be woken up earlier
-               if 'mutex_gil' is released.
+               if 'mutex_gil' is released.  Point (8.B)
             */
             if (mutex2_lock_timeout(&mutex_gil, 0.0001)) {   /* 0.1 ms... */
                 /* We arrive here if 'mutex_gil' was recently released
                    and we just relocked it.
                  */
-                old_fastgil = 0;
-                // XXX set rpy_fastgil to ME
+                assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+                /* restore the invariant point (3) */
+                rpy_fastgil = _rpygil_get_my_ident();
                 break;
             }
             /* Loop back. */
@@ -236,7 +229,7 @@ void RPyGilAcquireSlowPath(long old_fastgil)
         mutex2_loop_stop(&mutex_gil);
         mutex1_unlock(&mutex_gil_stealer);
     }
-    check_and_save_old_fastgil(old_fastgil);
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 }
 
 long RPyGilYieldThread(void)

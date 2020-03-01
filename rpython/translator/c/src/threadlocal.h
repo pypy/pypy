@@ -136,10 +136,11 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 // XXX explain
 
-static inline long rthread_ident(void)
+static inline long _rpygil_get_my_ident(void)
 {
 #ifdef RPY_TLOFS_thread_ident
     struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+    assert(p->thread_ident != 0);
     return p->thread_ident;
 #else
     // made-up thread identifier
@@ -147,10 +148,15 @@ static inline long rthread_ident(void)
 #endif
 }
 
+static inline int _rpygil_acquire_fast_path(void)
+{
+    return pypy_compare_and_swap(&rpy_fastgil, 0, _rpygil_get_my_ident());
+}
+
 static inline void _RPyGilAcquire(void) {
-    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, rthread_ident());
-    if (old_fastgil != 0)
-        RPyGilAcquireSlowPath(old_fastgil);
+    /* see thread_gil.c point (5) */
+    if (!_rpygil_acquire_fast_path())
+        RPyGilAcquireSlowPath();
 }
 static inline void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
