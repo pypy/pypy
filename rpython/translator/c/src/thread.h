@@ -37,8 +37,18 @@ RPY_EXTERN void RPyGilAcquireSlowPath(long);
 
 RPY_EXTERN long rpy_fastgil;
 
+static inline long rthread_ident(void)
+{
+#ifdef RPY_TLOFS_thread_ident
+    struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+    return p->thread_ident;
+#else
+    return 1;
+#endif
+}
+
 static inline void _RPyGilAcquire(void) {
-    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, 1);
+    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, rthread_ident());
     if (old_fastgil != 0)
         RPyGilAcquireSlowPath(old_fastgil);
 }

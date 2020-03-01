@@ -37,6 +37,27 @@ class BaseTestGIL(StandaloneTests):
         data = cbuilder.cmdexec('')
         assert data == "Test\n1\n2\n"
 
+    def test_I_am_holding_the_GIL(self):
+        def main(argv):
+            assert rgil.I_am_holding_the_GIL()
+            rgil.release()
+            # don't have the GIL here
+            assert not rgil.I_am_holding_the_GIL()
+            rgil.acquire()
+            assert rgil.I_am_holding_the_GIL()
+            rgil.yield_thread()
+            assert rgil.I_am_holding_the_GIL()
+            print "OK"   # there is also a release/acquire pair here
+            assert rgil.I_am_holding_the_GIL()
+            return 0
+
+        #main([]) #XXX
+
+        t, cbuilder = self.compile(main)
+        data = cbuilder.cmdexec('')
+        assert data == "OK\n"
+
+
 
 class TestGILShadowStack(BaseTestGIL):
     gc = 'minimark'
