@@ -553,7 +553,29 @@ class AppTestAppComplexTest:
         with warnings.catch_warnings(record=True) as log:
             warnings.simplefilter("always", DeprecationWarning)
             assert complex(complex1(1j)) == 2j
-        assert len(log) > 0
+            assert len(log) == 1
+            assert log[0].category == DeprecationWarning
+
+        class complex1b(complex):
+            """Test usage of a complex subclass without __complex__() method"""
+            def __new__(self, value=0j):
+                return complex.__new__(self, 2*value)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            assert complex(complex1b(1j)) == 2j
+            assert len(log) == 0
+
+        class complex1_proxy:
+            """Test usage of __complex__() without subclassing complex"""
+            def __init__(self, value=0j):
+                self.value = value
+            def __complex__(self):
+                return complex1(self.value)
+        with warnings.catch_warnings(record=True) as log:
+            warnings.simplefilter("always", DeprecationWarning)
+            assert complex(complex1_proxy(1j)) == 2j
+            assert len(log) == 1
+            assert log[0].category == DeprecationWarning
 
         class complex2(complex):
             """Make sure that __complex__() calls fail if anything other than a
