@@ -37,18 +37,25 @@ class BaseTestGIL(StandaloneTests):
         data = cbuilder.cmdexec('')
         assert data == "Test\n1\n2\n"
 
-    def test_I_am_holding_the_GIL(self):
+    def test_am_I_holding_the_GIL(self):
+        def check(name, expected=True):
+            print name
+            if rgil.am_I_holding_the_GIL() != expected:
+                print 'assert failed at point', name
+                print 'rgil.gil_get_holder() ==', rgil.gil_get_holder()
+                assert False
+
         def main(argv):
-            assert rgil.I_am_holding_the_GIL()
+            check('1')
             rgil.release()
             # don't have the GIL here
-            assert not rgil.I_am_holding_the_GIL()
+            check('2', False)
             rgil.acquire()
-            assert rgil.I_am_holding_the_GIL()
+            check('3')
             rgil.yield_thread()
-            assert rgil.I_am_holding_the_GIL()
+            check('4')
             print "OK"   # there is also a release/acquire pair here
-            assert rgil.I_am_holding_the_GIL()
+            check('5')
             return 0
 
         #main([]) #XXX

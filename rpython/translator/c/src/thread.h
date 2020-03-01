@@ -33,31 +33,9 @@ RPY_EXTERN void RPyGilAcquireSlowPath(long);
 #define RPyGilAcquire _RPyGilAcquire
 #define RPyGilRelease _RPyGilRelease
 #define RPyFetchFastGil _RPyFetchFastGil
+#define RPyGilGetHolder _RPyGilGetHolder
 #define RPY_FASTGIL_LOCKED(x)   (x != 0)
 
 RPY_EXTERN long rpy_fastgil;
-
-static inline long rthread_ident(void)
-{
-#ifdef RPY_TLOFS_thread_ident
-    struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
-    return p->thread_ident;
-#else
-    return 1;
-#endif
-}
-
-static inline void _RPyGilAcquire(void) {
-    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, rthread_ident());
-    if (old_fastgil != 0)
-        RPyGilAcquireSlowPath(old_fastgil);
-}
-static inline void _RPyGilRelease(void) {
-    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
-    pypy_lock_release(&rpy_fastgil);
-}
-static inline long *_RPyFetchFastGil(void) {
-    return &rpy_fastgil;
-}
 
 #endif

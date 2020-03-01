@@ -133,4 +133,36 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
     } while (0)
 
 
+
+// XXX explain
+
+static inline long rthread_ident(void)
+{
+#ifdef RPY_TLOFS_thread_ident
+    struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+    return p->thread_ident;
+#else
+    // made-up thread identifier
+    return 1234;
+#endif
+}
+
+static inline void _RPyGilAcquire(void) {
+    long old_fastgil = pypy_lock_test_and_set(&rpy_fastgil, rthread_ident());
+    if (old_fastgil != 0)
+        RPyGilAcquireSlowPath(old_fastgil);
+}
+static inline void _RPyGilRelease(void) {
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+    pypy_lock_release(&rpy_fastgil);
+}
+static inline long *_RPyFetchFastGil(void) {
+    return &rpy_fastgil;
+}
+static inline long _RPyGilGetHolder(void) {
+    return rpy_fastgil;
+}
+
+
+
 #endif /* _SRC_THREADLOCAL_H */

@@ -38,6 +38,10 @@ gil_fetch_fastgil = llexternal('RPyFetchFastGil', [], llmemory.Address,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
 
+gil_get_holder = llexternal('RPyGilGetHolder', [], lltype.Signed,
+                            _nowrapper=True, sandboxsafe=True,
+                            compilation_info=eci)
+
 # ____________________________________________________________
 
 
@@ -144,3 +148,7 @@ yield_thread._dont_inline_ = True
 # yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
 # The *_external_call() functions are themselves called only from the rffi
 # module from a helper function that also has this hint.
+
+def am_I_holding_the_GIL():
+    from rpython.rlib import rthread
+    return gil_get_holder() == rthread.get_ident()

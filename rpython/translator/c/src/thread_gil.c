@@ -79,6 +79,9 @@ To sum up, there are various possible patterns of interaction:
    RPython libraries, they can be a collection of regular functions that
    also call RPyGilAcquire/RPyGilRelease; see test_standalone.TestShared.
 */
+
+#include "src/threadlocal.h"
+
 long rpy_fastgil = 0;
 static long rpy_waiting_threads = -42;    /* GIL not initialized */
 static volatile int rpy_early_poll_n = 0;

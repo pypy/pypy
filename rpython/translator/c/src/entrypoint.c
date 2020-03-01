@@ -24,6 +24,7 @@
 
 #ifdef RPY_WITH_GIL
 # include <src/thread.h>
+# include <src/threadlocal.h>
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
