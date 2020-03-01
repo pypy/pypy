@@ -459,6 +459,8 @@ def _convert_const(space, w_a):
     if space.is_w(w_type, space.w_bytes):
         # and vice versa
         return space.newtuple([w_type, w_a])
+    if type(w_a) is PyCode:
+        return w_a
     # for tuples and frozensets convert recursively
     if space.is_w(w_type, space.w_tuple):
         elements_w = [_convert_const(space, w_x)

@@ -247,11 +247,11 @@ class PythonCodeMaker(ast.ASTVisitor):
     def add_const(self, w_obj):
         """Add a W_Root to the constant array and return its location."""
         space = self.space
-        # To avoid confusing equal but separate types, we hash store the type
-        # of the constant in the dictionary.  Moreover, we have to keep the
-        # difference between -0.0 and 0.0 floats, and this recursively in
-        # tuples.
-        w_key = PyCode.const_comparison_key(self.space, w_obj)
+        if isinstance(w_obj, PyCode):
+            # unlike CPython, never share code objects, it's pointless
+            w_key = space.id(w_obj)
+        else:
+            w_key = PyCode.const_comparison_key(self.space, w_obj)
 
         w_len = space.finditem(self.w_consts, w_key)
         if w_len is not None:
