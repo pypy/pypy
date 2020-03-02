@@ -76,10 +76,59 @@ def do_test(X, Y, name, impl):
     #print count[0]
     return fail
 
+def test_binop_combinations_mul():
+    class X(Base):
+        pass
+    class Y(X):
+        pass
+
+    fail = do_test(X, Y, 'mul', lambda x,y: x*y)
+    #print len(fail)
+    assert not fail
+
+
+
 def test_binop_combinations_sub():
     class X(Base):
         pass
     class Y(X):
+        pass
+
+    fail = do_test(X, Y, 'sub', lambda x,y: x-y)
+    #print len(fail)
+    assert not fail
+
+
+def test_binop_combinations_pow():
+    class X(Base):
+        pass
+    class Y(X):
+        pass
+
+    fail = do_test(X, Y, 'pow', lambda x,y: x**y)
+    #print len(fail)
+    assert not fail
+
+def test_binop_combinations_more_exhaustive():
+    class X(Base):
+        pass
+
+    class B1(object):
+        pass
+
+    class B2(object):
+        pass
+
+    class X1(B1, X, B2):
+        pass
+
+    class C1(object):
+        pass
+
+    class C2(object):
+        pass
+
+    class Y(C1, X1, C2):
         pass
 
     fail = do_test(X, Y, 'sub', lambda x,y: x-y)
