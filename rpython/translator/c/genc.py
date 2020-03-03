@@ -812,6 +812,10 @@ def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'void RPython_StartupCode(void) {'
 
+    bk = database.translator.annotator.bookkeeper
+    if bk.thread_local_fields:
+        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
+
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
