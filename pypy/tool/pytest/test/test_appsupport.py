@@ -147,3 +147,19 @@ def test_apptest_spaceconfig(testdir):
     """)
     result = testdir.runpytest(p)
     assert result.ret == 0
+
+def test_apptest_skipif(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        import pytest
+
+        @pytest.mark.skipif(True, reason="Bad test")
+        def test_bad():
+            assert False
+
+        def test_success():
+            assert True
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.assert_outcomes(passed=1, skipped=1)

@@ -9,4 +9,5 @@ class Module(MixedModule):
     }
     appleveldefs = {
         'importorskip': 'app_pytest.importorskip',
+        'mark': 'app_pytest.mark',
     }
