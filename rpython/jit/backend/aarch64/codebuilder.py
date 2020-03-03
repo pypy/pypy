@@ -428,7 +428,7 @@ class AbstractAarch64Builder(object):
     #    base = 0b1100100001011111111111
     #    self.write32((base << 10) | (rn << 5) | rt)
 
-    def STLXR(self, rt, rn, rs):
+    def STLXR(self, rs, rt, rn):
         base = 0b11001000000
         self.write32((base << 21) | (rs << 16) | (0b111111 << 10) | (rn << 5) | rt)
 
