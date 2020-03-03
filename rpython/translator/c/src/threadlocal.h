@@ -134,7 +134,8 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
 
-// XXX explain
+// XXX hack: these functions are here instead of thread.h because
+// we need pypy_threadlocal_s.
 #include <src/thread.h>
 
 static inline long _rpygil_get_my_ident(void)

@@ -1,17 +1,19 @@
 /* Thread implementation */
 #include "src/thread.h"
 
-
-#ifndef RPYTHON_LL2CTYPES
+#ifdef PYPY_USING_BOEHM_GC
 /* The following include is required by the Boehm GC, which apparently
  * crashes when pthread_create_thread() is not redefined to call a
  * Boehm wrapper function instead.  Ugly.
  */
-#  include "common_header.h"
+#include "common_header.h"
+#endif
 
-/* We need anyway to have "common_header.h" in order to include "structdef.h",
- * which is needed for _rpygil_get_my_ident().  Bah.
- */
+
+#ifdef PYPY_MAKEFILE
+/* This is needed for having 'pypy_threadlocal_s' defined, which is needed
+   for _rpygil_get_my_ident */
+#  include "common_header.h"
 #  include "structdef.h"
 #endif
 

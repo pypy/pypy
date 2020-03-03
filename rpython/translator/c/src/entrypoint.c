@@ -61,7 +61,7 @@ int pypy_main_function(int argc, char *argv[])
        program starts threads, it needs to call rgil.gil_allocate().
        RPyGilAcquire() still works without that, but crash if it finds
        that it really needs to wait on a mutex. */
-    RPY_THREADLOCALREF_ENSURE();
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
 
