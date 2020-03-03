@@ -108,6 +108,10 @@ def strategy(space, w_obj):
     return space.newtext(name)
 
 def get_console_cp(space):
+    """get_console_cp()
+
+    Return the console and console output code page (windows only)
+    """
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
         space.newtext('cp%d' % rwin32.GetConsoleCP()),
