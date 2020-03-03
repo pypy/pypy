@@ -136,6 +136,19 @@ def test_apptest_fail_rewrite(testdir):
         "*E*+ bar*",
     ])
 
+def test_apptest_spaceconfig(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        # spaceconfig = {"usemodules":["array"]}
+        import array
+        def test_array():
+            a = array.array('i', [1,2,3])
+            assert len(a) == 3
+            assert a[2] == 3
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+
 def test_rename_module():
     from pypy.tool.pytest.apptest import _rename_module
     assert _rename_module("sys") == "sys"

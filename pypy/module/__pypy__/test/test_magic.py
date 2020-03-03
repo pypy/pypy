@@ -1,3 +1,4 @@
+# encoding: utf-8
 
 class AppTestMagic:
     spaceconfig = dict(usemodules=['__pypy__'])
@@ -92,3 +93,8 @@ def f():
         terr = TypeError("hello world")
         set_exc_info(TypeError, terr, tb)
         assert sys.exc_info()[2] is tb
+
+    def test_utf8_content(self):
+        from __pypy__ import utf8content
+        assert utf8content(u"a") == b"a"
+        assert utf8content(u"\xe4") == b'\xc3\xa4'
