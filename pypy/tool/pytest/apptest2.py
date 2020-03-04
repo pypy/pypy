@@ -87,12 +87,27 @@ class AppTestFunction(pytest.Item):
     def runtest(self):
         target = self.w_obj
         space = target.space
+        self.check_run(space, target)
         self.execute_appex(space, target)
 
     def repr_failure(self, excinfo):
         if excinfo.errisinstance(AppError):
             excinfo = excinfo.value.excinfo
         return super(AppTestFunction, self).repr_failure(excinfo)
+
+    def check_run(self, space, w_func):
+        space.appexec([w_func], """(func):
+            if hasattr(func, 'skipif'):
+                marker = func.skipif
+                arg = marker.args[0]
+                if isinstance(arg, str):
+                    raise ValueError("str argument to skipif isn't supported")
+                else:
+                    if arg:
+                        import pytest
+                        reason = marker.kwargs.get('reason', "Skipping.")
+                        pytest.skip(reason)
+            """)
 
     def execute_appex(self, space, w_func):
         space.getexecutioncontext().set_sys_exc_info(None)

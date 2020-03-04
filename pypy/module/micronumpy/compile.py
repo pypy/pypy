@@ -85,6 +85,7 @@ class FakeSpace(ObjSpace):
     w_object = W_TypeObject("object")
     w_buffer = W_TypeObject("buffer")
     w_type = W_TypeObject("type")
+    w_frozenset = W_TypeObject("frozenset")
 
     def __init__(self, config=None):
         """NOT_RPYTHON"""

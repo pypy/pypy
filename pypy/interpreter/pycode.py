@@ -340,9 +340,7 @@ class PyCode(eval.Code):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            w_const1key = self.const_comparison_key(space, self.co_consts_w[i])
-            w_const2key = self.const_comparison_key(space, w_other.co_consts_w[i])
-            if not space.eq_w(w_const1key, w_const2key):
+            if not _code_const_eq(space, self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True
@@ -368,44 +366,7 @@ class PyCode(eval.Code):
 
     @staticmethod
     def const_comparison_key(space, w_obj):
-        import math
-        # encode the slightly arbitrary rules that CPython uses to decide
-        # whether two consts in code objects should be considered equivalent
-        w_type = space.type(w_obj)
-        if space.is_w(w_type, space.w_float):
-            val = space.float_w(w_obj)
-            if val == 0.0 and math.copysign(1., val) < 0:
-                return space.newtuple([w_obj, space.w_float, space.w_None])
-        elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(w_obj, space.newtext("real"))
-            w_imag = space.getattr(w_obj, space.newtext("imag"))
-            real = space.float_w(w_real)
-            imag = space.float_w(w_imag)
-            real_negzero = (real == 0.0 and
-                            math.copysign(1., real) < 0)
-            imag_negzero = (imag == 0.0 and
-                            math.copysign(1., imag) < 0)
-            if real_negzero and imag_negzero:
-                tup = [w_obj, space.w_complex, space.w_None, space.w_None,
-                       space.w_None]
-            elif imag_negzero:
-                tup = [w_obj, space.w_complex, space.w_None, space.w_None]
-            elif real_negzero:
-                tup = [w_obj, space.w_complex, space.w_None]
-            else:
-                tup = [w_obj, space.w_complex]
-            return space.newtuple(tup)
-        elif space.is_w(w_type, space.w_tuple):
-            result_w = [w_obj, w_type]
-            for w_item in space.fixedview(w_obj):
-                result_w.append(PyCode.const_comparison_key(space, w_item))
-            return space.newtuple(result_w[:])
-        elif isinstance(w_obj, PyCode):
-            # no need to put w_obj into the tuple since that is always kept
-            # alive by the caller's .consts_w
-            return space.newtuple([space.id(w_obj), w_type])
-        w_key = space.newtuple([w_obj, w_type])
-        return w_key
+        return _convert_const(space, w_obj)
 
     @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
@@ -477,3 +438,38 @@ class PyCode(eval.Code):
 
     def repr(self, space):
         return space.newtext(self.get_repr())
+
+
+def _code_const_eq(space, w_a, w_b):
+    # this is a mess! CPython has complicated logic for this. essentially this
+    # is supposed to be a "strong" equal, that takes types and signs of numbers
+    # into account, quite similar to how PyPy's 'is' behaves, but recursively
+    # in tuples and frozensets as well. Since PyPy already implements these
+    # rules correctly for ints, floats, bools, complex in 'is' and 'id', just
+    # use those.
+    return space.eq_w(_convert_const(space, w_a), _convert_const(space, w_b))
+
+def _convert_const(space, w_a):
+    # use id to convert constants. for tuples and frozensets use tuples and
+    # frozensets of converted contents.
+    w_type = space.type(w_a)
+    if space.is_w(w_type, space.w_unicode):
+        # unicodes are supposed to compare by value, but not equal to bytes
+        return space.newtuple([w_type, w_a])
+    if space.is_w(w_type, space.w_bytes):
+        # and vice versa
+        return space.newtuple([w_type, w_a])
+    if type(w_a) is PyCode:
+        return w_a
+    # for tuples and frozensets convert recursively
+    if space.is_w(w_type, space.w_tuple):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newtuple(elements_w)
+    if space.is_w(w_type, space.w_frozenset):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newfrozenset(elements_w)
+    # use id for the rest
+    return space.id(w_a)
+
