@@ -302,8 +302,11 @@ class CallBuilderX86(AbstractCallBuilder):
         restore_edx = False
         #
         # Make sure we can use 'eax' in the sequel for CMPXCHG
-        if self.restype == INT and not self.result_value_saved_early:
-            self.save_result_value(save_edx=False)
+        # On 32-bit, we also need to check if restype is 'L' for long long,
+        # in which case we need to save eax and edx because they are both
+        # used for the return value.
+        if self.restype in (INT, 'L') and not self.result_value_saved_early:
+            self.save_result_value(save_edx = self.restype == 'L')
             self.result_value_saved_early = True
         #
         # Use LOCK CMPXCHG as a compare-and-swap with memory barrier.
