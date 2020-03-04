@@ -1,3 +1,4 @@
+import pytest
 from pytest import raises, skip
 
 class C:
@@ -321,6 +322,7 @@ def test_get():
     meth = func.__get__(obj, object)
     assert meth() == obj
 
+@pytest.mark.skipif(True, reason="XXX issue #2083")
 def test_none_get_interaction():
     assert type(None).__repr__(None) == 'None'
 

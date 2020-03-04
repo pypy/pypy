@@ -157,3 +157,19 @@ def test_rename_module():
     assert _rename_module("struct") == "_struct"
     assert _rename_module("operator") == "_operator"
     assert _rename_module("signal") == "_signal"
+
+def test_apptest_skipif(testdir):
+    setpypyconftest(testdir)
+    p = testdir.makepyfile(apptest_raise="""
+        import pytest
+
+        @pytest.mark.skipif(True, reason="Bad test")
+        def test_bad():
+            assert False
+
+        def test_success():
+            assert True
+    """)
+    result = testdir.runpytest(p)
+    assert result.ret == 0
+    result.assert_outcomes(passed=1, skipped=1)
