@@ -35,6 +35,7 @@ RPY_EXPORTED
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
     RPython_StartupCode();
