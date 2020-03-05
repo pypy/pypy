@@ -357,7 +357,7 @@ def _make_wrapper_for(TP, callable, callbackholder, use_gil):
 
         def wrapper(%(args)s):    # no *args - no GIL for mallocing the tuple
             if rgil is not None:
-                rgil.acquire()
+                rgil.acquire_maybe_in_new_thread()
             # from now on we hold the GIL
             llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             try:

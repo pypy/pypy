@@ -24,6 +24,7 @@
 
 #ifdef RPY_WITH_GIL
 # include <src/thread.h>
+# include <src/threadlocal.h>
 #endif
 
 #ifdef RPY_REVERSE_DEBUGGER
@@ -34,6 +35,7 @@ RPY_EXPORTED
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
     RPython_StartupCode();
@@ -60,6 +62,7 @@ int pypy_main_function(int argc, char *argv[])
        program starts threads, it needs to call rgil.gil_allocate().
        RPyGilAcquire() still works without that, but crash if it finds
        that it really needs to wait on a mutex. */
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
 

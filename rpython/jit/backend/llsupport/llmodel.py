@@ -86,9 +86,10 @@ class AbstractLLCPU(AbstractCPU):
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
-        self._debug_errno_container = lltype.malloc(
+        self._debug_tls_errno_container = lltype.malloc(
             rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
             track_allocation=False)
+        self._debug_tls_errno_container[1] = 1234 # dummy thread ident
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -310,7 +311,7 @@ class AbstractLLCPU(AbstractCPU):
                         llmemory.Address)
                 else:
                     ll_threadlocal_addr = rffi.cast(llmemory.Address,
-                        self._debug_errno_container)
+                        self._debug_tls_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
