@@ -14,12 +14,12 @@ def pytest_addoption(parser):
 @pytest.fixture(scope='session')
 def hpy_include_dir(request):
     if request.config.getoption('--correct'):
-        from hpy_devel import get_include
+        from hpy.devel import get_include
         return get_include()
     else:
         import os
         THIS_DIR = os.path.dirname(__file__)
-        return os.path.join(THIS_DIR, '../hpy-api/hpy_devel/include')
+        return os.path.join(THIS_DIR, '../hpy/devel/include')
 
 @pytest.fixture(params=['cpython', 'universal'])
 def abimode(request):

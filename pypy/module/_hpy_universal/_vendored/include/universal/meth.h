@@ -8,7 +8,7 @@
  *     - a trampoline which can be called by CPython
  *
  * In theory, the CPython trampoline is an implementation-specific detail of
- * the hpy_universal CPython module. However, it is too hard and unreliable to
+ * the hpy.universal CPython module. However, it is too hard and unreliable to
  * generate them on the fly, and for the sake of simplicity it is easier to
  * just let the C compiler to generate it. This is done by the DEF macros.
  */

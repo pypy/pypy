@@ -132,9 +132,9 @@ class ExtensionCompiler:
 
     def load_universal_module(self, name, so_filename):
         assert self.abimode == 'universal'
-        import _hpy_universal
+        import hpy.universal
         spec = Spec(name, so_filename)
-        return _hpy_universal.load_from_spec(spec)
+        return hpy.universal.load_from_spec(spec)
 
     def load_cython_module(self, name, so_filename):
         assert self.abimode == 'cpython'

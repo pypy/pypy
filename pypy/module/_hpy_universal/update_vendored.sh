@@ -15,7 +15,7 @@ echo "GIT status of $HPY"
 git -C "$HPY" --no-pager log --oneline -n 1
 git -C "$HPY" --no-pager diff --stat
 
-cp -R "$HPY"/hpy-api/hpy_devel/include/* "$VENDORED/include"
+cp -R "$HPY"/hpy/devel/include/* "$VENDORED/include"
 cp -R "$HPY"/test/* "$VENDORED/test"
 
 echo
