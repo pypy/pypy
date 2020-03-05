@@ -8,9 +8,9 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
 from pypy.module.cpyext.modsupport import convert_method_defs
-from pypy.module.hpy_universal.apiset import API
-from pypy.module.hpy_universal import handles
-from pypy.module.hpy_universal import llapi
+from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import handles
+from pypy.module._hpy_universal import llapi
 
 @API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)", cpyext=True)
 def HPy_FromPyObject(space, ctx, obj):
@@ -76,8 +76,8 @@ class W_CPyStaticData(W_Root):
         return self.space.newtext("<CpyStaticData>")
 
 W_CPyStaticData.typedef = TypeDef(
-    'hpy_universal.CPyStaticData',
-    __module__ = 'hpy_universal',
+    '_hpy_universal.CPyStaticData',
+    __module__ = '_hpy_universal',
     __name__ = '<CPyStaticData>',
     __repr__ = interp2app(W_CPyStaticData.repr),
     )

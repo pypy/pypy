@@ -3,7 +3,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, llhelper_can_raise
-from pypy.module.hpy_universal import llapi
+from pypy.module._hpy_universal import llapi
 
 class APISet(object):
 

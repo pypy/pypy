@@ -155,7 +155,7 @@ class FakeObjSpace(ObjSpace):
         def attach_list_strategy():
             # this is needed for modules which interacts directly with
             # std.listobject.W_ListObject, e.g. after an isinstance check. For
-            # example, hpy_universal. We need to attach a couple of attributes
+            # example, _hpy_universal. We need to attach a couple of attributes
             # so that the annotator annotates them with the correct types
             from pypy.objspace.std.listobject import W_ListObject, ObjectListStrategy
             space = self
@@ -167,7 +167,7 @@ class FakeObjSpace(ObjSpace):
                 w_obj.lstorage = w_obj.strategy.erase(list_w)
         def attach_dict_strategy():
             # this is needed for modules which do e.g. "isinstance(w_obj,
-            # W_DictMultiObject)", like hpy_universal. Make sure that the
+            # W_DictMultiObject)", like _hpy_universal. Make sure that the
             # annotator sees a concrete class, like W_DictObject, else lots of
             # operations are blocked.
             from pypy.objspace.std.dictmultiobject import W_DictObject, ObjectDictStrategy

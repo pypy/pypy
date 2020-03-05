@@ -3,8 +3,8 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp2app
 
-from pypy.module.hpy_universal import llapi, handles
-from pypy.module.hpy_universal.state import State
+from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal.state import State
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 
 

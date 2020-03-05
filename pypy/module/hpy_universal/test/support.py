@@ -2,8 +2,8 @@ import py
 import pytest
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
-from pypy.module.hpy_universal.llapi import INCLUDE_DIR
-from pypy.module.hpy_universal._vendored.test import support as _support
+from pypy.module._hpy_universal.llapi import INCLUDE_DIR
+from pypy.module._hpy_universal._vendored.test import support as _support
 
 COMPILER_VERBOSE = False
 
@@ -47,8 +47,8 @@ class HPyAppTest(object):
             so_filename = compiler.compile_module(source_template, name, extra_templates)
             w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
                 """(path, modname):
-                    import hpy_universal
-                    return hpy_universal.load(modname, path)
+                    import _hpy_universal
+                    return _hpy_universal.load(modname, path)
                 """
             )
             return w_mod

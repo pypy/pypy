@@ -6,12 +6,12 @@ from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.error import OperationError, oefmt
 
 from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
-from pypy.module.hpy_universal import llapi, handles
-from pypy.module.hpy_universal.state import State
-from pypy.module.hpy_universal.apiset import API
+from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal.state import State
+from pypy.module._hpy_universal.apiset import API
 
 # these imports have side effects, as they call @API.func()
-from pypy.module.hpy_universal import (
+from pypy.module._hpy_universal import (
     interp_err,
     interp_long,
     interp_module,

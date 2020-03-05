@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.listobject import W_ListObject
-from pypy.module.hpy_universal.apiset import API
-from pypy.module.hpy_universal import handles
+from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import handles
 
 @API.func("HPy HPyList_New(HPyContext ctx, HPy_ssize_t len)")
 def HPyList_New(space, ctx, len):

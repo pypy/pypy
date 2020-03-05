@@ -2,11 +2,11 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
-from pypy.module.hpy_universal.apiset import API
-from pypy.module.hpy_universal import llapi
-from pypy.module.hpy_universal import handles
-from pypy.module.hpy_universal import interp_extfunc
-from pypy.module.hpy_universal.interp_cpy_compat import attach_legacy_methods
+from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal import handles
+from pypy.module._hpy_universal import interp_extfunc
+from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
 @API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
@@ -33,7 +33,7 @@ def HPyModule_Create(space, ctx, hpydef):
                 attach_legacy_methods(space, legacy_methoddefs, w_mod, modname)
             else:
                 raise oefmt(space.w_RuntimeError,
-                            "Module %s contains legacy methods, but hpy_universal "
-                            "was compiled without cpyext support", modname)
+                        "Module %s contains legacy methods, but _hpy_universal "
+                        "was compiled without cpyext support", modname)
     #
     return handles.new(space, w_mod)

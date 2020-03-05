@@ -6,8 +6,8 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.error import OperationError
-from pypy.module.hpy_universal import llapi, handles
-from pypy.module.hpy_universal.apiset import API
+from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal.apiset import API
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
 CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])

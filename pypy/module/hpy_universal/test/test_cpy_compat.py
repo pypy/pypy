@@ -1,6 +1,6 @@
 import pytest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
-from pypy.module.hpy_universal._vendored.test.test_cpy_compat import TestCPythonCompatibility as _TestCPythonCompatibility
+from pypy.module._hpy_universal._vendored.test.test_cpy_compat import TestCPythonCompatibility as _TestCPythonCompatibility
 from .support import HPyAppTest
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
@@ -8,7 +8,7 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     Base class for hpy tests which also need cpyext
     """
     # mmap is needed because it is imported by LeakCheckingTest.setup_class
-    spaceconfig = {'usemodules': ['hpy_universal', 'cpyext', 'mmap']}
+    spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 
     @staticmethod
     def setup_class(cls):

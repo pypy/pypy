@@ -6,8 +6,8 @@ from pypy import pypydir
 from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
-INCLUDE_DIR = PYPYDIR.join('module', 'hpy_universal', '_vendored', 'include')
-SRC_DIR = PYPYDIR.join('module', 'hpy_universal', 'src')
+INCLUDE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'include')
+SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 
 
 eci = ExternalCompilationInfo(

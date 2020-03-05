@@ -1,7 +1,7 @@
 import pytest
 from rpython.rtyper.lltypesystem import lltype
-from pypy.module.hpy_universal import llapi
-from pypy.module.hpy_universal.apiset import APISet
+from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal.apiset import APISet
 
 class TestAPISet(object):
 

@@ -3,4 +3,4 @@ from pypy.module.hpy_universal._vendored.test.test_hpyunicode import TestUnicode
 from .support import HPyAppTest
 
 class AppTestUnicode(HPyAppTest, _Test):
-    spaceconfig = {'usemodules': ['hpy_universal']}
+    spaceconfig = {'usemodules': ['_hpy_universal']}

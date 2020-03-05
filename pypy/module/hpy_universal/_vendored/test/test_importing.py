@@ -1,7 +1,7 @@
 import pytest
 from .support import HPyTest
 
-# this function should probably goes somewhere into hpy_universal and/or and
+# this function should probably goes somewhere into _hpy_universal and/or and
 # hpy package and/or an import hook, or whatever. I do not want to think about
 # this now.
 def import_module_properly(mod):
@@ -10,8 +10,8 @@ def import_module_properly(mod):
 # this was moved from support.py, where it did not belong
 ## class HPyLoader(ExtensionFileLoader):
 ##     def create_module(self, spec):
-##         import hpy_universal
-##         return hpy_universal.load_from_spec(spec)
+##         import _hpy_universal
+##         return _hpy_universal.load_from_spec(spec)
 
 
 class TestImporting(HPyTest):

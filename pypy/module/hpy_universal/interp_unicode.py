@@ -3,8 +3,8 @@ from rpython.rlib import rutf8
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.objspace.std import unicodeobject
-from pypy.module.hpy_universal.apiset import API
-from pypy.module.hpy_universal import handles
+from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import handles
 
 def _maybe_utf8_to_w(space, utf8):
     # should this be a method of space?

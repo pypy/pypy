@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
-from pypy.module.hpy_universal.apiset import API
-from pypy.module.hpy_universal import handles
+from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal import handles
 
 @API.func("HPy HPyDict_New(HPyContext ctx)")
 def HPyDict_New(space, ctx):
