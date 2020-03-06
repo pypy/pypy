@@ -1,13 +1,4 @@
-before_script:
-  - apt-get update && apt-get -y install
-      gcc make libffi-dev pkg-config
-      zlib1g-dev libbz2-dev libsqlite3-dev
-      libncurses5-dev libexpat1-dev
-      libssl-dev libgdbm-dev
-      tk-dev libgc-dev python-cffi
-      liblzma-dev libncursesw5-dev
-
 check_rpython_annotations:
-    image: octobus/ci-py2
+    image: octobus/ci-for-pypy
     script:
       - (cd pypy/goal; python2 ../../rpython/bin/rpython --batch -O2 --annotate targetpypystandalone)
