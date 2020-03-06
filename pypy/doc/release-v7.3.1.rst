@@ -12,7 +12,7 @@ three different interpreters:
     Python 3.6, including the stdlib for CPython 3.6.9.
     
   - PyPy3.7: which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.x. This is the first
+    Python 3.7, including the stdlib for CPython 3.7.1. This is the first
     public release of the version, so we would like to get feedback on its
     performance, stability, and compatibility.
     
@@ -23,9 +23,13 @@ out what is new.
 We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release updates the pip and
 setuptools installed when executing `pypy -mensurepip` to `pip>=20`. This
-completes the work done to update the PEP 425 "python tag". This means that
-wheels specfically built for the previous tag format will not be discovered
-by pip, so library authors should update their PyPY-specific wheels on PyPI.
+completes the work done to update the PEP 425 `python tag`_ from ``pp373`` to
+mean "PyPy 7.3 running python3" to ``pp36`` meaning "PyPy running python
+3.6" (the format is recommended in the PEP). The tag itself was
+changed in 7.3.0, but older pip versions build their own tag without querying
+pypy. This means that wheels built for the previous tag format will not be
+discovered by pip from this version, so library authors should update their
+PyPY-specific wheels on PyPI.
 
 Development of PyPy is transitioning to https://foss.heptapod.net/pypy/pypy.
 This move was covered more extensively in the `blog post`_ from last month.
@@ -76,6 +80,7 @@ building wheels for PyPy wheels.
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel
 .. _`manylinux2010`: https://github.com/pypa/manylinux
 .. _`blog post`: https://morepypy.blogspot.com/2020/02/pypy-and-cffi-have-moved-to-heptapod.html
+.. _ `python tag`: https://www.python.org/dev/peps/pep-0425/#python-tag
 
 What is PyPy?
 =============
