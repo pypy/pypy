@@ -110,6 +110,9 @@ class Entry(ExtRegistryEntry):
 
 def allocate():
     _gil_allocate()
+    if not we_are_translated():
+        release()   # to force the right value into rpy_fastgil
+        acquire()
 
 def release():
     # this function must not raise, in such a way that the exception
@@ -161,6 +164,7 @@ yield_thread._dont_inline_ = True
 def am_I_holding_the_GIL():
     if we_are_translated():
         from rpython.rlib import rthread
-        return gil_get_holder() == rthread.get_ident()
+        my_tid = rthread.get_ident()
     else:
-        raise NotImplementedError("implement me if needed")
+        my_tid = 1234         # custom made-up value in src/threadlocal.h
+    return gil_get_holder() == my_tid

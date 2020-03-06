@@ -49,6 +49,7 @@ class BaseTestGIL(StandaloneTests):
                 assert False
 
         def main(argv):
+            rgil.allocate()
             check('1')
             rgil.release()
             # don't have the GIL here
@@ -61,7 +62,7 @@ class BaseTestGIL(StandaloneTests):
             check('5')
             return 0
 
-        #main([])    -- not implemented for now
+        main([])
 
         t, cbuilder = self.compile(main)
         data = cbuilder.cmdexec('')

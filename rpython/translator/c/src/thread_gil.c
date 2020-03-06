@@ -286,3 +286,10 @@ long *RPyFetchFastGil(void)
 {
     return _RPyFetchFastGil();
 }
+
+#undef RPyGilGetHolder
+RPY_EXTERN
+long RPyGilGetHolder(void)
+{
+    return _RPyGilGetHolder();
+}
