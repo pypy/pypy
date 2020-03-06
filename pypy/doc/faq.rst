@@ -57,6 +57,9 @@ installable with ``<pypy> -mpip install xyz``.  The simplest solution is to
 and type: ``pypy -mpip install xyz``.  If you don't know or don't want
 virtualenv, you can also use ``pip`` locally after ``pypy -m ensurepip``.
 The `ensurepip module`_ is built-in to the PyPy downloads we provide.
+Best practices with ``pip`` is to always call it as ``<python> -mpip ...``,
+but if you wish to be able to call ``pip`` directly from the command line, you
+must call ``pypy -mensurepip --default-pip``.
 
 If you get errors from the C compiler, the module is a CPython C
 Extension module using unsupported features.  `See below.`_
