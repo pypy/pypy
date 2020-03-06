@@ -1,6 +1,4 @@
-import py
 from pypy.interpreter import gateway
-from pypy.objspace.test import test_descriptor
 
 
 class AppTestUserObject:
