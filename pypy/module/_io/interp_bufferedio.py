@@ -314,6 +314,7 @@ class BufferedMixin:
         finally:
             with self.lock:
                 space.call_method(self.w_raw, "close")
+        self.buffer = None
 
     def simple_flush_w(self, space):
         self._check_init(space)
