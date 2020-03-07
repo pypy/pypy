@@ -49,7 +49,6 @@ class BaseTestGIL(StandaloneTests):
                 assert False
 
         def main(argv):
-            rgil.allocate()
             check('1')
             rgil.release()
             # don't have the GIL here

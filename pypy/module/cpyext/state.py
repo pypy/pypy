@@ -113,7 +113,6 @@ class State:
         from pypy.module.cpyext import api
         if not self.space.config.translating:
             self.api_lib = str(api.build_bridge(self.space))
-            rgil.allocate() # ensure the right value is in rpy_fastgil for tests
         else:
             api.setup_library(self.space)
 
