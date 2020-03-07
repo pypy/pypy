@@ -43,7 +43,7 @@ Anaconda Prompt. First, we need to install `conda-app
 <https://pypi.org/project/conda-app>`_ in the base conda environment::
 
   conda activate base
-  pip install conda-app
+  python -mpip install conda-app
 
 Then, with the conda-forge channel added (``conda config --add channels
 conda-forge``), one just needs to run::

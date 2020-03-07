@@ -7,7 +7,7 @@ import rpython.jit.backend.zarch.conditions as c
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport.jump import remap_frame_layout
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.backend.llsupport.descr import CallDescr
@@ -207,6 +207,7 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
 
 
+    @not_rpython    # <=== please fix me for cd7261a5a735 and then remove this
     def move_real_result_and_call_reacqgil_addr(self, fastgil):
         from rpython.jit.backend.zarch.codebuilder import OverwritingBuilder
 

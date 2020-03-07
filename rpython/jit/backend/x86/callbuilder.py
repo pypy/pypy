@@ -13,7 +13,7 @@ from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
 from rpython.jit.backend.x86.jump import remap_frame_layout
 from rpython.jit.backend.x86 import codebuf
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
-from rpython.jit.backend.llsupport import llerrno
+from rpython.jit.backend.llsupport import llerrno, lltls
 from rpython.rtyper.lltypesystem import llmemory, rffi
 
 
@@ -273,14 +273,14 @@ class CallBuilderX86(AbstractCallBuilder):
                 # This slow-path has two entry points, with two
                 # conditional jumps.  We can jump to the regular start
                 # of this slow-path with the 2nd conditional jump.  Or,
-                # we can jump past the "MOV(heap(fastgil), ecx)"
+                # we can jump past the "MOV(heap(fastgil), 0)"
                 # instruction from the 1st conditional jump.
                 # This instruction reverts the rpy_fastgil acquired
                 # previously, so that the general 'reacqgil_addr'
                 # function can acquire it again.  It must only be done
                 # if we actually succeeded in acquiring rpy_fastgil.
                 from rpython.jit.backend.x86.assembler import heap
-                mc.MOV(heap(self.fastgil), ecx)
+                mc.MOV(heap(self.fastgil), imm(0))
                 offset = mc.get_relative_pos() - self.early_jump_addr
                 mc.overwrite32(self.early_jump_addr-4, offset)
                 # scratch register forgotten here, by get_relative_pos()
@@ -300,17 +300,29 @@ class CallBuilderX86(AbstractCallBuilder):
         # (to acquiring the GIL)
         mc = self.mc
         restore_edx = False
-        old_value = ecx
         #
-        # Use XCHG as an atomic test-and-set-lock.  It also implicitly
-        # does a memory barrier.
-        mc.MOV(old_value, imm(1))
+        # Make sure we can use 'eax' in the sequel for CMPXCHG
+        # On 32-bit, we also need to check if restype is 'L' for long long,
+        # in which case we need to save eax and edx because they are both
+        # used for the return value.
+        if self.restype in (INT, 'L') and not self.result_value_saved_early:
+            self.save_result_value(save_edx = self.restype == 'L')
+            self.result_value_saved_early = True
+        #
+        # Use LOCK CMPXCHG as a compare-and-swap with memory barrier.
+        tlsreg = self.get_tlofs_reg()
+        thread_ident_ofs = lltls.get_thread_ident_offset(self.asm.cpu)
+        #
+        mc.MOV_rm(ecx.value, (tlsreg.value, thread_ident_ofs))
+        mc.XOR_rr(eax.value, eax.value)
+
         if rx86.fits_in_32bits(fastgil):
-            mc.XCHG_rj(old_value.value, fastgil)
+            mc.LOCK()
+            mc.CMPXCHG_jr(fastgil, ecx.value)
         else:
             mc.MOV_ri(X86_64_SCRATCH_REG.value, fastgil)
-            mc.XCHG_rm(old_value.value, (X86_64_SCRATCH_REG.value, 0))
-        mc.CMP(old_value, imm(0))
+            mc.LOCK()
+            mc.CMPXCHG_mr((X86_64_SCRATCH_REG.value, 0), ecx.value)
         #
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap
         if bool(gcrootmap):
@@ -323,14 +335,12 @@ class CallBuilderX86(AbstractCallBuilder):
             # thread.  So here we check if the shadowstack pointer
             # is still the same as before we released the GIL (saved
             # in 'ebx'), and if not, we fall back to 'reacqgil_addr'.
-            mc.J_il(rx86.Conditions['NE'], 0xfffff)     # patched later
+            mc.J_il(rx86.Conditions['NZ'], 0xfffff)     # patched later
             early_jump_addr = mc.get_relative_pos(break_basic_block=False)
             # ^^^ this jump will go to almost the same place as the
-            # ReacqGilSlowPath() computes, but one instruction farther,
-            # i.e. just after the "MOV(heap(fastgil), ecx)".
+            # ReacqGilSlowPath() computes, but one instruction further,
+            # i.e. just after the "MOV(heap(fastgil), 0)".
 
-            # here, ecx (=old_value) is zero (so rpy_fastgil was in 'released'
-            # state before the XCHG, but the XCHG acquired it by writing 1)
             rst = gcrootmap.get_root_stack_top_addr()
             mc = self.mc
             mc.CMP(ebx, heap(rst))
@@ -338,7 +348,7 @@ class CallBuilderX86(AbstractCallBuilder):
             sp.early_jump_addr = early_jump_addr
             sp.fastgil = fastgil
         else:
-            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NE'])
+            sp = self.ReacqGilSlowPath(mc, rx86.Conditions['NZ'])
         sp.callbuilder = self
         sp.set_continue_addr(mc)
         self.asm.pending_slowpaths.append(sp)

@@ -67,7 +67,7 @@ Windows, see the `windows document`_ .
 
 The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
 already installed. If translating on CPython, you need to install it, e.g.
-using ``pip install cffi``.
+using ``python -mpip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
