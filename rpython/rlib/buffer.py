@@ -183,7 +183,7 @@ class RawByteBuffer(RawBuffer):
 
     def __del__(self):
         lltype.free(self._buf, flavor='raw')
-        self._buf = None
+        self._buf = lltype.nullptr(rffi.CCHARP.TO)
 
 
 class GCBuffer(Buffer):
