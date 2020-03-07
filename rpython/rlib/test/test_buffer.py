@@ -2,7 +2,7 @@ import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_singlefloat
 from rpython.rlib.buffer import (StringBuffer, SubBuffer, Buffer, RawBuffer,
-                                 ByteBuffer)
+                                 RawByteBuffer, ByteBuffer)
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
 from rpython.rtyper.test.tool import BaseRtypingTest
@@ -201,6 +201,10 @@ class _TestByteBufferBase(object):
         buf.setslice(0, b"data")
         buf.getitem = None
         assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
+
+
+class TestRawByteBuffer(_TestByteBufferBase):
+    buffer_class = RawByteBuffer
 
 
 class TestByteBuffer(_TestByteBufferBase):
