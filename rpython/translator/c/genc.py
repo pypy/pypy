@@ -370,6 +370,7 @@ class CStandaloneBuilder(CBuilder):
     def gen_makefile(self, targetdir, exe_name=None, headers_to_precompile=[]):
         module_files = self.eventually_copy(self.eci.separate_module_files)
         self.eci.separate_module_files = []
+        self.eci.compile_extra += ('-DPYPY_MAKEFILE',)
         cfiles = [self.c_source_filename] + self.extrafiles + list(module_files)
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
@@ -810,10 +811,6 @@ def gen_preimpl(f, database):
 def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'void RPython_StartupCode(void) {'
-
-    bk = database.translator.annotator.bookkeeper
-    if bk.thread_local_fields:
-        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
 
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line

@@ -153,12 +153,9 @@ def _unwrap_path(space, w_value, allow_fd=True):
         allowed_types = "string, bytes, os.PathLike or integer"
     else:
         allowed_types = "string, bytes or os.PathLike"
-    if _WIN32:
-        try:
-            path_u = space.utf8_0_w(w_value)
-            return Path(-1, None, path_u, w_value)
-        except OperationError:
-            pass
+    if _WIN32 and space.isinstance_w(w_value, space.w_unicode):
+        path_u = FileEncoder(space, w_value).as_unicode()
+        return Path(-1, None, path_u, w_value)
     try:
         path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
         return Path(-1, path_b, None, w_value)

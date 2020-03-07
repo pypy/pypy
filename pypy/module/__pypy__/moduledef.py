@@ -119,10 +119,13 @@ class Module(MixedModule):
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
         'newmemoryview'             : 'interp_buffer.newmemoryview',
         'set_exc_info'              : 'interp_magic.set_exc_info',
+        'utf8content'               : 'interp_magic.utf8content',
 
         'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
     }
+    if sys.platform == 'win32':
+        interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
 
     submodules = {
         "builders": BuildersModule,

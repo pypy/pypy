@@ -3,7 +3,7 @@ from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.extregistry import ExtRegistryEntry
-from rpython.rlib.objectmodel import not_rpython
+from rpython.rlib.objectmodel import not_rpython, we_are_translated
 
 # these functions manipulate directly the GIL, whose definition does not
 # escape the C code itself
@@ -37,6 +37,10 @@ _gil_acquire      = llexternal('RPyGilAcquire', [], lltype.Void,
 gil_fetch_fastgil = llexternal('RPyFetchFastGil', [], llmemory.Address,
                                _nowrapper=True, sandboxsafe=True,
                                compilation_info=eci)
+
+gil_get_holder = llexternal('RPyGilGetHolder', [], lltype.Signed,
+                            _nowrapper=True, sandboxsafe=True,
+                            compilation_info=eci)
 
 # ____________________________________________________________
 
@@ -104,8 +108,16 @@ class Entry(ExtRegistryEntry):
             hop.exception_cannot_occur()
 
 
+_nontranslated_ready = False
+
 def allocate():
     _gil_allocate()
+    #
+    global _nontranslated_ready
+    if not we_are_translated() and not _nontranslated_ready:
+        release()   # to force the right value into rpy_fastgil
+        acquire()
+        _nontranslated_ready = True
 
 def release():
     # this function must not raise, in such a way that the exception
@@ -121,6 +133,15 @@ def acquire():
     _after_thread_switch()
 acquire._gctransformer_hint_cannot_collect_ = True
 acquire._dont_reach_me_in_del_ = True
+
+def acquire_maybe_in_new_thread():
+    from rpython.rlib import rthread
+    rthread.get_or_make_ident() #make sure that the threadlocals are initialized
+    _gil_acquire()
+    rthread.gc_thread_run()
+    _after_thread_switch()
+acquire_maybe_in_new_thread._gctransformer_hint_cannot_collect_ = True
+acquire_maybe_in_new_thread._dont_reach_me_in_del_ = True
 
 # The _gctransformer_hint_cannot_collect_ hack is needed for
 # translations in which the *_external_call() functions are not inlined.
@@ -144,3 +165,12 @@ yield_thread._dont_inline_ = True
 # yield_thread() needs a different hint: _gctransformer_hint_close_stack_.
 # The *_external_call() functions are themselves called only from the rffi
 # module from a helper function that also has this hint.
+
+def am_I_holding_the_GIL():
+    if we_are_translated():
+        from rpython.rlib import rthread
+        my_tid = rthread.get_or_make_ident()
+    else:
+        allocate()
+        my_tid = 1234         # custom made-up value in src/threadlocal.h
+    return gil_get_holder() == my_tid

@@ -632,3 +632,19 @@ class TestCall(BaseTestPyPyC):
                 i += 1
             return 13
         """, [1000])
+
+
+    def test_nonstd_jitdriver_distinguishes_map(self):
+        log = self.run("""
+        def f(a):
+            return a + 1
+        def g(a):
+            return a + 2
+        def main():
+            # test the "contains" jitdriver, but the others are the same
+            res = (9999 in map(f, range(100000)))
+            res += (9999 in map(g, range(200000)))
+            return res
+        """, [])
+        # as opposed to one loop, one bridge  (the third loop is tuple.contains)
+        assert len(log.loops) == 3

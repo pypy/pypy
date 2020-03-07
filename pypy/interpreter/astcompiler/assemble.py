@@ -194,6 +194,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         string_sort(scope.free_vars)    # return free vars in alphabetical order
         self.free_vars = _iter_to_dict(scope.free_vars, len(self.cell_vars))
         self.w_consts = space.newdict()
+        self.consts_w = []
         self.argcount = 0
         self.kwonlyargcount = 0
         self.lineno_set = False
@@ -268,62 +269,27 @@ class PythonCodeMaker(ast.ASTVisitor):
             container[name] = index
         return index
 
-    def add_const(self, obj):
+    def add_const(self, w_obj):
         """Add a W_Root to the constant array and return its location."""
         space = self.space
-        # To avoid confusing equal but separate types, we hash store the type
-        # of the constant in the dictionary.  Moreover, we have to keep the
-        # difference between -0.0 and 0.0 floats, and this recursively in
-        # tuples.
-        w_key = self._make_key(obj)
+        if isinstance(w_obj, PyCode):
+            # unlike CPython, never share code objects, it's pointless
+            w_key = space.id(w_obj)
+        else:
+            w_key = PyCode.const_comparison_key(self.space, w_obj)
 
         w_len = space.finditem(self.w_consts, w_key)
-        if w_len is None:
-            w_len = space.len(self.w_consts)
-            space.setitem(self.w_consts, w_key, w_len)
-        if space.int_w(w_len) == 0:
-            self.scope.doc_removable = False
-        return space.int_w(w_len)
-
-    def _make_key(self, obj):
-        # see the tests 'test_zeros_not_mixed*' in ../test/test_compiler.py
-        space = self.space
-        w_type = space.type(obj)
-        if space.is_w(w_type, space.w_float):
-            val = space.float_w(obj)
-            if val == 0.0 and math.copysign(1., val) < 0:
-                w_key = space.newtuple([obj, space.w_float, space.w_None])
-            else:
-                w_key = space.newtuple([obj, space.w_float])
-        elif space.is_w(w_type, space.w_complex):
-            w_real = space.getattr(obj, space.newtext("real"))
-            w_imag = space.getattr(obj, space.newtext("imag"))
-            real = space.float_w(w_real)
-            imag = space.float_w(w_imag)
-            real_negzero = (real == 0.0 and
-                            math.copysign(1., real) < 0)
-            imag_negzero = (imag == 0.0 and
-                            math.copysign(1., imag) < 0)
-            if real_negzero and imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None,
-                       space.w_None]
-            elif imag_negzero:
-                tup = [obj, space.w_complex, space.w_None, space.w_None]
-            elif real_negzero:
-                tup = [obj, space.w_complex, space.w_None]
-            else:
-                tup = [obj, space.w_complex]
-            w_key = space.newtuple(tup)
-        elif space.is_w(w_type, space.w_tuple):
-            result_w = [obj, w_type]
-            for w_item in space.fixedview(obj):
-                result_w.append(self._make_key(w_item))
-            w_key = space.newtuple(result_w[:])
-        elif isinstance(obj, PyCode):
-            w_key = space.newtuple([obj, w_type, space.id(obj)])
+        if w_len is not None:
+            length = space.int_w(w_len)
         else:
-            w_key = space.newtuple([obj, w_type])
-        return w_key
+            length = len(self.consts_w)
+            w_obj = misc.intern_if_common_string(space, w_obj)
+            self.consts_w.append(w_obj)
+            space.setitem(self.w_consts, w_key, space.newint(length))
+        if length == 0:
+            self.scope.doc_removable = False
+        return length
+
 
     def load_const(self, obj):
         index = self.add_const(obj)
@@ -387,26 +353,6 @@ class PythonCodeMaker(ast.ASTVisitor):
             if not force_redo:
                 self._check_consistency(blocks)
                 return
-
-    def _build_consts_array(self):
-        """Turn the applevel constants dictionary into a list."""
-        w_consts = self.w_consts
-        space = self.space
-        consts_w = [space.w_None] * space.len_w(w_consts)
-        w_iter = space.iter(w_consts)
-        first = space.newint(0)
-        while True:
-            try:
-                w_key = space.next(w_iter)
-            except OperationError as e:
-                if not e.match(space, space.w_StopIteration):
-                    raise
-                break
-            w_index = space.getitem(w_consts, w_key)
-            w_constant = space.getitem(w_key, first)
-            w_constant = misc.intern_if_common_string(space, w_constant)
-            consts_w[space.int_w(w_index)] = w_constant
-        return consts_w
 
     def _get_code_flags(self):
         """Get an extra flags that should be attached to the code object."""
@@ -544,7 +490,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self._resolve_block_targets(blocks)
         lnotab = self._build_lnotab(blocks)
         stack_depth = self._stacksize(blocks)
-        consts_w = self._build_consts_array()
+        consts_w = self.consts_w[:]
         names = _list_from_dict(self.names)
         var_names = _list_from_dict(self.var_names)
         cell_names = _list_from_dict(self.cell_vars)

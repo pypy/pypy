@@ -185,6 +185,10 @@ void RPython_ThreadLocals_ProgramInit(void)
        a non-null thread-local value).  This is needed even in the
        case where we use '__thread' below, for the destructor.
     */
+    static int threadlocals_initialized = 0;
+    if (threadlocals_initialized)
+        return;
+
     assert(pypy_threadlocal_lock == 0);
 #ifdef _WIN32
     pypy_threadlocal_key = TlsAlloc();
@@ -197,13 +201,14 @@ void RPython_ThreadLocals_ProgramInit(void)
                         "out of thread-local storage indexes");
         abort();
     }
-    _RPython_ThreadLocals_Build();
+    RPY_THREADLOCALREF_ENSURE();
 
 #ifndef _WIN32
     pthread_atfork(_RPython_ThreadLocals_Acquire,
                    _RPython_ThreadLocals_Release,
                    cleanup_after_fork);
 #endif
+    threadlocals_initialized = 1;
 }
 
 

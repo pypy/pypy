@@ -52,10 +52,14 @@ provided by the same package manager.*  So forget about them for now
 and read on.
 
 It is quite common nowadays that xyz is available on PyPI_ and
-installable with ``pip install xyz``.  The simplest solution is to `use
-virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
-and type: ``pip install xyz``.  If you don't know or don't want virtualenv,
-you can also install ``pip`` globally by saying ``pypy -m ensurepip``.
+installable with ``<pypy> -mpip install xyz``.  The simplest solution is to
+`use virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pypy -mpip install xyz``.  If you don't know or don't want
+virtualenv, you can also use ``pip`` locally after ``pypy -m ensurepip``.
+The `ensurepip module`_ is built-in to the PyPy downloads we provide.
+Best practices with ``pip`` is to always call it as ``<python> -mpip ...``,
+but if you wish to be able to call ``pip`` directly from the command line, you
+must call ``pypy -mensurepip --default-pip``.
 
 If you get errors from the C compiler, the module is a CPython C
 Extension module using unsupported features.  `See below.`_
@@ -69,6 +73,7 @@ The other commands of ``setup.py`` are available too, like ``build``.
 
 .. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
+.. _`ensurepip module`: https://docs.python.org/3.6/library/ensurepip.html
 
 
 Module xyz does not work in the sandboxed PyPy?

@@ -217,7 +217,7 @@ for name in constant_names:
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
     for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN'):
-        setattr(CConfig, name, platform.ConstantInteger(name))
+        setattr(CConfig, name, platform.DefinedConstantInteger(name))
         constant_names.append(name)
 
 constants["BDADDR_ANY"] =  "00:00:00:00:00:00"

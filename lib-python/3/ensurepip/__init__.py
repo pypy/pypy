@@ -8,9 +8,9 @@ import tempfile
 __all__ = ["version", "bootstrap"]
 
 
-_SETUPTOOLS_VERSION = "41.2.0"
+_SETUPTOOLS_VERSION = "44.0.0"
 
-_PIP_VERSION = "19.2.3"
+_PIP_VERSION = "20.0.2"
 
 _PROJECTS = [
     ("setuptools", _SETUPTOOLS_VERSION),
@@ -24,8 +24,8 @@ def _run_pip(args, additional_paths=None):
         sys.path = additional_paths + sys.path
 
     # Install the bundled software
-    import pip._internal
-    return pip._internal.main(args)
+    import pip._internal.cli.main
+    return pip._internal.cli.main.main(args)
 
 
 def version():
@@ -104,7 +104,8 @@ def _bootstrap(*, root=None, upgrade=False, user=False,
             additional_paths.append(os.path.join(tmpdir, wheel_name))
 
         # Construct the arguments to be passed to the pip command
-        args = ["install", "--no-index", "--find-links", tmpdir]
+        args = ["install", "--no-warn-script-location", "--no-index",
+                "--find-links", tmpdir]
         if root:
             args += ["--root", root]
         if upgrade:

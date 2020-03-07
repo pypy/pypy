@@ -178,10 +178,13 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
+                if not self.blockstack_non_empty():
+                    self.frame_finished_execution = True  # for generators
+                    raise Return
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
-                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    self.pushvalue(w_returnvalue)
                     raise Return
                 else:
                     unroller = SReturnValue(w_returnvalue)
