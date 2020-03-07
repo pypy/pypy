@@ -1002,7 +1002,7 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
         elif pygilstate_check:
-            result = cpyext_glob_tid_ptr[0] == tid
+            result = rgil.am_I_holding_the_GIL()
             return rffi.cast(restype, result)
         else:
             if not rgil.am_I_holding_the_GIL():
