@@ -1,4 +1,6 @@
 from __future__ import with_statement
+from rpython.rlib import buffer
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
@@ -269,6 +271,31 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
         thread.start_new_thread(write_more, ())
         assert f.readinto(a) == 10
         assert a == 'abcdefghij'
+
+@py.test.yield_fixture
+def forbid_nonmoving_raw_ptr_for_resizable_list(space):
+    orig_nonmoving_raw_ptr_for_resizable_list = buffer.nonmoving_raw_ptr_for_resizable_list
+    def fail(l):
+        raise oefmt(space.w_ValueError, "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB")
+    buffer.nonmoving_raw_ptr_for_resizable_list = fail
+    yield
+    buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestForbidRawPtrForResizableList(object):
+    spaceconfig = dict(usemodules=['_io'])
+
+    def test_monkeypatch_works(self):
+        import _io, os
+        raw = _io.FileIO(os.devnull)
+        f = _io.BufferedReader(raw)
+        with raises(ValueError) as e:
+            f.read(1024)
+        assert e.value.args[0] == "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB"
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestBufferedReaderOnRevDB(AppTestBufferedReader):
+    spaceconfig = {'usemodules': ['_io'], 'translation.reverse_debugger': True}
 
 
 class AppTestBufferedWriter:
