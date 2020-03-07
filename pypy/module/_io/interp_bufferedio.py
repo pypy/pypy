@@ -675,7 +675,6 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
                     c = self.buffer.getitem(pos)
                     pos += 1
                     if c == '\n':
