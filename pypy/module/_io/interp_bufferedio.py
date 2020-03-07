@@ -737,8 +737,7 @@ class BufferedMixin:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
-                    # XXX: messing with buffer internals
-                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
+                    self.buffer.setitem(i - self.write_pos, self.buffer.getitem(i))
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos
