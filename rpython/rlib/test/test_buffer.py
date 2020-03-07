@@ -173,10 +173,9 @@ class TestCompiled(BaseTypedReadTest):
         return lltype.cast_primitive(TYPE, x)
 
 
-class TestByteBuffer(object):
-
+class _TestByteBufferBase(object):
     def test_basic(self):
-        buf = ByteBuffer(4)
+        buf = self.buffer_class(4)
         assert buf.getlength() == 4
         assert buf.getitem(2) == '\x00'
         buf.setitem(0, 'A')
@@ -184,7 +183,7 @@ class TestByteBuffer(object):
         assert buf.as_str() == 'A\x00\x00Z'
 
     def test_typed_write(self):
-        buf = ByteBuffer(4)
+        buf = self.buffer_class(4)
         buf.typed_write(rffi.USHORT, 0, 0x1234)
         buf.typed_write(rffi.USHORT, 2, 0x5678)
         expected = struct.pack('HH', 0x1234, 0x5678)
@@ -192,16 +191,20 @@ class TestByteBuffer(object):
     
     def test_typed_read(self):
         data = struct.pack('HH', 0x1234, 0x5678)
-        buf = ByteBuffer(4)
+        buf = self.buffer_class(4)
         buf.setslice(0, data)
         assert buf.typed_read(rffi.USHORT, 0) == 0x1234
         assert buf.typed_read(rffi.USHORT, 2) == 0x5678
 
     def test_getslice_shortcut(self):
-        buf = ByteBuffer(4)
+        buf = self.buffer_class(4)
         buf.setslice(0, b"data")
         buf.getitem = None
         assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
+
+
+class TestByteBuffer(_TestByteBufferBase):
+    buffer_class = ByteBuffer
 
 
 class TestJIT(LLJitMixin):
