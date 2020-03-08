@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from rpython.rlib import buffer
+from rpython import rlib
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
@@ -274,12 +274,12 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
 
 @py.test.yield_fixture
 def forbid_nonmoving_raw_ptr_for_resizable_list(space):
-    orig_nonmoving_raw_ptr_for_resizable_list = buffer.nonmoving_raw_ptr_for_resizable_list
+    orig_nonmoving_raw_ptr_for_resizable_list = rlib.buffer.nonmoving_raw_ptr_for_resizable_list
     def fail(l):
         raise oefmt(space.w_ValueError, "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB")
-    buffer.nonmoving_raw_ptr_for_resizable_list = fail
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = fail
     yield
-    buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
 
 @py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
 class AppTestForbidRawPtrForResizableList(object):
