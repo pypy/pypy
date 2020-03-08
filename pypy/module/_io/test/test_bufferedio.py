@@ -474,8 +474,11 @@ class AppTestBufferedWriter:
                 available = self.buffersize - len(self.buffer)
                 if available <= 0:
                     return None
-                self.buffer += data[:available]
-                return min(len(data), available)
+                add_data = data[:available]
+                if isinstance(add_data, memoryview):
+                    add_data = add_data.tobytes()
+                self.buffer += add_data
+                return len(add_data)
             def read(self, size=-1):
                 if not self.buffer:
                     return None
