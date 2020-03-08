@@ -202,6 +202,11 @@ class _TestByteBufferBase(object):
         buf.getitem = None
         assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
 
+    def test_getslice_slowpath(self):
+        buf = self.buffer_class(4)
+        buf.setslice(0, b"data")
+        assert buf.getslice(0, 4, 2, 4) == b"dt"
+
 
 class TestRawByteBuffer(_TestByteBufferBase):
     buffer_class = RawByteBuffer
