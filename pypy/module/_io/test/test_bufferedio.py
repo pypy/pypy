@@ -151,11 +151,11 @@ class AppTestBufferedReader:
         exc = raises(TypeError, f.readinto, u"hello")
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, f.readinto, buffer(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        assert "must be read-write buffer, not buffer" in str(exc.value)
         exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        assert "must be read-write buffer, not buffer" in str(exc.value)
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
+        assert "must be read-write buffer, not memoryview" in str(exc.value)
         f.close()
 
     def test_readinto_big(self):
