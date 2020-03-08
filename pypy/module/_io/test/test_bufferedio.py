@@ -285,6 +285,7 @@ def forbid_nonmoving_raw_ptr_for_resizable_list(space):
 class AppTestForbidRawPtrForResizableList(object):
     spaceconfig = dict(usemodules=['_io'])
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_monkeypatch_works(self):
         import _io, os
         raw = _io.FileIO(os.devnull)
