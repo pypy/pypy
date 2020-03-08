@@ -385,6 +385,7 @@ class BufferedMixin:
     @unwrap_spec(w_size = WrappedDefault(None))
     def truncate_w(self, space, w_size):
         self._check_init(space)
+        self._check_closed(space, "truncate of closed file")
         with self.lock:
             if self.writable:
                 self._flush_and_rewind_unlocked(space)
