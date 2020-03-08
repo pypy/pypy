@@ -17,8 +17,8 @@ three different interpreters:
     performance, stability, and compatibility.
     
 The interpreters are based on much the same codebase, thus the multiple
-release. This is a micro release, no APIs have changed, but read on to find
-out what is new.
+release. This is a micro release, no APIs have changed since the 7.3.0 release
+in December, but read on to find out what is new.
 
 We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release updates the pip and
@@ -116,18 +116,108 @@ Changelog
 
 Changes shared across versions
 ------------------------------
+- We now package and ship the script to rebuild all the stdlib helper modules
+  that on CPython are written as c-extensions and in PyPy use CFFI. These are
+  located in ``lib_pypy``, and the build script in ``lib_pypy/tools``.
+- Implement CPython 16055_: Fixes incorrect error text for
+  ``int('1', base=1000)``.
+- Handle NaN correctly in ``array.array``.
+- Fix `issue 3137`_: rsplit of unicode strings that end with a non-ascii char
+  was broken
+- Fix `issue 3140`_: add ``$dist_name`` to ``include`` path when using
+  ``setup.py install``
+- Fix `issue 3146`_: using a jsonDict as an instance `__dict__` would segfault
+- Fix `issue 3144`_: using `wch` in the curses CFFI module 
+- Fix `issue 3149`_ which is related to the still-open CPython issue 12029_
+  around Exceptions, metaclasses, ``__instancecheck__`` and ``__subclasscheck__``
+- Fix a corner case in ``multibytecodec``: for stateful codecs, when encoding
+  fails and we use replacement, the replacement string must be written in the
+  output preserving the state.
+- Correct mistake in position when handling errors in unicode formatting
+- Add ``__rsub__``, ``__rand__`` and ``__ror__``, ``__rxor__`` operations to
+  set and frozenset objects
+- Fix bug in locale-specific string formatting: the thousands separator was
+  always ``'.'``
+- Fix `issue 3065`_ (again!): segfault in ``mmap``
+- ``rstruct.runpack`` should align for next read
+- Fix `issue 3155`_: virtualenv on win32 installs into Scripts, not bin
+- Add Python3.6 ``socket`` constants, they will be exposed in pypy2.7 as well
+- Use better green keys for non-standard jitdrivers to make sure that e.g.
+  generators are specialized based on their code object
+- Improve warmup speed of PyPy by around ~5-20%
+
+  - a few minor tweaks in the interpreter
+  - since tracing guards is super costly, work harder at not emitting
+    too many guard_not_invalidated while tracing
+  - optimize quasi_immut during tracing
+  - optimize loopinvariant calls during tracing
+  - a small optimization around non-standard virtualizables during tracing
+- Fix off-by-one error and rework system calls to ``_get_tzname`` on win32
+- Fix `issue 3134`_: non-ascii filenames on win32
+- Fix app-level bufferable classes, related to getting the CFFI backend to
+  pyzmq working
+- Improve performance of ``io.StringIO()``. It should now be faster than
+  CPython in common use cases
+- Fix bug in ``PyCode.__eq__``: the compiler contains careful logic to make
+  sure that it doesn't unify things like ``0.0`` and ``-0.0`` (they are equal,
+  but the sign still shouldn't be dropped)
+- Speed up integer parsing with some fast paths for common cases
+- Add ``__pypy__.utf8content`` to return the raw content of a Unicode object
+  (for debugging)
+- Update ``pip`` and ``setuptools`` in ``ensurepip`` to 20.0.2 and 44.0.0
+  respectively
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+- Fix more of `issue 3141`_ : use ``Py_TYPE(op)`` instead of ``(ob)->ob_type``
+  in our header files
+- Partially resync ``pyport.h`` with CPython and add many missing constants
 
 Python 3.6 only
 ---------------
+- Fix for CPython 30891_: deadlock import detection causes deadlocks
+- Don't swallow the UnicodeDecodeError in one corner case (fixes issue 3132)
+- Follow CPython's behaviour more closely in sqlite3
+- Fix `issue 3136`: On windows, ``os.putenv()`` cannot have a key with ``'='``
+  in it.
+- More closely follow CPython's line number output in disassembly of constants
+- Don't give a new error message if metaclass is actually type
+- Improve ``fcntl``'s handling of errors in functions that do not retry
+- Re-implement ``BUILD_LIST_FROM_ARG`` as a fast path
+- Fix `issue 3159`_: ``venv`` should copy directories, not just files
+- Add missing ``MACOSX_DEPLOYMENT_TARGET`` to ``config_vars`` for Darwin
+- Fix for path-as- ``memoryview`` on win32
+- Fix `issue 3166`_: Obscure ordering-of-which-error-to-report-first
+- Improve the performance of ``str.join``. This helps both lists (in some
+  situations) and iterators, but the latter is helped more. Some speedups of
+  >50% when using some other iterator
+- Remove ``__PYVENV_LAUNCHER__`` from ``os.environ`` during startup on Darwin
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
 
-.. _`issue 3128`: https://bitbucket.com/pypy/pypy/issues/3120
+- Fix `issue 3160`_: include ``structseq.h`` in ``Python.h`` (needed for
+  ``PyStructSequence_InitType2`` in NumPy)
+- Fix `issue 3165`_: surrogates in ``PyUnicode_FromKindAndData``
 
-.. _13312: https://bugs.python.org/issue13312
+.. _`issue 3065`: https://foss.heptapod.net/pypy/pypy/issues/3065
+.. _`issue 3132`: https://foss.heptapod.net/pypy/pypy/issues/3132
+.. _`issue 3134`: https://foss.heptapod.net/pypy/pypy/issues/3134
+.. _`issue 3136`: https://foss.heptapod.net/pypy/pypy/issues/3136
+.. _`issue 3137`: https://foss.heptapod.net/pypy/pypy/issues/3137
+.. _`issue 3140`: https://foss.heptapod.net/pypy/pypy/issues/3140
+.. _`issue 3141`: https://foss.heptapod.net/pypy/pypy/issues/3141
+.. _`issue 3144`: https://foss.heptapod.net/pypy/pypy/issues/3144
+.. _`issue 3146`: https://foss.heptapod.net/pypy/pypy/issues/3146
+.. _`issue 3149`: https://foss.heptapod.net/pypy/pypy/issues/3149
+.. _`issue 3155`: https://foss.heptapod.net/pypy/pypy/issues/3155
+.. _`issue 3159`: https://foss.heptapod.net/pypy/pypy/issues/3159
+.. _`issue 3160`: https://foss.heptapod.net/pypy/pypy/issues/3160
+.. _`issue 3165`: https://foss.heptapod.net/pypy/pypy/issues/3165
+.. _`issue 3166`: https://foss.heptapod.net/pypy/pypy/issues/3166
 
+.. _12029: https://bugs.python.org/issue12029
+.. _16055: https://bugs.python.org/issue16055
+.. _30891: https://bugs.python.org/issue30891
 
+.. _`python tag`: https://www.python.org/dev/peps/pep-0425/#python-tag
