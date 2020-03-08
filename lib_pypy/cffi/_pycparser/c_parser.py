@@ -1740,8 +1740,7 @@ class CParser(PLYParser):
         if len(p) == 2:
             p[0] = p[1]
         elif len(p) == 4:
-            field = c_ast.ID(p[3], self._token_coord(p, 3))
-            p[0] = c_ast.StructRef(p[1], p[2], field, p[1].coord)
+            p[0] = c_ast.StructRef(p[1], p[2], p[3], p[1].coord)
         elif len(p) == 5:
             p[0] = c_ast.ArrayRef(p[1], p[3], p[1].coord)
         else:
@@ -1766,6 +1765,7 @@ class CParser(PLYParser):
                         | INT_CONST_OCT
                         | INT_CONST_HEX
                         | INT_CONST_BIN
+                        | INT_CONST_CHAR
         """
         uCount = 0
         lCount = 0
