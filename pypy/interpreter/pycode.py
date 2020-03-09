@@ -64,7 +64,7 @@ class PyCode(eval.Code):
                           "_args_as_cellvars[*]",
                           "_nonarg_cell_indexes[*]",
                           "w_globals?",
-                          "cell_family"]
+                          "cell_families[*]"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -131,10 +131,10 @@ class PyCode(eval.Code):
             args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(argvars, cellvars)
             self._args_as_cellvars = args_as_cellvars
             self._nonarg_cell_indexes = nonarg_cell_indexes
-            self.cell_family = CellFamily(self.co_name)
+            self.cell_families = [CellFamily(name) for name in cellvars]
         else:
             self._args_as_cellvars = []
-            self.cell_family = None
+            self.cell_families = None
 
         self._compute_flatcall()
 

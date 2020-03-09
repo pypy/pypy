@@ -239,7 +239,7 @@ class PyFrame(W_Root):
         # initialized in init_cells
         for i in code._nonarg_cell_indexes:
             self.locals_cells_stack_w[index] = Cell(
-                    None, self.pycode.cell_family)
+                    None, self.pycode.cell_families[i])
             index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
@@ -676,7 +676,7 @@ class PyFrame(W_Root):
             if argnum >= 0:
                 w_arg = self.locals_cells_stack_w[argnum]
                 self.locals_cells_stack_w[index] = Cell(
-                        w_arg, self.pycode.cell_family)
+                        w_arg, self.pycode.cell_families[i])
             index += 1
 
     def getclosure(self):
