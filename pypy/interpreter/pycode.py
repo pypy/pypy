@@ -61,7 +61,9 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "w_globals?",
+                          "_args_as_cellvars[*]",
+                          "_nonarg_cell_indexes[*]",
+                          "w_globals?",
                           "cell_family"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
@@ -124,29 +126,11 @@ class PyCode(eval.Code):
                 argcount += 1
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
-            # Cell vars could shadow already-set arguments.
-            # The compiler used to be clever about the order of
-            # the variables in both co_varnames and co_cellvars, but
-            # it no longer is for the sake of simplicity.  Moreover
-            # code objects loaded from CPython don't necessarily follow
-            # an order, which could lead to strange bugs if .pyc files
-            # produced by CPython are loaded by PyPy.  Note that CPython
-            # contains the following bad-looking nested loops at *every*
-            # function call!
-
-            # Precompute what arguments need to be copied into cellvars
-            args_as_cellvars = []
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(argcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        while len(args_as_cellvars) <= i:
-                            args_as_cellvars.append(-1)   # pad
-                        args_as_cellvars[i] = j
-            self._args_as_cellvars = args_as_cellvars[:]
+            args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(argvars, cellvars)
+            self._args_as_cellvars = args_as_cellvars
+            self._nonarg_cell_indexes = nonarg_cell_indexes
             self.cell_family = CellFamily(self.co_name)
         else:
             self._args_as_cellvars = []
@@ -442,6 +426,35 @@ class PyCode(eval.Code):
 
     def repr(self, space):
         return space.newtext(self.get_repr())
+
+def _compute_args_as_cellvars(argvars, cellvars):
+    # Cell vars could shadow already-set arguments.
+    # The compiler used to be clever about the order of
+    # the variables in both co_varnames and co_cellvars, but
+    # it no longer is for the sake of simplicity.  Moreover
+    # code objects loaded from CPython don't necessarily follow
+    # an order, which could lead to strange bugs if .pyc files
+    # produced by CPython are loaded by PyPy.  Note that CPython
+    # contains the following bad-looking nested loops at *every*
+    # function call!
+
+    # Precompute what arguments need to be copied into cellvars
+    args_as_cellvars = []
+    nonarg_cell_indexes = []
+    last_arg_cellarg = -1
+    for i in range(len(cellvars)):
+        cellname = cellvars[i]
+        for j in range(len(argvars)):
+            if cellname == argvars[j]:
+                # argument j has the same name as the cell var i
+                while len(args_as_cellvars) < i:
+                    nonarg_cell_indexes.append(len(args_as_cellvars))
+                    args_as_cellvars.append(-1)   # pad
+                args_as_cellvars.append(j)
+                last_arg_cellarg = i
+    for i in range(last_arg_cellarg + 1, len(cellvars)):
+        nonarg_cell_indexes.append(i)
+    return args_as_cellvars[:], nonarg_cell_indexes[:]
 
 
 def _code_const_eq(space, w_a, w_b):
