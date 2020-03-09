@@ -17,7 +17,7 @@ class Cell(W_Root):
 
     def get(self):
         if jit.isconstant(self):
-            if self.family.ever_mutated:
+            if not self.family.ever_mutated:
                 return self._elidable_get()
         if self.w_value is None:
             raise ValueError("get() from an empty cell")

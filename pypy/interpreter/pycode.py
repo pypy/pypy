@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -128,13 +128,13 @@ class PyCode(eval.Code):
                 argcount += 1
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(argvars, cellvars)
+            args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(argvars, cellvars, argcount)
             self._args_as_cellvars = args_as_cellvars
             self._nonarg_cell_indexes = nonarg_cell_indexes
             self.cell_families = [CellFamily(name) for name in cellvars]
         else:
-            self._args_as_cellvars = []
-            self.cell_families = None
+            self._args_as_cellvars = self._nonarg_cell_indexes = []
+            self.cell_families = []
 
         self._compute_flatcall()
 
@@ -427,7 +427,7 @@ class PyCode(eval.Code):
     def repr(self, space):
         return space.newtext(self.get_repr())
 
-def _compute_args_as_cellvars(argvars, cellvars):
+def _compute_args_as_cellvars(varnames, cellvars, argcount):
     # Cell vars could shadow already-set arguments.
     # The compiler used to be clever about the order of
     # the variables in both co_varnames and co_cellvars, but
@@ -444,8 +444,8 @@ def _compute_args_as_cellvars(argvars, cellvars):
     last_arg_cellarg = -1
     for i in range(len(cellvars)):
         cellname = cellvars[i]
-        for j in range(len(argvars)):
-            if cellname == argvars[j]:
+        for j in range(argcount):
+            if cellname == varnames[j]:
                 # argument j has the same name as the cell var i
                 while len(args_as_cellvars) < i:
                     nonarg_cell_indexes.append(len(args_as_cellvars))
