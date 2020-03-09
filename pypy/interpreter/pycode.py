@@ -61,7 +61,8 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "w_globals?"]
+                          "_args_as_cellvars[*]", "w_globals?",
+                          "cell_family"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -115,6 +116,7 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         from pypy.objspace.std.mapdict import init_mapdict_cache
+        from pypy.interpreter.nestedscope import CellFamily
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -145,8 +147,10 @@ class PyCode(eval.Code):
                             args_as_cellvars.append(-1)   # pad
                         args_as_cellvars[i] = j
             self._args_as_cellvars = args_as_cellvars[:]
+            self.cell_family = CellFamily(self.co_name)
         else:
             self._args_as_cellvars = []
+            self.cell_family = None
 
         self._compute_flatcall()
 

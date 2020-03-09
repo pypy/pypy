@@ -236,7 +236,8 @@ class PyFrame(W_Root):
                                  "an unexpected number of free variables")
         index = code.co_nlocals
         for i in range(ncellvars):
-            self.locals_cells_stack_w[index] = Cell()
+            self.locals_cells_stack_w[index] = Cell(
+                    None, self.pycode.cell_family)
             index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
