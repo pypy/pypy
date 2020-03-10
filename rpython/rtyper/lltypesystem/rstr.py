@@ -933,14 +933,18 @@ class LLHelpers(AbstractLLHelpers):
     @staticmethod
     @signature(types.any(), types.int(), types.int(), returns=types.any())
     def ll_stringslice_startstop(s1, start, stop):
+        length = len(s1.chars)
+        ll_assert(start >= 0, "unexpectedly negative str slice start")
+        ll_assert(start <= length, "str slice start larger than str length")
+        ll_assert(stop >= start, "str slice stop smaller than start")
         if jit.we_are_jitted():
-            if stop > len(s1.chars):
-                stop = len(s1.chars)
+            if stop > length:
+                stop = length
         else:
-            if stop >= len(s1.chars):
+            if stop >= length:
                 if start == 0:
                     return s1
-                stop = len(s1.chars)
+                stop = length
         return LLHelpers._ll_stringslice(s1, start, stop)
 
     @staticmethod

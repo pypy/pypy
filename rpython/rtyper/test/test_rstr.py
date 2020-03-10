@@ -569,7 +569,7 @@ class AbstractTestRstr(BaseRtypingTest):
             s1 = s[:3]
             s2 = s[3:]
             s3 = s[3:10]
-            s4 = s[42:44]
+            s4 = s[5:44]
             return (s1+s2 == s and
                     s2+s1 == const('lohel') and
                     s1+s3 == s and
