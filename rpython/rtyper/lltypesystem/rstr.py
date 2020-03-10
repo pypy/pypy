@@ -921,6 +921,7 @@ class LLHelpers(AbstractLLHelpers):
         # is greater than the length of the string. Use < instead of <= to avoid
         # creating another path for the JIT when start == stop.
         if lgt < 0:
+            raise Exception('TEMPORARY: forbidden case')
             return s1.empty()
         newstr = s1.malloc(lgt)
         s1.copy_contents(s1, newstr, start, 0, lgt)
