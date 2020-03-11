@@ -34,7 +34,7 @@ class State:
             return
 
         space = self.space
-        self.ctx = llapi._HPy_GetGlobalCtx()
+        self.ctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
 
         for name in CONTEXT_FIELDS:
             if name == 'c_ctx_version':

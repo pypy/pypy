@@ -21,20 +21,12 @@ eci = ExternalCompilationInfo(
         SRC_DIR.join('hpyarg.c'),
     ],
     post_include_bits=["""
-        RPY_EXTERN void *_HPy_GetGlobalCtx(void);
-
         // these are workarounds for a CTypeSpace limitation, since it can't properly
         // handle struct types which are not typedefs
         typedef struct _HPyContext_s _struct_HPyContext_s;
         typedef struct _HPy_s _struct_HPy_s;
     """],
-    separate_module_sources=["""
-        struct _HPyContext_s hpy_global_ctx;
-        void *_HPy_GetGlobalCtx(void)
-        {
-            return &hpy_global_ctx;
-        }
-    """])
+)
 
 cts = CTypeSpace()
 # NOTE: the following C source is NOT seen by the C compiler during
@@ -143,9 +135,6 @@ HPy_METH_NOARGS   = 0x0004 | _HPy_METH
 HPy_METH_O        = 0x0008 | _HPy_METH
 
 # ----------------------------------------------------------------
-
-_HPy_GetGlobalCtx = rffi.llexternal('_HPy_GetGlobalCtx', [], HPyContext,
-                                    compilation_info=eci, _nowrapper=True)
 
 # NOTE: this is not the real signature (we don't know what to put for
 # va_list), but it's good enough to get the address of the function to store
