@@ -48,7 +48,7 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
 pypy_init = gateway.applevel('''
 def pypy_init(import_site):
     if import_site:
-        import sys
+        import os, sys
         _MACOSX = sys.platform == 'darwin'
         if _MACOSX:
             # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
