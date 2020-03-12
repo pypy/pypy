@@ -5,7 +5,6 @@ from pypy.interpreter.typedef import TypeDef, interp2app
 
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
-from pypy.module.cpyext.api import generic_cpy_call_dont_convert_result
 
 
 class W_ExtensionFunction(W_Root):
@@ -31,8 +30,7 @@ class W_ExtensionFunction(W_Root):
     def call_noargs(self, space):
         state = space.fromcache(State)
         with handles.using(space, self.w_self) as h_self:
-            h_result = generic_cpy_call_dont_convert_result(space, self.cfuncptr,
-                state.ctx, h_self, 0)
+            h_result = self.cfuncptr(state.ctx, h_self, 0)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
@@ -40,8 +38,7 @@ class W_ExtensionFunction(W_Root):
         state = space.fromcache(State)
         with handles.using(space, self.w_self) as h_self:
             with handles.using(space, w_arg) as h_arg:
-                h_result = generic_cpy_call_dont_convert_result(space,
-                                           self.cfuncptr, state.ctx, h_self, h_arg)
+                h_result = self.cfuncptr(state.ctx, h_self, h_arg)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
@@ -64,8 +61,7 @@ class W_ExtensionFunction(W_Root):
                 # XXX: is it correct to use rffi.cast instead of some kind of
                 # lltype.cast_*?
                 fptr = rffi.cast(llapi.HPyMeth_VarArgs, self.cfuncptr)
-                h_result = generic_cpy_call_dont_convert_result(space, fptr,
-                                                        state.ctx, h_self, args_h, n)
+                h_result = fptr(state.ctx, h_self, args_h, n)
 
                 # XXX this should probably be in a try/finally. We should add a
                 # test to check that we don't leak handles

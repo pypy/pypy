@@ -21,7 +21,4 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
 
 
 class AppTestCPythonCompatibility(HPyCPyextAppTest, _TestCPythonCompatibility):
-
-    def test_aspyobject_custom_class(self):
-        import pytest
-        pytest.skip('FIXME')
+    pass
