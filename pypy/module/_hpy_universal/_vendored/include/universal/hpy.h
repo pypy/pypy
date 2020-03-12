@@ -15,7 +15,14 @@ struct _object;  /* that's PyObject inside CPython */
 typedef struct _object *(*_HPy_CPyCFunction)(struct _object *self,
                                              struct _object *args);
 
-#define _HPy_HIDDEN   __attribute__((visibility("hidden")))
+#ifdef __GNUC__
+#define _HPy_HIDDEN  __attribute__((visibility("hidden")))
+#else
+#define _HPy_HIDDEN
+#endif /* __GNUC__ */
+
+#define HPyAPI_RUNTIME_FUNC(restype) _HPy_HIDDEN restype
+
 #define HPy_NULL ((HPy){0})
 #define HPy_IsNull(x) ((x)._i == 0)
 
@@ -25,6 +32,8 @@ typedef struct _object *(*_HPy_CPyCFunction)(struct _object *self,
 static inline HPy HPy_FromVoidP(void *p) { return (HPy){(HPy_ssize_t)p}; }
 static inline void* HPy_AsVoidP(HPy h) { return (void*)h._i; }
 
+// include runtime functions
+#include "common/runtime.h"
 
 #include "meth.h"
 #include "module.h"

@@ -40,16 +40,68 @@ static inline HPy HPyFloat_FromDouble(HPyContext ctx, double v) {
      return ctx->ctx_Float_FromDouble ( ctx, v ); 
 }
 
-static inline int HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, ...) {
-     va_list _vl; va_start(_vl, fmt); int _res = ctx->ctx_Arg_Parse ( ctx, args, nargs, fmt, _vl ); va_end(_vl); return _res; 
-}
-
 static inline HPy HPyNumber_Add(HPyContext ctx, HPy h1, HPy h2) {
      return ctx->ctx_Number_Add ( ctx, h1, h2 ); 
 }
 
 static inline void HPyErr_SetString(HPyContext ctx, HPy h_type, const char *message) {
      ctx->ctx_Err_SetString ( ctx, h_type, message ); 
+}
+
+static inline int HPyErr_Occurred(HPyContext ctx) {
+     return ctx->ctx_Err_Occurred ( ctx ); 
+}
+
+static inline int HPyObject_IsTrue(HPyContext ctx, HPy h) {
+     return ctx->ctx_Object_IsTrue ( ctx, h ); 
+}
+
+static inline HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy name) {
+     return ctx->ctx_GetAttr ( ctx, obj, name ); 
+}
+
+static inline HPy HPy_GetAttr_s(HPyContext ctx, HPy obj, const char *name) {
+     return ctx->ctx_GetAttr_s ( ctx, obj, name ); 
+}
+
+static inline int HPy_HasAttr(HPyContext ctx, HPy obj, HPy name) {
+     return ctx->ctx_HasAttr ( ctx, obj, name ); 
+}
+
+static inline int HPy_HasAttr_s(HPyContext ctx, HPy obj, const char *name) {
+     return ctx->ctx_HasAttr_s ( ctx, obj, name ); 
+}
+
+static inline int HPy_SetAttr(HPyContext ctx, HPy obj, HPy name, HPy value) {
+     return ctx->ctx_SetAttr ( ctx, obj, name, value ); 
+}
+
+static inline int HPy_SetAttr_s(HPyContext ctx, HPy obj, const char *name, HPy value) {
+     return ctx->ctx_SetAttr_s ( ctx, obj, name, value ); 
+}
+
+static inline HPy HPy_GetItem(HPyContext ctx, HPy obj, HPy key) {
+     return ctx->ctx_GetItem ( ctx, obj, key ); 
+}
+
+static inline HPy HPy_GetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx) {
+     return ctx->ctx_GetItem_i ( ctx, obj, idx ); 
+}
+
+static inline HPy HPy_GetItem_s(HPyContext ctx, HPy obj, const char *key) {
+     return ctx->ctx_GetItem_s ( ctx, obj, key ); 
+}
+
+static inline int HPy_SetItem(HPyContext ctx, HPy obj, HPy key, HPy value) {
+     return ctx->ctx_SetItem ( ctx, obj, key, value ); 
+}
+
+static inline int HPy_SetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy value) {
+     return ctx->ctx_SetItem_i ( ctx, obj, idx, value ); 
+}
+
+static inline int HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy value) {
+     return ctx->ctx_SetItem_s ( ctx, obj, key, value ); 
 }
 
 static inline int HPyBytes_Check(HPyContext ctx, HPy h) {
@@ -104,6 +156,10 @@ static inline int HPyDict_SetItem(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_v
      return ctx->ctx_Dict_SetItem ( ctx, h_dict, h_key, h_val ); 
 }
 
+static inline HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key) {
+     return ctx->ctx_Dict_GetItem ( ctx, h_dict, h_key ); 
+}
+
 static inline HPy HPy_FromPyObject(HPyContext ctx, struct _object *obj) {
      return ctx->ctx_FromPyObject ( ctx, obj ); 
 }
@@ -112,7 +168,7 @@ static inline struct _object *HPy_AsPyObject(HPyContext ctx, HPy h) {
      return ctx->ctx_AsPyObject ( ctx, h ); 
 }
 
-static inline struct _object *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, struct _object *self, struct _object *args, void *func, int ml_flags) {
-     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, func, ml_flags ); 
+static inline struct _object *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, struct _object *self, struct _object *args, struct _object *kw, void *func, int ml_flags) {
+     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, kw, func, ml_flags ); 
 }
 

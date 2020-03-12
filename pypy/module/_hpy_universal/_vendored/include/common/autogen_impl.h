@@ -43,6 +43,11 @@ HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, co
     return PyErr_SetString(_h2py(h_type), message);
 }
 
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Object_IsTrue)(HPyContext ctx, HPy h)
+{
+    return PyObject_IsTrue(_h2py(h));
+}
+
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Bytes_Check)(HPyContext ctx, HPy h)
 {
     return PyBytes_Check(_h2py(h));
@@ -106,5 +111,10 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Dict_New)(HPyContext ctx)
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Dict_SetItem)(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val)
 {
     return PyDict_SetItem(_h2py(h_dict), _h2py(h_key), _h2py(h_val));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Dict_GetItem)(HPyContext ctx, HPy h_dict, HPy h_key)
+{
+    return _py2h(PyDict_GetItem(_h2py(h_dict), _h2py(h_key)));
 }
 

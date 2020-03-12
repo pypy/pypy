@@ -98,24 +98,6 @@ class TestBasic(HPyTest):
         with pytest.raises(TypeError):
             mod.f_o(1, 2)
 
-    def test_many_int_arguments(self):
-        mod = self.make_module("""
-            HPy_DEF_METH_VARARGS(f)
-            static HPy f_impl(HPyContext ctx, HPy self,
-                              HPy *args, HPy_ssize_t nargs)
-            {
-                long a, b, c, d, e;
-                if (!HPyArg_Parse(ctx, args, nargs, "lllll",
-                                  &a, &b, &c, &d, &e))
-                    return HPy_NULL;
-                return HPyLong_FromLong(ctx,
-                    10000*a + 1000*b + 100*c + 10*d + e);
-            }
-            @EXPORT f HPy_METH_VARARGS
-            @INIT
-        """)
-        assert mod.f(4, 5, 6, 7, 8) == 45678
-
     def test_close(self):
         mod = self.make_module("""
             HPy_DEF_METH_O(f)
@@ -170,6 +152,27 @@ class TestBasic(HPyTest):
             mod.f(20)
         assert str(exc.value) == 'hello world'
 
+    def test_exception_occurred(self):
+        import pytest
+        mod = self.make_module("""
+            HPy_DEF_METH_O(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                long x = HPyLong_AsLong(ctx, arg);
+                if (HPyErr_Occurred(ctx)) {
+                    HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
+                    return HPy_NULL;
+                }
+                return HPyLong_FromLong(ctx, -1002);
+            }
+            @EXPORT f HPy_METH_O
+            @INIT
+        """)
+        assert mod.f(-10) == -1002
+        with pytest.raises(ValueError) as exc:
+            mod.f("not an integer")
+        assert str(exc.value) == 'hello world'
+
     def test_builtin_handles(self):
         import pytest
         mod = self.make_module("""
@@ -200,14 +203,17 @@ class TestBasic(HPyTest):
             assert mod.f(i) is obj
 
     def test_decl_meth(self):
+        import pytest
         main = """
             HPy_DECL_METH_NOARGS(f);
             HPy_DECL_METH_O(g);
             HPy_DECL_METH_VARARGS(h);
+            HPy_DECL_METH_KEYWORDS(i);
 
             @EXPORT f HPy_METH_NOARGS
             @EXPORT g HPy_METH_O
             @EXPORT h HPy_METH_VARARGS
+            @EXPORT i HPy_METH_KEYWORDS
             @INIT
         """
         extra = """
@@ -229,11 +235,25 @@ class TestBasic(HPyTest):
                     return HPy_NULL;
                 return HPyLong_FromLong(ctx, 10*a + b);
             }
+            HPy_DEF_METH_KEYWORDS(i)
+            static HPy i_impl(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs,
+                              HPy kw)
+            {
+                long a, b;
+                static const char *kwlist[] = { "a", "b", NULL };
+                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "ll", kwlist, &a, &b))
+                    return HPy_NULL;
+                return HPyLong_FromLong(ctx, 10*a + b);
+            }
         """
         mod = self.make_module(main, extra_templates=[extra])
         assert mod.f() == 12345
         assert mod.g(42) == 42
         assert mod.h(5, 6) == 56
+        assert mod.i(4, 3) == 43
+        assert mod.i(a=2, b=5) == 25
+        with pytest.raises(TypeError):
+            mod.h("not an integer", "not an integer either")
 
     def test_Float_FromDouble(self):
         mod = self.make_module("""

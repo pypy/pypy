@@ -21,6 +21,14 @@
 
 #define HPyAPI_FUNC(restype) HPyAPI_STORAGE restype
 
+#ifdef __GNUC__
+#define _HPy_HIDDEN  __attribute__((visibility("hidden")))
+#else
+#define _HPy_HIDDEN
+#endif /* __GNUC__ */
+
+#define HPyAPI_RUNTIME_FUNC(restype) _HPy_HIDDEN restype
+
 typedef struct { PyObject *_o; } HPy;
 typedef Py_ssize_t HPy_ssize_t;
 
@@ -83,6 +91,93 @@ HPy_Close(HPyContext ctx, HPy handle)
     Py_XDECREF(_h2py(handle));
 }
 
+/* object.h */
+
+HPyAPI_FUNC(HPy)
+HPy_GetAttr(HPyContext ctx, HPy obj, HPy name) {
+  return _py2h(PyObject_GetAttr(_h2py(obj), _h2py(name)));
+}
+
+HPyAPI_FUNC(HPy)
+HPy_GetAttr_s(HPyContext ctx, HPy obj, const char *name) {
+  return _py2h(PyObject_GetAttrString(_h2py(obj), name));
+}
+
+HPyAPI_FUNC(int)
+HPy_HasAttr(HPyContext ctx, HPy obj, HPy name) {
+  return PyObject_HasAttr(_h2py(obj), _h2py(name));
+}
+
+HPyAPI_FUNC(int)
+HPy_HasAttr_s(HPyContext ctx, HPy obj, const char *name) {
+  return PyObject_HasAttrString(_h2py(obj), name);
+}
+
+HPyAPI_FUNC(int)
+HPy_SetAttr(HPyContext ctx, HPy obj, HPy name, HPy value) {
+  return PyObject_SetAttr(_h2py(obj), _h2py(name), _h2py(value));
+}
+
+HPyAPI_FUNC(int)
+HPy_SetAttr_s(HPyContext ctx, HPy obj, const char *name, HPy value) {
+  return PyObject_SetAttrString(_h2py(obj), name, _h2py(value));
+}
+
+HPyAPI_FUNC(HPy)
+HPy_GetItem(HPyContext ctx, HPy obj, HPy key) {
+  return _py2h(PyObject_GetItem(_h2py(obj), _h2py(key)));
+}
+
+HPyAPI_FUNC(HPy)
+HPy_GetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx) {
+  PyObject* key = PyLong_FromSsize_t(idx);
+  if (key == NULL)
+    return HPy_NULL;
+  HPy result = _py2h(PyObject_GetItem(_h2py(obj), key));
+  Py_DECREF(key);
+  return result;
+}
+
+HPyAPI_FUNC(HPy)
+HPy_GetItem_s(HPyContext ctx, HPy obj, const char *key) {
+  PyObject* key_o = PyUnicode_FromString(key);
+  if (key_o == NULL)
+    return HPy_NULL;
+  HPy result = _py2h(PyObject_GetItem(_h2py(obj), key_o));
+  Py_DECREF(key_o);
+  return result;
+}
+
+HPyAPI_FUNC(int)
+HPy_SetItem(HPyContext ctx, HPy obj, HPy key, HPy value) {
+  return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
+}
+
+HPyAPI_FUNC(int)
+HPy_SetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy value) {
+  PyObject* key = PyLong_FromSsize_t(idx);
+  if (key == NULL)
+    return -1;
+  int result = PyObject_SetItem(_h2py(obj), key, _h2py(value));
+  Py_DECREF(key);
+  return result;
+}
+
+HPyAPI_FUNC(int)
+HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy value) {
+  PyObject* key_o = PyUnicode_FromString(key);
+  if (key_o == NULL)
+    return -1;
+  int result = PyObject_SetItem(_h2py(obj), key_o, _h2py(value));
+  Py_DECREF(key_o);
+  return result;
+}
+
+HPyAPI_FUNC(int)
+HPyErr_Occurred(HPyContext ctx) {
+  return PyErr_Occurred() ? 1 : 0;
+}
+
 /* moduleobject.h */
 typedef PyModuleDef HPyModuleDef;
 
@@ -100,48 +195,6 @@ HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef) {
     {                                                          \
         return _h2py(init_##modname##_impl(_HPyGetContext())); \
     }
-
-/* XXX: this function is copied&pasted THREE times:
- *     hpy_devel/include/hpy.h
- *     cpython-universal/api.c
- *     pypy/module/hpy_universal/src/getargs.c
- *
- * We need a way to share this kind of common code
- */
-
-HPyAPI_FUNC(int)
-HPyArg_Parse(HPyContext ctx, HPy *args, Py_ssize_t nargs, const char *fmt, ...)
-{
-    va_list vl;
-    va_start(vl, fmt);
-    const char *fmt1 = fmt;
-    Py_ssize_t i = 0;
-
-    while (*fmt1 != 0) {
-        if (i >= nargs) {
-            abort(); // XXX
-        }
-        switch (*fmt1++) {
-        case 'l': {
-            long *output = va_arg(vl, long *);
-            long value = PyLong_AsLong(_h2py(args[i]));
-            // XXX check for exceptions
-            *output = value;
-            break;
-        }
-        default:
-            abort();  // XXX
-        }
-        i++;
-    }
-    if (i != nargs) {
-        abort();   // XXX
-    }
-
-    va_end(vl);
-    return 1;
-}
-
 
 HPyAPI_FUNC(HPy)
 HPy_FromPyObject(HPyContext ctx, PyObject *obj)
@@ -165,5 +218,8 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
 #define _HPy_IMPL_NAME(name) HPy##name
 #include "../common/autogen_impl.h"
 #undef _HPy_IMPL_NAME
+
+// include runtime functions
+#include "../common/runtime.h"
 
 #endif /* !HPy_CPYTHON_H */

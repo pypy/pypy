@@ -1,5 +1,5 @@
 import os, sys
-import pytest
+import pytest, py
 import re
 
 PY2 = sys.version_info[0] == 2
@@ -103,7 +103,10 @@ class ExtensionCompiler:
         Create and compile a HPy module from the template
         """
         filename = self._expand(name, main_template)
-        sources = []
+        sources = [
+            str(py.path.local(__file__).dirpath().dirpath().join(
+                'hpy/devel/src/runtime/argparse.c')),
+        ]
         for i, template in enumerate(extra_templates):
             extra_filename = self._expand('extmod_%d' % i, template)
             sources.append(extra_filename)
