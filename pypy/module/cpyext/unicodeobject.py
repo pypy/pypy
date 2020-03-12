@@ -419,10 +419,17 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
         w_res = latin_1_decode(space, value, w_final=space.w_False)
     elif kind == _2BYTE_KIND:
         value = rffi.charpsize2str(data, 2 * size)
-        w_res = utf_16_decode(space, value, w_final=space.w_False)
+        w_res = utf_16_decode(space, value, errors='surrogatepass',
+                              w_final=space.w_False)
     elif kind == _4BYTE_KIND:
         value = rffi.charpsize2str(data, 4 * size)
-        w_res = utf_32_decode(space, value, w_final=space.w_False)
+        state = space.fromcache(CodecState)
+        eh = state.decode_error_handler
+        result, length, pos, _ = str_decode_utf_32_helper(value,
+                                             'surrogatpass', True, eh,
+                                             byteorder=BYTEORDER,
+                                             allow_surrogates=True)
+        return space.newutf8(result, length)
     else:
         raise oefmt(space.w_SystemError, "invalid kind")
     return space.unpackiterable(w_res)[0]

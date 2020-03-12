@@ -3,6 +3,7 @@ from rpython.jit.metainterp.heapcache import HeapCache
 from rpython.jit.metainterp.resoperation import rop, InputArgInt
 from rpython.jit.metainterp.history import ConstInt, ConstPtr, BasicFailDescr
 from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
+from rpython.rtyper.lltypesystem import  llmemory, rffi
 
 descr1 = object()
 descr2 = object()
@@ -110,6 +111,16 @@ class TestHeapCache(object):
         h.reset()
         assert not h.is_nonstandard_virtualizable(box1)
         assert not h.is_nonstandard_virtualizable(box2)
+
+    def test_nonstandard_virtualizable_allocation(self):
+        h = HeapCache()
+        box1 = RefFrontendOp(1)
+        h.new(box1)
+        # we've seen the allocation, so it's not the virtualizable
+        assert h.is_nonstandard_virtualizable(box1)
+
+        h.reset()
+        assert not h.is_nonstandard_virtualizable(box1)
 
     def test_heapcache_fields(self):
         h = HeapCache()
@@ -845,6 +856,42 @@ class TestHeapCache(object):
         # invalidate the descr1 cache
 
         h.setfield(box1, box3, descr1)
+        assert not h.is_quasi_immut_known(descr1, box1)
+        assert not h.is_quasi_immut_known(descr1, box2)
+
+        # a call invalidates everything
+        h.invalidate_caches(
+            rop.CALL_N, FakeCallDescr(FakeEffectinfo.EF_CAN_RAISE), [])
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+
+
+    def test_quasiimmut_seen_consts(self):
+        h = HeapCache()
+        box1 = ConstPtr(rffi.cast(llmemory.GCREF, 1))
+        box2 = ConstPtr(rffi.cast(llmemory.GCREF, 1))
+        box3 = ConstPtr(rffi.cast(llmemory.GCREF, 1))
+        box4 = ConstPtr(rffi.cast(llmemory.GCREF, 1))
+        assert not h.is_quasi_immut_known(descr1, box1)
+        assert not h.is_quasi_immut_known(descr1, box2)
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box2)
+        assert not h.is_quasi_immut_known(descr2, box3)
+        assert not h.is_quasi_immut_known(descr2, box4)
+        h.quasi_immut_now_known(descr2, box3)
+        assert h.is_quasi_immut_known(descr1, box1)
+        assert h.is_quasi_immut_known(descr1, box2)
+        assert h.is_quasi_immut_known(descr2, box3)
+        assert h.is_quasi_immut_known(descr2, box4)
+
+        # invalidate the descr1 cache
+
+        vbox1 = RefFrontendOp(1)
+        vbox2 = RefFrontendOp(2)
+        h.setfield(vbox1, vbox2, descr1)
         assert not h.is_quasi_immut_known(descr1, box1)
         assert not h.is_quasi_immut_known(descr1, box2)
 

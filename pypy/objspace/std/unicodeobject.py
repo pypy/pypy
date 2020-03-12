@@ -41,6 +41,9 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
     return rutf8.codepoint_at_pos(utf8, p)
 
 
+joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], reds = 'auto',
+                           name='joindriver')
+
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_utf8', '_length']
@@ -162,9 +165,6 @@ class W_UnicodeObject(W_Root):
 
     def _multi_chr(self, unichar):
         return unichar
-
-    def _generic_name(self):
-        return "str"
 
     def _generic_name(self):
         return "str"
@@ -593,15 +593,109 @@ class W_UnicodeObject(W_Root):
 
         return W_UnicodeObject(expanded, newlen)
 
-    _StringMethods_descr_join = descr_join
-    def descr_join(self, space, w_list):
-        l = space.listview_ascii(w_list)
-        if l is not None and self.is_ascii():
-            if len(l) == 1:
-                return space.newutf8(l[0], len(l[0]))
-            s = self._utf8.join(l)
-            return space.newutf8(s, len(s))
-        return self._StringMethods_descr_join(space, w_list)
+    def _join_utf8_len_w(self, space, w_element, i):
+        try:
+            return space.utf8_len_w(w_element)
+        except OperationError as e:
+            if not e.match(space, space.w_TypeError):
+                raise
+            raise oefmt(space.w_TypeError,
+                        "sequence item %d: expected %s, %T found",
+                        i, self._generic_name(), w_element)
+
+    def _join_ascii(self, space, l):
+        if len(l) == 1:
+            return space.newutf8(l[0], len(l[0]))
+        s = self._utf8.join(l)
+        if self.is_ascii():
+            resultlen = len(s)
+        else:
+            # carefully compute the result length
+            resultlen = len(s) - (len(self._utf8) - self._length) * (len(l) - 1)
+        return space.newutf8(s, resultlen)
+
+    def _join_from_list(self, space, w_list):
+        list_w = space.listview(w_list)
+        if len(list_w) == 0:
+            return self.EMPTY
+        if len(list_w) == 1:
+            w_s = list_w[0]
+            # only one item, return it if it's not a subclass of str
+            if self._join_return_one(space, w_s):
+                return w_s
+        # the stringmethods implementation makes a copy of the list to
+        # pre-compute the correct size for preallocation. that sounds like the
+        # wrong tradeoff somehow...
+        builder = None
+        # use first element to guess preallocation size
+        w_first = list_w[0]
+        utf8first, lenfirst = self._join_utf8_len_w(space, w_first, 0)
+        prealloc = len(self._utf8) * (len(list_w) - 1) + len(utf8first) * len(list_w)
+        builder = rutf8.Utf8StringBuilder(prealloc)
+        builder.append_utf8(utf8first, lenfirst)
+        for i in range(1, len(list_w)):
+            w_element = list_w[i]
+            utf8, l = self._join_utf8_len_w(space, w_element, i)
+            if self._length:
+                builder.append_utf8(self._utf8, self._length)
+            builder.append_utf8(utf8, l)
+        return self.from_utf8builder(builder)
+
+    def _join_from_iterable(self, space, w_iterable):
+        sizehint = space.length_hint(w_iterable, -1)
+
+        # get the first element to guess the preallocation size
+        w_iter = space.iter(w_iterable)
+        try:
+            w_first = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            return W_UnicodeObject.EMPTY
+
+        utf8first, lenfirst = self._join_utf8_len_w(space, w_first, 0)
+        if sizehint >= 0:
+            prealloc = len(self._utf8) * (sizehint - 1) + len(utf8first) * sizehint
+        else:
+            prealloc = len(self._utf8) + len(utf8first)
+
+        # build the result
+        builder = rutf8.Utf8StringBuilder(prealloc)
+        builder.append_utf8(utf8first, lenfirst)
+        size = 1
+        selfisnotempty = self._length != 0
+        tpfirst = space.type(w_first)
+        tplist = space.type(w_iterable)
+        while 1:
+            joindriver.jit_merge_point(tpfirst=tpfirst, tplist=tplist, selfisnotempty=selfisnotempty)
+            try:
+                w_element = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
+            if selfisnotempty:
+                builder.append_utf8(self._utf8, self._length)
+            utf8, l = self._join_utf8_len_w(space, w_element, size)
+            builder.append_utf8(utf8, l)
+            size += 1
+        if size == 1 and self._join_return_one(space, w_first):
+            return w_first
+        return W_UnicodeObject.from_utf8builder(builder)
+
+    def descr_join(self, space, w_iterable):
+        from pypy.objspace.std.listobject import W_ListObject
+        # somewhat overengineered, but it's quite common
+
+        # first, a shortcut for when w_iterable is ascii-only
+        l = space.listview_ascii(w_iterable)
+        if l is not None:
+            return self._join_ascii(space, l)
+
+        if type(w_iterable) is W_ListObject or (isinstance(w_iterable, W_ListObject) and
+                                                space._uses_list_iter(w_iterable)):
+            self._join_from_list(space, w_iterable)
+        return self._join_from_iterable(space, w_iterable)
 
     def _join_return_one(self, space, w_obj):
         return space.is_w(space.type(w_obj), space.w_unicode)
@@ -1370,14 +1464,23 @@ def encode_object(space, w_obj, encoding, errors):
 
 def decode_object(space, w_obj, encoding, errors=None):
     from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
+    # in all cases, call space.charbuf_w() first.  This will fail with a
+    # TypeError if w_obj is of a random type.  Do this even if we're not
+    # going to use 's'
+    try:
+        s = space.charbuf_w(w_obj)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+        raise oefmt(space.w_TypeError, "decoding to str: %S",
+            e.get_w_value(space))
+    #
     if errors == 'strict' or errors is None:
         # fast paths
         if encoding == 'ascii':
-            s = space.charbuf_w(w_obj)
             unicodehelper.check_ascii_or_raise(space, s)
             return space.newtext(s, len(s))
         if encoding == 'utf-8' or encoding == 'utf8':
-            s = space.charbuf_w(w_obj)
             lgt = unicodehelper.check_utf8_or_raise(space, s)
             return space.newutf8(s, lgt)
     if encoding is None:

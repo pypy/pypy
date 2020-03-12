@@ -377,11 +377,11 @@ def _init_timezone(space):
         timezone = c_get_timezone()
         altzone = timezone - 3600
         daylight = c_get_daylight()
-        with rffi.scoped_alloc_buffer(100) as buf:
-            s = c_get_tzname(100, 0, buf.raw)
-            tzname[0] = buf.str(s)
-            s = c_get_tzname(100, 1, buf.raw)
-            tzname[1] = buf.str(s)
+        for i in [0, 1]:
+            blen = c_get_tzname(0, i, None)
+            with rffi.scoped_alloc_buffer(blen) as buf:
+                s = c_get_tzname(blen, i, buf.raw)
+                tzname[i] = buf.str(s - 1)
 
     if _POSIX:
         if _CYGWIN:

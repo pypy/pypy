@@ -224,6 +224,14 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         s = "x\N{PILE OF POO}x"
         b = s.encode('utf-32')[4:]  # Skip the BOM
         assert module.from_ucs4(b) == s
+        # Issue 3165
+        b = b'\x00\xd8\x00\x00'
+        for func, ret in zip([module.from_ucs4, module.from_ucs2],
+                        [['0xd800'], ['0xd800', '0x0']]):
+            s = func(b)
+            assert isinstance(s, str)
+            h = [hex(ord(x)) for x in s]
+            assert h == ret, '%s, %s' %(h, ret)
 
     def test_substring(self):
         module = self.import_extension('foo', [
@@ -390,6 +398,32 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert s == u.encode('utf-16')
         s = module.asutf32(u)
         assert s == u.encode('utf-32')
+
+    def test_lower_cython(self):
+        # mimic exactly what cython does, without the extra checks
+        import time
+        module = self.import_extension('foo', [
+            ("lower", "METH_O",
+            """
+                PyObject *p, *res, *tup;
+                p = PyObject_GetAttrString(args, "lower");
+                if (p == NULL) {
+                    return NULL;
+                }
+                tup = PyTuple_New(0);
+                Py_INCREF(tup);
+                res = PyObject_Call(p, tup, NULL);
+                Py_DECREF(tup);
+                return res;
+            """)])
+        assert module.lower('ABC') == 'abc'
+        try:
+            time.tzset()
+        except AttributeError:
+            # only on posix
+            pass
+        tz1 = time.tzname[1]
+        assert module.lower(tz1) == tz1.lower()
 
     def test_UnicodeNew(self):
         module = self.import_extension('unicodenew', [

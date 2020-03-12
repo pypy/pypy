@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-
+from __future__ import print_function
 import sys
 import os
-import py
+import subprocess
+import tempfile
 
 TAR_OPTIONS = '-x -v --strip-components=2'
 TAR = 'tar {options} -f {tarfile} {files}'
@@ -23,14 +24,13 @@ elif sys.platform.startswith('darwin'):
     cmd = 'curl -O "%s"'
     binfiles = "'*/bin/pypy3'"
 else:
-    print 'Cannot determine the platform, please update this script'
+    print('Cannot determine the platform, please update this script')
     sys.exit(1)
 
-if sys.maxint == 2**63 - 1:
+if sys.maxsize == 2**63 - 1:
     arch += '64'
 
-hg = py.path.local.sysfind('hg')
-branch = hg.sysexec('branch').strip()
+branch = subprocess.check_output(['hg', 'branch']).strip().decode('utf-8')
 if branch == 'default':
     branch = 'trunk'
 
@@ -41,19 +41,29 @@ else:
 
 filename = 'pypy-c-%s-latest-%s.tar.bz2' % (kind, arch)
 url = 'http://buildbot.pypy.org/nightly/%s/%s' % (branch, filename)
-tmp = py.path.local.mkdtemp()
-pypy_latest = tmp.join(filename)
-mydir = tmp.chdir()
-print 'Downloading pypy to', tmp
+tmp = tempfile.mkdtemp()
+pypy_latest = os.path.join(tmp, filename)
+olddir = os.getcwd()
+mydir = os.chdir(tmp)
+print('Downloading pypy to', tmp)
 if os.system(cmd % url) != 0:
     sys.exit(1)
 
-print 'Extracting pypy binary'
-mydir.chdir()
+mydir = os.path.dirname(__file__)
+print('Extracting pypy binary')
+os.chdir(mydir)
 untar(pypy_latest, binfiles)
-include_dir = py.path.local('../../include')
-if include_dir.check(dir=True):
-    include_dir.chdir()
+include_dir = os.path.join(mydir, '..', '..', 'include')
+lib_dir = os.path.join(mydir, '..', 'lib')
+if os.path.isdir(include_dir):
+    os.chdir(include_dir)
     untar(pypy_latest, '*/include/*')
 else:
-    print 'WARNING: could not find the include/ dir'
+    print('WARNING: could not find the include/ dir')
+os.chdir(olddir)
+if not os.path.exists(lib_dir):
+    os.mkdir(lib_dir)
+os.chdir(lib_dir)
+untar(pypy_latest, '*/lib/*')
+os.chdir(olddir)
+

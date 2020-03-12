@@ -210,19 +210,7 @@ CANNOT_FAIL = CannotFail()
 # Handling of the GIL
 # -------------------
 #
-# We add a global variable 'cpyext_glob_tid' that contains a thread
-# id.  Invariant: this variable always contain 0 when the PyPy GIL is
-# released.  It should also contain 0 when regular RPython code
-# executes.  In non-cpyext-related code, it will thus always be 0.
-# When cpyext-related C code runs, it contains the thread id (usually)
-# or the value -1 (only for state.C.PyXxx() functions which are short-
-# running and should not themselves release the GIL).
-#
-# **make_generic_cpy_call():** RPython to C, with the GIL held.  Before
-# the call, must assert that the global variable is 0 and set the
-# current thread identifier into the global variable.  After the call,
-# assert that the global variable still contains the current thread id,
-# and reset it to 0.
+# **make_generic_cpy_call():** RPython to C, with the GIL held.
 #
 # **make_wrapper():** C to RPython; by default assume that the GIL is
 # held, but accepts gil="acquire", "release", "around",
@@ -230,40 +218,29 @@ CANNOT_FAIL = CannotFail()
 #
 # When a wrapper() is called:
 #
-# * "acquire": assert that the GIL is not currently held, i.e. the
-#   global variable does not contain the current thread id (otherwise,
-#   deadlock!).  Acquire the PyPy GIL.  After we acquired it, assert
-#   that the global variable is 0 (it must be 0 according to the
-#   invariant that it was 0 immediately before we acquired the GIL,
-#   because the GIL was released at that point).
+# * "acquire": assert that the GIL is not currently held (otherwise,
+#   deadlock!).  Acquire the PyPy GIL.
 #
-# * gil=None: we hold the GIL already.  Assert that the current thread
-#   identifier is in the global variable, and replace it with 0.
+# * gil=None: we should hold the GIL already.  But check anyway, just
+#   in case.  Do the acquire/release if it was not acquired before
+#   (workaround "_auto" case).
 #
-# * "pygilstate_ensure": if the global variable contains the current
-#   thread id, replace it with 0 and set the extra arg to 0.  Otherwise,
+# * "pygilstate_ensure": if the GIL is already acquired,
+#   do nothing and set the extra arg to 0.  Otherwise,
 #   do the "acquire" and set the extra arg to 1.  Then we'll call
 #   pystate.py:PyGILState_Ensure() with this extra arg, which will do
 #   the rest of the logic.
 #
-# When a wrapper() returns, first assert that the global variable is
-# still 0, and then:
+# When a wrapper() returns:
 #
-# * "release": release the PyPy GIL.  The global variable was 0 up to
-#   and including at the point where we released the GIL, but afterwards
-#   it is possible that the GIL is acquired by a different thread very
-#   quickly.
+# * "release": release the PyPy GIL.
 #
-# * gil=None: we keep holding the GIL.  Set the current thread
-#   identifier into the global variable.
+# * gil=None: we keep holding the GIL in the normal case; we release it
+#   in the workaround "_auto" case.
 #
 # * "pygilstate_release": if the argument is PyGILState_UNLOCKED,
-#   release the PyPy GIL; otherwise, set the current thread identifier
-#   into the global variable.  The rest of the logic of
+#   release the PyPy GIL; otherwise, no-op.  The rest of the logic of
 #   PyGILState_Release() should be done before, in pystate.py.
-
-cpyext_glob_tid_ptr = lltype.malloc(rffi.CArray(lltype.Signed), 1,
-                                    flavor='raw', immortal=True, zero=True)
 
 
 cpyext_namespace = NameManager('cpyext_')
@@ -960,10 +937,9 @@ def unexpected_exception(funcname, e, tb):
         pypy_debug_catch_fatal_exception()
         assert False
 
-def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid):
+def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto):
     from rpython.rlib import rgil
     # see "Handling of the GIL" above
-    assert cpyext_glob_tid_ptr[0] == 0
     if pygilstate_release:
         from pypy.module.cpyext import pystate
         unlock = (gilstate == pystate.PyGILState_UNLOCKED)
@@ -971,8 +947,6 @@ def _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid
         unlock = gil_release or _gil_auto
     if unlock:
         rgil.release()
-    else:
-        cpyext_glob_tid_ptr[0] = tid
 
 
 def make_wrapper_second_level(space, argtypesw, restype,
@@ -1008,19 +982,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
         # inserted exactly here by the varargs specializer
 
         # see "Handling of the GIL" above (careful, we don't have the GIL here)
-        tid = rthread.get_or_make_ident()
         _gil_auto = False
-        if gil_auto_workaround and cpyext_glob_tid_ptr[0] != tid:
-            # replace '-1' with the real tid, now that we have the tid
-            if cpyext_glob_tid_ptr[0] == -1:
-                cpyext_glob_tid_ptr[0] = tid
-            else:
-                _gil_auto = True
+        if gil_auto_workaround and not rgil.am_I_holding_the_GIL():
+            _gil_auto = True
         if _gil_auto or gil_acquire:
-            if cpyext_glob_tid_ptr[0] == tid:
+            if gil_acquire and rgil.am_I_holding_the_GIL():
                 deadlock_error(pname)
             rgil.acquire()
-            assert cpyext_glob_tid_ptr[0] == 0
             if gil_auto_workaround:
                 # while we're in workaround-land, detect when a regular PyXxx()
                 # function is invoked at .so load-time, e.g. by a C++ global
@@ -1028,19 +996,17 @@ def make_wrapper_second_level(space, argtypesw, restype,
                 # initialize things.
                 space.fromcache(State).make_sure_cpyext_is_imported()
         elif pygilstate_ensure:
-            if cpyext_glob_tid_ptr[0] == tid:
-                cpyext_glob_tid_ptr[0] = 0
+            if rgil.am_I_holding_the_GIL():
                 args += (pystate.PyGILState_LOCKED,)
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
         elif pygilstate_check:
-            result = cpyext_glob_tid_ptr[0] == tid
+            result = rgil.am_I_holding_the_GIL()
             return rffi.cast(restype, result)
         else:
-            if cpyext_glob_tid_ptr[0] != tid:
+            if not rgil.am_I_holding_the_GIL():
                 no_gil_error(pname)
-            cpyext_glob_tid_ptr[0] = 0
         if pygilstate_release:
             gilstate = rffi.cast(lltype.Signed, args[-1])
         else:
@@ -1118,13 +1084,13 @@ def make_wrapper_second_level(space, argtypesw, restype,
 
         except Exception as e:
             unexpected_exception(pname, e, tb)
-            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
             state.check_and_raise_exception(always=True)
             return fatal_value
 
         assert lltype.typeOf(retval) == restype
 
-        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto, tid)
+        _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
         return retval
 
     wrapper_second_level._dont_inline_ = True
@@ -1873,21 +1839,11 @@ def make_generic_cpy_call(FT, expect_null, convert_result):
             boxed_args += (arg,)
             to_decref += (_pyobj,)
 
-        # see "Handling of the GIL" above
-        tid = rthread.get_ident()
-        assert cpyext_glob_tid_ptr[0] == 0
-        cpyext_glob_tid_ptr[0] = tid
-
-        if convert_result and is_PyObject(RESULT_TYPE):
-            preexist_error = PyErr_Occurred(space)
-        else:
-            preexist_error = "this is not used"
+        preexist_error = PyErr_Occurred(space)
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)
         finally:
-            assert cpyext_glob_tid_ptr[0] == tid
-            cpyext_glob_tid_ptr[0] = 0
             for i, ARG in unrolling_arg_types:
                 # note that this loop is nicely unrolled statically by RPython
                 _pyobj = to_decref[i]

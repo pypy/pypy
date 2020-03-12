@@ -190,8 +190,10 @@ class W_MMap(W_Root):
             return space.newbytes(self.mmap.getslice(start, length))
         else:
             b = StringBuilder(length)
-            for i in range(start, stop, step):
-                b.append(self.mmap.getitem(i))
+            index = start
+            for i in range(length):
+                b.append(self.mmap.getitem(index))
+                index += step
             return space.newbytes(b.build())
 
     def descr_setitem(self, w_index, w_value):

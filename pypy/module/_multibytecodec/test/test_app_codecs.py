@@ -126,3 +126,33 @@ class AppTestCodecs:
                               lambda e: (b'\xc3', e.end))
         result = "\uDDA1".encode("gbk", "test.test_encode_custom_error_handler_type")
         assert b'\xc3' in result
+
+    def test_encode_replacement_with_state(self):
+        import codecs
+        s = u'\u4ee4\u477c\u4ee4'.encode("iso-2022-jp", errors="replace")
+        assert s == b'\x1b$BNa\x1b(B?\x1b$BNa\x1b(B'
+
+    def test_streaming_codec(self):
+        test_0 = u'\uc5fc\u76d0\u5869\u9e7d\u477c\u4e3d/\u3012'
+        test_1 = u'\u4ee4\u477c\u3080\u304b\u3057\u3080\u304b\u3057\u3042\u308b\u3068\u3053\u308d\u306b'
+        test_2 = u' foo = "Quoted string ****\u4ee4\u477c" '
+
+        ereplace = {'errors': 'replace'}
+        exml = {'errors': 'xmlcharrefreplace'}
+        for codec in ("iso-2022-jp", "iso-2022-jp-ext", "iso-2022-jp-1",
+                      "iso-2022-jp-2", "iso-2022-jp-3", "iso-2022-jp-2004",
+                      "iso-2022-kr",
+                     ):
+
+            out_1 = test_1.encode(codec, **ereplace).decode(codec, **ereplace)
+            assert out_1.endswith(u'\u3080\u304b\u3057\u3080\u304b\u3057\u3042\u308b\u3068\u3053\u308d\u306b')
+
+            out_0a = test_0.encode(codec, **ereplace).decode(codec, **ereplace)
+            for n, char in enumerate(out_0a):
+                assert char in (test_0[n], "?")
+
+            out_0b = test_0.encode(codec, **exml).decode(codec, **ereplace)
+            assert "&#18300;" in out_0b
+
+            out_2 = test_2.encode(codec, **ereplace).decode(codec, **ereplace)
+            assert out_2.count('"') == 2

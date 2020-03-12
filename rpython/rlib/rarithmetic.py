@@ -871,6 +871,8 @@ def mulmod(a, b, c):
 # String parsing support
 # ---------------------------
 
+OVF_DIGITS = len(str(sys.maxint))
+
 def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.
     If base is 0, the proper base is guessed based on the leading
@@ -879,6 +881,30 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """
     from rpython.rlib.rstring import (
         NumberStringParser, ParseStringOverflowError)
+
+    if base == 10 and 0 < len(s) < OVF_DIGITS:
+        # fast path for simple cases, just supporting (+/-)[0-9]* with not too
+        # many digits
+        start = 0
+        sign = 1
+        if s[0] == "-":
+            start = 1
+            sign = -1
+        elif s[0] == "+":
+            start = 1
+        if start != len(s):
+            result = 0
+            for i in range(start, len(s)):
+                char = s[i]
+                value = ord(char) - ord('0')
+                if 0 <= value <= 9:
+                    result = result * 10 + value
+                else:
+                    # non digit char, let the NumberStringParser do the work
+                    break
+            else:
+                return result * sign
+
     p = NumberStringParser(s, s, base, 'int',
                            allow_underscores=allow_underscores,
                            no_implicit_octal=no_implicit_octal)
@@ -897,4 +923,4 @@ def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
             result = ovfcheck(result + digit)
         except OverflowError:
             raise ParseStringOverflowError(p)
-string_to_int._elidable_function_ = True
+string_to_int._elidable_function_ = True # can't use decorator due to circular imports

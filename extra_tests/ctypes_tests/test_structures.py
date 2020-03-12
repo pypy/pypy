@@ -1,6 +1,7 @@
 from ctypes import *
 
 import pytest
+import sys
 
 
 def test_subclass_initializer():
@@ -202,6 +203,9 @@ def test_memoryview():
         )
 
     mv = memoryview(c_array)
-    assert mv.format == 'T{<h:a:<h:b:}'
+    if sys.byteorder == 'little':
+        assert mv.format == 'T{<h:a:<h:b:}'
+    else:
+        assert mv.format == 'T{>h:a:>h:b:}'
     assert mv.shape == (2, 3)
     assert mv.itemsize == 4
