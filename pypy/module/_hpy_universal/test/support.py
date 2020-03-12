@@ -2,7 +2,7 @@ import py
 import pytest
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
-from pypy.module._hpy_universal.llapi import INCLUDE_DIR
+from pypy.module._hpy_universal.llapi import BASE_DIR
 from pypy.module._hpy_universal._vendored.test import support as _support
 
 COMPILER_VERBOSE = False
@@ -32,7 +32,7 @@ class HPyAppTest(object):
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
                                                  prefix=meth.__name__ + '-',
                                                  keep=0)  # keep everything
-        compiler = _support.ExtensionCompiler(tmpdir, 'universal', INCLUDE_DIR,
+        compiler = _support.ExtensionCompiler(tmpdir, 'universal', BASE_DIR,
                                               compiler_verbose=COMPILER_VERBOSE,
                                               cpython_include_dirs=cpython_include_dirs)
         #

@@ -6,19 +6,14 @@ from pypy import pypydir
 from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
-INCLUDE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'include')
-SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
-
+BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored')
+INCLUDE_DIR = BASE_DIR.join('include')
 
 eci = ExternalCompilationInfo(
-    includes=["universal/hpy.h", "hpyarg.h"],
+    includes=["universal/hpy.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
-        SRC_DIR,     # for hpyarg.h
-    ],
-    separate_module_files=[
-        SRC_DIR.join('hpyarg.c'),
     ],
     post_include_bits=["""
         // these are workarounds for a CTypeSpace limitation, since it can't properly
@@ -57,9 +52,22 @@ typedef struct _HPyContext_s {
     void * ctx_Long_FromUnsignedLongLong;
     void * ctx_Long_AsLong;
     void * ctx_Float_FromDouble;
-    void * ctx_Arg_Parse;
     void * ctx_Number_Add;
     void * ctx_Err_SetString;
+    void * ctx_Err_Occurred;
+    void * ctx_Object_IsTrue;
+    void * ctx_GetAttr;
+    void * ctx_GetAttr_s;
+    void * ctx_HasAttr;
+    void * ctx_HasAttr_s;
+    void * ctx_SetAttr;
+    void * ctx_SetAttr_s;
+    void * ctx_GetItem;
+    void * ctx_GetItem_i;
+    void * ctx_GetItem_s;
+    void * ctx_SetItem;
+    void * ctx_SetItem_i;
+    void * ctx_SetItem_s;
     void * ctx_Bytes_Check;
     void * ctx_Bytes_Size;
     void * ctx_Bytes_GET_SIZE;
@@ -73,6 +81,7 @@ typedef struct _HPyContext_s {
     void * ctx_List_Append;
     void * ctx_Dict_New;
     void * ctx_Dict_SetItem;
+    void * ctx_Dict_GetItem;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
@@ -133,11 +142,3 @@ HPy_METH_VARARGS  = 0x0001 | _HPy_METH
 HPy_METH_KEYWORDS = 0x0002 | _HPy_METH
 HPy_METH_NOARGS   = 0x0004 | _HPy_METH
 HPy_METH_O        = 0x0008 | _HPy_METH
-
-# ----------------------------------------------------------------
-
-# NOTE: this is not the real signature (we don't know what to put for
-# va_list), but it's good enough to get the address of the function to store
-# in the ctx. DO NOT CALL THIS!
-DONT_CALL_ctx_Arg_Parse = rffi.llexternal('ctx_Arg_Parse', [], rffi.INT_real,
-                                          compilation_info=eci, _nowrapper=True)

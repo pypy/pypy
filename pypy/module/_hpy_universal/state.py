@@ -60,5 +60,3 @@ class State:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
-
-        self.ctx.c_ctx_Arg_Parse = rffi.cast(rffi.VOIDP, llapi.DONT_CALL_ctx_Arg_Parse)
