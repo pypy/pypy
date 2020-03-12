@@ -70,9 +70,13 @@ class Spec(object):
 
 
 class ExtensionCompiler:
-    def __init__(self, tmpdir, abimode, include_dir, compiler_verbose=False,
+    def __init__(self, tmpdir, abimode, base_dir, compiler_verbose=False,
                  cpython_include_dirs=None):
         """
+        base_dir is the directory where to find include/, runtime/src,
+        etc. Usually it will point to hpy/devel/, but alternate implementation
+        can point to their own place.
+
         cpython_include_dirs is a list of dirs where to find Python.h. If None,
         _build will automatically use the include dirs provided by distutils.
         Alternate Python implementations can use this to #include their own
@@ -80,7 +84,9 @@ class ExtensionCompiler:
         """
         self.tmpdir = tmpdir
         self.abimode = abimode
-        self.include_dir = include_dir
+        self.base_dir = py.path.local(base_dir)
+        self.include_dir = self.base_dir.join('include')
+        self.src_dir = self.base_dir.join('src', 'runtime')
         self.universal_mode = self.abimode == 'universal'
         self.compiler_verbose = compiler_verbose
         self.cpython_include_dirs = cpython_include_dirs
@@ -104,8 +110,7 @@ class ExtensionCompiler:
         """
         filename = self._expand(name, main_template)
         sources = [
-            str(py.path.local(__file__).dirpath().dirpath().join(
-                'hpy/devel/src/runtime/argparse.c')),
+            str(self.src_dir.join('argparse.c')),
         ]
         for i, template in enumerate(extra_templates):
             extra_filename = self._expand('extmod_%d' % i, template)
