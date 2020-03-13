@@ -210,6 +210,24 @@ class _TestByteBufferBase(object):
         assert buf.getslice(2, -2, 2) == b"td"
         assert buf.getslice(3, -2, 2) == b"ua"
 
+    def test_getslice_clipped1(self):
+        buf = self.buffer_class(4)
+        buf.setslice(0, b"data")
+        buf.getitem = None
+        assert buf[0:8] == b"data" # no crash!
+
+    def test_getslice_clipped2(self):
+        buf = self.buffer_class(4)
+        buf.setslice(0, b"data")
+        buf.getitem = None
+        assert buf[1:8] == b"ata" # no crash!
+
+    def test_getslice_open(self):
+        buf = self.buffer_class(4)
+        buf.setslice(0, b"data")
+        buf.getitem = None
+        assert buf[:] == b"data" # no crash!
+
 
 class TestRawByteBuffer(_TestByteBufferBase):
     buffer_class = RawByteBuffer

@@ -84,7 +84,7 @@ class Buffer(object):
 
     @signature(types.any(), types.int(), types.int(), returns=types.str())
     def __getslice__(self, start, stop):
-        return self.getslice(start, 1, stop - start)
+        return self.getslice(start, 1, min(stop, self.getlength()) - start)
 
     def setitem(self, index, char):
         "Write a character into the buffer."
