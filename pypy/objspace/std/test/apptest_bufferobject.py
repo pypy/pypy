@@ -182,6 +182,7 @@ def test_slice():
             # Skip step 0 (invalid)
             for step in indices[1:]:
                 assert b[start:stop:step] == s[start:stop:step]
+            assert b[start:stop] == s[start:stop]
 
 def test_getitem_only_ints():
     class MyInt(object):
