@@ -1,4 +1,4 @@
-import py
+import py, pytest
 import sys, struct
 import ctypes
 from rpython.rtyper.lltypesystem import lltype, rffi, llmemory
@@ -478,6 +478,28 @@ class TestLL2Ctypes(object):
         assert lltype.typeOf(lldummy) == lltype.Ptr(FUNCTYPE)
         res = lldummy(41)
         assert res == 42
+        assert not ALLOCATED     # detects memory leaks in the test
+
+    def test_funcptr_can_raise(self, monkeypatch):
+        class FooError(Exception):
+            pass
+        def dummy(n):
+            raise FooError(n + 2)
+        dummy._llhelper_can_raise_ = True
+
+        FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
+        cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
+        # here we pretend there is C in the middle
+        lldummy = ctypes2lltype(lltype.Ptr(FUNCTYPE), cdummy,
+                                force_real_ctypes_function=True)
+        seen = []
+        def custom_except_hook(*args):
+            seen.append(args)
+        monkeypatch.setattr(sys, 'excepthook', custom_except_hook)
+        with pytest.raises(FooError) as exc:
+            lldummy(41)
+        assert exc.value.args == (41 + 2,)
+        assert not seen
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_funcptr2(self):
