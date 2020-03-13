@@ -27,9 +27,8 @@ class MasterReader(object):
 
     def read(self, count):
         curpos = self.inputpos
-        end = curpos + count
         self.advance(count) # raise if we are out of bound
-        return self.inputbuf.getslice(curpos, end, 1, count)
+        return self.inputbuf.getslice(curpos, 1, count)
 
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask

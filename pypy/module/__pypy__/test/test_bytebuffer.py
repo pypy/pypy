@@ -1,6 +1,3 @@
-import pytest
-
-
 class AppTest(object):
     spaceconfig = dict(usemodules=['__pypy__'])
 
@@ -32,7 +29,6 @@ class AppTest(object):
         b[6:6+len(r)] = u'#'
         assert str(b[:6+len(r)]) == "\x00xy\x00z\x00" + r
 
-    @pytest.mark.xfail
     def test_buffer_getslice_empty(self):
         from __pypy__ import bytebuffer
         b = bytebuffer(10)

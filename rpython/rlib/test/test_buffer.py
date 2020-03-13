@@ -39,9 +39,9 @@ def test_string_buffer():
     assert buf.getitem(4) == buf[4]
     assert buf.getlength() == 11
     assert buf.getlength() == len(buf)
-    assert buf.getslice(1, 6, 1, 5) == 'ello '
-    assert buf.getslice(1, 6, 1, 5) == buf[1:6]
-    assert buf.getslice(1, 6, 2, 3) == 'el '
+    assert buf.getslice(1, 1, 5) == 'ello '
+    assert buf.getslice(1, 1, 5) == buf[1:6]
+    assert buf.getslice(1, 2, 3) == 'el '
     assert buf.as_str() == 'hello world'
 
 
@@ -200,12 +200,15 @@ class _TestByteBufferBase(object):
         buf = self.buffer_class(4)
         buf.setslice(0, b"data")
         buf.getitem = None
-        assert buf.getslice(0, 2, 1, 2) == b"da" # no crash!
+        assert buf.getslice(0, 1, 2) == b"da" # no crash!
 
     def test_getslice_slowpath(self):
         buf = self.buffer_class(4)
-        buf.setslice(0, b"data")
-        assert buf.getslice(0, 4, 2, 4) == b"dt"
+        buf.setslice(0, b"datu")
+        assert buf.getslice(0, 2, 2) == b"dt"
+        assert buf.getslice(1, 2, 2) == b"au"
+        assert buf.getslice(2, -2, 2) == b"td"
+        assert buf.getslice(3, -2, 2) == b"ua"
 
 
 class TestRawByteBuffer(_TestByteBufferBase):
