@@ -3,6 +3,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
+from pypy.module._hpy_universal import llapi
 
 @API.func("HPy HPyDict_New(HPyContext ctx)")
 def HPyDict_New(space, ctx):
@@ -18,3 +19,14 @@ def HPyDict_SetItem(space, ctx, h_dict, h_key, h_val):
     w_val = handles.deref(space, h_val)
     w_dict.setitem(w_key, w_val)
     return rffi.cast(rffi.INT_real, 0)
+
+@API.func("HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key)")
+def HPyDict_GetItem(space, ctx, h_dict, h_key):
+    w_dict = handles.deref(space, h_dict)
+    w_key = handles.deref(space, h_key)
+    # XXX the tests should check what happens in this case
+    assert isinstance(w_dict, W_DictMultiObject)
+    w_result = w_dict.getitem(w_key)
+    if w_result is not None:
+        return handles.new(space, w_result)
+    return llapi.HPy_NULL

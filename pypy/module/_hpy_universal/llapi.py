@@ -127,6 +127,7 @@ HPyContext = cts.gettype('HPyContext')
 # structs. HOWEVER, the "real" HPy C type is a struct, which is available as
 # "_struct_HPy_s"
 HPy = cts.gettype('HPy')
+HPy_NULL = rffi.cast(HPy, 0)
 
 HPyInitFunc = cts.gettype('HPyInitFunc')
 _HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
