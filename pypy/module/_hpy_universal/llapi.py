@@ -90,11 +90,14 @@ typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);
 
-typedef HPy (*_HPyCFunction)(HPyContext ctx, HPy self, HPy args);
-typedef void *_HPyCPyCFunction; // not used here
-typedef void (*_HPyMethodPairFunc)(_HPyCFunction *out_func,
-                                   _HPyCPyCFunction *out_trampoline);
+typedef HPy (*HPyMeth_O)(HPyContext ctx, HPy self, HPy args);
 typedef HPy (*HPyMeth_VarArgs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+typedef HPy (*HPyMeth_Keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs,
+                                HPy kw);
+typedef void *_HPyCPyCFunction; // not used here
+typedef void (*_HPyMethodPairFunc)(HPyMeth_O *out_func,
+                                   _HPyCPyCFunction *out_trampoline);
+
 
 typedef struct {
     const char         *ml_name;
@@ -126,9 +129,10 @@ HPyContext = cts.gettype('HPyContext')
 HPy = cts.gettype('HPy')
 
 HPyInitFunc = cts.gettype('HPyInitFunc')
-_HPyCFunction = cts.gettype('_HPyCFunction')
 _HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
+HPyMeth_O = cts.gettype('HPyMeth_O')
 HPyMeth_VarArgs = cts.gettype('HPyMeth_VarArgs')
+HPyMeth_Keywords = cts.gettype('HPyMeth_Keywords')
 
 HPyMethodDef = cts.gettype('HPyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
@@ -139,6 +143,6 @@ HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
 
 _HPy_METH = 0x100000
 HPy_METH_VARARGS  = 0x0001 | _HPy_METH
-HPy_METH_KEYWORDS = 0x0002 | _HPy_METH
+HPy_METH_KEYWORDS = 0x0003 | _HPy_METH
 HPy_METH_NOARGS   = 0x0004 | _HPy_METH
 HPy_METH_O        = 0x0008 | _HPy_METH
