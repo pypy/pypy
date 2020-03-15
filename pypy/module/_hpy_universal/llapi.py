@@ -115,12 +115,13 @@ typedef struct {
 } HPyModuleDef;
 """)
 
-HPy_ssize_t = cts.gettype('HPy_ssize_t')
-# XXX: HPyContext is equivalent to the old HPyContext which was defined
-# explicitly using rffi.CStruct: the only different is that this is missing
-# hints={'eci': eci}: however, the tests still pass (including
-# ztranslation). Why was the eci needed?
+# HACK! We manually assign _hints['eci'] to ensure that the eci is included in
+# the translation, else common_header.h does not include hpy.h. A more proper
+# solution probably involves telling CTypeSpace which eci the types come from?
 HPyContext = cts.gettype('HPyContext')
+HPyContext.TO._hints['eci'] = eci
+
+HPy_ssize_t = cts.gettype('HPy_ssize_t')
 
 # for practical reason, we use a primitive type to represent HPy almost
 # everywhere in RPython: for example, rffi cannot handle functions returning
