@@ -17,8 +17,15 @@ class Cell(W_Root):
 
     def get(self):
         if jit.isconstant(self):
+            # ever_mutated is False if we never see a transition from not-None to
+            # not-None. That means _elidable_get might return an out-of-date
+            # None, and by now the cell was to, with a not-None. So if we see a
+            # None, we don't return that and instead read self.w_value in the
+            # code below.
             if not self.family.ever_mutated:
-                return self._elidable_get()
+                w_res = self._elidable_get()
+                if w_res is not None:
+                    return w_res
         if self.w_value is None:
             raise ValueError("get() from an empty cell")
         return self.w_value
@@ -28,7 +35,7 @@ class Cell(W_Root):
         return self.w_value
 
     def set(self, w_value):
-        if not self.family.ever_mutated:
+        if not self.family.ever_mutated and self.w_value is not None:
             self.family.ever_mutated = True
         self.w_value = w_value
 

@@ -16,6 +16,17 @@ class TestCellFamily:
         c.set("othervalue")
         assert c.family.ever_mutated
 
+    def test_mutation_after_empty_creation(self):
+        f = CellFamily("x")
+        c = Cell(None, f)
+        assert not c.family.ever_mutated
+
+        c.set("value")
+        assert not c.family.ever_mutated
+
+        c.set("surprise")
+        assert c.family.ever_mutated
+
     def test_cellfamily_on_code(self):
         code = self.compiler.compile('lambda x: x + 5', '<hello>', 'eval', 0)
         lambdacode = code.co_consts_w[0]
