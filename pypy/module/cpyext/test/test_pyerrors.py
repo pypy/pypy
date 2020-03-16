@@ -484,8 +484,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
              /* Proceed in thread 1 first */
              save = PyEval_SaveThread();
+             if (save == NULL) abort();
              while (id == 0 && flag == 0);
              gilsave = PyGILState_Ensure();
+             if (gilsave != PyGILState_UNLOCKED) abort();
 
              PyErr_Format(PyExc_ValueError, "%d", id);
 

@@ -1,5 +1,5 @@
 from __future__ import with_statement
-from rpython.rlib import buffer
+from rpython import rlib
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
@@ -151,11 +151,11 @@ class AppTestBufferedReader:
         exc = raises(TypeError, f.readinto, u"hello")
         assert str(exc.value) == "cannot use unicode as modifiable buffer"
         exc = raises(TypeError, f.readinto, buffer(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        assert "must be read-write buffer, not buffer" in str(exc.value)
         exc = raises(TypeError, f.readinto, buffer(bytearray("hello")))
-        assert str(exc.value) == "must be read-write buffer, not buffer"
+        assert "must be read-write buffer, not buffer" in str(exc.value)
         exc = raises(TypeError, f.readinto, memoryview(b"hello"))
-        assert str(exc.value) == "must be read-write buffer, not memoryview"
+        assert "must be read-write buffer, not memoryview" in str(exc.value)
         f.close()
 
     def test_readinto_big(self):
@@ -274,17 +274,18 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
 
 @py.test.yield_fixture
 def forbid_nonmoving_raw_ptr_for_resizable_list(space):
-    orig_nonmoving_raw_ptr_for_resizable_list = buffer.nonmoving_raw_ptr_for_resizable_list
+    orig_nonmoving_raw_ptr_for_resizable_list = rlib.buffer.nonmoving_raw_ptr_for_resizable_list
     def fail(l):
         raise oefmt(space.w_ValueError, "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB")
-    buffer.nonmoving_raw_ptr_for_resizable_list = fail
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = fail
     yield
-    buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
 
 @py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
 class AppTestForbidRawPtrForResizableList(object):
     spaceconfig = dict(usemodules=['_io'])
 
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
     def test_monkeypatch_works(self):
         import _io, os
         raw = _io.FileIO(os.devnull)
@@ -473,8 +474,11 @@ class AppTestBufferedWriter:
                 available = self.buffersize - len(self.buffer)
                 if available <= 0:
                     return None
-                self.buffer += data[:available]
-                return min(len(data), available)
+                add_data = data[:available]
+                if isinstance(add_data, memoryview):
+                    add_data = add_data.tobytes()
+                self.buffer += add_data
+                return len(add_data)
             def read(self, size=-1):
                 if not self.buffer:
                     return None
