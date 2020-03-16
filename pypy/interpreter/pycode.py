@@ -62,7 +62,6 @@ class PyCode(eval.Code):
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
                           "_args_as_cellvars[*]",
-                          "_nonarg_cell_indexes[*]",
                           "w_globals?",
                           "cell_families[*]"]
 
@@ -128,12 +127,11 @@ class PyCode(eval.Code):
                 argcount += 1
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(argvars, cellvars, argcount)
+            args_as_cellvars = _compute_args_as_cellvars(argvars, cellvars, argcount)
             self._args_as_cellvars = args_as_cellvars
-            self._nonarg_cell_indexes = nonarg_cell_indexes
             self.cell_families = [CellFamily(name) for name in cellvars]
         else:
-            self._args_as_cellvars = self._nonarg_cell_indexes = []
+            self._args_as_cellvars = []
             self.cell_families = []
 
         self._compute_flatcall()
@@ -440,21 +438,16 @@ def _compute_args_as_cellvars(varnames, cellvars, argcount):
 
     # Precompute what arguments need to be copied into cellvars
     args_as_cellvars = []
-    nonarg_cell_indexes = []
-    last_arg_cellarg = -1
     for i in range(len(cellvars)):
         cellname = cellvars[i]
         for j in range(argcount):
             if cellname == varnames[j]:
                 # argument j has the same name as the cell var i
                 while len(args_as_cellvars) < i:
-                    nonarg_cell_indexes.append(len(args_as_cellvars))
                     args_as_cellvars.append(-1)   # pad
                 args_as_cellvars.append(j)
                 last_arg_cellarg = i
-    for i in range(last_arg_cellarg + 1, len(cellvars)):
-        nonarg_cell_indexes.append(i)
-    return args_as_cellvars[:], nonarg_cell_indexes[:]
+    return args_as_cellvars[:]
 
 
 def _code_const_eq(space, w_a, w_b):

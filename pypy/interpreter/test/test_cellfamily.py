@@ -36,17 +36,11 @@ class TestCellFamily:
         assert len(lambdacode.cell_families) == 2 # creates cells
 
     def test_nonarg_cell_indexes(self):
-        args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(["a", "b"], ["x", "b", "y"], 2)
+        args_as_cellvars = _compute_args_as_cellvars(["a", "b"], ["x", "b", "y"], 2)
         assert args_as_cellvars == [-1, 1]
-        assert nonarg_cell_indexes == [0, 2]
 
-        args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(["a", "b"], ["a", "y", "z"], 2)
+        args_as_cellvars = _compute_args_as_cellvars(["a", "b"], ["a", "y", "z"], 2)
         assert args_as_cellvars == [0]
-        assert nonarg_cell_indexes == [1, 2]
-
-        args_as_cellvars, nonarg_cell_indexes = _compute_args_as_cellvars(["a", "b", "y", "z"], ["a", "y", "z"], 2)
-        assert args_as_cellvars == [0]
-        assert nonarg_cell_indexes == [1, 2]
 
     def test_passing_args_doesnt_mutate_cells(self):
         space = self.space

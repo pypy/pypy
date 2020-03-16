@@ -234,13 +234,11 @@ class PyFrame(W_Root):
         if closure_size != nfreevars:
             raise ValueError("code object received a closure with "
                                  "an unexpected number of free variables")
-        # initialize the cells that aren't arguments. The latter are
-        # initialized in init_cells
-        baseindex = code.co_nlocals
-        for i in code._nonarg_cell_indexes:
-            self.locals_cells_stack_w[baseindex + i] = Cell(
+        index = code.co_nlocals
+        for i in range(ncellvars):
+            self.locals_cells_stack_w[index] = Cell(
                     None, self.pycode.cell_families[i])
-        index = code.co_nlocals + len(code.co_cellvars)
+            index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
             index += 1
@@ -674,9 +672,9 @@ class PyFrame(W_Root):
         for i in range(len(args_to_copy)):
             argnum = args_to_copy[i]
             if argnum >= 0:
-                w_arg = self.locals_cells_stack_w[argnum]
-                self.locals_cells_stack_w[index] = Cell(
-                        w_arg, self.pycode.cell_families[i])
+                cell = self.locals_cells_stack_w[index]
+                assert isinstance(cell, Cell)
+                cell.set(self.locals_cells_stack_w[argnum])
             index += 1
 
     def getclosure(self):
