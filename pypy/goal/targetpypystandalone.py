@@ -137,7 +137,7 @@ def get_additional_entrypoints(space, w_initstdio):
             # (in unbuffered mode, to avoid troubles) and import site
             space.appexec([w_path, space.newfilename(home), w_initstdio],
             r"""(path, home, initstdio):
-                import sys
+                import os, sys
                 sys.path[:] = path
                 sys.executable = home
                 initstdio(unbuffered=True)

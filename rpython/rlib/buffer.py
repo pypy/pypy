@@ -1,7 +1,7 @@
 """
 Buffer protocol support.
 """
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
@@ -153,6 +153,37 @@ class RawBuffer(Buffer):
         ptr = self.get_raw_address()
         value = lltype.cast_primitive(TP, value)
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
+
+
+class RawByteBuffer(RawBuffer):
+    _immutable_ = True
+
+    def __init__(self, length):
+        self._length = length
+        self._buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw', zero=True)
+        self.readonly = False
+
+    def getlength(self):
+        return self._length
+
+    def getitem(self, index):
+        return self._buf[index]
+
+    def getslice(self, start, stop, step, size):
+        if step == 1:
+            assert 0 <= start <= stop
+            return rffi.charpsize2str(rffi.ptradd(self._buf, start), stop - start)
+        return Buffer.getslice(self, start, stop, step, size)
+
+    def setitem(self, index, char):
+        self._buf[index] = char
+
+    def get_raw_address(self):
+        return self._buf
+
+    def __del__(self):
+        lltype.free(self._buf, flavor='raw')
+        self._buf = lltype.nullptr(rffi.CCHARP.TO)
 
 
 class GCBuffer(Buffer):
