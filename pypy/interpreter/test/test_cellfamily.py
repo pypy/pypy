@@ -52,13 +52,32 @@ class TestCellFamily:
         assert cell.w_value is w_i
         assert not cell.family.ever_mutated
 
-    def test_cells_dont_interfere(self):
-        # can be improved, but at least it still works for x
+    def test_integration(self):
+        # it still works for x
         space = self.space
         code = self.compiler.compile("""def f(x):
             def g(y):
                 return x + a * y
             a = x * 2
+            return g
+            """, '<hello>', 'exec', 0)
+        w_d = space.newdict()
+        code.exec_code(space, w_d, w_d)
+        w_outer = space.finditem_str(w_d, "f")
+        w_i = space.newint(5)
+        w_inner = space.call_function(w_outer, w_i)
+        # both x and a are never mutated (only initialized)
+        for cell in w_inner.closure:
+            assert not cell.family.ever_mutated
+
+    def test_cells_dont_interfere(self):
+        # it still works for x
+        space = self.space
+        code = self.compiler.compile("""def f(x):
+            def g(y):
+                return x + a * y
+            a = x * 2
+            a = x * 4 # really mutate it
             return g
             """, '<hello>', 'exec', 0)
         w_d = space.newdict()
