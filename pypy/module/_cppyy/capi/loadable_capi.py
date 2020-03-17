@@ -21,8 +21,12 @@ from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, WLAVC_INDEX, C_FUNC_PTR
 
 backend_ext = '.so'
-if 'win32' in sys.platform:
+if sys.platform == 'win32':
     backend_ext = '.dll'
+    dldflags = 0
+else:
+    dldflags = rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY
+    
 backend_library = 'libcppyy_backend'
 
 # this is not technically correct, but will do for now
@@ -327,7 +331,6 @@ def load_backend(space):
     state = space.fromcache(State)
     if state.backend is None:
         from pypy.module._cffi_backend.libraryobj import W_Library
-        dldflags = rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY
         if os.environ.get('CPPYY_BACKEND_LIBRARY'):
             libname = os.environ['CPPYY_BACKEND_LIBRARY']
             state.backend = W_Library(space, space.newtext(libname), dldflags)
