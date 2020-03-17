@@ -753,6 +753,19 @@ class AppTestSocket:
         s.close()
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
+    def test_socket_close(self):
+        import _socket
+        sock = _socket.socket()
+        try:
+            sock.bind(('localhost', 0))
+            _socket.close(sock.fileno())
+            with raises(OSError):
+                sock.listen(1)
+            with raises(OSError):
+                _socket.close(sock.fileno())
+        finally:
+            with raises(OSError):
+                sock.close()
 
 @pytest.mark.skipif(not hasattr(os, 'getpid'),
     reason="AF_NETLINK needs os.getpid()")

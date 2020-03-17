@@ -996,3 +996,11 @@ shutdown(how) -- shut down traffic in one or both directions
     family = GetSetProperty(W_Socket.get_family_w),
     ** socketmethods
     )
+
+@unwrap_spec(fd=int)
+def close(space, fd):
+    from rpython.rlib import _rsocket_rffi as _c
+    res = _c.socketclose(fd)
+    if res:
+        converted_error(space, rsocket.last_error())
+

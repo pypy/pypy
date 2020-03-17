@@ -14,6 +14,7 @@ class Module(MixedModule):
         'herror'    :  'interp_socket.get_error(space, "herror")',
         'gaierror'  :  'interp_socket.get_error(space, "gaierror")',
         'timeout'   :  'interp_socket.get_error(space, "timeout")',
+        'close'     :  'interp_socket.close',
         'SOMAXCONN' :  'space.wrap(%d)' % SOMAXCONN,
     }
 
