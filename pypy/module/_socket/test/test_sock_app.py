@@ -885,6 +885,12 @@ class AppTestSocketTCP:
         cli.close()
         t.close()
 
+    def test_getblocking(self):
+        self.serv.setblocking(True)
+        assert self.serv.getblocking()
+        self.serv.setblocking(False)
+        assert not self.serv.getblocking()
+
     def test_recv_into(self):
         import socket
         import array
