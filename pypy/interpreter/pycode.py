@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -61,7 +61,9 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "w_globals?"]
+                          "_args_as_cellvars[*]",
+                          "w_globals?",
+                          "cell_families[*]"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -115,6 +117,7 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         from pypy.objspace.std.mapdict import init_mapdict_cache
+        from pypy.interpreter.nestedscope import CellFamily
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -122,31 +125,14 @@ class PyCode(eval.Code):
                 argcount += 1
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
-            # Cell vars could shadow already-set arguments.
-            # The compiler used to be clever about the order of
-            # the variables in both co_varnames and co_cellvars, but
-            # it no longer is for the sake of simplicity.  Moreover
-            # code objects loaded from CPython don't necessarily follow
-            # an order, which could lead to strange bugs if .pyc files
-            # produced by CPython are loaded by PyPy.  Note that CPython
-            # contains the following bad-looking nested loops at *every*
-            # function call!
-
-            # Precompute what arguments need to be copied into cellvars
-            args_as_cellvars = []
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(argcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        while len(args_as_cellvars) <= i:
-                            args_as_cellvars.append(-1)   # pad
-                        args_as_cellvars[i] = j
-            self._args_as_cellvars = args_as_cellvars[:]
+            args_as_cellvars = _compute_args_as_cellvars(argvars, cellvars, argcount)
+            self._args_as_cellvars = args_as_cellvars
+            self.cell_families = [CellFamily(name) for name in cellvars]
         else:
             self._args_as_cellvars = []
+            self.cell_families = []
 
         self._compute_flatcall()
 
@@ -438,6 +424,30 @@ class PyCode(eval.Code):
 
     def repr(self, space):
         return space.newtext(self.get_repr())
+
+def _compute_args_as_cellvars(varnames, cellvars, argcount):
+    # Cell vars could shadow already-set arguments.
+    # The compiler used to be clever about the order of
+    # the variables in both co_varnames and co_cellvars, but
+    # it no longer is for the sake of simplicity.  Moreover
+    # code objects loaded from CPython don't necessarily follow
+    # an order, which could lead to strange bugs if .pyc files
+    # produced by CPython are loaded by PyPy.  Note that CPython
+    # contains the following bad-looking nested loops at *every*
+    # function call!
+
+    # Precompute what arguments need to be copied into cellvars
+    args_as_cellvars = []
+    for i in range(len(cellvars)):
+        cellname = cellvars[i]
+        for j in range(argcount):
+            if cellname == varnames[j]:
+                # argument j has the same name as the cell var i
+                while len(args_as_cellvars) < i:
+                    args_as_cellvars.append(-1)   # pad
+                args_as_cellvars.append(j)
+                last_arg_cellarg = i
+    return args_as_cellvars[:]
 
 
 def _code_const_eq(space, w_a, w_b):
