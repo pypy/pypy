@@ -460,7 +460,7 @@ class StringUnmarshaller(Unmarshaller):
         if newpos > self.limit:
             self.raise_eof()
         self.bufpos = newpos
-        return self.buf.getslice(pos, newpos, 1, newpos - pos)
+        return self.buf.getslice(pos, 1, newpos - pos)
 
     def get1(self):
         pos = self.bufpos

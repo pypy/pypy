@@ -24,4 +24,4 @@ class AppTest(object):
     def test_buffer_getslice_empty(self):
         from __pypy__ import bytebuffer
         b = bytebuffer(10)
-        assert b[1:0] == ''
+        assert b[1:0] == b''

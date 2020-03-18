@@ -30,6 +30,9 @@ class Cell(W_Root):
             raise ValueError("get() from an empty cell")
         return self.w_value
 
+    def empty(self):
+        return self.w_value is None
+
     @jit.elidable
     def _elidable_get(self):
         return self.w_value
