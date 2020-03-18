@@ -126,7 +126,7 @@ def _get_msvc_env(vsver, x64flag):
     return env
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 141, 150, 90, 100]
+    vcvers = [160, 150, 141, 140, 100, 90]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
     errs = []
@@ -185,9 +185,6 @@ class MsvcPlatform(Platform):
         patch_os_env(self.externals)
         self.c_environ = os.environ.copy()
         if cc is None:
-            # prefer compiler used to build host. Python2 only
-            if ver0 is None:
-                ver0 = _get_vcver0()
             msvc_compiler_environ, self.vsver = find_msvc_env(x64, ver0=ver0)
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
