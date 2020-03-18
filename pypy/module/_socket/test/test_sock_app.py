@@ -787,6 +787,35 @@ class AppTestSocket:
             finally:
                 s.close()
 
+    def test_socket_init_non_blocking(self):
+        import _socket
+        if not hasattr(_socket, "SOCK_NONBLOCK"):
+            skip("no SOCK_NONBLOCK")
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM |
+                                            _socket.SOCK_NONBLOCK)
+        assert s.getblocking() == False
+        assert s.gettimeout() == 0.0
+
+    def test_socket_consistent_sock_type(self):
+        import _socket
+        SOCK_NONBLOCK = getattr(_socket, 'SOCK_NONBLOCK', 0)
+        SOCK_CLOEXEC = getattr(_socket, 'SOCK_CLOEXEC', 0)
+        sock_type = _socket.SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC
+
+        s = _socket.socket(_socket.AF_INET, sock_type)
+        try:
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(1)
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(0)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(True)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(False)
+            assert s.type == _socket.SOCK_STREAM
+        finally:
+            s.close()
+
 @pytest.mark.skipif(not hasattr(os, 'getpid'),
     reason="AF_NETLINK needs os.getpid()")
 class AppTestNetlink:
