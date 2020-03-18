@@ -873,6 +873,11 @@ class AppTestSocketTCP:
         s.setblocking(True)      # EBADF, but ignored on Python 2
         raises(error, s.getsockopt, 42, 84, 8)    # EBADF
 
+    def test_no_socket_cloexec_non_block(self):
+        import _socket
+        assert not hasattr(_socket, "SOCK_CLOEXEC") # not in py 2
+        assert not hasattr(_socket, "SOCK_NONBLOCK") # 3.7 only
+
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket']}
