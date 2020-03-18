@@ -940,7 +940,8 @@ class PyFrame(W_Root):
         for i in range(len(self.locals_cells_stack_w)):
             w_oldvalue = self.locals_cells_stack_w[i]
             if isinstance(w_oldvalue, Cell):
-                w_newvalue = Cell()
+                w_newvalue = Cell(
+                    None, w_oldvalue.family)
             else:
                 w_newvalue = None
             self.locals_cells_stack_w[i] = w_newvalue
