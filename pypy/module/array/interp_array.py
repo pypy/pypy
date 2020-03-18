@@ -922,7 +922,7 @@ class ArrayBuffer(RawBuffer):
         data[index] = char
         w_array._charbuf_stop()
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ''
         assert step == 1

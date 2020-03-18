@@ -71,7 +71,6 @@ built in or the `multibuild system`_ to build wheels.
 .. _`portable-pypy`: https://github.com/squeaky-pl/portable-pypy
 .. _`docker images`: https://github.com/pypy/manylinux
 .. _`multibuild system`: https://github.com/matthew-brett/multibuild
-.. _`manylinux2010`: https://github.com/pypa/manylinux
 
 What is PyPy?
 =============

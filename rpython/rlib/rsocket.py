@@ -1644,6 +1644,34 @@ def getnameinfo(address, flags):
     finally:
         lltype.free(host, flavor='raw')
 
+@jit.dont_look_inside
+def getsockopt_int(fd, level, option):
+    # XXX almost the same code as RSocket.getsockopt_int
+    # some win32 calls use only a byte to represent a bool
+    # zero out so the result is correct anyway
+    with lltype.scoped_alloc(rffi.INTP.TO, n=1, zero=True) as flag_p, \
+            lltype.scoped_alloc(_c.socklen_t_ptr.TO) as flagsize_p:
+        flagsize_p[0] = rffi.cast(_c.socklen_t, rffi.sizeof(rffi.INT))
+        res = _c.socketgetsockopt(fd, level, option,
+                                  rffi.cast(rffi.VOIDP, flag_p),
+                                  flagsize_p)
+        if res < 0:
+            raise last_error()
+        result = rffi.cast(lltype.Signed, flag_p[0])
+    return result
+
+@jit.dont_look_inside
+def get_socket_family(fd):
+    """Return the family of a file descriptor."""
+    with lltype.scoped_alloc(_c.sockaddr, zero=True) as addr_p, lltype.scoped_alloc(_c.socklen_t_ptr.TO) as addrlen_p:
+        addrlen_p[0] = rffi.cast(_c.socklen_t, sizeof(_c.sockaddr))
+        res = _c.socketgetsockname(fd, addr_p, addrlen_p)
+        addrlen = addrlen_p[0]
+        result = rffi.cast(lltype.Signed, addr_p.c_sa_family)
+        if res < 0:
+            raise last_error()
+    return result
+
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):
         "IPv4 dotted string -> packed 32-bits string"

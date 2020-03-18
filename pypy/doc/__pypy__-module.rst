@@ -48,7 +48,7 @@ Generally available functionality
   - ``lookup_special(obj, meth)``: Lookup up a special method on an object.
   - ``do_what_I_mean``
 
-  - ``resizelist_hint(sizehint Reallocate the underlying storage of the argument
+  - ``resizelist_hint(sizehint)`` Reallocate the underlying storage of the argument
     list to sizehint
 
   - ``newlist_hint(...)``: Create a new empty list that has an underlying

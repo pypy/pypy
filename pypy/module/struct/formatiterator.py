@@ -153,9 +153,8 @@ class UnpackFormatIterator(FormatIterator):
 
     def read(self, count):
         curpos = self.pos
-        end = curpos + count
         self.advance(count) # raise if we are out of bound
-        return self.buf.getslice(curpos, end, 1, count)
+        return self.buf.getslice(curpos, 1, count)
 
     @specialize.argtype(1)
     def appendobj(self, value):
