@@ -104,7 +104,10 @@ def _get_msvc_env(vsver, x64flag):
     env = {}
     for key, value in vcdict.items():
         if key.upper() in ['PATH', 'INCLUDE', 'LIB']:
-            env[key.upper()] = value
+            if sys.version_info[0] < 3:
+                env[key.upper()] = value.encode('utf-8')
+            else:
+                env[key.upper()] = value
     if 'PATH' not in env:
         log.msg('Did not find "PATH" in stdout\n%s' %(stdout))
     if not _find_executable('mt.exe', env['PATH']):
@@ -123,7 +126,7 @@ def _get_msvc_env(vsver, x64flag):
     return env
 
 def find_msvc_env(x64flag=False, ver0=None):
-    vcvers = [140, 141, 150, 90, 100]
+    vcvers = [160, 150, 141, 140, 100, 90]
     if ver0 in vcvers:
         vcvers.insert(0, ver0)
     errs = []
@@ -203,6 +206,7 @@ class MsvcPlatform(Platform):
             raise
         r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
         if r is not None:
+            log.msg('compiler %s' % stderr)
             self.version = int(''.join(r.groups())) / 10 - 60
         else:
             # Probably not a msvc compiler...
