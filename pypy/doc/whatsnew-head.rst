@@ -37,3 +37,9 @@ Improve performance of io.StringIO(). It should now be faster than CPython in
 common use cases.
 
 .. branch: rgil-track-thread
+.. branch: hpy-rpython-backports
+
+.. branch: nested-scopes-jit
+
+Improve the code generation for inner functions that use outer variables that
+are constant.
