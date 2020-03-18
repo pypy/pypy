@@ -7,7 +7,7 @@ so_ext = _imp.extension_suffixes()[0]
 
 
 build_time_vars = {
-    "SOABI": '-'.join(so_ext.split('.')[1].split('-')[:2]),
+    "SOABI": so_ext.split('.')[1]  # API tag - platform tag
     "SO": so_ext,  # deprecated in Python 3, for backward compatibility
     'CC': "cc -pthread",
     'CXX': "c++ -pthread",
