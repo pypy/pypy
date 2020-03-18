@@ -58,7 +58,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step == 0:
             return space.newbytes(self.buffer.getitem(start))
-        res = self.buffer.getslice(start, stop, step, size)
+        res = self.buffer.getslice(start, step, size)
         return space.newbytes(res)
 
     def descr_setitem(self, space, w_index, w_newstring):
