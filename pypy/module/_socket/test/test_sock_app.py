@@ -767,6 +767,26 @@ class AppTestSocket:
             with raises(OSError):
                 sock.close()
 
+    def test_socket_get_values_from_fd(self):
+        import _socket
+        if hasattr(_socket, "SOCK_DGRAM"):
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+            try:
+                s.bind(('localhost', 0))
+                fd = s.fileno()
+                s2 = _socket.socket(fileno=fd)
+                try:
+                    # detach old fd to avoid double close
+                    s.detach()
+                    assert s2.fileno() == fd
+                    assert s2.family == _socket.AF_INET
+                    assert s2.type == _socket.SOCK_DGRAM
+
+                finally:
+                    s2.close()
+            finally:
+                s.close()
+
 @pytest.mark.skipif(not hasattr(os, 'getpid'),
     reason="AF_NETLINK needs os.getpid()")
 class AppTestNetlink:

@@ -199,12 +199,19 @@ class W_Socket(W_Root):
 
     @unwrap_spec(family=int, type=int, proto=int,
                  w_fileno=WrappedDefault(None))
-    def descr_init(self, space, family=AF_INET, type=SOCK_STREAM, proto=0,
+    def descr_init(self, space, family=-1, type=-1, proto=-1,
                    w_fileno=None):
+        from rpython.rlib.rsocket import _c
+        if space.is_w(w_fileno, space.w_None):
+            if family == -1:
+                family = AF_INET
+            if type == -1:
+                type = SOCK_STREAM
+            if proto == -1:
+                proto = 0
         try:
             if not space.is_w(w_fileno, space.w_None):
                 if _WIN32 and space.isinstance_w(w_fileno, space.w_bytes):
-                    from rpython.rlib.rsocket import _c
                     # it is possible to pass some bytes representing a socket
                     # in the file descriptor object on winodws
                     fdobj = space.bytes_w(w_fileno)
@@ -219,8 +226,14 @@ class W_Socket(W_Root):
                     finally:
                         lltype.free(info_charptr, flavor='raw')
                 else:
-                    sock = RSocket(family, type, proto,
-                                   fd=space.c_filedescriptor_w(w_fileno))
+                    fd = space.c_filedescriptor_w(w_fileno)
+                    if family == -1:
+                        family = rsocket.get_socket_family(fd)
+                    if type == -1:
+                        type = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_TYPE)
+                    if proto == -1:
+                        proto = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
+                    sock = RSocket(family, type, proto, fd=fd)
             else:
                 sock = RSocket(family, type, proto, inheritable=False)
             W_Socket.__init__(self, space, sock)
