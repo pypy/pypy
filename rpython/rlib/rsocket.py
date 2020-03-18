@@ -467,6 +467,9 @@ if HAS_AF_NETLINK:
 
 # ____________________________________________________________
 
+HAVE_SOCK_NONBLOCK = "SOCK_NONBLOCK" in constants
+HAVE_SOCK_CLOEXEC = "SOCK_CLOEXEC" in constants
+
 def familyclass(family):
     return _FAMILIES.get(family, Address)
 af_get = familyclass
@@ -526,7 +529,7 @@ class RSocket(object):
                  fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socket() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -659,7 +662,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             remove_inheritable = not inheritable
-            if (not inheritable and 'SOCK_CLOEXEC' in constants
+            if (not inheritable and HAVE_SOCK_CLOEXEC
                     and _c.HAVE_ACCEPT4
                     and _accept4_syscall.attempt_syscall()):
                 newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
@@ -1380,7 +1383,7 @@ if hasattr(_c, 'socketpair'):
         try:
             res = -1
             remove_inheritable = not inheritable
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socketpair() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
