@@ -592,6 +592,7 @@ Python code that doesn't need to be aware of any particular
 coding style or restrictions. If we have a choice we often
 use application level tests which are in files whose name starts with the
 `apptest_` prefix and look like this::
+
     # spaceconfig = {"usemodules":["array"]}
     def test_this():
         # application level test code

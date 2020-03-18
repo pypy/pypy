@@ -1,7 +1,7 @@
 Mercurial and Heptapod short tutorial
 =====================================
 
-.. comment::
+.. comment
   Taken from https://foss.heptapod.net/fluiddyn/fluiddyn/blob/branch/default/doc/mercurial_heptapod.rst
   and modified
 

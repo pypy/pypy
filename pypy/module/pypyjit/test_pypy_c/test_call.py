@@ -450,11 +450,7 @@ class TestCall(BaseTestPyPyC):
             i34 = getfield_gc_i(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i35 = int_is_zero(i34)
             guard_true(i35, descr=...)
-            p37 = getfield_gc_r(ConstPtr(ptr36), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p37, ConstClass(W_IntObject), descr=...)
-            i39 = getfield_gc_i(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i40 = int_add_ovf(i22, i39)
-            guard_no_overflow(descr=...)
+            i40 = int_add(i22, 5)
             --TICK--
         """)
 
