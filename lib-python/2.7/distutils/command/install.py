@@ -504,7 +504,7 @@ class install (Command):
                 # install_headers can end with a '/' if $dist_name is ''
                 # see issue 3140, and the comment in ./utils.py that CPython
                 # apparently never uses $dist_name
-                if val[-1] == '/':
+                if len(val) > 0 and val[-1] == '/':
                     val = val[:-1]
                 setattr(self, attr, val)
 
