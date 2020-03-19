@@ -735,3 +735,11 @@ def test_socket_saves_errno(tmpdir):
                        RSocket,
                        family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
+
+def test_socket_init_non_blocking():
+    import fcntl, os
+    s = RSocket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK)
+    assert s.type == SOCK_STREAM
+    assert s.gettimeout() == 0.0
+    assert fcntl.fcntl(s.fd, fcntl.F_GETFL, os.O_NONBLOCK) & os.O_NONBLOCK
+

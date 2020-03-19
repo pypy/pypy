@@ -552,8 +552,15 @@ class RSocket(object):
         self.fd = fd
         self.family = family
         self.type = type
+        if HAVE_SOCK_CLOEXEC:
+            self.type &= ~SOCK_CLOEXEC
+        if HAVE_SOCK_NONBLOCK:
+            self.type &= ~SOCK_NONBLOCK
         self.proto = proto
-        self.settimeout(defaults.timeout)
+        if HAVE_SOCK_NONBLOCK and type & SOCK_NONBLOCK:
+            self.timeout = 0.0
+        else:
+            self.settimeout(defaults.timeout)
 
     @staticmethod
     def empty_rsocket():
