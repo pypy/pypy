@@ -11,8 +11,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 if sys.platform.startswith('win'):
     TARGET_NAME = 'pypy-c.exe'
     VENV_TARGET = 'pypy.exe'
-    # PyPy uses bin as of PR https://github.com/pypa/virtualenv/pull/1400
-    TARGET_DIR = 'bin'
+    TARGET_DIR = 'Scripts'
 else:
     TARGET_NAME = 'pypy-c'
     VENV_TARGET = 'pypy'
