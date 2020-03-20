@@ -271,9 +271,10 @@ class W_IOBase(W_Root):
 
         length = 0
         lines_w = []
+        w_iterator = space.iter(self)
         while 1:
             try:
-                w_line = self.next_w(space)
+                w_line = space.next(w_iterator)
             except OperationError as e:
                 if not e.match(space, space.w_StopIteration):
                     raise

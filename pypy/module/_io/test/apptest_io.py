@@ -10,8 +10,17 @@ def tempfile(tmpdir):
     return str(tempfile)
 
 def test_iobase_overriding():
-    pass
+    class WithIter(_io._IOBase):
+        def __iter__(self):
+            yield 'foo'
+    assert WithIter().readlines() == ['foo']
+    assert WithIter().readlines(1) == ['foo']
 
+    class WithNext(_io._IOBase):
+        def __next__(self):
+            raise StopIteration
+    assert WithNext().readlines() == []
+    assert WithNext().readlines(1) == []
 
 def test_openclose():
     with _io._BufferedIOBase() as f:
