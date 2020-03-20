@@ -142,6 +142,11 @@ class EmulatedGilHolder:
 
 _emulated_gil_holder = None
 
+def _reset_emulated_gil_holder():
+    # called from rpython/conftest.py
+    if _emulated_gil_holder is not None and _emulated_gil_holder._tid == 0:
+        _emulated_gil_holder.acquire()
+
 
 def allocate():
     global _emulated_gil_holder
