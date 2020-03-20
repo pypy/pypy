@@ -1149,6 +1149,8 @@ if ctypes:
             else:
                 if version <= 6:
                     clibname = 'msvcrt'
+                elif version >= 13:
+                    clibname = 'ucrtbase'
                 else:
                     clibname = 'msvcr%d' % (version * 10)
 
