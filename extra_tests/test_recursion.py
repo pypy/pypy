@@ -18,5 +18,11 @@ def recurse(n):
         return do_check()
 
 def test_recursion():
+    """
+    Test that sys.exc_info() is cleared after RecursionError was raised.
+
+    The issue only appeared intermittently, depending on the contents of the
+    call stack, hence the need for the recurse() helper to trigger it reliably.
+    """
     for i in range(50):
         recurse(i)
