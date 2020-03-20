@@ -26,6 +26,8 @@ class Module(MixedModule):
         'release_lock':    'interp_imp.release_lock',
 
         '_fix_co_filename': 'interp_imp.fix_co_filename',
+
+        'source_hash':     'interp_imp.source_hash',
         }
 
     appleveldefs = {
