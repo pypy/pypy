@@ -190,7 +190,14 @@ def llexternal(name, args, result, _callable=None,
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_before(%(save_err)d)
-                res = funcptr(%(argnames)s)
+                if we_are_translated():
+                    res = funcptr(%(argnames)s)
+                else:
+                    try:    # only when non-translated
+                        res = funcptr(%(argnames)s)
+                    except:
+                        rgil.acquire()
+                        raise
                 if %(save_err)d:
                     from rpython.rlib import rposix
                     rposix._errno_after(%(save_err)d)
@@ -199,6 +206,7 @@ def llexternal(name, args, result, _callable=None,
         """ % locals())
         miniglobals = {'funcptr':     funcptr,
                        '__name__':    __name__, # for module name propagation
+                       'we_are_translated': we_are_translated,
                        }
         exec source.compile() in miniglobals
         call_external_function = miniglobals['call_external_function']
