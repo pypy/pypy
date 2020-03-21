@@ -450,11 +450,7 @@ class TestCall(BaseTestPyPyC):
             i34 = getfield_gc_i(p29, descr=<FieldU pypy.interpreter.executioncontext.ExecutionContext.inst_profilefunc .*>)
             i35 = int_is_zero(i34)
             guard_true(i35, descr=...)
-            p37 = getfield_gc_r(ConstPtr(ptr36), descr=<FieldP pypy.interpreter.nestedscope.Cell.inst_w_value .*>)
-            guard_nonnull_class(p37, ConstClass(W_IntObject), descr=...)
-            i39 = getfield_gc_i(p37, descr=<FieldS pypy.objspace.std.intobject.W_IntObject.inst_intval .*>)
-            i40 = int_add_ovf(i22, i39)
-            guard_no_overflow(descr=...)
+            i40 = int_add(i22, 5)
             --TICK--
         """)
 
@@ -632,3 +628,19 @@ class TestCall(BaseTestPyPyC):
                 i += 1
             return 13
         """, [1000])
+
+
+    def test_nonstd_jitdriver_distinguishes_map(self):
+        log = self.run("""
+        def f(a):
+            return a + 1
+        def g(a):
+            return a + 2
+        def main():
+            # test the "contains" jitdriver, but the others are the same
+            res = (9999 in map(f, range(100000)))
+            res += (9999 in map(g, range(200000)))
+            return res
+        """, [])
+        # as opposed to one loop, one bridge  (the third loop is tuple.contains)
+        assert len(log.loops) == 3

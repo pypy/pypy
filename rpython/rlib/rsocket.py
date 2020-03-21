@@ -467,6 +467,9 @@ if HAS_AF_NETLINK:
 
 # ____________________________________________________________
 
+HAVE_SOCK_NONBLOCK = "SOCK_NONBLOCK" in constants
+HAVE_SOCK_CLOEXEC = "SOCK_CLOEXEC" in constants
+
 def familyclass(family):
     return _FAMILIES.get(family, Address)
 af_get = familyclass
@@ -526,7 +529,7 @@ class RSocket(object):
                  fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socket() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -549,8 +552,15 @@ class RSocket(object):
         self.fd = fd
         self.family = family
         self.type = type
+        if HAVE_SOCK_CLOEXEC:
+            self.type &= ~SOCK_CLOEXEC
+        if HAVE_SOCK_NONBLOCK:
+            self.type &= ~SOCK_NONBLOCK
         self.proto = proto
-        self.settimeout(defaults.timeout)
+        if HAVE_SOCK_NONBLOCK and type & SOCK_NONBLOCK:
+            self.timeout = 0.0
+        else:
+            self.settimeout(defaults.timeout)
 
     @staticmethod
     def empty_rsocket():
@@ -659,7 +669,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             remove_inheritable = not inheritable
-            if (not inheritable and 'SOCK_CLOEXEC' in constants
+            if (not inheritable and HAVE_SOCK_CLOEXEC
                     and _c.HAVE_ACCEPT4
                     and _accept4_syscall.attempt_syscall()):
                 newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
@@ -1380,7 +1390,7 @@ if hasattr(_c, 'socketpair'):
         try:
             res = -1
             remove_inheritable = not inheritable
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socketpair() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -1643,6 +1653,34 @@ def getnameinfo(address, flags):
             lltype.free(serv, flavor='raw')
     finally:
         lltype.free(host, flavor='raw')
+
+@jit.dont_look_inside
+def getsockopt_int(fd, level, option):
+    # XXX almost the same code as RSocket.getsockopt_int
+    # some win32 calls use only a byte to represent a bool
+    # zero out so the result is correct anyway
+    with lltype.scoped_alloc(rffi.INTP.TO, n=1, zero=True) as flag_p, \
+            lltype.scoped_alloc(_c.socklen_t_ptr.TO) as flagsize_p:
+        flagsize_p[0] = rffi.cast(_c.socklen_t, rffi.sizeof(rffi.INT))
+        res = _c.socketgetsockopt(fd, level, option,
+                                  rffi.cast(rffi.VOIDP, flag_p),
+                                  flagsize_p)
+        if res < 0:
+            raise last_error()
+        result = rffi.cast(lltype.Signed, flag_p[0])
+    return result
+
+@jit.dont_look_inside
+def get_socket_family(fd):
+    """Return the family of a file descriptor."""
+    with lltype.scoped_alloc(_c.sockaddr, zero=True) as addr_p, lltype.scoped_alloc(_c.socklen_t_ptr.TO) as addrlen_p:
+        addrlen_p[0] = rffi.cast(_c.socklen_t, sizeof(_c.sockaddr))
+        res = _c.socketgetsockname(fd, addr_p, addrlen_p)
+        addrlen = addrlen_p[0]
+        result = rffi.cast(lltype.Signed, addr_p.c_sa_family)
+        if res < 0:
+            raise last_error()
+    return result
 
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):

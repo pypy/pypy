@@ -64,6 +64,8 @@ except ImportError:
 import errno
 import sys
 
+_MACOSX = sys.platform == 'darwin'
+
 DEBUG = False       # dump exceptions before calling the except hook
 
 originalexcepthook = sys.__excepthook__
@@ -596,10 +598,17 @@ def run_command_line(interactive,
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
+        if _MACOSX:
+            # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
+            # since it (possibly) results in a wrong sys.prefix and
+            # sys.exec_prefix (and consequently sys.path) set by site.py.
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             print("'import site' failed", file=sys.stderr)
+        if _MACOSX and old_pyvenv_launcher:
+            os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:

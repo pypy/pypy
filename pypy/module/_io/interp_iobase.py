@@ -271,7 +271,14 @@ class W_IOBase(W_Root):
 
         length = 0
         lines_w = []
-        for w_line in space.iteriterable(self):
+        w_iterator = space.iter(self)
+        while 1:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
             lines_w.append(w_line)
             length += space.len_w(w_line)
             if length > hint:

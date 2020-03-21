@@ -45,6 +45,8 @@ class Module(MixedModule):
             Module.interpleveldefs[name] = 'interp_func.%s' % (name, )
 
         for constant, value in rsocket.constants.iteritems():
+            if constant in ("SOCK_NONBLOCK", ):
+                continue
             Module.interpleveldefs[constant] = "space.wrap(%r)" % value
         super(Module, cls).buildloaders()
     buildloaders = classmethod(buildloaders)

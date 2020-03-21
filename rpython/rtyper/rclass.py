@@ -416,6 +416,9 @@ class ClassRepr(Repr):
             v_cls1, v_cls2 = hop.inputargs(class_repr, class_repr)
             return hop.gendirectcall(ll_issubclass, v_cls1, v_cls2)
 
+    def ll_str(self, cls):
+        return cls.name
+
 
 class RootClassRepr(ClassRepr):
     """ClassRepr for the root of the class hierarchy"""

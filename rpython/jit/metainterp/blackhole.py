@@ -53,12 +53,10 @@ class BlackholeInterpBuilder(object):
         self.setup_descrs(asm.descrs)
         self.metainterp_sd = metainterp_sd
         self.num_interpreters = 0
-        self.blackholeinterps = []
+        self.blackholeinterps = None
 
     def _cleanup_(self):
-        # XXX don't assign a different list to blackholeinterp here,
-        # it confuses the annotator a lot
-        del self.blackholeinterps[:]
+        self.blackholeinterps = None
 
     def setup_insns(self, insns):
         assert len(insns) <= 256, "too many instructions!"
@@ -239,15 +237,18 @@ class BlackholeInterpBuilder(object):
         return handler
 
     def acquire_interp(self):
-        if len(self.blackholeinterps) > 0:
-            return self.blackholeinterps.pop()
+        res = self.blackholeinterps
+        if res is not None:
+            self.blackholeinterps = res.back
+            return res
         else:
             self.num_interpreters += 1
             return BlackholeInterpreter(self, self.num_interpreters)
 
     def release_interp(self, interp):
         interp.cleanup_registers()
-        self.blackholeinterps.append(interp)
+        interp.back = self.blackholeinterps
+        self.blackholeinterps = interp
 
 def check_shift_count(b):
     if not we_are_translated():
@@ -297,6 +298,7 @@ class BlackholeInterpreter(object):
         self.tmpreg_r = default_r
         self.tmpreg_f = default_f
         self.jitcode = None
+        self.back = None # chain unused interpreters together via this
         check_annotation(self.registers_i, check_list_of_plain_integers)
 
     def __repr__(self):

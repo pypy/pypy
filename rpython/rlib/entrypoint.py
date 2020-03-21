@@ -60,7 +60,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
 
         def wrapper(%(args)s):
             # acquire the GIL
-            rgil.acquire()
+            rgil.acquire_maybe_in_new_thread()
             #
             llop.gc_stack_bottom(lltype.Void)   # marker to enter RPython from C
             # this should not raise

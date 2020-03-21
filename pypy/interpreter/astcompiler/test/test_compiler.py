@@ -1255,6 +1255,27 @@ class TestCompiler(BaseTestCompiler):
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
 
+    def test_func_defaults_lineno(self):
+        # like CPython 3.6.9 (at least), check that '''def f(
+        #            x = 5,
+        #            y = 6,
+        #            ):'''
+        # generates the tuple (5, 6) as a constant for the defaults,
+        # but with the lineno for the last item (here the 6).  There
+        # is no lineno for the other items, of course, because the
+        # complete tuple is loaded with just one LOAD_CONST.
+        yield self.simple_test, """\
+            def fdl():      # line 1
+                def f(      # line 2
+                    x = 5,  # line 3
+                    y = 6   # line 4
+                    ):      # line 5
+                    pass    # line 6
+            import dis
+            co = fdl.__code__
+            x = [y for (x, y) in dis.findlinestarts(co)]
+        """, 'x', [4]
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
@@ -1297,15 +1318,24 @@ class AppTestCompiler:
     # BUILD_LIST_FROM_ARG is PyPy specific
     @py.test.mark.skipif('config.option.runappdirect')
     def test_build_list_from_arg_length_hint(self):
-        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
         hint_called = [False]
         class Foo(object):
+            def __iter__(self):
+                return FooIter()
+        class FooIter:
+            def __init__(self):
+                self.i = 0
             def __length_hint__(self):
                 hint_called[0] = True
                 return 5
             def __iter__(self):
-                for i in range(5):
-                    yield i
+                return self
+            def __next__(self):
+                if self.i < 5:
+                    res = self.i
+                    self.i += 1
+                    return res
+                raise StopIteration
         l = [a for a in Foo()]
         assert hint_called[0]
         assert l == list(range(5))

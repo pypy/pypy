@@ -155,7 +155,8 @@ def build_class(space, w_func, w_name, __args__):
         # give a more comprehensible error message for TypeErrors
         if e.got_any_traceback():
             raise
-        if not e.match(space, space.w_TypeError):
+        if (not e.match(space, space.w_TypeError) or
+                space.is_w(w_meta, space.w_type)):
             raise
         raise oefmt(space.w_TypeError,
             "metaclass found to be '%N', but calling %R "

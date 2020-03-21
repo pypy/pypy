@@ -722,6 +722,10 @@ class AbstractX86CodeBuilder(object):
     # a breakpoint
     INT3 = insn('\xCC')
 
+    LOCK = insn('\xF0')
+    CMPXCHG_jr = insn(rex_w, '\x0F\xB1', register(2,8), abs_(1))
+    CMPXCHG_mr = insn(rex_w, '\x0F\xB1', register(2,8), mem_reg_plus_const(1))
+
     # ------------------------------ SSE2 ------------------------------
 
     # Conversion

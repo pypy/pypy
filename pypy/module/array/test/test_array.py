@@ -114,6 +114,18 @@ class AppTestArray(object):
             assert a[2] == 2.5
             assert len(a) == len(values)
 
+    def test_nan(self):
+        for tc in 'fd':
+            a = self.array(tc, [float('nan')])
+            b = self.array(tc, [float('nan')])
+            assert not a == b
+            assert a != b
+            assert not a > b
+            assert not a >= b
+            assert not a < b
+            assert not a <= b
+            assert a.count(float('nan')) == 0
+
     def test_itemsize(self):
         for t in 'bB':
             assert(self.array(t).itemsize >= 1)

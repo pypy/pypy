@@ -46,8 +46,15 @@ INSTALL_SCHEMES = {
     'pypy': {
         'purelib': '$base/site-packages',
         'platlib': '$base/site-packages',
-        'headers': '$base/include',
+        'headers': '$base/include/$dist_name',
         'scripts': '$base/bin',
+        'data'   : '$base',
+        },
+    'pypy_nt': {
+        'purelib': '$base/site-packages',
+        'platlib': '$base/site-packages',
+        'headers': '$base/include/$dist_name',
+        'scripts': '$base/Scripts',
         'data'   : '$base',
         },
     }
@@ -462,8 +469,11 @@ class install(Command):
         """Sets the install directories by applying the install schemes."""
         # it's the caller's problem if they supply a bad name!
         if (hasattr(sys, 'pypy_version_info') and
-            not name.endswith(('_user', '_home'))):
-            name = 'pypy'
+                not name.endswith(('_user', '_home'))):
+            if os.name == 'nt':
+                name = 'pypy_nt'
+            else:
+                name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:
             attrname = 'install_' + key

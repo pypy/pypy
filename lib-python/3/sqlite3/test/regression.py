@@ -127,6 +127,7 @@ class RegressionTests(unittest.TestCase):
         con.execute("create table foo(bar timestamp)")
         con.execute("insert into foo(bar) values (?)", (datetime.datetime.now(),))
         con.execute(SELECT)
+        support.gc_collect()  # PyPy change
         con.execute("drop table foo")
         con.execute("create table foo(bar integer)")
         con.execute("insert into foo(bar) values (5)")

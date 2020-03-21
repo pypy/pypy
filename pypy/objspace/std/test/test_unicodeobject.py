@@ -26,7 +26,7 @@ class TestUnicodeObject:
         s2 = unicode_to_decimal_w(space, w_s)
         assert s2 == "10"
 
-    def test_listview_unicode(self):
+    def test_listview_ascii(self):
         w_str = self.space.newutf8('abcd', 4)
         assert self.space.listview_ascii(w_str) == list("abcd")
 
@@ -145,13 +145,20 @@ class AppTestUnicodeString:
             assert a == b
             assert type(a) == type(b)
         check(', '.join(['a']), 'a')
+        check(', '.join(['a', 'b']), 'a, b')
         raises(TypeError, ','.join, [b'a'])
-        exc = raises(TypeError, ''.join, ['a', 2, 3])
+        check(','.join(iter([])), '')
+        with raises(TypeError) as exc:
+            ''.join(['a', 2, 3])
+        assert 'sequence item 1' in str(exc.value)
+        with raises(TypeError) as exc:
+            ''.join(iter(['a', 2, 3]))
         assert 'sequence item 1' in str(exc.value)
         # unicode lists
         check(''.join(['\u1234']), '\u1234')
         check(''.join(['\u1234', '\u2345']), '\u1234\u2345')
         check('\u1234'.join(['\u2345', '\u3456']), '\u2345\u1234\u3456')
+        check('x\u1234y'.join(['a', 'b', 'c']), 'ax\u1234ybx\u1234yc')
         # also checking passing a single unicode instead of a list
         check(''.join('\u1234'), '\u1234')
         check(''.join('\u1234\u2345'), '\u1234\u2345')
@@ -252,6 +259,9 @@ class AppTestUnicodeString:
         assert u'  a b c  '.rsplit(None, 0) == [u'  a b c']
         assert u''.rsplit('aaa') == [u'']
         assert u'a\nb\u1680c'.rsplit() == [u'a', u'b', u'c']
+
+    def test_rsplit_bug(self):
+        assert u'Vestur- og Mið'.rsplit() == [u'Vestur-', u'og', u'Mið']
 
     def test_center(self):
         s=u"a b"
@@ -1278,6 +1288,15 @@ class AppTestUnicodeString:
         assert str(e.value) == 'decoding str is not supported'
         e = raises(TypeError, str, z, 'supposedly_the_encoding')
         assert str(e.value) == 'decoding str is not supported'
+        #
+        e = raises(TypeError, str, 42, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not int',
+            'decoding to str: need a bytes-like object, int found']
+        e = raises(TypeError, str, None, 'supposedly_the_encoding')
+        assert str(e.value) in [
+            'decoding to str: a bytes-like object is required, not None',
+            'decoding to str: need a bytes-like object, NoneType found']
 
     def test_reduce_iterator(self):
         it = iter(u"abcdef")

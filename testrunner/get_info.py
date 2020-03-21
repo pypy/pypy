@@ -10,18 +10,20 @@ import json
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 if sys.platform.startswith('win'):
     TARGET_NAME = r'pypy3-c.exe'
-    # PyPy uses bin as of PR https://github.com/pypa/virtualenv/pull/1400
-    TARGET_DIR = 'bin'
+    VENV_TARGET = 'pypy3.exe'
+    TARGET_DIR = 'Scripts'
 else:
     TARGET_NAME = 'pypy3-c'
+    VENV_TARGET = 'pypy3'
     TARGET_DIR = 'bin'
 VENV_DIR = 'pypy-venv'
 
 def make_info_dict():
     target_path = os.path.join(BASE_DIR, 'pypy', 'goal', TARGET_NAME)
     return {'target_path': target_path,
-            'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, TARGET_NAME),
+            'virt_pypy': os.path.join(VENV_DIR, TARGET_DIR, VENV_TARGET),
             'venv_dir': VENV_DIR,
+            'project': 'PyPy3.6', # for benchmarks
            }
 
 def dump_info():

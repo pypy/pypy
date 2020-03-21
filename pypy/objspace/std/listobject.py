@@ -130,26 +130,26 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     return space.fromcache(ObjectListStrategy)
 
 
-def _get_printable_location(w_type):
-    return ('list__do_extend_from_iterable [w_type=%s]' %
-            w_type.getname(w_type.space))
+def _get_printable_location(strategy_type, greenkey):
+    return 'list__do_extend_from_iterable [%s, %s]' % (
+        strategy_type,
+        greenkey.iterator_greenkey_printable())
 
 
 _do_extend_jitdriver = jit.JitDriver(
     name='list__do_extend_from_iterable',
-    greens=['w_type'],
-    reds=['i', 'w_iterator', 'w_list'],
+    greens=['strategy_type', 'greenkey'],
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _do_extend_from_iterable(space, w_list, w_iterable):
     w_iterator = space.iter(w_iterable)
-    w_type = space.type(w_iterator)
+    greenkey = space.iterator_greenkey(w_iterator)
     i = 0
     while True:
-        _do_extend_jitdriver.jit_merge_point(w_type=w_type,
-                                             i=i,
-                                             w_iterator=w_iterator,
-                                             w_list=w_list)
+        _do_extend_jitdriver.jit_merge_point(
+                greenkey=greenkey,
+                strategy_type=type(w_list.strategy))
         try:
             w_list.append(space.next(w_iterator))
         except OperationError as e:
@@ -726,7 +726,9 @@ Raises ValueError if the value is not present."""
         if mucked:
             raise oefmt(space.w_ValueError, "list modified during sort")
 
-find_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto', name = 'list.find')
+def get_printable_location(strategy_type, tp):
+    return "list.find [%s, %s]" % (strategy_type, tp.getname(tp.space), )
+find_jmp = jit.JitDriver(greens=['strategy_type', 'tp'], reds='auto', name='list.find', get_printable_location=get_printable_location)
 
 class ListStrategy(object):
 
@@ -754,7 +756,7 @@ class ListStrategy(object):
         # needs to be safe against eq_w mutating stuff
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
-            find_jmp.jit_merge_point(tp=tp)
+            find_jmp.jit_merge_point(tp=tp, strategy_type=type(self))
             if space.eq_w(w_item, w_list.getitem(i)):
                 return i
             i += 1

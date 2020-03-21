@@ -248,7 +248,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
-                    include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                    include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
                 from extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_module(

@@ -48,11 +48,20 @@ cmdline_optiondescr = OptionDescription("interactive", "the options of pyinterac
 pypy_init = gateway.applevel('''
 def pypy_init(import_site):
     if import_site:
+        import os, sys
+        _MACOSX = sys.platform == 'darwin'
+        if _MACOSX:
+            # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
+            # since it (possibly) results in a wrong sys.prefix and
+            # sys.exec_prefix (and consequently sys.path).
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             import sys
             print("'import site' failed", file=sys.stderr)
+        if _MACOSX and old_pyvenv_launcher:
+            os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 ''').interphook('pypy_init')
 
 

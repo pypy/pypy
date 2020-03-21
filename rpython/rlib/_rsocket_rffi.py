@@ -179,7 +179,7 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
-SOCK_CLOEXEC
+SOCK_CLOEXEC SOCK_NONBLOCK
 
 SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
@@ -207,6 +207,8 @@ WSA_FLAG_OVERLAPPED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME SIOCGIFINDEX
+
+SO_DOMAIN SO_PROTOCOL SO_PEERSEC SO_PASSSEC TCP_USER_TIMEOUT TCP_CONGESTION
 '''.split()
 
 for name in constant_names:
@@ -214,8 +216,8 @@ for name in constant_names:
 
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
-    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
-        setattr(CConfig, name, platform.ConstantInteger(name))
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN'):
+        setattr(CConfig, name, platform.DefinedConstantInteger(name))
         constant_names.append(name)
 
 constants["BDADDR_ANY"] =  "00:00:00:00:00:00"

@@ -139,7 +139,7 @@ def rsplit(value, by=None, maxsplit=-1, isutf8=False):
     if by is None:
         res = []
 
-        i = len(value) - 1
+        i = _decr(value, len(value), isutf8)
         while True:
             # starting from the end, find the end of the next word
             while i >= 0:
@@ -509,11 +509,11 @@ class NumberStringParser:
             end = len(s)
         self.end = end
         self._strip_spaces()
-        if self._startswith('-'):
+        if self._startswith1('-'):
             sign = -1
             self.start += 1
             self._strip_spaces()
-        elif self._startswith('+'):
+        elif self._startswith1('+'):
             self.start += 1
             self._strip_spaces()
         self.sign = sign
@@ -521,38 +521,46 @@ class NumberStringParser:
         self.allow_underscores = allow_underscores
 
         if base == 0:
-            if self._startswith('0x') or self._startswith('0X'):
+            if self._startswith2('0x') or self._startswith2('0X'):
                 base = 16
-            elif self._startswith('0b') or self._startswith('0B'):
+            elif self._startswith2('0b') or self._startswith2('0B'):
                 base = 2
-            elif self._startswith('0'): # also covers the '0o' case
-                if no_implicit_octal and not (self._startswith('0o') or
-                                              self._startswith('0O')):
+            elif self._startswith1('0'): # also covers the '0o' case
+                if no_implicit_octal and not (self._startswith2('0o') or
+                                              self._startswith2('0O')):
                     base = 1    # this makes only the digit '0' valid...
                 else:
                     base = 8
             else:
                 base = 10
         elif base < 2 or base > 36:
-            raise InvalidBaseError("%s() base must be >= 2 and <= 36" % fname)
+            raise InvalidBaseError("%s() base must be >= 2 and <= 36, or 0" % fname)
         self.base = base
 
         # Leading underscores are not allowed
-        if self._startswith('_'):
+        if self._startswith1('_'):
             self.error()
 
-        if base == 16 and (self._startswith('0x') or self._startswith('0X')):
+        if base == 16 and (self._startswith2('0x') or self._startswith2('0X')):
             self.start += 2
-        if base == 8 and (self._startswith('0o') or self._startswith('0O')):
+        if base == 8 and (self._startswith2('0o') or self._startswith2('0O')):
             self.start += 2
-        if base == 2 and (self._startswith('0b') or self._startswith('0B')):
+        if base == 2 and (self._startswith2('0b') or self._startswith2('0B')):
             self.start += 2
         if self.start == self.end:
             self.error()
         self.i = self.start
 
-    def _startswith(self, prefix):
+    def _startswith1(self, prefix):
+        if self.start >= self.end:
+            return False
+        return self.s[self.start] == prefix[0]
         return startswith(self.s, prefix, start=self.start, end=self.end)
+
+    def _startswith2(self, prefix):
+        if self.start + 1 >= self.end:
+            return False
+        return self.s[self.start] == prefix[0] and self.s[self.start + 1] == prefix[1]
 
     def _strip_spaces(self):
         # XXX this is not locale-dependent

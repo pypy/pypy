@@ -6,7 +6,7 @@ import sys
 from collections import defaultdict
 import operator
 import re
-import mercurial.localrepo
+import mercurial.hg
 import mercurial.ui
 
 ROOT = py.path.local(__file__).join('..', '..', '..', '..')
@@ -132,7 +132,7 @@ def get_more_authors(log):
 
 def main(show_numbers):
     ui = mercurial.ui.ui()
-    repo = mercurial.localrepo.localrepository(ui, str(ROOT))
+    repo = mercurial.hg.repository(ui, str(ROOT))
     authors_count = defaultdict(int)
     for i in repo:
         ctx = repo[i]

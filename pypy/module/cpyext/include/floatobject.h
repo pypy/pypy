@@ -33,8 +33,8 @@ typedef struct {
         } while(0)
 
 #define PyFloat_Check(op) \
-		 _PyPy_Type_FastSubclass((op)->ob_type, Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
-#define PyFloat_CheckExact(op) ((op)->ob_type == &PyFloat_Type)
+		 _PyPy_Type_FastSubclass(Py_TYPE(op), Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
+#define PyFloat_CheckExact(op) (Py_TYPE(op) == &PyFloat_Type)
 
 
 #ifdef __cplusplus
