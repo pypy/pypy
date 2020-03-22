@@ -1658,6 +1658,9 @@ class AppTestListObject(object):
             assert L3.index(0.0, i) == i
             assert L3.index(-0.0, i) == i
 
+    def test_list_new_pos_only(self):
+        with raises(TypeError):
+            list(sequence=[])
 
 class AppTestWithoutStrategies:
     spaceconfig = {"objspace.std.withliststrategies": False}
