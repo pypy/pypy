@@ -30,6 +30,7 @@ import string
 import sys
 import weakref
 import threading
+import os
 
 try:
     from __pypy__ import newlist_hint, add_memory_pressure
@@ -211,8 +212,7 @@ class Connection(object):
         self.__initialized = True
         db_star = _ffi.new('sqlite3 **')
 
-        if isinstance(database, unicode):
-            database = database.encode('utf-8')
+        database = os.fsencode(database)
         if _lib.SQLITE_OPEN_URI != 0:
             if uri and _lib.SQLITE_OPEN_URI == 0:
                 raise NotSupportedError("URIs not supported")

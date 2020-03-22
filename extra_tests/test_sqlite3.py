@@ -331,3 +331,9 @@ def test_cursor_del(con):
     con.execute("SELECT * FROM foo")
     import gc; gc.collect()
     con.execute("DROP TABLE foo")  # no error
+
+def test_open_path():
+    class P:
+        def __fspath__(self):
+            return b":memory:"
+    _sqlite3.connect(P())
