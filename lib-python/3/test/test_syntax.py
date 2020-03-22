@@ -134,25 +134,25 @@ From ast_for_call():
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 >>> f(x for x in L, 1)
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(x for x in L, y=1)
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(x for x in L, *[])
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(x for x in L, **{})
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(L, x for x in L)
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(x for x in L, y for y in L)
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f(x for x in L,)
 Traceback (most recent call last):
-SyntaxError: Generator expression must be parenthesized
+SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f((x for x in L), 1)
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 >>> class C(x for x in L):

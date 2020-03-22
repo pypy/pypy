@@ -610,19 +610,14 @@ class AppTestSocket:
 
     def test_recvmsg_issue2649(self):
         import _socket as socket
-        listener = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
+        listener = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        listener.bind(('::1', 1234))
+        listener.bind(('127.0.0.1', 1234))
 
-        s = socket.socket(family=socket.AF_INET6, type=socket.SOCK_DGRAM)
-        IPV6_RECVERR = 25
-        s.setsockopt(socket.IPPROTO_IPV6, IPV6_RECVERR, 1)
-
-        s.sendto(b'x', ('::1', 1234))
-        try:
+        s = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
+        s.sendto(b'x', ('127.0.0.1', 1234))
+        with raises(BlockingIOError):
             queue = s.recvmsg(1024, 1024, socket.MSG_ERRQUEUE)
-        except BlockingIOError as e:
-            assert True
 
     def test_buffer(self):
         # Test that send/sendall/sendto accept a buffer as arg
@@ -758,6 +753,68 @@ class AppTestSocket:
         s.close()
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
+    def test_socket_close(self):
+        import _socket
+        sock = _socket.socket()
+        try:
+            sock.bind(('localhost', 0))
+            _socket.close(sock.fileno())
+            with raises(OSError):
+                sock.listen(1)
+            with raises(OSError):
+                _socket.close(sock.fileno())
+        finally:
+            with raises(OSError):
+                sock.close()
+
+    def test_socket_get_values_from_fd(self):
+        import _socket
+        if hasattr(_socket, "SOCK_DGRAM"):
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+            try:
+                s.bind(('localhost', 0))
+                fd = s.fileno()
+                s2 = _socket.socket(fileno=fd)
+                try:
+                    # detach old fd to avoid double close
+                    s.detach()
+                    assert s2.fileno() == fd
+                    assert s2.family == _socket.AF_INET
+                    assert s2.type == _socket.SOCK_DGRAM
+
+                finally:
+                    s2.close()
+            finally:
+                s.close()
+
+    def test_socket_init_non_blocking(self):
+        import _socket
+        if not hasattr(_socket, "SOCK_NONBLOCK"):
+            skip("no SOCK_NONBLOCK")
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM |
+                                            _socket.SOCK_NONBLOCK)
+        assert s.getblocking() == False
+        assert s.gettimeout() == 0.0
+
+    def test_socket_consistent_sock_type(self):
+        import _socket
+        SOCK_NONBLOCK = getattr(_socket, 'SOCK_NONBLOCK', 0)
+        SOCK_CLOEXEC = getattr(_socket, 'SOCK_CLOEXEC', 0)
+        sock_type = _socket.SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC
+
+        s = _socket.socket(_socket.AF_INET, sock_type)
+        try:
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(1)
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(0)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(True)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(False)
+            assert s.type == _socket.SOCK_STREAM
+        finally:
+            s.close()
 
 @pytest.mark.skipif(not hasattr(os, 'getpid'),
     reason="AF_NETLINK needs os.getpid()")
@@ -890,6 +947,12 @@ class AppTestSocketTCP:
         cli.close()
         t.close()
 
+    def test_getblocking(self):
+        self.serv.setblocking(True)
+        assert self.serv.getblocking()
+        self.serv.setblocking(False)
+        assert not self.serv.getblocking()
+
     def test_recv_into(self):
         import socket
         import array
@@ -984,6 +1047,12 @@ class AppTestSocketTCP:
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.bind(bytearray(b"\x00python\x00test\x00"))
         assert s.getsockname() == b"\x00python\x00test\x00"
+
+    def test_no_socket_cloexec_non_block(self):
+        import _socket
+        #assert not hasattr(_socket, "SOCK_CLOEXEC") # not in py 2
+        #assert not hasattr(_socket, "SOCK_NONBLOCK") # 3.7 only
+
 
 class AppTestErrno:
     spaceconfig = {'usemodules': ['_socket', 'select']}

@@ -343,7 +343,6 @@ class TestPythonAstCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
-        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -365,18 +364,6 @@ def wrong3():
     print x
     x = 2
     global x
-''', '''
-def wrong_listcomp():
-    return [(yield 42) for i in j]
-''', '''
-def wrong_gencomp():
-    return ((yield 42) for i in j)
-''', '''
-def wrong_dictcomp():
-    return {(yield 42):2 for i in j}
-''', '''
-def wrong_setcomp():
-    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)
@@ -1019,6 +1006,27 @@ class AppTestCompiler(object):
                "dummy", "exec")
         assert excinfo.value.lineno == 2
         assert excinfo.value.offset == 14
+
+    def test_zeros_not_mixed_in_lambdas(self):
+        import math
+        code = compile("x = lambda: -0.0; y = lambda: 0.0", "<test>", "exec")
+        consts = code.co_consts
+        x, _, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x != y
+
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_dont_share_lambdas(self):
+        # the two lambdas's codes aren't shared (CPython does that but it's
+        # completely pointless: it only applies to identical lambdas that are
+        # defined on the same line)
+        code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
+        consts = code.co_consts
+        x, _, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x == y
 
     def test_dict_and_set_literal_order(self):
         x = 1

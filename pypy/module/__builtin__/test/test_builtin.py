@@ -286,16 +286,19 @@ class AppTestBuiltinApp:
                 self.value = 0
             def __call__(self):
                 self.value += 1
+                if self.value > 10:
+                    raise StopIteration
                 return self.value
-        # XXX Raising errors is quite slow --
-        #            uncomment these lines when fixed
-        #self.assertRaises(TypeError,iter,3,5)
-        #self.assertRaises(TypeError,iter,[],5)
-        #self.assertRaises(TypeError,iter,{},5)
+        with raises(TypeError):
+            iter(3, 5)
+
         x = iter(count(),3)
         assert next(x) ==1
         assert next(x) ==2
         raises(StopIteration, next, x)
+
+        # a case that runs till the end
+        assert list(iter(count(), 100)) == [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
     def test_enumerate(self):
         import sys

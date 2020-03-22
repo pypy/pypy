@@ -516,3 +516,13 @@ class AppTestInterpreter:
         else:
             assert False, "Expected ValueError"
             """
+
+    def test_errormsg_unpacking(self):
+        with raises(TypeError) as excinfo:
+            a, b, c = 1
+        assert str(excinfo.value) == "cannot unpack non-iterable int object"
+
+        with raises(TypeError) as excinfo:
+            for a, b in range(10):
+                pass
+        assert str(excinfo.value) == "cannot unpack non-iterable int object"

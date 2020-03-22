@@ -195,7 +195,7 @@ class W_FileIO(W_RawIOBase):
                             break
                         except OSError as e:
                             wrap_oserror2(space, e, w_name,
-                                          exception_name='w_IOError',
+                                          w_exception_class=space.w_IOError,
                                           eintr_retry=True)
                     try:
                          _open_inhcache.set_non_inheritable(self.fd)
@@ -235,7 +235,7 @@ class W_FileIO(W_RawIOBase):
             # directories, so we need a check.
             if stat.S_ISDIR(st.st_mode):
                 raise wrap_oserror2(space, OSError(errno.EISDIR, "fstat"),
-                                    w_name, exception_name='w_IOError',
+                                    w_name, w_exception_class=space.w_IOError,
                                     eintr_retry=False)
             self.blksize = DEFAULT_BUFFER_SIZE
             if HAS_BLKSIZE and st.st_blksize > 1:
@@ -251,7 +251,7 @@ class W_FileIO(W_RawIOBase):
                 try:
                     os.lseek(self.fd, 0, os.SEEK_END)
                 except OSError as e:
-                    raise wrap_oserror(space, e, exception_name='w_IOError',
+                    raise wrap_oserror(space, e, w_exception_class=space.w_IOError,
                                        eintr_retry=False)
         except:
             if not fd_is_own:
@@ -311,7 +311,7 @@ class W_FileIO(W_RawIOBase):
             os.close(fd)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError',
+                               w_exception_class=space.w_IOError,
                                eintr_retry=False)
 
     def close_w(self, space):
@@ -346,7 +346,7 @@ class W_FileIO(W_RawIOBase):
             pos = os.lseek(self.fd, pos, whence)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError',
+                               w_exception_class=space.w_IOError,
                                eintr_retry=False)
         return space.newint(pos)
 
@@ -356,7 +356,7 @@ class W_FileIO(W_RawIOBase):
             pos = os.lseek(self.fd, 0, 1)
         except OSError as e:
             raise wrap_oserror(space, e,
-                               exception_name='w_IOError',
+                               w_exception_class=space.w_IOError,
                                eintr_retry=False)
         return space.newint(pos)
 
@@ -390,7 +390,7 @@ class W_FileIO(W_RawIOBase):
         try:
             res = os.isatty(self.fd)
         except OSError as e:
-            raise wrap_oserror(space, e, exception_name='w_IOError',
+            raise wrap_oserror(space, e, w_exception_class=space.w_IOError,
                                eintr_retry=False)
         return space.newbool(res)
 
@@ -425,7 +425,7 @@ class W_FileIO(W_RawIOBase):
                 if e.errno == errno.EAGAIN:
                     return space.w_None
                 wrap_oserror(space, e,
-                             exception_name='w_IOError',
+                             w_exception_class=space.w_IOError,
                              eintr_retry=True)
 
         return space.newint(n)
@@ -446,7 +446,7 @@ class W_FileIO(W_RawIOBase):
                 if e.errno == errno.EAGAIN:
                     return space.w_None
                 wrap_oserror(space, e,
-                             exception_name='w_IOError',
+                             w_exception_class=space.w_IOError,
                              eintr_retry=True)
 
         return space.newbytes(s)
@@ -473,7 +473,7 @@ class W_FileIO(W_RawIOBase):
                 except OSError as e:
                     if e.errno == errno.EAGAIN:
                         return space.w_None
-                    wrap_oserror(space, e, exception_name='w_IOError',
+                    wrap_oserror(space, e, w_exception_class=space.w_IOError,
                                  eintr_retry=True)
             self.output_slice(space, rwbuffer, 0, buf)
             return space.newint(len(buf))
@@ -491,7 +491,7 @@ class W_FileIO(W_RawIOBase):
                     if err == errno.EAGAIN:
                         return space.w_None
                     e = OSError(err, "read failed")
-                    wrap_oserror(space, e, exception_name='w_IOError',
+                    wrap_oserror(space, e, w_exception_class=space.w_IOError,
                                  eintr_retry=True)
 
     def readall_w(self, space):
@@ -510,7 +510,7 @@ class W_FileIO(W_RawIOBase):
                     if total > 0:
                         break   # return what we've got so far
                     return space.w_None
-                wrap_oserror(space, e, exception_name='w_IOError',
+                wrap_oserror(space, e, w_exception_class=space.w_IOError,
                              eintr_retry=True)
                 continue
             if not chunk:
@@ -536,7 +536,7 @@ class W_FileIO(W_RawIOBase):
         try:
             self._truncate(space.r_longlong_w(w_size))
         except OSError as e:
-            raise wrap_oserror(space, e, exception_name='w_IOError',
+            raise wrap_oserror(space, e, w_exception_class=space.w_IOError,
                                eintr_retry=False)
 
         return w_size

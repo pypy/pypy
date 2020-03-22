@@ -100,6 +100,9 @@ class Module(MixedModule):
         'set_asyncgen_hooks'    : 'vm.set_asyncgen_hooks',
 
         'is_finalizing'         : 'vm.is_finalizing',
+
+        'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',
+        'set_coroutine_origin_tracking_depth': 'vm.set_coroutine_origin_tracking_depth',
         }
 
     if sys.platform == 'win32':

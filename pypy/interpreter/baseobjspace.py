@@ -22,12 +22,12 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
-def get_printable_location(tp):
-    return "unpackiterable: %s" % (tp, )
+def get_printable_location(greenkey):
+    return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
 
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
-                                      greens=['tp'],
-                                      reds=['items', 'w_iterator'],
+                                      greens=['greenkey'],
+                                      reds='auto',
                                       get_printable_location=get_printable_location)
 
 
@@ -348,23 +348,15 @@ class W_Root(object):
             return lst[:]
         return None
 
+    def iterator_greenkey(self, space):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return space.type(self)
 
-class InterpIterable(object):
-    def __init__(self, space, w_iterable):
-        self.w_iter = space.iter(w_iterable)
-        self.space = space
+    def iterator_greenkey_printable(self):
+        return "?"
 
-    def __iter__(self):
-        return self
-
-    def next(self):
-        space = self.space
-        try:
-            return space.next(self.w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise StopIteration
 
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
@@ -918,11 +910,23 @@ class ObjSpace(object):
                         w_obj.getclass(self))
         return w_obj
 
+    def _iter_unpackiterable(self, w_iterable):
+        try:
+            return self.iter(w_iterable)
+        except OperationError as e:
+            if e.got_any_traceback():
+                raise
+            if not e.match(self, self.w_TypeError):
+                raise
+            raise oefmt(self.w_TypeError,
+                    "cannot unpack non-iterable %T object",
+                    w_iterable)
+
     def unpackiterable(self, w_iterable, expected_length=-1):
         """Unpack an iterable into a real (interpreter-level) list.
 
         Raise an OperationError(w_ValueError) if the length is wrong."""
-        w_iterator = self.iter(w_iterable)
+        w_iterator = self._iter_unpackiterable(w_iterable)
         if expected_length == -1:
             if self.is_generator(w_iterator):
                 # special hack for speed
@@ -935,9 +939,6 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    def iteriterable(self, w_iterable):
-        return InterpIterable(self, w_iterable)
-
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
         list.
@@ -948,11 +949,9 @@ class ObjSpace(object):
         except MemoryError:
             items = [] # it might have lied
 
-        tp = self.type(w_iterator)
+        greenkey = self.iterator_greenkey(w_iterator)
         while True:
-            unpackiterable_driver.jit_merge_point(tp=tp,
-                                                  w_iterator=w_iterator,
-                                                  items=items)
+            unpackiterable_driver.jit_merge_point(greenkey=greenkey)
             try:
                 w_item = self.next(w_iterator)
             except OperationError as e:
@@ -999,7 +998,7 @@ class ObjSpace(object):
         # Like unpackiterable(), but for the cases where we have
         # an expected_length and want to unroll when JITted.
         # Returns a fixed-size list.
-        w_iterator = self.iter(w_iterable)
+        w_iterator = self._iter_unpackiterable(w_iterable)
         assert expected_length != -1
         return self._unpackiterable_known_length_jitlook(w_iterator,
                                                          expected_length)
@@ -1740,16 +1739,6 @@ class ObjSpace(object):
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
 
-    def utf8_0_w(self, w_obj):
-        "Like utf_w, but rejects strings with NUL bytes."
-        from rpython.rlib import rstring
-        result = w_obj.utf8_w(self)
-        if '\x00' in result:
-            raise oefmt(self.w_TypeError,
-                        "argument must be a string without NUL "
-                        "characters")
-        return rstring.assert_str0(result)
-
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
@@ -1986,6 +1975,12 @@ class ObjSpace(object):
         if not we_are_translated():
             assert self.issubtype_w(w_warningcls, self.w_Warning)
         do_warn(self, w_msg, w_warningcls, stacklevel - 1)
+
+    def iterator_greenkey(self, w_iterable):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return w_iterable.iterator_greenkey(self)
 
 
 class AppExecCache(SpaceCache):

@@ -1174,6 +1174,7 @@ class JSONMap(MapBase):
             res += ", fillcolor=lightslategray"
         return res
 
+@jit.dont_look_inside
 def loads(space, w_s, w_errorcls=None):
     s = space.text_w(w_s)
     decoder = JSONDecoder(space, s)

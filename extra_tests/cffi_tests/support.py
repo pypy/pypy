@@ -2,7 +2,7 @@
 import sys, os
 
 if sys.version_info < (3,):
-    __all__ = ['u']
+    __all__ = ['u', 'arraytostring']
 
     class U(object):
         def __add__(self, other):
@@ -13,12 +13,16 @@ if sys.version_info < (3,):
     assert u+'a\x00b' == eval(r"u'a\x00b'")
     assert u+'a\u1234b' == eval(r"u'a\u1234b'")
     assert u+'a\U00012345b' == eval(r"u'a\U00012345b'")
+    def arraytostring(a):
+        return a.tostring()
 
 else:
-    __all__ = ['u', 'unicode', 'long']
+    __all__ = ['u', 'unicode', 'long', 'arraytostring']
     u = ""
     unicode = str
     long = int
+    def arraytostring(a):
+        return a.tobytes()
 
 
 class StdErrCapture(object):
@@ -100,6 +104,7 @@ else:
           [int(x) for x in os.uname()[2].split('.')] >= [11, 0, 0]):
         # assume a standard clang or gcc
         extra_compile_args = ['-Werror', '-Wall', '-Wextra', '-Wconversion',
+                              '-Wno-unused-parameter',
                               '-Wno-unreachable-code']
         # special things for clang
         extra_compile_args.append('-Qunused-arguments')

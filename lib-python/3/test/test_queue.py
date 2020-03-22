@@ -539,6 +539,7 @@ class BaseSimpleQueueTest:
             q.put(C())
         for i in range(N):
             wr = weakref.ref(q.get())
+            support.gc_collect()
             self.assertIsNone(wr())
 
 

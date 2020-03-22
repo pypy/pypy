@@ -385,6 +385,12 @@ class AsyncBadSyntaxTest(unittest.TestCase):
             ]
 
         for code in samples:
+            try:
+                compile(code, "<text>", "exec")
+            except SyntaxError:
+                pass
+            else:
+                print(code)
             with self.subTest(code=code), self.assertRaises(SyntaxError):
                 compile(code, "<test>", "exec")
 
@@ -931,11 +937,11 @@ class CoroutineTest(unittest.TestCase):
 
     def test_corotype_1(self):
         ct = types.CoroutineType
-        self.assert_('into coroutine' in ct.send.__doc__ or
+        self.assertTrue('into coroutine' in ct.send.__doc__ or
                      'into generator/coroutine' in ct.send.__doc__)
-        self.assert_('inside coroutine' in ct.close.__doc__ or
+        self.assertTrue('inside coroutine' in ct.close.__doc__ or
                      'inside generator/coroutine' in ct.close.__doc__)
-        self.assert_('in coroutine' in ct.throw.__doc__ or
+        self.assertTrue('in coroutine' in ct.throw.__doc__ or
                      'in generator/coroutine' in ct.throw.__doc__)
         self.assertIn('of the coroutine', ct.__dict__['__name__'].__doc__)
         self.assertIn('of the coroutine', ct.__dict__['__qualname__'].__doc__)
@@ -1279,8 +1285,8 @@ class CoroutineTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
                 TypeError,
-                "'async with' received an object from __aenter__ "
-                "that does not implement __await__: int"):
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression"):
             # it's important that __aexit__ wasn't called
             run_async(foo())
 
@@ -1302,8 +1308,8 @@ class CoroutineTest(unittest.TestCase):
         except TypeError as exc:
             self.assertRegex(
                 exc.args[0],
-                "'async with' received an object from __aexit__ "
-                "that does not implement __await__: int")
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression")
             self.assertTrue(exc.__context__ is not None)
             self.assertTrue(isinstance(exc.__context__, ZeroDivisionError))
         else:
@@ -1327,8 +1333,8 @@ class CoroutineTest(unittest.TestCase):
                 CNT += 1
         with self.assertRaisesRegex(
                 TypeError,
-                "'async with' received an object from __aexit__ "
-                "that does not implement __await__: int"):
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression"):
             run_async(foo())
         self.assertEqual(CNT, 1)
 
@@ -1341,8 +1347,8 @@ class CoroutineTest(unittest.TestCase):
                     break
         with self.assertRaisesRegex(
                 TypeError,
-                "'async with' received an object from __aexit__ "
-                "that does not implement __await__: int"):
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression"):
             run_async(foo())
         self.assertEqual(CNT, 2)
 
@@ -1355,8 +1361,8 @@ class CoroutineTest(unittest.TestCase):
                     continue
         with self.assertRaisesRegex(
                 TypeError,
-                "'async with' received an object from __aexit__ "
-                "that does not implement __await__: int"):
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression"):
             run_async(foo())
         self.assertEqual(CNT, 3)
 
@@ -1368,8 +1374,8 @@ class CoroutineTest(unittest.TestCase):
                 return
         with self.assertRaisesRegex(
                 TypeError,
-                "'async with' received an object from __aexit__ "
-                "that does not implement __await__: int"):
+                # XXX: PyPy change
+                "object int can't be used in 'await' expression"):
             run_async(foo())
         self.assertEqual(CNT, 4)
 
@@ -2276,6 +2282,7 @@ class OriginTrackingTest(unittest.TestCase):
         finally:
             sys.set_coroutine_origin_tracking_depth(orig_depth)
 
+    @support.cpython_only # pypy has this function in _warnings
     def test_unawaited_warning_when_module_broken(self):
         # Make sure we don't blow up too bad if
         # warnings._warn_unawaited_coroutine is broken somehow (e.g. because

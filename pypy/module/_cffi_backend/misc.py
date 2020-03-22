@@ -8,7 +8,7 @@ from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rdynload import dlopen, DLOpenError
+from rpython.rlib.rdynload import dlopen, DLOpenError, DLLHANDLE
 from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -408,7 +408,26 @@ def unpack_cfloat_list_from_raw_array(float_list, source):
 # ____________________________________________________________
 
 def dlopen_w(space, w_filename, flags):
-    if WIN32 and space.isinstance_w(w_filename, space.w_unicode):
+    from pypy.module._cffi_backend.cdataobj import W_CData
+    from pypy.module._cffi_backend import ctypeptr
+
+    autoclose = True
+    if isinstance(w_filename, W_CData):
+        # 'flags' ignored in this case
+        w_ctype = w_filename.ctype
+        if (not isinstance(w_ctype, ctypeptr.W_CTypePointer) or
+            not w_ctype.is_void_ptr):
+            raise oefmt(space.w_TypeError,
+                    "dlopen() takes a file name or 'void *' handle, not '%s'",
+                    w_ctype.name)
+        handle = w_filename.unsafe_escaping_ptr()
+        if not handle:
+            raise oefmt(space.w_RuntimeError, "cannot call dlopen(NULL)")
+        fname = w_ctype.extra_repr(handle)
+        handle = rffi.cast(DLLHANDLE, handle)
+        autoclose = False
+        #
+    elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
         fname = space.text_w(space.repr(w_filename))
         utf8_name = space.utf8_w(w_filename)
         uni_len = space.len_w(w_filename)
@@ -429,4 +448,4 @@ def dlopen_w(space, w_filename, flags):
                 handle = dlopen(ll_libname, flags)
             except DLOpenError as e:
                 raise wrap_dlopenerror(space, e, fname)
-    return fname, handle
+    return fname, handle, autoclose

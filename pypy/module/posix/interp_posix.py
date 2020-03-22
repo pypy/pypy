@@ -140,6 +140,12 @@ class Path(object):
         self.as_unicode = unicode
         self.w_path = w_path
 
+    def __repr__(self):
+        # For debugging
+        return ''.join(['Path(', str(self.as_fd), ', ', str(self.as_bytes),
+                        ', ', str(self.as_unicode), ', [', str(self.w_path),
+                        ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
+
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
     # equivalent of posixmodule.c:path_converter() in CPython
@@ -147,12 +153,9 @@ def _unwrap_path(space, w_value, allow_fd=True):
         allowed_types = "string, bytes, os.PathLike or integer"
     else:
         allowed_types = "string, bytes or os.PathLike"
-    if _WIN32:
-        try:
-            path_u = space.utf8_0_w(w_value)
-            return Path(-1, None, path_u, w_value)
-        except OperationError:
-            pass
+    if _WIN32 and space.isinstance_w(w_value, space.w_unicode):
+        path_u = FileEncoder(space, w_value).as_unicode()
+        return Path(-1, None, path_u, w_value)
     try:
         path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
         return Path(-1, path_b, None, w_value)
@@ -909,11 +912,20 @@ if _WIN32:
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
         """Change or add an environment variable."""
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables.
+        if len(name) == 0 or u'=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
             raise oefmt(space.w_ValueError,
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
+
+        if u'\x00' in name or u'\x00' in value:
+            raise oefmt(space.w_ValueError, "embedded null character")
+
         try:
             rwin32._wputenv(name, value)
         except OSError as e:
@@ -926,9 +938,21 @@ else:
     def putenv(space, w_name, w_value):
         """Change or add an environment variable."""
         try:
-            dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
+            dispatch_filename_2(putenv_impl)(space, w_name, w_value)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
+        except ValueError:
+            raise oefmt(space.w_ValueError,
+                    "illegal environment variable name")
+
+    @specialize.argtype(0, 1)
+    def putenv_impl(name, value):
+        from rpython.rlib.rposix import _as_bytes
+        name = _as_bytes(name)
+        value = _as_bytes(value)
+        if "=" in name:
+            raise ValueError
+        return rposix.putenv(name, value)
 
     def unsetenv(space, w_name):
         """Delete an environment variable."""
@@ -955,15 +979,21 @@ On some platforms, path may also be specified as an open file descriptor;
   If this functionality is unavailable, using it raises NotImplementedError."""
     if space.is_none(w_path):
         w_path = space.newtext(".")
-    if space.isinstance_w(w_path, space.w_bytes):
-        # XXX CPython doesn't follow this path either if w_path is,
-        # for example, a memoryview or another buffer type
-        dirname = space.bytes0_w(w_path)
+    try:
+        dirname = space.bytesbuf0_w(w_path)
+    except OperationError as e:
+        if not e.match(space, space.w_TypeError):
+            raise
+    else:
+        if not space.isinstance_w(w_path, space.w_bytes):
+            # use fsencode to get the correct warning
+            space.fsencode_w(w_path)
         try:
             result = rposix.listdir(dirname)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         return space.newlist_bytes(result)
+
     try:
         path = space.fsencode_w(w_path)
     except OperationError as operr:
@@ -978,9 +1008,8 @@ On some platforms, path may also be specified as an open file descriptor;
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        dirname = FileEncoder(space, w_path)
         try:
-            result = rposix.listdir(dirname)
+            result = rposix.listdir(path)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     len_result = len(result)
@@ -1383,6 +1412,103 @@ def _run_forking_function(space, kind):
 def fork(space):
     pid, irrelevant = _run_forking_function(space, "F")
     return space.newint(pid)
+
+class ApplevelForkCallbacks(object):
+    def __init__(self, space):
+        self.space = space
+        self.before_w = []
+        self.parent_w = []
+        self.child_w = []
+
+def register_at_fork(space, __args__):
+    """
+    register_at_fork(*, [before], [after_in_child], [after_in_parent])
+    Register callables to be called when forking a new process.
+
+      before
+        A callable to be called in the parent before the fork() syscall.
+      after_in_child
+        A callable to be called in the child after fork().
+      after_in_parent
+        A callable to be called in the parent after fork().
+
+    'before' callbacks are called in reverse order.
+    'after_in_child' and 'after_in_parent' callbacks are called in order.
+    """
+    # annoying, can't express argument parsing of this nicely
+    # because cpython explicitly wants
+    # os.register_at_fork(before=None, after_in_parent=<callable>)
+    # to fail, and we can't use unwrapped None as a kwonly default
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        raise oefmt(space.w_TypeError,
+            "register_at_fork() takes no positional arguments")
+    w_before = kwargs_w.pop("before", None)
+    w_after_in_parent = kwargs_w.pop("after_in_parent", None)
+    w_after_in_child = kwargs_w.pop("after_in_child", None)
+    if kwargs_w:
+        for key in kwargs_w:
+            raise oefmt(space.w_TypeError,
+                "%s is an invalid keyword argument for register_at_fork()", key)
+
+    registered = False
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    if w_before is not None:
+        if not space.callable_w(w_before):
+            raise oefmt(space.w_TypeError,
+                    "'before' must be callable, not %T",
+                    w_before)
+        cbs.before_w.append(w_before)
+        registered = True
+    if w_after_in_parent is not None:
+        if not space.callable_w(w_after_in_parent):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_parent' must be callable, not %T",
+                    w_after_in_parent)
+        cbs.parent_w.append(w_after_in_parent)
+        registered = True
+    if w_after_in_child is not None:
+        if not space.callable_w(w_after_in_child):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_child' must be callable, not %T",
+                    w_after_in_child)
+        cbs.child_w.append(w_after_in_child)
+        registered = True
+    if not registered:
+        raise oefmt(space.w_TypeError,
+            "At least one argument is required.")
+
+
+def _run_applevel_hook(space, w_callable):
+    try:
+        space.call_function(w_callable)
+    except OperationError as e:
+        e.write_unraisable(space, "fork hook")
+
+def run_applevel_fork_hooks(space, l_w, reverse=False):
+    if not reverse:
+        for i in range(len(l_w)): # callable can append to the list
+            _run_applevel_hook(space, l_w[i])
+    else:
+        for i in range(len(l_w) - 1, -1, -1):
+            _run_applevel_hook(space, l_w[i])
+
+def run_applevel_fork_hooks_before(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.before_w, reverse=True)
+
+def run_applevel_fork_hooks_parent(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.parent_w)
+
+def run_applevel_fork_hooks_child(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.child_w)
+
+add_fork_hook('before', run_applevel_fork_hooks_before)
+add_fork_hook('parent', run_applevel_fork_hooks_parent)
+add_fork_hook('child', run_applevel_fork_hooks_child)
+
 
 def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."

@@ -1001,6 +1001,15 @@ class AppTestTypeObject:
             else:
                 assert False
 
+    def test_qualname_and_slots(self):
+        class A:
+            __slots__ = ['__qualname__', 'b']
+        assert isinstance(A.__qualname__, str)
+        assert isinstance(A.__dict__['__qualname__'], type(A.b))
+        a = A()
+        a.__qualname__ = 1
+        assert a.__qualname__ == 1
+
     def test_compare(self):
         class A(object):
             pass

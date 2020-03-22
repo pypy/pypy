@@ -111,3 +111,12 @@ class AppTestPyFrame:
         assert res == 2
         if hasattr(self, "check_no_w_locals"): # not appdirect
             assert self.check_no_w_locals(fh.frame)
+
+    def test_repr(self):
+        import sys
+        def a_name(a, b, c):
+            a + b + c
+            return sys._getframe()
+        frame = a_name(5, 6, 4)
+        r = repr(frame)
+        assert "a_name" in r

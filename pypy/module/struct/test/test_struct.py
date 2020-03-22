@@ -488,7 +488,7 @@ class AppTestStruct(object):
 
     def test_struct_object_attrib(self):
         s = self.struct.Struct('i')
-        assert s.format == b'i'
+        assert s.format == 'i'
 
     def test_trailing_counter(self):
         import array

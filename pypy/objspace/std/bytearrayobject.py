@@ -222,11 +222,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_repr(self, space):
         s, start, end, _ = self._convert_idx_params(space, None, None)
+        cls_name = space.type(self).getname(space)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + (end - start))
+        buf = StringBuilder(len(cls_name) + len("(b'')") + (end - start))
 
-        buf.append("bytearray(b")
+        buf.append(cls_name)
+        buf.append("(b")
         quote = "'"
         for i in range(start, end):
             c = s[i]
@@ -1301,19 +1303,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

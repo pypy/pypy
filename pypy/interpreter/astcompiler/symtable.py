@@ -577,7 +577,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if comp.is_async:
             self.scope.note_await(comp)
 
-    def _visit_comprehension(self, node, comps, *consider):
+    def _visit_comprehension(self, node, kind, comps, *consider):
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
@@ -591,26 +591,25 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for item in list(consider):
             item.walkabout(self)
         self.pop_scope()
-        # http://bugs.python.org/issue10544: was never fixed in CPython,
-        # but we can at least issue a SyntaxWarning in the meantime
+        # http://bugs.python.org/issue10544: a DeprecationWarning from 3.7 on,
+        # 3.8 will forbid it
         if new_scope.is_generator:
-            msg = ("'yield' inside a list or generator comprehension behaves "
-                   "unexpectedly (http://bugs.python.org/issue10544)")
-            misc.syntax_warning(self.space, msg, self.compile_info.filename,
-                                node.lineno, node.col_offset)
+            msg = "'yield' inside %s" % kind
+            space = self.space
+            space.warn(space.newtext(msg), space.w_DeprecationWarning)
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
     def visit_ListComp(self, listcomp):
-        self._visit_comprehension(listcomp, listcomp.generators, listcomp.elt)
+        self._visit_comprehension(listcomp, "list comprehension", listcomp.generators, listcomp.elt)
 
     def visit_GeneratorExp(self, genexp):
-        self._visit_comprehension(genexp, genexp.generators, genexp.elt)
+        self._visit_comprehension(genexp, "generator expression", genexp.generators, genexp.elt)
 
     def visit_SetComp(self, setcomp):
-        self._visit_comprehension(setcomp, setcomp.generators, setcomp.elt)
+        self._visit_comprehension(setcomp, "set comprehension", setcomp.generators, setcomp.elt)
 
     def visit_DictComp(self, dictcomp):
-        self._visit_comprehension(dictcomp, dictcomp.generators,
+        self._visit_comprehension(dictcomp, "dict comprehension", dictcomp.generators,
                                   dictcomp.value, dictcomp.key)
 
     def visit_With(self, wih):

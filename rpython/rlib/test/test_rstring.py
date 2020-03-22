@@ -88,6 +88,7 @@ def test_rsplit_utf8():
     assert rsplit('baba', 'a', isutf8=1) == ['b', 'b', '']
     assert rsplit('b b', isutf8=1) == ['b', 'b']
     assert rsplit('b\xe1\x9a\x80b', isutf8=1) == ['b', 'b']
+    assert rsplit('b\xe1\x9a\x80', isutf8=1) == ['b']
 
 def test_string_replace():
     def check_replace(value, sub, *args, **kwargs):

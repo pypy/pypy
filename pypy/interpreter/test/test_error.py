@@ -146,8 +146,8 @@ def test_wrap_oserror():
                                     [os.strerror(errno.EBADF)], None)
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     exception_name = "w_EnvironmentError")
+                     filename="test.py",
+                     w_exception_class=space.w_EnvironmentError)
     assert isinstance(e, OperationError)
     assert e.w_type == [EnvironmentError]
     assert e.get_w_value(space) == ([EnvironmentError], [errno.EBADF],
@@ -155,8 +155,8 @@ def test_wrap_oserror():
                                     ["test.py"])
     #
     e = wrap_oserror(space, OSError(errno.EBADF, "foobar"),
-                     filename = "test.py",
-                     w_exception_class = [SystemError])
+                     filename="test.py",
+                     w_exception_class=[SystemError])
     assert isinstance(e, OperationError)
     assert e.w_type == [SystemError]
     assert e.get_w_value(space) == ([SystemError], [errno.EBADF],

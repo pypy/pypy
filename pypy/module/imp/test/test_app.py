@@ -327,3 +327,16 @@ class AppTestImpModule:
             sys.path.insert(0, u'\xef')
         with raises(ImportError):
             import impossible_module
+
+    def test_source_hash(self):
+        import _imp
+        res = _imp.source_hash(1, b"abcdef")
+        assert type(res) is bytes
+        assert len(res) == b'\xd8^\xafF=\xaain' # value from CPython
+        res2 = _imp.source_hash(1, b"abcdefg")
+        assert res != res2
+
+    def test_check_hash_based_pycs(self):
+        import _imp
+        assert _imp.check_hash_based_pycs == "default"
+

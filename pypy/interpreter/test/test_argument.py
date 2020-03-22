@@ -806,7 +806,7 @@ class AppTestArgument:
         exc = raises(TypeError, '(lambda *, kw: 0)(1, kw=3)')
         assert str(exc.value) == "<lambda>() takes 0 positional arguments but 1 positional argument (and 1 keyword-only argument) were given"
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_method(self):
         class A(object):
             def f0():
@@ -823,14 +823,14 @@ class AppTestArgument:
         # does not contain the warning about missing self
         assert exc.value.args[0] == "f0() takes 0 positional arguments but 1 was given"
 
-    @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_module_function(self):
         import operator # use countOf because it's defined at applevel
         exc = raises(TypeError, lambda : operator.countOf(1, 2, 3))
-        # does not contain the warning about missing self
-        assert exc.value.args[0] == "countOf() takes 2 positional arguments but 3 were given"
+        # does not contain the warning
+        # 'Did you forget 'self' in the function definition?'
+        assert 'self' not in str(exc.value)
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_bound_method(self):
         class A(object):
             def f0():

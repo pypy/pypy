@@ -118,6 +118,7 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['readlink'] = 'interp_posix.readlink'
     if hasattr(os, 'fork'):
         interpleveldefs['fork'] = 'interp_posix.fork'
+        interpleveldefs['register_at_fork'] = 'interp_posix.register_at_fork'
     if hasattr(os, 'openpty'):
         interpleveldefs['openpty'] = 'interp_posix.openpty'
     if hasattr(os, 'forkpty'):

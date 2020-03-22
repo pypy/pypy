@@ -264,6 +264,57 @@ class TestCompiler(BaseTestCompiler):
         yield self.st, decl + "x=f(5, b=2, **{'a': 8})", "x", [5, ('a', 8),
                                                                   ('b', 2)]
 
+    def test_funccalls_all_combinations(self):
+        decl = """
+def f(*args, **kwds):
+    kwds = sorted(kwds.items())
+    return list(args) + kwds
+
+class A:
+    def f(self, *args, **kwds):
+        kwds = sorted(kwds.items())
+        return ["meth"] + list(args) + kwds
+a = A()
+"""
+        allres = []
+        allcalls = []
+        for meth in [False, True]:
+            for starstarargs in [
+                    [],
+                    [[('x', 1), ('y', 12)]],
+                    [[('w1', 1), ('w2', 12)], [('x1', 1), ('x2', -12)], [('y1', 10), ('y2', 123)]]
+                    ]:
+                for starargs in [[], [(2, 3)], [(2, 3), (4, 19), (23, 54, 123)]]:
+                    for kwargs in [[], [('m', 1)], [('n', 1), ('o', 2), ('p', 3)]]:
+                        for args in [(), (1, ), (1, 4, 5)]:
+                            if not meth:
+                                call = "f("
+                                res = []
+                            else:
+                                call = "a.f("
+                                res = ["meth"]
+                            if args:
+                                call += ", ".join(str(arg) for arg in args) + ","
+                                res.extend(args)
+                            if starargs:
+                                for stararg in starargs:
+                                    call += "*" + str(stararg) + ","
+                                    res.extend(stararg)
+                            if kwargs:
+                                call += ", ".join("%s=%s" % (kw, arg) for (kw, arg) in kwargs) + ", "
+                                res.extend(kwargs)
+                            if starstarargs:
+                                for starstar in starstarargs:
+                                    call += "**dict(%s)" % starstar + ","
+                                res.extend(sum(starstarargs, []))
+                            call += ")"
+                            allcalls.append(call)
+                            allres.append(res)
+                            print call
+                            print res
+        self.st(decl + "x=[" + "\n,".join(allcalls) + "]", "x", allres)
+
+
     def test_kwonly(self):
         decl = py.code.Source("""
             def f(a, *, b):
@@ -1180,6 +1231,64 @@ class TestCompiler(BaseTestCompiler):
         """
         e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
 
+    def test_async_in_nested(self):
+        source = """if 1:
+        async def foo():
+            def bar():
+                [i async for i in items]
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                {i async for i in items}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                {i: i+1 async for i in items}
+        """
+        e = py.test.raises(SyntaxError, self.simple_test, source, "None", None)
+        source = """if 1:
+        async def foo():
+            def bar():
+                (i async for i in items)
+        """
+        # ok!
+        self.simple_test(source, "None", None)
+
+    def test_not_async_function_error(self):
+        source = """
+async with x:
+    pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+async for i in x:
+    pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+def f():
+    async with x:
+        pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
+        source = """
+def f():
+    async for i in x:
+        pass
+"""
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, "None", None)
+
     def test_load_classderef(self):
         source = """if 1:
         def f():
@@ -1255,6 +1364,45 @@ class TestCompiler(BaseTestCompiler):
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
 
+    def test_func_defaults_lineno(self):
+        # like CPython 3.6.9 (at least), check that '''def f(
+        #            x = 5,
+        #            y = 6,
+        #            ):'''
+        # generates the tuple (5, 6) as a constant for the defaults,
+        # but with the lineno for the last item (here the 6).  There
+        # is no lineno for the other items, of course, because the
+        # complete tuple is loaded with just one LOAD_CONST.
+        yield self.simple_test, """\
+            def fdl():      # line 1
+                def f(      # line 2
+                    x = 5,  # line 3
+                    y = 6   # line 4
+                    ):      # line 5
+                    pass    # line 6
+            import dis
+            co = fdl.__code__
+            x = [y for (x, y) in dis.findlinestarts(co)]
+        """, 'x', [4]
+
+    def test_many_args(self):
+        args = ["a%i" % i for i in range(300)]
+        argdef = ", ".join(args)
+        res = "+".join(args)
+        callargs = ", ".join(str(i) for i in range(300))
+
+        source1 = """def f(%s):
+            return %s
+x = f(%s)
+        """ % (argdef, res, callargs)
+        source2 = """def f(%s):
+            return %s
+x = f(*(%s))
+        """ % (argdef, res, callargs)
+
+        yield self.simple_test, source1, 'x', sum(range(300))
+        yield self.simple_test, source2, 'x', sum(range(300))
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
@@ -1297,15 +1445,24 @@ class AppTestCompiler:
     # BUILD_LIST_FROM_ARG is PyPy specific
     @py.test.mark.skipif('config.option.runappdirect')
     def test_build_list_from_arg_length_hint(self):
-        py3k_skip('XXX: BUILD_LIST_FROM_ARG list comps are genexps on py3k')
         hint_called = [False]
         class Foo(object):
+            def __iter__(self):
+                return FooIter()
+        class FooIter:
+            def __init__(self):
+                self.i = 0
             def __length_hint__(self):
                 hint_called[0] = True
                 return 5
             def __iter__(self):
-                for i in range(5):
-                    yield i
+                return self
+            def __next__(self):
+                if self.i < 5:
+                    res = self.i
+                    self.i += 1
+                    return res
+                raise StopIteration
         l = [a for a in Foo()]
         assert hint_called[0]
         assert l == list(range(5))
@@ -1323,13 +1480,22 @@ class AppTestCompiler:
         # compiling the produced AST previously triggered a crash
         compile(ast, '', 'exec')
 
-    def test_await_warning(self):
+    def test_warn_yield(self):
         import warnings
-        source = "def f(): await = 5"
-        with warnings.catch_warnings(record=True) as l:
-            warnings.simplefilter("always")
-            compile(source, '', 'exec')
-        assert isinstance(l[0].message, DeprecationWarning)
+        warnings.simplefilter("error", DeprecationWarning)
+        d = {}
+        with raises(DeprecationWarning) as info:
+            exec("x = [(yield 42) for i in j]", d)
+        assert str(info.value) == "'yield' inside list comprehension"
+        with raises(DeprecationWarning) as info:
+            exec("x = ((yield 42) for i in j)", d)
+        assert str(info.value) == "'yield' inside generator expression"
+        with raises(DeprecationWarning) as info:
+            exec("x = {(yield 42) for i in j}", d)
+        assert str(info.value) == "'yield' inside set comprehension"
+        with raises(DeprecationWarning) as info:
+            exec("x = {(yield 42): blub for i in j}", d)
+        assert str(info.value) == "'yield' inside dict comprehension"
 
 
 class TestOptimizations:
@@ -1598,6 +1764,39 @@ class TestOptimizations:
         counts = self.count_instructions(source)
         assert counts[ops.BUILD_TUPLE] == 1
 
+    def test_call_bytecodes(self):
+        # check that the expected bytecodes are generated
+        source = """def f(): x(a, b, c)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION] == 1
+
+        source = """def f(): x(a, b, c, x=1, y=2)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_FUNCTION_KW] == 1
+
+        source = """def f(): x(a, b, c, *(d, 2), x=1, y=2)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 2
+        assert counts[ops.BUILD_TUPLE_UNPACK] == 1
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x(a, b, c, **kwargs)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.BUILD_TUPLE] == 1
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x(**kwargs)"""
+        counts = self.count_instructions(source)
+        assert ops.BUILD_TUPLE not in counts # LOAD_CONST used instead
+        assert counts[ops.CALL_FUNCTION_EX] == 1
+
+        source = """def f(): x.m(a, b, c)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_METHOD] == 1
+
+        source = """def f(): x.m(a, b, c, y=1)"""
+        counts = self.count_instructions(source)
+        assert counts[ops.CALL_METHOD_KW] == 1
 
 class TestHugeStackDepths:
     def run_and_check_stacksize(self, source):
@@ -1640,3 +1839,12 @@ class TestHugeStackDepths:
         source = "{" + ",".join(['%s: None' % (i, ) for i in range(200)]) + "}\n"
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(range(200))
+
+    def test_callargs(self):
+        source = "(lambda *args: args)(" + ", ".join([str(i) for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == tuple(range(200))
+
+        source = "(lambda **args: args)(" + ", ".join(["s%s=None" % i for i in range(200)]) + ")\n"
+        w_res = self.run_and_check_stacksize(source)
+        assert self.space.unwrap(w_res) == dict.fromkeys(["s" + str(i) for i in range(200)])

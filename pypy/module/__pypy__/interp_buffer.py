@@ -1,6 +1,6 @@
-#
-# An app-level interface to tp_as_buffer->bf_getbuffer.
-#
+"""
+Allow use of the buffer interface from python
+"""
 
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec, interp2app

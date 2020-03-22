@@ -65,13 +65,14 @@ _add_tok('ATEQUAL', "@=" )
 _add_tok('RARROW', "->")
 _add_tok('ELLIPSIS', "...")
 _add_tok('OP')
-_add_tok('ASYNC')
-_add_tok('AWAIT')
+_add_tok('ASYNC') # unused, just keywords now
+_add_tok('AWAIT') # unused, just keywords now
 _add_tok('ERRORTOKEN')
 
 # extra PyPy-specific tokens
 _add_tok("COMMENT")
 _add_tok("NL")
+_add_tok("ENCODING")
 _add_tok("REVDBMETAVAR", "$NUM")
 
 del _add_tok

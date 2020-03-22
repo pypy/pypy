@@ -466,18 +466,15 @@ class ASTBuilder(object):
         # build up a fake Call node so we can extract its pieces
         call_name = ast.Name(name, ast.Load, classdef_node.get_lineno(),
                              classdef_node.get_column())
-        call = self.handle_call(classdef_node.get_child(3), call_name)
+        call = self.handle_call(classdef_node.get_child(3), call_name, genexp_allowed=False)
         body = self.handle_suite(classdef_node.get_child(6))
         return ast.ClassDef(
             name, call.args, call.keywords,
             body, decorators, classdef_node.get_lineno(), classdef_node.get_column())
 
-    def handle_class_bases(self, bases_node):
-        if bases_node.num_children() == 1:
-            return [self.handle_expr(bases_node.get_child(0))]
-        return self.get_expression_list(bases_node)
-
-    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None):
+    def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None, posnode=None):
+        if posnode is None:
+            posnode = funcdef_node
         name_node = funcdef_node.get_child(1)
         name = self.new_identifier(name_node.get_value())
         self.check_forbidden_name(name, name_node)
@@ -490,13 +487,13 @@ class ASTBuilder(object):
         body = self.handle_suite(funcdef_node.get_child(suite))
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns,
-                                        funcdef_node.get_lineno(), funcdef_node.get_column())
+                                        posnode.get_lineno(), posnode.get_column())
         else:
             return ast.FunctionDef(name, args, body, decorators, returns,
-                                   funcdef_node.get_lineno(), funcdef_node.get_column())
+                                   posnode.get_lineno(), posnode.get_column())
 
     def handle_async_funcdef(self, node, decorators=None):
-        return self.handle_funcdef_impl(node.get_child(1), 1, decorators)
+        return self.handle_funcdef_impl(node.get_child(1), 1, decorators, posnode=node)
 
     def handle_funcdef(self, node, decorators=None):
         return self.handle_funcdef_impl(node, 0, decorators)
@@ -504,7 +501,7 @@ class ASTBuilder(object):
     def handle_async_stmt(self, node):
         ch = node.get_child(1)
         if ch.type == syms.funcdef:
-            return self.handle_funcdef_impl(ch, 1)
+            return self.handle_funcdef_impl(ch, 1, posnode=node)
         elif ch.type == syms.with_stmt:
             return self.handle_with_stmt(ch, 1)
         elif ch.type == syms.for_stmt:
@@ -596,8 +593,6 @@ class ASTBuilder(object):
         kwdefaults = []
         kwarg = None
         vararg = None
-        if n_pos + n_kwdonly > 255:
-            self.error("more than 255 arguments", arguments_node)
         # process args
         i = 0
         have_default = False
@@ -787,7 +782,7 @@ class ASTBuilder(object):
                 self.error("only single target (not list) can be annotated", target)
             # and everything else gets a generic error
             else:
-                self.error("illegal target for annoation", target)
+                self.error("illegal target for annotation", target)
             self.set_context(target_expr, ast.Store)
             second = stmt.get_child(1)
             annotation = self.handle_expr(second.get_child(1))
@@ -993,7 +988,8 @@ class ASTBuilder(object):
     def handle_atom_expr(self, atom_node):
         start = 0
         num_ch = atom_node.num_children()
-        if atom_node.get_child(0).type == tokens.AWAIT:
+        if atom_node.get_child(0).type == tokens.NAME:
+            # await
             start = 1
         atom_expr = self.handle_atom(atom_node.get_child(start))
         if num_ch == 1:
@@ -1089,10 +1085,11 @@ class ASTBuilder(object):
             return ast.Subscript(left_expr, ast.Index(tup), ast.Load,
                                  middle.get_lineno(), middle.get_column())
 
-    def handle_call(self, args_node, callable_expr):
+    def handle_call(self, args_node, callable_expr, genexp_allowed=True):
         arg_count = 0 # position args + iterable args unpackings
         keyword_count = 0 # keyword args + keyword args unpackings
         generator_count = 0
+        last_is_comma = False
         for i in range(args_node.num_children()):
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
@@ -1106,12 +1103,16 @@ class ASTBuilder(object):
                     # argument.get_child(0).type == tokens.DOUBLESTAR
                     # or keyword arg
                     keyword_count += 1
-        if generator_count > 1 or \
-                (generator_count and (keyword_count or arg_count)):
+            last_is_comma = argument.type == tokens.COMMA
+
+        if generator_count and not genexp_allowed:
+            self.error("generator expression can't be used as bases of class definition",
+                       args_node)
+        if (generator_count > 1 or
+                (generator_count and (keyword_count or arg_count)) or
+                (generator_count == 1 and last_is_comma)):
             self.error("Generator expression must be parenthesized "
                        "if not sole argument", args_node)
-        if arg_count + keyword_count + generator_count > 255:
-            self.error("more than 255 arguments", args_node)
         args = []
         keywords = []
         used_keywords = {}
@@ -1323,9 +1324,11 @@ class ASTBuilder(object):
         current_for = comp_node
         while True:
             count += 1
-            is_async = current_for.get_child(0).type == tokens.ASYNC
-            if current_for.num_children() == 5 + is_async:
-                current_iter = current_for.get_child(4 + is_async)
+            is_async = current_for.get_child(0).type == tokens.NAME
+            current_for = current_for.get_child(int(is_async))
+            assert current_for.type == syms.sync_comp_for
+            if current_for.num_children() == 5:
+                current_iter = current_for.get_child(4)
             else:
                 return count
             while True:
@@ -1353,13 +1356,16 @@ class ASTBuilder(object):
             iter_node = first_child.get_child(2)
 
     def comprehension_helper(self, comp_node):
+        assert comp_node.type == syms.comp_for
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
-            is_async = comp_node.get_child(0).type == tokens.ASYNC
-            for_node = comp_node.get_child(1 + is_async)
+            is_async = comp_node.get_child(0).type == tokens.NAME
+            comp_node = comp_node.get_child(int(is_async))
+            assert comp_node.type == syms.sync_comp_for
+            for_node = comp_node.get_child(1)
             for_targets = self.handle_exprlist(for_node, ast.Store)
-            expr = self.handle_expr(comp_node.get_child(3 + is_async))
+            expr = self.handle_expr(comp_node.get_child(3))
             assert isinstance(expr, ast.expr)
             if for_node.num_children() == 1:
                 comp = ast.comprehension(for_targets[0], expr, None, is_async)
@@ -1372,8 +1378,8 @@ class ASTBuilder(object):
                 line = expr_node.lineno
                 target = ast.Tuple(for_targets, ast.Store, line, col)
                 comp = ast.comprehension(target, expr, None, is_async)
-            if comp_node.num_children() == 5 + is_async:
-                comp_node = comp_iter = comp_node.get_child(4 + is_async)
+            if comp_node.num_children() == 5:
+                comp_node = comp_iter = comp_node.get_child(4)
                 assert comp_iter.type == syms.comp_iter
                 ifs_count = self.count_comp_ifs(comp_iter)
                 if ifs_count:

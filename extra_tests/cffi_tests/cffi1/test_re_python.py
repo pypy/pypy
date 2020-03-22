@@ -261,3 +261,24 @@ def test_selfref():
     # based on issue #429
     from re_python_pysrc import ffi
     ffi.new("selfref_ptr_t")
+
+def test_dlopen_handle():
+    import _cffi_backend
+    from re_python_pysrc import ffi
+    if sys.platform == 'win32':
+        py.test.skip("uses 'dl' explicitly")
+    ffi1 = FFI()
+    ffi1.cdef("""void *dlopen(const char *filename, int flags);
+                 int dlclose(void *handle);""")
+    lib1 = ffi1.dlopen('dl')
+    handle = lib1.dlopen(extmod.encode(sys.getfilesystemencoding()),
+                         _cffi_backend.RTLD_LAZY)
+    assert ffi1.typeof(handle) == ffi1.typeof("void *")
+    assert handle
+
+    lib = ffi.dlopen(handle)
+    assert lib.add42(-10) == 32
+    assert type(lib.add42) is _cffi_backend.FFI.CData
+
+    err = lib1.dlclose(handle)
+    assert err == 0

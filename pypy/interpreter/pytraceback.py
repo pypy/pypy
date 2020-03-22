@@ -1,5 +1,14 @@
+import sys
+
+from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter import baseobjspace
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt, OperationError
+
+# for some strange reason CPython allows the setting of the lineno to be
+# negative. I am not sure why that is useful, but let's use the most negative
+# value as a sentinel to denote the default behaviour "please take the lineno
+# from the frame and lasti"
+LINENO_NOT_COMPUTED = -sys.maxint-1
 
 def offset2lineno(c, stopat):
     # even position in lnotab denote byte increments, odd line increments.
@@ -30,17 +39,52 @@ class PyTraceback(baseobjspace.W_Root):
      * 'tb_next'
     """
 
-    def __init__(self, space, frame, lasti, next):
+    def __init__(self, space, frame, lasti, next, lineno=LINENO_NOT_COMPUTED):
         self.space = space
         self.frame = frame
         self.lasti = lasti
         self.next = next
+        self.lineno = lineno
 
     def get_lineno(self):
-        return offset2lineno(self.frame.pycode, self.lasti)
+        if self.lineno == LINENO_NOT_COMPUTED:
+            self.lineno = offset2lineno(self.frame.pycode, self.lasti)
+        return self.lineno
 
-    def descr_tb_lineno(self, space):
+    def descr_get_tb_lineno(self, space):
         return space.newint(self.get_lineno())
+
+    def descr_set_tb_lineno(self, space, w_lineno):
+        self.lineno = space.int_w(w_lineno)
+
+    def descr_get_tb_lasti(self, space):
+        return space.newint(self.lasti)
+
+    def descr_set_tb_lasti(self, space, w_lasti):
+        self.lasti = space.int_w(w_lasti)
+
+    def descr_get_next(self, space):
+        return self.next
+
+    def descr_set_next(self, space, w_next):
+        newnext = space.interp_w(PyTraceback, w_next, can_be_None=True)
+        # check for loops
+        curr = newnext
+        while curr is not None and isinstance(curr, PyTraceback):
+            if curr is self:
+                raise oefmt(space.w_ValueError, 'traceback loop detected')
+            curr = curr.next
+        self.next = newnext
+
+    @staticmethod
+    @unwrap_spec(lasti=int, lineno=int)
+    def descr_new(space, w_subtype, w_next, w_frame, lasti, lineno):
+        from pypy.interpreter.pyframe import PyFrame
+        w_next = space.interp_w(PyTraceback, w_next, can_be_None=True)
+        w_frame = space.interp_w(PyFrame, w_frame)
+        traceback = space.allocate_instance(PyTraceback, w_subtype)
+        PyTraceback.__init__(traceback, space, w_frame, lasti, w_next, lineno)
+        return traceback
 
     def descr__reduce__(self, space):
         from pypy.interpreter.mixedmodule import MixedModule
@@ -53,17 +97,19 @@ class PyTraceback(baseobjspace.W_Root):
             self.frame,
             space.newint(self.lasti),
             self.next,
+            space.newint(self.lineno)
         ]
         nt = space.newtuple
         return nt([new_inst, nt(tup_base), nt(tup_state)])
 
     def descr__setstate__(self, space, w_args):
         from pypy.interpreter.pyframe import PyFrame
-        args_w = space.unpackiterable(w_args)
-        w_frame, w_lasti, w_next = args_w
+        args_w = space.unpackiterable(w_args, 4)
+        w_frame, w_lasti, w_next, w_lineno = args_w
         self.frame = space.interp_w(PyFrame, w_frame)
         self.lasti = space.int_w(w_lasti)
         self.next = space.interp_w(PyTraceback, w_next, can_be_None=True)
+        self.lineno = space.int_w(w_lineno)
 
     def descr__dir__(self, space):
         return space.newlist([space.newtext(n) for n in

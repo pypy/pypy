@@ -68,6 +68,11 @@ def pytest_configure(config):
     if not mode_A and not mode_D:  # 'own' tests
         from rpython.conftest import LeakFinder
         config.pluginmanager.register(LeakFinder())
+    if mode_A:
+        from pypy.tool.pytest.apptest import PythonInterpreter
+        config.applevel = PythonInterpreter(config.option.python)
+    else:
+        config.applevel = None
 
 def pytest_addoption(parser):
     group = parser.getgroup("pypy options")
@@ -201,13 +206,17 @@ def skip_on_missing_buildoption(**ropts):
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
+        config = item.config
+        if item.get_marker(name='pypy_only'):
+            if config.applevel is not None and not config.applevel.is_pypy:
+                pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
             from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
             spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
             appclass.obj.space = gettestobjspace(**spaceconfig)
-            appclass.obj.runappdirect = option.runappdirect
+            appclass.obj.runappdirect = config.option.runappdirect
 
 def pytest_ignore_collect(path, config):
     if (config.getoption('direct_apptest') and not path.isdir()

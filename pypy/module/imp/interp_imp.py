@@ -123,3 +123,14 @@ def fix_co_filename(space, w_code, pathname):
     importing.update_code_filenames(space, code_w, pathname)
 
 
+@unwrap_spec(magic=int, content='bytes')
+def source_hash(space, magic, content):
+    from rpython.rlib.rsiphash import siphash24_with_key
+    from rpython.rlib.rarithmetic import r_uint64
+    h = siphash24_with_key(content, r_uint64(magic))
+    res = [b"x"] * 8
+    for i in range(8):
+        res[i] = chr(h & 0xff)
+        h >>= 8
+    assert not h
+    return space.newbytes(b"".join(res))

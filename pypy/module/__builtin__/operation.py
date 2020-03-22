@@ -126,7 +126,10 @@ iter_sentinel = gateway.applevel('''
 
     def iter_generator(callable_, sentinel):
         while 1:
-            result = callable_()
+            try:
+                result = callable_()
+            except StopIteration:
+                return
             if result == sentinel:
                 return
             yield result

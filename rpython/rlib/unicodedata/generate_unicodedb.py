@@ -538,7 +538,7 @@ def write_character_names(outfile, table, base_mod):
         print >> outfile, '}'
 
 
-def writeUnicodedata(version, table, outfile, base):
+def writeUnicodedata(version, version_tuple, table, outfile, base):
     if base:
         print >> outfile, 'import %s as base_mod' % base
         base_mod = __import__(base)
@@ -549,38 +549,47 @@ def writeUnicodedata(version, table, outfile, base):
     print >> outfile, 'version = %r' % version
     print >> outfile
 
-    if version < "4.1":
+    if version_tuple < (4, 1, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FA5 or"
                         " 0x20000 <= code <= 0x2A6D6)")
-    elif version < "5":    # don't know the exact limit
+    elif version_tuple < (5, 0, 0):    # don't know the exact limit
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FBB or"
                         " 0x20000 <= code <= 0x2A6D6)")
-    elif version < "6":
+    elif version_tuple < (6, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734)")
-    elif version < "6.1":
+    elif version_tuple < (6, 1, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCB or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
-    elif version < "8":
+    elif version_tuple < (8, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FCC or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
-    else:
+    elif version_tuple == (9, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FD5 or"
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D or"
                         " 0x2B820 <= code <= 0x2CEA1)")
+    elif version_tuple == (11, 0, 0):
+        cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
+                        " 0x4E00 <= code <= 0x9FEF or"
+                        " 0x20000 <= code <= 0x2A6D6 or"
+                        " 0x2A700 <= code <= 0x2B734 or"
+                        " 0x2B740 <= code <= 0x2B81D or"
+                        " 0x2B820 <= code <= 0x2CEA1)")
+    else:
+        raise ValueError("please look up CJK ranges and fix the script, e.g. here: https://en.wikipedia.org/wiki/CJK_Unified_Ideographs_(Unicode_block)")
 
     write_character_names(outfile, table, base_mod)
 
@@ -977,7 +986,8 @@ def main():
         named_sequences = 'NamedSequences-%(version)s.txt',
         casefolding = 'CaseFolding-%(version)s.txt',
     )
-    if options.unidata_version > '5':
+    version_tuple = tuple(int(x) for x in options.unidata_version.split("."))
+    if version_tuple[0] > 5:
         filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'
     filenames = dict((name, filename % dict(version=options.unidata_version))
                      for (name, filename) in filenames.items())
@@ -985,7 +995,7 @@ def main():
                  for (name, filename) in filenames.items())
 
     table = read_unicodedata(files)
-    table.upper_lower_from_properties = (options.unidata_version >= '6')
+    table.upper_lower_from_properties = (version_tuple[0] >= 6)
     print >> outfile, '# UNICODE CHARACTER DATABASE'
     print >> outfile, '# This file was generated with the command:'
     print >> outfile, '#    ', ' '.join(sys.argv)
@@ -993,7 +1003,7 @@ def main():
     print >> outfile, 'from rpython.rlib.rarithmetic import r_longlong'
     print >> outfile
     print >> outfile
-    writeUnicodedata(options.unidata_version, table, outfile, options.base)
+    writeUnicodedata(options.unidata_version, version_tuple, table, outfile, options.base)
 
 if __name__ == '__main__':
     main()

@@ -59,7 +59,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'PyPy'
-copyright = u'2019, The PyPy Project'
+copyright = u'2020, The PyPy Project'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -232,4 +232,4 @@ man_pages = [
    u'The PyPy Project', 1)
 ]
 
-extlinks = {'source': ('https://bitbucket.org/pypy/pypy/src/default/%s', '')}
+extlinks = {'source': ('https://foss.heptapod.net/pypy/pypy/src/default/%s', '')}

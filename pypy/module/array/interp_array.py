@@ -92,12 +92,13 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if comp_op == NE and arr1.len != arr2.len:
         return space.w_True
     lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
+    i = 0
+    while i < lgt:
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
         w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
         w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
-            res = space.eq_w(w_elem1, w_elem2)
+            res = space.is_true(space.eq(w_elem1, w_elem2))
             if not res:
                 return space.w_False
         elif comp_op == NE:
@@ -111,7 +112,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_False
         else:
             if comp_op == LE:
@@ -120,8 +121,9 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
+        i += 1
     # we have some leftovers
     if comp_op == EQ:
         return space.w_True
@@ -148,16 +150,18 @@ def index_count_array(arr, w_val, count=False):
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    for i in range(arr.len):
+    i = 0
+    while i < arr.len:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
         w_item = arr.w_getitem(space, i)
-        if space.eq_w(w_item, w_val):
+        if space.is_true(space.eq(w_item, w_val)):
             if count:
                 cnt += 1
             else:
                 return i
+        i += 1
     if count:
         return cnt
     return -1
@@ -766,8 +770,9 @@ class W_ArrayBase(W_Root):
     # Misc methods
 
     def descr_repr(self, space):
+        cls_name = space.type(self).getname(space)
         if self.len == 0:
-            return space.newtext("array('%s')" % self.typecode)
+            return space.newtext("%s('%s')" % (cls_name, self.typecode))
         elif self.typecode == "u":
             try:
                 w_unicode = self.descr_tounicode(space)
@@ -778,11 +783,11 @@ class W_ArrayBase(W_Root):
                 r = "<%s>" % (space.text_w(w_exc_value),)
             else:
                 r = space.text_w(space.repr(w_unicode))
-            s = "array('%s', %s)" % (self.typecode, r)
+            s = "%s('%s', %s)" % (cls_name, self.typecode, r)
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            s = "%s('%s', %s)" % (cls_name, self.typecode, space.text_w(r))
             return space.newtext(s)
 
     def check_valid_unicode(self, space, s):
@@ -918,7 +923,7 @@ class ArrayBuffer(RawBuffer):
         data[index] = char
         w_array._charbuf_stop()
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ''
         assert step == 1

@@ -698,6 +698,15 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         self.optimize_loop(ops, expected, preamble)
 
+    def test_guard_value_on_boolean_but_not_zero_or_one(self):
+        ops = """
+        [i]
+        i1 = int_lt(i, 3)
+        guard_value(i1, -1) [i]
+        jump(i)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops, ops)
+
     def test_int_is_true_of_bool(self):
         ops = """
         [i0, i1]
@@ -7208,6 +7217,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [p0, p1, i0]
+        guard_not_invalidated() []
         i1 = getfield_gc_i(p0, descr=quasifielddescr)
         escape_n(i1)
         jump(p1, p0, i1)
@@ -7230,6 +7240,29 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         jump()
         """
         self.optimize_loop(ops, expected, expected)
+
+    def test_always_leave_one_guard_not_invalidated(self):
+        ops = """
+        [p0, p1, i0]
+        quasiimmut_field(p0, descr=quasiimmutdescr)
+        guard_not_invalidated() [] # needs to stay
+        i1 = getfield_gc_i(p0, descr=quasifielddescr)
+        quasiimmut_field(ConstPtr(quasiptr), descr=quasiimmutdescr)
+        guard_not_invalidated() []
+        i2 = getfield_gc_i(ConstPtr(quasiptr), descr=quasifielddescr)
+        escape_n(i1)
+        escape_n(i2)
+        jump(p1, p0, i1)
+        """
+        expected = """
+        [p0, p1, i0]
+        guard_not_invalidated() []
+        i1 = getfield_gc_i(p0, descr=quasifielddescr)
+        escape_n(i1)
+        escape_n(-4247)
+        jump(p1, p0, i1)
+        """
+        self.optimize_loop(ops, expected)
 
     def test_remove_extra_guards_not_invalidated(self):
         ops = """
@@ -7309,7 +7342,9 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [i0a, i0b]
+        guard_not_invalidated() []
         call_may_force_n(i0b, descr=mayforcevirtdescr)
+        guard_not_invalidated() []
         i3 = escape_i(421)
         i4 = escape_i(421)
         jump(i3, i4)

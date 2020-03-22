@@ -98,4 +98,10 @@ class AppTestBasic:
                 pass
         d = X.__new__(X)
         d.__init__(d.mydefault)
-        assert repr(d).endswith('defaultdict(..., {})>, {})')
+        assert repr(d).endswith('X(..., {})>, {})')
+
+    def test_subclass_repr(self):
+        import _collections
+        class subclass(_collections.defaultdict):
+            pass
+        assert repr(subclass()) == 'subclass(None, {})'

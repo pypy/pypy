@@ -27,12 +27,13 @@ class W_Count(W_Root):
 
     def repr_w(self):
         space = self.space
+        cls_name = space.type(self).getname(space)
         c = space.text_w(space.repr(self.w_c))
         if self.single_argument():
-            s = 'count(%s)' % (c,)
+            s = '%s(%s)' % (cls_name, c)
         else:
             step = space.text_w(space.repr(self.w_step))
-            s = 'count(%s, %s)' % (c, step)
+            s = '%s(%s, %s)' % (cls_name, c, step)
         return self.space.newtext(s)
 
     def reduce_w(self):
@@ -107,11 +108,13 @@ class W_Repeat(W_Root):
         return self.space.newint(self.count)
 
     def repr_w(self):
-        objrepr = self.space.text_w(self.space.repr(self.w_obj))
+        space = self.space
+        cls_name = space.type(self).getname(space)
+        objrepr = self.space.text_w(space.repr(self.w_obj))
         if self.counting:
-            s = 'repeat(%s, %d)' % (objrepr, self.count)
+            s = '%s(%s, %d)' % (cls_name, objrepr, self.count)
         else:
-            s = 'repeat(%s)' % (objrepr,)
+            s = '%s(%s)' % (cls_name, objrepr)
         return self.space.newtext(s)
 
     def descr_reduce(self):
@@ -359,7 +362,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
+            result = space.int_w(space.index(w_obj))
         except OperationError as e:
             if e.async(space):
                 raise
@@ -1068,7 +1071,8 @@ class W_GroupByIterator(W_Root):
                 w_newkey = w_newvalue
             else:
                 w_newkey = space.call_function(groupby.w_keyfunc, w_newvalue)
-            assert groupby.w_currvalue is None
+            #assert groupby.w_currvalue is None
+            # ^^^ check disabled, see http://bugs.python.org/issue30347
             groupby.w_currkey = w_newkey
             groupby.w_currvalue = w_newvalue
 

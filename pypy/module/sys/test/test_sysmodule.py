@@ -104,28 +104,6 @@ class AppTestAppSysTests:
         assert exc_val2 ==e2
         assert tb2.tb_lineno - tb.tb_lineno == 6
 
-    def test_dynamic_attributes(self):
-        try:
-            raise Exception
-        except Exception as exc:
-            e = exc
-            import sys
-            exc_type = sys.exc_type
-            exc_val = sys.exc_value
-            tb = sys.exc_traceback
-        try:
-            raise Exception   # 8 lines below the previous one
-        except Exception as exc:
-            e2 = exc
-            exc_type2 = sys.exc_type
-            exc_val2 = sys.exc_value
-            tb2 = sys.exc_traceback
-        assert exc_type ==Exception
-        assert exc_val ==e
-        assert exc_type2 ==Exception
-        assert exc_val2 ==e2
-        assert tb2.tb_lineno - tb.tb_lineno == 8
-
     def test_exc_info_normalization(self):
         import sys
         try:
@@ -524,6 +502,16 @@ class AppTestSysModulePortedFromCPython:
         sys.setrecursionlimit(oldlimit)
         raises(OverflowError, sys.setrecursionlimit, 1<<31)
 
+    def test_recursionlimit_toolow(self):
+        import sys
+        def callatlevel(l):
+            if l > 0:
+                callatlevel(l - 1)
+            else:
+                sys.setrecursionlimit(1)
+        with raises(RecursionError):
+            callatlevel(500)
+
     def test_getwindowsversion(self):
         import sys
         if hasattr(sys, "getwindowsversion"):
@@ -811,6 +799,20 @@ class AppTestSysModulePortedFromCPython:
         cur = sys.get_asyncgen_hooks()
         assert cur.firstiter is None
         assert cur.finalizer is None
+
+    def test_coroutine_origin_tracking_depth(self):
+        import sys
+        depth = sys.get_coroutine_origin_tracking_depth()
+        assert depth == 0
+        try:
+            sys.set_coroutine_origin_tracking_depth(6)
+            depth = sys.get_coroutine_origin_tracking_depth()
+            assert depth == 6
+            with raises(ValueError):
+                sys.set_coroutine_origin_tracking_depth(-5)
+        finally:
+            sys.set_coroutine_origin_tracking_depth(0)
+
 
 
 class AppTestSysSettracePortedFromCpython(object):

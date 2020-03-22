@@ -32,10 +32,10 @@ class LLBuffer(RawBuffer):
     def get_raw_address(self):
         return self.raw_cdata
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if step == 1:
             return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return RawBuffer.getslice(self, start, stop, step, size)
+        return RawBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         raw_cdata = rffi.ptradd(self.raw_cdata, start)
@@ -58,7 +58,7 @@ class MiniBuffer(W_Root):
                                                       self.buffer.getlength())
         if step == 0:
             return space.newbytes(self.buffer.getitem(start))
-        res = self.buffer.getslice(start, stop, step, size)
+        res = self.buffer.getslice(start, step, size)
         return space.newbytes(res)
 
     def descr_setitem(self, space, w_index, w_newstring):

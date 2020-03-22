@@ -27,13 +27,22 @@ def _unroll_condition_cmp(self, space, other):
             jit.loop_unrolling_heuristic(other, other.length(), UNROLL_CUTOFF))
 
 
-contains_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto',
-                             name = 'tuple.contains')
+def get_printable_location(tp):
+    return "tuple.contains [%s]" % (tp.getname(tp.space), )
+
+contains_driver = jit.JitDriver(greens = ['tp'], reds = 'auto',
+                             name = 'tuple.contains',
+                             get_printable_location=get_printable_location)
+
+def get_printable_location(w_type):
+    return "tuple.hash [%s]" % (w_type.getname(w_type.space), )
 
 hash_driver = jit.JitDriver(
     name='tuple.hash',
     greens=['w_type'],
-    reds='auto')
+    reds='auto',
+    get_printable_location=get_printable_location
+    )
 
 class W_AbstractTupleObject(W_Root):
     __slots__ = ()
@@ -161,10 +170,14 @@ class W_AbstractTupleObject(W_Root):
 
     def _descr_contains_jmp(self, space, w_obj):
         tp = space.type(w_obj)
-        for w_item in self.tolist():
-            contains_jmp.jit_merge_point(tp=tp)
+        list_w = self.tolist()
+        i = 0
+        while i < len(list_w):
+            contains_driver.jit_merge_point(tp=tp)
+            w_item = list_w[i]
             if space.eq_w(w_obj, w_item):
                 return space.w_True
+            i += 1
         return space.w_False
 
     def descr_add(self, space, w_other):
@@ -314,12 +327,16 @@ class W_TupleObject(W_AbstractTupleObject):
         x = 0x345678
         z = len(self.wrappeditems)
         w_type = space.type(self.wrappeditems[0])
-        for w_item in self.wrappeditems:
+        wrappeditems = self.wrappeditems
+        i = 0
+        while i < len(wrappeditems):
             hash_driver.jit_merge_point(w_type=w_type)
+            w_item = wrappeditems[i]
             y = space.hash_w(w_item)
             x = (x ^ y) * mult
             z -= 1
             mult += 82520 + z + z
+            i += 1
         x += 97531
         return space.newint(intmask(x))
 

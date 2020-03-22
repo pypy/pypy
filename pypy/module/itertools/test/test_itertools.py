@@ -36,6 +36,12 @@ class AppTestItertools(object):
         raises(TypeError, itertools.count, 'a')
         raises(TypeError, itertools.count, [])
 
+    def test_count_subclass_repr(self):
+        import itertools
+        class subclass(itertools.count):
+            pass
+        assert repr(subclass(123)) == 'subclass(123)'
+
     def test_repeat(self):
         import itertools
 
@@ -98,6 +104,12 @@ class AppTestItertools(object):
 
         r = itertools.repeat('a', -3)
         assert operator.length_hint(r, 3) == 0
+
+    def test_repeat_subclass_repr(self):
+        import itertools
+        class subclass(itertools.repeat):
+            pass
+        assert repr(subclass('foobar')) == "subclass('foobar')"
 
     def test_takewhile(self):
         import itertools
@@ -279,6 +291,20 @@ class AppTestItertools(object):
         import sys
         raises((OverflowError, ValueError),    # ValueError on top of CPython
                itertools.islice, [], sys.maxsize + 1)
+    
+    def test_islice_intlike_args(self):
+        import itertools
+
+        class IntLike(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        it = itertools.islice([1, 2, 3, 4, 5], IntLike(0), IntLike(3), IntLike(2))
+        for x in [1, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_islice_wrongargs(self):
         import itertools
@@ -540,6 +566,16 @@ class AppTestItertools(object):
         b = list(b)
         assert a == []
         assert b == [(True, 9)]
+
+    def test_groupby_crash(self):
+        # see http://bugs.python.org/issue30347
+        from itertools import groupby
+        def f(n):
+            if n == 5:
+                list(b)
+            return n != 6
+        for (k, b) in groupby(range(10), f):
+            list(b)  # shouldn't crash
 
     def test_iterables(self):
         import itertools

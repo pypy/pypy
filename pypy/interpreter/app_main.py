@@ -32,6 +32,8 @@ Options and arguments (and corresponding environment variables):
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
 -X opt : set implementation-specific option
+--check-hash-based-pycs always|default|never:
+    control how Python invalidates hash-based .pyc files
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
@@ -63,6 +65,8 @@ except ImportError:
     PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
+
+_MACOSX = sys.platform == 'darwin'
 
 DEBUG = False       # dump exceptions before calling the except hook
 
@@ -396,6 +400,7 @@ default_options = dict.fromkeys(
     "run_stdin",
     "warnoptions",
     "unbuffered"), 0)
+default_options["check_hash_based_pycs"] = "default"
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -425,6 +430,16 @@ def end_options(options, _, iterargv):
 def ignore_option(*args):
     pass
 
+def check_hash_based_pycs(options, value, iterargv):
+    if value not in ("default", "always", "never"):
+        initstdio()
+        print_error("--check-hash-based-pycs must be one of 'default', 'always', or 'never'")
+        raise SystemExit
+    import _imp
+    _imp.check_hash_based_pycs = value
+    options["check_hash_based_pycs"] = value
+
+
 cmdline_options = {
     # simple options just increment the counter of the options listed above
     'b': (simple_option, 'bytes_warning'),
@@ -452,6 +467,7 @@ cmdline_options = {
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
+    '--check-hash-based-pycs': (check_hash_based_pycs, Ellipsis),
     '--':        (end_options,     None),
     'R':         (ignore_option,   None),      # previously hash_randomization
     }
@@ -579,6 +595,7 @@ def run_command_line(interactive,
         sys.setrecursionlimit(5000)
     import os
 
+
     readenv = not ignore_environment
     io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
@@ -598,10 +615,17 @@ def run_command_line(interactive,
     sys.modules['__main__'] = mainmodule
 
     if not no_site:
+        if _MACOSX:
+            # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
+            # since it (possibly) results in a wrong sys.prefix and
+            # sys.exec_prefix (and consequently sys.path) set by site.py.
+            old_pyvenv_launcher = os.environ.pop('__PYVENV_LAUNCHER__', None)
         try:
             import site
         except:
             print("'import site' failed", file=sys.stderr)
+        if _MACOSX and old_pyvenv_launcher:
+            os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:

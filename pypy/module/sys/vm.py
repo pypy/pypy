@@ -79,7 +79,7 @@ threads you can configure the limit by calling "threading.stack_size()".
         old_limit = space.sys.recursionlimit
         _stack_set_length_fraction(old_limit * 0.001)
         raise oefmt(space.w_RecursionError,
-                    "maximum recursion depth exceeded")
+                "cannot set the recursion limit to %s at the recursion depth: the limit is too low")
     space.sys.recursionlimit = new_limit
     increase_root_stack_depth(int(new_limit * 0.001 * 163840))
 
@@ -343,12 +343,14 @@ same value."""
 
 def get_coroutine_wrapper(space):
     "Return the wrapper for coroutine objects set by sys.set_coroutine_wrapper."
+    space.warn(space.newtext("get_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
     ec = space.getexecutioncontext()
     if ec.w_coroutine_wrapper_fn is None:
         return space.w_None
     return ec.w_coroutine_wrapper_fn
 
 def set_coroutine_wrapper(space, w_wrapper):
+    space.warn(space.newtext("set_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
     "Set a wrapper for coroutine objects."
     ec = space.getexecutioncontext()
     if space.is_w(w_wrapper, space.w_None):
@@ -400,3 +402,26 @@ Set a finalizer for async generators objects."""
 
 def is_finalizing(space):
     return space.newbool(space.sys.finalizing)
+
+def get_coroutine_origin_tracking_depth(space):
+    """get_coroutine_origin_tracking_depth()
+        Check status of origin tracking for coroutine objects in this thread.
+    """
+    ec = space.getexecutioncontext()
+    return space.newint(ec.coroutine_origin_tracking_depth)
+
+@unwrap_spec(depth=int)
+def set_coroutine_origin_tracking_depth(space, depth):
+    """set_coroutine_origin_tracking_depth(depth)
+        Enable or disable origin tracking for coroutine objects in this thread.
+
+        Coroutine objects will track 'depth' frames of traceback information
+        about where they came from, available in their cr_origin attribute.
+
+        Set a depth of 0 to disable.
+    """
+    if depth < 0:
+        raise oefmt(space.w_ValueError,
+                "depth must be >= 0")
+    ec = space.getexecutioncontext()
+    ec.coroutine_origin_tracking_depth = depth

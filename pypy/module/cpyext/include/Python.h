@@ -123,6 +123,7 @@
 #include "sliceobject.h"
 #include "genobject.h"
 #include "datetime.h"
+#include "structseq.h"
 #include "pystate.h"
 #include "fileobject.h"
 #include "pysignals.h"

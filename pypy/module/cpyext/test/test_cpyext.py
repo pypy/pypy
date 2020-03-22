@@ -7,7 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext import api
-from pypy.module.cpyext.api import cts
+from pypy.module.cpyext.api import cts, create_extension_module
 from pypy.module.cpyext.pyobject import from_ref
 from pypy.module.cpyext.state import State
 from rpython.tool import leakfinder
@@ -43,13 +43,25 @@ class SpaceCompiler(SystemCompilationInfo):
         self.space = space
         SystemCompilationInfo.__init__(self, *args, **kwargs)
 
-    def load_module(self, mod, name):
+    def load_module(self, mod, name, use_imp=False):
         space = self.space
         w_path = space.newtext(mod)
         w_name = space.newtext(name)
-        return space.appexec([w_name, w_path], '''(name, path):
-            import imp
-            return imp.load_dynamic(name, path)''')
+        if use_imp:
+            # this is VERY slow and should be used only by tests which
+            # actually needs it
+            return space.appexec([w_name, w_path], '''(name, path):
+                import imp
+                return imp.load_dynamic(name, path)''')
+        else:
+            w_spec = space.appexec([w_name, w_path], '''(modname, path):
+                class FakeSpec:
+                    name = modname
+                    origin = path
+                return FakeSpec
+            ''')
+            w_mod = create_extension_module(space, w_spec)
+            return w_mod
 
 
 def get_cpyext_info(space):
@@ -83,23 +95,6 @@ def get_cpyext_info(space):
 
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
-
-def preload(space, name):
-    from pypy.module.cpyext.pyobject import make_ref
-    if '.' not in name:
-        w_obj = space.builtin.getdictvalue(space, name)
-    else:
-        module, localname = name.rsplit('.', 1)
-        code = "(): import {module}; return {module}.{localname}"
-        code = code.format(**locals())
-        w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
-def preload_expr(space, expr):
-    from pypy.module.cpyext.pyobject import make_ref
-    code = "(): return {}".format(expr)
-    w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
 
 def is_interned_string(space, w_obj):
     try:
@@ -151,13 +146,37 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
-        for name in [
-                'buffer', 'mmap.mmap',
-                'types.FunctionType', 'types.CodeType',
-                'types.TracebackType', 'types.FrameType']:
-            preload(space, name)
-        for expr in ['type(str.join)']:
-            preload_expr(space, expr)
+        from pypy.module.cpyext.pyobject import make_ref
+        w_to_preload = space.appexec([], """():
+            import sys
+            import mmap
+            #
+            # copied&pasted to avoid importing the whole types.py, which is
+            # expensive on py3k
+            # <types.py>
+            def _f(): pass
+            FunctionType = type(_f)
+            CodeType = type(_f.__code__)
+            try:
+                raise TypeError
+            except TypeError:
+                tb = sys.exc_info()[2]
+                TracebackType = type(tb)
+                FrameType = type(tb.tb_frame)
+                del tb
+            # </types.py>
+            return [
+                #buffer,   ## does not exist on py3k
+                mmap.mmap,
+                FunctionType,
+                CodeType,
+                TracebackType,
+                FrameType,
+                type(str.join),
+            ]
+        """)
+        for w_obj in space.unpackiterable(w_to_preload):
+            make_ref(space, w_obj)
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
@@ -229,7 +248,7 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             cls.preload_builtins(space)
         else:
             def w_import_module(self, name, init=None, body='', filename=None,
-                    include_dirs=None, PY_SSIZE_T_CLEAN=False):
+                    include_dirs=None, PY_SSIZE_T_CLEAN=False, use_imp=False):
                 from extbuild import get_sys_info_app
                 sys_info = get_sys_info_app(self.udir)
                 return sys_info.import_module(
@@ -310,13 +329,15 @@ class AppTestCpythonExtensionBase(LeakCheckingTest):
             return space.wrap(pydname)
 
         @unwrap_spec(name='text', init='text_or_none', body='text',
-                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool)
+                     filename='fsencode_or_none', PY_SSIZE_T_CLEAN=bool,
+                     use_imp=bool)
         def import_module(space, name, init=None, body='',
                           filename=None, w_include_dirs=None,
-                          PY_SSIZE_T_CLEAN=False):
+                          PY_SSIZE_T_CLEAN=False, use_imp=False):
             include_dirs = _unwrap_include_dirs(space, w_include_dirs)
             w_result = self.sys_info.import_module(
-                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN)
+                name, init, body, filename, include_dirs, PY_SSIZE_T_CLEAN,
+                use_imp)
             self.record_imported_module(name)
             return w_result
 
@@ -445,7 +466,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             NULL,           /* m_methods */
         };
         """
-        foo = self.import_module(name='foo', body=body)
+        foo = self.import_module(name='foo', body=body, use_imp=True)
         assert 'foo' in sys.modules
         del sys.modules['foo']
         import imp

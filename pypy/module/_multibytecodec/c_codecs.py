@@ -194,17 +194,23 @@ pypy_cjk_enc_replace_on_error = llexternal('pypy_cjk_enc_replace_on_error',
                                            rffi.SSIZE_T)
 pypy_cjk_enc_getcodec = llexternal('pypy_cjk_enc_getcodec',
                                    [ENCODEBUF_P], MULTIBYTECODEC_P)
+pypy_cjk_enc_copystate = llexternal('pypy_cjk_enc_copystate',
+                                    [ENCODEBUF_P, ENCODEBUF_P], lltype.Void)
 MBENC_FLUSH = 1
 MBENC_RESET = 2
 
 def encode(codec, unicodedata, length, errors="strict", errorcb=None,
-           namecb=None):
+           namecb=None, copystate=lltype.nullptr(ENCODEBUF_P.TO)):
     encodebuf = pypy_cjk_enc_new(codec)
     if not encodebuf:
         raise MemoryError
+    if copystate:
+        pypy_cjk_enc_copystate(encodebuf, copystate)
     try:
         return encodeex(encodebuf, unicodedata, length, errors, errorcb, namecb)
     finally:
+        if copystate:
+            pypy_cjk_enc_copystate(copystate, encodebuf)
         pypy_cjk_enc_free(encodebuf)
 
 def encodeex(encodebuf, utf8data, length, errors="strict", errorcb=None,
@@ -257,22 +263,21 @@ def multibytecodec_encerror(encodebuf, e, errors,
         raise EncodeDecodeError(start, end, reason)
     elif errors == "ignore":
         replace = ""
+        rettype = 'b'   # != 'u'
     elif errors == "replace":
-        codec = pypy_cjk_enc_getcodec(encodebuf)
-        try:
-            replace = encode(codec, "?", 1)
-        except EncodeDecodeError:
-            replace = "?"
+        replace = "?"    # utf-8 unicode
+        rettype = 'u'
     else:
         assert errorcb
         replace, end, rettype = errorcb(errors, namecb, reason,
                             unicodedata, start, end)
-        if rettype == 'u':
-            codec = pypy_cjk_enc_getcodec(encodebuf)
-            lgt = rutf8.check_utf8(replace, False)
-            replace = encode(codec, replace, lgt)
-    lgt = len(replace)
+    if rettype == 'u':
+        codec = pypy_cjk_enc_getcodec(encodebuf)
+        lgt = rutf8.check_utf8(replace, False)
+        replace = encode(codec, replace, lgt, copystate=encodebuf)
+    #else:
+    #   replace is meant to be a byte string already
     with rffi.scoped_nonmovingbuffer(replace) as inbuf:
-        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, lgt, end)
+        r = pypy_cjk_enc_replace_on_error(encodebuf, inbuf, len(replace), end)
     if r == MBERR_NOMEMORY:
         raise MemoryError

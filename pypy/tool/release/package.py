@@ -29,7 +29,7 @@ USE_ZIPFILE_MODULE = sys.platform == 'win32'
 STDLIB_VER = "3"
 POSIX_EXE = 'pypy3'
 
-from pypy.tool.build_cffi_imports import (create_cffi_import_libraries,
+from lib_pypy.tools.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):

@@ -238,6 +238,9 @@ const void *sqlite3_value_text16le(sqlite3_value*);
 const void *sqlite3_value_text16be(sqlite3_value*);
 int sqlite3_value_type(sqlite3_value*);
 int sqlite3_value_numeric_type(sqlite3_value*);
+
+int sqlite3_sleep(int);
+const char *sqlite3_errstr(int);
 """)
 
 def _has_load_extension():
@@ -256,8 +259,34 @@ def _has_load_extension():
     unverified_lib = unverified_ffi.dlopen(libname)
     return hasattr(unverified_lib, 'sqlite3_enable_load_extension')
 
+def _has_backup():
+    """Only available since 3.6.11"""
+    unverified_ffi = _FFI()
+    unverified_ffi.cdef("""
+    typedef ... sqlite3;
+    typedef ... sqlite3_backup;
+    sqlite3_backup* sqlite3_backup_init(sqlite3 *, const char* , sqlite3 *, const char*);
+    """)
+    libname = 'sqlite3'
+    if sys.platform == 'win32':
+        import os
+        _libname = os.path.join(os.path.dirname(sys.executable), libname)
+        if os.path.exists(_libname + '.dll'):
+            libname = _libname
+    unverified_lib = unverified_ffi.dlopen(libname)
+    return hasattr(unverified_lib, 'sqlite3_backup_init')
+
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
+if _has_backup():
+    _ffi.cdef("""
+typedef ... sqlite3_backup;
+sqlite3_backup *sqlite3_backup_init(sqlite3 *, const char*, sqlite3 *, const char*);
+int sqlite3_backup_step(sqlite3_backup *p, int nPage);
+int sqlite3_backup_finish(sqlite3_backup *p);
+int sqlite3_backup_remaining(sqlite3_backup *p);
+int sqlite3_backup_pagecount(sqlite3_backup *p);
+""")
 
 if sys.platform.startswith('freebsd'):
     _localbase = os.environ.get('LOCALBASE', '/usr/local')

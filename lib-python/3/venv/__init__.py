@@ -187,7 +187,10 @@ class EnvBuilder:
                     logger.warning('Unable to symlink %r to %r', src, dst)
                     force_copy = True
             if force_copy:
-                shutil.copyfile(src, dst)
+                if os.path.isdir(src):
+                    shutil.copytree(src, dst)
+                else:
+                    shutil.copyfile(src, dst)
     else:
         def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):
             """
@@ -267,6 +270,16 @@ class EnvBuilder:
                     copier(src_library, dest_library)
                     if not os.path.islink(dest_library):
                         os.chmod(dest_library, 0o755)
+            libsrc = os.path.join(context.python_dir, '..', 'lib')
+            if os.path.exists(libsrc):
+                # PyPy: also copy lib/*.so* for portable builds
+                libdst = os.path.join(context.env_dir, 'lib')
+                if not os.path.exists(libdst):
+                    os.mkdir(libdst)
+                for f in os.listdir(libsrc):
+                    src = os.path.join(libsrc, f)
+                    dst = os.path.join(libdst, f)
+                    copier(src, dst)
             #
         else:
             if self.symlinks:

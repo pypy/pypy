@@ -211,14 +211,14 @@ class deque(object):
     def __repr__(self):
         threadlocalattr = '__repr' + str(_thread_ident())
         if threadlocalattr in self.__dict__:
-            return 'deque([...])'
+            return '%s([...])' % (self.__class__.__name__,)
         else:
             self.__dict__[threadlocalattr] = True
             try:
                 if self.maxlen is not None:
-                    return 'deque(%r, maxlen=%s)' % (list(self), self.maxlen)
+                    return '%s(%r, maxlen=%s)' % (self.__class__.__name__, list(self), self.maxlen)
                 else:
-                    return 'deque(%r)' % (list(self),)
+                    return '%s(%r)' % (self.__class__.__name__, list(self))
             finally:
                 del self.__dict__[threadlocalattr]
 
@@ -411,10 +411,10 @@ class defaultdict(dict):
 
     def __repr__(self, recurse=set()):
         if id(self) in recurse:
-            return "defaultdict(...)"
+            return "%s(...)" % (self.__class__.__name__,)
         try:
             recurse.add(id(self))
-            return "defaultdict(%s, %s)" % (repr(self.default_factory), super(defaultdict, self).__repr__())
+            return "%s(%s, %s)" % (self.__class__.__name__, repr(self.default_factory), super(defaultdict, self).__repr__())
         finally:
             recurse.remove(id(self))
 

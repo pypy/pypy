@@ -3015,7 +3015,7 @@ class TestMakeDataclass(unittest.TestCase):
                           lambda x:x,
                           ]:
             with self.subTest(bad_field=bad_field):
-                with self.assertRaisesRegex(TypeError, r'has no len\(\)'):
+                with self.assertRaisesRegex(TypeError, r'has no len.*'):
                     make_dataclass('C', ['a', bad_field])
 
     def test_duplicate_field_names(self):

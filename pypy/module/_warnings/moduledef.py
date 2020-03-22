@@ -11,6 +11,7 @@ class Module(MixedModule):
     }
 
     appleveldefs = {
+        '_warn_unawaited_coroutine' : 'app_warnings._warn_unawaited_coroutine',
     }
 
     def setup_after_space_initialization(self):

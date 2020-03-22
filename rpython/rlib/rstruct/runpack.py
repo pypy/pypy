@@ -27,9 +27,8 @@ class MasterReader(object):
 
     def read(self, count):
         curpos = self.inputpos
-        end = curpos + count
         self.advance(count) # raise if we are out of bound
-        return self.inputbuf.getslice(curpos, end, 1, count)
+        return self.inputbuf.getslice(curpos, 1, count)
 
     def align(self, mask):
         self.inputpos = (self.inputpos + mask) & ~mask
@@ -86,12 +85,12 @@ class FrozenUnpackIterator(FormatIterator):
         for i in rg:
             fmtdesc, rep, mask = self.formats[i]
             miniglobals['unpacker%d' % i] = fmtdesc.unpack
-            if mask is not None:
-                perform_lst.append('master_reader.align(%d)' % mask)
             if not fmtdesc.needcount:
                 perform_lst.append('unpacker%d(reader%d)' % (i, i))
             else:
                 perform_lst.append('unpacker%d(reader%d, %d)' % (i, i, rep))
+            if mask is not None:
+                perform_lst.append('master_reader.align(%d)' % mask)
             miniglobals['reader_cls%d' % i] = reader_for_pos(i)
         readers = ";".join(["reader%d = reader_cls%d(master_reader, bigendian)"
                             % (i, i) for i in rg])

@@ -24,7 +24,8 @@ class SimpleWeakSet:
         copy = list(self.data)
         for itemref in copy:
             item = itemref()
-            yield item
+            if item is not None:
+                yield item
 
     def __contains__(self, item):
         try:

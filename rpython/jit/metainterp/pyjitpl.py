@@ -281,6 +281,7 @@ class MIFrame(object):
     @arguments("box")
     def opimpl_assert_not_none(self, box):
         if self.metainterp.heapcache.is_nullity_known(box):
+            self.metainterp.staticdata.profiler.count_ops(rop.ASSERT_NOT_NONE, Counters.HEAPCACHED_OPS)
             return
         self.execute(rop.ASSERT_NOT_NONE, box)
         self.metainterp.heapcache.nullity_now_known(box)
@@ -289,6 +290,7 @@ class MIFrame(object):
     def opimpl_record_exact_class(self, box, clsbox):
         from rpython.rtyper.lltypesystem import llmemory
         if self.metainterp.heapcache.is_class_known(box):
+            self.metainterp.staticdata.profiler.count_ops(rop.RECORD_EXACT_CLASS, Counters.HEAPCACHED_OPS)
             return
         if isinstance(clsbox, Const):
             self.execute(rop.RECORD_EXACT_CLASS, box, clsbox)
@@ -395,6 +397,7 @@ class MIFrame(object):
         heapcache = self.metainterp.heapcache
         value = box.nonnull()
         if heapcache.is_nullity_known(box):
+            self.metainterp.staticdata.profiler.count_ops(rop.GUARD_NONNULL, Counters.HEAPCACHED_OPS)
             return value
         if value:
             if not self.metainterp.heapcache.is_class_known(box):
@@ -478,6 +481,7 @@ class MIFrame(object):
         if tobox:
             # sanity check: see whether the current array value
             # corresponds to what the cache thinks the value is
+            self.metainterp.staticdata.profiler.count_ops(rop.GETARRAYITEM_GC_I, Counters.HEAPCACHED_OPS)
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         op, arraydescr, arraybox, indexbox)
             if op == 'i':
@@ -579,6 +583,8 @@ class MIFrame(object):
             lengthbox = self.execute_with_descr(
                     rop.ARRAYLEN_GC, arraydescr, arraybox)
             self.metainterp.heapcache.arraylen_now_known(arraybox, lengthbox)
+        else:
+            self.metainterp.staticdata.profiler.count_ops(rop.ARRAYLEN_GC, Counters.HEAPCACHED_OPS)
         return lengthbox
 
     @arguments("box", "box", "descr", "orgpc")
@@ -734,6 +740,7 @@ class MIFrame(object):
                 # see ConstFloat.same_constant
                 assert ConstFloat(resvalue).same_constant(
                     upd.currfieldbox.constbox())
+            self.metainterp.staticdata.profiler.count_ops(rop.GETFIELD_GC_I, Counters.HEAPCACHED_OPS)
             return upd.currfieldbox
         resbox = self.execute_with_descr(opnum, fielddescr, box)
         upd.getfield_now_known(resbox)
@@ -764,6 +771,7 @@ class MIFrame(object):
     def _opimpl_setfield_gc_any(self, box, valuebox, fielddescr):
         upd = self.metainterp.heapcache.get_field_updater(box, fielddescr)
         if upd.currfieldbox is valuebox:
+            self.metainterp.staticdata.profiler.count_ops(rop.SETFIELD_GC, Counters.HEAPCACHED_OPS)
             return
         self.metainterp.execute_and_record(rop.SETFIELD_GC, fielddescr, box, valuebox)
         upd.setfield(valuebox)
@@ -865,14 +873,19 @@ class MIFrame(object):
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
         cpu = self.metainterp.cpu
         if self.metainterp.heapcache.is_quasi_immut_known(fielddescr, box):
+            self.metainterp.staticdata.profiler.count_ops(rop.QUASIIMMUT_FIELD, Counters.HEAPCACHED_OPS)
             return
         descr = QuasiImmutDescr(cpu, box.getref_base(), fielddescr,
                                 mutatefielddescr)
         self.metainterp.heapcache.quasi_immut_now_known(fielddescr, box)
         self.metainterp.history.record(rop.QUASIIMMUT_FIELD, [box],
                                        None, descr=descr)
-        self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
-                                       resumepc=orgpc)
+        if self.metainterp.heapcache.need_guard_not_invalidated:
+            self.metainterp.generate_guard(rop.GUARD_NOT_INVALIDATED,
+                                           resumepc=orgpc)
+        self.metainterp.heapcache.need_guard_not_invalidated = False
+
+
 
     @arguments("box", "descr", "orgpc")
     def opimpl_jit_force_quasi_immutable(self, box, mutatefielddescr, orgpc):
@@ -905,6 +918,7 @@ class MIFrame(object):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
         if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
+            self.metainterp.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
             return True
         if box is self.metainterp.forced_virtualizable:
             self.metainterp.forced_virtualizable = None
@@ -1743,24 +1757,29 @@ class MIFrame(object):
             effect = effectinfo.extraeffect
             tp = descr.get_normalized_result_type()
             if effect == effectinfo.EF_LOOPINVARIANT:
+                res = self.metainterp.heapcache.call_loopinvariant_known_result(allboxes, descr)
+                if res is not None:
+                    return res
                 if tp == 'i':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_I,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'r':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_R,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'f':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_F,
                                                 allboxes,
                                                 descr, False, False)
                 elif tp == 'v':
-                    return self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
+                    res = self.execute_varargs(rop.CALL_LOOPINVARIANT_N,
                                                 allboxes,
                                                 descr, False, False)
                 else:
                     assert False
+                self.metainterp.heapcache.call_loopinvariant_now_known(allboxes, descr, res)
+                return res
             exc = effectinfo.check_can_raise()
             pure = effectinfo.check_is_elidable()
             if tp == 'i':
@@ -1815,6 +1834,7 @@ class MIFrame(object):
         if standard_box is vref_box:
             return vref_box
         if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
+            self.metainterp.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
             return None
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)
         eqbox = self.implement_guard_value(eqbox, pc)

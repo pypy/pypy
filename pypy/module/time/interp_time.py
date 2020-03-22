@@ -397,11 +397,11 @@ def _init_timezone(space):
         timezone = c_get_timezone()
         altzone = timezone - 3600
         daylight = c_get_daylight()
-        with rffi.scoped_alloc_buffer(100) as buf:
-            s = c_get_tzname(100, 0, buf.raw)
-            tzname[0] = buf.str(s)
-            s = c_get_tzname(100, 1, buf.raw)
-            tzname[1] = buf.str(s)
+        for i in [0, 1]:
+            blen = c_get_tzname(0, i, None)
+            with rffi.scoped_alloc_buffer(blen) as buf:
+                s = c_get_tzname(blen, i, buf.raw)
+                tzname[i] = buf.str(s - 1)
 
     if _POSIX:
         if _CYGWIN:
@@ -1308,6 +1308,11 @@ def _clock_impl(space, w_info, return_ns):
         raise oefmt(space.w_RuntimeError,
                     "the processor time used is not available or its value"
                     "cannot be represented")
+
+    if _MACOSX:
+        # small hack apparently solving unsigned int on mac
+        value = intmask(value)
+
     if w_info is not None:
         _setinfo(space, w_info,
                  "clock()", 1.0 / CLOCKS_PER_SEC, True, False)

@@ -100,6 +100,9 @@ class TestParseCommandLine:
             assert options[key] == value
         for key, value in options.items():
             if key not in expected:
+                if key == "check_hash_based_pycs":
+                    assert value == "default"
+                    continue
                 assert not value, (
                     "option %r has unexpectedly the value %r" % (key, value))
 
@@ -210,6 +213,14 @@ class TestParseCommandLine:
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
+
+    def test_check_hash_based_pycs(self):
+        for val in ['default', 'always', 'never']:
+            self.check(
+                ['--check-hash-based-pycs', val],
+                {},
+                sys_argv=[''], run_stdin=True,
+                check_hash_based_pycs=val)
 
 class TestInteraction:
     """

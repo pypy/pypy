@@ -1515,10 +1515,10 @@ class PdbTestCase(unittest.TestCase):
         stdout, _ = self.run_pdb_script('', commands + '\n')
 
         self.assertEqual(stdout.splitlines()[1:], [
-            '(Pdb) *** SyntaxError: unexpected EOF while parsing',
+            '(Pdb) *** SyntaxError: parenthesis is never closed',
 
             '(Pdb) ENTERING RECURSIVE DEBUGGER',
-            '*** SyntaxError: unexpected EOF while parsing',
+            '*** SyntaxError: parenthesis is never closed',
             'LEAVING RECURSIVE DEBUGGER',
 
             '(Pdb) ENTERING RECURSIVE DEBUGGER',

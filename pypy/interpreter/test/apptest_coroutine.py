@@ -123,6 +123,18 @@ def test_set_coroutine_wrapper():
     sys.set_coroutine_wrapper(None)
     assert sys.get_coroutine_wrapper() is None
 
+def test_get_set_coroutine_wrapper_deprecated():
+    import warnings
+    def my_wrapper(cr):
+        return 1
+    with warnings.catch_warnings(record=True) as l:
+        warnings.simplefilter('always', category=DeprecationWarning)
+        sys.get_coroutine_wrapper()
+        sys.set_coroutine_wrapper(my_wrapper)
+        sys.set_coroutine_wrapper(None)
+    print(l)
+    assert len(l) == 3
+
 def test_async_with():
     seen = []
     class X:
@@ -699,6 +711,20 @@ def test_anext_tuple():
 
     assert run_async(run()) == ([], (1,))
 
+def test_async_genexpr_in_regular_function():
+    async def arange(n):
+        for i in range(n):
+            yield i
+
+    def make_arange(n):
+        # This syntax is legal starting with Python 3.7
+        return (i * 2 async for i in arange(n))
+
+    async def run():
+        return [i async for i in make_arange(10)]
+    res = run_async(run())
+    assert res[1] == [i * 2 for i in range(10)]
+
 # Helpers for test_async_gen_exception_11() below
 def sync_iterate(g):
     res = []
@@ -814,3 +840,65 @@ def test_asyncgen_hooks_shutdown():
         assert finalized == 2
     finally:
         sys.set_asyncgen_hooks(*old_hooks)
+
+def test_coroutine_capture_origin():
+    import contextlib
+
+    def here():
+        f = sys._getframe().f_back
+        return (f.f_code.co_filename, f.f_lineno)
+
+    try:
+        async def corofn():
+            pass
+
+        with contextlib.closing(corofn()) as coro:
+            assert coro.cr_origin is None
+
+        sys.set_coroutine_origin_tracking_depth(1)
+
+        fname, lineno = here()
+        with contextlib.closing(corofn()) as coro:
+            print(coro.cr_origin)
+            assert coro.cr_origin == (
+                (fname, lineno + 1, "test_coroutine_capture_origin"),)
+
+
+        sys.set_coroutine_origin_tracking_depth(2)
+
+        def nested():
+            return (here(), corofn())
+        fname, lineno = here()
+        ((nested_fname, nested_lineno), coro) = nested()
+        with contextlib.closing(coro):
+            print(coro.cr_origin)
+            assert coro.cr_origin == (
+                (nested_fname, nested_lineno, "nested"),
+                (fname, lineno + 1, "test_coroutine_capture_origin"))
+
+        # Check we handle running out of frames correctly
+        sys.set_coroutine_origin_tracking_depth(1000)
+        with contextlib.closing(corofn()) as coro:
+            print(coro.cr_origin)
+            assert 1 <= len(coro.cr_origin) < 1000
+    finally:
+        sys.set_coroutine_origin_tracking_depth(0)
+
+def test_runtime_warning_origin_tracking():
+    import gc, warnings  # XXX: importing warnings is expensive untranslated
+    async def foobaz():
+        pass
+    gc.collect()   # emit warnings from unrelated older tests
+    with warnings.catch_warnings(record=True) as l:
+        foobaz()
+        gc.collect()
+        gc.collect()
+        gc.collect()
+
+    assert len(l) == 1, repr(l)
+    w = l[0].message
+    assert isinstance(w, RuntimeWarning)
+    assert str(w).startswith("coroutine ")
+    assert str(w).endswith("foobaz' was never awaited")
+    assert "test_runtime_warning_origin_tracking" in str(w)
+

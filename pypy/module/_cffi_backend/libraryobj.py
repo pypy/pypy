@@ -18,8 +18,10 @@ class W_Library(W_Root):
 
     def __init__(self, space, w_filename, flags):
         self.space = space
-        self.name, self.handle = misc.dlopen_w(space, w_filename, flags)
-        self.register_finalizer(space)
+        self.name, self.handle, autoclose = (
+            misc.dlopen_w(space, w_filename, flags))
+        if autoclose:
+            self.register_finalizer(space)
 
     def _finalize_(self):
         h = self.handle

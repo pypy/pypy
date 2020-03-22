@@ -75,6 +75,9 @@ class AppTestRecompilerPython:
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
         typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
+
+        void *dlopen(const char *filename, int flags);
+        int dlclose(void *handle);
         """)
         ffi.set_source('re_python_pysrc', None)
         ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -95,6 +98,11 @@ class AppTestRecompilerPython:
                     sys.path.insert(0, path)
             return fix_path
         """)
+
+        cls.w_dl_libpath = space.w_None
+        if sys.platform != 'win32':
+            import ctypes.util
+            cls.w_dl_libpath = space.wrap(ctypes.util.find_library('dl'))
 
     def teardown_method(self, meth):
         self.space.appexec([], """():
@@ -245,3 +253,22 @@ class AppTestRecompilerPython:
         self.fix_path()
         from re_python_pysrc import ffi
         ffi.new("selfref_ptr_t")
+
+    def test_dlopen_handle(self):
+        import _cffi_backend, sys
+        self.fix_path()
+        from re_python_pysrc import ffi
+        if self.dl_libpath is None:
+            py.test.skip("uses 'dl' explicitly")
+        lib1 = ffi.dlopen(self.dl_libpath)
+        handle = lib1.dlopen(self.extmod.encode(sys.getfilesystemencoding()),
+                             _cffi_backend.RTLD_LAZY)
+        assert ffi.typeof(handle) == ffi.typeof("void *")
+        assert handle
+
+        lib = ffi.dlopen(handle)
+        assert lib.add42(-10) == 32
+        assert type(lib.add42) is _cffi_backend.FFI.CData
+
+        err = lib1.dlclose(handle)
+        assert err == 0

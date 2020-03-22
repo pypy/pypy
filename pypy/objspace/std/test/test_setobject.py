@@ -650,6 +650,40 @@ class AppTestAppSetTest:
             assert type(t) is base
             assert not hasattr(t, 'x')
 
+    def test_reverse_ops(self):
+        assert set.__rxor__
+        assert frozenset.__rxor__
+        assert set.__ror__
+        assert frozenset.__ror__
+        assert set.__rand__
+        assert frozenset.__rand__
+        assert set.__rsub__
+        assert frozenset.__rsub__
+
+        # actual behaviour test
+        for base in [set, frozenset]:
+            class S(base):
+                def __xor__(self, other):
+                    if type(other) is not S:
+                        return NotImplemented
+                    return 1
+                __or__ = __and__ = __sub__ = __xor__
+            assert S([1, 2, 3]) ^ S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) ^ {2, 3, 4} == {1, 4}
+            assert {1, 2, 3} ^ S([2, 3, 4]) == {1, 4}
+
+            assert S([1, 2, 3]) & S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) & {2, 3, 4} == {2, 3}
+            assert {1, 2, 3} & S([2, 3, 4]) == {2, 3}
+
+            assert S([1, 2, 3]) | S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) | {2, 3, 4} == {1, 2, 3, 4}
+            assert {1, 2, 3} | S([2, 3, 4]) == {1, 2, 3, 4}
+
+            assert S([1, 2, 3]) - S([2, 3, 4]) == 1
+            assert S([1, 2, 3]) - {2, 3, 4} == {1}
+            assert {1, 2, 3} - S([2, 3, 4]) == {1}
+
     def test_isdisjoint(self):
         assert set([1,2,3]).isdisjoint(set([4,5,6]))
         assert set([1,2,3]).isdisjoint(frozenset([4,5,6]))

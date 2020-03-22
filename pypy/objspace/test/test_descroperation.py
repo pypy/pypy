@@ -343,6 +343,19 @@ class AppTest_Descroperation:
         raises(TypeError, "0.0 < zz()")
         raises(TypeError, "0j < zz()")
 
+    def test_correct_order_error_msg(self):
+        class A(object):
+            def __lt__(self, other):
+                return NotImplemented
+            __gt__ = __lt__
+
+        class B(A):
+            pass
+
+        with raises(TypeError) as e:
+            A() < B()
+        assert str(e.value) == "'<' not supported between instances of 'A' and 'B'"
+
     def test_equality_among_different_types(self):
         class A(object): pass
         class zz(object): pass

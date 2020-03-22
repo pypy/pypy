@@ -473,7 +473,6 @@ class SkipLineEventsTraceTestCase(TraceTestCase):
         return Tracer(trace_line_events=False)
 
 
-@support.cpython_only
 class TraceOpcodesTestCase(TraceTestCase):
     """Repeat the trace tests, but with per-opcodes events enabled"""
 

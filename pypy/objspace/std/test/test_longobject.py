@@ -212,7 +212,12 @@ class AppTestLong:
         raises(OverflowError, "long(1) << (2 ** 100)")
         raises(ValueError, "long(1) >> long(-1)")
         raises(ValueError, "long(1) >> -1")
-        raises(OverflowError, "long(1) >> (2 ** 100)")
+        assert long(1) >> (2 ** 100) == 0
+        assert long(-1) >> (2 ** 100) == -1
+        assert 1 >> (2 ** 100) == 0 # int compatibility
+        assert -1 >> (2 ** 100) == -1 # int compatibility
+        assert 0 << (1 << 1000) == 0
+
 
     def test_pow(self):
         long = self._long

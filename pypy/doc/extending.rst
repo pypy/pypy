@@ -25,7 +25,7 @@ that accesses C libraries.  The idea is to support either ABI- or
 API-level access to C --- so that you can sanely access C libraries
 without depending on details like the exact field order in the C
 structures or the numerical value of all the constants.  It works on
-both CPython (as a separate ``pip install cffi``) and on PyPy, where it
+both CPython (as a separate ``python -mpip install cffi``) and on PyPy, where it
 is included by default.
 
 PyPy's JIT does a quite reasonable job on the Python code that call C
@@ -69,7 +69,7 @@ It is designed for use by large scale programs and supports modern C++.
 With PyPy, it leverages the built-in ``_cppyy`` module, allowing the JIT to
 remove most of the cross-language overhead.
 
-To install, run ``pip install cppyy``.
+To install, run ``<pypy> -mpip install cppyy``.
 Further details are available in the `full documentation`_.
 
 .. _`full documentation`: https://cppyy.readthedocs.org/
