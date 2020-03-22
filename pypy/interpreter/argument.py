@@ -251,7 +251,7 @@ class Arguments(object):
             # the called function takes
             # this function must not take a scope_w, to make the scope not
             # escape
-            num_remainingkwds, posonly_conflicts = _match_keywords(
+            num_remainingkwds = _match_keywords(
                     signature, blindargs, co_posonlyargcount, input_argcount,
                     keywords, kwds_mapping, self._jit_few_keywords)
             if num_remainingkwds:
@@ -260,8 +260,6 @@ class Arguments(object):
                     _collect_keyword_args(
                             self.space, keywords, keywords_w, w_kwds,
                             kwds_mapping, self.keyword_names_w, self._jit_few_keywords)
-                elif posonly_conflicts:
-                    raise ArgErrPosonlyAsKwds(posonly_conflicts)
                 else:
                     raise ArgErrUnknownKwds(self.space, num_remainingkwds, keywords,
                                             kwds_mapping, self.keyword_names_w)
@@ -453,7 +451,6 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
     num_kwds = num_remainingkwds = len(keywords)
-    posonly_conflicts = []
     for i in range(num_kwds):
         name = keywords[i]
         # If name was not encoded as a string, it could be None. In that
@@ -461,11 +458,12 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
         if name is None:
             continue
         j = signature.find_argname(name)
-        # if j == -1 nothing happens, because j < input_argcount and
-        # blindargs > j
-        if j < co_posonlyargcount:
-            posonly_conflicts.append(name)
+        if 0 <= j < co_posonlyargcount:
+            raise ArgErrPosonlyAsKwds(signature.posonlyargnames[j])
         elif j < input_argcount:
+            # if j == -1 nothing happens, because j < input_argcount and
+            # blindargs > j
+
             # check that no keyword argument conflicts with these. note
             # that for this purpose we ignore the first blindargs,
             # which were put into place by prepend().  This way,
@@ -476,7 +474,7 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
         else:
             kwds_mapping[j - input_argcount] = i # map to the right index
             num_remainingkwds -= 1
-    return num_remainingkwds, posonly_conflicts
+    return num_remainingkwds
 
 @jit.look_inside_iff(
     lambda space, keywords, keywords_w, w_kwds, kwds_mapping,
@@ -627,12 +625,15 @@ class ArgErrUnknownKwds(ArgErr):
                 self.num_kwds)
         return msg
 
+
 class ArgErrPosonlyAsKwds(ArgErr):
 
-    def __init__(self, posonly_kwds):
-        self.posonly_kwds = posonly_kwds
+    def __init__(self, posonly_kwd):
+        self.posonly_kwd = posonly_kwd
 
     def getmsg(self):
-        msg = ("got some positional-only arguments passed "
-               "as keyword arguments: '%s'") % ', '.join(self.posonly_kwds)
+        # this message will have to be different in 3.8, where positional only
+        # arguments are a "real" concept, not just for built-in functions
+        # for now let's be consistent with ArgErrUnknownKwds
+        msg = ("got an unexpected keyword argument '%s'" % self.posonly_kwd)
         return msg

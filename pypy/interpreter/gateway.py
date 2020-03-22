@@ -69,7 +69,7 @@ class SignatureBuilder(object):
 
     def signature(self):
         return Signature(self.argnames, self.varargname, self.kwargname,
-                         self.posonlyargnames, self.kwonlyargnames)
+                         self.kwonlyargnames, self.posonlyargnames)
 
 #________________________________________________________________
 

@@ -808,6 +808,12 @@ class AppTestInt(object):
             e = raises(TypeError, unboundmeth.im_func, "!")
             assert "'int'" in str(e.value)
 
+    def test_int_new_pos_only(self):
+        with raises(TypeError) as info:
+            int(x=1)
+        assert "got an unexpected keyword argument 'x'" in str(info.value)
+
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}

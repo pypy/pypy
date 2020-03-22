@@ -71,7 +71,7 @@ def cpython_code_signature(code):
         kwargname = code.co_varnames[argcount]
     else:
         kwargname = None
-    return Signature(argnames, varargname, kwargname, None, kwonlyargs)
+    return Signature(argnames, varargname, kwargname, kwonlyargs)
 
 class CodeHookCache(object):
     def __init__(self, space):

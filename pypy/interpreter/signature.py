@@ -5,7 +5,7 @@ class Signature(object):
     _immutable_fields_ = ["argnames[*]", "posonlyargnames[*]", "kwonlyargnames[*]"]
     __slots__ = ("argnames", "posonlyargnames", "kwonlyargnames", "varargname", "kwargname")
 
-    def __init__(self, argnames, varargname=None, kwargname=None, posonlyargnames=None, kwonlyargnames=None):
+    def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None, posonlyargnames=None):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
@@ -67,7 +67,7 @@ class Signature(object):
 
     def __repr__(self):
         return "Signature(%r, %r, %r, %r, %r)" % (
-                self.argnames, self.varargname, self.kwargname, self.posonlyargnames, self.kwonlyargnames)
+                self.argnames, self.varargname, self.kwargname, self.kwonlyargnames, self.posonlyargnames)
 
     def __eq__(self, other):
         if not isinstance(other, Signature):
