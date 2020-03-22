@@ -67,6 +67,7 @@ exported_sqlite_symbols = [
     'SQLITE_DELETE',
     'SQLITE_DENY',
     'SQLITE_DETACH',
+    'SQLITE_DONE',
     'SQLITE_DROP_INDEX',
     'SQLITE_DROP_TABLE',
     'SQLITE_DROP_TEMP_INDEX',
@@ -717,6 +718,43 @@ class Connection(object):
             rc = _lib.sqlite3_enable_load_extension(self._db, int(enabled))
             if rc != _lib.SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
+
+    if hasattr(_lib, 'sqlite3_backup_init'):
+        def backup(self, target, *, pages=0, progress=None, name="main", sleep=0.250):
+            """Makes a backup of the database. Non-standard."""
+            if not isinstance(target, Connection):
+                raise TypeError("target is not a Connection")
+            if target == self:
+                raise ValueError("target cannot be the same connection instance")
+            if progress is not None and not callable(progress):
+                raise TypeError("progress argument must be a callable")
+            if pages == 0:
+                pages = -1
+            bck_conn = target._db
+            if not bck_conn:
+                raise ProgrammingError("cannot operate on closed connection")
+            bck_handle = _lib.sqlite3_backup_init(bck_conn, b"main", self._db, name.encode("utf-8"))
+            if not bck_handle:
+                raise target._get_exception()
+            while 1:
+                rc = _lib.sqlite3_backup_step(bck_handle, pages)
+                if progress:
+                    try:
+                        progress(rc, _lib.sqlite3_backup_remaining(bck_handle), _lib.sqlite3_backup_pagecount(bck_handle))
+                    except:
+                        _lib.sqlite3_backup_finish(bck_handle)
+                        raise
+                if rc == _lib.SQLITE_BUSY or rc == _lib.SQLITE_LOCKED:
+                    _lib.sqlite3_sleep(sleep * 1000)
+                elif rc == _lib.SQLITE_OK:
+                    pass
+                else:
+                    break
+            rc = _lib.sqlite3_backup_finish(bck_handle);
+            if rc == _lib.SQLITE_OK:
+                return None
+            error = _lib.sqlite3_errstr(rc).decode("utf-8")
+            raise OperationalError(error)
 
 
 class Cursor(object):

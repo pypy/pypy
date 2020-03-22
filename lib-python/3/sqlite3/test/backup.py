@@ -143,7 +143,7 @@ class BackupTests(unittest.TestCase):
                 self.cx.backup(bck, name='non-existing')
         self.assertIn(
             str(cm.exception),
-            ['SQL logic error', 'SQL logic error or missing database']
+            ['SQL logic error', 'SQL logic error or missing database', 'unknown database non-existing'] # PyPy change: better error message
         )
 
         self.cx.execute("ATTACH DATABASE ':memory:' AS attached_db")
