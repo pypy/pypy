@@ -28,6 +28,7 @@ class Module(MixedModule):
         '_fix_co_filename': 'interp_imp.fix_co_filename',
 
         'source_hash':     'interp_imp.source_hash',
+        'check_hash_based_pycs': 'space.newtext("default")'
         }
 
     appleveldefs = {

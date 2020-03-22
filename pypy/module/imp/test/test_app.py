@@ -336,3 +336,7 @@ class AppTestImpModule:
         res2 = _imp.source_hash(1, b"abcdefg")
         assert res != res2
 
+    def test_check_hash_based_pycs(self):
+        import _imp
+        assert _imp.check_hash_based_pycs == "default"
+
