@@ -1129,19 +1129,12 @@ class interp2app(W_Root):
         #
         sig = self._code.sig
         first_defined = 0
-        n_posonlyargnames = len(sig.posonlyargnames)
-        while (first_defined < n_posonlyargnames and
-               sig.posonlyargnames[first_defined] not in alldefs_w):
+        allposargnames = sig.posonlyargnames + sig.argnames
+        n_allposargnames = len(allposargnames)
+        while (first_defined < n_allposargnames and
+               allposargnames[first_defined] not in alldefs_w):
             first_defined += 1
-        n_argnames = len(sig.argnames)
-        while (first_defined < n_posonlyargnames + n_argnames and
-               sig.argnames[first_defined-n_posonlyargnames] not in alldefs_w):
-            first_defined += 1
-        if first_defined < n_posonlyargnames:
-            defs_w = [alldefs_w.pop(name) for name in sig.posonlyargnames[first_defined:]]
-            defs_w.extend([alldefs_w.pop(name) for name in sig.argnames])
-        else:
-            defs_w = [alldefs_w.pop(name) for name in sig.argnames[first_defined-n_posonlyargnames:]]
+        defs_w = [alldefs_w.pop(name) for name in allposargnames[first_defined:]]
 
         kw_defs_w = None
         if alldefs_w:
