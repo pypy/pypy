@@ -325,9 +325,6 @@ class Decimal(object):
 
     @classmethod
     def from_float(cls, value):
-        # note: if 'cls' is a subclass of Decimal and 'value' is an int,
-        # this will call cls(Decimal('42')) whereas _pydecimal.py will
-        # call cls(42).  This is like CPython's _decimal module.
         if not isinstance(value, (int, float)):
             raise TypeError("argument must be int of float")
         result = cls._from_float(value, getcontext(), exact=True)
@@ -336,21 +333,21 @@ class Decimal(object):
         else:
             return cls(result)
 
-    @classmethod
-    def _from_float(cls, value, context, exact=True):
+    @staticmethod
+    def _from_float(value, context, exact=True):
         if isinstance(value, int):
-            return cls._from_int(value, context, exact=exact)
+            return Decimal._from_int(value, context, exact=exact)
         value = float(value)    # in case it's a subclass of 'float'
         sign = 0 if _math.copysign(1.0, value) == 1.0 else 1
 
         if _math.isnan(value):
-            self = cls._new_empty()
+            self = Decimal._new_empty()
             # decimal.py calls repr(float(+-nan)), which always gives a
             # positive result.
             _mpdec.mpd_setspecial(self._mpd, _mpdec.MPD_POS, _mpdec.MPD_NAN)
             return self
         if _math.isinf(value):
-            self = cls._new_empty()
+            self = Decimal._new_empty()
             _mpdec.mpd_setspecial(self._mpd, sign, _mpdec.MPD_INF)
             return self
 
@@ -358,7 +355,7 @@ class Decimal(object):
         num, den = abs(value).as_integer_ratio()
         k = den.bit_length() - 1
 
-        self = cls._from_int(num, context, exact=True)
+        self = Decimal._from_int(num, context, exact=True)
 
         # Compute num * 5**k
         d1 = _mpdec.mpd_qnew()

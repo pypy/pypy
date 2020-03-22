@@ -99,6 +99,15 @@ def convert_arg(module, arg):
     else:
         return arg
 
+def test_subclass_fromfloat_oddity_fixed(module):
+    # older versions of CPython's _decimal did weird stuff here
+    class A(module.Decimal):
+        def __init__(self, a):
+            self.a_type = type(a)
+    a = A.from_float(42.5)
+    assert a.a_type is module.Decimal
+
+
 from fractions import Fraction
 from decimal import Decimal
 
