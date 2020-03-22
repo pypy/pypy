@@ -340,6 +340,13 @@ def test_open_path():
             return b":memory:"
     _sqlite3.connect(P())
 
+def test_isolation_bug():
+    con = _sqlite3.connect(":memory:", isolation_level=None)
+    #con = _sqlite3.connect(":memory:")
+    #con.isolation_level = None
+    cur = con.cursor()
+    cur.execute("create table foo(x);")
+
 @pytest.mark.skipif(not hasattr(_sqlite3.Connection, "backup"), reason="no backup")
 class TestBackup:
     def test_target_is_connection(self, con):
