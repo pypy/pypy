@@ -447,3 +447,7 @@ class AppTestW_TupleObject:
         if hasattr(unboundmeth, 'im_func'):
             e = raises(TypeError, unboundmeth.im_func, 42)
             assert "'tuple'" in str(e.value)
+
+    def test_tuple_new_pos_only(self):
+        with raises(TypeError):
+            tuple(sequence=[])

@@ -96,7 +96,7 @@ class W_AbstractTupleObject(W_Root):
         return iterobject.W_FastTupleIterObject(self, self.tolist())
 
     @staticmethod
-    def descr_new(space, w_tupletype, w_sequence=None):
+    def descr_new(space, w_tupletype, w_sequence=None, __posonly__=None):
         if w_sequence is None:
             tuple_w = []
         elif (space.is_w(w_tupletype, space.w_tuple) and
