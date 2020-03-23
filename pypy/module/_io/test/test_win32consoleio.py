@@ -9,10 +9,8 @@ if os.name != 'nt':
     import pytest
     pytest.skip('Windows only tests')
 
-try:
-    import _testconsole
-except ImportError:
-    from lib_pypy import _testconsole
+if not option.runappdirect:
+    from lib_pypy._testconsole import write_input as tst_write_input
 
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io', '_cffi_backend'])
@@ -26,13 +24,16 @@ class AppTestWinConsoleIO:
             return m""" % os.name)
         cls.w_conout_path = cls.space.wrap(str(udir.join('CONOUT$')))
         if option.runappdirect:
-            cls.w_write_input = _testconsole.write_input
+            def write_input(module, console, s):
+                from pypy.module._io.test._testconsole import write_input as tst_write_input
+                return tst_write_input(module, console, s)
+            cls.w_write_input = write_input
         else:
-            def cls_write_input(space, w_module, w_console, w_s):
-                module = space.unwrap(w_module)
+            def cls_write_input(w_console, w_s):
+                space = cls.space
                 handle = rffi.cast(rffi.INT_real, w_console.handle)
                 s = space.utf8_w(w_s).decode('utf-8')
-                return space.wrap(_testconsole.write_input(module, handle, s))
+                return space.wrap(tst_write_input(handle, s))
             cls.w_write_input = cls.space.wrap(interp2app(cls_write_input))
 
     def test_open_fd(self):
@@ -133,16 +134,22 @@ class AppTestWinConsoleIO:
             
     def test_partial_reads(self):
         import _io
-        source = b'abcedfg'
-        actual = b''
-        with open('CONIN$', 'rb', buffering=0) as stdin:
-            self.write_input(None, stdin, source)
-            while not actual.endswith(b'\n'):
-                b = stdin.read(len(source))
-                print('read', b)
-                if not b:
-                    break
-                actual += b
+        # Test that reading less than 1 full character works when stdin
+        # contains multibyte UTF-8 sequences. Converted to utf-16-le.
+        source = '\u03fc\u045e\u0422\u03bb\u0424\u0419\u005c\u0072\u005c\u006e'
+        # converted to utf-8
+        expected = '\xcf\xbc\xd1\x9e\xd0\xa2\xce\xbb\xd0\xa4\xd0\x99\x5c\x72\x5c\x6e'
+        for read_count in range(1, 16):
+            with open('CONIN$', 'rb', buffering=0) as stdin:
+                self.write_input(stdin, source)
+
+                actual = b''
+                while not actual.endswith(b'\n'):
+                    b = stdin.read(read_count)
+                    print('got', b)
+                    actual += b
+
+                self.assertEqual(actual, expected, 'stdin.read({})'.format(read_count))
 
         assert actual == source
 

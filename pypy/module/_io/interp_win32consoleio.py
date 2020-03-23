@@ -164,7 +164,7 @@ class W_WinConsoleIO(W_RawIOBase):
         self.writable = False
         self.closehandle = False
         self.blksize = 0
-        self.buf = None
+        self.buf = rffi.cast(rffi.CCHARP, 0)
 
     def _dealloc_warn_w(self, space, w_source):
         buf = self.buf
@@ -339,11 +339,14 @@ class W_WinConsoleIO(W_RawIOBase):
         return space.newint(self.fd)
         
     def readinto_w(self, space, w_buffer):
+        print('W_WinConsoleIO.readinto_w')
         rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
+        import pdb;pdb.set_trace()
         return space.newint(self.readinto(space, rwbuffer, length))
 
     def readinto(self, space, rwbuffer, length):
+        print('W_WinConsoleIO.readinto')
         
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
@@ -381,6 +384,7 @@ class W_WinConsoleIO(W_RawIOBase):
             
         u8n = 0
                
+        err = 0
         if length < 4:
             if WideCharToMultiByte(rwin32.CP_UTF8,
                                        0, wbuf, n, self.buf,
@@ -417,6 +421,7 @@ class W_WinConsoleIO(W_RawIOBase):
         return read_len
             
     def read_w(self, space, w_size=None):
+        print('W_WinConsoleIO.read_w')
         size = convert_size(space, w_size)
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
@@ -439,6 +444,7 @@ class W_WinConsoleIO(W_RawIOBase):
             return space.newbytes(ret_str)
 
     def readall_w(self, space):
+        print('W_WinConsoleIO.readall_w')
         if self.handle == rwin32.INVALID_HANDLE_VALUE:
             raise err_closed(space)
 
@@ -511,6 +517,7 @@ class W_WinConsoleIO(W_RawIOBase):
             lltype.free(n, flavor='raw')
 
     def write_w(self, space, w_data):
+        print('W_WinConsoleIO.write_w')
         buffer = space.charbuf_w(w_data)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
         

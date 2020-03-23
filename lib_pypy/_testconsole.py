@@ -8,7 +8,7 @@ from _pypy_winbase_cffi import ffi as _ffi
 _kernel32 = _ffi.dlopen('kernel32')
 import _io
 
-def write_input(module, file, s):
+def write_input(file, s):
     
     # if not file is _io._WindowsConsoleIO:
     #    raise TypeError("expected raw console object")
@@ -33,8 +33,8 @@ def write_input(module, file, s):
     while total < size:
         if not _kernel32.WriteConsoleInputW(phandle, rec + total, size - total, wrote):
             _winapi.SetFromWindowsErr(0)
-        print 'wrote', wrote[0], 'of', size-total
+        print('wrote', wrote[0], 'of', size-total)
         total += wrote[0]
 
-def read_output(module, file):
+def read_output(file):
     return None
