@@ -256,15 +256,7 @@ class PyFrame(W_Root):
         if self._is_generator_or_coroutine():
             return self.initialize_as_generator(name, qualname)
         else:
-            # save and restore sys_exc_info, as an attempt to
-            # work around rare cases that can occur if RecursionError or
-            # MemoryError is raised at just the wrong place
-            executioncontext = self.space.getexecutioncontext()
-            exc_on_enter = executioncontext.sys_exc_info()
-            try:
-                return self.execute_frame()
-            finally:
-                executioncontext.set_sys_exc_info(exc_on_enter)
+            return self.execute_frame()
     run._always_inline_ = True
 
     def initialize_as_generator(self, name, qualname):
