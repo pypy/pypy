@@ -203,7 +203,7 @@ class Decimal(object):
         if isinstance(value, float):
             context = _getcontext(context)
             context._add_status(_mpdec.MPD_Float_operation)
-            return cls._from_float(value, context, exact=exact)
+            return cls._from_float_subclass_handling(value, context, exact=exact)
         raise TypeError("conversion from %s to Decimal is not supported" %
                         value.__class__.__name__)
 
@@ -327,7 +327,11 @@ class Decimal(object):
     def from_float(cls, value):
         if not isinstance(value, (int, float)):
             raise TypeError("argument must be int of float")
-        result = cls._from_float(value, getcontext(), exact=True)
+        return cls._from_float_subclass_handling(value, getcontext())
+
+    @classmethod
+    def _from_float_subclass_handling(cls, value, context, exact=True):
+        result = cls._from_float(value, context, exact=exact)
         if cls is Decimal:
             return result
         else:

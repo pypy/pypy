@@ -107,6 +107,13 @@ def test_subclass_fromfloat_oddity_fixed(module):
     a = A.from_float(42.5)
     assert a.a_type is module.Decimal
 
+def test_subclass_float_constructor(module):
+    class A(module.Decimal):
+        pass
+    a = A(0.25)
+    assert type(a) is A
+
+
 
 from fractions import Fraction
 from decimal import Decimal
