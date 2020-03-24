@@ -1,9 +1,9 @@
 ==========================
-What's new in PyPy3 7.3.1+
+What's new in PyPy3 7.3.0+
 ==========================
 
-.. this is the revision after release-pypy3.6-v7.3.1
-.. startrev: 2a10044abff2
+.. this is the revision after release-pypy3.6-v7.3.0
+.. startrev: a56889d5df88
 
 .. branch: cpyext-speedup-tests-py36
 

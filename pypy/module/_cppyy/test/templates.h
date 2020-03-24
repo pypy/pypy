@@ -6,16 +6,30 @@
 #include <sstream>
 #include <vector>
 
-#ifndef WIN32
+#if defined(_MSC_VER)
+        #define INLINE __inline
+#elif defined(__GNUC__)
+    #if defined(__STRICT_ANSI__)
+         #define INLINE __inline__
+    #else
+         #define INLINE inline
+    #endif
+#else
+    #define INLINE
+#endif
+
+
+
+#ifndef __MSC_VER
 #include <cxxabi.h>
-inline std::string demangle_it(const char* name, const char* errmsg) {
+INLINE std::string demangle_it(const char* name, const char* errmsg) {
     int status;
     std::string res = abi::__cxa_demangle(name, 0, 0, &status);
     if (status != 0) throw std::runtime_error(errmsg);
     return res;
 }
 #else
-inline std::string demangle_it(const char* name, const char*) {
+INLINE std::string demangle_it(const char* name, const char*) {
     return name;        // typeinfo's name() is already demangled
 }
 #endif
@@ -53,7 +67,7 @@ long MyTemplatedMethodClass::get_size(const A&) {
 }
 
 template<class B>
-inline long MyTemplatedMethodClass::get_size() {
+INLINE long MyTemplatedMethodClass::get_size() {
     return sizeof(B);
 }
 
@@ -66,7 +80,7 @@ template long MyTemplatedMethodClass::get_size<int>();
 
 // "lying" specialization
 template<>
-inline long MyTemplatedMethodClass::get_size<long>() {
+INLINE long MyTemplatedMethodClass::get_size<long>() {
     return 42;
 }
 
@@ -103,10 +117,10 @@ SomeResult<O> global_get_some_result(const I& carrier) {
 
 //===========================================================================
 // variadic functions
-inline bool isSomeInt(int) { return true; }
-inline bool isSomeInt(double) { return false; }
+INLINE bool isSomeInt(int) { return true; }
+INLINE bool isSomeInt(double) { return false; }
 template <typename ...Args>
-inline bool isSomeInt(Args...) { return false; }
+INLINE bool isSomeInt(Args...) { return false; }
 
 namespace AttrTesting {
 
@@ -150,7 +164,7 @@ int some_bar() {
     return T;
 }
 
-inline std::string tuplify(std::ostringstream& out) {
+INLINE std::string tuplify(std::ostringstream& out) {
     out << "NULL)";
     return out.str();
 }

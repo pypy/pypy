@@ -13,6 +13,19 @@
 
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 
+#if defined(_MSC_VER)
+        #define INLINE __inline
+#elif defined(__GNUC__)
+    #if defined(__STRICT_ANSI__)
+         #define INLINE __inline__
+    #else
+         #define INLINE inline
+    #endif
+#else
+    #define INLINE
+#endif
+
+
 // union for argument passing
 struct CPPYY_G__value {
   union {
@@ -413,7 +426,7 @@ struct Cppyy_InitPseudoReflectionInfo {
 
 
 /* local helpers ---------------------------------------------------------- */
-static inline char* cppstring_to_cstring(const std::string& name) {
+static INLINE char* cppstring_to_cstring(const std::string& name) {
     char* name_char = (char*)malloc(name.size() + 1);
     strcpy(name_char, name.c_str());
     return name_char;

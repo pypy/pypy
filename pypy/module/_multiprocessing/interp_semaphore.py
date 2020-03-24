@@ -33,7 +33,7 @@ if sys.platform == 'win32':
     _ReleaseSemaphore = rwin32.winexternal(
         'ReleaseSemaphore', [rwin32.HANDLE, rffi.LONG, rffi.LONGP],
         rwin32.BOOL,
-        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=True)
+        save_err=rffi.RFFI_SAVE_LASTERROR, releasegil=False)
 
     def sem_unlink(name):
         return None
