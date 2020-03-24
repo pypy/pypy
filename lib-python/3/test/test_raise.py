@@ -247,7 +247,9 @@ class TestTracebackType(unittest.TestCase):
         self.assertIs(tb.tb_next.tb_next, None)
 
         # Invalid assignments
-        with self.assertRaises(TypeError):
+        # PyPy difference: we raise AttributeError (CPython is not at all
+        # consistent about this)
+        with self.assertRaises((TypeError, AttributeError)):
             del tb.tb_next
 
         with self.assertRaises(TypeError):
