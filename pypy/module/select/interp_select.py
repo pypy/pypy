@@ -50,7 +50,7 @@ class Poll(W_Root):
         fd = space.c_filedescriptor_w(w_fd)
         if fd not in self.fddict:
             raise wrap_oserror(space, OSError(errno.ENOENT, "poll.modify"),
-                               exception_name='w_IOError')
+                               w_exception_class=space.w_IOError)
         self.fddict[fd] = events
 
     def unregister(self, space, w_fd):

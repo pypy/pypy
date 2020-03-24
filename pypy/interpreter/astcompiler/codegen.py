@@ -111,8 +111,8 @@ subscr_operations = misc.dict_to_switch({
 
 class __extend__(ast.GeneratorExp):
 
-    def build_container(self, codegen):
-        pass
+    def build_container_and_load_iter(self, codegen):
+        codegen.comprehension_load_iter()
 
     def get_generators(self):
         return self.generators
@@ -125,12 +125,19 @@ class __extend__(ast.GeneratorExp):
 
 class __extend__(ast.ListComp):
 
-    def build_container(self, codegen):
-        # XXX: this is suboptimal: if we use BUILD_LIST_FROM_ARG it's faster
-        # because it preallocates the list; however, we cannot use it because
-        # at this point we only have the iterator, not the original iterable
-        # object
-        codegen.emit_op_arg(ops.BUILD_LIST, 0)
+    def build_container_and_load_iter(self, codegen):
+        single = False
+        if len(self.generators) == 1:
+            gen, = self.generators
+            assert isinstance(gen, ast.comprehension)
+            if not gen.ifs:
+                single = True
+        if single:
+            codegen.comprehension_load_iter()
+            codegen.emit_op(ops.BUILD_LIST_FROM_ARG)
+        else:
+            codegen.emit_op_arg(ops.BUILD_LIST, 0)
+            codegen.comprehension_load_iter()
 
     def get_generators(self):
         return self.generators
@@ -142,8 +149,9 @@ class __extend__(ast.ListComp):
 
 class __extend__(ast.SetComp):
 
-    def build_container(self, codegen):
+    def build_container_and_load_iter(self, codegen):
         codegen.emit_op_arg(ops.BUILD_SET, 0)
+        codegen.comprehension_load_iter()
 
     def get_generators(self):
         return self.generators
@@ -155,8 +163,9 @@ class __extend__(ast.SetComp):
 
 class __extend__(ast.DictComp):
 
-    def build_container(self, codegen):
+    def build_container_and_load_iter(self, codegen):
         codegen.emit_op_arg(ops.BUILD_MAP, 0)
+        codegen.comprehension_load_iter()
 
     def get_generators(self):
         return self.generators
@@ -199,16 +208,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _compile(self, tree):
         """Override in subclasses to compile a scope."""
         raise NotImplementedError
-
-    def current_temporary_name(self):
-        """Return the name of the current temporary variable.
-
-        This must be in sync with the one during symbol table building.
-        """
-        name = "_[%d]" % (self.temporary_name_counter,)
-        self.temporary_name_counter += 1
-        assert self.scope.lookup(name) != symtable.SCOPE_UNKNOWN
-        return name
 
     def sub_scope(self, kind, name, node, lineno):
         """Convenience function for compiling a sub scope."""
@@ -394,8 +393,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         return l
 
     def _visit_defaults(self, defaults):
+        assert len(defaults) > 0
         w_tup = self._tuple_of_consts(defaults)
         if w_tup:
+            self.update_position(defaults[-1].lineno, True)
             self.load_const(w_tup)
         else:
             self.visit_sequence(defaults)
@@ -1553,10 +1554,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         anchor = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
-        if gen_index == 0:
-            self.argcount = 1
-            self.emit_op_arg(ops.LOAD_FAST, 0)
-        else:
+        if gen_index > 0:
             gen.iter.walkabout(self)
             self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
@@ -1586,10 +1584,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_anchor = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
-        if gen_index == 0:
-            self.argcount = 1
-            self.emit_op_arg(ops.LOAD_FAST, 0)
-        else:
+        if gen_index > 0:
             gen.iter.walkabout(self)
             self.emit_op(ops.GET_AITER)
             self.load_const(self.space.w_None)
@@ -1886,11 +1881,15 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
 class ComprehensionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, node):
+        self.argcount = 1
         assert isinstance(node, ast.expr)
         self.update_position(node.lineno)
-        node.build_container(self)
+        node.build_container_and_load_iter(self)
         self._comp_generator(node, node.get_generators(), 0)
         self._end_comp()
+
+    def comprehension_load_iter(self):
+        self.emit_op_arg(ops.LOAD_FAST, 0)
 
     def _end_comp(self):
         self.emit_op(ops.RETURN_VALUE)

@@ -237,19 +237,29 @@ def _siphash24(addr_in, size, SZ=1):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
-    if BIG_ENDIAN:
-        index = SZ - 1
-    else:
-        index = 0
     if size < seed.bound_prebuilt_size:
         if size <= 0:
             return seed.hash_empty
         else:
+            if BIG_ENDIAN:
+                index = SZ - 1
+            else:
+                index = 0
             t = rarithmetic.intmask(llop.raw_load(rffi.UCHAR, addr_in, index))
             return seed.hash_single[t]
 
     k0 = seed.k0l
     k1 = seed.k1l
+    return _siphash24_with_key(addr_in, size, k0, k1, SZ)
+
+
+@rgc.no_collect
+@specialize.arg(4)
+def _siphash24_with_key(addr_in, size, k0, k1, SZ=1):
+    if BIG_ENDIAN:
+        index = SZ - 1
+    else:
+        index = 0
     b = r_uint64(size) << 56
     v0 = k0 ^ magic0
     v1 = k1 ^ magic1
@@ -336,6 +346,12 @@ def siphash24(s):
     with rffi.scoped_nonmovingbuffer(s) as p:
         return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
 
+@jit.dont_look_inside
+def siphash24_with_key(s, k0, k1=0):
+    """'s' is a normal string.  k0 and k1 are the seed keys
+    """
+    with rffi.scoped_nonmovingbuffer(s) as p:
+        return _siphash24_with_key(llmemory.cast_ptr_to_adr(p), len(s), k0, k1)
 
 # Prebuilt hashes are precomputed here
 def _update_prebuilt_hashes():

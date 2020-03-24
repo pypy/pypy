@@ -17,7 +17,7 @@ typedef struct {
     PyObject *step;
 } PySliceObject;
 
-#define PySlice_Check(op) ((op)->ob_type == &PySlice_Type)
+#define PySlice_Check(op) (Py_TYPE(op) == &PySlice_Type)
 
 PyAPI_FUNC(Py_ssize_t) PySlice_AdjustIndices(Py_ssize_t length,
                          Py_ssize_t *start, Py_ssize_t *stop, Py_ssize_t step);

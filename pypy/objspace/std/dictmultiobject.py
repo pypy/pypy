@@ -448,6 +448,10 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def setitem_str(self, w_dict, key, w_value):
+        w_dict.setitem(self.space.newtext(key), w_value)
+
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
@@ -1451,7 +1455,14 @@ class W_DictViewObject(W_Root):
         return space.len(self.w_dict)
 
 def _all_contained_in(space, w_dictview, w_other):
-    for w_item in space.iteriterable(w_dictview):
+    w_iter = space.iter(w_dictview)
+    while 1:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True
@@ -1517,7 +1528,14 @@ class SetLikeDictView(object):
             if len_other > len_self:
                 self, w_other = w_other, self
 
-        for w_item in space.iteriterable(w_other):
+        w_iter = space.iter(w_other)
+        while 1:
+            try:
+                w_item = space.next(w_iter)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
+                break
             if space.contains_w(self, w_item):
                 return space.w_False
         return space.w_True

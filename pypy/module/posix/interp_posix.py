@@ -140,6 +140,12 @@ class Path(object):
         self.as_unicode = unicode
         self.w_path = w_path
 
+    def __repr__(self):
+        # For debugging
+        return ''.join(['Path(', str(self.as_fd), ', ', str(self.as_bytes),
+                        ', ', str(self.as_unicode), ', [', str(self.w_path),
+                        ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
+
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
     # equivalent of posixmodule.c:path_converter() in CPython
@@ -147,12 +153,9 @@ def _unwrap_path(space, w_value, allow_fd=True):
         allowed_types = "string, bytes, os.PathLike or integer"
     else:
         allowed_types = "string, bytes or os.PathLike"
-    if _WIN32:
-        try:
-            path_u = space.utf8_0_w(w_value)
-            return Path(-1, None, path_u, w_value)
-        except OperationError:
-            pass
+    if _WIN32 and space.isinstance_w(w_value, space.w_unicode):
+        path_u = FileEncoder(space, w_value).as_unicode()
+        return Path(-1, None, path_u, w_value)
     try:
         path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
         return Path(-1, path_b, None, w_value)
@@ -909,11 +912,20 @@ if _WIN32:
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
         """Change or add an environment variable."""
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables.
+        if len(name) == 0 or u'=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
         # len includes space for '=' and a trailing NUL
         if len(name) + len(value) + 2 > rwin32._MAX_ENV:
             raise oefmt(space.w_ValueError,
                         "the environment variable is longer than %d "
                         "characters", rwin32._MAX_ENV)
+
+        if u'\x00' in name or u'\x00' in value:
+            raise oefmt(space.w_ValueError, "embedded null character")
+
         try:
             rwin32._wputenv(name, value)
         except OSError as e:
@@ -926,9 +938,21 @@ else:
     def putenv(space, w_name, w_value):
         """Change or add an environment variable."""
         try:
-            dispatch_filename_2(rposix.putenv)(space, w_name, w_value)
+            dispatch_filename_2(putenv_impl)(space, w_name, w_value)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
+        except ValueError:
+            raise oefmt(space.w_ValueError,
+                    "illegal environment variable name")
+
+    @specialize.argtype(0, 1)
+    def putenv_impl(name, value):
+        from rpython.rlib.rposix import _as_bytes
+        name = _as_bytes(name)
+        value = _as_bytes(value)
+        if "=" in name:
+            raise ValueError
+        return rposix.putenv(name, value)
 
     def unsetenv(space, w_name):
         """Delete an environment variable."""
@@ -978,9 +1002,8 @@ On some platforms, path may also be specified as an open file descriptor;
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
-        dirname = FileEncoder(space, w_path)
         try:
-            result = rposix.listdir(dirname)
+            result = rposix.listdir(path)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     len_result = len(result)

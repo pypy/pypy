@@ -22,16 +22,17 @@ Generally available functionality
     It works like a simplified array of characters (actually, depending on the
     configuration the ``array`` module internally uses this).
 
-  - ``attach_gdb()``: start a GDB at the interpreter-level (or a PDB before translation).
+  - ``attach_gdb()``: start a GDB at the interpreter-level (or a PDB before
+    translation).
 
- - ``newmemoryview(buffer, itemsize, format, shape=None, strides=None)``:
-   create a `memoryview` instance with the data from ``buffer`` and the
-   specified itemsize, format, and optional shape and strides.
+  - ``newmemoryview(buffer, itemsize, format, shape=None, strides=None)``:
+    create a `memoryview` instance with the data from ``buffer`` and the
+    specified itemsize, format, and optional shape and strides.
 
- - ``bufferable``: a base class that provides a ``__buffer__(self, flags)``
-   method for subclasses to override. This method should return a memoryview
-   instance of the class instance. It is called by the C-API's ``tp_as_buffer.
-   bf_getbuffer``.
+  - ``bufferable``: a base class that provides a ``__buffer__(self, flags)``
+    method for subclasses to override. This method should return a memoryview
+    instance of the class instance. It is called by the C-API's ``tp_as_buffer.
+    bf_getbuffer``.
 
   - ``builtinify(func)``: To implement at app-level modules that are, in CPython,
     implemented in C: this decorator protects a function from being ever bound
@@ -47,7 +48,7 @@ Generally available functionality
   - ``lookup_special(obj, meth)``: Lookup up a special method on an object.
   - ``do_what_I_mean``
 
-  - ``resizelist_hint(...)``: Reallocate the underlying storage of the argument
+  - ``resizelist_hint(sizehint)`` Reallocate the underlying storage of the argument
     list to sizehint
 
   - ``newlist_hint(...)``: Create a new empty list that has an underlying
@@ -116,6 +117,11 @@ Generally available functionality
 
   - ``stack_almost_full``: Return True if the stack is more than 15/16th full.
   - ``pyos_inputhook``: Call PyOS_InputHook() from the CPython C API
+  - ``get_console_cp()``: (Windows-only) Return the console and console output
+    code pages. Equivalent to calling ``GetConsoleCP`` and
+    ``GetConsoleOuputCP``.
+  - ``utf8content(u)``: Given a unicode string u, return it's internal byte
+    representation.  Useful for debugging only.  
   - ``os.real_getenv(...)`` gets OS environment variables skipping python code
   - ``_pypydatetime`` provides base classes with correct C API interactions for
     the pure-python ``datetime`` stdlib module

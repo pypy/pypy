@@ -196,7 +196,10 @@ class EnvBuilder:
                 logger.warning('Unable to symlink %r to %r', src, dst)
                 force_copy = True
         if force_copy:
-            shutil.copyfile(src, dst)
+            if os.path.isdir(src):
+                shutil.copytree(src, dst)
+            else:
+                shutil.copyfile(src, dst)
 
     def setup_python(self, context):
         """

@@ -154,6 +154,7 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_class(p1, #, descr=...)
             p4 = getfield_gc_r(p1, descr=<FieldP pypy.module.micronumpy.iterators.ArrayIter.inst_array \d+ pure>)
             i5 = getfield_gc_i(p0, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset \d+>)
+            guard_not_invalidated(descr=...)
             p6 = getfield_gc_r(p4, descr=<FieldP pypy.module.micronumpy.concrete.BaseConcreteArray.inst_dtype \d+ pure>)
             p7 = getfield_gc_r(p6, descr=<FieldP pypy.module.micronumpy.descriptor.W_Dtype.inst_itemtype \d+ pure>)
             guard_class(p7, ConstClass(Float64), descr=...)
@@ -165,7 +166,6 @@ class TestMicroNumPy(BaseTestPyPyC):
             %(align_check)s
             f16 = raw_load_f(i9, i5, descr=<ArrayF \d+>)
             guard_true(i15, descr=...)
-            guard_not_invalidated(descr=...)
             i18 = float_ne(f16, 0.000000)
             guard_true(i18, descr=...)
             guard_nonnull_class(p2, ConstClass(W_BoolBox), descr=...)
@@ -208,8 +208,8 @@ class TestMicroNumPy(BaseTestPyPyC):
         loop = log._filter(log.loops[0])
         loop.match("""
             %(align_check)s
-            f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
             guard_not_invalidated(descr=...)
+            f31 = raw_load_f(i9, i29, descr=<ArrayF 8>)
             i32 = float_ne(f31, 0.000000)
             guard_true(i32, descr=...)
             i36 = int_add(i24, 1)
@@ -256,6 +256,7 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert loop.match("""
             i76 = int_lt(i71, 300)
             guard_true(i76, descr=...)
+            guard_not_invalidated(descr=...)
             i77 = int_ge(i71, i59)
             guard_false(i77, descr=...)
             i78 = int_mul(i71, i61)
@@ -295,13 +296,13 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert loop.match("""
             i81 = int_lt(i76, 300)
             guard_true(i81, descr=...)
+            guard_not_invalidated(descr=...)
             i82 = int_ge(i76, i62)
             guard_false(i82, descr=...)
             i83 = int_mul(i76, i64)
             i84 = int_add(i58, i83)
             """ + alignment_check + """
             f85 = raw_load_f(i70, i84, descr=<ArrayF 8>)
-            guard_not_invalidated(descr=...)
             f86 = float_add(f74, f85)
             i87 = int_add(i76, 1)
             --TICK--
@@ -324,9 +325,9 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i86 = int_lt(i79, i45)
             guard_true(i86, descr=...)
-            guard_not_invalidated(descr=...)
             i88 = int_ge(i87, i59)
             guard_false(i88, descr=...)
             %(align_check)s
@@ -349,27 +350,19 @@ class TestMicroNumPy(BaseTestPyPyC):
             ai = arr.flat
             i = 0
             while i < arr.size:
-                a = ai[i]
+                a = ai[i]  # ID: getitem
                 i += 1
             return a
         log = self.run(main, [])
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
-            i125 = int_lt(i117, i44)
-            guard_true(i125, descr=...)
+        assert loop.match_by_id("getitem", """
             i126 = int_lt(i117, i50)
             guard_true(i126, descr=...)
             i128 = int_mul(i117, i59)
             i129 = int_add(i55, i128)
             %(align_check)s
             f149 = raw_load_f(i100, i129, descr=<ArrayF 8>)
-            i151 = int_add(i117, 1)
-            setfield_gc(p156, i55, descr=<FieldS pypy.module.micronumpy.iterators.IterState.inst_offset .+>)
-            setarrayitem_gc(p150, 1, 0, descr=<ArrayS .+>)
-            setarrayitem_gc(p150, 0, 0, descr=<ArrayS .+>)
-            --TICK--
-            jump(..., descr=...)
         """ % {'align_check': align_check('i129')})
 
     def test_array_flatiter_setitem_single(self):
@@ -386,13 +379,13 @@ class TestMicroNumPy(BaseTestPyPyC):
         assert log.result == 42.0
         loop, = log.loops_by_filename(self.filepath)
         assert loop.match("""
+            guard_not_invalidated(descr=...)
             i128 = int_lt(i120, i42)
             guard_true(i128, descr=...)
             i129 = int_lt(i120, i48)
             guard_true(i129, descr=...)
             i131 = int_mul(i120, i57)
             i132 = int_add(i53, i131)
-            guard_not_invalidated(descr=...)
             %(align_check)s
             raw_store(i103, i132, 42.000000, descr=<ArrayF 8>)
             i153 = int_add(i120, 1)
@@ -423,13 +416,13 @@ class TestMicroNumPy(BaseTestPyPyC):
             guard_false(i92, descr=...)
             i93 = int_add(i91, 1)
             setfield_gc(p23, i93, descr=<FieldS pypy.objspace.std.iterobject.W_AbstractSeqIterObject.inst_index 8>)
+            guard_not_invalidated(descr=...)
             i94 = int_ge(i91, i56)
             guard_false(i94, descr=...)
             i96 = int_mul(i91, i58)
             i97 = int_add(i51, i96)
             %(align_check)s
             f98 = raw_load_f(i63, i97, descr=<ArrayF 8>)
-            guard_not_invalidated(descr=...)
             f100 = float_mul(f98, 0.500000)
             i101 = int_add(i79, 1)
             i102 = arraylen_gc(p85, descr=<ArrayP .>)

@@ -196,7 +196,14 @@ def PyDict_Merge(space, w_a, w_b, override):
     """
     override = rffi.cast(lltype.Signed, override)
     w_keys = space.call_method(w_b, "keys")
-    for w_key in space.iteriterable(w_keys):
+    w_iter = space.iter(w_keys)
+    while 1:
+        try:
+            w_key = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         if not _has_val(space, w_a, w_key) or override != 0:
             space.setitem(w_a, w_key, space.getitem(w_b, w_key))
     return 0

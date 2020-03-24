@@ -213,29 +213,29 @@ static void gil_fatal(const char *msg) {
     abort();
 }
 
-static inline void mutex2_init(mutex2_t *mutex) {
+static INLINE void mutex2_init(mutex2_t *mutex) {
     *mutex = CreateSemaphore(NULL, 1, 1, NULL);
     if (*mutex == NULL)
         gil_fatal("CreateSemaphore failed");
 }
 
-static inline void mutex2_lock(mutex2_t *mutex) {
+static INLINE void mutex2_lock(mutex2_t *mutex) {
     WaitForSingleObject(*mutex, INFINITE);
 }
 
-static inline void mutex2_unlock(mutex2_t *mutex) {
+static INLINE void mutex2_unlock(mutex2_t *mutex) {
     ReleaseSemaphore(*mutex, 1, NULL);
 }
 
-static inline void mutex2_init_locked(mutex2_t *mutex) {
+static INLINE void mutex2_init_locked(mutex2_t *mutex) {
     mutex2_init(mutex);
     mutex2_lock(mutex);
 }
 
-static inline void mutex2_loop_start(mutex2_t *mutex) { }
-static inline void mutex2_loop_stop(mutex2_t *mutex) { }
+static INLINE void mutex2_loop_start(mutex2_t *mutex) { }
+static INLINE void mutex2_loop_stop(mutex2_t *mutex) { }
 
-static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
+static INLINE int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 {
     DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.999));
     return (result != WAIT_TIMEOUT);
@@ -243,15 +243,15 @@ static inline int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 
 typedef CRITICAL_SECTION mutex1_t;
 
-static inline void mutex1_init(mutex1_t *mutex) {
+static INLINE void mutex1_init(mutex1_t *mutex) {
     InitializeCriticalSection(mutex);
 }
 
-static inline void mutex1_lock(mutex1_t *mutex) {
+static INLINE void mutex1_lock(mutex1_t *mutex) {
     EnterCriticalSection(mutex);
 }
 
-static inline void mutex1_unlock(mutex1_t *mutex) {
+static INLINE void mutex1_unlock(mutex1_t *mutex) {
     LeaveCriticalSection(mutex);
 }
 

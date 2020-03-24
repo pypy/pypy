@@ -229,7 +229,6 @@ class OptHeap(Optimization):
         # cache of corresponding {array descrs: dict 'entries' field descr}
         self.corresponding_array_descrs = {}
         #
-        self._remove_guard_not_invalidated = False
         self._seen_guard_not_invalidated = False
 
     def setup(self):
@@ -655,7 +654,6 @@ class OptHeap(Optimization):
         # registered.
         structvalue = self.ensure_ptr_info_arg0(op)
         if not structvalue.is_constant():
-            self._remove_guard_not_invalidated = True
             return    # not a constant at all; ignore QUASIIMMUT_FIELD
         #
         from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
@@ -670,11 +668,19 @@ class OptHeap(Optimization):
         if self.optimizer.quasi_immutable_deps is None:
             self.optimizer.quasi_immutable_deps = {}
         self.optimizer.quasi_immutable_deps[qmutdescr.qmut] = None
-        self._remove_guard_not_invalidated = False
 
     def optimize_GUARD_NOT_INVALIDATED(self, op):
-        if self._remove_guard_not_invalidated:
-            return
+        # logic: we need one guard_not_invalidated after every call that can
+        # invalidate something. This is independent to whether the
+        # quasiimmut_field op is removed or not! The tracer will only trace one
+        # guard_not_invalidated after each call, so even if the first
+        # quasiimmut_field is removed, the second one might not be and could
+        # rely on the presence of an earlier guard_not_invalidated. This might
+        # under rare circumstances leave a extra guard_not_invalidated in the
+        # trace! But guard_not_invalidated is cheap, it emits no instructions
+        # and its only cost is the size of the resume data. Therfore that is
+        # still a better tradeoff than capturing resume data for every
+        # quasiimmut_field in the front end *all the time*
         if self._seen_guard_not_invalidated:
             return
         self._seen_guard_not_invalidated = True

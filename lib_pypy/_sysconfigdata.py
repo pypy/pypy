@@ -7,6 +7,11 @@ so_ext = _imp.extension_suffixes()[0]
 
 
 build_time_vars = {
+    # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
+    # ("ABI tag"-"platform tag") where this is ABI tag only. Wheel 0.34.2
+    # depends on this value, so don't make it CPython compliant without
+    # checking wheel: it uses pep425tags.get_abi_tag with special handling
+    # for CPython
     "SOABI": '-'.join(so_ext.split('.')[1].split('-')[:2]),
     "SO": so_ext,  # deprecated in Python 3, for backward compatibility
     'CC': "cc -pthread",
@@ -47,4 +52,5 @@ if sys.platform[:6] == "darwin":
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
+    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
 

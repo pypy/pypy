@@ -251,7 +251,7 @@ def memmove(space, w_dest, w_src, n):
         if n == src_buf.getlength():
             src_string = src_buf.as_str()
         else:
-            src_string = src_buf.getslice(0, n, 1, n)
+            src_string = src_buf.getslice(0, 1, n)
 
     dest_buf = None
     dest_data = lltype.nullptr(rffi.CCHARP.TO)

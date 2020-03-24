@@ -92,12 +92,13 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if comp_op == NE and arr1.len != arr2.len:
         return space.w_True
     lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
+    i = 0
+    while i < lgt:
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
         w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
         w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
-            res = space.eq_w(w_elem1, w_elem2)
+            res = space.is_true(space.eq(w_elem1, w_elem2))
             if not res:
                 return space.w_False
         elif comp_op == NE:
@@ -111,7 +112,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_False
         else:
             if comp_op == LE:
@@ -120,8 +121,9 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
+        i += 1
     # we have some leftovers
     if comp_op == EQ:
         return space.w_True
@@ -148,16 +150,18 @@ def index_count_array(arr, w_val, count=False):
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    for i in range(arr.len):
+    i = 0
+    while i < arr.len:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
         w_item = arr.w_getitem(space, i)
-        if space.eq_w(w_item, w_val):
+        if space.is_true(space.eq(w_item, w_val)):
             if count:
                 cnt += 1
             else:
                 return i
+        i += 1
     if count:
         return cnt
     return -1
@@ -918,7 +922,7 @@ class ArrayBuffer(RawBuffer):
         data[index] = char
         w_array._charbuf_stop()
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ''
         assert step == 1

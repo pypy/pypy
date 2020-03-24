@@ -348,9 +348,9 @@ class AppTestRecompiler:
             'test_verify_exact_field_offset',
             """struct foo_s { short a; int b; };""")
         e = raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
-        assert str(e.value) == ("struct foo_s: wrong offset for field 'b' (cdef "
-                           'says 0, but C compiler says 4). fix it or use "...;" '
-                           "in the cdef for struct foo_s to make it flexible")
+        assert str(e.value).startswith(
+            "struct foo_s: wrong offset for field 'b' (cdef "
+            'says 0, but C compiler says 4). fix it or use "...;" ')
 
     def test_type_caching(self):
         ffi1, lib1 = self.prepare(

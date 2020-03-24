@@ -247,10 +247,16 @@ class W_BaseSetObject(W_Root):
             return space.w_NotImplemented
         return self.difference(w_other)
 
+    def descr_rsub(self, space, w_other):
+        if not isinstance(w_other, W_BaseSetObject):
+            return space.w_NotImplemented
+        return w_other.difference(self)
+
     def descr_and(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
             return space.w_NotImplemented
         return self.intersect(w_other)
+    descr_rand = descr_and # symmetric
 
     def descr_or(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
@@ -258,11 +264,13 @@ class W_BaseSetObject(W_Root):
         w_copy = self.copy_real()
         w_copy.update(w_other)
         return w_copy
+    descr_ror = descr_or # symmetric
 
     def descr_xor(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
             return space.w_NotImplemented
         return self.symmetric_difference(w_other)
+    descr_rxor = descr_xor # symmetric
 
     def descr_inplace_sub(self, space, w_other):
         if not isinstance(w_other, W_BaseSetObject):
@@ -528,9 +536,13 @@ Build an unordered collection.""",
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
+    __rsub__ = gateway.interp2app(W_BaseSetObject.descr_rsub),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
+    __rand__ = gateway.interp2app(W_BaseSetObject.descr_rand),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
+    __ror__ = gateway.interp2app(W_BaseSetObject.descr_ror),
     __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
+    __rxor__ = gateway.interp2app(W_BaseSetObject.descr_rxor),
 
     # mutating operators
     __isub__ = gateway.interp2app(W_BaseSetObject.descr_inplace_sub),
@@ -644,9 +656,13 @@ Build an immutable unordered collection.""",
     __iter__ = gateway.interp2app(W_BaseSetObject.descr_iter),
     __contains__ = gateway.interp2app(W_BaseSetObject.descr_contains),
     __sub__ = gateway.interp2app(W_BaseSetObject.descr_sub),
+    __rsub__ = gateway.interp2app(W_BaseSetObject.descr_rsub),
     __and__ = gateway.interp2app(W_BaseSetObject.descr_and),
+    __rand__ = gateway.interp2app(W_BaseSetObject.descr_rand),
     __or__ = gateway.interp2app(W_BaseSetObject.descr_or),
+    __ror__ = gateway.interp2app(W_BaseSetObject.descr_ror),
     __xor__ = gateway.interp2app(W_BaseSetObject.descr_xor),
+    __rxor__ = gateway.interp2app(W_BaseSetObject.descr_rxor),
 
     # non-mutating methods
     __reduce__ = gateway.interp2app(W_BaseSetObject.descr_reduce),
@@ -1659,7 +1675,7 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
 
 
 def get_printable_location(tp, strategy):
-    return "create_set: %s %s" % (tp, strategy)
+    return "create_set: %s %s" % (tp.iterator_greenkey_printable(), strategy)
 
 create_set_driver = jit.JitDriver(name='create_set',
                                   greens=['tp', 'strategy'],
@@ -1670,7 +1686,7 @@ def _create_from_iterable(space, w_set, w_iterable):
     w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
     w_set.sstorage = strategy.get_empty_storage()
 
-    tp = space.type(w_iterable)
+    tp = space.iterator_greenkey(w_iterable)
 
     w_iter = space.iter(w_iterable)
     while True:

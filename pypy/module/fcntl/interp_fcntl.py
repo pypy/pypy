@@ -77,10 +77,18 @@ if has_flock:
     c_flock = external('flock', [rffi.INT, rffi.INT], rffi.INT,
                        save_err=rffi.RFFI_SAVE_ERRNO)
 
-def _get_error(space, funcname):
+def _raise_error_maybe(space, funcname):
+    # wrap_oserror(..., eintr_retry=True) raises an OSError or returns None
+    # when appropriate
     errno = rposix.get_saved_errno()
-    return wrap_oserror(space, OSError(errno, funcname),
-                        exception_name = 'w_IOError', eintr_retry=True)
+    wrap_oserror(space, OSError(errno, funcname),
+                 w_exception_class=space.w_IOError, eintr_retry=True)
+
+def _raise_error_always(space, funcname):
+    # this variant never returns normally, and doesn't retry if it gets EINTR.
+    errno = rposix.get_saved_errno()
+    raise wrap_oserror(space, OSError(errno, funcname),
+                       w_exception_class=space.w_IOError, eintr_retry=False)
 
 @unwrap_spec(op=int, w_arg=WrappedDefault(0))
 def fcntl(space, w_fd, op, w_arg):
@@ -109,7 +117,7 @@ def fcntl(space, w_fd, op, w_arg):
             while True:
                 rv = fcntl_str(fd, op, ll_arg)
                 if rv < 0:
-                    _get_error(space, "fcntl")
+                    _raise_error_maybe(space, "fcntl")
                 else:
                     arg = rffi.charpsize2str(ll_arg, len(arg))
                     return space.newbytes(arg)
@@ -119,7 +127,7 @@ def fcntl(space, w_fd, op, w_arg):
     while True:
         rv = fcntl_int(fd, op, intarg)
         if rv < 0:
-            _get_error(space, "fcntl")
+            _raise_error_maybe(space, "fcntl")
         else:
             return space.newint(rv)
 
@@ -137,7 +145,7 @@ def flock(space, w_fd, op):
         while True:
             rv = c_flock(fd, op)
             if rv < 0:
-                _get_error(space, "flock")
+                _raise_error_maybe(space, "flock")
             else:
                 return
     else:
@@ -191,7 +199,7 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
         while True:
             rv = fcntl_flock(fd, op, l)
             if rv < 0:
-                _get_error(space, "fcntl")
+                _raise_error_maybe(space, "fcntl")
             else:
                 return
 
@@ -229,7 +237,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
                               rffi.cast(rffi.VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
-                    raise _get_error(space, "ioctl")
+                    _raise_error_always(space, "ioctl")
                 arg = rffi.charpsize2str(buf.raw, len(arg))
                 if mutate_flag != 0:
                     rwbuffer.setslice(0, arg)
@@ -257,7 +265,7 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
                               rffi.cast(rffi.VOIDP, ll_arg), len(arg))
                 rv = ioctl_str(fd, op, buf.raw)
                 if rv < 0:
-                    raise _get_error(space, "ioctl")
+                    _raise_error_always(space, "ioctl")
                 arg = rffi.charpsize2str(buf.raw, len(arg))
             return space.newbytes(arg)
         finally:
@@ -267,5 +275,5 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     intarg = rffi.cast(rffi.INT, intarg)   # C long => C int
     rv = ioctl_int(fd, op, intarg)
     if rv < 0:
-        raise _get_error(space, "ioctl")
+        _raise_error_always(space, "ioctl")
     return space.newint(rv)

@@ -18,7 +18,7 @@ We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release changes the ABI tag
 for PyPy.
 
-Based on the great work done in `portable-pypy`_, the linux downloads we
+Based on the great work done in `portable-pypy`_, the linux x86 downloads we
 provide are now built on top of the `manylinux2010`_ CentOS6 docker image. 
 The tarballs include the needed shared objects to run on any platform that
 supports manylinux2010 wheels, which should include all supported versions of
@@ -57,6 +57,11 @@ on pypy, or general `help`_ with making RPython's JIT even better. Since the
 previous release, we have accepted contributions from 3 new contributors,
 thanks for pitching in.
 
+If you are a python library maintainer and use c-extensions, please consider
+making a cffi / cppyy version of your library that would be performant on PyPy.
+If you are stuck with using the C-API, you can use `docker images`_ with PyPy
+built in or the `multibuild system`_ to build wheels.
+
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
@@ -64,7 +69,8 @@ thanks for pitching in.
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`portable-pypy`: https://github.com/squeaky-pl/portable-pypy
-.. _`manylinux2010`: https://github.com/pypa/manylinux
+.. _`docker images`: https://github.com/pypy/manylinux
+.. _`multibuild system`: https://github.com/matthew-brett/multibuild
 
 What is PyPy?
 =============
@@ -116,7 +122,7 @@ Changes shared across versions
 * Fix up LICENSE file
 * Turn all ``http`` links in the documentation to ``https``
 * Update the bndled pip and setuptools (used in ``pypy -mensurepip`` to version
-  that support `manylinux2010`_ wheels
+  that support manylinux2010 wheels
 * Link the ``DEFAULT_SOABI`` to the ``PYPY_VERSION``
 * Workaround for programs calling ``sys.setrecursionlimit(huge_value)`` (`issue
   3094`_)
@@ -149,7 +155,7 @@ C-API (cpyext) and c-extensions
 * Add ``_PySet_Next``, ``_PySet_NextEntry``
 * Correctly swallow exceptions happening inside ``PyDict_GetItem()`` (`issue
   3098`_)
-* Respect tp_dict on PyType_Ready (`issue XXX`_)
+* Respect tp_dict on PyType_Ready
 * Allow calling ``PyType_Ready`` on a subclass with a partially built
   ``tp_base`` (issue 3117`_)
 * Rename ``tuple_new`` to ``_PyPy_tuple_new`` to follow the naming convention of
@@ -197,7 +203,8 @@ Python 3.6 C-API
 
 * Add ``PyObject_GenericGetDict``, ``PyObject_GenericSetDict``, ``_Py_strhex``,
   ``_Py_strhex_bytes``, ``PyUnicodeNew``, ``_PyFinalizing``,
-  ``PySlice_Unpack``, ``PySlice_AdjustIndices``, ``PyOS_FSPath``
+  ``PySlice_Unpack``, ``PySlice_AdjustIndices``, ``PyOS_FSPath``,
+  ``PyModule_AddFunctions``
 * Implement ``pystrhex.h`` (`issue 2687`_)
 * Make ``PyUnicodeObject`` slightly more compact
 * Fix memory leak when releasing a ``PyUnicodeObject``

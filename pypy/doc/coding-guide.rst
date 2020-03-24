@@ -544,7 +544,8 @@ Committing & Branching to the repository
 Using the development bug/feature tracker
 -----------------------------------------
 
-We use bitbucket for :source:`issues` tracking and :source:`pull-requests`.
+We use https://foss.heptapod.net/pypy/pypy for :source:`issues` tracking and
+:source:`pull-requests`.
 
 .. _testing:
 
@@ -592,6 +593,7 @@ coding style or restrictions. If we have a choice we often
 use application level tests which are in files whose name starts with the
 `apptest_` prefix and look like this::
 
+    # spaceconfig = {"usemodules":["array"]}
     def test_this():
         # application level test code
 
@@ -605,7 +607,9 @@ host interpreter, which is usually a translated pypy executable in this case::
     pypy3 -m pytest -D pypy/
 
 Note that in interpreted mode, only a small subset of pytest's functionality is
-available.
+available.  To configure the object space, the host interpreter will parse the
+optional spaceconfig declaration.  This declaration must be in the form of a
+valid json dict. 
 
 Mixed-level tests (deprecated)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -731,7 +735,7 @@ files.  Here is a `ReST quickstart`_ but you can also just look
 at the existing documentation and see how things work.
 
 Note that the web site of http://pypy.org/ is maintained separately.
-For now it is in the repository https://bitbucket.org/pypy/pypy.org
+It is in the repository https://foss.heptapod.net/pypy/pypy.org
 
 .. _ReST quickstart: http://docutils.sourceforge.net/docs/user/rst/quickref.html
 

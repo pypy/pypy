@@ -7,14 +7,14 @@ class error(IOError):
 
 def _checkstr(key):
     if isinstance(key, str):
-        key = key.encode("ascii")
+        key = key.encode()
     if not isinstance(key, bytes):
         raise TypeError("gdbm mappings have string indices only")
     return key
 
 def _fromstr(key):
     if isinstance(key, str):
-        key = key.encode(sys.getdefaultencoding())
+        key = key.encode()
     elif not isinstance(key, bytes):
         msg = "gdbm mappings have bytes or string indices only, not {!r}"
         raise TypeError(msg.format(type(key).__name__))

@@ -1,4 +1,6 @@
 from __future__ import with_statement
+from rpython import rlib
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import interp2app
 from rpython.tool.udir import udir
 from pypy.module._io import interp_bufferedio
@@ -424,6 +426,32 @@ class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
         assert f.readinto(a) == 10
         assert a == b'abcdefghij'
 
+@py.test.yield_fixture
+def forbid_nonmoving_raw_ptr_for_resizable_list(space):
+    orig_nonmoving_raw_ptr_for_resizable_list = rlib.buffer.nonmoving_raw_ptr_for_resizable_list
+    def fail(l):
+        raise oefmt(space.w_ValueError, "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB")
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = fail
+    yield
+    rlib.buffer.nonmoving_raw_ptr_for_resizable_list = orig_nonmoving_raw_ptr_for_resizable_list
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestForbidRawPtrForResizableList(object):
+    spaceconfig = dict(usemodules=['_io'])
+
+    @py.test.mark.skipif("py.test.config.option.runappdirect")
+    def test_monkeypatch_works(self):
+        import _io, os
+        raw = _io.FileIO(os.devnull)
+        f = _io.BufferedReader(raw)
+        with raises(ValueError) as e:
+            f.read(1024)
+        assert e.value.args[0] == "rgc.nonmoving_raw_ptr_for_resizable_list() not supported under RevDB"
+
+@py.test.mark.usefixtures('forbid_nonmoving_raw_ptr_for_resizable_list')
+class AppTestBufferedReaderOnRevDB(AppTestBufferedReader):
+    spaceconfig = {'usemodules': ['_io'], 'translation.reverse_debugger': True}
+
 
 class AppTestBufferedWriter:
     spaceconfig = dict(usemodules=['_io', 'thread'])
@@ -620,8 +648,11 @@ class AppTestBufferedWriter:
                 available = self.buffersize - len(self.buffer)
                 if available <= 0:
                     return None
-                self.buffer += data[:available]
-                return min(len(data), available)
+                add_data = data[:available]
+                if isinstance(add_data, memoryview):
+                    add_data = add_data.tobytes()
+                self.buffer += add_data
+                return len(add_data)
             def read(self, size=-1):
                 if not self.buffer:
                     return None

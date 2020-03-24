@@ -23,9 +23,8 @@ class CBuffer(RawBuffer):
     def getitem(self, index):
         return self.view.ptr[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         assert step == 1
-        assert stop - start == size
         ptr = rffi.ptradd(cts.cast('char *', self.view.ptr), start)
         return rffi.charpsize2str(ptr, size)
 

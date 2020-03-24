@@ -84,7 +84,9 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "w_globals?"]
+                          "_args_as_cellvars[*]",
+                          "w_globals?",
+                          "cell_families[*]"]
 
     def __init__(self, space,  argcount, kwonlyargcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -144,6 +146,7 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         from pypy.objspace.std.mapdict import init_mapdict_cache
+        from pypy.interpreter.nestedscope import CellFamily
         if self.co_cellvars:
             argcount = self.co_argcount
             argcount += self.co_kwonlyargcount
@@ -152,31 +155,14 @@ class PyCode(eval.Code):
                 argcount += 1
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
-            # Cell vars could shadow already-set arguments.
-            # The compiler used to be clever about the order of
-            # the variables in both co_varnames and co_cellvars, but
-            # it no longer is for the sake of simplicity.  Moreover
-            # code objects loaded from CPython don't necessarily follow
-            # an order, which could lead to strange bugs if .pyc files
-            # produced by CPython are loaded by PyPy.  Note that CPython
-            # contains the following bad-looking nested loops at *every*
-            # function call!
-
-            # Precompute what arguments need to be copied into cellvars
-            args_as_cellvars = []
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(argcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        while len(args_as_cellvars) <= i:
-                            args_as_cellvars.append(-1)   # pad
-                        args_as_cellvars[i] = j
-            self._args_as_cellvars = args_as_cellvars[:]
+            args_as_cellvars = _compute_args_as_cellvars(argvars, cellvars, argcount)
+            self._args_as_cellvars = args_as_cellvars
+            self.cell_families = [CellFamily(name) for name in cellvars]
         else:
             self._args_as_cellvars = []
+            self.cell_families = []
 
         self._compute_flatcall()
 
@@ -375,6 +361,10 @@ class PyCode(eval.Code):
             w_result = space.xor(w_result, space.hash(w_const))
         return w_result
 
+    @staticmethod
+    def const_comparison_key(space, w_obj):
+        return _convert_const(space, w_obj)
+
     @unwrap_spec(argcount=int, kwonlyargcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
                  filename='fsencode', name='text', firstlineno=int,
@@ -444,6 +434,9 @@ class PyCode(eval.Code):
             self.co_name, self.co_filename,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno)
 
+    def iterator_greenkey_printable(self):
+        return self.get_repr()
+
     def __repr__(self):
         return self.get_repr()
 
@@ -455,6 +448,30 @@ class PyCode(eval.Code):
         return space.newtext(b'<code object %s at 0x%s, file "%s", line %d>' % (
             name, self.getaddrstring(space), fn,
             -1 if self.co_firstlineno == 0 else self.co_firstlineno))
+
+def _compute_args_as_cellvars(varnames, cellvars, argcount):
+    # Cell vars could shadow already-set arguments.
+    # The compiler used to be clever about the order of
+    # the variables in both co_varnames and co_cellvars, but
+    # it no longer is for the sake of simplicity.  Moreover
+    # code objects loaded from CPython don't necessarily follow
+    # an order, which could lead to strange bugs if .pyc files
+    # produced by CPython are loaded by PyPy.  Note that CPython
+    # contains the following bad-looking nested loops at *every*
+    # function call!
+
+    # Precompute what arguments need to be copied into cellvars
+    args_as_cellvars = []
+    for i in range(len(cellvars)):
+        cellname = cellvars[i]
+        for j in range(argcount):
+            if cellname == varnames[j]:
+                # argument j has the same name as the cell var i
+                while len(args_as_cellvars) < i:
+                    args_as_cellvars.append(-1)   # pad
+                args_as_cellvars.append(j)
+                last_arg_cellarg = i
+    return args_as_cellvars[:]
 
 def _code_const_eq(space, w_a, w_b):
     # this is a mess! CPython has complicated logic for this. essentially this
@@ -470,13 +487,12 @@ def _convert_const(space, w_a):
     # frozensets of converted contents.
     w_type = space.type(w_a)
     if space.is_w(w_type, space.w_unicode):
-        # unicodes are supposed to compare by value
-        return w_a
+        # unicodes are supposed to compare by value, but not equal to bytes
+        return space.newtuple([w_type, w_a])
     if space.is_w(w_type, space.w_bytes):
-        # bytes too
-        return w_a
-    if isinstance(w_a, PyCode):
-        # for code objects we use the logic recursively
+        # and vice versa
+        return space.newtuple([w_type, w_a])
+    if type(w_a) is PyCode:
         return w_a
     # for tuples and frozensets convert recursively
     if space.is_w(w_type, space.w_tuple):
