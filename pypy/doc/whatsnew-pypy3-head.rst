@@ -23,3 +23,8 @@ common use cases.
 virtualenv on macOS defines an environment variable ``__PYVENV_LAUNCHER__`` to
 let the invoked python know it is inside a venv. This is not needed on PyPy so
 it is deleted when importing ``site`` and reset afterwards.
+
+
+.. branch: posonly-params
+
+Support for positional-only parameters in 3.7, for builtin functions only.
