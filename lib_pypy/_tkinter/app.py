@@ -516,7 +516,6 @@ class TkApp(object):
     def getint(self, s):
         if isinstance(s, int):
             return s
-        import pdb; pdb.set_trace()
         try:
             s = s.encode('utf-8')
         except AttributeError:
