@@ -2003,7 +2003,7 @@ class AsciiListStrategy(ListStrategy):
 
 # _______________________________________________________
 
-init_signature = Signature(['sequence'], None, None)
+init_signature = Signature([], posonlyargnames=['sequence'])
 init_defaults = [None]
 
 app = applevel("""

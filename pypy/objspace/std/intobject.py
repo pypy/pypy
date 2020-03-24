@@ -550,7 +550,7 @@ class W_IntObject(W_AbstractIntObject):
 
     @staticmethod
     @unwrap_spec(w_x=WrappedDefault(0))
-    def descr_new(space, w_inttype, w_x, w_base=None):
+    def descr_new(space, w_inttype, w_x, __posonly__, w_base=None):
         "Create and return a new object.  See help(type) for accurate signature."
         return _new_int(space, w_inttype, w_x, w_base)
 
@@ -979,7 +979,7 @@ def _ensure_baseint(space, w_intvalue):
 
 
 W_AbstractIntObject.typedef = TypeDef("int",
-    __doc__ = """int(x=0) -> integer
+    __doc__ = """int([x]) -> integer
 int(x, base=10) -> integer
 
 Convert a number or string to an integer, or return 0 if no arguments

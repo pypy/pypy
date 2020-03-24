@@ -181,6 +181,7 @@ class Arguments(object):
         # some comments about the JIT: it assumes that signature is a constant,
         # so all values coming from there can be assumed constant. It assumes
         # that the length of the defaults_w does not vary too much.
+        co_posonlyargcount = signature.num_posonlyargnames()
         co_argcount = signature.num_argnames() # expected formal arguments, without */**
         co_kwonlyargcount = signature.num_kwonlyargnames()
         too_many_args = False
@@ -189,7 +190,7 @@ class Arguments(object):
         upfront = 0
         args_w = self.arguments_w
         if w_firstarg is not None:
-            if co_argcount > 0:
+            if co_posonlyargcount + co_argcount > 0:
                 scope_w[0] = w_firstarg
                 upfront = 1
             else:
@@ -207,33 +208,33 @@ class Arguments(object):
 
         # put as many positional input arguments into place as available
         input_argcount = upfront
-        if input_argcount < co_argcount:
-            take = min(num_args, co_argcount - upfront)
+        if input_argcount < co_posonlyargcount + co_argcount:
+            take = min(num_args, co_posonlyargcount + co_argcount - upfront)
 
             # letting the JIT unroll this loop is safe, because take is always
-            # smaller than co_argcount
+            # smaller than co_posonlyargcount + co_argcount
             for i in range(take):
                 scope_w[i + input_argcount] = args_w[i]
             input_argcount += take
 
         # collect extra positional arguments into the *vararg
         if signature.has_vararg():
-            args_left = co_argcount - upfront
+            args_left = co_posonlyargcount + co_argcount - upfront
             assert args_left >= 0  # check required by rpython
             if num_args > args_left:
                 starargs_w = args_w[args_left:]
             else:
                 starargs_w = []
-            loc = co_argcount + co_kwonlyargcount
+            loc = co_posonlyargcount + co_argcount + co_kwonlyargcount
             scope_w[loc] = self.space.newtuple(starargs_w)
-        elif avail > co_argcount:
+        elif avail > co_posonlyargcount + co_argcount:
             too_many_args = True
 
         # if a **kwargs argument is needed, create the dict
         w_kwds = None
         if signature.has_kwarg():
             w_kwds = self.space.newdict(kwargs=True)
-            scope_w[co_argcount + co_kwonlyargcount + signature.has_vararg()] = w_kwds
+            scope_w[co_posonlyargcount + co_argcount + co_kwonlyargcount + signature.has_vararg()] = w_kwds
 
         # handle keyword arguments
         num_remainingkwds = 0
@@ -242,7 +243,7 @@ class Arguments(object):
         if num_kwds:
             # kwds_mapping maps target indexes in the scope (minus input_argcount)
             # to positions in the keywords_w list
-            kwds_mapping = [0] * (co_argcount + co_kwonlyargcount - input_argcount)
+            kwds_mapping = [0] * (co_posonlyargcount + co_argcount + co_kwonlyargcount - input_argcount)
             # initialize manually, for the JIT :-(
             for i in range(len(kwds_mapping)):
                 kwds_mapping[i] = -1
@@ -251,8 +252,8 @@ class Arguments(object):
             # this function must not take a scope_w, to make the scope not
             # escape
             num_remainingkwds = _match_keywords(
-                    signature, blindargs, input_argcount, keywords,
-                    kwds_mapping, self._jit_few_keywords)
+                    signature, blindargs, co_posonlyargcount, input_argcount,
+                    keywords, kwds_mapping, self._jit_few_keywords)
             if num_remainingkwds:
                 if w_kwds is not None:
                     # collect extra keyword arguments into the **kwarg
@@ -267,14 +268,14 @@ class Arguments(object):
         # or with defaults, if available
         missing_positional = []
         missing_kwonly = []
-        more_filling = (input_argcount < co_argcount + co_kwonlyargcount)
+        more_filling = (input_argcount < co_posonlyargcount + co_argcount + co_kwonlyargcount)
         def_first = 0
         if more_filling:
-            def_first = co_argcount - (0 if defaults_w is None else len(defaults_w))
+            def_first = co_posonlyargcount + co_argcount - (0 if defaults_w is None else len(defaults_w))
             j = 0
             kwds_index = -1
             # first, fill the arguments from the kwds
-            for i in range(input_argcount, co_argcount + co_kwonlyargcount):
+            for i in range(input_argcount, co_posonlyargcount + co_argcount + co_kwonlyargcount):
                 if kwds_mapping is not None:
                     kwds_index = kwds_mapping[j]
                     j += 1
@@ -283,7 +284,7 @@ class Arguments(object):
 
         if too_many_args:
             kwonly_given = 0
-            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
+            for i in range(co_posonlyargcount + co_argcount, co_posonlyargcount + co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     kwonly_given += 1
             if self.methodcall:
@@ -295,21 +296,23 @@ class Arguments(object):
                                 avail, kwonly_given)
 
         if more_filling:
-            # then, fill the normal arguments with defaults_w (if needed)
-            for i in range(input_argcount, co_argcount):
+            # then, fill the posonly arguments with defaults_w (if needed)
+            for i in range(input_argcount, co_posonlyargcount + co_argcount):
                 if scope_w[i] is not None:
                     continue
                 defnum = i - def_first
                 if defnum >= 0:
                     scope_w[i] = defaults_w[defnum]
+                elif i < co_posonlyargcount:
+                    missing_positional.append(signature.posonlyargnames[i])
                 else:
-                    missing_positional.append(signature.argnames[i])
+                    missing_positional.append(signature.argnames[i - co_posonlyargcount])
 
             # finally, fill kwonly arguments with w_kw_defs (if needed)
-            for i in range(co_argcount, co_argcount + co_kwonlyargcount):
+            for i in range(co_posonlyargcount + co_argcount, co_posonlyargcount + co_argcount + co_kwonlyargcount):
                 if scope_w[i] is not None:
                     continue
-                name = signature.kwonlyargnames[i - co_argcount]
+                name = signature.kwonlyargnames[i - (co_posonlyargcount + co_argcount)]
                 if w_kw_defs is None:
                     missing_kwonly.append(name)
                     continue
@@ -441,10 +444,10 @@ def _do_combine_starstarargs_wrapped(space, keys_w, w_starstararg, keywords,
         i += 1
 
 @jit.look_inside_iff(
-    lambda signature, blindargs, input_argcount,
+    lambda signature, blindargs, co_posonlyargcount, input_argcount,
            keywords, kwds_mapping, jiton: jiton)
-def _match_keywords(signature, blindargs, input_argcount,
-                    keywords, kwds_mapping, _):
+def _match_keywords(signature, blindargs, co_posonlyargcount,
+                    input_argcount, keywords, kwds_mapping, _):
     # letting JIT unroll the loop is *only* safe if the callsite didn't
     # use **args because num_kwds can be arbitrarily large otherwise.
     num_kwds = num_remainingkwds = len(keywords)
@@ -455,9 +458,12 @@ def _match_keywords(signature, blindargs, input_argcount,
         if name is None:
             continue
         j = signature.find_argname(name)
-        # if j == -1 nothing happens, because j < input_argcount and
-        # blindargs > j
-        if j < input_argcount:
+        if 0 <= j < co_posonlyargcount:
+            raise ArgErrPosonlyAsKwds(signature.posonlyargnames[j])
+        elif j < input_argcount:
+            # if j == -1 nothing happens, because j < input_argcount and
+            # blindargs > j
+
             # check that no keyword argument conflicts with these. note
             # that for this purpose we ignore the first blindargs,
             # which were put into place by prepend().  This way,
@@ -536,7 +542,7 @@ class ArgErrTooMany(ArgErr):
         self.kwonly_given = kwonly_given
 
     def getmsg(self):
-        num_args = self.signature.num_argnames()
+        num_args = self.signature.num_posonlyargnames() + self.signature.num_argnames()
         num_defaults = self.num_defaults
         if num_defaults:
             takes_str = "from %d to %d positional arguments" % (
@@ -564,7 +570,7 @@ class ArgErrTooManyMethod(ArgErrTooMany):
 
     def getmsg(self):
         msg = ArgErrTooMany.getmsg(self)
-        n = self.signature.num_argnames()
+        n = self.signature.num_posonlyargnames() + self.signature.num_argnames()
         if (self.given == n + 1 and
                 (n == 0 or self.signature.argnames[0] != "self")):
             msg += ". Did you forget 'self' in the function definition?"
@@ -617,4 +623,17 @@ class ArgErrUnknownKwds(ArgErr):
         else:
             msg = "got %d unexpected keyword arguments" % (
                 self.num_kwds)
+        return msg
+
+
+class ArgErrPosonlyAsKwds(ArgErr):
+
+    def __init__(self, posonly_kwd):
+        self.posonly_kwd = posonly_kwd
+
+    def getmsg(self):
+        # this message will have to be different in 3.8, where positional only
+        # arguments are a "real" concept, not just for built-in functions
+        # for now let's be consistent with ArgErrUnknownKwds
+        msg = ("got an unexpected keyword argument '%s'" % self.posonly_kwd)
         return msg

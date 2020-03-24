@@ -2,13 +2,16 @@ from rpython.rlib import jit
 
 class Signature(object):
     _immutable_ = True
-    _immutable_fields_ = ["argnames[*]", "kwonlyargnames[*]"]
-    __slots__ = ("argnames", "kwonlyargnames", "varargname", "kwargname")
+    _immutable_fields_ = ["argnames[*]", "posonlyargnames[*]", "kwonlyargnames[*]"]
+    __slots__ = ("argnames", "posonlyargnames", "kwonlyargnames", "varargname", "kwargname")
 
-    def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None):
+    def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None, posonlyargnames=None):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
+        if posonlyargnames is None:
+            posonlyargnames = []
+        self.posonlyargnames = posonlyargnames
         if kwonlyargnames is None:
             kwonlyargnames = []
         self.kwonlyargnames = kwonlyargnames
@@ -16,17 +19,24 @@ class Signature(object):
     @jit.elidable
     def find_argname(self, name):
         try:
-            return self.argnames.index(name)
+            return self.posonlyargnames.index(name)
         except ValueError:
             pass
         try:
-            return len(self.argnames) + self.kwonlyargnames.index(name)
+            return len(self.posonlyargnames) + self.argnames.index(name)
+        except ValueError:
+            pass
+        try:
+            return len(self.posonlyargnames) + len(self.argnames) + self.kwonlyargnames.index(name)
         except ValueError:
             pass
         return -1
 
     def num_argnames(self):
         return len(self.argnames)
+
+    def num_posonlyargnames(self):
+        return len(self.posonlyargnames)
 
     def num_kwonlyargnames(self):
         return len(self.kwonlyargnames)
@@ -39,13 +49,15 @@ class Signature(object):
 
     def scope_length(self):
         scopelen = len(self.argnames)
+        scopelen += len(self.posonlyargnames)
         scopelen += len(self.kwonlyargnames)
         scopelen += self.has_vararg()
         scopelen += self.has_kwarg()
         return scopelen
 
     def getallvarnames(self):
-        argnames = self.argnames
+        argnames = self.posonlyargnames
+        argnames = argnames + self.argnames
         if self.varargname is not None:
             argnames = argnames + [self.varargname]
         argnames = argnames + self.kwonlyargnames
@@ -54,8 +66,8 @@ class Signature(object):
         return argnames
 
     def __repr__(self):
-        return "Signature(%r, %r, %r, %r)" % (
-                self.argnames, self.varargname, self.kwargname, self.kwonlyargnames)
+        return "Signature(%r, %r, %r, %r, %r)" % (
+                self.argnames, self.varargname, self.kwargname, self.kwonlyargnames, self.posonlyargnames)
 
     def __eq__(self, other):
         if not isinstance(other, Signature):
@@ -63,6 +75,7 @@ class Signature(object):
         return (self.argnames == other.argnames and
                 self.varargname == other.varargname and
                 self.kwargname == other.kwargname and
+                self.posonlyargnames == other.posonlyargnames and
                 self.kwonlyargnames == other.kwonlyargnames)
 
     def __ne__(self, other):

@@ -48,6 +48,7 @@ class SignatureBuilder(object):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
+        self.posonlyargnames = None
         self.kwonlyargnames = None
 
     def append(self, argname):
@@ -56,13 +57,19 @@ class SignatureBuilder(object):
         else:
             self.kwonlyargnames.append(argname)
 
+    def marker_posonly(self):
+        assert self.posonlyargnames is None
+        assert self.kwonlyargnames is None
+        self.posonlyargnames = self.argnames
+        self.argnames = []
+
     def marker_kwonly(self):
         assert self.kwonlyargnames is None
         self.kwonlyargnames = []
 
     def signature(self):
         return Signature(self.argnames, self.varargname, self.kwargname,
-                         self.kwonlyargnames)
+                         self.kwonlyargnames, self.posonlyargnames)
 
 #________________________________________________________________
 
@@ -253,6 +260,11 @@ class UnwrapSpec_Check(UnwrapSpecRecipe):
         name = int_unwrapping_space_method(typ)
         self.checked_space_method(name, app_sig)
 
+    def visit_posonly(self, _, app_sig):
+        argname = self.orig_arg()
+        assert argname == '__posonly__'
+        app_sig.marker_posonly()
+
     def visit_kwonly(self, _, app_sig):
         argname = self.orig_arg()
         assert argname == '__kwonly__'
@@ -362,6 +374,9 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     def visit_truncatedint_w(self, typ):
         self.run_args.append("space.truncatedint_w(%s)" % (self.scopenext(),))
+
+    def visit_posonly(self, typ):
+        self.run_args.append("None")
 
     def visit_kwonly(self, typ):
         self.run_args.append("None")
@@ -536,6 +551,9 @@ class UnwrapSpec_FastFunc_Unwrap(UnwrapSpecEmit):
     def visit_truncatedint_w(self, typ):
         self.unwrap.append("space.truncatedint_w(%s)" % (self.nextarg(),))
 
+    def visit_posonly(self, typ):
+        raise FastFuncNotSupported
+
     def visit_kwonly(self, typ):
         raise FastFuncNotSupported
 
@@ -645,6 +663,8 @@ def build_unwrap_spec(func, argnames, self_type=None):
                 unwrap_spec.append('args_w')
             elif argname.startswith('w_'):
                 unwrap_spec.append(W_Root)
+            elif argname == '__posonly__':
+                unwrap_spec.append('posonly')
             elif argname == '__kwonly__':
                 unwrap_spec.append('kwonly')
             else:
@@ -702,6 +722,8 @@ class BuiltinCode(Code):
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
+        if sig.posonlyargnames:
+            import pdb; pdb.set_trace()
         if sig.kwonlyargnames:
             import pdb; pdb.set_trace()
         self._argnames = argnames
@@ -1065,7 +1087,7 @@ class interp2app(W_Root):
         alldefs_w = {}
         assert len(self._code._argnames) == len(self._code._unwrap_spec)
         for name, spec in zip(self._code._argnames, self._code._unwrap_spec):
-            if name == '__kwonly__':
+            if name in ('__posonly__', '__kwonly__'):
                 continue
 
             defaultval = self._staticdefs.get(name, NO_DEFAULT)
@@ -1107,10 +1129,12 @@ class interp2app(W_Root):
         #
         sig = self._code.sig
         first_defined = 0
-        while (first_defined < len(sig.argnames) and
-               sig.argnames[first_defined] not in alldefs_w):
+        allposargnames = sig.posonlyargnames + sig.argnames
+        n_allposargnames = len(allposargnames)
+        while (first_defined < n_allposargnames and
+               allposargnames[first_defined] not in alldefs_w):
             first_defined += 1
-        defs_w = [alldefs_w.pop(name) for name in sig.argnames[first_defined:]]
+        defs_w = [alldefs_w.pop(name) for name in allposargnames[first_defined:]]
 
         kw_defs_w = None
         if alldefs_w:

@@ -2,7 +2,8 @@
 import py
 import pytest
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
-        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod)
+        ArgErrMultipleValues, ArgErrMissing, ArgErrTooMany, ArgErrTooManyMethod,
+        ArgErrPosonlyAsKwds)
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError
 
@@ -47,6 +48,18 @@ class TestSignature(object):
         assert sig.find_argname("c") == 2
         assert sig.find_argname("d") == -1
         assert sig.find_argname("kwonly") == 3
+
+    def test_posonly(self):
+        sig = Signature(["a", "b", "c"], posonlyargnames=["x", "y", "z"])
+        # posonly come first
+        assert sig.find_argname("x") == 0
+        assert sig.find_argname("y") == 1
+        assert sig.find_argname("z") == 2
+        assert sig.find_argname("a") == 3
+        assert sig.find_argname("b") == 4
+        assert sig.find_argname("c") == 5
+        assert sig.find_argname("d") == -1
+
 
 class dummy_wrapped_dict(dict):
     def __nonzero__(self):
@@ -584,6 +597,19 @@ class TestArgumentsNormal(object):
         assert excinfo.value.w_type is TypeError
         assert excinfo.value.get_w_value(space) == "foo() got multiple values for keyword argument 'a'"
 
+    def test_posonly(self):
+        space = DummySpace()
+        sig = Signature(["a", "b", "c"], posonlyargnames=["x", "y", "z"])
+
+        args = Arguments(space, [1, 2, 3, 4, 5, 6])
+        l = [None] * 6
+        args._match_signature(None, l, sig)
+        assert l == [1, 2, 3, 4, 5, 6]
+
+        args = Arguments(space, [1, 2, 3, 4, 5], ["c"], [6])
+        l = [None] * 6
+        args._match_signature(None, l, sig)
+        assert l == [1, 2, 3, 4, 5, 6]
 
 
 class TestErrorHandling(object):
@@ -776,6 +802,17 @@ class TestErrorHandling(object):
         err = ArgErrMultipleValues('bla')
         s = err.getmsg()
         assert s == "got multiple values for argument 'bla'"
+
+    def test_posonly_error(self):
+        space = DummySpace()
+        sig = Signature([], posonlyargnames=["x", "y", "z"])
+
+        with pytest.raises(ArgErrPosonlyAsKwds) as info:
+            args = Arguments(space, [1, 2, 3, 4, 5], ["x"], [6])
+            l = [None] * 6
+            args._match_signature(None, l, sig)
+        assert info.value.getmsg() == "got an unexpected keyword argument 'x'"
+
 
 class AppTestArgument:
     def test_error_message(self):

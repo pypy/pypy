@@ -970,6 +970,15 @@ class TestGateway:
         w_res = space.call_function(w_g)
         assert space.eq_w(w_res, space.wrap(50))
 
+    def test_posonly_args(self):
+        space = self.space
+        @gateway.unwrap_spec(w_x2=WrappedDefault(50))
+        def g(space, w_t, w_x2, __posonly__):
+            assert space.eq_w(w_t, space.newint(1))
+            return w_x2
+        w_g = space.wrap(gateway.interp2app_temp(g))
+        w_res = space.call_function(w_g, space.wrap(1))
+        assert space.eq_w(w_res, space.wrap(50))
 
 class AppTestPyTestMark:
     @py.test.mark.unlikely_to_exist
