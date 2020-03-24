@@ -566,7 +566,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
 
 
 W_SRE_Pattern.typedef = TypeDef(
-    '_sre.SRE_Pattern',
+    're.Pattern',
     __new__      = interp2app(SRE_Pattern__new__),
     __copy__     = interp2app(W_SRE_Pattern.cannot_copy_w),
     __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
@@ -795,7 +795,7 @@ class W_SRE_Match(W_Root):
 
 
 W_SRE_Match.typedef = TypeDef(
-    '_sre.SRE_Match',
+    're.Match',
     __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
     __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),

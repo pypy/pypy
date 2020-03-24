@@ -1112,6 +1112,11 @@ class AppTestOptimizations:
         raises(ValueError, re.split, '', '')
         re.split("a*", '')    # -> warning
 
+    def test_type_names(self):
+        import re
+        assert repr(re.Pattern) == "<class 're.Pattern'>"
+        assert repr(re.Match) == "<class 're.Match'>"
+
 class AppTestUnicodeExtra:
     def test_string_attribute(self):
         import re
