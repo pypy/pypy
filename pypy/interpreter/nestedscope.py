@@ -40,6 +40,8 @@ class Cell(W_Root):
         self.w_value = w_value
 
     def delete(self):
+        if not self.family.ever_mutated:
+            self.family.ever_mutated = True
         if self.w_value is None:
             raise ValueError("delete() on an empty cell")
         self.w_value = None
