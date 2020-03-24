@@ -869,6 +869,9 @@ def lltype2ctypes(llobj, normalize=True):
                             llinterp = LLInterpreter.current_interpreter
                             llinterp._store_exception(lle)
                             return 0
+                    return ctypes_return_value(llres)
+
+                def ctypes_return_value(llres):
                     assert lltype.typeOf(llres) == T.TO.RESULT
                     if T.TO.RESULT is lltype.Void:
                         return None
@@ -891,7 +894,12 @@ def lltype2ctypes(llobj, normalize=True):
                         #    import pdb; pdb.post_mortem(sys.exc_traceback)
                         global _callback_exc_info
                         _callback_exc_info = sys.exc_info()
-                        raise
+                        if hasattr(getattr(container, '_callable', None),
+                                   '_llhelper_can_raise_'):
+                            llres = T.TO.RESULT._defl()
+                            return ctypes_return_value(llres)
+                        else:
+                            raise
 
                 if isinstance(T.TO.RESULT, lltype.Ptr):
                     TMod = lltype.Ptr(lltype.FuncType(T.TO.ARGS,
@@ -974,7 +982,7 @@ def lltype2ctypes(llobj, normalize=True):
 
         return llobj
 
-def ctypes2lltype(T, cobj):
+def ctypes2lltype(T, cobj, force_real_ctypes_function=False):
     """Convert the ctypes object 'cobj' to its lltype equivalent.
     'T' is the expected lltype type.
     """
@@ -1045,7 +1053,7 @@ def ctypes2lltype(T, cobj):
                 # or goes out of scope, then we crash.  CTypes is fun.
                 # It works if we cast it now to an int and back.
                 cobjkey = intmask(ctypes.cast(cobj, ctypes.c_void_p).value)
-                if cobjkey in _int2obj:
+                if cobjkey in _int2obj and not force_real_ctypes_function:
                     container = _int2obj[cobjkey]
                 else:
                     name = getattr(cobj, '__name__', '?')
@@ -1141,6 +1149,8 @@ if ctypes:
             else:
                 if version <= 6:
                     clibname = 'msvcrt'
+                elif version >= 13:
+                    clibname = 'ucrtbase'
                 else:
                     clibname = 'msvcr%d' % (version * 10)
 

@@ -1173,7 +1173,7 @@ class JSONMap(MapBase):
             res += ", fillcolor=lightslategray"
         return res
 
-
+@jit.dont_look_inside
 def loads(space, w_s):
     if space.isinstance_w(w_s, space.w_unicode):
         raise oefmt(space.w_TypeError,

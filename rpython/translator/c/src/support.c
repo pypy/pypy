@@ -14,7 +14,7 @@
 #define NAN_WORD1 0
 #define PY_UINT32_T unsigned int
 
-#ifndef __BIG_ENDIAN__
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 #define IEEE_8087
 #endif
 

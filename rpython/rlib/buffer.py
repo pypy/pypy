@@ -1,7 +1,7 @@
 """
 Buffer protocol support.
 """
-from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
@@ -65,7 +65,7 @@ class Buffer(object):
     def as_str(self):
         "Returns an interp-level string with the whole content of the buffer."
         # May be overridden.
-        return self.getslice(0, self.getlength(), 1, self.getlength())
+        return self.getslice(0, 1, self.getlength())
 
     def getitem(self, index):
         "Returns the index'th character in the buffer."
@@ -74,13 +74,17 @@ class Buffer(object):
     def __getitem__(self, i):
         return self.getitem(i)
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         # May be overridden.  No bounds checks.
-        return ''.join([self.getitem(i) for i in range(start, stop, step)])
+        lst = ['\x00'] * size
+        for i in range(size):
+            lst[i] = self.getitem(start)
+            start += step
+        return ''.join(lst)
 
     @signature(types.any(), types.int(), types.int(), returns=types.str())
     def __getslice__(self, start, stop):
-        return self.getslice(start, stop, 1, stop - start)
+        return self.getslice(start, 1, min(stop, self.getlength()) - start)
 
     def setitem(self, index, char):
         "Write a character into the buffer."
@@ -153,6 +157,36 @@ class RawBuffer(Buffer):
         ptr = self.get_raw_address()
         value = lltype.cast_primitive(TP, value)
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
+
+
+class RawByteBuffer(RawBuffer):
+    _immutable_ = True
+
+    def __init__(self, length):
+        self._length = length
+        self._buf = lltype.malloc(rffi.CCHARP.TO, length, flavor='raw', zero=True)
+        self.readonly = False
+
+    def getlength(self):
+        return self._length
+
+    def getitem(self, index):
+        return self._buf[index]
+
+    def getslice(self, start, step, size):
+        if step == 1:
+            return rffi.charpsize2str(rffi.ptradd(self._buf, start), size)
+        return Buffer.getslice(self, start, step, size)
+
+    def setitem(self, index, char):
+        self._buf[index] = char
+
+    def get_raw_address(self):
+        return self._buf
+
+    def __del__(self):
+        lltype.free(self._buf, flavor='raw')
+        self._buf = lltype.nullptr(rffi.CCHARP.TO)
 
 
 class GCBuffer(Buffer):
@@ -250,13 +284,14 @@ class ByteBuffer(GCBuffer):
     def setitem(self, index, char):
         self.data[index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if step == 1:
-            assert 0 <= start <= stop
-            if start == 0 and stop == len(self.data):
+            assert start >= 0
+            assert size >= 0
+            if start == 0 and size == len(self.data):
                 return "".join(self.data)
-            return "".join(self.data[start:stop])
-        return Buffer.getslice(self, start, stop, step, size)
+            return "".join(self.data[start:start+size])
+        return Buffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
         return nonmoving_raw_ptr_for_resizable_list(self.data)
@@ -288,15 +323,16 @@ class StringBuffer(GCBuffer):
     def getitem(self, index):
         return self.value[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
-            if start == 0 and stop == len(self.value):
+            assert start >= 0
+            assert size >= 0
+            if start == 0 and size == len(self.value):
                 return self.value
-            return self.value[start:stop]
-        return Buffer.getslice(self, start, stop, step, size)
+            return self.value[start:start+size]
+        return Buffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
         from rpython.rtyper.lltypesystem import rffi
@@ -349,12 +385,11 @@ class SubBuffer(Buffer):
     def getitem(self, index):
         return self.buffer.getitem(self.offset + index)
 
-    def getslice(self, start, stop, step, size):
-        if start == stop:
+    def getslice(self, start, step, size):
+        if size == 0:
             return ''     # otherwise, adding self.offset might make them
                           # out of bounds
-        return self.buffer.getslice(self.offset + start, self.offset + stop,
-                                    step, size)
+        return self.buffer.getslice(self.offset + start, step, size)
 
     def setitem(self, index, char):
         self.buffer.setitem(self.offset + index, char)

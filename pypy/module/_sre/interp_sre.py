@@ -37,8 +37,7 @@ def slice_w(space, ctx, start, end, w_default):
     # 'start' and 'end' are byte positions
     if ctx.ZERO <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
-            return space.newbytes(ctx._buffer.getslice(start, end, 1,
-                                                        end-start))
+            return space.newbytes(ctx._buffer.getslice(start, 1, end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
             start = ctx._real_pos(start)
             end = ctx._real_pos(end)
@@ -411,7 +410,7 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
         assert strbuilder is not None
         if isinstance(ctx, rsre_core.BufMatchContext):
             assert use_builder == 'S'
-            return strbuilder.append(ctx._buffer.getslice(start, end, 1, end-start))
+            return strbuilder.append(ctx._buffer.getslice(start, 1, end-start))
         if isinstance(ctx, rsre_core.StrMatchContext):
             assert use_builder == 'S'
             start = ctx._real_pos(start)

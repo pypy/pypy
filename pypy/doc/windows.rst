@@ -20,49 +20,38 @@ of success with the mingw32 port of gcc.
 
 .. _our downloads: http://pypy.org/download.html
 
-Installing Visual Compiler v9 (for Python 2.7)
-----------------------------------------------
 
-This compiler, while the standard one for Python 2.7, is deprecated. Microsoft has
-made it available as the `Microsoft Visual C++ Compiler for Python 2.7`_ (the link
-was checked in May 2018). Note that the compiler suite may be installed in
-``C:\Users\<user name>\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python``
-or in
-``C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python``.
-A current version of ``setuptools`` will be able to find it there.
-Also, you must download and install the ``.Net Framework 3.5``,
-otherwise ``mt.exe`` will silently fail. Installation will begin automatically
-by running the mt.exe command by hand from a DOS window (that is how the author
-discovered the problem).
+What Compiler to use and How to find it?
+----------------------------------------
+The first stumbling block when building something for Python on windows is
+how to discover the path to the compiler, headers, and libraries. One can
+install many versions of the MSVC compiler tools, from stand-alone build
+tools to full blown Visual Studio IDE installations. Each of these use cases
+put the compiler at different locations, and the layout changes from time to
+time.
 
-.. _Microsoft Visual C++ Compiler for Python 2.7: https://www.microsoft.com/EN-US/DOWNLOAD/DETAILS.ASPX?ID=44266
+The ``distutils`` package, located in the stdlib, is the natural place to put
+this discovery code, but it is frozen by the python version. The pip-
+installable ``setuptools`` can move faster to adapt to new tools. So the first
+thing that will happen after building PyPy is it will install pip and download
+``setuptools``, then it will build the cffi modules used in stdlib.
+PyPy has a chicken and egg problem: in order to compile something we need
+``setuptools``, but in order to get ``setuptools`` we need pip which requires
+``_ssl``, and ``_ssl`` must be compiled. So PyPy vendors in a copy of
+``msvc.py`` in ``rpython/tools/setuptools_msvc.py``.
 
-Installing "Build Tools for Visual Studio 2015" (for Python 3)
---------------------------------------------------------------
-
-As documented in the CPython Wiki_, CPython recommends Visual C++ version
-14.0 for python version 3.5. A compact version of the compiler suite can be 
-obtained from Microsoft_ downloads, search the page for "Microsoft Build Tools 2015".
-
-You will need to reboot the computer for the installation to successfully install and
-run the `mt.exe` mainfest compiler. The installation will set the
-`VS140COMNTOOLS` environment variable, this is key to distutils/setuptools
-finding the compiler
-
-.. _Wiki: https://wiki.python.org/moin/WindowsCompilers
-.. _Microsoft: https://www.visualstudio.com/vs/older-downloads/
+PyPy will prefer to compile with the latest MSVC compiler it can find, which is
+a departure from CPython's desire to compile with Visual Studio 9.
 
 Translating PyPy with Visual Studio
 -----------------------------------
 
-We routinely test translation of PyPy 2.7 using v9 and PyPy 3 with vc14.
+We routinely test translation of PyPy using Visual Studio 2019, MSVC160.
 Other configurations may work as well.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
-They will attempt to locate the same compiler version that
-was used to build the Python interpreter doing the
-translation.  Failing that, they will pick the most recent Visual Studio
+They will pick the most recent Visual Studio
 compiler they can find.  In addition, the target architecture
 (32 bits, 64 bits) is automatically selected.  A 32 bit build can only be built
 using a 32 bit Python and vice versa. By default the interpreter is built using
@@ -91,38 +80,10 @@ slower translation::
     set PYPY_GC_MAX_DELTA=200MB
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
-    PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
+    # This is done as part of translation
+    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
-
-Setting Up Visual Studio 9.0 for building SSL in Python3
---------------------------------------------------------
-
-**Note: this is old information, left for historical reference. We recommend
-using Visual Studio 2015, which now seems to properly set this all up.**
-
-On Python3, the ``ssl`` module is based on ``cffi``, and requires a build step after
-translation. However ``distutils`` does not support the Micorosft-provided Visual C
-compiler, and ``cffi`` depends on ``distutils`` to find the compiler. The
-traditional solution to this problem is to install the ``setuptools`` module
-via running ``-m ensurepip`` which installs ``pip`` and ``setuptools``. However
-``pip`` requires ``ssl``. So we have a chicken-and-egg problem: ``ssl`` depends on
-``cffi`` which depends on ``setuptools``, which depends on ``ensurepip``, which
-depends on ``ssl``.
-
-In order to solve this, the buildbot sets an environment varaible that helps
-``distutils`` find the compiler without ``setuptools``::
-
-     set VS90COMNTOOLS=C:\Program Files (x86)\Common Files\Microsoft\Visual C++ for Python\9.0\VC\bin
-
-or whatever is appropriate for your machine. Note that this is not enough, you
-must also copy the ``vcvarsall.bat`` file fron the ``...\9.0`` directory to the
-``...\9.0\VC`` directory, and edit it, changing the lines that set
-``VCINSTALLDIR`` and ``WindowsSdkDir``::
-
-    set VCINSTALLDIR=%~dp0\
-    set WindowsSdkDir=%~dp0\..\WinSDK\
-
 
 Preparing Windows for the large build
 -------------------------------------
@@ -142,7 +103,8 @@ Then you need to execute::
     editbin /largeaddressaware translator.exe
 
 where ``translator.exe`` is the pypy.exe or cpython.exe you will use to
-translate with.
+translate with. This is done by default during PyPy translation, so it should
+Just Work.
 
 
 Installing external packages

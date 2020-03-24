@@ -236,7 +236,8 @@ class PyFrame(W_Root):
                                  "an unexpected number of free variables")
         index = code.co_nlocals
         for i in range(ncellvars):
-            self.locals_cells_stack_w[index] = Cell()
+            self.locals_cells_stack_w[index] = Cell(
+                    None, self.pycode.cell_families[i])
             index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
@@ -310,9 +311,12 @@ class PyFrame(W_Root):
         assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
+    def assert_stack_index(self, index):
+        if we_are_translated():
+            return
+        assert self._check_stack_index(index)
+
     def _check_stack_index(self, index):
-        # will be completely removed by the optimizer if only used in an assert
-        # and if asserts are disabled
         code = self.pycode
         ncellvars = len(code.co_cellvars)
         nfreevars = len(code.co_freevars)
@@ -324,7 +328,7 @@ class PyFrame(W_Root):
 
     def popvalue_maybe_none(self):
         depth = self.valuestackdepth - 1
-        assert self._check_stack_index(depth)
+        self.assert_stack_index(depth)
         assert depth >= 0
         w_object = self.locals_cells_stack_w[depth]
         self.locals_cells_stack_w[depth] = None
@@ -353,7 +357,7 @@ class PyFrame(W_Root):
     def peekvalues(self, n):
         values_w = [None] * n
         base = self.valuestackdepth - n
-        assert self._check_stack_index(base)
+        self.assert_stack_index(base)
         assert base >= 0
         while True:
             n -= 1
@@ -366,7 +370,7 @@ class PyFrame(W_Root):
     def dropvalues(self, n):
         n = hint(n, promote=True)
         finaldepth = self.valuestackdepth - n
-        assert self._check_stack_index(finaldepth)
+        self.assert_stack_index(finaldepth)
         assert finaldepth >= 0
         while True:
             n -= 1
@@ -402,14 +406,14 @@ class PyFrame(W_Root):
     def peekvalue_maybe_none(self, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert self._check_stack_index(index)
+        self.assert_stack_index(index)
         assert index >= 0
         return self.locals_cells_stack_w[index]
 
     def settopvalue(self, w_object, index_from_top=0):
         index_from_top = hint(index_from_top, promote=True)
         index = self.valuestackdepth + ~index_from_top
-        assert self._check_stack_index(index)
+        self.assert_stack_index(index)
         assert index >= 0
         self.locals_cells_stack_w[index] = ll_assert_not_none(w_object)
 

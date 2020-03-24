@@ -63,11 +63,14 @@ explained below; then you can directly use pip inside virtualenvs):
 .. code-block:: console
 
     $ ./pypy-xxx/bin/pypy -m ensurepip
-    $ ./pypy-xxx/bin/pip install -U pip wheel # to upgrade to the latest versions
-    $ ./pypy-xxx/bin/pip install pygments  # for example
+    $ ./pypy-xxx/bin/pypy -mpip install -U pip wheel # to upgrade to the latest versions
+    $ ./pypy-xxx/bin/pypy -mpip install pygments  # for example
 
-Third party libraries will be installed in ``pypy-xxx/site-packages``, and
-the scripts in ``pypy-xxx/bin``.
+If you wish to be able to use ``pip`` directly from the command line, you must
+use the ``--default-pip`` argument when calling ``ensurepip``.
+Third party libraries will be installed in ``pypy-xxx/site-packages``. As with
+CPython, scripts on linux and macOS will be in ``pypy-xxx/bin``, and on windows
+they will be in ``pypy-xxx/Scripts``
 
 
 Installing using virtualenv
@@ -94,10 +97,10 @@ so you should be able to run pypy simply by typing::
 
 You should still upgrade pip and wheel to the latest versions via::
 
-    $ my-pypy-env/bin/pip install -U pip wheel
+    $ my-pypy-env/bin/pypy -mpip install -U pip wheel
 
 .. _pip: http://pypi.python.org/pypi/pip
-.. _ensurepip: https://docs.python.org/2.7/library/ensurepip.html
+.. _ensurepip: https://docs.python.org/3/library/ensurepip.html
 
 Building PyPy yourself
 ~~~~~~~~~~~~~~~~~~~~~~

@@ -311,7 +311,7 @@ class StdObjSpace(ObjSpace):
 
     def newlist_utf8(self, list_u, is_ascii):
         if is_ascii:
-            return W_ListObject.newlist_utf8(self, list_u)
+            return W_ListObject.newlist_ascii(self, list_u)
         return ObjSpace.newlist_utf8(self, list_u, False)
 
     def newlist_int(self, list_i):
@@ -502,20 +502,20 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
-    def listview_utf8(self, w_obj):
+    def listview_ascii(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
         if type(w_obj) is W_ListObject:
-            return w_obj.getitems_utf8()
+            return w_obj.getitems_ascii()
         if type(w_obj) is W_DictObject:
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if type(w_obj) is W_SetObject or type(w_obj) is W_FrozensetObject:
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if (isinstance(w_obj, W_UnicodeObject) and self._uni_uses_no_iter(w_obj)
             and w_obj.is_ascii()):
-            return w_obj.listview_utf8()
+            return w_obj.listview_ascii()
         if isinstance(w_obj, W_ListObject) and self._uses_list_iter(w_obj):
-            return w_obj.getitems_utf8()
+            return w_obj.getitems_ascii()
         return None
 
     def listview_int(self, w_obj):

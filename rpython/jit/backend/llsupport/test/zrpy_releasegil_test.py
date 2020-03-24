@@ -3,6 +3,8 @@ from rpython.rlib.jit import dont_look_inside
 from rpython.jit.metainterp.optimizeopt import ALL_OPTS_NAMES
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib import rposix
+from rpython.rlib import rgil
+from rpython.rlib.debug import debug_print
 
 from rpython.rtyper.annlowlevel import llhelper
 
@@ -22,9 +24,21 @@ class ReleaseGILTests(BaseFrameworkTests):
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #
+
+        @dont_look_inside
+        def check_gil(name):
+            # we may not have the GIL here, don't use "print"
+            debug_print(name)
+            if not rgil.am_I_holding_the_GIL():
+                debug_print('assert failed at point', name)
+                debug_print('rgil.gil_get_holder() ==', rgil.gil_get_holder())
+                assert False
+
         def f(n, x, *args):
             a = rffi.str2charp(str(n))
+            check_gil('before c_strchr')
             c_strchr(a, ord('0'))
+            check_gil('after c_strchr')
             lltype.free(a, flavor='raw')
             n -= 1
             return (n, x) + args
@@ -74,7 +88,7 @@ class ReleaseGILTests(BaseFrameworkTests):
         #
         def before(n, x):
             glob.lst = []
-            
+
             return (n, None, None, None, None, None,
                     None, None, None, None, None, None)
         #

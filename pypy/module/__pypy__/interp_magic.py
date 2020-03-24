@@ -108,6 +108,10 @@ def strategy(space, w_obj):
     return space.newtext(name)
 
 def get_console_cp(space):
+    """get_console_cp()
+
+    Return the console and console output code page (windows only)
+    """
     from rpython.rlib import rwin32    # Windows only
     return space.newtuple([
         space.newtext('cp%d' % rwin32.GetConsoleCP()),
@@ -221,3 +225,12 @@ def pyos_inputhook(space):
         return      # cpyext not imported yet, ignore
     from pypy.module.cpyext.api import invoke_pyos_inputhook
     invoke_pyos_inputhook(space)
+
+def utf8content(space, w_u):
+    """ Given a unicode string u, return it's internal byte representation.
+    Useful for debugging only. """
+    from pypy.objspace.std.unicodeobject import W_UnicodeObject
+    if type(w_u) is not W_UnicodeObject:
+        raise oefmt(space.w_TypeError, "expected unicode string, got %T", w_u)
+    return space.newbytes(w_u._utf8)
+

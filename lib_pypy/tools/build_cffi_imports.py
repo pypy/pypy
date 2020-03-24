@@ -1,7 +1,18 @@
 from __future__ import print_function
 import sys, shutil, os, tempfile, hashlib
 from os.path import join
+
+try:
+    import _multiprocessing
+except ImportError:
+    # The only function we need from multiprocessing is cpu_count(), which is
+    # written in the pure Python part of multiprocessing. We can make it work
+    # in environments that don't have _multiprocessing by adding an empty
+    # module in place of _multiprocessing.
+    import types
+    sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
+
 
 class MissingDependenciesError(Exception):
     pass
@@ -196,6 +207,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         except:
             import traceback;traceback.print_exc()
             failures.append((key, module))
+        if os.path.exists(deps_destdir):
+            shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
 
 if __name__ == '__main__':

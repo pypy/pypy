@@ -561,14 +561,14 @@ def makebytearraydata_w(space, w_source):
         return list(buf.as_str())
     return _from_byte_sequence(space, w_source)
 
-def _get_printable_location(w_type):
-    return ('bytearray_from_byte_sequence [w_type=%s]' %
-            w_type.getname(w_type.space))
+def _get_printable_location(greenkey):
+    return ('bytearray_from_byte_sequence [%s]' %
+            greenkey.iterator_greenkey_printable())
 
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',
-    greens=['w_type'],
-    reds=['w_iter', 'data'],
+    greens=['greenkey'],
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _from_byte_sequence(space, w_source):
@@ -586,11 +586,9 @@ def _from_byte_sequence(space, w_source):
     return data
 
 def _from_byte_sequence_loop(space, w_iter, data):
-    w_type = space.type(w_iter)
+    greenkey = space.iterator_greenkey(w_iter)
     while True:
-        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
-                                           w_iter=w_iter,
-                                           data=data)
+        _byteseq_jitdriver.jit_merge_point(greenkey=greenkey)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
@@ -1290,19 +1288,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

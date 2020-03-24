@@ -411,7 +411,7 @@ def _add_indirections():
                     popitem delitem clear \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
-                    listview_bytes listview_utf8 listview_int \
+                    listview_bytes listview_ascii listview_int \
                     view_as_kwargs".split()
 
     def make_method(method):
@@ -524,6 +524,10 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def setitem_str(self, w_dict, key, w_value):
+        w_dict.setitem(self.space.newtext(key), w_value)
+
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
@@ -577,7 +581,7 @@ class DictStrategy(object):
     def listview_bytes(self, w_dict):
         return None
 
-    def listview_utf8(self, w_dict):
+    def listview_ascii(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -1266,7 +1270,8 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     assert key is not None
     ##     return self.unerase(w_dict.dstorage).get(key, None)
 
-    ## def listview_utf8(self, w_dict):
+    ## def listview_ascii(self, w_dict):
+    ##     XXX reimplement.  Also warning: must return a list of _ascii_
     ##     return self.unerase(w_dict.dstorage).keys()
 
     ## def w_keys(self, w_dict):
@@ -1535,7 +1540,14 @@ class W_DictViewObject(W_Root):
         return space.len(self.w_dict)
 
 def _all_contained_in(space, w_dictview, w_other):
-    for w_item in space.iteriterable(w_dictview):
+    w_iter = space.iter(w_dictview)
+    while 1:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True

@@ -22,12 +22,12 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
-def get_printable_location(tp):
-    return "unpackiterable: %s" % (tp, )
+def get_printable_location(greenkey):
+    return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
 
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
-                                      greens=['tp'],
-                                      reds=['items', 'w_iterator'],
+                                      greens=['greenkey'],
+                                      reds='auto',
                                       get_printable_location=get_printable_location)
 
 
@@ -373,23 +373,15 @@ class W_Root(object):
             return lst[:]
         return None
 
+    def iterator_greenkey(self, space):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return space.type(self)
 
-class InterpIterable(object):
-    def __init__(self, space, w_iterable):
-        self.w_iter = space.iter(w_iterable)
-        self.space = space
+    def iterator_greenkey_printable(self):
+        return "?"
 
-    def __iter__(self):
-        return self
-
-    def next(self):
-        space = self.space
-        try:
-            return space.next(self.w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise StopIteration
 
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
@@ -973,9 +965,6 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    def iteriterable(self, w_iterable):
-        return InterpIterable(self, w_iterable)
-
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
         list.
@@ -986,11 +975,9 @@ class ObjSpace(object):
         except MemoryError:
             items = [] # it might have lied
 
-        tp = self.type(w_iterator)
+        greenkey = self.iterator_greenkey(w_iterator)
         while True:
-            unpackiterable_driver.jit_merge_point(tp=tp,
-                                                  w_iterator=w_iterator,
-                                                  items=items)
+            unpackiterable_driver.jit_merge_point(greenkey=greenkey)
             try:
                 w_item = self.next(w_iterator)
             except OperationError as e:
@@ -1113,9 +1100,10 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_utf8(self, w_list):
-        """ Return a list of unwrapped unicode out of a list of unicode. If the
-        argument is not a list or does not contain only unicode, return None.
+    def listview_ascii(self, w_list):
+        """ Return a list of unwrapped **ASCII** strings out of a list of
+        unicode. If the argument is not a list, does not contain only unicode,
+        or contains a unicode with non-ascii characters, return None.
         May return None anyway.
         """
         return None
@@ -2043,6 +2031,12 @@ class ObjSpace(object):
             """)
         finally:
             self.sys.track_resources = flag
+
+    def iterator_greenkey(self, w_iterable):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return w_iterable.iterator_greenkey(self)
 
 
 class AppExecCache(SpaceCache):

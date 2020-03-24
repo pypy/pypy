@@ -940,3 +940,9 @@ class AppTestBytesObject:
         if hasattr(bytes.upper, 'im_func'):
             e = raises(TypeError, bytes.upper.im_func, 42)
             assert "'str'" in str(e.value)
+
+    def test_is_bug(self):
+        assert 'a' is 'a'
+        assert 'a' is not ''
+        assert '' is not 'a'
+        assert '' is ''

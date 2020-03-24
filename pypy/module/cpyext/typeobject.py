@@ -260,6 +260,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
+WARN_MISSING_SLOTS = False
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
     if not we_are_translated():
@@ -286,7 +287,8 @@ def update_all_slots(space, w_type, pto):
 
         if not slot_func_helper:
             if not slot_apifunc:
-                warn_missing_slot(space, method_name, slot_name, w_type)
+                if WARN_MISSING_SLOTS:
+                    warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
@@ -593,8 +595,9 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
-    if isinstance(buf, StringBuffer):
-        return str_getreadbuffer(space, w_buf, segment, ref)
+    # if isinstance(buf, StringBuffer):
+    #    # Link the data pointer of buf to ref[0]
+    #    return _str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -614,6 +617,9 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
+    return _str_getreadbuffer(space, w_str, segment, ref)
+
+def _str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise oefmt(space.w_SystemError,
@@ -639,7 +645,7 @@ def unicode_getreadbuffer(space, w_str, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
-    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+    return _str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def buf_getreadbuffer(space, pyref, segment, ref):
