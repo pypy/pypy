@@ -528,6 +528,7 @@ else:
     MODE_T = lltype.Signed
     PID_T = lltype.Signed
     SSIZE_T = lltype.Signed
+    PTRDIFF_T = lltype.Signed
 
 def populate_inttypes():
     names = []
