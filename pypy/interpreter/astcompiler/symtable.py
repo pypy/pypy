@@ -578,6 +578,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             self.scope.note_await(comp)
 
     def _visit_comprehension(self, node, kind, comps, *consider):
+        from pypy.interpreter.error import OperationError
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
@@ -596,7 +597,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space
-            space.warn(space.newtext(msg), space.w_DeprecationWarning)
+            try:
+                space.warn(space.newtext(msg), space.w_DeprecationWarning)
+            except OperationError as e:
+                # ok, it's actually an exception! turn it into a syntax error
+                if not e.match(space, space.w_DeprecationWarning):
+                    raise
+                raise SyntaxError(msg, node.lineno, node.col_offset)
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
     def visit_ListComp(self, listcomp):

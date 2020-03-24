@@ -1482,20 +1482,26 @@ class AppTestCompiler:
 
     def test_warn_yield(self):
         import warnings
+        d = {}
+        # this is fine! it warns, but warning is ignored
+        exec("x = [(yield 42) for i in range(10)]", d)
+
         warnings.simplefilter("error", DeprecationWarning)
         d = {}
-        with raises(DeprecationWarning) as info:
+        # if DeprecationWarning is an error, it's turned into a SyntaxError
+        with raises(SyntaxError) as info:
             exec("x = [(yield 42) for i in j]", d)
-        assert str(info.value) == "'yield' inside list comprehension"
-        with raises(DeprecationWarning) as info:
+        print(str(info.value))
+        assert str(info.value).startswith("'yield' inside list comprehension")
+        with raises(SyntaxError) as info:
             exec("x = ((yield 42) for i in j)", d)
-        assert str(info.value) == "'yield' inside generator expression"
-        with raises(DeprecationWarning) as info:
+        assert str(info.value).startswith("'yield' inside generator expression")
+        with raises(SyntaxError) as info:
             exec("x = {(yield 42) for i in j}", d)
-        assert str(info.value) == "'yield' inside set comprehension"
-        with raises(DeprecationWarning) as info:
+        assert str(info.value).startswith("'yield' inside set comprehension")
+        with raises(SyntaxError) as info:
             exec("x = {(yield 42): blub for i in j}", d)
-        assert str(info.value) == "'yield' inside dict comprehension"
+        assert str(info.value).startswith("'yield' inside dict comprehension")
 
 
 class TestOptimizations:
