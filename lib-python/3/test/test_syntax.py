@@ -155,10 +155,10 @@ Traceback (most recent call last):
 SyntaxError: Generator expression must be parenthesized if not sole argument
 >>> f((x for x in L), 1)
 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
->>> class C(x for x in L):
+>>> class C(x for x in L):  # doctest: +ELLIPSIS
 ...     pass
 Traceback (most recent call last):
-SyntaxError: invalid syntax
+SyntaxError: ...
 
 >>> def g(*args, **kwargs):
 ...     print(args, sorted(kwargs.items()))
