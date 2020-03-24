@@ -106,6 +106,12 @@ class Cell(W_Root):
     def descr_set_cell_contents(self, space, w_value):
         return self.set(w_value)
 
+    def descr_del_cell_contents(self, space):
+        try:
+            return self.delete()
+        except ValueError:
+            pass # CPython ignores it
+
 
 class CellFamily(object):
     _immutable_fields_ = ['ever_mutated?']
