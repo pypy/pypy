@@ -73,8 +73,12 @@
 #  define RPY_EXTERN   extern _RPY_HIDDEN
 #endif
 
-#ifdef _WIN32
-#  define inline _inline
+#if defined(_MSC_VER)
+  #define INLINE __inline
+#elif defined(__GNUC__)
+  #define INLINE __inline__
+#else
+  #error define inline for this compiler
 #endif
 
 #endif /* __PYPY_PRECOMMONDEFS_H */

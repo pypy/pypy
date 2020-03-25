@@ -43,3 +43,7 @@ common use cases.
 
 Improve the code generation for inner functions that use outer variables that
 are constant.
+
+.. branch win32-cppyy
+
+Enable _cppyy for win32, prefer newer msvc compilers

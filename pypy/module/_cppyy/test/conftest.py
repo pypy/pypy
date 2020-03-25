@@ -63,12 +63,16 @@ def pytest_configure(config):
             srcpath = pkgpath.join('src')
             incpath = pkgpath.join('include')
             tstpath = pkgpath.join('test')
+            compile_extra = ['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND']
+            if platform.name == 'msvc':
+                compile_extra += ['-std:c++14']
+            else:
+                compile_extra += ['-fno-strict-aliasing', '-std=c++14']
 
             eci = ExternalCompilationInfo(
                 separate_module_files=[srcpath.join('dummy_backend.cxx')],
                 include_dirs=[incpath, tstpath, cdir],
-                compile_extra=['-DRPY_EXTERN=RPY_EXPORTED', '-DCPPYY_DUMMY_BACKEND',
-                               '-fno-strict-aliasing', '-std=c++14'],
+                compile_extra=compile_extra,
                 use_cpp_linker=True,
             )
 

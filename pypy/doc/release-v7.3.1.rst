@@ -11,11 +11,6 @@ three different interpreters:
   - PyPy3.6: which is an interpreter supporting the syntax and the features of
     Python 3.6, including the stdlib for CPython 3.6.9.
     
-  - PyPy3.7: which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.1. This is the first
-    public release of the version, so we would like to get feedback on its
-    performance, stability, and compatibility.
-    
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, no APIs have changed since the 7.3.0 release
 in December, but read on to find out what is new.
@@ -34,9 +29,19 @@ PyPY-specific wheels on PyPI.
 Development of PyPy is transitioning to https://foss.heptapod.net/pypy/pypy.
 This move was covered more extensively in the `blog post`_ from last month.
 
-The `CFFI`_ backend has been updated to version XXXX. We recommend using CFFI
+The `CFFI`_ backend has been updated to version 14.0. We recommend using CFFI
 rather than c-extensions to interact with C, and using cppyy_ for performant
-wrapping of C++ code for Python.
+wrapping of C++ code for Python. The ``cppyy`` backend has been enabled
+experimentally for win32, try it out and let use know how it works.
+
+Enabling ``cppyy`` requires a more modern C compiler, so win32 is now built
+with MSVC160 (Visual Studio 2019). This is true for PyPy 3.6 as well as for 2.7.
+
+Conda Forge now `supports PyPy` as a python interpreter. The support right now
+is only partial, as this release is needed to build many more c-extension-based
+packages to be successfully built and uploaded. This is the result of alot of
+hard work and good will on the part of the Conda Forge team.  A big shout out
+to them for taking this on.
 
 We have improved warmup time by up to 20%, performance of `io.StringIO` to
 match if not be faster than CPython, and improved JIT code generation for
@@ -81,6 +86,8 @@ building wheels for PyPy wheels.
 .. _`manylinux2010`: https://github.com/pypa/manylinux
 .. _`blog post`: https://morepypy.blogspot.com/2020/02/pypy-and-cffi-have-moved-to-heptapod.html
 .. _ `python tag`: https://www.python.org/dev/peps/pep-0425/#python-tag
+.. _`supports PyPy`: https://conda-forge.org/blog//2020/03/10/pypy
+
 
 What is PyPy?
 =============
@@ -199,6 +206,7 @@ Python 3.6 C-API
 - Fix `issue 3160`_: include ``structseq.h`` in ``Python.h`` (needed for
   ``PyStructSequence_InitType2`` in NumPy)
 - Fix `issue 3165`_: surrogates in ``PyUnicode_FromKindAndData``
+- Add  ``PyDescr_TYPE``, ``PyDescr_NAME``.
 
 .. _`issue 3065`: https://foss.heptapod.net/pypy/pypy/issues/3065
 .. _`issue 3132`: https://foss.heptapod.net/pypy/pypy/issues/3132

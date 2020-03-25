@@ -1,9 +1,9 @@
 ==========================
-What's new in PyPy3 7.3.1+
+What's new in PyPy3 7.3.0+
 ==========================
 
-.. this is the revision after release-pypy3.6-v7.3.1
-.. startrev: 2a10044abff2
+.. this is the revision after release-pypy3.6-v7.3.0
+.. startrev: a56889d5df88
 
 .. branch: cpyext-speedup-tests-py36
 
@@ -23,8 +23,3 @@ common use cases.
 virtualenv on macOS defines an environment variable ``__PYVENV_LAUNCHER__`` to
 let the invoked python know it is inside a venv. This is not needed on PyPy so
 it is deleted when importing ``site`` and reset afterwards.
-
-
-.. branch: posonly-params
-
-Support for positional-only parameters in 3.7, for builtin functions only.

@@ -975,7 +975,7 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
     raise Error("rsre.find_repetition_end[%d]" % op)
 
 @specializectx
-def general_find_repetition_end(ctx, patern, ppos, ptr, maxcount, marks):
+def general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
     # moved into its own JIT-opaque function
     end = ctx.end
     if maxcount != rsre_char.MAXREPEAT:
@@ -983,7 +983,7 @@ def general_find_repetition_end(ctx, patern, ppos, ptr, maxcount, marks):
         end1 = ptr + maxcount
         if end1 <= end:
             end = end1
-    while ptr < end and sre_match(ctx, patern, ppos, ptr, marks) is not None:
+    while ptr < end and sre_match(ctx, pattern, ppos, ptr, marks) is not None:
         ptr = ctx.next(ptr)
     return ptr
 
