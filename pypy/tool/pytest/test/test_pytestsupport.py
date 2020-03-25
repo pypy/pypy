@@ -21,6 +21,9 @@ def test_appexecinfo(space):
         pass
     assert not appex.errisinstance(A)
 
+# this is used by test_wrapped_function_with_different_name below
+def inc(self, x):
+    return x+1
 
 class AppTestWithWrappedInterplevelAttributes:
     def setup_class(cls):
@@ -42,6 +45,11 @@ class AppTestWithWrappedInterplevelAttributes:
 
     def test_equal(self):
         assert self.compute(3) == 5
+
+    w_inc = inc
+
+    def test_wrapped_function_with_different_name(self):
+        assert self.inc(41) == 42
 
 
 def test_app_test_blow(testdir):
