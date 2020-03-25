@@ -18,7 +18,7 @@ def HPyDict_SetItem(space, ctx, h_dict, h_key, h_val):
     w_key = handles.deref(space, h_key)
     w_val = handles.deref(space, h_val)
     w_dict.setitem(w_key, w_val)
-    return rffi.cast(rffi.INT_real, 0)
+    return API.int(0)
 
 @API.func("HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key)")
 def HPyDict_GetItem(space, ctx, h_dict, h_key):

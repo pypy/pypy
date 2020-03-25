@@ -13,5 +13,5 @@ def HPyErr_SetString(space, ctx, h_exc_type, utf8):
 @API.func("int HPyErr_Occurred(HPyContext ctx)")
 def HPyErr_Occurred(space, ctx):
     from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return rffi.cast(rffi.INT_real, 0)
+    if NonConstant(False): return API.int(0)
     raise NotImplementedError

@@ -21,7 +21,7 @@ def HPyUnicode_Check(space, ctx, h):
     w_obj_type = space.type(w_obj)
     res = (space.is_w(w_obj_type, space.w_unicode) or
            space.issubtype_w(w_obj_type, space.w_unicode))
-    return rffi.cast(rffi.INT_real, res)
+    return API.int(res)
 
 @API.func("HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8)")
 def HPyUnicode_FromString(space, ctx, utf8):

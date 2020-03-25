@@ -10,7 +10,7 @@ def HPyBytes_Check(space, ctx, h):
     w_obj_type = space.type(w_obj)
     res = (space.is_w(w_obj_type, space.w_bytes) or
            space.issubtype_w(w_obj_type, space.w_bytes))
-    return rffi.cast(rffi.INT_real, res)
+    return API.int(res)
 
 @API.func("HPy_ssize_t HPyBytes_Size(HPyContext ctx, HPy h)")
 def HPyBytes_Size(space, ctx, h):

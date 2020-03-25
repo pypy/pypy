@@ -39,9 +39,9 @@ def HPy_HasAttr_s(space, ctx, h_obj, name):
 def _HasAttr(space, w_obj, w_name):
     try:
         w_res = operation.hasattr(space, w_obj, w_name)
-        return rffi.cast(rffi.INT_real, space.is_true(w_res))
+        return API.int(space.is_true(w_res))
     except OperationError:
-        return rffi.cast(rffi.INT_real, 0)
+        return API.int(0)
 
 
 @API.func("int HPy_SetAttr(HPyContext ctx, HPy h_obj, HPy name, HPy value)")

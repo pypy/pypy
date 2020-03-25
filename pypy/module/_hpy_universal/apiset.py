@@ -1,6 +1,6 @@
 import re
 from rpython.rtyper.annlowlevel import llhelper
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, llhelper_can_raise
 from pypy.module._hpy_universal import llapi
@@ -71,5 +71,13 @@ class APISet(object):
             self.all_functions.append(fn)
             return fn
         return decorate
+
+    @staticmethod
+    def int(x):
+        """
+        Helper method to convert an RPython Signed into a C int
+        """
+        return rffi.cast(rffi.INT_real, x)
+
 
 API = APISet(llapi.cts)

@@ -20,4 +20,4 @@ def HPyList_Append(space, ctx, h_list, h_item):
     assert isinstance(w_list, W_ListObject)
     w_item = handles.deref(space, h_item)
     w_list.append(w_item)
-    return rffi.cast(rffi.INT_real, 0)
+    return API.int(0)
