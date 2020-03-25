@@ -401,6 +401,7 @@ default_options = dict.fromkeys(
     "warnoptions",
     "unbuffered"), 0)
 default_options["check_hash_based_pycs"] = "default"
+default_options["dev_mode"] = False # needs to be bool
 
 def simple_option(options, name, iterargv):
     options[name] += 1

@@ -154,7 +154,9 @@ class sysflags(metaclass=structseqtype):
     dev_mode = structseqfield(13)
     utf8_mode = structseqfield(14)
 
-null_sysflags = sysflags((0,)*15)
+# no clue why dev_mode in particular has to be a bool, but CPython has tests
+# for that
+null_sysflags = sysflags((0,)*13 + (False, 0))
 null__xoptions = {}
 
 

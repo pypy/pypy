@@ -209,6 +209,10 @@ class AppTestAppSysTests:
         assert isinstance(info.lock, (str, type(None)))
         assert isinstance(info.version, (str, type(None)))
 
+    def test_sys_flags_dev_mode_is_bool(self):
+        import sys
+        assert type(sys.flags.dev_mode) is bool
+
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
