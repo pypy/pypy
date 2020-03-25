@@ -44,17 +44,23 @@ def _HasAttr(space, w_obj, w_name):
         return API.int(0)
 
 
-@API.func("int HPy_SetAttr(HPyContext ctx, HPy h_obj, HPy name, HPy value)")
-def HPy_SetAttr(space, ctx, h_obj, name, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("int HPy_SetAttr(HPyContext ctx, HPy h_obj, HPy h_name, HPy h_value)")
+def HPy_SetAttr(space, ctx, h_obj, h_name, h_value):
+    w_obj = handles.deref(space, h_obj)
+    w_name = handles.deref(space, h_name)
+    w_value = handles.deref(space, h_value)
+    operation.setattr(space, w_obj, w_name, w_value)
+    return API.int(0)
 
-@API.func("int HPy_SetAttr_s(HPyContext ctx, HPy h_obj, const char *name, HPy value)")
-def HPy_SetAttr_s(space, ctx, h_obj, name, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+
+@API.func("int HPy_SetAttr_s(HPyContext ctx, HPy h_obj, const char *name, HPy h_value)")
+def HPy_SetAttr_s(space, ctx, h_obj, name, h_value):
+    w_obj = handles.deref(space, h_obj)
+    w_name = charp2text(space, name)
+    w_value = handles.deref(space, h_value)
+    operation.setattr(space, w_obj, w_name, w_value)
+    return API.int(0)
+
 
 @API.func("HPy HPy_GetItem(HPyContext ctx, HPy h_obj, HPy key)")
 def HPy_GetItem(space, ctx, h_obj, key):
