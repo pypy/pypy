@@ -95,7 +95,7 @@ def get_file():
         data = marshal.dumps(compile(source, 'uuu.py', 'exec'))
         size = len(data).to_bytes(4, 'little', signed=True)
 
-        return imp.get_magic() + mtimeb + size + data
+        return imp.get_magic() + b"\0\0\0\0" + mtimeb + size + data
 
     def w_now_in_the_future(self, delta):
         self.now += delta

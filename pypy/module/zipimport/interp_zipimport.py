@@ -206,11 +206,11 @@ class W_ZipImporter(W_Root):
     @enforceargs(filename=s_Str0, typecheck=False)
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
         magic = importing._get_long(buf[:4])
-        timestamp = importing._get_long(buf[4:8])
+        timestamp = importing._get_long(buf[8:12])
         if not self.can_use_pyc(space, filename, magic, timestamp):
             return None
         # zipimport ignores the size field
-        buf = buf[12:]  # XXX ugly copy, should use sequential read instead
+        buf = buf[16:]  # XXX ugly copy, should use sequential read instead
         w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
@@ -331,13 +331,13 @@ class W_ZipImporter(W_Root):
                 source = space.bytes_w(w_source)
                 if compiled:
                     magic = importing._get_long(source[:4])
-                    timestamp = importing._get_long(source[4:8])
+                    timestamp = importing._get_long(source[8:12])
                     if not self.can_use_pyc(space, filename + ext,
                                             magic, timestamp):
                         continue
                     # zipimport ignores the size field
                     w_code = importing.read_compiled_module(
-                        space, filename + ext, source[12:])
+                        space, filename + ext, source[16:])
                 else:
                     co_filename = self.make_co_filename(filename+ext)
                     w_code = importing.parse_source_module(
