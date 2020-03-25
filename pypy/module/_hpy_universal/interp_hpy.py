@@ -20,6 +20,7 @@ from pypy.module._hpy_universal import (
     interp_bytes,
     interp_dict,
     interp_list,
+    interp_object,
     interp_cpy_compat,
     )
 
