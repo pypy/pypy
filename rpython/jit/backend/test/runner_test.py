@@ -3328,6 +3328,7 @@ class LLtypeBackendTest(BaseBackendTest):
         eci = ExternalCompilationInfo(
             separate_module_sources=[r'''
                 #include <windows.h>
+                #include <stdio.h>
                 static long f1(long a, long b, long c, long d,
                                long e, long f, long g) {
                     long r = GetLastError();
