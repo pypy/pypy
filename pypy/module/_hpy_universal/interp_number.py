@@ -62,7 +62,7 @@ make_binary('HPy_InPlaceRshift', 'space.inplace_rshift'),
 make_binary('HPy_InPlaceAnd', 'space.inplace_and'),
 make_binary('HPy_InPlaceXor', 'space.inplace_xor'),
 make_binary('HPy_InPlaceOr', 'space.inplace_or'),
-
+make_binary('HPy_InPlaceMatrixMultiply', 'space.inplace_matmul')
 
 
 @API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
@@ -87,11 +87,6 @@ def HPy_Power(space, ctx, h1, h2, h3):
     w_res = space.pow(w_o1, w_o2, w_o3)
     return handles.new(space, w_res)
 
-@API.func("HPy HPy_InPlaceMatrixMultiply(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceMatrixMultiply(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
 
 @API.func("HPy HPy_InPlacePower(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
 def HPy_InPlacePower(space, ctx, h1, h2, h3):
