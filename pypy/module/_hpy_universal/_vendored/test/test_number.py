@@ -155,7 +155,11 @@ class TestNumber(HPyTest):
         class A:
             def __ipow__(self, b):
                 return ('ipow', b)
+        # the behavior of PyNumber_InPlacePower is weird: if __ipow__ is
+        # defined, the 3rd arg is always ignored, even if the doc say the
+        # opposite
         assert mod.f(A(), 5, None) == A().__ipow__(5)
+        assert mod.f(A(), 7, 'hello') == A().__ipow__(7)
         assert mod.f(4, 5, 7) == pow(4, 5, 7)
 
     def test_inplace_matmul(self):
