@@ -91,93 +91,6 @@ HPy_Close(HPyContext ctx, HPy handle)
     Py_XDECREF(_h2py(handle));
 }
 
-/* object.h */
-
-HPyAPI_FUNC(HPy)
-HPy_GetAttr(HPyContext ctx, HPy obj, HPy name) {
-  return _py2h(PyObject_GetAttr(_h2py(obj), _h2py(name)));
-}
-
-HPyAPI_FUNC(HPy)
-HPy_GetAttr_s(HPyContext ctx, HPy obj, const char *name) {
-  return _py2h(PyObject_GetAttrString(_h2py(obj), name));
-}
-
-HPyAPI_FUNC(int)
-HPy_HasAttr(HPyContext ctx, HPy obj, HPy name) {
-  return PyObject_HasAttr(_h2py(obj), _h2py(name));
-}
-
-HPyAPI_FUNC(int)
-HPy_HasAttr_s(HPyContext ctx, HPy obj, const char *name) {
-  return PyObject_HasAttrString(_h2py(obj), name);
-}
-
-HPyAPI_FUNC(int)
-HPy_SetAttr(HPyContext ctx, HPy obj, HPy name, HPy value) {
-  return PyObject_SetAttr(_h2py(obj), _h2py(name), _h2py(value));
-}
-
-HPyAPI_FUNC(int)
-HPy_SetAttr_s(HPyContext ctx, HPy obj, const char *name, HPy value) {
-  return PyObject_SetAttrString(_h2py(obj), name, _h2py(value));
-}
-
-HPyAPI_FUNC(HPy)
-HPy_GetItem(HPyContext ctx, HPy obj, HPy key) {
-  return _py2h(PyObject_GetItem(_h2py(obj), _h2py(key)));
-}
-
-HPyAPI_FUNC(HPy)
-HPy_GetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx) {
-  PyObject* key = PyLong_FromSsize_t(idx);
-  if (key == NULL)
-    return HPy_NULL;
-  HPy result = _py2h(PyObject_GetItem(_h2py(obj), key));
-  Py_DECREF(key);
-  return result;
-}
-
-HPyAPI_FUNC(HPy)
-HPy_GetItem_s(HPyContext ctx, HPy obj, const char *key) {
-  PyObject* key_o = PyUnicode_FromString(key);
-  if (key_o == NULL)
-    return HPy_NULL;
-  HPy result = _py2h(PyObject_GetItem(_h2py(obj), key_o));
-  Py_DECREF(key_o);
-  return result;
-}
-
-HPyAPI_FUNC(int)
-HPy_SetItem(HPyContext ctx, HPy obj, HPy key, HPy value) {
-  return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
-}
-
-HPyAPI_FUNC(int)
-HPy_SetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy value) {
-  PyObject* key = PyLong_FromSsize_t(idx);
-  if (key == NULL)
-    return -1;
-  int result = PyObject_SetItem(_h2py(obj), key, _h2py(value));
-  Py_DECREF(key);
-  return result;
-}
-
-HPyAPI_FUNC(int)
-HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy value) {
-  PyObject* key_o = PyUnicode_FromString(key);
-  if (key_o == NULL)
-    return -1;
-  int result = PyObject_SetItem(_h2py(obj), key_o, _h2py(value));
-  Py_DECREF(key_o);
-  return result;
-}
-
-HPyAPI_FUNC(int)
-HPyErr_Occurred(HPyContext ctx) {
-  return PyErr_Occurred() ? 1 : 0;
-}
-
 /* moduleobject.h */
 typedef PyModuleDef HPyModuleDef;
 
@@ -216,7 +129,9 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
  *
  */
 #define _HPy_IMPL_NAME(name) HPy##name
-#include "../common/autogen_impl.h"
+#define _HPy_IMPL_NAME_NOPREFIX(name) HPy_##name
+#include "../common/implementation.h"
+#undef _HPy_IMPL_NAME_NOPREFIX
 #undef _HPy_IMPL_NAME
 
 // include runtime functions

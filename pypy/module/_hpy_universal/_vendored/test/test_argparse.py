@@ -59,7 +59,7 @@ class TestArgParse(HPyTest):
                 }} else {{
                     b = HPy_Dup(ctx, b);
                 }}
-                res = HPyNumber_Add(ctx, a, b);
+                res = HPy_Add(ctx, a, b);
                 HPy_Close(ctx, b);
                 return res;
             }}
@@ -95,7 +95,7 @@ class TestArgParse(HPyTest):
                 HPy a, b;
                 if (!HPyArg_Parse(ctx, args, nargs, "OO", &a, &b))
                     return HPy_NULL;
-                return HPyNumber_Add(ctx, a, b);
+                return HPy_Add(ctx, a, b);
             }
             @EXPORT f HPy_METH_VARARGS
             @INIT
@@ -148,7 +148,7 @@ class TestArgParseKeywords(HPyTest):
                 if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "{fmt}",
                                           kwlist, &a, &b))
                     return HPy_NULL;
-                return HPyNumber_Add(ctx, a, b);
+                return HPy_Add(ctx, a, b);
             }}
             @EXPORT f HPy_METH_KEYWORDS
             @INIT
@@ -169,7 +169,7 @@ class TestArgParseKeywords(HPyTest):
                 static const char *kwlist[] = { "a", "b", NULL };
                 if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "OO", kwlist, &a, &b))
                     return HPy_NULL;
-                return HPyNumber_Add(ctx, a, b);
+                return HPy_Add(ctx, a, b);
             }
             @EXPORT f HPy_METH_KEYWORDS
             @INIT
@@ -193,7 +193,7 @@ class TestArgParseKeywords(HPyTest):
                 }} else {{
                     b = HPy_Dup(ctx, b);
                 }}
-                res = HPyNumber_Add(ctx, a, b);
+                res = HPy_Add(ctx, a, b);
                 HPy_Close(ctx, b);
                 return res;
             }
@@ -272,7 +272,7 @@ class TestArgParseKeywords(HPyTest):
                 } else {
                     b = HPy_Dup(ctx, b);
                 }
-                res = HPyNumber_Add(ctx, a, b);
+                res = HPy_Add(ctx, a, b);
                 HPy_Close(ctx, b);
                 return res;
             }

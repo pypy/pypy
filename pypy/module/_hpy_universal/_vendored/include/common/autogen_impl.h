@@ -33,9 +33,174 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Float_FromDouble)(HPyContext ctx, double v)
     return _py2h(PyFloat_FromDouble(v));
 }
 
-HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Number_Add)(HPyContext ctx, HPy h1, HPy h2)
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Add)(HPyContext ctx, HPy h1, HPy h2)
 {
     return _py2h(PyNumber_Add(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Subtract)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Subtract(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Multiply)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Multiply(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(MatrixMultiply)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_MatrixMultiply(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(FloorDivide)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_FloorDivide(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(TrueDivide)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_TrueDivide(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Remainder)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Remainder(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Divmod)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Divmod(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Power)(HPyContext ctx, HPy h1, HPy h2, HPy h3)
+{
+    return _py2h(PyNumber_Power(_h2py(h1), _h2py(h2), _h2py(h3)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Negative)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Negative(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Positive)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Positive(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Absolute)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Absolute(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Invert)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Invert(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Lshift)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Lshift(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Rshift)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Rshift(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(And)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_And(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Xor)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Xor(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Or)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_Or(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Index)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Index(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Long)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Long(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Float)(HPyContext ctx, HPy h1)
+{
+    return _py2h(PyNumber_Float(_h2py(h1)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceAdd)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceAdd(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceSubtract)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceSubtract(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceMultiply)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceMultiply(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceMatrixMultiply)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceMatrixMultiply(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceFloorDivide)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceFloorDivide(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceTrueDivide)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceTrueDivide(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceRemainder)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceRemainder(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlacePower)(HPyContext ctx, HPy h1, HPy h2, HPy h3)
+{
+    return _py2h(PyNumber_InPlacePower(_h2py(h1), _h2py(h2), _h2py(h3)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceLshift)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceLshift(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceRshift)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceRshift(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceAnd)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceAnd(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceXor)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceXor(_h2py(h1), _h2py(h2)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceOr)(HPyContext ctx, HPy h1, HPy h2)
+{
+    return _py2h(PyNumber_InPlaceOr(_h2py(h1), _h2py(h2)));
 }
 
 HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, const char *message)
@@ -46,6 +211,46 @@ HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, co
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Object_IsTrue)(HPyContext ctx, HPy h)
 {
     return PyObject_IsTrue(_h2py(h));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(GetAttr)(HPyContext ctx, HPy obj, HPy name)
+{
+    return _py2h(PyObject_GetAttr(_h2py(obj), _h2py(name)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(GetAttr_s)(HPyContext ctx, HPy obj, const char *name)
+{
+    return _py2h(PyObject_GetAttrString(_h2py(obj), name));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(HasAttr)(HPyContext ctx, HPy obj, HPy name)
+{
+    return PyObject_HasAttr(_h2py(obj), _h2py(name));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(HasAttr_s)(HPyContext ctx, HPy obj, const char *name)
+{
+    return PyObject_HasAttrString(_h2py(obj), name);
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(SetAttr)(HPyContext ctx, HPy obj, HPy name, HPy value)
+{
+    return PyObject_SetAttr(_h2py(obj), _h2py(name), _h2py(value));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(SetAttr_s)(HPyContext ctx, HPy obj, const char *name, HPy value)
+{
+    return PyObject_SetAttrString(_h2py(obj), name, _h2py(value));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(GetItem)(HPyContext ctx, HPy obj, HPy key)
+{
+    return _py2h(PyObject_GetItem(_h2py(obj), _h2py(key)));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(SetItem)(HPyContext ctx, HPy obj, HPy key, HPy value)
+{
+    return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
 }
 
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Bytes_Check)(HPyContext ctx, HPy h)

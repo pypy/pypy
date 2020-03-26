@@ -40,7 +40,8 @@ class TestUnicode(HPyTest):
             HPy_DEF_METH_O(f)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
-                const wchar_t *buf = L"hell\xf2 world";
+                const wchar_t buf[] = { 'h', 'e', 'l', 'l', 0xf2, ' ',
+                                        'w', 'o', 'r', 'l', 'd', 0 };
                 long n = HPyLong_AsLong(ctx, arg);
                 return HPyUnicode_FromWideChar(ctx, buf, n);
             }

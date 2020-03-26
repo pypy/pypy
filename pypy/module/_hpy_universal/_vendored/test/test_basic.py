@@ -106,7 +106,7 @@ class TestBasic(HPyTest):
                 HPy one = HPyLong_FromLong(ctx, 1);
                 if (HPy_IsNull(one))
                     return HPy_NULL;
-                HPy res = HPyNumber_Add(ctx, arg, one);
+                HPy res = HPy_Add(ctx, arg, one);
                 HPy_Close(ctx, one);
                 return res;
             }
