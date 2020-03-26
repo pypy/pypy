@@ -49,6 +49,7 @@ make_binary('HPy_Rshift', 'space.rshift')
 make_binary('HPy_And', 'space.and_')
 make_binary('HPy_Xor', 'space.xor')
 make_binary('HPy_Or', 'space.or_')
+make_binary('HPy_MatrixMultiply', 'space.matmul')
 
 
 @API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
@@ -63,14 +64,6 @@ def HPy_Float(space, ctx, h1):
     w_obj1 = handles.deref(space, h1)
     w_res = space.call_function(space.w_float, w_obj1)
     return handles.new(space, w_res)
-
-
-
-@API.func("HPy HPy_MatrixMultiply(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_MatrixMultiply(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
 
 
 @API.func("HPy HPy_Power(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
