@@ -51,6 +51,19 @@ make_binary('HPy_Xor', 'space.xor')
 make_binary('HPy_Or', 'space.or_')
 make_binary('HPy_MatrixMultiply', 'space.matmul')
 
+make_binary('HPy_InPlaceAdd', 'space.inplace_add')
+make_binary('HPy_InPlaceSubtract', 'space.inplace_sub'),
+make_binary('HPy_InPlaceMultiply', 'space.inplace_mul'),
+make_binary('HPy_InPlaceFloorDivide', 'space.inplace_floordiv'),
+make_binary('HPy_InPlaceTrueDivide', 'space.inplace_truediv'),
+make_binary('HPy_InPlaceRemainder', 'space.inplace_mod'),
+make_binary('HPy_InPlaceLshift', 'space.inplace_lshift'),
+make_binary('HPy_InPlaceRshift', 'space.inplace_rshift'),
+make_binary('HPy_InPlaceAnd', 'space.inplace_and'),
+make_binary('HPy_InPlaceXor', 'space.inplace_xor'),
+make_binary('HPy_InPlaceOr', 'space.inplace_or'),
+
+
 
 @API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
 def HPy_Long(space, ctx, h1):
@@ -74,81 +87,14 @@ def HPy_Power(space, ctx, h1, h2, h3):
     w_res = space.pow(w_o1, w_o2, w_o3)
     return handles.new(space, w_res)
 
-
-@API.func("HPy HPy_InPlaceAdd(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceAdd(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceSubtract(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceSubtract(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceMultiply(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceMultiply(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
 @API.func("HPy HPy_InPlaceMatrixMultiply(HPyContext ctx, HPy h1, HPy h2)")
 def HPy_InPlaceMatrixMultiply(space, ctx, h1, h2):
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return 0
     raise NotImplementedError
 
-@API.func("HPy HPy_InPlaceFloorDivide(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceFloorDivide(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceTrueDivide(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceTrueDivide(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceRemainder(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceRemainder(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
 @API.func("HPy HPy_InPlacePower(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
 def HPy_InPlacePower(space, ctx, h1, h2, h3):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceLshift(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceLshift(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceRshift(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceRshift(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceAnd(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceAnd(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceXor(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceXor(space, ctx, h1, h2):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_InPlaceOr(HPyContext ctx, HPy h1, HPy h2)")
-def HPy_InPlaceOr(space, ctx, h1, h2):
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return 0
     raise NotImplementedError
