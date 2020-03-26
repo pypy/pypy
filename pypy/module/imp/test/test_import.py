@@ -864,7 +864,6 @@ class TestPycStuff:
                                                    w_mod,
                                                    cpathname,
                                                    magic,
-                                                   timestamp,
                                                    stream.readall())
         finally:
             stream.close()
@@ -889,7 +888,6 @@ class TestPycStuff:
                                                    w_mod,
                                                    None,
                                                    magic,
-                                                   timestamp,
                                                    stream.readall())
         finally:
             stream.close()
@@ -969,7 +967,6 @@ class TestPycStuff:
                                     w_mod,
                                     cpathname,
                                     magic,
-                                    timestamp,
                                     stream.readall())
                 finally:
                     stream.close()

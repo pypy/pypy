@@ -190,6 +190,26 @@ def get_file():
         code = z.get_code('uuu')
         assert isinstance(code, type((lambda:0).__code__))
 
+    def test_hash_pyc(self):
+        import sys, os
+        pyc = self.get_pyc()
+        b = bytearray(pyc)
+        b[4] = 0b1 # unchecked hash
+        self.writefile("uuu.pyc", bytes(b))
+        mod = __import__('uuu', globals(), locals(), [])
+        assert mod.__name__ == 'uuu'
+        assert mod.__file__.endswith('.zip'+os.sep+'uuu.pyc')
+
+    def test_hash_check_not_imported_pyc(self):
+        import zipimport
+        import sys, os
+        pyc = self.get_pyc()
+        b = bytearray(pyc)
+        b[4] = 0b10 # checked hash
+        self.writefile("uuu.pyc", bytes(b))
+        raises(zipimport.ZipImportError,
+            "__import__('uuu', globals(), locals(), [])")
+
     def test_bad_pyc(self):
         import zipimport
         import sys
