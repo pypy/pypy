@@ -4,10 +4,6 @@ import pypy.module.__builtin__.operation as operation
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
-def charp2text(space, ptr):
-    s = rffi.constcharp2str(ptr)
-    return space.newtext(s)
-
 @API.func("HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy h_name)")
 def HPy_GetAttr(space, ctx, h_obj, h_name):
     w_obj = handles.deref(space, h_obj)
@@ -19,7 +15,7 @@ def HPy_GetAttr(space, ctx, h_obj, h_name):
 @API.func("HPy HPy_GetAttr_s(HPyContext ctx, HPy h_obj, const char *name)")
 def HPy_GetAttr_s(space, ctx, h_obj, name):
     w_obj = handles.deref(space, h_obj)
-    w_name = charp2text(space, name)
+    w_name = API.ccharp2text(space, name)
     w_res = space.getattr(w_obj, w_name)
     return handles.new(space, w_res)
 
@@ -33,7 +29,7 @@ def HPy_HasAttr(space, ctx, h_obj, h_name):
 @API.func("int HPy_HasAttr_s(HPyContext ctx, HPy h_obj, const char *name)")
 def HPy_HasAttr_s(space, ctx, h_obj, name):
     w_obj = handles.deref(space, h_obj)
-    w_name = charp2text(space, name)
+    w_name = API.ccharp2text(space, name)
     return _HasAttr(space, w_obj, w_name)
 
 def _HasAttr(space, w_obj, w_name):
@@ -55,7 +51,7 @@ def HPy_SetAttr(space, ctx, h_obj, h_name, h_value):
 @API.func("int HPy_SetAttr_s(HPyContext ctx, HPy h_obj, const char *name, HPy h_value)")
 def HPy_SetAttr_s(space, ctx, h_obj, name, h_value):
     w_obj = handles.deref(space, h_obj)
-    w_name = charp2text(space, name)
+    w_name = API.ccharp2text(space, name)
     w_value = handles.deref(space, h_value)
     operation.setattr(space, w_obj, w_name, w_value)
     return API.int(0)
@@ -78,7 +74,7 @@ def HPy_GetItem_i(space, ctx, h_obj, idx):
 @API.func("HPy HPy_GetItem_s(HPyContext ctx, HPy h_obj, const char *key)")
 def HPy_GetItem_s(space, ctx, h_obj, key):
     w_obj = handles.deref(space, h_obj)
-    w_key = charp2text(space, key)
+    w_key = API.ccharp2text(space, key)
     w_res = space.getitem(w_obj, w_key)
     return handles.new(space, w_res)
 
@@ -102,7 +98,7 @@ def HPy_SetItem_i(space, ctx, h_obj, idx, h_val):
 @API.func("int HPy_SetItem_s(HPyContext ctx, HPy h_obj, const char *key, HPy h_val)")
 def HPy_SetItem_s(space, ctx, h_obj, key, h_val):
     w_obj = handles.deref(space, h_obj)
-    w_key = charp2text(space, key)
+    w_key = API.ccharp2text(space, key)
     w_val = handles.deref(space, h_val)
     space.setitem(w_obj, w_key, w_val)
     return API.int(0)

@@ -79,5 +79,14 @@ class APISet(object):
         """
         return rffi.cast(rffi.INT_real, x)
 
+    @staticmethod
+    def ccharp2text(space, ptr):
+        """
+        Convert a C const char* into a W_UnicodeObject
+        """
+        s = rffi.constcharp2str(ptr)
+        return space.newtext(s)
+
+
 
 API = APISet(llapi.cts)
