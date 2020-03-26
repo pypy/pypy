@@ -95,6 +95,16 @@ def HPy_InPlaceMatrixMultiply(space, ctx, h1, h2):
 
 @API.func("HPy HPy_InPlacePower(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
 def HPy_InPlacePower(space, ctx, h1, h2, h3):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    # CPython seems to have a weird semantics for InPlacePower: if __ipow__ is
+    # defined, the 3rd argument is always ignored (contrarily to what the
+    # documentation says). If now, it falls back to pow, so the 3rd arg is
+    # handled correctly. Here we try to be bug-to-bug compatible
+    w_o1 = handles.deref(space, h1)
+    w_o2 = handles.deref(space, h2)
+    w_o3 = handles.deref(space, h3)
+    w_ipow = space.lookup(w_o1, '__ipow__')
+    if w_ipow is None:
+        w_res = space.pow(w_o1, w_o2, w_o3)
+    else:
+        w_res = space.inplace_pow(w_o1, w_o2)
+    return handles.new(space, w_res)
