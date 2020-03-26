@@ -75,9 +75,11 @@ def HPy_MatrixMultiply(space, ctx, h1, h2):
 
 @API.func("HPy HPy_Power(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
 def HPy_Power(space, ctx, h1, h2, h3):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_o1 = handles.deref(space, h1)
+    w_o2 = handles.deref(space, h2)
+    w_o3 = handles.deref(space, h3)
+    w_res = space.pow(w_o1, w_o2, w_o3)
+    return handles.new(space, w_res)
 
 
 @API.func("HPy HPy_InPlaceAdd(HPyContext ctx, HPy h1, HPy h2)")
