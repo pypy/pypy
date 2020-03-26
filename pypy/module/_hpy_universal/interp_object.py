@@ -5,7 +5,7 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
 def charp2text(space, ptr):
-    s = rffi.charp2str(ptr)
+    s = rffi.constcharp2str(ptr)
     return space.newtext(s)
 
 @API.func("HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy h_name)")
