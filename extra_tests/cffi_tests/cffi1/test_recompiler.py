@@ -39,6 +39,9 @@ def verify(ffi, module_name, source, *args, **kwds):
         from extra_tests.cffi_tests.support import extra_compile_args
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       extra_compile_args)
+    if sys.platform == 'darwin':
+        kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
+                                     ['-stdlib=libc++'])
     return _verify(ffi, module_name, source, *args, **kwds)
 
 def test_set_source_no_slashes():
