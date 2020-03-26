@@ -34,6 +34,7 @@ class AppTestImpModule:
         f.write(imp.get_magic())
         f.write(b'\x00\x00\x00\x00')
         f.write(b'\x00\x00\x00\x00')
+        f.write(b'\x00\x00\x00\x00')
         marshal.dump(co, f)
         f.close()
         return fname
