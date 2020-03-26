@@ -83,20 +83,26 @@ def HPy_GetItem_s(space, ctx, h_obj, key):
     return handles.new(space, w_res)
 
 
-@API.func("int HPy_SetItem(HPyContext ctx, HPy h_obj, HPy key, HPy value)")
-def HPy_SetItem(space, ctx, h_obj, key, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("int HPy_SetItem(HPyContext ctx, HPy h_obj, HPy h_key, HPy h_val)")
+def HPy_SetItem(space, ctx, h_obj, h_key, h_val):
+    w_obj = handles.deref(space, h_obj)
+    w_key = handles.deref(space, h_key)
+    w_val = handles.deref(space, h_val)
+    space.setitem(w_obj, w_key, w_val)
+    return API.int(0)
 
-@API.func("int HPy_SetItem_i(HPyContext ctx, HPy h_obj, HPy_ssize_t idx, HPy value)")
-def HPy_SetItem_i(space, ctx, h_obj, idx, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("int HPy_SetItem_i(HPyContext ctx, HPy h_obj, HPy_ssize_t idx, HPy h_val)")
+def HPy_SetItem_i(space, ctx, h_obj, idx, h_val):
+    w_obj = handles.deref(space, h_obj)
+    w_key = space.newint(idx)
+    w_val = handles.deref(space, h_val)
+    space.setitem(w_obj, w_key, w_val)
+    return API.int(0)
 
-@API.func("int HPy_SetItem_s(HPyContext ctx, HPy h_obj, const char *key, HPy value)")
-def HPy_SetItem_s(space, ctx, h_obj, key, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("int HPy_SetItem_s(HPyContext ctx, HPy h_obj, const char *key, HPy h_val)")
+def HPy_SetItem_s(space, ctx, h_obj, key, h_val):
+    w_obj = handles.deref(space, h_obj)
+    w_key = charp2text(space, key)
+    w_val = handles.deref(space, h_val)
+    space.setitem(w_obj, w_key, w_val)
+    return API.int(0)
