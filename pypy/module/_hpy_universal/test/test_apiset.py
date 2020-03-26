@@ -1,4 +1,5 @@
 import pytest
+import operator
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.apiset import APISet
@@ -23,6 +24,21 @@ class TestAPISet(object):
         #
         assert divide(None, 5, 2) == 2.5
         assert api.all_functions == [divide]
+
+    def test_func_with_func_name(self, api):
+        def make_binary(name, op):
+            @api.func('double func(long a, long b)', func_name=name)
+            def func(space, a, b):
+                return op(a, b)
+            return func
+        #
+        add = make_binary('add', operator.add)
+        sub = make_binary('sub', operator.sub)
+        assert add.__name__ == 'add'
+        assert sub.__name__ == 'sub'
+        assert add(None, 8, 5) == 13
+        assert sub(None, 12, 3) == 9
+        assert api.all_functions == [add, sub]
 
     def test_basename(self, api):
         @api.func('void HPyFoo_Bar(void)')

@@ -11,6 +11,39 @@ def HPy_Add(space, ctx, h1, h2):
     w_result = space.add(w_obj1, w_obj2)
     return handles.new(space, w_result)
 
+def make_unary(name, spacemeth):
+    assert spacemeth.startswith('space.')
+    spacemeth = spacemeth[len('space.'):]
+    #
+    @API.func("HPy HPy_unary(HPyContext ctx, HPy h1)", func_name=name)
+    def HPy_unary(space, ctx, h1):
+        w_obj1 = handles.deref(space, h1)
+        meth = getattr(space, spacemeth)
+        w_res = meth(w_obj1)
+        return handles.new(space, w_res)
+    #
+    globals()[name] = HPy_unary
+
+make_unary('HPy_Negative', 'space.neg')
+make_unary('HPy_Positive', 'space.pos')
+make_unary('HPy_Absolute', 'space.abs')
+make_unary('HPy_Invert', 'space.invert')
+make_unary('HPy_Index', 'space.index')
+
+@API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
+def HPy_Long(space, ctx, h1):
+    w_obj1 = handles.deref(space, h1)
+    w_res = space.call_function(space.w_int, w_obj1)
+    return handles.new(space, w_res)
+
+
+@API.func("HPy HPy_Float(HPyContext ctx, HPy h1)")
+def HPy_Float(space, ctx, h1):
+    w_obj1 = handles.deref(space, h1)
+    w_res = space.call_function(space.w_float, w_obj1)
+    return handles.new(space, w_res)
+
+
 @API.func("HPy HPy_Subtract(HPyContext ctx, HPy h1, HPy h2)")
 def HPy_Subtract(space, ctx, h1, h2):
     from rpython.rlib.nonconst import NonConstant # for the annotator
@@ -59,29 +92,7 @@ def HPy_Power(space, ctx, h1, h2, h3):
     if NonConstant(False): return 0
     raise NotImplementedError
 
-@API.func("HPy HPy_Negative(HPyContext ctx, HPy h1)")
-def HPy_Negative(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
 
-@API.func("HPy HPy_Positive(HPyContext ctx, HPy h1)")
-def HPy_Positive(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_Absolute(HPyContext ctx, HPy h1)")
-def HPy_Absolute(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_Invert(HPyContext ctx, HPy h1)")
-def HPy_Invert(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
 
 @API.func("HPy HPy_Lshift(HPyContext ctx, HPy h1, HPy h2)")
 def HPy_Lshift(space, ctx, h1, h2):
@@ -113,23 +124,6 @@ def HPy_Or(space, ctx, h1, h2):
     if NonConstant(False): return 0
     raise NotImplementedError
 
-@API.func("HPy HPy_Index(HPyContext ctx, HPy h1)")
-def HPy_Index(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
-def HPy_Long(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
-@API.func("HPy HPy_Float(HPyContext ctx, HPy h1)")
-def HPy_Float(space, ctx, h1):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
 
 @API.func("HPy HPy_InPlaceAdd(HPyContext ctx, HPy h1, HPy h2)")
 def HPy_InPlaceAdd(space, ctx, h1, h2):

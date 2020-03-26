@@ -1,6 +1,7 @@
 import re
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize, llhelper_can_raise
 from pypy.module._hpy_universal import llapi
@@ -26,13 +27,17 @@ class APISet(object):
         ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
         return d.name, ll_functype
 
-    def func(self, cdecl, cpyext=False):
+    def func(self, cdecl, cpyext=False, func_name=None):
         """
         Declare an HPy API function.
 
         If the function is marked as cpyext=True, it will be included in the
         translation only if pypy.objspace.hpy_cpyext_API==True (the
         default). This is useful to exclude cpyext in test_ztranslation
+
+        If func_name is given, the decorated function will be automatically
+        renamed. Useful for automatically generated code, for example in
+        interp_number.py
         """
         if self.frozen:
             raise RuntimeError(
@@ -46,6 +51,9 @@ class APISet(object):
                 raise ValueError(
                     'The name of the function and the signature do not match: '
                     '%s != %s' % (name, fn.__name__))
+            #
+            if func_name is not None:
+                fn = func_with_new_name(fn, func_name)
             #
             # attach various helpers to fn, so you can access things like
             # HPyNumber_Add.get_llhelper(), HPyNumber_Add.basename, etc.
