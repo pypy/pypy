@@ -3,7 +3,7 @@ WIP: PyPy v7.3.1: release of 2.7, 3.6, and 3.7alpha
 ===================================================
 
 The PyPy team is proud to release the version 7.3.1 of PyPy, which includes
-three different interpreters:
+two different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
     Python 2.7 including the stdlib for CPython 2.7.13
@@ -17,7 +17,7 @@ in December, but read on to find out what is new.
 
 We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release updates the pip and
-setuptools installed when executing `pypy -mensurepip` to `pip>=20`. This
+setuptools installed when executing ``pypy -mensurepip`` to ``pip>=20``. This
 completes the work done to update the PEP 425 `python tag`_ from ``pp373`` to
 mean "PyPy 7.3 running python3" to ``pp36`` meaning "PyPy running python
 3.6" (the format is recommended in the PEP). The tag itself was
@@ -37,15 +37,15 @@ experimentally for win32, try it out and let use know how it works.
 Enabling ``cppyy`` requires a more modern C compiler, so win32 is now built
 with MSVC160 (Visual Studio 2019). This is true for PyPy 3.6 as well as for 2.7.
 
-Conda Forge now `supports PyPy` as a python interpreter. The support right now
-is only partial, as this release is needed to build many more c-extension-based
-packages to be successfully built and uploaded. This is the result of alot of
+Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
+is only partial. After this release, many more c-extension-based
+packages can be successfully built and uploaded. This is the result of alot of
 hard work and good will on the part of the Conda Forge team.  A big shout out
 to them for taking this on.
 
-We have improved warmup time by up to 20%, performance of `io.StringIO` to
+We have improved warmup time by up to 20%, performance of ``io.StringIO`` to
 match if not be faster than CPython, and improved JIT code generation for
-generators (and generator expressions in particual) when passing them to
+generators (and generator expressions in particular) when passing them to
 functions like ``sum``, ``map``, and ``map`` that consume them.
 
 As always, this release fixed several issues and bugs raised by the growing
@@ -93,7 +93,7 @@ What is PyPy?
 =============
 
 PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7, 3.6, and now 3.7. It's fast (`PyPy and CPython 2.7.x`_ performance
+CPython 2.7, 3.6, and soon 3.7. It's fast (`PyPy and CPython 2.7.x`_ performance
 comparison) due to its integrated tracing JIT compiler.
 
 We also welcome developers of other `dynamic languages`_ to see what RPython
@@ -110,9 +110,9 @@ This PyPy release supports:
 
   * 64-bit **ARM** machines running Linux.
 
-Unfortunately at the moment of writing our ARM buildbots are out of service,
-so for now we are **not** releasing any binaries for the ARM architecture (32
-bit), although PyPy does support ARM 32 bit processors. 
+Unfortunately at the moment of writing our ARM32 buildbots are out of service,
+so for now we are **not** releasing any binaries for that architecture,
+although PyPy does support ARM 32 bit processors. 
 
 .. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
 .. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
