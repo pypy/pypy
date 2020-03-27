@@ -147,7 +147,7 @@ class TestEval(BaseApiTest):
 
         # try again, but with a closed file
         fp = c_fopen(str(filepath), "rb")
-        os.close(c_fileno(fp))
+        c_fclose(fp)
         with raises_w(space, IOError):
             PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
             c_fclose(fp)
