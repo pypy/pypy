@@ -34,7 +34,7 @@ def find_curses_dir_and_name():
         if os.path.exists(os.path.join(base, 'lib', 'libncursesw.so')):
             return base, 'ncursesw'
         if os.path.exists(os.path.join(base, 'lib', 'libncurses.so')):
-            return base, 'ncurses'    return '', None
+            return base, 'ncurses'
     return '', None
 
 base, name = find_curses_dir_and_name()
