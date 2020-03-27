@@ -4,6 +4,24 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 
+## HPy exceptions in PyPy
+##
+## HPy exceptions are implemented using normal RPython exceptions, which means
+## that e.g. HPyErr_SetString simply raises an OperationError: see
+## e.g. test_exception_transform.test_llhelper_can_raise for a test which
+## ensure that exceptions correctly propagate.
+##
+## Moreover, we need to ensure that it is NOT possible to call RPython code
+## when an RPython exception is set, else you get unexpected results. The plan
+## is to document that it's forbidden to call most HPy functions if an
+## exception has been set, apart for few functions, such as:
+##
+##     - HPyErr_Occurred()
+##     - HPyErr_Fetch()
+##     - HPyErr_Clear()
+##
+## We need to enforce this in debug mode.
+
 @API.func("void HPyErr_SetString(HPyContext ctx, HPy type, const char *message)")
 def HPyErr_SetString(space, ctx, h_exc_type, utf8):
    w_obj = _maybe_utf8_to_w(space, utf8)
