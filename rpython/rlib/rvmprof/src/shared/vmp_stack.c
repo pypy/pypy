@@ -189,14 +189,18 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     ret = unw_getcontext(&uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_getcontext did not retreive context, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
     ret = unw_init_local(&cursor, &uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_init_local did not succeed, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
@@ -205,7 +209,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         while (signal < 0) {
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr, "WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
             signal++;
@@ -220,7 +226,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             }
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr,"WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
         }
@@ -577,7 +585,9 @@ void vmp_native_disable(void) {
     if (libhandle != NULL) {
         if (dlclose(libhandle)) {
             vmprof_error = dlerror();
+#if DEBUG
             fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
+#endif
         }
         libhandle = NULL;
     }
