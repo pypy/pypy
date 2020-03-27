@@ -40,7 +40,7 @@ def verify(ffi, module_name, source, *args, **kwds):
         kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
                                       extra_compile_args)
     if sys.platform == 'darwin':
-        kwds['extra_compile_args'] = (kwds.get('extra_compile_args', []) +
+        kwds['extra_link_args'] = (kwds.get('extra_link_args', []) +
                                      ['-stdlib=libc++'])
     return _verify(ffi, module_name, source, *args, **kwds)
 
