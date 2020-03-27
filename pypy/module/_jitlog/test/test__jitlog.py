@@ -4,6 +4,7 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.resoperation import opname
+from rpython.rlib.rfile import create_file
 
 class AppTestJitLog(object):
     spaceconfig = {'usemodules': ['_jitlog', 'struct']}
@@ -21,7 +22,10 @@ class AppTestJitLog(object):
 
     def test_enable(self):
         import _jitlog, struct
-        tmpfile = open(self.tmpfilename, 'wb')
+        # use rfile instead of file.open since the host python and compiled
+        # code may use different runtime libraries (win32 visual2008 vs.
+        # visual2019 for instance
+        tmpfile = create_file(self.tmpfilename, 'wb')
         fileno = tmpfile.fileno()
         _jitlog.enable(fileno)
         _jitlog.disable()
