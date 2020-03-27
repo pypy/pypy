@@ -127,7 +127,9 @@ PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     mythread_id = PyThread_get_thread_ident();
     istate = PyInterpreterState_Head();
     if (istate == NULL) {
+#if DEBUG
         fprintf(stderr, "WARNING: interp state head is null (for thread id %ld)\n", mythread_id);
+#endif
         return NULL;
     }
     // fish fish fish, it will NOT lock the keymutex in pythread
@@ -141,7 +143,9 @@ PY_THREAD_STATE_T * _get_pystate_for_this_thread(void) {
     } while ((istate = PyInterpreterState_Next(istate)) != NULL);
 
     // uh? not found?
+#if DEBUG
     fprintf(stderr, "WARNING: cannot find thread state (for thread id %ld), sample will be thrown away\n", mythread_id);
+#endif
     return NULL;
 }
 #endif
@@ -244,7 +248,9 @@ void sigprof_handler(int sig_nr, siginfo_t* info, void *ucontext)
             if (commit) {
                 commit_buffer(fd, p);
             } else {
+#if DEBUG
                 fprintf(stderr, "WARNING: canceled buffer, no stack trace was written\n");
+#endif
                 cancel_buffer(p);
             }
         }
@@ -477,13 +483,17 @@ int get_stack_trace(PY_THREAD_STATE_T * current, void** result, int max_depth, i
     frame = (PY_STACK_FRAME_T*)current;
 #else
     if (current == NULL) {
+#if DEBUG
         fprintf(stderr, "WARNING: get_stack_trace, current is NULL\n");
+#endif
         return 0;
     }
     frame = current->frame;
 #endif
     if (frame == NULL) {
+#if DEBUG
         fprintf(stderr, "WARNING: get_stack_trace, frame is NULL\n");
+#endif
         return 0;
     }
     return vmp_walk_and_record_stack(frame, result, max_depth, 1, pc);
