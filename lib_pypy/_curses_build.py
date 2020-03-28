@@ -26,6 +26,8 @@ def find_library(options):
     raise e_last
 
 def find_curses_dir_and_name():
+    if sys.platform == 'darwin':
+        return '', None
     for base in ('/usr', '/usr/local'):
         if os.path.exists(os.path.join(base, 'include', 'ncursesw')):
             return base, 'ncursesw'
