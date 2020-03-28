@@ -66,10 +66,9 @@ def main(branch, server, user):
         args = [
             ('username', user),
             ('revision', ''),
-            ('forcescheduler', 'Force Scheduler'),
-            ('submit', 'Force Build'),
+            ('forcescheduler', 'Force Build'),
             ('branch', branch),
-            ('comments', "Forced by command line script")]
+            ('reason', "Forced by command line script")]
         url = url + '?' + '&'.join([k + '=' + quote(v) for (k, v) in args])
         requests.append(
             lock.run(client.getPage, url.encode('utf-8'), followRedirect=False).addErrback(ebList))

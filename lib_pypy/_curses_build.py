@@ -1,5 +1,6 @@
 from cffi import FFI, VerificationError
 import os
+import sys
 
 version_str = '''
     static const int NCURSES_VERSION_MAJOR;
