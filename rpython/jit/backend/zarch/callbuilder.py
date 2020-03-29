@@ -226,7 +226,7 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.CGFI(r.r13, l.imm0)
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos()))
         # if so try to compare and swap.
-        # r13 == &r10, the store the contets of r.SCRATCH to &r10
+        # r13 == &r10, then store the contets of r.SCRATCH to &r10
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
         self.mc.BRC(c.LT, l.imm(retry_label - self.mc.currpos())) # retry if failed
         # CSG performs a serialization
