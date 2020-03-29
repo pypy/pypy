@@ -19,7 +19,8 @@ class LoggerTest(LLJitMixin):
             enable_jitlog = lambda: rjitlog.enable_jitlog(fileno)
             f = self.run_sample_loop(enable_jitlog)
             self.meta_interp(f, [10, 0])
-            rfile.close()
+            # meta_interp calls jitlog.finish which closes the file descriptor
+            # rfile.close()
 
         assert os.path.exists(file.strpath)
         with file.open('rb') as f:
