@@ -12,7 +12,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
-        c_fdopen, c_fileno,
+        c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -117,6 +117,11 @@ _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
     with FdValidator(c_fileno(fp)):
         return _feof(fp)
+
+_ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
+def ferror(fp):
+    with FdValidator(c_fileno(fp)):
+        return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
