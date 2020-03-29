@@ -150,7 +150,6 @@ class TestEval(BaseApiTest):
         c_fclose(fp)
         with raises_w(space, IOError):
             PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
-            c_fclose(fp)
         rffi.free_charp(filename)
 
     def test_getbuiltins(self, space):
