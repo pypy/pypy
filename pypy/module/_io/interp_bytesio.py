@@ -78,7 +78,7 @@ class W_BytesIO(W_BufferedIOBase):
         size = convert_size(space, w_size)
         return space.newbytes(self.read(size))
 
-    def read1_w(self, space, w_size):
+    def read1_w(self, space, w_size=None):
         return self.read_w(space, w_size)
 
     def readline_w(self, space, w_limit=None):
