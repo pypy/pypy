@@ -1,5 +1,5 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib
+import sys, shutil, os, tempfile, hashlib, time
 from os.path import join
 
 try:
