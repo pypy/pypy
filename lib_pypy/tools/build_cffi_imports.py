@@ -13,6 +13,9 @@ except ImportError:
     sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
 
+# do not use the long-running runsubprocess._run here, since building some of
+# the extensions enable importing them later
+os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 
 class MissingDependenciesError(Exception):
     pass
@@ -58,8 +61,9 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
-              '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
+    # this does not compile on the buildbot, linker is missing '_history_list'
+    'broken_on_macos_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
+              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -91,8 +95,6 @@ def _sha256(filename):
 
 def _build_dependency(name, patches=[]):
     import shutil
-    import subprocess
-
     from rpython.tool.runsubprocess import run_subprocess
 
     try:
@@ -116,6 +118,10 @@ def _build_dependency(name, patches=[]):
     if not os.path.exists(archive) or _sha256(archive) != dgst:
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
+
+    # make sure the hash matches
+    if _sha256(archive) != dgst:
+        return 1, '{} archive {} hash mismatch'.format(key, archive), ''
 
     shutil.rmtree(deps_destdir, ignore_errors=True)
     os.makedirs(deps_destdir)
@@ -180,7 +186,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         env = os.environ.copy()
 
         print('*', ' '.join(args), file=sys.stderr)
-        if embed_dependencies:
+        if embed_dependencies and key in cffi_dependencies:
             status, stdout, stderr = _build_dependency(key)
             if status != 0:
                 failures.append((key, module))
@@ -203,14 +209,24 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
+                print("stdout:")
+                print(stdout.decode('utf-8'), file=sys.stderr)
+                print("stderr:")
+                print(stderr.decode('utf-8'), file=sys.stderr)
+                raise RuntimeError('building {} failed'.format(key))
+        except:
+            import traceback;traceback.print_exc()
+            failures.append((key, module))
+        else:
+            # Make sure it worked
+            status, stdout, stderr = run_subprocess(str(pypy_c),
+                         ['-c', "print('testing {0}); 'import {0}".format(key)])
+            if status != 0:
                 failures.append((key, module))
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(stderr, file=sys.stderr)
-        except:
-            import traceback;traceback.print_exc()
-            failures.append((key, module))
+                print(stderr.decode('utf-8'), file=sys.stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
