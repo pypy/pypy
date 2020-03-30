@@ -16,7 +16,7 @@ def find_library(options):
             ffi.compile()
             import _curses_cffi_check
             lib = _curses_cffi_check.lib
-        except VerificationError as e:
+        except (VerificationError, ModuleNotFoundError) as e:
             e_last = e
             continue
         else:
@@ -27,13 +27,13 @@ def find_library(options):
     raise e_last
 
 def find_curses_dir_and_name():
-    if sys.platform == 'darwin':
-        return '', None
     for base in ('/usr', '/usr/local'):
         if os.path.exists(os.path.join(base, 'include', 'ncursesw')):
             return base, 'ncursesw'
         if os.path.exists(os.path.join(base, 'include', 'ncurses')):
             return base, 'ncurses'
+        if sys.platform == 'darwin':
+            return '', None
         if os.path.exists(os.path.join(base, 'lib', 'libncursesw.so')):
             return base, 'ncursesw'
         if os.path.exists(os.path.join(base, 'lib', 'libncurses.so')):
@@ -45,12 +45,14 @@ if base:
     include_dirs = [os.path.join(base, 'include', name)]
     library_dirs = [os.path.join(base, 'lib')]
     libs = [name, name.replace('ncurses', 'panel')]
+    print('using {} from {}'.format(name, base))
 else:
     include_dirs = []
     library_dirs = []
     libs = [find_library(['ncursesw', 'ncurses']),
                 find_library(['panelw', 'panel']),
            ]
+    print('using {} from general compiler paths'.format(libs[0]))
 
 ffi = FFI()
 ffi.set_source("_curses_cffi", """

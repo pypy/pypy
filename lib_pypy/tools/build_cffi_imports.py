@@ -203,14 +203,25 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
+                print("stdout:")
+                print(stdout.decode('utf-8'), file=sys.stderr)
+                print("stderr:")
+                print(stderr, file=sys.stderr)
+                raise RuntimeError('building {} failed'.format(key))
+        except:
+            import traceback;traceback.print_exc()
+            failures.append((key, module))
+        else:
+            # Make sure it worked, give some time for disk caching
+            time.sleep(0.5)
+            status, stdout, stderr = run_subprocess(str(pypy_c),
+                         ['-c', "print('testing {0}); 'import {0}".format(key)])
+            if status != 0:
                 failures.append((key, module))
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
                 print(stderr, file=sys.stderr)
-        except:
-            import traceback;traceback.print_exc()
-            failures.append((key, module))
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures
