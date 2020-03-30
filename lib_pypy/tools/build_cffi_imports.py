@@ -13,6 +13,9 @@ except ImportError:
     sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
 
+# do not use the long-running runsubprocess._run here, since building some of
+# the extensions enable importing them later
+os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 
 class MissingDependenciesError(Exception):
     pass
@@ -91,8 +94,6 @@ def _sha256(filename):
 
 def _build_dependency(name, patches=[]):
     import shutil
-    import subprocess
-
     from rpython.tool.runsubprocess import run_subprocess
 
     try:
@@ -180,7 +181,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         env = os.environ.copy()
 
         print('*', ' '.join(args), file=sys.stderr)
-        if embed_dependencies:
+        if embed_dependencies and key in cffi_dependencies:
             status, stdout, stderr = _build_dependency(key)
             if status != 0:
                 failures.append((key, module))
