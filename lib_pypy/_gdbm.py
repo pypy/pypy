@@ -7,7 +7,7 @@ class error(IOError):
 
 def _checkstr(key):
     if isinstance(key, str):
-        key = key.encode("utf-8")
+        key = key.encode()
     if not isinstance(key, bytes):
         raise TypeError("gdbm mappings have string indices only")
     return key

@@ -1,7 +1,4 @@
-# encoding: utf-8
-import py
 from pypy.interpreter import gateway
-from pypy.objspace.test import test_descriptor
 
 
 class AppTestUserObject:
@@ -48,5 +45,3 @@ class AppTestUserObject:
                 assert any.hash == hash(any)
             any = any.next
             i += 1
-
-
