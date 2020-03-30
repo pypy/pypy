@@ -61,8 +61,8 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
-              '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
+    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
+              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -117,6 +117,10 @@ def _build_dependency(name, patches=[]):
     if not os.path.exists(archive) or _sha256(archive) != dgst:
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
+
+    # make sure the hash matches
+    if _sha256(archive) != dgst:
+        return 1, '{} archive {} hash mismatch'.format(key, archive), ''
 
     shutil.rmtree(deps_destdir, ignore_errors=True)
     os.makedirs(deps_destdir)
