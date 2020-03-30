@@ -23,11 +23,11 @@ cffi_build_scripts = {
     "_ssl": "_ssl_build.py",
     "sqlite3": "_sqlite3_build.py",
     "audioop": "_audioop_build.py",
-    "tk": "_tkinter/tklib_build.py",
+    "tkinter": "_tkinter/tklib_build.py",
     "curses": "_curses_build.py" if sys.platform != "win32" else None,
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
+    "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "grp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
@@ -215,7 +215,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             # Make sure it worked, give some time for disk caching
             time.sleep(0.5)
             status, stdout, stderr = run_subprocess(str(pypy_c),
-                         ['-c', "print('testing {0}); 'import {0}".format(key)])
+                         ['-c', "print('testing {0}'); import {0}".format(key)])
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")

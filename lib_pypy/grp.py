@@ -1,5 +1,5 @@
 
-""" This module provides ctypes version of cpython's grp module
+""" This module provides cffi version of cpython's grp module
 """
 
 import os
