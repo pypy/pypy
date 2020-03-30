@@ -29,7 +29,7 @@ cffi_build_scripts = {
     "tkinter": "_tkinter/tklib_build.py",
     "curses": "_curses_build.py" if sys.platform != "win32" else None,
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "broken_on_macos_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
     "grp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
@@ -61,7 +61,8 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
+    # this does not compile on the buildbot, linker is missing '_history_list'
+    'broken_on_macos_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
