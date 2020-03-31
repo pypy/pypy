@@ -599,6 +599,8 @@ class CallOpAssembler(object):
         assert isinstance(descr, CallDescr)
         cb.argtypes = descr.get_arg_types()
         cb.restype  = descr.get_result_type()
+        cb.ressize  = descr.get_result_size()
+        cb.ressign  = descr.is_result_signed()
 
         if is_call_release_gil:
             saveerrloc = arglocs[1]
