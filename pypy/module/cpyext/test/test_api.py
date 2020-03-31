@@ -23,6 +23,7 @@ class BaseApiTest(LeakCheckingTest):
     def setup_class(cls):
         space = cls.space
         cls.preload_builtins(space)
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         class CAPI:
             def __repr__(self):

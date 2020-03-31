@@ -20,13 +20,19 @@ class AppTestJitLog(object):
         space = cls.space
         for key, value in opname.items():
             space.setitem(cls.w_resops, space.wrap(key), space.wrap(value))
-        def open_returnfd(space, w_name, w_mode):
-            name = space.text_w(w_name)
-            mode = space.text_w(w_mode)
-            fid = c_fopen(name, mode)
-            fd = c_fileno(fid)
-            return space.newint(fd)
-        cls.w_open_returnfd = space.wrap(gateway.interp2app(open_returnfd))
+        if cls.runappdirect:
+            def open_returnfd(space, w_name, w_mode):
+                fid = open(w_name, w_mode)
+                return fid.fileno()
+            cls.w_open_returnfd = open_returnfd
+        else:
+            def open_returnfd(space, w_name, w_mode):
+                name = space.text_w(w_name)
+                mode = space.text_w(w_mode)
+                fid = c_fopen(name, mode)
+                fd = c_fileno(fid)
+                return space.newint(fd)
+            cls.w_open_returnfd = space.wrap(gateway.interp2app(open_returnfd))
 
     def test_enable(self):
         import _jitlog, struct
