@@ -216,6 +216,11 @@ class SysModuleTest(unittest.TestCase):
                 raise ValueError()
             except ValueError, e:
                 pass
+        except MemoryError:
+            # Documentation for setrecursionlimit says: "The highest possible
+            # limit is platform-dependent. ... a too-high limit can lead to a
+            # crash" so we allow MemoryError here
+            pass
         finally:
             sys.setrecursionlimit(oldlimit)
 

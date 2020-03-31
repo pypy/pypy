@@ -353,6 +353,10 @@ class AppTestMinMax:
         assert type(max(1.0, 1L, 1)) is float
         assert type(max(1L, 1, 1.0)) is long
 
+    def test_max_list_and_key(self):
+        assert max(["100", "50", "30", "-200"], key=int) == "100"
+        assert max("100", "50", "30", "-200", key=int) == "100"
+
 
 try:
     from hypothesis import given, strategies, example

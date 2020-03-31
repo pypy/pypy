@@ -14,13 +14,15 @@ W_GcRef.typedef = TypeDef("GcRef")
 
 
 def try_cast_gcref_to_w_root(gcref):
+    if rgc.get_gcflag_dummy(gcref):
+        return None
     w_obj = rgc.try_cast_gcref_to_instance(W_Root, gcref)
     # Ignore the instances of W_Root that are not really valid as Python
     # objects.  There is e.g. WeakrefLifeline in module/_weakref that
     # inherits from W_Root for internal reasons.  Such instances don't
     # have a typedef at all (or have a null typedef after translation).
     if not we_are_translated():
-        if not hasattr(w_obj, 'typedef'):
+        if getattr(w_obj, 'typedef', None) is None:
             return None
     else:
         if w_obj is None or not w_obj.typedef:
@@ -189,6 +191,7 @@ class W_GcStats(W_Root):
         self.peak_arena_memory = rgc.get_stats(rgc.PEAK_ARENA_MEMORY)
         self.peak_rawmalloced_memory = rgc.get_stats(rgc.PEAK_RAWMALLOCED_MEMORY)
         self.nursery_size = rgc.get_stats(rgc.NURSERY_SIZE)
+        self.total_gc_time = rgc.get_stats(rgc.TOTAL_GC_TIME)
 
 W_GcStats.typedef = TypeDef("GcStats",
     total_memory_pressure=interp_attrproperty("total_memory_pressure",
@@ -214,6 +217,8 @@ W_GcStats.typedef = TypeDef("GcStats",
     peak_rawmalloced_memory=interp_attrproperty("peak_rawmalloced_memory",
         cls=W_GcStats, wrapfn="newint"),
     nursery_size=interp_attrproperty("nursery_size",
+        cls=W_GcStats, wrapfn="newint"),
+    total_gc_time=interp_attrproperty("total_gc_time",
         cls=W_GcStats, wrapfn="newint"),
 )
 

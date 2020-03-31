@@ -44,6 +44,7 @@ class Linux(BaseLinux):
     else:
         shared_only = () # it seems that on 32-bit linux, compiling with -fPIC
                          # gives assembler that asmgcc is not happy about.
+                         # Now that asmgcc is gone, should be always enable it?
 
 class LinuxPIC(BaseLinux):
     pass

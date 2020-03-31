@@ -337,7 +337,7 @@ class Popen(object):
 
         # --- PyPy hack, see _pypy_install_libs_after_virtualenv() ---
         # match arguments passed by different versions of virtualenv
-        if args[1:] in (
+        if isinstance(args, (list, tuple)) and args[1:] in (
             ['-c', 'import sys; print(sys.prefix)'],        # 1.6 10ba3f3c
             ['-c', "\nimport sys\nprefix = sys.prefix\n"    # 1.7 0e9342ce
              "if sys.version_info[0] == 3:\n"
@@ -1301,6 +1301,11 @@ def _pypy_install_libs_after_virtualenv(target_executable):
             src_library = os.path.join(src_dir, libname)
             if os.path.exists(src_library):
                 caller.f_globals['copyfile'](src_library, dest_library)
+        src_lib = os.path.join(src_dir, '../lib')
+        if os.path.exists(src_lib):
+            # portable build
+            import shutil
+            shutil.copytree(src_lib, os.path.join(dest_dir, '../lib'))
 
 
 def _demo_posix():

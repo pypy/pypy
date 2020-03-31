@@ -1,8 +1,10 @@
 # NOT_RPYTHON
 # do not load _cppyy here, see _post_import_startup()
-import types
 import sys
 
+class _C:
+    def _m(self): pass
+MethodType = type(_C()._m)
 
 # Metaclasses are needed to store C++ static data members as properties and to
 # provide Python language features such as a customized __dir__ for namespaces
@@ -238,7 +240,7 @@ def make_cppclass(scope, cl_name, decl):
     # prepare dictionary for python-side C++ class representation
     def dispatch(self, m_name, signature):
         cppol = decl.__dispatch__(m_name, signature)
-        return types.MethodType(cppol, self, type(self))
+        return MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
          "__new__"      : make_new(decl),
          "__module__"   : make_module_name(scope),
@@ -437,14 +439,17 @@ def _pythonize(pyclass, name):
     # also the fallback on the indexed __getitem__, but that is slower)
     add_checked_item = False
     if name.find('std::vector', 0, 11) != 0:
-        if ('begin' in pyclass.__dict__ and 'end' in pyclass.__dict__):
+        if 'begin' in pyclass.__dict__ and 'end' in pyclass.__dict__:
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
                 def __iter__(self):
                     i = self.begin()
-                    while i != self.end():
+                    end = self.size()
+                    count = 0
+                    while count != end:
                         yield i.__deref__()
                         i.__preinc__()
+                        count += 1
                     i.__destruct__()
                     raise StopIteration
                 pyclass.__iter__ = __iter__

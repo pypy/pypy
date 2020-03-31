@@ -543,3 +543,12 @@ class AppTestProxy(object):
         p1[42] = p2
         assert a1.setkey == 42
         assert a1.setvalue is p2
+
+    def test_error_message_wrong_self(self):
+        import _weakref
+        unboundmeth = _weakref.ref.__repr__
+        e = raises(TypeError, unboundmeth, 42)
+        assert "weakref" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, 42)
+            assert "'weakref-or-proxy'" in str(e.value)

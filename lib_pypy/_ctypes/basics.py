@@ -2,8 +2,15 @@ import _rawffi
 from _rawffi import alt as _ffi
 import sys
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
+
+try:
+    from __pypy__.bufferable import bufferable
+except ImportError:
+    bufferable = object
 
 keepalive_key = str # XXX fix this when provided with test
 
@@ -64,7 +71,7 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = object.__new__(self)
+        res = bufferable.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         if base is not None:
@@ -120,7 +127,7 @@ class _CDataMeta(type):
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
                 % (len(buf) + offset, size + offset))
-        result = self()
+        result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
             raw_addr = buf._pypy_raw_address()
@@ -129,6 +136,11 @@ class _CDataMeta(type):
         else:
             from ctypes import memmove
             memmove(dest, raw_addr, size)
+        return result
+
+    def _newowninstance_(self):
+        result = self.__new__(self)
+        result._init_no_arg_()
         return result
 
 
@@ -153,7 +165,7 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object):
+class _CData(bufferable):
     """ The most basic object for all ctypes types
     """
     __metaclass__ = _CDataMeta
@@ -162,6 +174,7 @@ class _CData(object):
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
         if '_objects' not in self.__dict__:

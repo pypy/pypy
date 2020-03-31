@@ -9,7 +9,7 @@ def signature(*paramtypes, **kwargs):
       def foo(...)
 
     The arguments paramNtype and returntype should be instances
-    of the classes in rpython.annotator.types.
+    of the classes in rpython.rlib.types.
     """
     returntype = kwargs.pop('returns', None)
     if returntype is None:

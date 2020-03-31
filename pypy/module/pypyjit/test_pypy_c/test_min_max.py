@@ -30,37 +30,42 @@ class TestMinMax(BaseTestPyPyC):
             sa = 0
             while i < 30000:
                 lst = range(i % 1000 + 2)
-                sa += max(*lst) # ID: max
+                sa += max(*lst)  # ID: callmax
                 i += 1
             return sa
         log = self.run(main, [])
         assert log.result == main()
         loop, = log.loops_by_filename(self.filepath)
-        assert loop.match("""
+        assert loop.match_by_id('callmax', """
             ...
-            p76 = call_assembler_r(_, _, _, _, descr=...)
+            p76 = call_may_force_r(_, _, _, _, descr=...)
             ...
         """)
-        loop2 = log.loops[0]
-        loop2.match('''
-        ...
-        label(..., descr=...)
-        ...
-        label(..., descr=...)
-        guard_not_invalidated?
-        i17 = int_ge(i11, i7)
-        guard_false(i17, descr=...)
-        p18 = getarrayitem_gc_r(p5, i11, descr=...)
-        i19 = int_add(i11, 1)
-        setfield_gc(p2, i19, descr=...)
-        guard_nonnull_class(p18, ConstClass(W_IntObject), descr=...)
-        i20 = getfield_gc_i(p18, descr=...)
-        i21 = int_gt(i20, i14)
-        guard_true(i21, descr=...)
-        jump(..., descr=...)
-        ''')
-        # XXX could be "guard_class(p18)" instead; we lost somewhere
-        # the information that it cannot be null.
+        
+        #----- the following logic used to check the content of the assembly
+        #----- generated for the loop in max(), but now we no longer produce
+        #----- any custom assembly in this case.  It used to say
+        #----- 'call_assembler_r' above, and now it says 'call_may_force_r'.
+        #loop2 = log.loops[0]
+        #loop2.match('''
+        #...
+        #label(..., descr=...)
+        #...
+        #label(..., descr=...)
+        #guard_not_invalidated?
+        #i17 = int_ge(i11, i7)
+        #guard_false(i17, descr=...)
+        #p18 = getarrayitem_gc_r(p5, i11, descr=...)
+        #i19 = int_add(i11, 1)
+        #setfield_gc(p2, i19, descr=...)
+        #guard_nonnull_class(p18, ConstClass(W_IntObject), descr=...)
+        #i20 = getfield_gc_i(p18, descr=...)
+        #i21 = int_gt(i20, i14)
+        #guard_true(i21, descr=...)
+        #jump(..., descr=...)
+        #''')
+        ## XXX could be "guard_class(p18)" instead; we lost somewhere
+        ## the information that it cannot be null.
 
     def test_iter_max(self):
         def main():

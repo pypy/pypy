@@ -466,7 +466,10 @@ class TypeLayoutBuilder(object):
             typeid = self.get_type_id(TYPE)
             hdr = gc.gcheaderbuilder.new_header(value)
             adr = llmemory.cast_ptr_to_adr(hdr)
-            gc.init_gc_object_immortal(adr, typeid)
+            if gc.gcflag_dummy and self.is_dummy_struct(value):
+                gc.init_gc_object_immortal(adr, typeid, flags=gc.gcflag_dummy)
+            else:
+                gc.init_gc_object_immortal(adr, typeid)
             self.all_prebuilt_gc.append(value)
 
         # The following collects the addresses of all the fields that have
@@ -483,6 +486,10 @@ class TypeLayoutBuilder(object):
             appendto = self.addresses_of_static_ptrs_in_nongc
         for a in gc_pointers_inside(value, adr, mutable_only=True):
             appendto.append(a)
+
+    def is_dummy_struct(self, obj):
+        return False    # overridden in TransformerLayoutBuilder
+
 
 # ____________________________________________________________
 #

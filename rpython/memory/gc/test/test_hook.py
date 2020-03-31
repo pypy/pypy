@@ -70,7 +70,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
         assert self.gc.hooks.minors == [
             {'total_memory_used': 0, 'pinned_objects': 0}
             ]
-        assert self.gc.hooks.durations[0] > 0
+        assert self.gc.hooks.durations[0] > 0.
         self.gc.hooks.reset()
         #
         # these objects survive, so the total_memory_used is > 0
@@ -103,7 +103,7 @@ class TestIncMiniMarkHooks(BaseDirectGCTest):
             ]
         assert len(self.gc.hooks.durations) == 4 # 4 steps
         for d in self.gc.hooks.durations:
-            assert d > 0
+            assert d > 0.0
         self.gc.hooks.reset()
         #
         self.stackroots.append(self.malloc(S))

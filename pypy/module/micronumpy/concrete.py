@@ -388,7 +388,7 @@ class BaseConcreteArray(object):
                 not self.flags & NPY.ARRAY_F_CONTIGUOUS):
            raise oefmt(errtype, "ndarray is not Fortran contiguous")
         if ((flags & space.BUF_ANY_CONTIGUOUS) == space.BUF_ANY_CONTIGUOUS and
-                not (self.flags & NPY.ARRAY_F_CONTIGUOUS and
+                not (self.flags & NPY.ARRAY_F_CONTIGUOUS or
                      self.flags & NPY.ARRAY_C_CONTIGUOUS)):
            raise oefmt(errtype, "ndarray is not contiguous")
         if ((flags & space.BUF_STRIDES) != space.BUF_STRIDES and

@@ -1055,6 +1055,9 @@ _oplist = [
     'UNICODEGETITEM/2/i',
     #
     'LOAD_FROM_GC_TABLE/1/r',    # only emitted by rewrite.py
+    'LOAD_EFFECTIVE_ADDRESS/4/i', # only emitted by rewrite.py, only if
+    # cpu.supports_load_effective_address. [v_gcptr,v_index,c_baseofs,c_shift]
+    # res = arg0 + (arg1 << arg3) + arg2
     #
     '_ALWAYS_PURE_LAST',  # ----- end of always_pure operations -----
 
@@ -1153,8 +1156,7 @@ _oplist = [
     'CALL_ASSEMBLER/*d/rfin',  # call already compiled assembler
     'CALL_MAY_FORCE/*d/rfin',
     'CALL_LOOPINVARIANT/*d/rfin',
-    'CALL_RELEASE_GIL/*d/fin',
-    # release the GIL and "close the stack" for asmgcc
+    'CALL_RELEASE_GIL/*d/fin',  # release the GIL around the call
     'CALL_PURE/*d/rfin',             # removed before it's passed to the backend
     'CHECK_MEMORY_ERROR/1/n',   # after a CALL: NULL => propagate MemoryError
     'CALL_MALLOC_NURSERY/1/r',  # nursery malloc, const number of bytes, zeroed

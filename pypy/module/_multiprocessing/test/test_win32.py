@@ -2,16 +2,12 @@ import py
 import sys
 
 class AppTestWin32:
-    spaceconfig = dict(usemodules=('_multiprocessing',
+    spaceconfig = dict(usemodules=('_multiprocessing', '_cffi_backend',
                                    'signal', '_rawffi', 'binascii'))
 
     def setup_class(cls):
         if sys.platform != "win32":
             py.test.skip("win32 only")
-
-    def test_CloseHandle(self):
-        from _multiprocessing import win32
-        raises(WindowsError, win32.CloseHandle, -1)
 
     def test_CreateFile(self):
         from _multiprocessing import win32

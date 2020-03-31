@@ -70,6 +70,30 @@ def test_frontendop():
     f.set_position(6519)
     assert f.get_position() == 6519
 
+def fresh_ref():
+    S = lltype.GcStruct('S')
+    s = lltype.malloc(S)
+    return lltype.cast_opaque_ptr(llmemory.GCREF, s)
+
+def duplicate_ref(x):
+    s = x._obj.container._as_ptr()
+    return lltype.cast_opaque_ptr(llmemory.GCREF, s)
+
+def test_ref_dict():
+    d = new_ref_dict()
+    ref1 = fresh_ref()
+    ref2 = fresh_ref()
+    ref3 = fresh_ref()
+    d[ref1] = 123
+    d[ref2] = 456
+    d[ref3] = 789
+    ref1b = duplicate_ref(ref1)
+    ref2b = duplicate_ref(ref2)
+    ref3b = duplicate_ref(ref3)
+    assert d[ref1b] == 123
+    assert d[ref2b] == 456
+    assert d[ref3b] == 789
+
 class TestZTranslated(StandaloneTests):
     def test_ztranslated_same_constant_float(self):
         def fn(args):

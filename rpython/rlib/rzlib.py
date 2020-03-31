@@ -35,6 +35,7 @@ constantnames = '''
     MAX_WBITS  MAX_MEM_LEVEL
     Z_BEST_SPEED  Z_BEST_COMPRESSION  Z_DEFAULT_COMPRESSION
     Z_FILTERED  Z_HUFFMAN_ONLY  Z_DEFAULT_STRATEGY Z_NEED_DICT
+    Z_NULL
     '''.split()
 
 class SimpleCConfig:
@@ -141,6 +142,7 @@ _deflateInit2_ = zlib_external(
     rffi.INT)
 _deflate = zlib_external('deflate', [z_stream_p, rffi.INT], rffi.INT)
 
+_deflateCopy = zlib_external('deflateCopy', [z_stream_p, z_stream_p], rffi.INT)
 _deflateEnd = zlib_external('deflateEnd', [z_stream_p], rffi.INT,
                             releasegil=False)
 
@@ -160,6 +162,7 @@ _inflateInit2_ = zlib_external(
     rffi.INT)
 _inflate = zlib_external('inflate', [z_stream_p, rffi.INT], rffi.INT)
 
+_inflateCopy = zlib_external('inflateCopy', [z_stream_p, z_stream_p], rffi.INT)
 _inflateEnd = zlib_external('inflateEnd', [z_stream_p], rffi.INT,
                             releasegil=False)
 
@@ -290,6 +293,19 @@ def deflateInit(level=Z_DEFAULT_COMPRESSION, method=Z_DEFLATED,
             lltype.free(stream, flavor='raw')
 
 
+def deflateCopy(source):
+    """
+    Allocate and return an independent copy of the provided stream object.
+    """
+    dest = deflateInit()
+    err = _deflateCopy(dest, source)
+    if err != Z_OK:
+        deflateEnd(dest)
+        raise RZlibError.fromstream(source, err,
+            "while copying compression object")
+    return dest
+
+
 def deflateEnd(stream):
     """
     Free the resources associated with the deflate stream.
@@ -328,6 +344,19 @@ def inflateInit(wbits=MAX_WBITS, zdict=None):
                     "while creating decompression object")
         finally:
             lltype.free(stream, flavor='raw')
+
+
+def inflateCopy(source):
+    """
+    Allocate and return an independent copy of the provided stream object.
+    """
+    dest = inflateInit()
+    err = _inflateCopy(dest, source)
+    if err != Z_OK:
+        inflateEnd(dest)
+        raise RZlibError.fromstream(source, err,
+            "while copying decompression object")
+    return dest
 
 
 def inflateEnd(stream):

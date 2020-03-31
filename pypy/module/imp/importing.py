@@ -7,10 +7,11 @@ import sys, os, stat
 from pypy.interpreter.module import Module
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.streamutil import wrap_streamerror
 from rpython.rlib import streamio, jit
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
@@ -31,14 +32,10 @@ IMP_HOOK = 9
 
 SO = '.pyd' if _WIN32 else '.so'
 
-# this used to change for every minor version, but no longer does: there
-# is little point any more, as the so's tend to be cross-version-
-# compatible, more so than between various versions of CPython.  Be
-# careful if we need to update it again: it is now used for both cpyext
-# and cffi so's.  If we do have to update it, we'd likely need a way to
+# Be careful update when changing this: it is now used for both cpyext
+# and cffi so's. If we do have to update it, we'd likely need a way to
 # split the two usages again.
-#DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
-DEFAULT_SOABI = 'pypy-41'
+DEFAULT_SOABI = 'pypy-%d%d' % PYPY_VERSION[:2]
 
 @specialize.memo()
 def get_so_extension(space):
@@ -394,6 +391,8 @@ def _absolute_import(space, modulename, baselevel, w_fromlist, tentative):
 
     w_mod = None
     parts = modulename.split('.')
+    if parts[-1] == '':
+        del parts[-1]
     prefix = []
     w_path = None
 
@@ -449,14 +448,19 @@ def find_in_meta_path(space, w_modulename, w_path):
             return w_loader
 
 def _getimporter(space, w_pathitem):
-    # the function 'imp._getimporter' is a pypy-only extension
+    # 'imp._getimporter' is somewhat like CPython's get_path_importer
     w_path_importer_cache = space.sys.get("path_importer_cache")
     w_importer = space.finditem(w_path_importer_cache, w_pathitem)
     if w_importer is None:
         space.setitem(w_path_importer_cache, w_pathitem, space.w_None)
         for w_hook in space.unpackiterable(space.sys.get("path_hooks")):
+            w_pathbytes = w_pathitem
+            if space.isinstance_w(w_pathitem, space.w_unicode):
+                from pypy.module.sys.interp_encoding import getfilesystemencoding
+                w_pathbytes = space.call_method(space.w_unicode, 'encode',
+                                     w_pathitem, getfilesystemencoding(space))
             try:
-                w_importer = space.call_function(w_hook, w_pathitem)
+                w_importer = space.call_function(w_hook, w_pathbytes)
             except OperationError as e:
                 if not e.match(space, space.w_ImportError):
                     raise
@@ -657,13 +661,14 @@ def load_module(space, w_modulename, find_info, reuse=False):
             if find_info.modtype == PY_SOURCE:
                 return load_source_module(
                     space, w_modulename, w_mod,
-                    find_info.filename, find_info.stream.readall(),
+                    find_info.filename, _wrap_readall(space, find_info.stream),
                     find_info.stream.try_to_find_file_descriptor())
             elif find_info.modtype == PY_COMPILED:
-                magic = _r_long(find_info.stream)
-                timestamp = _r_long(find_info.stream)
+                magic = _wrap_r_long(space, find_info.stream)
+                timestamp = _wrap_r_long(space, find_info.stream)
                 return load_compiled_module(space, w_modulename, w_mod, find_info.filename,
-                                     magic, timestamp, find_info.stream.readall())
+                                     magic, timestamp,
+                                     _wrap_readall(space, find_info.stream))
             elif find_info.modtype == PKG_DIRECTORY:
                 w_path = space.newlist([space.newtext(find_info.filename)])
                 space.setattr(w_mod, space.newtext('__path__'), w_path)
@@ -675,10 +680,7 @@ def load_module(space, w_modulename, find_info, reuse=False):
                     w_mod = load_module(space, w_modulename, find_info,
                                         reuse=True)
                 finally:
-                    try:
-                        find_info.stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(find_info.stream)
                 return w_mod
             elif find_info.modtype == C_EXTENSION and has_so_extension(space):
                 return load_c_extension(space, find_info.filename,
@@ -710,10 +712,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
             if find_info:
                 stream = find_info.stream
                 if stream:
-                    try:
-                        stream.close()
-                    except StreamErrors:
-                        pass
+                    _close_ignore(stream)
 
     if tentative:
         return None
@@ -725,7 +724,7 @@ def load_part(space, w_path, prefix, partname, w_parent, tentative):
 def reload(space, w_module):
     """Reload the module.
     The module must have been successfully imported before."""
-    if not space.is_w(space.type(w_module), space.type(space.sys)):
+    if not space.isinstance_w(w_module, space.type(space.sys)):
         raise oefmt(space.w_TypeError, "reload() argument must be module")
 
     w_modulename = space.getattr(w_module, space.newtext("__name__"))
@@ -768,7 +767,7 @@ def reload(space, w_module):
                 return load_module(space, w_modulename, find_info, reuse=True)
             finally:
                 if find_info.stream:
-                    find_info.stream.close()
+                    _wrap_close(space, find_info.stream)
         except:
             # load_module probably removed name from modules because of
             # the error.  Put back the original module object.
@@ -925,7 +924,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     log_pyverbose(space, 1, "import %s # from %s\n" %
                   (space.text_w(w_modulename), pathname))
 
-    src_stat = os.fstat(fd)
+    try:
+        src_stat = os.fstat(fd)
+    except OSError as e:
+        raise wrap_oserror(space, e, pathname)   # better report this error
     cpathname = pathname + 'c'
     mtime = int(src_stat[stat.ST_MTIME])
     mode = src_stat[stat.ST_MODE]
@@ -934,12 +936,10 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
     if stream:
         # existing and up-to-date .pyc file
         try:
-            code_w = read_compiled_module(space, cpathname, stream.readall())
+            code_w = read_compiled_module(space, cpathname,
+                                          _wrap_readall(space, stream))
         finally:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
+            _close_ignore(stream)
         space.setattr(w_mod, space.newtext('__file__'), space.newtext(cpathname))
     else:
         code_w = parse_source_module(space, pathname, source)
@@ -1005,6 +1005,35 @@ def _w_long(stream, x):
     d = x & 0xff
     stream.write(chr(a) + chr(b) + chr(c) + chr(d))
 
+def _wrap_r_long(space, stream):
+    """like _r_long(), but raising app-level exceptions"""
+    try:
+        return _r_long(stream)
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_readall(space, stream):
+    """stream.readall(), but raising app-level exceptions"""
+    try:
+        return stream.readall()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _wrap_close(space, stream):
+    """stream.close(), but raising app-level exceptions"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        raise wrap_streamerror(space, e)
+
+def _close_ignore(stream):
+    """stream.close(), but ignoring any stream exception"""
+    try:
+        stream.close()
+    except StreamErrors as e:
+        pass
+
+
 def check_compiled_module(space, pycfilename, expected_mtime):
     """
     Check if a pyc file's magic number and mtime match.
@@ -1023,10 +1052,7 @@ def check_compiled_module(space, pycfilename, expected_mtime):
         return stream
     except StreamErrors:
         if stream:
-            try:
-                stream.close()
-            except StreamErrors:
-                pass
+            _close_ignore(stream)
         return None    # XXX! must not eat all exceptions, e.g.
                        # Out of file descriptors.
 

@@ -3,7 +3,7 @@ import py
 
 from rpython.rlib.cache import Cache
 from rpython.tool.uid import HUGEVAL_BYTES
-from rpython.rlib import jit, types
+from rpython.rlib import jit, types, rutf8
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import (we_are_translated, newlist_hint,
      compute_unique_id, specialize, not_rpython)
@@ -22,9 +22,13 @@ from pypy.interpreter.miscutils import ThreadLocals, make_weak_value_dictionary
 
 __all__ = ['ObjSpace', 'OperationError', 'W_Root']
 
+def get_printable_location(greenkey):
+    return "unpackiterable [%s]" % (greenkey.iterator_greenkey_printable(), )
+
 unpackiterable_driver = jit.JitDriver(name='unpackiterable',
-                                      greens=['tp'],
-                                      reds=['items', 'w_iterator'])
+                                      greens=['greenkey'],
+                                      reds='auto',
+                                      get_printable_location=get_printable_location)
 
 
 class W_Root(object):
@@ -283,7 +287,10 @@ class W_Root(object):
     def str_w(self, space):
         self._typed_unwrap_error(space, "string")
 
-    def unicode_w(self, space):
+    def utf8_w(self, space):
+        self._typed_unwrap_error(space, "unicode")
+
+    def convert_to_w_unicode(self, space):
         self._typed_unwrap_error(space, "unicode")
 
     def bytearray_list_of_chars_w(self, space):
@@ -366,23 +373,15 @@ class W_Root(object):
             return lst[:]
         return None
 
+    def iterator_greenkey(self, space):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return space.type(self)
 
-class InterpIterable(object):
-    def __init__(self, space, w_iterable):
-        self.w_iter = space.iter(w_iterable)
-        self.space = space
+    def iterator_greenkey_printable(self):
+        return "?"
 
-    def __iter__(self):
-        return self
-
-    def next(self):
-        space = self.space
-        try:
-            return space.next(self.w_iter)
-        except OperationError as e:
-            if not e.match(space, space.w_StopIteration):
-                raise
-            raise StopIteration
 
 class InternalSpaceCache(Cache):
     """A generic cache for an object space.  Arbitrary information can
@@ -416,6 +415,8 @@ class DescrMismatch(Exception):
 
 @specialize.memo()
 def wrappable_class_name(Class):
+    if 'exact_class_applevel_name' in Class.__dict__:
+        return Class.exact_class_applevel_name
     try:
         return Class.typedef.name
     except AttributeError:
@@ -517,13 +518,14 @@ class ObjSpace(object):
             return self.__class__.__name__
 
     @not_rpython
-    def setbuiltinmodule(self, importname):
+    def setbuiltinmodule(self, pkgname):
         """load a lazy pypy/module and put it into sys.modules"""
-        if '.' in importname:
-            fullname = importname
-            importname = fullname.rsplit('.', 1)[1]
+        if '.' in pkgname:
+            fullname = "%s.moduledef" % (pkgname,)
+            importname = pkgname.rsplit('.', 1)[1]
         else:
-            fullname = "pypy.module.%s" % importname
+            fullname = "pypy.module.%s.moduledef" % pkgname
+            importname = pkgname
 
         Module = __import__(fullname,
                             None, None, ["Module"]).Module
@@ -620,22 +622,22 @@ class ObjSpace(object):
     def make_builtins(self):
         "only for initializing the space."
 
-        from pypy.module.exceptions import Module
+        from pypy.module.exceptions.moduledef import Module
         w_name = self.newtext('exceptions')
         self.exceptions_module = Module(self, w_name)
         self.exceptions_module.install()
 
-        from pypy.module.sys import Module
-        w_name = self.newtext('sys')
-        self.sys = Module(self, w_name)
-        self.sys.install()
-
-        from pypy.module.imp import Module
+        from pypy.module.imp.moduledef import Module
         w_name = self.newtext('imp')
         mod = Module(self, w_name)
         mod.install()
 
-        from pypy.module.__builtin__ import Module
+        from pypy.module.sys.moduledef import Module
+        w_name = self.newtext('sys')
+        self.sys = Module(self, w_name)
+        self.sys.install()
+
+        from pypy.module.__builtin__.moduledef import Module
         w_name = self.newtext('__builtin__')
         self.builtin = Module(self, w_name)
         w_builtin = self.wrap(self.builtin)
@@ -963,9 +965,6 @@ class ObjSpace(object):
                                                       expected_length)
             return lst_w[:]     # make the resulting list resizable
 
-    def iteriterable(self, w_iterable):
-        return InterpIterable(self, w_iterable)
-
     def _unpackiterable_unknown_length(self, w_iterator, w_iterable):
         """Unpack an iterable of unknown length into an interp-level
         list.
@@ -976,11 +975,9 @@ class ObjSpace(object):
         except MemoryError:
             items = [] # it might have lied
 
-        tp = self.type(w_iterator)
+        greenkey = self.iterator_greenkey(w_iterator)
         while True:
-            unpackiterable_driver.jit_merge_point(tp=tp,
-                                                  w_iterator=w_iterator,
-                                                  items=items)
+            unpackiterable_driver.jit_merge_point(greenkey=greenkey)
             try:
                 w_item = self.next(w_iterator)
             except OperationError as e:
@@ -1103,9 +1100,10 @@ class ObjSpace(object):
         """
         return None
 
-    def listview_unicode(self, w_list):
-        """ Return a list of unwrapped unicode out of a list of unicode. If the
-        argument is not a list or does not contain only unicode, return None.
+    def listview_ascii(self, w_list):
+        """ Return a list of unwrapped **ASCII** strings out of a list of
+        unicode. If the argument is not a list, does not contain only unicode,
+        or contains a unicode with non-ascii characters, return None.
         May return None anyway.
         """
         return None
@@ -1133,8 +1131,15 @@ class ObjSpace(object):
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
-    def newlist_unicode(self, list_u):
-        return self.newlist([self.newunicode(u) for u in list_u])
+    def newlist_utf8(self, list_u, is_ascii):
+        l_w = [None] * len(list_u)
+        for i, item in enumerate(list_u):
+            if not is_ascii:
+                length = rutf8.check_utf8(item, True)
+            else:
+                length = len(item)
+            l_w[i] = self.newutf8(item, length)
+        return self.newlist(l_w)
 
     def newlist_int(self, list_i):
         return self.newlist([self.newint(i) for i in list_i])
@@ -1661,6 +1666,8 @@ class ObjSpace(object):
         # needed because CPython has the same issue.  (Well, it's
         # unclear if there is any use at all for getting the bytes in
         # the unicode buffer.)
+        if self.isinstance_w(w_obj, self.w_unicode):
+            return w_obj.charbuf_w(self)
         try:
             return self.bytes_w(w_obj)
         except OperationError as e:
@@ -1802,27 +1809,38 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "argument must be a string")
         return self.bytes_w(w_obj)
 
-    @specialize.argtype(1)
-    def unicode_w(self, w_obj):
-        assert w_obj is not None
-        return w_obj.unicode_w(self)
+    def utf8_w(self, w_obj):
+        return w_obj.utf8_w(self)
+
+    def convert_to_w_unicode(self, w_obj):
+        return w_obj.convert_to_w_unicode(self)
 
     def unicode0_w(self, w_obj):
         "Like unicode_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
-        result = w_obj.unicode_w(self)
+        result = w_obj.utf8_w(self).decode('utf8')
         if u'\x00' in result:
             raise oefmt(self.w_TypeError,
                         "argument must be a unicode string without NUL "
                         "characters")
         return rstring.assert_str0(result)
 
-    def realunicode_w(self, w_obj):
-        # Like unicode_w(), but only works if w_obj is really of type
-        # 'unicode'.  On Python 3 this is the same as unicode_w().
+    def convert_arg_to_w_unicode(self, w_obj, strict=None):
+        # XXX why convert_to_w_unicode does something slightly different?
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        assert not hasattr(self, 'is_fake_objspace')
+        return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
+
+    def utf8_len_w(self, w_obj):
+        w_obj = self.convert_arg_to_w_unicode(w_obj)
+        return w_obj._utf8, w_obj._len()
+
+    def realutf8_w(self, w_obj):
+        # Like utf8_w(), but only works if w_obj is really of type
+        # 'unicode'.  On Python 3 this is the same as utf8_w().
         if not self.isinstance_w(w_obj, self.w_unicode):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
-        return self.unicode_w(w_obj)
+        return self.utf8_w(w_obj)
 
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
@@ -2014,6 +2032,12 @@ class ObjSpace(object):
         finally:
             self.sys.track_resources = flag
 
+    def iterator_greenkey(self, w_iterable):
+        """ Return something that can be used as a green key in jit drivers
+        that iterate over self. by default, it's just the type of self, but
+        custom iterators should override it. """
+        return w_iterable.iterator_greenkey(self)
+
 
 class AppExecCache(SpaceCache):
     @not_rpython
@@ -2187,7 +2211,7 @@ ObjSpace.IrregularOpTable = [
     'float_w',
     'uint_w',
     'bigint_w',
-    'unicode_w',
+    'utf8_w',
     'unwrap',
     'is_true',
     'is_w',

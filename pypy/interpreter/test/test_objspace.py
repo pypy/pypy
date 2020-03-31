@@ -216,9 +216,7 @@ class TestObjSpace:
         space = self.space
         w = space.wrap
         assert space.text0_w(w("123")) == "123"
-        exc = space.raises_w(space.w_TypeError, space.text0_w, w("123\x004"))
-        assert space.unicode0_w(w(u"123")) == u"123"
-        exc = space.raises_w(space.w_TypeError, space.unicode0_w, w(u"123\x004"))
+        space.raises_w(space.w_TypeError, space.text0_w, w("123\x004"))
 
     def test_getindex_w(self):
         w_instance1 = self.space.appexec([], """():

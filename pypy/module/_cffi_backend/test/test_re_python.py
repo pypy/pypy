@@ -1,8 +1,13 @@
 import py
+import sys, shutil, os
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
 
+if sys.platform == 'win32':
+    WIN32 = True
+else:
+    WIN32 = False
 
 class AppTestRecompilerPython:
     spaceconfig = dict(usemodules=['_cffi_backend'])
@@ -40,6 +45,18 @@ class AppTestRecompilerPython:
                             'globalconst42', 'globalconsthello'])
         outputfilename = ffiplatform.compile(str(tmpdir), ext)
         cls.w_extmod = space.wrap(outputfilename)
+        if WIN32:
+            unicode_name = u'load\u03betest.dll'
+        else:
+            unicode_name = u'load_caf\xe9' + os.path.splitext(outputfilename)[1]
+            try:
+                unicode_name.encode(sys.getfilesystemencoding())
+            except UnicodeEncodeError:
+                unicode_name = None    # skip test_dlopen_unicode
+        if unicode_name is not None:
+            outputfileUname = os.path.join(unicode(udir), unicode_name)
+            shutil.copyfile(outputfilename, outputfileUname)
+            cls.w_extmodU = space.wrap(outputfileUname)
         #mod.tmpdir = tmpdir
         #
         ffi = FFI()
@@ -57,6 +74,10 @@ class AppTestRecompilerPython:
         struct foo_s;
         typedef struct bar_s { int x; signed char a[]; } bar_t;
         enum foo_e { AA, BB, CC };
+        typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
+
+        void *dlopen(const char *filename, int flags);
+        int dlclose(void *handle);
         """)
         ffi.set_source('re_python_pysrc', None)
         ffi.emit_python_code(str(tmpdir.join('re_python_pysrc.py')))
@@ -77,6 +98,11 @@ class AppTestRecompilerPython:
                     sys.path.insert(0, path)
             return fix_path
         """)
+
+        cls.w_dl_libpath = space.w_None
+        if sys.platform != 'win32':
+            import ctypes.util
+            cls.w_dl_libpath = space.wrap(ctypes.util.find_library('dl'))
 
     def teardown_method(self, meth):
         self.space.appexec([], """():
@@ -107,6 +133,15 @@ class AppTestRecompilerPython:
         lib = ffi.dlopen(self.extmod)
         assert lib.add42(-10) == 32
         assert type(lib.add42) is _cffi_backend.FFI.CData
+
+    def test_dlopen_unicode(self):
+        if not getattr(self, 'extmodU', None):
+            skip("no unicode file name")
+        import _cffi_backend
+        self.fix_path()
+        from re_python_pysrc import ffi
+        lib = ffi.dlopen(self.extmodU)
+        assert lib.add42(-10) == 32
 
     def test_dlclose(self):
         import _cffi_backend
@@ -211,3 +246,28 @@ class AppTestRecompilerPython:
             "foobar", _version=0x2594)
         assert str(e.value).startswith(
             "cffi out-of-line Python module 'foobar' has unknown version")
+
+    def test_selfref(self):
+        # based on cffi issue #429
+        self.fix_path()
+        from re_python_pysrc import ffi
+        ffi.new("selfref_ptr_t")
+
+    def test_dlopen_handle(self):
+        import _cffi_backend, sys
+        self.fix_path()
+        from re_python_pysrc import ffi
+        if self.dl_libpath is None:
+            py.test.skip("uses 'dl' explicitly")
+        lib1 = ffi.dlopen(self.dl_libpath)
+        handle = lib1.dlopen(self.extmod.encode(sys.getfilesystemencoding()),
+                             _cffi_backend.RTLD_LAZY)
+        assert ffi.typeof(handle) == ffi.typeof("void *")
+        assert handle
+
+        lib = ffi.dlopen(handle)
+        assert lib.add42(-10) == 32
+        assert type(lib.add42) is _cffi_backend.FFI.CData
+
+        err = lib1.dlclose(handle)
+        assert err == 0

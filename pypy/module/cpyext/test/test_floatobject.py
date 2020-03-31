@@ -110,3 +110,87 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
              return PyLong_FromLong(res);"""),
             ])
         assert module.test() == 1111
+
+    def test_pymath_consts(self):
+        # test preprocessor constants in their string form to avoid
+        # floating-point conversion issues (and to avoid having to
+        # conditionalize on compiler support for long double)
+        for const_name, const_strval in [
+                ('Py_MATH_PIl', "3.1415926535897932384626433832795029L"),
+                ('Py_MATH_PI', "3.14159265358979323846"),
+                ('Py_MATH_El', "2.7182818284590452353602874713526625L"),
+                ('Py_MATH_E', "2.7182818284590452354"),
+                ('Py_MATH_TAU', "6.2831853071795864769252867665590057683943L"),
+            ]:
+            module = self.import_extension('foo_%s' % const_name, [
+                ("test", "METH_NOARGS",
+                 """
+                 #define xstr(s) str(s)
+                 #define str(s) #s
+                 return PyString_FromString(xstr(%s));""" % const_name)
+            ])
+            assert module.test() == const_strval
+
+    def test_Py_IS_NAN(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                 double d = PyFloat_AsDouble(args);
+                 return PyBool_FromLong(Py_IS_NAN(d));
+             """),
+            ])
+        assert not module.test(0)
+        assert not module.test(1)
+        assert not module.test(-1)
+        assert not module.test(float('inf'))
+        assert module.test(float('nan'))
+
+    def test_Py_IS_INFINITY(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                 double d = PyFloat_AsDouble(args);
+                 return PyBool_FromLong(Py_IS_INFINITY(d));
+             """),
+            ])
+        assert not module.test(0)
+        assert not module.test(1)
+        assert not module.test(-1)
+        assert not module.test(float('nan'))
+        assert module.test(float('inf'))
+        assert module.test(float('-inf'))
+
+    def test_Py_IS_FINITE(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_O",
+             """
+                 double d = PyFloat_AsDouble(args);
+                 return PyBool_FromLong(Py_IS_FINITE(d));
+             """),
+            ])
+        assert module.test(0)
+        assert module.test(1)
+        assert module.test(-1)
+        assert not module.test(float('nan'))
+        assert not module.test(float('inf'))
+        assert not module.test(float('-inf'))
+
+    def test_Py_HUGE_VAL(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_NOARGS",
+             """
+                 return PyFloat_FromDouble(Py_HUGE_VAL);
+             """),
+            ])
+        assert module.test() == float('inf')
+
+    def test_Py_NAN(self):
+        module = self.import_extension('foo', [
+            ("test", "METH_NOARGS",
+             """
+                 return PyFloat_FromDouble(Py_NAN);
+             """),
+            ])
+        import struct
+        float_bits = struct.Struct('d').pack
+        assert float_bits(module.test()) == float_bits(float('nan'))

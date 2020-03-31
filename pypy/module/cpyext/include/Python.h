@@ -107,6 +107,7 @@
 #include "descrobject.h"
 #include "tupleobject.h"
 #include "dictobject.h"
+#include "setobject.h"
 #include "intobject.h"
 #include "listobject.h"
 #include "longobject.h"

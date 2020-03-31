@@ -50,50 +50,56 @@ def PySequence_Fast(space, w_obj, m):
     converted to a sequence, and raises a TypeError, raise a new TypeError with
     m as the message text. If the conversion otherwise, fails, reraise the
     original exception"""
-    if isinstance(w_obj, tupleobject.W_TupleObject):
+    if isinstance(w_obj, tupleobject.W_AbstractTupleObject):
         return w_obj   # CCC avoid the double conversion that occurs here
     if isinstance(w_obj, W_ListObject):
-        # make sure we can return a borrowed obj from PySequence_Fast_GET_ITEM
-        w_obj.convert_to_cpy_strategy(space)
+        # note: we used to call w_obj.convert_to_cpy_strategy() here,
+        # but we really have to call it from PySequence_Fast_GET_ITEM()
+        # because some people never call PySequence_Fast() if they know
+        # the object is a list.
         return w_obj
     try:
-        return W_ListObject.newlist_cpyext(space, space.listview(w_obj))
+        return tupleobject.W_TupleObject(space.fixedview(w_obj))
     except OperationError as e:
         if e.match(space, space.w_TypeError):
             raise OperationError(space.w_TypeError, space.newtext(rffi.charp2str(m)))
         raise e
 
-# CCC this should be written as a C macro
-@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_borrowed=True)
-def PySequence_Fast_GET_ITEM(space, w_obj, index):
+# CCC this should be written as a C macro, at least for the tuple case
+@cpython_api([rffi.VOIDP, Py_ssize_t], PyObject, result_is_ll=True)
+def PySequence_Fast_GET_ITEM(space, py_obj, index):
     """Return the ith element of o, assuming that o was returned by
     PySequence_Fast(), o is not NULL, and that i is within bounds.
     """
-    if isinstance(w_obj, W_ListObject):
-        return w_obj.getitem(index)
-    elif isinstance(w_obj, tupleobject.W_TupleObject):
-        return w_obj.wrappeditems[index]
-    raise oefmt(space.w_TypeError,
-                "PySequence_Fast_GET_ITEM called but object is not a list or "
-                "sequence")
+    py_obj = rffi.cast(PyObject, py_obj)
+    if PyTuple_Check(space, py_obj):
+        from pypy.module.cpyext.tupleobject import PyTupleObject
+        py_tuple = rffi.cast(PyTupleObject, py_obj)
+        return py_tuple.c_ob_item[index]
+    else:
+        from pypy.module.cpyext.listobject import PyList_GET_ITEM
+        w_obj = from_ref(space, py_obj)
+        return PyList_GET_ITEM(space, w_obj, index)
 
 @cpython_api([rffi.VOIDP], Py_ssize_t, error=CANNOT_FAIL)
-def PySequence_Fast_GET_SIZE(space, w_obj):
+def PySequence_Fast_GET_SIZE(space, py_obj):
     """Returns the length of o, assuming that o was returned by
     PySequence_Fast() and that o is not NULL.  The size can also be
     gotten by calling PySequence_Size() on o, but
     PySequence_Fast_GET_SIZE() is faster because it can assume o is a list
     or tuple."""
-    if isinstance(w_obj, W_ListObject):
-        return w_obj.length()
-    elif isinstance(w_obj, tupleobject.W_TupleObject):
-        return len(w_obj.wrappeditems)
-    raise oefmt(space.w_TypeError,
-                "PySequence_Fast_GET_SIZE called but object is not a list or "
-                "sequence")
+    py_obj = rffi.cast(PyObject, py_obj)
+    if PyTuple_Check(space, py_obj):
+        from pypy.module.cpyext.tupleobject import PyTupleObject
+        py_tuple = rffi.cast(PyTupleObject, py_obj)
+        return py_tuple.c_ob_size
+    else:
+        from pypy.module.cpyext.listobject import PyList_GET_SIZE
+        w_obj = from_ref(space, py_obj)
+        return PyList_GET_SIZE(space, w_obj)
 
 @cpython_api([rffi.VOIDP], PyObjectP)
-def PySequence_Fast_ITEMS(space, w_obj):
+def PySequence_Fast_ITEMS(space, py_obj):
     """Return the underlying array of PyObject pointers.  Assumes that o was returned
     by PySequence_Fast() and o is not NULL.
 
@@ -101,18 +107,17 @@ def PySequence_Fast_ITEMS(space, w_obj):
     So, only use the underlying array pointer in contexts where the sequence
     cannot change.
     """
-    if isinstance(w_obj, W_ListObject):
-        cpy_strategy = space.fromcache(CPyListStrategy)
-        if w_obj.strategy is cpy_strategy:
-            return w_obj.get_raw_items() # asserts it's a cpyext strategy
-    elif isinstance(w_obj, tupleobject.W_TupleObject):
+    py_obj = rffi.cast(PyObject, py_obj)
+    if PyTuple_Check(space, py_obj):
         from pypy.module.cpyext.tupleobject import PyTupleObject
-        py_obj = as_pyobj(space, w_obj)
         py_tuple = rffi.cast(PyTupleObject, py_obj)
         return rffi.cast(PyObjectP, py_tuple.c_ob_item)
-    raise oefmt(space.w_TypeError,
-                "PySequence_Fast_ITEMS called but object is not the result of "
-                "PySequence_Fast")
+    else:
+        from pypy.module.cpyext.listobject import get_list_storage
+        w_obj = from_ref(space, py_obj)
+        assert isinstance(w_obj, W_ListObject)
+        storage = get_list_storage(space, w_obj)
+        return rffi.cast(PyObjectP, storage._elems)
 
 @cpython_api([PyObject, Py_ssize_t, Py_ssize_t], PyObject)
 def PySequence_GetSlice(space, w_obj, start, end):
@@ -299,10 +304,6 @@ class CPyListStrategy(ListStrategy):
     def length(self, w_list):
         storage = self.unerase(w_list.lstorage)
         return storage._length
-
-    def get_raw_items(self, w_list):
-        storage = self.unerase(w_list.lstorage)
-        return storage._elems
 
     def getslice(self, w_list, start, stop, step, length):
         w_list.switch_to_object_strategy()

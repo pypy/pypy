@@ -226,6 +226,8 @@ def _print_jit_help():
     print '    turn off the JIT'
     print ' help'
     print '    print this page'
+    print
+    print 'The "pypyjit" module can be used to control the JIT from inside python'
 
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
@@ -609,8 +611,14 @@ def run_command_line(interactive,
         warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
         sys.warnoptions[:] = warnoptions
-        from warnings import _processoptions
-        _processoptions(sys.warnoptions)
+        try:
+            if 'warnings' in sys.modules:
+                from warnings import _processoptions
+                _processoptions(sys.warnoptions)
+            else:
+                import warnings
+        except ImportError as e:
+            pass   # CPython just eats any exception here
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available

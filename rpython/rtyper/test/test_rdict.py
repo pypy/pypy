@@ -1,6 +1,7 @@
 import sys
 from contextlib import contextmanager
 import signal
+from collections import OrderedDict
 
 from rpython.translator.translator import TranslationContext
 from rpython.annotator.model import (
@@ -1196,7 +1197,7 @@ class MappingSpace(object):
                         DictValue(None, s_value))
         dictrepr.setup()
         self.l_dict = self.newdict(dictrepr)
-        self.reference = self.new_reference()
+        self.reference = OrderedDict()
         self.ll_key = r_key.convert_const
         self.ll_value = r_value.convert_const
         self.removed_keys = []
@@ -1323,7 +1324,6 @@ class MappingSM(GenericStateMachine):
 
 class DictSpace(MappingSpace):
     MappingRepr = rdict.DictRepr
-    new_reference = dict
     ll_getitem = staticmethod(rdict.ll_dict_getitem)
     ll_setitem = staticmethod(rdict.ll_dict_setitem)
     ll_delitem = staticmethod(rdict.ll_dict_delitem)

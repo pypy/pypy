@@ -8,7 +8,8 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rlib.objectmodel import we_are_translated, specialize, compute_hash
 from rpython.jit.metainterp import history, compile
 from rpython.jit.metainterp.optimize import SpeculativeError
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import adr2int, ptr2int
+from rpython.jit.codewriter import longlong
 from rpython.jit.backend.model import AbstractCPU
 from rpython.jit.backend.llsupport import symbolic, jitframe
 from rpython.jit.backend.llsupport.symbolic import WORD, unroll_basic_sizes
@@ -23,8 +24,6 @@ from rpython.rlib.unroll import unrolling_iterable
 
 
 class AbstractLLCPU(AbstractCPU):
-    from rpython.jit.metainterp.typesystem import llhelper as ts
-
     HAS_CODEMAP = False
 
     done_with_this_frame_descr_int      = None   # overridden by pyjitpl.py
@@ -87,9 +86,10 @@ class AbstractLLCPU(AbstractCPU):
             self.floatarraydescr = ArrayDescr(ad.basesize, ad.itemsize,
                                               ad.lendescr, FLAG_FLOAT)
         self.setup()
-        self._debug_errno_container = lltype.malloc(
+        self._debug_tls_errno_container = lltype.malloc(
             rffi.CArray(lltype.Signed), 7, flavor='raw', zero=True,
             track_allocation=False)
+        self._debug_tls_errno_container[1] = 1234 # dummy thread ident
 
     def getarraydescr_for_frame(self, type):
         if type == history.FLOAT:
@@ -160,7 +160,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame = ptr2int(fptr)
 
         if not translate_support_code:
             fptr = llhelper(FUNC_TP, realloc_frame_crash)
@@ -172,7 +172,7 @@ class AbstractLLCPU(AbstractCPU):
             graph = mixlevelann.getgraph(realloc_frame_crash, args_s, s_result)
             fptr = mixlevelann.graph2delayed(graph, FUNC)
             mixlevelann.finish()
-        self.realloc_frame_crash = heaptracker.adr2int(llmemory.cast_ptr_to_adr(fptr))
+        self.realloc_frame_crash = ptr2int(fptr)
 
     def _setup_exception_handling_untranslated(self):
         # for running un-translated only, all exceptions occurring in the
@@ -209,11 +209,11 @@ class AbstractLLCPU(AbstractCPU):
 
         def pos_exception():
             addr = llop.get_exception_addr(llmemory.Address)
-            return heaptracker.adr2int(addr)
+            return adr2int(addr)
 
         def pos_exc_value():
             addr = llop.get_exc_value_addr(llmemory.Address)
-            return heaptracker.adr2int(addr)
+            return adr2int(addr)
 
         from rpython.rlib import rstack
 
@@ -311,7 +311,7 @@ class AbstractLLCPU(AbstractCPU):
                         llmemory.Address)
                 else:
                     ll_threadlocal_addr = rffi.cast(llmemory.Address,
-                        self._debug_errno_container)
+                        self._debug_tls_errno_container)
                 llop.gc_writebarrier(lltype.Void, ll_frame)
                 ll_frame = func(ll_frame, ll_threadlocal_addr)
             finally:
@@ -776,8 +776,7 @@ class AbstractLLCPU(AbstractCPU):
 
     def bh_classof(self, struct):
         struct = lltype.cast_opaque_ptr(rclass.OBJECTPTR, struct)
-        result_adr = llmemory.cast_ptr_to_adr(struct.typeptr)
-        return heaptracker.adr2int(result_adr)
+        return ptr2int(struct.typeptr)
 
     def bh_new_array(self, length, arraydescr):
         return self.gc_ll_descr.gc_malloc_array(length, arraydescr)

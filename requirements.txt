@@ -1,8 +1,10 @@
+--only-binary vmprof
+
 cffi>=1.4.0
 
 # parse log files in rvmprof tests
 vmprof>=0.4.10; 'x86' in platform.machine #skip arm, s390x
 
 # hypothesis is used for test generation on untranslated tests
-hypothesis
+hypothesis<4.40
 enum34>=1.1.2

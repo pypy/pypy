@@ -404,9 +404,6 @@ class AppTestComprehensions:
 
 class AppTestWith:
     def test_with_simple(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -420,74 +417,28 @@ if 1:
         acontext = Context()
         with acontext:
             pass
-        """
-        exec s
-
         assert acontext.calls == '__enter__ __exit__'.split()
 
     def test_compound_with(self):
-        s = """class Context:
-    def __init__(self, var):
-        self.record = []
-        self.var = var
-    def __enter__(self):
-        self.record.append(("__enter__", self.var))
-        return self.var
-    def __exit__(self, tp, value, tb):
-        self.record.append(("__exit__", self.var))
-c1 = Context("blah")
-c2 = Context("bling")
-with c1 as v1, c2 as v2:
-    pass
-    """
-        ns = {}
-        exec s in ns
-        assert ns["v1"] == "blah"
-        assert ns["v2"] == "bling"
-        assert ns["c1"].record == [("__enter__", "blah"), ("__exit__", "blah")]
-        assert ns["c2"].record == [("__enter__", "bling"),
-                                   ("__exit__", "bling")]
-
-
-    def test_start_with_blank_line(self):
-        s = """
-if 1:
         class Context:
-            def __init__(self):
-                self.calls = list()
-
+            def __init__(self, var):
+                self.record = []
+                self.var = var
             def __enter__(self):
-                self.calls.append('__enter__')
-
-            def __exit__(self, exc_type, exc_value, exc_tb):
-                self.calls.append('__exit__')
-
-        acontext = Context()
-        with acontext:
+                self.record.append(("__enter__", self.var))
+                return self.var
+            def __exit__(self, tp, value, tb):
+                self.record.append(("__exit__", self.var))
+        c1 = Context("blah")
+        c2 = Context("bling")
+        with c1 as v1, c2 as v2:
             pass
-"""
-        exec s
-        assert acontext.calls == '__enter__ __exit__'.split()
-
-    def test_raw_doc_string(self):
-        s = """r'doc'
-class Context(object):
-    def __enter__(self):
-        global enter
-        enter = True
-    def __exit__(self, *exc):
-        global exit
-        exit = True
-with Context() as w:
-    pass"""
-        exec s
-        assert enter
-        assert exit
+        assert v1 == "blah"
+        assert v2 == "bling"
+        assert c1.record == [("__enter__", "blah"), ("__exit__", "blah")]
+        assert c2.record == [("__enter__", "bling"), ("__exit__", "bling")]
 
     def test_with_as_var(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -504,16 +455,10 @@ if 1:
         with acontextfact as avar:
             avar.append('__body__')
             pass
-        """
-        exec s
-
         assert acontextfact.exit_params == (None, None, None)
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
 
     def test_with_raise_exception(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -537,18 +482,12 @@ if 1:
             pass
         else:
             raise AssertionError('With did not raise RuntimeError')
-        """
-        exec s
-
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
         assert isinstance(acontextfact.exit_params[2], types.TracebackType)
 
     def test_with_swallow_exception(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -568,9 +507,6 @@ if 1:
             avar.append('__body__')
             raise error
             avar.append('__after_raise__')
-        """
-        exec s
-
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params[0:2] == (RuntimeError, error)
         import types
@@ -595,9 +531,6 @@ if 1:
         assert c.calls == ['exit']
 
     def test_with_break(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -619,16 +552,10 @@ if 1:
                 avar.append('__after_break__')
         else:
             raise AssertionError('Break failed with With, reached else clause')
-        """
-        exec s
-
         assert acontextfact.calls == '__enter__ __body__ __exit__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_continue(self):
-
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -650,15 +577,10 @@ if 1:
                 avar.append('__after_continue__')
         else:
             avar.append('__continue__')
-        """
-        exec s
-
         assert acontextfact.calls == '__enter__ __body__ __exit__ __continue__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_return(self):
-        s = """
-if 1:
         class Context:
             def __init__(self):
                 self.calls = list()
@@ -679,27 +601,16 @@ if 1:
                 return '__return__'
                 avar.append('__after_return__')
         acontextfact.calls.append(g(acontextfact))
-        """
-        exec s
-
         assert acontextfact.calls == '__enter__ __body__ __exit__ __return__'.split()
         assert acontextfact.exit_params == (None, None, None)
 
     def test_with_as_keyword(self):
-        try:
+        with raises(SyntaxError):
             exec "with = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
 
     def test_with_as_keyword_compound(self):
-        try:
+        with raises(SyntaxError):
             exec "from __future__ import generators, with_statement\nwith = 9"
-        except SyntaxError:
-            pass
-        else:
-            assert False, 'Assignment to with did not raise SyntaxError'
 
     def test_missing_as_SyntaxError(self):
         snippets = [
@@ -710,21 +621,9 @@ with foo a bar:
     pass
 """]
         for snippet in snippets:
-            try:
+            with raises(SyntaxError):
                 exec snippet
-            except SyntaxError:
-                pass
-            else:
-                assert False, "%s: did not raise SyntaxError" % snippet
 
-
-    def test_with_propagate_compileflag(self):
-        s = """
-if 1:
-        compile('''with x:
-        pass''', '', 'exec')
-        """
-        exec s
 
 class AppTestSyntaxError:
 
@@ -760,7 +659,7 @@ class AppTestSyntaxError:
             exec program
         except SyntaxError as e:
             assert e.lineno == 1
-            assert e.text is None
+            assert e.text == program
         else:
             raise Exception("no SyntaxError??")
 
@@ -769,25 +668,5 @@ class AppTestSyntaxError:
 # -*- coding: uft-8 -*-
 pass
 """
-        raises(SyntaxError, "exec program")
-
-
-if __name__ == '__main__':
-    # only to check on top of CPython (you need 2.4)
-    from py.test import raises
-    for s in VALID:
-        try:
-            compile(s, '?', 'exec')
-        except Exception as e:
-            print '-'*20, 'FAILED TO COMPILE:', '-'*20
-            print s
-            print '%s: %s' % (e.__class__, e)
-            print '-'*60
-    for s in INVALID:
-        try:
-            raises(SyntaxError, compile, s, '?', 'exec')
-        except Exception as e:
-            print '-'*20, 'UNEXPECTEDLY COMPILED:', '-'*20
-            print s
-            print '%s: %s' % (e.__class__, e)
-            print '-'*60
+        with raises(SyntaxError):
+            exec program

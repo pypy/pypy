@@ -692,10 +692,12 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return unerase_item(erased)
 
         def _mapdict_write_storage(self, storageindex, value):
-            for i in rangenmin1:
-                if storageindex == i:
-                    setattr(self, "_value%s" % i, value)
-                    return
+            assert storageindex >= 0
+            if storageindex < nmin1:
+                for i in rangenmin1:
+                    if storageindex == i:
+                        setattr(self, "_value%s" % i, value)
+                        return
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
@@ -753,6 +755,7 @@ class MapDictStrategy(DictStrategy):
         self.space = space
 
     def get_empty_storage(self):
+        # mainly used for tests
         w_result = Object()
         terminator = self.space.fromcache(get_terminator_for_dicts)
         w_result._mapdict_init_empty(terminator)
@@ -865,6 +868,11 @@ class MapDictStrategy(DictStrategy):
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
 
+def make_instance_dict(space):
+    w_fake_object = Object()
+    terminator = space.fromcache(get_terminator_for_dicts)
+    w_fake_object._mapdict_init_empty(terminator)
+    return w_fake_object.getdict(space)
 
 def materialize_r_dict(space, obj, dict_w):
     map = obj._get_mapdict_map()

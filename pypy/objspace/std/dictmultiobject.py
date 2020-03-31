@@ -1,6 +1,6 @@
 """The builtin dict implementation"""
 
-from rpython.rlib import jit, rerased, objectmodel
+from rpython.rlib import jit, rerased, objectmodel, rutf8
 from rpython.rlib.debug import mark_dict_non_null
 from rpython.rlib.objectmodel import newlist_hint, r_dict, specialize
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
@@ -41,6 +41,17 @@ def w_dict_unrolling_heuristic(w_dct):
                                     w_dct.length() <= UNROLL_CUTOFF)
 
 
+# for json decoder
+def create_empty_unicode_key_dict(space):
+    return r_dict(unicode_eq, unicode_hash,
+                  force_non_null=True,
+                  simple_hash_eq=True)
+
+def from_unicode_key_dict(space, d):
+    strategy = space.fromcache(UnicodeDictStrategy)
+    return W_DictObject(space, strategy, strategy.erase(d))
+
+
 class W_DictMultiObject(W_Root):
     """ Abstract base class that does not store a strategy. """
     __slots__ = ['space', 'dstorage']
@@ -67,8 +78,9 @@ class W_DictMultiObject(W_Root):
             W_ModuleDictObject.__init__(w_obj, space, strategy, storage)
             return w_obj
         elif instance:
-            from pypy.objspace.std.mapdict import MapDictStrategy
-            strategy = space.fromcache(MapDictStrategy)
+            from pypy.objspace.std.mapdict import make_instance_dict
+            assert w_type is None
+            return make_instance_dict(space)
         elif strdict or module:
             assert w_type is None
             strategy = space.fromcache(BytesDictStrategy)
@@ -399,7 +411,7 @@ def _add_indirections():
                     popitem delitem clear \
                     length w_keys values items \
                     iterkeys itervalues iteritems \
-                    listview_bytes listview_unicode listview_int \
+                    listview_bytes listview_ascii listview_int \
                     view_as_kwargs".split()
 
     def make_method(method):
@@ -434,9 +446,23 @@ app = applevel('''
                 del currently_in_repr[d]
             except:
                 pass
+
+    def viewrepr(currently_in_repr, view):
+        if view in currently_in_repr:
+            return '...'
+        currently_in_repr[view] = 1
+        try:
+            return (type(view).__name__ + "([" +
+               ", ".join([repr(x) for x in view]) + '])')
+        finally:
+            try:
+                del currently_in_repr[view]
+            except:
+                pass
 ''', filename=__file__)
 
 dictrepr = app.interphook("dictrepr")
+viewrepr = app.interphook("viewrepr")
 
 
 W_DictMultiObject.typedef = TypeDef("dict",
@@ -498,6 +524,10 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def setitem_str(self, w_dict, key, w_value):
+        w_dict.setitem(self.space.newtext(key), w_value)
+
+
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
     def w_keys(self, w_dict):
@@ -551,7 +581,7 @@ class DictStrategy(object):
     def listview_bytes(self, w_dict):
         return None
 
-    def listview_unicode(self, w_dict):
+    def listview_ascii(self, w_dict):
         return None
 
     def listview_int(self, w_dict):
@@ -1193,6 +1223,11 @@ class BytesDictStrategy(AbstractTypedStrategy, DictStrategy):
 
 create_iterator_classes(BytesDictStrategy)
 
+def unicode_eq(w_uni1, w_uni2):
+    return w_uni1.eq_w(w_uni2)
+
+def unicode_hash(w_uni):
+    return w_uni.hash_w()
 
 class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     erase, unerase = rerased.new_erasing_pair("unicode")
@@ -1200,18 +1235,18 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     unerase = staticmethod(unerase)
 
     def wrap(self, unwrapped):
-        return self.space.newunicode(unwrapped)
+        return unwrapped
 
     def unwrap(self, wrapped):
-        return self.space.unicode_w(wrapped)
+        assert type(wrapped) is self.space.UnicodeObjectCls
+        return wrapped
 
     def is_correct_type(self, w_obj):
         space = self.space
-        return space.is_w(space.type(w_obj), space.w_unicode)
+        return type(w_obj) is space.UnicodeObjectCls
 
     def get_empty_storage(self):
-        res = {}
-        mark_dict_non_null(res)
+        res = create_empty_unicode_key_dict(self.space)
         return self.erase(res)
 
     def _never_equal_to(self, w_lookup_type):
@@ -1235,14 +1270,15 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     assert key is not None
     ##     return self.unerase(w_dict.dstorage).get(key, None)
 
-    def listview_unicode(self, w_dict):
-        return self.unerase(w_dict.dstorage).keys()
+    ## def listview_ascii(self, w_dict):
+    ##     XXX reimplement.  Also warning: must return a list of _ascii_
+    ##     return self.unerase(w_dict.dstorage).keys()
 
     ## def w_keys(self, w_dict):
     ##     return self.space.newlist_bytes(self.listview_bytes(w_dict))
 
     def wrapkey(space, key):
-        return space.newunicode(key)
+        return key
 
     ## @jit.look_inside_iff(lambda self, w_dict:
     ##                      w_dict_unrolling_heuristic(w_dict))
@@ -1258,12 +1294,6 @@ class UnicodeDictStrategy(AbstractTypedStrategy, DictStrategy):
     ##     return keys, values
 
 create_iterator_classes(UnicodeDictStrategy)
-
-
-def from_unicode_key_dict(space, d):
-    strategy = space.fromcache(UnicodeDictStrategy)
-    storage = strategy.erase(d)
-    return W_DictObject(space, strategy, storage)
 
 
 class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
@@ -1504,16 +1534,20 @@ class W_DictViewObject(W_Root):
         self.w_dict = w_dict
 
     def descr_repr(self, space):
-        w_seq = space.call_function(space.w_list, self)
-        w_repr = space.repr(w_seq)
-        return space.newtext("%s(%s)" % (space.type(self).getname(space),
-                                         space.text_w(w_repr)))
+        return viewrepr(space, space.get_objects_in_repr(), self)
 
     def descr_len(self, space):
         return space.len(self.w_dict)
 
 def _all_contained_in(space, w_dictview, w_other):
-    for w_item in space.iteriterable(w_dictview):
+    w_iter = space.iter(w_dictview)
+    while 1:
+        try:
+            w_item = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         if not space.contains_w(w_other, w_item):
             return space.w_False
     return space.w_True

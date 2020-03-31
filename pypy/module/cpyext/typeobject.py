@@ -131,21 +131,46 @@ def init_memberdescrobject(space):
                    basestruct=cts.gettype('PyMemberDescrObject'),
                    attach=memberdescr_attach,
                    realize=memberdescr_realize,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_GetSetPropertyEx.typedef,
                    basestruct=cts.gettype('PyGetSetDescrObject'),
                    attach=getsetdescr_attach,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_PyCClassMethodObject.typedef,
                    basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=classmethoddescr_realize,
+                   dealloc=descr_dealloc,
                    )
     make_typedescr(W_PyCMethodObject.typedef,
                    basestruct=cts.gettype('PyMethodDescrObject'),
                    attach=methoddescr_attach,
                    realize=methoddescr_realize,
+                   dealloc=descr_dealloc,
                    )
+
+def init_descr(space, py_obj, w_type, name):
+    """Initialises the common fields in a PyDescrObject
+
+    Arguments:
+        py_obj: PyObject* pointer to a PyDescrObject
+        w_type: W_TypeObject
+        c_name: char*
+    """
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    py_descr.c_d_type = cts.cast(
+        'PyTypeObject*', make_ref(space, w_type))
+    py_descr.c_d_name = make_ref(space, space.newtext(name))
+
+@slot_function([PyObject], lltype.Void)
+def descr_dealloc(space, py_obj):
+    from pypy.module.cpyext.object import _dealloc
+    py_descr = cts.cast('PyDescrObject*', py_obj)
+    decref(space, py_descr.c_d_type)
+    decref(space, py_descr.c_d_name)
+    _dealloc(space, py_obj)
 
 def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -153,9 +178,9 @@ def memberdescr_attach(space, py_obj, w_obj, w_userdata=None):
     object. The values must not be modified.
     """
     py_memberdescr = cts.cast('PyMemberDescrObject*', py_obj)
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_MemberDescr)
     py_memberdescr.c_d_member = w_obj.member
+    init_descr(space, py_obj, w_obj.w_type, w_obj.name)
 
 def memberdescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
@@ -178,15 +203,15 @@ def getsetdescr_attach(space, py_obj, w_obj, w_userdata=None):
         w_obj = W_GetSetPropertyEx(py_getsetdef, w_userdata)
         # now w_obj.getset is py_getsetdef, which was freshly allocated
         # XXX how is this ever released?
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_GetSetPropertyEx)
     py_getsetdescr.c_d_getset = w_obj.getset
+    init_descr(space, py_obj, w_obj.w_type, w_obj.name)
 
 def methoddescr_attach(space, py_obj, w_obj, w_userdata=None):
     py_methoddescr = cts.cast('PyMethodDescrObject*', py_obj)
-    # XXX assign to d_dname, d_type?
     assert isinstance(w_obj, W_PyCFunctionObject)
     py_methoddescr.c_d_method = w_obj.ml
+    init_descr(space, py_obj, w_obj.w_objclass, w_obj.name)
 
 def classmethoddescr_realize(space, obj):
     # XXX NOT TESTED When is this ever called?
@@ -205,6 +230,7 @@ def methoddescr_realize(space, obj):
     w_obj.__init__(space, method, w_type)
     track_reference(space, obj, w_obj)
     return w_obj
+
 
 def convert_getset_defs(space, dict_w, getsets, w_type):
     getsets = rffi.cast(rffi.CArrayPtr(PyGetSetDef), getsets)
@@ -234,6 +260,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             dict_w[name] = w_descr
             i += 1
 
+WARN_MISSING_SLOTS = False
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
     if not we_are_translated():
@@ -260,7 +287,8 @@ def update_all_slots(space, w_type, pto):
 
         if not slot_func_helper:
             if not slot_apifunc:
-                warn_missing_slot(space, method_name, slot_name, w_type)
+                if WARN_MISSING_SLOTS:
+                    warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
@@ -512,6 +540,13 @@ class W_PyCTypeObject(W_TypeObject):
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
         convert_member_defs(space, dict_w, pto.c_tp_members, self)
 
+        w_dict = from_ref(space, pto.c_tp_dict)
+        if w_dict is not None:
+            dictkeys_w = space.listview(w_dict)
+            for w_key in dictkeys_w:
+                key = space.text_w(w_key)
+                dict_w[key] = space.getitem(w_dict, w_key)
+
         name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
@@ -560,8 +595,9 @@ def bf_getreadbuffer(space, w_buf, segment, ref):
         raise oefmt(space.w_SystemError,
                     "accessing non-existent segment")
     buf = space.readbuf_w(w_buf)
-    if isinstance(buf, StringBuffer):
-        return str_getreadbuffer(space, w_buf, segment, ref)
+    # if isinstance(buf, StringBuffer):
+    #    # Link the data pointer of buf to ref[0]
+    #    return _str_getreadbuffer(space, w_buf, segment, ref)
     address = buf.get_raw_address()
     ref[0] = address
     return len(buf)
@@ -581,6 +617,9 @@ def bf_getwritebuffer(space, w_buf, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def str_getreadbuffer(space, w_str, segment, ref):
+    return _str_getreadbuffer(space, w_str, segment, ref)
+
+def _str_getreadbuffer(space, w_str, segment, ref):
     from pypy.module.cpyext.bytesobject import PyString_AsString
     if segment != 0:
         raise oefmt(space.w_SystemError,
@@ -606,7 +645,7 @@ def unicode_getreadbuffer(space, w_str, segment, ref):
 
 @slot_function([PyObject, Py_ssize_t, rffi.CCHARPP], lltype.Signed, error=-1)
 def str_getcharbuffer(space, w_buf, segment, ref):
-    return str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
+    return _str_getreadbuffer(space, w_buf, segment, rffi.cast(rffi.VOIDPP, ref))
 
 @slot_function([PyObject, Py_ssize_t, rffi.VOIDPP], lltype.Signed, error=-1)
 def buf_getreadbuffer(space, pyref, segment, ref):
@@ -770,6 +809,11 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
         update_all_slots(space, w_type, pto)
     else:
         update_all_slots_builtin(space, w_type, pto)
+
+    # XXX generlize this pattern for various slot functions implemented in C
+    if space.is_w(w_type, space.w_tuple):
+        pto.c_tp_new = state.C.tuple_new
+
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
@@ -874,8 +918,10 @@ def _type_realize(space, py_obj):
         # While this is a hack, cpython does it as well.
         w_metatype = space.w_type
 
-    w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
-    track_reference(space, py_obj, w_obj)
+    w_obj = rawrefcount.to_obj(W_PyCTypeObject, py_obj)
+    if w_obj is None:
+        w_obj = space.allocate_instance(W_PyCTypeObject, w_metatype)
+        track_reference(space, py_obj, w_obj)
     # __init__ wraps all slotdefs functions from py_type via add_operators
     w_obj.__init__(space, py_type)
     w_obj.ready()
@@ -902,7 +948,7 @@ def finish_type_1(space, pto, bases_w=None):
     Sets up tp_bases, necessary before creating the interpreter type.
     """
     base = pto.c_tp_base
-    base_pyo = rffi.cast(PyObject, pto.c_tp_base)
+    base_pyo = rffi.cast(PyObject, base)
     if base and not base.c_tp_flags & Py_TPFLAGS_READY:
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later

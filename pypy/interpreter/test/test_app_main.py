@@ -961,7 +961,8 @@ class TestAppMain:
         }
         try:
             sys.stdout = f = cStringIO.StringIO()
-            py.test.raises(SystemExit, app_main.print_info)
+            with py.test.raises(SystemExit):
+                app_main.print_info()
         finally:
             sys.stdout = prev_so
             if prev_ti == 'missing':
@@ -977,6 +978,7 @@ class TestAppMain:
                                 "    foo = True\n")
 
 
+@py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:
     def setup_class(self):
         # ----------------------------------------

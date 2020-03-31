@@ -81,14 +81,16 @@ object and the weakref will be considered as dead at the same time,
 and the callback will not be invoked.  (Issue `#2030`__)
 
 .. __: https://docs.python.org/2/library/weakref.html
-.. __: https://bitbucket.org/pypy/pypy/issue/2030/
+.. __: https://foss.heptapod.net/pypy/pypy/issue/2030/
 
 ---------------------------------
 
 There are a few extra implications from the difference in the GC.  Most
 notably, if an object has a ``__del__``, the ``__del__`` is never called more
 than once in PyPy; but CPython will call the same ``__del__`` several times
-if the object is resurrected and dies again.  The ``__del__`` methods are
+if the object is resurrected and dies again (at least it is reliably so in
+older CPythons; newer CPythons try to call destructors not more than once,
+but there are counter-examples).  The ``__del__`` methods are
 called in "the right" order if they are on objects pointing to each
 other, as in CPython, but unlike CPython, if there is a dead cycle of
 objects referencing each other, their ``__del__`` methods are called anyway;
@@ -278,7 +280,7 @@ Another consequence is that ``cmp(float('nan'), float('nan')) == 0``, because
 no good value to return from this call to ``cmp``, because ``cmp`` pretends
 that there is a total order on floats, but that is wrong for NaNs).
 
-.. __: https://bitbucket.org/pypy/pypy/issue/1974/different-behaviour-for-collections-of
+.. __: https://foss.heptapod.net/pypy/pypy/issue/1974/different-behaviour-for-collections-of
 
 C-API Differences
 -----------------
@@ -323,7 +325,8 @@ Miscellaneous
 -------------
 
 * Hash randomization (``-R``) `is ignored in PyPy`_.  In CPython
-  before 3.4 it has `little point`_.
+  before 3.4 it has `little point`_.  Both CPython >= 3.4 and PyPy3
+  implement the randomized SipHash algorithm and ignore ``-R``.
 
 * You can't store non-string keys in type objects.  For example::
 
@@ -393,8 +396,10 @@ Miscellaneous
   
 * some functions and attributes of the ``gc`` module behave in a
   slightly different way: for example, ``gc.enable`` and
-  ``gc.disable`` are supported, but instead of enabling and disabling
-  the GC, they just enable and disable the execution of finalizers.
+  ``gc.disable`` are supported, but "enabling and disabling the GC" has
+  a different meaning in PyPy than in CPython.  These functions
+  actually enable and disable the major collections and the
+  execution of finalizers.
 
 * PyPy prints a random line from past #pypy IRC topics at startup in
   interactive mode. In a released version, this behaviour is suppressed, but
@@ -478,6 +483,18 @@ Miscellaneous
 
 * SyntaxError_ s try harder to give details about the cause of the failure, so
   the error messages are not the same as in CPython
+
+* Dictionaries and sets are ordered on PyPy.  On CPython < 3.6 they are not;
+  on CPython >= 3.6 dictionaries (but not sets) are ordered.
+
+* PyPy2 refuses to load lone ``.pyc`` files, i.e. ``.pyc`` files that are
+  still there after you deleted the ``.py`` file.  PyPy3 instead behaves like
+  CPython.  We could be amenable to fix this difference in PyPy2: the current
+  version reflects `our annoyance`__ with this detail of CPython, which bit
+  us too often while developing PyPy.  (It is as easy as passing the
+  ``--lonepycfile`` flag when translating PyPy, if you really need it.)
+
+.. __: https://stackoverflow.com/a/55499713/1556290
 
 
 .. _extension-modules:
@@ -566,6 +583,6 @@ that are neither mentioned above nor in :source:`lib_pypy/` are not available in
 
 .. _`is ignored in PyPy`: http://bugs.python.org/issue14621
 .. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
-.. _`#2072`: https://bitbucket.org/pypy/pypy/issue/2072/
-.. _`issue #2653`: https://bitbucket.org/pypy/pypy/issues/2653/
+.. _`#2072`: https://foss.heptapod.net/pypy/pypy/issue/2072/
+.. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/issues/2653/
 .. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html

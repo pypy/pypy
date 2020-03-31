@@ -109,9 +109,6 @@ if os.name == 'nt':
             wchar_t const* file,
             unsigned int line,
             uintptr_t pReserved) {
-                wprintf(L"Invalid parameter detected in function %s."
-                            L" File: %s Line: %d\\n", function, file, line);
-                wprintf(L"Expression: %s\\n", expression);
         }
 
         RPY_EXTERN void* enter_suppress_iph(void)
@@ -137,7 +134,10 @@ if os.name == 'nt':
         RPY_EXTERN void exit_suppress_iph(void* handle) {};
         #endif
     ''',]
-    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);']
+    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);',
+                       'RPY_EXTERN void* enter_suppress_iph();',
+                       'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                      ]
 else:
     separate_module_sources = []
     post_include_bits = []
@@ -235,7 +235,8 @@ def _errno_after(save_err):
             rthread.tlfield_rpy_errno.setraw(_get_errno())
             # ^^^ keep fork() up-to-date too, below
 if _WIN32:
-    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h']
+    includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
+                'direct.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -250,7 +251,7 @@ else:
                 'sched.h',
                 'grp.h', 'dirent.h', 'sys/stat.h', 'fcntl.h',
                 'signal.h', 'sys/utsname.h', _ptyh]
-    if sys.platform.startswith('linux'):
+    if sys.platform.startswith('linux') or sys.platform.startswith('gnu'):
         includes.append('sys/sysmacros.h')
     if sys.platform.startswith('freebsd') or sys.platform.startswith('openbsd'):
         includes.append('sys/ttycom.h')
@@ -730,16 +731,21 @@ def getfullpathname(path):
     length = rwin32.MAX_PATH + 1
     traits = _preferred_traits(path)
     win32traits = make_win32_traits(traits)
-    with traits.scoped_alloc_buffer(length) as buf:
-        res = win32traits.GetFullPathName(
-            traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
-            buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
-        if res == 0:
-            raise rwin32.lastSavedWindowsError("_getfullpathname failed")
-        result = buf.str(intmask(res))
-        assert result is not None
-        result = rstring.assert_str0(result)
-        return result
+    while True:      # should run the loop body maximum twice
+        with traits.scoped_alloc_buffer(length) as buf:
+            res = win32traits.GetFullPathName(
+                traits.as_str0(path), rffi.cast(rwin32.DWORD, length),
+                buf.raw, lltype.nullptr(win32traits.LPSTRP.TO))
+            res = intmask(res)
+            if res == 0:
+                raise rwin32.lastSavedWindowsError("_getfullpathname failed")
+            if res >= length:
+                length = res + 1
+                continue
+            result = buf.str(res)
+            assert result is not None
+            result = rstring.assert_str0(result)
+            return result
 
 c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
                     [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
@@ -794,7 +800,7 @@ if not _WIN32:
         DIRENT = rffi_platform.Struct('struct dirent',
             [('d_name', lltype.FixedSizeArray(rffi.CHAR, 1)),
              ('d_ino', lltype.Signed)]
-            + [('d_type', rffi.INT)] if HAVE_D_TYPE else [])
+            + ([('d_type', rffi.INT)] if HAVE_D_TYPE else []))
         if HAVE_D_TYPE:
             DT_UNKNOWN = rffi_platform.ConstantInteger('DT_UNKNOWN')
             DT_REG     = rffi_platform.ConstantInteger('DT_REG')
@@ -874,11 +880,11 @@ def listdir(path):
 
         if traits.str is unicode:
             if path and path[-1] not in (u'/', u'\\', u':'):
-                path += u'/'
+                path += u'\\'
             mask = path + u'*.*'
         else:
             if path and path[-1] not in ('/', '\\', ':'):
-                path += '/'
+                path += '\\'
             mask = path + '*.*'
 
         filedata = lltype.malloc(win32traits.WIN32_FIND_DATA, flavor='raw')
@@ -1256,16 +1262,16 @@ def fchmod(fd, mode):
 @replace_os_function('rename')
 @specialize.argtype(0, 1)
 def rename(path1, path2):
-    if not _WIN32:
-        handle_posix_error('rename',
-                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
-    else:
+    if _WIN32:
         traits = _preferred_traits2(path1, path2)
         win32traits = make_win32_traits(traits)
         path1 = traits.as_str0(path1)
         path2 = traits.as_str0(path2)
         if not win32traits.MoveFileEx(path1, path2, 0):
             raise rwin32.lastSavedWindowsError()
+    else:
+        handle_posix_error('rename',
+                           c_rename(_as_bytes0(path1), _as_bytes0(path2)))
 
 @specialize.argtype(0, 1)
 def replace(path1, path2):
@@ -1925,8 +1931,7 @@ if not _WIN32:
                               rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
     c_sched_get_priority_min = external('sched_get_priority_min', [rffi.INT],
                              rffi.INT, save_err=rffi.RFFI_SAVE_ERRNO)
-    if not _WIN32:
-        c_sched_yield = external('sched_yield', [], rffi.INT)
+    c_sched_yield = external('sched_yield', [], rffi.INT)
 
     @enforceargs(int)
     def sched_get_priority_max(policy):
@@ -1939,6 +1944,36 @@ if not _WIN32:
     def sched_yield():
         return handle_posix_error('sched_yield', c_sched_yield())
 
+    c_getgroupslist = external('getgrouplist', [rffi.CCHARP, GID_T,
+                            GID_GROUPS_T, rffi.INTP], rffi.INT,
+                            save_err=rffi.RFFI_SAVE_ERRNO)
+
+    def getgrouplist(user, group):
+        groups_p = lltype.malloc(GID_GROUPS_T.TO, 64, flavor='raw')
+        ngroups_p = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ngroups_p[0] = rffi.cast(rffi.INT, 64)
+        try:
+            n = handle_posix_error('getgrouplist', c_getgroupslist(user, group,
+                             groups_p, ngroups_p))
+            if n == -1:
+               if widen(ngroups_p[0]) > 64:
+                    # reallocate. Should never happen
+                    lltype.free(groups_p, flavor='raw')
+                    groups_p = lltype.nullptr(GID_GROUPS_T.TO)
+                    groups_p = lltype.malloc(GID_GROUPS_T.TO, widen(ngroups_p[0]),
+                                             flavor='raw')
+                     
+                    n = handle_posix_error('getgrouplist', c_getgroupslist(user,
+                                                     group, groups_p, ngroups_p))
+            ngroups = widen(ngroups_p[0])
+            groups = [0] * ngroups
+            for i in range(ngroups):
+                groups[i] = groups_p[i]
+            return groups
+        finally:
+            lltype.free(ngroups_p, flavor='raw')
+            if groups_p:
+                lltype.free(groups_p, flavor='raw')
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2536,7 +2571,7 @@ _pipe2_syscall = ENoSysCache()
 post_include_bits=['RPY_EXTERN int rpy_cpu_count(void);']
 # cpu count for linux, windows and mac (+ bsds)
 # note that the code is copied from cpython and split up here
-if sys.platform.startswith('linux'):
+if sys.platform.startswith(('linux', 'gnu')):
     cpucount_eci = ExternalCompilationInfo(includes=["unistd.h"],
             separate_module_sources=["""
             RPY_EXTERN int rpy_cpu_count(void) {

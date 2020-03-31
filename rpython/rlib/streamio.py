@@ -317,7 +317,8 @@ class DiskFile(Stream):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        return os.lseek(self.fd, 0, 1)
+        result = os.lseek(self.fd, 0, 1)
+        return r_longlong(result)
 
     def read(self, n):
         assert isinstance(n, int)
@@ -708,7 +709,9 @@ class BufferingInputStream(Stream):
                     assert stop >= 0
                     chunks.append(self.buf[:stop])
                     break
-                chunks.append(self.buf)
+                buf = self.buf
+                assert buf is not None
+                chunks.append(buf)
             return ''.join(chunks)
 
     def readline(self):

@@ -4,7 +4,8 @@ MARKER = 42
 
 class AppTestImpModule:
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct'],
+        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct',
+                       'zipimport'],
     }
 
     def setup_class(cls):
@@ -246,3 +247,14 @@ class AppTestImpModule:
         assert marshal.loads == 42
 
         marshal.loads = old
+
+    def test_unicode_in_sys_path(self):
+        # issue 3112: when _getimporter calls
+        # for x in sys.path: for h in sys.path_hooks: h(x)
+        # make sure x is properly encoded
+        import sys
+        import zipimport #  installs a sys.path_hook
+        if sys.getfilesystemencoding().lower() == 'utf-8':
+            sys.path.insert(0, u'\xef')
+        with raises(ImportError):
+            import impossible_module

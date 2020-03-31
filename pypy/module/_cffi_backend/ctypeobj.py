@@ -51,8 +51,11 @@ class W_CType(W_Root):
     def unpack_list_of_float_items(self, ptr, length):
         return None
 
-    def pack_list_of_items(self, cdata, w_ob):
+    def pack_list_of_items(self, cdata, w_ob, expected_length):
         return False
+
+    def _within_bounds(self, actual_length, expected_length):
+        return expected_length < 0 or actual_length <= expected_length
 
     def newp(self, w_init, allocator):
         space = self.space
@@ -102,6 +105,11 @@ class W_CType(W_Root):
                 # ctype 'A' must be a pointer to same type, not cdata
                 # 'B'", but with A=B, then give instead a different error
                 # message to try to clear up the confusion
+                if self is w_got.ctype:
+                    raise oefmt(space.w_SystemError,
+                         "initializer for ctype '%s' is correct, but we get "
+                         "an internal mismatch--please report a bug",
+                         self.name)
                 return oefmt(space.w_TypeError,
                              "initializer for ctype '%s' appears indeed to "
                              "be '%s', but the types are different (check "

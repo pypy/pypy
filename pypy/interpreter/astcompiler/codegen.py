@@ -19,6 +19,7 @@ def compile_ast(space, module, info):
     symbols = symtable.SymtableBuilder(space, module, info)
     return TopLevelCodeGenerator(space, module, symbols, info).assemble()
 
+MAX_STACKDEPTH_CONTAINERS = 100
 
 name_ops_default = misc.dict_to_switch({
     ast.Load: ops.LOAD_NAME,
@@ -911,6 +912,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(tup.elts) if tup.elts is not None else 0
         if tup.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
+        if tup.ctx == ast.Load and elt_count > MAX_STACKDEPTH_CONTAINERS:
+            # we need a complete hack to build a new tuple from the list
+            # ().__class__(l)
+            empty_index = self.add_const(self.space.newtuple([]))
+            self.emit_op_arg(ops.LOAD_CONST, empty_index)
+            self.emit_op_name(ops.LOAD_ATTR, self.names, '__class__')
+
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+            for element in tup.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.LIST_APPEND, 1)
+
+            self.emit_op_arg(ops.CALL_FUNCTION, 1)
+            return
         self.visit_sequence(tup.elts)
         if tup.ctx == ast.Load:
             self.emit_op_arg(ops.BUILD_TUPLE, elt_count)
@@ -920,9 +935,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elt_count = len(l.elts) if l.elts is not None else 0
         if l.ctx == ast.Store:
             self.emit_op_arg(ops.UNPACK_SEQUENCE, elt_count)
-        self.visit_sequence(l.elts)
-        if l.ctx == ast.Load:
-            self.emit_op_arg(ops.BUILD_LIST, elt_count)
+        if elt_count > MAX_STACKDEPTH_CONTAINERS and l.ctx == ast.Load:
+            # pushing all the elements would make the stack depth gigantic.
+            # build the list incrementally instead
+            self.emit_op_arg(ops.BUILD_LIST, 0)
+            for element in l.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.LIST_APPEND, 1)
+        else:
+            self.visit_sequence(l.elts)
+            if l.ctx == ast.Load:
+                self.emit_op_arg(ops.BUILD_LIST, elt_count)
 
     def visit_Dict(self, d):
         self.update_position(d.lineno)
@@ -936,8 +959,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Set(self, s):
         self.update_position(s.lineno)
         elt_count = len(s.elts) if s.elts is not None else 0
-        self.visit_sequence(s.elts)
-        self.emit_op_arg(ops.BUILD_SET, elt_count)
+        if elt_count > MAX_STACKDEPTH_CONTAINERS:
+            self.emit_op_arg(ops.BUILD_SET, 0)
+            for element in s.elts:
+                element.walkabout(self)
+                self.emit_op_arg(ops.SET_ADD, 1)
+        else:
+            self.visit_sequence(s.elts)
+            self.emit_op_arg(ops.BUILD_SET, elt_count)
+
 
     def visit_Name(self, name):
         self.update_position(name.lineno)

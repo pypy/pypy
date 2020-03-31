@@ -479,11 +479,12 @@ class TranslationDriver(SimpleTaskEngine):
             exename = self.c_entryp
             newexename = mkexename(self.compute_exe_name())
             shutil_copy(str(exename), str(newexename))
+            self.log.info("copied: %s to %s" % (exename, newexename,))
             if self.cbuilder.shared_library_name is not None:
                 soname = self.cbuilder.shared_library_name
                 newsoname = newexename.new(basename=soname.basename)
                 shutil_copy(str(soname), str(newsoname))
-                self.log.info("copied: %s" % (newsoname,))
+                self.log.info("copied: %s to %s" % (soname, newsoname,))
                 if sys.platform == 'win32':
                     # Copy pypyw.exe
                     newexename = mkexename(self.compute_exe_name(suffix='w'))

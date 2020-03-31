@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.regalloc import (RegisterManager, FrameManager,
                                                     TempVar, compute_vars_longevity,
-                                                    BaseRegalloc, NoVariableToSpill)
+                                                    BaseRegalloc, NoVariableToSpill,
+                                                    Lifetime)
 from rpython.jit.backend.llsupport.jump import remap_frame_layout_mixed
 from rpython.jit.backend.zarch.arch import WORD
 from rpython.jit.codewriter import longlong
@@ -255,9 +256,9 @@ class ZARCHRegisterManager(RegisterManager):
         self._check_type(even_var)
         self._check_type(odd_var)
         if isinstance(even_var, TempVar):
-            self.longevity[even_var] = (self.position, self.position)
+            self.longevity[even_var] = Lifetime(self.position, self.position)
         if isinstance(odd_var, TempVar):
-            self.longevity[odd_var] = (self.position, self.position)
+            self.longevity[odd_var] = Lifetime(self.position, self.position)
 
         # this function steps through the following:
         # 1) maybe there is an even/odd pair that is always
@@ -315,13 +316,13 @@ class ZARCHRegisterManager(RegisterManager):
                 orig_var_even = reverse_mapping[even]
                 if orig_var_even in forbidden_vars:
                     continue # duh!
-                self._sync_var(orig_var_even)
+                self._sync_var_to_stack(orig_var_even)
                 del self.reg_bindings[orig_var_even]
             elif which_to_spill == SPILL_ODD:
                 orig_var_odd = reverse_mapping[odd]
                 if orig_var_odd in forbidden_vars:
                     continue # duh!
-                self._sync_var(orig_var_odd)
+                self._sync_var_to_stack(orig_var_odd)
                 del self.reg_bindings[orig_var_odd]
             
             # well, we got away with a single spill :)
@@ -343,10 +344,10 @@ class ZARCHRegisterManager(RegisterManager):
                 continue
 
             if orig_var_even is not None:
-                self._sync_var(orig_var_even)
+                self._sync_var_to_stack(orig_var_even)
                 del self.reg_bindings[orig_var_even]
             if orig_var_odd is not None:
-                self._sync_var(orig_var_odd)
+                self._sync_var_to_stack(orig_var_odd)
                 del self.reg_bindings[orig_var_odd]
 
             self.reg_bindings[even_var] = even
@@ -370,7 +371,7 @@ class ZARCHRegisterManager(RegisterManager):
                                                       forbidden_vars, odd)
                 else:
                     # old even var is not forbidden, sync it and be done with it
-                    self._sync_var(old_even_var)
+                    self._sync_var_to_stack(old_even_var)
                     del self.reg_bindings[old_even_var]
                     del reverse_mapping[odd]
             if old_odd_var:
@@ -378,7 +379,7 @@ class ZARCHRegisterManager(RegisterManager):
                     self._relocate_forbidden_variable(odd, old_odd_var, reverse_mapping,
                                                       forbidden_vars, even)
                 else:
-                    self._sync_var(old_odd_var)
+                    self._sync_var_to_stack(old_odd_var)
                     del self.reg_bindings[old_odd_var]
                     del reverse_mapping[odd]
 
@@ -405,7 +406,7 @@ class ZARCHRegisterManager(RegisterManager):
             candidate_var = reverse_mapping.get(candidate, None)
             if not candidate_var or candidate_var not in forbidden_vars:
                 if candidate_var is not None:
-                    self._sync_var(candidate_var)
+                    self._sync_var_to_stack(candidate_var)
                     del self.reg_bindings[candidate_var]
                     del reverse_mapping[candidate]
                 self.assembler.regalloc_mov(reg, candidate)
@@ -451,10 +452,8 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         operations = cpu.gc_ll_descr.rewrite_assembler(cpu, operations,
                                                        allgcrefs)
         # compute longevity of variables
-        longevity, last_real_usage = compute_vars_longevity(
-                                                    inputargs, operations)
+        longevity = compute_vars_longevity(inputargs, operations)
         self.longevity = longevity
-        self.last_real_usage = last_real_usage
         self.rm = ZARCHRegisterManager(self.longevity,
                                      frame_manager = self.fm,
                                      assembler = self.assembler)
@@ -1270,29 +1269,6 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         loc1 = self.ensure_reg(op.getarg(1))
         return [loc0, loc1]
 
-    def prepare_copystrcontent(self, op):
-        """ this function needs five registers.
-            src & src_len: are allocated using ensure_even_odd_pair.
-              note that these are tmp registers, thus the actual variable
-              value is not modified.
-            src_len: when entering the assembler, src_ofs_loc's value is contained
-              in src_len register.
-        """
-        src_ptr_loc, _ = \
-                self.rm.ensure_even_odd_pair(op.getarg(0),
-                             None, bind_first=True, 
-                             must_exist=False, load_loc_odd=False)
-        src_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(2))
-        dst_ptr_loc = self.ensure_reg(op.getarg(1))
-        dst_ofs_loc = self.ensure_reg_or_any_imm(op.getarg(3))
-        length_loc  = self.ensure_reg_or_any_imm(op.getarg(4))
-        # no need to spill, we do not call memcpy, but we use s390x's
-        # hardware instruction to copy memory
-        return [src_ptr_loc, dst_ptr_loc,
-                src_ofs_loc, dst_ofs_loc, length_loc]
-
-    prepare_copyunicodecontent = prepare_copystrcontent
-
     def prepare_label(self, op):
         descr = op.getdescr()
         assert isinstance(descr, TargetToken)
@@ -1306,7 +1282,7 @@ class Regalloc(BaseRegalloc, vector_ext.VectorRegalloc):
         position = self.rm.position
         for arg in inputargs:
             assert not isinstance(arg, Const)
-            if self.last_real_usage.get(arg, -1) <= position:
+            if self.longevity[arg].is_last_real_use_before(position):
                 self.force_spill_var(arg)
         #
         # we need to make sure that no variable is stored in spp (=r31)

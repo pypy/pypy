@@ -454,3 +454,11 @@ class AppTestW_TupleObject:
             (4.1, 2.3), (3.6, 4.8)]
         assert specialized_zip_2_lists(["foo", "bar"], [6, 2]) == [
             ("foo", 6), ("bar", 2)]
+
+    def test_error_message_wrong_self(self):
+        unboundmeth = tuple.__hash__
+        e = raises(TypeError, unboundmeth, 42)
+        assert "tuple" in str(e.value)
+        if hasattr(unboundmeth, 'im_func'):
+            e = raises(TypeError, unboundmeth.im_func, 42)
+            assert "'tuple'" in str(e.value)

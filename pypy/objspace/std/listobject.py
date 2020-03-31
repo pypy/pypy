@@ -11,7 +11,7 @@ import math
 import operator
 import sys
 
-from rpython.rlib import debug, jit, rerased
+from rpython.rlib import debug, jit, rerased, rutf8
 from rpython.rlib.listsort import make_timsort_class
 from rpython.rlib.objectmodel import (
     import_from_mixin, instantiate, newlist_hint, resizelist_hint, specialize)
@@ -97,13 +97,14 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         else:
             return space.fromcache(BytesListStrategy)
 
-    elif type(w_firstobj) is W_UnicodeObject:
-        # check for all-unicodes
+    elif type(w_firstobj) is W_UnicodeObject and w_firstobj.is_ascii():
+        # check for all-unicodes containing only ascii
         for i in range(1, len(list_w)):
-            if type(list_w[i]) is not W_UnicodeObject:
+            item = list_w[i]
+            if type(item) is not W_UnicodeObject or not item.is_ascii():
                 break
         else:
-            return space.fromcache(UnicodeListStrategy)
+            return space.fromcache(AsciiListStrategy)
 
     elif type(w_firstobj) is W_FloatObject:
         # check for all-floats
@@ -130,26 +131,26 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     return space.fromcache(ObjectListStrategy)
 
 
-def _get_printable_location(w_type):
-    return ('list__do_extend_from_iterable [w_type=%s]' %
-            w_type.getname(w_type.space))
+def _get_printable_location(strategy_type, greenkey):
+    return 'list__do_extend_from_iterable [%s, %s]' % (
+        strategy_type,
+        greenkey.iterator_greenkey_printable())
 
 
 _do_extend_jitdriver = jit.JitDriver(
     name='list__do_extend_from_iterable',
-    greens=['w_type'],
-    reds=['i', 'w_iterator', 'w_list'],
+    greens=['strategy_type', 'greenkey'],
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _do_extend_from_iterable(space, w_list, w_iterable):
     w_iterator = space.iter(w_iterable)
-    w_type = space.type(w_iterator)
+    greenkey = space.iterator_greenkey(w_iterator)
     i = 0
     while True:
-        _do_extend_jitdriver.jit_merge_point(w_type=w_type,
-                                             i=i,
-                                             w_iterator=w_iterator,
-                                             w_list=w_list)
+        _do_extend_jitdriver.jit_merge_point(
+                greenkey=greenkey,
+                strategy_type=type(w_list.strategy))
         try:
             w_list.append(space.next(w_iterator))
         except OperationError as e:
@@ -197,8 +198,8 @@ class W_ListObject(W_Root):
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     @staticmethod
-    def newlist_unicode(space, list_u):
-        strategy = space.fromcache(UnicodeListStrategy)
+    def newlist_ascii(space, list_u):
+        strategy = space.fromcache(AsciiListStrategy)
         storage = strategy.erase(list_u)
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
@@ -212,13 +213,6 @@ class W_ListObject(W_Root):
     def newlist_float(space, list_f):
         strategy = space.fromcache(FloatListStrategy)
         storage = strategy.erase(list_f)
-        return W_ListObject.from_storage_and_strategy(space, storage, strategy)
-
-    @staticmethod
-    def newlist_cpyext(space, list):
-        from pypy.module.cpyext.sequence import CPyListStrategy, CPyListStorage
-        strategy = space.fromcache(CPyListStrategy)
-        storage = strategy.erase(CPyListStorage(space, list))
         return W_ListObject.from_storage_and_strategy(space, storage, strategy)
 
     def __repr__(self):
@@ -258,13 +252,6 @@ class W_ListObject(W_Root):
         lst = self.getitems()
         self.strategy = cpy_strategy
         self.lstorage = cpy_strategy.erase(CPyListStorage(space, lst))
-
-    def get_raw_items(self):
-        from pypy.module.cpyext.sequence import CPyListStrategy
-
-        cpy_strategy = self.space.fromcache(CPyListStrategy)
-        assert self.strategy is cpy_strategy # should we return an error?
-        return cpy_strategy.get_raw_items(self)
 
     # ___________________________________________________
 
@@ -350,10 +337,10 @@ class W_ListObject(W_Root):
         not use the list strategy, return None."""
         return self.strategy.getitems_bytes(self)
 
-    def getitems_unicode(self):
+    def getitems_ascii(self):
         """Return the items in the list as unwrapped unicodes. If the list does
         not use the list strategy, return None."""
-        return self.strategy.getitems_unicode(self)
+        return self.strategy.getitems_ascii(self)
 
     def getitems_int(self):
         """Return the items in the list as unwrapped ints. If the list does not
@@ -762,7 +749,9 @@ class W_ListObject(W_Root):
         if mucked:
             raise oefmt(space.w_ValueError, "list modified during sort")
 
-find_jmp = jit.JitDriver(greens = ['tp'], reds = 'auto', name = 'list.find')
+def get_printable_location(strategy_type, tp):
+    return "list.find [%s, %s]" % (strategy_type, tp.getname(tp.space), )
+find_jmp = jit.JitDriver(greens=['strategy_type', 'tp'], reds='auto', name='list.find', get_printable_location=get_printable_location)
 
 class ListStrategy(object):
 
@@ -790,7 +779,7 @@ class ListStrategy(object):
         # needs to be safe against eq_w mutating stuff
         tp = space.type(w_item)
         while i < stop and i < w_list.length():
-            find_jmp.jit_merge_point(tp=tp)
+            find_jmp.jit_merge_point(tp=tp, strategy_type=type(self))
             if space.eq_w(w_item, w_list.getitem(i)):
                 return i
             i += 1
@@ -814,7 +803,7 @@ class ListStrategy(object):
     def getitems_bytes(self, w_list):
         return None
 
-    def getitems_unicode(self, w_list):
+    def getitems_ascii(self, w_list):
         return None
 
     def getitems_int(self, w_list):
@@ -960,8 +949,8 @@ class EmptyListStrategy(ListStrategy):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
             strategy = self.space.fromcache(BytesListStrategy)
-        elif type(w_item) is W_UnicodeObject:
-            strategy = self.space.fromcache(UnicodeListStrategy)
+        elif type(w_item) is W_UnicodeObject and w_item.is_ascii():
+            strategy = self.space.fromcache(AsciiListStrategy)
         elif type(w_item) is W_FloatObject:
             strategy = self.space.fromcache(FloatListStrategy)
         else:
@@ -1039,9 +1028,9 @@ class EmptyListStrategy(ListStrategy):
             w_list.lstorage = strategy.erase(byteslist[:])
             return
 
-        unilist = space.listview_unicode(w_iterable)
+        unilist = space.listview_ascii(w_iterable)
         if unilist is not None:
-            w_list.strategy = strategy = space.fromcache(UnicodeListStrategy)
+            w_list.strategy = strategy = space.fromcache(AsciiListStrategy)
             # need to copy because intlist can share with w_iterable
             w_list.lstorage = strategy.erase(unilist[:])
             return
@@ -2003,27 +1992,27 @@ class BytesListStrategy(ListStrategy):
         return self.unerase(w_list.lstorage)
 
 
-class UnicodeListStrategy(ListStrategy):
+class AsciiListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
 
-    _none_value = u""
+    _none_value = ""
 
     def wrap(self, stringval):
         assert stringval is not None
-        return self.space.newunicode(stringval)
+        return self.space.newutf8(stringval, len(stringval))
 
     def unwrap(self, w_string):
-        return self.space.unicode_w(w_string)
+        return self.space.utf8_w(w_string)
 
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return type(w_obj) is W_UnicodeObject
+        return type(w_obj) is W_UnicodeObject and w_obj.is_ascii()
 
     def list_is_correct_type(self, w_list):
-        return w_list.strategy is self.space.fromcache(UnicodeListStrategy)
+        return w_list.strategy is self.space.fromcache(AsciiListStrategy)
 
     def sort(self, w_list, reverse):
         l = self.unerase(w_list.lstorage)
@@ -2032,7 +2021,7 @@ class UnicodeListStrategy(ListStrategy):
         if reverse:
             l.reverse()
 
-    def getitems_unicode(self, w_list):
+    def getitems_ascii(self, w_list):
         return self.unerase(w_list.lstorage)
 
 # _______________________________________________________

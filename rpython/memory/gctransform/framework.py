@@ -309,6 +309,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
         self.collect_ptr = getfn(GCClass.collect.im_func,
             [s_gc, annmodel.SomeInteger()], annmodel.s_None)
+        self.collect_step_ptr = getfn(GCClass.collect_step.im_func, [s_gc],
+                                      annmodel.SomeInteger())
+        self.enable_ptr = getfn(GCClass.enable.im_func, [s_gc], annmodel.s_None)
+        self.disable_ptr = getfn(GCClass.disable.im_func, [s_gc], annmodel.s_None)
+        self.isenabled_ptr = getfn(GCClass.isenabled.im_func, [s_gc],
+                                   annmodel.s_Bool)
         self.can_move_ptr = getfn(GCClass.can_move.im_func,
                                   [s_gc, SomeAddress()],
                                   annmodel.SomeBool())
@@ -566,6 +572,8 @@ class BaseFrameworkGCTransformer(GCTransformer):
             self.move_out_of_nursery_ptr = getfn(GCClass.move_out_of_nursery,
                                               [s_gc, SomeAddress()],
                                               SomeAddress())
+        if hasattr(self.root_walker, 'build_increase_root_stack_depth_ptr'):
+            self.root_walker.build_increase_root_stack_depth_ptr(getfn)
 
 
     def create_custom_trace_funcs(self, gc, rtyper):
@@ -884,6 +892,28 @@ class BaseFrameworkGCTransformer(GCTransformer):
                   resultvar=op.result)
         self.pop_roots(hop, livevars)
 
+    def gct_gc__collect_step(self, hop):
+        op = hop.spaceop
+        livevars = self.push_roots(hop)
+        hop.genop("direct_call", [self.collect_step_ptr, self.c_const_gc],
+                  resultvar=op.result)
+        self.pop_roots(hop, livevars)
+
+    def gct_gc__enable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.enable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__disable(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.disable_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
+    def gct_gc__isenabled(self, hop):
+        op = hop.spaceop
+        hop.genop("direct_call", [self.isenabled_ptr, self.c_const_gc],
+                  resultvar=op.result)
+
     def gct_gc_can_move(self, hop):
         op = hop.spaceop
         v_addr = hop.genop('cast_ptr_to_adr',
@@ -972,21 +1002,6 @@ class BaseFrameworkGCTransformer(GCTransformer):
     def gct_gc_modified_shadowstack(self, hop):
         # for stacklet
         hop.genop("direct_call", [self.root_walker.gc_modified_shadowstack_ptr])
-
-    def gct_gc_detach_callback_pieces(self, hop):
-        op = hop.spaceop
-        assert len(op.args) == 0
-        hop.genop("direct_call",
-                  [self.root_walker.gc_detach_callback_pieces_ptr],
-                  resultvar=op.result)
-
-    def gct_gc_reattach_callback_pieces(self, hop):
-        op = hop.spaceop
-        assert len(op.args) == 1
-        hop.genop("direct_call",
-                  [self.root_walker.gc_reattach_callback_pieces_ptr,
-                   op.args[0]],
-                  resultvar=op.result)
 
     def gct_do_malloc_fixedsize(self, hop):
         # used by the JIT (see rpython.jit.backend.llsupport.gc)
@@ -1214,8 +1229,10 @@ class BaseFrameworkGCTransformer(GCTransformer):
 
     def gct_gc_thread_start(self, hop):
         assert self.translator.config.translation.thread
+        # There is no 'thread_start_ptr' any more for now, so the following
+        # line is always false.
         if hasattr(self.root_walker, 'thread_start_ptr'):
-            # only with asmgcc.  Note that this is actually called after
+            # Note that this is actually called after
             # the first gc_thread_run() in the new thread.
             hop.genop("direct_call", [self.root_walker.thread_start_ptr])
 
@@ -1624,6 +1641,12 @@ class BaseFrameworkGCTransformer(GCTransformer):
         else:
             hop.rename("same_as")
 
+    def gct_gc_increase_root_stack_depth(self, hop):
+        if not hasattr(self.root_walker, 'gc_increase_root_stack_depth_ptr'):
+            return
+        hop.genop("direct_call",
+                  [self.root_walker.gc_increase_root_stack_depth_ptr,
+                   hop.spaceop.args[0]])
 
 
 class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
@@ -1638,6 +1661,15 @@ class TransformerLayoutBuilder(gctypelayout.TypeLayoutBuilder):
             lltype2vtable = None
         self.translator = translator
         super(TransformerLayoutBuilder, self).__init__(GCClass, lltype2vtable)
+
+    def is_dummy_struct(self, obj):
+        # overrides the base method
+        TYPE = lltype.typeOf(obj)
+        try:
+            dummy = self.translator.rtyper.cache_dummy_values[TYPE]
+        except KeyError:
+            return False
+        return dummy._obj == obj
 
     def has_destructor(self, TYPE):
         rtti = get_rtti(TYPE)

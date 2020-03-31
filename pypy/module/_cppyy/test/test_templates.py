@@ -25,20 +25,35 @@ class AppTestTEMPLATES:
 
         m = _cppyy.gbl.MyTemplatedMethodClass()
 
+      # implicit (called before other tests to check caching)
+        assert m.get_size(1)          == m.get_int_size()+1
+        assert 'get_size<int>' in dir(_cppyy.gbl.MyTemplatedMethodClass)
+
       # pre-instantiated
         assert m.get_size['char']()   == m.get_char_size()
         assert m.get_size[int]()      == m.get_int_size()
 
       # specialized
-        assert m.get_size[long]()     == m.get_long_size()
+        if sys.hexversion >= 0x3000000:
+            targ = 'long'
+        else:
+            targ = long
+        assert m.get_size[targ]()     == m.get_long_size()
+
+        import ctypes
+        assert m.get_size(ctypes.c_double(3.14)) == m.get_size['double']()
+        assert m.get_size(ctypes.c_double(3.14).value) == m.get_size['double']()+1
 
       # auto-instantiation
         assert m.get_size[float]()    == m.get_float_size()
         assert m.get_size['double']() == m.get_double_size()
         assert m.get_size['MyTemplatedMethodClass']() == m.get_self_size()
+        assert 'get_size<MyTemplatedMethodClass>' in dir(_cppyy.gbl.MyTemplatedMethodClass)
 
       # auto through typedef
         assert m.get_size['MyTMCTypedef_t']() == m.get_self_size()
+        assert 'get_size<MyTMCTypedef_t>' in dir(_cppyy.gbl.MyTemplatedMethodClass)
+        assert m.get_size['MyTemplatedMethodClass']() == m.get_self_size()
 
     def test02_non_type_template_args(self):
         """Use of non-types as template arguments"""
@@ -90,15 +105,13 @@ class AppTestTEMPLATES:
         assert type(ggsr(vector['int']([5])).m_retval) == float
         assert ggsr(vector['int']([5])).m_retval == 5.
         # float in, int out
-        # TODO: this now matches the earlier overload
-        #ggsr = cppyy.gbl.global_get_some_result['std::vector<float>, int']
-        #assert type(ggsr(vector['float']([0.3])).m_retval) == int
-        #assert ggsr(vector['float']([0.3])).m_retval == 0
+        ggsr = cppyy.gbl.global_get_some_result['std::vector<float>, int']
+        assert type(ggsr(vector['float']([0.3])).m_retval) == int
+        assert ggsr(vector['float']([0.3])).m_retval == 0
         # int in, int out
-        # TODO: same as above, matches earlier overload
-        #ggsr = cppyy.gbl.global_get_some_result['std::vector<int>, int']
-        #assert type(ggsr(vector['int']([5])).m_retval) == int
-        #assert ggsr(vector['int']([5])).m_retval == 5
+        ggsr = cppyy.gbl.global_get_some_result['std::vector<int>, int']
+        assert type(ggsr(vector['int']([5])).m_retval) == int
+        assert ggsr(vector['int']([5])).m_retval == 5
 
     def test04_variadic_function(self):
         """Call a variadic function"""

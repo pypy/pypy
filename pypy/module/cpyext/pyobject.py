@@ -261,6 +261,7 @@ def from_ref(space, ref):
     if w_obj is not None:
         if w_obj is not w_marker_deallocating:
             return w_obj
+        type_name = rffi.charp2str(cts.cast('char*', ref.c_ob_type.c_tp_name))
         fatalerror(
             "*** Invalid usage of a dying CPython object ***\n"
             "\n"
@@ -275,7 +276,8 @@ def from_ref(space, ref):
             "freed, making that reference point to garbage.\n"
             ">>> PyPy could contain some workaround to still work if\n"
             "you are lucky, but it is not done so far; better fix the bug in\n"
-            "the CPython extension.")
+            "the CPython extension.\n"
+            ">>> This object is of type '%s'" % (type_name,))
 
     # This reference is not yet a real interpreter object.
     # Realize it.

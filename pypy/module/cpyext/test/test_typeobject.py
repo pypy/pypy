@@ -146,8 +146,11 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
 
     def test_cython_fake_classmethod(self):
         module = self.import_module(name='foo')
-        print(module.fooType.fake_classmeth)
-        print(type(module.fooType.fake_classmeth))
+
+        # Check that objects are printable
+        print(module.fooType.fake_classmeth)  # bound method on the class
+        print(module.fooType.__dict__['fake_classmeth']) # raw descriptor
+
         assert module.fooType.fake_classmeth() is module.fooType
 
     def test_new(self):
@@ -447,7 +450,31 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             pass
         obj = Sub()
         assert module.hack_tp_dict(obj, "b") == 2
-        
+
+
+    def test_tp_dict_ready(self):
+        module = self.import_extension('foo', [
+           ("new_obj", "METH_NOARGS",
+            '''
+                PyObject *obj;
+                obj = PyObject_New(PyObject, &Foo_Type);
+                return obj;
+            '''
+            )], prologue='''
+            static PyTypeObject Foo_Type = {
+                PyVarObject_HEAD_INIT(NULL, 0)
+                "foo.foo",
+            };
+            ''', more_init = '''
+                Foo_Type.tp_flags = Py_TPFLAGS_DEFAULT;
+                Foo_Type.tp_dict = PyDict_New();
+                PyDict_SetItemString(Foo_Type.tp_dict, "inserted", Py_True);
+                if (PyType_Ready(&Foo_Type) < 0) INITERROR;
+            ''')
+
+        obj = module.new_obj()
+        assert type(obj).inserted is True
+
 
     def test_tp_descr_get(self):
         module = self.import_extension('foo', [
@@ -528,7 +555,8 @@ class TestTypes(BaseApiTest):
 
         py_type = rffi.cast(PyTypeObjectPtr, ref)
         assert py_type.c_tp_alloc
-        assert from_ref(space, py_type.c_tp_mro).wrappeditems is w_class.mro_w
+        w_tup = from_ref(space, py_type.c_tp_mro)
+        assert space.fixedview(w_tup) == w_class.mro_w
 
         decref(space, ref)
 
@@ -1292,7 +1320,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         except TypeError as e:
             import sys
             if '__pypy__' in sys.builtin_module_names:
-                assert str(e) == 'instance layout conflicts in multiple inheritance'
+                print(str(e))
+                assert 'instance layout conflicts in multiple inheritance' in str(e)
 
             else:
                 assert str(e) == ('Error when calling the metaclass bases\n'

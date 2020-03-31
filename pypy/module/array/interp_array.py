@@ -1,7 +1,7 @@
-from rpython.rlib import jit, rgc
+from rpython.rlib import jit, rgc, rutf8
 from rpython.rlib.buffer import RawBuffer
 from rpython.rlib.objectmodel import keepalive_until_here
-from rpython.rlib.rarithmetic import ovfcheck, widen
+from rpython.rlib.rarithmetic import ovfcheck, widen, r_uint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -13,6 +13,7 @@ from pypy.interpreter.gateway import (
     interp2app, interpindirect2app, unwrap_spec)
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, make_weakref_descr)
+from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.module._file.interp_file import W_File
 
 
@@ -71,12 +72,13 @@ def compare_arrays(space, arr1, arr2, comp_op):
     if comp_op == NE and arr1.len != arr2.len:
         return space.w_True
     lgt = min(arr1.len, arr2.len)
-    for i in range(lgt):
+    i = 0
+    while i < lgt:
         arr_eq_driver.jit_merge_point(comp_func=comp_op)
-        w_elem1 = arr1.w_getitem(space, i)
-        w_elem2 = arr2.w_getitem(space, i)
+        w_elem1 = arr1.w_getitem(space, i, integer_instead_of_char=True)
+        w_elem2 = arr2.w_getitem(space, i, integer_instead_of_char=True)
         if comp_op == EQ:
-            res = space.eq_w(w_elem1, w_elem2)
+            res = space.is_true(space.eq(w_elem1, w_elem2))
             if not res:
                 return space.w_False
         elif comp_op == NE:
@@ -90,7 +92,7 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.gt(w_elem1, w_elem2))
             if res:
                 return space.w_True
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_False
         else:
             if comp_op == LE:
@@ -99,8 +101,9 @@ def compare_arrays(space, arr1, arr2, comp_op):
                 res = space.is_true(space.ge(w_elem1, w_elem2))
             if not res:
                 return space.w_False
-            elif not space.eq_w(w_elem1, w_elem2):
+            elif not space.is_true(space.eq(w_elem1, w_elem2)):
                 return space.w_True
+        i += 1
     # we have some leftovers
     if comp_op == EQ:
         return space.w_True
@@ -127,16 +130,18 @@ def index_count_array(arr, w_val, count=False):
     tp_item = space.type(w_val)
     arrclass = arr.__class__
     cnt = 0
-    for i in range(arr.len):
+    i = 0
+    while i < arr.len:
         index_count_jd.jit_merge_point(
             tp_item=tp_item, count=count,
             arrclass=arrclass)
         w_item = arr.w_getitem(space, i)
-        if space.eq_w(w_item, w_val):
+        if space.is_true(space.eq(w_item, w_val)):
             if count:
                 cnt += 1
             else:
                 return i
+        i += 1
     if count:
         return cnt
     return -1
@@ -159,6 +164,10 @@ class W_ArrayBase(W_Root):
             lltype.free(self._buffer, flavor='raw')
 
     def setlen(self, size, zero=False, overallocate=True):
+        if self._buffer:
+            delta_memory_pressure = -self.allocated * self.itemsize
+        else:
+            delta_memory_pressure = 0
         if size > 0:
             if size > self.allocated or size < self.allocated / 2:
                 if overallocate:
@@ -171,14 +180,13 @@ class W_ArrayBase(W_Root):
                     some = 0
                 self.allocated = size + some
                 byte_size = self.allocated * self.itemsize
+                delta_memory_pressure += byte_size
                 if zero:
                     new_buffer = lltype.malloc(
-                        rffi.CCHARP.TO, byte_size, flavor='raw',
-                        add_memory_pressure=True, zero=True)
+                        rffi.CCHARP.TO, byte_size, flavor='raw', zero=True)
                 else:
                     new_buffer = lltype.malloc(
-                        rffi.CCHARP.TO, byte_size, flavor='raw',
-                        add_memory_pressure=True)
+                        rffi.CCHARP.TO, byte_size, flavor='raw')
                     copy_bytes = min(size, self.len) * self.itemsize
                     rffi.c_memcpy(rffi.cast(rffi.VOIDP, new_buffer),
                                   rffi.cast(rffi.VOIDP, self._buffer),
@@ -195,6 +203,11 @@ class W_ArrayBase(W_Root):
             lltype.free(self._buffer, flavor='raw')
         self._buffer = new_buffer
         self.len = size
+        # adds the difference between the old and the new raw-malloced
+        # size.  If setlen() is called a lot on the same array object,
+        # it is important to take into account the fact that we also do
+        # lltype.free() above.
+        rgc.add_memory_pressure(delta_memory_pressure)
 
     def _fromiterable(self, w_seq):
         # used by fromsequence().
@@ -239,8 +252,10 @@ class W_ArrayBase(W_Root):
             return None
         oldbuffer = self._buffer
         self._buffer = lltype.malloc(rffi.CCHARP.TO,
-            (self.len - (j - i)) * self.itemsize, flavor='raw',
-            add_memory_pressure=True)
+            (self.len - (j - i)) * self.itemsize, flavor='raw')
+        # Issue #2913: don't pass add_memory_pressure here, otherwise
+        # memory pressure grows but actual raw memory usage doesn't---we
+        # are freeing the old buffer at the end of this function.
         if i:
             rffi.c_memcpy(
                 rffi.cast(rffi.VOIDP, self._buffer),
@@ -380,6 +395,8 @@ class W_ArrayBase(W_Root):
         if len(s) % self.itemsize != 0:
             raise oefmt(self.space.w_ValueError,
                         "string length not a multiple of item size")
+        # CPython accepts invalid unicode
+        # self.check_valid_unicode(space, s) # empty for non-u arrays
         oldlen = self.len
         new = len(s) / self.itemsize
         if not new:
@@ -451,7 +468,8 @@ class W_ArrayBase(W_Root):
         """
         if self.typecode == 'u':
             buf = rffi.cast(UNICODE_ARRAY, self._buffer_as_unsigned())
-            return space.newunicode(rffi.wcharpsize2unicode(buf, self.len))
+            utf8 = wcharpsize2utf8(space, buf, self.len)
+            return space.newutf8(utf8, self.len)
         else:
             raise oefmt(space.w_ValueError,
                         "tounicode() may only be called on type 'u' arrays")
@@ -702,13 +720,24 @@ class W_ArrayBase(W_Root):
             s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
         elif self.typecode == "u":
-            r = space.repr(self.descr_tounicode(space))
-            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            try:
+                w_unicode = self.descr_tounicode(space)
+            except OperationError as e:
+                if not e.match(space, space.w_ValueError):
+                    raise
+                w_exc_value = e.get_w_value(space)
+                r = "<%s>" % (space.text_w(w_exc_value),)
+            else:
+                r = space.text_w(space.repr(w_unicode))
+            s = "array('%s', %s)" % (self.typecode, r)
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
             s = "array('%s', %s)" % (self.typecode, space.text_w(r))
             return space.newtext(s)
+
+    def check_valid_unicode(self, space, s):
+        pass # overwritten by u
 
 W_ArrayBase.typedef = TypeDef(
     'array.array', None, None, "read-write",
@@ -797,7 +826,7 @@ else:
          TypeCode(rffi.UINT,          'int_w', True)
 types = {
     'c': TypeCode(lltype.Char,        'bytes_w', method=''),
-    'u': TypeCode(lltype.UniChar,     'unicode_w', method=''),
+    'u': TypeCode(lltype.UniChar,     'utf8_len_w', method=''),
     'b': TypeCode(rffi.SIGNEDCHAR,    'int_w', True, True),
     'B': TypeCode(rffi.UCHAR,         'int_w', True),
     'h': TypeCode(rffi.SHORT,         'int_w', True, True),
@@ -839,7 +868,7 @@ class ArrayBuffer(RawBuffer):
         data[index] = char
         w_array._charbuf_stop()
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ''
         if step == 1:
@@ -848,7 +877,7 @@ class ArrayBuffer(RawBuffer):
                 return rffi.charpsize2str(rffi.ptradd(data, start), size)
             finally:
                 self.w_array._charbuf_stop()
-        return RawBuffer.getslice(self, start, stop, step, size)
+        return RawBuffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
         return self.w_array._charbuf_start()
@@ -869,6 +898,18 @@ def make_array(mytype):
 
         def get_buffer(self):
             return rffi.cast(mytype.arrayptrtype, self._buffer)
+
+        if mytype.unwrap == 'utf8_len_w':
+            def check_valid_unicode(self, space, s):
+                i = 0
+                while i < len(s):
+                    if s[i] != '\x00' or ord(s[i + 1]) > 0x10:
+                        v = ((ord(s[i]) << 24) + (ord(s[i + 1]) << 16) +
+                             (ord(s[i + 2]) << 8) + ord(s[i + 3]))
+                        raise oefmt(space.w_ValueError,
+                            "Character U+%s is not in range [U+0000, U+10ffff]",
+                            hex(v)[2:])
+                    i += 4
 
         def item_w(self, w_item):
             space = self.space
@@ -895,11 +936,17 @@ def make_array(mytype):
                                 "unsigned %d-byte integer out of range",
                                 mytype.bytes)
                 return rffi.cast(mytype.itemtype, item)
-            if mytype.unwrap == 'bytes_w' or mytype.unwrap == 'unicode_w':
+            if mytype.unwrap == 'bytes_w':
                 if len(item) != 1:
                     raise oefmt(space.w_TypeError, "array item must be char")
                 item = item[0]
                 return rffi.cast(mytype.itemtype, item)
+            if mytype.unwrap == 'utf8_len_w':
+                utf8, lgt = item
+                if lgt != 1:
+                    raise oefmt(space.w_TypeError, "array item must be char")
+                uchar = rutf8.codepoint_at_pos(utf8, 0)
+                return rffi.cast(mytype.itemtype, uchar)
             #
             # "regular" case: it fits in an rpython integer (lltype.Signed)
             # or it is a float
@@ -993,10 +1040,11 @@ def make_array(mytype):
             else:
                 self.fromsequence(w_iterable)
 
-        def w_getitem(self, space, idx):
+        def w_getitem(self, space, idx, integer_instead_of_char=False):
             item = self.get_buffer()[idx]
             keepalive_until_here(self)
-            if mytype.typecode in 'bBhHil':
+            if mytype.typecode in 'bBhHil' or (
+                    integer_instead_of_char and mytype.typecode in 'cu'):
                 item = rffi.cast(lltype.Signed, item)
                 return space.newint(item)
             if mytype.typecode in 'IL':
@@ -1007,7 +1055,21 @@ def make_array(mytype):
             elif mytype.typecode == 'c':
                 return space.newbytes(item)
             elif mytype.typecode == 'u':
-                return space.newunicode(item)
+                code = r_uint(ord(item))
+                # cpython will allow values > sys.maxunicode
+                # while silently truncating the top bits
+                # For now I (arigo) am going to ignore that and
+                # raise a ValueError always here, instead of getting
+                # some invalid utf8-encoded string which makes things
+                # potentially explode left and right.
+                try:
+                    item = rutf8.unichr_as_utf8(code, allow_surrogates=True)
+                except rutf8.OutOfRange:
+                    raise oefmt(space.w_ValueError,
+                        "cannot operate on this array('u') because it contains"
+                        " character %s not in range [U+0000; U+10ffff]"
+                        " at index %d", 'U+%x' % code, idx)
+                return space.newutf8(item, 1)
             assert 0, "unreachable"
 
         # interface
@@ -1064,12 +1126,12 @@ def make_array(mytype):
             w_a = mytype.w_class(self.space)
             w_a.setlen(size, overallocate=False)
             assert step != 0
-            j = 0
             buf = w_a.get_buffer()
             srcbuf = self.get_buffer()
-            for i in range(start, stop, step):
+            i = start
+            for j in range(size):
                 buf[j] = srcbuf[i]
-                j += 1
+                i += step
             keepalive_until_here(self)
             keepalive_until_here(w_a)
             return w_a
@@ -1101,12 +1163,12 @@ def make_array(mytype):
                     self.setlen(0)
                     self.fromsequence(w_lst)
             else:
-                j = 0
                 buf = self.get_buffer()
                 srcbuf = w_item.get_buffer()
-                for i in range(start, stop, step):
+                i = start
+                for j in range(size):
                     buf[i] = srcbuf[j]
-                    j += 1
+                    i += step
                 keepalive_until_here(w_item)
                 keepalive_until_here(self)
 

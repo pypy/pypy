@@ -7,17 +7,17 @@ Contributors
   Armin Rigo
   Maciej Fijalkowski
   Carl Friedrich Bolz-Tereick
-  Amaury Forgeot d'Arc
-  Antonio Cuni
   Matti Picus
-  Samuele Pedroni
+  Antonio Cuni
+  Amaury Forgeot d'Arc
   Ronan Lamy
+  Samuele Pedroni
   Alex Gaynor
   Philip Jenvey
-  Brian Kearns
   Richard Plangger
-  Michael Hudson
+  Brian Kearns
   Manuel Jacob
+  Michael Hudson-Doyle
   David Schneider
   Holger Krekel
   Christian Tismer
@@ -26,8 +26,8 @@ Contributors
   Anders Chrigstrom
   Wim Lavrijsen
   Eric van Riet Paap
-  Richard Emslie
   Remi Meier
+  Richard Emslie
   Alexander Schremmer
   Dan Villiom Podlaski Christiansen
   Lukas Diekmann
@@ -37,10 +37,10 @@ Contributors
   Niklaus Haldimann
   Camillo Bruni
   Laura Creighton
-  Romain Guillebert
   Toon Verwaest
   Leonardo Santagada
   Seo Sanghyeon
+  Romain Guillebert
   Ronny Pfannschmidt
   Justin Peel
   Raffael Tfirst
@@ -60,15 +60,17 @@ Contributors
   Jacob Hallen
   Jason Creighton
   Mark Young
+  Andrew Lawrence
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
   Jan de Mooij
+  Stefan Beyer
+  Stefano Rivera
   Tyler Wade
   Vincent Legoll
   Michael Foord
   Stephan Diehl
-  Stefano Rivera
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -81,15 +83,16 @@ Contributors
   Squeaky
   Edd Barrett
   Timo Paulssen
+  Laurence Tratt
   Marius Gedminas
   Nicolas Truessel
   Alexandre Fayolle
   Simon Burton
   Martin Matusiak
-  Laurence Tratt
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
+  Yannick Jadoul
   Jeremy Thurgood
   Greg Price
   Ivan Sichmann Freitas
@@ -99,10 +102,12 @@ Contributors
   Tobias Pape
   Andreas Stührk
   Jean-Philippe St. Pierre
+  Stian Andreassen
   Guido van Rossum
   Pavel Vinogradov
-  Paweł Piotr Przeradowski
+  Julian Berman
   William Leslie
+  Paweł Piotr Przeradowski
   marky1991
   Ilya Osadchiy
   Tobias Oberstein
@@ -111,10 +116,10 @@ Contributors
   Taavi Burns
   Adrian Kuhn
   tav
-  Georg Brandl
   Joannah Nanjekye
+  Georg Brandl
+  quejebo
   Bert Freudenberg
-  Stian Andreassen
   Wanja Saatkamp
   Mike Blume
   Gerald Klix
@@ -130,6 +135,7 @@ Contributors
   Vasily Kuznetsov
   Preston Timmons
   David Ripton
+  Pieter Zieschang
   Dusty Phillips
   Lukas Renggli
   Guenter Jantzen
@@ -139,10 +145,12 @@ Contributors
   Anton Gulenko
   Sergey Matyunin
   Andrew Chambers
+  Łukasz Langa
   Nicolas Chauvat
   Andrew Durdin
   Ben Young
   Michael Schneider
+  Yusuke Tsutsumi
   Nicholas Riley
   Jason Chu
   Igor Trindade Oliveira
@@ -153,8 +161,8 @@ Contributors
   Lucian Branescu Mihaila
   Mariano Anaya
   anatoly techtonik
+  Lin Cheng
   Karl Bartel
-  Stefan Beyer
   Gabriel Lavoie
   Jared Grubb
   Alecsandru Patrascu
@@ -165,7 +173,6 @@ Contributors
   Victor Stinner
   Andrews Medina
   Aaron Iles
-  p_zieschang@yahoo.de
   Toby Watson
   Daniel Patrick
   Stuart Williams
@@ -177,6 +184,7 @@ Contributors
   Mikael Schönenberg
   Stanislaw Halik
   Mihnea Saracin
+  Matt Jackson
   Berkin Ilbeyi
   Gasper Zejn
   Faye Zhao
@@ -184,12 +192,15 @@ Contributors
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
+  Mike Pavone
+  Pauli Virtanen
   Jonathan David Riehl
   Beatrice During
   Alex Perry
   Robert Zaremba
   Alan McIntyre
   Alexander Sedov
+  David C Ellis
   Vaibhav Sood
   Reuben Cummings
   Attila Gobi
@@ -205,11 +216,11 @@ Contributors
   Valentina Mukhamedzhanova
   Stefano Parmesan
   touilleMan
+  Anthony Sottile
   Marc Abramowitz
   Arjun Naik
   Aaron Gallagher
   Alexis Daboville
-  Pieter Zieschang
   Karl Ramm
   Lukas Vacek
   Omer Katz
@@ -230,19 +241,24 @@ Contributors
   Yasir Suhail
   Sergey Kishchenko
   Martin Blais
+  Catalin Fierut
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
+  Bernd Schoeller
+  olliemath
   Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
   Ryan Gonzalez
+  Antoine Dupre
   Kristjan Valur Jonsson
   Lucio Torre
   Richard Lancaster
   Dan Buch
   Lene Wagner
   Tomo Cocoa
+  Miro Hrončok
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -251,47 +267,57 @@ Contributors
   Christoph Gerum
   Miguel de Val Borro
   Artur Lisiecki
+  joserubiovidales@gmail.com
   afteryu
   Toni Mattis
+  Vincent Michel
   Laurens Van Houtven
   Bobby Impollonia
   Roberto De Ioris
+  Sreepathi Pai
   Jeong YunWon
+  dakarpov@gmail.com
   Christopher Armstrong
   Aaron Tubbs
   Vasantha Ganesh K
   Jason Michalski
+  Radu Ciorba
+  Ryan Hileman
   Markus Holtermann
+  Georges Racinet
   Andrew Thompson
   Yusei Tahara
   Ruochen Huang
   Fabio Niephaus
   Akira Li
   Gustavo Niemeyer
-  Rafał Gałczyński
+  joachim-ballmann@bitbucket.org
+  Nate Bragg
   Lucas Stadler
   roberto@goyle
+  Carl Bordum Hansen
   Matt Bogosian
   Yury V. Zaytsev
   florinpapa
   Anders Sigfridsson
-  Matt Jackson
   Nikolay Zinov
   rafalgalczynski@gmail.com
   Joshua Gilbert
   Anna Katrina Dominguez
   Kim Jin Su
   Amber Brown
-  Miro Hrončok
-  Anthony Sottile
-  Nate Bragg
+  Andrew Stepanov
+  ashwinahuja
+  Rafał Gałczyński
   Ben Darnell
   Juan Francisco Cantero Hurtado
   Godefroid Chappelle
-  Julian Berman
-  Michael Hudson-Doyle
+  Paul Ganssle
+  Michal Kuffa
   Stephan Busemann
+  Bystroushaak
   Dan Colish
+  Ram Rachum
   timo
   Volodymyr Vladymyrov
   Daniel Neuhäuser
@@ -299,25 +325,35 @@ Contributors
   halgari
   Jim Baker
   Chris Lambacher
+  John Aldis
   coolbutuseless@gmail.com
+  Yasen Kiprov
   Mike Bayer
   Rodrigo Araújo
   Daniil Yarancev
   Min RK
   OlivierBlanvillain
+  bernd.schoeller@inf.ethz.ch
   Jonas Pfannschmidt
+  Alex Kashirin
   Zearin
+  Joannah Nanjekye nanjekyejoannah@gmail.com
+  Ihar Shabes
+  Johan Forsberg
   Andrey Churin
   Dan Crosta
   reubano@gmail.com
   Stanisław Halik
+  DeVerne Jones
   Julien Phalip
   Roman Podoliaka
   Steve Papanik
+  Henri Tuhola
   Eli Stevens
   Boglarka Vezer
-  gabrielg
+  gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
   PavloKapyshin
+  Hervé Beraud
   Tomer Chachamu
   Christopher Groskopf
   Asmo Soinio
@@ -325,25 +361,29 @@ Contributors
   Jim Hunziker
   shoma hosaka
   Buck Golemon
+  whitequark
   Iraklis D.
   JohnDoe
   yrttyr
   Michael Chermside
   Anna Ravencroft
   remarkablerocket
-  Pauli Virtanen
+  Ivan
   Petre Vijiac
   Berker Peksag
   Christian Muirhead
   soareschen
   Matthew Miller
+  Jesdi
   Konrad Delong
   Dinu Gherman
+  Sam Edwards
   pizi
   Tomáš Pružina
   James Robert
   Armin Ronacher
   Diana Popa
+  Mike Kaplinskiy
   Mads Kiilerich
   Brett Cannon
   Caleb Hattingh
@@ -351,19 +391,25 @@ Contributors
   Zooko Wilcox-O Hearn
   James Lan
   jiaaro
+  Evgenii Gorinov
   Markus Unterwaditzer
   Kristoffer Kleine
   Graham Markall
+  paugier
   Dan Loewenherz
   werat
-  Andrew Stepanov
+  Filip Salomonsson
   Niclas Olofsson
+  Zsolt Cserna
   Chris Pressey
   Tobias Diaz
+  Paul Graydon
+  mkuffa
   Nikolaos-Digenis Karagiannis
   Kurt Griffiths
   Ben Mather
   Donald Stufft
+  kotus9
   Dan Sanders
   Jason Madden
   Yaroslav Fedevych

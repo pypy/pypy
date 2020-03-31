@@ -7,10 +7,11 @@ import rpython.jit.backend.zarch.conditions as c
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.llsupport.callbuilder import AbstractCallBuilder
 from rpython.jit.backend.llsupport.jump import remap_frame_layout
-from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.jit.backend.llsupport import llerrno
 from rpython.rtyper.lltypesystem import rffi
 from rpython.jit.backend.llsupport.descr import CallDescr
+from rpython.jit.backend.llsupport import llerrno, lltls
 
 CALL_RELEASE_GIL_STACK_OFF = 6*WORD
 
@@ -216,21 +217,24 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWPTR  = self.RSHADOWPTR     # r9: &root_stack_top
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
 
-        # Equivalent of 'r13 = __sync_lock_test_and_set(&rpy_fastgil, 1);'
-        self.mc.LGHI(r.SCRATCH, l.imm(1))
-        self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
+        # SCRATCH will contain the thread id
+        self.mc.LG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        # Equivalent of 'r13 = __sync_val_compre_and_swap(&rpy_fastgil, 0, thread_id);'
         retry_label = self.mc.currpos()
-        self.mc.LGR(r.r14, r.r13) 
+        self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
+        # compare if &rpy_fastgil == 0
+        self.mc.CGFI(r.r13, l.imm0)
+        self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos()))
+        # if so try to compare and swap.
+        # r13 == &r10, then store the contets of r.SCRATCH to &r10
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
         self.mc.BRC(c.LT, l.imm(retry_label - self.mc.currpos())) # retry if failed
-
         # CSG performs a serialization
         # zarch is sequential consistent!
 
         self.mc.CGHI(r.r14, l.imm0)
         b1_location = self.mc.currpos()
-        # boehm: patched with a BEQ: jump if r13 is zero
-        # shadowstack: patched with BNE instead
+        # save some space, this is patched later
         self.mc.reserve_cond_jump()
 
         gcrootmap = self.asm.cpu.gc_ll_descr.gcrootmap

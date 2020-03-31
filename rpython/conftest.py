@@ -5,6 +5,19 @@ pytest_plugins = 'rpython.tool.pytest.expecttest'
 
 option = None
 
+try:
+    from hypothesis import settings
+except ImportError:
+    pass
+else:
+    try:
+        settings.register_profile('default', deadline=None)
+    except Exception:
+        import warnings
+        warnings.warn("Version of hypothesis too old, "
+                      "cannot set the deadline to None")
+    settings.load_profile('default')
+
 def braindead_deindent(self):
     """monkeypatch that wont end up doing stupid in the python tokenizer"""
     text = '\n'.join(self.lines)
@@ -59,6 +72,8 @@ class LeakFinder:
             return
         if not getattr(item.obj, 'dont_track_allocations', False):
             leakfinder.start_tracking_allocations()
+        from rpython.rlib import rgil
+        rgil._reset_emulated_gil_holder()
 
     @pytest.hookimpl(trylast=True)
     def pytest_runtest_call(self, item):

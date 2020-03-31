@@ -1,6 +1,7 @@
 import functools
 import math
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.rutf8 import Utf8StringIterator, codepoints_in_utf8, Utf8StringBuilder
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.objspace.std.floatobject import float2string
 from pypy.objspace.std.complexobject import str_format
@@ -2271,23 +2272,29 @@ class UnicodeType(FlexibleType):
         if isinstance(w_item, boxes.W_UnicodeBox):
             return w_item
         if isinstance(w_item, boxes.W_ObjectBox):
-            value = space.unicode_w(space.unicode_from_object(w_item.w_obj))
+            value = space.utf8_w(space.unicode_from_object(w_item.w_obj))
         else:
-            value = space.unicode_w(space.unicode_from_object(w_item))
+            value = space.utf8_w(space.unicode_from_object(w_item))
         return boxes.W_UnicodeBox(value)
+
+    def convert_utf8_to_unichar_list(self, utf8):
+        l = []
+        for ch in Utf8StringIterator(utf8):
+            l.append(unichr(ch))
+        return l
 
     def store(self, arr, i, offset, box, native):
         assert isinstance(box, boxes.W_UnicodeBox)
-        value = box._value
         with arr as storage:
             self._store(storage, i, offset, box, arr.dtype.elsize)
 
     @jit.unroll_safe
     def _store(self, storage, i, offset, box, width):
-        size = min(width // 4, len(box._value))
+        v = self.convert_utf8_to_unichar_list(box._value)
+        size = min(width // 4, len(v))
         for k in range(size):
             index = i + offset + 4*k
-            data = rffi.cast(Int32.T, ord(box._value[k]))
+            data = rffi.cast(Int32.T, ord(v[k]))
             raw_storage_setitem_unaligned(storage, index, data)
         # zero out the remaining memory
         for index in range(size * 4 + i + offset, width):
@@ -2298,16 +2305,16 @@ class UnicodeType(FlexibleType):
         if dtype is None:
             dtype = arr.dtype
         size = dtype.elsize // 4
-        builder = UnicodeBuilder(size)
+        builder = Utf8StringBuilder(size)
         with arr as storage:
             for k in range(size):
                 index = i + offset + 4*k
-                codepoint = raw_storage_getitem_unaligned(
-                    Int32.T, arr.storage, index)
-                char = unichr(codepoint)
-                if char == u'\0':
+                codepoint = rffi.cast(lltype.Signed,
+                    raw_storage_getitem_unaligned(
+                    Int32.T, arr.storage, index))
+                if codepoint == 0:
                     break
-                builder.append(char)
+                builder.append_code(codepoint)
         return boxes.W_UnicodeBox(builder.build())
 
     def str_format(self, item, add_quotes=True):
@@ -2323,7 +2330,7 @@ class UnicodeType(FlexibleType):
 
     def to_builtin_type(self, space, box):
         assert isinstance(box, boxes.W_UnicodeBox)
-        return space.newunicode(box._value)
+        return space.newutf8(box._value, codepoints_in_utf8(box._value))
 
     def eq(self, v1, v2):
         assert isinstance(v1, boxes.W_UnicodeBox)

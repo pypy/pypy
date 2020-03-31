@@ -1,7 +1,7 @@
-=========================
-What's new in PyPy3 5.9+
-=========================
+==========================
+What's new in PyPy3 7.3.1+
+==========================
 
-.. this is the revision after release-pypy3.5-5.9
-.. startrev: be41e3ac0a29
+.. this is the revision after release-pypy3.6-v7.3.1
+.. startrev: e81cea3ac65e
 

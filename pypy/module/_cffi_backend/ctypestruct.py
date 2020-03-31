@@ -238,26 +238,32 @@ class W_CField(W_Root):
         else:
             self.ctype.convert_from_object(cdata, w_ob)
 
+    def add_varsize_length(self, space, itemsize, varsizelength, optvarsize):
+        # returns an updated 'optvarsize' to account for an array of
+        # 'varsizelength' elements, each of size 'itemsize', that starts
+        # at 'self.offset'.
+        try:
+            varsize = ovfcheck(itemsize * varsizelength)
+            size = ovfcheck(self.offset + varsize)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError,
+                        "array size would overflow a ssize_t")
+        assert size >= 0
+        return max(size, optvarsize)
+
     def write_v(self, cdata, w_ob, optvarsize):
         # a special case for var-sized C99 arrays
         from pypy.module._cffi_backend import ctypearray
         ct = self.ctype
+        space = ct.space
         if isinstance(ct, ctypearray.W_CTypeArray) and ct.length < 0:
-            space = ct.space
             w_ob, varsizelength = ct.get_new_array_length(w_ob)
             if optvarsize != -1:
                 # in this mode, the only purpose of this function is to compute
                 # the real size of the structure from a var-sized C99 array
                 assert cdata == lltype.nullptr(rffi.CCHARP.TO)
-                itemsize = ct.ctitem.size
-                try:
-                    varsize = ovfcheck(itemsize * varsizelength)
-                    size = ovfcheck(self.offset + varsize)
-                except OverflowError:
-                    raise oefmt(space.w_OverflowError,
-                                "array size would overflow a ssize_t")
-                assert size >= 0
-                return max(size, optvarsize)
+                return self.add_varsize_length(space, ct.ctitem.size,
+                    varsizelength, optvarsize)
             # if 'value' was only an integer, get_new_array_length() returns
             # w_ob = space.w_None.  Detect if this was the case,
             # and if so, stop here, leaving the content uninitialized
@@ -267,6 +273,12 @@ class W_CField(W_Root):
         #
         if optvarsize == -1:
             self.write(cdata, w_ob)
+        elif (isinstance(ct, W_CTypeStructOrUnion) and ct._with_var_array and
+              not isinstance(w_ob, cdataobj.W_CData)):
+            subsize = ct.size
+            subsize = ct.convert_struct_from_object(
+                lltype.nullptr(rffi.CCHARP.TO), w_ob, subsize)
+            optvarsize = self.add_varsize_length(space, 1, subsize, optvarsize)
         return optvarsize
 
     def convert_bitfield_to_object(self, cdata):

@@ -45,6 +45,9 @@ except:
 
 git = mod.StupidGit()
 
+class ExampleClassWithSlot(object):
+    __slots__ = 'myslot'
+
 class IsTestBase(unittest.TestCase):
     predicates = set([inspect.isbuiltin, inspect.isclass, inspect.iscode,
                       inspect.isframe, inspect.isfunction, inspect.ismethod,
@@ -96,7 +99,11 @@ class TestPredicates(IsTestBase):
         else:
             self.assertFalse(inspect.isgetsetdescriptor(type(tb.tb_frame).f_locals))
         if hasattr(types, 'MemberDescriptorType'):
-            self.istest(inspect.ismemberdescriptor, 'type(lambda: None).func_globals')
+            # App-level slots are member descriptors on both PyPy and
+            # CPython, but the various built-in attributes are all
+            # getsetdescriptors on PyPy.  So check ismemberdescriptor()
+            # with an app-level slot.
+            self.istest(inspect.ismemberdescriptor, 'ExampleClassWithSlot.myslot')
         else:
             self.assertFalse(inspect.ismemberdescriptor(type(lambda: None).func_globals))
 

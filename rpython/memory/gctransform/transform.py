@@ -17,6 +17,7 @@ from rpython.rtyper.rbuiltin import gen_cast
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.simplify import cleanup_graph
+from rpython.memory.gctransform.log import log
 
 
 class GcHighLevelOp(object):
@@ -138,9 +139,15 @@ class BaseGCTransformer(object):
         return any_inlining
 
     def inline_helpers_and_postprocess(self, graphs):
+        next_dot = 0
         for graph in graphs:
             any_inlining = self.inline and self.inline_helpers_into(graph)
             self.postprocess_graph(graph, any_inlining)
+            #
+            next_dot -= 1
+            if next_dot <= 0:
+                log.dot()
+                next_dot = 50
 
     def postprocess_graph(self, graph, any_inlining):
         pass
@@ -210,9 +217,6 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
-    def start_transforming_graph(self, graph):
-        pass    # for asmgcc.py
-
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -222,7 +226,6 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
-        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 

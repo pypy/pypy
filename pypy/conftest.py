@@ -1,9 +1,24 @@
 import py, pytest, sys, textwrap
 from inspect import isclass
 
+APPLEVEL_FN = 'apptest_*.py'
+
 # pytest settings
 rsyncdirs = ['.', '../lib-python', '../lib_pypy', '../demo']
 rsyncignore = ['_cache']
+
+try:
+    from hypothesis import settings, __version__
+except ImportError:
+    pass
+else:
+    try:
+        settings.register_profile('default', deadline=None)
+    except Exception:
+        import warnings
+        warnings.warn("Version of hypothesis too old, "
+                      "cannot set the deadline to None")
+    settings.load_profile('default')
 
 # PyPy's command line extra options (these are added
 # to py.test's standard options)
@@ -23,33 +38,47 @@ py.code.Source.deindent = braindead_deindent
 def pytest_report_header():
     return "pytest-%s from %s" % (pytest.__version__, pytest.__file__)
 
-def pytest_addhooks(pluginmanager):
-    from rpython.conftest import LeakFinder
-    pluginmanager.register(LeakFinder())
+@pytest.hookimpl(tryfirst=True)
+def pytest_cmdline_preparse(config, args):
+    if not (set(args) & {'-D', '--direct-apptest'}):
+        args.append('--assert=reinterp')
 
 def pytest_configure(config):
     global option
     option = config.option
+    mode_A = config.getoption('runappdirect')
+    mode_D = config.getoption('direct_apptest')
+    if mode_D or not mode_A:
+        config.addinivalue_line('python_files', APPLEVEL_FN)
+    if not mode_A and not mode_D:  # 'own' tests
+        from rpython.conftest import LeakFinder
+        config.pluginmanager.register(LeakFinder())
 
 def pytest_addoption(parser):
-    from rpython.conftest import pytest_addoption
-    pytest_addoption(parser)
-
     group = parser.getgroup("pypy options")
     group.addoption('-A', '--runappdirect', action="store_true",
            default=False, dest="runappdirect",
-           help="run applevel tests directly on python interpreter (not through PyPy)")
+           help="run legacy applevel tests directly on python interpreter (not through PyPy)")
+    group.addoption('-D', '--direct-apptest', action="store_true",
+           default=False, dest="direct_apptest",
+           help="run applevel_XXX.py tests directly on host interpreter")
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")
     group.addoption('--raise-operr', action="store_true",
             default=False, dest="raise_operr",
             help="Show the interp-level OperationError in app-level tests")
+    group.addoption('--applevel-rewrite', action="store_true",
+            default=False, dest="applevel_rewrite",
+            help="Use assert rewriting in app-level test files (slow)")
+
+@pytest.fixture(scope='class')
+def spaceconfig(request):
+    return getattr(request.cls, 'spaceconfig', {})
 
 @pytest.fixture(scope='function')
-def space(request):
+def space(spaceconfig):
     from pypy.tool.pytest.objspace import gettestobjspace
-    spaceconfig = getattr(request.cls, 'spaceconfig', {})
     return gettestobjspace(**spaceconfig)
 
 
@@ -75,14 +104,21 @@ def pytest_sessionstart(session):
     ensure_pytest_builtin_helpers()
 
 def pytest_pycollect_makemodule(path, parent):
-    return PyPyModule(path, parent)
+    if path.fnmatch(APPLEVEL_FN):
+        if parent.config.getoption('direct_apptest'):
+            return
+        from pypy.tool.pytest.apptest2 import AppTestModule
+        rewrite = parent.config.getoption('applevel_rewrite')
+        return AppTestModule(path, parent, rewrite_asserts=rewrite)
+    else:
+        return PyPyModule(path, parent)
 
 def is_applevel(item):
-    from pypy.tool.pytest.apptest import AppTestFunction
-    return isinstance(item, AppTestFunction)
+    from pypy.tool.pytest.apptest import AppTestMethod
+    return isinstance(item, AppTestMethod)
 
 def pytest_collection_modifyitems(config, items):
-    if config.option.runappdirect:
+    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
         return
     for item in items:
         if isinstance(item, py.test.Function):
@@ -91,17 +127,17 @@ def pytest_collection_modifyitems(config, items):
             else:
                 item.add_marker('interplevel')
 
-class PyPyModule(py.test.collect.Module):
+
+class PyPyModule(pytest.Module):
     """ we take care of collecting classes both at app level
         and at interp-level (because we need to stick a space
         at the class) ourselves.
     """
     def accept_regular_test(self):
         if self.config.option.runappdirect:
-            # only collect regular tests if we are in an 'app_test' directory,
-            # or in test_lib_pypy
+            # only collect regular tests if we are in test_lib_pypy
             for name in self.listnames():
-                if "app_test" in name or "test_lib_pypy" in name:
+                if "test_lib_pypy" in name:
                     return True
             return False
         return True
@@ -109,8 +145,6 @@ class PyPyModule(py.test.collect.Module):
     def funcnamefilter(self, name):
         if name.startswith('test_'):
             return self.accept_regular_test()
-        if name.startswith('app_test_'):
-            return True
         return False
 
     def classnamefilter(self, name):
@@ -125,13 +159,6 @@ class PyPyModule(py.test.collect.Module):
             if name.startswith('AppTest'):
                 from pypy.tool.pytest.apptest import AppClassCollector
                 return AppClassCollector(name, parent=self)
-
-        elif hasattr(obj, 'func_code') and self.funcnamefilter(name):
-            if name.startswith('app_test_'):
-                assert not obj.func_code.co_flags & 32, \
-                    "generator app level functions? you must be joking"
-                from pypy.tool.pytest.apptest import AppTestFunction
-                return AppTestFunction(name, parent=self)
         return super(PyPyModule, self).makeitem(name, obj)
 
 def skip_on_missing_buildoption(**ropts):
@@ -150,29 +177,25 @@ def skip_on_missing_buildoption(**ropts):
     py.test.skip("need translated pypy with: %s, got %s"
                  %(ropts,options))
 
-class LazyObjSpaceGetter(object):
-    def __get__(self, obj, cls=None):
-        from pypy.tool.pytest.objspace import gettestobjspace
-        space = gettestobjspace()
-        if cls:
-            cls.space = space
-        return space
-
-
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_setup(item):
     if isinstance(item, py.test.collect.Function):
+        config = item.config
+        if (item.get_marker(name='pypy_only') and
+                not '__pypy__' in sys.builtin_module_names):
+            pytest.skip('PyPy-specific test')
         appclass = item.getparent(py.test.Class)
         if appclass is not None:
+            from pypy.tool.pytest.objspace import gettestobjspace
             # Make cls.space and cls.runappdirect available in tests.
-            spaceconfig = getattr(appclass.obj, 'spaceconfig', None)
-            if spaceconfig is not None:
-                from pypy.tool.pytest.objspace import gettestobjspace
-                appclass.obj.space = gettestobjspace(**spaceconfig)
-            else:
-                appclass.obj.space = LazyObjSpaceGetter()
-            appclass.obj.runappdirect = option.runappdirect
+            spaceconfig = getattr(appclass.obj, 'spaceconfig', {})
+            if not (config.getoption('runappdirect') or config.getoption('direct_apptest')):
+                spaceconfig.setdefault('objspace.std.reinterpretasserts', True)
+            appclass.obj.space = gettestobjspace(**spaceconfig)
+            appclass.obj.runappdirect = config.option.runappdirect
 
-
-def pytest_ignore_collect(path):
+def pytest_ignore_collect(path, config):
+    if (config.getoption('direct_apptest') and not path.isdir()
+            and not path.fnmatch(APPLEVEL_FN)):
+        return True
     return path.check(link=1)

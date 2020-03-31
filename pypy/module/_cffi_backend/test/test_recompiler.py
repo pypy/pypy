@@ -343,9 +343,9 @@ class AppTestRecompiler:
             'test_verify_exact_field_offset',
             """struct foo_s { short a; int b; };""")
         e = raises(ffi.error, ffi.new, "struct foo_s *", [])    # lazily
-        assert str(e.value) == ("struct foo_s: wrong offset for field 'b' (cdef "
-                           'says 0, but C compiler says 4). fix it or use "...;" '
-                           "in the cdef for struct foo_s to make it flexible")
+        assert str(e.value).startswith(
+            "struct foo_s: wrong offset for field 'b' (cdef "
+            'says 0, but C compiler says 4). fix it or use "...;" ')
 
     def test_type_caching(self):
         ffi1, lib1 = self.prepare(
@@ -2107,3 +2107,52 @@ class AppTestRecompiler:
         else:
             assert lib.__loader__ is None
             assert lib.__spec__ is None
+
+    def test_release(self):
+        ffi, lib = self.prepare("", "test_release", "")
+        p = ffi.new("int[]", 123)
+        ffi.release(p)
+        # here, reading p[0] might give garbage or segfault...
+        ffi.release(p)   # no effect
+
+    def test_release_new_allocator(self):
+        ffi, lib = self.prepare("struct ab { int a, b; };",
+                                "test_release_new_allocator",
+                                "struct ab { int a, b; };")
+        seen = []
+        def myalloc(size):
+            seen.append(size)
+            return ffi.new("char[]", b"X" * size)
+        def myfree(raw):
+            seen.append(raw)
+        alloc2 = ffi.new_allocator(alloc=myalloc, free=myfree)
+        p = alloc2("int[]", 15)
+        assert seen == [15 * 4]
+        ffi.release(p)
+        assert seen == [15 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [15 * 4, p]
+        #
+        del seen[:]
+        p = alloc2("struct ab *")
+        assert seen == [2 * 4]
+        ffi.release(p)
+        assert seen == [2 * 4, p]
+        ffi.release(p)    # no effect
+        assert seen == [2 * 4, p]
+
+    def test_struct_with_func_with_struct_arg(self):
+        ffi, lib = self.prepare("""struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };""",
+            "test_struct_with_func_with_struct_arg", """
+            struct BinaryTree {
+                int (* CompareKey)(struct BinaryTree tree);
+            };
+        """)
+        e = raises(RuntimeError, ffi.new, "struct BinaryTree *")
+        # we should check e.value, but untranslated it crashes with a
+        # regular recursion error.  There is a chance it occurs translated
+        # too, but likely the check in the code ">= 1000" usually triggers
+        # before that, and raise a RuntimeError too, but with the more
+        # explicit message.

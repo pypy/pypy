@@ -1,27 +1,30 @@
-import py, random, string
+import pytest
+import random
+import string
 
-from rpython.rlib.debug import debug_print
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper import rclass
 from rpython.rtyper.rclass import (
     OBJECT, OBJECT_VTABLE, FieldListAccessor, IR_QUASIIMMUTABLE)
+from rpython.rlib.rjitlog import rjitlog as jl
 
 from rpython.jit.backend.llgraph import runner
-from rpython.jit.metainterp.history import (TreeLoop, AbstractDescr,
-                                            JitCellToken, TargetToken)
-from rpython.jit.metainterp.optimizeopt.util import sort_descrs, equaloplists
+from rpython.jit.metainterp.history import (
+    TreeLoop, AbstractDescr, JitCellToken)
+from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
 from rpython.jit.codewriter.effectinfo import EffectInfo, compute_bitstrings
-from rpython.jit.metainterp.logger import LogOperations
-from rpython.jit.tool.oparser import OpParser, pure_parse, convert_loop_to_trace
+from rpython.jit.tool.oparser import (
+    OpParser, pure_parse, convert_loop_to_trace)
 from rpython.jit.metainterp.quasiimmut import QuasiImmutDescr
-from rpython.jit.metainterp import compile, resume, history
+from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.counter import DeterministicJitCounter
 from rpython.config.translationoption import get_combined_translation_config
-from rpython.jit.metainterp.resoperation import (rop, ResOperation,
-        InputArgRef, AbstractValue, OpHelpers)
-from rpython.jit.metainterp.optimizeopt.util import args_dict
-from rpython.rlib.rjitlog import rjitlog as jl
+from rpython.jit.metainterp.resoperation import (
+    rop, ResOperation, InputArgRef, AbstractValue)
+from rpython.jit.metainterp.virtualref import VirtualRefInfo
+from rpython.jit.metainterp.optimizeopt.util import (
+    sort_descrs, equaloplists, args_dict)
 
 
 def test_sort_descrs():
@@ -59,9 +62,10 @@ def test_equaloplists():
     assert equaloplists(loop1.operations, loop2.operations,
                         remap=make_remap(loop1.inputargs,
                                          loop2.inputargs))
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations,"
-                   "remap=make_remap(loop1.inputargs, loop3.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop3.operations,
+            remap=make_remap(loop1.inputargs, loop3.inputargs))
 
 def test_equaloplists_fail_args():
     ops = """
@@ -75,36 +79,31 @@ def test_equaloplists_fail_args():
     loop1 = pure_parse(ops, namespace=namespace)
     loop2 = pure_parse(ops.replace("[i2, i1]", "[i1, i2]"),
                        namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop2.operations,"
-                   "remap=make_remap(loop1.inputargs, loop2.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop2.operations,
+            remap=make_remap(loop1.inputargs, loop2.inputargs))
     assert equaloplists(loop1.operations, loop2.operations,
                         remap=make_remap(loop1.inputargs, loop2.inputargs),
                         strict_fail_args=False)
     loop3 = pure_parse(ops.replace("[i2, i1]", "[i2, i0]"),
                        namespace=namespace)
-    py.test.raises(AssertionError,
-                   "equaloplists(loop1.operations, loop3.operations,"
-                   " remap=make_remap(loop1.inputargs, loop3.inputargs))")
+    with pytest.raises(AssertionError):
+        equaloplists(
+            loop1.operations, loop3.operations,
+            remap=make_remap(loop1.inputargs, loop3.inputargs))
 
 # ____________________________________________________________
 
 class LLtypeMixin(object):
-    def get_class_of_box(self, box):
-        base = box.getref_base()
-        return lltype.cast_opaque_ptr(rclass.OBJECTPTR, base).typeptr
-
     node_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable.name = rclass.alloc_array_name('node')
-    node_vtable_adr = llmemory.cast_ptr_to_adr(node_vtable)
     node_vtable2 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable2.name = rclass.alloc_array_name('node2')
-    node_vtable_adr2 = llmemory.cast_ptr_to_adr(node_vtable2)
     node_vtable3 = lltype.malloc(OBJECT_VTABLE, immortal=True)
     node_vtable3.name = rclass.alloc_array_name('node3')
     node_vtable3.subclassrange_min = 3
     node_vtable3.subclassrange_max = 3
-    node_vtable_adr3 = llmemory.cast_ptr_to_adr(node_vtable3)
     cpu = runner.LLGraphCPU(None)
 
     NODE = lltype.GcForwardReference()
@@ -144,7 +143,8 @@ class LLtypeMixin(object):
     node2addr = lltype.cast_opaque_ptr(llmemory.GCREF, node2)
     myptr = lltype.cast_opaque_ptr(llmemory.GCREF, node)
     mynodeb = lltype.malloc(NODE)
-    myarray = lltype.cast_opaque_ptr(llmemory.GCREF, lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
+    myarray = lltype.cast_opaque_ptr(llmemory.GCREF,
+        lltype.malloc(lltype.GcArray(lltype.Signed), 13, zero=True))
     mynodeb.parent.typeptr = node_vtable
     myptrb = lltype.cast_opaque_ptr(llmemory.GCREF, mynodeb)
     myptr2 = lltype.malloc(NODE2)
@@ -161,9 +161,6 @@ class LLtypeMixin(object):
     mynode4.parent.typeptr = node_vtable3
     myptr4 = lltype.cast_opaque_ptr(llmemory.GCREF, mynode4)   # a NODE3
 
-
-    nullptr = lltype.nullptr(llmemory.GCREF.TO)
-    #nodebox2 = InputArgRef(lltype.cast_opaque_ptr(llmemory.GCREF, node2))
     nodesize = cpu.sizeof(NODE, node_vtable)
     node_tid = nodesize.get_type_id()
     nodesize2 = cpu.sizeof(NODE2, node_vtable2)
@@ -264,7 +261,7 @@ class LLtypeMixin(object):
     inst_step = cpu.fielddescrof(W_ROOT, 'inst_step')
     inst_w_list = cpu.fielddescrof(W_ROOT, 'inst_w_list')
     w_root_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    
+
     tsize = cpu.sizeof(T, None)
     cdescr = cpu.fielddescrof(T, 'c')
     ddescr = cpu.fielddescrof(T, 'd')
@@ -274,7 +271,6 @@ class LLtypeMixin(object):
                         ('parent', OBJECT),
                         ('one', lltype.Ptr(lltype.GcArray(lltype.Ptr(NODE)))))
     u_vtable = lltype.malloc(OBJECT_VTABLE, immortal=True)
-    u_vtable_adr = llmemory.cast_ptr_to_adr(u_vtable)
     SIMPLE = lltype.GcStruct('simple',
         ('parent', OBJECT),
         ('value', lltype.Signed))
@@ -406,7 +402,6 @@ class LLtypeMixin(object):
         pass
     asmdescr = LoopToken() # it can be whatever, it's not a descr though
 
-    from rpython.jit.metainterp.virtualref import VirtualRefInfo
 
     class FakeWarmRunnerDesc:
         pass
@@ -421,7 +416,6 @@ class LLtypeMixin(object):
     clear_vable = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT, ei)
 
     jit_virtual_ref_vtable = vrefinfo.jit_virtual_ref_vtable
-    jvr_vtable_adr = llmemory.cast_ptr_to_adr(jit_virtual_ref_vtable)
     vref_descr = cpu.sizeof(vrefinfo.JIT_VIRTUAL_REF, jit_virtual_ref_vtable)
 
     FUNC = lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed)
@@ -460,12 +454,6 @@ class FakeCallInfoCollection:
                              oopspecindex)
 
     calldescr_udiv = LLtypeMixin.int_udiv_descr
-    #calldescr_umod = LLtypeMixin.int_umod_descr
-
-LLtypeMixin.callinfocollection = FakeCallInfoCollection()
-
-
-# ____________________________________________________________
 
 
 class Fake(object):
@@ -492,6 +480,7 @@ class FakeMetaInterpStaticData(object):
         self.globaldata = Fake()
         self.config = get_combined_translation_config(translating=True)
         self.jitlog = jl.JitLogger()
+        self.callinfocollection = FakeCallInfoCollection()
 
     class logger_noopt:
         @classmethod
@@ -524,24 +513,14 @@ class Info(object):
         self.short_preamble = short_preamble
         self.virtual_state = virtual_state
 
-class Storage(compile.ResumeGuardDescr):
-    "for tests."
-    def __init__(self, metainterp_sd=None, original_greenkey=None):
+
+class BaseTest(LLtypeMixin):
+    @pytest.fixture(autouse=True)
+    def cls_attributes(self):
+        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
+        metainterp_sd.virtualref_info = self.vrefinfo
+        compute_bitstrings(self.cpu.fetch_all_descrs())
         self.metainterp_sd = metainterp_sd
-        self.original_greenkey = original_greenkey
-    def store_final_boxes(self, op, boxes, metainterp_sd):
-        op.setfailargs(boxes)
-    def __eq__(self, other):
-        return True # screw this
-        #return type(self) is type(other)      # xxx obscure
-
-def _sortboxes(boxes):
-    _kind2count = {history.INT: 1, history.REF: 2, history.FLOAT: 3}
-    return sorted(boxes, key=lambda box: _kind2count[box.type])
-
-final_descr = history.BasicFinalDescr()
-
-class BaseTest(object):
 
     def parse(self, s, boxkinds=None, want_fail_descr=True, postprocess=None):
         AbstractValue._repr_memo.counter = 0
@@ -557,7 +536,6 @@ class BaseTest(object):
 
     @staticmethod
     def assert_equal(optimized, expected, text_right=None):
-        from rpython.jit.metainterp.optimizeopt.util import equaloplists
         assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
         for box1, box2 in zip(optimized.inputargs, expected.inputargs):
@@ -566,22 +544,7 @@ class BaseTest(object):
         assert equaloplists(optimized.operations,
                             expected.operations, False, remap, text_right)
 
-    def _do_optimize_loop(self, compile_data):
-        from rpython.jit.metainterp.optimizeopt import optimize_trace
-        metainterp_sd = FakeMetaInterpStaticData(self.cpu)
-        if hasattr(self, 'vrefinfo'):
-            metainterp_sd.virtualref_info = self.vrefinfo
-        if hasattr(self, 'callinfocollection'):
-            metainterp_sd.callinfocollection = self.callinfocollection
-        compute_bitstrings(self.cpu.fetch_all_descrs())
-        #
-        compile_data.enable_opts = self.enable_opts
-        state = optimize_trace(metainterp_sd, None, compile_data)
-        return state
-
     def _convert_call_pure_results(self, d):
-        from rpython.jit.metainterp.optimizeopt.util import args_dict
-
         if d is None:
             return
         call_pure_results = args_dict()
@@ -590,7 +553,6 @@ class BaseTest(object):
         return call_pure_results
 
     def convert_values(self, inpargs, values):
-        from rpython.jit.metainterp.history import IntFrontendOp, RefFrontendOp
         if values:
             r = []
             for arg, v in zip(inpargs, values):
@@ -615,18 +577,17 @@ class BaseTest(object):
         celltoken = JitCellToken()
         runtime_boxes = self.pack_into_boxes(jump_op, jump_values)
         jump_op.setdescr(celltoken)
-        #start_label = ResOperation(rop.LABEL, loop.inputargs,
-        #                           descr=jump_op.getdescr())
-        #end_label = jump_op.copy_and_change(opnum=rop.LABEL)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
-        t = convert_loop_to_trace(loop, FakeMetaInterpStaticData(self.cpu))
-        preamble_data = compile.LoopCompileData(t, runtime_boxes,
-                                                call_pure_results)
-        start_state, preamble_ops = self._do_optimize_loop(preamble_data)
+        t = convert_loop_to_trace(loop, self.metainterp_sd)
+        preamble_data = compile.PreambleCompileData(
+            t, runtime_boxes, call_pure_results, enable_opts=self.enable_opts)
+        start_state, preamble_ops = preamble_data.optimize_trace(
+            self.metainterp_sd, None, {})
         preamble_data.forget_optimization_info()
-        loop_data = compile.UnrolledLoopData(preamble_data.trace,
-            celltoken, start_state, call_pure_results)
-        loop_info, ops = self._do_optimize_loop(loop_data)
+        loop_data = compile.UnrolledLoopData(
+            preamble_data.trace, celltoken, start_state, call_pure_results,
+            enable_opts=self.enable_opts)
+        loop_info, ops = loop_data.optimize_trace(self.metainterp_sd, None, {})
         preamble = TreeLoop('preamble')
         preamble.inputargs = start_state.renamed_inputargs
         start_label = ResOperation(rop.LABEL, start_state.renamed_inputargs)

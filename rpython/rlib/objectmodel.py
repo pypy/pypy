@@ -226,6 +226,13 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
+def llhelper_can_raise(func):
+    """
+    Instruct ll2ctypes that this llhelper can raise RPython exceptions, which
+    should be propagated.
+    """
+    func._llhelper_can_raise_ = True
+    return func
 
 # ____________________________________________________________
 
@@ -700,13 +707,6 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def is_in_callback():
-    """Returns True if we're currently in a callback *or* if there are
-    multiple threads around.
-    """
-    from rpython.rtyper.lltypesystem import rffi
-    return rffi.stackcounter.stacks_counter > 1
-
 
 class UnboxedValue(object):
     """A mixin class to use for classes that have exactly one field which
@@ -991,7 +991,9 @@ def _untranslated_move_to_end(d, key, last):
         items = d.items()
         d.clear()
         d[key] = value
-        d.update(items)
+        # r_dict.update does not support list of tuples, do it manually
+        for key, value in items:
+            d[key] = value
 
 @specialize.call_location()
 def move_to_end(d, key, last=True):

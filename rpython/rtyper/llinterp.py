@@ -819,6 +819,18 @@ class LLFrame(object):
     def op_gc__collect(self, *gen):
         self.heap.collect(*gen)
 
+    def op_gc__collect_step(self):
+        return self.heap.collect_step()
+
+    def op_gc__enable(self):
+        self.heap.enable()
+
+    def op_gc__disable(self):
+        self.heap.disable()
+
+    def op_gc__isenabled(self):
+        return self.heap.isenabled()
+
     def op_gc_heap_stats(self):
         raise NotImplementedError
 
@@ -901,11 +913,11 @@ class LLFrame(object):
     def op_gc_set_max_heap_size(self, maxsize):
         raise NotImplementedError("gc_set_max_heap_size")
 
-    def op_gc_asmgcroot_static(self, index):
-        raise NotImplementedError("gc_asmgcroot_static")
-
     def op_gc_stack_bottom(self):
-        pass       # marker for trackgcroot.py
+        # Marker when we enter RPython code from C code.  It used to be
+        # essential for trackgcroot.py.  Nowaways it is mostly unused,
+        # except by revdb.
+        pass
 
     def op_gc_pin(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
@@ -918,11 +930,6 @@ class LLFrame(object):
     def op_gc__is_pinned(self, obj):
         addr = llmemory.cast_ptr_to_adr(obj)
         return self.heap._is_pinned(addr)
-
-    def op_gc_detach_callback_pieces(self):
-        raise NotImplementedError("gc_detach_callback_pieces")
-    def op_gc_reattach_callback_pieces(self):
-        raise NotImplementedError("gc_reattach_callback_pieces")
 
     def op_gc_get_type_info_group(self):
         raise NotImplementedError("gc_get_type_info_group")
@@ -1213,6 +1220,9 @@ class LLFrame(object):
 
     def op_gc_move_out_of_nursery(self, obj):
         raise NotImplementedError("gc_move_out_of_nursery")
+
+    def op_gc_increase_root_stack_depth(self, new_depth):
+        raise NotImplementedError("gc_increase_root_stack_depth")
 
     def op_revdb_stop_point(self, *args):
         pass

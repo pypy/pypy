@@ -4,6 +4,8 @@ from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.resoperation import opname
+from rpython.rlib.rfile import c_fopen, c_fileno
+from pypy.interpreter import gateway
 
 class AppTestJitLog(object):
     spaceconfig = {'usemodules': ['_jitlog', 'struct']}
@@ -18,14 +20,24 @@ class AppTestJitLog(object):
         space = cls.space
         for key, value in opname.items():
             space.setitem(cls.w_resops, space.wrap(key), space.wrap(value))
+        def open_returnfd(space, w_name, w_mode):
+            name = space.text_w(w_name)
+            mode = space.text_w(w_mode)
+            fid = c_fopen(name, mode)
+            fd = c_fileno(fid)
+            return space.newint(fd)
+        cls.w_open_returnfd = space.wrap(gateway.interp2app(open_returnfd))
 
     def test_enable(self):
         import _jitlog, struct
-        tmpfile = open(self.tmpfilename, 'wb')
-        fileno = tmpfile.fileno()
+        # use c_fopen instead of file.open since the host python and compiled
+        # code may use different runtime libraries (win32 visual2008 vs.
+        # visual2019 for instance. No error checking
+        fileno = self.open_returnfd(self.tmpfilename, 'wb')
+        print 'got fileno', fileno
         _jitlog.enable(fileno)
         _jitlog.disable()
-        # no need to clsoe tmpfile, it is done by jitlog
+        # no need to close tmpfilename, it is done by jitlog
 
         with open(self.tmpfilename, 'rb') as fd:
             assert fd.read(1) == self.mark_header

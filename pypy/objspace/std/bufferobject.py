@@ -62,7 +62,7 @@ class W_Buffer(W_Root):
                                                       self.buf.getlength())
         if step == 0:  # index only
             return space.newbytes(self.buf.getitem(start))
-        res = self.buf.getslice(start, stop, step, size)
+        res = self.buf.getslice(start, step, size)
         return space.newbytes(res)
 
     def descr_setitem(self, space, w_index, w_obj):

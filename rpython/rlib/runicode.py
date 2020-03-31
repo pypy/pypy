@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit, nonconst
 
 
+# We always use MAXUNICODE = 0x10ffff when unicode objects use utf8
 if rffi.sizeof(lltype.UniChar) == 4:
     MAXUNICODE = 0x10ffff
     allow_surrogate_by_default = False
@@ -94,6 +95,7 @@ def is_narrow_host():
 
 def default_unicode_error_decode(errors, encoding, msg, s,
                                  startingpos, endingpos):
+    assert endingpos >= 0
     if errors == 'replace':
         return u'\ufffd', endingpos
     if errors == 'ignore':
@@ -102,6 +104,7 @@ def default_unicode_error_decode(errors, encoding, msg, s,
 
 def default_unicode_error_encode(errors, encoding, msg, u,
                                  startingpos, endingpos):
+    assert endingpos >= 0
     if errors == 'replace':
         return u'?', None, endingpos
     if errors == 'ignore':
@@ -404,8 +407,9 @@ def unicode_encode_utf_8_impl(s, size, errors, errorhandler,
                 _encodeUCS4(result, ch)
     return result.build()
 unicode_encode_utf_8_elidable = jit.elidable(
+    enforceargs(s=unicode, allow_surrogates=bool)(
     func_with_new_name(unicode_encode_utf_8_impl,
-                       "unicode_encode_utf_8_elidable"))
+                       "unicode_encode_utf_8_elidable")))
 
 def unicode_encode_utf8sp(s, size):
     # Surrogate-preserving utf-8 encoding.  Any surrogate character
@@ -1775,8 +1779,6 @@ def str_decode_unicode_internal(s, size, errors, final=False,
                                     "truncated input",
                                     s, pos, size)
             result.append(res)
-            if pos > size - unicode_bytes:
-                break
             continue
         t = r_uint(0)
         h = 0
@@ -1901,7 +1903,9 @@ if sys.platform == 'win32':
                 if MultiByteToWideChar(CP_ACP, flags,
                                        dataptr, size, buf.raw, usize) == 0:
                     _decode_mbcs_error(s, errorhandler)
-                return buf.str(usize), size
+                ret = buf.str(usize)
+                assert ret is not None
+                return ret, size
 
     def unicode_encode_mbcs(s, size, errors, errorhandler=None,
                             force_replace=True):

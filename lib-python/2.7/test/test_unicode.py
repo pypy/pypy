@@ -1652,10 +1652,10 @@ class UnicodeTest(
         # when a string allocation fails with a MemoryError.
         # This used to crash the interpreter,
         # or leak references when the number was smaller.
-        charwidth = 4 if sys.maxunicode >= 0x10000 else 2
+        charwidth = 2   # pypy: the char \u0123 is stored in two utf-8 bytes
         # Note: sys.maxsize is half of the actual max allocation because of
         # the signedness of Py_ssize_t.
-        alloc = lambda: u"a" * (sys.maxsize // charwidth * 2)
+        alloc = lambda: u"\u0123" * (sys.maxsize // charwidth * 2)
         self.assertRaises(MemoryError, alloc)
         self.assertRaises(MemoryError, alloc)
 

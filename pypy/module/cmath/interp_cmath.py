@@ -2,12 +2,11 @@ import math
 from rpython.rlib.objectmodel import specialize
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.interpreter.error import oefmt
-from pypy.module.cmath import names_and_docstrings
+from pypy.module.cmath.moduledef import names_and_docstrings
 from rpython.rlib import rcomplex
 
 pi = math.pi
 e  = math.e
-
 
 @specialize.arg(0)
 def call_c_func(c_func, space, x, y):

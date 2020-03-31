@@ -3,8 +3,9 @@ from rpython.jit.codewriter.assembler import Assembler, AssemblerError
 from rpython.jit.codewriter.flatten import SSARepr, Label, TLabel, Register
 from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.jitcode import MissingLiveness
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import AbstractDescr
+from rpython.jit.metainterp.support import ptr2int
 from rpython.flowspace.model import Constant
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rlib.rarithmetic import r_int, r_uint
@@ -106,7 +107,7 @@ def test_assemble_cast_consts():
     assert assembler.insns == {'int_return/c': 0,
                                'int_return/i': 1,
                                'ref_return/r': 2}
-    f_int = heaptracker.adr2int(llmemory.cast_ptr_to_adr(f))
+    f_int = ptr2int(f)
     assert jitcode.constants_i == [0x1234, f_int]
     s_gcref = lltype.cast_opaque_ptr(llmemory.GCREF, s)
     assert jitcode.constants_r == [s_gcref]

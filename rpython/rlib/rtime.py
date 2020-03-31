@@ -9,7 +9,7 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import register_replacement_for
-from rpython.rlib.rarithmetic import intmask, UINT_MAX
+from rpython.rlib.rarithmetic import intmask, r_int64, UINT_MAX
 from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
@@ -94,6 +94,10 @@ def decode_timeval(t):
     return (float(rffi.getintfield(t, 'c_tv_sec')) +
             float(rffi.getintfield(t, 'c_tv_usec')) * 0.000001)
 
+def decode_timeval_ns(t):
+    return (r_int64(rffi.getintfield(t, 'c_tv_sec')) * 10**9 +
+            r_int64(rffi.getintfield(t, 'c_tv_usec')) * 10**3)
+
 
 def external(name, args, result, compilation_info=eci, **kwds):
     return rffi.llexternal(name, args, result,
@@ -136,7 +140,10 @@ def time():
     void = lltype.nullptr(rffi.VOIDP.TO)
     result = -1.0
     if HAVE_GETTIMEOFDAY:
-        with lltype.scoped_alloc(TIMEVAL) as t:
+        # NB: can't use lltype.scoped_malloc, because that will allocate the
+        # with handler in the GC, but we want to use time.time from gc.collect!
+        t = lltype.malloc(TIMEVAL, flavor='raw')
+        try:
             errcode = -1
             if GETTIMEOFDAY_NO_TZ:
                 errcode = c_gettimeofday(t)
@@ -145,13 +152,18 @@ def time():
 
             if rffi.cast(rffi.LONG, errcode) == 0:
                 result = decode_timeval(t)
+        finally:
+            lltype.free(t, flavor='raw')
         if result != -1:
             return result
     else: # assume using ftime(3)
-        with lltype.scoped_alloc(TIMEB) as t:
+        t = lltype.malloc(TIMEB, flavor='raw')
+        try:
             c_ftime(t)
             result = (float(intmask(t.c_time)) +
                       float(intmask(t.c_millitm)) * 0.001)
+        finally:
+            lltype.free(t, flavor='raw')
         return result
     return float(c_time(void))
 

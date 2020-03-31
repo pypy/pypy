@@ -26,6 +26,8 @@ def longfloat():
 def int():
     return model.SomeInteger()
 
+def int_nonneg():
+    return model.SomeInteger(nonneg=True)
 
 def bool():
     return model.SomeBool()

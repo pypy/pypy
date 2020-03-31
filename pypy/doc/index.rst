@@ -29,6 +29,7 @@ Getting Started
   :maxdepth: 1
 
   introduction
+  architecture
   install
   build
   windows
@@ -59,7 +60,6 @@ Development
   :maxdepth: 2
 
   contributing
-  architecture
   configuration
   project-ideas
   project-documentation
@@ -103,10 +103,10 @@ Meeting PyPy developers
     the `development mailing list`_.
 
 .. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
-.. _here: https://botbot.me/freenode/pypy/
+.. _here: https://quodlibet.duckdns.org/irc/pypy/latest.log.html#irc-end
 .. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
-.. _Development bug/feature tracker: https://bitbucket.org/pypy/pypy/issues
+.. _Development bug/feature tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 
 Indices and tables

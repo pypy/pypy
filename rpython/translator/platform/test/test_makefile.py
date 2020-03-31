@@ -85,7 +85,8 @@ class TestMakefile(object):
         txt = '#include <stdio.h>\n'
         for i in range(ncfiles):
             txt += "int func%03d();\n" % i
-        txt += "\nint main(int argc, char * argv[])\n"
+        txt += "\n__declspec(dllexport) int\n"
+        txt += "pypy_main_startup(int argc, char * argv[])\n"
         txt += "{\n   int i=0;\n"
         for i in range(ncfiles):
             txt += "   i += func%03d();\n" % i
@@ -119,7 +120,7 @@ class TestMakefile(object):
             clean = ('clean', '', 'rm -f $(OBJECTS) $(TARGET) ')
             get_time = time.time
         #write a non-precompiled header makefile
-        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir)
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir, shared=True)
         mk.rule(*clean)
         mk.write()
         t0 = get_time()
@@ -128,7 +129,7 @@ class TestMakefile(object):
         t_normal = t1 - t0
         self.platform.execute_makefile(mk, extra_opts=['clean'])
         # Write a super-duper makefile with precompiled headers
-        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir,
+        mk = self.platform.gen_makefile(cfiles, eci, path=tmpdir, shared=True,
                            headers_to_precompile=cfiles_precompiled_headers,)
         mk.rule(*clean)
         mk.write()

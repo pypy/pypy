@@ -1,8 +1,10 @@
 import sys
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
-from rpython.rlib.objectmodel import we_are_translated, Symbolic
-from rpython.rlib.objectmodel import compute_unique_id, specialize
+from rpython.rtyper.annlowlevel import (
+    cast_gcref_to_instance, cast_instance_to_gcref)
+from rpython.rlib.objectmodel import (
+    we_are_translated, Symbolic, compute_unique_id, specialize, r_dict)
 from rpython.rlib.rarithmetic import r_int64, is_valid_int
 from rpython.rlib.rarithmetic import LONG_BIT, intmask, r_uint
 from rpython.rlib.jit import Counters
@@ -12,7 +14,8 @@ from rpython.conftest import option
 from rpython.jit.metainterp.resoperation import ResOperation, rop,\
     AbstractValue, oparity, AbstractResOp, IntOp, RefOp, FloatOp,\
     opclasses
-from rpython.jit.codewriter import heaptracker, longlong
+from rpython.jit.metainterp.support import ptr2int, int2adr
+from rpython.jit.codewriter import longlong
 import weakref
 from rpython.jit.metainterp import jitexc
 
@@ -97,14 +100,11 @@ class AbstractDescr(AbstractValue):
         return '%r' % (self,)
 
     def hide(self, cpu):
-        descr_ptr = cpu.ts.cast_instance_to_base_ref(self)
-        return cpu.ts.cast_to_ref(descr_ptr)
+        return cast_instance_to_gcref(self)
 
     @staticmethod
     def show(cpu, descr_gcref):
-        from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-        descr_ptr = cpu.ts.cast_to_baseclass(descr_gcref)
-        return cast_base_ptr_to_instance(AbstractDescr, descr_ptr)
+        return cast_gcref_to_instance(AbstractDescr, descr_gcref)
 
     def get_vinfo(self):
         raise NotImplementedError
@@ -182,12 +182,10 @@ class Const(AbstractValue):
         kind = getkind(T)
         if kind == "int":
             if isinstance(T, lltype.Ptr):
-                intval = heaptracker.adr2int(llmemory.cast_ptr_to_adr(x))
+                intval = ptr2int(x)
             else:
                 intval = lltype.cast_primitive(lltype.Signed, x)
             return ConstInt(intval)
-        elif kind == "ref":
-            return cpu.ts.new_ConstRef(x)
         elif kind == "float":
             return ConstFloat(longlong.getfloatstorage(x))
         else:
@@ -231,7 +229,7 @@ class ConstInt(Const):
     getvalue = getint
 
     def getaddr(self):
-        return heaptracker.int2adr(self.value)
+        return int2adr(self.value)
 
     def _get_hash_(self):
         return make_hashable_int(self.value)
@@ -354,7 +352,7 @@ def make_hashable_int(i):
     from rpython.rtyper.lltypesystem.ll2ctypes import NotCtypesAllocatedStructure
     if not we_are_translated() and isinstance(i, llmemory.AddressAsInt):
         # Warning: such a hash changes at the time of translation
-        adr = heaptracker.int2adr(i)
+        adr = int2adr(i)
         try:
             return llmemory.cast_adr_to_int(adr, "emulated")
         except NotCtypesAllocatedStructure:
@@ -388,6 +386,20 @@ def get_const_ptr_for_unicode(s):
         _const_ptr_for_unicode[s] = result
     return result
 _const_ptr_for_unicode = {}
+
+# A dict whose keys are refs (like the .value of ConstPtr).
+# It is an r_dict. Note that NULL is not allowed as a key.
+@specialize.call_location()
+def new_ref_dict():
+    return r_dict(rd_eq, rd_hash, simple_hash_eq=True)
+
+def rd_eq(ref1, ref2):
+    return ref1 == ref2
+
+def rd_hash(ref):
+    assert ref
+    return lltype.identityhash(ref)
+
 
 # ____________________________________________________________
 
@@ -677,7 +689,6 @@ class RefFrontendOp(RefOp, FrontendOp):
 
 
 class History(object):
-    ends_with_jump = False
     trace = None
 
     def __init__(self):
@@ -716,7 +727,7 @@ class History(object):
     @specialize.argtype(2)
     def set_op_value(self, op, value):
         if value is None:
-            return        
+            return
         elif isinstance(value, bool):
             op.setint(int(value))
         elif lltype.typeOf(value) == lltype.Signed:
