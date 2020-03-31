@@ -216,7 +216,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         else:
             # Make sure it worked
             status, stdout, stderr = run_subprocess(str(pypy_c),
-                         ['-c', "print('testing {0}); 'import {0}".format(key)])
+                         ['-c', "print('testing {0}'); import {0}".format(key)])
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
