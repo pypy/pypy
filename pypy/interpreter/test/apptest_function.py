@@ -98,6 +98,23 @@ def test_write_code_builtin_forbidden():
     with raises(TypeError):
         list.append.im_func.func_code = f.func_code
 
+def test_write_attributes_builtin_forbidden():
+    for func in [dir, dict.get.im_func]:
+        with raises(TypeError):
+            func.func_defaults = (1, )
+        with raises(TypeError):
+            del func.func_defaults
+        with raises(TypeError):
+            func.func_doc = ""
+        with raises(TypeError):
+            del func.func_doc
+        with raises(TypeError):
+            func.func_name = ""
+        with raises(TypeError):
+            func.__module__ = ""
+        with raises(TypeError):
+            del func.__module__
+
 def test_set_name():
     def f(): pass
     f.__name__ = 'g'
