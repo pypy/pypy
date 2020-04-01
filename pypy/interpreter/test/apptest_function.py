@@ -193,6 +193,15 @@ def test_write_attributes_builtin_forbidden():
         with raises(TypeError):
             del func.__module__
 
+def test_write_attributes_builtin_forbidden_py3():
+    for func in [dir, dict.get]:
+        with raises(TypeError):
+            func.__qualname__ = "abc"
+        with raises(TypeError):
+            func.__annotations__ = {}
+            del func.__annotations__
+
+
 def test_func_nonascii():
     def 日本():
         pass
