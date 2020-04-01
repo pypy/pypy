@@ -15,6 +15,12 @@ The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, no APIs have changed since the 7.3.0 release
 in December, but read on to find out what is new.
 
+Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
+is being built out. After this release, many more c-extension-based
+packages can be successfully built and uploaded. This is the result of alot of
+hard work and good will on the part of the Conda Forge team.  A big shout out
+to them for taking this on.
+
 We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release updates the pip and
 setuptools installed when executing ``pypy -mensurepip`` to ``pip>=20``. This
@@ -36,12 +42,6 @@ experimentally for win32, try it out and let use know how it works.
 
 Enabling ``cppyy`` requires a more modern C compiler, so win32 is now built
 with MSVC160 (Visual Studio 2019). This is true for PyPy 3.6 as well as for 2.7.
-
-Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
-is only partial. After this release, many more c-extension-based
-packages can be successfully built and uploaded. This is the result of alot of
-hard work and good will on the part of the Conda Forge team.  A big shout out
-to them for taking this on.
 
 We have improved warmup time by up to 20%, performance of ``io.StringIO`` to
 match if not be faster than CPython, and improved JIT code generation for
@@ -173,12 +173,15 @@ Changes shared across versions
   (for debugging)
 - Update ``pip`` and ``setuptools`` in ``ensurepip`` to 20.0.2 and 44.0.0
   respectively
+- Fix potential segfault in the zipimporter
+- Fixes in the JIT backend for PowerPC 
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix more of `issue 3141`_ : use ``Py_TYPE(op)`` instead of ``(ob)->ob_type``
   in our header files
 - Partially resync ``pyport.h`` with CPython and add many missing constants
+- Check for ``ferror`` when reading from a file in ``PyRun_File``
 
 Python 3.6 only
 ---------------
