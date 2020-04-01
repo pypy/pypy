@@ -436,7 +436,7 @@ class Function(W_Root):
         return space.newtext(self.name)
 
     def fset_func_name(self, space, w_name):
-        self._check_code_mutable("func_name")
+        self._check_code_mutable("__name__")
         if space.isinstance_w(w_name, space.w_text):
             self.name = space.text_w(w_name)
         else:
@@ -446,14 +446,19 @@ class Function(W_Root):
     def fget_func_qualname(self, space):
         return space.newtext(self.qualname)
 
+    def set_qualname(self, qualname):
+        self.qualname = qualname
+
     def fset_func_qualname(self, space, w_name):
+        self._check_code_mutable("__qualname__")
         try:
-            self.qualname = space.realutf8_w(w_name)
+            qualname = space.realutf8_w(w_name)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 raise oefmt(space.w_TypeError,
                             "__qualname__ must be set to a string object")
             raise
+        self.set_qualname(qualname)
 
     def fget___module__(self, space):
         if self.w_module is None:
@@ -503,6 +508,7 @@ class Function(W_Root):
         return self.w_ann
 
     def fset_func_annotations(self, space, w_new):
+        self._check_code_mutable("__annotations__")
         if space.is_w(w_new, space.w_None):
             w_new = None
         elif not space.isinstance_w(w_new, space.w_dict):
@@ -510,6 +516,7 @@ class Function(W_Root):
         self.w_ann = w_new
 
     def fdel_func_annotations(self, space):
+        self._check_code_mutable("__annotations__")
         self.w_ann = None
 
 
