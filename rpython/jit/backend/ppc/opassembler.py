@@ -599,6 +599,8 @@ class CallOpAssembler(object):
         assert isinstance(descr, CallDescr)
         cb.argtypes = descr.get_arg_types()
         cb.restype  = descr.get_result_type()
+        cb.ressize  = descr.get_result_size()
+        cb.ressign  = descr.is_result_signed()
 
         if is_call_release_gil:
             saveerrloc = arglocs[1]
@@ -755,6 +757,7 @@ class FieldOpAssembler(object):
         # mc.addi() would not be valid with operand r0.
         assert ofs_loc.is_imm()                # must be an immediate...
         assert _check_imm_arg(ofs_loc.getint())   # ...that fits 16 bits
+        assert index_loc.is_core_reg()
         assert index_loc is not r.SCRATCH2
         # (simplified version of _apply_scale())
         if ofs_loc.value > 0:
