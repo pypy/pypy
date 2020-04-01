@@ -757,6 +757,7 @@ class FieldOpAssembler(object):
         # mc.addi() would not be valid with operand r0.
         assert ofs_loc.is_imm()                # must be an immediate...
         assert _check_imm_arg(ofs_loc.getint())   # ...that fits 16 bits
+        assert index_loc.is_core_reg()
         assert index_loc is not r.SCRATCH2
         # (simplified version of _apply_scale())
         if ofs_loc.value > 0:
