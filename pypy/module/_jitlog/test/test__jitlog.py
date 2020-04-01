@@ -1,11 +1,13 @@
 import sys
 import platform
+import pytest
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.resoperation import opname
-from rpython.rlib.rfile import c_fopen, c_fileno
-from pypy.interpreter import gateway
+
+win32_untranslated ="not config.option.runappdirect and sys.platform == 'win32'"
+win32_reason = "fileno may come from different runtimes depending on current compiler"
 
 class AppTestJitLog(object):
     spaceconfig = {'usemodules': ['_jitlog', 'struct']}
@@ -20,30 +22,15 @@ class AppTestJitLog(object):
         space = cls.space
         for key, value in opname.items():
             space.setitem(cls.w_resops, space.wrap(key), space.wrap(value))
-        if cls.runappdirect:
-            def open_returnfd(space, w_name, w_mode):
-                fid = open(w_name, w_mode)
-                return fid.fileno()
-            cls.w_open_returnfd = open_returnfd
-        else:
-            def open_returnfd(space, w_name, w_mode):
-                name = space.text_w(w_name)
-                mode = space.text_w(w_mode)
-                fid = c_fopen(name, mode)
-                fd = c_fileno(fid)
-                return space.newint(fd)
-            cls.w_open_returnfd = space.wrap(gateway.interp2app(open_returnfd))
 
+    @pytest.mark.skipif(win32_untranslated, reason=win32_reason)
     def test_enable(self):
         import _jitlog, struct
-        # use c_fopen instead of file.open since the host python and compiled
-        # code may use different runtime libraries (win32 visual2008 vs.
-        # visual2019 for instance. No error checking
-        fileno = self.open_returnfd(self.tmpfilename, 'wb')
-        print 'got fileno', fileno
+        tmpfile = open(self.tmpfilename, 'wb')
+        fileno = tmpfile.fileno()
         _jitlog.enable(fileno)
         _jitlog.disable()
-        # no need to close tmpfilename, it is done by jitlog
+        # no need to clsoe tmpfile, it is done by jitlog
 
         with open(self.tmpfilename, 'rb') as fd:
             assert fd.read(1) == self.mark_header
