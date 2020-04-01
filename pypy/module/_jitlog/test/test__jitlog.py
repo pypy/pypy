@@ -40,7 +40,6 @@ class AppTestJitLog(object):
         # code may use different runtime libraries (win32 visual2008 vs.
         # visual2019 for instance. No error checking
         fileno = self.open_returnfd(self.tmpfilename, 'wb')
-        print 'got fileno', fileno
         _jitlog.enable(fileno)
         _jitlog.disable()
         # no need to close tmpfilename, it is done by jitlog
