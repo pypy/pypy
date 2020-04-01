@@ -12,7 +12,7 @@ from pypy.module._multiprocessing.interp_semaphore import (
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
 def test_semlock_release(space):
-    sem_name = '/test7'
+    sem_name = '/test8'
     _handle = create_semaphore(space, sem_name, 1, 1)
     try:
         sem_unlink(sem_name)

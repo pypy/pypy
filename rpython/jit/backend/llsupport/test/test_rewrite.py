@@ -1300,6 +1300,18 @@ class TestFramework(RewriteTests):
                              '%(ity2descr.arraydescr.basesize'
                              '   + itydescr.fielddescr.offset)d,'
                              '%(ity2descr.fielddescr.field_size)d)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, i2, 2, 40, 1)' '->'
+                     'i3 = gc_load_indexed_i(i1, i2, 2, 40, 1)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, 6, 8, 40, 4)' '->'
+                     'i3 = gc_load_i(i1, 88, 4)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, i2, 2, 40, -1)' '->'
+                     'i3 = gc_load_indexed_i(i1, i2, 2, 40, -1)'],
+        [True, (2,), 'i3 = gc_load_indexed_i(i1, 6, 8, 40, -4)' '->'
+                     'i3 = gc_load_i(i1, 88, -4)'],
+        [True, (2,), 'i3 = gc_store_indexed(i1, i2, 999, 2, 40, 1)' '->'
+                     'i3 = gc_store_indexed(i1, i2, 999, 2, 40, 1)'],
+        [True, (2,), 'i3 = gc_store_indexed(i1, 6, 999, 8, 40, 2)' '->'
+                     'i3 = gc_store(i1, 88, 999, 2)'],
     ])
     def test_gc_load_store_transform(self, support_offset, factors, fromto):
         self.cpu.load_constant_offset = support_offset

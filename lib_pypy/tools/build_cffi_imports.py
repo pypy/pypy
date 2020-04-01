@@ -26,7 +26,7 @@ cffi_build_scripts = {
     "_ssl": "_ssl_build.py",
     "sqlite3": "_sqlite3_build.py",
     "audioop": "_audioop_build.py",
-    "tkinter": "_tkinter/tklib_build.py",
+    "_tkinter": "_tkinter/tklib_build.py",
     "curses": "_curses_build.py" if sys.platform != "win32" else None,
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
     "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
