@@ -358,6 +358,11 @@ class Function(W_Root):
         self.defs_w = space.fixedview(w_defs)
         self.w_module = w_module
 
+    def _check_code_mutable(self, attr):
+        if not self.can_change_code:
+            raise oefmt(self.space.w_TypeError,
+                        "Cannot change %s attribute of builtin functions", attr)
+
     def fget_func_defaults(self, space):
         values_w = self.defs_w
         # the `None in values_w` check here is to ensure that interp-level
@@ -377,15 +382,17 @@ class Function(W_Root):
         return space.newint(len(self.defs_w))
 
     def fset_func_defaults(self, space, w_defaults):
+        self._check_code_mutable("__defaults__")
         if space.is_w(w_defaults, space.w_None):
             self.defs_w = []
             return
         if not space.isinstance_w(w_defaults, space.w_tuple):
             raise oefmt(space.w_TypeError,
-                        "func_defaults must be set to a tuple object or None")
+                        "__defaults__ must be set to a tuple object or None")
         self.defs_w = space.fixedview(w_defaults)
 
     def fdel_func_defaults(self, space):
+        self._check_code_mutable("__defaults__")
         self.defs_w = []
 
     def fget_func_kwdefaults(self, space):
@@ -418,12 +425,18 @@ class Function(W_Root):
         return self.w_doc
 
     def fset_func_doc(self, space, w_doc):
+        self._check_code_mutable("__doc__")
         self.w_doc = w_doc
+
+    def fdel_func_doc(self, space):
+        self._check_code_mutable("__doc__")
+        self.w_doc = space.w_None
 
     def fget_func_name(self, space):
         return space.newtext(self.name)
 
     def fset_func_name(self, space, w_name):
+        self._check_code_mutable("func_name")
         if space.isinstance_w(w_name, space.w_text):
             self.name = space.text_w(w_name)
         else:
@@ -442,9 +455,6 @@ class Function(W_Root):
                             "__qualname__ must be set to a string object")
             raise
 
-    def fdel_func_doc(self, space):
-        self.w_doc = space.w_None
-
     def fget___module__(self, space):
         if self.w_module is None:
             if self.w_func_globals is not None and not space.is_w(self.w_func_globals, space.w_None):
@@ -454,13 +464,15 @@ class Function(W_Root):
         return self.w_module
 
     def fset___module__(self, space, w_module):
+        self._check_code_mutable("__module__")
         self.w_module = w_module
 
     def fdel___module__(self, space):
+        self._check_code_mutable("__module__")
         self.w_module = space.w_None
 
     def fget_func_code(self, space):
-        return self.code
+        return self.getcode()
 
     def fset_func_code(self, space, w_code):
         from pypy.interpreter.pycode import PyCode
