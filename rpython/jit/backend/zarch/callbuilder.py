@@ -203,6 +203,8 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
+        # load the thread id and store it on the stack. PPC uses a separate
+        # register, but this machine has only 16 GP registers.
         self.mc.LG(r.SCRATCH, l.addr(0, RFASTGILPTR))
         self.mc.STG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
