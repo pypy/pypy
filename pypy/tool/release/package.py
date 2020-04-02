@@ -142,7 +142,7 @@ def create_package(basedir, options, _fake=False):
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', lib_pypy)]
-        if not options.no_tk:
+        if not options.no__tkinter:
             tkinter_dir = lib_pypy.join('_tkinter')
             win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
 
@@ -169,7 +169,7 @@ def create_package(basedir, options, _fake=False):
             # Has the lib moved, was translation not 'shared', or are
             # there no exported functions in the dll so no import
             # library was created?
-        if not options.no_tk:
+        if not options.no__tkinter:
             try:
                 p = pypy_c.dirpath().join('tcl85.dll')
                 if not p.check():
@@ -350,7 +350,7 @@ def package(*args, **kwds):
     if os.environ.has_key("PYPY_PACKAGE_NOKEEPDEBUG"):
         options.keep_debug = False
     if os.environ.has_key("PYPY_PACKAGE_WITHOUTTK"):
-        options.no_tk = True
+        options.no__tkinter = True
     if os.environ.has_key("PYPY_EMBED_DEPENDENCIES"):
         options.embed_dependencies = True
     elif os.environ.has_key("PYPY_NO_EMBED_DEPENDENCIES"):
