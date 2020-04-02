@@ -1,3 +1,4 @@
+import types
 from pypy.tool.pytest.apptest import AppClassCollector
 from pypy.module._hpy_universal.test._vendored.support import HPyTest
 from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
@@ -11,23 +12,9 @@ from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
 # of the generated AppTest* classes by creating extra_AppTest* classes below
 
 class extra_AppTestBasic:
-
     def test_exception_occurred(self):
         import pytest
         pytest.skip('fixme')
-
-
-# it would be nice to have a generic and/or automatic way to make w_* methods
-# automatically
-from pypy.module._hpy_universal.test._vendored import test_argparse as _t
-class extra_AppTestParseItem:
-    w_make_parse_item = _t.TestParseItem.make_parse_item
-
-class extra_AppTestArgParse:
-    w_make_two_arg_add = _t.TestArgParse.make_two_arg_add
-
-class extra_AppTestArgParseKeywords:
-    w_make_two_arg_add = _t.TestArgParseKeywords.make_two_arg_add
 
 class extra_AppTestCPythonCompatibility:
     USE_CPYEXT = True
@@ -59,18 +46,33 @@ def make_hpy_apptest(collector, name, cls):
 
     """
     appname = 'App' + name
+    #
+    # if there is a global extra_AppTestFoo, copy its dictionary into the
+    # AppTestFoo type which we are going to create
     extra = globals().get('extra_' + appname)
     if extra:
         d = extra.__dict__
     else:
         d = {}
     #
+    # the original HPy test classes might contain helper methods such as
+    # TestParseItem.make_parse_item: to make them available inside AppTests,
+    # we need to prefix them with w_. Here it's a generic way to make
+    # available at applevel all the non-test methods which are found
+    for name, value in cls.__dict__.iteritems():
+        if (not name.startswith('test_') and
+            not name.startswith('__') and
+            isinstance(value, types.FunctionType)):
+            d['w_%s' % name] = value
+    #
+    # cpyext tests need a different base class
     use_cpyext = getattr(extra, 'USE_CPYEXT', False)
     if use_cpyext:
         bases = (HPyCPyextAppTest, cls)
     else:
         bases = (HPyAppTest, cls)
     #
+    # finally, we can create the new AppTest class
     appcls = type(appname, bases, d)
     setattr(collector.obj, appname, appcls)
     return appname
