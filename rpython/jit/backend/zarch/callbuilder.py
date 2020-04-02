@@ -203,6 +203,10 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
+        # load the thread id and store it on the stack. PPC uses a separate
+        # register, but this machine has only 16 GP registers.
+        self.mc.LG(r.SCRATCH, l.addr(0, RFASTGILPTR))
+        self.mc.STG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
@@ -228,7 +232,7 @@ class CallBuilder(AbstractCallBuilder):
         # if so try to compare and swap.
         # r13 == &r10, then store the contets of r.SCRATCH to &r10
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
-        self.mc.BRC(c.LT, l.imm(retry_label - self.mc.currpos())) # retry if failed
+        self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
         # CSG performs a serialization
         # zarch is sequential consistent!
 
