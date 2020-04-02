@@ -3,7 +3,7 @@ import pytest
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module._hpy_universal.llapi import BASE_DIR
-from pypy.module._hpy_universal._vendored.test import support as _support
+from pypy.module._hpy_universal.test._vendored import support as _support
 
 COMPILER_VERBOSE = False
 
