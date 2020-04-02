@@ -1,6 +1,6 @@
 from pypy.tool.pytest.apptest import AppClassCollector
 from pypy.module._hpy_universal.test._vendored.support import HPyTest
-from pypy.module._hpy_universal.test.support import HPyAppTest
+from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
 
 # ================================
 # Customization of applevel tests
@@ -29,6 +29,8 @@ class extra_AppTestArgParse:
 class extra_AppTestArgParseKeywords:
     w_make_two_arg_add = _t.TestArgParseKeywords.make_two_arg_add
 
+class extra_AppTestCPythonCompatibility:
+    USE_CPYEXT = True
 
 # ========================================================================
 # pytest hooks to automatically generate AppTests from HPy vendored tests
@@ -49,16 +51,21 @@ def make_hpy_apptest(collector, name, cls):
 
         from pypy.module._hpy_universal.test._vendored.test_basic import TestBasic
         class AppTestBasic(HPyAppTest, TestBasic):
-            spaceconfig = {'usemodules': ['_hpy_universal']}
+            pass
 
     """
     appname = 'App' + name
-    bases = (HPyAppTest, cls)
-    d = dict(spaceconfig = {'usemodules': ['_hpy_universal']})
-    #
     extra = globals().get('extra_' + appname)
     if extra:
-        d.update(extra.__dict__)
+        d = extra.__dict__
+    else:
+        d = {}
+    #
+    use_cpyext = getattr(extra, 'USE_CPYEXT', False)
+    if use_cpyext:
+        bases = (HPyCPyextAppTest, cls)
+    else:
+        bases = (HPyAppTest, cls)
     #
     appcls = type(appname, bases, d)
     setattr(collector.obj, appname, appcls)

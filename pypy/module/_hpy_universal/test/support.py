@@ -2,12 +2,17 @@ import py
 import pytest
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module._hpy_universal.llapi import BASE_DIR
 from pypy.module._hpy_universal.test._vendored import support as _support
 
 COMPILER_VERBOSE = False
 
 class HPyAppTest(object):
+    """
+    Base class for HPy app tests
+    """
+    spaceconfig = {'usemodules': ['_hpy_universal']}
 
     @pytest.fixture
     def compiler(self):
@@ -57,3 +62,20 @@ class HPyAppTest(object):
         def should_check_refcount(space):
             return space.w_False
         self.w_should_check_refcount = self.space.wrap(interp2app(should_check_refcount))
+
+
+class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
+    """
+    Base class for hpy tests which also need cpyext
+    """
+    # mmap is needed because it is imported by LeakCheckingTest.setup_class
+    spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
+
+    @staticmethod
+    def setup_class(cls):
+        AppTestCpythonExtensionBase.setup_class(cls)
+        HPyAppTest.setup_class(cls)
+
+    def setup_method(self, meth):
+        AppTestCpythonExtensionBase.setup_method(self, meth)
+        HPyAppTest.setup_method(self, meth)
