@@ -13,10 +13,9 @@ def find_library(options):
         ffi.cdef(version_str)
         ffi.set_source("_curses_cffi_check", version_str, libraries=[library])
         try:
+            # Check that the link succeeds
             ffi.compile(verbose=1)
-            import _curses_cffi_check
-            lib = _curses_cffi_check.lib
-        except (VerificationError, ModuleNotFoundError) as e:
+        except (VerificationError) as e:
             e_last = e
             continue
         else:
