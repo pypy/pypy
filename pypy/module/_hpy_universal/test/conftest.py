@@ -17,6 +17,17 @@ class extra_AppTestBasic:
         pytest.skip('fixme')
 
 
+# it would be nice to have a generic and/or automatic way to make w_* methods
+# automatically
+from pypy.module._hpy_universal.test._vendored import test_argparse as _t
+class extra_AppTestParseItem:
+    w_make_parse_item = _t.TestParseItem.make_parse_item
+
+class extra_AppTestArgParse:
+    w_make_two_arg_add = _t.TestArgParse.make_two_arg_add
+
+class extra_AppTestArgParseKeywords:
+    w_make_two_arg_add = _t.TestArgParseKeywords.make_two_arg_add
 
 
 # ========================================================================
