@@ -43,6 +43,10 @@ def pytest_pycollect_makeitem(collector, name, obj):
         appname = make_hpy_apptest(collector, name, obj)
         return AppClassCollector(appname, parent=collector)
 
+def pytest_ignore_collect(path, config):
+    if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
+                                   '_vendored', 'test_support.py'):
+        return True
 
 def make_hpy_apptest(collector, name, cls):
     """
