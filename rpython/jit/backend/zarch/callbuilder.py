@@ -203,10 +203,6 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
-        # load the thread id and store it on the stack. PPC uses a separate
-        # register, but this machine has only 16 GP registers.
-        self.mc.LG(r.SCRATCH, l.addr(0, RFASTGILPTR))
-        self.mc.STG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
@@ -222,7 +218,8 @@ class CallBuilder(AbstractCallBuilder):
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
 
         # SCRATCH will contain the thread id
-        self.mc.LG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        self.mc.load_imm(r.SCRATCH, fastgil)
+        self.mc.LG(r.SCRATCH, l.addr(0, r.SCRATCH))
         # Equivalent of 'r13 = __sync_val_compre_and_swap(&rpy_fastgil, 0, thread_id);'
         retry_label = self.mc.currpos()
         self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
