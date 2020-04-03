@@ -1,12 +1,13 @@
 import py, os, sys
-from .support import setup_make
-
+from pytest import raises
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("datatypesDict.so"))
+test_dct = str(currpath.join("datatypesDict"))+soext
 
 def setup_module(mod):
-    setup_make("datatypesDict.so")
+    setup_make("datatypes")
+
 
 class AppTestDATATYPES:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -17,12 +18,24 @@ class AppTestDATATYPES:
             import ctypes, _cppyy
             _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
-        cls.w_N = cls.space.newint(5)  # should be imported from the dictionary
+        cls.w_N = cls.space.appexec([], """():
+            import _cppyy
+            return _cppyy.gbl.N""")
+        cls.w_has_byte = cls.space.appexec([], """():
+            import _cppyy
+            return 201402 < _cppyy.gbl.gInterpreter.ProcessLine("__cplusplus;")""")
 
     def test01_instance_data_read_access(self):
         """Read access to instance public data and verify values"""
 
+        import sys
         import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pyunicode = str
+        else:
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -36,6 +49,8 @@ class AppTestDATATYPES:
         assert c.m_char  == 'a'
         assert c.m_schar == 'b'
         assert c.m_uchar == 'c'
+        assert type(c.m_wchar) == pyunicode
+        assert c.m_wchar == u'D'
 
         # reading integer types
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
@@ -805,7 +820,7 @@ class AppTestDATATYPES:
 
         import _cppyy as cppyy
 
-        f1 = cppyy.gbl.sum_of_int
+        f1 = cppyy.gbl.sum_of_int1
         f2 = cppyy.gbl.sum_of_double
         f3 = cppyy.gbl.call_double_double
 
