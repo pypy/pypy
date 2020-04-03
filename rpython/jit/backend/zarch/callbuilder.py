@@ -228,7 +228,8 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
         # compare if &rpy_fastgil == 0
         self.mc.CGFI(r.r13, l.imm0)
-        self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos()))
+        branch_forward = self.mc.currpos()
+        self.mc.BRC(c.NE, l.imm(0)) # overwrite later
         # if so try to compare and swap.
         # r13 == &r10, then store the contets of r.SCRATCH to &r10
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
@@ -236,7 +237,11 @@ class CallBuilder(AbstractCallBuilder):
         # CSG performs a serialization
         # zarch is sequential consistent!
 
-        self.mc.CGHI(r.r14, l.imm0)
+        # overwrite the branch
+        pmc = OverwritingBuilder(self.mc, branch_forward, 1)
+        pmc.BRC(c.NE, l.imm(self.mc.currpos() - branch_forward))
+
+        self.mc.CGHI(r.r13, l.imm0)
         b1_location = self.mc.currpos()
         # save some space, this is patched later
         self.mc.reserve_cond_jump()
@@ -257,8 +262,8 @@ class CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r14 is conveniently zero)
-            self.mc.STG(r.r14, l.addr(0, RFASTGILPTR))
+            # (here, r13 is zero)
+            self.mc.STG(r.r13, l.addr(0, RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
