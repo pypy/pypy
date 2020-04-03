@@ -319,9 +319,28 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
         address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
         address[0] = self._unwrap_object(space, w_value)
 
-
 class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
     pass
+
+class WCharConverter(ffitypes.typeid(ffitypes.WCHAR_T), TypeConverter):
+    def convert_argument(self, space, w_obj, address):
+        x = rffi.cast(rffi.CWCHARP, address)
+        x[0] = self._unwrap_object(space, w_obj)
+        ba = rffi.cast(rffi.CWCHARP, address)
+        ba[capi.c_function_arg_typeoffset(space)] = 'b'
+
+    def convert_argument_libffi(self, space, w_obj, address, scratch):
+        x = rffi.cast(self.c_ptrtype, address)
+        x[0] = self._unwrap_object(space, w_obj)
+
+    def from_memory(self, space, w_obj, offset):
+        address = rffi.cast(rffi.CWCHARP, self._get_raw_address(space, w_obj, offset))
+        return self._wrap_object(space, address[0])
+
+    def to_memory(self, space, w_obj, w_value, offset):
+        address = rffi.cast(rffi.CWCHARP, self._get_raw_address(space, w_obj, offset))
+        address[0] = self._unwrap_object(space, w_value)
+
 
 class FloatConverter(ffitypes.typeid(rffi.FLOAT), FloatTypeConverterMixin, TypeConverter):
     _immutable_fields_ = ['default', 'valid_default']
@@ -981,6 +1000,7 @@ def get_converter(space, _name, default):
 _converters["bool"]                     = BoolConverter
 _converters["char"]                     = CharConverter
 _converters["unsigned char"]            = UCharConverter
+_converters["wchar_t"]                  = WCharConverter
 _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
