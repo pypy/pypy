@@ -17,7 +17,7 @@ in December, but read on to find out what is new.
 
 Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
 is being built out. After this release, many more c-extension-based
-packages can be successfully built and uploaded. This is the result of alot of
+packages can be successfully built and uploaded. This is the result of a lot of
 hard work and good will on the part of the Conda Forge team.  A big shout out
 to them for taking this on.
 
