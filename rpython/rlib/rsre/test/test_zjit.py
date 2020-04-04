@@ -174,3 +174,9 @@ class TestJitRSre(support.LLJitMixin):
         text = "a" * 6000
         res = self.meta_interp_match(pattern, text, repeat=10)
         assert res != -1
+
+    def test_getlower_branch_free(self):
+        pattern = "(?i)a[bx]*c"
+        text = "a" + "bBbbB" * 1000 + "c"
+        res = self.meta_interp_match(pattern, text)
+        self.check_enter_count(1)
