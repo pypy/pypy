@@ -645,8 +645,7 @@ class W_SRE_Match(W_Root):
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            lgt = rutf8.codepoints_in_utf8(ctx._utf8)
-            return space.newutf8(ctx._utf8, lgt)
+            return ctx.w_unicode_obj
         else:
             raise SystemError
 
