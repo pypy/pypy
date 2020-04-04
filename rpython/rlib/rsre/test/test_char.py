@@ -56,6 +56,18 @@ def test_getupper():
                                                          == LOWER_PI
 
 
+def test_getupper_getlower_unicode_ascii_shortcut():
+    from rpython.rlib.unicodedata import unicodedb
+    try:
+        rsre_char.set_unicode_db(None)
+        for i in range(128):
+            # works despite not having a unicode db
+            rsre_char.getlower(i, SRE_FLAG_UNICODE)
+            rsre_char.getupper(i, SRE_FLAG_UNICODE)
+    finally:
+        rsre_char.set_unicode_db(unicodedb)
+
+
 def test_is_word():
     assert rsre_char.is_word(ord('A'))
     assert rsre_char.is_word(ord('_'))
