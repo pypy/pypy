@@ -61,9 +61,7 @@ SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
 
 def getlower_ascii(char_ord):
-    if int_between(ord('A'), char_ord, ord('Z') + 1):
-        char_ord += ord('a') - ord('A')
-    return char_ord
+    return char_ord + int_between(ord('A'), char_ord, ord('Z') + 1) * (ord('a') - ord('A'))
 
 def getlower(char_ord, flags):
     if flags & SRE_FLAG_LOCALE:
@@ -80,9 +78,7 @@ def getlower(char_ord, flags):
     return char_ord
 
 def getupper_ascii(char_ord):
-    if int_between(ord('a'), char_ord, ord('z') + 1):   # ASCII upper
-        char_ord += ord('A') - ord('a')
-    return char_ord
+    return char_ord - int_between(ord('a'), char_ord, ord('z') + 1) * (ord('a') - ord('A'))
 
 def getupper(char_ord, flags):
     if flags & SRE_FLAG_LOCALE:
