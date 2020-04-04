@@ -122,15 +122,11 @@ class W_SRE_Pattern(W_Root):
             elif pos >= length:
                 bytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                bytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, pos)
+                bytepos = w_unicode_obj._index_to_byte(pos)
             if endpos >= length:
                 endbytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                endbytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, endpos)
+                endbytepos = w_unicode_obj._index_to_byte(endpos)
             ctx = rsre_utf8.Utf8MatchContext(
                 utf8str, bytepos, endbytepos, self.flags)
             # xxx we store the w_string on the ctx too, for
@@ -564,9 +560,7 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             index_storage = ctx.w_unicode_obj._get_index_storage()
-            return rutf8.codepoint_index_at_byte_position(
-                ctx.w_unicode_obj._utf8, index_storage, bytepos,
-                ctx.w_unicode_obj._len())
+            return ctx.w_unicode_obj._byte_to_index(bytepos)
         else:
             return bytepos
 
