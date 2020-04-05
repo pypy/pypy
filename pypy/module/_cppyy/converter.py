@@ -322,7 +322,7 @@ class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
 class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
     pass
 
-class WCharConverter(ffitypes.typeid(ffitypes.WCHAR_T), TypeConverter):
+class WCharConverter(ffitypes.typeid(lltype.UniChar), TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(rffi.CWCHARP, address)
         x[0] = self._unwrap_object(space, w_obj)

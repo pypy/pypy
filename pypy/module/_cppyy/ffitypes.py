@@ -1,7 +1,7 @@
 from pypy.interpreter.error import oefmt
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib.rbigint import rbigint
 
@@ -133,25 +133,26 @@ class UCharTypeMixin(object):
         state = space.fromcache(State)
         return state.c_char
 
-WCHAR_T = 'wchar_t internal'
 class WCharTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
-    c_type      = rffi.WCHAR_T
+    c_type      = lltype.UniChar
     c_ptrtype   = rffi.CWCHARP
 
     def _wrap_object(self, space, obj):
-        return W_UnicodeObject(obj.encode('utf8'), len(obj))
+        return W_UnicodeObject(obj.encode('utf8'), 1)
 
     def _unwrap_object(self, space, w_value):
-        value = space.unicode_from_object(w_value)
-        if len(value) != 1:
+        value, length = space.utf8_len_w(space.unicode_from_object(w_value))
+        if length != 1:
             raise oefmt(space.w_ValueError,
-                        "wchar_t expected, got string of size %d", len(value))
+                        "wchar_t expected, got string of size %d", length)
 
-        value = rffi.cast(rffi.WCHAR_T, value[0])
-        return value     # turn it into a "wchar_t" to the annotator
+        u = rffi.utf82wcharp(value, length)
+        value = u[0]
+        lltype.free(u, flavor="raw")
+        return value
 
     def cffi_type(self, space):
         state = space.fromcache(State)
@@ -345,7 +346,7 @@ def typeid(c_type):
     if c_type == bool:            return BoolTypeMixin
     if c_type == rffi.CHAR:       return CharTypeMixin
     if c_type == rffi.UCHAR:      return UCharTypeMixin
-    if c_type == WCHAR_T:         return WCharTypeMixin    # rffi.W_CHAR_T is rffi.INT
+    if c_type == lltype.UniChar:  return WCharTypeMixin    # rffi.W_CHAR_T is rffi.INT
     if c_type == rffi.SHORT:      return ShortTypeMixin
     if c_type == rffi.USHORT:     return UShortTypeMixin
     if c_type == rffi.INT:        return IntTypeMixin

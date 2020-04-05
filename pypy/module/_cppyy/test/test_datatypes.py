@@ -151,7 +151,14 @@ class AppTestDATATYPES:
     def test02_instance_data_write_access(self):
         """Test write access to instance public data and verify values"""
 
+        import sys
         import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pyunicode = str
+        else:
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -167,11 +174,13 @@ class AppTestDATATYPES:
         c.m_bool = 0;      assert c.get_bool() == False
         c.set_bool(0);     assert c.m_bool     == False
 
-        raises(ValueError, 'c.set_bool(10)')
+        raises(ValueError, c.set_bool, 10)
 
         # char types through functions
         c.set_char('c');   assert c.get_char()  == 'c'
         c.set_uchar('e');  assert c.get_uchar() == 'e'
+        c.set_wchar(u'F'); assert c.get_wchar() == u'F'
+        assert type(c.get_wchar()) == pyunicode
 
         # char types through data members
         c.m_char = 'b';    assert c.get_char()  ==     'b'
@@ -182,11 +191,14 @@ class AppTestDATATYPES:
         c.m_uchar = 42;    assert c.get_uchar() == chr(42)
         c.set_uchar('e');  assert c.m_uchar     ==     'e'
         c.set_uchar(43);   assert c.m_uchar     == chr(43)
+        c.m_wchar = u'G';  assert c.get_wchar() ==    u'G'
+        c.set_wchar(u'H'); assert c.m_wchar     ==    u'H'
 
-        raises(ValueError, 'c.set_char("string")')
-        raises(ValueError, 'c.set_char(500)')
-        raises(ValueError, 'c.set_uchar("string")')
-        raises(ValueError, 'c.set_uchar(-1)')
+        raises(ValueError, c.set_char,   "string")
+        raises(ValueError, c.set_char,   500)
+        raises(ValueError, c.set_uchar,  "string")
+        raises(ValueError, c.set_uchar,  -1)
+        raises(ValueError, c.set_wchar,  "string")
 
         # integer types
         names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
@@ -284,7 +296,16 @@ class AppTestDATATYPES:
     def test04_class_read_access(self):
         """Test read access to class public data and verify values"""
 
+        import sys
         import _cppyy as cppyy, sys
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+            pyunicode = str
+        else:
+            pylong = long
+            pyunicode = unicode
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -295,6 +316,12 @@ class AppTestDATATYPES:
         assert c.s_char                 == 'c'
         assert c.s_uchar                == 'u'
         assert CppyyTestData.s_uchar    == 'u'
+        assert c.s_wchar                == u'U'
+        assert CppyyTestData.s_wchar    == u'U'
+        assert c.s_wchar                == u'U'
+
+        assert type(c.s_wchar)              == pyunicode
+        assert type(CppyyTestData.s_wchar)  == pyunicode
 
         # integer types
         assert CppyyTestData.s_short    == -101
@@ -305,14 +332,14 @@ class AppTestDATATYPES:
         assert c.s_int                  == -202
         assert c.s_uint                 ==  202
         assert CppyyTestData.s_uint     ==  202
-        assert CppyyTestData.s_long     == -303
-        assert c.s_long                 == -303
-        assert c.s_ulong                ==  303
-        assert CppyyTestData.s_ulong    ==  303
-        assert CppyyTestData.s_llong    == -404
-        assert c.s_llong                == -404
-        assert c.s_ullong               ==  404
-        assert CppyyTestData.s_ullong   ==  404
+        assert CppyyTestData.s_long     == -pylong(303)
+        assert c.s_long                 == -pylong(303)
+        assert c.s_ulong                ==  pylong(303)
+        assert CppyyTestData.s_ulong    ==  pylong(303)
+        assert CppyyTestData.s_llong    == -pylong(404)
+        assert c.s_llong                == -pylong(404)
+        assert c.s_ullong               ==  pylong(404)
+        assert CppyyTestData.s_ullong   ==  pylong(404)
 
         # floating point types
         assert round(CppyyTestData.s_float   + 606., 5) == 0
@@ -327,7 +354,14 @@ class AppTestDATATYPES:
     def test05_class_data_write_access(self):
         """Test write access to class public data and verify values"""
 
-        import _cppyy as cppyy, sys
+        import sys
+        import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+        else:
+            pylong = long
+
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
@@ -344,6 +378,10 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_uchar    == 'd'
         raises(ValueError, setattr, CppyyTestData, 's_uchar', -1)
         raises(ValueError, setattr, c,             's_uchar', -1)
+        CppyyTestData.s_wchar            = u'K'
+        assert c.s_wchar                == u'K'
+        c.s_wchar                        = u'L'
+        assert CppyyTestData.s_wchar    == u'L'
 
         # integer types
         c.s_short                        = -102
@@ -364,14 +402,14 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_uint     == 4321
         raises(ValueError, setattr, c,             's_uint', -1)
         raises(ValueError, setattr, CppyyTestData, 's_uint', -1)
-        CppyyTestData.s_long             = -87
-        assert c.s_long                 == -87
-        c.s_long                         = 876
-        assert CppyyTestData.s_long     == 876
-        CppyyTestData.s_ulong            = 876
-        assert c.s_ulong                == 876
-        c.s_ulong                        = 678
-        assert CppyyTestData.s_ulong    == 678
+        CppyyTestData.s_long             = -pylong(87)
+        assert c.s_long                 == -pylong(87)
+        c.s_long                         = pylong(876)
+        assert CppyyTestData.s_long     == pylong(876)
+        CppyyTestData.s_ulong            = pylong(876)
+        assert c.s_ulong                == pylong(876)
+        c.s_ulong                        = pylong(678)
+        assert CppyyTestData.s_ulong    == pylong(678)
         raises(ValueError, setattr, CppyyTestData, 's_ulong', -1)
         raises(ValueError, setattr, c,             's_ulong', -1)
 
