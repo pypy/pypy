@@ -5,6 +5,7 @@ from pypy.module.pypyjit.test_pypy_c.test_00_model import BaseTestPyPyC
 from rpython.rlib.rawstorage import misaligned_is_fine
 
 IS_X86 = platform.machine().startswith('x86') or platform.machine() == 'i686'
+IS_S390X = platform.machine() == "s390x"
 
 def no_vector_backend():
     if IS_X86:
@@ -21,7 +22,7 @@ def no_vector_backend():
     return True
 
 def align_check(input):
-    if IS_X86:
+    if IS_X86 or IS_S390X:
         return ""
     if sys.maxsize > 2**32:
         mask = 7
