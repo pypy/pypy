@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys, shutil, os, tempfile, hashlib, time
+import sysconfig
 from os.path import join
 
 try:
@@ -55,8 +56,8 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('https://www.openssl.org/source/old/1.1.1/openssl-1.1.1c.tar.gz',
-             'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
+    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1f.tar.gz',
+             '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -142,10 +143,19 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
+    env = os.environ
+    if sys.platform == 'darwin':
+        target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+        if target:
+            # override the value for building support libraries
+            env = os.environ.copy()
+            env['MACOSX_DEPLOYMENT_TARGET'] = target
+            print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
+        
     for args in build_cmds:
         print('running', ' '.join(args), 'in', sources, file=sys.stderr)
         status, stdout, stderr = run_subprocess(args[0], args[1:],
-                                                cwd=sources,)
+                                                cwd=sources, env=env)
         if status != 0:
             break
     return status, stdout, stderr

@@ -203,10 +203,6 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
-        # load the thread id and store it on the stack. PPC uses a separate
-        # register, but this machine has only 16 GP registers.
-        self.mc.LG(r.SCRATCH, l.addr(0, RFASTGILPTR))
-        self.mc.STG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
@@ -222,13 +218,15 @@ class CallBuilder(AbstractCallBuilder):
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
 
         # SCRATCH will contain the thread id
-        self.mc.LG(r.SCRATCH, l.addr(THREADLOCAL_ADDR_OFFSET, r.SP))
+        self.mc.load_imm(r.SCRATCH, fastgil)
+        self.mc.LG(r.SCRATCH, l.addr(0, r.SCRATCH))
         # Equivalent of 'r13 = __sync_val_compre_and_swap(&rpy_fastgil, 0, thread_id);'
         retry_label = self.mc.currpos()
         self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
         # compare if &rpy_fastgil == 0
         self.mc.CGFI(r.r13, l.imm0)
-        self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos()))
+        branch_forward = self.mc.currpos()
+        self.mc.BRC(c.NE, l.imm(0)) # overwrite later
         # if so try to compare and swap.
         # r13 == &r10, then store the contets of r.SCRATCH to &r10
         self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
@@ -236,7 +234,11 @@ class CallBuilder(AbstractCallBuilder):
         # CSG performs a serialization
         # zarch is sequential consistent!
 
-        self.mc.CGHI(r.r14, l.imm0)
+        # overwrite the branch
+        pmc = OverwritingBuilder(self.mc, branch_forward, 1)
+        pmc.BRC(c.NE, l.imm(self.mc.currpos() - branch_forward))
+
+        self.mc.CGHI(r.r13, l.imm0)
         b1_location = self.mc.currpos()
         # save some space, this is patched later
         self.mc.reserve_cond_jump()
@@ -257,8 +259,8 @@ class CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r14 is conveniently zero)
-            self.mc.STG(r.r14, l.addr(0, RFASTGILPTR))
+            # (here, r13 is zero)
+            self.mc.STG(r.r13, l.addr(0, RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
             pmc.BRCL(c.NE, l.imm(self.mc.currpos() - bne_location))
