@@ -1,12 +1,12 @@
 import py, os, sys
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("stltypesDict.so"))
+test_dct = str(currpath.join("stltypesDict"))+soext
 
 def setup_module(mod):
-    setup_make("stltypesDict.so")
+    setup_make("stltypes")
+
 
 class AppTestSTLVECTOR:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

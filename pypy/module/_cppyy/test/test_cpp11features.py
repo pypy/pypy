@@ -1,12 +1,12 @@
 import py, os, sys
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("cpp11featuresDict.so"))
+test_dct = str(currpath.join("cpp11featuresDict"))+soext
 
 def setup_module(mod):
-    setup_make("cpp11featuresDict.so")
+    setup_make("cpp11features")
+
 
 class AppTestCPP11FEATURES:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

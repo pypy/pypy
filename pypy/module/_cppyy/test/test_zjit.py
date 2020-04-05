@@ -1,5 +1,5 @@
 import py, os, sys
-from .support import setup_make
+from .support import setup_make, soext
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
@@ -33,12 +33,11 @@ def get_tlobj(self):
         return self._tlobj
 llinterp.LLInterpreter.get_tlobj = get_tlobj
 
-
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("example01Dict.so"))
+test_dct = str(currpath.join("example01Dict"))+soext
 
 def setup_module(mod):
-    setup_make("example01Dict.so")
+    setup_make("example01")
 
 
 class FakeBase(W_Root):
@@ -59,6 +58,10 @@ class FakeFloat(FakeBase):
         self.val = val
 class FakeString(FakeBase):
     typename = "str"
+    def __init__(self, val):
+        self.val = val
+class FakeUnicode(FakeBase):
+    typename = "unicode"
     def __init__(self, val):
         self.val = val
 class FakeTuple(FakeBase):
@@ -193,6 +196,18 @@ class FakeSpace(object):
     def float_w(self, w_obj, allow_conversion=True):
         assert isinstance(w_obj, FakeFloat)
         return w_obj.val
+
+    def newutf8(self, obj, sz):
+        return FakeUnicode(obj)
+
+    def unicode_from_object(self, w_obj):
+        if isinstance (w_obj, FakeUnicode):
+            return w_obj
+        return FakeUnicode(w_obj.utf8_w(self))
+
+    def utf8_len_w(self, w_obj):
+        assert isinstance(w_obj, FakeUnicode)
+        return w_obj.val, len(w_obj.val)
 
     @specialize.arg(1)
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):

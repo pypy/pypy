@@ -1,13 +1,13 @@
 import py, os, sys
 from pytest import raises
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("pythonizablesDict.so"))
+test_dct = str(currpath.join("pythonizablesDict"))+soext
 
 def setup_module(mod):
-    setup_make("pythonizablesDict.so")
+    setup_make("pythonizables")
+
 
 class AppTestPYTHONIZATION:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

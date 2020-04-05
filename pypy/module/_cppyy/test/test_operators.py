@@ -1,12 +1,12 @@
 import py, os, sys
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("operatorsDict.so"))
+test_dct = str(currpath.join("operatorsDict"))+soext
 
 def setup_module(mod):
-    setup_make("operatorsDict.so")
+    setup_make("operators")
+
 
 class AppTestOPERATORS:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])

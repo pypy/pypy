@@ -1,12 +1,12 @@
 import py, os, sys
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("templatesDict.so"))
+test_dct = str(currpath.join("templatesDict"))+soext
 
 def setup_module(mod):
-    setup_make("templatesDict.so")
+    setup_make("templates")
+
 
 class AppTestTEMPLATES:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
