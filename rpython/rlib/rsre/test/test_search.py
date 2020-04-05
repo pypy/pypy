@@ -1,3 +1,4 @@
+# encoding: utf-8
 import re, py
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
 from rpython.rlib.rsre.test import support
@@ -240,3 +241,14 @@ class TestSearchUtf8(BaseTestSearch):
     search = staticmethod(rsre_utf8.utf8search)
     match = staticmethod(rsre_utf8.utf8match)
     P = staticmethod(lambda n: n)   # NB. only for plain ascii
+
+    def test_groupref_unicode_bug(self):
+        r = get_code(ur"(üü+)\1+$", re.UNICODE)     # match non-prime numbers of ü
+        assert not self.match(r, u"üü".encode("utf-8"))
+        assert not self.match(r, u"üüü".encode("utf-8"))
+        assert     self.match(r, u"üüüü".encode("utf-8"))
+        assert not self.match(r, u"üüüüü".encode("utf-8"))
+        assert     self.match(r, u"üüüüüü".encode("utf-8"))
+        assert not self.match(r, u"üüüüüüü".encode("utf-8"))
+        assert     self.match(r, u"üüüüüüüü".encode("utf-8"))
+        assert     self.match(r, u"üüüüüüüüü".encode("utf-8"))

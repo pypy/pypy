@@ -197,7 +197,8 @@ def create_package(basedir, options, _fake=False):
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*_cffi.c', '*.o', '*.pyd-*'))
+                                           '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
+                                           '*.lib', '*.exp', '*.manifest'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -337,7 +338,7 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=(sys.platform == 'darwin'),
+                        default=(sys.platform in ('darwin', 'aarch64')),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
     parser.add_argument('--make-portable',
