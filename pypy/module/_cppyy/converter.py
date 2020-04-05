@@ -324,9 +324,9 @@ class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
 
 class WCharConverter(ffitypes.typeid(lltype.UniChar), TypeConverter):
     def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.CWCHARP, address)
+        x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
-        ba = rffi.cast(rffi.CWCHARP, address)
+        ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
     def convert_argument_libffi(self, space, w_obj, address, scratch):

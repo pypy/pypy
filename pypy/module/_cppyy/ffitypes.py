@@ -144,14 +144,14 @@ class WCharTypeMixin(object):
         return W_UnicodeObject(obj.encode('utf8'), 1)
 
     def _unwrap_object(self, space, w_value):
-        value, length = space.utf8_len_w(space.unicode_from_object(w_value))
+        utf8, length = space.utf8_len_w(space.unicode_from_object(w_value))
         if length != 1:
             raise oefmt(space.w_ValueError,
                         "wchar_t expected, got string of size %d", length)
 
-        u = rffi.utf82wcharp(value, length)
-        value = u[0]
-        lltype.free(u, flavor="raw")
+        u = rffi.utf82wcharp(utf8, length)
+        value = rffi.cast(lltype.UniChar, u[0])
+        rffi.free_wcharp(u)
         return value
 
     def cffi_type(self, space):

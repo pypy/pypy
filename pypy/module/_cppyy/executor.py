@@ -174,7 +174,7 @@ class WCharExecutor(Executor):
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
         result = rffi.ptradd(buf, cif_descr.exchange_result)
-        u = rffi.cast(lltype.UniChar, rffi.cast(rffi.LONG, result)[0])
+        u = rffi.cast(lltype.UniChar, rffi.cast(rffi.CWCHARP, result)[0])
         return W_UnicodeObject(u.encode('utf8'), 1)
 
 
