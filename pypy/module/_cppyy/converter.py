@@ -300,29 +300,10 @@ class BoolConverter(ffitypes.typeid(bool), TypeConverter):
         else:
             address[0] = '\x00'
 
-class CharConverter(ffitypes.typeid(rffi.CHAR), TypeConverter):
-    def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.CCHARP, address)
-        x[0] = self._unwrap_object(space, w_obj)
-        ba = rffi.cast(rffi.CCHARP, address)
-        ba[capi.c_function_arg_typeoffset(space)] = 'b'
 
-    def convert_argument_libffi(self, space, w_obj, address, scratch):
-        x = rffi.cast(self.c_ptrtype, address)
-        x[0] = self._unwrap_object(space, w_obj)
+class CharTypeConverterMixin(TypeConverter):
+    _mixin_ = True
 
-    def from_memory(self, space, w_obj, offset):
-        address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
-        return space.newbytes(address[0])
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        address = rffi.cast(rffi.CCHARP, self._get_raw_address(space, w_obj, offset))
-        address[0] = self._unwrap_object(space, w_value)
-
-class UCharConverter(ffitypes.typeid(rffi.UCHAR), CharConverter):
-    pass
-
-class WCharConverter(ffitypes.typeid(lltype.UniChar), TypeConverter):
     def convert_argument(self, space, w_obj, address):
         x = rffi.cast(self.c_ptrtype, address)
         x[0] = self._unwrap_object(space, w_obj)
@@ -334,11 +315,11 @@ class WCharConverter(ffitypes.typeid(lltype.UniChar), TypeConverter):
         x[0] = self._unwrap_object(space, w_obj)
 
     def from_memory(self, space, w_obj, offset):
-        address = rffi.cast(rffi.CWCHARP, self._get_raw_address(space, w_obj, offset))
+        address = rffi.cast(self.c_ptrtype, self._get_raw_address(space, w_obj, offset))
         return self._wrap_object(space, address[0])
 
     def to_memory(self, space, w_obj, w_value, offset):
-        address = rffi.cast(rffi.CWCHARP, self._get_raw_address(space, w_obj, offset))
+        address = rffi.cast(self.c_ptrtype, self._get_raw_address(space, w_obj, offset))
         address[0] = self._unwrap_object(space, w_value)
 
 
@@ -998,9 +979,6 @@ def get_converter(space, _name, default):
 
 
 _converters["bool"]                     = BoolConverter
-_converters["char"]                     = CharConverter
-_converters["unsigned char"]            = UCharConverter
-_converters["wchar_t"]                  = WCharConverter
 _converters["float"]                    = FloatConverter
 _converters["const float&"]             = ConstFloatRefConverter
 _converters["double"]                   = DoubleConverter
@@ -1025,6 +1003,25 @@ _converters["#define"]                           = MacroConverter
 # add basic (builtin) converters
 def _build_basic_converters():
     "NOT_RPYTHON"
+    # basic char types
+    type_info = {
+        (rffi.CHAR,       "char"),
+        (rffi.UCHAR,      "unsigned char"),
+        (lltype.UniChar,  "wchar_t"),
+    }
+
+    for c_type, name in type_info:
+        class BasicConverter(ffitypes.typeid(c_type), CharTypeConverterMixin, TypeConverter):
+            _immutable_ = True
+            def __init__(self, space, default):
+                self.valid_default = False
+                try:
+                    self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
+                    self.valid_default = True
+                except Exception:
+                    self.default = rffi.cast(self.c_type, 0)
+        _converters[name] = BasicConverter
+
     # signed types (use strtoll in setting of default in __init__)
     type_info = (
         (rffi.SHORT,      ("short", "short int"),          'h'),
