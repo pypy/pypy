@@ -2,8 +2,10 @@ from _multiprocessing import SemLock
 from threading import Thread
 import _thread
 import time
+import sys
+import pytest
 
-
+@pytest.mark.skipif(sys.platform=='win32', reason='segfaults on win32')
 def test_notify_all():
     """A low-level variation on test_notify_all() in lib-python's
     _test_multiprocessing.py
