@@ -2,8 +2,10 @@ import sys
 
 from pypy.interpreter.error import oefmt
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
+
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import jit_libffi
+
 from pypy.module._rawffi.interp_rawffi import letter2tp
 from pypy.module._cppyy import helper, capi, ffitypes, lowlevelviews
 
@@ -168,13 +170,25 @@ class CStringExecutor(Executor):
 
 class WCharExecutor(Executor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = rffi.cast(lltype.UniChar, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
+        result = rffi.cast(lltype.UniChar, rffi.cast(rffi.WCHAR_T, capi.c_call_l(space, cppmethod, cppthis, num_args, args)))
         return W_UnicodeObject(result.encode('utf8'), 1)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
         result = rffi.ptradd(buf, cif_descr.exchange_result)
         u = rffi.cast(lltype.UniChar, rffi.cast(rffi.CWCHARP, result)[0])
+        return W_UnicodeObject(u.encode('utf8'), 1)
+
+class Char16Executor(ffitypes.typeid(ffitypes.CHAR16_T), Executor):
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        result = rffi.cast(self.c_type, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
+        u = rffi.cast(lltype.UniChar, result)
+        return W_UnicodeObject(u.encode('utf8'), 1)
+
+    def execute_libffi(self, space, cif_descr, funcaddr, buf):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
+        result = rffi.ptradd(buf, cif_descr.exchange_result)
+        u = rffi.cast(lltype.UniChar, rffi.cast(self.c_ptrtype, result)[0])
         return W_UnicodeObject(u.encode('utf8'), 1)
 
 
@@ -389,6 +403,7 @@ _executors["void"]                = VoidExecutor
 _executors["void*"]               = PtrTypeExecutor
 _executors["const char*"]         = CStringExecutor
 _executors["wchar_t"]             = WCharExecutor
+_executors["char16_t"]            = Char16Executor
 
 # long double not really supported: narrows to double
 _executors["long double"]          = LongDoubleExecutor

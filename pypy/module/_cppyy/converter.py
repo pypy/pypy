@@ -301,7 +301,7 @@ class BoolConverter(ffitypes.typeid(bool), TypeConverter):
             address[0] = '\x00'
 
 
-class CharTypeConverterMixin(TypeConverter):
+class CharTypeConverterMixin(object):
     _mixin_ = True
 
     def convert_argument(self, space, w_obj, address):
@@ -1005,9 +1005,10 @@ def _build_basic_converters():
     "NOT_RPYTHON"
     # basic char types
     type_info = {
-        (rffi.CHAR,       "char"),
-        (rffi.UCHAR,      "unsigned char"),
-        (lltype.UniChar,  "wchar_t"),
+        (rffi.CHAR,               "char"),
+        (rffi.UCHAR,              "unsigned char"),
+        (lltype.UniChar,          "wchar_t"),
+        (ffitypes.CHAR16_T,       "char16_t")
     }
 
     for c_type, name in type_info:
