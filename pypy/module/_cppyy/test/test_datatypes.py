@@ -53,6 +53,8 @@ class AppTestDATATYPES:
         assert c.m_wchar == u'D'
         assert type(c.m_char16) == pyunicode
         assert c.m_char16 == u'\u00df'
+        assert type(c.m_char32) == pyunicode
+        assert c.m_char32 == u'\u00df'
 
         # reading integer types
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
@@ -184,6 +186,7 @@ class AppTestDATATYPES:
         c.set_wchar(u'F'); assert c.get_wchar() == u'F'
         assert type(c.get_wchar()) == pyunicode
         c.set_char16(u'\u00f2');     assert c.get_char16() == u'\u00f2'
+        c.set_char32(u'\U0001f31c'); assert c.get_char32() == u'\U0001f31c'
 
         # char types through data members
         c.m_char = 'b';    assert c.get_char()  ==     'b'
@@ -198,6 +201,8 @@ class AppTestDATATYPES:
         c.set_wchar(u'H'); assert c.m_wchar     ==    u'H'
         c.m_char16 = u'\u00f3';  assert c.get_char16() == u'\u00f3'
         c.set_char16(u'\u00f4'); assert c.m_char16     == u'\u00f4'
+        c.m_char32 = u'\U0001f31d';  assert c.get_char32() == u'\U0001f31d'
+        c.set_char32(u'\U0001f31e'); assert c.m_char32     == u'\U0001f31e'
 
         raises(ValueError, c.set_char,   "string")
         raises(ValueError, c.set_char,   500)
@@ -205,6 +210,7 @@ class AppTestDATATYPES:
         raises(ValueError, c.set_uchar,  -1)
         raises(ValueError, c.set_wchar,  "string")
         raises(ValueError, c.set_char16, "string")
+        raises(ValueError, c.set_char32, "string")
 
         # integer types
         names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
@@ -326,11 +332,15 @@ class AppTestDATATYPES:
         assert c.s_wchar                == u'U'
         assert CppyyTestData.s_char16   == u'\u6c29'
         assert c.s_char16               == u'\u6c29'
+        assert CppyyTestData.s_char32   == u'\U0001f34b'
+        assert c.s_char32               == u'\U0001f34b'
 
         assert type(c.s_wchar)              == pyunicode
         assert type(CppyyTestData.s_wchar)  == pyunicode
         assert type(c.s_char16)             == pyunicode
         assert type(CppyyTestData.s_char16) == pyunicode
+        assert type(c.s_char32)             == pyunicode
+        assert type(CppyyTestData.s_char32) == pyunicode
 
         # integer types
         assert CppyyTestData.s_short    == -101
@@ -395,6 +405,10 @@ class AppTestDATATYPES:
         assert c.s_char16               == u'\u00df'
         c.s_char16                       = u'\u00ef'
         assert CppyyTestData.s_char16   == u'\u00ef'
+        CppyyTestData.s_char32           = u'\u00df'
+        assert c.s_char32               == u'\u00df'
+        c.s_char32                       = u'\u00ef'
+        assert CppyyTestData.s_char32   == u'\u00ef'
 
         # integer types
         c.s_short                        = -102

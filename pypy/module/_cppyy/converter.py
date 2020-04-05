@@ -1008,7 +1008,8 @@ def _build_basic_converters():
         (rffi.CHAR,               "char"),
         (rffi.UCHAR,              "unsigned char"),
         (lltype.UniChar,          "wchar_t"),
-        (ffitypes.CHAR16_T,       "char16_t")
+        (ffitypes.CHAR16_T,       "char16_t"),
+        (ffitypes.CHAR32_T,       "char32_t"),
     }
 
     for c_type, name in type_info:

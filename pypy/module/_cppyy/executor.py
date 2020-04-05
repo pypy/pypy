@@ -170,8 +170,9 @@ class CStringExecutor(Executor):
 
 class WCharExecutor(Executor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = rffi.cast(lltype.UniChar, rffi.cast(rffi.WCHAR_T, capi.c_call_l(space, cppmethod, cppthis, num_args, args)))
-        return W_UnicodeObject(result.encode('utf8'), 1)
+        result = rffi.cast(rffi.WCHAR_T, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
+        u = rffi.cast(lltype.UniChar, result)
+        return W_UnicodeObject(u.encode('utf8'), 1)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
@@ -179,7 +180,8 @@ class WCharExecutor(Executor):
         u = rffi.cast(lltype.UniChar, rffi.cast(rffi.CWCHARP, result)[0])
         return W_UnicodeObject(u.encode('utf8'), 1)
 
-class Char16Executor(ffitypes.typeid(ffitypes.CHAR16_T), Executor):
+class CharNExecutor(object):
+    _mixin_ = True
     def execute(self, space, cppmethod, cppthis, num_args, args):
         result = rffi.cast(self.c_type, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
         u = rffi.cast(lltype.UniChar, result)
@@ -190,6 +192,12 @@ class Char16Executor(ffitypes.typeid(ffitypes.CHAR16_T), Executor):
         result = rffi.ptradd(buf, cif_descr.exchange_result)
         u = rffi.cast(lltype.UniChar, rffi.cast(self.c_ptrtype, result)[0])
         return W_UnicodeObject(u.encode('utf8'), 1)
+
+class Char16Executor(ffitypes.typeid(ffitypes.CHAR16_T), CharNExecutor, Executor):
+    pass
+
+class Char32Executor(ffitypes.typeid(ffitypes.CHAR32_T), CharNExecutor, Executor):
+    pass
 
 
 class ConstructorExecutor(Executor):
@@ -404,6 +412,7 @@ _executors["void*"]               = PtrTypeExecutor
 _executors["const char*"]         = CStringExecutor
 _executors["wchar_t"]             = WCharExecutor
 _executors["char16_t"]            = Char16Executor
+_executors["char32_t"]            = Char32Executor
 
 # long double not really supported: narrows to double
 _executors["long double"]          = LongDoubleExecutor

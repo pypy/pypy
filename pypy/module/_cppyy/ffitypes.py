@@ -1,5 +1,5 @@
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.unicodehelper import utf8_encode_utf_16
+from pypy.interpreter.unicodehelper import utf8_encode_utf_16, utf8_encode_utf_32
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -47,6 +47,7 @@ class State(object):
         self.c_uintptr_t = nt.new_primitive_type(space, 'uintptr_t')
         self.c_wchar_t   = nt.new_primitive_type(space, 'wchar_t')
         self.c_char16_t  = nt.new_primitive_type(space, 'char16_t')
+        self.c_char32_t  = nt.new_primitive_type(space, 'char32_t')
 
 
 class BoolTypeMixin(object):
@@ -196,6 +197,35 @@ class Char16TypeMixin(object):
     def cffi_type(self, space):
         state = space.fromcache(State)
         return state.c_char16_t
+
+CHAR32_T = 'char32_t'
+class Char32TypeMixin(object):
+    _mixin_     = True
+    _immutable_fields_ = ['c_type', 'c_ptrtype']
+
+    c_type, c_ptrtype = select_sized_int(4)
+
+    def _wrap_object(self, space, obj):
+        result = rffi.cast(self.c_type, obj)
+        u = rffi.cast(lltype.UniChar, result)
+        return W_UnicodeObject(u.encode('utf8'), 1)
+
+    def _unwrap_object(self, space, w_value):
+        utf8, length = space.utf8_len_w(space.unicode_from_object(w_value))
+        if length != 1:
+            raise oefmt(space.w_ValueError,
+                        "char32_t expected, got string of size %d", length)
+
+        utf32 = utf8_encode_utf_32(utf8, 'strict')
+        rawstr = rffi.str2charp(utf32)
+        value = rffi.cast(self.c_ptrtype, lltype.direct_ptradd(rawstr, 4))[0]   # adjust BOM
+        lltype.free(rawstr, flavor='raw')
+        return value
+
+    def cffi_type(self, space):
+        state = space.fromcache(State)
+        return state.c_char32_t
+
 
 class BaseIntTypeMixin(object):
     _mixin_     = True
@@ -387,6 +417,7 @@ def typeid(c_type):
     if c_type == rffi.UCHAR:      return UCharTypeMixin
     if c_type == lltype.UniChar:  return WCharTypeMixin    # rffi.W_CHAR_T is rffi.INT
     if c_type == CHAR16_T:        return Char16TypeMixin   # no type in rffi
+    if c_type == CHAR32_T:        return Char32TypeMixin   # no type in rffi
     if c_type == rffi.SHORT:      return ShortTypeMixin
     if c_type == rffi.USHORT:     return UShortTypeMixin
     if c_type == rffi.INT:        return IntTypeMixin
