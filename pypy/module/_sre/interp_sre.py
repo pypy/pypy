@@ -577,7 +577,6 @@ class W_SRE_Match(W_Root):
         # handling.
         ctx = self.ctx
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            index_storage = ctx.w_unicode_obj._get_index_storage()
             return ctx.w_unicode_obj._byte_to_index(bytepos)
         else:
             return bytepos
