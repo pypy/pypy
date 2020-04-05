@@ -25,7 +25,7 @@ class Utf8MatchContext(AbstractMatchContext):
         return rsre_char.getlower(c, self.flags)
 
     def get_single_byte(self, base_position, index):
-        return self.str(base_position + index)
+        return self._utf8[base_position + index]
 
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)

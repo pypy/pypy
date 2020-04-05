@@ -1,6 +1,6 @@
-===================================================
-WIP: PyPy v7.3.1: release of 2.7, 3.6, and 3.7alpha
-===================================================
+===================================
+PyPy v7.3.1: release of 2.7 and 3.6
+===================================
 
 The PyPy team is proud to release the version 7.3.1 of PyPy, which includes
 two different interpreters:
@@ -17,7 +17,7 @@ in December, but read on to find out what is new.
 
 Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
 is being built out. After this release, many more c-extension-based
-packages can be successfully built and uploaded. This is the result of alot of
+packages can be successfully built and uploaded. This is the result of a lot of
 hard work and good will on the part of the Conda Forge team.  A big shout out
 to them for taking this on.
 
