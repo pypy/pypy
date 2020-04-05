@@ -7,7 +7,7 @@ def setup_module(mod):
 
 
 def check_charset(pattern, idx, char):
-    p = rsre_core.CompiledPattern(pattern)
+    p = rsre_core.CompiledPattern(pattern, 0)
     return rsre_char.check_charset(Ctx(p), p, idx, char)
 
 

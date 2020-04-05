@@ -136,10 +136,10 @@ class W_SRE_Pattern(W_Root):
                 endbytepos = w_unicode_obj._index_to_byte(endpos)
             if w_unicode_obj.is_ascii():
                 ctx = UnicodeAsciiMatchContext(
-                        utf8str, bytepos, endbytepos, self.flags)
+                        utf8str, bytepos, endbytepos)
             else:
                 ctx = rsre_utf8.Utf8MatchContext(
-                    utf8str, bytepos, endbytepos, self.flags)
+                    utf8str, bytepos, endbytepos)
                 # we store the w_string on the ctx too, for
                 # W_SRE_Match.bytepos_to_charindex()
                 ctx.w_unicode_obj = w_unicode_obj
@@ -160,22 +160,22 @@ class W_SRE_Pattern(W_Root):
             if endpos > size:
                 endpos = size
             return rsre_core.BufMatchContext(buf,
-                                             pos, endpos, self.flags)
+                                             pos, endpos)
 
     def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             result = rsre_utf8.Utf8MatchContext(
-                ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
+                ctx._utf8, ctx.match_start, ctx.end)
             result.w_unicode_obj = ctx.w_unicode_obj
         elif isinstance(ctx, UnicodeAsciiMatchContext):
             result = UnicodeAsciiMatchContext(
-                ctx._string, ctx.match_start, ctx.end, ctx.flags)
+                ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.StrMatchContext):
             result = self._make_str_match_context(
                 ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.BufMatchContext):
             result = rsre_core.BufMatchContext(
-                ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
+                ctx._buffer, ctx.match_start, ctx.end)
         else:
             raise AssertionError("bad ctx type")
         result.match_end = ctx.match_end
@@ -184,7 +184,7 @@ class W_SRE_Pattern(W_Root):
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
         return rsre_core.StrMatchContext(str,
-                                         pos, endpos, self.flags)
+                                         pos, endpos)
 
     def getmatch(self, ctx, found):
         if found:
@@ -454,7 +454,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # so that we don't need to do it here.  Creating new SRE_Pattern
     # objects all the time would be bad for the JIT, which relies on the
     # identity of the CompiledPattern() object.
-    srepat.code = rsre_core.CompiledPattern(code)
+    srepat.code = rsre_core.CompiledPattern(code, flags)
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup

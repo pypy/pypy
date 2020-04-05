@@ -222,7 +222,7 @@ def set_range_ignore(ctx, pattern, index, char_code):
     lower = pattern.pattern[index + 1]
     upper = pattern.pattern[index + 2]
     match1 = int_between(lower, char_code, upper + 1)
-    match2 = int_between(lower, getupper(char_code, ctx.flags), upper + 1)
+    match2 = int_between(lower, getupper(char_code, pattern.flags), upper + 1)
     return match1 | match2, index + 3
 
 def set_bigcharset(ctx, pattern, index, char_code):

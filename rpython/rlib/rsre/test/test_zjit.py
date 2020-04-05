@@ -6,7 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
 def entrypoint1(r, string, repeat):
-    r = rsre_core.CompiledPattern(array2list(r))
+    r = rsre_core.CompiledPattern(array2list(r), 0)
     string = hlstr(string)
     match = None
     for i in range(repeat):
@@ -19,7 +19,7 @@ def entrypoint1(r, string, repeat):
         return match.match_end
 
 def entrypoint2(r, string, repeat):
-    r = rsre_core.CompiledPattern(array2list(r))
+    r = rsre_core.CompiledPattern(array2list(r), 0)
     string = hlstr(string)
     match = None
     for i in range(repeat):

@@ -7,7 +7,7 @@ from rpython.rlib.buffer import StringBuffer
 def _test_sre_ctx_buf_(self, str, start, end):
     # Test BufMatchContext.
     buf = StringBuffer(str)
-    return rsre_core.BufMatchContext(buf, start, end, self.flags)
+    return rsre_core.BufMatchContext(buf, start, end)
 
 def setup_module(mod):
     mod._org_maker = (

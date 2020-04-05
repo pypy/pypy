@@ -91,10 +91,11 @@ class EndOfString(Exception):
     pass
 
 class CompiledPattern(object):
-    _immutable_fields_ = ['pattern[*]']
+    _immutable_fields_ = ['pattern[*]', 'flags']
 
-    def __init__(self, pattern):
+    def __init__(self, pattern, flags):
         self.pattern = pattern
+        self.flags = flags
         # check we don't get the old value of MAXREPEAT
         # during the untranslated tests. 
         # On python3, MAXCODE can appear in patterns. It will be 65535
@@ -115,21 +116,20 @@ class CompiledPattern(object):
 
 class AbstractMatchContext(object):
     """Abstract base class"""
-    _immutable_fields_ = ['flags', 'end']
+    _immutable_fields_ = ['end']
     match_start = 0
     match_end = 0
     match_marks = None
     match_marks_flat = None
     fullmatch_only = False
 
-    def __init__(self, match_start, end, flags):
+    def __init__(self, match_start, end):
         # 'match_start' and 'end' must be known to be non-negative
         # and they must not be more than len(string).
         check_nonneg(match_start)
         check_nonneg(end)
         self.match_start = match_start
         self.end = end
-        self.flags = flags
 
     def reset(self, start):
         self.match_start = start
@@ -146,7 +146,7 @@ class AbstractMatchContext(object):
         raise NotImplementedError
 
     @not_rpython
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         """Similar to str()."""
         raise NotImplementedError
 
@@ -268,21 +268,21 @@ class BufMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_buffer"]
 
-    def __init__(self, buf, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, buf, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._buffer = buf
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._buffer.getitem(index))
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return BufMatchContext(self._buffer, start,
-                               self.end, self.flags)
+                               self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -293,23 +293,21 @@ class StrMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_string"]
 
-    def __init__(self, string, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, string, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._string = string
-        if not we_are_translated() and isinstance(string, unicode):
-            self.flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._string[index])
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return StrMatchContext(self._string, start,
-                               self.end, self.flags)
+                               self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -323,21 +321,21 @@ class UnicodeMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_unicodestr"]
 
-    def __init__(self, unicodestr, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, unicodestr, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._unicodestr = unicodestr
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._unicodestr[index])
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return UnicodeMatchContext(self._unicodestr, start,
-                                   self.end, self.flags)
+                                   self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -741,7 +739,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
             if length_bytes < 0:
                 return     # group was not previously defined
-            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes)
+            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes, pattern.flags)
             if ptr < ctx.ZERO:
                 return     # no match
             ppos += 1
@@ -768,7 +766,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # match set member (or non_member), ignoring case
             # <IN> <skip> <set>
             if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
-                                                             ctx.lowstr(ptr)):
+                                                             ctx.lowstr(ptr, pattern.flags)):
                 return
             ppos += pattern.pat(ppos)
             ptr = ctx.next(ptr)
@@ -794,7 +792,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
             # <LITERAL_IGNORE> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr) != pattern.pat(ppos):
+            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -817,7 +815,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == OPCODE_NOT_LITERAL_IGNORE:
             # match if it's not a literal string, ignoring case
             # <NOT_LITERAL> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr) == pattern.pat(ppos):
+            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -925,12 +923,12 @@ def match_repeated(ctx, ptr, oldptr, length_bytes):
     return True
 
 @specializectx
-def match_repeated_ignore(ctx, ptr, oldptr, length_bytes):
+def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, flags):
     oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
     while oldptr < oldend:
         if ptr >= ctx.end:
             return -1
-        if ctx.lowstr(ptr) != ctx.lowstr(oldptr):
+        if ctx.lowstr(ptr, flags) != ctx.lowstr(oldptr, flags):
             return -1
         ptr = ctx.next(ptr)
         oldptr = ctx.next(oldptr)
@@ -997,19 +995,19 @@ def match_IN(ctx, pattern, ptr, ppos):
     return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.str(ptr))
 @specializectx
 def match_IN_IGNORE(ctx, pattern, ptr, ppos):
-    return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr))
+    return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr, pattern.flags))
 @specializectx
 def match_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) == pattern.pat(ppos+1)
 @specializectx
 def match_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr) == pattern.pat(ppos+1)
+    return ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) != pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr) != pattern.pat(ppos+1)
+    return ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos+1)
 
 def _make_fre(checkerfn):
     if checkerfn == match_ANY_ALL:
@@ -1170,23 +1168,23 @@ def _adjust(start, end, length):
     elif end > length: end = length
     return start, end
 
-def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
+def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(string, start, end, flags)
+    ctx = StrMatchContext(string, start, end)
     ctx.fullmatch_only = fullmatch
     if match_context(ctx, pattern):
         return ctx
     else:
         return None
 
-def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
-    return match(pattern, string, start, end, flags, fullmatch=True)
+def fullmatch(pattern, string, start=0, end=sys.maxint):
+    return match(pattern, string, start, end, fullmatch=True)
 
-def search(pattern, string, start=0, end=sys.maxint, flags=0):
+def search(pattern, string, start=0, end=sys.maxint):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(string, start, end, flags)
+    ctx = StrMatchContext(string, start, end)
     if search_context(ctx, pattern):
         return ctx
     else:
