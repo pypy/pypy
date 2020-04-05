@@ -1,5 +1,6 @@
 from __future__ import print_function
 import sys, shutil, os, tempfile, hashlib
+import sysconfig
 from os.path import join
 
 try:
@@ -138,10 +139,19 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
+    env = os.environ
+    if sys.platform == 'darwin':
+        target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+        if target:
+            # override the value for building support libraries
+            env = os.environ.copy()
+            env['MACOSX_DEPLOYMENT_TARGET'] = target
+            print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
+        
     for args in build_cmds:
         print('running', ' '.join(args), 'in', sources, file=sys.stderr)
         status, stdout, stderr = run_subprocess(args[0], args[1:],
-                                                cwd=sources,)
+                                                cwd=sources, env=env)
         if status != 0:
             break
     return status, stdout, stderr
