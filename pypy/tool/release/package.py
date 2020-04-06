@@ -31,7 +31,7 @@ def get_arch():
     if sys.platform in ('win32', 'darwin'):
         return sys.platform
     else:
-        return platform.uname().machine
+        return platform.uname()[-1]
 
 ARCH = get_arch()
 
