@@ -22,6 +22,7 @@ class CallBuilder(AbstractCallBuilder):
     RSHADOWOLD  = r.r8
     RSHADOWPTR  = r.r9
     RFASTGILPTR = r.r10
+    RTHREADID = r.r11
 
     def __init__(self, assembler, fnloc, arglocs, resloc, calldescr):
         type = INT
@@ -189,6 +190,7 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWOLD = self.RSHADOWOLD
         RSHADOWPTR = self.RSHADOWPTR
         RFASTGILPTR = self.RFASTGILPTR
+        RTHREADID = self.RTHREADID
         #
         pos = STD_FRAME_SIZE_IN_BYTES - CALL_RELEASE_GIL_STACK_OFF
         self.mc.STMG(r.r8, r.r13, l.addr(pos, r.SP))
@@ -203,6 +205,7 @@ class CallBuilder(AbstractCallBuilder):
         #
         # change 'rpy_fastgil' to 0 (it should be non-zero right now)
         self.mc.load_imm(RFASTGILPTR, fastgil)
+        self.mc.LG(RTHREADID, l.addr(0, RFASTGILPTR))
         self.mc.XGR(r.SCRATCH, r.SCRATCH)
         # zarch is sequentially consistent
         self.mc.STG(r.SCRATCH, l.addr(0, RFASTGILPTR))
@@ -216,10 +219,8 @@ class CallBuilder(AbstractCallBuilder):
         RSHADOWOLD  = self.RSHADOWOLD     # r8: previous val of root_stack_top
         RSHADOWPTR  = self.RSHADOWPTR     # r9: &root_stack_top
         RFASTGILPTR = self.RFASTGILPTR    # r10: &fastgil
+        RTHREADID = self.RTHREADID        # r11: holding my thread id
 
-        # SCRATCH will contain the thread id
-        self.mc.load_imm(r.SCRATCH, fastgil)
-        self.mc.LG(r.SCRATCH, l.addr(0, r.SCRATCH))
         # Equivalent of 'r13 = __sync_val_compre_and_swap(&rpy_fastgil, 0, thread_id);'
         retry_label = self.mc.currpos()
         self.mc.LG(r.r13, l.addr(0, RFASTGILPTR))
@@ -229,7 +230,7 @@ class CallBuilder(AbstractCallBuilder):
         self.mc.BRC(c.NE, l.imm(0)) # overwrite later
         # if so try to compare and swap.
         # r13 == &r10, then store the contets of r.SCRATCH to &r10
-        self.mc.CSG(r.r13, r.SCRATCH, l.addr(0, RFASTGILPTR))  # try to claim lock
+        self.mc.CSG(r.r13, RTHREADID, l.addr(0, RFASTGILPTR))  # try to claim lock
         self.mc.BRC(c.NE, l.imm(retry_label - self.mc.currpos())) # retry if failed
         # CSG performs a serialization
         # zarch is sequential consistent!
@@ -259,7 +260,7 @@ class CallBuilder(AbstractCallBuilder):
 
             # revert the rpy_fastgil acquired above, so that the
             # general 'reacqgil_addr' below can acquire it again...
-            # (here, r13 is zero)
+            self.mc.XGR(r.r13, r.r13)
             self.mc.STG(r.r13, l.addr(0, RFASTGILPTR))
 
             pmc = OverwritingBuilder(self.mc, bne_location, 1)
@@ -270,7 +271,6 @@ class CallBuilder(AbstractCallBuilder):
         # save the result we just got
         RSAVEDRES = RFASTGILPTR     # can reuse this reg here
         reg = self.resloc
-        PARAM_SAVE_AREA_OFFSET = 0
         if reg is not None:
             # save 1 word below the stack pointer
             if reg.is_core_reg():
