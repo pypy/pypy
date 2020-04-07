@@ -136,8 +136,10 @@ class FakeSpace(object):
 
         self.w_AttributeError      = FakeException(self, "AttributeError")
         self.w_Exception           = FakeException(self, "Exception")
+        self.w_ImportError         = FakeException(self, "ImportError")
         self.w_KeyError            = FakeException(self, "KeyError")
         self.w_NotImplementedError = FakeException(self, "NotImplementedError")
+        self.w_OSError             = FakeException(self, "OSError")
         self.w_ReferenceError      = FakeException(self, "ReferenceError")
         self.w_RuntimeError        = FakeException(self, "RuntimeError")
         self.w_SystemError         = FakeException(self, "SystemError")
@@ -223,6 +225,7 @@ class FakeSpace(object):
     def exception_match(self, typ, sub):
         return typ is sub
 
+    @specialize.argtype(1)
     def is_none(self, w_obj):
         return w_obj is None
 

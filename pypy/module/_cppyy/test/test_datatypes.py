@@ -57,6 +57,8 @@ class AppTestDATATYPES:
         assert c.m_char32 == u'\u00df'
 
         # reading integer types
+        assert c.m_int8    == - 9; assert c.get_int8_cr()    == - 9; assert c.get_int8_r()    == - 9
+        assert c.m_uint8   ==   9; assert c.get_uint8_cr()   ==   9; assert c.get_uint8_r()   ==   9
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
         assert c.m_ushort  ==  11; assert c.get_ushort_cr()  ==  11; assert c.get_ushort_r()  ==  11
         assert c.m_int     == -22; assert c.get_int_cr()     == -22; assert c.get_int_r()     == -22
@@ -213,7 +215,7 @@ class AppTestDATATYPES:
         raises(ValueError, c.set_char32, "string")
 
         # integer types
-        names = ['short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
+        names = ['int8', 'uint8', 'short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
         for i in range(len(names)):
             setattr(c, 'm_'+names[i], i)
             assert eval('c.get_%s()' % names[i]) == i
@@ -343,6 +345,10 @@ class AppTestDATATYPES:
         assert type(CppyyTestData.s_char32) == pyunicode
 
         # integer types
+        assert CppyyTestData.s_int8     == - 87
+        assert c.s_int8                 == - 87
+        assert CppyyTestData.s_uint8    ==   87
+        assert c.s_uint8                ==   87
         assert CppyyTestData.s_short    == -101
         assert c.s_short                == -101
         assert c.s_ushort               ==  255

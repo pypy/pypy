@@ -41,6 +41,8 @@ class State(object):
         self.c_voidp  = nt.new_pointer_type(space, self.c_void)
 
         # special types
+        self.c_int8_t    = nt.new_primitive_type(space, 'int8_t')
+        self.c_uint8_t   = nt.new_primitive_type(space, 'uint8_t')
         self.c_size_t    = nt.new_primitive_type(space, 'size_t')
         self.c_ptrdiff_t = nt.new_primitive_type(space, 'ptrdiff_t')
         self.c_intptr_t  = nt.new_primitive_type(space, 'intptr_t')
@@ -79,7 +81,7 @@ class CharTypeMixin(object):
     c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.CHARP
 
     def _wrap_object(self, space, obj):
-        return space.newbytes(obj)
+        return space.newbytes(rffi.cast(self.c_type, obj))
 
     def _unwrap_object(self, space, w_value):
         # allow int to pass to char and make sure that str is of length 1
@@ -98,19 +100,29 @@ class CharTypeMixin(object):
                 raise oefmt(space.w_ValueError,
                             "char expected, got string of size %d", len(value))
 
-        value = rffi.cast(rffi.CHAR, value[0])
-        return value     # turn it into a "char" to the annotator
+            value = rffi.cast(rffi.CHAR, value[0])
+        return value
 
     def cffi_type(self, space):
         state = space.fromcache(State)
         return state.c_char
+
+class SCharTypeMixin(CharTypeMixin):
+    _mixin_     = True
+    _immutable_fields_ = ['c_type', 'c_ptrtype']
+
+    c_type      = rffi.SIGNEDCHAR
+    c_ptrtype   = rffi.CCHARP           # SIGNEDCHARP is not recognized as a char type for str
+
+    def _wrap_object(self, space, obj):
+        return space.newbytes(rffi.cast(rffi.CHAR, rffi.cast(self.c_type, obj)))
 
 class UCharTypeMixin(object):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
     c_type      = rffi.UCHAR
-    c_ptrtype   = rffi.CCHARP           # there's no such thing as rffi.UCHARP
+    c_ptrtype   = rffi.CCHARP           # UCHARP is not recognized as a char type for str
 
     def _wrap_object(self, space, obj):
         return space.newbytes(obj)
@@ -132,7 +144,7 @@ class UCharTypeMixin(object):
                 raise oefmt(space.w_ValueError,
                             "unsigned char expected, got string of size %d", len(value))
 
-        value = rffi.cast(rffi.CHAR, value[0])
+            value = rffi.cast(rffi.CHAR, value[0])
         return value     # turn it into a "char" to the annotator
 
     def cffi_type(self, space):
@@ -231,10 +243,34 @@ class BaseIntTypeMixin(object):
     _mixin_     = True
 
     def _wrap_object(self, space, obj):
-        return space.newint(rffi.cast(rffi.INT, obj))
+        return space.newint(rffi.cast(rffi.INT, rffi.cast(self.c_type, obj)))
 
     def _unwrap_object(self, space, w_obj):
         return rffi.cast(self.c_type, space.c_int_w(w_obj))
+
+INT8_T = 'int8_t'
+class Int8TypeMixin(BaseIntTypeMixin):
+    _mixin_     = True
+    _immutable_fields_ = ['c_type', 'c_ptrtype']
+
+    c_type      = rffi.SIGNEDCHAR
+    c_ptrtype   = rffi.SIGNEDCHARP
+
+    def cffi_type(self, space):
+        state = space.fromcache(State)
+        return state.c_int8_t
+
+UINT8_T = 'uint8_t'
+class UInt8TypeMixin(BaseIntTypeMixin):
+    _mixin_     = True
+    _immutable_fields_ = ['c_type', 'c_ptrtype']
+
+    c_type      = rffi.UCHAR
+    c_ptrtype   = rffi.UCHARP
+
+    def cffi_type(self, space):
+        state = space.fromcache(State)
+        return state.c_uint8_t
 
 class ShortTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
@@ -243,22 +279,22 @@ class ShortTypeMixin(BaseIntTypeMixin):
     c_type      = rffi.SHORT
     c_ptrtype   = rffi.SHORTP
 
-class UShortTypeMixin(BaseIntTypeMixin):
     def cffi_type(self, space):
         state = space.fromcache(State)
         return state.c_short
 
+class UShortTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
     c_type      = rffi.USHORT
     c_ptrtype   = rffi.USHORTP
 
-class IntTypeMixin(BaseIntTypeMixin):
     def cffi_type(self, space):
         state = space.fromcache(State)
         return state.c_ushort
 
+class IntTypeMixin(BaseIntTypeMixin):
     _mixin_     = True
     _immutable_fields_ = ['c_type', 'c_ptrtype']
 
@@ -414,10 +450,13 @@ def typeid(c_type):
     "NOT_RPYTHON"
     if c_type == bool:            return BoolTypeMixin
     if c_type == rffi.CHAR:       return CharTypeMixin
+    if c_type == rffi.SIGNEDCHAR: return SCharTypeMixin
     if c_type == rffi.UCHAR:      return UCharTypeMixin
     if c_type == lltype.UniChar:  return WCharTypeMixin    # rffi.W_CHAR_T is rffi.INT
     if c_type == CHAR16_T:        return Char16TypeMixin   # no type in rffi
-    if c_type == CHAR32_T:        return Char32TypeMixin   # no type in rffi
+    if c_type == CHAR32_T:        return Char32TypeMixin   # id.
+    if c_type == INT8_T:          return Int8TypeMixin     # id.
+    if c_type == UINT8_T:         return UInt8TypeMixin    # id.
     if c_type == rffi.SHORT:      return ShortTypeMixin
     if c_type == rffi.USHORT:     return UShortTypeMixin
     if c_type == rffi.INT:        return IntTypeMixin

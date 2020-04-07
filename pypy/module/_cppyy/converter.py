@@ -887,9 +887,14 @@ def get_converter(space, _name, default):
     #       3a) smart pointers
     #   4) void* or void converter (which fails on use)
 
-    name = capi.c_resolve_name(space, _name)
+    # original, exact match
+    try:
+        return _converters[_name](space, default)
+    except KeyError:
+        pass
 
-    # full, exact match
+    # resolved, exact match
+    name = capi.c_resolve_name(space, _name)
     try:
         return _converters[name](space, default)
     except KeyError:
@@ -1006,6 +1011,7 @@ def _build_basic_converters():
     # basic char types
     type_info = {
         (rffi.CHAR,               "char"),
+        (rffi.SIGNEDCHAR,         "signed char"),
         (rffi.UCHAR,              "unsigned char"),
         (lltype.UniChar,          "wchar_t"),
         (ffitypes.CHAR16_T,       "char16_t"),
@@ -1022,73 +1028,37 @@ def _build_basic_converters():
                     self.valid_default = True
                 except Exception:
                     self.default = rffi.cast(self.c_type, 0)
+        class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
+            _immutable_ = True
         _converters[name] = BasicConverter
+        _converters["const "+name+"&"] = ConstRefConverter
 
-    # signed types (use strtoll in setting of default in __init__)
+    # signed types use strtoll in setting of default in __init__, unsigned uses strtoull
     type_info = (
-        (rffi.SHORT,      ("short", "short int"),          'h'),
-        (rffi.INT,        ("int", "internal_enum_type_t"), 'i'),
+        (ffitypes.INT8_T,    ("int8_t",),                                                     'b', capi.c_strtoll),
+        (ffitypes.UINT8_T,   ("uint8_t",),                                                    'B', capi.c_strtoull),
+        (rffi.SHORT,         ("short", "short int"),                                          'h', capi.c_strtoll),
+        (rffi.USHORT,        ("unsigned short", "unsigned short int"),                        'H', capi.c_strtoull),
+        (rffi.INT,           ("int", "internal_enum_type_t"),                                 'i', capi.c_strtoll),
+        (rffi.UINT,          ("unsigned", "unsigned int"),                                    'I', capi.c_strtoull),
+        (rffi.LONG,          ("long", "long int"),                                            'l', capi.c_strtoll),
+        (rffi.ULONG,         ("unsigned long", "unsigned long int"),                          'L', capi.c_strtoull),
+        (rffi.LONGLONG,      ("long long", "long long int", "Long64_t"),                      'q', capi.c_strtoll),
+        (rffi.ULONGLONG,     ("unsigned long long", "unsigned long long int", "ULong64_t"),   'Q', capi.c_strtoull),
     )
 
     # constref converters exist only b/c the stubs take constref by value, whereas
     # libffi takes them by pointer (hence it needs the fast-path in testing); note
     # that this is list is not complete, as some classes are specialized
 
-    for c_type, names, c_tc in type_info:
+    for c_type, names, c_tc, dfc in type_info:
         class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
             _immutable_ = True
             typecode = c_tc
             def __init__(self, space, default):
                 self.valid_default = False
                 try:
-                    self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
-                    self.valid_default = True
-                except Exception:
-                    self.default = rffi.cast(self.c_type, 0)
-        class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
-            _immutable_ = True
-        for name in names:
-            _converters[name] = BasicConverter
-            _converters["const "+name+"&"] = ConstRefConverter
-
-    type_info = (
-        (rffi.LONG,       ("long", "long int"),                        'l'),
-        (rffi.LONGLONG,   ("long long", "long long int", "Long64_t"),  'q'),
-    )
-
-    for c_type, names, c_tc in type_info:
-        class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
-            _immutable_ = True
-            typecode = c_tc
-            def __init__(self, space, default):
-                self.valid_default = False
-                try:
-                    self.default = rffi.cast(self.c_type, capi.c_strtoll(space, default))
-                    self.valid_default = True
-                except Exception:
-                    self.default = rffi.cast(self.c_type, 0)
-        class ConstRefConverter(ConstRefNumericTypeConverterMixin, BasicConverter):
-            _immutable_ = True
-        for name in names:
-            _converters[name] = BasicConverter
-            _converters["const "+name+"&"] = ConstRefConverter
-
-    # unsigned integer types (use strtoull in setting of default in __init__)
-    type_info = (
-        (rffi.USHORT,     ("unsigned short", "unsigned short int"),                            'H'),
-        (rffi.UINT,       ("unsigned", "unsigned int"),                                        'I'),
-        (rffi.ULONG,      ("unsigned long", "unsigned long int"),                              'L'),
-        (rffi.ULONGLONG,  ("unsigned long long", "unsigned long long int", "ULong64_t"),       'Q'),
-    )
-
-    for c_type, names, c_tc in type_info:
-        class BasicConverter(ffitypes.typeid(c_type), IntTypeConverterMixin, TypeConverter):
-            _immutable_ = True
-            typecode = c_tc
-            def __init__(self, space, default):
-                self.valid_default = False
-                try:
-                    self.default = rffi.cast(self.c_type, capi.c_strtoull(space, default))
+                    self.default = rffi.cast(self.c_type, dfc(space, default))
                     self.valid_default = True
                 except Exception:
                     self.default = rffi.cast(self.c_type, 0)
@@ -1142,7 +1112,6 @@ _build_array_converters()
 def _add_aliased_converters():
     "NOT_RPYTHON"
     aliases = (
-        ("char",                            "signed char"),   # TODO: check
         ("const char*",                     "char*"),
 
         ("std::string",                     "string"),

@@ -347,9 +347,14 @@ def get_executor(space, name):
     #
     # If all fails, a default is used, which can be ignored at least until use.
 
-    name = capi.c_resolve_name(space, name)
+    # original, exact match
+    try:
+        return _executors[name](space, None)
+    except KeyError:
+        pass
 
-    # full, qualified match
+    # resolved, exact match
+    name = capi.c_resolve_name(space, name)
     try:
         return _executors[name](space, None)
     except KeyError:
@@ -431,18 +436,20 @@ _executors["PyObject*"]           = PyObjectExecutor
 def _build_basic_executors():
     "NOT_RPYTHON"
     type_info = (
-        (bool,            capi.c_call_b,   ("bool",)),
+        (bool,               capi.c_call_b,      ("bool",)),
         # TODO: either signed or unsigned is correct for a given platform ...
-        (rffi.CHAR,       capi.c_call_c,   ("char", "unsigned char", "signed char")),
-        (rffi.SHORT,      capi.c_call_h,   ("short", "short int", "unsigned short", "unsigned short int")),
-        (rffi.INT,        capi.c_call_i,   ("int", "internal_enum_type_t")),
-        (rffi.UINT,       capi.c_call_l,   ("unsigned", "unsigned int")),
-        (rffi.LONG,       capi.c_call_l,   ("long", "long int")),
-        (rffi.ULONG,      capi.c_call_l,   ("unsigned long", "unsigned long int")),
-        (rffi.LONGLONG,   capi.c_call_ll,  ("long long", "long long int", "Long64_t")),
-        (rffi.ULONGLONG,  capi.c_call_ll,  ("unsigned long long", "unsigned long long int", "ULong64_t")),
-        (rffi.FLOAT,      capi.c_call_f,   ("float",)),
-        (rffi.DOUBLE,     capi.c_call_d,   ("double",)),
+        (rffi.CHAR,          capi.c_call_c,      ("char", "unsigned char", "signed char")),
+        (ffitypes.INT8_T,    capi.c_call_c,      ("int8_t",)),
+        (ffitypes.UINT8_T,   capi.c_call_c,      ("uint8_t",)),
+        (rffi.SHORT,         capi.c_call_h,      ("short", "short int", "unsigned short", "unsigned short int")),
+        (rffi.INT,           capi.c_call_i,      ("int", "internal_enum_type_t")),
+        (rffi.UINT,          capi.c_call_l,      ("unsigned", "unsigned int")),
+        (rffi.LONG,          capi.c_call_l,      ("long", "long int")),
+        (rffi.ULONG,         capi.c_call_l,      ("unsigned long", "unsigned long int")),
+        (rffi.LONGLONG,      capi.c_call_ll,     ("long long", "long long int", "Long64_t")),
+        (rffi.ULONGLONG,     capi.c_call_ll,     ("unsigned long long", "unsigned long long int", "ULong64_t")),
+        (rffi.FLOAT,         capi.c_call_f,      ("float",)),
+        (rffi.DOUBLE,        capi.c_call_d,      ("double",)),
 #        (rffi.LONGDOUBLE, capi.c_call_ld,  ("long double",)),
     )
 
