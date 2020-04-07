@@ -26,7 +26,7 @@ build_time_vars = {
     'ARFLAGS': "rc",
     'EXE': "",
     'LIBDIR': os.path.join(sys.prefix, 'bin'),
-    'VERSION': sys.version[:3]
+    'VERSION': '{}.{}'.format(*sys.version_info[:2])
 }
 
 if find_executable("gcc"):
