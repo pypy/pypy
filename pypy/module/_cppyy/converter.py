@@ -1074,7 +1074,8 @@ _build_basic_converters()
 def _build_array_converters():
     "NOT_RPYTHON"
     array_info = (
-        ('b', rffi.sizeof(rffi.UCHAR),      ("bool",)),    # is debatable, but works ...
+        ('b', rffi.sizeof(rffi.SIGNEDCHAR), ("bool",)),    # is debatable, but works ...
+        ('b', rffi.sizeof(rffi.SIGNEDCHAR), ("signed char",)),
         ('B', rffi.sizeof(rffi.UCHAR),      ("unsigned char",)),
         ('h', rffi.sizeof(rffi.SHORT),      ("short int", "short")),
         ('H', rffi.sizeof(rffi.USHORT),     ("unsigned short int", "unsigned short")),
