@@ -175,6 +175,8 @@ Changes shared across versions
   respectively
 - Fix potential segfault in the zipimporter
 - Fixes in the JIT backend for PowerPC 
+- Update the statically-linked openssl to 1.1.1f on macOS.
+- Fix `re` grouprefs which were broken for unicode
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
