@@ -641,10 +641,10 @@ def test_reconfigure_write_through():
 
 def test_reconfigure_newline():
     import os
-    #raw = _io.BytesIO(b'CR\rEOF')
-    #txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
-    #txt.reconfigure(newline=None)
-    #assert txt.readline() == 'CR\n'
+    raw = _io.BytesIO(b'CR\rEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
+    txt.reconfigure(newline=None)
+    assert txt.readline() == 'CR\n'
     raw = _io.BytesIO(b'CR\rEOF')
     txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
     txt.reconfigure(newline='')
@@ -662,19 +662,19 @@ def test_reconfigure_newline():
     txt.reconfigure(newline='\r\n')
     assert txt.readline() == 'CR\rCRLF\r\n'
 
-    #txt = _io.TextIOWrapper(_io.BytesIO(), 'ascii', newline='\r')
-    #txt.reconfigure(newline=None)
-    #txt.write('linesep\n')
-    #txt.reconfigure(newline='')
-    #txt.write('LF\n')
-    #txt.reconfigure(newline='\n')
-    #txt.write('LF\n')
-    #txt.reconfigure(newline='\r')
-    #txt.write('CR\n')
-    #txt.reconfigure(newline='\r\n')
-    #txt.write('CRLF\n')
-    #expected = 'linesep' + os.linesep + 'LF\nLF\nCR\rCRLF\r\n'
-    #assert txt.detach().getvalue().decode('ascii') == expected
+    txt = _io.TextIOWrapper(_io.BytesIO(), 'ascii', newline='\r')
+    txt.reconfigure(newline=None)
+    txt.write('linesep\n')
+    txt.reconfigure(newline='')
+    txt.write('LF\n')
+    txt.reconfigure(newline='\n')
+    txt.write('LF\n')
+    txt.reconfigure(newline='\r')
+    txt.write('CR\n')
+    txt.reconfigure(newline='\r\n')
+    txt.write('CRLF\n')
+    expected = 'linesep' + os.linesep + 'LF\nLF\nCR\rCRLF\r\n'
+    assert txt.detach().getvalue().decode('ascii') == expected
 
 def test_reconfigure_encoding_read():
     # latin1 -> utf8
@@ -685,8 +685,8 @@ def test_reconfigure_encoding_read():
     assert txt.readline() == 'abc\xe9\n'
     with raises(_io.UnsupportedOperation):
         txt.reconfigure(encoding='utf-8')
-    #with raises(_io.UnsupportedOperation):
-    #    txt.reconfigure(newline=None)
+    with raises(_io.UnsupportedOperation):
+        txt.reconfigure(newline=None)
 
 def test_reconfigure_write_fromascii():
     # ascii has a specific encodefunc in the C implementation,
@@ -699,7 +699,6 @@ def test_reconfigure_write_fromascii():
     txt.write('\xe9\n')
     txt.flush()
     res = raw.getvalue()
-    print(res)
     assert raw.getvalue() == b'foo\n\xc3\xa9\n'
 
 def test_reconfigure_write():
@@ -752,10 +751,10 @@ def test_reconfigure_defaults():
     assert txt.errors == 'ignore'
     txt.write('CRLF\n')
 
-    #txt.reconfigure(encoding='utf-8', newline=None)
-    #assert txt.errors == 'strict'
-    #txt.seek(0)
-    #assert txt.read() == 'LF\nCRLF\n'
+    txt.reconfigure(encoding='utf-8', newline=None)
+    assert txt.errors == 'strict'
+    txt.seek(0)
+    assert txt.read() == 'LF\nCRLF\n'
 
-    #assert txt.detach().getvalue() == b'LF\nCRLF\r\n'
+    assert txt.detach().getvalue() == b'LF\nCRLF\r\n'
 

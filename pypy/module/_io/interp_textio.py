@@ -255,7 +255,7 @@ def _determine_encoding(space, encoding, w_buffer):
             if space.isinstance_w(w_encoding, space.w_unicode):
                 return w_encoding
 
-    # On legacy systems or darwin, try app-level 
+    # On legacy systems or darwin, try app-level
     # _bootlocale.getprefferedencoding(False)
     try:
         w_locale = space.call_method(space.builtin, '__import__',
@@ -605,26 +605,40 @@ class W_TextIOWrapper(W_TextIOBase):
                 self.encoding_start_of_stream = False
                 space.call_method(self.w_encoder, "setstate", space.newint(0))
 
-    @unwrap_spec(w_encoding=WrappedDefault(None),
-                 w_errors=WrappedDefault(None),
-                 w_newline=WrappedDefault(None),
-                 w_line_buffering=WrappedDefault(None),
-                 w_write_through=WrappedDefault(None))
-    def reconfigure(self, space, __kwonly__, w_encoding=None, w_errors=None,
-            w_newline=None, w_line_buffering=None, w_write_through=None):
+    def reconfigure(self, space, __args__):
         """
         Reconfigure the text stream with new parameters.
 
         This also does an implicit stream flush.
         """
+        # XXX quite annoying, kwonly args can't easily support unwrapped None
+        # as the default, do our own argument parsing
+        args_w, kwargs_w = __args__.unpack()
+        if args_w:
+            raise oefmt(space.w_TypeError, "reconfigure() takes no positional arguments")
+        # for all arguments passing w_None means "keep value", with two exceptions:
+        # 1) if encoding is given but not errors, set errors to strict
+        # 2) newline=None means universal newline support
+        w_encoding = kwargs_w.pop("encoding", space.w_None)
+        w_errors = kwargs_w.pop("errors", space.w_None)
+        w_newline = kwargs_w.pop("newline", None)
+        w_line_buffering = kwargs_w.pop("line_buffering", space.w_None)
+        w_write_through = kwargs_w.pop("write_through", space.w_None)
+        if kwargs_w:
+            key, w_value = kwargs_w.popitem()
+            raise oefmt(space.w_TypeError, "%8 is an invalid keyword argument for reconfigure()", key)
+
         if self.decoded.text is not None:
             if (not space.is_none(w_encoding) or
                     not space.is_none(w_errors) or
-                    not space.is_none(w_newline)):
+                    w_newline is not None):
                 self._unsupportedoperation(
                     space, "It is not possible to set the encoding "
                            "or newline of stream after the first read")
-        newline = unwrap_newline(space, w_newline)
+
+
+        if w_newline is not None:
+            newline = unwrap_newline(space, w_newline)
 
         line_buffering = self.line_buffering
         if not space.is_none(w_line_buffering):
@@ -634,15 +648,19 @@ class W_TextIOWrapper(W_TextIOBase):
             write_through = bool(space.int_w(w_write_through))
 
         space.call_method(self, "flush")
-        if newline is not None:
+        if w_newline is not None:
             self._set_newline(newline)
         # if encoding is specified but not errors, set errors to strict
         if not space.is_none(w_encoding):
             if space.is_none(w_errors):
                 w_errors = space.newtext("strict")
-        if not space.is_none(w_encoding) or not space.is_none(w_errors):
+        if not space.is_none(w_encoding) or not space.is_none(w_errors) or (w_newline is not None and self.readuniversal):
             if space.is_none(w_encoding):
                 w_encoding = self.w_encoding
+            if space.is_none(w_errors):
+                w_errors = self.w_errors
+            # NB we also need to call _set_encoder_decoder if the newline
+            # changed to readuniversal, to get newline translation
             self._set_encoder_decoder(w_encoding, w_errors)
             self.w_encoding = w_encoding
             self.w_errors = w_errors
