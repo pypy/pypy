@@ -145,7 +145,7 @@ class ArrayTypeConverterMixin(object):
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
-        address = rffi.cast(rffi.ULONG, address_value)
+        address = rffi.cast(rffi.PTRDIFF_T, address_value)
         return lowlevelviews.W_LowLevelView(
             space, letter2tp(space, self.typecode), self.size, address)
 
@@ -156,7 +156,6 @@ class ArrayTypeConverterMixin(object):
         # TODO: report if too many items given?
         for i in range(min(self.size*self.typesize, buf.getlength())):
             address[i] = buf.getitem(i)
-
 
 class PtrTypeConverterMixin(object):
     _mixin_ = True
@@ -187,9 +186,9 @@ class PtrTypeConverterMixin(object):
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
         address_value = self._get_raw_address(space, w_obj, offset)
-        address = rffi.cast(rffi.ULONGP, address_value)
+        address = rffi.cast(rffi.PTRDIFF_T, rffi.cast(rffi.VOIDPP, address_value)[0])
         return lowlevelviews.W_LowLevelView(
-            space, letter2tp(space, self.typecode), self.size, address[0])
+            space, letter2tp(space, self.typecode), self.size, address)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
@@ -201,6 +200,13 @@ class PtrTypeConverterMixin(object):
         except ValueError:
             raise oefmt(space.w_TypeError,
                         "raw buffer interface not supported")
+
+class ArrayPtrTypeConverterMixin(PtrTypeConverterMixin):
+    _mixin_ = True
+
+    def cffi_type(self, space):
+        state = space.fromcache(ffitypes.State)
+        return state.c_voidpp
 
 
 class NumericTypeConverterMixin(object):
@@ -470,8 +476,8 @@ class VoidPtrConverter(TypeConverter):
         # returned as a long value for the address (INTPTR_T is not proper
         # per se, but rffi does not come with a PTRDIFF_T)
         address = self._get_raw_address(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.ULONGP, address)[0]
-        if ptrval == rffi.cast(rffi.ULONG, 0):
+        ptrval = rffi.cast(rffi.PTRDIFF_T, rffi.cast(rffi.VOIDPP, address)[0])
+        if ptrval == rffi.cast(rffi.PTRDIFF_T, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, 'P')
@@ -1036,7 +1042,7 @@ def _build_basic_converters():
     # signed types use strtoll in setting of default in __init__, unsigned uses strtoull
     type_info = (
         (ffitypes.INT8_T,    ("int8_t",),                                                     'b', capi.c_strtoll),
-        (ffitypes.UINT8_T,   ("uint8_t",),                                                    'B', capi.c_strtoull),
+        (ffitypes.UINT8_T,   ("uint8_t", "std::byte", "byte"),                                'B', capi.c_strtoull),
         (rffi.SHORT,         ("short", "short int"),                                          'h', capi.c_strtoll),
         (rffi.USHORT,        ("unsigned short", "unsigned short int"),                        'H', capi.c_strtoull),
         (rffi.INT,           ("int", "internal_enum_type_t"),                                 'i', capi.c_strtoll),
@@ -1076,7 +1082,7 @@ def _build_array_converters():
     array_info = (
         ('b', rffi.sizeof(rffi.SIGNEDCHAR), ("bool",)),    # is debatable, but works ...
         ('b', rffi.sizeof(rffi.SIGNEDCHAR), ("signed char",)),
-        ('B', rffi.sizeof(rffi.UCHAR),      ("unsigned char",)),
+        ('B', rffi.sizeof(rffi.UCHAR),      ("unsigned char", "std::byte", "byte")),
         ('h', rffi.sizeof(rffi.SHORT),      ("short int", "short")),
         ('H', rffi.sizeof(rffi.USHORT),     ("unsigned short int", "unsigned short")),
         ('i', rffi.sizeof(rffi.INT),        ("int",)),
@@ -1099,9 +1105,14 @@ def _build_array_converters():
             _immutable_fields_ = ['typecode', 'typesize']
             typecode = tcode
             typesize = tsize
+        class ArrayPtrConverter(ArrayPtrTypeConverterMixin, TypeConverter):
+            _immutable_fields_ = ['typecode', 'typesize']
+            typecode = tcode
+            typesize = tsize
         for name in names:
             _a_converters[name+'[]'] = ArrayConverter
             _a_converters[name+'*']  = PtrConverter
+            _a_converters[name+'**'] = ArrayPtrConverter
 
     # special case, const char* w/ size and w/o '\0'
     _a_converters["const char[]"] = CStringConverterWithSize

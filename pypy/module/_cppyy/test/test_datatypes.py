@@ -59,6 +59,8 @@ class AppTestDATATYPES:
         # reading integer types
         assert c.m_int8    == - 9; assert c.get_int8_cr()    == - 9; assert c.get_int8_r()    == - 9
         assert c.m_uint8   ==   9; assert c.get_uint8_cr()   ==   9; assert c.get_uint8_r()   ==   9
+        if self.has_byte:
+            assert c.m_byte == ord('d'); assert c.get_byte_cr() == ord('d'); assert c.get_byte_r() == ord('d')
         assert c.m_short   == -11; assert c.get_short_cr()   == -11; assert c.get_short_r()   == -11
         assert c.m_ushort  ==  11; assert c.get_ushort_cr()  ==  11; assert c.get_ushort_r()  ==  11
         assert c.m_int     == -22; assert c.get_int_cr()     == -22; assert c.get_int_r()     == -22
@@ -121,6 +123,8 @@ class AppTestDATATYPES:
         # reading of integer array types
         names = ['schar', 'uchar', 'short', 'ushort',    'int', 'uint',    'long',  'ulong']
         alpha = [ (1, 2), (1, 2), (-1, -2),   (3, 4), (-5, -6), (7, 8), (-9, -10), (11, 12)]
+        if self.has_byte: names.append('byte'); alpha.append((3,4))
+
         for j in range(self.N):
             assert getattr(c, 'm_%s_array'    % names[i])[i]   == alpha[i][0]*i
             assert getattr(c, 'get_%s_array'  % names[i])()[i] == alpha[i][0]*i
@@ -137,6 +141,8 @@ class AppTestDATATYPES:
         # out-of-bounds checks
         raises(IndexError, c.m_schar_array.__getitem__,  self.N)
         raises(IndexError, c.m_uchar_array.__getitem__,  self.N)
+        if self.has_byte:
+            raises(IndexError, c.m_byte_array.__getitem__,   self.N)
         raises(IndexError, c.m_short_array.__getitem__,  self.N)
         raises(IndexError, c.m_ushort_array.__getitem__, self.N)
         raises(IndexError, c.m_int_array.__getitem__,    self.N)
@@ -217,6 +223,8 @@ class AppTestDATATYPES:
 
         # integer types
         names = ['int8', 'uint8', 'short', 'ushort', 'int', 'uint', 'long', 'ulong', 'llong', 'ullong']
+        if self.has_byte: names.append('byte')
+
         for i in range(len(names)):
             setattr(c, 'm_'+names[i], i)
             assert eval('c.get_%s()' % names[i]) == i
@@ -250,9 +258,12 @@ class AppTestDATATYPES:
 
         # integer arrays
         names = ['uchar', 'short', 'ushort', 'int', 'uint', 'long', 'ulong']
+        if self.has_byte: names.append('byte')
+
         import array
         a = range(self.N)
         atypes = ['B', 'h', 'H', 'i', 'I', 'l', 'L']
+        if self.has_byte: atypes.append('B')
         for j in range(len(names)):
             b = array.array(atypes[j], a)
             setattr(c, 'm_'+names[j]+'_array', b)     # buffer copies
@@ -346,6 +357,9 @@ class AppTestDATATYPES:
         assert type(CppyyTestData.s_char32) == pyunicode
 
         # integer types
+        if self.has_byte:
+            assert CppyyTestData.s_byte == ord('b')
+            assert c.s_byte             == ord('b')
         assert CppyyTestData.s_int8     == - 87
         assert c.s_int8                 == - 87
         assert CppyyTestData.s_uint8    ==   87
@@ -418,6 +432,11 @@ class AppTestDATATYPES:
         assert CppyyTestData.s_char32   == u'\u00ef'
 
         # integer types
+        if self.has_byte:
+            c.s_byte                     =   66
+            assert CppyyTestData.s_byte ==   66
+            CppyyTestData.s_byte         =   66
+            assert c.s_byte             ==   66
         c.s_short                        = -102
         assert CppyyTestData.s_short    == -102
         CppyyTestData.s_short            = -203
@@ -809,13 +828,17 @@ class AppTestDATATYPES:
         CppyyTestData = cppyy.gbl.CppyyTestData
 
         c = CppyyTestData()
+        byte_array_names = []
+        if self.has_byte:
+            byte_array_names = ['get_byte_array', 'get_byte_array2']
         for func in ['get_bool_array',   'get_bool_array2',
                      'get_uchar_array',   'get_uchar_array2',
                      'get_ushort_array', 'get_ushort_array2',
                      'get_int_array',    'get_int_array2',
                      'get_uint_array',   'get_uint_array2',
                      'get_long_array',   'get_long_array2',
-                     'get_ulong_array',  'get_ulong_array2']:
+                     'get_ulong_array',  'get_ulong_array2']+\
+                     byte_array_names:
             arr = getattr(c, func)()
             arr.reshape((self.N,))
             assert len(arr) == self.N
@@ -878,7 +901,43 @@ class AppTestDATATYPES:
         c.s_voidp = c2
         address_equality_test(c.s_voidp, c2)
 
-    def test21_function_pointers(self):
+    def test21_byte_arrays(self):
+        """Usage of unsigned char* as byte array and std::byte*"""
+
+        import _cppyy as cppyy
+        import array, ctypes
+
+        buf = b'123456789'
+        total = 0
+        for c in buf:
+            try:
+                total += ord(c)        # p2
+            except TypeError:
+                total += c             # p3
+
+        def run(self, f, buf, total):
+
+            # The following create a unique type for fixed-size C arrays: ctypes.c_char_Array_9
+            # and neither inherits from a non-sized type nor implements the buffer interface.
+            # As such, it can't be handled. TODO?
+            #pbuf = ctypes.create_string_buffer(len(buf), buf)
+            #assert f(pbuf, len(buf)) == total
+
+            pbuf = array.array('B', buf)
+            assert f(pbuf, len(buf)) == total
+
+            pbuf = (ctypes.c_ubyte * len(buf)).from_buffer_copy(buf)
+            assert f(pbuf, len(buf)) == total
+
+            pbuf = ctypes.cast(buf, ctypes.POINTER(ctypes.c_ubyte * len(buf)))[0]
+            assert f(pbuf, len(buf)) == total
+
+        run(self, cppyy.gbl.sum_uc_data, buf, total)
+
+        if self.has_byte:
+            run(self, cppyy.gbl.sum_byte_data, buf, total)
+
+    def test22_function_pointers(self):
         """Function pointer passing"""
 
         import os

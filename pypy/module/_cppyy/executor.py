@@ -440,7 +440,7 @@ def _build_basic_executors():
         # TODO: either signed or unsigned is correct for a given platform ...
         (rffi.CHAR,          capi.c_call_c,      ("char", "unsigned char", "signed char")),
         (ffitypes.INT8_T,    capi.c_call_c,      ("int8_t",)),
-        (ffitypes.UINT8_T,   capi.c_call_c,      ("uint8_t",)),
+        (ffitypes.UINT8_T,   capi.c_call_c,      ("uint8_t", "std::byte", "byte",)),
         (rffi.SHORT,         capi.c_call_h,      ("short", "short int", "unsigned short", "unsigned short int")),
         (rffi.INT,           capi.c_call_i,      ("int", "internal_enum_type_t")),
         (rffi.UINT,          capi.c_call_l,      ("unsigned", "unsigned int")),

@@ -39,6 +39,7 @@ class State(object):
         # pointer types
         self.c_ccharp = nt.new_pointer_type(space, self.c_char)
         self.c_voidp  = nt.new_pointer_type(space, self.c_void)
+        self.c_voidpp = nt.new_pointer_type(space, self.c_voidp)
 
         # special types
         self.c_int8_t    = nt.new_primitive_type(space, 'int8_t')
