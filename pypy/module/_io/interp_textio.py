@@ -637,6 +637,7 @@ class W_TextIOWrapper(W_TextIOBase):
                            "or newline of stream after the first read")
 
 
+        newline = None
         if w_newline is not None:
             newline = unwrap_newline(space, w_newline)
 
