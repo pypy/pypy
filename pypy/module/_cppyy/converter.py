@@ -144,10 +144,10 @@ class ArrayTypeConverterMixin(object):
 
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
-        address_value = self._get_raw_address(space, w_obj, offset)
-        address = rffi.cast(rffi.PTRDIFF_T, address_value)
+        address = self._get_raw_address(space, w_obj, offset)
+        ipv = rffi.cast(rffi.UINTPTR_T, address)
         return lowlevelviews.W_LowLevelView(
-            space, letter2tp(space, self.typecode), self.size, address)
+            space, letter2tp(space, self.typecode), self.size, ipv)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy the full array (uses byte copy for now)
@@ -185,10 +185,10 @@ class PtrTypeConverterMixin(object):
 
     def from_memory(self, space, w_obj, offset):
         # read access, so no copy needed
-        address_value = self._get_raw_address(space, w_obj, offset)
-        address = rffi.cast(rffi.PTRDIFF_T, rffi.cast(rffi.VOIDPP, address_value)[0])
+        address = self._get_raw_address(space, w_obj, offset)
+        ipv = rffi.cast(rffi.UINTPTR_T, rffi.cast(rffi.VOIDPP, address)[0])
         return lowlevelviews.W_LowLevelView(
-            space, letter2tp(space, self.typecode), self.size, address)
+            space, letter2tp(space, self.typecode), self.size, ipv)
 
     def to_memory(self, space, w_obj, w_value, offset):
         # copy only the pointer value
@@ -476,12 +476,12 @@ class VoidPtrConverter(TypeConverter):
         # returned as a long value for the address (INTPTR_T is not proper
         # per se, but rffi does not come with a PTRDIFF_T)
         address = self._get_raw_address(space, w_obj, offset)
-        ptrval = rffi.cast(rffi.PTRDIFF_T, rffi.cast(rffi.VOIDPP, address)[0])
-        if ptrval == rffi.cast(rffi.PTRDIFF_T, 0):
+        ipv = rffi.cast(rffi.UINTPTR_T, rffi.cast(rffi.VOIDPP, address)[0])
+        if ipv == rffi.cast(rffi.UINTPTR_T, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, 'P')
-        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ptrval)
+        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ipv)
 
     def to_memory(self, space, w_obj, w_value, offset):
         address = rffi.cast(rffi.VOIDPP, self._get_raw_address(space, w_obj, offset))

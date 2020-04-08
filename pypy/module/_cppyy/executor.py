@@ -53,13 +53,13 @@ class PtrTypeExecutor(Executor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
         if hasattr(space, "fake"):
             raise NotImplementedError
-        lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        ptrval = rffi.cast(rffi.ULONG, lresult)
-        if ptrval == rffi.cast(rffi.ULONG, 0):
+        address = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        ipv = rffi.cast(rffi.UINTPTR_T, address)
+        if ipv == rffi.cast(rffi.UINTPTR_T, 0):
             from pypy.module._cppyy import interp_cppyy
             return interp_cppyy.get_nullptr(space)
         shape = letter2tp(space, self.typecode)
-        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ptrval)
+        return lowlevelviews.W_LowLevelView(space, shape, sys.maxint/shape.size, ipv)
 
 
 class VoidExecutor(Executor):
