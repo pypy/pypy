@@ -512,9 +512,9 @@ class AppTestDATATYPES:
         c.m_double = -1
         assert round(c.m_double + 1.0, 8) == 0
 
-        raises(TypeError, c.m_double,  'c')
-        raises(TypeError, c.m_int,     -1.)
-        raises(TypeError, c.m_int,      1.)
+        raises(TypeError, setattr, c.m_double,  'c')
+        raises(TypeError, setattr, c.m_int,     -1.)
+        raises(TypeError, setattr, c.m_int,      1.)
 
         c.__destruct__()
 
@@ -540,7 +540,8 @@ class AppTestDATATYPES:
         import _cppyy as cppyy
         gbl = cppyy.gbl
 
-        raises(ReferenceError, 'gbl.g_pod.m_int')
+        with raises(ReferenceError):
+            gbl.g_pod.m_int
 
         c = gbl.CppyyTestPod()
         c.m_int = 42
@@ -833,7 +834,7 @@ class AppTestDATATYPES:
         if self.has_byte:
             byte_array_names = ['get_byte_array', 'get_byte_array2']
         for func in ['get_bool_array',   'get_bool_array2',
-                     'get_uchar_array',   'get_uchar_array2',
+                     'get_uchar_array',  'get_uchar_array2',
                      'get_ushort_array', 'get_ushort_array2',
                      'get_int_array',    'get_int_array2',
                      'get_uint_array',   'get_uint_array2',
