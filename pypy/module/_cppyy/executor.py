@@ -1,6 +1,7 @@
 import sys
 
 from pypy.interpreter.error import oefmt
+from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -209,7 +210,7 @@ class ConstructorExecutor(Executor):
 
 
 class InstanceExecutor(Executor):
-    # For return of a C++ instance by pointer: MyClass* func()
+    # For return of a C++ instance by value: MyClass func()
     _immutable_fields_ = ['clsdecl']
 
     def __init__(self, space, clsdecl):
@@ -258,6 +259,38 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
         raise FastCallNotPossible
+
+
+class ComplexExecutor(Executor):
+    _immutable_fields_ = ['clsdecl', 'realf', 'imagf']
+
+    def __init__(self, space, clsdecl):
+        Executor.__init__(self, space, clsdecl)
+        self.clsdecl = clsdecl
+        self.realf = self.clsdecl.scope__dispatch__('real', '')
+        self.imagf = self.clsdecl.scope__dispatch__('imag', '')
+
+    def _convert2complex(self, space, cmplx):
+        w_real = self.realf.call_impl(cmplx, [])
+        w_imag = self.imagf.call_impl(cmplx, [])
+        return space.newcomplex(space.float_w(w_real), space.float_w(w_imag))
+
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        cmplx = capi.c_call_o(space, cppmethod, cppthis, num_args, args, self.clsdecl)
+        pycmplx = self._convert2complex(space, rffi.cast(capi.C_OBJECT, cmplx))
+        capi.c_destruct(space, self.clsdecl, cmplx)
+        return pycmplx
+
+class ComplexRefExecutor(ComplexExecutor):
+    def execute(self, space, cppmethod, cppthis, num_args, args):
+        cmplx = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        return self._convert2complex(space, rffi.cast(capi.C_OBJECT, cmplx))
+
+    def execute_libffi(self, space, cif_descr, funcaddr, buf):
+        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
+        result = rffi.ptradd(buf, cif_descr.exchange_result)
+        return self._convert2complex(space,
+            rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, result)[0]))
 
 
 class StdStringExecutor(InstancePtrExecutor):
@@ -393,6 +426,13 @@ def get_executor(space, name):
             elif compound == '*' or compound == '&':
                 return SmartPointerPtrExecutor(space, clsdecl, check_smart[1], check_smart[2])
             # fall through: can still return smart pointer in non-smart way
+
+        if clean_name.find('std::complex', 0, 12) == 0 and\
+               (0 < clean_name.find('double') or 0 < clean_name.find('float')):
+            if compound == '':
+                return ComplexExecutor(space, clsdecl)
+            elif compound == '&':
+                return ComplexRefExecutor(space, clsdecl)
 
         if compound == '':
             return InstanceExecutor(space, clsdecl)

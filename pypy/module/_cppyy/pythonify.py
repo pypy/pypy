@@ -434,11 +434,13 @@ def _pythonize(pyclass, name):
                 return self
         pyclass.__iadd__ = iadd
 
+    is_vector = name.find('std::vector', 0, 11) == 0
+
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
     add_checked_item = False
-    if name.find('std::vector', 0, 11) != 0:
+    if not is_vector:
         if 'begin' in pyclass.__dict__ and 'end' in pyclass.__dict__:
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
@@ -458,7 +460,7 @@ def _pythonize(pyclass, name):
                 add_checked_item = True
 
     # add python collection based initializer
-    if name.find('std::vector', 0, 11) == 0:
+    else:
         pyclass.__real_init__ = pyclass.__init__
         def vector_init(self, *args):
             if len(args) == 1 and isinstance(args[0], (tuple, list)):
@@ -482,7 +484,7 @@ def _pythonize(pyclass, name):
 
     # TODO: must be a simpler way to check (or at least hook these to a namespace
     # std specific pythonizor)
-    if add_checked_item or name.find('std::vector', 0, 11) == 0 or \
+    if add_checked_item or is_vector or \
             name.find('std::array', 0, 11) == 0 or name.find('std::deque', 0, 10) == 0:
         # combine __getitem__ and __len__ to make a pythonized __getitem__
         if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
@@ -503,7 +505,7 @@ def _pythonize(pyclass, name):
         pyclass.__str__ = pyclass.c_str
 
     # std::pair unpacking through iteration
-    if 'std::pair' == name[:9]:
+    elif name.find('std::pair', 0, 9) == 0:
         def getitem(self, idx):
             if idx == 0: return self.first
             if idx == 1: return self.second
@@ -512,6 +514,30 @@ def _pythonize(pyclass, name):
             return 2
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
+
+    # std::complex integration with Python complex
+    elif name.find('std::complex', 0, 12) == 0:
+        def getreal(obj):
+            return obj.__cpp_real()
+        def setreal(obj, val):
+            obj.__cpp_real(val)
+        pyclass.__cpp_real = pyclass.real
+        pyclass.real = property(getreal, setreal)
+
+        def getimag(obj):
+            return obj.__cpp_imag()
+        def setimag(obj, val):
+            obj.__cpp_imag(val)
+        pyclass.__cpp_imag = pyclass.imag
+        pyclass.imag = property(getimag, setimag)
+
+        def cmplx(self):
+            return self.real+self.imag*1.j
+        pyclass.__complex__ = cmplx
+
+        def cmplx_repr(self):
+            return repr(self.__complex__())
+        pyclass.__repr__ = cmplx_repr
 
     # user provided, custom pythonizations
     try:

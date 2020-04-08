@@ -56,6 +56,10 @@ class FakeFloat(FakeBase):
     typename = "float"
     def __init__(self, val):
         self.val = val
+class FakeComplex(FakeBase):
+    typename = "complex"
+    def __init__(self, rval, ival):
+        self.obj = (rval, ival)
 class FakeString(FakeBase):
     typename = "str"
     def __init__(self, val):
@@ -138,6 +142,7 @@ class FakeSpace(object):
         self.w_Exception           = FakeException(self, "Exception")
         self.w_ImportError         = FakeException(self, "ImportError")
         self.w_KeyError            = FakeException(self, "KeyError")
+        self.w_LookupError         = FakeException(self, "LookupError")
         self.w_NotImplementedError = FakeException(self, "NotImplementedError")
         self.w_OSError             = FakeException(self, "OSError")
         self.w_ReferenceError      = FakeException(self, "ReferenceError")
@@ -179,6 +184,10 @@ class FakeSpace(object):
     @specialize.argtype(1)
     def newfloat(self, obj):
         return FakeFloat(obj)
+
+    @specialize.argtype(1)
+    def newcomplex(self, rval, ival):
+        return FakeComplex(rval, ival)
 
     @specialize.argtype(1)
     def newbytes(self, obj):
