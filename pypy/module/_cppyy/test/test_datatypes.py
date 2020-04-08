@@ -95,6 +95,7 @@ class AppTestDATATYPES:
         assert round(c.get_complex_r().real  -  99., 11) == 0
         assert round(c.get_complex_r().imag  - 101., 11) == 0
         assert complex(cppyy.gbl.std.complex['double'](1, 2)) == complex(1, 2)
+        assert repr(cppyy.gbl.std.complex['double'](1, 2)) == '(1+2j)'
 
         # complex<int> retains C++ type in all cases (but includes pythonization to
         # resemble Python's complex more closely
