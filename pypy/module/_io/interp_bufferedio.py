@@ -758,11 +758,12 @@ class BufferedMixin:
             self.read_end = self.pos
 
     def write_w(self, space, w_data):
-        self._check_closed(space, "write to closed file")
+        self._check_init(space)
         data = space.charbuf_w(w_data)
         size = len(data)
 
         with self.lock:
+            self._check_closed(space, "write to closed file")
             if (not (self.readable and self.read_end != -1) and
                 not (self.writable and self.write_end != -1)):
                 self.pos = 0
