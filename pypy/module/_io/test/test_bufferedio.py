@@ -165,6 +165,14 @@ class AppTestBufferedReader:
         assert raw.nbreads == 3
         f.close()
 
+        # a negative argument (or no argument) leads to using the default
+        # buffer size
+        raw = _io.BytesIO(b'aaaa\nbbbb\ncccc\n')
+        f = _io.BufferedReader(raw, buffer_size=3)
+        assert f.read1(-1) == b'aaa'
+        assert f.read1() == b'a\nb'
+
+
     def test_readinto(self):
         import _io
         for methodname in ["readinto", "readinto1"]:
