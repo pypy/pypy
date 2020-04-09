@@ -540,8 +540,8 @@ class W_TextIOWrapper(W_TextIOBase):
 
         newline = unwrap_newline(space, w_newline)
 
-        self.line_buffering = line_buffering
-        self.write_through = write_through
+        self.line_buffering = bool(line_buffering)
+        self.write_through = bool(write_through)
 
         self._set_newline(newline)
 
