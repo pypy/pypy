@@ -17,6 +17,13 @@ from rpython.rlib.rarithmetic import int_between
 unicodedb = None       # possibly patched by set_unicode_db()
 
 def set_unicode_db(newunicodedb):
+    # check the validity of the following optimization for the given unicodedb:
+    # for all ascii chars c, getlower(c)/getupper(c) behaves like on ascii
+    # (very unlikely to change, but who knows)
+    if newunicodedb is not None:
+        for i in range(128):
+            assert newunicodedb.tolower(i) == getlower_ascii(i)
+            assert newunicodedb.toupper(i) == getupper_ascii(i)
     global unicodedb
     unicodedb = newunicodedb
 
@@ -53,6 +60,8 @@ SRE_INFO_CHARSET = 4
 SRE_FLAG_LOCALE = 4 # honour system locale
 SRE_FLAG_UNICODE = 32 # use unicode locale
 
+def getlower_ascii(char_ord):
+    return char_ord + int_between(ord('A'), char_ord, ord('Z') + 1) * (ord('a') - ord('A'))
 
 def getlower(char_ord, flags):
     if flags & SRE_FLAG_LOCALE:
@@ -60,12 +69,16 @@ def getlower(char_ord, flags):
             char_ord = tolower(char_ord)
         return char_ord
     elif flags & SRE_FLAG_UNICODE:
+        if char_ord < 128: # shortcut for ascii
+            return getlower_ascii(char_ord)
         assert unicodedb is not None
         char_ord = unicodedb.tolower(char_ord)
     else:
-        if int_between(ord('A'), char_ord, ord('Z') + 1):   # ASCII lower
-            char_ord += ord('a') - ord('A')
+        char_ord = getlower_ascii(char_ord)
     return char_ord
+
+def getupper_ascii(char_ord):
+    return char_ord - int_between(ord('a'), char_ord, ord('z') + 1) * (ord('a') - ord('A'))
 
 def getupper(char_ord, flags):
     if flags & SRE_FLAG_LOCALE:
@@ -73,11 +86,12 @@ def getupper(char_ord, flags):
             char_ord = toupper(char_ord)
         return char_ord
     elif flags & SRE_FLAG_UNICODE:
+        if char_ord < 128: # shortcut for ascii
+            return getupper_ascii(char_ord)
         assert unicodedb is not None
         char_ord = unicodedb.toupper(char_ord)
     else:
-        if int_between(ord('a'), char_ord, ord('z') + 1):   # ASCII upper
-            char_ord += ord('A') - ord('a')
+        char_ord = getupper_ascii(char_ord)
     return char_ord
 
 #### Category helpers
@@ -208,7 +222,7 @@ def set_range_ignore(ctx, pattern, index, char_code):
     lower = pattern.pattern[index + 1]
     upper = pattern.pattern[index + 2]
     match1 = int_between(lower, char_code, upper + 1)
-    match2 = int_between(lower, getupper(char_code, ctx.flags), upper + 1)
+    match2 = int_between(lower, getupper(char_code, pattern.flags), upper + 1)
     return match1 | match2, index + 3
 
 def set_bigcharset(ctx, pattern, index, char_code):

@@ -12,17 +12,17 @@ class Utf8MatchContext(AbstractMatchContext):
     by this class are expressed in *bytes*, not in characters.
     """
 
-    def __init__(self, utf8string, match_start, end, flags):
-        AbstractMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, utf8string, match_start, end):
+        AbstractMatchContext.__init__(self, match_start, end)
         self._utf8 = utf8string
 
     def str(self, index):
         check_nonneg(index)
         return rutf8.codepoint_at_pos(self._utf8, index)
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def get_single_byte(self, base_position, index):
         return self._utf8[base_position + index]
@@ -72,34 +72,34 @@ class Utf8MatchContext(AbstractMatchContext):
         return position_high - position_low
 
 
-def make_utf8_ctx(utf8string, bytestart, byteend, flags):
+def make_utf8_ctx(utf8string, bytestart, byteend):
     if bytestart < 0: bytestart = 0
     elif bytestart > len(utf8string): bytestart = len(utf8string)
     if byteend < 0: byteend = 0
     elif byteend > len(utf8string): byteend = len(utf8string)
-    ctx = Utf8MatchContext(utf8string, bytestart, byteend, flags)
+    ctx = Utf8MatchContext(utf8string, bytestart, byteend)
     ctx.debug_check_pos(bytestart)
     ctx.debug_check_pos(byteend)
     return ctx
 
-def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxint, flags=0):
+def utf8search(pattern, utf8string, bytestart=0, byteend=sys.maxint):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
     from rpython.rlib.rsre.rsre_core import search_context
 
-    ctx = make_utf8_ctx(utf8string, bytestart, byteend, flags)
+    ctx = make_utf8_ctx(utf8string, bytestart, byteend)
     if search_context(ctx, pattern):
         return ctx
     else:
         return None
 
-def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint, flags=0,
+def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint,
               fullmatch=False):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
     from rpython.rlib.rsre.rsre_core import match_context
 
-    ctx = make_utf8_ctx(utf8string, bytestart, byteend, flags)
+    ctx = make_utf8_ctx(utf8string, bytestart, byteend)
     ctx.fullmatch_only = fullmatch
     if match_context(ctx, pattern):
         return ctx
