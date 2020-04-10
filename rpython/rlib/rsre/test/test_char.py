@@ -1,5 +1,5 @@
 from rpython.rlib.rsre import rsre_char, rsre_core
-from rpython.rlib.rsre.rsre_char import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
+from rpython.rlib.rsre.rsre_constants import SRE_FLAG_LOCALE, SRE_FLAG_UNICODE
 
 def setup_module(mod):
     from rpython.rlib.unicodedata import unicodedb

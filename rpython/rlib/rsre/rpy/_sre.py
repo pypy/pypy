@@ -1,4 +1,4 @@
-from rpython.rlib.rsre import rsre_char, rsre_core
+from rpython.rlib.rsre import rsre_char, rsre_core, rsre_constants
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -14,7 +14,7 @@ class GotIt(Exception):
 
 def compile(pattern, flags, code, *args):
     if not we_are_translated() and isinstance(pattern, unicode):
-        flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
+        flags |= rsre_constants.SRE_FLAG_UNICODE   # for rsre_re.py
     raise GotIt(rsre_core.CompiledPattern([intmask(i) for i in code], flags), flags, args)
 
 
