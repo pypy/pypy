@@ -458,3 +458,13 @@ class AppTestTime:
 
         assert signalled != []
         assert t2 - t1 > 2.99
+
+    def test_tm_gmtoff_valid(self):
+        import time
+        local = time.localtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None
+        local = time.gmtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None
+        assert False
