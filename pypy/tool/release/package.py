@@ -26,7 +26,17 @@ import platform
 from pypy.tool.release.smartstrip import smartstrip
 from pypy.tool.release.make_portable import make_portable
 
-USE_ZIPFILE_MODULE = sys.platform == 'win32'
+
+def get_arch():
+    if sys.platform in ('win32', 'darwin'):
+        return sys.platform
+    else:
+        return platform.uname()[-1]
+
+ARCH = get_arch()
+
+
+USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "2.7"
 
@@ -51,7 +61,7 @@ class PyPyCNotFound(Exception):
     pass
 
 def fix_permissions(dirname):
-    if sys.platform != 'win32':
+    if ARCH != 'win32':
         os.system("chmod -R a+rX %s" % dirname)
         os.system("chmod -R g-w %s" % dirname)
 
@@ -74,7 +84,7 @@ def create_package(basedir, options, _fake=False):
     basedir = py.path.local(basedir)
     if not override_pypy_c:
         basename = POSIX_EXE + '-c'
-        if sys.platform == 'win32':
+        if ARCH == 'win32':
             basename += '.exe'
         pypy_c = basedir.join('pypy', 'goal', basename)
     else:
@@ -102,15 +112,15 @@ def create_package(basedir, options, _fake=False):
         if len(failures) > 0:
             return 1, None
 
-    if sys.platform == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
+    if ARCH == 'win32' and not rename_pypy_c.lower().endswith('.exe'):
         rename_pypy_c += '.exe'
     binaries = [(pypy_c, rename_pypy_c, None)]
 
-    if (sys.platform != 'win32' and    # handled below
+    if (ARCH != 'win32' and    # handled below
         not _fake and os.path.getsize(str(pypy_c)) < 500000):
         # This 'pypy_c' is very small, so it means it relies on a so/dll
         # If it would be bigger, it wouldn't.  That's a hack.
-        if sys.platform.startswith('darwin'):
+        if ARCH.startswith('darwin'):
             ext = 'dylib'
         else:
             ext = 'so'
@@ -130,7 +140,7 @@ def create_package(basedir, options, _fake=False):
     shutil.copytree(str(includedir), str(pypydir.join('include')))
     pypydir.ensure('include', dir=True)
 
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
                             os.environ.get('PATH', '')
         src, tgt, _ = binaries[0]
@@ -197,7 +207,8 @@ def create_package(basedir, options, _fake=False):
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
-                                           '*_cffi.c', '*.o', '*.pyd-*'))
+                                           '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
+                                           '*.lib', '*.exp', '*.manifest'))
     for file in ['README.rst',]:
         shutil.copy(str(basedir.join(file)), str(pypydir))
     for file in ['_testcapimodule.c', '_ctypes_test.c']:
@@ -213,7 +224,7 @@ def create_package(basedir, options, _fake=False):
     spdir = pypydir.ensure('site-packages', dir=True)
     shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
     #
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         bindir = pypydir
     else:
         bindir = pypydir.join('bin')
@@ -228,7 +239,7 @@ def create_package(basedir, options, _fake=False):
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
-    #if not _fake and not sys.platform == 'win32':
+    #if not _fake and not ARCH == 'win32':
     #    # create the pypy3 symlink
     #    old_dir = os.getcwd()
     #    os.chdir(str(bindir))
@@ -269,7 +280,7 @@ def create_package(basedir, options, _fake=False):
             zf.close()
         else:
             archive = str(builddir.join(name + '.tar.bz2'))
-            if sys.platform == 'darwin':
+            if ARCH == 'darwin':
                 print("Warning: tar on current platform does not suport "
                       "overriding the uid and gid for its contents. The tarball "
                       "will contain your uid and gid. If you are building the "
@@ -304,7 +315,7 @@ def package(*args, **kwds):
         def __call__(self, parser, ns, values, option):
             setattr(ns, self.dest, option[2:4] != 'no')
 
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         pypy_exe = POSIX_EXE + '.exe'
     else:
         pypy_exe = POSIX_EXE
@@ -337,7 +348,7 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=(sys.platform == 'darwin'),
+                        default=(ARCH in ('darwin', 'aarch64')),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
     parser.add_argument('--make-portable',
@@ -371,7 +382,7 @@ def package(*args, **kwds):
 
 if __name__ == '__main__':
     import sys
-    if sys.platform == 'win32':
+    if ARCH == 'win32':
         # Try to avoid opeing a dialog box if one of the
         # subprocesses causes a system error
         import ctypes

@@ -52,8 +52,8 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('https://www.openssl.org/source/old/1.1.1/openssl-1.1.1c.tar.gz',
-             'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
+    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1f.tar.gz',
+             '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -165,6 +165,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
     # be sure pip, setuptools are installed in a fresh pypy
     # allows proper functioning of cffi on win32 with newer vc compilers
     # XXX move this to a build slave step?
+    env = os.environ
+    if sys.platform == 'win32':
+        env = os.environ.copy()
+        env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
+        env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
+        env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
@@ -178,7 +184,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             continue
         if not rebuild:
             # the key is the module name, has it already been built?
-            status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import %s' % key])
+            status, stdout, stderr = run_subprocess(str(pypy_c),
+                                         ['-c', 'import %s' % key], env=env)
             if status  == 0:
                 print('*', ' %s already built' % key, file=sys.stderr)
                 continue
@@ -189,7 +196,6 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         else:
             args = ['-c', 'import ' + module]
             cwd = None
-        env = os.environ.copy()
 
         print('*', ' '.join(args), file=sys.stderr)
         if embed_dependencies and key in cffi_dependencies:
@@ -206,10 +212,6 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
                 '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
-        elif sys.platform == 'win32':
-            env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
-            env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
-            env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
 
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
@@ -226,7 +228,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         else:
             # Make sure it worked
             status, stdout, stderr = run_subprocess(str(pypy_c),
-                         ['-c', "print('testing {0}'); import {0}".format(key)])
+                         ['-c', "print('testing {0}'); import {0}".format(key)],
+                         env=env)
             if status != 0:
                 failures.append((key, module))
                 print("stdout:")
