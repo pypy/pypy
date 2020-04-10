@@ -521,7 +521,6 @@ if HAVE_SENDMSG:
                                   int flags,
                                   struct sockaddr* address,
                                   socklen_t* addrlen,
-                                  long** length_of_messages,
                                   char** messages,
                                   long* no_of_messages,
                                   long* size_of_ancillary,
@@ -638,16 +637,13 @@ if HAVE_SENDMSG:
             // Set the parameters of message
             no_of_messages[0] = retinfo->no_of_messages;
             size_of_ancillary[0] = retinfo->size_of_ancillary;
-            *length_of_messages = (long*) malloc (sizeof(long) * retinfo->no_of_messages);
-            //memcpy(*length_of_messages, retinfo->length_of_messages, sizeof(int) * retinfo->no_of_messages);
             int counter = 0;
             for (i=0; i< retinfo->no_of_messages; i++){
                 counter += retinfo->length_of_messages[i];
-                length_of_messages[0][i] = retinfo->length_of_messages[i];
             }
             memset(*messages, 0, sizeof(char) * counter);
             counter = 0;
-            for(i=0; i< retinfo->no_of_messages; i++){
+            for(i=0; i< retinfo->no_of_messages; i++) {
                 memcpy(*messages+counter,retinfo->messages[i],retinfo->length_of_messages[i]);
                 counter += retinfo->length_of_messages[i];
             }
@@ -969,7 +965,7 @@ if HAVE_SENDMSG:
     post_include_bits =[ "RPY_EXTERN "
                          "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
                          "RPY_EXTERN "
-                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, long** length_of_messages, char** messages, long* no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
+                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, char** messages, long* no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
                          "static "
                          "int cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space);\n"
                          "static "
@@ -1276,11 +1272,12 @@ socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)
-recvmsg = jit.dont_look_inside(rffi.llexternal("recvmsg_implementation",
-                                               [rffi.INT, rffi.INT, rffi.INT, rffi.INT,sockaddr_ptr, socklen_t_ptr, rffi.SIGNEDPP, rffi.CCHARPP,
-                                                rffi.SIGNEDP,rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP, rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP],
-                                               rffi.INT, save_err=SAVE_ERR,
-                                               compilation_info=compilation_info))
+recvmsg = jit.dont_look_inside(rffi.llexternal(
+    "recvmsg_implementation",
+    [rffi.INT, rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
+        rffi.CCHARPP, rffi.SIGNEDP, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
+        rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP], rffi.INT,
+    save_err=SAVE_ERR, compilation_info=compilation_info))
 
 memcpy_from_CCHARP_at_offset = jit.dont_look_inside(rffi.llexternal("memcpy_from_CCHARP_at_offset_and_size",
                                     [rffi.CCHARP, rffi.CCHARPP,rffi.INT,rffi.INT],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
