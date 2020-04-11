@@ -164,10 +164,13 @@ if __name__ == '__main__':
             help = (" | if you want to debug on a remote machine, see\n"
                     " | instructions in dotviewer/sshgraphserver.py\n")
             try:
+                # extreeeemely annoying! this "support message" messes up the
+                # communication
+                os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
                 import pygame
                 if isinstance(e, pygame.error):
                     print >> f, help
-            except Exception, e:
+            except BaseException, e:
                 f.seek(0)
                 f.truncate()
                 print >> f, "%s: %s" % (e.__class__.__name__, e)

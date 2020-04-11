@@ -1,5 +1,6 @@
 from __future__ import generators
 import os, time, sys
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from pygame.locals import *
 from drawgraph import GraphRenderer, FIXEDFONT
