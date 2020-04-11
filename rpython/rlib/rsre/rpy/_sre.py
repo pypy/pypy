@@ -4,8 +4,8 @@ from rpython.rlib.objectmodel import we_are_translated
 
 VERSION = "2.7.6"
 MAGIC = 20031017
-MAXREPEAT = rsre_char.MAXREPEAT
-CODESIZE = rsre_char.CODESIZE
+MAXREPEAT = rsre_constants.MAXREPEAT
+CODESIZE = rsre_constants.CODESIZE
 getlower = rsre_char.getlower
 
 
@@ -15,7 +15,7 @@ class GotIt(Exception):
 def compile(pattern, flags, code, *args):
     if not we_are_translated() and isinstance(pattern, unicode):
         flags |= rsre_constants.SRE_FLAG_UNICODE   # for rsre_re.py
-    raise GotIt(rsre_core.CompiledPattern([intmask(i) for i in code], flags), flags, args)
+    raise GotIt(rsre_core.CompiledPattern([intmask(i) for i in code], flags, repr(pattern)), flags, args)
 
 
 def get_code(regexp, flags=0, allargs=False):

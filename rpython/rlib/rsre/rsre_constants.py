@@ -1,3 +1,26 @@
+import sys
+
+if sys.maxint > 2**32:
+    MAXREPEAT = int(2**32 - 1)
+    MAXGROUPS = int(2**31 - 1)
+else:
+    MAXREPEAT = int(2**31 - 1)
+    MAXGROUPS = int(2**30 - 1)
+
+# In _sre.c this is bytesize of the code word type of the C implementation.
+# There it's 2 for normal Python builds and more for wide unicode builds (large
+# enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
+# we only see re bytecodes as Python longs, we shouldn't have to care about the
+# codesize. But sre_compile will compile some stuff differently depending on the
+# codesize (e.g., charsets).
+from rpython.rlib.runicode import MAXUNICODE
+if MAXUNICODE == 65535:
+    CODESIZE = 2
+else:
+    CODESIZE = 4
+
+_CODEBITS = CODESIZE * 8
+
 OPCODE_FAILURE            = 0
 OPCODE_SUCCESS            = 1
 OPCODE_ANY                = 2
@@ -35,6 +58,11 @@ OPCODE_RANGE_IGNORE       = 32
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70
 
+opnames = {}
+for entry, value in globals().items():
+    if entry.startswith("OPCODE_"):
+        opnames[value] = entry
+
 
 AT_BEGINNING = 0
 AT_BEGINNING_LINE = 1
@@ -51,9 +79,10 @@ AT_UNI_NON_BOUNDARY = 11
 
 def _makecodes(s):
     d = {}
+    g = globals()
     for i, name in enumerate(s.strip().split()):
-        d[name] = i
-    globals().update(d)
+        d[i] = name
+        g[name] = i
     return d
 
 ATCODES = _makecodes("""

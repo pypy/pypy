@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.unroll import unrolling_iterable
@@ -53,16 +54,17 @@ class EndOfString(Exception):
 class CompiledPattern(object):
     _immutable_fields_ = ['pattern[*]', 'flags']
 
-    def __init__(self, pattern, flags):
+    def __init__(self, pattern, flags, repr=None):
         self.pattern = pattern
         self.flags = flags
+        self.repr = repr
         # check we don't get the old value of MAXREPEAT
         # during the untranslated tests. 
         # On python3, MAXCODE can appear in patterns. It will be 65535
         # when CODESIZE is 2
-        if not we_are_translated() and rsre_char.CODESIZE != 2:
+        if not we_are_translated() and consts.CODESIZE != 2:
             assert 65535 not in pattern
-
+    
     def pat(self, index):
         jit.promote(self)
         check_nonneg(index)
@@ -73,6 +75,150 @@ class CompiledPattern(object):
         # but they should not be fetched via this helper here.
         assert result >= 0
         return result
+
+    def dis(self):
+        # stolen from CPython
+        code = self.pattern
+
+        def _hex_code(code):
+            return '[%s]' % ', '.join('%#0*x' % (consts.CODESIZE*2+2, x) for x in code)
+
+        labels = set()
+        offset_width = len(str(len(code) - 1))
+
+        def dis_(start, end, level=0):
+            def print_(*args, **kwargs):
+                to = kwargs.pop('to', None)
+                assert not kwargs
+                if to is not None:
+                    labels.add(to)
+                    args += ('(to %d)' % (to,),)
+                print('%*d%s ' % (offset_width, start, ':' if start in labels else '.'),
+                      end='  '*(level-1))
+                print(*args)
+
+            def print_2(*args):
+                print(end=' '*(offset_width + 2*level))
+                print(*args)
+
+            level += 1
+            i = start
+            while i < end:
+                start = i
+                op = code[i]
+                opname = consts.opnames[op]
+                i += 1
+                if op in (consts.OPCODE_SUCCESS, consts.OPCODE_FAILURE, consts.OPCODE_ANY, consts.OPCODE_ANY_ALL,
+                          consts.OPCODE_MAX_UNTIL, consts.OPCODE_MIN_UNTIL, consts.OPCODE_NEGATE):
+                    print_(opname)
+                elif op in (consts.OPCODE_LITERAL, consts.OPCODE_NOT_LITERAL,
+                        consts.OPCODE_LITERAL_IGNORE, consts.OPCODE_NOT_LITERAL_IGNORE):
+                    arg = code[i]
+                    i += 1
+                    print_(opname, u'%#02x (%r)' % (arg, unichr(arg)))
+                elif op is consts.OPCODE_AT:
+                    arg = code[i]
+                    i += 1
+                    arg = str(consts.ATCODES[arg])
+                    assert arg[:3] == 'AT_'
+                    print_(opname, arg[3:])
+                elif op is consts.OPCODE_CATEGORY:
+                    arg = code[i]
+                    i += 1
+                    arg = str(consts.CHCODES[arg])
+                    assert arg[:9] == 'CATEGORY_'
+                    print_(opname, arg[9:])
+                elif op in (consts.OPCODE_IN, consts.OPCODE_IN_IGNORE):
+                    skip = code[i]
+                    print_(opname, skip, to=i+skip)
+                    dis_(i+1, i+skip)
+                    i += skip
+                elif op == consts.OPCODE_RANGE:
+                    lo, hi = code[i: i+2]
+                    i += 2
+                    print_(opname, u'%#02x %#02x (%r-%r)' % (lo, hi, unichr(lo), unichr(hi)))
+                elif op is consts.OPCODE_CHARSET:
+                    print_(opname, _hex_code(code[i: i + 256//consts._CODEBITS]))
+                    i += 256//consts._CODEBITS
+                elif op is consts.OPCODE_BIGCHARSET:
+                    arg = code[i]
+                    i += 1
+                    print_(opname, arg, code[i: i + 256//consts.CODESIZE])
+                    i += 256//consts.CODESIZE
+                    level += 1
+                    for j in range(arg):
+                        print_2(_hex_code(code[i: i + 256//consts._CODEBITS]))
+                        i += 256//consts._CODEBITS
+                    level -= 1
+                elif op in (consts.OPCODE_MARK, consts.OPCODE_GROUPREF, consts.OPCODE_GROUPREF_IGNORE):
+                    arg = code[i]
+                    i += 1
+                    print_(opname, arg)
+                elif op is consts.OPCODE_JUMP:
+                    skip = code[i]
+                    print_(opname, skip, to=i+skip)
+                    i += 1
+                elif op is consts.OPCODE_BRANCH:
+                    skip = code[i]
+                    print_(opname, skip, to=i+skip)
+                    while skip:
+                        dis_(i+1, i+skip)
+                        i += skip
+                        start = i
+                        skip = code[i]
+                        if skip:
+                            print_('branch', skip, to=i+skip)
+                        else:
+                            print_(consts.OPCODE_FAILURE)
+                    i += 1
+                elif op in (consts.OPCODE_REPEAT, consts.OPCODE_REPEAT_ONE, consts.OPCODE_MIN_REPEAT_ONE):
+                    skip, min, max = code[i: i+3]
+                    if max == consts.MAXREPEAT:
+                        max = 'MAXREPEAT'
+                    print_(opname, skip, min, max, to=i+skip)
+                    dis_(i+3, i+skip)
+                    i += skip
+                elif op is consts.OPCODE_GROUPREF_EXISTS:
+                    arg, skip = code[i: i+2]
+                    print_(opname, arg, skip, to=i+skip)
+                    i += 2
+                elif op in (consts.OPCODE_ASSERT, consts.OPCODE_ASSERT_NOT):
+                    skip, arg = code[i: i+2]
+                    print_(opname, skip, arg, to=i+skip)
+                    dis_(i+2, i+skip)
+                    i += skip
+                elif op is consts.OPCODE_INFO:
+                    skip, flags, min, max = code[i: i+4]
+                    if max == consts.MAXREPEAT:
+                        max = 'MAXREPEAT'
+                    print_(opname, skip, bin(flags), min, max, to=i+skip)
+                    start = i+4
+                    if flags & consts.SRE_INFO_PREFIX:
+                        prefix_len, prefix_skip = code[i+4: i+6]
+                        print_2('  prefix_skip', prefix_skip)
+                        start = i + 6
+                        prefix = code[start: start+prefix_len]
+                        print_2('  prefix',
+                                '[%s]' % ', '.join('%#02x' % x for x in prefix),
+                                u'(%r)' % u''.join(map(unichr, prefix)))
+                        start += prefix_len
+                        print_2('  overlap', code[start: start+prefix_len])
+                        start += prefix_len
+                    if flags & consts.SRE_INFO_CHARSET:
+                        level += 1
+                        print_2('in')
+                        dis_(start, i+skip, level=level)
+                        level -= 1
+                    i += skip
+                else:
+                    raise ValueError(opname)
+
+            level -= 1
+
+        dis_(0, len(code))
+
+
+
 
 class AbstractMatchContext(object):
     """Abstract base class"""
@@ -478,7 +624,7 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                 pattern=pattern)
             if match_more:
                 max = pattern.pat(ppos+2)
-                if max == rsre_char.MAXREPEAT or self.num_pending < max:
+                if max == consts.MAXREPEAT or self.num_pending < max:
                     # try to match one more 'item'
                     enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)
                 else:
@@ -547,7 +693,7 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
                     return self
             resume = False
 
-            if max == rsre_char.MAXREPEAT or self.num_pending < max:
+            if max == consts.MAXREPEAT or self.num_pending < max:
                 # try to match one more 'item'
                 enum = sre_match(ctx, pattern, ppos + 3, ptr, marks)
                 #
@@ -852,7 +998,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
 
             max_count = sys.maxint
             max = pattern.pat(ppos+2)
-            if max != rsre_char.MAXREPEAT:
+            if max != consts.MAXREPEAT:
                 max_count = max - min
                 assert max_count >= 0
             nextppos = ppos + pattern.pat(ppos)
@@ -920,7 +1066,7 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
     if maxcount == 1:
         return ptrp1
     # Else we really need to count how many times it matches.
-    if maxcount != rsre_char.MAXREPEAT:
+    if maxcount != consts.MAXREPEAT:
         # adjust end
         try:
             end = ctx.next_n(ptr, maxcount, end)
@@ -936,7 +1082,7 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
 def general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
     # moved into its own JIT-opaque function
     end = ctx.end
-    if maxcount != rsre_char.MAXREPEAT:
+    if maxcount != consts.MAXREPEAT:
         # adjust end
         end1 = ptr + maxcount
         if end1 <= end:

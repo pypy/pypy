@@ -4,8 +4,8 @@ module, but can be produced by other means (e.g. Python 3.5)
 """
 
 from rpython.rlib.rsre import rsre_core, rsre_constants
-from rpython.rlib.rsre.rsre_char import MAXREPEAT
 from rpython.rlib.rsre.test.support import match, Position
+from rpython.rlib.rsre.rsre_constants import MAXREPEAT
 
 # import OPCODE_XX as XX
 for name, value in rsre_constants.__dict__.items():

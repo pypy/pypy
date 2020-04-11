@@ -1,8 +1,16 @@
 import re, random, py
 from rpython.rlib.rsre import rsre_char
-from rpython.rlib.rsre.rpy import get_code, VERSION
+from rpython.rlib.rsre.rpy import get_code as orig_get_code, VERSION
 from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
 
+def get_code(*args, **kwargs):
+    from rpython.rlib.rsre.rsre_core import CompiledPattern
+    res = orig_get_code(*args, **kwargs)
+    if isinstance(res, CompiledPattern):
+        # check that dis doesn't crash
+        print(res.repr)
+        res.dis()
+    return res
 
 def get_code_and_re(regexp):
     return get_code(regexp), re.compile(regexp)

@@ -31,25 +31,6 @@ def set_unicode_db(newunicodedb):
 
 #### Constants
 
-if sys.maxint > 2**32:
-    MAXREPEAT = int(2**32 - 1)
-    MAXGROUPS = int(2**31 - 1)
-else:
-    MAXREPEAT = int(2**31 - 1)
-    MAXGROUPS = int(2**30 - 1)
-
-# In _sre.c this is bytesize of the code word type of the C implementation.
-# There it's 2 for normal Python builds and more for wide unicode builds (large
-# enough to hold a 32-bit UCS-4 encoded character). Since here in pure Python
-# we only see re bytecodes as Python longs, we shouldn't have to care about the
-# codesize. But sre_compile will compile some stuff differently depending on the
-# codesize (e.g., charsets).
-from rpython.rlib.runicode import MAXUNICODE
-if MAXUNICODE == 65535:
-    CODESIZE = 2
-else:
-    CODESIZE = 4
-
 copyright = "_sre.py 2.4 Copyright 2005 by Nik Haldimann"
 
 BIG_ENDIAN = sys.byteorder == "big"
@@ -206,7 +187,7 @@ def set_category(ctx, pattern, index, char_code):
 
 def set_charset(ctx, pattern, index, char_code):
     # <CHARSET> <bitmap> (16 bits per code word)
-    if CODESIZE == 2:
+    if consts.CODESIZE == 2:
         match = char_code < 256 and \
                 (pattern.pattern[index+1+(char_code >> 4)] & (1 << (char_code & 15)))
         return match, index + 17  # skip bitmap
@@ -234,7 +215,7 @@ def set_bigcharset(ctx, pattern, index, char_code):
     count = pattern.pattern[index+1]
     index += 2
 
-    if CODESIZE == 2:
+    if consts.CODESIZE == 2:
         # One bytecode is 2 bytes, so contains 2 of the blockindices.
         # So the 256 blockindices are packed in 128 bytecodes, but
         # we need to unpack it as a byte.
@@ -245,7 +226,7 @@ def set_bigcharset(ctx, pattern, index, char_code):
         # So the 256 blockindices are packed in 64 bytecodes, but
         # we need to unpack it as a byte.
         if char_code >= 65536:
-            index += 256 / CODESIZE + count * (32 / CODESIZE)
+            index += 256 / consts.CODESIZE + count * (32 / consts.CODESIZE)
             return False, index
         shift = 5
 
@@ -254,14 +235,14 @@ def set_bigcharset(ctx, pattern, index, char_code):
     block_shift = char_code >> 5
     if BIG_ENDIAN:
         block_shift = ~block_shift
-    block_shift &= (CODESIZE - 1) * 8
+    block_shift &= (consts.CODESIZE - 1) * 8
     block = (block >> block_shift) & 0xFF
 
-    index += 256 / CODESIZE
-    block_value = pattern.pattern[index+(block * (32 / CODESIZE)
+    index += 256 / consts.CODESIZE
+    block_value = pattern.pattern[index+(block * (32 / consts.CODESIZE)
                              + ((char_code & 255) >> shift))]
-    match = (block_value & (1 << (char_code & ((8 * CODESIZE) - 1))))
-    index += count * (32 / CODESIZE)  # skip blocks
+    match = (block_value & (1 << (char_code & ((8 * consts.CODESIZE) - 1))))
+    index += count * (32 / consts.CODESIZE)  # skip blocks
     return match, index
 
 def set_unicode_general_category(ctx, pattern, index, char_code):
