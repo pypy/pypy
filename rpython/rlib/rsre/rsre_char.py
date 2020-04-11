@@ -6,6 +6,7 @@ from rpython.rlib.rlocale import tolower, toupper, isalnum
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit
 from rpython.rlib.rarithmetic import int_between
+from rpython.rlib.rsre import rsre_constants as consts
 
 # Note: the unicode parts of this module require you to call
 # rsre_char.set_unicode_db() first, to select one of the modules
@@ -17,6 +18,13 @@ from rpython.rlib.rarithmetic import int_between
 unicodedb = None       # possibly patched by set_unicode_db()
 
 def set_unicode_db(newunicodedb):
+    # check the validity of the following optimization for the given unicodedb:
+    # for all ascii chars c, getlower(c)/getupper(c) behaves like on ascii
+    # (very unlikely to change, but who knows)
+    if newunicodedb is not None:
+        for i in range(128):
+            assert newunicodedb.tolower(i) == getlower_ascii(i)
+            assert newunicodedb.toupper(i) == getupper_ascii(i)
     global unicodedb
     unicodedb = newunicodedb
 
@@ -46,38 +54,38 @@ copyright = "_sre.py 2.4 Copyright 2005 by Nik Haldimann"
 
 BIG_ENDIAN = sys.byteorder == "big"
 
-# XXX can we import those safely from sre_constants?
-SRE_INFO_PREFIX = 1
-SRE_INFO_LITERAL = 2
-SRE_INFO_CHARSET = 4
-SRE_FLAG_LOCALE = 4 # honour system locale
-SRE_FLAG_UNICODE = 32 # use unicode locale
-
+def getlower_ascii(char_ord):
+    return char_ord + int_between(ord('A'), char_ord, ord('Z') + 1) * (ord('a') - ord('A'))
 
 def getlower(char_ord, flags):
-    if flags & SRE_FLAG_LOCALE:
+    if flags & consts.SRE_FLAG_LOCALE:
         if char_ord < 256:      # cheating!  Well, CPython does too.
             char_ord = tolower(char_ord)
         return char_ord
-    elif flags & SRE_FLAG_UNICODE:
+    elif flags & consts.SRE_FLAG_UNICODE:
+        if char_ord < 128: # shortcut for ascii
+            return getlower_ascii(char_ord)
         assert unicodedb is not None
         char_ord = unicodedb.tolower(char_ord)
     else:
-        if int_between(ord('A'), char_ord, ord('Z') + 1):   # ASCII lower
-            char_ord += ord('a') - ord('A')
+        char_ord = getlower_ascii(char_ord)
     return char_ord
 
+def getupper_ascii(char_ord):
+    return char_ord - int_between(ord('a'), char_ord, ord('z') + 1) * (ord('a') - ord('A'))
+
 def getupper(char_ord, flags):
-    if flags & SRE_FLAG_LOCALE:
+    if flags & consts.SRE_FLAG_LOCALE:
         if char_ord < 256:      # cheating!  Well, CPython does too.
             char_ord = toupper(char_ord)
         return char_ord
-    elif flags & SRE_FLAG_UNICODE:
+    elif flags & consts.SRE_FLAG_UNICODE:
+        if char_ord < 128: # shortcut for ascii
+            return getupper_ascii(char_ord)
         assert unicodedb is not None
         char_ord = unicodedb.toupper(char_ord)
     else:
-        if int_between(ord('a'), char_ord, ord('z') + 1):   # ASCII upper
-            char_ord += ord('A') - ord('a')
+        char_ord = getupper_ascii(char_ord)
     return char_ord
 
 #### Category helpers
@@ -125,29 +133,39 @@ def is_uni_linebreak(code):
 #### Category dispatch
 
 def category_dispatch(category_code, char_code):
-    i = 0
-    for function, negate in category_dispatch_unroll:
+    for i, (function, negate) in category_dispatch_unroll:
         if category_code == i:
             result = function(char_code)
             if negate:
                 return not result # XXX this might lead to a guard
             else:
                 return result
-        i = i + 1
     else:
         return False
 
-# Maps opcodes by indices to (function, negate) tuples.
-category_dispatch_table = [
-    (is_digit, False), (is_digit, True), (is_space, False),
-    (is_space, True), (is_word, False), (is_word, True),
-    (is_linebreak, False), (is_linebreak, True), (is_loc_word, False),
-    (is_loc_word, True), (is_uni_digit, False), (is_uni_digit, True),
-    (is_uni_space, False), (is_uni_space, True), (is_uni_word, False),
-    (is_uni_word, True), (is_uni_linebreak, False),
-    (is_uni_linebreak, True)
-]
-category_dispatch_unroll = unrolling_iterable(category_dispatch_table)
+
+# Maps opcodes to (function, negate) tuples.
+category_dispatch_table = {
+    consts.CATEGORY_DIGIT: (is_digit, False),
+    consts.CATEGORY_NOT_DIGIT: (is_digit, True),
+    consts.CATEGORY_SPACE: (is_space, False),
+    consts.CATEGORY_NOT_SPACE: (is_space, True),
+    consts.CATEGORY_WORD: (is_word, False),
+    consts.CATEGORY_NOT_WORD: (is_word, True),
+    consts.CATEGORY_LINEBREAK: (is_linebreak, False),
+    consts.CATEGORY_NOT_LINEBREAK: (is_linebreak, True),
+    consts.CATEGORY_LOC_WORD: (is_loc_word, False),
+    consts.CATEGORY_LOC_NOT_WORD: (is_loc_word, True),
+    consts.CATEGORY_UNI_DIGIT: (is_uni_digit, False), 
+    consts.CATEGORY_UNI_NOT_DIGIT: (is_uni_digit, True),
+    consts.CATEGORY_UNI_SPACE: (is_uni_space, False), 
+    consts.CATEGORY_UNI_NOT_SPACE: (is_uni_space, True), 
+    consts.CATEGORY_UNI_WORD: (is_uni_word, False),
+    consts.CATEGORY_UNI_NOT_WORD: (is_uni_word, True),
+    consts.CATEGORY_UNI_LINEBREAK: (is_uni_linebreak, False),
+    consts.CATEGORY_UNI_NOT_LINEBREAK: (is_uni_linebreak, True),
+    }
+category_dispatch_unroll = unrolling_iterable(sorted(category_dispatch_table.items()))
 
 ##### Charset evaluation
 
@@ -165,9 +183,9 @@ def check_charset(ctx, pattern, ppos, char_code):
                 result |= newresult
                 break
         else:
-            if opcode == 0: # FAILURE
+            if opcode == consts.OPCODE_FAILURE:
                 break
-            elif opcode == 26:   # NEGATE
+            elif opcode == consts.OPCODE_NEGATE:
                 negated ^= True
                 ppos += 1
             else:
@@ -208,7 +226,7 @@ def set_range_ignore(ctx, pattern, index, char_code):
     lower = pattern.pattern[index + 1]
     upper = pattern.pattern[index + 2]
     match1 = int_between(lower, char_code, upper + 1)
-    match2 = int_between(lower, getupper(char_code, ctx.flags), upper + 1)
+    match2 = int_between(lower, getupper(char_code, pattern.flags), upper + 1)
     return match1 | match2, index + 3
 
 def set_bigcharset(ctx, pattern, index, char_code):
@@ -277,12 +295,12 @@ def set_unicode_general_category(ctx, pattern, index, char_code):
     return result, index + 2
 
 set_dispatch_table = {
-    9: set_category,
-    10: set_charset,
-    11: set_bigcharset,
-    19: set_literal,
-    27: set_range,
-    32: set_range_ignore,
-    70: set_unicode_general_category,
+    consts.OPCODE_CATEGORY: set_category,
+    consts.OPCODE_CHARSET: set_charset,
+    consts.OPCODE_BIGCHARSET: set_bigcharset,
+    consts.OPCODE_LITERAL: set_literal,
+    consts.OPCODE_RANGE: set_range,
+    consts.OPCODE_RANGE_IGNORE: set_range_ignore,
+    consts.OPCODE_UNICODE_GENERAL_CATEGORY: set_unicode_general_category,
 }
 set_dispatch_unroll = unrolling_iterable(sorted(set_dispatch_table.items()))
