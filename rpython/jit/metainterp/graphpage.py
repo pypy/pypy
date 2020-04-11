@@ -161,6 +161,7 @@ class ResOpGen(object):
                                   kwds))
 
     def genblock(self, operations, graphindex, opstartindex):
+        from rpython.jit.metainterp.history import ConstInt
         if opstartindex >= len(operations):
             return
         blockname = self.op_name(graphindex, opstartindex)
@@ -177,6 +178,17 @@ class ResOpGen(object):
                     s = jd_sd.warmstate.get_location_str(op.getarglist()[3:])
                     s = s.replace(',', '.') # we use comma for argument splitting
                     op_repr = "debug_merge_point(%d, %d, '%s')" % (op.getarg(1).getint(), op.getarg(2).getint(), s)
+            if op.getopnum() == rop.JIT_DEBUG:
+                args = op.getarglist()
+                s = args[0]._get_str()
+                s = s.replace(',', '.') # we use comma for argument splitting
+                s2 = ''
+                for box in args[1:]:
+                    if isinstance(box, ConstInt):
+                        s2 += ', %d' % box.getint()
+                    else:
+                        s2 += ', box'
+                op_repr = "jit_debug('%s'%s)" % (s, s2)
             lines.append(op_repr)
             if is_interesting_guard(op):
                 tgt = op.getdescr()._debug_suboperations[0]
