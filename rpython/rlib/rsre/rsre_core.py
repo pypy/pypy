@@ -6,7 +6,7 @@ from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib import jit
-from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec
+from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec, opname
 
 _seen_specname = {}
 
@@ -668,6 +668,11 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             match_more = False
 
 class MinUntilMatchResult(AbstractUntilMatchResult):
+    install_jitdriver('MinUntil',
+                      greens=['ppos', 'tailppos', 'resume', 'min', 'max', 'pattern'],
+                      reds=['ptr', 'marks', 'self', 'ctx'],
+                      debugprint=(5, 0))
+
 
     def find_first_result(self, ctx, pattern):
         return self.search_next(ctx, pattern, resume=False)
@@ -676,16 +681,19 @@ class MinUntilMatchResult(AbstractUntilMatchResult):
         return self.search_next(ctx, pattern, resume=True)
 
     def search_next(self, ctx, pattern, resume):
-        # XXX missing jit support here
         ppos = self.ppos
         min = pattern.pat(ppos+1)
         max = pattern.pat(ppos+2)
+        tailppos = self.tailppos
         ptr = self.cur_ptr
         marks = self.cur_marks
         while True:
             # try to match 'tail' if we have enough 'item'
+            ctx.jitdriver_MinUntil.jit_merge_point(
+                ppos=ppos, tailppos=tailppos, ptr=ptr, marks=marks, self=self,
+                ctx=ctx, min=min, max=max, resume=resume, pattern=pattern)
             if not resume and self.num_pending >= min:
-                result = sre_match(ctx, pattern, self.tailppos, ptr, marks)
+                result = sre_match(ctx, pattern, tailppos, ptr, marks)
                 if result is not None:
                     self.subresult = result
                     self.cur_ptr = ptr
@@ -735,7 +743,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         op = pattern.pat(ppos)
         ppos += 1
 
-        #jit.jit_debug("sre_match", op, ppos, ptr)
+        jit.jit_debug(opname(op), op, ppos, ptr)
         #
         # When using the JIT, calls to sre_match() must always have a constant
         # (green) argument for 'ppos'.  If not, the following assert fails.

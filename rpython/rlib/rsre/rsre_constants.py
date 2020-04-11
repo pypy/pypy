@@ -61,7 +61,7 @@ OPCODE_UNICODE_GENERAL_CATEGORY = 70
 opnames = {}
 for entry, value in globals().items():
     if entry.startswith("OPCODE_"):
-        opnames[value] = entry
+        opnames[value] = entry[len("OPCODE_"):]
 
 
 AT_BEGINNING = 0

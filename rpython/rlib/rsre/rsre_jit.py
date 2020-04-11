@@ -1,5 +1,9 @@
-from rpython.rlib.jit import JitDriver
+from rpython.rlib.rsre import rsre_constants as consts
+from rpython.rlib.jit import JitDriver, elidable
 
+@elidable
+def opname(op):
+    return consts.opnames[op]
 
 class RSreJitDriver(JitDriver):
     active = True
@@ -10,7 +14,7 @@ class RSreJitDriver(JitDriver):
         def get_printable_location(*args):
             # we print based on indices in 'args'.  We first print
             # 'ctx.pattern' from the arg number debugprint[0].
-            pattern = args[debugprint[0]]
+            pattern = args[debugprint[0]].repr
             s = str(pattern)
             if len(s) > 120:
                 s = s[:110] + '...'

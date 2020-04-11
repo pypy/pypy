@@ -5,8 +5,8 @@ from rpython.rlib.rsre import rsre_core
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
-def entrypoint1(r, string, repeat):
-    r = rsre_core.CompiledPattern(array2list(r), 0)
+def entrypoint1(r, string, repeat, pattern):
+    r = rsre_core.CompiledPattern(array2list(r), 0, hlstr(pattern))
     string = hlstr(string)
     match = None
     for i in range(repeat):
@@ -51,7 +51,7 @@ class TestJitRSre(support.LLJitMixin):
     def meta_interp_match(self, pattern, string, repeat=1):
         r = get_code(pattern)
         return self.meta_interp(entrypoint1, [list2array(r.pattern), llstr(string),
-                                              repeat],
+                                              repeat, llstr(repr(pattern))],
                                 listcomp=True, backendopt=True)
 
     def meta_interp_search(self, pattern, string, repeat=1):
@@ -78,9 +78,15 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_match(r".*?abc", "xxxxxxxxxxxxxxabc")
         assert res == 17
 
-    #def test_match_maxuntil_1(self):
-    #    res = self.meta_interp_match(r"(ab)*c", "ababababababababc")
-    #    assert res == 17
+    def test_match_maxuntil_1(self):
+        res = self.meta_interp_match(r"(ab)*c", "ababababababababc")
+        assert res == 17
+        self.check_trace_count(1)
+
+    def test_match_minuntil_1(self):
+        res = self.meta_interp_match(r"(ab)*?c", "ababababababababc")
+        assert res == 17
+        self.check_trace_count(1)
 
     def test_branch_1(self):
         res = self.meta_interp_match(r".*?(ab|x)c", "xxxxxxxxxxxxxxabc")
