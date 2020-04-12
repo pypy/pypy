@@ -977,10 +977,13 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             start = ptr
 
             min = pattern.pat(ppos+1)
-            try:
-                minptr = ctx.next_n(start, min, ctx.end)
-            except EndOfString:
-                return    # cannot match
+            if min:
+                try:
+                    minptr = ctx.next_n(start, min, ctx.end)
+                except EndOfString:
+                    return    # cannot match
+            else:
+                minptr = start
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
                                       marks)
