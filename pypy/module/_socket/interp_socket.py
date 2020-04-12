@@ -223,6 +223,8 @@ class W_Socket(W_Root):
                                    fd=space.c_filedescriptor_w(w_fileno))
             else:
                 sock = RSocket(family, type, proto, inheritable=False)
+            # On Python3.6+, the SOCK_CLOEXEC flag (if preset) is added
+            sock.type = type
             W_Socket.__init__(self, space, sock)
         except SocketError as e:
             raise converted_error(space, e)
