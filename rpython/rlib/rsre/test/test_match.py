@@ -1,5 +1,5 @@
 import re, random, py
-from rpython.rlib.rsre import rsre_char
+from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.rlib.rsre.rpy import get_code as orig_get_code, VERSION
 from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
 
@@ -317,3 +317,25 @@ class TestMatch:
         assert r.pattern.count(27) == 1       # OPCODE_RANGE
         r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
         assert match(r, u"\U00010428")
+
+class TestOptimizations(object):
+    def test_questionmark_single(self, monkeypatch):
+        from rpython.rlib.rsre import rsre_core
+        # make sure that certain matches can be executed without needing to
+        # instantiate a RepeatOneMatchResult
+        monkeypatch.setattr(rsre_core, "RepeatOneMatchResult", None)
+        r = get_code(r"a?b")
+        assert consts.OPCODE_REPEAT_ONE in r.pattern
+        assert fullmatch(r, "b")
+
+        r = get_code(r"a{3,}b")
+        assert consts.OPCODE_REPEAT_ONE in r.pattern
+        assert fullmatch(r, "b") is None
+
+    def test_commit_to_last_branch(self):
+        from rpython.rlib.rsre import rsre_core
+        r = get_code(r"a|bcde|c")
+        assert consts.OPCODE_BRANCH in r.pattern
+        ctx = rsre_core.StrMatchContext("c", 0, 1)
+        res = rsre_core.sre_match(ctx, r, 0, 0, None)
+        assert not isinstance(res, rsre_core.BranchMatchResult)

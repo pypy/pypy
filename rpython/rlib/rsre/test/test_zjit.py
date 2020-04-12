@@ -74,6 +74,11 @@ class TestJitRSre(support.LLJitMixin):
         self.check_trace_count(1)
         self.check_jitcell_token_count(1)
 
+    def test_questionmark_onechar(self):
+        res = self.meta_interp_match(r"a?xyz", "xyz", repeat=10)
+        assert res == 3
+        self.check_trace_count(1)
+
     def test_match_minrepeat_1(self):
         res = self.meta_interp_match(r".*?abc", "xxxxxxxxxxxxxxabc")
         assert res == 17

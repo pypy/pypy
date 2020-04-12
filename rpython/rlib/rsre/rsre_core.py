@@ -491,10 +491,15 @@ class BranchMatchResult(MatchResult):
 
     @jit.unroll_safe
     def find_first_result(self, ctx, pattern):
-        ppos = jit.hint(self.ppos, promote=True)
-        while pattern.pat(ppos):
+        ppos = jit.promote(self.ppos)
+        while True:
             result = sre_match(ctx, pattern, ppos + 1, self.start_ptr, self.start_marks)
-            ppos += pattern.pat(ppos)
+            offset = pattern.pat(ppos)
+            if pattern.pat(ppos + offset) == 0:
+                # we're in the last branch. backtracing to self won't produce
+                # more. just return result
+                return result
+            ppos += offset
             if result is not None:
                 self.subresult = result
                 self.ppos = ppos
@@ -743,7 +748,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         op = pattern.pat(ppos)
         ppos += 1
 
-        jit.jit_debug(opname(op), op, ppos, ptr)
+        jit.jit_debug(opname(op), op, ppos)
         #
         # When using the JIT, calls to sre_match() must always have a constant
         # (green) argument for 'ppos'.  If not, the following assert fails.
@@ -971,8 +976,9 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # <REPEAT_ONE> <skip> <1=min> <2=max> item <SUCCESS> tail
             start = ptr
 
+            min = pattern.pat(ppos+1)
             try:
-                minptr = ctx.next_n(start, pattern.pat(ppos+1), ctx.end)
+                minptr = ctx.next_n(start, min, ctx.end)
             except EndOfString:
                 return    # cannot match
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
@@ -982,6 +988,17 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
             nextppos = ppos + pattern.pat(ppos)
+            if ptr == start:
+                # matches at most 0 times
+                if min == 0:
+                    # we don't need to make a RepeatOneMatchResult, since
+                    # backtracking won't produce anything new anyway.
+                    # XXX generalize this approach to min > 0
+                    ppos = nextppos
+                    continue
+                else:
+                    # minimum not reached!
+                    return
             result = RepeatOneMatchResult(nextppos, minptr, ptr, marks)
             return result.find_first_result(ctx, pattern)
 
