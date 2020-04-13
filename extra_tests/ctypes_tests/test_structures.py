@@ -209,3 +209,15 @@ def test_memoryview():
         assert mv.format == 'T{>h:a:>h:b:}'
     assert mv.shape == (2, 3)
     assert mv.itemsize == 4
+
+def test_memoryview_endian():
+    class LES(LittleEndianStructure):
+        _pack_ = 1
+        _fields_ = [
+            ('a', c_ubyte * 16),
+            ('i', c_uint64)
+        ]
+    c_les = LES()
+    mv = memoryview(c_les)
+    assert mv.format == 'B'
+
