@@ -520,7 +520,6 @@ if HAVE_SENDMSG:
                                   char** file_descr,
                                   long** descr_per_ancillary,
                                   long* retflag)
-
         {
 
             struct sockaddr* recvd_address;
@@ -529,10 +528,10 @@ if HAVE_SENDMSG:
             void *controlbuf = NULL;
             struct cmsghdr *cmsgh;
             int cmsg_status;
-            struct iovec iov;
             struct recvmsg_info* retinfo;
             int error_flag = 0;   // variable to be set in case of special errors.
             int cmsgdatalen = 0;
+            size_t i;
 
             // variables that are set to 1, if the message charp has been allocated
             // and if the ancillary variables have been allocated. To be used in case of failure.
@@ -546,9 +545,17 @@ if HAVE_SENDMSG:
                 goto fail;
             }
 
-            // Setup the messages iov struct memory
-            iov.iov_base = messages[0];
-            iov.iov_len = message_lengths[0];
+            // Add the message
+            struct iovec *iovs = NULL;
+            if (no_of_messages > 0) {
+                iovs = (struct iovec*) malloc(no_of_messages * sizeof(struct iovec));
+                memset(iovs, 0, no_of_messages * sizeof(struct iovec));
+
+                for (i=0; i < no_of_messages; i++) {
+                    iovs[i].iov_base = messages[i];
+                    iovs[i].iov_len = message_lengths[i];
+                }
+            }
 
             // Setup the ancillary buffer memory
             controlbuf = malloc(ancillary_size);
@@ -562,7 +569,7 @@ if HAVE_SENDMSG:
             // Setup the msghdr struct
             msg.msg_name = recvd_address;
             msg.msg_namelen = recvd_addrlen;
-            msg.msg_iov = &iov;
+            msg.msg_iov = iovs;
             msg.msg_iovlen = no_of_messages;
             msg.msg_control = controlbuf;
             msg.msg_controllen = ancillary_size;
@@ -596,7 +603,7 @@ if HAVE_SENDMSG:
             anc_alloc = 1;
 
             // Extract the ancillary items
-            int i=0;
+            i=0;
             for (cmsgh = ((msg.msg_controllen > 0) ? CMSG_FIRSTHDR(&msg) : NULL);
                  cmsgh != NULL; cmsgh = CMSG_NXTHDR(&msg, cmsgh)) {
                  size_t local_size = 0;
@@ -655,6 +662,8 @@ if HAVE_SENDMSG:
             free(retinfo->file_descr);
             free(retinfo);
             free(controlbuf);
+            if (iovs != NULL)
+                free(iovs);
 
             return bytes_recvd;
 
@@ -675,6 +684,8 @@ if HAVE_SENDMSG:
                     free(retinfo);
                 }
             }
+            if (iovs != NULL)
+                free(iovs);
             if (error_flag==0) error_flag = -1;
             return error_flag;
 
@@ -835,13 +846,13 @@ if HAVE_SENDMSG:
                 }
 
                 controlbuf = malloc(controllen);
-                msg.msg_control= controlbuf;
+                msg.msg_control = controlbuf;
                 msg.msg_controllen = controllen;
 
                 // memset controlbuf to 0 to avoid trash in the ancillary
                 memset(controlbuf, 0, controllen);
                 cmsg = NULL;
-                for (i = 0; i< control_length; i++){
+                for (i = 0; i < control_length; i++) {
                     cmsg = (i == 0) ? CMSG_FIRSTHDR(&msg) : CMSG_NXTHDR(&msg, cmsg);
 
                     cmsg->cmsg_level = (int) levels[i];
