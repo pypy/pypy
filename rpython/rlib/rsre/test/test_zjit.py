@@ -203,4 +203,9 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 6
         self.check_trace_count(1)
         self.check_jitcell_token_count(1)
-        self.check_resops(int_lt=0) # the char < 128 of utf-8 decoding aren't there
+        # the char < 128 of utf-8 decoding aren't there
+        # what is left is a range check in INFO, and one for all the literal
+        # characters
+        self.check_resops(int_lt=2, omit_finish=False)
+        # the ptr >= len(str) aren't there either
+        self.check_resops(int_ge=0, omit_finish=False)
