@@ -491,7 +491,6 @@ if HAVE_SENDMSG:
             struct sockaddr* address; // address fields
             socklen_t addrlen;
             int* length_of_messages; // message fields
-            char** messages;
             int size_of_ancillary; // ancillary fields
             int* levels;
             int* types;
@@ -549,8 +548,7 @@ if HAVE_SENDMSG:
             }
 
             // Setup the messages iov struct memory
-            iov.iov_base = (char*) malloc(message_lengths[0]);
-            memset(iov.iov_base, 0, message_lengths[0]);
+            iov.iov_base = messages[0];
             iov.iov_len = message_lengths[0];
 
             // Setup the ancillary buffer memory
@@ -573,8 +571,6 @@ if HAVE_SENDMSG:
             // Link my structure to the msghdr fields
             retinfo->address = msg.msg_name;
             retinfo->length_of_messages = (int*) malloc (no_of_messages * sizeof(int));
-            retinfo->messages = (char**) malloc (no_of_messages * sizeof(char*));
-            retinfo->messages[0] = msg.msg_iov->iov_base;
 
             iov_alloc = 1;
             ssize_t bytes_recvd = 0;
@@ -628,22 +624,12 @@ if HAVE_SENDMSG:
 
             // Set the parameters of message
             size_of_ancillary[0] = retinfo->size_of_ancillary;
-            int counter = 0;
-            for (i=0; i < no_of_messages; i++){
-                counter += retinfo->length_of_messages[i];
-            }
-            memset(*messages, 0, sizeof(char) * counter);
-            counter = 0;
-            for(i=0; i < no_of_messages; i++) {
-                memcpy(*messages+counter,retinfo->messages[i],retinfo->length_of_messages[i]);
-                counter += retinfo->length_of_messages[i];
-            }
 
             // Set the parameters of ancillary
             *levels = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
             *types = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
             *descr_per_ancillary = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
-            counter = 0;
+            int counter = 0;
             for (i=0; i < retinfo->size_of_ancillary; i++){
                 counter += retinfo->descr_per_ancillary[i];
                 // Convert the int* to long*
@@ -668,12 +654,9 @@ if HAVE_SENDMSG:
             free(retinfo->levels);
             free(retinfo->types);
             free(retinfo->descr_per_ancillary);
-            for(i = 0; i < no_of_messages; i++)
-                free(retinfo->messages[i]);
             for (i = 0; i < retinfo->size_of_ancillary; i++)
                 free(retinfo->file_descr[i]);
             free(retinfo->file_descr);
-            free(retinfo->messages);
             free(retinfo);
             free(controlbuf);
 
@@ -686,8 +669,6 @@ if HAVE_SENDMSG:
                 free(retinfo->types);
                 free(retinfo->descr_per_ancillary);
                 free(retinfo->length_of_messages);
-                free(retinfo->messages[0]);
-                free(retinfo->messages);
                 free(retinfo->address);
                 free(retinfo);
                 free(controlbuf);
@@ -695,8 +676,6 @@ if HAVE_SENDMSG:
             }else{
                 if (iov_alloc){
                     free(retinfo->length_of_messages);
-                    free(retinfo->messages[0]);
-                    free(retinfo->messages);
                     free(retinfo->address);
                     free(controlbuf);
                     free(retinfo);
