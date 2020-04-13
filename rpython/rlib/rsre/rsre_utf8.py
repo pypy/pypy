@@ -3,7 +3,7 @@ from rpython.rlib.debug import check_nonneg
 from rpython.rlib.rsre.rsre_core import AbstractMatchContext, EndOfString
 from rpython.rlib.rsre import rsre_char
 from rpython.rlib.objectmodel import we_are_translated
-from rpython.rlib import rutf8
+from rpython.rlib import rutf8, jit
 
 
 class Utf8MatchContext(AbstractMatchContext):
@@ -27,6 +27,16 @@ class Utf8MatchContext(AbstractMatchContext):
     def get_single_byte(self, base_position, index):
         return self._utf8[base_position + index]
 
+    def matches_literal(self, position, ordch):
+        # fast path for ascii here! to check whether a literal is at position,
+        # we don't need to fully decode the character. we can just check
+        # whether the byte is equal to what we want
+        # XXX can be extended to the full unicode range
+        if ordch < 128:
+            check_nonneg(position)
+            return ord(self._utf8[position]) == ordch
+        return self.str(position) == ordch
+
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)
     next_indirect = next
@@ -39,6 +49,7 @@ class Utf8MatchContext(AbstractMatchContext):
         return position
     prev_indirect = prev
 
+    @jit.look_inside_iff(lambda self, position, n, end_position: n <= 1)
     def next_n(self, position, n, end_position):
         i = 0
         # avoid range(n) since n can be quite large

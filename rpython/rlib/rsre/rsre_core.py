@@ -219,7 +219,6 @@ class CompiledPattern(object):
 
 
 
-
 class AbstractMatchContext(object):
     """Abstract base class"""
     _immutable_fields_ = ['end']
@@ -284,6 +283,11 @@ class AbstractMatchContext(object):
         raise NotImplementedError
     @not_rpython
     def get_single_byte(self, base_position, index):
+        raise NotImplementedError
+    @not_rpython
+    def matches_literal(self, position, ordch):
+        """ Check whether the string matches ordch at position. ordch is
+        usually green. """
         raise NotImplementedError
 
     def bytes_difference(self, position1, position2):
@@ -368,6 +372,9 @@ class FixedMatchContext(AbstractMatchContext):
     def maximum_distance(self, position_low, position_high):
         return position_high - position_low
 
+    def matches_literal(self, position, ordch):
+        return self.str(position) == ordch
+
 
 class BufMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a buffer."""
@@ -393,6 +400,8 @@ class BufMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
+    def matches_literal(self, position, ordch):
+        return self.str(position) == ordch
 
 class StrMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a plain string."""
@@ -903,7 +912,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_LITERAL:
             # match literal string
             # <LITERAL> <code>
-            if ptr >= ctx.end or ctx.str(ptr) != pattern.pat(ppos):
+            if ptr >= ctx.end or not ctx.matches_literal(ptr, pattern.pat(ppos)):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -926,7 +935,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_NOT_LITERAL:
             # match if it's not a literal string
             # <NOT_LITERAL> <code>
-            if ptr >= ctx.end or ctx.str(ptr) == pattern.pat(ppos):
+            if ptr >= ctx.end or ctx.matches_literal(ptr, pattern.pat(ppos)):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -1132,13 +1141,13 @@ def match_IN_IGNORE(ctx, pattern, ptr, ppos):
     return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr, pattern.flags))
 @specializectx
 def match_LITERAL(ctx, pattern, ptr, ppos):
-    return ctx.str(ptr) == pattern.pat(ppos+1)
+    return ctx.matches_literal(ptr, pattern.pat(ppos+1))
 @specializectx
 def match_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
     return ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL(ctx, pattern, ptr, ppos):
-    return ctx.str(ptr) != pattern.pat(ppos+1)
+    return not ctx.matches_literal(ptr, pattern.pat(ppos+1))
 @specializectx
 def match_NOT_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
     return ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos+1)
@@ -1375,7 +1384,7 @@ def literal_search(ctx, pattern, base):
         ctx.jitdriver_LiteralSearch.jit_merge_point(ctx=ctx, start=start,
                                           base=base, character=character, pattern=pattern)
         start1 = ctx.next(start)
-        if ctx.str(start) == character:
+        if ctx.matches_literal(start, character):
             if sre_match(ctx, pattern, base, start1, None) is not None:
                 ctx.match_start = start
                 return True

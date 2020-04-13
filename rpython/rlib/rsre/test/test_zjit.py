@@ -1,16 +1,21 @@
 import py
 from rpython.jit.metainterp.test import support
 from rpython.rlib.rsre.test.test_match import get_code
-from rpython.rlib.rsre import rsre_core
+from rpython.rlib.rsre import rsre_core, rsre_utf8, rsre_constants as consts
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr, hlstr
 
-def entrypoint1(r, string, repeat, pattern):
-    r = rsre_core.CompiledPattern(array2list(r), 0, hlstr(pattern))
+def entrypoint1(r, string, repeat, pattern, flags):
+    r = rsre_core.CompiledPattern(array2list(r), flags, hlstr(pattern))
     string = hlstr(string)
     match = None
+    if flags & consts.SRE_FLAG_UNICODE:
+        matchf = rsre_utf8.utf8match
+    else:
+        matchf = rsre_core.match
+
     for i in range(repeat):
-        match = rsre_core.match(r, string)
+        match = matchf(r, string)
         if match is None:
             return -1
     if match is None:
@@ -48,10 +53,10 @@ def test_jit_unroll_safe():
 
 class TestJitRSre(support.LLJitMixin):
 
-    def meta_interp_match(self, pattern, string, repeat=1):
+    def meta_interp_match(self, pattern, string, repeat=1, flags=0):
         r = get_code(pattern)
         return self.meta_interp(entrypoint1, [list2array(r.pattern), llstr(string),
-                                              repeat, llstr(repr(pattern))],
+                                              repeat, llstr(repr(pattern)), flags],
                                 listcomp=True, backendopt=True)
 
     def meta_interp_search(self, pattern, string, repeat=1):
@@ -191,3 +196,11 @@ class TestJitRSre(support.LLJitMixin):
         text = "a" + "bBbbB" * 1000 + "c"
         res = self.meta_interp_match(pattern, text)
         self.check_enter_count(1)
+
+    def test_literal_fastpath_utf8(self):
+        import re
+        res = self.meta_interp_match(r"abcdef", "abcdef", repeat=10, flags=re.UNICODE)
+        assert res == 6
+        self.check_trace_count(1)
+        self.check_jitcell_token_count(1)
+        self.check_resops(int_lt=0) # the char < 128 of utf-8 decoding aren't there
