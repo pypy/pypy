@@ -995,6 +995,8 @@ class RSocket(object):
 
         self.wait_for_data(False)
         address, addr_p, addrlen_p = self._addrbuf()
+        message_lengths = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        message_lengths[0] = rffi.cast(rffi.INT, message_size)
         messages = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         messages[0] = lltype.malloc(rffi.CCHARP.TO, message_size, flavor='raw')
         rffi.c_memset(messages[0], 0, message_size)
@@ -1009,10 +1011,11 @@ class RSocket(object):
 
         # a mask for the SIGNEDP's that need to be cast to int. (long default)
         reply = _c.recvmsg(
-            self.fd, rffi.cast(lltype.Signed, message_size),
+            self.fd,
             rffi.cast(lltype.Signed, ancbufsize),
             rffi.cast(lltype.Signed, flags),
-            addr_p, addrlen_p, messages, rffi.cast(rffi.INT, 1),
+            addr_p, addrlen_p,
+            message_lengths, messages, rffi.cast(rffi.INT, 1),
             size_of_anc, levels, types, file_descr, descr_per_anc, retflag)
         if reply >= 0:
             anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
@@ -1056,6 +1059,7 @@ class RSocket(object):
             _c.freesignedp(types)
             _c.freesignedp(descr_per_anc)
 
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages[0], flavor='raw')
             lltype.free(pre_anc, flavor='raw')
             lltype.free(messages, flavor='raw')
@@ -1070,6 +1074,7 @@ class RSocket(object):
             return rettup
         else:
             # in case of failure the underlying complexity has already been freed
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages[0], flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')

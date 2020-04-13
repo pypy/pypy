@@ -509,11 +509,11 @@ if HAVE_SENDMSG:
         RPY_EXTERN
         int recvmsg_implementation(
                                   int socket_fd,
-                                  int message_size,
                                   int ancillary_size,
                                   int flags,
                                   struct sockaddr* address,
                                   socklen_t* addrlen,
+                                  int* message_lengths,
                                   char** messages,
                                   int no_of_messages,
                                   long* size_of_ancillary,
@@ -549,9 +549,9 @@ if HAVE_SENDMSG:
             }
 
             // Setup the messages iov struct memory
-            iov.iov_base = (char*) malloc(message_size);
-            memset(iov.iov_base, 0, message_size);
-            iov.iov_len = message_size;
+            iov.iov_base = (char*) malloc(message_lengths[0]);
+            memset(iov.iov_base, 0, message_lengths[0]);
+            iov.iov_len = message_lengths[0];
 
             // Setup the ancillary buffer memory
             controlbuf = malloc(ancillary_size);
@@ -956,7 +956,7 @@ if HAVE_SENDMSG:
     post_include_bits =[ "RPY_EXTERN "
                          "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
                          "RPY_EXTERN "
-                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, char** messages, int no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
+                         "int recvmsg_implementation(int socket_fd, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, int* message_lengths, char** messages, int no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
                          "static "
                          "int cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space);\n"
                          "static "
@@ -1265,8 +1265,8 @@ recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                     save_err=SAVE_ERR)
 recvmsg = jit.dont_look_inside(rffi.llexternal(
     "recvmsg_implementation",
-    [rffi.INT, rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
-        rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
+    [rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
+        rffi.INTP, rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
         rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP], rffi.INT,
     save_err=SAVE_ERR, compilation_info=compilation_info))
 
