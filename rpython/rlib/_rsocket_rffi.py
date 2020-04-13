@@ -490,7 +490,6 @@ if HAVE_SENDMSG:
         {
             struct sockaddr* address; // address fields
             socklen_t addrlen;
-            int* length_of_messages; // message fields
             int size_of_ancillary; // ancillary fields
             int* levels;
             int* types;
@@ -570,7 +569,6 @@ if HAVE_SENDMSG:
 
             // Link my structure to the msghdr fields
             retinfo->address = msg.msg_name;
-            retinfo->length_of_messages = (int*) malloc (no_of_messages * sizeof(int));
 
             iov_alloc = 1;
             ssize_t bytes_recvd = 0;
@@ -582,7 +580,6 @@ if HAVE_SENDMSG:
             }
 
             retinfo->addrlen = (socklen_t) msg.msg_namelen;
-            retinfo->length_of_messages[0] = msg.msg_iov->iov_len;
 
             // Count the ancillary items & allocate the memory
             int anc_counter = 0;
@@ -650,7 +647,6 @@ if HAVE_SENDMSG:
 
             // Free the memory
             free(retinfo->address);
-            free(retinfo->length_of_messages);
             free(retinfo->levels);
             free(retinfo->types);
             free(retinfo->descr_per_ancillary);
@@ -668,14 +664,12 @@ if HAVE_SENDMSG:
                 free(retinfo->levels);
                 free(retinfo->types);
                 free(retinfo->descr_per_ancillary);
-                free(retinfo->length_of_messages);
                 free(retinfo->address);
                 free(retinfo);
                 free(controlbuf);
 
             }else{
                 if (iov_alloc){
-                    free(retinfo->length_of_messages);
                     free(retinfo->address);
                     free(controlbuf);
                     free(retinfo);
