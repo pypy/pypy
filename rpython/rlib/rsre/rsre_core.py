@@ -753,6 +753,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
     the first result, but there is the case of REPEAT...UNTIL where we
     need all results; in that case we use the method move_to_next_result()
     of the MatchResult."""
+    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext, utf8_literal_match
     while True:
         op = pattern.pat(ppos)
         ppos += 1
@@ -912,10 +913,18 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_LITERAL:
             # match literal string
             # <LITERAL> <code>
-            if ptr >= ctx.end or not ctx.matches_literal(ptr, pattern.pat(ppos)):
-                return
-            ppos += 1
-            ptr = ctx.next(ptr)
+            n = number_literals(pattern, ppos - 1)
+            if n > 1 and type(ctx) is Utf8MatchContext:
+                ptr = utf8_literal_match(ctx, ptr, pattern, ppos - 1, n)
+                if ptr < 0: # no match
+                    return
+                ppos += 2 * n - 1
+                assert ppos >= 0
+            else:
+                if ptr >= ctx.end or not ctx.matches_literal(ptr, pattern.pat(ppos)):
+                    return
+                ppos += 1
+                ptr = ctx.next(ptr)
 
         elif op == consts.OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
@@ -1046,6 +1055,14 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         else:
             raise Error("bad pattern code %d" % op)
 
+@jit.elidable
+def number_literals(pattern, ppos):
+    assert ppos >= 0
+    n = 0
+    while pattern.pat(ppos) == consts.OPCODE_LITERAL:
+        ppos += 2
+        n += 1
+    return n
 
 def get_group_ref(ctx, marks, groupnum):
     gid = groupnum * 2
@@ -1429,8 +1446,7 @@ def fast_search(ctx, pattern):
         ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
                 string_position=string_position, i=i, prefix_len=prefix_len,
                 pattern=pattern)
-        char_ord = ctx.str(string_position)
-        if char_ord != pattern.pat(7 + i):
+        if not ctx.matches_literal(string_position, pattern.pat(7 + i)):
             if i > 0:
                 overlap_offset = prefix_len + (7 - 1)
                 i = pattern.pat(overlap_offset + i)

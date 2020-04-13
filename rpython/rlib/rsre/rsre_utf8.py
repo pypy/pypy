@@ -83,6 +83,43 @@ class Utf8MatchContext(AbstractMatchContext):
         return position_high - position_low
 
 
+def codepoint_size_in_utf8(ordch):
+    if ordch <= 0x7f:
+        # ASCII
+        return 1
+    if ordch <= 0x07FF:
+        return 2
+    if ordch <= 0xFFFF:
+        return 3
+    assert ordch <= 0x10FFFF
+    return 4
+
+@jit.elidable
+def compute_utf8_size_n_literals(pattern, ppos, n):
+    total_size = 0
+    for i in range(n):
+        ordch = pattern.pat(ppos + 2 * i + 1)
+        total_size += codepoint_size_in_utf8(ordch)
+    return total_size
+
+@jit.unroll_safe
+def utf8_literal_match(ctx, ptr, pattern, ppos, n):
+    """ match n literal bytecodes in pattern at position ppos against the
+    string in ctx, at position ptr. Return -1 on non-match, and the new ptr on
+    match. """
+    assert ppos >= 0
+    utf8_size = compute_utf8_size_n_literals(pattern, ppos, n)
+    # do a single range check
+    if ptr + utf8_size > ctx.end:
+        return -1
+    for i in range(n):
+        ordch = pattern.pat(ppos + 2 * i + 1)
+        if not ctx.matches_literal(ptr, ordch):
+            return -1
+        ptr += codepoint_size_in_utf8(ordch)
+    return ptr
+
+
 def make_utf8_ctx(utf8string, bytestart, byteend):
     if bytestart < 0: bytestart = 0
     elif bytestart > len(utf8string): bytestart = len(utf8string)

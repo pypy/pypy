@@ -1,3 +1,4 @@
+# encoding: utf-8
 import re, random, py
 from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.rlib.rsre.rpy import get_code as orig_get_code, VERSION
@@ -20,6 +21,32 @@ def test_get_code_repetition():
     c2 = get_code(r"a+")
     assert c1.pattern == c2.pattern
 
+def test_number_literals():
+    from rpython.rlib.rsre.rsre_core import number_literals
+    c1 = get_code(r"abcdef.")
+    # starts with INFO
+    litppos = c1.pat(1) + 1
+    x = number_literals(c1, litppos)
+    assert x == 6
+
+def test_compute_utf8_size_n_literals():
+    from rpython.rlib.rsre.rsre_utf8 import compute_utf8_size_n_literals
+    c1 = get_code(ur"abcdíß.")
+    # starts with INFO
+    litppos = c1.pat(1) + 1
+    assert compute_utf8_size_n_literals(c1, litppos, 6) == 8
+
+def test_utf8_literal_match():
+    from rpython.rlib.rsre.rsre_utf8 import utf8_literal_match, Utf8MatchContext
+    c1 = get_code(ur"abcdíß.")
+    # starts with INFO
+    litppos = c1.pat(1) + 1
+    for s, res in [(u"abcdíß", True), (u"abcdíßx", True),
+                   (u"ab", False), (u"abcdírx", False),
+                   (u"abcdíöx", False)]:
+        s = s.encode("utf-8")
+        ctx = Utf8MatchContext(s, 0, len(s))
+        assert utf8_literal_match(ctx, 0, c1, litppos, 6) == 8 if res else -1
 
 class TestMatch:
 
