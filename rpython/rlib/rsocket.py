@@ -998,8 +998,6 @@ class RSocket(object):
         messages = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         messages[0] = lltype.malloc(rffi.CCHARP.TO, message_size, flavor='raw')
         rffi.c_memset(messages[0], 0, message_size)
-        no_of_messages = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
-        no_of_messages[0] = rffi.cast(rffi.SIGNED, 0)
         size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)
         levels = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
@@ -1014,7 +1012,7 @@ class RSocket(object):
             self.fd, rffi.cast(lltype.Signed, message_size),
             rffi.cast(lltype.Signed, ancbufsize),
             rffi.cast(lltype.Signed, flags),
-            addr_p, addrlen_p, messages, no_of_messages,
+            addr_p, addrlen_p, messages, rffi.cast(rffi.INT, 1),
             size_of_anc, levels, types, file_descr, descr_per_anc, retflag)
         if reply >= 0:
             anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
@@ -1062,7 +1060,6 @@ class RSocket(object):
             lltype.free(pre_anc, flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
@@ -1076,7 +1073,6 @@ class RSocket(object):
             lltype.free(messages[0], flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
