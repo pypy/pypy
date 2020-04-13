@@ -166,6 +166,7 @@ if __name__ == '__main__':
             try:
                 # extreeeemely annoying! this "support message" messes up the
                 # communication
+                import os
                 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
                 import pygame
                 if isinstance(e, pygame.error):
