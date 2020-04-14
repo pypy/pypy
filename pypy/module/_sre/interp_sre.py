@@ -14,7 +14,8 @@ from rpython.rlib.rstring import StringBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core, rsre_utf8
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_constants import CODESIZE, MAXREPEAT
+from rpython.rlib.rsre.rsre_char import getlower, set_unicode_db
 
 
 @unwrap_spec(char_ord=int, flags=int)
