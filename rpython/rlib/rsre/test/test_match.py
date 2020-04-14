@@ -3,11 +3,11 @@ import re, random, py
 from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.rlib.rsre.rpy import get_code as orig_get_code, VERSION
 from rpython.rlib.rsre.test.support import match, fullmatch, Position as P
+from rpython.rlib.rsre import rsre_core
 
 def get_code(*args, **kwargs):
-    from rpython.rlib.rsre.rsre_core import CompiledPattern
     res = orig_get_code(*args, **kwargs)
-    if isinstance(res, CompiledPattern):
+    if isinstance(res, rsre_core.CompiledPattern):
         # check that dis doesn't crash
         print(res.repr)
         res.dis()
@@ -366,3 +366,48 @@ class TestOptimizations(object):
         ctx = rsre_core.StrMatchContext("c", 0, 1)
         res = rsre_core.sre_match(ctx, r, 0, 0, None)
         assert not isinstance(res, rsre_core.BranchMatchResult)
+
+    def test_no_pending_if_tail_cant_match(self, monkeypatch):
+        monkeypatch.setattr(rsre_core, "Pending", None)
+        r = get_code(r"(?:ab)+c")
+        # we can match this without ever creating an instance of Pending,
+        # because the tail "c" only matches at the very end
+        res = fullmatch(r, "ab"*30 + "c")
+        assert res is not None
+
+    def test_no_pending_if_below_min(self, monkeypatch):
+        Pending = rsre_core.Pending
+        class CountingPending(Pending):
+            count = 0
+            def __init__(self, *args, **kwargs):
+                Pending.__init__(self, *args, **kwargs)
+                CountingPending.count += 1
+
+        monkeypatch.setattr(rsre_core, "Pending", CountingPending)
+        r = get_code(r"(?:ab){7,}")
+        # the first matches don't need backtracking points, because they are
+        # less than min
+        res = fullmatch(r, "ab" * 30)
+        assert res is not None
+        assert CountingPending.count == 24
+
+
+class TestMatchPossible(object):
+    def fake_code(self, *args):
+        return rsre_core.CompiledPattern(list(args), consts.SRE_FLAG_UNICODE)
+
+    def check_is_match_possible(self, pattern, s):
+        from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
+        from rpython.rlib.rsre.rsre_core import is_match_possible
+        if isinstance(s, unicode):
+            s = s.encode("utf-8")
+        ctx = Utf8MatchContext(s, 0, len(s))
+        return is_match_possible(ctx, 0, pattern, 0)
+
+    def test_literal(self):
+        c = self.fake_code(consts.OPCODE_LITERAL, ord('a'))
+        assert self.check_is_match_possible(c, "a")
+        assert not self.check_is_match_possible(c, "b")
+        assert not self.check_is_match_possible(c, "")
+
+

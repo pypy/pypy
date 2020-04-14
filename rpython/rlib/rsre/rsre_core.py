@@ -619,7 +619,6 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
                       greens=['ppos', 'tailppos', 'match_more', 'pattern'],
                       reds=['ptr', 'marks', 'self', 'ctx'],
                       debugprint=(3, 0, 2))
-
     def find_first_result(self, ctx, pattern):
         return self.search_next(ctx, pattern, match_more=True)
 
@@ -655,10 +654,21 @@ class MaxUntilMatchResult(AbstractUntilMatchResult):
             #
             min = pattern.pat(ppos+1)
             if enum is not None:
-                # matched one more 'item'.  record it and continue.
+                # matched one more 'item'.
                 last_match_zero_length = (ctx.match_end == ptr)
-                self.pending = Pending(ptr, marks, enum, self.pending)
+                # note that num_pending is confusingly named and counts the
+                # number of matches of the subpattern, not how many Pending
+                # instances there are
                 self.num_pending += 1
+                # we record a Pending (a backtracking point) in one of two cases:
+                # 1) if enum is itself complicated, ie potentially contains
+                # backtracking points
+                # 2) if enum is MatchResult we record only if the tail can
+                # match and we already have enough matches
+                if (type(enum) is not MatchResult or
+                        (is_match_possible(ctx, ptr, pattern, tailppos) and
+                            self.num_pending >= min)):
+                    self.pending = Pending(ptr, marks, enum, self.pending)
                 ptr = ctx.match_end
                 marks = ctx.match_marks
                 if last_match_zero_length and self.num_pending >= min:
@@ -1063,6 +1073,16 @@ def number_literals(pattern, ppos):
         ppos += 2
         n += 1
     return n
+
+def is_match_possible(ctx, ptr, pattern, ppos):
+    # look at 1 char at most to see whether a match is possible. don't mutate
+    # ctx. it's always safe to return True
+    op = pattern.pat(ppos)
+    ppos += 1
+    if op == consts.OPCODE_LITERAL:
+        return not ptr >= ctx.end and ctx.matches_literal(ptr, pattern.pat(ppos))
+    # XXX add more cases
+    return True
 
 def get_group_ref(ctx, marks, groupnum):
     gid = groupnum * 2

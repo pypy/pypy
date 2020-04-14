@@ -209,3 +209,11 @@ class TestJitRSre(support.LLJitMixin):
         self.check_resops(int_lt=2, omit_finish=False)
         # the ptr >= len(str) aren't there either
         self.check_resops(int_ge=0, omit_finish=False)
+
+    def test_maxuntil_fastcheck_tail(self):
+        res = self.meta_interp_match(r"(?:ab)+c", "ab"*30 + "c")
+        # don't need to record pending, backtracking can't work because the c
+        # isn't there
+        self.check_resops(new_with_vtable=0, omit_finish=False)
+
+
