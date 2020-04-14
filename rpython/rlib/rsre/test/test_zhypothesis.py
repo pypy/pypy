@@ -564,7 +564,7 @@ def re_test(maker):
         compiled = get_code(re_pattern, consts.SRE_FLAG_UNICODE)
 
         # Sanity-check match on empty string is as we expect
-        #assert re_object.can_be_empty() == rsre_utf8.utf8match(compiled, "") is None
+        assert re_object.can_be_empty() == (rsre_utf8.utf8match(compiled, "") is not None)
 
         # Check that a string expected to match does in fact match
         syes = re_object.matching_string(draw, State())
