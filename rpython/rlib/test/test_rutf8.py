@@ -248,3 +248,9 @@ def test_has_surrogate_xed_no_surrogate():
     b = u.encode("utf-8")
     assert b.startswith(b"\xed")
     assert not rutf8.has_surrogates(b)
+
+
+@given(strategies.characters())
+def test_codepoint_size_in_utf8(c):
+    code = ord(c)
+    assert rutf8.codepoint_size_in_utf8(code) == len(c.encode("utf-8"))

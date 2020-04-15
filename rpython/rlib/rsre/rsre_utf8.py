@@ -83,23 +83,12 @@ class Utf8MatchContext(AbstractMatchContext):
         return position_high - position_low
 
 
-def codepoint_size_in_utf8(ordch):
-    if ordch <= 0x7f:
-        # ASCII
-        return 1
-    if ordch <= 0x07FF:
-        return 2
-    if ordch <= 0xFFFF:
-        return 3
-    assert ordch <= 0x10FFFF
-    return 4
-
 @jit.elidable
 def compute_utf8_size_n_literals(pattern, ppos, n):
     total_size = 0
     for i in range(n):
         ordch = pattern.pat(ppos + 2 * i + 1)
-        total_size += codepoint_size_in_utf8(ordch)
+        total_size += rutf8.codepoint_size_in_utf8(ordch)
     return total_size
 
 @jit.unroll_safe
@@ -116,7 +105,7 @@ def utf8_literal_match(ctx, ptr, pattern, ppos, n):
         ordch = pattern.pat(ppos + 2 * i + 1)
         if not ctx.matches_literal(ptr, ordch):
             return -1
-        ptr += codepoint_size_in_utf8(ordch)
+        ptr += rutf8.codepoint_size_in_utf8(ordch)
     return ptr
 
 

@@ -60,6 +60,21 @@ def unichr_as_utf8(code, allow_surrogates=False):
                 chr((0x80 | (code & 0x3f))))
     raise OutOfRange(code)
 
+
+def codepoint_size_in_utf8(code):
+    """ Return the number of bytes that it would take to encode the codepoint
+    code (an integer) in utf-8 """
+    if code <= 0x7f:
+        # ASCII
+        return 1
+    if code <= 0x07FF:
+        return 2
+    if code <= 0xFFFF:
+        return 3
+    assert code <= 0x10FFFF
+    return 4
+
+
 @try_inline
 def unichr_as_utf8_append(builder, code, allow_surrogates=False):
     """Encode code (numeric value) as utf8 encoded string
