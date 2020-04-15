@@ -1,4 +1,5 @@
-import py, errno, sys
+import pytest
+import errno, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
@@ -18,19 +19,20 @@ def test_ipv4_addr():
     a = INETAddress("<broadcast>", 47002)
     assert a.get_host() == "255.255.255.255"
     assert a.get_port() == 47002
-    py.test.raises(GAIError, INETAddress, "no such host exists", 47003)
     res = repr(a)
     assert res == "<INETAddress 255.255.255.255:47002>"
+    with pytest.raises(GAIError):
+        INETAddress("no such host exists", 47003)
 
+@pytest.mark.skipif(getattr(rsocket, 'AF_UNIX', None) is None,
+        reason='AF_UNIX not supported.')
 def test_unix_addr():
-    if getattr(rsocket, 'AF_UNIX', None) is None:
-        py.test.skip('AF_UNIX not supported.')
     a = UNIXAddress("/tmp/socketname")
     assert a.get_path() == "/tmp/socketname"
 
+@pytest.mark.skipif(getattr(rsocket, 'AF_NETLINK', None) is None,
+        reason='AF_NETLINK not supported.')
 def test_netlink_addr():
-    if getattr(rsocket, 'AF_NETLINK', None) is None:
-        py.test.skip('AF_NETLINK not supported.')
     pid = 1
     group_mask = 64 + 32
     a = NETLINKAddress(pid, group_mask)
@@ -60,7 +62,7 @@ def test_gethostbyname_ex():
                 break  # ok
             # no IPV6, should always return IPV4
         else:
-            py.test.fail("could not find the localhost address in %r"
+            pytest.fail("could not find the localhost address in %r"
                          % (address_list,))
 
 def test_gethostbyaddr():
@@ -74,7 +76,7 @@ def test_gethostbyaddr():
         ipv6 = None
     for host in ["localhost", "127.0.0.1", "::1"]:
         if host == "::1" and ipv6:
-            with py.test.raises(ipv6):
+            with pytest.raises(ipv6):
                 gethostbyaddr(host)
             continue
         name, aliases, address_list = gethostbyaddr(host)
@@ -90,7 +92,7 @@ def test_gethostbyaddr():
                 if isinstance(a, INET6Address) and a.get_host() == "::1":
                     break  # ok
         else:
-            py.test.fail("could not find the localhost address in %r"
+            pytest.fail("could not find the localhost address in %r"
                          % (address_list,))
 
 def test_getservbyname():
@@ -105,9 +107,9 @@ def test_getprotobyname():
     assert getprotobyname('tcp') == IPPROTO_TCP
     assert getprotobyname('udp') == IPPROTO_UDP
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair():
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     s1.sendall('?')
     buf = s2.recv(100)
@@ -119,9 +121,9 @@ def test_socketpair():
     s1.close()
     s2.close()
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair_inheritable():
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     for inh in [False, True]:
         s1, s2 = socketpair(inheritable=inh)
         assert sock_get_inheritable(s1.fd) == inh
@@ -129,6 +131,8 @@ def test_socketpair_inheritable():
         s1.close()
         s2.close()
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair_recvinto_1():
     class Buffer:
         def setslice(self, start, string):
@@ -137,8 +141,6 @@ def test_socketpair_recvinto_1():
         def get_raw_address(self):
             raise ValueError
 
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
@@ -153,6 +155,8 @@ def test_socketpair_recvinto_1():
     s1.close()
     s2.close()
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair_recvinto_2():
     class Buffer:
         def __init__(self):
@@ -165,8 +169,6 @@ def test_socketpair_recvinto_2():
         def get_raw_address(self):
             return self._p
 
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
@@ -181,6 +183,8 @@ def test_socketpair_recvinto_2():
     s1.close()
     s2.close()
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair_recvfrom_into_1():
     class Buffer:
         def setslice(self, start, string):
@@ -189,8 +193,6 @@ def test_socketpair_recvfrom_into_1():
         def get_raw_address(self):
             raise ValueError
 
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
@@ -207,6 +209,8 @@ def test_socketpair_recvfrom_into_1():
     s1.close()
     s2.close()
 
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No socketpair on Windows')
 def test_socketpair_recvfrom_into_2():
     class Buffer:
         def __init__(self):
@@ -219,8 +223,6 @@ def test_socketpair_recvfrom_into_2():
         def get_raw_address(self):
             return self._p
 
-    if sys.platform == "win32":
-        py.test.skip('No socketpair on Windows')
     s1, s2 = socketpair()
     buf = Buffer()
     s1.sendall('?')
@@ -257,7 +259,7 @@ def test_simple_tcp():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
-    s2.settimeout(10.0) # test one side with timeouts so select is used, shouldn't affect test
+    s2.settimeout(1.0) # test one side with timeouts so select is used, shouldn't affect test
     connected = [False] #thread-mutable list
     def connecting():
         try:
@@ -285,7 +287,9 @@ def test_simple_tcp():
     assert buf == '?'
     print 'received ok'
     def sendstuff():
+        print 'sending'
         s2.sendall('x'*50000)
+        print 'sent'
     rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
@@ -351,12 +355,14 @@ def test_nonblocking():
     addr = INETAddress('127.0.0.1', port)
     assert addr.eq(sock.getsockname())
     sock.listen(1)
-    err = py.test.raises(CSocketError, sock.accept)
+    with pytest.raises(CSocketError) as err:
+        sock.accept()
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
 
     s2 = RSocket(AF_INET, SOCK_STREAM)
     s2.setblocking(False)
-    err = py.test.raises(CSocketError, s2.connect, addr)
+    with pytest.raises(CSocketError) as err:
+        s2.connect(addr)
     assert err.value.errno in (errno.EINPROGRESS, errno.EWOULDBLOCK)
 
     fd1, addr2 = sock.accept()
@@ -374,7 +380,8 @@ def test_nonblocking():
     time.sleep(0.01) # Windows needs some time to transfer data
     buf = s2.recv(100)
     assert buf == '?'
-    err = py.test.raises(CSocketError, s1.recv, 5000)
+    with pytest.raises(CSocketError) as err:
+        s1.recv(5000)
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
     count = s2.send('x'*50000)
     assert 1 <= count <= 50000
@@ -384,7 +391,8 @@ def test_nonblocking():
         assert buf.count('x') == len(buf)
         count -= len(buf)
     # Check that everything has been read
-    err = py.test.raises(CSocketError, s1.recv, 5000)
+    with pytest.raises(CSocketError):
+        s1.recv(5000)
     s1.close()
     s2.close()
 
@@ -407,7 +415,8 @@ def test_getaddrinfo_http():
     assert found, lst
     # The following might fail if the DNS redirects failed requests to a
     # catch-all address (i.e. opendns).
-    e = py.test.raises(GAIError, getaddrinfo, 'www.very-invalidaddress.com', None)
+    with pytest.raises(GAIError) as e:
+        getaddrinfo('www.very-invalidaddress.com', None)
     assert isinstance(e.value.get_msg(), str)
     assert isinstance(e.value.get_msg_unicode(), unicode)
 
@@ -455,7 +464,7 @@ def test_connect_ex():
 def test_connect_with_timeout_fail():
     s = RSocket()
     s.settimeout(0.1)
-    with py.test.raises(SocketTimeout):
+    with pytest.raises(SocketTimeout):
         s.connect(INETAddress('172.30.172.30', 12345))
     s.close()
 
@@ -470,7 +479,7 @@ def test_connect_with_default_timeout_fail():
     s = RSocket()
     rsocket.setdefaulttimeout(None)
     assert s.gettimeout() == 0.1
-    with py.test.raises(SocketTimeout):
+    with pytest.raises(SocketTimeout):
         s.connect(INETAddress('172.30.172.30', 12345))
     s.close()
 
@@ -552,7 +561,8 @@ def test_inet_aton():
     tests = ["127.0.0.256", "127.0.0.255555555555555555", "127.2b.0.0",
         "127.2.0.0.1", "127.2.0."]
     for ip in tests:
-        py.test.raises(SocketError, inet_aton, ip)
+        with pytest.raises(SocketError):
+            inet_aton(ip)
 
     # Windows 2000: missing numbers are replaced by 0
     for ip, aton in [("11..22.33", '\x0b\x00\x16\x21'),
@@ -565,20 +575,19 @@ def test_inet_aton():
 def test_inet_ntoa():
     assert inet_ntoa('\x01\x02\x03\x04') == '1.2.3.4'
 
+@pytest.mark.skipif(not hasattr(rsocket, 'inet_pton'), reason="no inet_pton()")
 def test_inet_pton():
-    if not hasattr(rsocket, 'inet_pton'):
-        py.test.skip("no inet_pton()")
     assert inet_pton(AF_INET, '1.2.3.5') == '\x01\x02\x03\x05'
-    py.test.raises(SocketError, inet_pton, AF_INET, '127.0.0.256')
+    with pytest.raises(SocketError):
+        inet_pton(AF_INET, '127.0.0.256')
 
+@pytest.mark.skipif(not hasattr(rsocket, 'inet_ntop'), reason="no inet_ntop()")
 def test_inet_ntop():
-    if not hasattr(rsocket, 'inet_ntop'):
-        py.test.skip("no inet_ntop()")
     assert inet_ntop(AF_INET, '\x01\x02\x03\x05') == '1.2.3.5'
 
+@pytest.mark.skipif(getattr(rsocket, 'AF_UNIX', None) is None,
+        reason='AF_UNIX not supported.')
 def test_unix_socket_connect():
-    if getattr(rsocket, 'AF_UNIX', None) is None:
-        py.test.skip('AF_UNIX not supported.')
     from rpython.tool.udir import udir
     sockpath = str(udir.join('test_unix_socket_connect'))
     a = UNIXAddress(sockpath)
@@ -616,16 +625,14 @@ class TestTCP:
         self.serv = None
 
     def test_timeout(self):
-        def raise_timeout():
-            self.serv.settimeout(1.0)
+        self.serv.settimeout(1.0)
+        with pytest.raises(SocketTimeout):
             self.serv.accept()
-        py.test.raises(SocketTimeout, raise_timeout)
 
     def test_timeout_zero(self):
-        def raise_error():
-            self.serv.settimeout(0.0)
+        self.serv.settimeout(0.0)
+        with pytest.raises(SocketError):
             foo = self.serv.accept()
-        py.test.raises(SocketError, raise_error)
 
 def _test_cond_include(cond):
     # Test that _rsocket_rffi is importable even on platforms where
@@ -656,8 +663,8 @@ def test_no_AF_PACKET():
 def test_no_AF_NETLINK():
     _test_cond_include('AF_NETLINK')
 
+@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
 def test_thread_safe_gethostbyaddr():
-    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     ip = '8.8.8.8'
@@ -676,8 +683,8 @@ def test_thread_safe_gethostbyaddr():
         threads[i].join()
     assert sum(result) == nthreads
 
+@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
 def test_thread_safe_gethostbyname_ex():
-    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     domain = 'google.com'
@@ -695,8 +702,8 @@ def test_thread_safe_gethostbyname_ex():
         threads[i].join()
     assert sum(result) == nthreads
 
+@pytest.mark.xfail(reason="hits non-thread-safe issues with ll2ctypes")
 def test_getaddrinfo_pydotorg_threadsafe():
-    py.test.skip("hits non-thread-safe issues with ll2ctypes")
     import threading
     nthreads = 10
     result = [0] * nthreads
@@ -727,13 +734,13 @@ def test_translate_netdb_lock_thread():
 def test_socket_saves_errno(tmpdir):
     # ensure errno is set to a known value...
     unconnected_sock = RSocket()
-    e = py.test.raises(CSocketError, unconnected_sock.recv, 1024)
+    with pytest.raises(CSocketError) as e:
+        unconnected_sock.recv(1024)
     # ...which is ENOTCONN
     assert e.value.errno == errno.ENOTCONN
 
-    e = py.test.raises(CSocketError,
-                       RSocket,
-                       family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
+    with pytest.raises(CSocketError) as e:
+        RSocket(family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
 
 def test_socket_init_non_blocking():
@@ -742,4 +749,3 @@ def test_socket_init_non_blocking():
     assert s.type == SOCK_STREAM
     assert s.gettimeout() == 0.0
     assert fcntl.fcntl(s.fd, fcntl.F_GETFL, os.O_NONBLOCK) & os.O_NONBLOCK
-
