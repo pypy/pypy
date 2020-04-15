@@ -27,15 +27,17 @@ class Utf8MatchContext(AbstractMatchContext):
     def get_single_byte(self, base_position, index):
         return self._utf8[base_position + index]
 
+    @jit.unroll_safe
     def matches_literal(self, position, ordch):
-        # fast path for ascii here! to check whether a literal is at position,
-        # we don't need to fully decode the character. we can just check
-        # whether the byte is equal to what we want
-        # XXX can be extended to the full unicode range
-        if ordch < 128:
-            check_nonneg(position)
-            return ord(self._utf8[position]) == ordch
-        return self.str(position) == ordch
+        # do a bytewise compare against the utf-8 encoded version of ordch
+        # this is cheap because ordch is always constant in the trace
+        utf8 = rutf8.unichr_as_utf8(ordch)
+        check_nonneg(position)
+        for byte in utf8:
+            if self._utf8[position] != byte:
+                return False
+            position += 1
+        return True
 
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)

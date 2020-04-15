@@ -1,3 +1,4 @@
+# encoding: utf-8
 import py
 from rpython.jit.metainterp.test import support
 from rpython.rlib.rsre.test.test_match import get_code
@@ -203,8 +204,8 @@ class TestJitRSre(support.LLJitMixin):
 
     def test_literal_fastpath_utf8(self):
         import re
-        res = self.meta_interp_match(r"abcdef", "abcdef", repeat=10, flags=re.UNICODE)
-        assert res == 6
+        res = self.meta_interp_match(ur"abcd\xedf", u"abcd\xedf".encode("utf-8"), repeat=10, flags=re.UNICODE)
+        assert res == 7
         self.check_trace_count(1)
         self.check_jitcell_token_count(1)
         # the char < 128 of utf-8 decoding aren't there
