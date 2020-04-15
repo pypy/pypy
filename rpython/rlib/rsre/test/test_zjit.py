@@ -140,6 +140,10 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 100
         self.check_resops(guard_value=0)
 
+    def test_fre_literal_jitted(self):
+        res = self.meta_interp_match("a*", "a" * 100)
+        assert res == 100
+        self.check_enter_count(1)
 
     # group guards tests
 

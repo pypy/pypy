@@ -1187,44 +1187,23 @@ def _make_fre(checkerfn):
     if checkerfn == match_ANY_ALL:
         def fre(ctx, pattern, ptr, end, ppos):
             return end
-    elif checkerfn == match_IN:
-        install_jitdriver_spec('MatchIn',
-                               greens=['ppos', 'pattern'],
-                               reds=['ptr', 'end', 'ctx'],
-                               debugprint=(1, 0))
-        @specializectx
-        def fre(ctx, pattern, ptr, end, ppos):
-            while True:
-                ctx.jitdriver_MatchIn.jit_merge_point(ctx=ctx, ptr=ptr,
-                                                      end=end, ppos=ppos,
-                                                      pattern=pattern)
-                if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
-                    ptr = ctx.next(ptr)
-                else:
-                    return ptr
-    elif checkerfn == match_IN_IGNORE:
-        install_jitdriver_spec('MatchInIgnore',
-                               greens=['ppos', 'pattern'],
-                               reds=['ptr', 'end', 'ctx'],
-                               debugprint=(1, 0))
-        @specializectx
-        def fre(ctx, pattern, ptr, end, ppos):
-            while True:
-                ctx.jitdriver_MatchInIgnore.jit_merge_point(ctx=ctx, ptr=ptr,
-                                                            end=end, ppos=ppos,
-                                                            pattern=pattern)
-                if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
-                    ptr = ctx.next(ptr)
-                else:
-                    return ptr
     else:
-        # in the other cases, the fre() function is not JITted at all
-        # and is present as a residual call.
+        install_jitdriver_spec(checkerfn.func_name,
+                               greens=['ppos', 'pattern'],
+                               reds=['ptr', 'end', 'ctx'],
+                               debugprint=(1, 0))
+        jitdriver_name = "jitdriver_" + checkerfn.func_name
         @specializectx
         def fre(ctx, pattern, ptr, end, ppos):
-            while ptr < end and checkerfn(ctx, pattern, ptr, ppos):
-                ptr = ctx.next(ptr)
-            return ptr
+            while True:
+                jitdriver = getattr(ctx, jitdriver_name)
+                jitdriver.jit_merge_point(ctx=ctx, ptr=ptr,
+                                          end=end, ppos=ppos,
+                                          pattern=pattern)
+                if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
+                    ptr = ctx.next(ptr)
+                else:
+                    return ptr
     fre = func_with_new_name(fre, 'fre_' + checkerfn.__name__)
     return fre
 
