@@ -202,6 +202,15 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_match(pattern, text)
         self.check_enter_count(1)
 
+    def test_literal_fastpath_bytes(self):
+        import re
+        res = self.meta_interp_match(r"abcd\xedf", "abcd\xedf", repeat=10)
+        assert res == 6
+        self.check_trace_count(1)
+        self.check_jitcell_token_count(1)
+        # the ptr >= len(str) aren't there
+        self.check_resops(int_ge=0, omit_finish=False)
+
     def test_literal_fastpath_utf8(self):
         import re
         res = self.meta_interp_match(ur"abcd\xedf", u"abcd\xedf".encode("utf-8"), repeat=10, flags=re.UNICODE)

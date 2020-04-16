@@ -39,6 +39,20 @@ class Utf8MatchContext(AbstractMatchContext):
             position += 1
         return True
 
+    @jit.unroll_safe
+    def matches_many_literals(self, ptr, pattern, ppos, n):
+        assert ppos >= 0
+        utf8_size = compute_utf8_size_n_literals(pattern, ppos, n)
+        # do a single range check
+        if ptr + utf8_size > self.end:
+            return -1
+        for i in range(n):
+            ordch = pattern.pat(ppos + 2 * i + 1)
+            if not self.matches_literal(ptr, ordch):
+                return -1
+            ptr += rutf8.codepoint_size_in_utf8(ordch)
+        return ptr
+
     def next(self, position):
         return rutf8.next_codepoint_pos(self._utf8, position)
     next_indirect = next
@@ -92,23 +106,6 @@ def compute_utf8_size_n_literals(pattern, ppos, n):
         ordch = pattern.pat(ppos + 2 * i + 1)
         total_size += rutf8.codepoint_size_in_utf8(ordch)
     return total_size
-
-@jit.unroll_safe
-def utf8_literal_match(ctx, ptr, pattern, ppos, n):
-    """ match n literal bytecodes in pattern at position ppos against the
-    string in ctx, at position ptr. Return -1 on non-match, and the new ptr on
-    match. """
-    assert ppos >= 0
-    utf8_size = compute_utf8_size_n_literals(pattern, ppos, n)
-    # do a single range check
-    if ptr + utf8_size > ctx.end:
-        return -1
-    for i in range(n):
-        ordch = pattern.pat(ppos + 2 * i + 1)
-        if not ctx.matches_literal(ptr, ordch):
-            return -1
-        ptr += rutf8.codepoint_size_in_utf8(ordch)
-    return ptr
 
 
 def make_utf8_ctx(utf8string, bytestart, byteend):

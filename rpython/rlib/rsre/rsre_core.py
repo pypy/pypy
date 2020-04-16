@@ -283,6 +283,12 @@ class AbstractMatchContext(object):
         """ Check whether the string matches ordch at position. ordch is
         usually green. """
         raise NotImplementedError
+    @not_rpython
+    def matches_many_literals(self, ptr, pattern, ppos, n):
+        """ match n literal bytecodes in pattern at position ppos against the
+        string in ctx, at position ptr. Return -1 on non-match, and the new ptr
+        on match. """
+        raise NotImplementedError
 
     def bytes_difference(self, position1, position2):
         return position1 - position2
@@ -369,6 +375,21 @@ class FixedMatchContext(AbstractMatchContext):
     def matches_literal(self, position, ordch):
         return self.str(position) == ordch
 
+    @jit.unroll_safe
+    def matches_many_literals(self, ptr, pattern, ppos, n):
+        assert ppos >= 0
+        # do a single range check
+        try:
+            endpos = self.next_n(ptr, n, self.end)
+        except EndOfString:
+            return -1
+        for i in range(n):
+            ordch = pattern.pat(ppos + 2 * i + 1)
+            if not self.matches_literal(ptr, ordch):
+                return -1
+            ptr = self.next(ptr)
+        return endpos
+
 
 class BufMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a buffer."""
@@ -394,8 +415,6 @@ class BufMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
-    def matches_literal(self, position, ordch):
-        return self.str(position) == ordch
 
 class StrMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a plain string."""
@@ -757,7 +776,6 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
     the first result, but there is the case of REPEAT...UNTIL where we
     need all results; in that case we use the method move_to_next_result()
     of the MatchResult."""
-    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext, utf8_literal_match
     while True:
         op = pattern.pat(ppos)
         ppos += 1
@@ -917,18 +935,17 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_LITERAL:
             # match literal string
             # <LITERAL> <code>
-            n = number_literals(pattern, ppos - 1)
-            if n > 1 and type(ctx) is Utf8MatchContext:
-                ptr = utf8_literal_match(ctx, ptr, pattern, ppos - 1, n)
-                if ptr < 0: # no match
-                    return
-                ppos += 2 * n - 1
-                assert ppos >= 0
-            else:
-                if ptr >= ctx.end or not ctx.matches_literal(ptr, pattern.pat(ppos)):
-                    return
-                ppos += 1
-                ptr = ctx.next(ptr)
+
+            # execute several LITERAL bytecodes in one go
+            ppos_min_one = ppos - 1
+            assert ppos_min_one >= 0
+            n = number_literals(pattern, ppos_min_one)
+            ptr = ctx.matches_many_literals(ptr, pattern, ppos_min_one, n)
+            if ptr == -1: # no match
+                return
+            assert ptr >= 0
+            ppos += 2 * n - 1
+            assert ppos >= 0
 
         elif op == consts.OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
@@ -1068,6 +1085,7 @@ def number_literals(pattern, ppos):
         n += 1
     return n
 
+@specializectx
 def is_match_possible(ctx, ptr, pattern, ppos):
     # look at 1 char at most to see whether a match is possible. don't mutate
     # ctx. it's always safe to return True

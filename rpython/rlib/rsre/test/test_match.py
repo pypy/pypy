@@ -36,8 +36,8 @@ def test_compute_utf8_size_n_literals():
     litppos = c1.pat(1) + 1
     assert compute_utf8_size_n_literals(c1, litppos, 6) == 8
 
-def test_utf8_literal_match():
-    from rpython.rlib.rsre.rsre_utf8 import utf8_literal_match, Utf8MatchContext
+def test_matches_many_literals_utf8():
+    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
     c1 = get_code(ur"abcdíß.")
     # starts with INFO
     litppos = c1.pat(1) + 1
@@ -46,7 +46,7 @@ def test_utf8_literal_match():
                    (u"abcdíöx", False)]:
         s = s.encode("utf-8")
         ctx = Utf8MatchContext(s, 0, len(s))
-        assert utf8_literal_match(ctx, 0, c1, litppos, 6) == 8 if res else -1
+        assert ctx.matches_many_literals(0, c1, litppos, 6) == 8 if res else -1
 
 class TestMatch:
 
