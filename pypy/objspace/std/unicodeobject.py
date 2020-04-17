@@ -67,9 +67,10 @@ class W_UnicodeObject(W_Root):
             except rutf8.CheckError:
                 real_length = -999
             if length != real_length:
-                print "!!!!!!!!!!!!!!!!!!!!"
-                print [ord(c) for c in utf8str]
-                print "length", length, "real_length", real_length
+                from rpython.rlib.debug import debug_print
+                debug_print("!!!!!!!!!!!!!!!!!!!!")
+                debug_print(str([ord(c) for c in utf8str]))
+                debug_print("length", length, "real_length", real_length)
                 raise BadUtf8
 
     @staticmethod
