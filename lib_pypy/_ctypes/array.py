@@ -307,6 +307,9 @@ def get_format_str(typ):
                 flds.append('%dx' % padding)
             # Trim off the leading '<' or '>'
             ch = get_format_str(obj)[1:]
+            length = getattr(obj, '_length_', None)
+            if length:
+                flds.append('(%d,)' % length)
             if (ch) == 'B':
                 flds.append(byteorder[sys.byteorder])
             else:
@@ -318,7 +321,10 @@ def get_format_str(typ):
             cum_size += typ._ffistruct_.fieldsize(name)
         return 'T{' + ''.join(flds) + '}'
     elif hasattr(typ, '_type_'):
+        from _ctypes.primitive import SimpleType
         ch = typ._type_
+        if isinstance(ch, SimpleType):
+            ch = ch._type_
         return byteorder[sys.byteorder] + ch
     else:
         raise ValueError('cannot get format string for %r' % typ)

@@ -131,7 +131,10 @@ PyPy currently supports:
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
   
-  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  * 64-bit **AArch**, also known as ARM64,
+
+  * **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux
+    (we no longer provide prebuilt binaries for these),
   
   * big- and little-endian variants of **PPC64** running Linux,
 
@@ -151,9 +154,12 @@ Linux and ARM Linux (see :ref:`here <rpython:arm>`).
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
 
-PyPy currently aims to be fully compatible with Python 2.7. That means that
-it contains the standard library of Python 2.7 and that it supports 2.7
-features (such as set comprehensions).
+PyPy comes in two versions:
+
+* one is fully compatible with Python 2.7;
+
+* the other is fully compatible with one 3.x version.  At the time of
+  this writing, this is 3.6.
 
 
 .. _threading:

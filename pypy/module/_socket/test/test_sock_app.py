@@ -294,6 +294,19 @@ def test_timeout(space, w_socket):
 
 # XXX also need tests for other connection and timeout errors
 
+def test_type(space, w_socket):
+    w_type = space.appexec([w_socket],
+                    """(_socket,):
+                    if not hasattr(_socket, 'SOCK_CLOEXEC'):
+                        return -1, False
+                    s = _socket.socket(_socket.AF_INET,
+                                    _socket.SOCK_STREAM | _socket.SOCK_CLOEXEC)
+                    return s.type
+                    """)
+    typeint = space.int_w(w_type)
+    if typeint > 0:
+        # SOCK_CLOEXEC on Ubuntu 18.04
+        assert typeint & 524288 
 
 class AppTestSocket:
     spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
