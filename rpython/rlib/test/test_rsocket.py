@@ -151,31 +151,7 @@ def test_socketpair_inheritable():
 
 @pytest.mark.skipif(sys.platform == "win32",
         reason='No socketpair on Windows')
-def test_socketpair_recvinto_1():
-    class Buffer:
-        def setslice(self, start, string):
-            self.x = string
-
-        def get_raw_address(self):
-            raise ValueError
-
-    s1, s2 = socketpair()
-    buf = Buffer()
-    s1.sendall('?')
-    n = s2.recvinto(buf, 1)
-    assert n == 1
-    assert buf.x == '?'
-    count = s2.send('x'*99)
-    assert 1 <= count <= 99
-    n = s1.recvinto(buf, 100)
-    assert n == count
-    assert buf.x == 'x'*count
-    s1.close()
-    s2.close()
-
-@pytest.mark.skipif(sys.platform == "win32",
-        reason='No socketpair on Windows')
-def test_socketpair_recvinto_2():
+def test_socketpair_recvinto():
     class Buffer:
         def __init__(self):
             self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',

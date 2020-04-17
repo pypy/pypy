@@ -883,6 +883,7 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
+        import io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -901,6 +902,14 @@ class AppTestSocketTCP:
         nbytes = cli.recv_into(memoryview(buf))
         assert nbytes == len(MSG)
         msg = buf[:len(MSG)]
+        assert msg == MSG
+
+        conn.send(MSG)
+        buf = io.BytesIO(b' ' * 1024)
+        m = buf.getbuffer()
+        nbytes = cli.recv_into(m)
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
         assert msg == MSG
 
     def test_recvfrom_into(self):

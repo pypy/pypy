@@ -912,20 +912,13 @@ class RSocket(object):
         raise self.error_handler()
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf = self.recv(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf)
-        else:
-            self.wait_for_data(False)
-            raw = rwbuffer.get_raw_address()
-            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
-            keepalive_until_here(rwbuffer)
-            if read_bytes >= 0:
-                return read_bytes
-            raise self.error_handler()
+        self.wait_for_data(False)
+        raw = rwbuffer.get_raw_address()
+        read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+        keepalive_until_here(rwbuffer)
+        if read_bytes >= 0:
+            return read_bytes
+        raise self.error_handler()
 
     @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):

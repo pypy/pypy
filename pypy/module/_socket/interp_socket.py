@@ -1,5 +1,6 @@
 import sys, errno
 from rpython.rlib import rsocket, rweaklist
+from rpython.rlib.buffer import RawByteBuffer
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
@@ -702,12 +703,21 @@ class W_Socket(W_Root):
             nbytes = lgt
         if lgt < nbytes:
             raise oefmt(space.w_ValueError, "buffer too small for requested bytes")
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            rawbuf = RawByteBuffer(nbytes)
+        else:
+            rawbuf = rwbuffer
+
         while True:
             try:
-                nbytes_read = self.sock.recvinto(rwbuffer, nbytes, flags)
+                nbytes_read = self.sock.recvinto(rawbuf, nbytes, flags)
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
+        if rawbuf is not rwbuffer:
+            rwbuffer.setslice(0, rawbuf.getslice(0, 1, nbytes_read))
         return space.newint(nbytes_read)
 
     @unwrap_spec(nbytes=int, flags=int)
