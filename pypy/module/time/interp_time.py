@@ -381,7 +381,9 @@ def _init_timezone(space):
             blen = c_get_tzname(0, i, None)
             with rffi.scoped_alloc_buffer(blen) as buf:
                 s = c_get_tzname(blen, i, buf.raw)
-                tzname[i] = buf.str(s - 1)
+                tzn = buf.str(s - 1)
+                tznutf8, _ = str_decode_locale_surrogateescape(tzn)
+                tzname[i] = tznutf8
 
     if _POSIX:
         if _CYGWIN:
