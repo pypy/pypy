@@ -44,6 +44,8 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
 joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], reds = 'auto',
                            name='joindriver')
 
+class BadUtf8(Exception): pass
+
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_utf8', '_length']
@@ -56,11 +58,19 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        if not we_are_translated() and not sys.platform == 'win32':
+        if we_are_translated():
             # utf8str must always be a valid utf8 string, except maybe with
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
-            assert length == len(utf8str.decode('utf-8'))
+            try:
+                real_length = rutf8.check_utf8(utf8str, True)
+            except rutf8.CheckError:
+                real_length = -999
+            if length != real_length:
+                print "!!!!!!!!!!!!!!!!!!!!"
+                print [ord(c) for c in utf8str]
+                print "length", length, "real_length", real_length
+                raise BadUtf8
 
     @staticmethod
     def from_utf8builder(builder):
