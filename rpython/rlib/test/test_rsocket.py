@@ -4,10 +4,28 @@ from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
 from rpython.translator.c.test.test_genc import compile
+from rpython.rlib.buffer import RawByteBuffer
 
 
 def setup_module(mod):
     rsocket_startup()
+
+
+def do_recv_from_recvmsg(socket, buffersize, flags=0):
+    msg, data, flag, address = socket.recvmsg(buffersize, flags=flags)
+    return msg
+
+def do_recv_from_recvinto(socket, buffersize, flags=0):
+    buf = RawByteBuffer(buffersize)
+    read_bytes = socket.recvinto(buf, buffersize, flags=flags)
+    return buf.as_str()[:read_bytes]
+
+@pytest.fixture(scope="module",
+    params=[RSocket.recv, do_recv_from_recvmsg, do_recv_from_recvinto],
+    ids=["recv", "recvmsg", "recvinto"])
+def do_recv(request):
+    return request.param
+
 
 def test_ipv4_addr():
     a = INETAddress("localhost", 4000)
@@ -109,14 +127,14 @@ def test_getprotobyname():
 
 @pytest.mark.skipif(sys.platform == "win32",
         reason='No socketpair on Windows')
-def test_socketpair():
+def test_socketpair(do_recv):
     s1, s2 = socketpair()
     s1.sendall('?')
-    buf = s2.recv(100)
+    buf = do_recv(s2, 100)
     assert buf == '?'
     count = s2.send('x'*99)
     assert 1 <= count <= 99
-    buf = s1.recv(100)
+    buf = do_recv(s1, 100)
     assert buf == 'x'*count
     s1.close()
     s2.close()
@@ -240,7 +258,7 @@ def test_socketpair_recvfrom_into_2():
     s2.close()
 
 
-def test_simple_tcp():
+def test_simple_tcp(do_recv):
     from rpython.rlib import rthread
     sock = RSocket()
     try_ports = [1023] + range(20000, 30000, 437)
@@ -259,8 +277,8 @@ def test_simple_tcp():
     assert addr.eq(sock.getsockname())
     sock.listen(1)
     s2 = RSocket(AF_INET, SOCK_STREAM)
-    s2.settimeout(1.0) # test one side with timeouts so select is used, shouldn't affect test
-    connected = [False] #thread-mutable list
+    s2.settimeout(1.0)  # test one side with timeouts so select is used, shouldn't affect test
+    connected = [False]  # thread-mutable list
     def connecting():
         try:
             s2.connect(addr)
@@ -283,7 +301,7 @@ def test_simple_tcp():
 
     s1.send('?')
     print 'sent one character'
-    buf = s2.recv(100)
+    buf = do_recv(s2, 100)
     assert buf == '?'
     print 'received ok'
     def sendstuff():
@@ -293,7 +311,7 @@ def test_simple_tcp():
     rthread.start_new_thread(sendstuff, ())
     buf = ''
     while len(buf) < 50000:
-        data = s1.recv(50100)
+        data = do_recv(s1, 50100)
         print 'recv returned %d bytes' % (len(data,))
         assert data
         buf += data
@@ -303,7 +321,7 @@ def test_simple_tcp():
     s1.close()
     s2.close()
 
-def test_simple_udp():
+def test_simple_udp(do_recv):
     s1 = RSocket(AF_INET, SOCK_DGRAM)
     try_ports = [1023] + range(20000, 30000, 437)
     for port in try_ports:
@@ -325,7 +343,7 @@ def test_simple_udp():
     addr2 = s2.getsockname()
 
     s1.sendto('?', 1, 0, addr2)
-    buf = s2.recv(100)
+    buf = do_recv(s2, 100)
     assert buf == '?'
     s2.connect(addr)
     count = s2.send('x'*99)
@@ -337,7 +355,7 @@ def test_simple_udp():
     s1.close()
     s2.close()
 
-def test_nonblocking():
+def test_nonblocking(do_recv):
     sock = RSocket()
     sock.setblocking(False)
     try_ports = [1023] + range(20000, 30000, 437)
@@ -378,21 +396,21 @@ def test_nonblocking():
     s1.send('?')
     import time
     time.sleep(0.01) # Windows needs some time to transfer data
-    buf = s2.recv(100)
+    buf = do_recv(s2, 100)
     assert buf == '?'
     with pytest.raises(CSocketError) as err:
-        s1.recv(5000)
+        do_recv(s1, 5000)
     assert err.value.errno in (errno.EAGAIN, errno.EWOULDBLOCK)
     count = s2.send('x'*50000)
     assert 1 <= count <= 50000
     while count: # Recv may return less than requested
-        buf = s1.recv(count + 100)
+        buf = do_recv(s1, count + 100)
         assert len(buf) <= count
         assert buf.count('x') == len(buf)
         count -= len(buf)
     # Check that everything has been read
     with pytest.raises(CSocketError):
-        s1.recv(5000)
+        do_recv(s1, 5000)
     s1.close()
     s2.close()
 
@@ -432,7 +450,7 @@ def getaddrinfo_pydotorg(i, result):
     result[i] += found
 
 def test_getaddrinfo_pydotorg():
-    result = [0,]
+    result = [0]
     getaddrinfo_pydotorg(0, result)
     assert result[0] == 1
 
@@ -587,9 +605,8 @@ def test_inet_ntop():
 
 @pytest.mark.skipif(getattr(rsocket, 'AF_UNIX', None) is None,
         reason='AF_UNIX not supported.')
-def test_unix_socket_connect():
-    from rpython.tool.udir import udir
-    sockpath = str(udir.join('test_unix_socket_connect'))
+def test_unix_socket_connect(tmpdir, do_recv):
+    sockpath = str(tmpdir.join('test_unix_socket_connect'))
     a = UNIXAddress(sockpath)
 
     serversock = RSocket(AF_UNIX)
@@ -602,10 +619,10 @@ def test_unix_socket_connect():
     s = RSocket(AF_UNIX, fd=fd)
 
     s.send('X')
-    data = clientsock.recv(100)
+    data = do_recv(clientsock, 100)
     assert data == 'X'
     clientsock.send('Y')
-    data = s.recv(100)
+    data = do_recv(s, 100)
     assert data == 'Y'
 
     clientsock.close()
@@ -731,11 +748,11 @@ def test_translate_netdb_lock_thread():
     fc = compile(f, [], thread=True)
     assert fc() == 0
 
-def test_socket_saves_errno(tmpdir):
+def test_socket_saves_errno(do_recv):
     # ensure errno is set to a known value...
     unconnected_sock = RSocket()
     with pytest.raises(CSocketError) as e:
-        unconnected_sock.recv(1024)
+        do_recv(unconnected_sock, 1024)
     # ...which is ENOTCONN
     assert e.value.errno == errno.ENOTCONN
 
