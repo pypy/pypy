@@ -349,7 +349,6 @@ class AppTestSequenceObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("dict_assignment", "METH_VARARGS",
              """
-                PyObject *foo, *dict;
                 PyObject *cls = PyTuple_GetItem(args, 0);
                 PyObject *func = PyTuple_GetItem(args, 1);
                 if (cls == NULL)
