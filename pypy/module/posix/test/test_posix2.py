@@ -47,6 +47,9 @@ def setup_module(mod):
     # an escaped surrogate
     mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
+    mod.dir_unicode = udir.ensure(u'dir_extra', dir=True)
+    mod.dir_unicode.join(u'ca\u2014f\xe9').write('test')
+
     # in applevel tests, os.stat uses the CPython os.stat.
     # Be sure to return times with full precision
     # even when running on top of CPython 2.4.
@@ -72,6 +75,7 @@ class AppTestPosix:
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
+        cls.w_dir_unicode = space.wrap(unicode(dir_unicode))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -108,7 +112,7 @@ class AppTestPosix:
                 def __fspath__(self):
                     return self._path
             return Path
-            """) 
+            """)
 
     def setup_method(self, meth):
         if getattr(meth, 'need_sparse_files', False):
@@ -364,6 +368,12 @@ class AppTestPosix:
         assert b'somefile' in result
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
+
+    def test_listdir_unicode(self):
+        posix = self.posix
+        result = posix.listdir(self.dir_unicode)
+        assert all(type(x) is str for x in result)
+        assert u'ca\u2014f\xe9' in result
 
     def test_listdir_memoryview_returns_unicode(self):
         import sys
@@ -1482,7 +1492,7 @@ class AppTestPosix:
         with open(unicode_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(unicode_name, fname)
-        
+
         os.rename(bytes(fname, 'utf-8'), bytes(str_name, 'utf-8'))
         with open(str_name) as f:
             assert f.read() == 'this is a rename test'

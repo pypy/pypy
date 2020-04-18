@@ -988,6 +988,16 @@ On some platforms, path may also be specified as an open file descriptor;
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         return space.newlist_bytes(result)
+    if  _WIN32:
+        dirname = FileEncoder(space, w_path)
+        result = rposix.listdir(dirname)    # should return a list of unicodes
+        len_result = len(result)
+        result_w = [None] * len_result
+        for i in range(len_result):
+            res = result[i]
+            assert isinstance(res, unicode)
+            result_w[i] = u2utf8(space, res)
+        return space.newlist(result_w)
     try:
         path = space.fsencode_w(w_path)
     except OperationError as operr:
@@ -1009,10 +1019,7 @@ On some platforms, path may also be specified as an open file descriptor;
     len_result = len(result)
     result_w = [None] * len_result
     for i in range(len_result):
-        if _WIN32:
-            result_w[i] = space.newtext(result[i])
-        else:
-            result_w[i] = space.newfilename(result[i])
+        result_w[i] = space.newfilename(result[i])
     return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
