@@ -455,15 +455,13 @@ class SequenceWithBackref(Sequence):
         used_names = draw(st.shared(st.builds(set), key="group names"))
         # XXX a lot more characters are safe identifiers
         name = draw(st.from_regex("\A[a-zA-Z_][a-zA-Z0-9_]*\Z").filter(lambda s: s not in used_names))
-        if chr(0) in name:
-            import pdb; pdb.set_trace()
         used_names.add(name)
         bases[group] = g = NamedGroup(bases[group], name)
         bases.append(GroupReference(g))
         return sequence
 
 
-class NamedGroup(Re):
+class NamedGroup(RecursiveRe):
     """ Wrap the base expression into a named group with name. """
 
     def __init__(self, base, name):
@@ -485,6 +483,24 @@ class NamedGroup(Re):
         res = self.base.non_matching_string(draw, state)
         state.groups[self] = res
         return res
+
+class NonCapturingGroup(RecursiveRe):
+    """ Wrap the base expression into a non-capturing group. """
+
+    def __init__(self, base):
+        self.base = base
+
+    def can_be_empty(self):
+        return self.base.can_be_empty()
+
+    def build_re(self):
+        return u"(?:%s)" % (self.base.build_re(), )
+
+    def matching_string(self, draw, state):
+        return self.base.matching_string(draw, state)
+
+    def non_matching_string(self, draw, state):
+        return self.base.non_matching_string(draw, state)
 
 
 class GroupReference(Re):
@@ -583,6 +599,12 @@ def re_test(maker):
             with assert_quick_not_quadratic():
                 assert rsre_utf8.utf8match(compiled, sno.encode("utf-8")) is None
 
+        # search test
+        prefix = draw(st.text())
+        together = prefix + syes
+        note(("together", together))
+        assert rsre_utf8.utf8search(compiled, together.encode("utf-8")).match_start <= len(prefix.encode("utf-8"))
+
     return test
 
 
@@ -607,3 +629,15 @@ test_sequence_repetition = re_test(sequence_repetition)
 test_backref_sequence = re_test(backref_sequence)
 test_simple_disjunction = re_test(simple_disjunction)
 test_disjunction_sequence_repetition = re_test(disjunction_sequence)
+
+
+# Tests for searching
+
+def make_prefix_re(draw):
+    prefix = draw(st.lists(st.composite(Char.make)(), min_size=1, max_size=MAXREPEAT))
+    rest = Disjunction.make_with_base(backref_sequence, draw)
+    prefix.append(NonCapturingGroup(rest))
+    return Sequence(prefix)
+
+test_prefix_re = re_test(make_prefix_re)
+
