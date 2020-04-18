@@ -5,7 +5,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
 import os
-exec 'import %s as posix' % os.name
+exec('import %s as posix' % os.name)
 
 def setup_module(module):
     testf = udir.join('test.txt')

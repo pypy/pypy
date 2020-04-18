@@ -1474,7 +1474,7 @@ class Transformer(object):
                           ('cast_longlong_to_float',   'TO_FLOAT'),
                           ('cast_uint_to_longlong',    'FROM_UINT'),
                           ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -1484,7 +1484,7 @@ class Transformer(object):
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile())
 
     for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
@@ -1506,7 +1506,7 @@ class Transformer(object):
                           ('ullong_lshift', 'LSHIFT'),
                           ('ullong_rshift', 'URSHIFT'),
                          ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
@@ -1514,7 +1514,7 @@ class Transformer(object):
                                                 EffectInfo.OS_LLONG_%s,
                                                 EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile())
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -1581,11 +1581,11 @@ class Transformer(object):
                        ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 op1 = SpaceOperation(%r, op.args, op.result)
                 return self.rewrite_operation(op1)
-        ''' % (_old, _new)).compile()
+        ''' % (_old, _new)).compile())
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',

@@ -194,7 +194,7 @@ def elidable_promote(promote_args='all'):
                 (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
-        exec py.code.Source("\n".join(code)).compile() in d
+        exec(py.code.Source("\n".join(code)).compile(), d)
         result = d["f"]
         result.func_name = func.func_name + "_promote"
         return result
@@ -227,7 +227,7 @@ def look_inside_iff(predicate):
             "func": func,
             "we_are_jitted": we_are_jitted,
         }
-        exec py.code.Source("""
+        exec(py.code.Source("""
             @dont_look_inside
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
@@ -243,7 +243,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-        """ % {"arguments": ", ".join(args)}).compile() in d
+        """ % {"arguments": ", ".join(args)}).compile(), d)
         return d["f"]
     return inner
 
@@ -435,7 +435,7 @@ def jit_callback(name):
             'jitdriver': jitdriver,
             'real_callback': func,
             }
-        exec compile2(source) in miniglobals
+        exec(compile2(source), miniglobals)
         return miniglobals['callback_with_jitdriver']
     return decorate
 

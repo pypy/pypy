@@ -648,7 +648,7 @@ def _test_cond_include(cond):
     assert found
     d = {}
     sourcelines.append('')
-    exec '\n'.join(sourcelines) in d
+    exec('\n'.join(sourcelines), d)
 
 def test_no_AF_PACKET():
     _test_cond_include('AF_PACKET')

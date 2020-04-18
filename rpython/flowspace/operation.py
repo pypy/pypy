@@ -320,22 +320,22 @@ def inplace_mul(x, y):
     x *= y
     return x
 
-exec compile2("""
+exec(compile2("""
 def inplace_truediv(x, y):
     x /= y
     return x
-""", flags=__future__.CO_FUTURE_DIVISION, dont_inherit=1)
+""", flags=__future__.CO_FUTURE_DIVISION, dont_inherit=1))
 #                     makes an INPLACE_TRUE_DIVIDE
 
 def inplace_floordiv(x, y):
     x //= y
     return x
 
-exec compile2("""
+exec(compile2("""
 def inplace_div(x, y):
     x /= y
     return x
-""", flags=0, dont_inherit=1)    # makes an INPLACE_DIVIDE
+""", flags=0, dont_inherit=1))    # makes an INPLACE_DIVIDE
 
 def inplace_mod(x, y):
     x %= y

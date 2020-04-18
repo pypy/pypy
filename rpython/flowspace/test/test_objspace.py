@@ -1156,7 +1156,7 @@ class TestFlowObjSpace(Base):
         def f():
             x = 5
             return x
-            exec "None"
+            exec("None")
         graph = self.codetest(f)
         assert len(graph.startblock.exits) == 1
         assert graph.startblock.exits[0].target == graph.returnblock

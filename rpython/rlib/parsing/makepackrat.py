@@ -311,7 +311,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         m = {'Status': Status,
              'Nonterminal': Nonterminal,
              'Symbol': Symbol,}
-        exec py.code.Source(self.get_code()).compile() in m
+        exec(py.code.Source(self.get_code()).compile(), m)
         return m['Parser']
 
     def memoize_header(self, name, args):
