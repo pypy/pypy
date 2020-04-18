@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import (
 from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, replace_count, startswith, endswith)
-from rpython.rlib import rutf8, jit
+from rpython.rlib import rutf8, runicode, jit
 
 from pypy.interpreter import unicodehelper
 from pypy.interpreter.baseobjspace import W_Root
@@ -44,6 +44,11 @@ def codepoint_at_pos_dont_look_inside(utf8, p):
 joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], reds = 'auto',
                            name='joindriver')
 
+class BadUtf8(Exception):
+    pass
+CHECK_ALL_STRINGS = True
+
+
 class W_UnicodeObject(W_Root):
     import_from_mixin(StringMethods)
     _immutable_fields_ = ['_utf8', '_length']
@@ -56,11 +61,24 @@ class W_UnicodeObject(W_Root):
         self._utf8 = utf8str
         self._length = length
         self._index_storage = rutf8.null_storage()
-        if not we_are_translated() and not sys.platform == 'win32':
+        if CHECK_ALL_STRINGS or not we_are_translated():
             # utf8str must always be a valid utf8 string, except maybe with
             # explicit surrogate characters---which .decode('utf-8') doesn't
             # special-case in Python 2, which is exactly what we want here
-            assert length == len(utf8str.decode('utf-8'))
+            try:
+                if runicode.MAXUNICODE == 0xffff:
+                    # can't use .decode('utf-8') because it will add surrogates
+                    real_length = rutf8.check_utf8(utf8str, True)
+                else:
+                    real_length = len(utf8str.decode('utf-8'))
+            except (rutf8.CheckError, UnicodeDecodeError):
+                real_length = -999
+            if length != real_length:
+                from rpython.rlib.debug import debug_print
+                debug_print("!!! BAD UTF8 !!!")
+                debug_print(str([ord(c) for c in utf8str]))
+                debug_print("length", length, "real_length", real_length)
+                raise BadUtf8
 
     @staticmethod
     def from_utf8builder(builder):
