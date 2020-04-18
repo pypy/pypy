@@ -31,7 +31,7 @@ class Utf8MatchContext(AbstractMatchContext):
     def matches_literal(self, position, ordch):
         # do a bytewise compare against the utf-8 encoded version of ordch
         # this is cheap because ordch is always constant in the trace
-        utf8 = rutf8.unichr_as_utf8(ordch)
+        utf8 = rutf8.unichr_as_utf8(ordch, allow_surrogates=True)
         check_nonneg(position)
         for byte in utf8:
             if self._utf8[position] != byte:

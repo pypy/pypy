@@ -48,6 +48,12 @@ def test_matches_many_literals_utf8():
         ctx = Utf8MatchContext(s, 0, len(s))
         assert ctx.matches_many_literals(0, c1, litppos, 6) == 8 if res else -1
 
+def test_matches_literal_surrogate_bug():
+    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
+    s = u"\ud800".encode("utf-8")
+    ctx = Utf8MatchContext(s, 0, len(s))
+    assert ctx.matches_literal(0, 0xd800)
+
 class TestMatch:
 
     def test_or(self):

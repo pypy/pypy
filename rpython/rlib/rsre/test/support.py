@@ -16,7 +16,7 @@ class Position(object):
     def __cmp__(self, other):
         if isinstance(other, Position):
             return cmp(self._p, other._p)
-        if type(other) is int and other == -1:
+        if type(other) is int and other in (0, -1):
             return cmp(self._p, -1)
         raise TypeError("cannot compare %r with %r" % (self, other))
 
