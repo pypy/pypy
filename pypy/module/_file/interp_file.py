@@ -502,16 +502,16 @@ Note that due to buffering, flush() or close() may be needed before
 the file on disk reflects the data written."""
         space = self.space
         self.check_writable()
+        if space.isinstance_w(w_data, space.w_unicode):
+            # note: "encode" is called before we acquire the lock
+            # for this file, which is done in file_write_str().
+            # Use a specific space method because we don't want
+            # to call user-defined "encode" methods here.
+            w_data = space.encode_unicode_object(w_data,
+                 self.encoding, self.errors)
         if self.binary:
             data = space.getarg_w('s*', w_data).as_str()
         else:
-            if space.isinstance_w(w_data, space.w_unicode):
-                # note: "encode" is called before we acquire the lock
-                # for this file, which is done in file_write_str().
-                # Use a specific space method because we don't want
-                # to call user-defined "encode" methods here.
-                w_data = space.encode_unicode_object(w_data,
-                     self.encoding, self.errors)
             data = space.charbuf_w(w_data)
         self.file_write_str(data)
 
