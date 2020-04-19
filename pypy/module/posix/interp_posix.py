@@ -990,7 +990,10 @@ On some platforms, path may also be specified as an open file descriptor;
         return space.newlist_bytes(result)
     if  _WIN32:
         dirname = FileEncoder(space, w_path)
-        result = rposix.listdir(dirname)    # should return a list of unicodes
+        try:
+            result = rposix.listdir(dirname)  # should return a list of unicodes
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         len_result = len(result)
         result_w = [None] * len_result
         for i in range(len_result):
