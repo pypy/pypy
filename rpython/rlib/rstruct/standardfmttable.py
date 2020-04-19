@@ -296,6 +296,7 @@ def make_ieee_unpacker(TYPE):
         fmtiter.appendobj(float(val))
 
     @sandbox_review(reviewed=True)
+    @specialize.argtype(0)
     def read_slowpath(fmtiter):
         size = rffi.sizeof(TYPE)
         input = fmtiter.read(size)
