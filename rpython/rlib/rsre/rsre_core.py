@@ -264,7 +264,7 @@ class AbstractMatchContext(object):
     def prev(self, position):
         raise NotImplementedError
     @not_rpython
-    def next_n(self, position, n):
+    def next_n(self, position, n, end_position):
         raise NotImplementedError
     @not_rpython
     def prev_n(self, position, n, start_position):
