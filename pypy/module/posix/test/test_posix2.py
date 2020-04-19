@@ -374,6 +374,7 @@ class AppTestPosix:
         result = posix.listdir(self.dir_unicode)
         assert all(type(x) is str for x in result)
         assert u'ca\u2014f\xe9' in result
+        raises(OSError, posix.listdir, self.dir_unicode + "NONEXISTENT")
 
     def test_listdir_memoryview_returns_unicode(self):
         import sys
