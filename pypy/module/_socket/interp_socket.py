@@ -733,12 +733,20 @@ class W_Socket(W_Root):
         elif nbytes > lgt:
             raise oefmt(space.w_ValueError,
                         "nbytes is greater than the length of the buffer")
+        try:
+            rwbuffer.get_raw_address()
+        except ValueError:
+            rawbuf = RawByteBuffer(nbytes)
+        else:
+            rawbuf = rwbuffer
         while True:
             try:
-                readlgt, addr = self.sock.recvfrom_into(rwbuffer, nbytes, flags)
+                readlgt, addr = self.sock.recvfrom_into(rawbuf, nbytes, flags)
                 break
             except SocketError as e:
                 converted_error(space, e, eintr_retry=True)
+        if rawbuf is not rwbuffer:
+            rwbuffer.setslice(0, rawbuf.getslice(0, 1, readlgt))
         if addr:
             try:
                 w_addr = addr_as_object(addr, self.sock.fd, space)

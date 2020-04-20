@@ -179,33 +179,7 @@ def test_socketpair_recvinto():
 
 @pytest.mark.skipif(sys.platform == "win32",
         reason='No socketpair on Windows')
-def test_socketpair_recvfrom_into_1():
-    class Buffer:
-        def setslice(self, start, string):
-            self.x = string
-
-        def get_raw_address(self):
-            raise ValueError
-
-    s1, s2 = socketpair()
-    buf = Buffer()
-    s1.sendall('?')
-    n, addr = s2.recvfrom_into(buf, 1)
-    assert n == 1
-    assert addr is None
-    assert buf.x == '?'
-    count = s2.send('x'*99)
-    assert 1 <= count <= 99
-    n, addr = s1.recvfrom_into(buf, 100)
-    assert n == count
-    assert addr is None
-    assert buf.x == 'x'*count
-    s1.close()
-    s2.close()
-
-@pytest.mark.skipif(sys.platform == "win32",
-        reason='No socketpair on Windows')
-def test_socketpair_recvfrom_into_2():
+def test_socketpair_recvfrom_into():
     class Buffer:
         def __init__(self):
             self._p = lltype.malloc(rffi.CCHARP.TO, 100, flavor='raw',

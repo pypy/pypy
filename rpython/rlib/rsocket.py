@@ -944,31 +944,24 @@ class RSocket(object):
         raise self.error_handler()
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
+        self.wait_for_data(False)
+        address, addr_p, addrlen_p = self._addrbuf()
         try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf, addr = self.recvfrom(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf), addr
-        else:
-            self.wait_for_data(False)
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                raw = rwbuffer.get_raw_address()
-                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
-                                         addr_p, addrlen_p)
-                keepalive_until_here(rwbuffer)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                return (read_bytes, address)
-            raise self.error_handler()
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                        addr_p, addrlen_p)
+            keepalive_until_here(rwbuffer)
+            addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
+        if read_bytes >= 0:
+            if addrlen:
+                address.addrlen = addrlen
+            else:
+                address = None
+            return (read_bytes, address)
+        raise self.error_handler()
 
     @jit.dont_look_inside
     def recvmsg(self, message_size, ancbufsize=0, flags=0):

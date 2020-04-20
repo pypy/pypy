@@ -883,7 +883,7 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
-        import io
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -904,8 +904,9 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        # A case where rwbuffer.get_raw_address() fails
         conn.send(MSG)
-        buf = io.BytesIO(b' ' * 1024)
+        buf = _io.BytesIO(b' ' * 1024)
         m = buf.getbuffer()
         nbytes = cli.recv_into(m)
         assert nbytes == len(MSG)
@@ -915,6 +916,7 @@ class AppTestSocketTCP:
     def test_recvfrom_into(self):
         import socket
         import array
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -933,6 +935,14 @@ class AppTestSocketTCP:
         nbytes, addr = cli.recvfrom_into(memoryview(buf))
         assert nbytes == len(MSG)
         msg = buf[:len(MSG)]
+        assert msg == MSG
+
+        # A case where rwbuffer.get_raw_address() fails
+        conn.send(MSG)
+        buf = _io.BytesIO(b' ' * 1024)
+        nbytes, addr = cli.recvfrom_into(buf.getbuffer())
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
         assert msg == MSG
 
         conn.send(MSG)
