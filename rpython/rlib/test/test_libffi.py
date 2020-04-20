@@ -497,7 +497,7 @@ class TestLibffiCall(BaseFfiTest):
         loc = locals()
         def my_raises(s):
             try:
-                exec s in glob, loc
+                exec(s, glob, loc)
             except TypeError:
                 pass
             except LLException as e:

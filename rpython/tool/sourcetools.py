@@ -208,7 +208,7 @@ def compile_template(source, resultname):
         after  = "# no unindent\n    return %s" % resultname)
 
     d = {}
-    exec source.compile() in caller.f_globals, d
+    exec(source.compile(), caller.f_globals, d)
     container = d['container']
     return container(*values)
 
@@ -289,7 +289,7 @@ def rpython_wrapper(f, template, templateargs=None, **globaldict):
     src = py.code.Source(src)
     #
     globaldict[f.func_name + '_original'] = f
-    exec src.compile() in globaldict
+    exec(src.compile(), globaldict)
     result = globaldict[f.func_name]
     result.func_defaults = f.func_defaults
     result.func_dict.update(f.func_dict)

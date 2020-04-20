@@ -526,7 +526,7 @@ def PassThrough(meth_name, flush_buffers):
                       return self.base.%s(%s)
 """
     d = {}
-    exec code % (meth_name, args, meth_name, args) in d
+    exec(code % (meth_name, args, meth_name, args), d)
     return d[meth_name]
 
 

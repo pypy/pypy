@@ -23,10 +23,10 @@ for n1 in 'get set del'.split():
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
-        exec """if 1:
+        exec("""if 1:
             def %s(*args):
                 return _%s(dum_checkidx, %s*args)
-""" % (name, name, extraarg)
+""" % (name, name, extraarg))
 del n1, n2, name
 
 

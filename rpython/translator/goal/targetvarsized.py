@@ -54,7 +54,7 @@ def target(driver, args, config):
     f.close()
     for i in range(N):
         d = {'__name__': 'richards%d' % i}
-        exec source in d
+        exec(source, d)
         modules.append(d)
         functions.append(d['entry_point'])
 
