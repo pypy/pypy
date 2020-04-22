@@ -34,7 +34,7 @@ class FakeVMProf(object):
             msg = ('Invalid value for fakevmprof._ignore_signals: expected 1, '
                    'got %d. This probably means that you called '
                    '{start,stop}_sampling() a wrong number of times')
-            raise ValueError, msg % self._ignore_signals
+            raise ValueError(msg % self._ignore_signals)
 
 
 @pytest.fixture
