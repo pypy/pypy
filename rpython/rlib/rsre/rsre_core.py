@@ -1443,6 +1443,9 @@ install_jitdriver_spec('FastSearch',
                        debugprint=(2, 0))
 @specializectx
 def fast_search(ctx, pattern):
+    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
+    if type(ctx) is Utf8MatchContext:
+        return fast_search_utf8(ctx, pattern)
     # skips forward in a string as fast as possible using information from
     # an optimization info block
     # <INFO> <1=skip> <2=flags> <3=min> <4=...>
@@ -1489,5 +1492,47 @@ def fast_search(ctx, pattern):
                 overlap_offset = prefix_len + (7 - 1)
                 i = pattern.pat(overlap_offset + i)
         string_position = ctx.next(string_position)
+        if string_position >= ctx.end:
+            return False
+
+@jit.elidable
+def extract_literal_utf8(pattern):
+    from rpython.rlib import rutf8
+    res = []
+    prefix_len = pattern.pat(5)
+    for i in range(prefix_len):
+        ordch = pattern.pat(7 + i)
+        res.append(rutf8.unichr_as_utf8(ordch))
+    return "".join(res)
+
+def fast_search_utf8(ctx, pattern):
+    from rpython.rlib.rsre.rsre_utf8 import compute_utf8_size_n_literals
+    # just use str.find
+    string_position = ctx.match_start
+    if string_position >= ctx.end:
+        return False
+    prefix_len = pattern.pat(5)
+    assert prefix_len >= 0
+    utf8_literal = extract_literal_utf8(pattern)
+    i = 0
+    while True:
+        ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
+                string_position=string_position, i=i, prefix_len=prefix_len,
+                pattern=pattern)
+        start = ctx._utf8.find(utf8_literal, string_position, ctx.end)
+        if start < 0:
+            return False
+        string_position = start + len(utf8_literal)
+        # start = string_position + 1 - prefix_len: computed later
+        ptr = string_position
+        prefix_skip = pattern.pat(6)
+        if prefix_skip != prefix_len:
+            assert prefix_skip < prefix_len
+            ptr = start + compute_utf8_size_n_literals(pattern, 7, prefix_skip, 1)
+        pattern_offset = pattern.pat(1) + 1
+        ppos_start = pattern_offset + 2 * prefix_skip
+        if sre_match(ctx, pattern, ppos_start, ptr, None) is not None:
+            ctx.match_start = start
+            return True
         if string_position >= ctx.end:
             return False

@@ -34,6 +34,16 @@ class BaseTestSearch:
         P = self.P
         assert res.span() == (P(8), P(14))
 
+    def test_code_overlap(self):
+        r_code1 = get_code(r'nananananana')
+        res = self.search(r_code1, "nanannnananananana")
+        assert res is not None
+        P = self.P
+        assert res.span() == (P(6), P(18))
+
+        res = self.search(r_code1, "nananxnananana")
+        assert res is None
+
     def test_code3(self):
         r_code1 = get_code(r'<item>\s*<title>(.*?)</title>')
         res = self.match(r_code1, "<item>  <title>abc</title>def")
@@ -282,3 +292,12 @@ class TestSearchUtf8(BaseTestSearch):
         assert not self.match(r, 'bc')
         assert not self.match(r, 'b')
 
+    def test_prefix_skip_not_prefix_len(self):
+        p = get_code(ur'äbc(d)(e)(f)g+')
+        res = self.search(p, (u"ä" * 100 + u"bcdefgggggg").encode("utf-8"))
+        assert res is not None
+
+    def test_unicode_search_bug(self):
+        p = get_code(u'0\xb0(?:.?.?.?.?.??.+.?|.?.?)')
+        res = self.search(p, u'0\xb0'.encode("utf-8"))
+        assert res is not None

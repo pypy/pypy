@@ -633,11 +633,13 @@ test_disjunction_sequence_repetition = re_test(disjunction_sequence)
 
 # Tests for searching
 
-def make_prefix_re(draw):
+def make_prefix_re(base, draw):
     prefix = draw(st.lists(st.composite(Char.make)(), min_size=1, max_size=MAXREPEAT))
-    rest = Disjunction.make_with_base(backref_sequence, draw)
+    rest = Disjunction.make_with_base(base, draw)
     prefix.append(NonCapturingGroup(rest))
     return Sequence(prefix)
 
-test_prefix_re = re_test(make_prefix_re)
+test_prefix_simple_repetition = re_test(partial(make_prefix_re, simple_repetition))
+test_prefix_sequence_repetition = re_test(partial(make_prefix_re, sequence_repetition))
+test_prefix_backref_sequence = re_test(partial(make_prefix_re, backref_sequence))
 

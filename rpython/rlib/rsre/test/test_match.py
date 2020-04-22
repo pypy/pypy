@@ -33,7 +33,7 @@ def test_compute_utf8_size_n_literals():
     from rpython.rlib.rsre.rsre_utf8 import compute_utf8_size_n_literals
     c1 = get_code(ur"abcdíß.")
     # starts with INFO
-    litppos = c1.pat(1) + 1
+    litppos = c1.pat(1) + 2
     assert compute_utf8_size_n_literals(c1, litppos, 6) == 8
 
 def test_matches_many_literals_utf8():

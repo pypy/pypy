@@ -42,15 +42,18 @@ class Utf8MatchContext(AbstractMatchContext):
     @jit.unroll_safe
     def matches_many_literals(self, ptr, pattern, ppos, n):
         assert ppos >= 0
-        utf8_size = compute_utf8_size_n_literals(pattern, ppos, n)
+        ppos += 1
+        utf8_size = compute_utf8_size_n_literals(pattern, ppos, n, 2)
         # do a single range check
         if ptr + utf8_size > self.end:
             return -1
+
         for i in range(n):
-            ordch = pattern.pat(ppos + 2 * i + 1)
+            ordch = pattern.pat(ppos)
             if not self.matches_literal(ptr, ordch):
                 return -1
             ptr += rutf8.codepoint_size_in_utf8(ordch)
+            ppos += 2
         return ptr
 
     def next(self, position):
@@ -100,11 +103,12 @@ class Utf8MatchContext(AbstractMatchContext):
 
 
 @jit.elidable
-def compute_utf8_size_n_literals(pattern, ppos, n):
+def compute_utf8_size_n_literals(pattern, ppos, n, offset=2):
     total_size = 0
     for i in range(n):
-        ordch = pattern.pat(ppos + 2 * i + 1)
+        ordch = pattern.pat(ppos)
         total_size += rutf8.codepoint_size_in_utf8(ordch)
+        ppos += offset
     return total_size
 
 
