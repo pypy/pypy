@@ -1767,16 +1767,16 @@ class Transformer(object):
         func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
-        assert func.func_name.startswith('ll_')
+        assert func.__name__.startswith('ll_')
         # check that we have carefully placed the oopspec in
         # pypy/rpython/rlist.py.  There should not be an oopspec on
         # a ll_getitem or ll_setitem that expects a 'func' argument.
         # The idea is that a ll_getitem/ll_setitem with dum_checkidx
         # should get inlined by the JIT, so that we see the potential
         # 'raise IndexError'.
-        assert 'func' not in func.func_code.co_varnames
-        non_negative = '_nonneg' in func.func_name
-        fast = '_fast' in func.func_name
+        assert 'func' not in func.__code__.co_varnames
+        non_negative = '_nonneg' in func.__name__
+        fast = '_fast' in func.__name__
         return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):

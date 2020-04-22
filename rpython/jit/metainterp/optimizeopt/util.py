@@ -45,7 +45,7 @@ def make_dispatcher_method(Class, name_prefix, op_prefix=None, default=None):
                 return func(self, op, *args)
             if default:
                 return default(self, op, *args)
-    dispatch.func_name = "dispatch_" + name_prefix
+    dispatch.__name__ = "dispatch_" + name_prefix
     return dispatch
 
 
