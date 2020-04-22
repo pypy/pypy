@@ -574,7 +574,7 @@ def writeUnicodedata(version, version_tuple, table, outfile, base):
                         " 0x20000 <= code <= 0x2A6D6 or"
                         " 0x2A700 <= code <= 0x2B734 or"
                         " 0x2B740 <= code <= 0x2B81D)")
-    elif version_tuple == (9, 0, 0):
+    elif version_tuple < (10, 0, 0):
         cjk_interval = ("(0x3400 <= code <= 0x4DB5 or"
                         " 0x4E00 <= code <= 0x9FD5 or"
                         " 0x20000 <= code <= 0x2A6D6 or"
