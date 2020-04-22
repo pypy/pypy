@@ -6,15 +6,18 @@ from pypy import pypydir
 from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
+SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 
 eci = ExternalCompilationInfo(
-    includes=["universal/hpy.h"],
+    includes=["universal/hpy.h", "hpyerr.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
+        SRC_DIR,     # for hpyerr.h
     ],
+    separate_module_files=[SRC_DIR.join('hpyerr.c')],
     post_include_bits=["""
         // these are workarounds for a CTypeSpace limitation, since it can't properly
         // handle struct types which are not typedefs
@@ -22,6 +25,12 @@ eci = ExternalCompilationInfo(
         typedef struct _HPy_s _struct_HPy_s;
     """],
 )
+
+pypy_hpy_Err_Occurred = rffi.llexternal('pypy_hpy_Err_Occurred', [], rffi.INT_real,
+                                        compilation_info=eci, _nowrapper=True)
+pypy_hpy_Err_Clear = rffi.llexternal('pypy_hpy_Err_Clear', [], lltype.Void,
+                                     compilation_info=eci, _nowrapper=True)
+
 
 cts = CTypeSpace()
 # NOTE: the following C source is NOT seen by the C compiler during
