@@ -1,4 +1,3 @@
-import weakref
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
@@ -1060,7 +1059,7 @@ class W_GroupByIterator(W_Root):
     def __init__(self, groupby, w_tgtkey):
         self.groupby = groupby
         self.w_tgtkey = w_tgtkey
-        groupby.w_currgrouper = weakref.ref(self)
+        groupby.w_currgrouper = self
 
     def iter_w(self):
         return self
@@ -1068,8 +1067,7 @@ class W_GroupByIterator(W_Root):
     def next_w(self):
         groupby = self.groupby
         space = groupby.space
-        w_currgrouper = groupby.w_currgrouper
-        if w_currgrouper is None or w_currgrouper() is not self:
+        if groupby.w_currgrouper is not self:
             raise OperationError(space.w_StopIteration, space.w_None)
         if groupby.w_currvalue is None:
             w_newvalue = space.next(groupby.w_iterator)
@@ -1091,8 +1089,7 @@ class W_GroupByIterator(W_Root):
         return w_result
 
     def descr_reduce(self, space):
-        w_currgrouper = self.groupby.w_currgrouper
-        if w_currgrouper is None or w_currgrouper() is not self:
+        if self.groupby.w_currgrouper is not self:
             w_callable = space.builtin.get('iter')
             return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])
         return space.newtuple([
