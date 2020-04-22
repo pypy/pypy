@@ -973,6 +973,7 @@ class W_GroupBy(W_Root):
         return self
 
     def next_w(self):
+        self.w_currgrouper = None
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
@@ -1058,6 +1059,7 @@ class W_GroupByIterator(W_Root):
     def __init__(self, groupby, w_tgtkey):
         self.groupby = groupby
         self.w_tgtkey = w_tgtkey
+        groupby.w_currgrouper = self
 
     def iter_w(self):
         return self
@@ -1065,6 +1067,8 @@ class W_GroupByIterator(W_Root):
     def next_w(self):
         groupby = self.groupby
         space = groupby.space
+        if groupby.w_currgrouper is not self:
+            raise OperationError(space.w_StopIteration, space.w_None)
         if groupby.w_currvalue is None:
             w_newvalue = space.next(groupby.w_iterator)
             if space.is_w(groupby.w_keyfunc, space.w_None):
@@ -1085,6 +1089,9 @@ class W_GroupByIterator(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        if self.groupby.w_currgrouper is not self:
+            w_callable = space.builtin.get('iter')
+            return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])
         return space.newtuple([
             space.type(self),
             space.newtuple([
