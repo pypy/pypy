@@ -111,6 +111,16 @@ def compute_utf8_size_n_literals(pattern, ppos, n, offset=2):
         ppos += offset
     return total_size
 
+@jit.elidable
+def extract_literal_utf8(pattern):
+    from rpython.rlib import rutf8
+    res = []
+    prefix_len = pattern.pat(5)
+    for i in range(prefix_len):
+        ordch = pattern.pat(7 + i)
+        res.append(rutf8.unichr_as_utf8(ordch, allow_surrogates=True))
+    return "".join(res)
+
 
 def make_utf8_ctx(utf8string, bytestart, byteend):
     if bytestart < 0: bytestart = 0

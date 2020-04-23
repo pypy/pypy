@@ -5,12 +5,13 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
+from rpython.rlib.nonconst import NonConstant
 from rpython.rlib import jit
 from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec, opname
 
 _seen_specname = {}
 
-def specializectx(func):
+def specializectx(func, **kwargs):
     """A decorator that specializes 'func(ctx,...)' for each concrete subclass
     of AbstractMatchContext.  During annotation, if 'ctx' is known to be a
     specific subclass, calling 'func' is a direct call; if 'ctx' is only known
@@ -31,7 +32,10 @@ def specializectx(func):
                                   ('uni', UnicodeMatchContext),
                                   ('utf8', Utf8MatchContext),
                                   ]:
-        newfunc = func_with_new_name(func, prefix + specname)
+        override = "override_" + prefix
+        newfunc = kwargs.get(override)
+        if newfunc is None:
+            newfunc = func_with_new_name(func, prefix + specname)
         assert not hasattr(concreteclass, specname)
         setattr(concreteclass, specname, newfunc)
         specialized_methods.append(newfunc)
@@ -41,6 +45,11 @@ def specializectx(func):
     dispatch._annspecialcase_ = 'specialize:argtype(0)'
     dispatch._specialized_methods_ = specialized_methods
     return func_with_new_name(dispatch, specname)
+
+def specializectx_override(**kwargs):
+    def decorate(func):
+        return specializectx(func, **kwargs)
+    return decorate
 
 # ____________________________________________________________
 
@@ -1439,13 +1448,45 @@ def charset_search(ctx, pattern, base):
 
 install_jitdriver_spec('FastSearch',
                        greens=['i', 'prefix_len', 'pattern'],
-                       reds=['string_position', 'ctx'],
+                       reds='auto',
                        debugprint=(2, 0))
-@specializectx
+
+
+def fast_search_utf8(ctx, pattern):
+    from rpython.rlib.rsre.rsre_utf8 import compute_utf8_size_n_literals
+    from rpython.rlib.rsre.rsre_utf8 import extract_literal_utf8
+    # just use str.find
+    string_position = ctx.match_start
+    if string_position >= ctx.end:
+        return False
+    prefix_len = pattern.pat(5)
+    assert prefix_len >= 0
+    utf8_literal = extract_literal_utf8(pattern)
+    i = NonConstant(0)
+    while True:
+        ctx.jitdriver_FastSearch.jit_merge_point(
+                i=i, prefix_len=prefix_len,
+                pattern=pattern)
+        start = ctx._utf8.find(utf8_literal, string_position, ctx.end)
+        if start < 0:
+            return False
+        string_position = start + len(utf8_literal)
+        # start = string_position + 1 - prefix_len: computed later
+        ptr = string_position
+        prefix_skip = pattern.pat(6)
+        if prefix_skip != prefix_len:
+            assert prefix_skip < prefix_len
+            ptr = start + compute_utf8_size_n_literals(pattern, 7, prefix_skip, 1)
+        pattern_offset = pattern.pat(1) + 1
+        ppos_start = pattern_offset + 2 * prefix_skip
+        if sre_match(ctx, pattern, ppos_start, ptr, None) is not None:
+            ctx.match_start = start
+            return True
+        if string_position >= ctx.end:
+            return False
+
+@specializectx_override(override_utf8=fast_search_utf8)
 def fast_search(ctx, pattern):
-    from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
-    if type(ctx) is Utf8MatchContext:
-        return fast_search_utf8(ctx, pattern)
     # skips forward in a string as fast as possible using information from
     # an optimization info block
     # <INFO> <1=skip> <2=flags> <3=min> <4=...>
@@ -1457,8 +1498,7 @@ def fast_search(ctx, pattern):
     assert prefix_len >= 0
     i = 0
     while True:
-        ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
-                string_position=string_position, i=i, prefix_len=prefix_len,
+        ctx.jitdriver_FastSearch.jit_merge_point(i=i, prefix_len=prefix_len,
                 pattern=pattern)
         if not ctx.matches_literal(string_position, pattern.pat(7 + i)):
             if i > 0:
@@ -1495,44 +1535,3 @@ def fast_search(ctx, pattern):
         if string_position >= ctx.end:
             return False
 
-@jit.elidable
-def extract_literal_utf8(pattern):
-    from rpython.rlib import rutf8
-    res = []
-    prefix_len = pattern.pat(5)
-    for i in range(prefix_len):
-        ordch = pattern.pat(7 + i)
-        res.append(rutf8.unichr_as_utf8(ordch))
-    return "".join(res)
-
-def fast_search_utf8(ctx, pattern):
-    from rpython.rlib.rsre.rsre_utf8 import compute_utf8_size_n_literals
-    # just use str.find
-    string_position = ctx.match_start
-    if string_position >= ctx.end:
-        return False
-    prefix_len = pattern.pat(5)
-    assert prefix_len >= 0
-    utf8_literal = extract_literal_utf8(pattern)
-    i = 0
-    while True:
-        ctx.jitdriver_FastSearch.jit_merge_point(ctx=ctx,
-                string_position=string_position, i=i, prefix_len=prefix_len,
-                pattern=pattern)
-        start = ctx._utf8.find(utf8_literal, string_position, ctx.end)
-        if start < 0:
-            return False
-        string_position = start + len(utf8_literal)
-        # start = string_position + 1 - prefix_len: computed later
-        ptr = string_position
-        prefix_skip = pattern.pat(6)
-        if prefix_skip != prefix_len:
-            assert prefix_skip < prefix_len
-            ptr = start + compute_utf8_size_n_literals(pattern, 7, prefix_skip, 1)
-        pattern_offset = pattern.pat(1) + 1
-        ppos_start = pattern_offset + 2 * prefix_skip
-        if sre_match(ctx, pattern, ppos_start, ptr, None) is not None:
-            ctx.match_start = start
-            return True
-        if string_position >= ctx.end:
-            return False

@@ -301,3 +301,8 @@ class TestSearchUtf8(BaseTestSearch):
         p = get_code(u'0\xb0(?:.?.?.?.?.??.+.?|.?.?)')
         res = self.search(p, u'0\xb0'.encode("utf-8"))
         assert res is not None
+
+    def test_surrogate_search_bug(self):
+        p = get_code(u'0\ud800.')
+        res = self.search(p, u'aaaaaaa0\ud800äbcabc'.encode("utf-8"))
+        assert res is not None

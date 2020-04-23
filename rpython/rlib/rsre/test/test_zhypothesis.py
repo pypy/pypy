@@ -160,6 +160,8 @@ class Charset(Re):
         chars = u"".join(x for x in self.elements if not isinstance(x, tuple))
         range_stops = [ord(x[1]) for x in self.elements if isinstance(x, tuple)]
         max_stop = max(range_stops)
+        if max_stop == sys.maxunicode:
+            raise CantGenerateNonMatching
         res = draw(
             st.characters(min_codepoint=max_stop + 1, blacklist_characters=chars)
         )
@@ -604,6 +606,7 @@ def re_test(maker):
         together = prefix + syes
         note(("together", together))
         assert rsre_utf8.utf8search(compiled, together.encode("utf-8")).match_start <= len(prefix.encode("utf-8"))
+    test.__name__ = "test_" + make.__name__
 
     return test
 
