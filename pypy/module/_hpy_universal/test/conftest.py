@@ -11,10 +11,11 @@ from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
 # make_hpy_apptest below. Additionally, it is possible to customize the body
 # of the generated AppTest* classes by creating extra_AppTest* classes below
 
-class extra_AppTestBasic:
-    def test_exception_occurred(self):
-        import pytest
-        pytest.skip('fixme')
+# to skip a specific test, you can do the following:
+## class extra_AppTestBasic:
+##     def test_exception_occurred(self):
+##         import pytest
+##         pytest.skip('fixme')
 
 class extra_AppTestCPythonCompatibility:
     USE_CPYEXT = True

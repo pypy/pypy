@@ -1,4 +1,4 @@
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
@@ -37,4 +37,11 @@ def HPyErr_Occurred(space, ctx):
     if we_are_translated():
         return llapi.pypy_hpy_Err_Occurred()
     else:
-        raise NotImplementedError("XXX")
+        # this is a bit of a hack: it will never aim to be correct in 100% of
+        # cases, but since it's used only for tests, it's enough.  If an
+        # exception was raised by an HPy call, it must be stored in
+        # ll2ctypes._callback_exc_info, waiting to be properly re-raised as
+        # soon as we exit the C code, by
+        # ll2ctypes:get_ctypes_trampoline:invoke_via_ctypes
+        res = ll2ctypes._callback_exc_info is not None
+        return API.int(res)
