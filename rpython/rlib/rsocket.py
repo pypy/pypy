@@ -948,7 +948,6 @@ class RSocket(object):
             return (read_bytes, address)
         raise self.error_handler()
 
-    @jit.dont_look_inside
     def recvmsg(self, message_size, ancbufsize=0, flags=0):
         """
         Receive up to message_size bytes from a message. Also receives ancillary data.
@@ -961,16 +960,24 @@ class RSocket(object):
         """
         if message_size < 0:
             raise RSocketError("Invalid message size")
+        with rffi.scoped_alloc_buffer(message_size) as buf:
+            llbuf = LLBuffer(buf.raw, message_size)
+            nbytes, ancdata, flags, address = self.recvmsg_into(
+                [llbuf], ancbufsize, flags)
+            return buf.str(nbytes), ancdata, flags, address
+
+    @jit.dont_look_inside
+    def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
         if ancbufsize < 0:
             raise RSocketError("invalid ancillary data buffer length")
 
         self.wait_for_data(False)
         address, addr_p, addrlen_p = self._addrbuf()
         message_lengths = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        message_lengths[0] = rffi.cast(rffi.INT, message_size)
         messages = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-        messages[0] = lltype.malloc(rffi.CCHARP.TO, message_size, flavor='raw')
-        rffi.c_memset(messages[0], 0, message_size)
+        for i in range(len(buffers)):
+            message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
+            messages[i] = buffers[i].get_raw_address()
         size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)
         levels = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
@@ -992,9 +999,6 @@ class RSocket(object):
             anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
             returnflag = rffi.cast(rffi.SIGNED, retflag[0])
             addrlen = rffi.cast(rffi.SIGNED, addrlen_p[0])
-
-            retmsg = rffi.charpsize2str(messages[0], reply)
-
             offset = 0
             list_of_tuples = []
 
@@ -1020,7 +1024,7 @@ class RSocket(object):
                 address.unlock()
                 address = None
 
-            rettup = (retmsg, list_of_tuples, returnflag, address)
+            rettup = (reply, list_of_tuples, returnflag, address)
 
             if address is not None:
                 address.unlock()
@@ -1030,9 +1034,8 @@ class RSocket(object):
             _c.freesignedp(types)
             _c.freesignedp(descr_per_anc)
 
-            lltype.free(message_lengths, flavor='raw')
-            lltype.free(messages[0], flavor='raw')
             lltype.free(pre_anc, flavor='raw')
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
@@ -1046,7 +1049,6 @@ class RSocket(object):
         else:
             # in case of failure the underlying complexity has already been freed
             lltype.free(message_lengths, flavor='raw')
-            lltype.free(messages[0], flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
