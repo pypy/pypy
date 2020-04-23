@@ -9,6 +9,7 @@ a drop-in replacement for the 'socket' module.
 
 from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
+from rpython.rlib.buffer import LLBuffer
 from rpython.rlib.objectmodel import (
     specialize, instantiate, keepalive_until_here)
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -904,12 +905,10 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
-            if read_bytes >= 0:
-                return buf.str(read_bytes)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes = self.recvinto(llbuf, buffersize, flags)
+            return buf.str(read_bytes)
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
         self.wait_for_data(False)
@@ -924,24 +923,10 @@ class RSocket(object):
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
-                                         addr_p, addrlen_p)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                data = buf.str(read_bytes)
-                return (data, address)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes, address = self.recvfrom_into(llbuf, buffersize, flags)
+            return buf.str(read_bytes), address
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
         self.wait_for_data(False)
