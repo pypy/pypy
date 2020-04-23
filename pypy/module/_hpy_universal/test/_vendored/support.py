@@ -170,7 +170,7 @@ class HPyTest:
 
     def should_check_refcount(self):
         # defaults to True on CPython, but is set to False by e.g. PyPy
-        return True
+        return sys.implementation.name == 'cpython'
 
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
