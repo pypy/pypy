@@ -950,6 +950,22 @@ class AppTestSocketTCP:
         exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
         assert str(exc.value) == "nbytes is greater than the length of the buffer"
 
+    def test_recvmsg_into(self):
+        import _socket
+        cli = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        conn = _socket.socket(fileno=fileno)
+        conn.send(b'Hello World!')
+        buf1 = bytearray(5)
+        buf2 = bytearray(6)
+        rettup = cli.recvmsg_into([memoryview(buf1), memoryview(buf2)])
+        print(rettup)
+        nbytes, _, _, addr = rettup
+        assert nbytes == 11
+        assert buf1 == b'Hello'
+        assert buf2 == b' World'
+
     def test_family(self):
         import socket
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
