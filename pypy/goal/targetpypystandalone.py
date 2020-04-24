@@ -126,6 +126,7 @@ def get_additional_entrypoints(space, w_initstdio):
             space.appexec([w_path, space.newtext(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
+                # don't import anything more above this: sys.path is not set
                 sys.path[:] = path
                 sys.executable = home
                 initstdio(unbuffered=True)
