@@ -445,7 +445,7 @@ def test_enforceargs_decorator():
         return a, b, c
     f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
-    assert f.func_name == 'f'
+    assert f.__name__ == 'f'
     assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
     exc = py.test.raises(TypeError, "f(1, 2, 3)")

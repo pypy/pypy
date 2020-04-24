@@ -24,7 +24,7 @@ def get_test_case((fnname, args, expected)):
         else:
             return check(got)
     #
-    testfn.func_name = 'test_' + fnname
+    testfn.__name__ = 'test_' + fnname
     return testfn
 
 

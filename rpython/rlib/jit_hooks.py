@@ -133,7 +133,7 @@ def stats_asmmemmgr_used(warmrunnerdesc):
 def _new_hook(name, resulttype):
     def hook(name, *greenkey):
         raise Exception("need to run translated")
-    hook.func_name = name
+    hook.__name__ = name
 
     class GetJitCellEntry(ExtRegistryEntry):
         _about_ = hook
