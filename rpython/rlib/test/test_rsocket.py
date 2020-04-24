@@ -20,9 +20,21 @@ def do_recv_from_recvinto(socket, buffersize, flags=0):
     read_bytes = socket.recvinto(buf, buffersize, flags=flags)
     return buf.as_str()[:read_bytes]
 
+def do_recv_from_recvmsg_into(socket, buffersize, flags=0):
+    l1 = buffersize // 2
+    l2 = buffersize - l1
+    buf1, buf2 = RawByteBuffer(l1), RawByteBuffer(l2)
+    n, data, flag, address = socket.recvmsg_into([buf1, buf2], flags=flags)
+    n1 = min(n, l1)
+    n2 = n - n1
+    return buf1.as_str()[:n1] + buf2.as_str()[:n2]
+
+
+
 @pytest.fixture(scope="module",
-    params=[RSocket.recv, do_recv_from_recvmsg, do_recv_from_recvinto],
-    ids=["recv", "recvmsg", "recvinto"])
+    params=[RSocket.recv, do_recv_from_recvmsg,
+        do_recv_from_recvinto, do_recv_from_recvmsg_into],
+    ids=["recv", "recvmsg", "recvinto", "recvmsg_into"])
 def do_recv(request):
     return request.param
 

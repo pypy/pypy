@@ -972,10 +972,11 @@ class RSocket(object):
             raise RSocketError("invalid ancillary data buffer length")
 
         self.wait_for_data(False)
+        nbuf = len(buffers)
         address, addr_p, addrlen_p = self._addrbuf()
-        message_lengths = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-        messages = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
-        for i in range(len(buffers)):
+        message_lengths = lltype.malloc(rffi.INTP.TO, nbuf, flavor='raw')
+        messages = lltype.malloc(rffi.CCHARPP.TO, nbuf, flavor='raw')
+        for i in range(nbuf):
             message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
             messages[i] = buffers[i].get_raw_address()
         size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
@@ -993,7 +994,7 @@ class RSocket(object):
             rffi.cast(lltype.Signed, ancbufsize),
             rffi.cast(lltype.Signed, flags),
             addr_p, addrlen_p,
-            message_lengths, messages, rffi.cast(rffi.INT, 1),
+            message_lengths, messages, rffi.cast(rffi.INT, nbuf),
             size_of_anc, levels, types, file_descr, descr_per_anc, retflag)
         if reply >= 0:
             anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
