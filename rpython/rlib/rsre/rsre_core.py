@@ -287,7 +287,6 @@ class AbstractMatchContext(object):
     @not_rpython
     def get_single_byte(self, base_position, index):
         raise NotImplementedError
-    @not_rpython
     def matches_literal(self, position, ordch):
         """ Check whether the string matches ordch at position. ordch is
         usually green. """
@@ -381,9 +380,6 @@ class FixedMatchContext(AbstractMatchContext):
     def maximum_distance(self, position_low, position_high):
         return position_high - position_low
 
-    def matches_literal(self, position, ordch):
-        return self.str(position) == ordch
-
     @jit.unroll_safe
     def matches_many_literals(self, ptr, pattern, ppos, n):
         assert ppos >= 0
@@ -424,6 +420,9 @@ class BufMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
+    def matches_literal(self, position, ordch):
+        return self.str(position) == ordch
+
 
 class StrMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a plain string."""
@@ -452,6 +451,8 @@ class StrMatchContext(FixedMatchContext):
     def _real_pos(self, index):
         return index     # overridden by tests
 
+    def matches_literal(self, position, ordch):
+        return self.str(position) == ordch
 
 class UnicodeMatchContext(FixedMatchContext):
     """Concrete subclass for matching in a unicode string."""
@@ -477,6 +478,8 @@ class UnicodeMatchContext(FixedMatchContext):
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
 
+    def matches_literal(self, position, ordch):
+        return self.str(position) == ordch
 # ____________________________________________________________
 
 class Mark(object):
@@ -516,6 +519,7 @@ MATCHED_OK = MatchResult()
 class BranchMatchResult(MatchResult):
 
     def __init__(self, ppos, ptr, marks):
+        check_nonneg(ppos)
         self.ppos = ppos
         self.start_ptr = ptr
         self.start_marks = marks
@@ -523,6 +527,7 @@ class BranchMatchResult(MatchResult):
     @jit.unroll_safe
     def find_first_result(self, ctx, pattern):
         ppos = jit.promote(self.ppos)
+        assert ppos >= 0
         while True:
             result = sre_match(ctx, pattern, ppos + 1, self.start_ptr, self.start_marks)
             offset = pattern.pat(ppos)
@@ -622,6 +627,7 @@ class MinRepeatOneMatchResult(MatchResult):
 class AbstractUntilMatchResult(MatchResult):
 
     def __init__(self, ppos, tailppos, ptr, marks):
+        check_nonneg(ppos)
         self.ppos = ppos
         self.tailppos = tailppos
         self.cur_ptr = ptr
@@ -785,6 +791,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
     the first result, but there is the case of REPEAT...UNTIL where we
     need all results; in that case we use the method move_to_next_result()
     of the MatchResult."""
+    check_nonneg(ppos)
     while True:
         op = pattern.pat(ppos)
         ppos += 1
