@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.bridge import BRIDGE
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
@@ -26,22 +27,21 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 
 @API.func("void HPyErr_SetString(HPyContext ctx, HPy type, const char *message)")
 def HPyErr_SetString(space, ctx, h_exc_type, utf8):
-    if we_are_translated():
-        llapi.pypy_hpy_Err_Clear()
+    ## if we_are_translated():
+    ##     llapi.pypy_hpy_Err_Clear()
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(space, h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
-@API.func("int HPyErr_Occurred(HPyContext ctx)")
-def HPyErr_Occurred(space, ctx):
-    if we_are_translated():
-        return llapi.pypy_hpy_Err_Occurred()
-    else:
-        # this is a bit of a hack: it will never aim to be correct in 100% of
-        # cases, but since it's used only for tests, it's enough.  If an
-        # exception was raised by an HPy call, it must be stored in
-        # ll2ctypes._callback_exc_info, waiting to be properly re-raised as
-        # soon as we exit the C code, by
-        # ll2ctypes:get_ctypes_trampoline:invoke_via_ctypes
-        res = ll2ctypes._callback_exc_info is not None
-        return API.int(res)
+
+@BRIDGE.func("int _HPyErr_Occurred_rpy(void)")
+def _HPyErr_Occurred_rpy(space):
+    assert not we_are_translated()
+    # this is a bit of a hack: it will never aim to be correct in 100% of
+    # cases, but since it's used only for tests, it's enough.  If an
+    # exception was raised by an HPy call, it must be stored in
+    # ll2ctypes._callback_exc_info, waiting to be properly re-raised as
+    # soon as we exit the C code, by
+    # ll2ctypes:get_ctypes_trampoline:invoke_via_ctypes
+    res = ll2ctypes._callback_exc_info is not None
+    return API.int(res)

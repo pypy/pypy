@@ -8,6 +8,7 @@ from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.bridge import BRIDGE, hpy_get_bridge
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
 CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])
@@ -33,6 +34,10 @@ class State:
         if self.ctx:
             return
 
+        self.setup_ctx()
+        self.setup_bridge()
+
+    def setup_ctx(self):
         space = self.space
         self.ctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
 
@@ -60,3 +65,12 @@ class State:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.ctx, ctx_field, funcptr)
+
+        self.ctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
+
+    def setup_bridge(self):
+        bridge = hpy_get_bridge()
+        for func in BRIDGE.all_functions:
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(self.space))
+            fieldname = 'c_' + func.__name__
+            setattr(bridge, fieldname, funcptr)

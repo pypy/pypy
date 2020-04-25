@@ -1,17 +1,28 @@
-#include "common_header.h"
-#include "preimpl.h"
 #include <src/exception.h>
 #include "universal/hpy.h"
 #include "hpyerr.h"
+#include "bridge.h"
 
-/* these are helper functions which are called by interp_hpyerr.py */
+#ifndef RPYTHON_LL2CTYPES
+#  include "common_header.h"
+#  include "preimpl.h"
+#endif
 
-int pypy_hpy_Err_Occurred(void)
+
+int pypy_HPyErr_Occurred(HPyContext ctx)
 {
+#ifdef RPYTHON_LL2CTYPES
+    /* before translation */
+    return _HPyErr_Occurred_rpy();
+#else
+    /* after translation */
     return RPyExceptionOccurred();
+#endif
 }
 
+/*
 void pypy_hpy_Err_Clear(void)
 {
     RPyClearException();
 }
+*/
