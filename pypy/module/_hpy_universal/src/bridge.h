@@ -7,10 +7,10 @@
  *
  */
 
-#define _HPyErr_Occurred_rpy() (hpy_get_bridge()->_HPyErr_Occurred_rpy())
+#define hpy_err_occurred_rpy() (hpy_get_bridge()->hpy_err_occurred_rpy())
 
 typedef struct {
-    int (*_HPyErr_Occurred_rpy)(void);
+    int (*hpy_err_occurred_rpy)(void);
 } _HPyBridge;
 
 
@@ -23,6 +23,6 @@ RPY_EXTERN _HPyBridge *hpy_get_bridge(void);
  *
  */
 
-int _HPyErr_Occurred_rpy(void);
+int hpy_err_occurred_rpy(void);
 
 #endif /* RPYTHON_LL2CTYPES */

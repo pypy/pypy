@@ -13,7 +13,7 @@ int pypy_HPyErr_Occurred(HPyContext ctx)
 {
 #ifdef RPYTHON_LL2CTYPES
     /* before translation */
-    return _HPyErr_Occurred_rpy();
+    return hpy_err_occurred_rpy();
 #else
     /* after translation */
     return RPyExceptionOccurred();

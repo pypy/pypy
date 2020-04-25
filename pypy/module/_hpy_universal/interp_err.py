@@ -34,8 +34,8 @@ def HPyErr_SetString(space, ctx, h_exc_type, utf8):
     raise OperationError(w_exc_type, w_obj)
 
 
-@BRIDGE.func("int _HPyErr_Occurred_rpy(void)")
-def _HPyErr_Occurred_rpy(space):
+@BRIDGE.func("int hpy_err_occurred_rpy(void)")
+def hpy_err_occurred_rpy(space):
     assert not we_are_translated()
     # this is a bit of a hack: it will never aim to be correct in 100% of
     # cases, but since it's used only for tests, it's enough.  If an

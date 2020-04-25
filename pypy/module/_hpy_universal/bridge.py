@@ -17,7 +17,7 @@ from pypy.module._hpy_universal.apiset import APISet
 
 llapi.cts.parse_source("""
 typedef struct {
-    void * _HPyErr_Occurred_rpy;
+    void * hpy_err_occurred_rpy;
 } _HPyBridge;
 """)
 
@@ -26,4 +26,4 @@ hpy_get_bridge = rffi.llexternal('hpy_get_bridge', [], lltype.Ptr(_HPyBridge),
                                  compilation_info=llapi.eci, _nowrapper=True)
 
 
-BRIDGE = APISet(llapi.cts)
+BRIDGE = APISet(llapi.cts, prefix='^hpy_')

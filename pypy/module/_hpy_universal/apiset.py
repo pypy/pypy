@@ -8,10 +8,9 @@ from pypy.module._hpy_universal import llapi
 
 class APISet(object):
 
-    _PREFIX = re.compile(r'^_?HPy_?')
-
-    def __init__(self, cts):
+    def __init__(self, cts, prefix=r'^_?HPy_?'):
         self.cts = cts
+        self.prefix = re.compile(prefix)
         self.all_functions = []
         self.frozen = False
 
@@ -72,7 +71,7 @@ class APISet(object):
             fn.get_llhelper = get_llhelper
 
             # basename
-            fn.basename = self._PREFIX.sub(r'', fn.__name__)
+            fn.basename = self.prefix.sub(r'', fn.__name__)
 
             fn.cpyext = cpyext
             # record it into the API
