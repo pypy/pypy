@@ -33,9 +33,9 @@ class State:
     def setup(self):
         if self.ctx:
             return
-
         self.setup_ctx()
-        self.setup_bridge()
+        if not self.space.config.translating:
+            self.setup_bridge()
 
     def setup_ctx(self):
         space = self.space
@@ -70,6 +70,11 @@ class State:
         self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
 
     def setup_bridge(self):
+        """
+        NOT_RPYTHON
+
+        This function should be called only in the non-translated case
+        """
         bridge = hpy_get_bridge()
         for func in BRIDGE.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(self.space))

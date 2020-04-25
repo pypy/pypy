@@ -1,3 +1,4 @@
+from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
@@ -34,7 +35,14 @@ def hpy_err_SetString(space, ctx, h_exc_type, utf8):
 
 @BRIDGE.func("int hpy_err_Occurred_rpy(void)")
 def hpy_err_Occurred_rpy(space):
-    assert not we_are_translated()
+    if not we_are_translated():
+        # this function should never been called after translation. We can't
+        # simply put an assert else the annotator complains that the function
+        # returns Void, hack hack hack
+        if NonConstant(False):
+            return API.int(-42)
+        assert False
+    #
     # this is a bit of a hack: it will never aim to be correct in 100% of
     # cases, but since it's used only for tests, it's enough.  If an
     # exception was raised by an HPy call, it must be stored in

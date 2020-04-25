@@ -1,12 +1,15 @@
-#include <src/exception.h>
+#ifndef RPYTHON_LL2CTYPES
+#  include "common_header.h"
+#  include "structdef.h"
+#  include "forwarddecl.h"
+#  include "preimpl.h"
+#  include "src/exception.h"
+#endif
+
 #include "universal/hpy.h"
 #include "hpyerr.h"
 #include "bridge.h"
 
-#ifndef RPYTHON_LL2CTYPES
-#  include "common_header.h"
-#  include "preimpl.h"
-#endif
 
 
 int pypy_HPyErr_Occurred(HPyContext ctx)
