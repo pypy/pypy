@@ -192,3 +192,8 @@ HPy_METH_O        = 0x0008 | _HPy_METH
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
                                        rffi.INT_real,
                                        compilation_info=eci, _nowrapper=True)
+
+pypy_HPyErr_SetString = rffi.llexternal('pypy_HPyErr_SetString',
+                                        [HPyContext, HPy, rffi.CCHARP],
+                                        lltype.Void,
+                                        compilation_info=eci, _nowrapper=True)

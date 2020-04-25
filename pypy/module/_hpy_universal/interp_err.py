@@ -25,17 +25,15 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 ##
 ## We need to enforce this in debug mode.
 
-@API.func("void HPyErr_SetString(HPyContext ctx, HPy type, const char *message)")
-def HPyErr_SetString(space, ctx, h_exc_type, utf8):
-    ## if we_are_translated():
-    ##     llapi.pypy_hpy_Err_Clear()
+@BRIDGE.func("void hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
+def hpy_err_SetString(space, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(space, h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
 
-@BRIDGE.func("int hpy_err_occurred_rpy(void)")
-def hpy_err_occurred_rpy(space):
+@BRIDGE.func("int hpy_err_Occurred_rpy(void)")
+def hpy_err_Occurred_rpy(space):
     assert not we_are_translated()
     # this is a bit of a hack: it will never aim to be correct in 100% of
     # cases, but since it's used only for tests, it's enough.  If an
