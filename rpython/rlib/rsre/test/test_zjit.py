@@ -5,8 +5,10 @@ from rpython.rlib.rsre.test.test_match import get_code
 from rpython.rlib.rsre import rsre_core, rsre_utf8, rsre_constants as consts
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llstr, hlstr
+from rpython.rlib import jit
 
 def entrypoint1(r, string, repeat, pattern, flags):
+    jit.set_param(None, "inlining", True)
     r = rsre_core.CompiledPattern(array2list(r), flags, hlstr(pattern))
     string = hlstr(string)
     match = None
@@ -56,6 +58,8 @@ class TestJitRSre(support.LLJitMixin):
 
     def meta_interp_match(self, pattern, string, repeat=1, flags=0):
         r = get_code(pattern)
+        entrypoint1(list2array(r.pattern), llstr(string),
+                                              repeat, llstr(repr(pattern)), flags)
         return self.meta_interp(entrypoint1, [list2array(r.pattern), llstr(string),
                                               repeat, llstr(repr(pattern)), flags],
                                 listcomp=True, backendopt=True)
@@ -79,6 +83,11 @@ class TestJitRSre(support.LLJitMixin):
         assert res == 6
         self.check_trace_count(1)
         self.check_jitcell_token_count(1)
+
+    def test_non_overlapping_repeat_one(self):
+        res = self.meta_interp_match(r"a*b", "a" * 100 + "b", repeat=20)
+        assert res == 101
+        self.check_resops(new_with_vtable=0, omit_finish=False)
 
     def test_questionmark_onechar(self):
         res = self.meta_interp_match(r"a?xyz", "xyz", repeat=10)

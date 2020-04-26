@@ -398,7 +398,7 @@ class TestOptimizations(object):
         assert CountingPending.count == 24
 
 
-class TestMatchPossible(object):
+class TestMatchPossibleShortcuts(object):
     def fake_code(self, *args):
         return rsre_core.CompiledPattern(list(args), consts.SRE_FLAG_UNICODE)
 
@@ -416,4 +416,38 @@ class TestMatchPossible(object):
         assert not self.check_is_match_possible(c, "b")
         assert not self.check_is_match_possible(c, "")
 
+    def test_find_repetition_end(self):
+        from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
+        char1 = 'a'
+        def check(char2, s, single_match, pos, maxcount=consts.MAXREPEAT):
+            c = self.fake_code(consts.OPCODE_LITERAL, ord(char1), consts.OPCODE_LITERAL, ord(char2))
+            ctx = Utf8MatchContext(s, 0, len(s))
+            x = rsre_core.find_repetition_end(ctx, c, 0, 0, maxcount, None, 2)
+            if single_match is not None:
+                assert single_match == (x < 0)
+            if x < 0:
+                x = ~x
+            assert x == pos
 
+        check('b', '',     None, 0) # no match
+        check('b', 'b',    True, 0)
+        check('b', 'c',    None, 0) # no match
+        check('b', 'a',    None, 0) # no match
+        check('b', 'ab',   True, 1)
+        check('b', 'ac',   None, 0) # no match 
+        check('b', 'aa',   None, 0) # no match
+        check('b', 'aab',  True, 2)
+        check('b', 'aac',  None, 0) # no match
+        check('b', 'aaa',  None, 0) # no match
+        check('b', 'aaab', True, 3)
+        check('b', 'aaac', None, 0) # no match
+
+        check('a', '',     None, 0) # no match
+        check('a', 'a',    True, 0)
+        check('a', 'c',    None, 0) # no match
+        check('a', 'aa',   False, 1)
+        check('a', 'ac',   True, 0)
+        check('a', 'aaa',  False, 2)
+        check('a', 'aac',  False, 1)
+        check('a', 'aaaa', False, 3)
+        check('a', 'aaac', False, 2)

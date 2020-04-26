@@ -455,7 +455,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # so that we don't need to do it here.  Creating new SRE_Pattern
     # objects all the time would be bad for the JIT, which relies on the
     # identity of the CompiledPattern() object.
-    srepat.code = rsre_core.CompiledPattern(code, flags)
+    srepat.code = rsre_core.CompiledPattern(code, flags, space.text_w(space.repr(w_pattern)))
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup

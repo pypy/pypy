@@ -532,7 +532,7 @@ class BranchMatchResult(MatchResult):
             result = sre_match(ctx, pattern, ppos + 1, self.start_ptr, self.start_marks)
             offset = pattern.pat(ppos)
             if pattern.pat(ppos + offset) == 0:
-                # we're in the last branch. backtracing to self won't produce
+                # we're in the last branch. backtracking to self won't produce
                 # more. just return result
                 return result
             ppos += offset
@@ -1039,13 +1039,19 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     return    # cannot match
             else:
                 minptr = start
+            nextppos = ppos + pattern.pat(ppos)
             ptr = find_repetition_end(ctx, pattern, ppos+3, start,
                                       pattern.pat(ppos+2),
-                                      marks)
+                                      marks, nextppos)
+            if ptr < 0:
+                exactly_one_match = True
+                ptr = ~ptr
+            else:
+                exactly_one_match = False
+            assert ptr >= 0
             # when we arrive here, ptr points to the tail of the target
             # string.  check if the rest of the pattern matches,
             # and backtrack if not.
-            nextppos = ppos + pattern.pat(ppos)
             if ptr == start:
                 # matches at most 0 times
                 if min == 0:
@@ -1057,6 +1063,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                 else:
                     # minimum not reached!
                     return
+            if exactly_one_match:
+                # backtracking not useful, only one possible match
+                ppos = nextppos
+                continue
             result = RepeatOneMatchResult(nextppos, minptr, ptr, marks)
             return result.find_first_result(ctx, pattern)
 
@@ -1076,6 +1086,9 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     return    # cannot match
                 # count using pattern min as the maximum
                 ptr = find_repetition_end(ctx, pattern, ppos+3, ptr, min, marks)
+                if ptr < 0:
+                    ptr = ~ptr
+                assert ptr >= 0
                 if ptr < minptr:
                     return   # did not match minimum number of times
 
@@ -1143,30 +1156,16 @@ def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, flags):
     return ptr
 
 @specializectx
-def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
+def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos=-1):
     end = ctx.end
     # First get rid of the cases where we don't have room for any match.
     if maxcount <= 0 or ptr >= end:
         return ptr
-    ptrp1 = ctx.next(ptr)
-    # Check the first character directly.  If it doesn't match, we are done.
-    # The idea is to be fast for cases like re.search("b+"), where we expect
-    # the common case to be a non-match.  It's much faster with the JIT to
-    # have the non-match inlined here rather than detect it in the fre() call.
-    op = pattern.pat(ppos)
-    for op1, checkerfn in unroll_char_checker:
-        if op1 == op:
-            if checkerfn(ctx, pattern, ptr, ppos):
-                break
-            return ptr
-    else:
-        # obscure case: it should be a single char pattern, but isn't
-        # one of the opcodes in unroll_char_checker (see test_ext_opcode)
-        return general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks)
     # It matches at least once.  If maxcount == 1 (relatively common),
     # then we are done.
-    if maxcount == 1:
-        return ptrp1
+    # XXX
+    #if maxcount == 1:
+    #    return ptrp1
     # Else we really need to count how many times it matches.
     if maxcount != consts.MAXREPEAT:
         # adjust end
@@ -1175,13 +1174,12 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
         except EndOfString:
             pass
     op = pattern.pat(ppos)
-    for op1, fre in unroll_fre_checker:
-        if op1 == op:
-            return fre(ctx, pattern, ptrp1, end, ppos)
-    raise Error("rsre.find_repetition_end[%d]" % op)
+    if op == consts.OPCODE_ANY_ALL:
+        return end
+    return find_repetition_end_jitted(ctx, pattern, ptr, end, ppos, maxcount, marks, postcond_ppos)
 
 @specializectx
-def general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks):
+def general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos):
     # moved into its own JIT-opaque function
     end = ctx.end
     if maxcount != consts.MAXREPEAT:
@@ -1217,29 +1215,55 @@ def match_NOT_LITERAL(ctx, pattern, ptr, ppos):
 def match_NOT_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
     return ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos+1)
 
-def _make_fre(checkerfn):
-    if checkerfn == match_ANY_ALL:
-        def fre(ctx, pattern, ptr, end, ppos):
-            return end
-    else:
-        install_jitdriver_spec(checkerfn.func_name,
-                               greens=['ppos', 'pattern'],
-                               reds=['ptr', 'end', 'ctx'],
-                               debugprint=(1, 0))
-        jitdriver_name = "jitdriver_" + checkerfn.func_name
-        @specializectx
-        def fre(ctx, pattern, ptr, end, ppos):
-            while True:
-                jitdriver = getattr(ctx, jitdriver_name)
-                jitdriver.jit_merge_point(ctx=ctx, ptr=ptr,
-                                          end=end, ppos=ppos,
-                                          pattern=pattern)
-                if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
-                    ptr = ctx.next(ptr)
-                else:
-                    return ptr
-    fre = func_with_new_name(fre, 'fre_' + checkerfn.__name__)
-    return fre
+install_jitdriver_spec("find_repetition_end",
+                       greens=['ppos', 'postcond_ppos', 'pattern'],
+                       reds='auto',
+                       # always unroll one iteration to check the first
+                       # character directly.  If it doesn't match, we are done.
+                       # The idea is to be fast for cases like re.search("b+"),
+                       # where we expect the common case to be a non-match.
+                       # It's much faster with the JIT to have the non-match
+                       # inlined in the caller rather than detect it in a
+                       # call_assembler.
+                       should_unroll_one_iteration=lambda *args: True,
+                       is_recursive=True,
+                       debugprint=(2, 0))
+@specializectx
+def find_repetition_end_jitted(ctx, pattern, ptr, end, ppos, maxcount, marks, postcond_ppos):
+    exactly_one_match = True
+    last_possible_match = -1
+    startptr = ptr
+    while True:
+        jitdriver = ctx.jitdriver_find_repetition_end
+        jitdriver.jit_merge_point(ppos=ppos,
+                                  postcond_ppos=postcond_ppos,
+                                  pattern=pattern)
+        pattern_matches = False
+        op = pattern.pat(ppos)
+        if ptr < end:
+            for op1, checkerfn in unroll_char_checker:
+                if op1 == op:
+                    pattern_matches = checkerfn(ctx, pattern, ptr, ppos)
+                    break
+            else:
+                # obscure case: it should be a single char pattern, but isn't
+                # one of the opcodes in unroll_char_checker (see test_ext_opcode)
+                return general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos)
+        if pattern_matches:
+            # boolean promote, make sure that we get a guard_true before the
+            # is_match_possible
+            pass
+        if postcond_ppos < 0 or is_match_possible(ctx, ptr, pattern, postcond_ppos):
+            if last_possible_match >= 0:
+                exactly_one_match = False
+            last_possible_match = ptr
+        if not pattern_matches:
+            if last_possible_match < 0:
+                return startptr
+            if exactly_one_match:
+                return ~last_possible_match
+            return last_possible_match
+        ptr = ctx.next(ptr)
 
 unroll_char_checker = [
     (consts.OPCODE_ANY,                match_ANY),
@@ -1251,11 +1275,8 @@ unroll_char_checker = [
     (consts.OPCODE_NOT_LITERAL,        match_NOT_LITERAL),
     (consts.OPCODE_NOT_LITERAL_IGNORE, match_NOT_LITERAL_IGNORE),
     ]
-unroll_fre_checker = [(_op, _make_fre(_fn))
-                      for (_op, _fn) in unroll_char_checker]
 
 unroll_char_checker = unrolling_iterable(unroll_char_checker)
-unroll_fre_checker  = unrolling_iterable(unroll_fre_checker)
 
 ##### At dispatch
 
@@ -1366,7 +1387,8 @@ def search(pattern, string, start=0, end=sys.maxint):
 
 install_jitdriver('Match',
                   greens=['pattern'], reds=['ctx'],
-                  debugprint=(0,))
+                  debugprint=(0,),
+                  is_recursive=True)
 
 def match_context(ctx, pattern):
     ctx.original_pos = ctx.match_start
@@ -1398,7 +1420,8 @@ def search_context(ctx, pattern):
 install_jitdriver('RegularSearch',
                   greens=['base', 'pattern'],
                   reds=['start', 'ctx'],
-                  debugprint=(1, 0))
+                  debugprint=(1, 0),
+                  is_recursive=True)
 
 def regular_search(ctx, pattern, base):
     start = ctx.match_start

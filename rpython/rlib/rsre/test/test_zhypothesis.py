@@ -606,8 +606,6 @@ def re_test(maker):
         together = prefix + syes
         note(("together", together))
         assert rsre_utf8.utf8search(compiled, together.encode("utf-8")).match_start <= len(prefix.encode("utf-8"))
-    test.__name__ = "test_" + make.__name__
-
     return test
 
 

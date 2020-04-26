@@ -677,6 +677,7 @@ class JitDriver(object):
         return True
 
     def _check_arguments(self, livevars, is_merge_point):
+        from rpython.rlib.nonconst import NonConstant
         assert set(livevars) == self._somelivevars
         # check heuristically that 'reds' and 'greens' are ordered as
         # the JIT will need them to be: first INTs, then REFs, then
@@ -686,6 +687,8 @@ class JitDriver(object):
                                                   r_ulonglong, r_uint)
             added = False
             for var, value in livevars.items():
+                if isinstance(value, NonConstant):
+                    value = value.constant
                 if var not in self._heuristic_order:
                     if (r_ulonglong is not r_uint and
                             isinstance(value, (r_longlong, r_ulonglong))):

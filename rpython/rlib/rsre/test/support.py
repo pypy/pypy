@@ -5,9 +5,9 @@ from rpython.rlib.rsre.rsre_core import StrMatchContext, EndOfString
 
 
 class Position(object):
-    def __init__(self, p):
+    def __init__(self, p, neg_allowed=False):
         assert isinstance(p, int)
-        if p < 0:
+        if p < 0 and not neg_allowed:
             raise debug.NegativeArgumentNotAllowed(
                 "making a Position with byte index %r" % p)
         self._p = p
@@ -17,8 +17,10 @@ class Position(object):
         if isinstance(other, Position):
             return cmp(self._p, other._p)
         if type(other) is int and other in (0, -1):
-            return cmp(self._p, -1)
+            return cmp(self._p, other)
         raise TypeError("cannot compare %r with %r" % (self, other))
+    def __invert__(self):
+        return Position(~self._p, neg_allowed=True)
 
 
 class MatchContextForTests(StrMatchContext):
