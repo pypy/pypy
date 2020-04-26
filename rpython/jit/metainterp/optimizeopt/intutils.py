@@ -309,6 +309,36 @@ class IntBound(AbstractInfo):
                 r.make_ge_const(0)
         return r
 
+    def invert_bound(self):
+        res = self.clone()
+        res.has_upper = False
+        if self.has_lower:
+            res.upper = ~self.lower
+            res.has_upper = True
+        res.has_lower = False
+        if self.has_upper:
+            res.lower = ~self.upper
+            res.has_lower = True
+        return res
+
+    def neg_bound(self):
+        res = self.clone()
+        res.has_upper = False
+        if self.has_lower:
+            try:
+                res.upper = ovfcheck(-self.lower)
+                res.has_upper = True
+            except OverflowError:
+                pass
+        res.has_lower = False
+        if self.has_upper:
+            try:
+                res.lower = ovfcheck(-self.upper)
+                res.has_lower = True
+            except OverflowError:
+                pass
+        return res
+
     def contains(self, val):
         if not we_are_translated():
             assert not isinstance(val, long)

@@ -267,6 +267,9 @@ class OptRewrite(Optimization):
         else:
             return self.emit(op)
 
+    def postprocess_INT_INVERT(self, op):
+        self.optimizer.pure_from_args(rop.INT_INVERT, [op], op.getarg(0))
+
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
         arg2 = op.getarg(1)
