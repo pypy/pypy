@@ -93,6 +93,9 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_match(r"a?xyz", "xyz", repeat=10)
         assert res == 3
         self.check_trace_count(1)
+        res = self.meta_interp_match(r"a?xyz", "axyz", repeat=10)
+        assert res == 4
+        self.check_trace_count(1)
 
     def test_match_minrepeat_1(self):
         res = self.meta_interp_match(r".*?abc", "xxxxxxxxxxxxxxabc")

@@ -957,9 +957,8 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             assert ppos_min_one >= 0
             n = number_literals(pattern, ppos_min_one)
             ptr = ctx.matches_many_literals(ptr, pattern, ppos_min_one, n)
-            if ptr == -1: # no match
+            if ptr < 0: # no match
                 return
-            assert ptr >= 0
             ppos += 2 * n - 1
             assert ppos >= 0
 
@@ -1086,8 +1085,6 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     return    # cannot match
                 # count using pattern min as the maximum
                 ptr = find_repetition_end(ctx, pattern, ppos+3, ptr, min, marks)
-                if ptr < 0:
-                    ptr = ~ptr
                 assert ptr >= 0
                 if ptr < minptr:
                     return   # did not match minimum number of times
@@ -1161,12 +1158,6 @@ def find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos=
     # First get rid of the cases where we don't have room for any match.
     if maxcount <= 0 or ptr >= end:
         return ptr
-    # It matches at least once.  If maxcount == 1 (relatively common),
-    # then we are done.
-    # XXX
-    #if maxcount == 1:
-    #    return ptrp1
-    # Else we really need to count how many times it matches.
     if maxcount != consts.MAXREPEAT:
         # adjust end
         try:
@@ -1248,12 +1239,14 @@ def find_repetition_end_jitted(ctx, pattern, ptr, end, ppos, maxcount, marks, po
             else:
                 # obscure case: it should be a single char pattern, but isn't
                 # one of the opcodes in unroll_char_checker (see test_ext_opcode)
-                return general_find_repetition_end(ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos)
+                return general_find_repetition_end(
+                    ctx, pattern, ppos, ptr, maxcount, marks, postcond_ppos)
         if pattern_matches:
             # boolean promote, make sure that we get a guard_true before the
             # is_match_possible
             pass
-        if postcond_ppos < 0 or is_match_possible(ctx, ptr, pattern, postcond_ppos):
+        if postcond_ppos < 0 or is_match_possible(
+                ctx, ptr, pattern, postcond_ppos):
             if last_possible_match >= 0:
                 exactly_one_match = False
             last_possible_match = ptr
@@ -1264,6 +1257,12 @@ def find_repetition_end_jitted(ctx, pattern, ptr, end, ppos, maxcount, marks, po
                 return ~last_possible_match
             return last_possible_match
         ptr = ctx.next(ptr)
+        if maxcount == 1:
+            # we matched once and don't want to match more anyway
+            if last_possible_match >= 0:
+                return ptr
+            else:
+                return ~ptr
 
 unroll_char_checker = [
     (consts.OPCODE_ANY,                match_ANY),
