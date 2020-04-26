@@ -34,8 +34,7 @@ class State:
         if self.ctx:
             return
         self.setup_ctx()
-        if not self.space.config.translating:
-            self.setup_bridge()
+        self.setup_bridge()
 
     def setup_ctx(self):
         space = self.space
@@ -70,13 +69,16 @@ class State:
         self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
 
     def setup_bridge(self):
-        """
-        NOT_RPYTHON
-
-        This function should be called only in the non-translated case
-        """
-        bridge = hpy_get_bridge()
-        for func in BRIDGE.all_functions:
-            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(self.space))
-            fieldname = 'c_' + func.__name__
-            setattr(bridge, fieldname, funcptr)
+        if self.space.config.translating:
+            # after translation: call get_llhelper() to ensure that the
+            # annotator sees the functions and generates the C source
+            for func in BRIDGE.all_functions:
+                func.get_llhelper(self.space)
+        else:
+            # before translation: put the ll2ctypes callbacks into the global
+            # hpy_get_bridge(), so that they can be called from C
+            bridge = hpy_get_bridge()
+            for func in BRIDGE.all_functions:
+                funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(self.space))
+                fieldname = 'c_' + func.__name__
+                setattr(bridge, fieldname, funcptr)

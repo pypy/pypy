@@ -8,9 +8,10 @@ from pypy.module._hpy_universal import llapi
 
 class APISet(object):
 
-    def __init__(self, cts, prefix=r'^_?HPy_?'):
+    def __init__(self, cts, prefix=r'^_?HPy_?', force_c_name=False):
         self.cts = cts
         self.prefix = re.compile(prefix)
+        self.force_c_name = force_c_name
         self.all_functions = []
         self.frozen = False
 
@@ -64,6 +65,8 @@ class APISet(object):
                 def wrapper(*args):
                     return fn(space, *args)
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
+                if self.force_c_name:
+                    wrapper.c_name = fn.__name__
                 return wrapper
             def get_llhelper(space):
                 return llhelper(ll_functype, make_wrapper(space))
