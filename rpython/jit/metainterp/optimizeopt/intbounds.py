@@ -432,6 +432,30 @@ class OptIntBounds(Optimization):
         bres = self.getintbound(op)
         bres.intersect(bounds)
 
+    def postprocess_INT_INVERT(self, op):
+        b = self.getintbound(op.getarg(0))
+        bounds = b.invert_bound()
+        bres = self.getintbound(op)
+        bres.intersect(bounds)
+
+    def propagate_bounds_INT_INVERT(self, op):
+        b = self.getintbound(op.getarg(0))
+        bres = self.getintbound(op)
+        bounds = bres.invert_bound()
+        b.intersect(bounds)
+
+    def propagate_bounds_INT_NEG(self, op):
+        b = self.getintbound(op.getarg(0))
+        bres = self.getintbound(op)
+        bounds = bres.neg_bound()
+        b.intersect(bounds)
+
+    def postprocess_INT_NEG(self, op):
+        b = self.getintbound(op.getarg(0))
+        bounds = b.neg_bound()
+        bres = self.getintbound(op)
+        bres.intersect(bounds)
+
     def optimize_ARRAYLEN_GC(self, op):
         return self.emit(op)
 
