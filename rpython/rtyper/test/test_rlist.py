@@ -1487,7 +1487,7 @@ class TestRlist(BaseRtypingTest):
             op = block.operations[-1]
             assert op.opname == 'direct_call'
             func = op.args[2].value
-            assert ('foldable' in func.func_name) == \
+            assert ('foldable' in func.__name__) == \
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):

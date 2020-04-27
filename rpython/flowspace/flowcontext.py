@@ -199,7 +199,7 @@ def unaryoperation(OPCODE, operation):
         w_1 = self.popvalue()
         w_result = operation(w_1).eval(self)
         self.pushvalue(w_result)
-    UNARY_OP.func_name = OPCODE
+    UNARY_OP.__name__ = OPCODE
     return UNARY_OP
 
 _binary_ops = [
@@ -237,7 +237,7 @@ def binaryoperation(OPCODE, operation):
         w_1 = self.popvalue()
         w_result = operation(w_1, w_2).eval(self)
         self.pushvalue(w_result)
-    BINARY_OP.func_name = OPCODE
+    BINARY_OP.__name__ = OPCODE
     return BINARY_OP
 
 _unsupported_ops = [
@@ -258,7 +258,7 @@ _unsupported_ops = [
 def unsupportedoperation(OPCODE, msg):
     def UNSUPPORTED(self, *ignored):
         raise FlowingError("%s is not RPython" % (msg,))
-    UNSUPPORTED.func_name = OPCODE
+    UNSUPPORTED.__name__ = OPCODE
     return UNSUPPORTED
 
 compare_method = [
@@ -281,10 +281,10 @@ class FlowContext(object):
         self.graph = graph
         func = graph.func
         self.pycode = code
-        self.w_globals = Constant(func.func_globals)
+        self.w_globals = Constant(func.__globals__)
         self.blockstack = []
 
-        self.init_closure(func.func_closure)
+        self.init_closure(func.__closure__)
         self.f_lineno = code.co_firstlineno
         self.last_offset = 0
 

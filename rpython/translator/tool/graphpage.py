@@ -234,7 +234,7 @@ class BaseTranslatorPage(GraphPage):
                 graph = obj
                 data = graph.name
                 if hasattr(graph, 'func'):
-                    data += ':%d' % graph.func.func_code.co_firstlineno
+                    data += ':%d' % graph.func.__code__.co_firstlineno
                 if hasattr(graph, 'source'):
                     data += '\n%s' % graph.source.split('\n', 1)[0]
             else:

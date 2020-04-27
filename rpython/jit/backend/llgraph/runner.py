@@ -1589,7 +1589,7 @@ def _setup():
             # for all operations implemented in the blackhole interpreter
             return func(*args)
         #
-        _op_default_implementation.func_name = 'execute_' + opname
+        _op_default_implementation.__name__ = 'execute_' + opname
         return _op_default_implementation
 
     def _new_execute(opname):
@@ -1613,7 +1613,7 @@ def _setup():
                 if count == 1:
                     result = result[0]
             return result
-        execute.func_name = 'execute_' + opname
+        execute.__name__ = 'execute_' + opname
         return execute
 
     for k, v in rop.__dict__.iteritems():

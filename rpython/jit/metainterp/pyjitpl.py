@@ -3432,7 +3432,7 @@ def _get_opimpl_method(name, argcodes):
     #
     unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
     argtypes = unrolling_iterable(unboundmethod.argtypes)
-    handler.func_name = 'handler_' + name
+    handler.__name__ = 'handler_' + name
     return handler
 
 def put_back_list_of_boxes3(frame, position, newvalue):
