@@ -42,11 +42,6 @@ def setup_module(mod):
     unicode_dir.join(file_name).write('who knows?')
     mod.unicode_dir = unicode_dir
 
-    # in applevel tests, os.stat uses the CPython os.stat.
-    # Be sure to return times with full precision
-    # even when running on top of CPython 2.4.
-    os.stat_float_times(True)
-
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
@@ -1231,7 +1226,7 @@ class AppTestPosix:
         with open(unicode_name) as f:
             assert f.read() == 'this is a rename test'
         os.rename(unicode_name, fname)
-        
+
 
 
 class AppTestEnvironment(object):
