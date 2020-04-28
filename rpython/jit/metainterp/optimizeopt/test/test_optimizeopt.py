@@ -8327,7 +8327,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         ops = """
         [p1, p2]
         i1 = getfield_gc_i(p1, descr=valuedescr)
-        setfield_gc(p2, i1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr3)
         i2 = int_neg(i1)
         call_n(i2, descr=nonwritedescr)
         jump(p1, p2)
@@ -8335,7 +8335,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         expected = """
         [p1, p2, i2, i1]
         call_n(i2, descr=nonwritedescr)
-        setfield_gc(p2, i1, descr=nextdescr)
+        setfield_gc(p2, i1, descr=valuedescr3)
         jump(p1, p2, i2, i1)
         """
         self.optimize_loop(ops, expected)
@@ -8346,17 +8346,18 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         # potential short boxes during tests
         ops = """
         [p1, p2]
-        i1 = getfield_gc_i(p1, descr=nextdescr)
+        i1 = getfield_gc_i(p1, descr=valuedescr3)
         setfield_gc(p2, i1, descr=valuedescr)
         i2 = int_neg(i1)
         call_n(i2, descr=nonwritedescr)
         jump(p1, p2)
         """
         expected = """
-        [p1, p2, i2, i1]
+        [p1, p2, i1]
+        i2 = int_neg(i1)
         call_n(i2, descr=nonwritedescr)
         setfield_gc(p2, i1, descr=valuedescr)
-        jump(p1, p2, i2, i1)
+        jump(p1, p2, i1)
         """
         self.optimize_loop(ops, expected)
 
