@@ -137,6 +137,11 @@ class TestJitRSre(support.LLJitMixin):
         res = self.meta_interp_search(r"<\w+>", "EIOFWEOXDIWHDOH<FOOBAR>UA")
         assert res == 15
 
+    def test_repeat_one_search(self):
+        res = self.meta_interp_search(r'[a-z]+0', "A" * 100 + "abababa0")
+        assert res == 100
+
+
     def test_max_until_1(self):
         res = self.meta_interp_match(r"(ab)*abababababc",
                                      "ababababababababababc")

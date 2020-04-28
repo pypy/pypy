@@ -1114,13 +1114,41 @@ def number_literals(pattern, ppos):
     return n
 
 @specializectx
+@jit.unroll_safe
 def is_match_possible(ctx, ptr, pattern, ppos):
-    # look at 1 char at most to see whether a match is possible. don't mutate
-    # ctx. it's always safe to return True
+    from rpython.rlib.rarithmetic import int_between
+    # look quickly at 1 char at most to see whether a match is possible. don't
+    # mutate ctx. it's always safe to return True
     op = pattern.pat(ppos)
     ppos += 1
     if op == consts.OPCODE_LITERAL:
         return not ptr >= ctx.end and ctx.matches_literal(ptr, pattern.pat(ppos))
+    if op == consts.OPCODE_IN:
+        if ptr >= ctx.end:
+            return False
+        char_code = ctx.str(ptr)
+        skip = pattern.pat(ppos)
+        # charset checking can be very complicated, heuristically only do it
+        # when the charset is small in terms of opcodes
+        if skip > 10:
+            return True
+        ppos += 1
+        result = False
+        while True:
+            opcode = pattern.pattern[ppos]
+            ppos += 1
+            if opcode == consts.OPCODE_LITERAL:
+                res = char_code == pattern.pat(ppos)
+                ppos += 1
+            elif opcode == consts.OPCODE_RANGE:
+                res = int_between(pattern.pat(ppos), char_code, pattern.pat(ppos+1) + 1)
+                ppos += 2
+            elif opcode == consts.OPCODE_FAILURE:
+                return result
+            else:
+                return True # give up
+            result |= res
+
     # XXX add more cases
     return True
 

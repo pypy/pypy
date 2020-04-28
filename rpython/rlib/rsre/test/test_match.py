@@ -351,6 +351,9 @@ class TestMatch:
         r.pattern[r.pattern.index(27)] = 32   # => OPCODE_RANGE_IGNORE
         assert match(r, u"\U00010428")
 
+    def test_blub(self):
+        r = get_code(r"a*[a-z]")
+
 class TestOptimizations(object):
     def test_questionmark_single(self, monkeypatch):
         from rpython.rlib.rsre import rsre_core
@@ -414,6 +417,18 @@ class TestMatchPossibleShortcuts(object):
         c = self.fake_code(consts.OPCODE_LITERAL, ord('a'))
         assert self.check_is_match_possible(c, "a")
         assert not self.check_is_match_possible(c, "b")
+        assert not self.check_is_match_possible(c, "")
+
+    def test_in(self):
+        c = self.fake_code(
+                consts.OPCODE_IN, 7, consts.OPCODE_RANGE, ord('a'), ord('z'),
+                consts.OPCODE_LITERAL, ord('%'), consts.OPCODE_FAILURE)
+        assert self.check_is_match_possible(c, "a")
+        assert self.check_is_match_possible(c, "m")
+        assert self.check_is_match_possible(c, "%")
+        assert not self.check_is_match_possible(c, "A")
+        assert not self.check_is_match_possible(c, "?")
+        assert not self.check_is_match_possible(c, "0")
         assert not self.check_is_match_possible(c, "")
 
     def test_find_repetition_end(self):
