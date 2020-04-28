@@ -71,9 +71,14 @@ class State:
     def setup_bridge(self):
         if self.space.config.translating:
             # after translation: call get_llhelper() to ensure that the
-            # annotator sees the functions and generates the C source
-            for func in BRIDGE.all_functions:
-                func.get_llhelper(self.space)
+            # annotator sees the functions and generates the C source.
+            #
+            # The ptr[0] = ... is a work around to convince the translator NOT
+            # to optimize away the call to get_llhelper(), else the helpers
+            # are never seen and the C code is not generated.
+            with lltype.scoped_alloc(rffi.CArray(rffi.VOIDP), 1) as ptr:
+                for func in BRIDGE.all_functions:
+                    ptr[0] = rffi.cast(rffi.VOIDP, func.get_llhelper(self.space))
         else:
             # before translation: put the ll2ctypes callbacks into the global
             # hpy_get_bridge(), so that they can be called from C
