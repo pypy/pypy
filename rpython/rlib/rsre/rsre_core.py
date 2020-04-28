@@ -1085,6 +1085,8 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     return    # cannot match
                 # count using pattern min as the maximum
                 ptr = find_repetition_end(ctx, pattern, ppos+3, ptr, min, marks)
+                if ptr < 0:
+                    ptr = ~ptr
                 assert ptr >= 0
                 if ptr < minptr:
                     return   # did not match minimum number of times
