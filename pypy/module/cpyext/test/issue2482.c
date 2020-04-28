@@ -13,20 +13,18 @@ static PyObject * get_basicsize(PyObject *self, PyObject * arg)
     return PyLong_FromLong(((PyTypeObject*)arg)->tp_basicsize);
 }
 
-const char *name = "issue2482_object";
+const char *name0 = "issue2482_object";
+const char *name1 = "issue2482_object_base";
 static
 PyObject *make_object_base_type(void) {
 
     PyHeapTypeObject *heap_type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
+    heap_type->ht_name = PyUnicode_FromString("ht_object0");
 
     PyTypeObject *type = &heap_type->ht_type;
     if (!heap_type) return NULL;
-    type->tp_name = name;
-#ifdef ISSUE_2482
-    type->tp_base = &PyBaseObject_Type; /*fails */
-#else 
-    type->tp_base = &PyType_Type;
-#endif
+    type->tp_name = name1;
+    type->tp_base = &PyBaseObject_Type;
     type->tp_basicsize = sizeof(instance);
     type->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
 
@@ -93,9 +91,10 @@ initissue2482(void)
 
     heap_type = (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
     if (!heap_type) INITERROR;
+    heap_type->ht_name = PyUnicode_FromString("ht_object1");
 
     type = &heap_type->ht_type;
-    type->tp_name = name;
+    type->tp_name = name0;
 
     base = make_object_base_type();
     if (! base) INITERROR;
@@ -106,5 +105,5 @@ initissue2482(void)
 
     if (PyType_Ready(type) < 0) INITERROR;
 
-    PyModule_AddObject(module, name, (PyObject *) type);
+    PyModule_AddObject(module, name0, (PyObject *) type);
 };
