@@ -565,20 +565,20 @@ class AppTestPosix:
             import sys
             if not hasattr(os, "fork"):
                 skip("Need fork() to test execve()")
+            output = "caf\xe9 \u1234"
+            t = ' abc\uDCFF'
+            output += t
             try:
-                output = "caf\xe9 \u1234".encode(sys.getfilesystemencoding())
+                output.encode(sys.getfilesystemencoding(), errors='surrogateescape')
             except UnicodeEncodeError:
                 skip("encoding not good enough")
-            t = ' abc\uDCFF'
-            output += t.encode(sys.getfilesystemencoding(),
-                               'surrogateescape')
             pid = os.fork()
             if pid == 0:
                 os.execve("/bin/sh", ["sh", "-c",
-                                      "echo caf\xe9 \u1234 $t > onefile"],
-                          {'ddd': 'xxx', 't': t})
+                                        "echo -n caf\xe9 \u1234 $t > onefile"],
+                            {'ddd': 'xxx', 't': t})
             os.waitpid(pid, 0)
-            with open("onefile") as fid:
+            with open("onefile", errors='surrogateescape') as fid:
                 assert fid.read() == output
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
