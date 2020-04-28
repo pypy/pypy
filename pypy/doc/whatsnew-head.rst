@@ -9,3 +9,7 @@ What's new in PyPy2.7 7.3.1+
 
 Speed up performance of matching Unicode strings in the ``re`` module
 significantly for characters that are part of ASCII.
+
+.. branch: rpython-recvmsg_into
+
+Refactor RSocket.xxx_into() methods and add .recvmsg_into().
