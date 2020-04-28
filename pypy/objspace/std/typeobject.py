@@ -1051,17 +1051,22 @@ def find_best_base(bases_w):
        whose layout a new type should use as a starting point.
     """
     w_bestbase = None
+    best_layout = None
     for w_candidate in bases_w:
         if not isinstance(w_candidate, W_TypeObject):
             continue
         if w_bestbase is None:
             w_bestbase = w_candidate   # for now
+            best_layout = w_bestbase.layout
             continue
         cand_layout = w_candidate.layout
-        best_layout = w_bestbase.layout
-        if (cand_layout is not best_layout and
-            cand_layout.issublayout(best_layout)):
+        if cand_layout is best_layout:
+            continue
+        elif best_layout.issublayout(cand_layout):
+            continue
+        elif cand_layout.issublayout(best_layout):
             w_bestbase = w_candidate
+            best_layout = w_bestbase.layout
     return w_bestbase
 
 def check_and_find_best_base(space, bases_w):
