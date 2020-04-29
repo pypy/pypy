@@ -155,6 +155,12 @@ class OptIntBounds(Optimization):
         b2 = self.getintbound(op.getarg(1))
         r = self.getintbound(op)
         b = b1.add_bound(b2)
+        # NB: the result only gets its bound updated if b has an upper and a
+        # lower bound. This is important, to do the right thing in the presence
+        # of overflow. Example:
+        # y = x + 1 where x >= 0
+        # here it's tempting to give a bound of y >= 1, but that would be
+        # wrong, due to wraparound
         if b.bounded():
             r.intersect(b)
 
