@@ -5442,6 +5442,18 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_int_xor_same_arg(self):
+        ops = """
+        [i0]
+        i1 = int_xor(i0, i0)
+        jump(i1)
+        """
+        expected = """
+        [i0]
+        jump(0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_consecutive_getinteriorfields(self):
         py.test.skip("we want this to pass")
         ops = """
@@ -5788,6 +5800,74 @@ class TestOptimizeBasic(BaseTestBasic):
         i51 = arraylen_gc(p0, descr=arraydescr)
         i52 = arraylen_gc(p1, descr=arraydescr)
         i57 = int_or(i51, i52)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_or_xor_upper(self):
+        ops = """
+        [p0, p1]
+        i0 = arraylen_gc(p0, descr=arraydescr)
+        i2 = int_lt(i0, 17)
+        guard_true(i2) []
+        i1 = arraylen_gc(p1, descr=arraydescr)
+        i3 = int_lt(i1, 17)
+        guard_true(i3) []
+        i57 = int_or(i1, i0)
+        i62 = int_lt(i57, 40)
+        guard_true(i62) []
+        """
+        expected = """
+        [p0, p1]
+        i0 = arraylen_gc(p0, descr=arraydescr)
+        i2 = int_lt(i0, 17)
+        guard_true(i2) []
+        i1 = arraylen_gc(p1, descr=arraydescr)
+        i3 = int_lt(i1, 17)
+        guard_true(i3) []
+        i57 = int_or(i1, i0)
+        """
+        self.optimize_loop(ops, expected)
+        self.optimize_loop(ops.replace("int_or", "int_xor"), expected.replace("int_or", "int_xor"))
+
+    def test_int_or_lower(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i0, 17)
+        guard_true(i2) []
+        i3 = int_ge(i1, 100)
+        guard_true(i3) []
+        i57 = int_or(i1, i0)
+        i62 = int_ge(i57, 100)
+        guard_true(i62) []
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i0, 17)
+        guard_true(i2) []
+        i3 = int_ge(i1, 100)
+        guard_true(i3) []
+        i57 = int_or(i1, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_xor_lower(self):
+        ops = """
+        [i0, i1]
+        i2 = int_ge(i0, 17)
+        guard_true(i2) []
+        i3 = int_ge(i1, 100)
+        guard_true(i3) []
+        i57 = int_xor(i1, i0)
+        i62 = int_ge(i57, 0)
+        guard_true(i62) []
+        """
+        expected = """
+        [i0, i1]
+        i2 = int_ge(i0, 17)
+        guard_true(i2) []
+        i3 = int_ge(i1, 100)
+        guard_true(i3) []
+        i57 = int_xor(i1, i0)
         """
         self.optimize_loop(ops, expected)
 
