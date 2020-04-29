@@ -484,14 +484,27 @@ class OptIntBounds(Optimization):
 
     def postprocess_STRGETITEM(self, op):
         v1 = self.getintbound(op)
-        v2 = getptrinfo(op.getarg(0))
-        intbound = self.getintbound(op.getarg(1))
-        if (intbound.has_lower and v2 is not None and
-            v2.getlenbound(vstring.mode_string) is not None):
-            lb = IntLowerBound(intbound.lower + 1)
-            v2.getlenbound(vstring.mode_string).make_ge(lb)
+        self.postprocess_indexing(op, vstring.mode_string)
+        # the result is 0 <= char < 256
         v1.make_ge(IntLowerBound(0))
         v1.make_lt(IntUpperBound(256))
+
+    def postprocess_indexing(self, op, mode):
+        indexbound = self.getintbound(op.getarg(1))
+        # 0 <= index holds in any case
+        indexbound.intersect(IntLowerBound(0))
+
+        v2 = getptrinfo(op.getarg(0))
+        if v2 is not None:
+            lenbound = v2.getlenbound(mode)
+            if lenbound is not None:
+                # we know that 0 <= index < len (otherwise segfault)
+                if lenbound.has_upper:
+                    indexbound.intersect(IntBound(0, lenbound.upper))
+                # we can also apply len > index to the lenbound
+                if indexbound.has_lower:
+                    lb = IntLowerBound(indexbound.lower)
+                    lenbound.make_gt(lb)
 
     def optimize_GETFIELD_RAW_I(self, op):
         return self.emit(op)
@@ -526,6 +539,11 @@ class OptIntBounds(Optimization):
     def optimize_GETARRAYITEM_RAW_I(self, op):
         return self.emit(op)
 
+    optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_I = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_RAW_I
+    optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_RAW_I
+
     def postprocess_GETARRAYITEM_RAW_I(self, op):
         descr = op.getdescr()
         if descr and descr.is_item_integer_bounded():
@@ -533,15 +551,21 @@ class OptIntBounds(Optimization):
             intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
             intbound.make_le(IntUpperBound(descr.get_item_integer_max()))
 
-    optimize_GETARRAYITEM_RAW_F = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_I = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_F = optimize_GETARRAYITEM_RAW_I
-    optimize_GETARRAYITEM_GC_R = optimize_GETARRAYITEM_RAW_I
-
     postprocess_GETARRAYITEM_RAW_F = postprocess_GETARRAYITEM_RAW_I
-    postprocess_GETARRAYITEM_GC_I = postprocess_GETARRAYITEM_RAW_I
-    postprocess_GETARRAYITEM_GC_F = postprocess_GETARRAYITEM_RAW_I
-    postprocess_GETARRAYITEM_GC_R = postprocess_GETARRAYITEM_RAW_I
+
+    def postprocess_GETARRAYITEM_GC_I(self, op):
+        self.postprocess_indexing(op, None)
+        descr = op.getdescr()
+        if descr and descr.is_item_integer_bounded():
+            intbound = self.getintbound(op)
+            intbound.make_ge(IntLowerBound(descr.get_item_integer_min()))
+            intbound.make_le(IntUpperBound(descr.get_item_integer_max()))
+
+    postprocess_GETARRAYITEM_GC_F = postprocess_GETARRAYITEM_GC_I
+    postprocess_GETARRAYITEM_GC_R = postprocess_GETARRAYITEM_GC_I
+
+    def postprocess_SETARRAYITEM_GC(self, op):
+        self.postprocess_indexing(op, None)
 
     def optimize_UNICODEGETITEM(self, op):
         return self.emit(op)

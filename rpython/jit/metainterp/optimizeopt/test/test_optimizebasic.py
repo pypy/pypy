@@ -5868,3 +5868,44 @@ class TestOptimizeBasic(BaseTestBasic):
         guard_true(i3) []
         """
         self.optimize_loop(ops, expected)
+
+    def test_getitem_bounds_index(self):
+        # after a getarrayitem/strgetitem we know that the 0 <= index < len(obj)
+        ops = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        """
+        expected = """
+        [p0, i0]
+        i1 = strgetitem(p0, i0)
+        """
+        self.optimize_loop(ops, expected)
+
+        # after a getitem/strgetitem we know that the 0 <= index < len(obj)
+        ops = """
+        [p0, i0]
+        i1 = getarrayitem_gc_i(p0, i0, descr=arraydescr)
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        """
+        expected = """
+        [p0, i0]
+        i1 = getarrayitem_gc_i(p0, i0, descr=arraydescr)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_setitem_bounds_index(self):
+        # after a setarrayitem we know that the 0 <= index < len(obj)
+        ops = """
+        [p0, i0, i1]
+        setarrayitem_gc(p0, i0, i1, descr=arraydescr)
+        i2 = int_ge(i0, 0)
+        guard_true(i2) []
+        """
+        expected = """
+        [p0, i0, i1]
+        setarrayitem_gc(p0, i0, i1, descr=arraydescr)
+        """
+        self.optimize_loop(ops, expected)
