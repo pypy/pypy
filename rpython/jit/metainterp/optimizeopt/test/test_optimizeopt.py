@@ -6688,6 +6688,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         """
         expected = """
         [p0, i0]
+        i1 = strlen(p0) # removed by the backend
         jump(p0, i0)
         """
         self.optimize_loop(ops, expected)
@@ -7731,6 +7732,7 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         expected = """
         [p9, i1, i843]
         call_n(i843, descr=nonwritedescr)
+        i2 = strlen(p9) # removed by the backend
         jump(p9, i1, i843)
         """
         self.optimize_loop(ops, expected)
