@@ -16,6 +16,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
 
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, Unwrapper
 from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
@@ -146,6 +147,18 @@ class Path(object):
                         ', ', str(self.as_unicode), ', [', str(self.w_path),
                         ', ', str(getattr(self.w_path, '_length', 'bytes')), '])'])
 
+def _path_from_unicode(space, w_value):
+    if _WIN32:
+        path_u = FileEncoder(space, w_value).as_unicode()
+        return Path(-1, None, path_u, w_value)
+    else:
+        path_b = space.bytes0_w(space.fsencode(w_value))
+        return Path(-1, path_b, None, w_value)
+
+def _path_from_bytes(space, w_value):
+    path_b = space.bytes0_w(w_value)
+    return Path(-1, path_b, None, w_value)
+
 @specialize.arg(2)
 def _unwrap_path(space, w_value, allow_fd=True):
     # equivalent of posixmodule.c:path_converter() in CPython
@@ -153,24 +166,47 @@ def _unwrap_path(space, w_value, allow_fd=True):
         allowed_types = "string, bytes, os.PathLike or integer"
     else:
         allowed_types = "string, bytes or os.PathLike"
-    if _WIN32 and space.isinstance_w(w_value, space.w_unicode):
-        path_u = FileEncoder(space, w_value).as_unicode()
-        return Path(-1, None, path_u, w_value)
+    if space.isinstance_w(w_value, space.w_unicode):
+        return _path_from_unicode(space, w_value)
+    elif space.isinstance_w(w_value, space.w_bytes):
+        return _path_from_bytes(space, w_value)
+
+    # Bytes-like case
     try:
-        path_b = space.fsencode_w(w_value, allowed_types=allowed_types)
+        space._try_buffer_w(w_value, space.BUF_FULL_RO)
+    except BufferInterfaceNotFound:
+        pass
+    else:
+        tp = space.type(w_value).name
+        space.warn(space.newtext(
+            "path should be %s, not %s" % (allowed_types, tp,)),
+            space.w_DeprecationWarning)
+        path_b = space.bytesbuf0_w(w_value)
         return Path(-1, path_b, None, w_value)
-    except OperationError as e:
-        if not allow_fd or not e.match(space, space.w_TypeError):
-            raise
-        # File descriptor case
+
+    # File descriptor case
+    if allow_fd:
         try:
             space.index(w_value)
         except OperationError:
-            raise oefmt(space.w_TypeError,
-                        "illegal type for path parameter (should be "
-                        "%s, not %T)", allowed_types, w_value)
-        fd = unwrap_fd(space, w_value, allowed_types)
-        return Path(fd, None, None, w_value)
+            pass
+        else:
+            fd = unwrap_fd(space, w_value, allowed_types)
+            return Path(fd, None, None, w_value)
+
+    # PathLike case
+    # inline fspath() for better error messages
+    w_fspath_method = space.lookup(w_value, '__fspath__')
+    if w_fspath_method:
+        w_result = space.get_and_call_function(w_fspath_method, w_value)
+        if space.isinstance_w(w_result, space.w_unicode):
+            return _path_from_unicode(space, w_result)
+        elif space.isinstance_w(w_result, space.w_bytes):
+            return _path_from_bytes(space, w_result)
+
+    raise oefmt(space.w_TypeError,
+        "illegal type for path parameter (should be "
+        "%s, not %T)", allowed_types, w_value)
 
 class _PathOrFd(Unwrapper):
     def unwrap(self, space, w_value):
@@ -235,7 +271,7 @@ def u2utf8(space, u_str):
     return space.newutf8(u_str.encode('utf-8'), len(u_str))
 
 @unwrap_spec(flags=c_int, mode=c_int, dir_fd=DirFD(rposix.HAVE_OPENAT))
-def open(space, w_path, flags, mode=0777,
+def open(space, w_path, flags, mode=0o777,
          __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """open(path, flags, mode=0o777, *, dir_fd=None)
 
@@ -1180,7 +1216,7 @@ src_dir_fd and dst_dir_fd, may not be implemented on your platform.
                             eintr_retry=False)
 
 @unwrap_spec(mode=c_int, dir_fd=DirFD(rposix.HAVE_MKFIFOAT))
-def mkfifo(space, w_path, mode=0666, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
+def mkfifo(space, w_path, mode=0o666, __kwonly__=None, dir_fd=DEFAULT_DIR_FD):
     """mkfifo(path, mode=0o666, *, dir_fd=None)
 
 Create a FIFO (a POSIX named pipe).
