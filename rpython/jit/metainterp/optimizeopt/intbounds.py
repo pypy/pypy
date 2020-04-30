@@ -496,6 +496,7 @@ class OptIntBounds(Optimization):
         v1.make_lt(IntUpperBound(256))
 
     def postprocess_indexing(self, op, mode):
+        return
         indexbound = self.getintbound(op.getarg(1))
         # 0 <= index holds in any case
         indexbound.intersect(IntLowerBound(0))
