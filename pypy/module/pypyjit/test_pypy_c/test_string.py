@@ -25,8 +25,6 @@ class TestString(BaseTestPyPyC):
             guard_not_invalidated(descr=...)
             i16 = int_eq(i6, %d)
             i83 = call_i(ConstClass(ll_int_py_mod__Signed_Signed), i6, i10, descr=<Calli . ii EF=0 OS=14>)
-            i21 = int_lt(i83, 0)
-            guard_false(i21, descr=...)
             i22 = int_ge(i83, i10)
             guard_false(i22, descr=...)
             i89 = strgetitem(p55, i83)
