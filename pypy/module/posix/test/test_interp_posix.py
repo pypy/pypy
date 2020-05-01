@@ -64,21 +64,6 @@ def test_convert_seconds_full(space):
         assert -MAX_ERR < err < MAX_ERR
     _test_convert_seconds_full(space)
 
-class AppTestOS:
-    spaceconfig = {'usemodules': []}
-    def test_cpu_count(self):
-        """
-        import os
-        cc = os.cpu_count()
-        assert cc is None or (isinstance(cc, int) and cc > 0)
-        """
-
-    def test_putenv_invalid_name(self):
-        """
-        import os
-        raises(ValueError, os.putenv, "foo=bar", "xxx")
-        """
-
 def test_path_or_fd_nullable(space):
     @unwrap_spec(p=path_or_fd(allow_fd=False, nullable=True))
     def f(space, p=None):
