@@ -173,7 +173,7 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
         else:
             allowed_types = "string, bytes or os.PathLike"
     if nullable and space.is_w(w_value, space.w_None):
-        return Path(-1, None, None, space.w_None)
+        return Path(-1, '.', None, space.w_None)
     if space.isinstance_w(w_value, space.w_unicode):
         return _path_from_unicode(space, w_value)
     elif space.isinstance_w(w_value, space.w_bytes):
@@ -1020,56 +1020,47 @@ else:
             raise wrap_oserror(space, e, eintr_retry=False)
 
 
-def listdir(space, w_path=None):
-    """listdir(path='.') -> list_of_filenames
-
+@unwrap_spec(path=path_or_fd(allow_fd=rposix.HAVE_FDOPENDIR, nullable=True))
+def listdir(space, path=None):
+    """\
 Return a list containing the names of the files in the directory.
-The list is in arbitrary order.  It does not include the special
-entries '.' and '..' even if they are present in the directory.
 
-path can be specified as either str or bytes.  If path is bytes,
+path can be specified as either str, bytes, or a path-like object.  If path is bytes,
   the filenames returned will also be bytes; in all other circumstances
   the filenames returned will be str.
-On some platforms, path may also be specified as an open file descriptor;
+If path is None, uses the path='.'.
+On some platforms, path may also be specified as an open file descriptor;\
   the file descriptor must refer to a directory.
-  If this functionality is unavailable, using it raises NotImplementedError."""
-    if space.is_none(w_path):
-        w_path = space.newtext(".")
-    if space.isinstance_w(w_path, space.w_bytes):
-        # XXX CPython doesn't follow this path either if w_path is,
-        # for example, a memoryview or another buffer type
-        dirname = space.bytes0_w(w_path)
+  If this functionality is unavailable, using it raises NotImplementedError.
+
+The list is in arbitrary order.  It does not include the special
+entries '.' and '..' even if they are present in the directory."""
+
+    if space.isinstance_w(path.w_path, space.w_bytes):
+        as_bytes = True
+    else:
+        as_bytes = False
+    if path.as_fd != -1:
         try:
-            result = rposix.listdir(dirname)
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        return space.newlist_bytes(result)
-    try:
-        path = space.fsencode_w(w_path)
-    except OperationError as operr:
-        if operr.async(space):
-            raise
-        if not rposix.HAVE_FDOPENDIR:
-            raise oefmt(space.w_TypeError,
-                "listdir: illegal type for path argument")
-        fd = unwrap_fd(space, w_path, "string, bytes or integer")
-        try:
-            result = rposix.fdlistdir(os.dup(fd))
+            result = rposix.fdlistdir(os.dup(path.as_fd))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
         try:
-            result = rposix.listdir(path)
+            result = call_rposix(rposix.listdir, path)
         except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    len_result = len(result)
-    result_w = [None] * len_result
-    for i in range(len_result):
-        if _WIN32:
-            result_w[i] = space.newtext(result[i])
-        else:
-            result_w[i] = space.newfilename(result[i])
-    return space.newlist(result_w)
+            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+    if as_bytes:
+        return space.newlist_bytes(result)
+    else:
+        len_result = len(result)
+        result_w = [None] * len_result
+        for i in range(len_result):
+            if _WIN32:
+                result_w[i] = space.newtext(result[i])
+            else:
+                result_w[i] = space.newfilename(result[i])
+        return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
 def get_inheritable(space, fd):
