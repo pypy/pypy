@@ -1030,7 +1030,7 @@ _accept bind close connect connect_ex fileno detach
 getpeername getsockname getsockopt gettimeout listen
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop
-recv_into recvfrom_into recvmsg_into
+recv_into recvfrom_into
 """.split()
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
@@ -1038,6 +1038,7 @@ if hasattr(rsocket._c, 'WSAIoctl'):
 if rsocket._c.HAVE_SENDMSG:
     socketmethodnames.append('sendmsg')
     socketmethodnames.append('recvmsg')
+    socketmethodnames.append('recvmsg_into')
 
 socketmethods = {}
 for methodname in socketmethodnames:
