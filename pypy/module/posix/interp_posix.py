@@ -159,13 +159,21 @@ def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
     return Path(-1, path_b, None, w_value)
 
-@specialize.arg(2)
-def _unwrap_path(space, w_value, allow_fd=True):
+@specialize.arg(2, 3)
+def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
     # equivalent of posixmodule.c:path_converter() in CPython
-    if allow_fd:
-        allowed_types = "string, bytes, os.PathLike or integer"
+    if nullable:
+        if allow_fd:
+            allowed_types = "string, bytes, os.PathLike, integer or None"
+        else:
+            allowed_types = "string, bytes, os.PathLike or None"
     else:
-        allowed_types = "string, bytes or os.PathLike"
+        if allow_fd:
+            allowed_types = "string, bytes, os.PathLike or integer"
+        else:
+            allowed_types = "string, bytes or os.PathLike"
+    if nullable and space.is_w(w_value, space.w_None):
+        return Path(-1, None, None, space.w_None)
     if space.isinstance_w(w_value, space.w_unicode):
         return _path_from_unicode(space, w_value)
     elif space.isinstance_w(w_value, space.w_bytes):
@@ -216,8 +224,20 @@ class _JustPath(Unwrapper):
     def unwrap(self, space, w_value):
         return _unwrap_path(space, w_value, allow_fd=False)
 
-def path_or_fd(allow_fd=True):
-    return _PathOrFd if allow_fd else _JustPath
+class _NullablePathOrFd(Unwrapper):
+    def unwrap(self, space, w_value):
+        return _unwrap_path(space, w_value, allow_fd=True, nullable=True)
+
+class _NullablePath(Unwrapper):
+    def unwrap(self, space, w_value):
+        return _unwrap_path(space, w_value, allow_fd=False, nullable=True)
+
+
+def path_or_fd(allow_fd=True, nullable=False):
+    if nullable:
+        return _NullablePathOrFd if allow_fd else _NullablePath
+    else:
+        return _PathOrFd if allow_fd else _JustPath
 
 _HAVE_AT_FDCWD = getattr(rposix, 'AT_FDCWD', None) is not None
 DEFAULT_DIR_FD = rposix.AT_FDCWD if _HAVE_AT_FDCWD else -100
