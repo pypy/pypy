@@ -72,9 +72,9 @@ class GCTest(object):
                 mixlevelstuff.append(fixup)
             else:
                 func = func_fixup
-            func.func_name = "f_%s" % name
+            func.__name__ = "f_%s" % name
             if cleanup:
-                cleanup.func_name = "clean_%s" % name
+                cleanup.__name__ = "clean_%s" % name
 
             nargs = len(inspect.getargspec(func)[0])
             name_to_func[name] = len(funcs0)

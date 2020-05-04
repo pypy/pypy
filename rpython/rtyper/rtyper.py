@@ -499,21 +499,21 @@ class RPythonTyper(object):
         # All unary operations
         for opname in unary_ops:
             fnname = 'translate_op_' + opname
-            exec py.code.compile("""
+            exec(py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     return r_arg1.rtype_%s(hop)
-                """ % (opname, opname)) in globals(), d
+                """ % (opname, opname)), globals(), d)
             setattr(cls, fnname, d[fnname])
         # All binary operations
         for opname in binary_ops:
             fnname = 'translate_op_' + opname
-            exec py.code.compile("""
+            exec(py.code.compile("""
                 def translate_op_%s(self, hop):
                     r_arg1 = hop.args_r[0]
                     r_arg2 = hop.args_r[1]
                     return pair(r_arg1, r_arg2).rtype_%s(hop)
-                """ % (opname, opname)) in globals(), d
+                """ % (opname, opname)), globals(), d)
             setattr(cls, fnname, d[fnname])
     _registeroperations = classmethod(_registeroperations)
 

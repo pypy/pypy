@@ -1122,6 +1122,9 @@ class AppTestUnicodeExtra:
         import re
         match = re.search(u"\u1234", u"\u1233\u1234\u1235")
         assert match.string == u"\u1233\u1234\u1235"
+        # check ascii version too
+        match = re.search(u"a", u"bac")
+        assert match.string == u"bac"
 
     def test_match_start(self):
         import re

@@ -1,7 +1,6 @@
 import unittest
 from ctypes import *
 import re, sys
-from ctypes.test import xfail
 
 if sys.byteorder == "little":
     THIS_ENDIAN = "<"
@@ -20,7 +19,6 @@ def normalize(format):
 
 class Test(unittest.TestCase):
 
-    @xfail
     def test_native_types(self):
         for tp, fmt, shape, itemtp in native_types:
             ob = tp()
@@ -51,7 +49,6 @@ class Test(unittest.TestCase):
                 print(tp)
                 raise
 
-    @xfail
     def test_endian_types(self):
         for tp, fmt, shape, itemtp in endian_types:
             ob = tp()

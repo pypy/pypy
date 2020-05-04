@@ -166,8 +166,8 @@ class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
-    newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
-                      f.func_defaults, f.func_closure)
+    newfunc = type(f)(f.__code__, f.__globals__, f.__name__,
+                      f.__defaults__, f.__closure__)
     if can_only_throw is not None:
         newfunc.can_only_throw = can_only_throw
     return newfunc

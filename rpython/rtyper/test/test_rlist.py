@@ -23,10 +23,10 @@ for n1 in 'get set del'.split():
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
-        exec """if 1:
+        exec("""if 1:
             def %s(*args):
                 return _%s(dum_checkidx, %s*args)
-""" % (name, name, extraarg)
+""" % (name, name, extraarg))
 del n1, n2, name
 
 
@@ -1487,7 +1487,7 @@ class TestRlist(BaseRtypingTest):
             op = block.operations[-1]
             assert op.opname == 'direct_call'
             func = op.args[2].value
-            assert ('foldable' in func.func_name) == \
+            assert ('foldable' in func.__name__) == \
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):

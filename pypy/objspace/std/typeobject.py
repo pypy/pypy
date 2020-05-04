@@ -1600,7 +1600,7 @@ class TypeCache(SpaceCache):
                 if isinstance(w_obj, FunctionWithFixedCode):
                     qualname = (w_type.getqualname(space).encode('utf-8')
                                 + '.' + name)
-                    w_obj.fset_func_qualname(space, space.newtext(qualname))
+                    w_obj.set_qualname(qualname)
 
         if hasattr(typedef, 'flag_sequence_bug_compat'):
             w_type.flag_sequence_bug_compat = typedef.flag_sequence_bug_compat

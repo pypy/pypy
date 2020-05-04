@@ -594,7 +594,7 @@ class LLtypeHelpers:
                 name += '_mpressure'
             if not track_allocation:
                 name += '_notrack'
-            _ll_1_raw_malloc_varsize.func_name = name
+            _ll_1_raw_malloc_varsize.__name__ = name
             return _ll_1_raw_malloc_varsize
         return build_ll_1_raw_malloc_varsize
 
@@ -630,7 +630,7 @@ class LLtypeHelpers:
                 name += '_mpressure'
             if not track_allocation:
                 name += '_notrack'
-            _ll_0_raw_malloc_fixedsize.func_name = name
+            _ll_0_raw_malloc_fixedsize.__name__ = name
             return _ll_0_raw_malloc_fixedsize
         return build_ll_0_raw_malloc_fixedsize
 
@@ -703,7 +703,7 @@ def parse_oopspec(fnobj):
     FUNCTYPE = lltype.typeOf(fnobj)
     ll_func = fnobj._callable
     nb_args = len(FUNCTYPE.ARGS)
-    argnames = ll_func.func_code.co_varnames[:nb_args]
+    argnames = ll_func.__code__.co_varnames[:nb_args]
     # parse the oopspec and fill in the arguments
     operation_name, args = ll_func.oopspec.split('(', 1)
     assert args.endswith(')')

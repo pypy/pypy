@@ -767,7 +767,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def prepare_gc_store_indexed(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg(op.getarg(1))
         value_loc = self.ensure_reg(op.getarg(2))
         assert op.getarg(3).getint() == 1    # scale
         ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(4))
@@ -777,7 +777,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
 
     def _prepare_gc_load_indexed(self, op):
         base_loc = self.ensure_reg(op.getarg(0))
-        index_loc = self.ensure_reg_or_any_imm(op.getarg(1))
+        index_loc = self.ensure_reg(op.getarg(1))
         assert op.getarg(2).getint() == 1    # scale
         ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(3))
         assert ofs_loc.is_imm()  # the arg(3) should always be a small constant

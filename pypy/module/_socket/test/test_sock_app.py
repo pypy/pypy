@@ -294,6 +294,19 @@ def test_timeout(space, w_socket):
 
 # XXX also need tests for other connection and timeout errors
 
+def test_type(space, w_socket):
+    w_type = space.appexec([w_socket],
+                    """(_socket,):
+                    if not hasattr(_socket, 'SOCK_CLOEXEC'):
+                        return -1, False
+                    s = _socket.socket(_socket.AF_INET,
+                                    _socket.SOCK_STREAM | _socket.SOCK_CLOEXEC)
+                    return s.type
+                    """)
+    typeint = space.int_w(w_type)
+    if typeint > 0:
+        # SOCK_CLOEXEC on Ubuntu 18.04
+        assert typeint & 524288 
 
 class AppTestSocket:
     spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
@@ -938,6 +951,7 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -958,9 +972,19 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        # A case where rwbuffer.get_raw_address() fails
+        conn.send(MSG)
+        buf = _io.BytesIO(b' ' * 1024)
+        m = buf.getbuffer()
+        nbytes = cli.recv_into(m)
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
+        assert msg == MSG
+
     def test_recvfrom_into(self):
         import socket
         import array
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -981,10 +1005,34 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        # A case where rwbuffer.get_raw_address() fails
+        conn.send(MSG)
+        buf = _io.BytesIO(b' ' * 1024)
+        nbytes, addr = cli.recvfrom_into(buf.getbuffer())
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
+        assert msg == MSG
+
         conn.send(MSG)
         buf = bytearray(8)
         exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
         assert str(exc.value) == "nbytes is greater than the length of the buffer"
+
+    def test_recvmsg_into(self):
+        import _socket
+        cli = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        conn = _socket.socket(fileno=fileno)
+        conn.send(b'Hello World!')
+        buf1 = bytearray(5)
+        buf2 = bytearray(6)
+        rettup = cli.recvmsg_into([memoryview(buf1), memoryview(buf2)])
+        print(rettup)
+        nbytes, _, _, addr = rettup
+        assert nbytes == 11
+        assert buf1 == b'Hello'
+        assert buf2 == b' World'
 
     def test_family(self):
         import socket

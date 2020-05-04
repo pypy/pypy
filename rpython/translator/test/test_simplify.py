@@ -203,7 +203,7 @@ def addone(x):
 def test_huge_func():
     g = None
     gstring = "def g(x):\n%s%s" % ("    x = x + 1\n" * 1000, "    return x\n")
-    exec gstring
+    exec(gstring)
     assert g(1) == 1001
     # does not crash: previously join_blocks would barf on this
     graph, t = translate(g, [int])

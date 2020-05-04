@@ -401,7 +401,9 @@ def _init_timezone(space):
             blen = c_get_tzname(0, i, None)
             with rffi.scoped_alloc_buffer(blen) as buf:
                 s = c_get_tzname(blen, i, buf.raw)
-                tzname[i] = buf.str(s - 1)
+                tzn = buf.str(s - 1)
+                tznutf8, _ = str_decode_locale_surrogateescape(tzn)
+                tzname[i] = tznutf8
 
     if _POSIX:
         if _CYGWIN:
@@ -566,7 +568,7 @@ def _get_inttime(space, w_seconds):
                     "timestamp out of range for platform time_t")
     return t
 
-def _tm_to_tuple(space, t):
+def _tm_to_tuple(space, t, zone="UTC", offset=0):
     time_tuple = [
         space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
         space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
@@ -583,9 +585,9 @@ def _tm_to_tuple(space, t):
         tm_zone, lgt, pos = decode_utf8sp(space, rffi.charp2str(t.c_tm_zone))
         extra = [space.newtext(tm_zone, lgt),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
-        w_time_tuple = space.newtuple(time_tuple + extra)
     else:
-        w_time_tuple = space.newtuple(time_tuple)
+        extra = [space.newtext(zone), space.newint(offset)]
+    w_time_tuple = space.newtuple(time_tuple + extra)
     w_struct_time = _get_module_object(space, 'struct_time')
     w_obj = space.call_function(w_struct_time, w_time_tuple)
     return w_obj
@@ -785,7 +787,7 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    return _tm_to_tuple(space, p, zone="UTC", offset=0)
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -803,7 +805,17 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_OSError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    if HAS_TM_ZONE:
+        return _tm_to_tuple(space, p)
+    else:
+        offset = space.int_w(_get_module_object(space, "timezone"))
+        daylight_w = _get_module_object(space, 'daylight')
+        tzname_w =  _get_module_object(space, 'tzname')
+        zone_w = space.getitem(tzname_w, daylight_w)
+        if not space.eq_w(daylight_w, space.newint(0)):
+            offset -= 3600
+        return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
+        
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number

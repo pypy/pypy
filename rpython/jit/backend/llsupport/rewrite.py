@@ -299,6 +299,29 @@ class GcRewriterAssembler(object):
                                                  self.cpu.translate_support_code)
             self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1), op.getarg(2),
                                          itemsize, itemsize, basesize)
+        elif opnum in (rop.GC_LOAD_INDEXED_I,
+                       rop.GC_LOAD_INDEXED_F,
+                       rop.GC_LOAD_INDEXED_R):
+            scale_box = op.getarg(2)
+            offset_box = op.getarg(3)
+            size_box = op.getarg(4)
+            assert isinstance(scale_box, ConstInt)
+            assert isinstance(offset_box, ConstInt)
+            assert isinstance(size_box, ConstInt)
+            self.emit_gc_load_or_indexed(op, op.getarg(0), op.getarg(1),
+                        abs(size_box.value), scale_box.value, offset_box.value,
+                        size_box.value < 0)
+        elif opnum == rop.GC_STORE_INDEXED:
+            scale_box = op.getarg(3)
+            offset_box = op.getarg(4)
+            size_box = op.getarg(5)
+            assert isinstance(scale_box, ConstInt)
+            assert isinstance(offset_box, ConstInt)
+            assert isinstance(size_box, ConstInt)
+            # here, size_box.value should be > 0, but be safe and use abs()
+            self.emit_gc_store_or_indexed(op, op.getarg(0), op.getarg(1),
+                        op.getarg(2),
+                        abs(size_box.value), scale_box.value, offset_box.value)
         return False
 
 

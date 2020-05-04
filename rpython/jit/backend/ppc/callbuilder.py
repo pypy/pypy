@@ -24,9 +24,11 @@ class CallBuilder(AbstractCallBuilder):
     RSHADOWOLD  = r.RCS3
     RTHREADID   = r.RCS4   # loaded from the old value of rpy_fastgil
 
+    ressign = True
+
     def __init__(self, assembler, fnloc, arglocs, resloc):
         AbstractCallBuilder.__init__(self, assembler, fnloc, arglocs,
-                                     resloc, restype=INT, ressize=None)
+                                     resloc, restype=INT, ressize=WORD)
 
     def prepare_arguments(self):
         assert IS_PPC_64
@@ -141,7 +143,25 @@ class CallBuilder(AbstractCallBuilder):
         assert (self.resloc is None or
                 self.resloc is r.r3 or
                 self.resloc is r.f1)
-
+        ressize = self.ressize
+        if ressize == 1:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsb(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 56)
+        elif ressize == 2:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsh(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 48)
+        elif ressize == 4:
+            assert self.resloc is r.r3
+            if self.ressign:
+                self.mc.extsw(r.r3.value, r.r3.value)
+            else:
+                self.mc.rldicl(r.r3.value, r.r3.value, 0, 32)
 
     def call_releasegil_addr_and_move_real_arguments(self, fastgil):
         assert self.is_call_release_gil

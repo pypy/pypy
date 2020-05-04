@@ -40,7 +40,7 @@ def guess_module(graph):
     func = getattr(graph, 'func', None)
     name = None
     if func is not None:
-        newname = func.func_globals.get('__name__',  None)
+        newname = func.__globals__.get('__name__',  None)
         if newname is not None:
             name = newname
         else:

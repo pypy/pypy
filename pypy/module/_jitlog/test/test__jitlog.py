@@ -1,10 +1,13 @@
 import sys
 import platform
+import pytest
 from rpython.tool.udir import udir
 from pypy.tool.pytest.objspace import gettestobjspace
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.resoperation import opname
-from rpython.rlib.rfile import create_file
+
+win32_untranslated ="not config.option.runappdirect and sys.platform == 'win32'"
+win32_reason = "fileno may come from different runtimes depending on current compiler"
 
 class AppTestJitLog(object):
     spaceconfig = {'usemodules': ['_jitlog', 'struct']}
@@ -20,12 +23,10 @@ class AppTestJitLog(object):
         for key, value in opname.items():
             space.setitem(cls.w_resops, space.wrap(key), space.wrap(value))
 
+    @pytest.mark.skipif(win32_untranslated, reason=win32_reason)
     def test_enable(self):
         import _jitlog, struct
-        # use rfile instead of file.open since the host python and compiled
-        # code may use different runtime libraries (win32 visual2008 vs.
-        # visual2019 for instance
-        tmpfile = create_file(self.tmpfilename, 'wb')
+        tmpfile = open(self.tmpfilename, 'wb')
         fileno = tmpfile.fileno()
         _jitlog.enable(fileno)
         _jitlog.disable()

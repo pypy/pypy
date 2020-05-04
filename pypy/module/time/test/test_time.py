@@ -470,6 +470,26 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
+    def test_strftime_nonascii(self):
+        skip("unsure but I think this would also fail on CPython 3.x "
+             "on systems without wcsftime() (same reason)")
+        import _locale
+        prev_loc = _locale.setlocale(_locale.LC_TIME)
+        try:
+            _locale.setlocale(_locale.LC_TIME, "fr_CH")
+        except _locale.Error:
+            skip("unsupported locale LC_TIME=fr_CH")
+        try:
+            import time
+            s = time.strftime('%B.', time.localtime(192039127))
+            # I am unsure, but I think that this fails because decoding of
+            # the result isn't done in the fr_CH locale.  There is no code
+            # to grab the LC_TIME locale specifically, which is the one
+            # used by strftime().
+            assert s == "f\xe9vrier."
+        finally:
+            _locale.setlocale(_locale.LC_TIME, prev_loc)
+
     def test_strptime(self):
         import time
 
@@ -598,3 +618,12 @@ class AppTestTime:
 
         assert signalled != []
         assert t2 - t1 > 2.99
+
+    def test_tm_gmtoff_valid(self):
+        import time
+        local = time.localtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None
+        local = time.gmtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None

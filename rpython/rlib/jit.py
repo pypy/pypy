@@ -194,9 +194,9 @@ def elidable_promote(promote_args='all'):
                 (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
-        exec py.code.Source("\n".join(code)).compile() in d
+        exec(py.code.Source("\n".join(code)).compile(), d)
         result = d["f"]
-        result.func_name = func.func_name + "_promote"
+        result.__name__ = func.__name__ + "_promote"
         return result
     return decorator
 
@@ -227,7 +227,7 @@ def look_inside_iff(predicate):
             "func": func,
             "we_are_jitted": we_are_jitted,
         }
-        exec py.code.Source("""
+        exec(py.code.Source("""
             @dont_look_inside
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
@@ -243,7 +243,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-        """ % {"arguments": ", ".join(args)}).compile() in d
+        """ % {"arguments": ", ".join(args)}).compile(), d)
         return d["f"]
     return inner
 
@@ -427,7 +427,7 @@ def jit_callback(name):
         jitdriver = JitDriver(get_printable_location=get_printable_location,
                               greens=[], reds='auto', name=name)
         #
-        args = ','.join(['a%d' % i for i in range(func.func_code.co_argcount)])
+        args = ','.join(['a%d' % i for i in range(func.__code__.co_argcount)])
         source = """def callback_with_jitdriver(%(args)s):
                         jitdriver.jit_merge_point()
                         return real_callback(%(args)s)""" % locals()
@@ -435,7 +435,7 @@ def jit_callback(name):
             'jitdriver': jitdriver,
             'real_callback': func,
             }
-        exec compile2(source) in miniglobals
+        exec(compile2(source), miniglobals)
         return miniglobals['callback_with_jitdriver']
     return decorate
 
@@ -910,7 +910,7 @@ class ExtEnterLeaveMarker(ExtRegistryEntry):
             return
         bk = self.bookkeeper
         s_func = bk.immutablevalue(func)
-        uniquekey = 'jitdriver.%s' % func.func_name
+        uniquekey = 'jitdriver.%s' % func.__name__
         args_s = args_s[:]
         for name in variables:
             if '.' not in name:
