@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 import os.path
 import pkgutil
+import runpy
 import shutil
 import sys
 import tempfile
