@@ -9,7 +9,7 @@ else
 RUNINTERP = $(PYPY_EXECUTABLE)
 endif
 
-URAM := $(shell $(RUNINTERP) -c "import sys; print 4.5 if sys.maxint>1<<32 else 2.5")
+URAM := $(shell $(RUNINTERP) -c "import sys; print(4.5 if sys.maxint>1<<32 else 2.5)")
 
 JOBS=$(subst -j,--make-jobs ,$(filter -j%, $(MAKEFLAGS)))
 
