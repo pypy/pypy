@@ -1036,10 +1036,12 @@ On some platforms, path may also be specified as an open file descriptor;\
 The list is in arbitrary order.  It does not include the special
 entries '.' and '..' even if they are present in the directory."""
 
-    if space.isinstance_w(path.w_path, space.w_bytes):
-        as_bytes = True
-    else:
+    try:
+        space._try_buffer_w(path.w_path, space.BUF_FULL_RO)
+    except BufferInterfaceNotFound:
         as_bytes = False
+    else:
+        as_bytes = True
     if path.as_fd != -1:
         try:
             result = rposix.fdlistdir(os.dup(path.as_fd))
