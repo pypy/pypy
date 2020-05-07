@@ -17,7 +17,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
     "itertools", "_frozen_importlib", "operator", "_locale", "struct",
-    "thread", "__pypy__",
+    "__pypy__",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
