@@ -39,3 +39,4 @@ endif
 
 cffi_imports: pypy-c
 	PYTHONPATH=. pypy/goal/pypy-c pypy/tool/build_cffi_imports.py || /bin/true
+
