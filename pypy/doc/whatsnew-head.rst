@@ -13,3 +13,9 @@ significantly for characters that are part of ASCII.
 .. branch: rpython-recvmsg_into
 
 Refactor RSocket.xxx_into() methods and add .recvmsg_into().
+
+.. branch: bo-fix-source-links
+
+Fix documentation extlinks for heptapod directory schema
+
+.. branch: py3.6 # ignore, bad merge

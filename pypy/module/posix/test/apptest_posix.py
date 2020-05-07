@@ -1,9 +1,10 @@
 import pytest
 
 try:
-    import posix as os
+    import nt as posix
 except ImportError:
-    pytest.skip("only for posix")
+    import posix
+os = posix
 
 if hasattr(os, "fork"):
     def test_register_at_fork():
@@ -41,3 +42,10 @@ if hasattr(os, "fork"):
         res = os.WEXITSTATUS(status1)
         assert res == 13
 
+def test_cpu_count():
+    cc = posix.cpu_count()
+    assert cc is None or (isinstance(cc, int) and cc > 0)
+
+def test_putenv_invalid_name():
+    with pytest.raises(ValueError):
+        posix.putenv("foo=bar", "xxx")
