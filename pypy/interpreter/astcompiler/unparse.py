@@ -550,6 +550,12 @@ class UnparseAnnotationsVisitor(ast.ASTVisitor):
             node.returns = self.unparse(returns)
         return node
 
+    def visit_AsyncFunctionDef(self, node):
+        returns = node.returns
+        if returns:
+            node.returns = self.unparse(returns)
+        return node
+
     def visit_AnnAssign(self, node):
         node.annotation = self.unparse(node.annotation)
         return node

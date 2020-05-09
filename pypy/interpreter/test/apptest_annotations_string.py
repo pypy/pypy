@@ -27,3 +27,8 @@ def test_func_annotations():
     def f(a: list) -> a ** 39:
         return 12
     assert f.__annotations__ == {"a": "list", "return": "a ** 39"}
+
+def test_async_return_bug():
+    async def foo(x) -> Foobar:
+        pass
+    assert foo.__annotations__ == {"return": "Foobar"}
