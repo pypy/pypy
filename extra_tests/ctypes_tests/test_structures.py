@@ -214,3 +214,9 @@ def test_memoryview():
         assert mv.format == 'T{>h:a:>h:b:}'
     assert mv.shape == (2, 3)
     assert mv.itemsize == 4
+
+def test_memoryview_primitive():
+    tp = c_char
+    fmt = '<c'
+    ob = tp()
+    assert memoryview(tp()).format == fmt
