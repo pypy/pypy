@@ -203,7 +203,7 @@ class _CData(bufferable):
             return self.value
 
     def __buffer__(self, flags):
-        return buffer(self._buffer)
+        return memoryview(self._buffer)
 
     def _get_b_base(self):
         try:
