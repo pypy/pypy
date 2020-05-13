@@ -180,8 +180,8 @@ class AppTestStruct(BaseAppTestFFI):
         assert struct.getfield('ulong') == sys.maxint*2 + 1
         struct.setfield('ulong', sys.maxint*2 + 2)
         assert struct.getfield('ulong') == 0
-        struct.setfield('char', 'a')
-        assert struct.getfield('char') == 'a'
+        struct.setfield('char', b'a')
+        assert struct.getfield('char') == b'a'
         struct.setfield('unichar', u'\u1234')
         assert struct.getfield('unichar') == u'\u1234'
         struct.setfield('ptr', -1)
