@@ -369,7 +369,7 @@ class AppTestFfi:
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')
-        a = A(6, 'xx\x00\x00xx')
+        a = A(6, u'xx\x00\x00xx')
         for i in (-1, 6):
             res = _rawffi.wcharp2unicode(a.buffer, i)
             assert isinstance(res, str)
@@ -910,10 +910,10 @@ class AppTestFfi:
         import _rawffi, sys
         A = _rawffi.Array('u')
         a = A(3)
-        a[0] = 'x'
-        a[1] = 'y'
-        a[2] = 'z'
-        assert a[0] == 'x'
+        a[0] = u'x'
+        a[1] = u'y'
+        a[2] = u'z'
+        assert a[0] == u'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
         if sys.maxunicode > 65535:
             # UCS4 build
@@ -1057,13 +1057,10 @@ class AppTestFfi:
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
-        print("getting...")
         sum_x_y = lib.ptr('sum_x_y', [(X_Y, 1)], 'l')
         x_y.x = 200
         x_y.y = 220
-        print("calling...")
         res = sum_x_y(x_y)
-        print("done")
         assert res[0] == 420
         x_y.free()
 
