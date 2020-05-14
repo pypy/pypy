@@ -193,7 +193,7 @@ class W_ArrayInstance(W_DataInstance):
 
     def buffer_w(self, space, flags):
         return RawBufferView(
-            RawFFIBuffer(self), self.shape.itemcode, self.shape.size, False)
+            RawFFIBuffer(self), self.shape.itemcode, self.shape.size)
 
 
 W_ArrayInstance.typedef = TypeDef(

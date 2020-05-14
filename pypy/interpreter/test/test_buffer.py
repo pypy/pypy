@@ -5,7 +5,7 @@ from pypy.interpreter.buffer import RawBufferView, SimpleView
 
 def test_RawBufferView_basic():
     buf = RawByteBuffer(10)
-    view = RawBufferView(buf, 'ignored', 2, False)
+    view = RawBufferView(buf, 'ignored', 2)
     assert view.getlength() == 10
     assert view.getformat() == 'ignored'
     assert view.getitemsize() == 2
