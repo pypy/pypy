@@ -6,16 +6,16 @@ to app-level with apropriate interface
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.module._rawffi.interp_rawffi import segfault_exception
-from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
-from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
-from pypy.module._rawffi.interp_rawffi import size_alignment
-from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc, clibffi
+from rpython.rlib.buffer import SubBuffer
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.buffer import BufferView
+
+from pypy.module._rawffi.interp_rawffi import (
+    segfault_exception, W_DataShape, W_DataInstance, unwrap_value, wrap_value,
+    TYPEMAP, size_alignment, unpack_shape_with_length, read_ptr, write_ptr,)
+from pypy.module._rawffi.buffer import RawFFIBuffer
 
 
 class W_Array(W_DataShape):
@@ -192,6 +192,10 @@ class W_ArrayInstance(W_DataInstance):
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]
 
+    def buffer_w(self, space, flags):
+        return ArrayView(
+            RawFFIBuffer(self), self.shape.itemcode, self.shape.size, False)
+
 
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance',
@@ -217,6 +221,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
         if self.ll_buffer:
             self._free()
 
+
 W_ArrayInstanceAutoFree.typedef = TypeDef(
     'ArrayInstanceAutoFree',
     __repr__    = interp2app(W_ArrayInstance.descr_repr),
@@ -229,3 +234,59 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )
 W_ArrayInstanceAutoFree.typedef.acceptable_as_base_class = False
+
+
+class ArrayView(BufferView):
+    _immutable_ = True
+
+    def __init__(self, data, fmt, itemsize, readonly):
+        self.data = data
+        self.fmt = fmt
+        self.itemsize = itemsize
+        self.readonly = readonly
+
+    def getlength(self):
+        return self.data.getlength()
+
+    def as_str(self):
+        return self.data.as_str()
+
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
+
+    def setbytes(self, offset, s):
+        return self.data.setslice(offset, s)
+
+    def getformat(self):
+        return self.fmt
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.getitemsize()]
+
+    def get_raw_address(self):
+        return self.data.get_raw_address()
+
+    def as_readbuf(self):
+        return self.data
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return self.data
+
+    def new_slice(self, start, step, slicelength):
+        if step == 1:
+            n = self.itemsize
+            newbuf = SubBuffer(self.data, start * n, slicelength * n)
+            return ArrayView(newbuf, self.fmt, self.itemsize, self.readonly)
+        else:
+            return BufferView.new_slice(self, start, step, slicelength)
+
