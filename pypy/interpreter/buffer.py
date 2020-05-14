@@ -1,4 +1,4 @@
-from rpython.rlib.buffer import StringBuffer, SubBuffer
+from rpython.rlib.buffer import StringBuffer, SubBuffer, RawBuffer
 
 from pypy.interpreter.error import oefmt
 
@@ -165,6 +165,62 @@ class BufferView(object):
 
     def wrap(self, space):
         return space.newmemoryview(self)
+
+class RawBufferView(BufferView):
+    _attrs_ = ['readonly', 'data', 'fmt', 'itemsize']
+    _immutable_ = True
+
+    def __init__(self, data, fmt, itemsize, readonly):
+        assert isinstance(data, RawBuffer)
+        self.data = data
+        self.fmt = fmt
+        self.itemsize = itemsize
+        self.readonly = readonly
+
+    def getlength(self):
+        return self.data.getlength()
+
+    def as_str(self):
+        return self.data.as_str()
+
+    def getbytes(self, start, size):
+        return self.data[start:start + size]
+
+    def setbytes(self, offset, s):
+        return self.data.setslice(offset, s)
+
+    def getformat(self):
+        return self.fmt
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.getitemsize()]
+
+    def get_raw_address(self):
+        return self.data.get_raw_address()
+
+    def as_readbuf(self):
+        return self.data
+
+    def as_writebuf(self):
+        assert not self.readonly
+        return self.data
+
+    def new_slice(self, start, step, slicelength):
+        if step == 1:
+            n = self.itemsize
+            newbuf = SubBuffer(self.data, start * n, slicelength * n)
+            return RawBufferView(newbuf, self.fmt, self.itemsize, self.readonly)
+        else:
+            return BufferView.new_slice(self, start, step, slicelength)
 
 
 class SimpleView(BufferView):

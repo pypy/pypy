@@ -8,9 +8,8 @@ from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrpropert
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc, clibffi
-from rpython.rlib.buffer import SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.buffer import BufferView
+from pypy.interpreter.buffer import RawBufferView
 
 from pypy.module._rawffi.interp_rawffi import (
     segfault_exception, W_DataShape, W_DataInstance, unwrap_value, wrap_value,
@@ -193,7 +192,7 @@ class W_ArrayInstance(W_DataInstance):
             ll_buffer[start + i] = value[i]
 
     def buffer_w(self, space, flags):
-        return ArrayView(
+        return RawBufferView(
             RawFFIBuffer(self), self.shape.itemcode, self.shape.size, False)
 
 
@@ -234,59 +233,3 @@ W_ArrayInstanceAutoFree.typedef = TypeDef(
     itemaddress = interp2app(W_ArrayInstance.descr_itemaddress),
 )
 W_ArrayInstanceAutoFree.typedef.acceptable_as_base_class = False
-
-
-class ArrayView(BufferView):
-    _immutable_ = True
-
-    def __init__(self, data, fmt, itemsize, readonly):
-        self.data = data
-        self.fmt = fmt
-        self.itemsize = itemsize
-        self.readonly = readonly
-
-    def getlength(self):
-        return self.data.getlength()
-
-    def as_str(self):
-        return self.data.as_str()
-
-    def getbytes(self, start, size):
-        return self.data[start:start + size]
-
-    def setbytes(self, offset, s):
-        return self.data.setslice(offset, s)
-
-    def getformat(self):
-        return self.fmt
-
-    def getitemsize(self):
-        return self.itemsize
-
-    def getndim(self):
-        return 1
-
-    def getshape(self):
-        return [self.getlength() // self.itemsize]
-
-    def getstrides(self):
-        return [self.getitemsize()]
-
-    def get_raw_address(self):
-        return self.data.get_raw_address()
-
-    def as_readbuf(self):
-        return self.data
-
-    def as_writebuf(self):
-        assert not self.readonly
-        return self.data
-
-    def new_slice(self, start, step, slicelength):
-        if step == 1:
-            n = self.itemsize
-            newbuf = SubBuffer(self.data, start * n, slicelength * n)
-            return ArrayView(newbuf, self.fmt, self.itemsize, self.readonly)
-        else:
-            return BufferView.new_slice(self, start, step, slicelength)
-
