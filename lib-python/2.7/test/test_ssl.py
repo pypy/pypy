@@ -2820,6 +2820,9 @@ else:
             # should be enabled by default on SSL contexts.
             context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             context.load_cert_chain(CERTFILE)
+            # TLSv1.3 defaults to PFS key agreement and no longer has KEA in
+            # cipher name.
+            context.options |= ssl.OP_NO_TLSv1_3
             # Prior to OpenSSL 1.0.0, ECDH ciphers have to be enabled
             # explicitly using the 'ECCdraft' cipher alias.  Otherwise,
             # our default cipher list should prefer ECDH-based ciphers
@@ -2968,8 +2971,9 @@ else:
                 except ssl.SSLError as e:
                     stats = e
 
-                if expected is None and IS_OPENSSL_1_1:
-                    # OpenSSL 1.1.0 raises handshake error
+                if (expected is None and IS_OPENSSL_1_1
+                        and ssl.OPENSSL_VERSION_INFO < (1, 1, 0, 6)):
+                    # OpenSSL 1.1.0 to 1.1.0e raises handshake error
                     self.assertIsInstance(stats, ssl.SSLError)
                 else:
                     msg = "failed trying %s (s) and %s (c).\n" \
