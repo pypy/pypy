@@ -1044,7 +1044,13 @@ entries '.' and '..' even if they are present in the directory."""
         as_bytes = True
     if path.as_fd != -1:
         try:
-            result = rposix.fdlistdir(os.dup(path.as_fd))
+            fdlistdir = getattr(rposix, 'fdlistdir')
+        except AttributeError as e:
+            # windows has no fdlistdir
+            raise oefmt(space.w_TypeError,
+                "listdir: illegal type for path argument")
+        try:
+            result =  rposix.fdlistdir(os.dup(path.as_fd))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
     else:
