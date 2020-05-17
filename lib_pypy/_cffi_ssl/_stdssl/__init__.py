@@ -1404,7 +1404,6 @@ class _SSLContext(object):
 
     @post_handshake_auth.setter
     def post_handshake_auth(self, arg):
-        print('set post_handshake_auth', arg)
         if arg is None:
             raise AttributeError("cannot delete attribute")
         mode = lib.SSL_CTX_get_verify_mode(self.ctx)
