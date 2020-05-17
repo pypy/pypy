@@ -1043,10 +1043,8 @@ entries '.' and '..' even if they are present in the directory."""
     else:
         as_bytes = True
     if path.as_fd != -1:
-        try:
-            fdlistdir = getattr(rposix, 'fdlistdir')
-        except AttributeError as e:
-            # windows has no fdlistdir
+        if not rposix.HAVE_FDOPENDIR:
+            # needed for translation, in practice this is dead code
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
         try:
