@@ -30,10 +30,11 @@ class Module(MixedModule):
             fromfd socketpair
             ntohs ntohl htons htonl inet_aton inet_ntoa inet_pton inet_ntop
             getaddrinfo getnameinfo
-            getdefaulttimeout setdefaulttimeout
+            getdefaulttimeout setdefaulttimeout sethostname
             """.split():
 
-            if name in ('inet_pton', 'inet_ntop', 'fromfd', 'socketpair') \
+            if name in ('inet_pton', 'inet_ntop', 'fromfd', 'socketpair',
+                        'sethostname') \
                     and not hasattr(rsocket, name):
                 continue
 
