@@ -1048,17 +1048,24 @@ entries '.' and '..' even if they are present in the directory."""
             raise oefmt(space.w_TypeError,
                 "listdir: illegal type for path argument")
         try:
-            result =  rposix.fdlistdir(os.dup(path.as_fd))
+            result = rposix.fdlistdir(os.dup(path.as_fd))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        return space.newlist([space.newfilename(f) for f in result])
+    elif as_bytes:
         try:
-            result = call_rposix(rposix.listdir, path)
+            result = rposix.listdir(path.as_bytes)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-    if as_bytes:
         return space.newlist_bytes(result)
     else:
+        try:
+            if _WIN32:
+                result = rposix.listdir(path.as_unicode)
+            else:
+                result = rposix.listdir(path.as_bytes)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         len_result = len(result)
         result_w = [None] * len_result
         for i in range(len_result):
