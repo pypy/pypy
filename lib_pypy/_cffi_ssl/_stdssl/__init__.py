@@ -403,29 +403,25 @@ class _SSLSocket(object):
         if ret < 1:
             raise pyssl_error(self, ret)
 
-        peer_cert = lib.SSL_get_peer_certificate(ssl)
-        if peer_cert != ffi.NULL:
-            peer_cert = ffi.gc(peer_cert, lib.X509_free)
-        self.peer_cert = peer_cert
-
         self.handshake_done = 1
         return None
 
     def peer_certificate(self, binary_mode):
         if not self.handshake_done:
             raise ValueError("handshake not done yet")
-        if self.peer_cert == ffi.NULL:
+        peer_cert = lib.SSL_get_peer_certificate(self.ssl);
+        if peer_cert == ffi.NULL:
             return None
 
         if binary_mode:
             # return cert in DER-encoded format
-            return _certificate_to_der(self.peer_cert)
+            return _certificate_to_der(peer_cert)
         else:
             verification = lib.SSL_CTX_get_verify_mode(lib.SSL_get_SSL_CTX(self.ssl))
             if (verification & lib.SSL_VERIFY_PEER) == 0:
                 return {}
             else:
-                return _decode_certificate(self.peer_cert)
+                return _decode_certificate(peer_cert)
 
     def write(self, bytestring):
         deadline = 0
@@ -922,6 +918,7 @@ class _SSLContext(object):
         if ctx == ffi.NULL:
             raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
+        self._post_handshake_auth = 0;
 
         # Don't check host name by default
         self._check_hostname = False
@@ -931,7 +928,6 @@ class _SSLContext(object):
         else:
             self._check_hostname = False
             self.verify_mode = CERT_NONE
-
         # Defaults
         options = lib.SSL_OP_ALL & ~lib.SSL_OP_DONT_INSERT_EMPTY_FRAGMENTS
         if not lib.Cryptography_HAS_SSL2 or protocol != PROTOCOL_SSLv2:
@@ -973,7 +969,6 @@ class _SSLContext(object):
             store = lib.SSL_CTX_get_cert_store(self.ctx)
             lib.X509_STORE_set_flags(store, lib.X509_V_FLAG_TRUSTED_FIRST)
         if HAS_TLSv1_3:
-            self.post_handshake_auth = 0;
             lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
 
@@ -997,7 +992,10 @@ class _SSLContext(object):
 
     @property
     def verify_mode(self):
-        mode = lib.SSL_CTX_get_verify_mode(self.ctx)
+        # ignore SSL_VERIFY_CLIENT_ONCE and SSL_VERIFY_POST_HANDSHAKE
+        mask = (lib.SSL_VERIFY_NONE | lib.SSL_VERIFY_PEER |
+                lib.SSL_VERIFY_FAIL_IF_NO_PEER_CERT)
+        mode = lib.SSL_CTX_get_verify_mode(self.ctx) & mask
         if mode == lib.SSL_VERIFY_NONE:
             return CERT_NONE
         elif mode == lib.SSL_VERIFY_PEER:
@@ -1020,6 +1018,8 @@ class _SSLContext(object):
         if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
+        if HAS_TLSv1_3 and self.post_handshake_auth:
+            mode |= lib.SSL_VERIFY_POST_HANDSHAKE
         # Keep current verify cb
         verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
         lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
@@ -1271,7 +1271,7 @@ class _SSLContext(object):
         return stats
 
     def set_default_verify_paths(self):
-        if (not os.environ.get('SSL_CERT_FILE') and 
+        if (not os.environ.get('SSL_CERT_FILE') and
             not os.environ.get('SSL_CERT_DIR') and
             not sys.platform == 'win32'):
                 locations = get_default_verify_paths()
@@ -1406,32 +1406,21 @@ class _SSLContext(object):
     def post_handshake_auth(self, arg):
         if arg is None:
             raise AttributeError("cannot delete attribute")
-
+        mode = lib.SSL_CTX_get_verify_mode(self.ctx)
         pha = bool(arg)
-        self._post_handshake_auth = pha;
 
-        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
-        # server sockets and SSL_set_post_handshake_auth() for client
+        self._post_handshake_auth = pha
 
-        return 0;
+        # client-side socket setting, ignored by server-side
+        lib.SSL_CTX_set_post_handshake_auth(self.ctx, pha)
 
-    @property
-    def post_handshake_auth(self):
-        if HAS_TLSv1_3:
-            return bool(self._post_handshake_auth)
-        return None
-
-    @post_handshake_auth.setter
-    def post_handshake_auth(self, arg):
-        if arg is None:
-            raise AttributeError("cannot delete attribute")
-
-        pha = bool(arg)
-        self._post_handshake_auth = pha;
-
-        # bpo-37428: newPySSLSocket() sets SSL_VERIFY_POST_HANDSHAKE flag for
-        # server sockets and SSL_set_post_handshake_auth() for client
-
+        # server-side socket setting, ignored by client-side
+        verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
+        if pha:
+            mode |= lib.SSL_VERIFY_POST_HANDSHAKE
+        else:
+            mode ^= lib.SSL_VERIFY_POST_HANDSHAKE
+        lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
         return 0;
 
 
@@ -1661,7 +1650,7 @@ def get_default_verify_paths():
     '''
     Find a certificate store and associated values
 
-    Returns something like 
+    Returns something like
     `('SSL_CERT_FILE', '/usr/lib/ssl/cert.pem', 'SSL_CERT_DIR', '/usr/lib/ssl/certs')`
     on Ubuntu and windows10
 
@@ -1714,10 +1703,10 @@ def get_default_verify_paths():
     # OpenSSL didn't supply the goods. Try some other options
     for f in certFiles:
         if os.path.exists(f):
-            ofile = f 
+            ofile = f
     for f in certDirectories:
         if os.path.exists(f):
-            odir = f 
+            odir = f
     get_default_verify_paths.retval = (ofile_env, ofile, odir_env, odir)
     return get_default_verify_paths.retval
 
