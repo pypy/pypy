@@ -354,6 +354,14 @@ class AppTestBinascii(object):
             ]:
             assert self.binascii.crc_hqx(input, initial) == expected
 
+    def test_crc_hqx_ovf_bug(self):
+        import sys
+        if sys.maxsize == 2 ** 32 - 1:
+            big = 2 ** 32
+        else:
+            big = 2 ** 63
+        assert self.binascii.crc_hqx(b'', big) == 0
+
     def test_crc32(self):
         for input, initial, expected in [
             (b"", 0, 0),
