@@ -240,8 +240,11 @@ crctab_hqx = [
 @unwrap_spec(data='bufferstr')
 def crc_hqx(space, data, w_oldcrc):
     "Compute hqx CRC incrementally."
-    oldcrc = space.uint_w(w_oldcrc)
-    crc = oldcrc & 0xffff
+
+    # CPython converts the oldcrc argument to unsigned long, without overflow
+    # checking. we do the mask with wrapped objects, to deal with huge
+    # arguments
+    crc = space.int_w(space.and_(w_oldcrc, space.newint(0xffff)))
     for c in data:
         crc = ((crc << 8) & 0xff00) ^ crctab_hqx[((crc >> 8) & 0xff) ^ ord(c)]
     return space.newint(crc)

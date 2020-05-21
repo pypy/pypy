@@ -351,6 +351,7 @@ class AppTestBinascii(object):
             (b'x', 10000, 47898),
             (b'y', 10000, 43835),
             (b'z', 10000, 39768),
+            (b'', -1, 65535)
             ]:
             assert self.binascii.crc_hqx(input, initial) == expected
 
@@ -361,6 +362,7 @@ class AppTestBinascii(object):
         else:
             big = 2 ** 63
         assert self.binascii.crc_hqx(b'', big) == 0
+        assert self.binascii.crc_hqx(b'', -big) == 0
 
     def test_crc32(self):
         for input, initial, expected in [
