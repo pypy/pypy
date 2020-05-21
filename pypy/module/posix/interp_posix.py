@@ -1059,20 +1059,30 @@ entries '.' and '..' even if they are present in the directory."""
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         return space.newlist_bytes(result)
     else:
+        # The annotator needs result_u and result to be different
+        u = path.as_unicode
+        result_u = []
+        result = []
         try:
-            if _WIN32:
-                result = rposix.listdir(path.as_unicode)
+            if u:
+                result_u = rposix.listdir(path.as_unicode)
             else:
                 result = rposix.listdir(path.as_bytes)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+        if u:
+            len_result = len(result_u)
+            result_w = [None] * len_result
+            for i in range(len_result):
+                result_w[i] = result_u[i].encode('utf-8')
+            return space.newlist_text(result_w)
+        elif _WIN32:
+            return space.newlist_utf8(result, True)
+        # only non-_WIN32
         len_result = len(result)
         result_w = [None] * len_result
         for i in range(len_result):
-            if _WIN32:
-                result_w[i] = space.newtext(result[i])
-            else:
-                result_w[i] = space.newfilename(result[i])
+            result_w[i] = space.newfilename(result[i])
         return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
