@@ -235,8 +235,7 @@ def alignment(tp):
 
 @builtinify
 def byref(cdata, offset=0):
-    # "pointer" is imported at the end of this module to avoid circular
-    # imports
+    from _ctypes.pointer import pointer
     ptr = pointer(cdata)
     if offset != 0:
         ptr._buffer[0] += offset
@@ -311,7 +310,3 @@ def as_ffi_pointer(value, ffitype):
         raise ArgumentError("expected %s instance, got %s" % (type(value),
                                                               ffitype))
     return value._get_buffer_value()
-
-
-# used by "byref"
-from _ctypes.pointer import pointer

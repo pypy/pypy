@@ -1,17 +1,16 @@
 from _rawffi import alt as _ffi
 import _rawffi
+from __pypy__ import newmemoryview
 import weakref
 import sys
 
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
-     CArgObject
+from _ctypes.basics import (
+    _CData, _CDataMeta, cdata_from_address, CArgObject, sizeof)
 from _ctypes.builtin import ConvMode
 from _ctypes.array import Array
 from _ctypes.pointer import _Pointer, as_ffi_pointer
-#from _ctypes.function import CFuncPtr # this import is moved at the bottom
-                                       # because else it's circular
 
 class NULL(object):
     pass
@@ -131,6 +130,7 @@ def from_param_char_p(cls, value):
 
 def from_param_void_p(cls, value):
     "used by c_void_p subclasses"
+    from _ctypes.function import CFuncPtr
     res = generic_xxx_p_from_param(cls, value)
     if res is not None:
         return res
@@ -424,4 +424,9 @@ class _SimpleCData(_CData):
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
 
-from _ctypes.function import CFuncPtr
+    def __buffer__(self, flags):
+        from _ctypes.array import get_format_str
+        rawview = memoryview(self._buffer)
+        fmt = get_format_str(self)
+        itemsize = sizeof(type(self))
+        return newmemoryview(rawview, itemsize, fmt, ())
