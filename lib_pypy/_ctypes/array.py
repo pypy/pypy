@@ -130,6 +130,15 @@ class ArrayMeta(_CDataMeta):
     def _deref_ffiargtype(self):
         return self._type_.get_ffi_argtype()
 
+    def _getformat(self):
+        shape = []
+        tp = self
+        while hasattr(tp, '_length_'):
+            shape.append(tp._length_)
+            tp = tp._type_
+        return "(%s)%s" % (','.join([str(n) for n in shape]), tp._getformat())
+
+
 def array_get_slice_params(self, index):
     if hasattr(self, '_length_'):
         start, stop, step = index.indices(self._length_)
