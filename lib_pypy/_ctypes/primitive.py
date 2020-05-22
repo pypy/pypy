@@ -9,7 +9,7 @@ SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 from _ctypes.basics import (
     _CData, _CDataMeta, cdata_from_address, CArgObject, sizeof)
 from _ctypes.builtin import ConvMode
-from _ctypes.array import Array
+from _ctypes.array import Array, byteorder
 from _ctypes.pointer import _Pointer, as_ffi_pointer
 
 class NULL(object):
@@ -381,6 +381,9 @@ class SimpleType(_CDataMeta):
     def _is_pointer_like(self):
         return self._type_ in "sPzUZXO"
 
+    def _getformat(self):
+        return byteorder[sys.byteorder] + self._type_
+
 class _SimpleCData(_CData):
     __metaclass__ = SimpleType
     _type_ = 'i'
@@ -425,8 +428,7 @@ class _SimpleCData(_CData):
         return self._buffer[0] not in (0, '\x00')
 
     def __buffer__(self, flags):
-        from _ctypes.array import get_format_str
         rawview = memoryview(self._buffer)
-        fmt = get_format_str(self)
+        fmt = type(self)._getformat()
         itemsize = sizeof(type(self))
         return newmemoryview(rawview, itemsize, fmt, ())

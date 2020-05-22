@@ -253,11 +253,8 @@ class Array(_CData):
                 break
             obj = obj[0]
 
-        fmt = get_format_str(obj._type_)
-        try:
-            itemsize = struct.calcsize(fmt[1:])
-        except:
-            itemsize = sizeof(obj[0])
+        fmt = obj._type_._getformat()
+        itemsize = sizeof(obj._type_)
         return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, shape)
 
 ARRAY_CACHE = {}
@@ -286,31 +283,4 @@ byteorder = {'little': '<', 'big': '>'}
 swappedorder = {'little': '>', 'big': '<'}
 
 def get_format_str(typ):
-    if hasattr(typ, '_fields_'):
-        if hasattr(typ, '_swappedbytes_'):
-            bo = swappedorder[sys.byteorder]
-        else:
-            bo = byteorder[sys.byteorder]
-        flds = []
-        cum_size = 0
-        for name, obj in typ._fields_:
-            padding = typ._ffistruct_.fieldoffset(name) - cum_size
-            if padding:
-                flds.append('%dx' % padding)
-            # Trim off the leading '<' or '>'
-            ch = get_format_str(obj)[1:]
-            if (ch) == 'B':
-                flds.append(byteorder[sys.byteorder])
-            else:
-                flds.append(bo)
-            flds.append(ch)
-            flds.append(':')
-            flds.append(name)
-            flds.append(':')
-            cum_size += typ._ffistruct_.fieldsize(name)
-        return 'T{' + ''.join(flds) + '}'
-    elif hasattr(typ, '_type_'):
-        ch = typ._type_
-        return byteorder[sys.byteorder] + ch
-    else:
-        raise ValueError('cannot get format string for %r' % typ)
+    return typ._getformat()

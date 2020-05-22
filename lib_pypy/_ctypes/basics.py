@@ -143,6 +143,9 @@ class _CDataMeta(type):
         result._init_no_arg_()
         return result
 
+    def _getformat(self):
+        raise ValueError('cannot get format string for %r' % self)
+
 
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing

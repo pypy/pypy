@@ -81,6 +81,9 @@ class PointerType(_CDataMeta):
 
     from_address = cdata_from_address
 
+    def _getformat(self):
+        return '&' + self._type_._getformat()
+
 class _Pointer(_CData):
     __metaclass__ = PointerType
 
@@ -135,11 +138,10 @@ class _Pointer(_CData):
         return as_ffi_pointer(self, ffitype)
 
     def __buffer__(self, flags):
-        from _ctypes.array import get_format_str
         rawview = memoryview(self._buffer)
-        fmt = get_format_str(self._type_._type_)
+        fmt = type(self)._getformat()
         itemsize = sizeof(type(self))
-        return newmemoryview(rawview, itemsize, '&' + fmt, ())
+        return newmemoryview(rawview, itemsize, fmt, ())
 
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
