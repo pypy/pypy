@@ -150,6 +150,8 @@ class Path(object):
 def _path_from_unicode(space, w_value):
     if _WIN32:
         path_u = FileEncoder(space, w_value).as_unicode()
+        if not path_u:
+            path_u = u'.'
         return Path(-1, None, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
@@ -157,6 +159,8 @@ def _path_from_unicode(space, w_value):
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
+    if not path_b:
+        path_b = '.'
     return Path(-1, path_b, None, w_value)
 
 @specialize.arg(2, 3)
