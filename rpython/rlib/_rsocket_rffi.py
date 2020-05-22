@@ -1292,6 +1292,8 @@ if _POSIX:
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,
                           save_err=SAVE_ERR)
+    sethostname = external('sethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
+                           save_err=SAVE_ERR)
     if _HAS_AF_PACKET:
         ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
                          rffi.INT)

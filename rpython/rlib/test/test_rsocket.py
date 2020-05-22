@@ -1,5 +1,5 @@
 import pytest
-import errno, sys
+import errno, os, sys
 from rpython.rlib import rsocket
 from rpython.rlib.rsocket import *
 import socket as cpy_socket
@@ -728,3 +728,17 @@ def test_socket_init_non_blocking():
     assert s.type == SOCK_STREAM
     assert s.gettimeout() == 0.0
     assert fcntl.fcntl(s.fd, fcntl.F_GETFL, os.O_NONBLOCK) & os.O_NONBLOCK
+
+# It is a bad idea to change running system's hostname, so do it only
+# if we can reasonably assume the request will be rejected, i.e. we don't
+# have superuser privileges.
+@pytest.mark.skipif(sys.platform == "win32",
+        reason='No sethostname on Windows')
+@pytest.mark.skipif(os.geteuid() == 0,
+        reason='Running as superuser is not supported.')
+def test_sethostname():
+    # just in case it worked anyway, use the old hostname
+    s = gethostname()
+    with pytest.raises(CSocketError) as e:
+        sethostname(s)
+    assert e.value.errno == errno.EPERM
