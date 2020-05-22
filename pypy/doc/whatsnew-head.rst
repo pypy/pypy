@@ -19,3 +19,5 @@ Refactor RSocket.xxx_into() methods and add .recvmsg_into().
 Fix documentation extlinks for heptapod directory schema
 
 .. branch: py3.6 # ignore, bad merge
+
+.. branch: ssl  # ignore, small test fix

@@ -1769,3 +1769,11 @@ def setdefaulttimeout(timeout):
     defaults.timeout = timeout
 
 _accept4_syscall = rposix.ENoSysCache()
+
+if hasattr(_c, 'sethostname'):
+    def sethostname(hostname):
+        assert hostname is not None
+        with rffi.scoped_view_charp(hostname) as buf:
+            res = _c.sethostname(buf, len(hostname))
+            if res < 0:
+                raise last_error()

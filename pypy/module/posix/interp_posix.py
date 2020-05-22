@@ -150,6 +150,8 @@ class Path(object):
 def _path_from_unicode(space, w_value):
     if _WIN32:
         path_u = FileEncoder(space, w_value).as_unicode()
+        if not path_u:
+            path_u = u'.'
         return Path(-1, None, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
@@ -157,6 +159,8 @@ def _path_from_unicode(space, w_value):
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
+    if not path_b:
+        path_b = '.'
     return Path(-1, path_b, None, w_value)
 
 @specialize.arg(2, 3)
@@ -1043,25 +1047,46 @@ entries '.' and '..' even if they are present in the directory."""
     else:
         as_bytes = True
     if path.as_fd != -1:
+        if not rposix.HAVE_FDOPENDIR:
+            # needed for translation, in practice this is dead code
+            raise oefmt(space.w_TypeError,
+                "listdir: illegal type for path argument")
         try:
             result = rposix.fdlistdir(os.dup(path.as_fd))
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
-    else:
+        return space.newlist([space.newfilename(f) for f in result])
+    elif as_bytes:
         try:
-            result = call_rposix(rposix.listdir, path)
+            result = rposix.listdir(path.as_bytes)
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
-    if as_bytes:
         return space.newlist_bytes(result)
     else:
+        # The annotator needs result_u and result to be different
+        u = path.as_unicode
+        result_u = []
+        result = []
+        try:
+            if u:
+                result_u = rposix.listdir(path.as_unicode)
+            else:
+                result = rposix.listdir(path.as_bytes)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+        if u:
+            len_result = len(result_u)
+            result_w = [None] * len_result
+            for i in range(len_result):
+                result_w[i] = result_u[i].encode('utf-8')
+            return space.newlist_text(result_w)
+        elif _WIN32:
+            return space.newlist_utf8(result, True)
+        # only non-_WIN32
         len_result = len(result)
         result_w = [None] * len_result
         for i in range(len_result):
-            if _WIN32:
-                result_w[i] = space.newtext(result[i])
-            else:
-                result_w[i] = space.newfilename(result[i])
+            result_w[i] = space.newfilename(result[i])
         return space.newlist(result_w)
 
 @unwrap_spec(fd=c_int)
