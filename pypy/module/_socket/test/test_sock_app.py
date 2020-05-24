@@ -305,8 +305,8 @@ def test_type(space, w_socket):
                     """)
     typeint = space.int_w(w_type)
     if typeint > 0:
-        # SOCK_CLOEXEC on Ubuntu 18.04
-        assert typeint & 524288 
+        # SOCK_CLOEXEC no longer part of type on 3.7
+        assert typeint == _socket.SOCK_STREAM
 
 class AppTestSocket:
     spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
