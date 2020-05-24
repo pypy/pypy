@@ -132,10 +132,16 @@ def pyssl_error(obj, ret):
                 errval = SSL_ERROR_SYSCALL
         elif err == SSL_ERROR_SSL:
             errval = SSL_ERROR_SSL
-            if errcode != 0:
-                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
-            else:
+            if errcode == 0:
                 errstr = "A failure in the SSL library occurred"
+            else:
+                errstr = _str_from_buf(lib.ERR_lib_error_string(errcode))
+            err_lib = lib.ERR_GET_LIB(errcode)
+            err_reason = lib.ERR_GET_REASON(errcode)
+            reason_str = ERR_CODES_TO_NAMES.get((err_lib, err_reason), None)
+            if (lib.ERR_GET_LIB(errcode) == lib.ERR_LIB_SSL and 
+                    reason_str == 'CERTIFICATE_VERIFY_FAILED'):
+                errtype = SSLCertVerificationError
         else:
             errstr = "Invalid error code"
             errval = SSL_ERROR_INVALID_ERROR_CODE

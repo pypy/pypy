@@ -58,6 +58,7 @@ HAS_ECDH = True
 HAS_SNI = bool(lib.Cryptography_HAS_TLSEXT_HOSTNAME)
 HAS_ALPN = bool(lib.Cryptography_HAS_ALPN)
 HAS_NPN = bool(lib.OPENSSL_NPN_NEGOTIATED)
+HAS_CTRL_GET_MAX_PROTO_VERSION = bool(lib.Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION)
 HAS_TLS_UNIQUE = True
 
 CLIENT = 0
@@ -131,6 +132,35 @@ PROTO_TLSv1 = 0x301
 PROTO_TLSv1_1 = 0x302
 PROTO_TLSv1_2 = 0x303
 PROTO_TLSv1_3 = 0x304
+
+# OpenSSL has no dedicated API to set the minimum version to the maximum
+# available version, and the other way around. We have to figure out the
+# minimum and maximum available version on our own and hope for the best.
+if not OP_NO_SSLv3:
+    PROTO_MINIMUM_AVAILABLE = PROTO_SSLv3
+elif not lib.SSL_OP_NO_TLSv1:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1
+elif not lib.SSL_OP_NO_TLSv1_1:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_1
+elif not lib.SSL_OP_NO_TLSv1_2:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_2
+elif not lib.SSL_OP_NO_TLSv1_3:
+    PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_3
+else:
+    raise ValueError("PROTO_MINIMUM_AVAILABLE not found")
+
+if not lib.SSL_OP_NO_TLSv1_3:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_3
+elif not lib.SSL_OP_NO_TLSv1_2:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_2
+elif not lib.SSL_OP_NO_TLSv1_1:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_1
+elif not lib.SSL_OP_NO_TLSv1:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1
+elif not OP_NO_SSLv3:
+    PROTO_MAXIMUM_AVAILABLE = PROTO_SSLv3
+else:
+    raise ValueError("PROTO_MAXIMUM_AVAILABLE not found")
 
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
@@ -291,12 +321,11 @@ class _SSLSocket(object):
             lib.SSL_set_bio(self.ssl, inbio.bio, outbio.bio)
 
         mode = lib.SSL_MODE_ACCEPT_MOVING_WRITE_BUFFER
-        if lib.SSL_MODE_AUTO_RETRY:
-            mode |= lib.SSL_MODE_AUTO_RETRY
+        mode |= lib.SSL_MODE_AUTO_RETRY
         lib.SSL_set_mode(ssl, mode)
 
         if HAS_TLSv1_3:
-            if sslctx._post_handshake_auth:
+            if sslctx._post_handshake_auth == 1:
                 if socket_type == SSL_SERVER:
                     # bpo-37428: OpenSSL does not ignore SSL_VERIFY_POST_HANDSHAKE.
                     # Set SSL_VERIFY_POST_HANDSHAKE flag only for server sockets and
@@ -727,6 +756,19 @@ class _SSLSocket(object):
         else:
             return None
 
+    def get_channel_binding(self, cb_type):
+        buf = ffi.new("char[]", SSL_CB_MAXLEN)
+        if cb_type == 'tls-unique':
+            if lib.SSL_session_reused(self.ssl) ^ self.socket_type:
+                length = lib.SSL_get_finished(self.ssl, buf, SSL_CB_MAXLEN)
+            else:
+                length = lib.SSL_get_peer_finished(self.ssl, buf, SSL_CB_MAXLEN)
+        else:
+            raise ValueError(f"'{cb_type}' channel binding type not implemented")
+        if length == 0:
+            return None
+        return _bytes_with_len(buf, length) 
+
     def verify_client_post_handshake(self):
 
         if not HAS_TLSv1_3:
@@ -913,7 +955,7 @@ for name in SSL_CTX_STATS_NAMES:
 
 class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
-                 'alpn_protocols', '_alpn_protocols_handle',
+                 'alpn_protocols', '_alpn_protocols_handle', '_protocol'
                  'npn_protocols', 'set_hostname', '_post_handshake_auth',
                  '_set_hostname_handle', '_npn_protocols_handle')
     def __new__(cls, protocol):
@@ -943,6 +985,7 @@ class _SSLContext(object):
             raise ssl_error("failed to allocate SSL context")
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
         self._post_handshake_auth = 0;
+        self._protocol = protocol
 
         # Don't check host name by default
         self._check_hostname = False
@@ -1042,8 +1085,6 @@ class _SSLContext(object):
         if mode == lib.SSL_VERIFY_NONE and self.check_hostname:
             raise ValueError("Cannot set verify_mode to CERT_NONE when " \
                              "check_hostname is enabled.")
-        if HAS_TLSv1_3 and self.post_handshake_auth:
-            mode |= lib.SSL_VERIFY_POST_HANDSHAKE
         # Keep current verify cb
         verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
         lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
@@ -1072,6 +1113,58 @@ class _SSLContext(object):
             if not lib.X509_VERIFY_PARAM_set_flags(param, set):
                 raise ssl_error(None, 0)
 
+    if HAS_CTRL_GET_MAX_PROTO_VERSION:
+        def set_min_max_proto_version(self, arg, what):
+            v = int(arg)
+            if self.protocol not in (PROTOCOL_TLS_CLIENT, PROTOCOL_TLS_SERVER,
+                                     PROTOCOL_TLS):
+                raise ValueError("The context's protocol doesn't support"
+                    "modification of highest and lowest version.")
+            if what == 0:
+                if v == PROTO_MINIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MAXIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MAXIMUM_AVAILABLE
+                result = lib.SSL_TCT_set_min_proto_version(self.ctx, v)
+            else:
+                if v == PROTO_MAXIMUM_SUPPORTED:
+                    v = 0
+                elif v == PROTO_MINIMUM_SUPPORTED:
+                    # Emulate max for set_min_proto_version
+                    v = PROTO_MINIMUM_AVAILABLE
+                result = lib.SSL_TCT_set_max_proto_version(self.ctx, v)
+            if result == 0:
+                raise ValueError('Unsupported protocol version 0x%x' % v)
+            return 0
+
+        @property
+        def minimum_version(self, c):
+            v = lib.SSL_CTX_ctrl(self.ctx, lib.SSL_CTRL_GET_MIN_PROTO_VERSION, 0, None)
+            if v == 0:
+                v = PROTO_MINIMUM_SUPPORTED
+            return v
+
+        @property.setter
+        def minimum_version(self, arg, c):
+            return self.set_min_max_proto_version(arg, 0);
+
+        @property
+        def maximum_version(self, c):
+            v = lib.SSL_CTX_ctrl(self.ctx, lib.SSL_CTRL_GET_MAX_PROTO_VERSION, 0, None)
+            if v == 0:
+                v = PROTO_MINIMUM_SUPPORTED
+            return v
+
+        @property.setter
+        def maximum_version(self, arg, c):
+            return self.set_min_max_proto_version(arg, 1);
+         
+
+    @property
+    def protocol(self):
+        return self._protocol
+
     @property
     def check_hostname(self):
         return self._check_hostname
@@ -1080,8 +1173,7 @@ class _SSLContext(object):
     def check_hostname(self, value):
         check_hostname = bool(value)
         if check_hostname and lib.SSL_CTX_get_verify_mode(self.ctx) == lib.SSL_VERIFY_NONE:
-            raise ValueError("check_hostname needs a SSL context with either "
-                             "CERT_OPTIONAL or CERT_REQUIRED")
+            self.verify_mode = CERT_REQUIRED
         self._check_hostname = check_hostname
 
 
@@ -1439,16 +1531,6 @@ class _SSLContext(object):
 
         self._post_handshake_auth = pha
 
-        # client-side socket setting, ignored by server-side
-        lib.SSL_CTX_set_post_handshake_auth(self.ctx, pha)
-
-        # server-side socket setting, ignored by client-side
-        verify_cb = lib.SSL_CTX_get_verify_callback(self.ctx)
-        if pha:
-            mode |= lib.SSL_VERIFY_POST_HANDSHAKE
-        else:
-            mode ^= lib.SSL_VERIFY_POST_HANDSHAKE
-        lib.SSL_CTX_set_verify(self.ctx, mode, verify_cb)
         return 0;
 
 
@@ -1624,8 +1706,15 @@ class MemoryBIO(object):
         lib.BIO_clear_retry_flags(self.bio)
         lib.BIO_set_mem_eof_return(self.bio, 0)
 
-    def read(self, len=-1):
-        count = len
+    def read(self, size=-1):
+        """Read up to size bytes from the memory BIO.
+
+        If size is not specified, read the entire buffer.
+        If the return value is an empty bytes instance, this means either
+        EOF or that no data is available. Use the "eof" property to
+        distinguish between the two.
+        """
+        count = size
         avail = lib.BIO_ctrl_pending(self.bio);
         if count < 0 or count > avail:
             count = avail;
@@ -1633,10 +1722,13 @@ class MemoryBIO(object):
         buf = ffi.new("char[]", count)
 
         nbytes = lib.BIO_read(self.bio, buf, count);
+        if nbytes < 0:
+            raise ssl_error(None)
         #  There should never be any short reads but check anyway.
         if nbytes < count:
-            return b""
-
+            pass
+            # adaptation of BPO 34824: just return a short buffer
+            # return b""
         return _bytes_with_len(buf, nbytes)
 
     @property

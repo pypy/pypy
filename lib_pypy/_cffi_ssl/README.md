@@ -17,6 +17,7 @@ the cffi backend thus it renames the compiled shared object to _pypy_openssl.so
   `i2d_X509`
 - `_cffi_src/openssl/x509v3.py` : revert removal of `X509V3_EXT_get`,
   `X509V3_EXT_METHOD`
+- `_cffi_src/openssl/ssl.py: expose Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION
 
 # Tests?
 

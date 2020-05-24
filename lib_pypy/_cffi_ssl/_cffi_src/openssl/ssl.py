@@ -31,6 +31,7 @@ static const long Cryptography_HAS_GENERIC_DTLS_METHOD;
 static const long Cryptography_HAS_SIGALGS;
 static const long Cryptography_HAS_PSK;
 static const long Cryptography_HAS_CIPHER_DETAILS;
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -694,6 +695,12 @@ static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 1;
 #else
 static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 0;
 long (*SSL_get_server_tmp_key)(SSL *, EVP_PKEY **) = NULL;
+#endif
+
+#if defined(SSL_CTRL_GET_MAX_PROTO_VERSION)
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 1;
+#else
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 0;
 #endif
 
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE = 1;
