@@ -136,28 +136,28 @@ PROTO_TLSv1_3 = 0x304
 # OpenSSL has no dedicated API to set the minimum version to the maximum
 # available version, and the other way around. We have to figure out the
 # minimum and maximum available version on our own and hope for the best.
-if not OP_NO_SSLv3:
+if HAS_SSLv3:
     PROTO_MINIMUM_AVAILABLE = PROTO_SSLv3
-elif not lib.SSL_OP_NO_TLSv1:
+elif HAS_TLSv1:
     PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1
-elif not lib.SSL_OP_NO_TLSv1_1:
+elif HAS_TLSv1_1:
     PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_1
-elif not lib.SSL_OP_NO_TLSv1_2:
+elif HAS_TLSv1_2:
     PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_2
-elif not lib.SSL_OP_NO_TLSv1_3:
+elif HAS_TLSv1_3:
     PROTO_MINIMUM_AVAILABLE = PROTO_TLSv1_3
 else:
     raise ValueError("PROTO_MINIMUM_AVAILABLE not found")
 
-if not lib.SSL_OP_NO_TLSv1_3:
+if HAS_TLSv1_3:
     PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_3
-elif not lib.SSL_OP_NO_TLSv1_2:
+elif HAS_TLSv1_2:
     PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_2
-elif not lib.SSL_OP_NO_TLSv1_1:
+elif HAS_TLSv1_1:
     PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1_1
-elif not lib.SSL_OP_NO_TLSv1:
+elif HAS_TLSv1:
     PROTO_MAXIMUM_AVAILABLE = PROTO_TLSv1
-elif not OP_NO_SSLv3:
+elif HAS_SSLv3:
     PROTO_MAXIMUM_AVAILABLE = PROTO_SSLv3
 else:
     raise ValueError("PROTO_MAXIMUM_AVAILABLE not found")
