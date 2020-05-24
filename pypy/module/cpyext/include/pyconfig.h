@@ -41,9 +41,9 @@ extern "C" {
     */
 #    ifdef _DEBUG
 #      error("debug first with cpython")    
-#            pragma comment(lib,"python36.lib")
+#            pragma comment(lib,"python37.lib")
 #    else
-#            pragma comment(lib,"python36.lib")
+#            pragma comment(lib,"python37.lib")
 #    endif /* _DEBUG */
 #    define HAVE_COPYSIGN 1
 #    define copysign _copysign
