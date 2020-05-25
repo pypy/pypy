@@ -303,7 +303,7 @@ class _SSLSocket(object):
         self.owner = None
 
         if server_hostname:
-            self.server_hostname = server_hostname.decode('idna', 'strict')
+            self.server_hostname = server_hostname.decode('ascii', 'strict')
 
         lib.ERR_clear_error()
         self.ssl = ssl = ffi.gc(lib.SSL_new(ctx), lib.SSL_free)
@@ -396,6 +396,13 @@ class _SSLSocket(object):
 
     @context.setter
     def context(self, value):
+        """ _setter_context(ctx)
+
+        This changes the context associated with the SSLSocket. This is typically
+        used from within a callback function set by the sni_callback
+        on the SSLContext to change the certificate information associated with the
+        SSLSocket before the cryptographic exchange handshake messages
+        """
         if isinstance(value, _SSLContext):
             if not HAS_SNI:
                 raise NotImplementedError("setting a socket's "
@@ -1126,38 +1133,38 @@ class _SSLContext(object):
                 elif v == PROTO_MAXIMUM_SUPPORTED:
                     # Emulate max for set_min_proto_version
                     v = PROTO_MAXIMUM_AVAILABLE
-                result = lib.SSL_TCT_set_min_proto_version(self.ctx, v)
+                result = lib.SSL_CTX_set_min_proto_version(self.ctx, v)
             else:
                 if v == PROTO_MAXIMUM_SUPPORTED:
                     v = 0
                 elif v == PROTO_MINIMUM_SUPPORTED:
                     # Emulate max for set_min_proto_version
                     v = PROTO_MINIMUM_AVAILABLE
-                result = lib.SSL_TCT_set_max_proto_version(self.ctx, v)
+                result = lib.SSL_CTX_set_max_proto_version(self.ctx, v)
             if result == 0:
                 raise ValueError('Unsupported protocol version 0x%x' % v)
             return 0
 
         @property
-        def minimum_version(self, c):
-            v = lib.SSL_CTX_ctrl(self.ctx, lib.SSL_CTRL_GET_MIN_PROTO_VERSION, 0, None)
+        def minimum_version(self):
+            v = lib.SSL_CTX_get_min_proto_version(self.ctx)
             if v == 0:
                 v = PROTO_MINIMUM_SUPPORTED
             return v
 
         @minimum_version.setter
-        def minimum_version(self, arg, c):
+        def minimum_version(self, arg):
             return self.set_min_max_proto_version(arg, 0);
 
         @property
-        def maximum_version(self, c):
-            v = lib.SSL_CTX_ctrl(self.ctx, lib.SSL_CTRL_GET_MAX_PROTO_VERSION, 0, None)
+        def maximum_version(self):
+            v = lib.SSL_CTX_get_max_proto_version(self.ctx)
             if v == 0:
                 v = PROTO_MINIMUM_SUPPORTED
             return v
 
         @maximum_version.setter
-        def maximum_version(self, arg, c):
+        def maximum_version(self, arg):
             return self.set_min_max_proto_version(arg, 1);
          
 
@@ -1185,7 +1192,7 @@ class _SSLContext(object):
             # versions, otherwise the error will be reported again
             # when another SSL call is done.
             lib.ERR_clear_error()
-            raise ssl_error("No cipher can be selected.")
+            raise ssl_error(self, "No cipher can be selected.")
 
     def get_ciphers(self):
         ssl = lib.SSL_new(self.ctx)
@@ -1236,7 +1243,7 @@ class _SSLContext(object):
                     lib.ERR_clear_error()
                     raise OSError(_errno, "Error")
                 else:
-                    raise ssl_error(None)
+                    raise ssl_error(self, None)
 
             ffi.errno = 0
             buf = _str_to_ffi_buffer(keyfile)
@@ -1251,11 +1258,11 @@ class _SSLContext(object):
                     lib.ERR_clear_error()
                     raise OSError(_errno, None)
                 else:
-                    raise ssl_error(None)
+                    raise ssl_error(self, None)
 
             ret = lib.SSL_CTX_check_private_key(self.ctx)
             if ret != 1:
-                raise ssl_error(None)
+                raise ssl_error(self, None)
         finally:
             if index >= 0:
                 del PWINFO_STORAGE[index]
@@ -1266,7 +1273,7 @@ class _SSLContext(object):
     def _wrap_socket(self, sock, server_side, server_hostname=None, *,
             owner=None, session=None):
         if server_hostname:
-            server_hostname = server_hostname.encode('idna')
+            server_hostname = server_hostname.encode('ascii')
         return _SSLSocket._new__ssl_socket(self, sock, server_side,
                 server_hostname, owner, session, None, None)
 
@@ -1307,7 +1314,7 @@ class _SSLContext(object):
                     lib.ERR_clear_error()
                     raise OSError(_errno, '')
                 else:
-                    raise ssl_error(None)
+                    raise ssl_error(self, None)
 
     def _add_ca_certs(self, data, size, ca_file_type):
         biobuf = lib.BIO_new_mem_buf(data, size)
@@ -1352,7 +1359,7 @@ class _SSLContext(object):
                 # EOF PEM file, not an error
                 lib.ERR_clear_error()
             else:
-                raise ssl_error(None)
+                raise ssl_error(self, None)
         finally:
             lib.BIO_free(biobuf)
 
@@ -1419,10 +1426,10 @@ class _SSLContext(object):
                 lib.ERR_clear_error()
                 raise OSError(_errno, '')
             else:
-                raise ssl_error(None)
+                raise ssl_error(self, None)
         try:
             if lib.SSL_CTX_set_tmp_dh(self.ctx, dh) == 0:
-                raise ssl_error(None)
+                raise ssl_error(self, None)
         finally:
             lib.DH_free(dh)
 
@@ -1458,7 +1465,7 @@ class _SSLContext(object):
             raise ValueError("unknown elliptic curve name '%s'" % name)
         key = lib.EC_KEY_new_by_curve_name(nid)
         if not key:
-            raise ssl_error(None)
+            raise ssl_error(self, None)
         try:
             lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
         finally:
@@ -1506,10 +1513,10 @@ class _SSLContext(object):
     def _wrap_bio(self, incoming, outgoing, server_side, server_hostname, *,
             owner=None, session=None):
         # server_hostname is either None (or absent), or to be encoded
-        # using the idna encoding.
+        # using the ascii encoding.
         hostname = None
         if server_hostname is not None:
-            hostname = server_hostname.encode("idna")
+            hostname = server_hostname.encode("ascii")
 
         sock = _SSLSocket._new__ssl_socket(
             self, None, server_side, hostname, owner, session, incoming,
@@ -1585,12 +1592,14 @@ if HAS_SNI:
             servername = ffi.string(servername)
 
             try:
-                servername_idna = servername.decode("idna")
+                # server_hostname was encoded to an A-label by our caller; put it
+                # back into a str object, but still as an A-label (bpo-28414)
+                servername_str = servername.decode("ascii")
             except UnicodeDecodeError as e:
                 pyerr_write_unraisable(e, servername)
 
             try:
-                result = set_hostname(ssl_socket, servername_idna, ssl_ctx)
+                result = set_hostname(ssl_socket, servername_str, ssl_ctx)
             except Exception as e:
                 pyerr_write_unraisable(e, set_hostname)
                 al[0] = lib.SSL_AD_HANDSHAKE_FAILURE
@@ -1635,7 +1644,7 @@ def _asn1obj2py(obj):
     buf = ffi.new("char[]", 255)
     length = lib.OBJ_obj2txt(buf, len(buf), obj, 1)
     if length < 0:
-        ssl_error(None)
+        ssl_error(obj, None)
     if length > 0:
         return (nid, sn, ln, _str_with_len(buf, length))
     else:
@@ -1666,7 +1675,7 @@ class MemoryBIO(object):
     def __init__(self):
         bio = lib.BIO_new(lib.BIO_s_mem());
         if bio == ffi.NULL:
-            raise ssl_error("failed to allocate BIO")
+            raise ssl_error(self, "failed to allocate BIO")
 
         # Since our BIO is non-blocking an empty read() does not indicate EOF,
         # just that no data is currently available. The SSL routines should retry
@@ -1693,10 +1702,10 @@ class MemoryBIO(object):
             raise OverflowError("string longer than %d bytes", INT_MAX)
 
         if self.eof_written:
-            raise ssl_error("cannot write() after write_eof()")
+            raise ssl_error(self, "cannot write() after write_eof()")
         nbytes = lib.BIO_write(self.bio, buf, len(buf));
         if nbytes < 0:
-            raise ssl_error(None)
+            raise ssl_error(self, None)
         return nbytes
 
     def write_eof(self):
@@ -1718,12 +1727,14 @@ class MemoryBIO(object):
         avail = lib.BIO_ctrl_pending(self.bio);
         if count < 0 or count > avail:
             count = avail;
+        if count == 0:
+            return b''
 
         buf = ffi.new("char[]", count)
 
         nbytes = lib.BIO_read(self.bio, buf, count);
         if nbytes < 0:
-            raise ssl_error(None)
+            raise ssl_error(self, None)
         #  There should never be any short reads but check anyway.
         if nbytes < count:
             pass
@@ -1754,7 +1765,7 @@ def _RAND_bytes(count, pseudo):
         ok = lib.RAND_bytes(buf, count)
         if ok == 1 or (pseudo and ok == 0):
             return _bytes_with_len(buf, count)
-    raise ssl_error(None, errcode=lib.ERR_get_error())
+    raise ssl_error(self, None, errcode=lib.ERR_get_error())
 
 def RAND_pseudo_bytes(count):
     return _RAND_bytes(count, True)

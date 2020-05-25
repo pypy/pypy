@@ -544,10 +544,23 @@ int SSL_verify_client_post_handshake(SSL *);
 void SSL_CTX_set_post_handshake_auth(SSL_CTX *, int);
 void SSL_set_post_handshake_auth(SSL *, int);
 
+
 uint32_t SSL_SESSION_get_max_early_data(const SSL_SESSION *);
 int SSL_write_early_data(SSL *, const void *, size_t, size_t *);
 int SSL_read_early_data(SSL *, void *, size_t, size_t *);
 int SSL_CTX_set_max_early_data(SSL_CTX *, uint32_t);
+
+long SSL_get_verify_result(const SSL *ssl);
+
+int SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version);
+int SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version);
+int SSL_CTX_get_min_proto_version(SSL_CTX *ctx);
+int SSL_CTX_get_max_proto_version(SSL_CTX *ctx);
+
+int SSL_set_min_proto_version(SSL *ssl, int version);
+int SSL_set_max_proto_version(SSL *ssl, int version);
+int SSL_get_min_proto_version(SSL *ssl);
+int SSL_get_max_proto_version(SSL *ssl);
 """
 
 CUSTOMIZATIONS = """
