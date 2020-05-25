@@ -1145,7 +1145,7 @@ class _SSLContext(object):
                 v = PROTO_MINIMUM_SUPPORTED
             return v
 
-        @property.setter
+        @minimum_version.setter
         def minimum_version(self, arg, c):
             return self.set_min_max_proto_version(arg, 0);
 
@@ -1156,7 +1156,7 @@ class _SSLContext(object):
                 v = PROTO_MINIMUM_SUPPORTED
             return v
 
-        @property.setter
+        @maximum_version.setter
         def maximum_version(self, arg, c):
             return self.set_min_max_proto_version(arg, 1);
          
