@@ -354,10 +354,18 @@ class AppTestPosix:
                           'file2']
 
     def test_listdir_default(self):
+        import sys
         posix = self.posix
-        for v in ['.', '', None]:
+        if sys.platform == 'win32':
+            defaults = ['.', '', None]
+            assert posix.listdir(b'.') == posix.listdir(b'')
+        else:
+            defaults = ['.', None]
+            for v in ['', b'']:
+                with raises(FileNotFoundError):
+                    posix.listdir(v)
+        for v in defaults:
             assert posix.listdir() == posix.listdir(v)
-        assert posix.listdir(b'.') == posix.listdir(b'')
 
     def test_listdir_bytes(self):
         import sys

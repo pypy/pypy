@@ -159,8 +159,9 @@ def _path_from_unicode(space, w_value):
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
-    if not path_b:
-        path_b = '.'
+    if _WIN32:
+        if not path_b:
+            path_b = '.'
     return Path(-1, path_b, None, w_value)
 
 @specialize.arg(2, 3)
