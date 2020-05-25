@@ -196,6 +196,9 @@ int SSL_get_ex_data_X509_STORE_CTX_idx(void);
 
 /* Added in 1.0.2 */
 X509_VERIFY_PARAM *SSL_get0_param(SSL *);
+X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *ctx);
+int SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm);
+int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
 
 int SSL_use_certificate(SSL *, X509 *);
 int SSL_use_certificate_ASN1(SSL *, const unsigned char *, int);
@@ -417,7 +420,7 @@ int SSL_version(const SSL *);
 void *SSL_CTX_get_ex_data(const SSL_CTX *, int);
 void *SSL_get_ex_data(const SSL *, int);
 
-void SSL_set_tlsext_host_name(SSL *, char *);
+int SSL_set_tlsext_host_name(SSL *, char *);
 void SSL_CTX_set_tlsext_servername_callback(
     SSL_CTX *,
     int (*)(SSL *, int *, void *));
@@ -565,6 +568,8 @@ int SSL_set_min_proto_version(SSL *ssl, int version);
 int SSL_set_max_proto_version(SSL *ssl, int version);
 int SSL_get_min_proto_version(SSL *ssl);
 int SSL_get_max_proto_version(SSL *ssl);
+
+ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
 """
 
 CUSTOMIZATIONS = """
@@ -662,6 +667,9 @@ static const long Cryptography_HAS_NEXTPROTONEG = 1;
 /* SSL_get0_param was added in OpenSSL 1.0.2. */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
 X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *) = NULL;
+X509_VERIFY_PARAM *(*SSL_CTX_get0_param)(SSL_CTX *ctx) = NULL;
+int *(SSL_CTX_set1_param)(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm) = NULL;
+int *(SSL_set1_param)(SSL *ssl, X509_VERIFY_PARAM *vpm) = NULL;
 #else
 #endif
 

@@ -317,6 +317,9 @@ class _SSLSocket(object):
 
         if server_hostname:
             self.server_hostname = server_hostname.decode('ascii', 'strict')
+            if '\x00' in self.server_hostname:
+                raise TypeError("argument must be encoded string without null "
+                                "bytes, not {}".format(type(server_hostname)))
         else:
             self.server_hostname = None
 
@@ -353,9 +356,8 @@ class _SSLSocket(object):
                 else:
                     lib.SSL_set_post_handshake_auth(ssl, 1)
 
-        if HAS_SNI and self.server_hostname:
-            name = _str_to_ffi_buffer(self.server_hostname)
-            lib.SSL_set_tlsext_host_name(ssl, name)
+        if server_hostname is not None:
+            self._ssl_configure_hostname(server_hostname)
 
 
         # If the socket is in non-blocking mode or timeout mode, set the BIO
@@ -391,6 +393,32 @@ class _SSLSocket(object):
         self._owner = None
         self.server_hostname = None
         self.socket = None
+
+    def _ssl_configure_hostname(self, server_hostname):
+        # Disable OpenSSL's special mode with leading dot in hostname:
+        # When name starts with a dot (e.g ".example.com"), it will be
+        # matched by a certificate valid for any sub-domain of name.
+        length = len(server_hostname)
+        if length == 0 or server_hostname[0] == '.':
+            raise ValueError("server_hostname cannot be an empty string or "
+                             "start with a leading dot.")
+
+        # inet_pton is not available on all platforms
+        ip = lib.a2i_IPADDRESS(server_hostname)
+        if not ip:
+            lib.ERR_clear_error()
+            if not lib.SSL_set_tlsext_host_name(self.ssl, server_hostname):
+                raise ssl_error(None)
+        if self.ctx.check_hostname:
+            param = lib.SSL_get0_param(self.ssl)
+            if not ip:
+                if not lib.X509_VERIFY_PARAM_set1_host(
+                        param, server_hostname, len(server_hostname)):
+                    raise ssl_error(None)
+            else:
+                if not lib.X509_VERIFY_PARAM_set1_ip(
+                        param, lib.ASN1_STRING_data(ip), lib.ASN1_STRING_length(ip)):
+                    raise ssl_error(None)
 
     @property
     def owner(self):
@@ -1011,9 +1039,9 @@ class _SSLContext(object):
         self.ctx = ffi.gc(lib.SSL_CTX_new(method), lib.SSL_CTX_free)
         self._post_handshake_auth = 0;
         self._protocol = protocol
+        self.hostflags = lib.X509_CHECK_FLAG_NO_PARTIAL_WILDCARDS
 
         # Don't check host name by default
-        self._check_hostname = False
         if protocol == PROTOCOL_TLS_CLIENT:
             self._check_hostname = True
             self._set_verify_mode(CERT_REQUIRED)
@@ -1057,9 +1085,12 @@ class _SSLContext(object):
                 key = lib.EC_KEY_new_by_curve_name(lib.NID_X9_62_prime256v1)
                 lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
                 lib.EC_KEY_free(key)
+        params = lib.SSL_CTX_get0_param(self.ctx);
         if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
-            store = lib.SSL_CTX_get_cert_store(self.ctx)
-            lib.X509_STORE_set_flags(store, lib.X509_V_FLAG_TRUSTED_FIRST)
+            # Improve trust chain building when cross-signed intermediate
+            # certificates are present. See https://bugs.python.org/issue23476.
+            lib.X509_VERIFY_PARAM_set_flags(params, lib.X509_V_FLAG_TRUSTED_FIRST)
+        lib.X509_VERIFY_PARAM_set_hostflags(params, self.hostflags);
         if HAS_TLSv1_3:
             lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
@@ -1123,25 +1154,21 @@ class _SSLContext(object):
         
     @property
     def verify_flags(self):
-        store = lib.SSL_CTX_get_cert_store(self.ctx)
-        param = lib.X509_STORE_get0_param(store)
+        param = lib.SSL_CTX_get0_param(self.ctx)
         flags = lib.X509_VERIFY_PARAM_get_flags(param)
         return int(flags)
 
     @verify_flags.setter
     def verify_flags(self, value):
         new_flags = int(value)
-        store = lib.SSL_CTX_get_cert_store(self.ctx);
-        param = lib.X509_STORE_get0_param(store)
+        param = lib.SSL_CTX_get0_param(self.ctx)
         flags = lib.X509_VERIFY_PARAM_get_flags(param);
         clear = flags & ~new_flags;
         set = ~flags & new_flags;
         if clear:
-            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_clear_flags(param, clear):
                 raise ssl_error(None)
         if set:
-            param = lib.X509_STORE_get0_param(store)
             if not lib.X509_VERIFY_PARAM_set_flags(param, set):
                 raise ssl_error(None)
 
@@ -1208,6 +1235,17 @@ class _SSLContext(object):
             self._set_verify_mode(CERT_REQUIRED)
         self._check_hostname = check_hostname
 
+
+    @property
+    def _host_flags(self):
+        return self.hostflags
+
+    @_host_flags.setter
+    def _host_flags(self, arg):
+        new_flags = int(arg)
+        param = lib.SSL_CTX_get0_param(self.ctx);
+        self.hostflags = new_flags;
+        lib.X509_VERIFY_PARAM_set_hostflags(param, new_flags)
 
     def set_ciphers(self, cipherlist):
         cipherlistbuf = _str_to_ffi_buffer(cipherlist)
