@@ -136,7 +136,6 @@ def ToUnicode(label):
     # Step 7: Compare the result of step 6 with the one of step 3
     # label2 will already be in lower case.
     if str(label, "ascii").lower() != str(label2, "ascii"):
-        import pdb;pdb.set_trace()
         raise UnicodeError("IDNA does not round-trip", label, label2)
 
     # Step 8: return the result of step 5
