@@ -169,6 +169,7 @@ class SimpleType(_CDataMeta):
         result._ffishape_ = tp
         result._fficompositesize_ = None
         result._ffiarray = ffiarray
+        result._format = byteorder[sys.byteorder] + tp
         if tp == 'z':
             # c_char_p
             def _getvalue(self):
@@ -321,14 +322,14 @@ class SimpleType(_CDataMeta):
             result._as_ffi_pointer_ = _as_ffi_pointer_
         if name[-2:] != '_p' and name[-3:] not in ('_le', '_be') \
                 and name not in ('c_wchar', '_SimpleCData', 'c_longdouble', 'c_bool', 'py_object'):
-            from sys import byteorder
-            if byteorder == 'big':
+            if sys.byteorder == 'big':
                 name += '_le'
                 swapped = self.__new__(self, name, bases, dct)
                 result.__ctype_le__ = swapped
                 result.__ctype_be__ = result
                 swapped.__ctype_be__ = result
                 swapped.__ctype_le__ = swapped
+                swapped._format = '<' + tp
             else:
                 name += '_be'
                 swapped = self.__new__(self, name, bases, dct)
@@ -336,6 +337,7 @@ class SimpleType(_CDataMeta):
                 result.__ctype_le__ = result
                 swapped.__ctype_le__ = result
                 swapped.__ctype_be__ = swapped
+                swapped._format = '>' + tp
             from _ctypes import sizeof
             def _getval(self):
                 return swap_bytes(self._buffer[0], sizeof(self), name, 'get')
@@ -382,7 +384,7 @@ class SimpleType(_CDataMeta):
         return self._type_ in "sPzUZXO"
 
     def _getformat(self):
-        return byteorder[sys.byteorder] + self._type_
+        return self._format
 
 class _SimpleCData(_CData):
     __metaclass__ = SimpleType

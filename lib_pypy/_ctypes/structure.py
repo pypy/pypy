@@ -263,13 +263,7 @@ class StructOrUnionMeta(_CDataMeta):
             padding = self._ffistruct_.fieldoffset(name) - cum_size
             if padding:
                 flds.append('%dx' % padding)
-            # Trim off the leading '<' or '>'
-            ch = obj._getformat()[1:]
-            if (ch) == 'B':
-                flds.append(byteorder[sys.byteorder])
-            else:
-                flds.append(bo)
-            flds.append(ch)
+            flds.append(obj._getformat())
             flds.append(':')
             flds.append(name)
             flds.append(':')
