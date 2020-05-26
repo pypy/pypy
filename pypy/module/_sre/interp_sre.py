@@ -626,6 +626,8 @@ class W_SRE_Match(W_Root):
         u = space.utf8_w(space.repr(w_s))
         if len(u) > 50:
             u = u[:50]
+        start = self.bytepos_to_charindex(start)
+        end = self.bytepos_to_charindex(end)
         return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 

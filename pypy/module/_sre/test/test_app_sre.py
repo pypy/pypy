@@ -1125,3 +1125,9 @@ class AppTestUnicodeExtra:
         import re
         match = re.search(u"\u1234", u"\u1233\u1234\u1235")
         assert match.start() == 1
+
+    def test_match_repr_span(self):
+        import re
+        match = re.match(u"\u1234", u"\u1234")
+        assert match.span() == (0, 1)
+        assert "span=(0, 1), match='\u1234'" in repr(match)
