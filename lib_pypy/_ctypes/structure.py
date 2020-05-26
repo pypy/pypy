@@ -328,7 +328,7 @@ class StructOrUnion(_CData):
     def __buffer__(self, flags):
         fmt = type(self)._getformat()
         itemsize = type(self)._sizeofinstances()
-        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt)
+        return __pypy__.newmemoryview(memoryview(self._buffer), itemsize, fmt, ())
 
 class StructureMeta(StructOrUnionMeta):
     _is_union = False
