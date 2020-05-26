@@ -251,6 +251,8 @@ class StructOrUnionMeta(_CDataMeta):
         return res
 
     def _getformat(self):
+        if self._is_union or hasattr(self, '_pack_'):
+            return "B"
         if hasattr(self, '_swappedbytes_'):
             bo = swappedorder[sys.byteorder]
         else:
