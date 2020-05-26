@@ -1,6 +1,5 @@
 from _rawffi import alt as _ffi
 import _rawffi
-from __pypy__ import newmemoryview
 import weakref
 import sys
 
@@ -428,9 +427,3 @@ class _SimpleCData(_CData):
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
-
-    def __buffer__(self, flags):
-        rawview = memoryview(self._buffer)
-        fmt = type(self)._getformat()
-        itemsize = sizeof(type(self))
-        return newmemoryview(rawview, itemsize, fmt, ())

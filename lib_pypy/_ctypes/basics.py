@@ -1,5 +1,6 @@
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 
 try:
@@ -206,7 +207,10 @@ class _CData(bufferable):
             return self.value
 
     def __buffer__(self, flags):
-        return memoryview(self._buffer)
+        rawview = memoryview(self._buffer)
+        fmt = type(self)._getformat()
+        itemsize = sizeof(type(self))
+        return newmemoryview(rawview, itemsize, fmt, ())
 
     def _get_b_base(self):
         try:
