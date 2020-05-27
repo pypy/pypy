@@ -12,7 +12,7 @@ from pypy.interpreter.gateway import interp2app, interpindirect2app
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.iterobject import W_AbstractSeqIterObject
 
-from pypy.module._rawffi.array import W_ArrayInstance
+from pypy.module._rawffi.interp_array import W_ArrayInstance
 from pypy.module._cffi_backend import ctypefunc, ctypeprim, cdataobj, misc
 from pypy.module._cffi_backend import newtype
 from pypy.module._cppyy import ffitypes
@@ -26,7 +26,7 @@ if sys.platform == 'win32':
     dldflags = 0
 else:
     dldflags = rdynload.RTLD_LOCAL | rdynload.RTLD_LAZY
-    
+
 backend_library = 'libcppyy_backend'
 
 # this is not technically correct, but will do for now
@@ -162,7 +162,7 @@ class State(object):
         c_ptrdiff_t  = state.c_ptrdiff_t
         c_intptr_t   = state.c_intptr_t
         c_uintptr_t  = state.c_uintptr_t
- 
+
         c_scope       = c_opaque_ptr
         c_type        = c_scope
         c_object      = c_opaque_ptr        # not voidp (to stick with one handle type)
