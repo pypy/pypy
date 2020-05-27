@@ -19,3 +19,7 @@ Refactor RSocket.xxx_into() methods and add .recvmsg_into().
 Fix documentation extlinks for heptapod directory schema
 
 .. branch: py3.6 # ignore, bad merge
+
+.. branch: ctypes-stuff
+
+Fix implementation of PEP 3118 in ctypes.
