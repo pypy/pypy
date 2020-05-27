@@ -1,3 +1,5 @@
+import pytest
+import sys
 from ctypes import *
 
 def test_buffer():
@@ -31,3 +33,35 @@ def test_from_buffer_keepalive():
     # this is also what we get on CPython.  I don't think it makes
     # sense because the array contains just a copy of the number.
     assert array._objects == {'6': b1}
+
+def normalize(fmt):
+    if sys.byteorder == "big":
+        return fmt.replace('<', '>')
+    else:
+        return fmt
+
+@pytest.mark.parametrize("tp, fmt", [
+    ## simple types
+    (c_char, "<c"),
+    (c_byte, "<b"),
+    (c_ubyte, "<B"),
+    (c_short, "<h"),
+    (c_ushort, "<H"),
+    (c_long, "<l"),
+    (c_ulong, "<L"),
+    (c_float, "<f"),
+    (c_double, "<d"),
+    (c_bool, "<?"),
+    (py_object, "<O"),
+    ## pointers
+    (POINTER(c_byte), "&<b"),
+    (POINTER(POINTER(c_long)), "&&<l"),
+    ## arrays and pointers
+    (c_double * 4, "<d"),
+    (c_float * 4 * 3 * 2, "<f"),
+    (POINTER(c_short) * 2, "&<h"),
+    (POINTER(c_short) * 2 * 3, "&<h"),
+    (POINTER(c_short * 2), "&(2)<h"),
+])
+def test_memoryview_format(tp, fmt):
+    assert memoryview(tp()).format == normalize(fmt)

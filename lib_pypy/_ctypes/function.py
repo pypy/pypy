@@ -1,10 +1,11 @@
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.basics import (
+    _CData, _CDataMeta, cdata_from_address, ArgumentError, keepalive_key,
+    is_struct_shape, sizeof)
 from _ctypes.primitive import SimpleType, _SimpleCData
-from _ctypes.basics import ArgumentError, keepalive_key
-from _ctypes.basics import is_struct_shape
 from _ctypes.builtin import get_errno, set_errno, get_last_error, set_last_error
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 import traceback
 
@@ -59,6 +60,9 @@ class CFuncPtrType(_CDataMeta):
         return True
 
     from_address = cdata_from_address
+
+    def _getformat(self):
+        return 'X{}'
 
 
 class CFuncPtr(_CData, metaclass=CFuncPtrType):
