@@ -122,9 +122,9 @@ class W_SRE_Pattern(W_Root):
 
     def repr_w(self):
         space = self.space
-        u = space.utf8_w(space.repr(self.w_pattern))
-        if len(u) > 200:
-            u = u[:200]
+        w_s = space.repr(self.w_pattern)
+        w_s = space.getslice(w_s, space.newint(0), space.newint(200))
+        u = space.utf8_w(w_s)
         flag_items = []
         flags = self.flags
         if self.is_known_unicode():
@@ -623,9 +623,15 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         start, end = ctx.match_start, ctx.match_end
         w_s = slice_w(space, ctx, start, end, space.w_None)
-        u = space.utf8_w(space.repr(w_s))
-        if len(u) > 50:
-            u = u[:50]
+        # follow the same logic as CPython, repr'ing the whole match
+        # before deciding to throw away everything beyond the 50th unichar
+        # (which will leave the opening quote unbalanced, and might be
+        # cutting in the middle of a '\' escape)
+        w_s = space.repr(w_s)
+        w_s = space.getslice(w_s, space.newint(0), space.newint(50))
+        u = space.utf8_w(w_s)
+        start = self.bytepos_to_charindex(start)
+        end = self.bytepos_to_charindex(end)
         return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 

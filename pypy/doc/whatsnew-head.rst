@@ -21,3 +21,7 @@ Fix documentation extlinks for heptapod directory schema
 .. branch: py3.6 # ignore, bad merge
 
 .. branch: ssl  # ignore, small test fix
+
+.. branch: ctypes-stuff
+
+Fix implementation of PEP 3118 in ctypes.
