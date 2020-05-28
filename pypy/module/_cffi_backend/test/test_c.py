@@ -2,7 +2,7 @@ from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/ in the original CFFI repository:
-    https://bitbucket.org/cffi/cffi
+    https://foss.heptapod.net/pypy/cffi/
 
 Adding a test here involves:
 1. add a test to cffi/c/test.py
