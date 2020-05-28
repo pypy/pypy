@@ -169,7 +169,7 @@ class W_CDataIter(W_Root):
         return self.ctitem.convert_to_object(result)
 
 W_CDataIter.typedef = TypeDef(
-    '_cffi_backend.CDataIter',
+    '_cffi_backend.__CData_iterator',
     __iter__ = interp2app(W_CDataIter.iter_w),
     __next__ = interp2app(W_CDataIter.next_w),
     )

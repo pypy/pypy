@@ -716,9 +716,12 @@ class W_CDataGCP(W_CData):
 
 
 W_CData.typedef = TypeDef(
-    '_cffi_backend.CData',
-    __module__ = '_cffi_backend',
-    __name__ = '<cdata>',
+    '_cffi_backend._CDataBase',
+    __doc__ = "The internal base type for CData objects.  Use FFI.CData to "
+              "access it.  Always check with isinstance(): subtypes are "
+              "sometimes returned on CPython, for performance reasons.",
+    __module__ = '_cffi_backend',   # attribute also visible on instances
+    __name__ = '<cdata>',           # attribute also visible on instances
     __repr__ = interp2app(W_CData.repr),
     __bool__ = interp2app(W_CData.bool),
     __int__ = interp2app(W_CData.int),
