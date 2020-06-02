@@ -6,7 +6,7 @@ bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath
-from shutil import copy2, copytree
+from shutil import copy, copytree
 import sys
 from glob import glob
 from subprocess import check_output, check_call
@@ -72,7 +72,7 @@ def copy_deps(deps):
     for needed, path in deps.items():
         bname = basename(path)
 
-        copy2(realpath(path), 'lib/' + bname)
+        copy(realpath(path), 'lib/' + bname)
         copied[path] = 'lib/' + bname
 
         if not exists('lib/' + needed):
