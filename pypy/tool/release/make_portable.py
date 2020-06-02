@@ -96,8 +96,8 @@ def rpath_binaries(binaries):
             for dep, path in deps.items():
                 rpath = join('@rpath', dep)
                 if rpath != path:
-                    check_call(['install_name_tool', '-change', path, rpath, binary])
                     print('Set RPATH of {0} for {1} to {2}'.format(binary, path, rpath))
+                    check_call(['install_name_tool', '-change', path, rpath, binary])
 
         else:
             rpath = join('$ORIGIN', relpath('lib', dirname(binary)))
