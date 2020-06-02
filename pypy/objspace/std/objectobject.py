@@ -6,6 +6,9 @@ from pypy.interpreter.gateway import applevel, interp2app, unwrap_spec
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, default_identity_hash)
 from pypy.objspace.descroperation import Object
+from pypy.interpreter.function import StaticMethod
+
+from rpython.rlib.objectmodel import specialize
 
 
 app = applevel(r'''
@@ -98,16 +101,32 @@ class W_ObjectObject(W_Root):
 def _excess_args(__args__):
     return bool(__args__.arguments_w) or bool(__args__.keywords)
 
+@specialize.memo()
+def _object_new(space):
+    "Utility that returns the function object.__new__."
+    w_x = space.lookup_in_type(space.w_object, '__new__')
+    assert isinstance(w_x, StaticMethod)
+    return w_x.w_function
+
+@specialize.memo()
+def _object_init(space):
+    "Utility that returns the function object.__init__."
+    return space.lookup_in_type(space.w_object, '__init__')
+
+def _same_static_method(space, w_x, w_y):
+    # pff pff pff
+    if isinstance(w_x, StaticMethod): w_x = w_x.w_function
+    return space.is_w(w_x, w_y)
+
 def descr__new__(space, w_type, __args__):
     from pypy.objspace.std.typeobject import _precheck_for_new
     w_type = _precheck_for_new(space, w_type)
 
     if _excess_args(__args__):
-        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
-        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        if (w_parent_init is space.w_object or
-            w_parent_new is not space.w_object):
+        tp_new = space.lookup_in_type(w_type, '__new__')
+        tp_init = space.lookup_in_type(w_type, '__init__')
+        if (space.is_w(tp_init, _object_init(space))
+                or not _same_static_method(space, tp_new, _object_new(space))):
             raise oefmt(space.w_TypeError,
                         "object() takes no parameters")
     if w_type.is_abstract():
@@ -124,11 +143,10 @@ def descr___init_subclass__(space, w_cls):
 def descr__init__(space, w_obj, __args__):
     if _excess_args(__args__):
         w_type = space.type(w_obj)
-        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
-        w_parent_new, _ = space.lookup_in_type_where(w_type, '__new__')
-        w_parent_init, _ = space.lookup_in_type_where(w_type, '__init__')
-        if (w_parent_new is space.w_object or
-            w_parent_init is not space.w_object):
+        tp_new = space.lookup_in_type(w_type, '__new__')
+        tp_init = space.lookup_in_type(w_type, '__init__')
+        if (_same_static_method(space, tp_new, _object_new(space))
+                or not space.is_w(tp_init, _object_init(space))):
             raise oefmt(space.w_TypeError,
                         "object.__init__() takes no parameters")
 
