@@ -12,6 +12,8 @@ from rpython.rlib.objectmodel import specialize
 
 
 app = applevel(r'''
+import sys
+
 def _abstract_method_error(typ):
     methods = ", ".join(sorted(typ.__abstractmethods__))
     err = "Can't instantiate abstract class %s with abstract methods %s"
@@ -55,7 +57,10 @@ def reduce_2(obj, proto, args, kwargs):
     if not hasattr(type(obj), "__new__"):
         raise TypeError("can't pickle %s objects" % type(obj).__name__)
 
-    import copyreg
+    try:
+        copyreg = sys.modules['copyreg']
+    except KeyError:
+        import copyreg
 
     if not isinstance(args, tuple):
         raise TypeError("__getnewargs__ should return a tuple")
@@ -81,7 +86,10 @@ def slotnames(cls):
     except KeyError:
         pass
 
-    import copyreg
+    try:
+        copyreg = sys.modules['copyreg']
+    except KeyError:
+        import copyreg
     slotnames = copyreg._slotnames(cls)
     if not isinstance(slotnames, list) and slotnames is not None:
         raise TypeError("copyreg._slotnames didn't return a list or None")
