@@ -44,6 +44,7 @@ def a2b_base64(space, ascii):
     leftchar = 0
     leftbits = 0
     last_char_was_a_pad = False
+    bin_used = 0
 
     for c in ascii:
         if c == PAD:
@@ -65,10 +66,19 @@ def a2b_base64(space, ascii):
                 leftbits -= 8
                 res.append(chr(leftchar >> leftbits))
                 leftchar &= ((1 << leftbits) - 1)
+                bin_used += 1
             #
             last_char_was_a_pad = False
     else:
         if leftbits != 0:
+            if leftbits == 6:
+                # There is exactly one extra valid, non-padding, base64 character.
+                # This is an invalid length, as there is no possible input that
+                # could encoded into such a base64 string.
+                msg = ("Invalid base64-encoded string: number of data "
+                       "characters (%d) cannot be 1 more than a multiple of 4" %
+                       ((bin_used // 3) * 4 + 1))
+                raise_Error(space, msg)
             raise_Error(space, "Incorrect padding")
 
     return space.newbytes(res.build())
