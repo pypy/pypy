@@ -25,3 +25,7 @@ Fix documentation extlinks for heptapod directory schema
 .. branch: ctypes-stuff
 
 Fix implementation of PEP 3118 in ctypes.
+
+.. branch: issue3240
+
+Use make_portable on macOS

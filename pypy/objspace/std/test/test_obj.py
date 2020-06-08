@@ -183,6 +183,43 @@ class AppTestObject:
 
         raises(TypeError, B)
 
+    def test_object_init_not_really_overridden(self):
+        class A(object):
+            def __new__(cls, value):
+                return object.__new__(cls)
+            __init__ = object.__init__     # see issue #3239
+        assert isinstance(A(1), A)
+
+    def test_object_new_not_really_overridden(self):
+        class A(object):
+            def __init__(self, value):
+                self.value = value
+            __new__ = object.__new__
+        assert A(42).value == 42
+
+    def test_object_init_cant_call_parent_with_args(self):
+        class A(object):
+            def __init__(self, value):
+                object.__init__(self, value)
+        raises(TypeError, A, 1)
+
+    def test_object_new_cant_call_parent_with_args(self):
+        class A(object):
+            def __new__(cls, value):
+                return object.__new__(cls, value)
+        raises(TypeError, A, 1)
+
+    def test_object_init_and_new_overridden(self):
+        class A(object):
+            def __new__(cls, value):
+                result = object.__new__(cls)
+                result.other_value = value + 1
+                return result
+            def __init__(self, value):
+                self.value = value
+        assert A(42).value == 42
+        assert A(42).other_value == 43
+
     def test_object_str(self):
         # obscure case: __str__() must delegate to __repr__() without adding
         # type checking on its own
