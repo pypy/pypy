@@ -2,7 +2,7 @@
 
 bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
           'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel',
-          'panelw', 'intl', 'z', 'bz2']
+          'panelw']
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath
@@ -19,7 +19,7 @@ def get_deps_darwin(binary):
     output = output[1:]  # first line is binary name
     for line in output:
         path = line.strip().split()[0]
-        if not path or path == binary:
+        if not path or path == binary or path.startswith('/usr/lib'):
             continue
 
         needed = basename(path)
@@ -109,16 +109,17 @@ def rpath_binaries(binaries):
 
 
 def make_portable():
-    ext = 'so'
+    exts = ['so']
     if sys.platform == 'darwin':
-        ext = 'dylib'
+        exts = ['dylib', 'so']
 
-    binaries = glob('bin/libpypy*.' + ext)
+    binaries = glob('bin/libpypy*.' + exts[0])
     if not binaries:
-        raise ValueError('Could not find bin/libpypy*.%s in "%s"' % (ext, os.getcwd()))
-    binaries.extend(glob('lib_pypy/*_cffi.pypy*.' + ext))
-    binaries.extend(glob('lib_pypy/_pypy_openssl*.' + ext))
-    binaries.extend(glob('lib_pypy/_tkinter/*_cffi.pypy*.' + ext))
+        raise ValueError('Could not find bin/libpypy*.%s in "%s"' % (exts[0], os.getcwd()))
+    for ext in exts:
+        binaries.extend(glob('lib_pypy/*_cffi.pypy*.' + ext))
+        binaries.extend(glob('lib_pypy/_pypy_openssl*.' + ext))
+        binaries.extend(glob('lib_pypy/_tkinter/*_cffi.pypy*.' + ext))
 
     deps = gather_deps(binaries)
 
@@ -127,6 +128,7 @@ def make_portable():
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
 
+    # Used by the linux docker images
     if exists('/usr/share/tcl8.5'):
         copytree('/usr/share/tcl8.5', 'lib/tcl')
     if exists('/usr/share/tk8.5'):
