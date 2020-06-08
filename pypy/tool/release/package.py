@@ -353,7 +353,8 @@ def package(*args, **kwds):
                         '(default on OS X)')
     parser.add_argument('--make-portable',
                         dest='make_portable',
-                        action='store_true',
+                        action=NegateAction,
+                        default=(ARCH in ('darwin',)),
                         help='make the package portable by shipping '
                             'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)
