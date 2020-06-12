@@ -268,7 +268,7 @@ class W_ComplexObject(W_Root):
         val = real_b.lshift(64).or_(imag_b).lshift(IDTAG_SHIFT).int_or_(tag)
         return space.newlong_from_rbigint(val)
 
-    def int(self, space):
+    def descr_int(self, space):
         raise oefmt(space.w_TypeError, "can't convert complex to int")
 
     def _to_complex(self, space, w_obj):
@@ -547,7 +547,7 @@ This is equivalent to (real + imag*1j) where imag defaults to 0.""",
     __hash__ = interp2app(W_ComplexObject.descr_hash),
     __format__ = interp2app(W_ComplexObject.descr_format),
     __bool__ = interp2app(W_ComplexObject.descr_bool),
-    __int__ = interp2app(W_ComplexObject.int),
+    __int__ = interp2app(W_ComplexObject.descr_int),
     __float__ = interp2app(W_ComplexObject.descr_float),
     __neg__ = interp2app(W_ComplexObject.descr_neg),
     __pos__ = interp2app(W_ComplexObject.descr_pos),
