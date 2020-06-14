@@ -7,7 +7,7 @@ This new PyPy2.7 release includes the upstream stdlib version 2.7.12.
 
 We continue to make incremental improvements to our C-API
 compatibility layer (cpyext). We pass all but a few of the tests in the
-upstream numpy `test suite`_. 
+upstream numpy test suite. 
 
 Work proceeds at a good pace on the PyPy3.5
 version due to a grant_ from the Mozilla Foundation, and some of those
@@ -41,7 +41,6 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _`test suite`: https://bitbucket.org/pypy/pypy/wiki/Adventures%20in%20cpyext%20compatibility
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: http://doc.pypy.org
