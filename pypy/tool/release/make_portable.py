@@ -19,7 +19,9 @@ def get_deps_darwin(binary):
     output = output[1:]  # first line is binary name
     for line in output:
         path = line.strip().split()[0]
-        if not path or path == binary or path.startswith('/usr/lib'):
+        if (not path or
+                not path.startswith('/usr/local/') or
+                basename(path) == basename(binary)):
             continue
 
         needed = basename(path)
@@ -128,13 +130,17 @@ def make_portable():
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
 
-    # Used by the linux docker images
-    if exists('/usr/share/tcl8.5'):
-        copytree('/usr/share/tcl8.5', 'lib/tcl')
-    if exists('/usr/share/tk8.5'):
-        copytree('/usr/share/tk8.5', 'lib/tk')
-
-    binaries.extend(copied.values())
+    # copy tcl/tk shared files, search /usr and copy the containing dir...
+    found_tk = found_tcl = False
+    for path, dirs, files in os.walk('/usr'):
+        if not found_tk and 'tk.tcl' in files:
+            print('Found tk shared files at: %s' % (path))
+            found_tk = True
+            copytree(path, 'lib/tk')
+        if not found_tcl and 'init.tcl' in files:
+            print('Found tcl shared files at: %s' % (path))
+            found_tcl = True
+            copytree(path, 'lib/tcl')    binaries.extend(copied.values())
 
     rpaths = rpath_binaries(binaries)
     for binary, rpath in rpaths.items():
