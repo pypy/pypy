@@ -130,6 +130,12 @@ def make_portable():
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
 
+    binaries.extend(copied.values())
+
+    rpaths = rpath_binaries(binaries)
+    for binary, rpath in rpaths.items():
+        print('Set RPATH of {0} to {1}'.format(binary, rpath))
+
     # copy tcl/tk shared files, search /usr and copy the containing dir...
     found_tk = found_tcl = False
     for path, dirs, files in os.walk('/usr'):
@@ -140,11 +146,7 @@ def make_portable():
         if not found_tcl and 'init.tcl' in files:
             print('Found tcl shared files at: %s' % (path))
             found_tcl = True
-            copytree(path, 'lib/tcl')    binaries.extend(copied.values())
-
-    rpaths = rpath_binaries(binaries)
-    for binary, rpath in rpaths.items():
-        print('Set RPATH of {0} to {1}'.format(binary, rpath))
+            copytree(path, 'lib/tcl')
 
     return deps
 
