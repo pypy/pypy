@@ -420,6 +420,13 @@ def ll_arraymove(array, source_start, source_stop, dest_start):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
 
+    # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
+    # and also, maybe, speed up very small cases
+    if source_stop - source_start <= 1:
+        if source_stop != source_start:
+            copy_item(array, array, source_start, dest_start)
+        return
+
     TP = lltype.typeOf(array).TO
 
     slowpath = False
