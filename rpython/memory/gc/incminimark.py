@@ -1655,7 +1655,7 @@ class IncrementalMiniMarkGC(MovingGCBase):
             return     # no cards, nothing to do
         #
         array_hdr = self.header(array_addr)
-        if array_hdr.tid & GCFLAG_HAS_CARDS != 0:
+        if array_hdr.tid & GCFLAG_CARDS_SET != 0:
             self.write_barrier(array_addr)
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
