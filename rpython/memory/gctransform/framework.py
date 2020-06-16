@@ -348,6 +348,13 @@ class BaseFrameworkGCTransformer(GCTransformer):
         elif GCClass.needs_write_barrier:
             raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_copy functionality")
 
+        if hasattr(GCClass, 'writebarrier_before_move'):
+            self.wb_before_move_ptr = \
+                    getfn(GCClass.writebarrier_before_move.im_func,
+                    [s_gc, SomeAddress()], annmodel.s_None)
+        elif GCClass.needs_write_barrier:
+            raise NotImplementedError("GC needs write barrier, but does not provide writebarrier_before_move functionality")
+
         # in some GCs we can inline the common case of
         # malloc_fixedsize(typeid, size, False, False, False)
         if getattr(GCClass, 'inline_simple_malloc', False):
@@ -1106,6 +1113,17 @@ class BaseFrameworkGCTransformer(GCTransformer):
                                 resulttype=llmemory.Address)
         hop.genop('direct_call', [self.wb_before_copy_ptr, self.c_const_gc,
                                   source_addr, dest_addr] + op.args[2:],
+                  resultvar=op.result)
+
+    def gct_gc_writebarrier_before_move(self, hop):
+        op = hop.spaceop
+        if not hasattr(self, 'wb_before_move_ptr'):
+            # no need to do anything in that case
+            return
+        array_addr = hop.genop('cast_ptr_to_adr', [op.args[0]],
+                               resulttype=llmemory.Address)
+        hop.genop('direct_call', [self.wb_before_move_ptr, self.c_const_gc,
+                                  array_addr],
                   resultvar=op.result)
 
     def gct_weakref_create(self, hop):
