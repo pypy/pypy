@@ -26,9 +26,6 @@ def get_deps_darwin(binary):
 
         needed = basename(path)
 
-        if needed[3:].split('.', 1)[0] not in bundle:
-            continue
-
         deps[needed] = path
         deps.update(get_deps(path))
 
