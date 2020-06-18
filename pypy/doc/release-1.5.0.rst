@@ -35,8 +35,7 @@ More highlights
   performance of tight loops doing numerical calculations.
 
 - The CPython extension module API has been improved and now supports many more
-  extensions. For information on which one are supported, please refer to our
-  `compatibility wiki`_.
+  extensions.
 
 - These changes make it possible to support `Tkinter and IDLE`_.
 
@@ -67,7 +66,6 @@ Amaury Forgeot d'Arc, Alex Gaynor, Armin Rigo and the PyPy team
 .. _`pypy 1.5 and cpython 2.6.2`: http://bit.ly/mbVWwJ
 
 .. _`loop invariant code motion`: http://morepypy.blogspot.com/2011/01/loop-invariant-code-motion.html
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _`Tkinter and IDLE`: http://morepypy.blogspot.com/2011/04/using-tkinter-and-idle-with-pypy.html
 .. _`cProfile`: http://docs.python.org/library/profile.html
 .. _`external fork`: https://bitbucket.org/alex_gaynor/pypy-postgresql
