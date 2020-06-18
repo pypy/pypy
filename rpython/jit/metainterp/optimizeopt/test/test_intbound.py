@@ -382,15 +382,13 @@ def test_invert_bound():
     for _, _, b1 in some_bounds():
         b2 = b1.invert_bound()
         for n1 in nbr:
-            if b1.contains(n1):
-                assert b2.contains(~n1)
+            assert b1.contains(n1) == b2.contains(~n1)
 
 def test_neg_bound():
     for _, _, b1 in some_bounds():
         b2 = b1.neg_bound()
         for n1 in nbr:
-            if b1.contains(n1):
-                assert b2.contains(-n1)
+            assert b1.contains(n1) == b2.contains(-n1)
 
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_add_bound_random(t1, t2):
