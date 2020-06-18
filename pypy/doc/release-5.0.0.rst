@@ -12,7 +12,7 @@ faster and memory dropping by about 30%.
 We also merged a major upgrade to our C-API layer (cpyext), simplifying the
 interaction between c-level objects and PyPy interpreter level objects. As a
 result, lxml  (prerelease) with its cython compiled component
-`passes all tests`_ on PyPy. The new cpyext is also much faster.
+passes all tests on PyPy. The new cpyext is also much faster.
 
 vmprof_ has been a go-to profiler for PyPy on linux for a few releases
 and we're happy to announce that thanks to the cooperation with jetbrains,
@@ -45,7 +45,6 @@ contribution to the python ecosystem. PyPy 5.0 ships with
 .. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
 .. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
-.. _`passes all tests`: https://bitbucket.org/pypy/compatibility/wiki/lxml
 .. _vmprof: http://vmprof.readthedocs.org
 
 What is PyPy?
