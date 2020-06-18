@@ -56,6 +56,7 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
         value = stnode.get_value()
         if value is not None:
             offset = value.find(source)
+            assert offset >= 0
             last_nl = max(0, value.rfind('\n', 0, offset))
             column_offset = offset - last_nl + stnode.get_column()
             lineno += value.count('\n', 0, last_nl+1)
