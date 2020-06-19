@@ -398,7 +398,11 @@ class AppTestStruct(object):
         if '__pypy__' in sys.modules:
             assert str(exc.value) == "a read-write bytes-like object is required, not bytes"
         exc = raises(self.struct.error, self.struct.pack_into, "ii", b[0:1], 0, 17, 42)
-        assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes"
+        assert str(exc.value) == "pack_into requires a buffer of at least 8 bytes for packing 8 bytes at offset 0 (actual buffer size is 1)"
+        exc = raises(self.struct.error, self.struct.pack_into, "ii", b, -3, 17, 42)
+        assert str(exc.value) == "no space to pack 8 bytes at offset -3"
+        exc = raises(self.struct.error, self.struct.pack_into, "ii", b[:8], -9, 17, 42)
+        assert str(exc.value) == "offset -9 out of range for 8-byte buffer"
 
     def test_unpack_buffer(self):
         import array
