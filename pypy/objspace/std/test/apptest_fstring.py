@@ -1,12 +1,10 @@
 import ast
 
 def test_error_unknown_code():
-    """
     def fn():
         f'{1000:j}'
     exc_info = raises(ValueError, fn)
     assert str(exc_info.value).startswith("Unknown format code")
-    """
 
 def test_ast_lineno_and_col_offset():
     m = ast.parse("\nf'a{x}bc{y}de'")
@@ -16,6 +14,17 @@ def test_ast_lineno_and_col_offset():
     assert x_ast.col_offset == 4
     assert y_ast.lineno == 2
     assert y_ast.col_offset == 9
+
+def test_ast_lineno_and_col_offset_unicode():
+    s = "\nf'α{χ}βγ{ψ}δε'"
+    assert s.encode('utf-8') ==b"\nf'\xce\xb1{\xcf\x87}\xce\xb2\xce\xb3{\xcf\x88}\xce\xb4\xce\xb5'"
+    m = ast.parse(s)
+    x_ast = m.body[0].value.values[1].value
+    y_ast = m.body[0].value.values[3].value
+    assert x_ast.lineno == 2
+    assert x_ast.col_offset == 5
+    assert y_ast.lineno == 2
+    assert y_ast.col_offset == 13
 
 def test_ast_mutiline_lineno_and_col_offset():
     m = ast.parse("\n\nf'''{x}\nabc{y}\n{\nz}'''   \n\n\n")
