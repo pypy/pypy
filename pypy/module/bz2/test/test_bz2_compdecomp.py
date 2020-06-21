@@ -59,7 +59,7 @@ class AppTestBZ2Compressor(CheckAllocation):
         cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
 
         raises(TypeError, BZ2Compressor, "foo")
         raises(ValueError, BZ2Compressor, 10)
@@ -68,7 +68,7 @@ class AppTestBZ2Compressor(CheckAllocation):
         BZ2Compressor(9)
 
     def test_compress(self):
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
 
         bz2c = BZ2Compressor()
         raises(TypeError, bz2c.compress)
@@ -79,7 +79,7 @@ class AppTestBZ2Compressor(CheckAllocation):
     def test_compress_huge_data(self):
         if not self.HUGE_OK:
             skip("skipping test requiring lots of memory")
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
 
         HUGE_DATA = self.TEXT * 10000
         bz2c = BZ2Compressor()
@@ -89,7 +89,7 @@ class AppTestBZ2Compressor(CheckAllocation):
         assert self.decompress(data) == HUGE_DATA
 
     def test_compress_chunks_10(self):
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
 
         bz2c = BZ2Compressor()
         n = 0
@@ -104,14 +104,14 @@ class AppTestBZ2Compressor(CheckAllocation):
         assert self.decompress(data) == self.TEXT
 
     def test_buffer(self):
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
         bz2c = BZ2Compressor()
         data = bz2c.compress(memoryview(self.TEXT))
         data += bz2c.flush()
         assert self.decompress(data) == self.TEXT
 
     def test_compressor_pickle_error(self):
-        from bz2 import BZ2Compressor
+        from _bz2 import BZ2Compressor
         import pickle
 
         exc = raises(TypeError, pickle.dumps, BZ2Compressor())
@@ -129,14 +129,14 @@ class AppTestBZ2Decompressor(CheckAllocation):
         cls.space.appexec([], """(): import warnings""")  # Work around a recursion limit
 
     def test_creation(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         raises(TypeError, BZ2Decompressor, "foo")
 
         BZ2Decompressor()
 
     def test_attribute(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         assert bz2d.unused_data == b""
@@ -218,57 +218,3 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
         assert b''.join(decomp) == self.TEXT
 
-
-class AppTestBZ2ModuleFunctions(CheckAllocation):
-    spaceconfig = dict(usemodules=('bz2', 'time'))
-
-    def setup_class(cls):
-        cls.w_TEXT = cls.space.newbytes(TEXT)
-        cls.w_DATA = cls.space.newbytes(DATA)
-        if cls.runappdirect:
-            cls.w_decompress = decompress
-        else:
-            @gateway.unwrap_spec(data='bytes')
-            def decompress_w(space, data):
-                return space.newbytes(decompress(cls, data))
-            cls.w_decompress = cls.space.wrap(gateway.interp2app(decompress_w))
-        cls.w_HUGE_OK = cls.space.wrap(HUGE_OK)
-
-    def test_compress_function(self):
-        from bz2 import compress
-
-        raises(TypeError, compress, 123)
-        raises(ValueError, compress, b"foo", 10)
-        raises(TypeError, compress, b"foo", b"foo")
-
-        data = compress(self.TEXT)
-        assert self.decompress(data) == self.TEXT
-
-    def test_compress_function_huge_data(self):
-        if not self.HUGE_OK:
-            skip("skipping test requiring lots of memory")
-        from bz2 import compress
-
-        HUGE_DATA = self.TEXT * 10000
-
-        data = compress(HUGE_DATA)
-        assert self.decompress(data) == HUGE_DATA
-
-    def test_decompress_function(self):
-        import bz2
-
-        raises(TypeError, bz2.decompress)
-        assert bz2.decompress(b"") == b""
-        decompressed_data = bz2.decompress(self.DATA)
-        assert decompressed_data == self.TEXT
-
-    def test_decompress_function_incomplete_data(self):
-        import bz2
-
-        raises(ValueError, bz2.decompress, self.DATA[:-10])
-
-    def test_buffer(self):
-        import bz2
-        data = bz2.compress(memoryview(self.TEXT))
-        result = bz2.decompress(memoryview(data))
-        assert result == self.TEXT
