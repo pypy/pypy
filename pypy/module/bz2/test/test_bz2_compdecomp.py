@@ -142,7 +142,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert bz2d.unused_data == b""
 
     def test_decompress(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         raises(TypeError, bz2d.decompress)
@@ -150,7 +150,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert decompressed_data == self.TEXT
 
     def test_decompress_chunks_10(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         decompressed_data = b""
@@ -166,7 +166,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
 
     def test_decompress_unused_data(self):
         # test with unused data. (data after EOF)
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         unused_data = b"this is unused data"
@@ -175,7 +175,7 @@ class AppTestBZ2Decompressor(CheckAllocation):
         assert bz2d.unused_data == unused_data
 
     def test_EOF_error(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         bz2d.decompress(self.DATA)
@@ -183,27 +183,27 @@ class AppTestBZ2Decompressor(CheckAllocation):
         raises(EOFError, bz2d.decompress, b"")
 
     def test_buffer(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
         bz2d = BZ2Decompressor()
         decompressed_data = bz2d.decompress(memoryview(self.DATA))
         assert decompressed_data == self.TEXT
 
     def test_subsequent_read(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
         bz2d = BZ2Decompressor()
         decompressed_data = bz2d.decompress(self.BUGGY_DATA)
         assert decompressed_data == b''
         raises(IOError, bz2d.decompress, self.BUGGY_DATA)
 
     def test_decompressor_pickle_error(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
         import pickle
 
         exc = raises(TypeError, pickle.dumps, BZ2Decompressor())
         assert exc.value.args[0] == "cannot serialize '_bz2.BZ2Decompressor' object"
 
     def test_decompress_max_length(self):
-        from bz2 import BZ2Decompressor
+        from _bz2 import BZ2Decompressor
 
         bz2d = BZ2Decompressor()
         decomp= []
