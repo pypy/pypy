@@ -333,7 +333,7 @@ class AppTestImpModule:
         import _imp
         res = _imp.source_hash(1, b"abcdef")
         assert type(res) is bytes
-        assert len(res) == b'\xd8^\xafF=\xaain' # value from CPython
+        assert res == b'\xd8^\xafF=\xaain' # value from CPython
         res2 = _imp.source_hash(1, b"abcdefg")
         assert res != res2
 
