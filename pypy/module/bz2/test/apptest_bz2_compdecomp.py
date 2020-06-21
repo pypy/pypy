@@ -1,3 +1,4 @@
+import os
 
 # spaceconfig = {"usemodules": ["bz2", "struct", "time"]}
 
