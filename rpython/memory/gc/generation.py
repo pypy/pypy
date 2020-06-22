@@ -543,6 +543,9 @@ class GenerationGC(SemiSpaceGC):
                 self.last_generation_root_objects.append(dest_addr)
         return True
 
+    def writebarrier_before_move(self, array_addr):
+        pass      # nothing to do
+
     def is_last_generation(self, obj):
         # overridden by HybridGC
         return (self.header(obj).tid & GCFLAG_EXTERNAL) != 0

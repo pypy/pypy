@@ -361,6 +361,9 @@ class BaseGCTransformer(object):
                   [rmodel.inputconst(lltype.Bool, False)],
                   resultvar=op.result)
 
+    def gct_gc_writebarrier_before_move(self, hop):
+        pass
+
     def gct_gc_pin(self, hop):
         op = hop.spaceop
         hop.genop("same_as",

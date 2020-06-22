@@ -198,6 +198,52 @@ def test_ll_arraycopy_array_of_structs():
     assert a2[2].x == 3
     assert a2[2].y == 15
 
+def test_ll_arraymove_1():
+    TYPE = lltype.GcArray(lltype.Signed)
+    a1 = lltype.malloc(TYPE, 10)
+    org1 = [None] * 10
+    for i in range(10): a1[i] = org1[i] = 1000 + i
+    rgc.ll_arraymove(a1, 2, 5, 4)
+    for i in range(10):
+        if 4 <= i < 7:
+            expected = org1[i - 2]
+        else:
+            expected = org1[i]
+        assert a1[i] == expected
+
+def test_ll_arraymove_2():
+    TYPE = lltype.GcArray(lltype.Signed)
+    a1 = lltype.malloc(TYPE, 10)
+    org1 = [None] * 10
+    for i in range(10): a1[i] = org1[i] = 1000 + i
+    rgc.ll_arraymove(a1, 4, 7, 2)
+    for i in range(10):
+        if 2 <= i < 5:
+            expected = org1[i + 2]
+        else:
+            expected = org1[i]
+        assert a1[i] == expected
+
+def test_ll_arraymove_gc():
+    S = lltype.GcStruct('S')
+    TYPE = lltype.GcArray(lltype.Ptr(S))
+    a1 = lltype.malloc(TYPE, 10)
+    org1 = [None] * 10
+    for i in range(10): a1[i] = org1[i] = lltype.malloc(S)
+    rgc.ll_arraymove(a1, 2, 5, 4)
+    for i in range(10):
+        if 4 <= i < 7:
+            expected = org1[i - 2]
+        else:
+            expected = org1[i]
+        assert a1[i] == expected
+
+def test_ll_arraymove_jitted(monkeypatch):
+    from rpython.rlib import jit
+    monkeypatch.setattr(jit, "we_are_jitted", lambda: True)
+    test_ll_arraymove_1()
+    test_ll_arraymove_2()
+
 def test_ll_arrayclear():
     TYPE = lltype.GcArray(lltype.Signed)
     a1 = lltype.malloc(TYPE, 10)

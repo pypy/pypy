@@ -29,3 +29,9 @@ Fix implementation of PEP 3118 in ctypes.
 .. branch: issue3240
 
 Use make_portable on macOS
+
+.. branch: wb_before_move
+
+Add ``rgc.ll_arraymove()``, as a way to shift items inside the same
+array with proper GC support. Improves ``while lst: lst.pop(0)``.
+
