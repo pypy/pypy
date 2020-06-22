@@ -290,19 +290,16 @@ non-important content
         self.assertEqual(type(t.body[1].value.values[0]), ast.Str)
         self.assertEqual(type(t.body[1].value.values[1]), ast.FormattedValue)
         self.assertEqual(type(t.body[1].value.values[2]), ast.Str)
-        # NOTE: the following invalid behavior is described in bpo-16806.
-        # - line number should be the *first* line (3), not the *last* (8)
-        # - column offset should not be -1
-        self.assertEqual(t.body[1].lineno, 8)
-        self.assertEqual(t.body[1].value.lineno, 8)
-        self.assertEqual(t.body[1].value.values[0].lineno, 8)
-        self.assertEqual(t.body[1].value.values[1].lineno, 8)
-        self.assertEqual(t.body[1].value.values[2].lineno, 8)
-        self.assertEqual(t.body[1].col_offset, -1)
-        self.assertEqual(t.body[1].value.col_offset, -1)
-        self.assertEqual(t.body[1].value.values[0].col_offset, -1)
-        self.assertEqual(t.body[1].value.values[1].col_offset, -1)
-        self.assertEqual(t.body[1].value.values[2].col_offset, -1)
+        self.assertEqual(t.body[1].lineno, 3)
+        self.assertEqual(t.body[1].value.lineno, 3)
+        self.assertEqual(t.body[1].value.values[0].lineno, 3)
+        self.assertEqual(t.body[1].value.values[1].lineno, 3)
+        self.assertEqual(t.body[1].value.values[2].lineno, 3)
+        self.assertEqual(t.body[1].col_offset, 0)
+        self.assertEqual(t.body[1].value.col_offset, 0)
+        self.assertEqual(t.body[1].value.values[0].col_offset, 0)
+        self.assertEqual(t.body[1].value.values[1].col_offset, 0)
+        self.assertEqual(t.body[1].value.values[2].col_offset, 0)
         # NOTE: the following lineno information and col_offset is correct for
         # expressions within FormattedValues.
         binop = t.body[1].value.values[1].value
@@ -313,8 +310,8 @@ non-important content
         self.assertEqual(binop.lineno, 4)
         self.assertEqual(binop.left.lineno, 4)
         self.assertEqual(binop.right.lineno, 6)
-        self.assertEqual(binop.col_offset, 3)
-        self.assertEqual(binop.left.col_offset, 3)
+        self.assertEqual(binop.col_offset, 4)
+        self.assertEqual(binop.left.col_offset, 4)
         self.assertEqual(binop.right.col_offset, 7)
 
     def test_docstring(self):
