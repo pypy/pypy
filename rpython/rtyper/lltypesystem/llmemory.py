@@ -136,27 +136,33 @@ class ItemOffset(AddressOffset):
             return
         else:
             PTR = lltype.Ptr(lltype.FixedSizeArray(self.TYPE, 1))
+        steps = []
         while True:
             src = cast_adr_to_ptr(srcadr, PTR)
             dst = cast_adr_to_ptr(dstadr, PTR)
-            _reccopy(src, dst)
+            _reccopy_lazy(src, dst, steps)
             repeat -= 1
             if repeat <= 0:
                 break
             srcadr += ItemOffset(self.TYPE)
             dstadr += ItemOffset(self.TYPE)
+        for step in steps:
+            step()
 
     def _raw_memcopy_gcrefs(self, srcadr, dstadr):
         # special case to handle arrays of any GC pointers
         repeat = self.repeat
+        data_list = []
         while True:
-            data = srcadr.address[0]
-            dstadr.address[0] = data
+            data_list.append(srcadr.address[0])
             repeat -= 1
             if repeat <= 0:
                 break
             srcadr += ItemOffset(self.TYPE)
-            dstadr += ItemOffset(self.TYPE)
+        for i, data in enumerate(data_list):
+            if i > 0:
+                dstadr += ItemOffset(self.TYPE)
+            dstadr.address[0] = data
 
 _end_markers = weakref.WeakKeyDictionary()  # <array of STRUCT> -> _endmarker
 class _endmarker_struct(lltype._struct):
@@ -1009,8 +1015,14 @@ def raw_memmove(source, dest, size):
     raw_memcopy(source, dest, size)
     source.ptr._as_obj()._free()
 
+def raw_memmove_no_free(source, dest, size):
+    # same as raw_memmove(), but we can't _free the source object when
+    # running on top of fake addresses.  This is meant to be used when
+    # source and dest are subarrays of the same array.
+    raw_memcopy(source, dest, size)
+
 class RawMemmoveEntry(ExtRegistryEntry):
-    _about_ = raw_memmove
+    _about_ = (raw_memmove, raw_memmove_no_free)
 
     def compute_result_annotation(self, s_from, s_to, s_size):
         assert isinstance(s_from, SomeAddress)
@@ -1040,8 +1052,10 @@ def cast_any_ptr(EXPECTED_TYPE, ptr):
         return lltype.cast_pointer(EXPECTED_TYPE, ptr)
 
 
-def _reccopy(source, dest):
+def _reccopy_lazy(source, dest, steps):
     # copy recursively a structure or array onto another.
+    # This does all the reading and then fills 'steps' with a list of callables.
+    # Only when these callables are invoked does all the writing take place.
     T = lltype.typeOf(source).TO
     assert T == lltype.typeOf(dest).TO
     if isinstance(T, (lltype.Array, lltype.FixedSizeArray)):
@@ -1053,22 +1067,31 @@ def _reccopy(source, dest):
             if isinstance(ITEMTYPE, lltype.ContainerType):
                 subsrc = source._obj.getitem(i)._as_ptr()
                 subdst = dest._obj.getitem(i)._as_ptr()
-                _reccopy(subsrc, subdst)
+                _reccopy_lazy(subsrc, subdst, steps)
             else:
                 # this is a hack XXX de-hack this
                 llvalue = source._obj.getitem(i, uninitialized_ok=2)
                 if not isinstance(llvalue, lltype._uninitialized):
-                    dest._obj.setitem(i, llvalue)
+                    steps.append(lambda i=i, llvalue=llvalue:
+                                 dest._obj.setitem(i, llvalue))
     elif isinstance(T, lltype.Struct):
         for name in T._names:
             FIELDTYPE = getattr(T, name)
             if isinstance(FIELDTYPE, lltype.ContainerType):
                 subsrc = source._obj._getattr(name)._as_ptr()
                 subdst = dest._obj._getattr(name)._as_ptr()
-                _reccopy(subsrc, subdst)
+                _reccopy_lazy(subsrc, subdst, steps)
             else:
                 # this is a hack XXX de-hack this
                 llvalue = source._obj._getattr(name, uninitialized_ok=True)
-                setattr(dest._obj, name, llvalue)
+                steps.append(lambda name=name, llvalue=llvalue:
+                             setattr(dest._obj, name, llvalue))
     else:
         raise TypeError(T)
+
+def _reccopy(source, dest):
+    # copy recursively a structure or array onto another.
+    steps = []
+    _reccopy_lazy(source, dest, steps)
+    for step in steps:
+        step()
