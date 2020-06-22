@@ -569,6 +569,17 @@ def op_gc_writebarrier_before_copy(source, dest,
     assert type(length) is int
     return True
 
+def op_gc_writebarrier_before_move(array):
+    A = lltype.typeOf(array)
+    if isinstance(A.TO, lltype.GcArray):
+        if isinstance(A.TO.OF, lltype.Ptr):
+            assert A.TO.OF.TO._gckind == 'gc'
+        else:
+            assert isinstance(A.TO.OF, lltype.Struct)
+    else:
+        assert isinstance(A.TO, lltype.GcStruct)
+        assert A.TO._arrayfld is not None
+
 def op_getfield(p, name):
     checkptr(p)
     TYPE = lltype.typeOf(p).TO
