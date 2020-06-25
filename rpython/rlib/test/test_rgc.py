@@ -203,7 +203,7 @@ def test_ll_arraymove_1():
     a1 = lltype.malloc(TYPE, 10)
     org1 = [None] * 10
     for i in range(10): a1[i] = org1[i] = 1000 + i
-    rgc.ll_arraymove(a1, 2, 5, 4)
+    rgc.ll_arraymove(a1, 2, 4, 3)
     for i in range(10):
         if 4 <= i < 7:
             expected = org1[i - 2]
@@ -216,7 +216,7 @@ def test_ll_arraymove_2():
     a1 = lltype.malloc(TYPE, 10)
     org1 = [None] * 10
     for i in range(10): a1[i] = org1[i] = 1000 + i
-    rgc.ll_arraymove(a1, 4, 7, 2)
+    rgc.ll_arraymove(a1, 4, 2, 3)
     for i in range(10):
         if 2 <= i < 5:
             expected = org1[i + 2]
@@ -230,7 +230,7 @@ def test_ll_arraymove_gc():
     a1 = lltype.malloc(TYPE, 10)
     org1 = [None] * 10
     for i in range(10): a1[i] = org1[i] = lltype.malloc(S)
-    rgc.ll_arraymove(a1, 2, 5, 4)
+    rgc.ll_arraymove(a1, 2, 4, 3)
     for i in range(10):
         if 4 <= i < 7:
             expected = org1[i - 2]
@@ -238,9 +238,8 @@ def test_ll_arraymove_gc():
             expected = org1[i]
         assert a1[i] == expected
 
-def test_ll_arraymove_jitted(monkeypatch):
-    from rpython.rlib import jit
-    monkeypatch.setattr(jit, "we_are_jitted", lambda: True)
+def test_ll_arraymove_slowpath(monkeypatch):
+    monkeypatch.setattr(rgc, "must_split_gc_address_space", lambda: True)
     test_ll_arraymove_1()
     test_ll_arraymove_2()
 
