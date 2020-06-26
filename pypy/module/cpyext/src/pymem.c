@@ -94,7 +94,7 @@ void PyMem_Free(void *ptr)
     free(ptr);
 }
 
-int _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
+int PyTraceMalloc_Track(unsigned int domain,
                          uintptr_t ptr, size_t size)
 {
     /* to avoid acquiring/releasing the GIL too often, only do it
@@ -133,7 +133,7 @@ int _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
     /* Should we return -2 or 0?  In theory it should be -2, because
        we're not using the info to really track the allocations.
        But I'm sure someone is too clever somewhere and stops calling
-       _PyTraceMalloc_Track() if it returns -2.  On the other hand,
+       PyTraceMalloc_Track() if it returns -2.  On the other hand,
        returning 0 might lead to expectations that importing
        'tracemalloc' works on Python 3.  Oh well, in that case we'll
        just crash with ImportError during 'import tracemalloc'.
@@ -141,8 +141,7 @@ int _PyTraceMalloc_Track(_PyTraceMalloc_domain_t domain,
     return 0;
 }
 
-int _PyTraceMalloc_Untrack(_PyTraceMalloc_domain_t domain,
-                           uintptr_t ptr)
+int PyTraceMalloc_Untrack(unsigned int domain, uintptr_t ptr)
 {
     /* nothing to do */
     return 0;
