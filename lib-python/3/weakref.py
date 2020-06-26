@@ -430,7 +430,7 @@ class WeakKeyDictionary(collections.MutableMapping):
 #        return len(self.data) - len(self._pending_removals)
 #
         result = 0
-        for wr in self.data:
+        for wr in list(self.data):
             result += (wr() is not None)
         return result
 
