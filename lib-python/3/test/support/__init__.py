@@ -2110,7 +2110,9 @@ def threading_cleanup(*original_values):
 
     for count in range(_MAX_COUNT):
         values = _thread._count(), threading._dangling
-        if values == original_values:
+        # PyPy: threading._dangling is a weakrefset, the repr may have changed
+        # so old == new can fail. Compare only the count.
+        if values[0] == original_values[0]:
             break
 
         if not count:

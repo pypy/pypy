@@ -1011,10 +1011,11 @@ class _SSLContext(object):
     __slots__ = ('ctx', '_check_hostname', 'servername_callback',
                  'alpn_protocols', '_alpn_protocols_handle', '_protocol'
                  'npn_protocols', 'set_hostname', '_post_handshake_auth',
-                 '_set_hostname_handle', '_npn_protocols_handle')
+                 '_sni_cb', '_npn_protocols_handle')
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
+        self._sni_cb = None
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
@@ -1427,6 +1428,39 @@ class _SSLContext(object):
         finally:
             lib.BIO_free(biobuf)
 
+    @property
+    def sni_callback(self):
+        r"""Set a callback that will be called when a server name is
+        provided by the SSL/TLS client in the SNI extension.
+
+        If the argument is None then the callback is disabled. The method
+        is called with the SSLSocket, the server name as a string, and the
+        SSLContext object. See RFC 6066 for details of the SNI
+        extension.
+        """
+
+        return self._sni_cb
+
+    @sni_callback.setter
+    def sni_callback(self, cb):
+        if self._protocol == PROTOCOL_TLS_CLIENT:
+            raise ValueError('sni_callback cannot be set on TLS_CLIENT context')
+        if not HAS_SNI:
+            raise NotImplementedError("The TLS extension servername callback, "
+                    "SSL_CTX_set_tlsext_servername_callback, "
+                    "is not in the current OpenSSL library.")
+        if cb is None:
+            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
+            self._sni_cb= None
+            return
+        if not callable(cb):
+            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
+            raise TypeError("not a callable object")
+        self.scb = ServernameCallback(cb, self)
+        sni_cb = ffi.new_handle(self.scb)
+        lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
+        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
+
     def cert_store_stats(self):
         store = lib.SSL_CTX_get_cert_store(self.ctx)
         x509 = 0
@@ -1534,23 +1568,6 @@ class _SSLContext(object):
             lib.SSL_CTX_set_tmp_ecdh(self.ctx, key)
         finally:
             lib.EC_KEY_free(key)
-
-    def set_servername_callback(self, callback):
-        # cryptography constraint: OPENSSL_NO_TLSEXT will never be set!
-        if not HAS_SNI:
-            raise NotImplementedError("The TLS extension servername callback, "
-                    "SSL_CTX_set_tlsext_servername_callback, "
-                    "is not in the current OpenSSL library.")
-        if callback is None:
-            lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
-            self._set_hostname_handle = None
-            return
-        if not callable(callback):
-            raise TypeError("not a callable object")
-        scb = ServernameCallback(callback, self)
-        self._set_hostname_handle = ffi.new_handle(scb)
-        lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
-        lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, self._set_hostname_handle)
 
     def _set_alpn_protocols(self, protos):
         if HAS_ALPN:
