@@ -96,13 +96,9 @@ Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
      </a>
    </h1>
 
-If you are new with Mercurial and Heptapod, you can read this short tutorial:
+If you are new with Mercurial and Heptapod, you can read this `short tutorial`_
 
-.. toctree::
-   :maxdepth: 1
-
-   mercurial_heptapod
-
+.. _`short tutorial`: https://heptapod.net/pages/quick-start-guide.html
 
 Get Access
 ----------

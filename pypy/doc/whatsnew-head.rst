@@ -13,3 +13,25 @@ significantly for characters that are part of ASCII.
 .. branch: rpython-recvmsg_into
 
 Refactor RSocket.xxx_into() methods and add .recvmsg_into().
+
+.. branch: bo-fix-source-links
+
+Fix documentation extlinks for heptapod directory schema
+
+.. branch: py3.6 # ignore, bad merge
+
+.. branch: ssl  # ignore, small test fix
+
+.. branch: ctypes-stuff
+
+Fix implementation of PEP 3118 in ctypes.
+
+.. branch: issue3240
+
+Use make_portable on macOS
+
+.. branch: wb_before_move
+
+Add ``rgc.ll_arraymove()``, as a way to shift items inside the same
+array with proper GC support. Improves ``while lst: lst.pop(0)``.
+

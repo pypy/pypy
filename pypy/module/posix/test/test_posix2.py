@@ -354,8 +354,18 @@ class AppTestPosix:
                           'file2']
 
     def test_listdir_default(self):
+        import sys
         posix = self.posix
-        assert posix.listdir() == posix.listdir('.') == posix.listdir(None)
+        if sys.platform == 'win32':
+            defaults = ['.', '', None]
+            assert posix.listdir(b'.') == posix.listdir(b'')
+        else:
+            defaults = ['.', None]
+            for v in ['', b'']:
+                with raises(FileNotFoundError):
+                    posix.listdir(v)
+        for v in defaults:
+            assert posix.listdir() == posix.listdir(v)
 
     def test_listdir_bytes(self):
         import sys
@@ -1276,6 +1286,21 @@ class AppTestPosix:
                     assert data == "who cares?"
             finally:
                 posix.unlink(dest)
+
+        def test_readlink(self):
+            os = self.posix
+            pdir = self.pdir
+            src = pdir + "/somefile"
+            dest = pdir + "/file.txt"
+            os.symlink(dest, src)
+            try:
+                assert os.readlink(src) == dest
+                assert os.readlink(src.encode()) == dest.encode()
+                assert os.readlink(self.Path(src)) == dest
+                assert os.readlink(self.Path(src.encode())) == dest.encode()
+            finally:
+                os.unlink(src)
+
     else:
         def test_symlink(self):
             posix = self.posix

@@ -1877,6 +1877,11 @@ class Transformer(object):
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
 
+    def do_fixed_list_ll_arraymove(self, op, args, arraydescr):
+        # this case is unreachable for now: ll_arraymove is only called on
+        # lists which have insert() or pop() or del called on them
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYMOVE)
+
     def do_fixed_void_list_getitem(self, op, args):
         self._prepare_void_list_getset(op)
         return []

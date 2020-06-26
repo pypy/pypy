@@ -987,7 +987,7 @@ def main():
         casefolding = 'CaseFolding-%(version)s.txt',
     )
     version_tuple = tuple(int(x) for x in options.unidata_version.split("."))
-    if version_tuple[0] > 5:
+    if version_tuple[0] >= 5:
         filenames['special_casing'] = 'SpecialCasing-%(version)s.txt'
     filenames = dict((name, filename % dict(version=options.unidata_version))
                      for (name, filename) in filenames.items())

@@ -247,7 +247,7 @@ def Py_SetRecursionLimit(space, limit):
 
 limit = 0 # for testing
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
+@cpython_api([CONST_STRING], rffi.INT_real, error=1)
 def Py_EnterRecursiveCall(space, where):
     """Marks a point where a recursive C-level call is about to be performed.
 

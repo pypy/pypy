@@ -1,5 +1,6 @@
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 
 try:
@@ -140,6 +141,9 @@ class _CDataMeta(type):
         result._init_no_arg_()
         return result
 
+    def _getformat(self):
+        raise ValueError('cannot get format string for %r' % self)
+
 
 class CArgObject(object):
     """ simple wrapper around buffer, just for the case of freeing
@@ -199,7 +203,10 @@ class _CData(bufferable, metaclass=_CDataMeta):
             return self.value
 
     def __buffer__(self, flags):
-        return memoryview(self._buffer)
+        rawview = memoryview(self._buffer)
+        fmt = type(self)._getformat()
+        itemsize = sizeof(type(self))
+        return newmemoryview(rawview, itemsize, fmt, ())
 
     def _get_b_base(self):
         try:
@@ -231,8 +238,7 @@ def alignment(tp):
 
 @builtinify
 def byref(cdata, offset=0):
-    # "pointer" is imported at the end of this module to avoid circular
-    # imports
+    from _ctypes.pointer import pointer
     ptr = pointer(cdata)
     if offset != 0:
         ptr._buffer[0] += offset
@@ -307,7 +313,3 @@ def as_ffi_pointer(value, ffitype):
         raise ArgumentError("expected %s instance, got %s" % (type(value),
                                                               ffitype))
     return value._get_buffer_value()
-
-
-# used by "byref"
-from _ctypes.pointer import pointer

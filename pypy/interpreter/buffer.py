@@ -1,5 +1,5 @@
 from rpython.rlib.rstruct.error import StructError
-from rpython.rlib.buffer import StringBuffer, SubBuffer
+from rpython.rlib.buffer import StringBuffer, SubBuffer, RawBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
 
 from pypy.interpreter.error import oefmt
@@ -188,13 +188,10 @@ class BufferView(object):
         return space.newmemoryview(self)
 
 
-class SimpleView(BufferView):
+class RawBufferView_Base(BufferView):
+    """Abstract base class for views into RawBuffers"""
     _attrs_ = ['readonly', 'data']
     _immutable_ = True
-
-    def __init__(self, data):
-        self.data = data
-        self.readonly = self.data.readonly
 
     def getlength(self):
         return self.data.getlength()
@@ -206,7 +203,7 @@ class SimpleView(BufferView):
         return self.data[start:start + size]
 
     def setbytes(self, offset, s):
-        self.data.setslice(offset, s)
+        return self.data.setslice(offset, s)
 
     def get_raw_address(self):
         return self.data.get_raw_address()
@@ -217,6 +214,50 @@ class SimpleView(BufferView):
     def as_writebuf(self):
         assert not self.data.readonly
         return self.data
+
+
+class RawBufferView(RawBufferView_Base):
+    _attrs_ = ['readonly', 'data', 'fmt', 'itemsize']
+    _immutable_ = True
+
+    def __init__(self, data, fmt, itemsize):
+        assert isinstance(data, RawBuffer)
+        self.data = data
+        self.readonly = data.readonly
+        self.fmt = fmt
+        self.itemsize = itemsize
+
+    def getformat(self):
+        return self.fmt
+
+    def getitemsize(self):
+        return self.itemsize
+
+    def getndim(self):
+        return 1
+
+    def getshape(self):
+        return [self.getlength() // self.itemsize]
+
+    def getstrides(self):
+        return [self.getitemsize()]
+
+    def new_slice(self, start, step, slicelength):
+        if step == 1:
+            n = self.itemsize
+            newbuf = SubBuffer(self.data, start * n, slicelength * n)
+            return RawBufferView(newbuf, self.fmt, self.itemsize)
+        else:
+            return BufferView.new_slice(self, start, step, slicelength)
+
+
+class SimpleView(RawBufferView_Base):
+    _attrs_ = ['readonly', 'data']
+    _immutable_ = True
+
+    def __init__(self, data):
+        self.data = data
+        self.readonly = self.data.readonly
 
     def getformat(self):
         return 'B'

@@ -3,7 +3,7 @@ The purpose of this test file is to check how ctypes really work,
 down to what aliases what and what exact types operations return.
 """
 
-import py
+import pytest
 from ctypes import *
 
 def test_primitive_pointer():
@@ -226,11 +226,16 @@ def test_from_param():
 
 def test_array_mul():
     assert c_int * 10 == 10 * c_int
-    py.test.raises(TypeError, 'c_int * c_int')
-    py.test.raises(TypeError, 'c_int * (-1.5)')
-    py.test.raises(TypeError, 'c_int * "foo"')
-    py.test.raises(TypeError, '(-1.5) * c_int')
-    py.test.raises(TypeError, '"foo" * c_int')
+    with pytest.raises(TypeError):
+        c_int * c_int
+    with pytest.raises(TypeError):
+        c_int * (-1.5)
+    with pytest.raises(TypeError):
+        c_int * "foo"
+    with pytest.raises(TypeError):
+        (-1.5) * c_int
+    with pytest.raises(TypeError):
+        "foo" * c_int
 
 def test_cast_none():
     def check(P):

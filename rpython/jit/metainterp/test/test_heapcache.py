@@ -24,6 +24,7 @@ class FakeEffectinfo(object):
     EF_RANDOM_EFFECTS                  = 7 #can do whatever
 
     OS_ARRAYCOPY = 0
+    OS_ARRAYMOVE = 9
 
     def __init__(self, extraeffect, oopspecindex, write_descrs_fields, write_descrs_arrays):
         self.extraeffect = extraeffect
@@ -772,6 +773,7 @@ class TestHeapCache(object):
         class XTra:
             oopspecindex = 0
             OS_ARRAYCOPY = 42
+            OS_ARRAYMOVE = 49
             extraeffect = 5
             EF_LOOPINVARIANT = 1
             EF_ELIDABLE_CANNOT_RAISE = 2
