@@ -40,6 +40,7 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
+-X dev: enable PyPy's "developer mode" (analogous to CPython)
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -601,13 +602,21 @@ def run_command_line(interactive,
     io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
 
-    if 'faulthandler' in sys.builtin_module_names:
-        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
-            import faulthandler
-            try:
-                faulthandler.enable(2)   # manually set to stderr
-            except ValueError:
-                pass      # ignore "2 is not a valid file descriptor"
+    enable_faulthandler = False
+
+    if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+        enable_faulthandler = True
+
+    if 'dev' in sys._xoptions:
+        warnoptions.append("default")
+        enable_faulthandler = 1
+
+    if enable_faulthandler and 'faulthandler' in sys.builtin_module_names:
+        import faulthandler
+        try:
+            faulthandler.enable(2)   # manually set to stderr
+        except ValueError:
+            pass      # ignore "2 is not a valid file descriptor"
 
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
