@@ -55,7 +55,11 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
         # CPython has an equivalent hack :-(
         value = stnode.get_value()
         if value is not None:
-            column_offset = value.find(source) + stnode.get_column()
+            offset = value.find(source)
+            assert offset >= 0
+            last_nl = max(0, value.rfind('\n', 0, offset))
+            column_offset = offset - last_nl + stnode.get_column()
+            lineno += value.count('\n', 0, last_nl+1)
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
@@ -66,7 +70,8 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
 
     ast = ast_from_node(astbuilder.space, parse_tree, info,
                         recursive_parser=parser)
-    fixup_fstring_positions(ast, lineno, column_offset)
+    # column_offset - 1 to exclude prefixed ( in paren_source
+    fixup_fstring_positions(ast, lineno, column_offset - 1)
     return ast
 
 def fixup_fstring_positions(ast, line_offset, column_offset):
@@ -80,8 +85,9 @@ class FixPosVisitor(ast.GenericASTVisitor):
 
     def visited(self, node):
         if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
+            if node.lineno == 1:
+                node.col_offset += self.column_offset
             node.lineno += self.line_offset
-            node.col_offset += self.column_offset
 
 
 def unexpected_end_of_string(astbuilder, atom_node):

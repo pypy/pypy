@@ -44,6 +44,15 @@ def test_fixed_ll_arraycopy():
                  lltype.Void,
                  NotSupported)
 
+def test_fixed_ll_arraymove():
+    builtin_test('list.ll_arraymove',
+                 [varoftype(FIXEDLIST),
+                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed), 
+                  varoftype(lltype.Signed)],
+                 lltype.Void,
+                 NotSupported)
+
 def test_fixed_getitem():
     builtin_test('list.getitem/NONNEG',
                  [varoftype(FIXEDLIST), varoftype(lltype.Signed)],

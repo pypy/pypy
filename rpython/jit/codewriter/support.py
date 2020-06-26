@@ -217,6 +217,7 @@ _ll_2_list_getitem_foldable = _ll_2_list_getitem
 _ll_1_list_len_foldable     = _ll_1_list_len
 
 _ll_5_list_ll_arraycopy = rgc.ll_arraycopy
+_ll_4_list_ll_arraymove = rgc.ll_arraymove
 
 _ll_3_list_resize_hint_really = rlist_ll._ll_list_resize_hint_really
 
