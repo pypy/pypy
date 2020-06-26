@@ -31,6 +31,7 @@ class EffectInfo(object):
     OS_DICT_LOOKUP              = 4    # ll_dict_lookup
     OS_THREADLOCALREF_GET       = 5    # llop.threadlocalref_get
     OS_NOT_IN_TRACE             = 8    # for calls not recorded in the jit trace
+    OS_ARRAYMOVE                = 9    # "list.ll_arraymove"
     #
     OS_INT_PY_DIV               = 12   # python signed division (neg. corrected)
     OS_INT_UDIV                 = 13   # regular unsigned division
@@ -199,7 +200,7 @@ class EffectInfo(object):
 
         if (result._write_descrs_arrays is not None and
             len(result._write_descrs_arrays) == 1):
-            # this is used only for ARRAYCOPY operations
+            # this is used only for ARRAYCOPY/ARRAYMOVE operations
             [result.single_write_descr_array] = result._write_descrs_arrays
         else:
             result.single_write_descr_array = None

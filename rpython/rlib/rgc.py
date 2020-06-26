@@ -412,25 +412,24 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
-@jit.look_inside_iff(lambda a,x,y,z: jit.isvirtual(a) and jit.isconstant(x)
-                                 and jit.isconstant(y) and jit.isconstant(z))
+@jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
 @enforceargs(None, int, int, int)
 @specialize.ll()
-def ll_arraymove(array, source_start, source_stop, dest_start):
+def ll_arraymove(array, source_start, dest_start, length):
     from rpython.rtyper.lltypesystem.lloperation import llop
     from rpython.rlib.objectmodel import keepalive_until_here
 
     # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
     # and also, maybe, speed up very small cases
-    if source_stop - source_start <= 1:
-        if source_stop != source_start:
+    if length <= 1:
+        if length == 1:
             copy_item(array, array, source_start, dest_start)
         return
 
     TP = lltype.typeOf(array).TO
 
     slowpath = False
-    if jit.we_are_jitted() or must_split_gc_address_space():
+    if must_split_gc_address_space():
         slowpath = True
     elif _contains_gcptr(TP.OF):
         # if the array has card marks set, then this will perform a
@@ -441,17 +440,17 @@ def ll_arraymove(array, source_start, source_stop, dest_start):
         # we're just moving existing ones around.
         llop.gc_writebarrier_before_move(lltype.Void, array)
     if slowpath:
-        # if we are jitting (with all-constant indices in a virtual array),
-        # or if we translate with the option 'split_gc_address_space',
+        # if we translate with the option 'split_gc_address_space',
         # then move by hand
         delta = dest_start - source_start
         if delta < 0:
             i = source_start
-            while i < source_stop:
+            stop = source_start + length
+            while i < stop:
                 copy_item(array, array, i, i + delta)
                 i += 1
         elif delta > 0:
-            i = source_stop
+            i = source_start + length
             while i > source_start:
                 i -= 1
                 copy_item(array, array, i, i + delta)
@@ -461,7 +460,6 @@ def ll_arraymove(array, source_start, source_stop, dest_start):
                       llmemory.sizeof(TP.OF) * source_start)
     mv_dest_addr = (array_addr + llmemory.itemoffsetof(TP, 0) +
                     llmemory.sizeof(TP.OF) * dest_start)
-    length = source_stop - source_start
 
     llmemory.raw_memmove_no_free(mv_source_addr, mv_dest_addr,
                                  llmemory.sizeof(TP.OF) * length)

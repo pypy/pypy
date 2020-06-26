@@ -3019,6 +3019,21 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_arraymove_1(self):
+        ops = '''
+        [i0]
+        p1 = new_array(6, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i0, descr=arraydescr)
+        call_n(0, p1, 0, 2, 0, descr=arraymovedescr)    # 0-length arraymove
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        jump(i2)
+        '''
+        expected = '''
+        [i0]
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]

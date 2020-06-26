@@ -674,7 +674,6 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    global all_exceptions
     from pypy.module.exceptions.moduledef import Module as ExcModule
     all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
@@ -1221,11 +1220,6 @@ def build_bridge(space):
     struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    global_objects = []
-    for name in all_exceptions:
-        global_objects.append('PyTypeObject _PyExc_%s;' % name)
-    global_code = '\n'.join(global_objects)
-
     prologue = ("#include <Python.h>\n" +
                 "#include <structmember.h>\n" +
                 "#include <marshal.h>\n" +
@@ -1233,7 +1227,6 @@ def build_bridge(space):
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
-            global_code +
             '\n' +
             '\n'.join(functions))
 
