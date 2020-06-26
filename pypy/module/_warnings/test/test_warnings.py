@@ -9,7 +9,6 @@ class AppTestWarnings:
                     ('ignore', None, DeprecationWarning, None, 0),
                     ('ignore', None, PendingDeprecationWarning, None, 0),
                     ('ignore', None, ImportWarning, None, 0),
-                    ('ignore', None, BytesWarning, None, 0),
                     ('ignore', None, ResourceWarning, None, 0)]
         assert expected == _warnings.filters
 

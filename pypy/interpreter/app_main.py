@@ -589,8 +589,9 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
-                     quiet,
                      verbose,
+                     bytes_warning,
+                     quiet,
                      isolated,
                      dev_mode,
                      **ignored):
@@ -639,11 +640,32 @@ def run_command_line(interactive,
         if _MACOSX and old_pyvenv_launcher:
             os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 
+    # The priority order for warnings configuration is (highest precedence
+    # first):
+    #
+    # - the BytesWarning filter, if needed ('-b', '-bb')
+    # - any '-W' command line options; then
+    # - the 'PYTHONWARNINGS' environment variable; then
+    # - the dev mode filter ('-X dev', 'PYTHONDEVMODE'); then
+    # - any implicit filters added by _warnings.c/warnings.py
+    #
+    # All settings except the last are passed to the warnings module via
+    # the `sys.warnoptions` list. Since the warnings module works on the basis
+    # of "the most recently added filter will be checked first", we add
+    # the lowest precedence entries first so that later entries override them.
+    sys_warnoptions = []
+    if dev_mode:
+        sys_warnoptions.append("default")
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
-        warnoptions = pythonwarnings.split(',') + warnoptions
+        sys_warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
-        sys.warnoptions[:] = warnoptions
+        sys_warnoptions.extend(warnoptions)
+    if bytes_warning:
+        sys_warnoptions.append("error::BytesWarning" if bytes_warning > 1 else "default::BytesWarning")
+
+    if sys_warnoptions:
+        sys.warnoptions[:] = sys_warnoptions
         try:
             if 'warnings' in sys.modules:
                 from warnings import _processoptions
