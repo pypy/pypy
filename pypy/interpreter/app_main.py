@@ -40,7 +40,7 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
--X dev: enable PyPy's "development mode" (analogous to CPython)
+-X dev: enable PyPy's "development mode"
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -560,6 +560,8 @@ def parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if os.getenv('PYTHONDEVMODE'):
+            options["dev_mode"] = True
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -606,20 +608,13 @@ def run_command_line(interactive,
     io_encoding = os.getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
 
-    enable_faulthandler = False
-
-    if 'faulthandler' in sys._xoptions or (readenv and os.getenv('PYTHONFAULTHANDLER')):
-        enable_faulthandler = True
-
-    if dev_mode or (readenv and os.getenv('PYTHONDEVMODE')):
-        enable_faulthandler = True
-
-    if enable_faulthandler and 'faulthandler' in sys.builtin_module_names:
-        import faulthandler
-        try:
-            faulthandler.enable(2)   # manually set to stderr
-        except ValueError:
-            pass      # ignore "2 is not a valid file descriptor"
+    if 'faulthandler' in sys.builtin_module_names:
+        if dev_mode or 'faulthandler' in sys._xoptions or (readenv and os.getenv('PYTHONFAULTHANDLER')):
+            import faulthandler
+            try:
+                faulthandler.enable(2)   # manually set to stderr
+            except ValueError:
+                pass      # ignore "2 is not a valid file descriptor"
 
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
