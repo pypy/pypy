@@ -40,7 +40,7 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
--X dev: enable PyPy's "developer mode" (analogous to CPython)
+-X dev: enable PyPy's "development mode" (analogous to CPython)
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -422,6 +422,8 @@ def m_option(options, runmodule, iterargv):
 
 def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
+    if xoption == "dev":
+        options["dev_mode"] = True
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -590,6 +592,7 @@ def run_command_line(interactive,
                      quiet,
                      verbose,
                      isolated,
+                     dev_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -604,12 +607,11 @@ def run_command_line(interactive,
 
     enable_faulthandler = False
 
-    if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+    if 'faulthandler' in sys._xoptions or (readenv and os.getenv('PYTHONFAULTHANDLER')):
         enable_faulthandler = True
 
-    if 'dev' in sys._xoptions:
-        warnoptions.append("default")
-        enable_faulthandler = 1
+    if dev_mode or (readenv and os.getenv('PYTHONDEVMODE')):
+        enable_faulthandler = True
 
     if enable_faulthandler and 'faulthandler' in sys.builtin_module_names:
         import faulthandler

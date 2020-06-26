@@ -23,14 +23,18 @@ class State:
     def init_filters(self, space):
         filters_w = []
 
+        dev_mode = space.sys.get_flag('dev_mode')
+
         filters_w.append(create_filter(
             space, space.w_DeprecationWarning, "default", "__main__"))
-        filters_w.append(create_filter(
-            space, space.w_DeprecationWarning, "ignore", None))
-        filters_w.append(create_filter(
-            space, space.w_PendingDeprecationWarning, "ignore", None))
-        filters_w.append(create_filter(
-            space, space.w_ImportWarning, "ignore", None))
+
+        if not dev_mode:
+            filters_w.append(create_filter(
+                space, space.w_DeprecationWarning, "ignore", None))
+            filters_w.append(create_filter(
+                space, space.w_PendingDeprecationWarning, "ignore", None))
+            filters_w.append(create_filter(
+                space, space.w_ImportWarning, "ignore", None))
 
         bytes_warning = space.sys.get_flag('bytes_warning')
         if bytes_warning > 1:
@@ -45,7 +49,10 @@ class State:
         # note: in CPython, resource usage warnings are enabled by default
         # in pydebug mode
         filters_w.append(create_filter(
-            space, space.w_ResourceWarning, "ignore", None))
+            space, space.w_ResourceWarning, "always" if dev_mode else "ignore", None))
+
+        if dev_mode:
+            filters_w.append(create_filter(space, space.w_Warning, "default", None))
 
         self.w_filters = space.newlist(filters_w)
 
