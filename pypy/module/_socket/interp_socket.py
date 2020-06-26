@@ -87,6 +87,18 @@ def fill_from_object(addr, space, w_address):
     else:
         raise NotImplementedError
 
+
+# XXX Hack to seperate rpython and pypy
+def get_so_protocol(fd):
+    from rpython.rlib import _rsocket_rffi as _c
+    try:
+        # Fails on macOS
+        SO_PROTOCOL = _c.SO_PROTOCOL
+    except AttributeError:
+        return -1
+    return rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
+
+
 def idna_converter(space, w_host):
     # Converts w_host to a byte string.  Similar to encode_idna()
     # but accepts more types and refuses NULL bytes.
@@ -233,7 +245,7 @@ class W_Socket(W_Root):
                     if type == -1:
                         type = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_TYPE)
                     if proto == -1:
-                        proto = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
+                        proto = get_so_protocol(fd)
                     sock = RSocket(family, type, proto, fd=fd)
             else:
                 sock = RSocket(family, type, proto, inheritable=False)
