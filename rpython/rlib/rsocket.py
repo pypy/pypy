@@ -32,6 +32,8 @@ def mallocbuf(buffersize):
 constants = _c.constants
 locals().update(constants)  # Define constants from _c
 
+HAS_SO_PROTOCOL = hasattr(_c, 'SO_PROTOCOL')
+
 if _c.WIN32:
     from rpython.rlib import rwin32
 

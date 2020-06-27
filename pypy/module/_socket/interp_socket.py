@@ -5,7 +5,7 @@ from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
-    RSocketError, SOMAXCONN
+    RSocketError, SOMAXCONN, HAS_SO_PROTOCOL,
 )
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -88,15 +88,13 @@ def fill_from_object(addr, space, w_address):
         raise NotImplementedError
 
 
-# XXX Hack to seperate rpython and pypy
-def get_so_protocol(fd):
-    from rpython.rlib import _rsocket_rffi as _c
-    try:
-        # Fails on macOS
-        SO_PROTOCOL = _c.SO_PROTOCOL
-    except AttributeError:
+if HAS_SO_PROTOCOL:
+    def get_so_protocol(fd):
+        from rpython.rlib import _rsocket_rffi as _c
+        return rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
+else:
+    def get_so_protocol(fd):
         return -1
-    return rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
 
 
 def idna_converter(space, w_host):
