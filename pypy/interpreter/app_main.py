@@ -50,6 +50,8 @@ PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
+PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
