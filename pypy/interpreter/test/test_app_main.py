@@ -208,11 +208,15 @@ class TestParseCommandLine:
                 expected = {flag: int(value)}
             self.check([opt, '-c', 'pass'], {}, sys_argv=['-c'],
                        run_command='pass', **expected)
+        self.check(['-X', 'dev', '-c', 'pass'], {}, sys_argv=['-c'],
+                   run_command='pass', _xoptions=['dev'], dev_mode=True)
 
     def test_sysflags_envvar(self, monkeypatch):
         expected = {"no_user_site": True}
         self.check(['-c', 'pass'], {'PYTHONNOUSERSITE': '1'}, sys_argv=['-c'],
                    run_command='pass', **expected)
+        self.check(['-c', 'pass'], {'PYTHONDEVMODE': '1'}, sys_argv=['-c'],
+                   run_command='pass', dev_mode=True)
 
     def test_check_hash_based_pycs(self):
         for val in ['default', 'always', 'never']:
