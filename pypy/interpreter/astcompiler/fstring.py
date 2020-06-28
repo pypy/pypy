@@ -2,7 +2,6 @@ from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
-from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
@@ -254,31 +253,51 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
 
 
 def fstring_find_literal(astbuilder, fstr, atom_node, rec):
+    space = astbuilder.space
+    raw = fstr.raw_mode
+
     # Return the next literal part.  Updates the current index inside 'fstr'.
     # Differs from CPython: this version handles double-braces on its own.
     s = fstr.unparsed
     literal_start = fstr.current_index
-    in_named_escape = False
 
     # Get any literal string. It ends when we hit an un-doubled left
     # brace (which isn't part of a unicode name escape such as
     # "\N{EULER CONSTANT}"), or the end of the string.
     i = literal_start
-    builder = StringBuilder()
     while i < len(s):
         ch = s[i]
-        if (not in_named_escape and ch == '{' and i - literal_start >= 2
-                and s[i - 2] == '\\' and s[i - 1] == 'N'):
-            in_named_escape = True
-        elif in_named_escape and ch == '}':
-            in_named_escape = False
-        elif ch == '{' or ch == '}':
+        i += 1
+        if not raw and ch == '\\' and i < len(s):
+            ch = s[i]
+            i += 1
+            if ch == 'N':
+                if i < len(s) and s[i] == '{':
+                    while i < len(s) and s[i] != '}':
+                        i += 1
+                    if i < len(s):
+                        i += 1
+                    continue
+                elif i < len(s):
+                    i += 1
+                break
+            if ch == '{':
+                msg = "invalid escape sequence '%s'"
+                try:
+                    space.warn(space.newtext(msg % ch), space.w_DeprecationWarning)
+                except error.OperationError as e:
+                    if e.match(space, space.w_DeprecationWarning):
+                        raise astbuilder.error(msg % ch, atom_node)
+                    else:
+                        raise
+        if ch == '{' or ch == '}':
             # Check for doubled braces, but only at the top level. If
             # we checked at every level, then f'{0:{3}}' would fail
             # with the two closing braces.
-            if rec == 0 and i + 1 < len(s) and s[i + 1] == ch:
+            if rec == 0 and i < len(s) and s[i] == ch:
                 i += 1   # skip over the second brace
             elif rec == 0 and ch == '}':
+                fstr.current_index = i - 1
                 # Where a single '{' is the start of a new expression, a
                 # single '}' is not allowed.
                 astbuilder.error("f-string: single '}' is not allowed",
@@ -287,15 +306,15 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                 # We're either at a '{', which means we're starting another
                 # expression; or a '}', which means we're at the end of this
                 # f-string (for a nested format_spec).
+                i -= 1
                 break
-        builder.append(ch)
-        i += 1
 
     fstr.current_index = i
-    space = astbuilder.space
-    literal = builder.build()
+    assert i <= len(s)
+    assert i == len(s) or s[i] == '{' or s[i] == '}'
+    literal = s[literal_start:i]
     lgt = codepoints_in_utf8(literal)
-    if not fstr.raw_mode and '\\' in literal:
+    if not raw and '\\' in literal:
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
         literal, lgt, pos = unicodehelper.decode_unicode_escape(space, literal)
