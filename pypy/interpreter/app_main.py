@@ -40,6 +40,7 @@ arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
+-X dev: enable PyPy's "development mode"
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -49,6 +50,8 @@ PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
+PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
@@ -421,6 +424,8 @@ def m_option(options, runmodule, iterargv):
 
 def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
+    if xoption == "dev":
+        options["dev_mode"] = True
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -557,6 +562,8 @@ def parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if os.getenv('PYTHONDEVMODE'):
+            options["dev_mode"] = True
     if (options["interactive"] or
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -586,9 +593,11 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
-                     quiet,
                      verbose,
+                     bytes_warning,
+                     quiet,
                      isolated,
+                     dev_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the translated PyPy for the compiler package
@@ -602,7 +611,7 @@ def run_command_line(interactive,
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:
-        if 'faulthandler' in sys._xoptions or os.getenv('PYTHONFAULTHANDLER'):
+        if dev_mode or 'faulthandler' in sys._xoptions or (readenv and os.getenv('PYTHONFAULTHANDLER')):
             import faulthandler
             try:
                 faulthandler.enable(2)   # manually set to stderr
@@ -628,11 +637,32 @@ def run_command_line(interactive,
         if _MACOSX and old_pyvenv_launcher:
             os.environ['__PYVENV_LAUNCHER__'] = old_pyvenv_launcher
 
+    # The priority order for warnings configuration is (highest precedence
+    # first):
+    #
+    # - the BytesWarning filter, if needed ('-b', '-bb')
+    # - any '-W' command line options; then
+    # - the 'PYTHONWARNINGS' environment variable; then
+    # - the dev mode filter ('-X dev', 'PYTHONDEVMODE'); then
+    # - any implicit filters added by _warnings.c/warnings.py
+    #
+    # All settings except the last are passed to the warnings module via
+    # the `sys.warnoptions` list. Since the warnings module works on the basis
+    # of "the most recently added filter will be checked first", we add
+    # the lowest precedence entries first so that later entries override them.
+    sys_warnoptions = []
+    if dev_mode:
+        sys_warnoptions.append("default")
     pythonwarnings = readenv and os.getenv('PYTHONWARNINGS')
     if pythonwarnings:
-        warnoptions = pythonwarnings.split(',') + warnoptions
+        sys_warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
-        sys.warnoptions[:] = warnoptions
+        sys_warnoptions.extend(warnoptions)
+    if bytes_warning:
+        sys_warnoptions.append("error::BytesWarning" if bytes_warning > 1 else "default::BytesWarning")
+
+    if sys_warnoptions:
+        sys.warnoptions[:] = sys_warnoptions
         try:
             if 'warnings' in sys.modules:
                 from warnings import _processoptions
