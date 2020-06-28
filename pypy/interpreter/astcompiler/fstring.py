@@ -260,6 +260,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     # Differs from CPython: this version handles double-braces on its own.
     s = fstr.unparsed
     literal_start = fstr.current_index
+    assert literal_start >= 0
 
     # Get any literal string. It ends when we hit an un-doubled left
     # brace (which isn't part of a unicode name escape such as
@@ -287,7 +288,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                     space.warn(space.newtext(msg % ch), space.w_DeprecationWarning)
                 except error.OperationError as e:
                     if e.match(space, space.w_DeprecationWarning):
-                        raise astbuilder.error(msg % ch, atom_node)
+                        astbuilder.error(msg % ch, atom_node)
                     else:
                         raise
         if ch == '{' or ch == '}':
@@ -297,7 +298,9 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
             if rec == 0 and i < len(s) and s[i] == ch:
                 i += 1   # skip over the second brace
             elif rec == 0 and ch == '}':
-                fstr.current_index = i - 1
+                i -= 1
+                assert i >= 0
+                fstr.current_index = i
                 # Where a single '{' is the start of a new expression, a
                 # single '}' is not allowed.
                 astbuilder.error("f-string: single '}' is not allowed",
@@ -309,9 +312,9 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                 i -= 1
                 break
 
-    fstr.current_index = i
-    assert i <= len(s)
+    assert 0 <= i <= len(s)
     assert i == len(s) or s[i] == '{' or s[i] == '}'
+    fstr.current_index = i
     literal = s[literal_start:i]
     lgt = codepoints_in_utf8(literal)
     if not raw and '\\' in literal:
