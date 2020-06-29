@@ -255,6 +255,13 @@ def set_wakeup_fd(space, fd):
                     "set_wakeup_fd only works in main thread or with "
                     "__pypy__.thread.enable_signals()")
 
+    if WIN32:
+        # fd can be a socket handle on win32. The code in CPython is very
+        # different and requires a refactor here and in
+        # rpython/translator/c/src/signals.c
+        raise oefmt(space.w_NotImplementedError, 
+                    "signal.set_wakeup_fd is not implemented on Windows")
+
     if fd != -1:
         try:
             os.fstat(fd)
