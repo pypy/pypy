@@ -42,7 +42,7 @@ bootstrap(void *call)
 
 	obj->id = GetCurrentThreadId();
 	if (!ReleaseSemaphore(obj->done, 1, NULL))
-        gil_error("bootstrap ReleaseSemaphore", 0);
+        gil_fatal("bootstrap ReleaseSemaphore", 0);
 	func(arg);
 }
 
@@ -136,7 +136,7 @@ DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T milliseconds)
     if (milliseconds < 0) {
         res = WaitForSingleObject(mutex->sem, INFINITE);
         if (res != WAIT_OBJECT_0)
-            gil_error("EnterNonRecursiveMutex(INFINITE)", res);
+            gil_fatal("EnterNonRecursiveMutex(INFINITE)", res);
         return res;
     }
 
@@ -144,14 +144,14 @@ DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T milliseconds)
         res = WaitForSingleObject(mutex->sem, INFINITE - 1);
         if (res != WAIT_TIMEOUT) {
             if (res != WAIT_OBJECT_0)
-                gil_error("EnterNonRecursiveMutex(INFINITE - 1)", res);
+                gil_fatal("EnterNonRecursiveMutex(INFINITE - 1)", res);
             return res;
         }
         milliseconds -= (RPY_TIMEOUT_T)(INFINITE - 1);
     }
     res = WaitForSingleObject(mutex->sem, (DWORD)milliseconds);
     if (res != WAIT_TIMEOUT && res != WAIT_OBJECT_0)
-        gil_error("EnterNonRecursiveMutex(ms)", res);
+        gil_fatal("EnterNonRecursiveMutex(ms)", res);
     return res;
 }
 
