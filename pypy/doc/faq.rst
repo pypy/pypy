@@ -278,6 +278,22 @@ complicated programs need even more time to warm-up the JIT.
 
 .. _your tests are not a benchmark: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
 
+I wrote a 3-lines benchmark and it's not faster than CPython.  Why?
+-------------------------------------------------------------------
+
+Three-lines benchmarks are benchmarks that either do absolutely nothing (in
+which case PyPy is probably a lot faster than CPython), or more likely, they
+are benchmarks that spend most of their time doing things in C.
+
+For example, a loop that repeatedly issues one complex SQL operation will only
+measure how performant the SQL database is.  Similarly, computing many elements
+from the Fibonacci series builds very large integers, so it only measures how
+performant the long integer library is.  This library is written in C for
+CPython, and in RPython for PyPy, but that boils down to the same thing.
+
+PyPy speeds up the code written *in Python*.
+
+
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------
 
