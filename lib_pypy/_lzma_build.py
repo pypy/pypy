@@ -71,7 +71,6 @@ typedef struct {
     uint8_t *next_out;
     size_t avail_out;
     uint64_t total_out;
-    lzma_allocator *allocator;
     ...;
 } lzma_stream;
 
