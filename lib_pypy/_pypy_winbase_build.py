@@ -1,3 +1,6 @@
+# This module provides interfaces needed by both msvcrt and
+# _subprocess.py.
+#
 # Note: uses the CFFI out-of-line ABI mode.  We can't use the API
 # mode because ffi.compile() needs to run the compiler, which
 # needs 'subprocess', which needs 'msvcrt' and '_subprocess',
@@ -6,11 +9,7 @@
 # Note that if you need to regenerate _pypy_winbase_cffi and
 # can't use a preexisting PyPy to do that, then running this
 # file should work as long as 'subprocess' is not imported
-# by cffi.  I had to hack in 'cffi._pycparser' to move an
-#'import subprocess' to the inside of a function.  (Also,
-# CPython+CFFI should work as well.)
-#
-# This module supports both msvcrt.py and _subprocess.py.
+# by cffi. (CPython+CFFI should work)
 
 from cffi import FFI
 

@@ -1,6 +1,8 @@
 This is a copy of pycparser.  See __init__.py for the version.
 
-Note that the following two lines have been modified in c_parser.py:
+Note:
+
+- the following two lines have been modified in c_parser.py:
 
 
 class CParser(PLYParser):    
@@ -15,3 +17,7 @@ Also, when updating the version of this in-place, you must regenerate the
 lextab.py and yacctab.py files. They will be regenerated on import if they
 are not found, so they should be removed, then regenrated, then the new
 versions committed.
+
+- the "subprocess import" in __init__.py has been moved to an internal
+  function to prevent circular import on windows:
+  subprocess -> _winapi -> cffi.api -> pycparser
