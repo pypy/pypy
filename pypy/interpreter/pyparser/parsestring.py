@@ -130,12 +130,14 @@ def decode_unicode_utf8(space, s, ps, q):
         if s[ps] == '\\':
             lis.append(s[ps])
             ps += 1
-            if ord(s[ps]) & 0x80:
+            if ps >= end or ord(s[ps]) & 0x80:
                 # A multibyte sequence will follow, it will be
                 # escaped like \u1234. To avoid confusion with
                 # the backslash we just wrote, we emit "\u005c"
                 # instead.
                 lis.append("u005c")
+                if ps >= end:
+                    break
         if ord(s[ps]) & 0x80:
             cp = rutf8.codepoint_at_pos(s, ps)
             hexa = hex(cp + 0x10000000)
