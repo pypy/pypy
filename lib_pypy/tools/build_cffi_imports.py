@@ -169,11 +169,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
     env = os.environ
     if sys.platform == 'win32':
         # requires the repo pypy/externals to be located under pypy
-        assert os.path.exists(r'..\externals')
+        externals_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        '..', '..', 'externals'))
+        assert os.path.exists(externals_path), externals_path
         env = os.environ.copy()
-        env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
-        env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
-        env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
+        env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
+        env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
+        env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
