@@ -499,33 +499,41 @@ if not _WIN:
 from rpython.rlib import rwin32
 
 def sleep(space, w_secs):
-    ns = timestamp_w(space, w_secs)
-    if not (ns >= 0):
+    delay_ns = timestamp_w(space, w_secs)
+    if not (delay_ns >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    end_time = _monotonic(space) + float(ns) / SECS_TO_NS
+    secs = float(delay_ns) / SECS_TO_NS
+    end_time = _monotonic(space) + secs
     while True:
+        # 'secs' is reduced at the end of the loop, for the next iteration.
         if _WIN:
             # as decreed by Guido, only the main thread can be
             # interrupted.
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
-            millisecs = ns // MS_TO_NS
-            if millisecs == 0 or not interruptible:
-                rtime.sleep(float(ns) / SECS_TO_NS)
+            millisecs = secs * 1000.0
+            if millisecs < 1.0 or not interruptible:
+                rtime.sleep(secs)
                 break
+            MAX = 0x7fffffff
+            if millisecs < MAX:
+                interval = int(millisecs)
+            else:
+                interval = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
             rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
-            if rc != rwin32.WAIT_OBJECT_0:
+            rc = rwin32.WaitForSingleObject(interrupt_event, interval)
+            was_interrupted = rc == rwin32.WAIT_OBJECT_0
+            if not was_interrupted and interval < MAX:
                 break
         else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
-                seconds = ns // SECS_TO_NS
-                us = (ns % SECS_TO_NS) // US_TO_NS
-                rffi.setintfield(t, 'c_tv_sec', int(seconds))
-                rffi.setintfield(t, 'c_tv_usec', int(us))
+                frac = int(math.fmod(secs, 1.0) * 1000000.)
+                assert frac >= 0
+                rffi.setintfield(t, 'c_tv_sec', int(secs))
+                rffi.setintfield(t, 'c_tv_usec', frac)
 
                 res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
             if res == 0:
