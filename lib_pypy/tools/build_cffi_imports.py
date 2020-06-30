@@ -166,11 +166,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
-    # be sure pip, setuptools are installed in a fresh pypy
-    # allows proper functioning of cffi on win32 with newer vc compilers
-    # XXX move this to a build slave step?
     env = os.environ
     if sys.platform == 'win32':
+        # requires the repo pypy/externals to be located under pypy
+        assert os.path.exists(r'..\externals')
         env = os.environ.copy()
         env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
         env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
