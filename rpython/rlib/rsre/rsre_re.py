@@ -72,13 +72,11 @@ class RSREPattern(object):
 
     def match(self, string, pos=0, endpos=sys.maxint):
         return self._make_match(rsre_core.match(self._code, string,
-                                                pos, endpos,
-                                                flags=self.flags))
+                                                pos, endpos))
 
     def search(self, string, pos=0, endpos=sys.maxint):
         return self._make_match(rsre_core.search(self._code, string,
-                                                 pos, endpos,
-                                                 flags=self.flags))
+                                                 pos, endpos))
 
     def findall(self, string, pos=0, endpos=sys.maxint):
         matchlist = []
@@ -116,8 +114,7 @@ class RSREPattern(object):
                          isinstance(repl, unicode))
         n = last_pos = 0
         while not count or n < count:
-            match = rsre_core.search(self._code, string, start,
-                                     flags=self.flags)
+            match = rsre_core.search(self._code, string, start)
             if match is None:
                 break
             if last_pos < match.match_start:
@@ -163,8 +160,7 @@ class RSREPattern(object):
         n = 0
         last = 0
         while not maxsplit or n < maxsplit:
-            match = rsre_core.search(self._code, string, start,
-                                     flags=self.flags)
+            match = rsre_core.search(self._code, string, start)
             if match is None:
                 break
             if match.match_start == match.match_end: # zero-width match

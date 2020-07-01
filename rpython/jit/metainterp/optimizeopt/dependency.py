@@ -911,10 +911,10 @@ class IntegralForwardModification(object):
             idx_ref.constant {op}= box_a1.getint()
             self.index_vars[box_r] = idx_ref
     """
-    exec py.code.Source(additive_func_source
-            .format(name='INT_ADD', op='+')).compile()
-    exec py.code.Source(additive_func_source
-            .format(name='INT_SUB', op='-')).compile()
+    exec(py.code.Source(additive_func_source
+            .format(name='INT_ADD', op='+')).compile())
+    exec(py.code.Source(additive_func_source
+            .format(name='INT_SUB', op='-')).compile())
     del additive_func_source
 
     multiplicative_func_source = """
@@ -941,8 +941,8 @@ class IntegralForwardModification(object):
             idx_ref.constant {cop}= box_a1.getint()
             self.index_vars[box_r] = idx_ref
     """
-    exec py.code.Source(multiplicative_func_source
-            .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile()
+    exec(py.code.Source(multiplicative_func_source
+            .format(name='INT_MUL', op='*', tgt='mul', cop='*')).compile())
     del multiplicative_func_source
 
     array_access_source = """
@@ -953,24 +953,24 @@ class IntegralForwardModification(object):
             node.memory_ref = MemoryRef(op, idx_ref, {raw_access})
             self.memory_refs[node] = node.memory_ref
     """
-    exec py.code.Source(array_access_source
-           .format(name='RAW_LOAD_I',raw_access=True)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='RAW_LOAD_F',raw_access=True)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='RAW_STORE',raw_access=True)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_RAW_I',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_RAW_F',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='SETARRAYITEM_RAW',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_GC_I',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='GETARRAYITEM_GC_F',raw_access=False)).compile()
-    exec py.code.Source(array_access_source
-           .format(name='SETARRAYITEM_GC',raw_access=False)).compile()
+    exec(py.code.Source(array_access_source
+           .format(name='RAW_LOAD_I',raw_access=True)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='RAW_LOAD_F',raw_access=True)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='RAW_STORE',raw_access=True)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_RAW_I',raw_access=False)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_RAW_F',raw_access=False)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='SETARRAYITEM_RAW',raw_access=False)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_GC_I',raw_access=False)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='GETARRAYITEM_GC_F',raw_access=False)).compile())
+    exec(py.code.Source(array_access_source
+           .format(name='SETARRAYITEM_GC',raw_access=False)).compile())
     del array_access_source
 integral_dispatch_opt = make_dispatcher_method(IntegralForwardModification, 'operation_')
 IntegralForwardModification.inspect_operation = integral_dispatch_opt

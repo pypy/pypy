@@ -5,6 +5,8 @@ from rpython.jit.metainterp.history import ConstInt
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rlib.objectmodel import compute_unique_id
+from rpython.rlib.rfile import create_file
+from rpython.rlib.rposix import FdValidator
 
 class FakeCallAssemblerLoopToken(AbstractDescr):
     def __init__(self, target):
@@ -51,14 +53,18 @@ class TestLogger(object):
         logger = jl.JitLogger()
         file = tmpdir.join('binary_file')
         file.ensure()
-        fd = file.open('wb')
-        jl.jitlog_init(fd.fileno())
-        logger.start_new_trace(metainterp_sd, jd_name='jdname')
-        log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
-        op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
-        log_trace.write([], [op])
-        #the next line will close 'fd', instead of logger.finish()
-        fd.close()
+        # use rfile instead of file.open since the host python and compiled
+        # code may use different runtime libraries (win32 visual2008 vs.
+        # visual2019 for instance
+        rfile = create_file(str(file), 'wb')
+        with FdValidator(rfile.fileno()):
+            jl.jitlog_init(rfile.fileno())
+            logger.start_new_trace(metainterp_sd, jd_name='jdname')
+            log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
+            op = ResOperation(rop.DEBUG_MERGE_POINT, [ConstInt(0), ConstInt(0), ConstInt(0)])
+            log_trace.write([], [op])
+            #the next line will close the 'fd', instead of logger.finish()
+            rfile.close()
         binary = file.read()
         is_32bit = chr(sys.maxint == 2**31-1)
         assert binary == (jl.MARK_START_TRACE) + jl.encode_le_addr(1) + \
@@ -121,15 +127,19 @@ class TestLogger(object):
         logger = jl.JitLogger()
         file = tmpdir.join('binary_file')
         file.ensure()
-        fd = file.open('wb')
-        jl.jitlog_init(fd.fileno())
-        logger.start_new_trace(metainterp_sd, jd_name='jdname')
-        log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
-        op = ResOperation(rop.CALL_ASSEMBLER_I, [], descr=looptoken)
-        log_trace.write([], [op])
-        jl.redirect_assembler(looptoken, newlooptoken, 0x1234)
-        #the next line will close 'fd', instead of logger.finish()
-        fd.close()
+        # use rfile instead of file.open since the host python and compiled
+        # code may use different runtime libraries (win32 visual2008 vs.
+        # visual2019 for instance
+        rfile = create_file(str(file), 'wb')
+        with FdValidator(rfile.fileno()):
+            jl.jitlog_init(rfile.fileno())
+            logger.start_new_trace(metainterp_sd, jd_name='jdname')
+            log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
+            op = ResOperation(rop.CALL_ASSEMBLER_I, [], descr=looptoken)
+            log_trace.write([], [op])
+            jl.redirect_assembler(looptoken, newlooptoken, 0x1234)
+            #the next line will close the 'fd', instead of logger.finish()
+            rfile.close()
         binary = file.read()
         opnum = jl.encode_le_16bit(rop.CALL_ASSEMBLER_I)
         id_looptoken = compute_unique_id(looptoken)

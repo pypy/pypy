@@ -10,7 +10,7 @@ from rpython.jit.metainterp.resoperation import ResOperation, rop
 
 
 def magic_numbers(m):
-    assert m == intmask(m)
+    assert m == intmask(m)   # as a signed int, we have m < 2**63
     assert m & (m-1) != 0    # not a power of two
     assert m >= 3
     i = 1
@@ -34,7 +34,7 @@ def magic_numbers(m):
     assert k != r_uint(0)
     # Proof that k < 2**64 holds in all cases, even with the "+1":
     #
-    # starting point: 2**i < m < 2**(i+1)  with i <= 63
+    # starting point: 2**i < m < 2**(i+1)  with i < 63
     # 2**i < m
     # 2**i <= m - (2.0**(i-63))  as real number, because (2.0**(i-63))<=1.0
     # 2**(64+i) <= 2**64 * m - 2**(i+1)   as integers again
@@ -44,6 +44,7 @@ def magic_numbers(m):
     #       k        < 2**64
 
     assert k > (r_uint(1) << (LONG_BIT-1))
+    # This is because m < 2**(i+1), so 2**(64+i) // m >= 2**63
 
     return (k, i)
 

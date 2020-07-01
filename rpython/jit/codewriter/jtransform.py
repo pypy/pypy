@@ -1474,7 +1474,7 @@ class Transformer(object):
                           ('cast_longlong_to_float',   'TO_FLOAT'),
                           ('cast_uint_to_longlong',    'FROM_UINT'),
                           ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -1484,7 +1484,7 @@ class Transformer(object):
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile())
 
     for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
@@ -1506,7 +1506,7 @@ class Transformer(object):
                           ('ullong_lshift', 'LSHIFT'),
                           ('ullong_rshift', 'URSHIFT'),
                          ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
@@ -1514,7 +1514,7 @@ class Transformer(object):
                                                 EffectInfo.OS_LLONG_%s,
                                                 EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile())
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -1581,11 +1581,11 @@ class Transformer(object):
                        ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 op1 = SpaceOperation(%r, op.args, op.result)
                 return self.rewrite_operation(op1)
-        ''' % (_old, _new)).compile()
+        ''' % (_old, _new)).compile())
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',
@@ -1767,16 +1767,16 @@ class Transformer(object):
         func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
-        assert func.func_name.startswith('ll_')
+        assert func.__name__.startswith('ll_')
         # check that we have carefully placed the oopspec in
         # pypy/rpython/rlist.py.  There should not be an oopspec on
         # a ll_getitem or ll_setitem that expects a 'func' argument.
         # The idea is that a ll_getitem/ll_setitem with dum_checkidx
         # should get inlined by the JIT, so that we see the potential
         # 'raise IndexError'.
-        assert 'func' not in func.func_code.co_varnames
-        non_negative = '_nonneg' in func.func_name
-        fast = '_fast' in func.func_name
+        assert 'func' not in func.__code__.co_varnames
+        non_negative = '_nonneg' in func.__name__
+        fast = '_fast' in func.__name__
         return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):
@@ -1876,6 +1876,11 @@ class Transformer(object):
 
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
+
+    def do_fixed_list_ll_arraymove(self, op, args, arraydescr):
+        # this case is unreachable for now: ll_arraymove is only called on
+        # lists which have insert() or pop() or del called on them
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYMOVE)
 
     def do_fixed_void_list_getitem(self, op, args):
         self._prepare_void_list_getset(op)

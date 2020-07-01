@@ -709,25 +709,25 @@ class WarmRunnerDesc(object):
                     d['type%d' % i] = spec
             convert = ";".join(arg_converters)
             if name == 'get_jitcell_at_key':
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(%s):
                     %s
                     return cast_instance_to_gcref(function(%s))
-                """ % (arg_spec, convert, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, llmemory.GCREF))
             elif name == "trace_next_iteration_hash":
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(arg0):
                     function(arg0)
-                """).compile() in d
+                """).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType([lltype.Unsigned],
                                                   lltype.Void))
             else:
-                exec py.code.Source("""
+                exec(py.code.Source("""
                 def accessor(%s):
                     %s
                     function(%s)
-                """ % (arg_spec, convert, arg_spec)).compile() in d
+                """ % (arg_spec, convert, arg_spec)).compile(), d)
                 FUNC = lltype.Ptr(lltype.FuncType(ARGS, lltype.Void))
             func = d['accessor']
             ll_ptr = self.helper_func(FUNC, func)
@@ -850,19 +850,19 @@ class WarmRunnerDesc(object):
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        if func.func_name.startswith('stats_'):
+        if func.__name__.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             assert len(op.args) >= 3, ("%r must have a first argument "
                                        "(which is None)" % (func,))
-            func = func_with_new_name(func, func.func_name + '_compiled')
+            func = func_with_new_name(func, func.__name__ + '_compiled')
 
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
         else:
             ARGS = [arg.concretetype for arg in op.args[2:]]
-            new_func = func_with_new_name(func, func.func_name + '_compiled')
+            new_func = func_with_new_name(func, func.__name__ + '_compiled')
         RESULT = op.result.concretetype
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         ptr = self.helper_func(FUNCPTR, new_func)

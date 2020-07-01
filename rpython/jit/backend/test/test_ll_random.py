@@ -569,7 +569,7 @@ class BaseCallOperation(test_random.AbstractOperation):
             return %s
         """ % (funcargs, sum, result)).compile()
         d = {'intmask': intmask}
-        exec code in d
+        exec(code, d)
         return subset, d['f']
 
     def raising_func_code(self, builder, r):
@@ -587,7 +587,7 @@ class BaseCallOperation(test_random.AbstractOperation):
             'vtable': vtableptr,
             'LLException': LLException,
             }
-        exec code in d
+        exec(code, d)
         return subset, d['f'], vtableptr
 
     def getresulttype(self):

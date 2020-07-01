@@ -205,6 +205,8 @@ class W_ZipImporter(W_Root):
 
     @enforceargs(filename=s_Str0, typecheck=False)
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
+        if len(buf) < 8:
+            raise oefmt(get_error(space), "bad pyc data")
         magic = importing._get_long(buf[:4])
         timestamp = importing._get_long(buf[4:8])
         if not self.can_use_pyc(space, filename, magic, timestamp):
@@ -330,6 +332,8 @@ class W_ZipImporter(W_Root):
                 w_source = self.get_data(space, filename + ext)
                 source = space.bytes_w(w_source)
                 if compiled:
+                    if len(source) < 8:
+                        raise oefmt(get_error(space), "bad pyc data")
                     magic = importing._get_long(source[:4])
                     timestamp = importing._get_long(source[4:8])
                     if not self.can_use_pyc(space, filename + ext,

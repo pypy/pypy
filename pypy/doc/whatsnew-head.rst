@@ -1,45 +1,37 @@
 ============================
-What's new in PyPy2.7 7.3.0+
+What's new in PyPy2.7 7.3.1+
 ============================
 
-.. this is a revision shortly after release-pypy-7.3.0
-.. startrev: 994c42529580
+.. this is a revision shortly after release-pypy-7.3.1
+.. startrev: 1cae9900d598
 
-.. branch: cpyext-speedup-tests
+.. branch: optimize-sre-unicode
 
-Make cpyext test faster, especially on py3.6
+Speed up performance of matching Unicode strings in the ``re`` module
+significantly for characters that are part of ASCII.
 
-.. branch: array-and-nan
+.. branch: rpython-recvmsg_into
 
-Handle ``NAN`` more correctly in ``array.array`` for ``__eq__`` and ``count``
+Refactor RSocket.xxx_into() methods and add .recvmsg_into().
 
-.. branch: bpo-16055
+.. branch: bo-fix-source-links
 
-Fixes incorrect error text for ``int('1', base=1000)``
+Fix documentation extlinks for heptapod directory schema
 
-.. branch: heptapod
+.. branch: py3.6 # ignore, bad merge
 
-adapt contributing documentation to heptapod
+.. branch: ssl  # ignore, small test fix
 
-.. branch: pypy-jitdriver-greenkeys
+.. branch: ctypes-stuff
 
-Improve code generation for generators (and generator expressions in
-particular) when passing them to builtin functions that consume iterators, such
-as ``sum``, ``map``, ``max``, etc.
+Fix implementation of PEP 3118 in ctypes.
 
-.. branch: warmup-improvements-various
+.. branch: issue3240
 
-Improves warmup time by up to 20%.
+Use make_portable on macOS
 
-.. branch: StringIO-perf
+.. branch: wb_before_move
 
-Improve performance of io.StringIO(). It should now be faster than CPython in
-common use cases.
+Add ``rgc.ll_arraymove()``, as a way to shift items inside the same
+array with proper GC support. Improves ``while lst: lst.pop(0)``.
 
-.. branch: rgil-track-thread
-.. branch: hpy-rpython-backports
-
-.. branch: nested-scopes-jit
-
-Improve the code generation for inner functions that use outer variables that
-are constant.

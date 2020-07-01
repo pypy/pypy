@@ -16,8 +16,8 @@ Contributors
   Philip Jenvey
   Richard Plangger
   Brian Kearns
-  Michael Hudson-Doyle
   Manuel Jacob
+  Michael Hudson-Doyle
   David Schneider
   Holger Krekel
   Christian Tismer
@@ -60,14 +60,14 @@ Contributors
   Jacob Hallen
   Jason Creighton
   Mark Young
-  Alex Martelli
   Andrew Lawrence
+  Alex Martelli
   Spenser Bauman
   Michal Bendowski
   Jan de Mooij
+  Stefan Beyer
   Stefano Rivera
   Tyler Wade
-  Stefan Beyer
   Vincent Legoll
   Michael Foord
   Stephan Diehl
@@ -92,6 +92,7 @@ Contributors
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
+  Yannick Jadoul
   Jeremy Thurgood
   Greg Price
   Ivan Sichmann Freitas
@@ -101,9 +102,9 @@ Contributors
   Tobias Pape
   Andreas Stührk
   Jean-Philippe St. Pierre
+  Stian Andreassen
   Guido van Rossum
   Pavel Vinogradov
-  Stian Andreassen
   Julian Berman
   William Leslie
   Paweł Piotr Przeradowski
@@ -115,9 +116,9 @@ Contributors
   Taavi Burns
   Adrian Kuhn
   tav
-  Georg Brandl
   Joannah Nanjekye
-  Yannick Jadoul
+  Georg Brandl
+  quejebo
   Bert Freudenberg
   Wanja Saatkamp
   Mike Blume
@@ -160,6 +161,7 @@ Contributors
   Lucian Branescu Mihaila
   Mariano Anaya
   anatoly techtonik
+  Lin Cheng
   Karl Bartel
   Gabriel Lavoie
   Jared Grubb
@@ -172,7 +174,6 @@ Contributors
   Andrews Medina
   Aaron Iles
   Toby Watson
-  Lin Cheng
   Daniel Patrick
   Stuart Williams
   Antoine Pitrou
@@ -191,6 +192,7 @@ Contributors
   Anders Qvist
   Corbin Simpson
   Chirag Jadwani
+  Mike Pavone
   Pauli Virtanen
   Jonathan David Riehl
   Beatrice During
@@ -239,10 +241,12 @@ Contributors
   Yasir Suhail
   Sergey Kishchenko
   Martin Blais
+  Catalin Fierut
   Lutz Paelike
   Ian Foote
   Philipp Rustemeuer
   Bernd Schoeller
+  olliemath
   Logan Chien
   Catalin Gabriel Manciu
   Jacob Oscarson
@@ -270,13 +274,17 @@ Contributors
   Laurens Van Houtven
   Bobby Impollonia
   Roberto De Ioris
+  Sreepathi Pai
   Jeong YunWon
+  dakarpov@gmail.com
   Christopher Armstrong
   Aaron Tubbs
   Vasantha Ganesh K
   Jason Michalski
   Radu Ciorba
+  Ryan Hileman
   Markus Holtermann
+  Georges Racinet
   Andrew Thompson
   Yusei Tahara
   Ruochen Huang
@@ -299,6 +307,7 @@ Contributors
   Kim Jin Su
   Amber Brown
   Andrew Stepanov
+  ashwinahuja
   Rafał Gałczyński
   Ben Darnell
   Juan Francisco Cantero Hurtado
@@ -325,19 +334,21 @@ Contributors
   Min RK
   OlivierBlanvillain
   bernd.schoeller@inf.ethz.ch
-  dakarpov@gmail.com
   Jonas Pfannschmidt
+  Alex Kashirin
   Zearin
+  Joannah Nanjekye nanjekyejoannah@gmail.com
+  Ihar Shabes
   Johan Forsberg
   Andrey Churin
   Dan Crosta
   reubano@gmail.com
-  Ryan Hileman
   Stanisław Halik
   DeVerne Jones
   Julien Phalip
   Roman Podoliaka
   Steve Papanik
+  Henri Tuhola
   Eli Stevens
   Boglarka Vezer
   gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
@@ -372,6 +383,7 @@ Contributors
   James Robert
   Armin Ronacher
   Diana Popa
+  Mike Kaplinskiy
   Mads Kiilerich
   Brett Cannon
   Caleb Hattingh
@@ -397,6 +409,7 @@ Contributors
   Kurt Griffiths
   Ben Mather
   Donald Stufft
+  kotus9
   Dan Sanders
   Jason Madden
   Yaroslav Fedevych

@@ -296,7 +296,7 @@ class W_LibObject(W_Root):
 
 
 W_LibObject.typedef = TypeDef(
-        'CompiledLib',
+        '_cffi_backend.Lib',
         __repr__ = interp2app(W_LibObject.descr_repr),
         __getattribute__ = interp2app(W_LibObject.descr_getattribute),
         __setattr__ = interp2app(W_LibObject.descr_setattr),

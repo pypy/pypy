@@ -136,11 +136,10 @@ del _fetch_names
 
 # shortcut functions
 def make_new_hash(name, funcname):
-    @builtinify
     def new_hash(string=b''):
         return new(name, string)
     new_hash.__name__ = funcname
-    return new_hash
+    return builtinify(new_hash)
 
 for _name in algorithms:
     _newname = 'openssl_%s' % (_name,)

@@ -12,7 +12,7 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import we_are_translated, keepalive_until_here
 from rpython.rlib.objectmodel import dont_inline
 from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
-        c_fdopen, c_fileno,
+        c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.rlib import jit, rutf8
 from rpython.translator import cdir
@@ -118,6 +118,11 @@ _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
     with FdValidator(c_fileno(fp)):
         return _feof(fp)
+
+_ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
+def ferror(fp):
+    with FdValidator(c_fileno(fp)):
+        return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
@@ -669,7 +674,6 @@ def build_exported_objects():
     # PyExc_AttributeError, PyExc_OverflowError, PyExc_ImportError,
     # PyExc_NameError, PyExc_MemoryError, PyExc_RuntimeError,
     # PyExc_UnicodeEncodeError, PyExc_UnicodeDecodeError, ...
-    global all_exceptions
     from pypy.module.exceptions.moduledef import Module as ExcModule
     all_exceptions = list(ExcModule.interpleveldefs)
     for exc_name in all_exceptions:
@@ -1216,11 +1220,6 @@ def build_bridge(space):
     struct PyPyAPI* pypyAPI = &_pypyAPI;
     """ % dict(members=structmembers)
 
-    global_objects = []
-    for name in all_exceptions:
-        global_objects.append('PyTypeObject _PyExc_%s;' % name)
-    global_code = '\n'.join(global_objects)
-
     prologue = ("#include <Python.h>\n" +
                 "#include <structmember.h>\n" +
                 "#include <marshal.h>\n" +
@@ -1228,7 +1227,6 @@ def build_bridge(space):
                 "#include <src/thread.c>\n")
     code = (prologue +
             struct_declaration_code +
-            global_code +
             '\n' +
             '\n'.join(functions))
 

@@ -249,6 +249,7 @@ class CAPITest(unittest.TestCase):
     def test_buildvalue_N(self):
         _testcapi.test_buildvalue_N()
 
+    @support.cpython_only
     def test_set_nomemory(self):
         code = """if 1:
             import _testcapi
@@ -535,6 +536,8 @@ class PyMemDebugTests(unittest.TestCase):
         stderr = out.err
         return stderr.decode('ascii', 'replace')
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+        "PyMem debugging not implemented on PyPy")
     def test_buffer_overflow(self):
         out = self.check('import _testcapi; _testcapi.pymem_buffer_overflow()')
         regex = (r"Debug memory block at address p={ptr}: API 'm'\n"
@@ -555,6 +558,8 @@ class PyMemDebugTests(unittest.TestCase):
         regex = re.compile(regex, flags=re.DOTALL)
         self.assertRegex(out, regex)
 
+    @unittest.skipIf(support.check_impl_detail(pypy=True),
+        "PyMem debugging not implemented on PyPy")
     def test_api_misuse(self):
         out = self.check('import _testcapi; _testcapi.pymem_api_misuse()')
         regex = (r"Debug memory block at address p={ptr}: API 'm'\n"
@@ -577,12 +582,14 @@ class PyMemDebugTests(unittest.TestCase):
                     'without holding the GIL')
         self.assertIn(expected, out)
 
+    @support.cpython_only
     def test_pymem_malloc_without_gil(self):
         # Debug hooks must raise an error if PyMem_Malloc() is called
         # without holding the GIL
         code = 'import _testcapi; _testcapi.pymem_malloc_without_gil()'
         self.check_malloc_without_gil(code)
 
+    @support.cpython_only
     def test_pyobject_malloc_without_gil(self):
         # Debug hooks must raise an error if PyObject_Malloc() is called
         # without holding the GIL

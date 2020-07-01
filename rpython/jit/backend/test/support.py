@@ -53,7 +53,7 @@ class BaseCompiledMixin(object):
                 print res
                 return 0
             """ % (arglist,))
-        exec src.compile() in locals()
+        exec(src.compile(), locals())
 
         t.buildannotator().build_types(function, [int] * len(args),
                                        main_entry_point=True)

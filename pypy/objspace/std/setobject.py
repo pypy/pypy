@@ -635,6 +635,12 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.newint(hash)
 
+    def cpyext_add_frozen(self, w_key):
+        if self.hash != 0:
+            return False
+        self.add(w_key)
+        return True
+
 W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 

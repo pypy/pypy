@@ -107,25 +107,25 @@ class MatchContextForTests(StrMatchContext):
         return Position(base_position._p + index)
 
 
-def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
+def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)
-    ctx = MatchContextForTests(string, start, end, flags)
+    ctx = MatchContextForTests(string, start, end)
     ctx.fullmatch_only = fullmatch
     if match_context(ctx, pattern):
         return ctx
     else:
         return None
 
-def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
-    return match(pattern, string, start, end, flags, fullmatch=True)
+def fullmatch(pattern, string, start=0, end=sys.maxint):
+    return match(pattern, string, start, end, fullmatch=True)
 
-def search(pattern, string, start=0, end=sys.maxint, flags=0):
+def search(pattern, string, start=0, end=sys.maxint):
     start, end = _adjust(start, end, len(string))
     start = Position(start)
     end = Position(end)
-    ctx = MatchContextForTests(string, start, end, flags)
+    ctx = MatchContextForTests(string, start, end)
     if search_context(ctx, pattern):
         return ctx
     else:

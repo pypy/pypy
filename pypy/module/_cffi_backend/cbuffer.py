@@ -6,40 +6,7 @@ from pypy.module._cffi_backend import cdataobj, ctypeptr, ctypearray
 from pypy.module._cffi_backend import ctypestruct
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import RawBuffer
-from rpython.rtyper.annlowlevel import llstr
-from rpython.rtyper.lltypesystem import rffi
-from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
-
-
-class LLBuffer(RawBuffer):
-    _immutable_ = True
-
-    def __init__(self, raw_cdata, size):
-        self.raw_cdata = raw_cdata
-        self.size = size
-        self.readonly = False
-
-    def getlength(self):
-        return self.size
-
-    def getitem(self, index):
-        return self.raw_cdata[index]
-
-    def setitem(self, index, char):
-        self.raw_cdata[index] = char
-
-    def get_raw_address(self):
-        return self.raw_cdata
-
-    def getslice(self, start, step, size):
-        if step == 1:
-            return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
-        return RawBuffer.getslice(self, start, step, size)
-
-    def setslice(self, start, string):
-        raw_cdata = rffi.ptradd(self.raw_cdata, start)
-        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
+from rpython.rlib.buffer import LLBuffer
 
 
 class MiniBuffer(W_Root):

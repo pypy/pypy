@@ -381,7 +381,9 @@ def _init_timezone(space):
             blen = c_get_tzname(0, i, None)
             with rffi.scoped_alloc_buffer(blen) as buf:
                 s = c_get_tzname(blen, i, buf.raw)
-                tzname[i] = buf.str(s - 1)
+                tzn = buf.str(s - 1)
+                tznutf8, _ = str_decode_locale_surrogateescape(tzn)
+                tzname[i] = tznutf8
 
     if _POSIX:
         if _CYGWIN:
@@ -477,33 +479,41 @@ if not _WIN:
 from rpython.rlib import rwin32
 
 def sleep(space, w_secs):
-    ns = timestamp_w(space, w_secs)
-    if not (ns >= 0):
+    delay_ns = timestamp_w(space, w_secs)
+    if not (delay_ns >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    end_time = _monotonic(space) + float(ns) / SECS_TO_NS
+    secs = float(delay_ns) / SECS_TO_NS
+    end_time = _monotonic(space) + secs
     while True:
+        # 'secs' is reduced at the end of the loop, for the next iteration.
         if _WIN:
             # as decreed by Guido, only the main thread can be
             # interrupted.
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
-            millisecs = ns // MS_TO_NS
-            if millisecs == 0 or not interruptible:
-                rtime.sleep(float(ns) / SECS_TO_NS)
+            millisecs = secs * 1000.0
+            if millisecs < 1.0 or not interruptible:
+                rtime.sleep(secs)
                 break
+            MAX = 0x7fffffff
+            if millisecs < MAX:
+                interval = int(millisecs)
+            else:
+                interval = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
             rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
-            if rc != rwin32.WAIT_OBJECT_0:
+            rc = rwin32.WaitForSingleObject(interrupt_event, interval)
+            was_interrupted = rc == rwin32.WAIT_OBJECT_0
+            if not was_interrupted and interval < MAX:
                 break
         else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
-                seconds = ns // SECS_TO_NS
-                us = (ns % SECS_TO_NS) // US_TO_NS
-                rffi.setintfield(t, 'c_tv_sec', int(seconds))
-                rffi.setintfield(t, 'c_tv_usec', int(us))
+                frac = int(math.fmod(secs, 1.0) * 1000000.)
+                assert frac >= 0
+                rffi.setintfield(t, 'c_tv_sec', int(secs))
+                rffi.setintfield(t, 'c_tv_usec', frac)
 
                 res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
             if res == 0:
@@ -546,7 +556,7 @@ def _get_inttime(space, w_seconds):
                     "timestamp out of range for platform time_t")
     return t
 
-def _tm_to_tuple(space, t):
+def _tm_to_tuple(space, t, zone="UTC", offset=0):
     time_tuple = [
         space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
         space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
@@ -563,9 +573,9 @@ def _tm_to_tuple(space, t):
         tm_zone, lgt, pos = decode_utf8sp(space, rffi.charp2str(t.c_tm_zone))
         extra = [space.newtext(tm_zone, lgt),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
-        w_time_tuple = space.newtuple(time_tuple + extra)
     else:
-        w_time_tuple = space.newtuple(time_tuple)
+        extra = [space.newtext(zone), space.newint(offset)]
+    w_time_tuple = space.newtuple(time_tuple + extra)
     w_struct_time = _get_module_object(space, 'struct_time')
     w_obj = space.call_function(w_struct_time, w_time_tuple)
     return w_obj
@@ -752,7 +762,7 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    return _tm_to_tuple(space, p, zone="UTC", offset=0)
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -770,7 +780,17 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_OSError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    if HAS_TM_ZONE:
+        return _tm_to_tuple(space, p)
+    else:
+        offset = space.int_w(_get_module_object(space, "timezone"))
+        daylight_w = _get_module_object(space, 'daylight')
+        tzname_w =  _get_module_object(space, 'tzname')
+        zone_w = space.getitem(tzname_w, daylight_w)
+        if not space.eq_w(daylight_w, space.newint(0)):
+            offset -= 3600
+        return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
+        
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number

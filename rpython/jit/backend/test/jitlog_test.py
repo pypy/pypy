@@ -3,15 +3,24 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.jit import JitDriver
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.rjitlog import rjitlog
+from rpython.rlib.rfile import create_file
+from rpython.rlib.rposix import FdValidator
 
 class LoggerTest(LLJitMixin):
 
     def test_explicit_enable(self, tmpdir):
         file = tmpdir.join('jitlog')
-        fileno = os.open(file.strpath, os.O_WRONLY | os.O_CREAT)
-        enable_jitlog = lambda: rjitlog.enable_jitlog(fileno)
-        f = self.run_sample_loop(enable_jitlog)
-        self.meta_interp(f, [10, 0])
+        # use rfile instead of file.open since the host python and compiled
+        # code may use different runtime libraries (win32 visual2008 vs.
+        # visual2019 for instance
+        rfile = create_file(file.strpath, 'wb')
+        fileno = rfile.fileno()
+        with FdValidator(fileno):
+            enable_jitlog = lambda: rjitlog.enable_jitlog(fileno)
+            f = self.run_sample_loop(enable_jitlog)
+            self.meta_interp(f, [10, 0])
+            # meta_interp calls jitlog.finish which closes the file descriptor
+            # rfile.close()
 
         assert os.path.exists(file.strpath)
         with file.open('rb') as f:

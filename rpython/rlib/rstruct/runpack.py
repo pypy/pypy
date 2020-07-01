@@ -103,7 +103,7 @@ class FrozenUnpackIterator(FormatIterator):
             %(perform)s
             return (%(unpackers)s)
         """ % locals())
-        exec source.compile() in miniglobals
+        exec(source.compile(), miniglobals)
         self.unpack = miniglobals['unpack'] # override not-rpython version
 
     def _freeze_(self):

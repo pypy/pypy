@@ -761,7 +761,7 @@ if sys.platform == 'win32':
 
 
 W_FFIObject.typedef = TypeDef(
-        'CompiledFFI',
+        '_cffi_backend.FFI',
         __new__     = interp2app(W_FFIObject___new__),
         __init__    = interp2app(W_FFIObject.descr_init),
         CData       = ClassAttr(make_CData),

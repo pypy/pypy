@@ -80,7 +80,9 @@ void* addressof_node_offset(blake_param *S) {
 """
 
 
-_libdir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'impl'))
+# since we cdir, we use a relative path. If we use an absolute path, we get
+# compile cruft in a multi-level subdir
+_libdir = 'impl'
 if BLAKE2_USE_SSE:
     sourcesB=[os.path.join(_libdir, 'blake2b.c'), ]
     sourcesS=[os.path.join(_libdir, 'blake2s.c'), ]

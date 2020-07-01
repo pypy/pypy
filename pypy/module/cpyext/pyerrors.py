@@ -189,7 +189,7 @@ def PyErr_SetFromErrno(space, w_type):
     PyErr_SetFromErrnoWithFilename(space, w_type,
                                    lltype.nullptr(rffi.CCHARP.TO))
 
-@cpython_api([PyObject, rffi.CCHARP], PyObject)
+@cpython_api([PyObject, CONST_STRING], PyObject)
 def PyErr_SetFromErrnoWithFilename(space, w_type, llfilename):
     """Similar to PyErr_SetFromErrno(), with the additional behavior that if
     filename is not NULL, it is passed to the constructor of type as a third

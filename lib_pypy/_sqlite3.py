@@ -699,6 +699,7 @@ class Connection(object):
     def __set_isolation_level(self, val):
         if val is None:
             self.commit()
+            self._begin_statement = None
         else:
             if not isinstance(val, str):
                 raise TypeError("isolation level must be " \
