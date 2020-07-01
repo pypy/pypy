@@ -168,3 +168,15 @@ def test_hash():
     assert hash(myHashClass()) == -2
     assert hash(myHashClass2()) == -2
     assert hash(myHashClass3()) == hash(-10**100)
+
+def test_issue3255():
+    class MagicCaller(object):
+        def __get__(self, *args):
+            raise Exception("should not be called")
+        def __call__(self, *args):
+            return lambda attr: attr
+    class Descriptor(object):
+        __get__ = MagicCaller()
+    class X(object):
+        __getattribute__ = Descriptor()
+    assert X().foo == "foo"

@@ -151,6 +151,8 @@ class DescrOperation(object):
     def get_and_call_function(space, w_descr, w_obj, *args_w):
         typ = type(w_descr)
         # a special case for performance and to avoid infinite recursion
+        # (possibly; but note issue3255 in the get() metehod, which might
+        # also remove the infinite recursion here)
         if typ is Function or typ is FunctionWithFixedCode:
             # isinstance(typ, Function) would not be correct here:
             # for a BuiltinFunction we must not use that shortcut, because a
@@ -184,7 +186,9 @@ class DescrOperation(object):
             return w_descr
         if w_type is None:
             w_type = space.type(w_obj)
-        return space.get_and_call_function(w_get, w_descr, w_obj, w_type)
+        # special case: don't use get_and_call_function() here.
+        # see test_issue3255 in apptest_descriptor.py
+        return space.call_function(w_get, w_descr, w_obj, w_type)
 
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
