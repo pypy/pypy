@@ -46,15 +46,16 @@ def read_console_wide(space, handle, maxlen):
     addr = buf.get_raw_address()
     off = 0
     readlen = 0
+    bufsize = int(BUFSIZ)
     while off < maxlen:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
             neg_one = rffi.cast(rwin32.DWORD, -1)
             n[0] = neg_one
-            len = min(maxlen - off, BUFSIZ)
+            length = min(maxlen - off, bufsize)
             rwin32.SetLastError_saved(0)
             res = rwin32.ReadConsoleW(handle,
                              rffi.cast(rwin32.LPVOID, rffi.ptradd(addr, off)),
-                             len, n, rffi.NULL)
+                             length, n, rffi.NULL)
             err = rwin32.GetLastError_saved()
             if not res:
                 break
@@ -66,7 +67,7 @@ def read_console_wide(space, handle, maxlen):
                 if err != rwin32.ERROR_OPERATION_ABORTED:
                     break
                 err = 0
-                hInterruptEvent = sigintevent()
+                hInterruptEvent = sigintevent(space)
                 if rwin32.WaitForSingleObject(hInterruptEvent, 100) == rwin32.WAIT_OBJECT_0:
                     rwin32.ResetEvent(hInterruptEvent)
                     space.getexecutioncontext().checksignals()
@@ -81,20 +82,20 @@ def read_console_wide(space, handle, maxlen):
             if buf[readlen -1] == u'\n':
                 break
             
-            with lltype.scoped_alloc(rwin32.LPWORD.TO, 1) as char_type:
-                if off + BUFSIZ >= maxlen and \
+            with lltype.scoped_alloc(rwin32.LPWORD, 1) as char_type:
+                if off + bufsize >= maxlen and \
                     rwin32.GetStringTypeW(rwin32.CT_CTYPE3, buf[readlen - 1], 1, char_type) and \
                     char_type == rwin32.C3_HIGHSURROGATE:
                     maxlen += 1
                     off += n[0]
                     continue
-                off += BUFSIZ
+                off += bufsize
     if err:
         return None
         
     if readlen > 0 and buf[0] == u'\x1a':
         readlen = 0
-    return buf.getslice(0, readlen, 1, readlen)
+    return buf.getslice(0, 1, readlen)
 
 
 def _get_console_type(handle):
@@ -165,6 +166,7 @@ class W_WinConsoleIO(W_RawIOBase):
         self.closehandle = False
         self.blksize = 0
         self.buf = rffi.cast(rffi.CCHARP, 0)
+        self.buflen = 0
 
     def _dealloc_warn_w(self, space, w_source):
         buf = self.buf
@@ -199,6 +201,7 @@ class W_WinConsoleIO(W_RawIOBase):
         rwa = False
         console_type = '\0'
         self.buf = lltype.malloc(rffi.CCHARP.TO, SMALLBUF, flavor='raw', zero=True)
+        self.buflen = SMALLBUF
 
         if space.isinstance_w(w_nameobj, space.w_int): 
             self.fd = space.int_w(w_nameobj)
@@ -342,7 +345,6 @@ class W_WinConsoleIO(W_RawIOBase):
         print('W_WinConsoleIO.readinto_w')
         rwbuffer = space.writebuf_w(w_buffer)
         length = rwbuffer.getlength()
-        import pdb;pdb.set_trace()
         return space.newint(self.readinto(space, rwbuffer, length))
 
     def readinto(self, space, rwbuffer, length):
@@ -374,28 +376,26 @@ class W_WinConsoleIO(W_RawIOBase):
         if length == read_len or wlen < 1:
             return read_len
             
-        wbuf = read_console_wide(space, self.handle, wlen)
+        wbuf = read_console_wide(space, self.handle, wlen).decode('utf-8')
             
         if not wbuf:
             return -1
         n = len(wbuf)
-        if len(wbuf) == 0: 
+        if n == 0: 
             return read_len
             
         u8n = 0
                
         err = 0
         if length < 4:
-            if WideCharToMultiByte(rwin32.CP_UTF8,
-                                       0, wbuf, n, self.buf,
-                                       rffi.sizeof(self.buf)/ rffi.sizeof(self.buf[0]),
-                                       rffi.NULL, rffi.NULL):
-                u8n = self._copyfrombuf(rwbuffer, length)
-            else:
-                addr = rwbuffer.get_raw_address()
-                u8n = WideCharToMultiByte(rwin32.CP_UTF8,
-                                                0, wbuf, n, self.buf, length,
-                                                rffi.NULL, rffi.NULL)
+            with rffi.scoped_nonmoving_unicodebuffer(wbuf) as dataptr:
+                if WideCharToMultiByte(rwin32.CP_UTF8, 0, dataptr, n,
+                        self.buf, self.buflen, rffi.NULL, rffi.NULL):
+                    u8n = self._copyfrombuf(rwbuffer, length)
+        else:
+            with rffi.scoped_nonmoving_unicodebuffer(wbuf) as dataptr:
+                u8n = WideCharToMultiByte(rwin32.CP_UTF8, 0, dataptr, n,
+                                self.buf, self.buflen, rffi.NULL, rffi.NULL)
                                                 
         if u8n:
             read_len += u8n
@@ -403,8 +403,9 @@ class W_WinConsoleIO(W_RawIOBase):
         else:
             err = rwin32.GetLastError_saved()
             if err == rwin32.ERROR_INSUFFICIENT_BUFFER:
-                u8n = WideCharToMultiByte(rwin32.CP_UTF8, 0, wbuf,
-                                                 n, rffi.NULL, 0, rffi.NULL, rffi.NULL)
+                with rffi.scoped_nonmoving_unicodebuffer(wbuf) as dataptr:
+                    u8n = WideCharToMultiByte(rwin32.CP_UTF8, 0, dataptr, n,
+                                rffi.NULL, 0, rffi.NULL, rffi.NULL)
             
         if u8n:
             raise oefmt(space.w_ValueError,
@@ -412,8 +413,7 @@ class W_WinConsoleIO(W_RawIOBase):
                     length, u8n)
                     
         if err:
-            raise oefmt(space.w_WindowsError,
-                    err)
+            raise OperationError(space.w_WindowsError, space.newint(err))
         
         if length < 0:
             return -1
@@ -468,7 +468,7 @@ class W_WinConsoleIO(W_RawIOBase):
                     bufsize = newsize
                     lltype.free(buf, flavor='raw')
                     buf = lltype.malloc(rffi.CWCHARP.TO, bufsize + 1, flavor='raw')
-                    subbuf = read_console_wide(space, self.handle, bufsize - length)
+                    subbuf = read_console_wide(space, self.handle, bufsize - length).decode('utf-8')
                     
                     if len(subbuf) > 0:
                         rwin32.wcsncpy_s(buf[length], bufsize - length +1, subbuf, n)

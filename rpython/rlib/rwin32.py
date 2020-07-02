@@ -31,7 +31,7 @@ class CConfig:
 
     if WIN32:
         DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
-        WORD = rffi_platform.SimpleType("WORD", rffi.UINT)
+        WORD = rffi_platform.SimpleType("WORD", rffi.USHORT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
         BYTE = rffi_platform.SimpleType("BYTE", rffi.UCHAR)
@@ -46,6 +46,7 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPWORD = rffi_platform.SimpleType("LPWORD", rffi.USHORTP)
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
@@ -113,7 +114,7 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
-                       LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3
+                       LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                     """
         from rpython.translator.platform import host_factory
@@ -589,4 +590,8 @@ if WIN32:
         
     WriteConsoleW = winexternal(
         'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    GetStringTypeW = winexternal(
+        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
         save_err=rffi.RFFI_SAVE_LASTERROR)
