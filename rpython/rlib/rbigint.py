@@ -43,6 +43,12 @@ else:
     LONG_TYPE = rffi.LONGLONG
     ULONG_TYPE = rffi.ULONGLONG
 
+    if LONG_BIT >= 64:
+        raise Exception("please review rbigint.py: compiling on 64-bit without"
+                        " a 128-bit integer type may be broken, notably in"
+                        " fromint(), because in this case we need to return"
+                        " rbigints with up to three digits, I think")
+
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
