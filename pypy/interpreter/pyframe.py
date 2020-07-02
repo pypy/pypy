@@ -239,7 +239,8 @@ class PyFrame(W_Root):
                                  "an unexpected number of free variables")
         index = code.co_nlocals
         for i in range(ncellvars):
-            self.locals_cells_stack_w[index] = Cell()
+            self.locals_cells_stack_w[index] = Cell(
+                    None, self.pycode.cell_families[i])
             index += 1
         for i in range(nfreevars):
             self.locals_cells_stack_w[index] = outer_func.closure[i]
@@ -939,7 +940,8 @@ class PyFrame(W_Root):
         for i in range(len(self.locals_cells_stack_w)):
             w_oldvalue = self.locals_cells_stack_w[i]
             if isinstance(w_oldvalue, Cell):
-                w_newvalue = Cell()
+                w_newvalue = Cell(
+                    None, w_oldvalue.family)
             else:
                 w_newvalue = None
             self.locals_cells_stack_w[i] = w_newvalue

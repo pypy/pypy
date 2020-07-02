@@ -15,6 +15,16 @@ class AppTestMinimal:
         assert m.format == 'T{<h:a}'
         assert m.itemsize == 2
 
+    def test_empty(self):
+        from __pypy__ import newmemoryview
+        b = bytearray(0)
+        m = newmemoryview(memoryview(b), 0, 'B', (42,))
+        assert m.tobytes() == b''
+        assert m.shape == (42,)
+        assert m.strides == (0,)
+        with raises(ValueError):
+            newmemoryview(memoryview(b), 0, 'B')
+
     def test_bufferable(self):
         from __pypy__ import bufferable, newmemoryview
         class B(bufferable.bufferable):
@@ -29,4 +39,3 @@ class AppTestMinimal:
         buf = memoryview(obj)
         v = obj.data[2]
         assert buf[2] == v
-

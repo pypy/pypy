@@ -1,8 +1,6 @@
 # spaceconfig = {"usemodules" : ["_locale", "array", "struct"]}
 import _io
 import array
-import os
-import warnings
 
 import pytest
 
@@ -11,29 +9,29 @@ def tempfile(tmpdir):
     tempfile = (tmpdir / 'tempfile').ensure()
     return str(tempfile)
 
-def test_import():
-    import io
+def test_iobase_overriding():
+    class WithIter(_io._IOBase):
+        def __iter__(self):
+            yield 'foo'
+    assert WithIter().readlines() == ['foo']
+    assert WithIter().readlines(1) == ['foo']
 
-def test_iobase():
-    import io
-    io.IOBase()
-
-    class MyFile(io.BufferedIOBase):
-        def __init__(self, filename):
-            pass
-    MyFile("file")
+    class WithNext(_io._IOBase):
+        def __next__(self):
+            raise StopIteration
+    assert WithNext().readlines() == []
+    assert WithNext().readlines(1) == []
 
 def test_openclose():
-    import io
-    with io.BufferedIOBase() as f:
+    with _io._BufferedIOBase() as f:
         assert not f.closed
         f._checkClosed()
     assert f.closed
-    raises(ValueError, f._checkClosed)
+    with pytest.raises(ValueError):
+        f._checkClosed()
 
 def test_iter():
-    import io
-    class MyFile(io.IOBase):
+    class MyFile(_io._IOBase):
         def __init__(self):
             self.lineno = 0
         def readline(self):
@@ -82,11 +80,8 @@ def test_dict():
     assert f.getvalue() == b"ABC"
 
 def test_destructor_1():
-    import io
-    io.IOBase()
-
     record = []
-    class MyIO(io.IOBase):
+    class MyIO(_io._IOBase):
         def __del__(self):
             record.append(1)
             # doesn't call the inherited __del__, so file not closed
@@ -101,11 +96,8 @@ def test_destructor_1():
     assert record == [1]
 
 def test_destructor_2():
-    import io
-    io.IOBase()
-
     record = []
-    class MyIO(io.IOBase):
+    class MyIO(_io._IOBase):
         def __del__(self):
             record.append(1)
             super(MyIO, self).__del__()
@@ -120,8 +112,7 @@ def test_destructor_2():
     assert record == [1, 2, 3]
 
 def test_tell():
-    import io
-    class MyIO(io.IOBase):
+    class MyIO(_io._IOBase):
         def seek(self, pos, whence=0):
             return 42
     assert MyIO().tell() == 42
@@ -180,28 +171,24 @@ def test_rawio_readall_none():
     assert s is None
 
 def test_open(tempfile):
-    import io
-    f = io.open(tempfile, "rb")
+    f = _io.open(tempfile, "rb")
     assert f.name.endswith('tempfile')
     assert f.mode == 'rb'
     f.close()
 
-    with io.open(tempfile, "rt") as f:
+    with _io.open(tempfile, "rt") as f:
         assert f.mode == "rt"
 
 def test_open_writable(tempfile):
-    import io
-    f = io.open(tempfile, "w+b")
+    f = _io.open(tempfile, "w+b")
     f.close()
 
 def test_valid_mode(tempfile):
-    import io
-
-    raises(ValueError, io.open, tempfile, "ww")
-    raises(ValueError, io.open, tempfile, "rwa")
-    raises(ValueError, io.open, tempfile, "b", newline="\n")
-    raises(ValueError, io.open, tempfile, "U+")
-    raises(ValueError, io.open, tempfile, "xU")
+    raises(ValueError, _io.open, tempfile, "ww")
+    raises(ValueError, _io.open, tempfile, "rwa")
+    raises(ValueError, _io.open, tempfile, "b", newline="\n")
+    raises(ValueError, _io.open, tempfile, "U+")
+    raises(ValueError, _io.open, tempfile, "xU")
 
 def test_array_write(tempfile):
     a = array.array('i', range(10))
@@ -215,6 +202,7 @@ def test_array_write(tempfile):
         assert res == n
 
 def test_attributes(tempfile):
+    import warnings
     with _io.open(tempfile, "wb", buffering=0) as f:
         assert f.mode == "wb"
 
@@ -241,6 +229,7 @@ def test_attributes(tempfile):
             assert g.raw.name == f.fileno()
 
 def test_opener(tempfile):
+    import os
     with _io.open(tempfile, "w") as f:
         f.write("egg\n")
     fd = os.open(tempfile, os.O_RDONLY)
@@ -349,6 +338,7 @@ def test_newlines_attr(tempfile):
 
 def _check_warn_on_dealloc(*args, **kwargs):
     import gc
+    import warnings
 
     f = open(*args, **kwargs)
     r = repr(f)
@@ -441,6 +431,7 @@ def test_open_exclusive(tempfile):
     raises(FileExistsError, _io.open, filename, 'x')
 
 def test_nonbuffered_textio(tempfile):
+    import warnings
     filename = tempfile + '_x2'
     warnings.simplefilter("always", category=ResourceWarning)
     with warnings.catch_warnings(record=True) as recorded:
@@ -448,6 +439,7 @@ def test_nonbuffered_textio(tempfile):
     assert recorded == []
 
 def test_invalid_newline(tempfile):
+    import warnings
     filename = tempfile + '_x2'
     warnings.simplefilter("always", category=ResourceWarning)
     with warnings.catch_warnings(record=True) as recorded:

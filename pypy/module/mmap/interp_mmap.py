@@ -326,12 +326,12 @@ class MMapBuffer(RawBuffer):
         self.check_valid()
         return self.mmap.data[index]
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         self.check_valid()
         if step == 1:
             return self.mmap.getslice(start, size)
         else:
-            return RawBuffer.getslice(self, start, stop, step, size)
+            return RawBuffer.getslice(self, start, step, size)
 
     def setitem(self, index, char):
         self.check_valid_writeable()

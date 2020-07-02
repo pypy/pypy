@@ -1,7 +1,22 @@
 from __future__ import print_function
 import sys, shutil, os, tempfile, hashlib
+import sysconfig
 from os.path import join
+
+try:
+    import _multiprocessing
+except ImportError:
+    # The only function we need from multiprocessing is cpu_count(), which is
+    # written in the pure Python part of multiprocessing. We can make it work
+    # in environments that don't have _multiprocessing by adding an empty
+    # module in place of _multiprocessing.
+    import types
+    sys.modules['_multiprocessing'] = types.ModuleType('fake _multiprocessing')
 import multiprocessing
+
+# do not use the long-running runsubprocess._run here, since building some of
+# the extensions enable importing them later
+os.environ['PYPY_DONT_RUN_SUBPROCESS'] = '1'
 
 class MissingDependenciesError(Exception):
     pass
@@ -12,11 +27,11 @@ cffi_build_scripts = {
     "_ssl": "_ssl_build.py",
     "sqlite3": "_sqlite3_build.py",
     "audioop": "_audioop_build.py",
-    "tk": "_tkinter/tklib_build.py",
+    "_tkinter": "_tkinter/tklib_build.py",
     "curses": "_curses_build.py" if sys.platform != "win32" else None,
     "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "pwdgrp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
+    "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
+    "grp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
     "resource": "_resource_build.py" if sys.platform != "win32" else None,
     "lzma": "_lzma_build.py",
     "_decimal": "_decimal_build.py",
@@ -41,14 +56,15 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1c.tar.gz',
-             'f6fb3079ad15076154eda9413fed42877d668e7069d9b87396d0804fdb3f4c90',
+    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1f.tar.gz',
+             '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.13.tar.gz',
-              '9d252cbd7d793f7b12bcceaddda98d257c14f4d1890d851c386c37207000a253',
+    # this does not compile on the buildbot, linker is missing '_history_list'
+    'broken_on_macos_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
+              '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
@@ -80,8 +96,6 @@ def _sha256(filename):
 
 def _build_dependency(name, patches=[]):
     import shutil
-    import subprocess
-
     from rpython.tool.runsubprocess import run_subprocess
 
     try:
@@ -106,6 +120,10 @@ def _build_dependency(name, patches=[]):
         print('fetching archive', url, file=sys.stderr)
         urlretrieve(url, archive)
 
+    # make sure the hash matches
+    if _sha256(archive) != dgst:
+        return 1, '{} archive {} hash mismatch'.format(name, archive), ''
+
     shutil.rmtree(deps_destdir, ignore_errors=True)
     os.makedirs(deps_destdir)
 
@@ -125,10 +143,19 @@ def _build_dependency(name, patches=[]):
 
             if status != 0:
                 return status, stdout, stderr
+    env = os.environ
+    if sys.platform == 'darwin':
+        target = sysconfig.get_config_var('MACOSX_DEPLOYMENT_TARGET')
+        if target:
+            # override the value for building support libraries
+            env = os.environ.copy()
+            env['MACOSX_DEPLOYMENT_TARGET'] = target
+            print('setting MACOSX_DEPLOYMENT_TARGET to "{}"'.format(target))
+        
     for args in build_cmds:
         print('running', ' '.join(args), 'in', sources, file=sys.stderr)
         status, stdout, stderr = run_subprocess(args[0], args[1:],
-                                                cwd=sources,)
+                                                cwd=sources, env=env)
         if status != 0:
             break
     return status, stdout, stderr
@@ -142,6 +169,12 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
     # be sure pip, setuptools are installed in a fresh pypy
     # allows proper functioning of cffi on win32 with newer vc compilers
     # XXX move this to a build slave step?
+    env = os.environ
+    if sys.platform == 'win32':
+        env = os.environ.copy()
+        env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
+        env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
+        env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
@@ -155,7 +188,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             continue
         if not rebuild:
             # the key is the module name, has it already been built?
-            status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import %s' % key])
+            status, stdout, stderr = run_subprocess(str(pypy_c),
+                                         ['-c', 'import %s' % key], env=env)
             if status  == 0:
                 print('*', ' %s already built' % key, file=sys.stderr)
                 continue
@@ -166,10 +200,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         else:
             args = ['-c', 'import ' + module]
             cwd = None
-        env = os.environ.copy()
 
         print('*', ' '.join(args), file=sys.stderr)
-        if embed_dependencies:
+        if embed_dependencies and key in cffi_dependencies:
             status, stdout, stderr = _build_dependency(key)
             if status != 0:
                 failures.append((key, module))
@@ -183,23 +216,30 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                 '-I{}/usr/include {}'.format(deps_destdir, env.get('CPPFLAGS', ''))
             env['LDFLAGS'] = \
                 '-L{}/usr/lib {}'.format(deps_destdir, env.get('LDFLAGS', ''))
-        elif sys.platform == 'win32':
-            env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
-            env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
-            env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
 
         try:
             status, stdout, stderr = run_subprocess(str(pypy_c), args,
                                                     cwd=cwd, env=env)
             if status != 0:
+                print("stdout:")
+                print(stdout.decode('utf-8'), file=sys.stderr)
+                print("stderr:")
+                print(stderr.decode('utf-8'), file=sys.stderr)
+                raise RuntimeError('building {} failed'.format(key))
+        except:
+            import traceback;traceback.print_exc()
+            failures.append((key, module))
+        else:
+            # Make sure it worked
+            status, stdout, stderr = run_subprocess(str(pypy_c),
+                         ['-c', "print('testing {0}'); import {0}".format(key)],
+                         env=env)
+            if status != 0:
                 failures.append((key, module))
                 print("stdout:")
                 print(stdout.decode('utf-8'), file=sys.stderr)
                 print("stderr:")
-                print(stderr, file=sys.stderr)
-        except:
-            import traceback;traceback.print_exc()
-            failures.append((key, module))
+                print(stderr.decode('utf-8'), file=sys.stderr)
         if os.path.exists(deps_destdir):
             shutil.rmtree(deps_destdir, ignore_errors=True)
     return failures

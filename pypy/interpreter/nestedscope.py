@@ -1,4 +1,5 @@
 from rpython.tool.uid import uid
+from rpython.rlib import jit
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import oefmt
@@ -8,24 +9,42 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Cell(W_Root):
     "A simple container for a wrapped value."
 
-    def __init__(self, w_value=None):
+    _immutable_fields_ = ['family']
+
+    def __init__(self, w_value, family):
         self.w_value = w_value
-
-    def clone(self):
-        return self.__class__(self.w_value)
-
-    def empty(self):
-        return self.w_value is None
+        self.family = family
 
     def get(self):
+        if jit.isconstant(self):
+            # ever_mutated is False if we never see a transition from not-None to
+            # not-None. That means _elidable_get might return an out-of-date
+            # None, and by now the cell was to, with a not-None. So if we see a
+            # None, we don't return that and instead read self.w_value in the
+            # code below.
+            if not self.family.ever_mutated:
+                w_res = self._elidable_get()
+                if w_res is not None:
+                    return w_res
         if self.w_value is None:
             raise ValueError("get() from an empty cell")
         return self.w_value
 
+    def empty(self):
+        return self.w_value is None
+
+    @jit.elidable
+    def _elidable_get(self):
+        return self.w_value
+
     def set(self, w_value):
+        if not self.family.ever_mutated and self.w_value is not None:
+            self.family.ever_mutated = True
         self.w_value = w_value
 
     def delete(self):
+        if not self.family.ever_mutated:
+            self.family.ever_mutated = True
         if self.w_value is None:
             raise ValueError("delete() on an empty cell")
         self.w_value = None
@@ -85,3 +104,10 @@ class Cell(W_Root):
             return self.get()
         except ValueError:
             raise oefmt(space.w_ValueError, "Cell is empty")
+
+class CellFamily(object):
+    _immutable_fields_ = ['ever_mutated?']
+
+    def __init__(self, name):
+        self.name = name
+        self.ever_mutated = False

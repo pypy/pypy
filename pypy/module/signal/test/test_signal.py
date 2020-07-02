@@ -333,6 +333,10 @@ class AppTestItimer:
 class AppTestPThread:
     spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
 
+    def setup_class(cls):
+        if sys.platform == 'win32':
+            py.test.skip("Unix only")
+
     def test_pthread_kill(self):
         import _signal as signal
         import _thread

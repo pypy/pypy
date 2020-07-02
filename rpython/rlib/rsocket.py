@@ -1,4 +1,3 @@
-from __future__ import with_statement
 """
 An RPython implementation of sockets based on rffi.
 Note that the interface has to be slightly different - this is not
@@ -10,7 +9,9 @@ a drop-in replacement for the 'socket' module.
 
 from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
-from rpython.rlib.objectmodel import instantiate, keepalive_until_here
+from rpython.rlib.buffer import LLBuffer
+from rpython.rlib.objectmodel import (
+    specialize, instantiate, keepalive_until_here)
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rlib import rthread, rposix
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -29,10 +30,11 @@ def mallocbuf(buffersize):
 
 
 constants = _c.constants
-locals().update(constants) # Define constants from _c
+locals().update(constants)  # Define constants from _c
 
 if _c.WIN32:
     from rpython.rlib import rwin32
+
     def rsocket_startup():
         wsadata = lltype.malloc(_c.WSAData, flavor='raw', zero=True)
         try:
@@ -89,13 +91,13 @@ class Address(object):
         if self.addr_p:
             lltype.free(self.addr_p, flavor='raw', track_allocation=False)
 
+    @specialize.ll()
     def setdata(self, addr, addrlen):
         # initialize self.addr and self.addrlen.  'addr' can be a different
         # pointer type than exactly sockaddr_ptr, and we cast it for you.
         assert not self.addr_p
         self.addr_p = rffi.cast(_c.sockaddr_ptr, addr)
         self.addrlen = addrlen
-    setdata._annspecialcase_ = 'specialize:ll'
 
     # the following slightly strange interface is needed to manipulate
     # what self.addr_p points to in a safe way.  The problem is that
@@ -107,11 +109,11 @@ class Address(object):
     # use of 'addr'.  The interface to do that is called lock()/unlock()
     # because it strongly reminds callers not to forget unlock().
     #
+    @specialize.ll()
     def lock(self, TYPE=_c.sockaddr):
         """Return self.addr_p, cast as a pointer to TYPE.  Must call unlock()!
         """
         return rffi.cast(lltype.Ptr(TYPE), self.addr_p)
-    lock._annspecialcase_ = 'specialize:ll'
 
     def unlock(self):
         """To call after we're done with the pointer returned by lock().
@@ -157,11 +159,8 @@ def makeipaddr(name, result=None):
         except ValueError:
             pass
         else:
-            if (0 <= d0 <= 255 and
-                0 <= d1 <= 255 and
-                0 <= d2 <= 255 and
-                0 <= d3 <= 255):
-
+            if (0 <= d0 <= 255 and 0 <= d1 <= 255 and
+                    0 <= d2 <= 255 and 0 <= d3 <= 255):
                 addr = intmask(d0 << 24) | (d1 << 16) | (d2 << 8) | (d3 << 0)
                 addr = rffi.cast(rffi.UINT, addr)
                 addr = htonl(addr)
@@ -467,6 +466,9 @@ if HAS_AF_NETLINK:
 
 # ____________________________________________________________
 
+HAVE_SOCK_NONBLOCK = "SOCK_NONBLOCK" in constants
+HAVE_SOCK_CLOEXEC = "SOCK_CLOEXEC" in constants
+
 def familyclass(family):
     return _FAMILIES.get(family, Address)
 af_get = familyclass
@@ -526,7 +528,7 @@ class RSocket(object):
                  fd=_c.INVALID_SOCKET, inheritable=True):
         """Create a new socket."""
         if _c.invalid_socket(fd):
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socket() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -549,8 +551,15 @@ class RSocket(object):
         self.fd = fd
         self.family = family
         self.type = type
+        if HAVE_SOCK_CLOEXEC:
+            self.type &= ~SOCK_CLOEXEC
+        if HAVE_SOCK_NONBLOCK:
+            self.type &= ~SOCK_NONBLOCK
         self.proto = proto
-        self.settimeout(defaults.timeout)
+        if HAVE_SOCK_NONBLOCK and type & SOCK_NONBLOCK:
+            self.timeout = 0.0
+        else:
+            self.settimeout(defaults.timeout)
 
     @staticmethod
     def empty_rsocket():
@@ -619,8 +628,8 @@ class RSocket(object):
                 return 0
             tv = rffi.make(_c.timeval)
             rffi.setintfield(tv, 'c_tv_sec', int(timeout))
-            rffi.setintfield(tv, 'c_tv_usec', int((timeout-int(timeout))
-                                                  * 1000000))
+            rffi.setintfield(tv, 'c_tv_usec',
+                int((timeout - int(timeout)) * 1000000))
             fds = lltype.malloc(_c.fd_set.TO, flavor='raw')
             _c.FD_ZERO(fds)
             _c.FD_SET(self.fd, fds)
@@ -636,7 +645,6 @@ class RSocket(object):
             if n == 0:
                 return 1
             return 0
-
 
     def error_handler(self):
         return last_error()
@@ -659,8 +667,7 @@ class RSocket(object):
         address, addr_p, addrlen_p = self._addrbuf()
         try:
             remove_inheritable = not inheritable
-            if (not inheritable and 'SOCK_CLOEXEC' in constants
-                    and _c.HAVE_ACCEPT4
+            if (not inheritable and HAVE_SOCK_CLOEXEC and _c.HAVE_ACCEPT4
                     and _accept4_syscall.attempt_syscall()):
                 newfd = _c.socketaccept4(self.fd, addr_p, addrlen_p,
                                          SOCK_CLOEXEC)
@@ -716,7 +723,7 @@ class RSocket(object):
                 tv = rffi.make(_c.timeval)
                 rffi.setintfield(tv, 'c_tv_sec', int(timeout))
                 rffi.setintfield(tv, 'c_tv_usec',
-                                 int((timeout-int(timeout)) * 1000000))
+                                 int((timeout - int(timeout)) * 1000000))
                 fds = lltype.malloc(_c.fd_set.TO, flavor='raw')
                 _c.FD_ZERO(fds)
                 _c.FD_SET(self.fd, fds)
@@ -898,84 +905,54 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
-            if read_bytes >= 0:
-                return buf.str(read_bytes)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes = self.recvinto(llbuf, buffersize, flags)
+            return buf.str(read_bytes)
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf = self.recv(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf)
-        else:
-            self.wait_for_data(False)
-            raw = rwbuffer.get_raw_address()
-            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
-            keepalive_until_here(rwbuffer)
-            if read_bytes >= 0:
-                return read_bytes
-            raise self.error_handler()
+        self.wait_for_data(False)
+        raw = rwbuffer.get_raw_address()
+        read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+        keepalive_until_here(rwbuffer)
+        if read_bytes >= 0:
+            return read_bytes
+        raise self.error_handler()
 
     @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
-                                         addr_p, addrlen_p)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                data = buf.str(read_bytes)
-                return (data, address)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes, address = self.recvfrom_into(llbuf, buffersize, flags)
+            return buf.str(read_bytes), address
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
+        self.wait_for_data(False)
+        address, addr_p, addrlen_p = self._addrbuf()
         try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf, addr = self.recvfrom(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf), addr
-        else:
-            self.wait_for_data(False)
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                raw = rwbuffer.get_raw_address()
-                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
-                                         addr_p, addrlen_p)
-                keepalive_until_here(rwbuffer)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                return (read_bytes, address)
-            raise self.error_handler()
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                        addr_p, addrlen_p)
+            keepalive_until_here(rwbuffer)
+            addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
+        if read_bytes >= 0:
+            if addrlen:
+                address.addrlen = addrlen
+            else:
+                address = None
+            return (read_bytes, address)
+        raise self.error_handler()
 
-    @jit.dont_look_inside
-    def recvmsg(self, message_size, ancbufsize = 0, flags = 0):
+    def recvmsg(self, message_size, ancbufsize=0, flags=0):
         """
         Receive up to message_size bytes from a message. Also receives ancillary data.
         Returns the message, ancillary, flag and address of the sender.
+
         :param message_size: Maximum size of the message to be received
         :param ancbufsize:  Maximum size of the ancillary data to be received
         :param flags: Receive flag. For more details, please check the Unix manual
@@ -983,50 +960,61 @@ class RSocket(object):
         """
         if message_size < 0:
             raise RSocketError("Invalid message size")
+        with rffi.scoped_alloc_buffer(message_size) as buf:
+            llbuf = LLBuffer(buf.raw, message_size)
+            nbytes, ancdata, flags, address = self.recvmsg_into(
+                [llbuf], ancbufsize, flags)
+            return buf.str(nbytes), ancdata, flags, address
+
+    @jit.dont_look_inside
+    def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
         if ancbufsize < 0:
             raise RSocketError("invalid ancillary data buffer length")
 
         self.wait_for_data(False)
-        address, addr_p, addrlen_p  = self._addrbuf()
-        len_of_msgs = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
-        messages = lltype.malloc(rffi.CCHARPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
-        messages[0] = lltype.malloc(rffi.CCHARP.TO, message_size,flavor='raw',track_allocation=True,nonmovable=False)
-        rffi.c_memset(messages[0], 0, message_size)
-        no_of_messages  = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
-        no_of_messages[0] = rffi.cast(rffi.SIGNED, 0)
-        size_of_anc = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
-        size_of_anc[0] = rffi.cast(rffi.SIGNED,0)
-        levels = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
-        types = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
-        file_descr = lltype.malloc(rffi.CCHARPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
-        descr_per_anc = lltype.malloc(rffi.SIGNEDPP.TO,1,flavor='raw',track_allocation=True,nonmovable=False)
-        retflag = lltype.malloc(rffi.SIGNEDP.TO,1,flavor='raw',track_allocation=True,nonmovable=False )
-        retflag[0] = rffi.cast(rffi.SIGNED,0)
+        nbuf = len(buffers)
+        address, addr_p, addrlen_p = self._addrbuf()
+        message_lengths = lltype.malloc(rffi.INTP.TO, nbuf, flavor='raw')
+        messages = lltype.malloc(rffi.CCHARPP.TO, nbuf, flavor='raw')
+        for i in range(nbuf):
+            message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
+            messages[i] = buffers[i].get_raw_address()
+        size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
+        size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)
+        levels = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        types = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        file_descr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+        descr_per_anc = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        retflag = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
+        retflag[0] = rffi.cast(rffi.SIGNED, 0)
 
         # a mask for the SIGNEDP's that need to be cast to int. (long default)
-        reply = _c.recvmsg(self.fd, rffi.cast(lltype.Signed,message_size),
-                           rffi.cast(lltype.Signed,ancbufsize),rffi.cast(lltype.Signed,flags),
-                           addr_p, addrlen_p, len_of_msgs, messages, no_of_messages,size_of_anc,
-                           levels, types,file_descr,descr_per_anc,retflag)
+        reply = _c.recvmsg(
+            self.fd,
+            rffi.cast(lltype.Signed, ancbufsize),
+            rffi.cast(lltype.Signed, flags),
+            addr_p, addrlen_p,
+            message_lengths, messages, rffi.cast(rffi.INT, nbuf),
+            size_of_anc, levels, types, file_descr, descr_per_anc, retflag)
         if reply >= 0:
-            anc_size  = rffi.cast(rffi.SIGNED,size_of_anc[0])
-            returnflag  = rffi.cast(rffi.SIGNED,retflag[0])
-            addrlen = rffi.cast(rffi.SIGNED,addrlen_p[0])
-
-            retmsg = rffi.charpsize2str(messages[0],reply)
-
+            anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
+            returnflag = rffi.cast(rffi.SIGNED, retflag[0])
+            addrlen = rffi.cast(rffi.SIGNED, addrlen_p[0])
             offset = 0
             list_of_tuples = []
 
-            pre_anc = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw', track_allocation=True, nonmovable=False)
+            pre_anc = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             for i in range(anc_size):
                 level = rffi.cast(rffi.SIGNED, levels[0][i])
                 type = rffi.cast(rffi.SIGNED, types[0][i])
                 bytes_in_anc = rffi.cast(rffi.SIGNED, descr_per_anc[0][i])
-                pre_anc[0] = lltype.malloc(rffi.CCHARP.TO, bytes_in_anc,flavor='raw',track_allocation=True,nonmovable=False)
-                _c.memcpy_from_CCHARP_at_offset(file_descr[0], pre_anc,rffi.cast(rffi.SIGNED,offset), bytes_in_anc)
-                anc = rffi.charpsize2str(pre_anc[0],bytes_in_anc)
-                tup = (level,type, anc)
+                pre_anc[0] = lltype.malloc(
+                    rffi.CCHARP.TO, bytes_in_anc, flavor='raw')
+                _c.memcpy_from_CCHARP_at_offset(
+                    file_descr[0], pre_anc, rffi.cast(rffi.SIGNED, offset),
+                    bytes_in_anc)
+                anc = rffi.charpsize2str(pre_anc[0], bytes_in_anc)
+                tup = (level, type, anc)
                 list_of_tuples.append(tup)
                 offset += bytes_in_anc
                 lltype.free(pre_anc[0], flavor='raw')
@@ -1037,39 +1025,33 @@ class RSocket(object):
                 address.unlock()
                 address = None
 
-            rettup = (retmsg,list_of_tuples,returnflag,address)
+            rettup = (reply, list_of_tuples, returnflag, address)
 
             if address is not None:
                 address.unlock()
             # free underlying complexity first
             _c.freeccharp(file_descr)
-            _c.freesignedp(len_of_msgs)
             _c.freesignedp(levels)
             _c.freesignedp(types)
             _c.freesignedp(descr_per_anc)
 
-            lltype.free(messages[0], flavor='raw')
-            lltype.free(pre_anc,flavor='raw')
-            lltype.free(messages,flavor='raw')
-            lltype.free(file_descr,flavor='raw')
-            lltype.free(len_of_msgs,flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
+            lltype.free(pre_anc, flavor='raw')
+            lltype.free(message_lengths, flavor='raw')
+            lltype.free(messages, flavor='raw')
+            lltype.free(file_descr, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
             lltype.free(descr_per_anc, flavor='raw')
             lltype.free(retflag, flavor='raw')
-            lltype.free(addrlen_p,flavor='raw')
+            lltype.free(addrlen_p, flavor='raw')
 
             return rettup
         else:
-
-            #in case of failure the underlying complexity has already been freed
-            lltype.free(messages[0], flavor='raw')
+            # in case of failure the underlying complexity has already been freed
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
-            lltype.free(len_of_msgs, flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
@@ -1086,10 +1068,10 @@ class RSocket(object):
             if (reply == -10001):
                 raise RSocketError("Invalid ancillary data buffer length")
             if (reply == -10002):
-                raise RSocketError("received malformed or improperly truncated ancillary data")
+                raise RSocketError(
+                    "received malformed or improperly truncated "
+                    "ancillary data")
             raise last_error()
-
-
 
     def send_raw(self, dataptr, length, flags=0):
         """Send data from a CCHARP buffer."""
@@ -1159,8 +1141,10 @@ class RSocket(object):
             addrlen = address.addrlen
 
         no_of_messages = len(messages)
-        messages_ptr = lltype.malloc(rffi.CCHARPP.TO,no_of_messages+1,flavor='raw',track_allocation=True,nonmovable=False)
-        messages_length_ptr = lltype.malloc(rffi.SIGNEDP.TO,no_of_messages,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
+        messages_ptr = lltype.malloc(
+            rffi.CCHARPP.TO, no_of_messages + 1, flavor='raw')
+        messages_length_ptr = lltype.malloc(
+            rffi.SIGNEDP.TO, no_of_messages, flavor='raw', zero=True)
         counter = 0
         for message in messages:
             messages_ptr[counter] = rffi.str2charp(message)
@@ -1171,51 +1155,57 @@ class RSocket(object):
             size_of_ancillary = len(ancillary)
         else:
             size_of_ancillary = 0
-        levels = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
-        types = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
-        desc_per_ancillary = lltype.malloc(rffi.SIGNEDP.TO, size_of_ancillary,flavor='raw',zero=True, track_allocation=True,nonmovable=False)
-        file_descr = lltype.malloc(rffi.CCHARPP.TO, size_of_ancillary,flavor='raw', track_allocation=True,nonmovable=False)
+        levels = lltype.malloc(
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
+        types = lltype.malloc(
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
+        desc_per_ancillary = lltype.malloc(
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
+        file_descr = lltype.malloc(
+            rffi.CCHARPP.TO, size_of_ancillary, flavor='raw')
         if ancillary is not None:
             counter = 0
             for level, type, content in ancillary:
-                assert isinstance(type,int)
+                assert isinstance(type, int)
                 assert isinstance(level, int)
-                levels[counter] = rffi.cast(rffi.SIGNED,level)
-                types[counter] = rffi.cast(rffi.SIGNED,type)
-                desc_per_ancillary[counter] = rffi.cast(rffi.SIGNED, (len(content)))
-                file_descr[counter] = rffi.str2charp(content, track_allocation=True)
-                counter +=1
+                levels[counter] = rffi.cast(rffi.SIGNED, level)
+                types[counter] = rffi.cast(rffi.SIGNED, type)
+                desc_per_ancillary[counter] = rffi.cast(
+                    rffi.SIGNED, (len(content)))
+                file_descr[counter] = rffi.str2charp(
+                    content, track_allocation=True)
+                counter += 1
         else:
             size_of_ancillary = 0
         snd_no_msgs = rffi.cast(rffi.SIGNED, no_of_messages)
-        snd_anc_size =rffi.cast(rffi.SIGNED, size_of_ancillary)
+        snd_anc_size = rffi.cast(rffi.SIGNED, size_of_ancillary)
 
-
-        bytes_sent = _c.sendmsg(self.fd, addr, addrlen, messages_length_ptr, messages_ptr, snd_no_msgs,levels,types,file_descr,desc_per_ancillary,snd_anc_size,flags)
-
+        bytes_sent = _c.sendmsg(
+            self.fd, addr, addrlen, messages_length_ptr, messages_ptr,
+            snd_no_msgs, levels, types, file_descr,
+            desc_per_ancillary, snd_anc_size, flags)
 
         if need_to_free_address:
             address.unlock()
         for i in range(len(messages)):
-            lltype.free(messages_ptr[i], flavor='raw', track_allocation=True)
-        lltype.free(messages_ptr, flavor='raw', track_allocation=True)
-        lltype.free(messages_length_ptr, flavor='raw', track_allocation=True)
+            lltype.free(messages_ptr[i], flavor='raw')
+        lltype.free(messages_ptr, flavor='raw')
+        lltype.free(messages_length_ptr, flavor='raw')
 
         if size_of_ancillary > 0:
             for i in range(len(ancillary)):
-                lltype.free(file_descr[i], flavor='raw', track_allocation=True)
-        lltype.free(desc_per_ancillary, flavor='raw', track_allocation=True)
-        lltype.free(types, flavor='raw', track_allocation=True)
-        lltype.free(levels, flavor='raw', track_allocation=True)
-        lltype.free(file_descr, flavor='raw', track_allocation=True)
+                lltype.free(file_descr[i], flavor='raw')
+        lltype.free(desc_per_ancillary, flavor='raw')
+        lltype.free(types, flavor='raw')
+        lltype.free(levels, flavor='raw')
+        lltype.free(file_descr, flavor='raw')
 
         self.wait_for_data(True)
-        if (bytes_sent < 0) and (bytes_sent!=-1000) and (bytes_sent!=-1001) and (bytes_sent!=-1002):
+        if ((bytes_sent < 0) and (bytes_sent != -1000) and
+                (bytes_sent != -1001) and (bytes_sent != -1002)):
             raise last_error()
 
         return bytes_sent
-
-
 
     def setblocking(self, block):
         if block:
@@ -1260,6 +1250,7 @@ class RSocket(object):
 
 # ____________________________________________________________
 
+@specialize.arg(4)
 def make_socket(fd, family, type, proto, SocketClass=RSocket):
     result = instantiate(SocketClass)
     result.fd = fd
@@ -1268,7 +1259,6 @@ def make_socket(fd, family, type, proto, SocketClass=RSocket):
     result.proto = proto
     result.timeout = defaults.timeout
     return result
-make_socket._annspecialcase_ = 'specialize:arg(4)'
 
 if _c.WIN32:
     def sock_set_inheritable(fd, inheritable):
@@ -1299,15 +1289,20 @@ else:
 
 class SocketError(Exception):
     applevelerrcls = 'error'
+
     def __init__(self):
         pass
+
     def get_msg(self):
         return ''
+
     def get_msg_unicode(self):
         return self.get_msg().decode('latin-1')
+
     def get_msg_utf8(self):
         msg = self.get_msg()
         return msg, len(msg)
+
     def __str__(self):
         return self.get_msg()
 
@@ -1318,35 +1313,44 @@ class SocketErrorWithErrno(SocketError):
 class RSocketError(SocketError):
     def __init__(self, message):
         self.message = message
+
     def get_msg(self):
         return self.message
 
 class CSocketError(SocketErrorWithErrno):
     def get_msg(self):
         return _c.socket_strerror_str(self.errno)
+
     def get_msg_unicode(self):
         return _c.socket_strerror_unicode(self.errno)
+
     def get_msg_utf8(self):
         return _c.socket_strerror_utf8(self.errno)
+
 
 def last_error():
     return CSocketError(_c.geterrno())
 
 class GAIError(SocketErrorWithErrno):
     applevelerrcls = 'gaierror'
+
     def get_msg(self):
         return _c.gai_strerror_str(self.errno)
+
     def get_msg_unicode(self):
         return _c.gai_strerror_unicode(self.errno)
+
     def get_msg_utf8(self):
         return _c.gai_strerror_utf8(self.errno)
 
 class HSocketError(SocketError):
     applevelerrcls = 'herror'
+
     def __init__(self, host):
         self.host = host
         # XXX h_errno is not easily available, and hstrerror() is
         # marked as deprecated in the Linux man pages
+
     def get_msg(self):
         return "host lookup failed: '%s'" % (self.host,)
 
@@ -1356,7 +1360,7 @@ class SocketTimeout(SocketError):
         return 'timed out'
 
 class Defaults:
-    timeout = -1.0 # Blocking
+    timeout = -1.0  # Blocking
 defaults = Defaults()
 
 
@@ -1380,7 +1384,7 @@ if hasattr(_c, 'socketpair'):
         try:
             res = -1
             remove_inheritable = not inheritable
-            if not inheritable and 'SOCK_CLOEXEC' in constants:
+            if not inheritable and HAVE_SOCK_CLOEXEC:
                 # Non-inheritable: we try to call socketpair() with
                 # SOCK_CLOEXEC, which may fail.  If we get EINVAL,
                 # then we fall back to the SOCK_CLOEXEC-less case.
@@ -1412,7 +1416,7 @@ if hasattr(_c, 'socketpair'):
                 make_socket(fd1, family, type, proto, SocketClass))
 
 if _c.HAVE_SENDMSG:
-    def CMSG_LEN( demanded_len):
+    def CMSG_LEN(demanded_len):
         """
         Socket method to determine the optimal byte size of the ancillary.
         Recommended to be used when computing the ancillary size for recvmsg.
@@ -1424,7 +1428,7 @@ if _c.HAVE_SENDMSG:
         result = _c.CMSG_LEN(demanded_len)
         return result
 
-    def CMSG_SPACE( demanded_size):
+    def CMSG_SPACE(demanded_size):
         """
         Socket method to determine the optimal byte size of the ancillary.
         Recommended to be used when computing the ancillary size for recvmsg.
@@ -1569,10 +1573,10 @@ def getaddrinfo(host, port_or_service,
             (port_or_service is None or port_or_service == '0'):
         port_or_service = '00'
     hints = lltype.malloc(_c.addrinfo, flavor='raw', zero=True)
-    rffi.setintfield(hints, 'c_ai_family',   family)
+    rffi.setintfield(hints, 'c_ai_family', family)
     rffi.setintfield(hints, 'c_ai_socktype', socktype)
     rffi.setintfield(hints, 'c_ai_protocol', proto)
-    rffi.setintfield(hints, 'c_ai_flags'   , flags)
+    rffi.setintfield(hints, 'c_ai_flags', flags)
     # XXX need to lock around getaddrinfo() calls?
     p_res = lltype.malloc(rffi.CArray(_c.addrinfo_ptr), 1, flavor='raw')
     error = intmask(_c.getaddrinfo(host, port_or_service, hints, p_res))
@@ -1643,6 +1647,35 @@ def getnameinfo(address, flags):
             lltype.free(serv, flavor='raw')
     finally:
         lltype.free(host, flavor='raw')
+
+@jit.dont_look_inside
+def getsockopt_int(fd, level, option):
+    # XXX almost the same code as RSocket.getsockopt_int
+    # some win32 calls use only a byte to represent a bool
+    # zero out so the result is correct anyway
+    with lltype.scoped_alloc(rffi.INTP.TO, n=1, zero=True) as flag_p, \
+            lltype.scoped_alloc(_c.socklen_t_ptr.TO) as flagsize_p:
+        flagsize_p[0] = rffi.cast(_c.socklen_t, rffi.sizeof(rffi.INT))
+        res = _c.socketgetsockopt(fd, level, option,
+                                  rffi.cast(rffi.VOIDP, flag_p),
+                                  flagsize_p)
+        if res < 0:
+            raise last_error()
+        result = rffi.cast(lltype.Signed, flag_p[0])
+    return result
+
+@jit.dont_look_inside
+def get_socket_family(fd):
+    """Return the family of a file descriptor."""
+    with lltype.scoped_alloc(_c.sockaddr, zero=True) as addr_p, \
+            lltype.scoped_alloc(_c.socklen_t_ptr.TO) as addrlen_p:
+        addrlen_p[0] = rffi.cast(_c.socklen_t, sizeof(_c.sockaddr))
+        res = _c.socketgetsockname(fd, addr_p, addrlen_p)
+        addrlen = addrlen_p[0]
+        result = rffi.cast(lltype.Signed, addr_p.c_sa_family)
+        if res < 0:
+            raise last_error()
+    return result
 
 if hasattr(_c, 'inet_aton'):
     def inet_aton(ip):
@@ -1736,3 +1769,11 @@ def setdefaulttimeout(timeout):
     defaults.timeout = timeout
 
 _accept4_syscall = rposix.ENoSysCache()
+
+if hasattr(_c, 'sethostname'):
+    def sethostname(hostname):
+        assert hostname is not None
+        with rffi.scoped_view_charp(hostname) as buf:
+            res = _c.sethostname(buf, len(hostname))
+            if res < 0:
+                raise last_error()

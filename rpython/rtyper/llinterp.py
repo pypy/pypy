@@ -754,6 +754,10 @@ class LLFrame(object):
         else:
             return True
 
+    def op_gc_writebarrier_before_move(self, array):
+        if hasattr(self.heap, 'writebarrier_before_move'):
+            self.heap.writebarrier_before_move(array)
+
     def op_getfield(self, obj, field):
         checkptr(obj)
         # check the difference between op_getfield and op_getsubstruct:

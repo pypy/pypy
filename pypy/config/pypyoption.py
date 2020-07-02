@@ -17,6 +17,7 @@ all_modules = [p.basename for p in modulepath.listdir()
 essential_modules = set([
     "exceptions", "_io", "sys", "builtins", "posix", "_warnings",
     "itertools", "_frozen_importlib", "operator", "_locale", "struct",
+    "__pypy__",
 ])
 if sys.platform == "win32":
     essential_modules.add("_winreg")
@@ -25,7 +26,7 @@ default_modules = essential_modules.copy()
 default_modules.update([
     "_codecs", "atexit", "gc", "_weakref", "marshal", "errno", "imp",
     "itertools", "math", "cmath", "_sre", "_pickle_support",
-    "parser", "symbol", "token", "_ast", "_random", "__pypy__",
+    "parser", "symbol", "token", "_ast", "_random",
     "_string", "_testing", "time"
 ])
 
@@ -74,8 +75,6 @@ if sys.platform == "win32":
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "_cppyy" in working_modules:
-        working_modules.remove("_cppyy")  # not tested on win32
     if "faulthandler" in working_modules:
         working_modules.remove("faulthandler")  # missing details
     if "_vmprof" in working_modules:

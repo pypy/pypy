@@ -1,25 +1,14 @@
 ==========================
-What's new in PyPy3 7.3.0+
+What's new in PyPy3 7.3.1+
 ==========================
 
-.. this is the revision after release-pypy3.6-v7.3.0
-.. startrev: a56889d5df88
+.. this is the revision after release-pypy3.6-v7.3.1
+.. startrev: e81cea3ac65e
 
-.. branch: cpyext-speedup-tests-py36
+.. branch: py3-recvmsg_into
 
-Make cpyext test faster, especially on py3.6
+Implement socket.recvmsg_into().
 
-.. branch: py3.6-sqlite
+.. branch: py3-posix-fixes
 
-Follow CPython's behaviour more closely in sqlite3
-
-.. branch: py3-StringIO-perf
-
-Improve performance of io.StringIO(). It should now be faster than CPython in
-common use cases.
-
-.. branch: ignore-pyenv-launcher
-
-virtualenv on macOS defines an environment variable ``__PYVENV_LAUNCHER__`` to
-let the invoked python know it is inside a venv. This is not needed on PyPy so
-it is deleted when importing ``site`` and reset afterwards.
+Fix return types in os.readlink() (issue #3177) and os.listdir().

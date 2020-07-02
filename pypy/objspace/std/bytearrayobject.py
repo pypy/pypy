@@ -1287,19 +1287,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

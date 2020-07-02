@@ -264,8 +264,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
         exc_info = raises(OSError, module.set_from_errno_special)
         assert exc_info.value.filename == "/path/to/%s" % (char, )
@@ -286,8 +288,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename is None
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyUnicode(self):
         import errno, os
@@ -305,8 +309,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == "/path/to/file"
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyLong(self):
         import errno, os
@@ -324,8 +330,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == 3
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyList(self):
         import errno, os
@@ -343,8 +351,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == [1, 2, "three"]
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__PyTuple(self):
         import errno, os
@@ -362,8 +372,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename == (1, 2, "three")
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilenameObject__Py_None(self):
         import errno, os
@@ -381,8 +393,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
                 prologue="#include <errno.h>")
         exc_info = raises(OSError, module.set_from_errno)
         assert exc_info.value.filename is None
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_PyErr_Display(self):
         from sys import version_info
@@ -523,8 +537,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
              /* Proceed in thread 1 first */
              save = PyEval_SaveThread();
+             if (save == NULL) abort();
              while (id == 0 && flag == 0);
              gilsave = PyGILState_Ensure();
+             if (gilsave != PyGILState_UNLOCKED) abort();
 
              PyErr_Format(PyExc_ValueError, "%d", id);
 

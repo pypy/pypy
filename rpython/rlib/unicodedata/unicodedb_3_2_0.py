@@ -1,6 +1,6 @@
 # UNICODE CHARACTER DATABASE
 # This file was generated with the command:
-#     ./generate_unicodedb.py --unidata_version=3.2.0 --output=unicodedb_3_2_0 --base=unicodedb_5_2_0
+#     generate_unicodedb.py --unidata_version=3.2.0 --output=unicodedb_3_2_0 --base=unicodedb_5_2_0
 
 from rpython.rlib.rarithmetic import r_longlong
 

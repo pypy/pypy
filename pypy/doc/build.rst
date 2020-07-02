@@ -18,7 +18,7 @@ development. You can read more about how to develop PyPy here_, and latest
 translated (hopefully functional) binary packages are available on our
 buildbot's `nightly builds`_
 
-.. _here: getting-started-dev.html
+.. _here: contributing.html
 .. _`nightly builds`: http://buildbot.pypy.org/nightly
 
 You will need the build dependencies below to run the tests.

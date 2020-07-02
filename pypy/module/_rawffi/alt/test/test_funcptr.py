@@ -235,11 +235,11 @@ class AppTestFFI(BaseAppTestFFI):
         #
         # first, try automatic conversion from strings and unicode
         assert mystrlen('foobar') == 6
-        assert mystrlen('foobar') == 6
-        assert mystrlen('ab\u2070') == 3
+        assert mystrlen(u'foobar') == 6
+        assert mystrlen(u'ab\u2070') == 3
         # then, try to pass an explicit pointer
         UniCharArray = _rawffi.Array('u')
-        mystr = UniCharArray(7, 'foobar')
+        mystr = UniCharArray(7, u'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()

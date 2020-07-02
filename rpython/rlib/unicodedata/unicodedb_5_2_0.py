@@ -1,6 +1,6 @@
 # UNICODE CHARACTER DATABASE
 # This file was generated with the command:
-#     ./generate_unicodedb.py --unidata_version=5.2.0 --output=unicodedb_5_2_0
+#     generate_unicodedb.py --unidata_version=5.2.0 --output=unicodedb_5_2_0
 
 from rpython.rlib.rarithmetic import r_longlong
 
@@ -43,7 +43,7 @@ def trie_lookup(name):
             charnode = left
         else:
             charnode = right
-    raise KeyError, name
+    raise KeyError(name)
 
 def name_of_node(charnode):
     res = []
@@ -114601,7 +114601,7 @@ def lookup_charcode(code):
     elif 917760 <= code <= 917999: res = _charnames_917760[code-917760]
     elif 983040 <= code <= 983050: res = _charnames_983040[code-983040]
     elif 983552 <= code <= 983945: res = _charnames_983552[code-983552]
-    if res == -1: raise KeyError, code
+    if res == -1: raise KeyError(code)
     return name_of_node(res)
 
 # end output from build_compression_tree

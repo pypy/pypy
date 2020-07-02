@@ -890,17 +890,17 @@ class LLGraphCPU(model.AbstractCPU):
         assert len(vx) == len(vy) == count
         return [_vx {2} _vy for _vx,_vy in zip(vx,vy)]
     """
-    exec py.code.Source(vector_arith_code.format('int','add','+')).compile()
-    exec py.code.Source(vector_arith_code.format('int','sub','-')).compile()
-    exec py.code.Source(vector_arith_code.format('int','mul','*')).compile()
-    exec py.code.Source(vector_arith_code.format('int','and','&')).compile()
-    exec py.code.Source(vector_arith_code.format('int','or','|')).compile()
+    exec(py.code.Source(vector_arith_code.format('int','add','+')).compile())
+    exec(py.code.Source(vector_arith_code.format('int','sub','-')).compile())
+    exec(py.code.Source(vector_arith_code.format('int','mul','*')).compile())
+    exec(py.code.Source(vector_arith_code.format('int','and','&')).compile())
+    exec(py.code.Source(vector_arith_code.format('int','or','|')).compile())
 
-    exec py.code.Source(vector_float_arith_code.format('float','add','+')).compile()
-    exec py.code.Source(vector_float_arith_code.format('float','sub','-')).compile()
-    exec py.code.Source(vector_float_arith_code.format('float','mul','*')).compile()
-    exec py.code.Source(vector_float_arith_code.format('float','truediv','/')).compile()
-    exec py.code.Source(vector_float_arith_code.format('float','eq','==')).compile()
+    exec(py.code.Source(vector_float_arith_code.format('float','add','+')).compile())
+    exec(py.code.Source(vector_float_arith_code.format('float','sub','-')).compile())
+    exec(py.code.Source(vector_float_arith_code.format('float','mul','*')).compile())
+    exec(py.code.Source(vector_float_arith_code.format('float','truediv','/')).compile())
+    exec(py.code.Source(vector_float_arith_code.format('float','eq','==')).compile())
 
     def bh_vec_float_neg(self, vx, count):
         return [e * -1 for e in vx]
@@ -1589,7 +1589,7 @@ def _setup():
             # for all operations implemented in the blackhole interpreter
             return func(*args)
         #
-        _op_default_implementation.func_name = 'execute_' + opname
+        _op_default_implementation.__name__ = 'execute_' + opname
         return _op_default_implementation
 
     def _new_execute(opname):
@@ -1613,7 +1613,7 @@ def _setup():
                 if count == 1:
                     result = result[0]
             return result
-        execute.func_name = 'execute_' + opname
+        execute.__name__ = 'execute_' + opname
         return execute
 
     for k, v in rop.__dict__.iteritems():

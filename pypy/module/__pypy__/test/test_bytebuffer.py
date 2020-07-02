@@ -20,3 +20,8 @@ class AppTest(object):
         assert bytes(b) == b"\x00xy" + b"\x00" * 7
         b[4:8:2] = b'zw'
         assert bytes(b) == b"\x00xy\x00z\x00w" + b"\x00" * 3
+
+    def test_buffer_getslice_empty(self):
+        from __pypy__ import bytebuffer
+        b = bytebuffer(10)
+        assert b[1:0] == b''
