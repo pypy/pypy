@@ -564,16 +564,18 @@ class AppTestMMap:
 
     def test_buffer(self):
         from mmap import mmap
-        f = open(self.tmpname + "y", "w+")
-        f.write("foobar")
-        f.flush()
-        m = mmap(f.fileno(), 6)
+        with open(self.tmpname + "y", "w+") as f:
+            f.write("foobar")
+            f.flush()
+            m = mmap(f.fileno(), 6)
         b = buffer(m)
         assert len(b) == 6
         assert b[3] == "b"
         assert b[:] == "foobar"
+        with raises(BufferError) as e:
+            m.close()
+        del b
         m.close()
-        f.close()
 
     def test_buffer_write(self):
         from mmap import mmap
@@ -583,8 +585,12 @@ class AppTestMMap:
         m = mmap(f.fileno(), 6)
         m[5] = '?'
         b = buffer(m)
-        exc = raises(TypeError, 'b[:3] = "FOO"')
+        with raises(TypeError) as exc:
+            b[:3] = "FOO"
         assert str(exc.value) == "buffer is read-only"
+        with raises(BufferError) as e:
+            m.close()
+        del b
         m.close()
         f.seek(0)
         got = f.read()

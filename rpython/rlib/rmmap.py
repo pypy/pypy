@@ -34,6 +34,9 @@ class RValueError(RMMapError):
 class RTypeError(RMMapError):
     pass
 
+class RBufferError(RMMapError):
+    pass
+
 includes = ["sys/types.h"]
 if _POSIX:
     includes += ['unistd.h', 'sys/mman.h']
@@ -298,6 +301,7 @@ class MMap(object):
         self.pos = 0
         self.access = access
         self.offset = offset
+        self.exports = 0
 
         if _MS_WINDOWS:
             self.map_handle = NULL_HANDLE
@@ -321,6 +325,8 @@ class MMap(object):
             raise RTypeError("mmap can't modify a readonly memory map.")
 
     def check_resizeable(self):
+        if self.exports > 0:
+            raise RBufferError("mmap can't resize with extant buffers exported.")
         if not (self.access == ACCESS_WRITE or self.access == _ACCESS_DEFAULT):
             raise RTypeError("mmap can't resize a readonly or copy-on-write memory map.")
 
@@ -346,6 +352,8 @@ class MMap(object):
             c_munmap_safe(self.getptr(offset), size)
 
     def close(self):
+        if self.exports > 0:
+            raise RBufferError("cannot close exported pointers exist")
         if _MS_WINDOWS:
             if self.size > 0:
                 self.unmap()

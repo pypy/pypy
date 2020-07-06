@@ -4,7 +4,7 @@ from pypy.interpreter.typedef import TypeDef
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.rlib import rmmap, rarithmetic, objectmodel
 from rpython.rlib.buffer import RawBuffer
-from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError
+from rpython.rlib.rmmap import RValueError, RTypeError, RMMapError, RBufferError
 from rpython.rlib.rstring import StringBuilder
 
 if rmmap.HAVE_LARGEFILE_SUPPORT:
@@ -27,7 +27,10 @@ class W_MMap(W_Root):
         return MMapBuffer(self.space, self.mmap, False)
 
     def close(self):
-        self.mmap.close()
+        try:
+            self.mmap.close()
+        except RMMapError as e:
+            raise mmap_error(self.space, e)
 
     def read_byte(self):
         self.check_valid()
@@ -324,6 +327,8 @@ def mmap_error(space, e):
         return OperationError(space.w_ValueError, space.newtext(e.message))
     elif isinstance(e, RTypeError):
         return OperationError(space.w_TypeError, space.newtext(e.message))
+    elif isinstance(e, RBufferError):
+        return OperationError(space.w_BufferError, space.newtext(e.message))
     elif isinstance(e, OSError):
         w_error = space.fromcache(Cache).w_error
         return wrap_oserror(space, e, w_exception_class=w_error)
@@ -339,6 +344,10 @@ class MMapBuffer(RawBuffer):
         self.space = space
         self.mmap = mmap
         self.readonly = readonly
+        self.mmap.exports += 1
+
+    def __del__(self):
+        self.mmap.exports -= 1
 
     def getlength(self):
         return self.mmap.size
