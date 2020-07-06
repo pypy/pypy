@@ -48,6 +48,7 @@ class CConfig:
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
         LPWORD = rffi_platform.SimpleType("LPWORD", rffi.USHORTP)
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
+        LPBYTE = rffi_platform.SimpleType("LPBYTE", rffi.UCHARP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -585,7 +586,7 @@ if WIN32:
     CP_UTF8 = 65001 
     
     ReadConsoleW = winexternal(
-        'ReadConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
+        'ReadConsoleW', [HANDLE, LPWSTR, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
         
     WriteConsoleW = winexternal(

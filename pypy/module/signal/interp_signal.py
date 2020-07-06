@@ -436,14 +436,3 @@ def pthread_sigmask(space, how, w_signals):
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)
 
-def create_sigint_event():
-    _sigint_event = rwin32.CreateEvent(rffi.NULL, \
-                                       rffi.cast(lltype.Signed, True), \
-                                       rffi.cast(lltype.Signed, False), \
-                                       rffi.NULL)
-
-def sigintevent(space):
-    if _sigint_event == rwin32.NULL_HANDLE:
-        return space.newint(0)
-    else:
-        return space.newint(_sigint_event)

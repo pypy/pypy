@@ -4,13 +4,10 @@ from pypy.module._io import interp_win32consoleio
 from pypy.conftest import option
 from rpython.rtyper.lltypesystem import rffi
 import os
+import pytest
 
 if os.name != 'nt':
-    import pytest
     pytest.skip('Windows only tests')
-
-if not option.runappdirect:
-    from lib_pypy._testconsole import write_input as tst_write_input
 
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io', '_cffi_backend'])
@@ -26,10 +23,11 @@ class AppTestWinConsoleIO:
         if option.runappdirect:
             def write_input(module, console, s):
                 from pypy.module._io.test._testconsole import write_input as tst_write_input
-                return tst_write_input(module, console, s)
+                return tst_write_input(console, s)
             cls.w_write_input = write_input
         else:
             def cls_write_input(w_console, w_s):
+                from lib_pypy._testconsole import write_input as tst_write_input
                 space = cls.space
                 handle = rffi.cast(rffi.INT_real, w_console.handle)
                 s = space.utf8_w(w_s).decode('utf-8')
@@ -132,6 +130,12 @@ class AppTestWinConsoleIO:
         with _io._WindowsConsoleIO('CONOUT$', 'w') as f:
             assert f.write(b'') == 0
             
+    def test_write_data(self):
+        import _io
+        with _io._WindowsConsoleIO('CONOUT$', 'w') as f:
+            assert f.write(b'abdefg') == 6
+            
+    @pytest.mark.skip('test hangs')
     def test_partial_reads(self):
         import _io
         # Test that reading less than 1 full character works when stdin
