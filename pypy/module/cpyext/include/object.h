@@ -248,6 +248,9 @@ PyAPI_FUNC(long) PyType_GetFlags(PyTypeObject*);
 
 #define _PyPy_Type_FastSubclass(t,f) (((t)->tp_pypy_flags & (f)) != 0)
 
+#if !defined(Py_LIMITED_API)
+PyAPI_FUNC(void*) PyType_GetSlot(PyTypeObject*, int);
+#endif
     
 #define PyType_Check(op) \
     PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TYPE_SUBCLASS)
