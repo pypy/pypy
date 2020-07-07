@@ -12,3 +12,7 @@ Implement socket.recvmsg_into().
 .. branch: py3-posix-fixes
 
 Fix return types in os.readlink() (issue #3177) and os.listdir().
+
+.. branch: winconsoleio
+
+Provide the ``_WindowsConsoleIO`` module on windows. Support may be incomplete.
