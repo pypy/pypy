@@ -19,7 +19,6 @@ class HPyAppTest(object):
         # see setup_method below
         return 'The fixture "compiler" is not used on pypy'
 
-    @staticmethod
     def setup_class(cls):
         if cls.runappdirect:
             pytest.skip()
@@ -71,10 +70,9 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     # mmap is needed because it is imported by LeakCheckingTest.setup_class
     spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 
-    @staticmethod
     def setup_class(cls):
-        AppTestCpythonExtensionBase.setup_class(cls)
-        HPyAppTest.setup_class(cls)
+        AppTestCpythonExtensionBase.setup_class.im_func(cls)
+        HPyAppTest.setup_class.im_func(cls)
 
     def setup_method(self, meth):
         AppTestCpythonExtensionBase.setup_method(self, meth)
