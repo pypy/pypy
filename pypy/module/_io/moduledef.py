@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.mixedmodule import MixedModule
 
 class Module(MixedModule):
@@ -27,6 +28,8 @@ class Module(MixedModule):
         'open': 'interp_io.open',
         'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',
     }
+    if sys.platform == 'win32':
+        interpleveldefs['_WindowsConsoleIO'] = 'interp_win32consoleio.W_WinConsoleIO'
 
     def shutdown(self, space):
         # at shutdown, flush all open streams.  Ignore I/O errors.

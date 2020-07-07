@@ -16,10 +16,12 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsignal import *
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rwin32
 
+WIN32 = os.name == "nt"
 
-WIN32 = sys.platform == 'win32'
-
+if WIN32:
+   _sigint_event = rwin32.NULL_HANDLE
 
 class SignalActionFlag(AbstractActionFlag):
     # This class uses the C-level pypysig_counter variable as the tick
@@ -148,6 +150,9 @@ def report_signal(space, n):
     ec = space.getexecutioncontext()
     w_frame = ec.gettopframe_nohidden()
     space.call_function(w_handler, space.newint(n), w_frame)
+    if WIN32:
+        if n == SIGINT:
+            rwin32.SetEvent(_sigint_event)
 
 
 @unwrap_spec(signum=int)
@@ -430,3 +435,4 @@ def pthread_sigmask(space, how, w_signals):
             # if signals was unblocked, signal handlers have been called
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)
+
