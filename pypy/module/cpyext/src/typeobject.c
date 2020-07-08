@@ -34,3 +34,10 @@ _PyPy_subtype_dealloc(PyObject *obj)
        hopefully this does not clash with the memory model assumed in
        extension modules */
 }
+
+long
+PyType_GetFlags(PyTypeObject *type)
+{
+    return type->tp_flags;
+}
+

@@ -378,12 +378,6 @@ class __extend__(pairtype(SomeChar, SomeChar)):
         return SomeChar(no_nul=no_nul)
 
 
-class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
-                 pairtype(SomeUnicodeCodePoint, SomeChar)):
-    def union((uchr1, uchr2)):
-        no_nul = uchr1.no_nul and uchr2.no_nul
-        return SomeUnicodeCodePoint(no_nul=no_nul)
-
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def union((uchr1, uchr2)):
         no_nul = uchr1.no_nul and uchr2.no_nul
@@ -645,6 +639,20 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
         if str1.is_immutable_constant() and str2.is_immutable_constant():
             result.const = str1.const + str2.const
         return result
+
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    @cmp_op.register(SomeUnicodeString, SomeString)
+    @cmp_op.register(SomeUnicodeString, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeString)
+    @cmp_op.register(SomeChar, SomeUnicodeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeCodePoint)
+    @cmp_op.register(SomeChar, SomeUnicodeCodePoint)
+    def cmp_str_unicode(annotator, v1, v2):
+        raise AnnotatorError(
+            "Comparing byte strings with unicode strings is not RPython")
+
 
 class __extend__(pairtype(SomeInteger, SomeList)):
 

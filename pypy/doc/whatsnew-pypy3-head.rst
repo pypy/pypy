@@ -16,3 +16,7 @@ Fix return types in os.readlink() (issue #3177) and os.listdir().
 .. branch: posonly-params
 
 Support for positional-only parameters in 3.7, for builtin functions only.
+
+.. branch: winconsoleio
+
+Provide the ``_WindowsConsoleIO`` module on windows. Support may be incomplete.

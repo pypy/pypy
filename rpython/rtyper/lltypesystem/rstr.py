@@ -771,6 +771,11 @@ class LLHelpers(AbstractLLHelpers):
         count = 0
         n = end - start
         m = len(s2.chars)
+        tp = typeOf(s1)
+        if tp == string_repr.lowleveltype or tp == Char:
+            NUL = '\0'
+        else:
+            NUL = u'\0'
 
         if m == 0:
             if mode == FAST_COUNT:
@@ -815,7 +820,7 @@ class LLHelpers(AbstractLLHelpers):
                     if i + m < len(s1.chars):
                         c = s1.chars[i + m]
                     else:
-                        c = '\0'
+                        c = NUL
                     if not bloom(mask, c):
                         i += m
                     else:
@@ -824,7 +829,7 @@ class LLHelpers(AbstractLLHelpers):
                     if i + m < len(s1.chars):
                         c = s1.chars[i + m]
                     else:
-                        c = '\0'
+                        c = NUL
                     if not bloom(mask, c):
                         i += m
         else:

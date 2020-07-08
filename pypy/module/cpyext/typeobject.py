@@ -2,6 +2,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib import jit, rawrefcount
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.error import oefmt
@@ -908,6 +909,11 @@ def fill_ht_slot(ht, slotnum, ptr):
         if num == slotnum:
             setattr(getattr(ht, membername), slotname, rffi.cast(TARGET, ptr))
 
+def get_ht_slot(ht, slotnum):
+    for num, membername, slotname, TARGET in SLOT_TABLE:
+        if num == slotnum:
+            return rffi.cast(rffi.VOIDP, getattr(getattr(ht, membername), slotname))
+    return rffi.cast(rffi.VOIDP, 0)
 
 @cts.decl("""PyObject *
     PyType_FromSpecWithBases(PyType_Spec *spec, PyObject *bases)""",
@@ -989,6 +995,17 @@ def PyType_FromSpecWithBases(space, spec, bases):
         typ.c_tp_dealloc = state.C._PyPy_subtype_dealloc
     py_type_ready(space, typ)
     return cts.cast('PyObject*', res)
+
+
+@cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
+def PyType_GetSlot(space, typ, slot):
+    """ Use the Py_tp* macros in typeslots.h to return a slot function
+    """
+    slot = widen(slot)
+    if slot < 0 or not typ.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+        raise oefmt(space.w_SystemError, "Bad internal call!")
+    heapobj = rffi.cast(PyHeapTypeObject, typ)
+    return get_ht_slot(heapobj, slot)
 
 @cpython_api([PyTypeObjectPtr, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)

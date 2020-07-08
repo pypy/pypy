@@ -161,3 +161,14 @@ def test_descr_funny_new():
     assert C.__new__(1,2) == (C, 1, 2)
     assert C(1,2) == (C, C, 1, 2)
 
+def test_issue3255():
+    class MagicCaller(object):
+        def __get__(self, *args):
+            raise Exception("should not be called")
+        def __call__(self, *args):
+            return lambda attr: attr
+    class Descriptor(object):
+        __get__ = MagicCaller()
+    class X(object):
+        __getattribute__ = Descriptor()
+    assert X().foo == "foo"

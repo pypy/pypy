@@ -29,7 +29,7 @@ def _WinError(type=WindowsError):
     excep = type(None, message, None ,code)
     raise excep
 
-# In CPython this function converts a windows error into a python object
+# In CPython PyErr_SetFromWindowsErr converts a windows error into a python object
 # Not sure what we should do here.
 def SetFromWindowsErr(err):
     if err == 0:
