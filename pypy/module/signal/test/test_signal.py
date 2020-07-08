@@ -1,4 +1,4 @@
-import os, py, sys
+import os, pytest, sys
 import signal as cpy_signal
 
 
@@ -7,9 +7,9 @@ class TestCheckSignals:
 
     def setup_class(cls):
         if not hasattr(os, 'kill') or not hasattr(os, 'getpid'):
-            py.test.skip("requires os.kill() and os.getpid()")
+            pytest.skip("requires os.kill() and os.getpid()")
         if not hasattr(cpy_signal, 'SIGUSR1'):
-            py.test.skip("requires SIGUSR1 in signal")
+            pytest.skip("requires SIGUSR1 in signal")
 
     def test_checksignals(self):
         space = self.space
@@ -41,7 +41,7 @@ class AppTestSignal:
 
     def setup_class(cls):
         cls.w_temppath = cls.space.wrap(
-            str(py.test.ensuretemp("signal").join("foo.txt")))
+            str(pytest.ensuretemp("signal").join("foo.txt")))
         cls.w_appdirect = cls.space.wrap(cls.runappdirect)
 
     def test_exported_names(self):
@@ -271,10 +271,9 @@ class AppTestSignal:
             else:
                 raise AssertionError("did not raise!")
 
+    @pytest.mark.skipif("sys.platform != 'win32'")
     def test_sigint_event(self):
         import os
-        if os.name != 'nt':
-            pytest.skip("sigint event only on windows!")
         import _signal
         sigevent = _signal.sigintevent()
         assert sigevent == 0
@@ -312,12 +311,10 @@ class AppTestSignalSocket:
         finally:
             signal(SIGALRM, SIG_DFL)
 
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestItimer:
     spaceconfig = dict(usemodules=['signal'])
-
-    def setup_class(cls):
-        if sys.platform == 'win32':
-            py.test.skip("Unix only")
 
     def test_itimer_real(self):
         import _signal as signal
@@ -341,12 +338,9 @@ class AppTestItimer:
 
         raises(signal.ItimerError, signal.setitimer, -1, 0)
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='posix-only')
 class AppTestPThread:
     spaceconfig = dict(usemodules=['signal', 'thread', 'time'])
-
-    def setup_class(cls):
-        if sys.platform == 'win32':
-            py.test.skip("Unix only")
 
     def test_pthread_kill(self):
         import _signal as signal
