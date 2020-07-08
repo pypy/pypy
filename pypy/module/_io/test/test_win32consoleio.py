@@ -1,13 +1,14 @@
-from rpython.tool.udir import udir
-from pypy.interpreter.gateway import interp2app
-from pypy.module._io import interp_win32consoleio
-from pypy.conftest import option
-from rpython.rtyper.lltypesystem import rffi
 import os
 import pytest
 
 if os.name != 'nt':
     pytest.skip('Windows only tests')
+
+from rpython.tool.udir import udir
+from pypy.interpreter.gateway import interp2app
+from pypy.module._io import interp_win32consoleio
+from pypy.conftest import option
+from rpython.rtyper.lltypesystem import rffi
 
 class AppTestWinConsoleIO:
     spaceconfig = dict(usemodules=['_io', '_cffi_backend'])
