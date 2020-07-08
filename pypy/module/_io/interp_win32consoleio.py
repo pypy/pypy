@@ -475,7 +475,7 @@ class W_WinConsoleIO(W_RawIOBase):
         
         # TODO: break up the encoding into chunks to save memory
         state = space.fromcache(CodecState)
-        errh = state.decode_error_handler
+        errh = state.encode_error_handler
         utf16 = utf8_encode_utf_16(utf8, 'strict', errh, allow_surrogates=False)
         wlen = len(utf16) // 2
     
