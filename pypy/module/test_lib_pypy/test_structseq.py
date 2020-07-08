@@ -14,8 +14,7 @@ class AppTestStructseq:
         ns = dict(_structseq=_structseq,
                   ssfield=_structseq.structseqfield)
         # need to exec since it uses the py3k-only metaclass syntax
-        exec("""\
-class mydata(metaclass=_structseq.structseqtype):
+        exec("""class mydata(metaclass=_structseq.structseqtype):
     st_mode  = ssfield(0, "protection bits")
     st_ino   = ssfield(1)
     st_dev   = ssfield(2)
