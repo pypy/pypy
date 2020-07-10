@@ -1,4 +1,5 @@
 import os
+import sys
 
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -8,6 +9,7 @@ from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
 from pypy.module.posix import interp_posix
 
+_WIN32 = sys.platform == 'win32'
 
 class Cache:
     def __init__(self, space):
