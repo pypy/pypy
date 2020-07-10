@@ -90,6 +90,14 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
 
     w_result = None
     try:
+        rawclass = W_FileIO
+        if _WIN32:
+            from pypy.module._io.interp_win32consoleio import W_WinConsoleIO, _pyio_get_console_type
+            typ = _pyio_get_console_type(space, w_file)
+            if typ != '\0':
+                rawclass = W_WinConsoleIO
+                encoding = "utf-8"
+                
         w_raw = space.call_function(
             space.gettypefor(W_FileIO), w_file, space.newtext(rawmode),
             space.newbool(bool(closefd)), w_opener)
