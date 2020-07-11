@@ -147,12 +147,14 @@ def _pyio_get_console_type(space, w_path_or_fd):
             dlower = dlower[4:]
         elif dlower[:3] == 'c:\\':
             dlower = dlower[3:]
-    if  dlower == 'CONIN$'.lower():
+    if  dlower == 'conin$':
         m = 'r'
-    elif dlower == 'CONOUT$'.lower():
+    elif dlower == 'conout$':
         m = 'w'
-    elif dlower == 'CON'.lower():
+    elif dlower == 'con':
         m = 'x'
+
+    # TODO: call GetFullPathNameW to deal with C:\Program Files\CONOUT$
     return m
 
 

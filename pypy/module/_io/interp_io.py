@@ -101,7 +101,7 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
                 encoding = "utf-8"
                 
         w_raw = space.call_function(
-            space.gettypefor(W_FileIO), w_file, space.newtext(rawmode),
+            space.gettypefor(rawclass), w_file, space.newtext(rawmode),
             space.newbool(bool(closefd)), w_opener)
         w_result = w_raw
 
