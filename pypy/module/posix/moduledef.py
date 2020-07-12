@@ -87,6 +87,8 @@ corresponding Unix manual entries for more information on calls."""
         'get_inheritable': 'interp_posix.get_inheritable',
         'set_inheritable': 'interp_posix.set_inheritable',
         'fspath': 'interp_posix.fspath',
+        'putenv': 'interp_posix.putenv',
+        'unsetenv': 'interp_posix.unsetenv',
     }
 
     if hasattr(os, 'chown'):
@@ -106,10 +108,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fdatasync'] = 'interp_posix.fdatasync'
     if hasattr(os, 'fchdir'):
         interpleveldefs['fchdir'] = 'interp_posix.fchdir'
-    if hasattr(os, 'putenv'):
-        interpleveldefs['putenv'] = 'interp_posix.putenv'
-    if hasattr(posix, 'unsetenv'): # note: emulated in os
-        interpleveldefs['unsetenv'] = 'interp_posix.unsetenv'
     if hasattr(os, 'killpg'):
         interpleveldefs['killpg'] = 'interp_posix.killpg'
     if hasattr(os, 'getpid'):
