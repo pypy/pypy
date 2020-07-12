@@ -660,6 +660,33 @@ class TestUnicode(BaseApiTest):
                 PyUnicode_FSConverter(space, w_input, result)
 
 
+    def test_locale(self, space):
+        # Input is bytes
+        w_input = space.newbytes("test")
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+
+        # Input is unicode
+        w_input = space.newtext("test", 4)
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp(None) as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        # 'errors' is invalid
+        with rffi.scoped_str2charp('something else') as errors:
+            with pytest.raises(OperationError):
+                PyUnicode_EncodeLocale(space, w_input, errors)
+
+
     def test_IS(self, space):
         for char in [0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x1c, 0x1d, 0x1e, 0x1f,
                      0x20, 0x85, 0xa0, 0x1680, 0x2000, 0x2001, 0x2002,

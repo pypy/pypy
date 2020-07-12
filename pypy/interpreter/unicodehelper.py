@@ -104,11 +104,12 @@ def fsencode(space, w_uni):
         # use it before the codecs are ready. use the locale codec
         # instead
         from pypy.module._codecs.locale import (
-            unicode_encode_locale_surrogateescape)
-        uni = space.realunicode_w(w_uni)
-        if u'\x00' in uni:
+            utf8_encode_locale_surrogateescape)
+        utf8 = space.utf8_w(w_uni)
+        ulen = space.len_w(w_uni)
+        if '\x00' in utf8:
             raise oefmt(space.w_ValueError, "embedded null character")
-        bytes = unicode_encode_locale_surrogateescape(uni)
+        bytes = utf8_encode_locale_surrogateescape(utf8, ulen)
     else:
         from pypy.module.sys.interp_encoding import getfilesystemencoding
         return space.call_method(w_uni, 'encode',
