@@ -95,8 +95,8 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         rawclass = W_FileIO
         if _WIN32:
             from pypy.module._io.interp_win32consoleio import W_WinConsoleIO, _pyio_get_console_type
-            type = _pyio_get_console_type(space, w_file)
-            if type != '\0':
+            typ = _pyio_get_console_type(space, w_file)
+            if typ != '\0':
                 rawclass = W_WinConsoleIO
                 encoding = "utf-8"
                 

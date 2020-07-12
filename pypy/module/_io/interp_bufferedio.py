@@ -419,7 +419,7 @@ class BufferedMixin:
 
         written = space.getindex_w(w_written, space.w_IOError)
         if not 0 <= written <= len(data):
-            raise oefmt(space.w_IOError, "raw write() returned invalid length %d, expected 0<%d", written, len(data))
+            raise oefmt(space.w_IOError, "raw write() returned invalid length")
         if self.abs_pos != -1:
             self.abs_pos += written
         return written

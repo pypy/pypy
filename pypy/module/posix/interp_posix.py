@@ -991,6 +991,26 @@ if _WIN32:
             rwin32._wputenv(name, value)
         except OSError as e:
             raise wrap_oserror(space, e, eintr_retry=False)
+
+    @unwrap_spec(name=unicode)
+    def unsetenv(space, name):
+        """Change or add an environment variable."""
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables.
+        if len(name) == 0 or u'=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
+        # len includes space for '=' and a trailing NUL
+        if len(name) + 1 > rwin32._MAX_ENV:
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d "
+                        "characters", rwin32._MAX_ENV)
+
+        try:
+            rwin32.SetEnvironmentVariableW(name, None)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+
 else:
     def _convertenviron(space, w_env):
         for key, value in os.environ.items():

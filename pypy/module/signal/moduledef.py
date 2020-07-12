@@ -1,7 +1,6 @@
 from pypy.interpreter.mixedmodule import MixedModule
 
 import os
-import sys
 
 class Module(MixedModule):
     applevel_name = '_signal'
@@ -65,7 +64,5 @@ class Module(MixedModule):
             space.actionflag.__class__ = interp_signal.SignalActionFlag
         # xxx yes I know the previous line is a hack
 
-
     def startup(self, space):
         space.check_signal_action.startup(space)
-
