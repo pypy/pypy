@@ -73,6 +73,27 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
+    def test_call_METH_OLDARGS(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_OLD', 'METH_OLDARGS',
+             '''
+             if(args) {
+                 return Py_BuildValue("Ol", args, args->ob_refcnt);
+             }
+             else {
+                 Py_INCREF(Py_None);
+                 return Py_None;
+             }
+             '''
+             ),
+            ])
+        assert mod.getarg_OLD() is None
+        val, refcnt = mod.getarg_OLD(1)
+        assert val == 1
+        val, refcnt = mod.getarg_OLD(1, 2)
+        assert val == (1, 2)
+        assert refcnt == 1 # see the comments in the test above
+
     def test_call_METH_KEYWORDS(self):
         mod = self.import_extension('MyModule', [
             ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',
@@ -88,7 +109,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
         assert mod.getarg_KW.__name__ == "getarg_KW"
         assert mod.getarg_KW(*(), **{}) == ((), {})
-
 
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [
@@ -206,3 +226,44 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.with_signature_and_extra_newlines.__doc__
         assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
                 '($module, /, parameter)')
+
+    def test_callfunc(self):
+        mod = self.import_extension('foo', [
+            ('callfunc', 'METH_VARARGS',
+             '''
+                PyObject *func, *argseq=NULL, *kwargs=NULL;
+                if (!PyArg_ParseTuple(args, "O|OO", &func, &argseq, &kwargs)) {
+                    return NULL;
+                }
+                if (!PyCFunction_Check(func)) {
+                    Py_RETURN_FALSE;
+                }
+                if (argseq == NULL) {
+                    return PyCFunction_Call(func, NULL, NULL);
+                }
+                if (kwargs == NULL) {
+                    return PyCFunction_Call(func, argseq, NULL);
+                }
+                return PyCFunction_Call(func, argseq, kwargs);
+             '''
+             ),
+             # Define some C functions so we can test this
+             ('func_NOARGS', 'METH_NOARGS',
+              '''
+                    Py_RETURN_TRUE;
+              '''),
+            ('func_KW', 'METH_VARARGS | METH_KEYWORDS',
+             '''
+             if (!kwargs) kwargs = Py_None;
+             return Py_BuildValue("OO", args, kwargs);
+             '''
+             ),
+            ])
+        ret = mod.callfunc(mod.func_NOARGS, ())
+        assert ret is True
+        ret = mod.callfunc(mod.func_KW, (1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        assert ret == ((1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (), {'a': 'a'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (1, 2, 3))

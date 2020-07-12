@@ -96,6 +96,11 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     apply(callable_object, args, kw) or callable_object(*args, **kw)."""
     return space.call(w_obj, w_args, w_kw)
 
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyCFunction_Call(space, w_obj, w_args, w_kw):
+    return space.call(w_obj, w_args, w_kw)
+
 # These constants are also defined in include/eval.h
 Py_single_input = 256
 Py_file_input = 257
