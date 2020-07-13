@@ -4,9 +4,9 @@ import sys
 
 if sys.platform == 'win32':
     def pytest_configure(config):
-        if config.getoption('runappdirect') or config.getoption('direct_apptest'):
+        if config.getoption('direct_apptest'):
             return
-        # Set up the compiler via rpython.platform
+        # Set up the compiler via rpython.platform when run with CPython 2.7
         from rpython.translator.platform import host
         for key in ('PATH', 'LIB', 'INCLUDE'):
             os.environ[key] = host.c_environ[key]

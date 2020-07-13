@@ -1481,11 +1481,22 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 obj = PyObject_New(PyObject, Base12);
                 return obj;
             '''
-            )])
+            ),
+            ("test_getslot", "METH_O",
+            '''
+                PyTypeObject *typ = (PyTypeObject *)PyObject_Type(args);
+                if (! PyType_HasFeature(typ, Py_TPFLAGS_HEAPTYPE) ) {
+                    return PyLong_FromLong(-1);
+                }
+                void * tp_bases = PyType_GetSlot(typ, Py_tp_bases);
+                long eq = (tp_bases == (void*)typ->tp_bases);
+                return PyLong_FromLong(eq);
+            ''')])
         obj = module.new_obj()
         assert 'Base12' in str(obj)
         assert type(obj).__doc__ == "The Base12 type or object"
         assert obj.__doc__ == "The Base12 type or object"
+        assert module.test_getslot(obj) == 1
 
     def test_multiple_inheritance_fetch_tp_bases(self):
         module = self.import_extension('foo', [
@@ -1773,4 +1784,3 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
         assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
-

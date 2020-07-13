@@ -153,9 +153,13 @@ class AppTestFfi:
                             REG_BINARY, memoryview(b'abc'))
 
     def test_readValues(self):
+        # needs the keys from test_SetValueEx
         from winreg import OpenKey, EnumValue, QueryValueEx, EnumKey
         from winreg import REG_SZ, REG_EXPAND_SZ
-        key = OpenKey(self.root_key, self.test_key_name)
+        try:
+            key = OpenKey(self.root_key, self.test_key_name)
+        except FileNotFoundError:
+            raise RuntimeError("run test_SetValueEx first")
         sub_key = OpenKey(key, "sub_key")
         index = 0
         while 1:
