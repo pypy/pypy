@@ -98,7 +98,8 @@ class Overlapped(object):
         self.writebuffer = None
         self.overlapped[0].hEvent = \
                 _kernel32.CreateEventW(NULL, True, False, NULL)
-
+        if not self.overlapped[0].hEvent:
+            raise _WinError(IOError)
     def __del__(self):
         # do this somehow else
         err = _kernel32.GetLastError()
@@ -133,6 +134,7 @@ class Overlapped(object):
             self.pending = 0
         elif res != ERROR_IO_INCOMPLETE:
             self.pending = 0
+            print('GetOverlappedResult got err', err)
             raise _WinError(IOError)
 
         if self.completed and self.readbuffer:
@@ -147,7 +149,7 @@ class Overlapped(object):
             raise ValueError("can't get read buffer before GetOverlappedResult() "
                         "signals the operation completed")
         if self.readbuffer:
-            result = _ffi.buffer(self.readbuffer)
+            result = bytes(_ffi.buffer(self.readbuffer))
         else:
             result = None
         return result
@@ -157,86 +159,66 @@ class Overlapped(object):
         if self.pending:
             ret = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
         if not ret and _kernel32.GetLastError() != ERROR_NOT_FOUND:
-            return _WinError(IOError)
+            raise _WinError(IOError)
         self.pending = 0
         return None
 
 
 def ReadFile(handle, size, overlapped):
     nread = _ffi.new("DWORD*")
-    err = _ffi.new("DWORD*")
     use_overlapped = overlapped
-    overlapped = None
 
     buf = _ffi.new("CHAR[]", size)
     if not buf:
-        return _ffi.NULL
-
+        raise _WinError(IOError)
+    err = 0
     if use_overlapped:
         overlapped = Overlapped(handle)
-        if not overlapped:
-            return _ffi.NULL
         overlapped.readbuffer = buf
-    
-    if overlapped:
         ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
                        overlapped.overlapped)
+        if not ret:
+            err = _kernel32.GetLastError()
+            if err == ERROR_IO_PENDING:
+                overlapped.pending = 1
+            elif err != ERROR_MORE_DATA:
+                raise _WinError(IOError)
+        return overlapped, err
     else:
         ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
                        _ffi.NULL)
  
-    if ret:
-        err = 0
-    else: 
+    if not ret:
         err = _kernel32.GetLastError()
-
-    if use_overlapped:
-        if not ret:
-            if err == ERROR_IO_PENDING:
-                overlapped.pending = 1
-            elif err != ERROR_MORE_DATA:
-                return _WinError(IOError)
-        return overlapped, err
-
-    if (not ret) and err != ERROR_MORE_DATA:
-        return _WinError(IOError)
-    return buf, err
+        if err != ERROR_MORE_DATA:
+            raise _WinError(IOError)
+    return nread[0], err
 
 def WriteFile(handle, buffer, overlapped=False):
     written = _ffi.new("DWORD*")
-    err = _ffi.new("DWORD*")
     use_overlapped = overlapped
     overlapped = None    
+    err = 0
     if use_overlapped:
         overlapped = Overlapped(handle)
         if not overlapped:
             return _ffi.NULL
         overlapped.writebuffer = bytes(buffer)
         buf = overlapped.writebuffer
-    else:
-        buf = _ffi.new("CHAR[]", bytes(buffer))
-    if use_overlapped:
         ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, overlapped.overlapped)
-    else:
-        ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, _ffi.NULL)
-
-    if ret:
-        err = 0
-    else: 
-        err = _kernel32.GetLastError()
-
-    if use_overlapped:
         if not ret:
+            err = _kernel32.GetLastError()
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             else:
                 return _WinError(IOError)
         return overlapped, err
-
-    if not ret:
-        return _WinError(IOError)
-     
-    return written[0], err
+    else:
+        buf = _ffi.new("CHAR[]", bytes(buffer))
+        ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, _ffi.NULL)
+        if not ret:
+            raise _WinError(IOError)
+        return written[0], err
 
  
 def ConnectNamedPipe(handle, overlapped=False):

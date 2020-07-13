@@ -74,7 +74,8 @@ class WindowsLoadTracker():
         import _winapi
 
         overlapped, _ = _winapi.ReadFile(self.pipe, BUFSIZE, True)
-        bytes_read, res = overlapped.GetOverlappedResult(False)
+        # PyPy: changed to wait=True since otherwise the buffer is not yet ready
+        bytes_read, res = overlapped.GetOverlappedResult(True)
         if res != 0:
             return
 
