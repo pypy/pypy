@@ -14,7 +14,7 @@ def GetCConfigGlobal():
 
     class CConfigGlobal:
         _compilation_info_ = ExternalCompilationInfo(
-            includes = ['windows.h', 'winbase.h', 'sys/stat.h'],
+            includes = ['windows.h', 'winbase.h', 'sys/stat.h', 'fcntl.h'],
         )
         ERROR_FILE_NOT_FOUND = platform.ConstantInteger(
             'ERROR_FILE_NOT_FOUND')
@@ -39,6 +39,14 @@ def GetCConfigGlobal():
         _S_IFREG = platform.ConstantInteger('_S_IFREG')
         _S_IFCHR = platform.ConstantInteger('_S_IFCHR')
         _S_IFIFO = platform.ConstantInteger('_S_IFIFO')
+        _O_APPEND = platform.ConstantInteger('_O_APPEND')
+        _O_CREAT  = platform.ConstantInteger('_O_CREAT')
+        _O_EXCL   = platform.ConstantInteger('_O_EXCL')
+        _O_RDONLY = platform.ConstantInteger('_O_RDONLY')
+        _O_RDWR   = platform.ConstantInteger('_O_RDWR')
+        _O_TRUNC  = platform.ConstantInteger('_O_TRUNC')
+        _O_WRONLY = platform.ConstantInteger('_O_WRONLY')
+        _O_BINARY = platform.ConstantInteger('_O_BINARY')
         FILE_TYPE_UNKNOWN = platform.ConstantInteger('FILE_TYPE_UNKNOWN')
         FILE_TYPE_CHAR = platform.ConstantInteger('FILE_TYPE_CHAR')
         FILE_TYPE_PIPE = platform.ConstantInteger('FILE_TYPE_PIPE')
@@ -133,6 +141,7 @@ def make_win32_traits(traits):
                        ERROR_FILE_NOT_FOUND ERROR_NO_MORE_FILES
                        ERROR_SHARING_VIOLATION MOVEFILE_REPLACE_EXISTING
                        ERROR_ACCESS_DENIED
+                       _O_RDONLY _O_WRONLY _O_BINARY
                     '''.split():
             locals()[name] = config[name]
         LPWIN32_FIND_DATA    = lltype.Ptr(WIN32_FIND_DATA)

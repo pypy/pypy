@@ -1762,7 +1762,10 @@ def make_generic_cpy_call(FT, expect_null):
             boxed_args += (arg,)
             to_decref += (_pyobj,)
 
-        preexist_error = PyErr_Occurred(space)
+        if is_PyObject(RESULT_TYPE):
+            preexist_error = PyErr_Occurred(space)
+        else:
+            preexist_error = "this is not used"
         try:
             # Call the function
             result = call_external_function(func, *boxed_args)

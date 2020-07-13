@@ -5,9 +5,10 @@
 import pytest
 import sys
 if sys.platform != "win32":
-    pytest.importorskip('skip_the_whole_module')  # hack!
+    pytestmark = pytest.mark.skip("skip_the_whole_module")
 
-import ctypes, new, unittest
+
+import ctypes, types, unittest
 from ctypes.wintypes import HRESULT
 from _ctypes import COMError
 
@@ -26,7 +27,7 @@ class UnboundMethod(object):
     def __get__(self, instance, owner):
         if instance is None:
             return self
-        return new.instancemethod(self.func, instance, owner)
+        return types.MethodType(self.func, instance, owner)
 
 def commethod(index, restype, *argtypes):
     """A decorator that generates COM methods.  The decorated function
