@@ -273,7 +273,8 @@ class Overlapped(object):
 
         wsabuff = _ffi.new("WSABUF[1]")
         wsabuff[0].len = len(bufobj)
-        wsabuff[0].buf = _ffi.new("CHAR[]", bufobj)
+        wsabuff[0].buf = _ffi.new("CHAR[]", len(bufobj))
+        _ffi.buffer(wsabuff[0])[:] = bufobj
         nwritten = _ffi.new("LPDWORD")
         
         result = _winsock2.WSASend(handle, wsabuff, _int2dword(1), nwritten, flags, self.overlapped, _ffi.NULL)
