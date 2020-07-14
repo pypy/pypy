@@ -15,7 +15,7 @@ if sys.platform == 'win32' and platform.name != 'mingw32':
     )
     if windows_link_legacy_openssl is None:
         # Link against the 1.1.0 names
-        libs = ["libssl", "libcrypto"]
+        libraries = ["libssl", "libcrypto"]
     else:
         # Link against the 1.0.2 and lower names
         libraries = ["libeay32", "ssleay32"]
