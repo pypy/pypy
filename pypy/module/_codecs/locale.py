@@ -60,6 +60,7 @@ def utf8_encode_locale_strict(utf8, ulen):
                 if errorpos == -1:
                     raise MemoryError
                 errmsg = _errmsg("pypy_wchar2char")
+                u = utf8.decode('utf-8')
                 errorhandler('strict', 'filesystemencoding', errmsg, u,
                              errorpos, errorpos + 1)
             return rffi.charp2str(sbuf)
@@ -84,6 +85,7 @@ def utf8_encode_locale_surrogateescape(utf8, ulen):
                 if errorpos == -1:
                     raise MemoryError
                 errmsg = _errmsg("pypy_wchar2char")
+                u = utf8.decode('utf-8')
                 errorhandler('strict', 'filesystemencoding', errmsg, u,
                              errorpos, errorpos + 1)
             return rffi.charp2str(sbuf)
@@ -168,7 +170,7 @@ def utf82rawwcharp(utf8, size):
     array[size] = rffi.cast(rffi.WCHAR_T, u'\x00')
     _utf82rawwcharp_loop(utf8, size, array)
     return array
-utf82rawwcharp._annenforceargs_ = [unicode]
+utf82rawwcharp._annenforceargs_ = [str, int]
 
 def _utf82rawwcharp_loop(utf8, ulen, array):
     count = 0
