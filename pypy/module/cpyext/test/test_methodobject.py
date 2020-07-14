@@ -73,27 +73,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
-    def test_call_METH_OLDARGS(self):
-        mod = self.import_extension('MyModule', [
-            ('getarg_OLD', 'METH_OLDARGS',
-             '''
-             if(args) {
-                 return Py_BuildValue("Ol", args, args->ob_refcnt);
-             }
-             else {
-                 Py_INCREF(Py_None);
-                 return Py_None;
-             }
-             '''
-             ),
-            ])
-        assert mod.getarg_OLD() is None
-        val, refcnt = mod.getarg_OLD(1)
-        assert val == 1
-        val, refcnt = mod.getarg_OLD(1, 2)
-        assert val == (1, 2)
-        assert refcnt == 1 # see the comments in the test above
-
     def test_call_METH_KEYWORDS(self):
         mod = self.import_extension('MyModule', [
             ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',

@@ -5,7 +5,9 @@
 import pytest
 import sys
 if sys.platform != "win32":
-    pytestmark = pytest.mark.skip("skip_the_whole_module")
+    # this doesn't work, it still tries to do module-level imports
+    # pytestmark = pytest.mark.skip("skip_the_whole_module")
+    pytest.importorskip('skip_the_whole_module')  # hack!
 
 
 import ctypes, types, unittest
