@@ -269,11 +269,13 @@ corresponding Unix manual entries for more information on calls."""
         # Import structseq before the full importlib is ready
         importing.importhook(space, '_structseq')
 
+dedup = ['SEEK_SET', 'SEEK_CUR', 'SEEK_END']
+if sys.platform != 'win32':
+    dedup += ['P_NOWAIT', 'P_NOWAITO', 'P_WAIT']
 for constant in dir(os):
     value = getattr(os, constant)
     if constant.isupper() and type(value) is int:
-        if constant in ['SEEK_SET', 'SEEK_CUR', 'SEEK_END',
-                        'P_NOWAIT', 'P_NOWAITO', 'P_WAIT']:
+        if constant in dedup:
             # obscure, but these names are not in CPython's posix module
             # and if we put it here then they end up twice in 'os.__all__'
             continue
