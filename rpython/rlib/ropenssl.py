@@ -1,3 +1,4 @@
+import os
 import sys
 
 from rpython.rtyper.lltypesystem import rffi, lltype
