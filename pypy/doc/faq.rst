@@ -112,13 +112,9 @@ version; this is usually easily done by changing some line in ``setup.py``.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For information on which third party extensions work (or do not work)
-with PyPy see the `compatibility wiki`_.
-
 For more information about how we manage refcounting semamtics see 
 rawrefcount_
 
-.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 .. _rawrefcount: discussion/rawrefcount.html   
 
@@ -221,11 +217,11 @@ binary wheels`_ to save compilation time.
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply
-use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+use the upstream ``numpy``, since it passes the test suite. At the
 moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
 is infamously slow, and thus it has worse performance compared to
 ``numpypy``. However, we are actively working on improving it, as we expect to
-reach the same speed, eventually.
+reach the same speed when HPy_ can be used.
 
 On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
 since it is written in RPython: but it is a reimplementation, and it's hard to
@@ -238,7 +234,7 @@ progressing fast, we have discontinued support for ``numpypy``.
 .. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
 .. _fork: https://bitbucket.org/pypy/numpy
 .. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
-
+.. _HPy: https://morepypy.blogspot.com/2019/12/hpy-kick-off-sprint-report.html
 
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
@@ -281,6 +277,22 @@ complicated programs need even more time to warm-up the JIT.
 .. _benchmarking site: http://speed.pypy.org
 
 .. _your tests are not a benchmark: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
+
+I wrote a 3-lines benchmark and it's not faster than CPython.  Why?
+-------------------------------------------------------------------
+
+Three-lines benchmarks are benchmarks that either do absolutely nothing (in
+which case PyPy is probably a lot faster than CPython), or more likely, they
+are benchmarks that spend most of their time doing things in C.
+
+For example, a loop that repeatedly issues one complex SQL operation will only
+measure how performant the SQL database is.  Similarly, computing many elements
+from the Fibonacci series builds very large integers, so it only measures how
+performant the long integer library is.  This library is written in C for
+CPython, and in RPython for PyPy, but that boils down to the same thing.
+
+PyPy speeds up the code written *in Python*.
+
 
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------

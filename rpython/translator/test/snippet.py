@@ -693,7 +693,7 @@ def mergefunctions(cond):
     return x
 
 def func_producing_exception():
-    raise ValueError, "this might e.g. block the caller"
+    raise ValueError("this might e.g. block the caller")
 
 def funccallsex():
     return func_producing_exception()

@@ -77,7 +77,7 @@ class UsingFrameworkTest(object):
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
             func = definefunc.im_func(cls)
-            func.func_name = 'f_' + name
+            func.__name__ = 'f_' + name
             if prefix == 'definestr':
                 funcsstr.append(func)
                 funcs0.append(None)

@@ -816,13 +816,13 @@ class BasicTests:
             from rpython.rtyper.lltypesystem import lltype
             from rpython.rtyper.lltypesystem.lloperation import llop
             loc = locals().copy()
-            exec py.code.Source("""
+            exec(py.code.Source("""
                 def f(n, m, p):
                     arg1 = %(arg1)s
                     arg2 = %(arg2)s
                     arg3 = %(arg3)s
                     return llop.int_between(lltype.Bool, arg1, arg2, arg3)
-            """ % locals()).compile() in loc
+            """ % locals()).compile(), loc)
             res = self.interp_operations(loc['f'], [5, 6, 7])
             assert res == expect_result
             self.check_operations_history(expect_operations)

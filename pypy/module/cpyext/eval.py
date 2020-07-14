@@ -96,6 +96,11 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     apply(callable_object, args, kw) or callable_object(*args, **kw)."""
     return space.call(w_obj, w_args, w_kw)
 
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyCFunction_Call(space, w_obj, w_args, w_kw):
+    return space.call(w_obj, w_args, w_kw)
+
 # These constants are also defined in include/eval.h
 Py_single_input = 256
 Py_file_input = 257
@@ -247,7 +252,7 @@ def Py_SetRecursionLimit(space, limit):
 
 limit = 0 # for testing
 
-@cpython_api([rffi.CCHARP], rffi.INT_real, error=1)
+@cpython_api([CONST_STRING], rffi.INT_real, error=1)
 def Py_EnterRecursiveCall(space, where):
     """Marks a point where a recursive C-level call is about to be performed.
 

@@ -46,7 +46,7 @@ joindriver = jit.JitDriver(greens = ['selfisnotempty', 'tpfirst', 'tplist'], red
 
 class BadUtf8(Exception):
     pass
-CHECK_ALL_STRINGS = True
+CHECK_ALL_STRINGS = False
 # CHECK_ALL_STRINGS: after translation.  Set to False to avoid overhead!
 
 

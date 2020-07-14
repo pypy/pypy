@@ -104,7 +104,7 @@ def trie_lookup(name):
             charnode = left
         else:
             charnode = right
-    raise KeyError, name
+    raise KeyError(name)
 
 def name_of_node(charnode):
     res = []
@@ -242,7 +242,7 @@ def build_compression_tree(outfile, ucdata):
                 print >> outfile, "-1,"
         print >> outfile, "]\n"
 
-    function.extend(["    if res == -1: raise KeyError, code",
+    function.extend(["    if res == -1: raise KeyError(code)",
                      "    return name_of_node(res)",
                      "",
                      ])

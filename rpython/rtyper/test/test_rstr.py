@@ -1128,7 +1128,7 @@ class AbstractTestRstr(BaseRtypingTest):
             for i, x in enumerate(s):
                 if i == n:
                     return x
-            return 'x'
+            return const('x')
         res = self.interpret(fn, [2])
         assert res == 'c'
 

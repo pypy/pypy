@@ -84,10 +84,10 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
         d = {'rffi': rffi, 'lltype': lltype,
          'pypy_debug_catch_fatal_exception': pypy_debug_catch_fatal_exception,
          'llop': llop, 'func': func, 'we_are_translated': we_are_translated}
-        exec source.compile() in d
+        exec(source.compile(), d)
         wrapper = d['wrapper']
         secondary_entrypoints.setdefault(key, []).append((wrapper, argtypes))
-        wrapper.func_name = func.func_name
+        wrapper.__name__ = func.__name__
         if c_name is not None:
             wrapper.c_name = c_name
         export_symbol(wrapper)

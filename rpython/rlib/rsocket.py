@@ -9,6 +9,7 @@ a drop-in replacement for the 'socket' module.
 
 from errno import EINVAL
 from rpython.rlib import _rsocket_rffi as _c, jit, rgc
+from rpython.rlib.buffer import LLBuffer
 from rpython.rlib.objectmodel import (
     specialize, instantiate, keepalive_until_here)
 from rpython.rlib.rarithmetic import intmask, r_uint
@@ -904,84 +905,54 @@ class RSocket(object):
         until at least one byte is available or until the remote end is closed.
         When the remote end is closed and all data is read, return the empty
         string."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            read_bytes = _c.socketrecv(self.fd, buf.raw, buffersize, flags)
-            if read_bytes >= 0:
-                return buf.str(read_bytes)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes = self.recvinto(llbuf, buffersize, flags)
+            return buf.str(read_bytes)
 
     def recvinto(self, rwbuffer, nbytes, flags=0):
-        try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf = self.recv(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf)
-        else:
-            self.wait_for_data(False)
-            raw = rwbuffer.get_raw_address()
-            read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
-            keepalive_until_here(rwbuffer)
-            if read_bytes >= 0:
-                return read_bytes
-            raise self.error_handler()
+        self.wait_for_data(False)
+        raw = rwbuffer.get_raw_address()
+        read_bytes = _c.socketrecv(self.fd, raw, nbytes, flags)
+        keepalive_until_here(rwbuffer)
+        if read_bytes >= 0:
+            return read_bytes
+        raise self.error_handler()
 
     @jit.dont_look_inside
     def recvfrom(self, buffersize, flags=0):
         """Like recv(buffersize, flags) but also return the sender's
         address."""
-        self.wait_for_data(False)
         with rffi.scoped_alloc_buffer(buffersize) as buf:
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                read_bytes = _c.recvfrom(self.fd, buf.raw, buffersize, flags,
-                                         addr_p, addrlen_p)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                data = buf.str(read_bytes)
-                return (data, address)
-        raise self.error_handler()
+            llbuf = LLBuffer(buf.raw, buffersize)
+            read_bytes, address = self.recvfrom_into(llbuf, buffersize, flags)
+            return buf.str(read_bytes), address
 
     def recvfrom_into(self, rwbuffer, nbytes, flags=0):
+        self.wait_for_data(False)
+        address, addr_p, addrlen_p = self._addrbuf()
         try:
-            rwbuffer.get_raw_address()
-        except ValueError:
-            buf, addr = self.recvfrom(nbytes, flags)
-            rwbuffer.setslice(0, buf)
-            return len(buf), addr
-        else:
-            self.wait_for_data(False)
-            address, addr_p, addrlen_p = self._addrbuf()
-            try:
-                raw = rwbuffer.get_raw_address()
-                read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
-                                         addr_p, addrlen_p)
-                keepalive_until_here(rwbuffer)
-                addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
-            finally:
-                lltype.free(addrlen_p, flavor='raw')
-                address.unlock()
-            if read_bytes >= 0:
-                if addrlen:
-                    address.addrlen = addrlen
-                else:
-                    address = None
-                return (read_bytes, address)
-            raise self.error_handler()
+            raw = rwbuffer.get_raw_address()
+            read_bytes = _c.recvfrom(self.fd, raw, nbytes, flags,
+                                        addr_p, addrlen_p)
+            keepalive_until_here(rwbuffer)
+            addrlen = rffi.cast(lltype.Signed, addrlen_p[0])
+        finally:
+            lltype.free(addrlen_p, flavor='raw')
+            address.unlock()
+        if read_bytes >= 0:
+            if addrlen:
+                address.addrlen = addrlen
+            else:
+                address = None
+            return (read_bytes, address)
+        raise self.error_handler()
 
-    @jit.dont_look_inside
     def recvmsg(self, message_size, ancbufsize=0, flags=0):
         """
         Receive up to message_size bytes from a message. Also receives ancillary data.
         Returns the message, ancillary, flag and address of the sender.
+
         :param message_size: Maximum size of the message to be received
         :param ancbufsize:  Maximum size of the ancillary data to be received
         :param flags: Receive flag. For more details, please check the Unix manual
@@ -989,73 +960,56 @@ class RSocket(object):
         """
         if message_size < 0:
             raise RSocketError("Invalid message size")
+        with rffi.scoped_alloc_buffer(message_size) as buf:
+            llbuf = LLBuffer(buf.raw, message_size)
+            nbytes, ancdata, flags, address = self.recvmsg_into(
+                [llbuf], ancbufsize, flags)
+            return buf.str(nbytes), ancdata, flags, address
+
+    @jit.dont_look_inside
+    def recvmsg_into(self, buffers, ancbufsize=0, flags=0):
         if ancbufsize < 0:
             raise RSocketError("invalid ancillary data buffer length")
 
         self.wait_for_data(False)
+        nbuf = len(buffers)
         address, addr_p, addrlen_p = self._addrbuf()
-        len_of_msgs = lltype.malloc(
-            rffi.SIGNEDPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        messages = lltype.malloc(
-            rffi.CCHARPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        messages[0] = lltype.malloc(
-            rffi.CCHARP.TO, message_size,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        rffi.c_memset(messages[0], 0, message_size)
-        no_of_messages = lltype.malloc(
-            rffi.SIGNEDP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        no_of_messages[0] = rffi.cast(rffi.SIGNED, 0)
-        size_of_anc = lltype.malloc(
-            rffi.SIGNEDP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
+        message_lengths = lltype.malloc(rffi.INTP.TO, nbuf, flavor='raw')
+        messages = lltype.malloc(rffi.CCHARPP.TO, nbuf, flavor='raw')
+        for i in range(nbuf):
+            message_lengths[i] = rffi.cast(rffi.INT, buffers[i].getlength())
+            messages[i] = buffers[i].get_raw_address()
+        size_of_anc = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         size_of_anc[0] = rffi.cast(rffi.SIGNED, 0)
-        levels = lltype.malloc(
-            rffi.SIGNEDPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        types = lltype.malloc(
-            rffi.SIGNEDPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        file_descr = lltype.malloc(
-            rffi.CCHARPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        descr_per_anc = lltype.malloc(
-            rffi.SIGNEDPP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
-        retflag = lltype.malloc(
-            rffi.SIGNEDP.TO, 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
+        levels = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        types = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        file_descr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+        descr_per_anc = lltype.malloc(rffi.SIGNEDPP.TO, 1, flavor='raw')
+        retflag = lltype.malloc(rffi.SIGNEDP.TO, 1, flavor='raw')
         retflag[0] = rffi.cast(rffi.SIGNED, 0)
 
         # a mask for the SIGNEDP's that need to be cast to int. (long default)
         reply = _c.recvmsg(
-            self.fd, rffi.cast(lltype.Signed, message_size),
+            self.fd,
             rffi.cast(lltype.Signed, ancbufsize),
             rffi.cast(lltype.Signed, flags),
-            addr_p, addrlen_p, len_of_msgs, messages, no_of_messages,
+            addr_p, addrlen_p,
+            message_lengths, messages, rffi.cast(rffi.INT, nbuf),
             size_of_anc, levels, types, file_descr, descr_per_anc, retflag)
         if reply >= 0:
             anc_size = rffi.cast(rffi.SIGNED, size_of_anc[0])
             returnflag = rffi.cast(rffi.SIGNED, retflag[0])
             addrlen = rffi.cast(rffi.SIGNED, addrlen_p[0])
-
-            retmsg = rffi.charpsize2str(messages[0], reply)
-
             offset = 0
             list_of_tuples = []
 
-            pre_anc = lltype.malloc(
-                rffi.CCHARPP.TO, 1,
-                flavor='raw', track_allocation=True, nonmovable=False)
+            pre_anc = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             for i in range(anc_size):
                 level = rffi.cast(rffi.SIGNED, levels[0][i])
                 type = rffi.cast(rffi.SIGNED, types[0][i])
                 bytes_in_anc = rffi.cast(rffi.SIGNED, descr_per_anc[0][i])
                 pre_anc[0] = lltype.malloc(
-                    rffi.CCHARP.TO, bytes_in_anc,
-                    flavor='raw', track_allocation=True, nonmovable=False)
+                    rffi.CCHARP.TO, bytes_in_anc, flavor='raw')
                 _c.memcpy_from_CCHARP_at_offset(
                     file_descr[0], pre_anc, rffi.cast(rffi.SIGNED, offset),
                     bytes_in_anc)
@@ -1071,23 +1025,20 @@ class RSocket(object):
                 address.unlock()
                 address = None
 
-            rettup = (retmsg, list_of_tuples, returnflag, address)
+            rettup = (reply, list_of_tuples, returnflag, address)
 
             if address is not None:
                 address.unlock()
             # free underlying complexity first
             _c.freeccharp(file_descr)
-            _c.freesignedp(len_of_msgs)
             _c.freesignedp(levels)
             _c.freesignedp(types)
             _c.freesignedp(descr_per_anc)
 
-            lltype.free(messages[0], flavor='raw')
             lltype.free(pre_anc, flavor='raw')
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
-            lltype.free(len_of_msgs, flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
@@ -1098,11 +1049,9 @@ class RSocket(object):
             return rettup
         else:
             # in case of failure the underlying complexity has already been freed
-            lltype.free(messages[0], flavor='raw')
+            lltype.free(message_lengths, flavor='raw')
             lltype.free(messages, flavor='raw')
             lltype.free(file_descr, flavor='raw')
-            lltype.free(len_of_msgs, flavor='raw')
-            lltype.free(no_of_messages, flavor='raw')
             lltype.free(size_of_anc, flavor='raw')
             lltype.free(levels, flavor='raw')
             lltype.free(types, flavor='raw')
@@ -1193,11 +1142,9 @@ class RSocket(object):
 
         no_of_messages = len(messages)
         messages_ptr = lltype.malloc(
-            rffi.CCHARPP.TO, no_of_messages + 1,
-            flavor='raw', track_allocation=True, nonmovable=False)
+            rffi.CCHARPP.TO, no_of_messages + 1, flavor='raw')
         messages_length_ptr = lltype.malloc(
-            rffi.SIGNEDP.TO, no_of_messages,
-            flavor='raw', zero=True, track_allocation=True, nonmovable=False)
+            rffi.SIGNEDP.TO, no_of_messages, flavor='raw', zero=True)
         counter = 0
         for message in messages:
             messages_ptr[counter] = rffi.str2charp(message)
@@ -1209,17 +1156,13 @@ class RSocket(object):
         else:
             size_of_ancillary = 0
         levels = lltype.malloc(
-            rffi.SIGNEDP.TO, size_of_ancillary,
-            flavor='raw', zero=True, track_allocation=True, nonmovable=False)
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
         types = lltype.malloc(
-            rffi.SIGNEDP.TO, size_of_ancillary,
-            flavor='raw', zero=True, track_allocation=True, nonmovable=False)
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
         desc_per_ancillary = lltype.malloc(
-            rffi.SIGNEDP.TO, size_of_ancillary,
-            flavor='raw', zero=True, track_allocation=True, nonmovable=False)
+            rffi.SIGNEDP.TO, size_of_ancillary, flavor='raw', zero=True)
         file_descr = lltype.malloc(
-            rffi.CCHARPP.TO, size_of_ancillary,
-            flavor='raw', track_allocation=True, nonmovable=False)
+            rffi.CCHARPP.TO, size_of_ancillary, flavor='raw')
         if ancillary is not None:
             counter = 0
             for level, type, content in ancillary:
@@ -1245,17 +1188,17 @@ class RSocket(object):
         if need_to_free_address:
             address.unlock()
         for i in range(len(messages)):
-            lltype.free(messages_ptr[i], flavor='raw', track_allocation=True)
-        lltype.free(messages_ptr, flavor='raw', track_allocation=True)
-        lltype.free(messages_length_ptr, flavor='raw', track_allocation=True)
+            lltype.free(messages_ptr[i], flavor='raw')
+        lltype.free(messages_ptr, flavor='raw')
+        lltype.free(messages_length_ptr, flavor='raw')
 
         if size_of_ancillary > 0:
             for i in range(len(ancillary)):
-                lltype.free(file_descr[i], flavor='raw', track_allocation=True)
-        lltype.free(desc_per_ancillary, flavor='raw', track_allocation=True)
-        lltype.free(types, flavor='raw', track_allocation=True)
-        lltype.free(levels, flavor='raw', track_allocation=True)
-        lltype.free(file_descr, flavor='raw', track_allocation=True)
+                lltype.free(file_descr[i], flavor='raw')
+        lltype.free(desc_per_ancillary, flavor='raw')
+        lltype.free(types, flavor='raw')
+        lltype.free(levels, flavor='raw')
+        lltype.free(file_descr, flavor='raw')
 
         self.wait_for_data(True)
         if ((bytes_sent < 0) and (bytes_sent != -1000) and
@@ -1826,3 +1769,11 @@ def setdefaulttimeout(timeout):
     defaults.timeout = timeout
 
 _accept4_syscall = rposix.ENoSysCache()
+
+if hasattr(_c, 'sethostname'):
+    def sethostname(hostname):
+        assert hostname is not None
+        with rffi.scoped_view_charp(hostname) as buf:
+            res = _c.sethostname(buf, len(hostname))
+            if res < 0:
+                raise last_error()

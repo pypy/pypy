@@ -176,6 +176,11 @@ class GCManagedHeap(object):
         else:
             return True
 
+    def writebarrier_before_move(self, array):
+        if self.gc.needs_write_barrier:
+            array_addr = llmemory.cast_ptr_to_adr(array)
+            return self.gc.writebarrier_before_move(array_addr)
+
     def gcflag_extra(self, subopnum, *args):
         if subopnum == 1:      # has_gcflag_extra
             assert len(args) == 0

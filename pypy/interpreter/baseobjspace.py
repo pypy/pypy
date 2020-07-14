@@ -561,7 +561,7 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = []
+        modules = ['__pypy__']  # Install __pypy__ first for bootstrapping
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:

@@ -223,7 +223,7 @@ class StrategyFactory(object):
         def _convert_storage_from_OTHER(self, w_self, previous_strategy):
             self._convert_storage_from(w_self, previous_strategy)
         funcname = "_convert_storage_from_" + strategy_class.__name__
-        _convert_storage_from_OTHER.func_name = funcname
+        _convert_storage_from_OTHER.__name__ = funcname
         setattr(root_class, funcname, _convert_storage_from_OTHER)
 
         # Patch strategy class: Add polymorphic visitor function

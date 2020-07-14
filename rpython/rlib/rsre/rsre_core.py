@@ -17,8 +17,8 @@ def specializectx(func):
     """
     from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
 
-    assert func.func_code.co_varnames[0] == 'ctx'
-    specname = '_spec_' + func.func_name
+    assert func.__code__.co_varnames[0] == 'ctx'
+    specname = '_spec_' + func.__name__
     while specname in _seen_specname:
         specname += '_'
     _seen_specname[specname] = True

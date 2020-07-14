@@ -71,7 +71,6 @@ typedef struct {
     uint8_t *next_out;
     size_t avail_out;
     uint64_t total_out;
-    lzma_allocator *allocator;
     ...;
 } lzma_stream;
 
@@ -134,6 +133,7 @@ int lzma_block_decoder(lzma_stream *strm, lzma_block *block);
 int lzma_easy_encoder(lzma_stream *strm, uint32_t preset, int check);
 int lzma_alone_encoder(lzma_stream *strm, lzma_options_lzma* options);
 int lzma_raw_encoder(lzma_stream *strm, const lzma_filter *filters);
+int lzma_stream_encoder(lzma_stream *strm, const lzma_filter *filters, int check);
 
 int lzma_get_check(const lzma_stream *strm);
 

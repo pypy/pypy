@@ -182,6 +182,8 @@ class WriteBarrierTransformer(ShadowStackFrameworkGCTransformer):
         def writebarrier_before_copy(self, source, dest,
                                      source_start, dest_start, length):
             return True
+        def writebarrier_before_move(self, *args):
+            raise NotImplementedError
 
 def write_barrier_check(spaceop, needs_write_barrier=True):
     t = TranslationContext()

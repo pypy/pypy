@@ -72,7 +72,7 @@ def get_nullptr(space):
     state = space.fromcache(State)
     if state.w_nullptr is None:
         from pypy.module._rawffi.interp_rawffi import unpack_simple_shape
-        from pypy.module._rawffi.array import W_Array, W_ArrayInstance
+        from pypy.module._rawffi.interp_array import W_Array, W_ArrayInstance
         arr = space.interp_w(W_Array, unpack_simple_shape(space, space.newtext('P')))
         # TODO: fix this hack; fromaddress() will allocate memory if address
         # is null and there seems to be no way around it (ll_buffer can not
@@ -682,7 +682,7 @@ class W_CPPOverload(W_Root):
     def fget_doc(self, space):
         return self.prototype()
 
-    def getname(self, space): 
+    def getname(self, space):
         # for the benefit of Method/instancemethod
         return capi.c_method_name(space, self.functions[0].cppmethod)
 
@@ -1322,7 +1322,7 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         for name in alldir:
             w_alldir.append(self.space.newtext(name))
         return w_alldir
-        
+
     def missing_attribute_error(self, name):
         return oefmt(self.space.w_AttributeError,
             "namespace '%s' has no attribute %s", self.name, name)
@@ -1616,7 +1616,7 @@ class W_CPPInstance(W_Root):
         raise oefmt(self.space.w_TypeError,
                     "cannot instantiate abstract class '%s'",
                     self.clsdecl.name)
- 
+
     def instance__eq__(self, w_other):
         # special case: if other is None, compare pointer-style
         if self.space.is_w(w_other, self.space.w_None):

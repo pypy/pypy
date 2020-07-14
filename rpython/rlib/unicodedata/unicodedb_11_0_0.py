@@ -43,7 +43,7 @@ def trie_lookup(name):
             charnode = left
         else:
             charnode = right
-    raise KeyError, name
+    raise KeyError(name)
 
 def name_of_node(charnode):
     res = []
@@ -61111,7 +61111,7 @@ def lookup_charcode(code):
     elif 129632 <= code <= 129645: res = _charnames_129632[code-129632]
     elif 983040 <= code <= 983507: res = _charnames_983040[code-983040]
     elif 983552 <= code <= 983993: res = _charnames_983552[code-983552]
-    if res == -1: raise KeyError, code
+    if res == -1: raise KeyError(code)
     return name_of_node(res)
 
 # end output from build_compression_tree

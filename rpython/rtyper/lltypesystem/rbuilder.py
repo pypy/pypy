@@ -97,7 +97,7 @@ def ll_grow_by(ll_builder, needed):
     try:
         needed = ovfcheck(needed + ll_builder.total_size)
         needed = ovfcheck(needed + 63) & ~63
-        total_size = ll_builder.total_size + needed
+        total_size = ovfcheck(ll_builder.total_size + needed)
     except OverflowError:
         raise MemoryError
     #
@@ -116,6 +116,23 @@ def ll_grow_by(ll_builder, needed):
 
 @dont_inline
 def ll_grow_and_append(ll_builder, ll_str, start, size):
+    # A fast-path, meant for builders that only receive a single big
+    # string before build() is called.  Also works in some other cases.
+    if (size > 1280 and ll_builder.current_pos == 0
+                    and start == 0 and size == len(ll_str.chars)):
+        try:
+            total_size = ovfcheck(ll_builder.total_size + size)
+        except OverflowError:
+            pass
+        else:
+            PIECE = lltype.typeOf(ll_builder.extra_pieces).TO
+            old_piece = lltype.malloc(PIECE)
+            old_piece.buf = ll_str
+            old_piece.prev_piece = ll_builder.extra_pieces
+            ll_builder.total_size = total_size
+            ll_builder.extra_pieces = old_piece
+            return
+
     # First, the part that still fits in the current piece
     part1 = ll_builder.current_end - ll_builder.current_pos
     ll_assert(part1 < size, "part1 >= size")
@@ -359,6 +376,18 @@ def ll_fold_pieces(ll_builder):
     ll_assert(final_size >= 0, "negative final_size")
     extra = ll_builder.extra_pieces
     ll_builder.extra_pieces = lltype.nullptr(lltype.typeOf(extra).TO)
+    #
+    # A fast-path if the builder contains exactly one big piece:
+    # discard the allocated current_buf and put the big piece there
+    if ll_builder.current_pos == 0 and not extra.prev_piece:
+        piece = extra.buf
+        ll_assert(final_size == len(piece.chars),
+                  "bogus final_size in fold_pieces")
+        ll_builder.total_size = final_size
+        ll_builder.current_buf = piece
+        ll_builder.current_pos = final_size
+        ll_builder.current_end = final_size
+        return
     #
     result = ll_builder.mallocfn(final_size)
     piece = ll_builder.current_buf

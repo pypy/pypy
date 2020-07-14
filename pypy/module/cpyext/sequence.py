@@ -164,13 +164,12 @@ def PySequence_ITEM(space, w_obj, i):
         incref(space, py_res)
         keepalive_until_here(w_obj)
         return py_res
-    
     as_sequence = py_obj.c_ob_type.c_tp_as_sequence
-    if not as_sequence or not as_sequence.c_sq_item:
-        raise oefmt(space.w_TypeError,
-                    "'%T' object does not support indexing", w_obj)
-    ret = generic_cpy_call(space, as_sequence.c_sq_item, w_obj, i)
-    return make_ref(space, ret)
+    if as_sequence and as_sequence.c_sq_item:
+        ret = generic_cpy_call(space, as_sequence.c_sq_item, w_obj, i)
+        return make_ref(space, ret)
+    w_ret = space.getitem(w_obj, space.newint(i))
+    return make_ref(space, w_ret)
 
 @cpython_api([PyObject, Py_ssize_t], PyObject, result_is_ll=True)
 def PySequence_GetItem(space, w_obj, i):

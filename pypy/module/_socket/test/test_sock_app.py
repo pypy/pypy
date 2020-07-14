@@ -583,13 +583,14 @@ class AppTestSocket:
         raises(ValueError, s.ioctl, -1, None)
         s.ioctl(_socket.SIO_KEEPALIVE_VALS, (1, 100, 100))
 
+    @pytest.mark.skipif(os.name != 'nt', reason="win32 only")
     def test_socket_sharelocal(self):
         import _socket, sys, os
-        if sys.platform != 'win32':
-            skip("win32 only")
         assert hasattr(_socket.socket, 'share')
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
-        s.listen()
+        with raises(OSError):
+            s.listen()
+        s.listen(1)
         data = s.share(os.getpid())
         # emulate socket.fromshare
         s2 = _socket.socket(0, 0, 0, data)
@@ -609,8 +610,9 @@ class AppTestSocket:
         s.bind(('localhost', 0))
         fd = socket.dup(s.fileno())
         assert s.fileno() != fd
-        assert os.get_inheritable(s.fileno()) is False
-        assert os.get_inheritable(fd) is False
+        if os.name != 'nt':
+            assert os.get_inheritable(s.fileno()) is False
+            assert os.get_inheritable(fd) is False
         os.close(fd)
         s.close()
 
@@ -618,6 +620,7 @@ class AppTestSocket:
         import _socket
         raises(_socket.error, _socket.dup, 123456)
 
+    @pytest.mark.skipif(os.name=='nt', reason="no recvmsg on win32")
     def test_recvmsg_issue2649(self):
         import _socket as socket
         listener = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -654,8 +657,12 @@ class AppTestSocket:
         s.close()
 
     def test_listen_default(self):
-        import _socket
-        _socket.socket().listen()
+        import _socket, sys
+        if sys.platform == 'win32':
+            with raises(OSError):
+                _socket.socket().listen()
+        else:
+            _socket.socket().listen()
         assert isinstance(_socket.SOMAXCONN, int)
 
     def test_unix_socket_connect(self):
@@ -739,7 +746,11 @@ class AppTestSocket:
     def test_socket_non_inheritable(self):
         import _socket, os
         s1 = _socket.socket()
-        assert os.get_inheritable(s1.fileno()) is False
+        if os.name == 'nt':
+            with raises(OSError):
+                os.get_inheritable(s1.fileno())
+        else:
+            assert os.get_inheritable(s1.fileno()) is False
         s1.close()
 
     def test_socketpair_non_inheritable(self):
@@ -883,6 +894,7 @@ class AppTestSocketTCP:
     def test_recv_into(self):
         import socket
         import array
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -903,9 +915,19 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        # A case where rwbuffer.get_raw_address() fails
+        conn.send(MSG)
+        buf = _io.BytesIO(b' ' * 1024)
+        m = buf.getbuffer()
+        nbytes = cli.recv_into(m)
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
+        assert msg == MSG
+
     def test_recvfrom_into(self):
         import socket
         import array
+        import _io
         MSG = b'dupa was here\n'
         cli = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         cli.connect(self.serv.getsockname())
@@ -926,10 +948,35 @@ class AppTestSocketTCP:
         msg = buf[:len(MSG)]
         assert msg == MSG
 
+        # A case where rwbuffer.get_raw_address() fails
+        conn.send(MSG)
+        buf = _io.BytesIO(b' ' * 1024)
+        nbytes, addr = cli.recvfrom_into(buf.getbuffer())
+        assert nbytes == len(MSG)
+        msg = buf.getvalue()[:len(MSG)]
+        assert msg == MSG
+
         conn.send(MSG)
         buf = bytearray(8)
         exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
         assert str(exc.value) == "nbytes is greater than the length of the buffer"
+
+    @pytest.mark.skipif(os.name == 'nt', reason="no recvmg_into on win32")
+    def test_recvmsg_into(self):
+        import _socket
+        cli = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        cli.connect(self.serv.getsockname())
+        fileno, addr = self.serv._accept()
+        conn = _socket.socket(fileno=fileno)
+        conn.send(b'Hello World!')
+        buf1 = bytearray(5)
+        buf2 = bytearray(6)
+        rettup = cli.recvmsg_into([memoryview(buf1), memoryview(buf2)])
+        print(rettup)
+        nbytes, _, _, addr = rettup
+        assert nbytes == 11
+        assert buf1 == b'Hello'
+        assert buf2 == b' World'
 
     def test_family(self):
         import socket
@@ -949,7 +996,11 @@ class AppTestSocketTCP:
         cli = _socket.socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
-        assert os.get_inheritable(fileno) is False
+        if os.name == 'nt':
+            with raises(OSError):
+                os.get_inheritable(fileno)
+        else:
+            assert os.get_inheritable(fileno) is False
         os.close(fileno)
         cli.close()
 

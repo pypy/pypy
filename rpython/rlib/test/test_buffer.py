@@ -1,11 +1,12 @@
+import pytest
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import r_singlefloat
-from rpython.rlib.buffer import (StringBuffer, SubBuffer, Buffer, RawBuffer,
-                                 RawByteBuffer, ByteBuffer)
+from rpython.rlib.buffer import (
+    StringBuffer, SubBuffer, Buffer, RawBuffer,
+    LLBuffer, RawByteBuffer, ByteBuffer)
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.annotator.model import SomeInteger
-from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.jit.metainterp.test.support import LLJitMixin
 
 
@@ -45,7 +46,6 @@ def test_string_buffer():
     assert buf.as_str() == 'hello world'
 
 
-
 def test_len_nonneg():
     # This test needs a buffer subclass whose getlength() isn't guaranteed to
     # return a non-neg integer.
@@ -81,8 +81,6 @@ def test_setzeros():
     buf = MyRawBuffer('ABCDEFGH', readonly=False)
     buf.setzeros(2, 3)
     assert buf.as_str() == 'AB\x00\x00\x00FGH'
-
-    
 
 
 class BaseTypedReadTest:
@@ -135,17 +133,17 @@ class TestRawBufferTypedReadDirect(BaseTypedReadTest):
     def read(self, TYPE, data, offset):
         buf = MyRawBuffer(data)
         return buf.typed_read(TYPE, offset)
-    
+
 
 class TestRawBufferTypedWrite(object):
 
     def test_typed_write(self):
-        expected = struct.pack('=H', 0xABCD) + '\xff'*6
+        expected = struct.pack('=H', 0xABCD) + '\xff' * 6
         buf = MyRawBuffer('\xff' * 8, readonly=False)
         buf.typed_write(rffi.USHORT, 0, 0xABCD)
         assert buf.as_str() == expected
         assert buf.typed_read(rffi.USHORT, 0) == 0xABCD
-    
+
 
 class TestCompiled(BaseTypedReadTest):
     cache = {}
@@ -172,69 +170,73 @@ class TestCompiled(BaseTypedReadTest):
         x = fn(data, offset)
         return lltype.cast_primitive(TYPE, x)
 
+class _LLBuffer(LLBuffer):
+    def __del__(self):
+        lltype.free(self.raw_cdata, flavor='raw')
 
-class _TestByteBufferBase(object):
-    def test_basic(self):
-        buf = self.buffer_class(4)
-        assert buf.getlength() == 4
-        assert buf.getitem(2) == '\x00'
-        buf.setitem(0, 'A')
-        buf.setitem(3, 'Z')
-        assert buf.as_str() == 'A\x00\x00Z'
-
-    def test_typed_write(self):
-        buf = self.buffer_class(4)
-        buf.typed_write(rffi.USHORT, 0, 0x1234)
-        buf.typed_write(rffi.USHORT, 2, 0x5678)
-        expected = struct.pack('HH', 0x1234, 0x5678)
-        assert buf.as_str() == expected
-    
-    def test_typed_read(self):
-        data = struct.pack('HH', 0x1234, 0x5678)
-        buf = self.buffer_class(4)
-        buf.setslice(0, data)
-        assert buf.typed_read(rffi.USHORT, 0) == 0x1234
-        assert buf.typed_read(rffi.USHORT, 2) == 0x5678
-
-    def test_getslice_shortcut(self):
-        buf = self.buffer_class(4)
-        buf.setslice(0, b"data")
-        buf.getitem = None
-        assert buf.getslice(0, 1, 2) == b"da" # no crash!
-
-    def test_getslice_slowpath(self):
-        buf = self.buffer_class(4)
-        buf.setslice(0, b"datu")
-        assert buf.getslice(0, 2, 2) == b"dt"
-        assert buf.getslice(1, 2, 2) == b"au"
-        assert buf.getslice(2, -2, 2) == b"td"
-        assert buf.getslice(3, -2, 2) == b"ua"
-
-    def test_getslice_clipped1(self):
-        buf = self.buffer_class(4)
-        buf.setslice(0, b"data")
-        buf.getitem = None
-        assert buf[0:8] == b"data" # no crash!
-
-    def test_getslice_clipped2(self):
-        buf = self.buffer_class(4)
-        buf.setslice(0, b"data")
-        buf.getitem = None
-        assert buf[1:8] == b"ata" # no crash!
-
-    def test_getslice_open(self):
-        buf = self.buffer_class(4)
-        buf.setslice(0, b"data")
-        buf.getitem = None
-        assert buf[:] == b"data" # no crash!
+def make_LLBuffer(size):
+    buf = lltype.malloc(rffi.CCHARP.TO, size, flavor='raw', zero=True)
+    return _LLBuffer(buf, size)
+    # _LLBuffer.__del__ frees buf
 
 
-class TestRawByteBuffer(_TestByteBufferBase):
-    buffer_class = RawByteBuffer
+@pytest.fixture(params=[RawByteBuffer, ByteBuffer, make_LLBuffer])
+def make_buffer(request):
+    return request.param
 
+def test_basic(make_buffer):
+    buf = make_buffer(4)
+    assert buf.getlength() == 4
+    assert buf.getitem(2) == '\x00'
+    buf.setitem(0, 'A')
+    buf.setitem(3, 'Z')
+    assert buf.as_str() == 'A\x00\x00Z'
 
-class TestByteBuffer(_TestByteBufferBase):
-    buffer_class = ByteBuffer
+def test_typed_write(make_buffer):
+    buf = make_buffer(4)
+    buf.typed_write(rffi.USHORT, 0, 0x1234)
+    buf.typed_write(rffi.USHORT, 2, 0x5678)
+    expected = struct.pack('HH', 0x1234, 0x5678)
+    assert buf.as_str() == expected
+
+def test_typed_read(make_buffer):
+    data = struct.pack('HH', 0x1234, 0x5678)
+    buf = make_buffer(4)
+    buf.setslice(0, data)
+    assert buf.typed_read(rffi.USHORT, 0) == 0x1234
+    assert buf.typed_read(rffi.USHORT, 2) == 0x5678
+
+def test_getslice_shortcut(make_buffer):
+    buf = make_buffer(4)
+    buf.setslice(0, b"data")
+    buf.getitem = None
+    assert buf.getslice(0, 1, 2) == b"da"  # no crash!
+
+def test_getslice_slowpath(make_buffer):
+    buf = make_buffer(4)
+    buf.setslice(0, b"datu")
+    assert buf.getslice(0, 2, 2) == b"dt"
+    assert buf.getslice(1, 2, 2) == b"au"
+    assert buf.getslice(2, -2, 2) == b"td"
+    assert buf.getslice(3, -2, 2) == b"ua"
+
+def test_getslice_clipped1(make_buffer):
+    buf = make_buffer(4)
+    buf.setslice(0, b"data")
+    buf.getitem = None
+    assert buf[0:8] == b"data"  # no crash!
+
+def test_getslice_clipped2(make_buffer):
+    buf = make_buffer(4)
+    buf.setslice(0, b"data")
+    buf.getitem = None
+    assert buf[1:8] == b"ata"  # no crash!
+
+def test_getslice_open(make_buffer):
+    buf = make_buffer(4)
+    buf.setslice(0, b"data")
+    buf.getitem = None
+    assert buf[:] == b"data"  # no crash!
 
 
 class TestJIT(LLJitMixin):

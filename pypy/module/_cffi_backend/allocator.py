@@ -65,7 +65,7 @@ class W_Allocator(W_Root):
 
 
 W_Allocator.typedef = TypeDef(
-        'FFIAllocator',
+        '_cffi_backend.__FFIAllocator',
         __call__ = interp2app(W_Allocator.descr_call),
         )
 W_Allocator.typedef.acceptable_as_base_class = False
