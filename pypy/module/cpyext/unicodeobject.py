@@ -573,10 +573,6 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
     else:
         return new_empty_unicode(space, length)
 
-@cpython_api([PyObject, CONST_STRING], PyObject)
-def _PyUnicode_AsDefaultEncodedString(space, w_unicode, errors):
-    return PyUnicode_AsEncodedString(space, w_unicode, lltype.nullptr(rffi.CCHARP.TO), errors)
-
 @cpython_api([CONST_STRING, Py_ssize_t, CONST_STRING, CONST_STRING], PyObject)
 def PyUnicode_Decode(space, s, size, encoding, errors):
     """Create a Unicode object by decoding size bytes of the encoded string s.

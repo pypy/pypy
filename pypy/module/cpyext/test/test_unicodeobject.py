@@ -121,7 +121,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_default_encoded_string", "METH_O",
              '''
-                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                PyObject* result = PyUnicode_AsEncodedString(args, NULL, "replace");
                 Py_INCREF(result);
                 return result;
              '''
@@ -380,7 +380,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_invalid(self):
         m = self.import_module('_widechar')
         if m.get_sizeof_wchar() != 4:
-            pytest.skip('only for sizeof(wchar)==4')
+            #pytest.skip('only for sizeof(wchar)==4')
+            return
         exc = raises(ValueError, m.test_widechar)
         assert (str(exc.value) == 'character U+110000 is not in range '
                 '[U+0000; U+10ffff]'), str(exc.value)
