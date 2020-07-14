@@ -48,6 +48,9 @@ def setup_module(mod):
     # an escaped surrogate
     mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
+    mod.dir_unicode = udir.ensure(u'dir_extra', dir=True)
+    mod.dir_unicode.join(u'ca\u2014f\xe9').write('test')
+
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
 
@@ -68,6 +71,7 @@ class AppTestPosix:
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
+        cls.w_dir_unicode = space.wrap(unicode(dir_unicode))
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -376,6 +380,13 @@ class AppTestPosix:
         assert b'somefile' in result
         expected = b'caf%E9' if sys.platform == 'darwin' else b'caf\xe9'
         assert expected in result
+
+    def test_listdir_unicode(self):
+        posix = self.posix
+        result = posix.listdir(self.dir_unicode)
+        assert all(type(x) is str for x in result)
+        assert u'ca\u2014f\xe9' in result
+        raises(OSError, posix.listdir, self.dir_unicode + "NONEXISTENT")
 
     def test_listdir_memoryview_returns_unicode(self):
         import sys
