@@ -66,11 +66,14 @@ def fix_permissions(dirname):
         os.system("chmod -R g-w %s" % dirname)
 
 
-def pypy_runs(pypy_c, quiet=False):
-    kwds = {}
+def get_python_ver(pypy_c, quiet=False):
+    kwds = {'universal_newlines': True}
     if quiet:
-        kwds['stderr'] = subprocess.PIPE
-    return subprocess.call([str(pypy_c), '-c', 'pass'], **kwds) == 0
+        kwds['stderr'] = subprocess.NULL
+    ver = subprocess.check_output([str(pypy_c), '-c',
+             'import sysconfig as s; print(s.get_python_version())'], **kwds)
+    return ver.strip()
+    
 
 def create_package(basedir, options, _fake=False):
     retval = 0
@@ -95,8 +98,10 @@ def create_package(basedir, options, _fake=False):
             ' Please compile pypy first, using translate.py,'
             ' or check that you gave the correct path'
             ' with --override_pypy_c' % pypy_c)
-    if not _fake and not pypy_runs(pypy_c):
-        raise OSError("Running %r failed!" % (str(pypy_c),))
+    if _fake:
+        python_ver = '3.6'
+    else:
+        python_ver = get_python_ver(pypy_c)
     if not options.no_cffi:
         failures = create_cffi_import_libraries(
             str(pypy_c), options, str(basedir),
@@ -239,14 +244,15 @@ def create_package(basedir, options, _fake=False):
         else:
             open(str(archive), 'wb').close()
         os.chmod(str(archive), 0755)
-    #if not _fake and not ARCH == 'win32':
-    #    # create the pypy3 symlink
-    #    old_dir = os.getcwd()
-    #    os.chdir(str(bindir))
-    #    try:
-    #        os.symlink(POSIX_EXE, 'pypy3')
-    #    finally:
-    #        os.chdir(old_dir)
+    if not _fake and not ARCH == 'win32':
+        # create a link to pypy, python 
+        old_dir = os.getcwd()
+        os.chdir(str(bindir))
+        try:
+            os.symlink(POSIX_EXE, 'pypy')
+            os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+        finally:
+            os.chdir(old_dir)
     fix_permissions(pypydir)
 
     old_dir = os.getcwd()
@@ -323,8 +329,6 @@ def package(*args, **kwds):
     args = list(args)
     if args:
         args[0] = str(args[0])
-    else:
-        args.append('--help')
     for key, module in sorted(cffi_build_scripts.items()):
         if module is not None:
             parser.add_argument('--without-' + key,

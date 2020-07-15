@@ -35,3 +35,6 @@ Use make_portable on macOS
 Add ``rgc.ll_arraymove()``, as a way to shift items inside the same
 array with proper GC support. Improves ``while lst: lst.pop(0)``.
 
+.. branch: no-str-unicode-union
+
+Remove all implicit str-unicode conversions in RPython.

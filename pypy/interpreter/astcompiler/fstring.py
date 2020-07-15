@@ -2,6 +2,7 @@ from pypy.interpreter.astcompiler import ast, consts
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
@@ -266,6 +267,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     # brace (which isn't part of a unicode name escape such as
     # "\N{EULER CONSTANT}"), or the end of the string.
     i = literal_start
+    builder = StringBuilder()
     while i < len(s):
         ch = s[i]
         i += 1
@@ -296,7 +298,10 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
             # we checked at every level, then f'{0:{3}}' would fail
             # with the two closing braces.
             if rec == 0 and i < len(s) and s[i] == ch:
+                assert 0 <= i <= len(s)
+                builder.append(s[literal_start:i])
                 i += 1   # skip over the second brace
+                literal_start = i
             elif rec == 0 and ch == '}':
                 i -= 1
                 assert i >= 0
@@ -311,11 +316,12 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                 # f-string (for a nested format_spec).
                 i -= 1
                 break
-
     assert 0 <= i <= len(s)
     assert i == len(s) or s[i] == '{' or s[i] == '}'
+    builder.append(s[literal_start:i])
+
     fstr.current_index = i
-    literal = s[literal_start:i]
+    literal = builder.build()
     lgt = codepoints_in_utf8(literal)
     if not raw and '\\' in literal:
         literal = parsestring.decode_unicode_utf8(space, literal, 0,

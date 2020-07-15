@@ -40,6 +40,40 @@ def test_ast_mutiline_lineno_and_col_offset():
     assert z_ast.lineno == 6
     assert z_ast.col_offset == 0
 
+def test_double_braces():
+    assert f'{{' == '{'
+    assert f'a{{' == 'a{'
+    assert f'{{b' == '{b'
+    assert f'a{{b' == 'a{b'
+    assert f'}}' == '}'
+    assert f'a}}' == 'a}'
+    assert f'}}b' == '}b'
+    assert f'a}}b' == 'a}b'
+    assert f'{{}}' == '{}'
+    assert f'a{{}}' == 'a{}'
+    assert f'{{b}}' == '{b}'
+    assert f'{{}}c' == '{}c'
+    assert f'a{{b}}' == 'a{b}'
+    assert f'a{{}}c' == 'a{}c'
+    assert f'{{b}}c' == '{b}c'
+    assert f'a{{b}}c' == 'a{b}c'
+
+    assert f'{{{10}' == '{10'
+    assert f'}}{10}' == '}10'
+    assert f'}}{{{10}' == '}{10'
+    assert f'}}a{{{10}' == '}a{10'
+
+    assert f'{10}{{' == '10{'
+    assert f'{10}}}' == '10}'
+    assert f'{10}}}{{' == '10}{'
+    assert f'{10}}}a{{' '}' == '10}a{}'
+
+    # Inside of strings, don't interpret doubled brackets.
+    assert f'{"{{}}"}' == '{{}}'
+
+    exc_info = raises(TypeError, eval, "f'{ {{}} }'")  # dict in a set
+    assert 'unhashable' in str(exc_info.value)
+
 def test_backslashes_in_string_part():
     assert f'\t' == '\t'
     assert r'\t' == '\\t'
