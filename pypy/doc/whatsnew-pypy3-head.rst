@@ -20,3 +20,7 @@ Provide the ``_WindowsConsoleIO`` module on windows. Support may be incomplete.
 .. branch: fix-windows-utf8
 
 Fix os.listdir() on Windows with unicode file names
+
+.. branch: locale-encode-decode
+
+Use utf8 in locale.py, add `PyUnicode_{En,De}code_Locale`
