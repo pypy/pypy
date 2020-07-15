@@ -1,7 +1,4 @@
 import types
-from pypy.tool.pytest.apptest import AppClassCollector
-from pypy.module._hpy_universal.test._vendored.support import HPyTest
-from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
 
 # ================================
 # Customization of applevel tests
@@ -25,9 +22,14 @@ class extra_AppTestCPythonCompatibility:
 # ========================================================================
 
 def pytest_pycollect_makeitem(collector, name, obj):
+    config = collector.config
+    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
+        return
+    from pypy.tool.pytest.apptest import AppClassCollector
+    from pypy.module._hpy_universal.test._vendored.support import HPyTest
     if (collector.istestclass(obj, name) and
-        issubclass(obj, HPyTest) and
-        not name.startswith('App')):
+            issubclass(obj, HPyTest) and
+            not name.startswith('App')):
         appname = make_hpy_apptest(collector, name, obj)
         return AppClassCollector(appname, parent=collector)
 
@@ -46,6 +48,7 @@ def make_hpy_apptest(collector, name, cls):
             pass
 
     """
+    from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
     appname = 'App' + name
     #
     # if there is a global extra_AppTestFoo, copy its dictionary into the
