@@ -1198,7 +1198,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
             continue
         # unexpected low surrogate
         elif ch >= 0xDC00:
-            r, pos, rettype = errorhandler(errors, public_encoding_name,
+            r, pos, rettype, s = errorhandler(errors, public_encoding_name,
                                   "illegal encoding",
                                   s, pos - 2, pos)
             result.append(r)
