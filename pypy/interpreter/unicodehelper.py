@@ -1224,11 +1224,6 @@ def str_decode_utf_16_helper(s, errors, final=True,
                                       "illegal UTF-16 surrogate",
                                       s, pos - 4, pos - 2)
                 result.append(r)
-(??)        else:
-(??)            r, pos, rettype = errorhandler(errors, public_encoding_name,
-(??)                                  "illegal encoding",
-(??)                                  s, pos - 2, pos)
-(??)            result.append(r)
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
     return r, lgt, pos, bo
