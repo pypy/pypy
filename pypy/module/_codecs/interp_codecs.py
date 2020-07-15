@@ -96,7 +96,17 @@ class CodecState(object):
                 raise oefmt(space.w_IndexError,
                             "position %d from error handler out of bounds",
                             newpos)
-            return space.utf8_w(w_replace), newpos, rettype
+            w_obj = space.getattr(w_exc, space.newtext('object'))
+            if  decode:
+                if not space.isinstance_w(w_obj, space.w_bytes):
+                    raise oefmt(space.w_ValueError,
+                            "error handler modified exc.object must be bytes")
+            else:
+                if not space.isinstance_w(w_obj, space.w_unicode):
+                    raise oefmt(space.w_ValueError,
+                            "error handler modified exc.object must be str")
+            obj = space.utf8_w(w_obj) 
+            return space.utf8_w(w_replace), newpos, rettype, obj
         return call_errorhandler
 
     def make_decode_errorhandler(self, space):

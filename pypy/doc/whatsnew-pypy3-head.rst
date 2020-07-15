@@ -20,3 +20,15 @@ Support for positional-only parameters in 3.7, for builtin functions only.
 .. branch: winconsoleio
 
 Provide the ``_WindowsConsoleIO`` module on windows. Support may be incomplete.
+
+.. branch: fix-windows-utf8
+
+Fix os.listdir() on Windows with unicode file names
+
+.. branch: locale-encode-decode
+
+Use utf8 in locale.py, add `PyUnicode_{En,De}code_Locale`
+
+.. branch: exc.object
+
+Allow errorhandlers to modify the underlying str/bytes being converted

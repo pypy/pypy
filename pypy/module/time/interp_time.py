@@ -7,7 +7,7 @@ from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
 from pypy.interpreter.unicodehelper import decode_utf8sp
 from pypy.module._codecs.locale import (
-    str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
+    str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck, ovfcheck_float_to_int, INT_MIN)
@@ -963,7 +963,7 @@ def strftime(space, format, w_tup=None):
                     raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
-    format = unicode_encode_locale_surrogateescape(format.decode('utf8'))
+    format = utf8_encode_locale_surrogateescape(format, len(format))
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
