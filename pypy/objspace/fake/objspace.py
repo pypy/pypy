@@ -168,7 +168,6 @@ class FakeObjSpace(ObjSpace):
 
         self._seen_extras.append(build_slice)
         self._seen_extras.append(attach_list_strategy)
-        #self._seen_extras.append(attach_dict_strategy)
 
     def _freeze_(self):
         return True
