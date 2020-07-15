@@ -43,11 +43,8 @@ else:
     LONG_TYPE = rffi.LONGLONG
     ULONG_TYPE = rffi.ULONGLONG
 
-    if LONG_BIT >= 64:
-        raise Exception("please review rbigint.py: compiling on 64-bit without"
-                        " a 128-bit integer type may be broken, notably in"
-                        " fromint(), because in this case we need to return"
-                        " rbigints with up to three digits, I think")
+    # TODO if LONG_BIT >= 64, it would be best to use r_uint32, but
+    #      int32 and uint32 ops are unimplemented
 
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
@@ -229,6 +226,20 @@ class rbigint(object):
         else:
             return NULLRBIGINT
 
+        if SHIFT != LONG_BIT - 1:
+            # Means we don't have INT128 on 64bit.
+            if intval > 0:
+                carry = ival >> SHIFT
+
+            if carry > 0:
+                carry2 = carry >> SHIFT
+            else:
+                carry2 = 0
+
+            if carry2:
+                return rbigint([_store_digit(ival & MASK),
+                                _store_digit(carry & MASK),
+                                _store_digit(carry2)], sign, 3)
 
         if carry:
             return rbigint([_store_digit(ival & MASK),
@@ -1145,7 +1156,7 @@ class rbigint(object):
         # into helper function result = _help_mult(x, y, modulus)
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-        j = 1 << (SHIFT-1)
+        j = 1 << (LONG_BIT-2)
 
         while j != 0:
             z = _help_mult(z, z, modulus)
@@ -1300,6 +1311,9 @@ class rbigint(object):
         if mask > (MASK >> loshift) and wordshift + 1 < numdigits:
             hishift = SHIFT - loshift
             lastdigit |= self.digit(wordshift+1) << hishift
+            if mask > (MASK << (SHIFT - loshift)) and wordshift + 2 < numdigits:
+                hishift = 2*SHIFT - loshift
+                lastdigit |= self.digit(wordshift+2) << hishift
         return lastdigit & mask
 
     @staticmethod
@@ -1605,13 +1619,13 @@ def _x_sub(a, b):
         borrow = a.udigit(i) - b.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1 # Keep only one sign bit
+        borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1
+        borrow &= 1
         i += 1
 
     assert borrow == 0
@@ -1641,13 +1655,13 @@ def _x_int_sub(a, b):
     borrow = a.udigit(0) - bdigit
     z.setdigit(0, borrow)
     borrow >>= SHIFT
-    #borrow &= 1 # Keep only one sign bit
+    borrow &= 1 # Keep only one sign bit
 
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1
+        borrow &= 1
         i += 1
 
     assert borrow == 0

@@ -8,7 +8,7 @@ from random import random, randint, sample
 import pytest
 
 from rpython.rlib import rbigint as lobj
-from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary)
@@ -245,6 +245,16 @@ class TestRLong(object):
                     r4 = pow(op1, op2, op3)
                     print op1, op2, op3
                     assert r3.tolong() == r4
+
+    def test_int_pow_big(self):
+        if sys.maxint < 2**32:
+            pytest.skip("64-bit only")
+        for op1 in gen_signs(int_vals):
+            rl_op1 = rbigint.fromint(op1)
+            for op2 in [2**31, 2**32-1, 2**32]:
+                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxint))
+                r2 = pow(op1, op2, sys.maxint)
+                assert r1.tolong() == r2
 
     def test_pow_raises(self):
         r1 = rbigint.fromint(2)
@@ -1020,7 +1030,8 @@ class TestInternalFunctions(object):
                     f1 = rbigint.fromlong(sx)
                     div, rem = f1.int_divmod(sy)
                     div1, rem1 = f1.divmod(rbigint.fromlong(sy))
-                    _div, _rem = divmod(sx, sy)
+                    # use long(sy) due to CPython64/64 bug I can't be bothered to fix
+                    _div, _rem = divmod(sx, long(sy))
                     print sx, sy, " | ", div.tolong(), rem.tolong()
                     assert div1.tolong() == _div
                     assert rem1.tolong() == _rem
@@ -1221,7 +1232,11 @@ class TestTranslated(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
-        assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        if SHIFT == LONG_BIT-1:
+            assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        else:
+            # assume 64-bit without native 128-bit type
+            assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
     @given(longs, longs, longs)
@@ -1267,7 +1282,8 @@ class TestHypothesis(object):
     def test_int_divmod(self, x, iy):
         f1 = rbigint.fromlong(x)
         try:
-            res = divmod(x, iy)
+            # use long(iy) due to CPython64/64 bug I can't be bothered to fix
+            res = divmod(x, long(iy))
         except Exception as e:
             with pytest.raises(type(e)):
                 f1.int_divmod(iy)
