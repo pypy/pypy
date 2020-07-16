@@ -507,10 +507,10 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                  [rffi.INT, rffi.VOIDP, rffi.UINT], rffi.INT,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_write = external(UNDERSCORE_ON_WIN32 + 'write',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                   [rffi.INT, rffi.VOIDP, rffi.UINT], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
