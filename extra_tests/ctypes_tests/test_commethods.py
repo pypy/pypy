@@ -11,7 +11,7 @@ if sys.platform != "win32":
 
 
 import ctypes, types, unittest
-from ctypes.wintypes import HRESULT
+from ctypes import HRESULT
 from _ctypes import COMError
 
 oleaut32 = ctypes.OleDLL("oleaut32")
