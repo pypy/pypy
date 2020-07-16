@@ -37,7 +37,7 @@ def test_encode_utf_8_combine_surrogates():
            that is a valid surrogate pair.
         """
         calls.append(s.decode("utf-8")[start:end])
-        return 'abc', end, 'b'
+        return 'abc', end, 'b', s
 
     res = utf8_encode_utf_8(
         b, 'strict',
@@ -50,7 +50,7 @@ def test_encode_utf_8_combine_surrogates():
 def test_bad_error_handler():
     b = u"\udc80\ud800\udfff".encode("utf-8")
     def errorhandler(errors, encoding, msg, s, start, end):
-        return '', start, 'b' # returned index is too small
+        return '', start, 'b', s # returned index is too small
 
     pytest.raises(ErrorHandlerError, utf8_encode_utf_8, b, 'strict',
                   errorhandler=errorhandler, allow_surrogates=False)
