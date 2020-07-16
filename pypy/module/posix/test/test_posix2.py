@@ -1685,6 +1685,11 @@ class AppTestPosix:
             assert isinstance(w, int)
             assert isinstance(h, int)
 
+    def test_scandir(self):
+        retU = [x.name for x in self.posix.scandir(u'.')]
+        retP = [x.name for x in self.posix.scandir(self.Path('.'))]
+        assert retU == retP
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):

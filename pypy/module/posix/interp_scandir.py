@@ -17,21 +17,23 @@ def scandir(space, w_path=None):
     if space.is_none(w_path):
         w_path = space.newtext(".")
 
-    if not _WIN32:
+    if _WIN32:
+        # accepts unicode or path-like
+        if space.isinstance_w(w_path, space.w_bytes):
+            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
+                                           " on Windows, use Unicode instead")
+        path = space.fsencode_w(w_path).decode('utf-8')
+        result_is_bytes = False
+    else:
+        # accepts unicode, bytes, or path-like
         if space.isinstance_w(w_path, space.w_bytes):
             path = space.bytes0_w(w_path)
             result_is_bytes = True
         else:
             path = space.fsencode_w(w_path)
             result_is_bytes = False
-    else:
-        if space.isinstance_w(w_path, space.w_bytes):
-            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
-                                           " on Windows, use Unicode instead")
-        path = space.realunicode_w(w_path)
-        result_is_bytes = False
 
-    # 'path' is always bytes on posix and always unicode on windows
+    # now 'path' is always bytes on posix and always unicode on windows
     try:
         dirp = rposix_scandir.opendir(path)
     except OSError as e:
