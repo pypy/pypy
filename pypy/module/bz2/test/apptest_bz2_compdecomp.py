@@ -49,5 +49,5 @@ else:
     def test_buffer():
         import bz2
         data = bz2.compress(memoryview(TEXT))
-    result = bz2.decompress(memoryview(data))
-    assert result == TEXT
+        result = bz2.decompress(memoryview(data))
+        assert result == TEXT

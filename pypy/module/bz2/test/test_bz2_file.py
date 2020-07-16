@@ -1,11 +1,11 @@
 from __future__ import with_statement
+import os
 
 if os.name == "nt":
     from pytest import skip
     skip("bz2 module is not available on Windows")
 
 from pypy.module.bz2.test.support import CheckAllocation
-import os
 import random
 
 import py
