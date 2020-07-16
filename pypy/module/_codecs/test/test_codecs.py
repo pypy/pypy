@@ -1607,3 +1607,18 @@ class AppTestPartialEvaluation:
             assert r == res[1]
             r = s.decode('utf8', 'custom_replace')
             assert r == res[0]
+
+    def test_replace_with_long(self):
+        import _codecs
+        def replace_with_long(exc):
+            if isinstance(exc, UnicodeDecodeError):
+                exc.object = b"\x00" * 8
+                return ('\ufffd', exc.start)
+            else:
+                raise TypeError("don't know how to handle %r" % exc)
+        _codecs.register_error("test.replace_with_long", replace_with_long)
+
+        res = b'\x00'.decode('utf-16', 'test.replace_with_long')
+        assert res == u'\ufffd\x00\x00\x00\x00'
+        res = b'\x00'.decode('utf-32', 'test.replace_with_long')
+        assert res == u'\ufffd\x00\x00'

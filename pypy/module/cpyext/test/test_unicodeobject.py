@@ -121,7 +121,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_default_encoded_string", "METH_O",
              '''
-                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                PyObject* result = PyUnicode_AsEncodedString(args, NULL, "replace");
                 Py_INCREF(result);
                 return result;
              '''
@@ -380,7 +380,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_invalid(self):
         m = self.import_module('_widechar')
         if m.get_sizeof_wchar() != 4:
-            pytest.skip('only for sizeof(wchar)==4')
+            #pytest.skip('only for sizeof(wchar)==4')
+            return
         exc = raises(ValueError, m.test_widechar)
         assert (str(exc.value) == 'character U+110000 is not in range '
                 '[U+0000; U+10ffff]'), str(exc.value)
@@ -658,6 +659,33 @@ class TestUnicode(BaseApiTest):
         with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
             with pytest.raises(OperationError):
                 PyUnicode_FSConverter(space, w_input, result)
+
+
+    def test_locale(self, space):
+        # Input is bytes
+        w_input = space.newbytes("test")
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+
+        # Input is unicode
+        w_input = space.newtext("test", 4)
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp(None) as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        # 'errors' is invalid
+        with rffi.scoped_str2charp('something else') as errors:
+            with pytest.raises(OperationError):
+                PyUnicode_EncodeLocale(space, w_input, errors)
 
 
     def test_IS(self, space):
@@ -1102,4 +1130,17 @@ class TestUnicode(BaseApiTest):
         assert x_chunk[1] == ord('b')
         assert x_chunk[2] == 0x0660
         assert x_chunk[3] == 0
+        lltype.free(target_chunk, flavor='raw')
+
+    def test_wide_as_ucs4(self, space):
+        w_x = space.wrap(u'\U00100900')
+        x_chunk = PyUnicode_AsUCS4Copy(space, w_x)
+        assert x_chunk[0] == 0x00100900
+        Py_UCS4 = lltype.typeOf(x_chunk).TO.OF
+        lltype.free(x_chunk, flavor='raw', track_allocation=False)
+
+        target_chunk = lltype.malloc(rffi.CArray(Py_UCS4), 1, flavor='raw')
+        x_chunk = PyUnicode_AsUCS4(space, w_x, target_chunk, 1, 0)
+        assert x_chunk == target_chunk
+        assert x_chunk[0] == 0x00100900
         lltype.free(target_chunk, flavor='raw')
