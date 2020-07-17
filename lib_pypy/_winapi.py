@@ -24,14 +24,14 @@ def GetLastError():
     return _kernel32.GetLastError()
 
 # Now the _subprocess module implementation
-def _WinError(type=WindowsError):
+def raise_WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
     excep = type(None, message, None ,code)
     raise excep
 
 # In CPython PyErr_SetFromWindowsErr converts a windows error into a python object
 # Not sure what we should do here.
-def SetFromWindowsErr(err):
+def RaiseFromWindowsErr(err):
     if err == 0:
        err = _kernel32.GetLastError()
 
@@ -42,7 +42,7 @@ def SetFromWindowsErr(err):
     else:
         type = WindowsError
 
-    return _WinError(type)
+    raise_WinError(type)
 
 def _int2handle(val):
     return _ffi.cast("HANDLE", val)
@@ -58,20 +58,20 @@ def CreatePipe(attributes, size):
     res = _kernel32.CreatePipe(handles, handles + 1, NULL, size)
 
     if not res:
-        SetFromWindowsErr(GetLastError())
+        RaiseFromWindowsErr(GetLastError())
 
     return _handle2int(handles[0]), _handle2int(handles[1])
 
 def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
     if handle == _INVALID_HANDLE_VALUE:
-        SetFromWindowsErr(0)
+        RaiseFromWindowsErr(0)
     return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
     if handle == _INVALID_HANDLE_VALUE:
-        SetFromWindowsErr(0)
+        RaiseFromWindowsErr(0)
     return _handle2int(handle)
 
 def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_timeout):
@@ -86,7 +86,7 @@ def SetNamedPipeHandleState(namedpipe, mode, max_collection_count, collect_data_
         d2 = _ffi.new('DWORD[1]', [collect_data_timeout])
     ret = _kernel32.SetNamedPipeHandleState(_int2handle(namedpipe), d0, d1, d2)
     if not ret:
-        raise _WinError()
+        raise_WinError()
 
 class Overlapped(object):
     def __init__(self, handle):
@@ -99,7 +99,7 @@ class Overlapped(object):
         self.overlapped[0].hEvent = \
                 _kernel32.CreateEventW(NULL, True, False, NULL)
         if not self.overlapped[0].hEvent:
-            raise _WinError(IOError)
+            raise_WinError(IOError)
     def __del__(self):
         # do this somehow else
         err = _kernel32.GetLastError()
@@ -135,7 +135,7 @@ class Overlapped(object):
         elif res != ERROR_IO_INCOMPLETE:
             self.pending = 0
             print('GetOverlappedResult got err', err)
-            raise _WinError(IOError)
+            raise_WinError(IOError)
 
         if self.completed and self.readbuffer:
             if transferred[0] != len(self.readbuffer):
@@ -159,7 +159,7 @@ class Overlapped(object):
         if self.pending:
             ret = _kernel32.CancelIoEx(_int2handle(self.handle), self.overlapped)
         if not ret and _kernel32.GetLastError() != ERROR_NOT_FOUND:
-            raise _WinError(IOError)
+            raise_WinError(IOError)
         self.pending = 0
         return None
 
@@ -170,7 +170,7 @@ def ReadFile(handle, size, overlapped):
 
     buf = _ffi.new("CHAR[]", size)
     if not buf:
-        raise _WinError(IOError)
+        raise_WinError(IOError)
     err = 0
     if use_overlapped:
         overlapped = Overlapped(handle)
@@ -182,7 +182,7 @@ def ReadFile(handle, size, overlapped):
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             elif err != ERROR_MORE_DATA:
-                raise _WinError(IOError)
+                raise_WinError(IOError)
         return overlapped, err
     else:
         ret = _kernel32.ReadFile(_int2handle(handle), buf, size, nread,
@@ -191,7 +191,7 @@ def ReadFile(handle, size, overlapped):
     if not ret:
         err = _kernel32.GetLastError()
         if err != ERROR_MORE_DATA:
-            raise _WinError(IOError)
+            raise_WinError(IOError)
     return nread[0], err
 
 def WriteFile(handle, buffer, overlapped=False):
@@ -211,13 +211,13 @@ def WriteFile(handle, buffer, overlapped=False):
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             else:
-                return _WinError(IOError)
+                return_WinError(IOError)
         return overlapped, err
     else:
         buf = _ffi.new("CHAR[]", bytes(buffer))
         ret = _kernel32.WriteFile(_int2handle(handle), buf , len(buf), written, _ffi.NULL)
         if not ret:
-            raise _WinError(IOError)
+            raise_WinError(IOError)
         return written[0], err
 
  
@@ -238,10 +238,10 @@ def ConnectNamedPipe(handle, overlapped=False):
             _kernel32.SetEvent(ov.overlapped[0].hEvent)
         else:
             del ov
-            SetFromWindowsErr(err)
+            RaiseFromWindowsErr(err)
         return ov
     elif not success:
-        SetFromWindowsErr(0)
+        RaiseFromWindowsErr(0)
 
 def GetCurrentProcess():
     return _handle2int(_kernel32.GetCurrentProcess())
@@ -257,7 +257,7 @@ def DuplicateHandle(source_process, source, target_process, access, inherit, opt
         target, access, inherit, options)
 
     if not res:
-        raise _WinError()
+        raise_WinError()
     
     return _handle2int(target[0])
 
@@ -300,7 +300,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
                                    _Z(start_dir), si, pi)
 
     if not res:
-        raise _WinError()
+        raise_WinError()
 
     return (_handle2int(pi.hProcess),
             _handle2int(pi.hThread),
@@ -310,7 +310,7 @@ def CreateProcess(name, command_line, process_attr, thread_attr,
 def OpenProcess(desired_access, inherit_handle, process_id):
     handle = _kernel32.OpenProcess(desired_access, inherit_handle, process_id)
     if handle == _ffi.NULL:
-        SetFromWindowsErr(0)
+        RaiseFromWindowsErr(0)
         handle = INVALID_HANDLE_VALUE
 
     return _handle2int(handle)
@@ -333,7 +333,7 @@ def PeekNamedPipe(handle, size=0):
         if not ret:
             # In CPython SetExcFromWindowsErr is called here.
             # Not sure what that is doing currently.
-            SetFromWindowsErr(0)
+            RaiseFromWindowsErr(0)
 
 
         return  buf, navail[0], nleft[0]
@@ -342,14 +342,14 @@ def PeekNamedPipe(handle, size=0):
         if not ret:
             # In CPython SetExcFromWindowsErr is called here.
             # Not sure what that is doing currently.
-            SetFromWindowsErr(0)
+            RaiseFromWindowsErr(0)
         return  navail[0], nleft[0]
 
 def WaitForSingleObject(handle, milliseconds):
     # CPython: the first argument is expected to be an integer.
     res = _kernel32.WaitForSingleObject(_int2handle(handle), milliseconds)
     if res < 0:
-        raise _WinError()
+        raise_WinError()
     return res
 
 
@@ -358,7 +358,7 @@ def WaitNamedPipe(namedpipe, milliseconds):
     res = _kernel32.WaitNamedPipeA(namedpipe, milliseconds)
 
     if res < 0:
-        raise SetFromWindowsErr(0)
+        raise RaiseFromWindowsErr(0)
 
 
 def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
@@ -370,7 +370,7 @@ def WaitForMultipleObjects(handle_sequence, waitflag, milliseconds):
     res = _kernel32.WaitForMultipleObjects(len(handle_sequence), handle_sequence, waitflag, milliseconds)
 
     if res == WAIT_FAILED:
-        raise _WinError()
+        raise_WinError()
     return int(res)
 
 
@@ -381,7 +381,7 @@ def GetExitCodeProcess(handle):
     res = _kernel32.GetExitCodeProcess(_int2handle(handle), code)
 
     if not res:
-        raise _WinError()
+        raise_WinError()
 
     return code[0]
 
@@ -392,7 +392,7 @@ def TerminateProcess(handle, exitcode):
                                      _ffi.cast("UINT", exitcode))
 
     if not res:
-        raise _WinError()
+        raise_WinError()
 
 def GetStdHandle(stdhandle):
     stdhandle = _ffi.cast("DWORD", stdhandle)
@@ -407,14 +407,14 @@ def CloseHandle(handle):
     res = _kernel32.CloseHandle(_int2handle(handle))
 
     if not res:
-        raise _WinError()
+        raise_WinError()
 
 def GetModuleFileName(module):
     buf = _ffi.new("wchar_t[]", _MAX_PATH)
     res = _kernel32.GetModuleFileNameW(_int2handle(module), buf, _MAX_PATH)
 
     if not res:
-        raise _WinError()
+        raise_WinError()
     return _ffi.string(buf)
 
 def ExitProcess(exitcode):
