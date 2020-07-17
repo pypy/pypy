@@ -863,8 +863,8 @@ def mulmod(a, b, c):
         return intmask((a * b) % c)
     else:
         from rpython.rlib.rbigint import rbigint
-        a = rbigint.fromlong(a)
-        b = rbigint.fromlong(b)
+        a = rbigint.fromint(a)
+        b = rbigint.fromint(b)
         return a.mul(b).int_mod(c).toint()
 
 
