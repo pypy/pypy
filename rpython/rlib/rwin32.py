@@ -363,7 +363,10 @@ if WIN32:
         return WindowsError(code, context)
 
     def FAILED(hr):
-        return rffi.cast(HRESULT, hr) < 0
+        # XXX convert to int before checking result
+        #     because 32-bit arithmetic is unimplemented on win64
+        #     this is fine since HRESULT is defined as (signed) LONG
+        return int(rffi.cast(HRESULT, hr)) < 0
 
     _GetModuleFileName = winexternal('GetModuleFileNameA',
                                      [HMODULE, rffi.CCHARP, DWORD],
