@@ -1131,3 +1131,16 @@ class TestUnicode(BaseApiTest):
         assert x_chunk[2] == 0x0660
         assert x_chunk[3] == 0
         lltype.free(target_chunk, flavor='raw')
+
+    def test_wide_as_ucs4(self, space):
+        w_x = space.wrap(u'\U00100900')
+        x_chunk = PyUnicode_AsUCS4Copy(space, w_x)
+        assert x_chunk[0] == 0x00100900
+        Py_UCS4 = lltype.typeOf(x_chunk).TO.OF
+        lltype.free(x_chunk, flavor='raw', track_allocation=False)
+
+        target_chunk = lltype.malloc(rffi.CArray(Py_UCS4), 1, flavor='raw')
+        x_chunk = PyUnicode_AsUCS4(space, w_x, target_chunk, 1, 0)
+        assert x_chunk == target_chunk
+        assert x_chunk[0] == 0x00100900
+        lltype.free(target_chunk, flavor='raw')
