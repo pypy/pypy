@@ -605,7 +605,7 @@ class CallDescr(AbstractDescr):
         FUNC = lltype.FuncType(ARGS, RESULT)
         d = globals().copy()
         d.update(locals())
-        exec(source.compile(), d)
+        exec source.compile() in d
         call_stub = d['call_stub']
         # store the function into one of three attributes, to preserve
         # type-correctness of the return value
