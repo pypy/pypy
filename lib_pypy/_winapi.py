@@ -23,6 +23,9 @@ def SetLastError(errno):
 def GetLastError():
     return _kernel32.GetLastError()
 
+def GetACP():
+    return _kernel32.GetACP()
+
 # Now the _subprocess module implementation
 def raise_WinError(type=WindowsError):
     code, message = _ffi.getwinerror()
