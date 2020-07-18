@@ -10,12 +10,15 @@ class TestPosixStatFunctions:
     @py.test.mark.skipif("sys.platform == 'win32'",
                          reason="win32 only has the portable fields")
     def test_has_all_fields(self):
+        if sys.platform == "darwin":
+            assert rposix_stat.STAT_FIELDS == rposix_stat.ALL_STAT_FIELDS
         # XXX this test is obscure!  it will fail if the exact set of
         # XXX stat fields found differs from the one we expect on Linux.
         # XXX Why?
-        assert rposix_stat.STAT_FIELDS == (
-            rposix_stat.ALL_STAT_FIELDS[:13] +
-            rposix_stat.ALL_STAT_FIELDS[-3:])
+        else:
+            assert rposix_stat.STAT_FIELDS == (
+                rposix_stat.ALL_STAT_FIELDS[:13] +
+                rposix_stat.ALL_STAT_FIELDS[-3:])
 
     def test_stat(self):
         def check(f):
