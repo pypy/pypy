@@ -269,7 +269,7 @@ class Overlapped(object):
 
         if self.type != OverlappedType.TYPE_NONE:
             _winapi.raise_WinError()
-        self.write_buffer = bufobj
+        self.write_buffer = bytes(bufobj)
         self.type = OverlappedType.TYPE_WRITE
         self.handle = handle
 

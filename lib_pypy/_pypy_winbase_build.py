@@ -116,6 +116,7 @@ void WINAPI SetLastError(DWORD);
 BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 HANDLE WINAPI GetCurrentProcess(void);
 HANDLE OpenProcess(DWORD, BOOL, DWORD);
+UINT WINAPI GetACP(VOID);
 void ExitProcess(UINT);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);
