@@ -111,6 +111,11 @@ def test_high_precision_stat_time():
     if rposix_stat.TIMESPEC is not None:
         with lltype.scoped_alloc(rposix_stat.STAT_STRUCT.TO) as stresult:
             rposix_stat.c_stat(".", stresult)
-            assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
-            assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
-                                + int(stresult.c_st_ctim.c_tv_nsec))
+            if sys.platform == "darwin":
+                assert 0 <= stresult.c_st_ctimespec.c_tv_nsec <= 999999999
+                assert highprec == (int(stresult.c_st_ctimespec.c_tv_sec) * 1000000000
+                                    + int(stresult.c_st_ctimespec.c_tv_nsec))
+            else:
+                assert 0 <= stresult.c_st_ctim.c_tv_nsec <= 999999999
+                assert highprec == (int(stresult.c_st_ctim.c_tv_sec) * 1000000000
+                                    + int(stresult.c_st_ctim.c_tv_nsec))
