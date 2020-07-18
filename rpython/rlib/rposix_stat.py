@@ -396,15 +396,15 @@ def posix_declaration(try_to_add=None):
     if TIMESPEC is not None:
 
         def _expand(lst, originalname, timespecname):
-            if _MACOS:
+            if _MACOS:  # fields are named e.g. st_atimespec
                 timespecname = originalname + "spec"
-            else:
+            else:  # fields are named e.g. st_atim, with no e
                 timespecname = originalname[:-1]
 
             for i, (_name, _TYPE) in enumerate(lst):
                 if _name == originalname:
                     # replace the 'st_atime' field of type rffi.DOUBLE
-                    # with a field 'st_atim' of type 'struct timespec'
+                    # with the corresponding 'struct timespec' field
                     lst[i] = (timespecname, TIMESPEC)
                     break
 
