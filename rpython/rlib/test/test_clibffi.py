@@ -170,10 +170,10 @@ class TestCLibffi(BaseFfiTest):
         assert snd == rffi.cast(rffi.VOIDP, a)
         
     def test_callback(self):
-        slong = cast_type_to_ffitype(rffi.LONG)
+        size_t = cast_type_to_ffitype(rffi.SIZE_T)
         libc = self.get_libc()
-        qsort = libc.getpointer('qsort', [ffi_type_pointer, slong,
-                                          slong, ffi_type_pointer],
+        qsort = libc.getpointer('qsort', [ffi_type_pointer, size_t,
+                                          size_t, ffi_type_pointer],
                                 ffi_type_void)
 
         def callback(ll_args, ll_res, stuff):

@@ -718,7 +718,7 @@ class AppTestFfi:
         ll_to_sort = _rawffi.Array('i')(4)
         for i in range(4):
             ll_to_sort[i] = 4-i
-        qsort = libc.ptr('qsort', ['P', 'l', 'l', 'P'], None)
+        qsort = libc.ptr('qsort', ['P', 'Z', 'Z', 'P'], None)
         bogus_args = []
         def compare(a, b):
             a1 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(a, 1)[0], 1)
@@ -729,11 +729,11 @@ class AppTestFfi:
                 return 1
             return -1
         a1 = ll_to_sort.byptr()
-        a2 = _rawffi.Array('l')(1)
+        a2 = _rawffi.Array('Z')(1)
         a2[0] = len(ll_to_sort)
-        a3 = _rawffi.Array('l')(1)
+        a3 = _rawffi.Array('Z')(1)
         a3[0] = struct.calcsize('i')
-        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'l')
+        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'i')
         a4 = cb.byptr()
         qsort(a1, a2, a3, a4)
         res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
