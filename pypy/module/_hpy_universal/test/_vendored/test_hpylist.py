@@ -4,19 +4,19 @@ class TestList(HPyTest):
 
     def test_New(self):
         mod = self.make_module("""
-            HPy_DEF_METH_NOARGS(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 return HPyList_New(ctx, 0);
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f() == []
 
     def test_Append(self):
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy list = HPyList_New(ctx, 0);
@@ -28,7 +28,7 @@ class TestList(HPyTest):
                     return HPy_NULL;
                 return list;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f(42) == [42, 42]

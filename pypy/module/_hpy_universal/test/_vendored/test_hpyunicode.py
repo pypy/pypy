@@ -25,15 +25,20 @@ class TestUnicode(HPyTest):
 
     def test_FromString(self):
         mod = self.make_module("""
-            HPy_DEF_METH_NOARGS(f)
-            static HPy f_impl(HPyContext ctx, HPy self)
+            HPy_DEF_METH_O(f)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
-                return HPyUnicode_FromString(ctx, "foobar");
+                const char * utf8 = HPyBytes_AsString(ctx, arg);
+                return HPyUnicode_FromString(ctx, utf8);
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT f HPy_METH_O
             @INIT
         """)
-        assert mod.f() == "foobar"
+        assert mod.f(b"foobar") == "foobar"
+        with raises(ValueError):
+            b = u"\u2014".encode('utf-8')
+            # intentionally break it
+            mod.f(b[:-1])
 
     def test_FromWideChar(self):
         mod = self.make_module("""

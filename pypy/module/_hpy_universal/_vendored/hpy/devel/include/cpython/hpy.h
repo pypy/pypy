@@ -39,8 +39,6 @@ typedef Py_ssize_t HPy_ssize_t;
 #define _h2py(x) (x._o)
 #define _py2h(o) ((HPy){o})
 
-#include "meth.h"
-
 typedef struct _HPyContext_s {
     HPy h_None;
     HPy h_True;
@@ -91,24 +89,6 @@ HPy_Close(HPyContext ctx, HPy handle)
     Py_XDECREF(_h2py(handle));
 }
 
-/* moduleobject.h */
-typedef PyModuleDef HPyModuleDef;
-
-#define HPyModuleDef_HEAD_INIT PyModuleDef_HEAD_INIT
-
-HPyAPI_FUNC(HPy)
-HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef) {
-    return _py2h(PyModule_Create(mdef));
-}
-
-#define HPy_MODINIT(modname)                                   \
-    static HPy init_##modname##_impl(HPyContext ctx);          \
-    PyMODINIT_FUNC                                             \
-    PyInit_##modname(void)                                     \
-    {                                                          \
-        return _h2py(init_##modname##_impl(_HPyGetContext())); \
-    }
-
 HPyAPI_FUNC(HPy)
 HPy_FromPyObject(HPyContext ctx, PyObject *obj)
 {
@@ -134,7 +114,41 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
 #undef _HPy_IMPL_NAME_NOPREFIX
 #undef _HPy_IMPL_NAME
 
-// include runtime functions
-#include "../common/runtime.h"
+#include "../common/cpy_types.h"
+
+#include "../common/macros.h"
+#include "../common/runtime/argparse.h"
+
+#include "../common/hpyfunc.h"
+#include "../common/hpydef.h"
+#include "../common/hpytype.h"
+#include "../common/hpymodule.h"
+#include "../common/runtime/ctx_module.h"
+#include "../common/runtime/ctx_type.h"
+
+
+HPyAPI_FUNC(HPy)
+HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef)
+{
+    return ctx_Module_Create(ctx, mdef);
+}
+
+HPyAPI_FUNC(HPy)
+HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)
+{
+    return ctx_Type_FromSpec(ctx, spec);
+}
+
+HPyAPI_FUNC(HPy)
+_HPy_New(HPyContext ctx, HPy h, void **data)
+{
+    return ctx_New(ctx, h, data);
+}
+
+HPyAPI_FUNC(void*)
+_HPy_Cast(HPyContext ctx, HPy h)
+{
+    return ctx_Cast(ctx, h);
+}
 
 #endif /* !HPy_CPYTHON_H */

@@ -188,6 +188,10 @@ static inline int HPyObject_IsTrue(HPyContext ctx, HPy h) {
      return ctx->ctx_Object_IsTrue ( ctx, h ); 
 }
 
+static inline HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec) {
+     return ctx->ctx_Type_FromSpec ( ctx, spec ); 
+}
+
 static inline HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy name) {
      return ctx->ctx_GetAttr ( ctx, obj, name ); 
 }
@@ -234,6 +238,10 @@ static inline int HPy_SetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy va
 
 static inline int HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy value) {
      return ctx->ctx_SetItem_s ( ctx, obj, key, value ); 
+}
+
+static inline void *_HPy_Cast(HPyContext ctx, HPy h) {
+     return ctx->ctx_Cast ( ctx, h ); 
 }
 
 static inline int HPyBytes_Check(HPyContext ctx, HPy h) {
@@ -292,15 +300,15 @@ static inline HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key) {
      return ctx->ctx_Dict_GetItem ( ctx, h_dict, h_key ); 
 }
 
-static inline HPy HPy_FromPyObject(HPyContext ctx, struct _object *obj) {
+static inline HPy HPy_FromPyObject(HPyContext ctx, cpy_PyObject *obj) {
      return ctx->ctx_FromPyObject ( ctx, obj ); 
 }
 
-static inline struct _object *HPy_AsPyObject(HPyContext ctx, HPy h) {
+static inline cpy_PyObject *HPy_AsPyObject(HPyContext ctx, HPy h) {
      return ctx->ctx_AsPyObject ( ctx, h ); 
 }
 
-static inline struct _object *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, struct _object *self, struct _object *args, struct _object *kw, void *func, int ml_flags) {
-     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, kw, func, ml_flags ); 
+static inline cpy_PyObject *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, cpy_PyObject *self, cpy_PyObject *args, cpy_PyObject *kw, void *func, HPyFunc_Signature sig) {
+     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, kw, func, sig ); 
 }
 

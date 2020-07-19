@@ -15,7 +15,7 @@ class TestCPythonCompatibility(HPyTest):
     def test_frompyobject(self):
         mod = self.make_module("""
             #include <Python.h>
-            HPy_DEF_METH_NOARGS(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 PyObject *o = PyList_New(0);
@@ -29,7 +29,7 @@ class TestCPythonCompatibility(HPyTest):
                 Py_DECREF(o);
                 return h;
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT(f)
             @INIT
         """)
         x = mod.f()
@@ -41,7 +41,7 @@ class TestCPythonCompatibility(HPyTest):
     def test_aspyobject(self):
         mod = self.make_module("""
             #include <Python.h>
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 PyObject *o = HPy_AsPyObject(ctx, arg);
@@ -49,7 +49,7 @@ class TestCPythonCompatibility(HPyTest):
                 Py_DecRef(o);
                 return HPyLong_FromLong(ctx, val*2);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f(21) == 42
@@ -57,7 +57,7 @@ class TestCPythonCompatibility(HPyTest):
     def test_aspyobject_custom_class(self):
         mod = self.make_module("""
             #include <Python.h>
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 PyObject *o = HPy_AsPyObject(ctx, arg);
@@ -67,7 +67,7 @@ class TestCPythonCompatibility(HPyTest):
                 Py_DecRef(o_res);
                 return h_res;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         class MyClass:
@@ -79,7 +79,7 @@ class TestCPythonCompatibility(HPyTest):
     def test_hpy_close(self):
         mod = self.make_module("""
             #include <Python.h>
-            HPy_DEF_METH_NOARGS(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 PyObject *o = PyList_New(0);
@@ -93,7 +93,7 @@ class TestCPythonCompatibility(HPyTest):
                 return HPyLong_FromLong(ctx, (long)(final_refcount -
                                                     initial_refcount));
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT(f)
             @INIT
         """)
         x = mod.f()
@@ -103,7 +103,7 @@ class TestCPythonCompatibility(HPyTest):
     def test_hpy_dup(self):
         mod = self.make_module("""
             #include <Python.h>
-            HPy_DEF_METH_NOARGS(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 PyObject *o = PyList_New(0);
@@ -119,7 +119,7 @@ class TestCPythonCompatibility(HPyTest):
                 return HPyLong_FromLong(ctx, (long)(final_refcount -
                                                     initial_refcount));
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT(f)
             @INIT
         """)
         x = mod.f()
@@ -131,7 +131,7 @@ class TestCPythonCompatibility(HPyTest):
             #include <Python.h>
             #define NUM_HANDLES  10000
 
-            HPy_DEF_METH_NOARGS(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 PyObject *o = PyList_New(0);
@@ -153,12 +153,12 @@ class TestCPythonCompatibility(HPyTest):
              error:
                 return HPyLong_FromLong(ctx, (long)result);
             }
-            @EXPORT f HPy_METH_NOARGS
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f() == 0
 
-    def test_meth_cpy_noargs(self):
+    def test_legacy_methods(self):
         mod = self.make_module("""
             #include <Python.h>
 
@@ -166,46 +166,19 @@ class TestCPythonCompatibility(HPyTest):
             {
                 return PyLong_FromLong(1234);
             }
-            @EXPORT f METH_NOARGS
-            @INIT
-        """)
-        assert mod.f() == 1234
-
-    def test_meth_cpy_o(self):
-        mod = self.make_module("""
-            #include <Python.h>
-
-            static PyObject *f(PyObject *self, PyObject *arg)
+            static PyObject *g(PyObject *self, PyObject *arg)
             {
                 long x = PyLong_AsLong(arg);
                 return PyLong_FromLong(x * 2);
             }
-            @EXPORT f METH_O
-            @INIT
-        """)
-        assert mod.f(45) == 90
-
-    def test_meth_cpy_varargs(self):
-        mod = self.make_module("""
-            #include <Python.h>
-
-            static PyObject *f(PyObject *self, PyObject *args)
+            static PyObject *h(PyObject *self, PyObject *args)
             {
                 long a, b, c;
                 if (!PyArg_ParseTuple(args, "lll", &a, &b, &c))
                     return NULL;
                 return PyLong_FromLong(100*a + 10*b + c);
             }
-            @EXPORT f METH_VARARGS
-            @INIT
-        """)
-        assert mod.f(4, 5, 6) == 456
-
-    def test_meth_cpy_keywords(self):
-        mod = self.make_module("""
-            #include <Python.h>
-
-            static PyObject *f(PyObject *self, PyObject *args, PyObject *kwargs)
+            static PyObject *k(PyObject *self, PyObject *args, PyObject *kwargs)
             {
                 static char *kwlist[] = { "a", "b", "c", NULL };
                 long a, b, c;
@@ -213,7 +186,19 @@ class TestCPythonCompatibility(HPyTest):
                     return NULL;
                 return PyLong_FromLong(100*a + 10*b + c);
             }
-            @EXPORT f METH_VARARGS | METH_KEYWORDS
+
+            static PyMethodDef my_legacy_methods[] = {
+                {"f", (PyCFunction)f, METH_NOARGS},
+                {"g", (PyCFunction)g, METH_O},
+                {"h", (PyCFunction)h, METH_VARARGS},
+                {"k", (PyCFunction)k, METH_VARARGS | METH_KEYWORDS},
+                {NULL}
+            };
+
+            @EXPORT_LEGACY(my_legacy_methods)
             @INIT
         """)
-        assert mod.f(c=6, b=5, a=4) == 456
+        assert mod.f() == 1234
+        assert mod.g(45) == 90
+        assert mod.h(4, 5, 6) == 456
+        assert mod.k(c=6, b=5, a=4) == 456
