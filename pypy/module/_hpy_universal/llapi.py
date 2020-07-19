@@ -11,6 +11,7 @@ BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 
 eci = ExternalCompilationInfo(
+    compile_extra = ["-DHPY_UNIVERSAL_ABI"],
     includes=["universal/hpy.h", "hpyerr.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
