@@ -463,7 +463,10 @@ class rbigint(object):
             return True
         if n > MAX_DIGITS_THAT_CAN_FIT_IN_INT:
             return False
-        x = self._touint_helper()
+        try:
+            x = self._touint_helper()
+        except OverflowError:
+            return False
         if self.sign >= 0:
             res = intmask(x)
             return res >= 0

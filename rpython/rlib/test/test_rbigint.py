@@ -1099,6 +1099,7 @@ class TestInternalFunctions(object):
         assert not rbigint.fromlong(sys.maxint + 1).fits_int()
         assert rbigint.fromlong(-sys.maxint - 1).fits_int()
         assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
+        assert not rbigint.fromlong(-73786976294838206459).fits_int()
 
     def test_parse_digit_string(self):
         from rpython.rlib.rbigint import parse_digit_string
