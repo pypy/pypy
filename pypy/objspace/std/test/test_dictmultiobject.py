@@ -3,7 +3,10 @@ import sys
 import py
 
 from pypy.objspace.std.dictmultiobject import (W_DictMultiObject,
-    W_DictObject, BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy)
+    W_DictObject, BytesDictStrategy, ObjectDictStrategy, UnicodeDictStrategy,
+    IntDictStrategy)
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_DictObject(object):
@@ -185,6 +188,26 @@ class TestW_DictObject(object):
         # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
         # w_l = self.space.call_method(w_d, "keys")
         # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+
+    def test_integer_strategy_with_w_long(self):
+        space = self.space
+        w = W_LongObject(rbigint.fromlong(42))
+        w_longlong = W_LongObject(rbigint.fromlong(10**40))
+        w_d = space.newdict()
+        space.setitem(w_d, w, space.w_None)
+        assert w_d.get_strategy() is space.fromcache(IntDictStrategy)
+        #
+        space.setitem(w_d, w_longlong, space.w_None)
+        assert w_d.get_strategy() is space.fromcache(ObjectDictStrategy)
+        #
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w, space.w_None)])
+        assert w_d.get_strategy() is space.fromcache(IntDictStrategy)
+        #
+        w_d = self.space.newdict()
+        w_d.initialize_content([(w_longlong, space.w_None)])
+        assert w_d.get_strategy() is space.fromcache(ObjectDictStrategy)
+
 
 class AppTest_DictObject:
     def setup_class(cls):
