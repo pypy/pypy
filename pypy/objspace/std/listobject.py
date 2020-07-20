@@ -29,6 +29,7 @@ from pypy.interpreter.miscutils import StringSort
 from pypy.objspace.std.bytesobject import W_BytesObject
 from pypy.objspace.std.floatobject import W_FloatObject
 from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.longobject import W_LongObject
 from pypy.objspace.std.iterobject import (
     W_FastListIterObject, W_ReverseSeqIterObject)
 from pypy.objspace.std.sliceobject import W_SliceObject, unwrap_start_stop
@@ -78,11 +79,11 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
     w_firstobj = list_w[0]
     check_int_or_float = False
 
-    if type(w_firstobj) is W_IntObject:
+    if is_plain_int1(w_firstobj):
         # check for all-ints
         for i in range(1, len(list_w)):
             w_obj = list_w[i]
-            if type(w_obj) is not W_IntObject:
+            if not is_plain_int1(w_obj):
                 check_int_or_float = (type(w_obj) is W_FloatObject)
                 break
         else:
@@ -110,14 +111,14 @@ def get_strategy_from_list_objects(space, list_w, sizehint):
         for i in range(1, len(list_w)):
             w_obj = list_w[i]
             if type(w_obj) is not W_FloatObject:
-                check_int_or_float = (type(w_obj) is W_IntObject)
+                check_int_or_float = is_plain_int1(w_obj)
                 break
         else:
             return space.fromcache(FloatListStrategy)
 
     if check_int_or_float:
         for w_obj in list_w:
-            if type(w_obj) is W_IntObject:
+            if is_plain_int1(w_obj):
                 if longlong2float.can_encode_int32(w_obj.int_w(space)):
                     continue    # ok
             elif type(w_obj) is W_FloatObject:
@@ -922,7 +923,7 @@ class EmptyListStrategy(ListStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_list, w_item):
-        if type(w_item) is W_IntObject:
+        if is_plain_int1(w_item):
             strategy = self.space.fromcache(IntegerListStrategy)
         elif type(w_item) is W_BytesObject:
             strategy = self.space.fromcache(BytesListStrategy)
@@ -1089,7 +1090,7 @@ class BaseRangeListStrategy(ListStrategy):
         return w_list.getslice(start, stop, step, length)
 
     def append(self, w_list, w_item):
-        if type(w_item) is W_IntObject:
+        if is_plain_int1(w_item):
             self.switch_to_integer_strategy(w_list)
         else:
             w_list.switch_to_object_strategy()
@@ -1140,7 +1141,7 @@ class SimpleRangeListStrategy(BaseRangeListStrategy):
     unerase = staticmethod(unerase)
 
     def find(self, w_list, w_obj, startindex, stopindex):
-        if type(w_obj) is W_IntObject:
+        if is_plain_int1(w_obj):
             obj = self.unwrap(w_obj)
             length = self.unerase(w_list.lstorage)[0]
             if 0 <= obj < length and startindex <= obj < stopindex:
@@ -1212,7 +1213,7 @@ class RangeListStrategy(BaseRangeListStrategy):
     unerase = staticmethod(unerase)
 
     def find(self, w_list, w_obj, startindex, stopindex):
-        if type(w_obj) is W_IntObject:
+        if is_plain_int1(w_obj):
             obj = self.unwrap(w_obj)
             start, step, length = self.unerase(w_list.lstorage)
             if ((step > 0 and start <= obj <= start + (length - 1) * step and
@@ -1640,7 +1641,7 @@ class IntegerListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        return type(w_obj) is W_IntObject
+        return is_plain_int1(w_obj)
 
     def list_is_correct_type(self, w_list):
         return w_list.strategy is self.space.fromcache(IntegerListStrategy)
@@ -1817,7 +1818,7 @@ class FloatListStrategy(ListStrategy):
         return True
 
     def switch_to_next_strategy(self, w_list, w_sample_item):
-        if type(w_sample_item) is W_IntObject:
+        if is_plain_int1(w_sample_item):
             sample_intval = self.space.int_w(w_sample_item)
             if longlong2float.can_encode_int32(sample_intval):
                 if self.switch_to_int_or_float_strategy(w_list):
@@ -1841,7 +1842,7 @@ class IntOrFloatListStrategy(ListStrategy):
             return self.space.newfloat(floatval)
 
     def unwrap(self, w_int_or_float):
-        if type(w_int_or_float) is W_IntObject:
+        if is_plain_int1(w_int_or_float):
             intval = self.space.int_w(w_int_or_float)
             return longlong2float.encode_int32_into_longlong_nan(intval)
         else:
@@ -1853,7 +1854,7 @@ class IntOrFloatListStrategy(ListStrategy):
     unerase = staticmethod(unerase)
 
     def is_correct_type(self, w_obj):
-        if type(w_obj) is W_IntObject:
+        if is_plain_int1(w_obj):
             intval = self.space.int_w(w_obj)
             return longlong2float.can_encode_int32(intval)
         elif type(w_obj) is W_FloatObject:
@@ -2000,6 +2001,11 @@ class AsciiListStrategy(ListStrategy):
 
     def getitems_ascii(self, w_list):
         return self.unerase(w_list.lstorage)
+
+
+def is_plain_int1(w_obj):
+    return (type(w_obj) is W_IntObject or
+            (type(w_obj) is W_LongObject and w_obj._fits_int()))
 
 # _______________________________________________________
 

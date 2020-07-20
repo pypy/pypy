@@ -7,6 +7,10 @@ from pypy.objspace.std.listobject import (
     IntOrFloatListStrategy)
 from pypy.objspace.std import listobject
 from pypy.objspace.std.test.test_listobject import TestW_ListObject
+from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.longobject import W_LongObject
+from pypy.objspace.std.floatobject import W_FloatObject
+from rpython.rlib.rbigint import rbigint
 
 
 class TestW_ListStrategies(TestW_ListObject):
@@ -1044,6 +1048,47 @@ class TestW_ListStrategies(TestW_ListObject):
         l = W_ListObject(space, [wb('a'), wb('b')])
         w_item = l.getitem(0)
         assert isinstance(w_item, space.StringObjectCls)
+
+    def test_integer_strategy_with_w_long(self):
+        # tests all calls to is_plain_int1() so far
+        space = self.space
+        w = W_LongObject(rbigint.fromlong(42))
+        w_l = space.newlist([])
+        space.call_method(w_l, 'append', w)
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(0)), W_IntObject)
+        #
+        w_l = space.newlist([w, w])
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(0)), W_IntObject)
+        assert isinstance(space.getitem(w_l, space.wrap(1)), W_IntObject)
+        #
+        w_f = space.newfloat(42.0)
+        w_l = space.newlist([w_f, w])
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(0)), W_FloatObject)
+        assert isinstance(space.getitem(w_l, space.wrap(1)), W_IntObject)
+        space.call_method(w_l, 'append', w)
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(2)), W_IntObject)
+        #
+        w_l = make_range_list(space, 0, 1, 10)
+        space.call_method(w_l, 'append', w)
+        assert isinstance(w_l.strategy, IntegerListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(-1)), W_IntObject)
+        #
+        w_l = make_range_list(space, 30, 2, 45)
+        assert space.eq_w(space.call_method(w_l, 'index', w), space.wrap(6))
+        #
+        w_l = make_range_list(space, 0, 1, 45)
+        assert space.eq_w(space.call_method(w_l, 'index', w), space.wrap(42))
+        #
+        w_f = space.newfloat(42.0)
+        w_l = space.newlist([w_f])
+        space.call_method(w_l, 'append', w)
+        assert isinstance(w_l.strategy, IntOrFloatListStrategy)
+        assert isinstance(space.getitem(w_l, space.wrap(0)), W_FloatObject)
+        assert isinstance(space.getitem(w_l, space.wrap(1)), W_IntObject)
 
 
 class TestW_ListStrategiesDisabled:
