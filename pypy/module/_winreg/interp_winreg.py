@@ -252,13 +252,13 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
                     bufSize *= 2
-                    bufsize_p[0] = bufSize
+                    bufsize_p[0] = rffi.cast(rwin32.LONG, bufSize)
                     continue
 
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
-                length = intmask(bufsize_p[0] - 1)
-                return space.newtext(rffi.charp2strn(buf, length))
+                length = intmask(bufsize_p[0])
+                return space.newtext(rffi.charp2strn(buf, length - 1))
 
 def convert_to_regdata(space, w_value, typ):
     buf = None
@@ -462,10 +462,11 @@ value_name is a string indicating the value to query"""
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(retDataSize[0])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(intmask(ret_type)),
                         ])
 
 @unwrap_spec(subkey="text")
@@ -585,10 +586,10 @@ data_type is an integer that identifies the type of the value data."""
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryInfoKey')
             # include null terminators
-            retValueSize[0] += 1
-            retDataSize[0] += 1
-            bufDataSize = intmask(retDataSize[0])
-            bufValueSize = intmask(retValueSize[0])
+            bufDataSize = intmask(retDataSize[0]) + 1
+            bufValueSize = intmask(retValueSize[0]) + 1
+            retValueSize[0] = rffi.cast(rwin32.DWORD, bufValueSize)
+            retDataSize[0] = rffi.cast(rwin32.DWORD, bufDataSize)
 
             with lltype.scoped_alloc(rffi.CCHARP.TO,
                                      intmask(retValueSize[0])) as valuebuf:
@@ -613,11 +614,12 @@ data_type is an integer that identifies the type of the value data."""
                                 raiseWindowsError(space, ret, 'RegEnumValue')
 
                             length = intmask(retDataSize[0])
+                            ret_type = intmask(retType[0])
                             return space.newtuple([
                                 space.newtext(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
-                                                     length, retType[0]),
-                                space.newint(intmask(retType[0])),
+                                                     length, ret_type),
+                                space.newint(ret_type),
                                 ])
 
 @unwrap_spec(index=int)
