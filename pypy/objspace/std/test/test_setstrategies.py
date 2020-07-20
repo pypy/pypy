@@ -5,6 +5,7 @@ from pypy.objspace.std.setobject import (
     IntegerIteratorImplementation, IntegerSetStrategy, ObjectSetStrategy,
     UnicodeIteratorImplementation, AsciiSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.longobject import W_LongObject
 from rpython.rlib.rbigint import rbigint
 
 
