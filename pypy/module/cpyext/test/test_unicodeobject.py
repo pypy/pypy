@@ -10,7 +10,6 @@ from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
-from pypy.module.cpyext.unicodeobject import _PyUnicode_Ready
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):
@@ -1076,30 +1075,24 @@ class TestUnicode(BaseApiTest):
     def test_Ready(self, space):
         def as_py_uni(val):
             py_obj = new_empty_unicode(space, len(val))
-            set_wbuffer(py_obj, rffi.unicode2wcharp(val))
+            w_obj = space.wrap(val)
+            # calls _PyUnicode_Ready
+            unicode_attach(space, py_obj, w_obj)
             return py_obj
 
         py_str = as_py_uni(u'abc')  # ASCII
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 1
 
         py_str = as_py_uni(u'café')  # latin1
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 0
 
         py_str = as_py_uni(u'Росси́я')  # UCS2
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 2
         assert get_ascii(py_str) == 0
 
         py_str = as_py_uni(u'***\U0001f4a9***')  # UCS4
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 4
         assert get_ascii(py_str) == 0
 

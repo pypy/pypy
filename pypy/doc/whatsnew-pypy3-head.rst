@@ -28,3 +28,7 @@ Use utf8 in locale.py, add `PyUnicode_{En,De}code_Locale`
 .. branch: exc.object
 
 Allow errorhandlers to modify the underlying str/bytes being converted
+
+.. branch: win-unicode
+
+Fix PyUnicode handling of windows where wchar_t is 2 bytes
