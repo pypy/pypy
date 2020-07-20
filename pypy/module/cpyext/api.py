@@ -1368,21 +1368,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   __int64           /* xxx temporary fix */
+#define Unsigned unsigned __int64  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',
