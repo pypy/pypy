@@ -145,12 +145,12 @@ Cls_oo = make_specialised_class((object, object))
 Cls_ff = make_specialised_class((float, float))
 
 def makespecialisedtuple(space, list_w):
-    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.listobject import is_plain_int1
     from pypy.objspace.std.floatobject import W_FloatObject
     if len(list_w) == 2:
         w_arg1, w_arg2 = list_w
-        if type(w_arg1) is W_IntObject:
-            if type(w_arg2) is W_IntObject:
+        if is_plain_int1(w_arg1):
+            if is_plain_int1(w_arg2):
                 return Cls_ii(space, space.int_w(w_arg1), space.int_w(w_arg2))
         elif type(w_arg1) is W_FloatObject:
             if type(w_arg2) is W_FloatObject:
