@@ -48,7 +48,7 @@ def unwrap_cell(space, w_value):
     return w_value
 
 def write_cell(space, w_cell, w_value):
-    from pypy.objspace.std.listobject import is_plain_int1
+    from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
     if w_cell is None:
         # attribute does not exist at all, write it without a cell first
         return w_value
@@ -56,14 +56,14 @@ def write_cell(space, w_cell, w_value):
         w_cell.w_value = w_value
         return None
     elif isinstance(w_cell, IntMutableCell) and is_plain_int1(w_value):
-        w_cell.intvalue = space.int_w(w_value)
+        w_cell.intvalue = plain_int_w(space, w_value)
         return None
     elif space.is_w(w_cell, w_value):
         # If the new value and the current value are the same, don't
         # create a level of indirection, or mutate the version.
         return None
     if is_plain_int1(w_value):
-        return IntMutableCell(space.int_w(w_value))
+        return IntMutableCell(plain_int_w(space, w_value))
     else:
         return ObjectMutableCell(w_value)
 

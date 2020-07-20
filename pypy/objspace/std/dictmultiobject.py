@@ -1252,7 +1252,8 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newint(unwrapped)
 
     def unwrap(self, wrapped):
-        return self.space.int_w(wrapped)
+        from pypy.objspace.std.listobject import plain_int_w
+        return plain_int_w(self.space, wrapped)
 
     def get_empty_storage(self):
         return self.erase({})

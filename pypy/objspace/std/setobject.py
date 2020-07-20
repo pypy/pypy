@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.listobject import is_plain_int1
+from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
@@ -1339,7 +1339,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.int_w(w_item)
+        return plain_int_w(self.space, w_item)
 
     def wrap(self, item):
         return self.space.newint(item)
