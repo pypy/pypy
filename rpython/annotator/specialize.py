@@ -148,7 +148,7 @@ class MemoTable(object):
             header = "def f(%s):" % (', '.join(argnames[firstarg:],))
             source = py.code.Source(stmt)
             source = source.putaround(header)
-            exec(source.compile(), miniglobals)
+            exec source.compile() in miniglobals
             f = miniglobals['f']
             return func_with_new_name(f, 'memo_%s_%d' % (name, firstarg))
 

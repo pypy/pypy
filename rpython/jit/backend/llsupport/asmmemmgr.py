@@ -106,18 +106,17 @@ class AsmMemoryManager(object):
             left_start = self.free_blocks_end[start]
             self._del_free_block(left_start, start)
             start = left_start
+            assert start not in self.free_blocks_end
         # Merge with the block on the right
         if stop in self.free_blocks:
             right_stop = self.free_blocks[stop]
             self._del_free_block(stop, right_stop)
             stop = right_stop
-        # Add it to the dicts
-        if not we_are_translated():
-            assert start not in self.free_blocks
             assert stop not in self.free_blocks
-            assert start not in self.free_blocks_end
-            assert stop not in self.free_blocks_end
+        # Add it to the dicts
+        assert start not in self.free_blocks
         self.free_blocks[start] = stop
+        assert stop not in self.free_blocks_end
         self.free_blocks_end[stop] = start
         i = self._get_index(stop - start)
         self.blocks_by_size[i].append(start)
