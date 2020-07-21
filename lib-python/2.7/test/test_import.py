@@ -87,6 +87,8 @@ class ImportTests(unittest.TestCase):
                     "module loaded (%s) but contents invalid" % mod)
             finally:
                 if check_impl_detail(pypy=False):
+                    # pypy refuses the import the .pyc file (below) after
+                    # we remove the .py file
                     unlink(source)
 
             try:
@@ -98,6 +100,8 @@ class ImportTests(unittest.TestCase):
                 unlink(pyc)
                 unlink(pyo)
                 unload(TESTFN)
+                # in pypy, remove the .py file now (instead of above)
+                unlink(source)
 
         sys.path.insert(0, os.curdir)
         try:

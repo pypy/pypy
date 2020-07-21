@@ -5,7 +5,7 @@ from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import is_valid_int
 
 import os
-exec 'import %s as posix' % os.name
+exec('import %s as posix' % os.name)
 
 def setup_module(module):
     testf = udir.join('test.txt')
@@ -34,7 +34,9 @@ class TestPosix(BaseRtypingTest):
         func = self.interpret(fo,[fi])
         stat = os.fstat(fi)
         for i in range(len(stat)):
-            assert long(getattr(func, 'item%d' % i)) == stat[i]
+            #on win32 python2, stat.st_dev is 0
+            if stat[i] != 0:
+                assert long(getattr(func, 'item%d' % i)) == stat[i]
 
 
     def test_stat(self):

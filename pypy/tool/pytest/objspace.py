@@ -7,10 +7,10 @@ from pypy.conftest import option
 
 _SPACECACHE={}
 def gettestobjspace(**kwds):
-    """ helper for instantiating and caching space's for testing.
+    """ helper for instantiating and caching spaces for testing.
     """
     try:
-        config = make_config(option,**kwds)
+        config = make_config(option, **kwds)
     except ConflictConfigError as e:
         # this exception is typically only raised if a module is not available.
         # in this case the test should be skipped
@@ -30,10 +30,12 @@ def maketestobjspace(config=None):
         config = make_config(option)
     if config.objspace.usemodules.thread:
         config.translation.thread = True
+    config.objspace.extmodules = 'pypy.tool.pytest.fake_pytest'
     space = make_objspace(config)
     space.startup() # Initialize all builtin modules
-    space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
-                  appsupport.build_pytest_assertion(space))
+    if config.objspace.std.reinterpretasserts:
+        space.setitem(space.builtin.w_dict, space.wrap('AssertionError'),
+                    appsupport.build_pytest_assertion(space))
     space.setitem(space.builtin.w_dict, space.wrap('raises'),
                   space.wrap(appsupport.app_raises))
     space.setitem(space.builtin.w_dict, space.wrap('skip'),
@@ -60,7 +62,7 @@ class TinyObjSpace(object):
                         py.test.skip("no module __pypy__ on top of CPython")
                 continue
             if info is None:
-                py.test.skip("cannot runappdirect this test on top of CPython")
+                continue
             if ('translation.' + key) in info:
                 key = 'translation.' + key
             has = info.get(key, None)
@@ -110,6 +112,9 @@ class TinyObjSpace(object):
 
     def newbytes(self, obj):
         return bytes(obj)
+
+    def newutf8(self, obj, lgth):
+        return obj
 
     def call_function(self, func, *args, **kwds):
         return func(*args, **kwds)

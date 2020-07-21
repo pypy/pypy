@@ -85,7 +85,11 @@ c_thread_releaselock_NOAUTO = c_thread_releaselock
 
 
 def allocate_lock():
-    return Lock(allocate_ll_lock())
+    # Add some memory pressure for the size of the lock because it is an
+    # Opaque object
+    lock = Lock(allocate_ll_lock())
+    rgc.add_memory_pressure(TLOCKP_SIZE, lock)
+    return lock
 
 @specialize.arg(0)
 def ll_start_new_thread(func):
@@ -106,15 +110,17 @@ def get_ident():
     if we_are_translated():
         return tlfield_thread_ident.getraw()
     else:
-        import thread
+        try:
+            import thread
+        except ImportError:
+            return 42
         return thread.get_ident()
 
 def get_or_make_ident():
     if we_are_translated():
         return tlfield_thread_ident.get_or_make_raw()
     else:
-        import thread
-        return thread.get_ident()
+        return get_ident()
 
 @specialize.arg(0)
 def start_new_thread(x, y):
@@ -242,9 +248,6 @@ def allocate_ll_lock():
     if rffi.cast(lltype.Signed, res) <= 0:
         lltype.free(ll_lock, flavor='raw', track_allocation=False)
         raise error("out of resources")
-    # Add some memory pressure for the size of the lock because it is an
-    # Opaque object
-    rgc.add_memory_pressure(TLOCKP_SIZE)
     return ll_lock
 
 def free_ll_lock(ll_lock):
@@ -347,8 +350,7 @@ class ThreadLocalField(object):
         def get_or_make_raw():
             if we_are_translated():
                 _threadlocalref_seeme(self)
-                addr = llop.threadlocalref_addr(llmemory.Address)
-                return llop.raw_load(FIELDTYPE, addr, offset)
+                return llop.threadlocalref_load(FIELDTYPE, offset)
             else:
                 return getattr(self.local, 'rawvalue', zero)
 
@@ -356,8 +358,7 @@ class ThreadLocalField(object):
         def setraw(value):
             if we_are_translated():
                 _threadlocalref_seeme(self)
-                addr = llop.threadlocalref_addr(llmemory.Address)
-                llop.raw_store(lltype.Void, addr, offset, value)
+                llop.threadlocalref_store(lltype.Void, offset, value)
             else:
                 self.local.rawvalue = value
 
@@ -390,7 +391,6 @@ class ThreadLocalReference(ThreadLocalField):
         ThreadLocalReference._COUNT += 1
         ThreadLocalField.__init__(self, lltype.Signed, 'tlref%d' % unique_id,
                                   loop_invariant=loop_invariant)
-        setraw = self.setraw
         offset = self._offset
 
         def get():
@@ -407,10 +407,10 @@ class ThreadLocalReference(ThreadLocalField):
         def set(value):
             assert isinstance(value, Cls) or value is None
             if we_are_translated():
-                from rpython.rtyper.annlowlevel import cast_instance_to_gcref
-                gcref = cast_instance_to_gcref(value)
-                value = lltype.cast_ptr_to_int(gcref)
-                setraw(value)
+                from rpython.rtyper.annlowlevel import cast_instance_to_base_ptr
+                ptr = cast_instance_to_base_ptr(value)
+                _threadlocalref_seeme(self)
+                llop.threadlocalref_store(lltype.Void, offset, ptr)
                 rgc.register_custom_trace_hook(TRACETLREF, _lambda_trace_tlref)
                 rgc.ll_writebarrier(_tracetlref_obj)
             else:

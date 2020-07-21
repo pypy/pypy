@@ -1,5 +1,6 @@
 import sys
 import os
+import platform as _stdlib_platform
 from rpython.config.config import OptionDescription, BoolOption, IntOption, ArbitraryOption, FloatOption
 from rpython.config.config import ChoiceOption, StrOption, Config, ConflictConfigError
 from rpython.config.config import ConfigError
@@ -17,10 +18,6 @@ DEFL_LOW_INLINE_THRESHOLD = DEFL_INLINE_THRESHOLD / 2.0
 DEFL_GC = "incminimark"   # XXX
 
 DEFL_ROOTFINDER_WITHJIT = "shadowstack"
-## if sys.platform.startswith("linux"):
-##     _mach = os.popen('uname -m', 'r').read().strip()
-##     if _mach.startswith('x86') or _mach in ['i386', 'i486', 'i586', 'i686']:
-##         DEFL_ROOTFINDER_WITHJIT = "asmgcc"   # only for Linux on x86 / x86-64
 
 IS_64_BITS = sys.maxint > 2147483647
 
@@ -30,7 +27,9 @@ SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     False)
     # Windows doesn't work.  Please
     # add other platforms here if it works on them.
-
+MACHINE = _stdlib_platform.machine()
+if MACHINE == 'aarch64':
+    SUPPORT__THREAD = False
 # (*) NOTE: __thread on OS/X does not work together with
 # pthread_key_create(): when the destructor is called, the __thread is
 # already freed!
@@ -39,9 +38,7 @@ MAINDIR = os.path.dirname(os.path.dirname(__file__))
 CACHE_DIR = os.path.realpath(os.path.join(MAINDIR, '_cache'))
 
 PLATFORMS = [
-    'maemo',
     'host',
-    'distutils',
     'arm',
 ]
 
@@ -99,13 +96,11 @@ translation_optiondescription = OptionDescription(
                default=IS_64_BITS, cmdline="--gcremovetypeptr"),
     ChoiceOption("gcrootfinder",
                  "Strategy for finding GC Roots (framework GCs only)",
-                 ["n/a", "shadowstack", "asmgcc"],
+                 ["n/a", "shadowstack"],
                  "shadowstack",
                  cmdline="--gcrootfinder",
                  requires={
                      "shadowstack": [("translation.gctransformer", "framework")],
-                     "asmgcc": [("translation.gctransformer", "framework"),
-                                ("translation.backend", "c")],
                     }),
 
     # other noticeable options
@@ -290,6 +285,15 @@ translation_optiondescription = OptionDescription(
                  suggests={"arm": [("translation.gcrootfinder", "shadowstack"),
                                    ("translation.jit_backend", "arm")]}),
 
+    BoolOption("split_gc_address_space",
+               "Ensure full separation of GC and non-GC pointers", default=False),
+    BoolOption("reverse_debugger",
+               "Give an executable that writes a log file for reverse debugging",
+               default=False, cmdline='--revdb',
+               requires=[('translation.split_gc_address_space', True),
+                         ('translation.jit', False),
+                         ('translation.gc', 'boehm'),
+                         ('translation.continuation', False)]),
 ])
 
 def get_combined_translation_config(other_optdescr=None,
@@ -392,10 +396,6 @@ def set_opt_level(config, level):
     # if we have specified strange inconsistent settings.
     config.translation.gc = config.translation.gc
 
-    # disallow asmgcc on OS/X and on Win32
-    if config.translation.gcrootfinder == "asmgcc":
-        if sys.platform == "darwin" or sys.platform =="win32":
-            raise ConfigError("'asmgcc' not supported on this platform")
 
 # ----------------------------------------------------------------
 

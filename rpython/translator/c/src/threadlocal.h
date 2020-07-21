@@ -118,13 +118,59 @@ typedef DWORD pthread_key_t;
 RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 
 
-/* only for the fall-back path in the JIT */
-#define OP_THREADLOCALREF_GET_NONCONST(RESTYPE, offset, r)      \
+#define OP_THREADLOCALREF_LOAD(RESTYPE, offset, r)              \
     do {                                                        \
         char *a;                                                \
         OP_THREADLOCALREF_ADDR(a);                              \
         r = *(RESTYPE *)(a + offset);                           \
     } while (0)
+
+#define OP_THREADLOCALREF_STORE(VALTYPE, offset, value)         \
+    do {                                                        \
+        char *a;                                                \
+        OP_THREADLOCALREF_ADDR(a);                              \
+        *(VALTYPE *)(a + offset) = value;                       \
+    } while (0)
+
+
+
+// XXX hack: these functions are here instead of thread.h because
+// we need pypy_threadlocal_s.
+#include <src/thread.h>
+
+static INLINE long _rpygil_get_my_ident(void)
+{
+#ifdef RPY_TLOFS_thread_ident
+    struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
+    assert(p->thread_ident != 0);
+    return p->thread_ident;
+#else
+    // made-up thread identifier
+    return 1234;
+#endif
+}
+
+static INLINE int _rpygil_acquire_fast_path(void)
+{
+    return pypy_compare_and_swap(&rpy_fastgil, 0, _rpygil_get_my_ident());
+}
+
+static INLINE void _RPyGilAcquire(void) {
+    /* see thread_gil.c point (5) */
+    if (!_rpygil_acquire_fast_path())
+        RPyGilAcquireSlowPath();
+}
+static INLINE void _RPyGilRelease(void) {
+    assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
+    pypy_lock_release(&rpy_fastgil);
+}
+static INLINE long *_RPyFetchFastGil(void) {
+    return &rpy_fastgil;
+}
+static INLINE long _RPyGilGetHolder(void) {
+    return rpy_fastgil;
+}
+
 
 
 #endif /* _SRC_THREADLOCAL_H */

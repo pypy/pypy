@@ -4,42 +4,40 @@ PyPy: Python in Python Implementation
 
 Welcome to PyPy!
 
-PyPy is both an implementation of the Python programming language, and
-an extensive compiler framework for dynamic language implementations.
-You can build self-contained Python implementations which execute
-independently from CPython.
+PyPy is an interpreter that implements the Python programming language, based
+on the RPython compiler framework for dynamic language implementations.
 
-The home page is:
+The home page for the interpreter is:
 
-    http://pypy.org/
+    https://pypy.org/
 
-If you want to help developing PyPy, this document might help you:
+If you want to help developing PyPy, this documentation might help you:
 
-    http://doc.pypy.org/
+    https://doc.pypy.org/
 
-It will also point you to the rest of the documentation which is generated
-from files in the pypy/doc directory within the source repositories. Enjoy
-and send us feedback!
+More documentation about the RPython framework can be found here:
 
-    the pypy-dev team <pypy-dev@python.org>
+    https://rpython.readthedocs.io/
+
+The source for the documentation is in the pypy/doc directory.
+
+
+Using PyPy instead of CPython
+-----------------------------
+
+Please read the information at https://pypy.org/ to find the correct way to
+download and use PyPy as an alternative to CPython. 
 
 
 Building
-========
+--------
 
-First switch to or download the correct branch.  The basic choices are
-``default`` for Python 2.7 and, for Python 3.X, the corresponding py3.X
-branch (e.g. ``py3.5``).
+Building PyPy is not the recommended way to obtain the PyPy alternative python
+interpreter. It is time-consuming and requires significant computing resources.
+More information can be found here:
 
-Build with:
+    https://doc.pypy.org/en/latest/build.html
 
-.. code-block:: console
+Enjoy and send us feedback!
 
-    $ rpython/bin/rpython -Ojit pypy/goal/targetpypystandalone.py
-
-This ends up with a ``pypy-c`` or ``pypy3-c`` binary in the main pypy
-directory.  We suggest to use virtualenv with the resulting
-pypy-c/pypy3-c as the interpreter; you can find more details about
-various installation schemes here:
-
-    http://doc.pypy.org/en/latest/install.html
+    the pypy-dev team <pypy-dev@python.org>

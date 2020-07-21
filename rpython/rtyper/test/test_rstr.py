@@ -1068,7 +1068,7 @@ class AbstractTestRstr(BaseRtypingTest):
                 l = [const('a'), const('b')]
             else:
                 l = [const('a')]
-            l += y
+            l += y     # list += string
             return const('').join(l)
 
         assert self.ll_to_string(self.interpret(f, [1,
@@ -1137,7 +1137,7 @@ class AbstractTestRstr(BaseRtypingTest):
             for i, x in enumerate(s):
                 if i == n:
                     return x
-            return 'x'
+            return const('x')
         res = self.interpret(fn, [2])
         assert res == 'c'
 

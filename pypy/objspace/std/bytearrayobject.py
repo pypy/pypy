@@ -109,6 +109,8 @@ class W_BytearrayObject(W_Root):
     @staticmethod
     def _op_val(space, w_other, strict=None):
         # bytearray does not enforce the strict restriction (on strip at least)
+        if isinstance(w_other, W_BytesObject):
+            return w_other.str_w(space)
         return space.buffer_w(w_other, space.BUF_SIMPLE).as_str()
 
     def _chr(self, char):
@@ -189,14 +191,17 @@ class W_BytearrayObject(W_Root):
         return new_bytearray(space, w_bytearraytype, [])
 
     def descr_reduce(self, space):
+        from pypy.interpreter.unicodehelper import str_decode_latin_1
+
         assert isinstance(self, W_BytearrayObject)
         w_dict = self.getdict(space)
         if w_dict is None:
             w_dict = space.w_None
+        s, _, lgt = str_decode_latin_1(''.join(self.getdata()), 'strict',
+            True, None)
         return space.newtuple([
             space.type(self), space.newtuple([
-                space.newunicode(''.join(self.getdata()).decode('latin-1')),
-                space.newtext('latin-1')]),
+                space.newutf8(s, lgt), space.newtext('latin-1')]),
             w_dict])
 
     @staticmethod
@@ -330,7 +335,7 @@ class W_BytearrayObject(W_Root):
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         elif isinstance(w_other, W_BytesObject):
-            other = self._op_val(space, w_other)
+            other = w_other.str_w(space)
             other_len = len(other)
             cmp = _memcmp(value, other, min(len(value), len(other)))
         else:
@@ -377,16 +382,8 @@ class W_BytearrayObject(W_Root):
             self._data += w_other.getdata()
             return self
 
-        if isinstance(w_other, W_BytesObject):
-            self._inplace_add(self._op_val(space, w_other))
-        else:
-            self._inplace_add(_get_buffer(space, w_other))
+        self._data += self._op_val(space, w_other)
         return self
-
-    @specialize.argtype(1)
-    def _inplace_add(self, other):
-        for i in range(len(other)):
-            self._data.append(other[i])
 
     def descr_inplace_mul(self, space, w_times):
         try:
@@ -448,8 +445,10 @@ class W_BytearrayObject(W_Root):
     def descr_extend(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
             self._data += w_other.getdata()
+        elif isinstance(w_other, W_BytesObject):    # performance only
+            self._data += w_other.str_w(space)
         else:
-            self._inplace_add(makebytearraydata_w(space, w_other))
+            self._data += makebytearraydata_w(space, w_other)
 
     def descr_insert(self, space, w_idx, w_other):
         where = space.int_w(w_idx)
@@ -488,20 +487,13 @@ class W_BytearrayObject(W_Root):
         if isinstance(w_other, W_BytearrayObject):
             return self._new(self.getdata() + w_other.getdata())
 
-        if isinstance(w_other, W_BytesObject):
-            return self._add(self._op_val(space, w_other))
-
         try:
-            buffer = _get_buffer(space, w_other)
+            byte_string = self._op_val(space, w_other)
         except OperationError as e:
             if e.match(space, space.w_TypeError):
                 return space.w_NotImplemented
             raise
-        return self._add(buffer)
-
-    @specialize.argtype(1)
-    def _add(self, other):
-        return self._new(self.getdata() + [other[i] for i in range(len(other))])
+        return self._new(self.getdata() + list(byte_string))
 
     def descr_reverse(self, space):
         self.getdata().reverse()
@@ -569,14 +561,14 @@ def makebytearraydata_w(space, w_source):
         return list(buf.as_str())
     return _from_byte_sequence(space, w_source)
 
-def _get_printable_location(w_type):
-    return ('bytearray_from_byte_sequence [w_type=%s]' %
-            w_type.getname(w_type.space))
+def _get_printable_location(greenkey):
+    return ('bytearray_from_byte_sequence [%s]' %
+            greenkey.iterator_greenkey_printable())
 
 _byteseq_jitdriver = jit.JitDriver(
     name='bytearray_from_byte_sequence',
-    greens=['w_type'],
-    reds=['w_iter', 'data'],
+    greens=['greenkey'],
+    reds='auto',
     get_printable_location=_get_printable_location)
 
 def _from_byte_sequence(space, w_source):
@@ -594,11 +586,9 @@ def _from_byte_sequence(space, w_source):
     return data
 
 def _from_byte_sequence_loop(space, w_iter, data):
-    w_type = space.type(w_iter)
+    greenkey = space.iterator_greenkey(w_iter)
     while True:
-        _byteseq_jitdriver.jit_merge_point(w_type=w_type,
-                                           w_iter=w_iter,
-                                           data=data)
+        _byteseq_jitdriver.jit_merge_point(greenkey=greenkey)
         try:
             w_item = space.next(w_iter)
         except OperationError as e:
@@ -1298,19 +1288,19 @@ class BytearrayBuffer(GCBuffer):
         ba = self.ba
         ba._data[ba._offset + index] = char
 
-    def getslice(self, start, stop, step, size):
+    def getslice(self, start, step, size):
         if size == 0:
             return ""
         if step == 1:
-            assert 0 <= start <= stop
+            assert start >= 0
+            assert size >= 0
             ba = self.ba
             start += ba._offset
-            stop += ba._offset
             data = ba._data
-            if start != 0 or stop != len(data):
-                data = data[start:stop]
+            if start != 0 or size != len(data):
+                data = data[start:start+size]
             return "".join(data)
-        return GCBuffer.getslice(self, start, stop, step, size)
+        return GCBuffer.getslice(self, start, step, size)
 
     def setslice(self, start, string):
         # No bounds checks.

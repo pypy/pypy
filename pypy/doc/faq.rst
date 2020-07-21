@@ -52,10 +52,14 @@ provided by the same package manager.*  So forget about them for now
 and read on.
 
 It is quite common nowadays that xyz is available on PyPI_ and
-installable with ``pip install xyz``.  The simplest solution is to `use
-virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
-and type: ``pip install xyz``.  If you don't know or don't want virtualenv,
-you can also install ``pip`` globally by saying ``pypy -m ensurepip``.
+installable with ``<pypy> -mpip install xyz``.  The simplest solution is to
+`use virtualenv (as documented here)`_.  Then enter (activate) the virtualenv
+and type: ``pypy -mpip install xyz``.  If you don't know or don't want
+virtualenv, you can also use ``pip`` locally after ``pypy -m ensurepip``.
+The `ensurepip module`_ is built-in to the PyPy downloads we provide.
+Best practices with ``pip`` is to always call it as ``<python> -mpip ...``,
+but if you wish to be able to call ``pip`` directly from the command line, you
+must call ``pypy -mensurepip --default-pip``.
 
 If you get errors from the C compiler, the module is a CPython C
 Extension module using unsupported features.  `See below.`_
@@ -67,8 +71,9 @@ setup.py install``.  (Note: `pypy` here instead of `python`.)  As usual
 you may need to run the command with `sudo` for a global installation.
 The other commands of ``setup.py`` are available too, like ``build``.
 
-.. _PyPI: https://pypi.python.org/pypi
+.. _PyPI: https://pypi.org
 .. _`use virtualenv (as documented here)`: install.html#installing-using-virtualenv
+.. _`ensurepip module`: https://docs.python.org/3.6/library/ensurepip.html
 
 
 Module xyz does not work in the sandboxed PyPy?
@@ -107,13 +112,9 @@ version; this is usually easily done by changing some line in ``setup.py``.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For information on which third party extensions work (or do not work)
-with PyPy see the `compatibility wiki`_.
-
 For more information about how we manage refcounting semamtics see 
 rawrefcount_
 
-.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
 .. _cffi: http://cffi.readthedocs.org/
 .. _rawrefcount: discussion/rawrefcount.html   
 
@@ -126,7 +127,10 @@ PyPy currently supports:
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
   
-  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  * 64-bit **AArch**, also known as ARM64,
+
+  * **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux
+    (we no longer provide prebuilt binaries for these),
   
   * big- and little-endian variants of **PPC64** running Linux,
 
@@ -146,9 +150,12 @@ Linux and ARM Linux (see :ref:`here <rpython:arm>`).
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
 
-PyPy currently aims to be fully compatible with Python 2.7. That means that
-it contains the standard library of Python 2.7 and that it supports 2.7
-features (such as set comprehensions).
+PyPy comes in two versions:
+
+* one is fully compatible with Python 2.7;
+
+* the other is fully compatible with one 3.x version.  At the time of
+  this writing, this is 3.6.
 
 
 .. _threading:
@@ -200,10 +207,6 @@ has two pieces:
     based on the micronumpy module written in RPython, instead of of
     ``numpy.core.multiarray`` which is written in C.
 
-Moreover, it is also possible to install the upstream version of ``numpy``:
-its core is written in C and it runs on PyPy under the cpyext compatibility
-layer. This is what you get if you do ``pypy -m pip install numpy``.
-
 
 Should I install numpy or numpypy?
 -----------------------------------
@@ -214,11 +217,11 @@ binary wheels`_ to save compilation time.
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply
-use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+use the upstream ``numpy``, since it passes the test suite. At the
 moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
 is infamously slow, and thus it has worse performance compared to
 ``numpypy``. However, we are actively working on improving it, as we expect to
-reach the same speed, eventually.
+reach the same speed when HPy_ can be used.
 
 On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
 since it is written in RPython: but it is a reimplementation, and it's hard to
@@ -231,7 +234,7 @@ progressing fast, we have discontinued support for ``numpypy``.
 .. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
 .. _fork: https://bitbucket.org/pypy/numpy
 .. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
-
+.. _HPy: https://morepypy.blogspot.com/2019/12/hpy-kick-off-sprint-report.html
 
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
@@ -274,6 +277,22 @@ complicated programs need even more time to warm-up the JIT.
 .. _benchmarking site: http://speed.pypy.org
 
 .. _your tests are not a benchmark: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
+
+I wrote a 3-lines benchmark and it's not faster than CPython.  Why?
+-------------------------------------------------------------------
+
+Three-lines benchmarks are benchmarks that either do absolutely nothing (in
+which case PyPy is probably a lot faster than CPython), or more likely, they
+are benchmarks that spend most of their time doing things in C.
+
+For example, a loop that repeatedly issues one complex SQL operation will only
+measure how performant the SQL database is.  Similarly, computing many elements
+from the Fibonacci series builds very large integers, so it only measures how
+performant the long integer library is.  This library is written in C for
+CPython, and in RPython for PyPy, but that boils down to the same thing.
+
+PyPy speeds up the code written *in Python*.
+
 
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------
@@ -360,7 +379,7 @@ interpreter; preliminary versions of a `JavaScript interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
-.. _Topaz: http://topazruby.com/
+.. _Topaz: http://docs.topazruby.com/en/latest/
 .. _Hippy: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
 .. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
@@ -406,7 +425,7 @@ Be sure to enable it again if you need it!
 How should I report a bug?
 --------------------------
 
-Our bug tracker is here: https://bitbucket.org/pypy/pypy/issues/
+Our bug tracker is here: https://foss.heptapod.net/pypy/pypy/issues/
 
 Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
@@ -425,7 +444,7 @@ Debugging PyPy can be annoying.
 `This is a clear and useful bug report.`__  (Admittedly, sometimes
 the problem is really hard to reproduce, but please try to.)
 
-.. __: https://bitbucket.org/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
+.. __: https://foss.heptapod.net/pypy/pypy/issues/2363/segfault-in-gc-pinned-object-in
 
 In more details:
 
@@ -465,14 +484,36 @@ various components involved, from PyPy's own RPython source code to
 the GC and possibly the JIT.
 
 
-Why doesn't PyPy move to GitHub, Gitlab, ...?
-----------------------------------------------
+.. _git:
+.. _github:
 
-We've been quite happy with bitbucket.org. Moving version control systems and
-hosting is a lot of hard work: On the one hand, PyPy's mercurial history is
-long and gnarly. On the other hand, all our infrastructure (buildbots,
-benchmarking, etc) would have to be adapted. So unless somebody steps up and
-volunteers to do all that work, it will likely not happen.
+Why doesn't PyPy use Git and move to GitHub?
+---------------------------------------------
+
+We discussed it during the switch away from bitbucket.  We concluded that (1)
+the Git workflow is not as well suited as the Mercurial workflow for our style,
+and (2) moving to github "just because everybody else does" is a argument on
+thin grounds.
+
+For (1), there are a few issues, but maybe the most important one is that the
+PyPy repository has got thousands of *named* branches.  Git has no equivalent
+concept.  Git has *branches,* of course, which in Mercurial are called
+bookmarks.  We're not talking about bookmarks.
+
+The difference between git branches and named branches is not that important in
+a repo with 10 branches (no matter how big).  But in the case of PyPy, we have
+at the moment 1840 branches.  Most are closed by now, of course.  But we would
+really like to retain (both now and in the future) the ability to look at a
+commit from the past, and know in which branch it was made.  Please make sure
+you understand the difference between the Git and the Mercurial branches to
+realize that this is not always possible with Git--- we looked hard, and there
+is no built-in way to get this workflow.
+
+Still not convinced?  Consider this git repo with three commits: commit #2 with
+parent #1 and head of git branch "A"; commit #3 with also parent #1 but head of
+git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
+(It could also be yet another branch whose head was also moved forward, or even
+completely deleted.)
 
 
 What is needed for Windows 64 support of PyPy?

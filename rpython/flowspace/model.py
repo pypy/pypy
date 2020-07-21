@@ -48,11 +48,11 @@ class FunctionGraph(object):
 
     @property
     def startline(self):
-        return self.func.func_code.co_firstlineno
+        return self.func.__code__.co_firstlineno
 
     @property
     def filename(self):
-        return self.func.func_code.co_filename
+        return self.func.__code__.co_filename
 
     def __str__(self):
         if hasattr(self, 'func'):
@@ -170,7 +170,7 @@ class Link(object):
 
 class Block(object):
     __slots__ = """inputargs operations exitswitch
-                exits blockcolor""".split()
+                exits blockcolor generation""".split()
 
     def __init__(self, inputargs):
         self.inputargs = list(inputargs)  # mixed list of variable/const XXX

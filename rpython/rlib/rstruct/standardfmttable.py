@@ -105,6 +105,18 @@ def pack_pascal(fmtiter, count):
     _pack_string(fmtiter, string, count-1)
 
 
+def pack_halffloat(fmtiter):
+    size = 2
+    fl = fmtiter.accept_float_arg()
+    try:
+        result = ieee.pack_float(fmtiter.wbuf, fmtiter.pos,
+                                 fl, size, fmtiter.bigendian)
+    except OverflowError:
+        raise StructOverflowError("float too large for format 'e'")
+    else:
+        fmtiter.advance(size)
+        return result
+
 def make_float_packer(TYPE):
     size = rffi.sizeof(TYPE)
     def packer(fmtiter):
@@ -247,6 +259,11 @@ def unpack_pascal(fmtiter, count):
         end = count
     fmtiter.appendobj(data[1:end])
 
+@specialize.argtype(0)
+def unpack_halffloat(fmtiter):
+    data = fmtiter.read(2)
+    fmtiter.appendobj(ieee.unpack_float(data, fmtiter.bigendian))
+
 def make_ieee_unpacker(TYPE):
     @specialize.argtype(0)
     def unpack_ieee(fmtiter):
@@ -374,6 +391,8 @@ standard_fmttable = {
           'needcount' : True },
     'p':{ 'size' : 1, 'pack' : pack_pascal, 'unpack' : unpack_pascal,
           'needcount' : True },
+    'e':{ 'size' : 2, 'pack' : pack_halffloat,
+                    'unpack' : unpack_halffloat},
     'f':{ 'size' : 4, 'pack' : make_float_packer(rffi.FLOAT),
                     'unpack' : unpack_float},
     'd':{ 'size' : 8, 'pack' : make_float_packer(rffi.DOUBLE),

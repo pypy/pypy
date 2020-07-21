@@ -437,7 +437,7 @@ show the program's call graph"""
             fn, args = self.post_mortem, (tb,)
         try:
             t = self.translator # define enviroments, xxx more stuff
-            exec ""
+            exec("")
             locals().update(self.exposed)
             fn(*args)
             pass # for debugger to land

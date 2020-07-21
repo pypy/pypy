@@ -307,11 +307,14 @@ class ArrayType(BaseType):
         self.c_name_with_marker = (
             self.item.c_name_with_marker.replace('&', brackets))
 
+    def length_is_unknown(self):
+        return isinstance(self.length, str)
+
     def resolve_length(self, newlength):
         return ArrayType(self.item, newlength)
 
     def build_backend_type(self, ffi, finishlist):
-        if self.length == '...':
+        if self.length_is_unknown():
             raise CDefError("cannot render the type %r: unknown length" %
                             (self,))
         self.item.get_cached_btype(ffi, finishlist)   # force the item BType
@@ -342,7 +345,7 @@ class StructOrUnion(StructOrUnionOrEnum):
     fixedlayout = None
     completed = 0
     partial = False
-    packed = False
+    packed = 0
 
     def __init__(self, name, fldnames, fldtypes, fldbitsize, fldquals=None):
         self.name = name
@@ -352,21 +355,20 @@ class StructOrUnion(StructOrUnionOrEnum):
         self.fldquals = fldquals
         self.build_c_name_with_marker()
 
-    def has_anonymous_struct_fields(self):
-        if self.fldtypes is None:
-            return False
-        for name, type in zip(self.fldnames, self.fldtypes):
-            if name == '' and isinstance(type, StructOrUnion):
-                return True
-        return False
+    def anonymous_struct_fields(self):
+        if self.fldtypes is not None:
+            for name, type in zip(self.fldnames, self.fldtypes):
+                if name == '' and isinstance(type, StructOrUnion):
+                    yield type
 
-    def enumfields(self):
+    def enumfields(self, expand_anonymous_struct_union=True):
         fldquals = self.fldquals
         if fldquals is None:
             fldquals = (0,) * len(self.fldnames)
         for name, type, bitsize, quals in zip(self.fldnames, self.fldtypes,
                                               self.fldbitsize, fldquals):
-            if name == '' and isinstance(type, StructOrUnion):
+            if (name == '' and isinstance(type, StructOrUnion)
+                    and expand_anonymous_struct_union):
                 # nested anonymous struct/union
                 for result in type.enumfields():
                     yield result
@@ -415,11 +417,14 @@ class StructOrUnion(StructOrUnionOrEnum):
             fldtypes = [tp.get_cached_btype(ffi, finishlist)
                         for tp in self.fldtypes]
             lst = list(zip(self.fldnames, fldtypes, self.fldbitsize))
-            sflags = 0
+            extra_flags = ()
             if self.packed:
-                sflags = 8    # SF_PACKED
+                if self.packed == 1:
+                    extra_flags = (8,)    # SF_PACKED
+                else:
+                    extra_flags = (0, self.packed)
             ffi._backend.complete_struct_or_union(BType, lst, self,
-                                                  -1, -1, sflags)
+                                                  -1, -1, *extra_flags)
             #
         else:
             fldtypes = []
@@ -428,7 +433,7 @@ class StructOrUnion(StructOrUnionOrEnum):
                 fsize = fieldsize[i]
                 ftype = self.fldtypes[i]
                 #
-                if isinstance(ftype, ArrayType) and ftype.length == '...':
+                if isinstance(ftype, ArrayType) and ftype.length_is_unknown():
                     # fix the length to match the total size
                     BItemType = ftype.item.get_cached_btype(ffi, finishlist)
                     nlen, nrest = divmod(fsize, ffi.sizeof(BItemType))

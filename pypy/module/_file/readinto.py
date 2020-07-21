@@ -4,6 +4,14 @@ from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rposix import c_read
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.module._file.interp_file import is_wouldblock_error, signal_checker
+from pypy.interpreter.error import oefmt
+
+
+def output_slice(space, rwbuffer, target_pos, data):
+    if target_pos + len(data) > rwbuffer.getlength():
+        raise oefmt(space.w_RuntimeError,
+                    "target buffer has shrunk during operation")
+    rwbuffer.setslice(target_pos, data)
 
 
 def direct_readinto(self, w_rwbuffer):
@@ -27,14 +35,14 @@ def direct_readinto(self, w_rwbuffer):
         MAX_PART = 1024 * 1024    # 1 MB
         while size > MAX_PART:
             data = self.direct_read(MAX_PART)
-            rwbuffer.setslice(target_pos, data)
+            output_slice(self.space, rwbuffer, target_pos, data)
             target_pos += len(data)
             size -= len(data)
             if len(data) != MAX_PART:
                 break
         else:
             data = self.direct_read(size)
-            rwbuffer.setslice(target_pos, data)
+            output_slice(self.space, rwbuffer, target_pos, data)
             target_pos += len(data)
 
     else:
@@ -46,7 +54,7 @@ def direct_readinto(self, w_rwbuffer):
         initial_size = min(size, stream.count_buffered_bytes())
         if initial_size > 0:
             data = stream.read(initial_size)
-            rwbuffer.setslice(target_pos, data)
+            output_slice(self.space, rwbuffer, target_pos, data)
             target_pos += len(data)
             size -= len(data)
 

@@ -322,10 +322,12 @@ W_IFilterFalse.typedef = TypeDef(
     """)
 
 
+def get_printable_location(greenkey):
+    return "islice_ignore_items [%s]" % (greenkey.iterator_greenkey_printable(), )
 islice_ignore_items_driver = jit.JitDriver(name='islice_ignore_items',
-                                           greens=['tp'],
-                                           reds=['num', 'w_islice',
-                                                 'w_iterator'])
+                                           greens=['greenkey'],
+                                           reds='auto',
+                                           get_printable_location=get_printable_location)
 
 class W_ISlice(W_Root):
     def __init__(self, space, w_iterable, w_startstop, args_w):
@@ -418,12 +420,9 @@ class W_ISlice(W_Root):
         if w_iterator is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
 
-        tp = self.space.type(w_iterator)
+        greenkey = self.space.iterator_greenkey(w_iterator)
         while True:
-            islice_ignore_items_driver.jit_merge_point(tp=tp,
-                                                       num=num,
-                                                       w_islice=self,
-                                                       w_iterator=w_iterator)
+            islice_ignore_items_driver.jit_merge_point(greenkey=greenkey)
             try:
                 self.space.next(w_iterator)
             except OperationError as e:
@@ -497,7 +496,7 @@ def W_Chain___new__(space, w_subtype, args_w):
 def chain_from_iterable(space, w_cls, w_arg):
     """chain.from_iterable(iterable) --> chain object
 
-    Alternate chain() contructor taking a single iterable argument
+    Alternate chain() constructor taking a single iterable argument
     that evaluates lazily."""
     r = space.allocate_instance(W_Chain, w_cls)
     r.__init__(space, space.iter(w_arg))

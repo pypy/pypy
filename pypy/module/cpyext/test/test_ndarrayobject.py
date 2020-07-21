@@ -1,6 +1,7 @@
 import pytest
 import os
 from pypy.interpreter.error import OperationError
+from pypy.module.cpyext.pyobject import make_ref, decref
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -230,6 +231,13 @@ class TestNDArrayObject(BaseApiTest):
                         types, ntypes, nin, nout, identity, doc, check_return,
                         signature)
         '''
+
+    def test_ndarray_ref(self, space, api):
+        w_obj = space.appexec([], """():
+            import _numpypy
+            return _numpypy.multiarray.dtype('int64').type(2)""")
+        ref = make_ref(space, w_obj)
+        decref(space, ref)
 
 class AppTestNDArray(AppTestCpythonExtensionBase):
 

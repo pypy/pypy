@@ -14,7 +14,8 @@ class AppTestFRAGILE:
     def setup_class(cls):
         cls.w_test_dct  = cls.space.newtext(test_dct)
         cls.w_fragile = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_missing_classes(self):
@@ -34,7 +35,7 @@ class AppTestFRAGILE:
 
         assert fragile.B == fragile.B
         assert fragile.B().check() == ord('B')
-        raises(AttributeError, getattr, fragile.B().gime_no_such(), "__cppdecl__")
+        assert not fragile.B().gime_no_such()
 
         assert fragile.C == fragile.C
         assert fragile.C().check() == ord('C')

@@ -285,12 +285,12 @@ class DFA(object):
             result = result.replace("\n\n", "\n")
         #print result
         d = {'LexerError': LexerError}
-        exec py.code.Source(result).compile() in d
+        exec(py.code.Source(result).compile(), d)
         return d['recognize']
 
     def make_lexing_code(self):
         code = self.generate_lexing_code()
-        exec py.code.Source(code).compile()
+        exec(py.code.Source(code).compile())
         return recognize
 
     def generate_lexing_code(self):

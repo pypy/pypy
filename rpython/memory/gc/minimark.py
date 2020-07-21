@@ -122,7 +122,11 @@ GCFLAG_CARDS_SET    = first_gcflag << 7     # <- at least one card bit is set
 # note that GCFLAG_CARDS_SET is the most significant bit of a byte:
 # this is required for the JIT (x86)
 
-_GCFLAG_FIRST_UNUSED = first_gcflag << 8    # the first unused bit
+# another flag set only on specific objects: the ll_dummy_value from
+# rpython.rtyper.rmodel
+GCFLAG_DUMMY        = first_gcflag << 8
+
+_GCFLAG_FIRST_UNUSED = first_gcflag << 9    # the first unused bit
 
 
 FORWARDSTUB = lltype.GcStruct('forwarding_stub',
@@ -140,6 +144,7 @@ class MiniMarkGC(MovingGCBase):
     prebuilt_gc_objects_are_static_roots = False
     malloc_zero_filled = True    # xxx experiment with False
     gcflag_extra = GCFLAG_EXTRA
+    gcflag_dummy = GCFLAG_DUMMY
 
     # All objects start with a HDR, i.e. with a field 'tid' which contains
     # a word.  This word is divided in two halves: the lower half contains
@@ -828,7 +833,7 @@ class MiniMarkGC(MovingGCBase):
             if self.max_heap_size < self.next_major_collection_threshold:
                 self.next_major_collection_threshold = self.max_heap_size
 
-    def raw_malloc_memory_pressure(self, sizehint):
+    def raw_malloc_memory_pressure(self, sizehint, adr):
         self.next_major_collection_threshold -= sizehint
         if self.next_major_collection_threshold < 0:
             # cannot trigger a full collection now, but we can ensure
@@ -1230,6 +1235,18 @@ class MiniMarkGC(MovingGCBase):
                 dest_hdr.tid &= ~GCFLAG_NO_HEAP_PTRS
                 self.prebuilt_root_objects.append(dest_addr)
         return True
+
+    def writebarrier_before_move(self, array_addr):
+        """If 'array_addr' uses cards, then this has the same effect as
+        a call to the generic writebarrier, effectively generalizing the
+        cards to "any item may be young".
+        """
+        if self.card_page_indices <= 0:     # check constant-folded
+            return     # no cards, nothing to do
+        #
+        array_hdr = self.header(array_addr)
+        if array_hdr.tid & GCFLAG_CARDS_SET != 0:
+            self.write_barrier(array_addr)
 
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest

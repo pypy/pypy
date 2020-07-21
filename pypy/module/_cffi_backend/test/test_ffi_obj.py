@@ -282,11 +282,33 @@ class AppTestFFIObj:
         import _cffi_backend as _cffi1_backend
         import array
         ffi = _cffi1_backend.FFI()
-        a = array.array('H', [10000, 20000, 30000])
+        a = array.array('H', [10000, 20000, 30000, 40000])
         c = ffi.from_buffer(a)
         assert ffi.typeof(c) is ffi.typeof("char[]")
+        assert len(c) == 8
         ffi.cast("unsigned short *", c)[1] += 500
-        assert list(a) == [10000, 20500, 30000]
+        assert list(a) == [10000, 20500, 30000, 40000]
+        raises(TypeError, ffi.from_buffer, a, True)
+        assert c == ffi.from_buffer("char[]", a, True)
+        assert c == ffi.from_buffer(a, require_writable=True)
+        #
+        c = ffi.from_buffer("unsigned short[]", a)
+        assert len(c) == 4
+        assert c[1] == 20500
+        #
+        c = ffi.from_buffer("unsigned short[2][2]", a)
+        assert len(c) == 2
+        assert len(c[0]) == 2
+        assert c[0][1] == 20500
+        #
+        p = ffi.from_buffer(b"abcd")
+        assert p[2] == b"c"
+        #
+        assert p == ffi.from_buffer(b"abcd", require_writable=False)
+        raises((TypeError, BufferError), ffi.from_buffer,
+                                         "char[]", b"abcd", True)
+        raises((TypeError, BufferError), ffi.from_buffer, b"abcd",
+                                         require_writable=True)
 
     def test_memmove(self):
         import sys
@@ -563,3 +585,13 @@ class AppTestFFIObj:
         assert len(z) == 2
         assert ffi.cast("int *", z)[0] == 0x12345
         assert list(z) == [u'\U00012345', u'\x00']   # maybe a 2-unichars str
+
+    def test_ffi_array_as_init(self):
+        import _cffi_backend as _cffi1_backend
+        ffi = _cffi1_backend.FFI()
+        p = ffi.new("int[4]", [10, 20, 30, 400])
+        q = ffi.new("int[4]", p)
+        assert list(q) == [10, 20, 30, 400]
+        raises(TypeError, ffi.new, "int[3]", p)
+        raises(TypeError, ffi.new, "int[5]", p)
+        raises(TypeError, ffi.new, "int16_t[4]", p)

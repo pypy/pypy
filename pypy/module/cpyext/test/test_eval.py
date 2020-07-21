@@ -13,7 +13,8 @@ from pypy.module.cpyext.eval import (
     PyEval_GetBuiltins, PyEval_GetLocals, PyEval_GetGlobals,
     _PyEval_SliceIndex)
 from pypy.module.cpyext.api import (
-    c_fopen, c_fclose, c_fileno, Py_ssize_tP, is_valid_fd)
+    c_fopen, c_fclose, c_fileno, Py_ssize_tP)
+from pypy.module.cpyext.pyobject import get_w_obj_and_decref
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.astcompiler import consts
@@ -117,8 +118,8 @@ class TestEval(BaseApiTest):
 
         assert run("a = 42 * 43", Py_single_input,
                    w_globals, w_globals) == space.w_None
-        assert 42 * 43 == space.unwrap(
-            PyObject_GetItem(space, w_globals, space.wrap("a")))
+        py_obj = PyObject_GetItem(space, w_globals, space.wrap("a"))
+        assert 42 * 43 == space.unwrap(get_w_obj_and_decref(space, py_obj))
 
     def test_run_string_flags(self, space):
         flags = lltype.malloc(PyCompilerFlags, flavor='raw')
@@ -131,7 +132,7 @@ class TestEval(BaseApiTest):
         finally:
             rffi.free_charp(buf)
         w_a = space.getitem(w_globals, space.wrap("a"))
-        assert space.unwrap(w_a) == u'caf\xe9'
+        assert space.utf8_w(w_a) == u'caf\xe9'.encode('utf8')
         lltype.free(flags, flavor='raw')
 
     def test_run_file(self, space):
@@ -145,12 +146,13 @@ class TestEval(BaseApiTest):
         c_fclose(fp)
 
         # try again, but with a closed file
-        fp = c_fopen(str(filepath), "rb")
-        os.close(c_fileno(fp))
-        with raises_w(space, IOError):
-            PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
-        if is_valid_fd(c_fileno(fp)):
+        if self.runappdirect:
+            # according to man 2 fclose, any access of fp is undefined
+            # behaviour. This crashes on some linux systems untranslated
+            fp = c_fopen(str(filepath), "rb")
             c_fclose(fp)
+            with raises_w(space, IOError):
+                PyRun_File(space, fp, filename, Py_file_input, w_globals, w_locals)
         rffi.free_charp(filename)
 
     def test_getbuiltins(self, space):
@@ -420,3 +422,15 @@ class AppTestCall(AppTestCpythonExtensionBase):
             except StopIteration:
                 pass
             assert out == [0, 1, 2, 3, 4]
+
+    def test_getframe(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("getframe1", "METH_NOARGS",
+             """
+                PyFrameObject *x = PyEval_GetFrame();
+                Py_INCREF(x);
+                return (PyObject *)x;
+             """),], prologue="#include <frameobject.h>\n")
+        res = module.getframe1()
+        assert res is sys._getframe(0)

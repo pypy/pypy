@@ -2,7 +2,7 @@ from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/ in the original CFFI repository:
-    https://bitbucket.org/cffi/cffi
+    https://foss.heptapod.net/pypy/cffi/
 
 Adding a test here involves:
 1. add a test to cffi/c/test.py
@@ -16,16 +16,16 @@ Adding a test here involves:
 5. make the test pass in pypy ('py.test test_c.py')
 """
 import py, sys, ctypes
-if sys.version_info < (2, 6):
-    py.test.skip("requires the b'' literal syntax")
 
 from rpython.tool.udir import udir
 from pypy.interpreter import gateway
-from pypy.module._cffi_backend import Module
+from pypy.module._cffi_backend.moduledef import Module
 from pypy.module._cffi_backend.newtype import _clean_cache, UniqueCache
 from rpython.translator import cdir
 from rpython.translator.platform import host
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+from .. import VERSION as TEST_VERSION
 
 
 class AppTestC(object):
@@ -34,6 +34,15 @@ class AppTestC(object):
     spaceconfig = dict(usemodules=('_cffi_backend', 'cStringIO', 'array'))
 
     def setup_class(cls):
+        if cls.runappdirect:
+            _cffi_backend = py.test.importorskip('_cffi_backend')
+            if _cffi_backend.__version__ != TEST_VERSION:
+                py.test.skip(
+                    "These tests are for cffi version %s, this Python "
+                    "has version %s installed" %
+                    (TEST_VERSION, _cffi_backend.__version__))
+
+
         testfuncs_w = []
         keepalive_funcs = []
         UniqueCache.for_testing = True
@@ -124,6 +133,7 @@ with tmpname2.open('w') as f:
     print >> f, '    class test:'
     print >> f, '        raises = staticmethod(raises)'
     print >> f, '        skip = staticmethod(skip)'
+    print >> f, 'pytest = py.test'
     print >> f, backend_test_c.read()
 
 

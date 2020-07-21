@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import py
+import pytest
 from pypy.interpreter.argument import (Arguments, ArgErr, ArgErrUnknownKwds,
         ArgErrMultipleValues, ArgErrCount, ArgErrCountMethod)
 from pypy.interpreter.signature import Signature
@@ -54,6 +55,9 @@ class kwargsdict(dict):
     pass
 
 class DummySpace(object):
+    class sys:
+        defaultencoding = 'utf-8'
+
     def newtuple(self, items):
         return tuple(items)
 
@@ -738,7 +742,7 @@ class AppTestArgument:
         exc = raises(TypeError, (lambda a, b, **kw: 0), a=1)
         assert exc.value.message == "<lambda>() takes exactly 2 non-keyword arguments (0 given)"
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_method(self):
         class A(object):
             def f0():
@@ -755,14 +759,14 @@ class AppTestArgument:
         # does not contain the warning about missing self
         assert exc.value.message == "f0() takes no arguments (1 given)"
 
-    @py.test.mark.skipif("config.option.runappdirect")
     def test_error_message_module_function(self):
         import operator # use repeat because it's defined at applevel
         exc = raises(TypeError, lambda : operator.repeat(1, 2, 3))
-        # does not contain the warning about missing self
-        assert exc.value.message == "repeat() takes exactly 2 arguments (3 given)"
+        # does not contain the warning
+        # 'Did you forget 'self' in the function definition?'
+        assert 'self' not in str(exc.value)
 
-    @py.test.mark.skipif("config.option.runappdirect")
+    @pytest.mark.pypy_only
     def test_error_message_bound_method(self):
         class A(object):
             def f0():

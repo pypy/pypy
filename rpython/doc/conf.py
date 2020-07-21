@@ -263,4 +263,4 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
-extlinks = {'source': ('https://bitbucket.org/pypy/pypy/src/default/%s', '')}
+extlinks = {'source': ('https://foss.heptapod.net/pypy/pypy/blob/branch/default/%s', '')}

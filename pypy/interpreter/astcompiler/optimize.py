@@ -5,7 +5,7 @@ from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.runicode import MAXUNICODE
+from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib.objectmodel import specialize
 
 

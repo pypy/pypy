@@ -6,10 +6,9 @@ from rpython.jit.codewriter.flatten import ListOfKind, IndirectCallTargets
 from rpython.jit.codewriter.policy import log
 from rpython.jit.metainterp import quasiimmut
 from rpython.jit.metainterp.history import getkind
-from rpython.jit.metainterp.typesystem import deref, arrayItem
 from rpython.jit.metainterp.blackhole import BlackholeInterpreter
-from rpython.flowspace.model import SpaceOperation, Variable, Constant,\
-     c_last_exception
+from rpython.jit.metainterp.support import ptr2int
+from rpython.flowspace.model import SpaceOperation, Variable, Constant
 from rpython.rlib import objectmodel
 from rpython.rlib.jit import _we_are_jitted
 from rpython.rlib.rgc import lltype_is_gc
@@ -271,6 +270,9 @@ class Transformer(object):
 
     def rewrite_op_unlikely(self, op):
         return None   # "no real effect"
+
+    def rewrite_op_revdb_do_next_call(self, op):
+        return []    # ignored, only for revdb
 
     def rewrite_op_raw_malloc_usage(self, op):
         if self.cpu.translate_support_code or isinstance(op.args[0], Variable):
@@ -587,6 +589,23 @@ class Transformer(object):
                                         EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
             descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
                 EffectInfo.OS_STREQ_NONNULL)
+            # XXX this is fairly ugly way of creating a constant,
+            #     however, callinfocollection has no better interface
+            c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
+            op1 = SpaceOperation('str_guard_value', [op.args[0], c, descr],
+                                 op.result)
+            return [SpaceOperation('-live-', [], None), op1, None]
+        if (hints.get('promote_unicode') and
+            op.args[0].concretetype is not lltype.Void):
+            U = lltype.Ptr(rstr.UNICODE)
+            assert op.args[0].concretetype == U
+            self._register_extra_helper(EffectInfo.OS_UNIEQ_NONNULL,
+                                        "str.eq_nonnull",
+                                        [U, U],
+                                        lltype.Signed,
+                                        EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
+            descr, p = self.callcontrol.callinfocollection.callinfo_for_oopspec(
+                EffectInfo.OS_UNIEQ_NONNULL)
             # XXX this is fairly ugly way of creating a constant,
             #     however, callinfocollection has no better interface
             c = Constant(p.adr.ptr, lltype.typeOf(p.adr.ptr))
@@ -1455,7 +1474,7 @@ class Transformer(object):
                           ('cast_longlong_to_float',   'TO_FLOAT'),
                           ('cast_uint_to_longlong',    'FROM_UINT'),
                           ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "llong_%s", args)
@@ -1465,7 +1484,7 @@ class Transformer(object):
                 if %r == "TO_INT":
                     assert op2.result.concretetype == lltype.Signed
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec, _oopspec)).compile())
 
     for _op, _oopspec in [('cast_int_to_ulonglong',     'FROM_INT'),
                           ('cast_uint_to_ulonglong',    'FROM_UINT'),
@@ -1487,7 +1506,7 @@ class Transformer(object):
                           ('ullong_lshift', 'LSHIFT'),
                           ('ullong_rshift', 'URSHIFT'),
                          ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 args = op.args
                 op1 = self.prepare_builtin_call(op, "ullong_%s", args)
@@ -1495,7 +1514,7 @@ class Transformer(object):
                                                 EffectInfo.OS_LLONG_%s,
                                                 EffectInfo.EF_ELIDABLE_CANNOT_RAISE)
                 return op2
-        ''' % (_op, _oopspec.lower(), _oopspec)).compile()
+        ''' % (_op, _oopspec.lower(), _oopspec)).compile())
 
     def _normalize(self, oplist):
         if isinstance(oplist, SpaceOperation):
@@ -1562,11 +1581,11 @@ class Transformer(object):
                        ('adr_add', 'int_add'),
                        ]:
         assert _old not in locals()
-        exec py.code.Source('''
+        exec(py.code.Source('''
             def rewrite_op_%s(self, op):
                 op1 = SpaceOperation(%r, op.args, op.result)
                 return self.rewrite_operation(op1)
-        ''' % (_old, _new)).compile()
+        ''' % (_old, _new)).compile())
 
     def rewrite_op_float_is_true(self, op):
         op1 = SpaceOperation('float_ne',
@@ -1709,9 +1728,9 @@ class Transformer(object):
         (in which case the original call is written as a residual call).
         """
         if oopspec_name.startswith('new'):
-            LIST = deref(op.result.concretetype)
+            LIST = op.result.concretetype.TO
         else:
-            LIST = deref(args[0].concretetype)
+            LIST = args[0].concretetype.TO
         resizable = isinstance(LIST, lltype.GcStruct)
         assert resizable == (not isinstance(LIST, lltype.GcArray))
         if resizable:
@@ -1748,16 +1767,16 @@ class Transformer(object):
         func = op.args[0].value._obj._callable
         # base hints on the name of the ll function, which is a bit xxx-ish
         # but which is safe for now
-        assert func.func_name.startswith('ll_')
+        assert func.__name__.startswith('ll_')
         # check that we have carefully placed the oopspec in
         # pypy/rpython/rlist.py.  There should not be an oopspec on
         # a ll_getitem or ll_setitem that expects a 'func' argument.
         # The idea is that a ll_getitem/ll_setitem with dum_checkidx
         # should get inlined by the JIT, so that we see the potential
         # 'raise IndexError'.
-        assert 'func' not in func.func_code.co_varnames
-        non_negative = '_nonneg' in func.func_name
-        fast = '_fast' in func.func_name
+        assert 'func' not in func.__code__.co_varnames
+        non_negative = '_nonneg' in func.__name__
+        fast = '_fast' in func.__name__
         return non_negative or fast
 
     def _prepare_list_getset(self, op, descr, args, checkname):
@@ -1858,6 +1877,11 @@ class Transformer(object):
     def do_fixed_list_ll_arraycopy(self, op, args, arraydescr):
         return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYCOPY)
 
+    def do_fixed_list_ll_arraymove(self, op, args, arraydescr):
+        # this case is unreachable for now: ll_arraymove is only called on
+        # lists which have insert() or pop() or del called on them
+        return self._handle_oopspec_call(op, args, EffectInfo.OS_ARRAYMOVE)
+
     def do_fixed_void_list_getitem(self, op, args):
         self._prepare_void_list_getset(op)
         return []
@@ -1936,8 +1960,7 @@ class Transformer(object):
         if isinstance(op.args[0].value, str):
             pass  # for tests only
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(op.args[0].value))
+            func = ptr2int(op.args[0].value)
             self.callcontrol.callinfocollection.add(oopspecindex,
                                                     calldescr, func)
         op1 = self.rewrite_call(op, 'residual_call',
@@ -1964,8 +1987,7 @@ class Transformer(object):
         if isinstance(c_func.value, str):    # in tests only
             func = c_func.value
         else:
-            func = heaptracker.adr2int(
-                llmemory.cast_ptr_to_adr(c_func.value))
+            func = ptr2int(c_func.value)
         self.callcontrol.callinfocollection.add(oopspecindex, calldescr, func)
 
     def _handle_int_special(self, op, oopspec_name, args):
@@ -2162,6 +2184,11 @@ class Transformer(object):
         op1 = self.prepare_builtin_call(op, "ll_read_timestamp", [])
         return self.handle_residual_call(op1,
             oopspecindex=EffectInfo.OS_MATH_READ_TIMESTAMP,
+            extraeffect=EffectInfo.EF_CANNOT_RAISE)
+
+    def rewrite_op_ll_get_timestamp_unit(self, op):
+        op1 = self.prepare_builtin_call(op, "ll_get_timestamp_unit", [])
+        return self.handle_residual_call(op1,
             extraeffect=EffectInfo.EF_CANNOT_RAISE)
 
     def rewrite_op_jit_force_quasi_immutable(self, op):

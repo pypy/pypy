@@ -1,22 +1,40 @@
-===========================
-What's new in PyPy2.7 5.10+
-===========================
+============================
+What's new in PyPy2.7 7.3.1+
+============================
 
-.. this is a revision shortly after release-pypy2.7-v5.9.0
-.. startrev:d56dadcef996
+.. this is a revision shortly after release-pypy-7.3.1
+.. startrev: 1cae9900d598
 
-.. branch: cppyy-packaging
-Cleanup and improve cppyy packaging
+.. branch: optimize-sre-unicode
 
-.. branch: docs-osx-brew-openssl
+Speed up performance of matching Unicode strings in the ``re`` module
+significantly for characters that are part of ASCII.
 
-.. branch: keep-debug-symbols
-Add a smartstrip tool, which can optionally keep the debug symbols in a
-separate file, instead of just stripping them away. Use it in packaging
+.. branch: rpython-recvmsg_into
 
-.. branch: bsd-patches
-Fix failures on FreeBSD, contributed by David Naylor as patches on the issue
-tracker (issues 2694, 2695, 2696, 2697)
+Refactor RSocket.xxx_into() methods and add .recvmsg_into().
 
-.. branch: run-extra-tests
-Run extra_tests/ in buildbot
+.. branch: bo-fix-source-links
+
+Fix documentation extlinks for heptapod directory schema
+
+.. branch: py3.6 # ignore, bad merge
+
+.. branch: ssl  # ignore, small test fix
+
+.. branch: ctypes-stuff
+
+Fix implementation of PEP 3118 in ctypes.
+
+.. branch: issue3240
+
+Use make_portable on macOS
+
+.. branch: wb_before_move
+
+Add ``rgc.ll_arraymove()``, as a way to shift items inside the same
+array with proper GC support. Improves ``while lst: lst.pop(0)``.
+
+.. branch: no-str-unicode-union
+
+Remove all implicit str-unicode conversions in RPython.

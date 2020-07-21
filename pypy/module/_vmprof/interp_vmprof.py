@@ -60,11 +60,6 @@ def enable(space, fileno, period, memory, lines, native, real_time):
     'interval' is a float representing the sampling interval, in seconds.
     Must be smaller than 1.0
     """
-    w_modules = space.sys.get('modules')
-    #if space.contains_w(w_modules, space.newtext('_continuation')):
-    #    space.warn(space.newtext("Using _continuation/greenlet/stacklet together "
-    #                             "with vmprof will crash"),
-    #               space.w_RuntimeWarning)
     try:
         rvmprof.enable(fileno, period, memory, native, real_time)
     except rvmprof.VMProfError as e:
@@ -93,8 +88,8 @@ def get_profile_path(space):
     return space.newtext(path)
 
 def stop_sampling(space):
-    return space.newint(rvmprof.stop_sampling(space))
+    return space.newint(rvmprof.stop_sampling())
 
 def start_sampling(space):
-    rvmprof.start_sampling(space)
+    rvmprof.start_sampling()
     return space.w_None

@@ -2,6 +2,8 @@
 optimizer of the bridge attached to a guard. """
 
 from rpython.jit.metainterp import resumecode
+from rpython.jit.metainterp.history import Const, ConstInt, CONST_NULL
+from .info import getptrinfo
 
 
 # adds the following sections at the end of the resume code:
@@ -17,18 +19,23 @@ from rpython.jit.metainterp import resumecode
 # <length>
 # (<box1> <descr> <box2>) length times, if getfield(box1, descr) == box2
 #                         both boxes should be in the liveboxes
+#                         (or constants)
 #
 # <length>
 # (<box1> <index> <descr> <box2>) length times, if getarrayitem_gc(box1, index, descr) == box2
 #                                 both boxes should be in the liveboxes
+#                                 (or constants)
 #
+# ---- call_loopinvariant knowledge
+# <length>
+# (<const> <box2>) length times, if call_loopinvariant(const) == box2
+#                  box2 should be in liveboxes
 # ----
 
 
 # maybe should be delegated to the optimization classes?
 
 def tag_box(box, liveboxes_from_env, memo):
-    from rpython.jit.metainterp.history import Const
     if isinstance(box, Const):
         return memo.getconst(box)
     else:
@@ -37,13 +44,12 @@ def tag_box(box, liveboxes_from_env, memo):
 def decode_box(resumestorage, tagged, liveboxes, cpu):
     from rpython.jit.metainterp.resume import untag, TAGCONST, TAGINT, TAGBOX
     from rpython.jit.metainterp.resume import NULLREF, TAG_CONST_OFFSET, tagged_eq
-    from rpython.jit.metainterp.history import ConstInt
     num, tag = untag(tagged)
     # NB: the TAGVIRTUAL case can't happen here, because this code runs after
     # virtuals are already forced again
     if tag == TAGCONST:
         if tagged_eq(tagged, NULLREF):
-            box = cpu.ts.CONST_NULL
+            box = CONST_NULL
         else:
             box = resumestorage.rd_consts[num - TAG_CONST_OFFSET]
     elif tag == TAGINT:
@@ -59,7 +65,6 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     for box in liveboxes:
         if box is not None and box in liveboxes_from_env:
             available_boxes[box] = None
-    metainterp_sd = optimizer.metainterp_sd
 
     # class knowledge is stored as bits, true meaning the class is known, false
     # means unknown. on deserializing we look at the bits, and read the runtime
@@ -71,7 +76,7 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
     for box in liveboxes:
         if box is None or box.type != "r":
             continue
-        info = optimizer.getptrinfo(box)
+        info = getptrinfo(box)
         known_class = info is not None and info.get_known_class(optimizer.cpu) is not None
         bitfield <<= 1
         bitfield |= known_class
@@ -106,6 +111,17 @@ def serialize_optimizer_knowledge(optimizer, numb_state, liveboxes, liveboxes_fr
         numb_state.append_int(0)
         numb_state.append_int(0)
 
+    if optimizer.optrewrite:
+        tuples_loopinvariant = optimizer.optrewrite.serialize_optrewrite(
+                available_boxes)
+        numb_state.append_int(len(tuples_loopinvariant))
+        for constarg0, box in tuples_loopinvariant:
+            numb_state.append_short(
+                    tag_box(ConstInt(constarg0), liveboxes_from_env, memo))
+            numb_state.append_short(tag_box(box, liveboxes_from_env, memo))
+    else:
+        numb_state.append_int(0)
+
 def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, liveboxes):
     reader = resumecode.Reader(resumestorage.rd_numb)
     assert len(frontend_boxes) == len(liveboxes)
@@ -127,12 +143,10 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         class_known = bitfield & mask
         mask >>= 1
         if class_known:
-            cls = optimizer.cpu.ts.cls_of_box(frontend_boxes[i])
+            cls = optimizer.cpu.cls_of_box(frontend_boxes[i])
             optimizer.make_constant_class(box, cls)
 
     # heap knowledge
-    if not optimizer.optheap:
-        return
     length = reader.next_item()
     result_struct = []
     for i in range(length):
@@ -154,4 +168,19 @@ def deserialize_optimizer_knowledge(optimizer, resumestorage, frontend_boxes, li
         tagged = reader.next_item()
         box2 = decode_box(resumestorage, tagged, liveboxes, metainterp_sd.cpu)
         result_array.append((box1, index, descr, box2))
-    optimizer.optheap.deserialize_optheap(result_struct, result_array)
+    if optimizer.optheap:
+        optimizer.optheap.deserialize_optheap(result_struct, result_array)
+
+    # call_loopinvariant knowledge
+    length = reader.next_item()
+    result_loopinvariant = []
+    for i in range(length):
+        tagged1 = reader.next_item()
+        const = decode_box(resumestorage, tagged1, liveboxes, metainterp_sd.cpu)
+        assert isinstance(const, ConstInt)
+        i = const.getint()
+        tagged2 = reader.next_item()
+        box = decode_box(resumestorage, tagged2, liveboxes, metainterp_sd.cpu)
+        result_loopinvariant.append((i, box))
+    if optimizer.optrewrite:
+        optimizer.optrewrite.deserialize_optrewrite(result_loopinvariant)

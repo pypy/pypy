@@ -5,13 +5,18 @@ class AppTestMemory:
                                    '_rawffi', 'itertools',
                                    'signal', 'select',
                                    'binascii'))
-    if sys.platform != 'win32':
+    if sys.platform == 'win32':
+        spaceconfig['usemodules'] += ('_cffi_backend',)
+    else:
         spaceconfig['usemodules'] += ('fcntl',)
 
     def test_address_of(self):
         import _multiprocessing
         raises(TypeError, _multiprocessing.address_of_buffer, None)
         raises(TypeError, _multiprocessing.address_of_buffer, "a")
+
+    if sys.platform == "win32":
+        test_address_of.dont_track_allocations = True
 
     def test_mmap_address(self):
         import mmap

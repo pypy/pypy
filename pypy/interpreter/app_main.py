@@ -83,11 +83,24 @@ def run_toplevel(f, *fargs, **fkwds):
     sys.excepthook(), catching SystemExit, printing a newline after
     sys.stdout if needed, etc.
     """
+    # don't use try:except: here, otherwise the exception remains
+    # visible in user code.  Make sure revdb_stop is a callable, so
+    # that we can call it immediately after finally: below.  Doing
+    # so minimizes the number of "blind" lines that we need to go
+    # back from, with "bstep", after we do "continue" in revdb.
+    if '__pypy__' in sys.builtin_module_names:
+        from __pypy__ import revdb_stop
+    else:
+        revdb_stop = None
+    if revdb_stop is None:
+        revdb_stop = lambda: None
+
     try:
         # run it
         try:
             f(*fargs, **fkwds)
         finally:
+            revdb_stop()
             sys.settrace(None)
             sys.setprofile(None)
 
@@ -213,6 +226,8 @@ def _print_jit_help():
     print '    turn off the JIT'
     print ' help'
     print '    print this page'
+    print
+    print 'The "pypyjit" module can be used to control the JIT from inside python'
 
 def print_version(*args):
     print >> sys.stderr, "Python", sys.version
@@ -596,8 +611,14 @@ def run_command_line(interactive,
         warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
         sys.warnoptions[:] = warnoptions
-        from warnings import _processoptions
-        _processoptions(sys.warnoptions)
+        try:
+            if 'warnings' in sys.modules:
+                from warnings import _processoptions
+                _processoptions(sys.warnoptions)
+            else:
+                import warnings
+        except ImportError as e:
+            pass   # CPython just eats any exception here
 
     # set up the Ctrl-C => KeyboardInterrupt signal handler, if the
     # signal module is available

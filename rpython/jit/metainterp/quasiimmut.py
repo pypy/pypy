@@ -1,9 +1,11 @@
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper import rclass
-from rpython.rtyper.annlowlevel import cast_base_ptr_to_instance
-from rpython.jit.metainterp.history import AbstractDescr, ConstPtr, ConstInt,\
-     ConstFloat
+from rpython.rtyper.annlowlevel import (
+    cast_base_ptr_to_instance, cast_gcref_to_instance, cast_instance_to_gcref)
+from rpython.jit.metainterp.history import (
+    AbstractDescr, ConstPtr, ConstInt, ConstFloat)
 from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.debug import ll_assert, debug_print, debug_start, debug_stop
 
 
 def get_mutate_field_name(fieldname):
@@ -18,19 +20,21 @@ def get_current_qmut_instance(cpu, gcref, mutatefielddescr):
     """
     qmut_gcref = cpu.bh_getfield_gc_r(gcref, mutatefielddescr)
     if qmut_gcref:
-        qmut = QuasiImmut.show(cpu, qmut_gcref)
+        qmut = QuasiImmut.show(qmut_gcref)
     else:
         qmut = QuasiImmut(cpu)
         cpu.bh_setfield_gc_r(gcref, qmut.hide(), mutatefielddescr)
     return qmut
 
 def make_invalidation_function(STRUCT, mutatefieldname):
-    #
+    # fake a repr
+    descr_repr = "FieldDescr(%s, '%s')" % (STRUCT.TO, mutatefieldname)
+
     def _invalidate_now(p):
         qmut_ptr = getattr(p, mutatefieldname)
         setattr(p, mutatefieldname, lltype.nullptr(rclass.OBJECT))
         qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
-        qmut.invalidate()
+        qmut.invalidate(descr_repr)
     _invalidate_now._dont_inline_ = True
     #
     def invalidation(p):
@@ -42,10 +46,9 @@ def make_invalidation_function(STRUCT, mutatefieldname):
 def do_force_quasi_immutable(cpu, p, mutatefielddescr):
     qmut_ref = cpu.bh_getfield_gc_r(p, mutatefielddescr)
     if qmut_ref:
-        cpu.bh_setfield_gc_r(p, cpu.ts.NULLREF, mutatefielddescr)
-        qmut_ptr = lltype.cast_opaque_ptr(rclass.OBJECTPTR, qmut_ref)
-        qmut = cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
-        qmut.invalidate()
+        cpu.bh_setfield_gc_r(p, ConstPtr.value, mutatefielddescr)
+        qmut = cast_gcref_to_instance(QuasiImmut, qmut_ref)
+        qmut.invalidate(mutatefielddescr.repr_of_descr())
 
 
 class QuasiImmut(object):
@@ -60,13 +63,11 @@ class QuasiImmut(object):
         self.looptokens_wrefs = []
 
     def hide(self):
-        qmut_ptr = self.cpu.ts.cast_instance_to_base_ref(self)
-        return self.cpu.ts.cast_to_ref(qmut_ptr)
+        return cast_instance_to_gcref(self)
 
     @staticmethod
-    def show(cpu, qmut_gcref):
-        qmut_ptr = cpu.ts.cast_to_baseclass(qmut_gcref)
-        return cast_base_ptr_to_instance(QuasiImmut, qmut_ptr)
+    def show(qmut_gcref):
+        return cast_gcref_to_instance(QuasiImmut, qmut_gcref)
 
     def register_loop_token(self, wref_looptoken):
         if len(self.looptokens_wrefs) > self.compress_limit:
@@ -80,7 +81,8 @@ class QuasiImmut(object):
         # already invalidated; see below
         self.compress_limit = (len(self.looptokens_wrefs) + 15) * 2
 
-    def invalidate(self):
+    def invalidate(self, descr_repr=None):
+        debug_start("jit-invalidate-quasi-immutable")
         # When this is called, all the loops that we record become
         # invalid: all GUARD_NOT_INVALIDATED in these loops (and
         # in attached bridges) must now fail.
@@ -89,9 +91,11 @@ class QuasiImmut(object):
             return
         wrefs = self.looptokens_wrefs
         self.looptokens_wrefs = []
+        invalidated = 0
         for wref in wrefs:
             looptoken = wref()
             if looptoken is not None:
+                invalidated += 1
                 looptoken.invalidated = True
                 self.cpu.invalidate_loop(looptoken)
                 # NB. we must call cpu.invalidate_loop() even if
@@ -102,6 +106,8 @@ class QuasiImmut(object):
                 if not we_are_translated():
                     self.cpu.stats.invalidated_token_numbers.add(
                         looptoken.number)
+        debug_print("fieldname", descr_repr or "<unknown>", "invalidated", invalidated)
+        debug_stop("jit-invalidate-quasi-immutable")
 
 
 class QuasiImmutDescr(AbstractDescr):
@@ -109,7 +115,7 @@ class QuasiImmutDescr(AbstractDescr):
     # fields
     struct = lltype.nullptr(llmemory.GCREF.TO)
     fielddescr = None
-    
+
     def __init__(self, cpu, struct, fielddescr, mutatefielddescr):
         self.cpu = cpu
         self.struct = struct

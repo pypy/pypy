@@ -96,6 +96,16 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert raises(TypeError, buffer_support.writebuffer_as_string, ro_mm)
         assert s == buffer_support.charbuffer_as_string(ro_mm)
 
+    def test_array(self):
+        import array
+        buffer_support = self.get_buffer_support()
+
+        s = 'a\0x'
+        a = array.array('B', [5, 0, 10])
+
+        buffer_support.zero_out_writebuffer(a)
+        assert list(a) == [0, 0, 0]
+
     def test_nonbuffer(self):
         # e.g. int
         buffer_support = self.get_buffer_support()
@@ -117,4 +127,29 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         assert raises(TypeError, buffer_support.writebuffer_as_string, buf)
         assert s == buffer_support.charbuffer_as_string(buf)
 
+    def test_user_bufferable(self):
+        try:
+            import __pypy__
+        except ImportError:
+            skip('PyPy only test')
 
+        class MyBuf(__pypy__.bufferable.bufferable):
+            def __init__(self, mview):
+                if not isinstance(mview, memoryview):
+                    raise ValueError('mview must be a memoryview')
+                self.mview = mview
+
+            def __buffer__(self, flags):
+                if flags & 1 and self.buffer.readonly:
+                    raise TypeError('cannot return a writable buffer')
+                return __pypy__.newmemoryview(self.mview, self.mview.itemsize,
+                                         self.mview.format, self.mview.shape)
+
+        s = b'abc'
+        m = memoryview(s) 
+        buf = MyBuf(m)
+        buffer_support = self.get_buffer_support()
+        assert buffer_support.check_readbuffer(buf)
+        assert s == buffer_support.readbuffer_as_string(buf)
+        assert raises(TypeError, buffer_support.writebuffer_as_string, buf)
+        assert s == buffer_support.charbuffer_as_string(buf)

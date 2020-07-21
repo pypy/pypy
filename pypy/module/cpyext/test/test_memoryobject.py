@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi
 from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rlib.buffer import StringBuffer
-from pypy.module.cpyext.pyobject import make_ref, from_ref
+from pypy.module.cpyext.pyobject import make_ref, from_ref, decref
 from pypy.module.cpyext.memoryobject import PyMemoryViewObject
 
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
@@ -31,8 +31,25 @@ class TestMemoryViewObject(BaseApiTest):
             w_f = space.wrap(f)
             assert space.eq_w(space.getattr(w_mv, w_f),
                               space.getattr(w_memoryview, w_f))
-        api.Py_DecRef(ref)
-        api.Py_DecRef(w_memoryview)
+        decref(space, ref)
+        decref(space, c_memoryview)
+
+    def test_class_with___buffer__(self, space, api):
+        w_obj = space.appexec([], """():
+            from __pypy__.bufferable import bufferable
+            class B(bufferable):
+                def __init__(self):
+                    self.buf = bytearray(10)
+
+                def __buffer__(self, flags):
+                    return memoryview(self.buf)
+            return B()""")
+        py_obj = make_ref(space, w_obj)
+        assert py_obj.c_ob_type.c_tp_as_buffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getbuffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getreadbuffer
+        assert py_obj.c_ob_type.c_tp_as_buffer.c_bf_getwritebuffer
+         
 
 class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
     def test_fillWithObject(self):

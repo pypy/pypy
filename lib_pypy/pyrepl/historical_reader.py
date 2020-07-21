@@ -111,7 +111,7 @@ class forward_history_isearch(commands.Command):
         r.isearch_term = ''
         r.dirty = 1
         r.push_input_trans(r.isearch_trans)
-        
+
 
 class reverse_history_isearch(commands.Command):
     def do(self):
@@ -217,7 +217,7 @@ class HistoricalReader(R):
         self.isearch_trans = input.KeymapTranslator(
             isearch_keymap, invalid_cls=isearch_end,
             character_cls=isearch_add_character)
-        
+
     def select_item(self, i):
         self.transient_history[self.historyi] = self.get_unicode()
         buf = self.transient_history.get(i)
@@ -302,7 +302,7 @@ def test():
     reader.ps1 = "h**> "
     reader.ps2 = "h/*> "
     reader.ps3 = "h|*> "
-    reader.ps4 = "h\*> "
+    reader.ps4 = r"h\*> "
     while reader.readline():
         pass
 

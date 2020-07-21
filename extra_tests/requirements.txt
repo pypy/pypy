@@ -1,2 +1,3 @@
-pytest
+pytest<=4.0
 hypothesis
+vmprof

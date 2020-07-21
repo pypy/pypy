@@ -71,6 +71,7 @@ class Bookkeeper(object):
 
         self.needs_generic_instantiate = {}
         self.thread_local_fields = set()
+        self.memory_pressure_types = set()
 
         self.register_builtins()
 
@@ -194,13 +195,14 @@ class Bookkeeper(object):
             listdef.generalize_range_step(flags['range_step'])
         return SomeList(listdef)
 
-    def getdictdef(self, is_r_dict=False, force_non_null=False):
+    def getdictdef(self, is_r_dict=False, force_non_null=False, simple_hash_eq=False):
         """Get the DictDef associated with the current position."""
         try:
             dictdef = self.dictdefs[self.position_key]
         except KeyError:
             dictdef = DictDef(self, is_r_dict=is_r_dict,
-                              force_non_null=force_non_null)
+                              force_non_null=force_non_null,
+                              simple_hash_eq=simple_hash_eq)
             self.dictdefs[self.position_key] = dictdef
         return dictdef
 
@@ -413,8 +415,8 @@ class Bookkeeper(object):
             signature = Signature(['entry'])     # haaaaaack
             defaults = ()
         else:
-            signature = cpython_code_signature(pyfunc.func_code)
-            defaults = pyfunc.func_defaults
+            signature = cpython_code_signature(pyfunc.__code__)
+            defaults = pyfunc.__defaults__
         # get the specializer based on the tag of the 'pyobj'
         # (if any), according to the current policy
         tag = getattr(pyfunc, '_annspecialcase_', None)
@@ -547,10 +549,8 @@ class Bookkeeper(object):
         (position_key, "first") and (position_key, "second").
 
         In general, "unique_key" should somehow uniquely identify where
-        the call is in the source code, and "callback" can be either a
-        position_key to reflow from when we see more general results,
-        or a real callback function that will be called with arguments
-        # "(annotator, called_graph)" whenever the result is generalized.
+        the call is in the source code, and "callback" is a
+        position_key to reflow from when we see more general results.
 
         "replace" can be set to a list of old unique_key values to
         forget now, because the given "unique_key" replaces them.
@@ -582,7 +582,7 @@ class Bookkeeper(object):
 
 def origin_of_meth(boundmeth):
     func = boundmeth.im_func
-    candname = func.func_name
+    candname = func.__name__
     for cls in inspect.getmro(boundmeth.im_class):
         dict = cls.__dict__
         if dict.get(candname) is func:

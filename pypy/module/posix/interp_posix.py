@@ -97,6 +97,9 @@ def dispatch_filename_2(func):
                 return func(fname1, fname2, *args)
     return dispatch
 
+def u2utf8(space, u_str):
+    return space.newutf8(u_str.encode('utf-8'), len(u_str))
+
 @unwrap_spec(flag=c_int, mode=c_int)
 def open(space, w_fname, flag, mode=0777):
     """Open a file (for low level IO).
@@ -422,7 +425,7 @@ def _getfullpathname(space, w_path):
         if space.isinstance_w(w_path, space.w_unicode):
             path = FileEncoder(space, w_path)
             fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newunicode(fullpath)
+            w_fullpath = u2utf8(space, fullpath)
         else:
             path = space.bytes0_w(w_path)
             fullpath = rposix.getfullpathname(path)
@@ -449,7 +452,7 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror(space, e)
         else:
-            return space.newunicode(cur)
+            return u2utf8(space, cur)
 else:
     def getcwdu(space):
         """Return the current working directory as a unicode string."""
@@ -588,7 +591,7 @@ entries '.' and '..' even if they are present in the directory."""
                             raise
                         w_res = w_bytes
                 elif isinstance(res, unicode):
-                    w_res = space.newunicode(res)
+                    w_res = u2utf8(space, res)
                 else:
                     assert False
                 result_w[i] = w_res
@@ -1348,7 +1351,12 @@ def urandom(space, n):
         _sigcheck.space = space
         return space.newbytes(rurandom.urandom(context, n, _signal_checker))
     except OSError as e:
-        raise wrap_oserror(space, e)
+        # CPython raises NotImplementedError if /dev/urandom cannot be found.
+        # To maximize compatibility, we should also raise NotImplementedError
+        # and not OSError (although CPython also raises OSError in case it
+        # could open /dev/urandom but there are further problems).
+        raise wrap_oserror(space, e,
+            w_exception_class=space.w_NotImplementedError)
 
 def ctermid(space):
     """ctermid() -> string

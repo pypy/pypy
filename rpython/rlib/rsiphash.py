@@ -123,6 +123,11 @@ class Entry(ExtRegistryEntry):
 
     def compute_result_annotation(self):
         translator = self.bookkeeper.annotator.translator
+        # you should not call enable_siphash24() when translating with the
+        # reverse-debugger, or with sandbox.
+        assert not translator.config.translation.reverse_debugger
+        assert not translator.config.translation.sandbox
+        #
         if hasattr(translator, 'll_hash_string'):
             assert translator.ll_hash_string == ll_hash_string_siphash24
         else:
@@ -134,6 +139,9 @@ class Entry(ExtRegistryEntry):
 
     def specialize_call(self, hop):
         hop.exception_cannot_occur()
+        translator = hop.rtyper.annotator.translator
+        if translator.config.translation.reverse_debugger:
+            return    # ignore and use the regular hash, with reverse-debugger
         bk = hop.rtyper.annotator.bookkeeper
         s_callable = bk.immutablevalue(initialize_from_env)
         r_callable = hop.rtyper.getrepr(s_callable)
@@ -162,10 +170,12 @@ def ll_hash_string_siphash24(ll_s):
         # unicode strings where CPython uses 2 bytes per character.
         addr = rstr._get_raw_buf_unicode(rstr.UNICODE, ll_s, 0)
         SZ = rffi.sizeof(rstr.UNICODE.chars.OF)
-        for i in range(length):
+        i = 0
+        while i < length:
             if ord(ll_s.chars[i]) > 0xFF:
                 length *= SZ
                 break
+            i += 1
         else:
             x = _siphash24(addr, length, SZ)
             keepalive_until_here(ll_s)
@@ -227,19 +237,29 @@ def _siphash24(addr_in, size, SZ=1):
     """Takes an address pointer and a size.  Returns the hash as a r_uint64,
     which can then be casted to the expected type."""
 
-    if BIG_ENDIAN:
-        index = SZ - 1
-    else:
-        index = 0
     if size < seed.bound_prebuilt_size:
         if size <= 0:
             return seed.hash_empty
         else:
+            if BIG_ENDIAN:
+                index = SZ - 1
+            else:
+                index = 0
             t = rarithmetic.intmask(llop.raw_load(rffi.UCHAR, addr_in, index))
             return seed.hash_single[t]
 
     k0 = seed.k0l
     k1 = seed.k1l
+    return _siphash24_with_key(addr_in, size, k0, k1, SZ)
+
+
+@rgc.no_collect
+@specialize.arg(4)
+def _siphash24_with_key(addr_in, size, k0, k1, SZ=1):
+    if BIG_ENDIAN:
+        index = SZ - 1
+    else:
+        index = 0
     b = r_uint64(size) << 56
     v0 = k0 ^ magic0
     v1 = k1 ^ magic1
@@ -326,6 +346,12 @@ def siphash24(s):
     with rffi.scoped_nonmovingbuffer(s) as p:
         return _siphash24(llmemory.cast_ptr_to_adr(p), len(s))
 
+@jit.dont_look_inside
+def siphash24_with_key(s, k0, k1=0):
+    """'s' is a normal string.  k0 and k1 are the seed keys
+    """
+    with rffi.scoped_nonmovingbuffer(s) as p:
+        return _siphash24_with_key(llmemory.cast_ptr_to_adr(p), len(s), k0, k1)
 
 # Prebuilt hashes are precomputed here
 def _update_prebuilt_hashes():

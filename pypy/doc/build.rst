@@ -18,7 +18,7 @@ development. You can read more about how to develop PyPy here_, and latest
 translated (hopefully functional) binary packages are available on our
 buildbot's `nightly builds`_
 
-.. _here: getting-started-dev.html
+.. _here: contributing.html
 .. _`nightly builds`: http://buildbot.pypy.org/nightly
 
 You will need the build dependencies below to run the tests.
@@ -37,7 +37,7 @@ the current development.
 You must issue the following command on your
 command line, DOS box, or terminal::
 
-    hg clone http://bitbucket.org/pypy/pypy pypy
+    hg clone http://foss.heptapod.net/pypy/pypy pypy
 
 This will clone the repository and place it into a directory
 named ``pypy``, and will get you the PyPy source in ``pypy/pypy`` and
@@ -60,17 +60,14 @@ where XXXXX is the revision id.
 Install build-time dependencies
 -------------------------------
 (**Note**: for some hints on how to translate the Python interpreter under
-Windows, see the `windows document`_ . For hints on how to cross-compile in
-a chroot using scratchbox2, see the `arm document`_ in the
-`RPython documentation`_)
+Windows, see the `windows document`_ . 
 
 .. _`windows document`: windows.html
-.. _`arm document`: http://rpython.readthedocs.org/en/latest/arm.html
 .. _`RPython documentation`: http://rpython.readthedocs.org
 
 The host Python needs to have CFFI installed. If translating on PyPy, CFFI is
 already installed. If translating on CPython, you need to install it, e.g.
-using ``pip install cffi``.
+using ``python -mpip install cffi``.
 
 To build PyPy on Unix using the C translation backend, you need at least a C
 compiler and ``make`` installed. Further, some optional modules have additional
@@ -88,9 +85,6 @@ bz2
 pyexpat
     libexpat1
 
-_ssl
-    libssl
-
 _vmprof
     libunwind (optional, loaded dynamically at runtime)
 
@@ -104,6 +98,9 @@ to build them; you don't need to re-translate the whole PyPy):
 sqlite3
     libsqlite3
 
+_ssl, _hashlib
+    libssl
+
 curses
     libncurses-dev   (for PyPy2)
     libncursesw-dev  (for PyPy3)
@@ -115,11 +112,12 @@ tk
     tk-dev
 
 lzma (PyPy3 only)
-    liblzma
+    liblzma or libxz, version 5 and up
 
-To run untranslated tests, you need the Boehm garbage collector libgc.
+To run untranslated tests, you need the Boehm garbage collector libgc, version
+7.4 and up
 
-On recent Debian and Ubuntu (16.04 onwards), this is the command to install
+On Debian and Ubuntu (16.04 onwards), this is the command to install
 all build-time dependencies::
 
     apt-get install gcc make libffi-dev pkg-config zlib1g-dev libbz2-dev \
@@ -127,18 +125,11 @@ all build-time dependencies::
     tk-dev libgc-dev python-cffi \
     liblzma-dev libncursesw5-dev     # these two only needed on PyPy3
 
-On older Debian and Ubuntu (12.04-14.04)::
-
-    apt-get install gcc make libffi-dev pkg-config libz-dev libbz2-dev \
-    libsqlite3-dev libncurses-dev libexpat1-dev libssl-dev libgdbm-dev \
-    tk-dev libgc-dev python-cffi \
-    liblzma-dev libncursesw-dev      # these two only needed on PyPy3
-
 On Fedora::
 
     dnf install gcc make libffi-devel pkgconfig zlib-devel bzip2-devel \
     sqlite-devel ncurses-devel expat-devel openssl-devel tk-devel \
-    gdbm-devel python-cffi\
+    gdbm-devel python-cffi gc-devel\
     xz-devel  # For lzma on PyPy3.
 
 On SLES11::
@@ -149,7 +140,7 @@ On SLES11::
     xz-devel # For lzma on PyPy3.
     (XXX plus the SLES11 version of libgdbm-dev and tk-dev)
 
-On Mac OS X::
+On Mac OS X:
 
 Most of these build-time dependencies are installed alongside
 the Developer Tools. However, note that in order for the installation to
@@ -220,11 +211,12 @@ without rerunning the previous steps.
 Making a debug build of PyPy
 ----------------------------
 
-If the Makefile is rerun with the lldebug or lldebug0 target, appropriate
-compilation flags are added to add debug info and reduce compiler optimizations
-to ``-O0`` respectively. If you stop in a debugger, you will see the
-very wordy machine-generated C code from the rpython translation step, which
-takes a little bit of reading to relate back to the rpython code.
+Rerun the ``Makefile`` with the ``make lldebug`` or ``make lldebug0`` target,
+which will build in a way that running under a debugger makes sense.
+Appropriate compilation flags are added to add debug info, and for ``lldebug0``
+compiler optimizations are fully disabled. If you stop in a debugger, you will
+see the very wordy machine-generated C code from the rpython translation step,
+which takes a little bit of reading to relate back to the rpython code.
 
 Build cffi import libraries for the stdlib
 ------------------------------------------
@@ -234,7 +226,7 @@ import libraries in the `out-of-line API mode`_. This is done by the following
 command::
 
    cd pypy/goal
-   PYTHONPATH=../.. ./pypy-c ../tool/build_cffi_imports.py
+   PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 
@@ -267,14 +259,14 @@ pre-compiling them, normal users will get errors:
 * PyPy 2.5.1 or earlier: normal users would see permission errors.
   Installers need to run ``pypy -c "import gdbm"`` and other similar
   commands at install time; the exact list is in
-  :source:`pypy/tool/release/package.py <package.py>`.  Users
+  :source:`pypy/tool/release/package.py`.  Users
   seeing a broken installation of PyPy can fix it after-the-fact if they
   have sudo rights, by running once e.g. ``sudo pypy -c "import gdbm``.
 
 * PyPy 2.6 and later: anyone would get ``ImportError: no module named
   _gdbm_cffi``.  Installers need to run ``pypy _gdbm_build.py`` in the
   ``lib_pypy`` directory during the installation process (plus others;
-  see the exact list in :source:`pypy/tool/release/package.py <package.py>`).
+  see the exact list in :source:`pypy/tool/release/package.py`).
   Users seeing a broken
   installation of PyPy can fix it after-the-fact, by running ``pypy
   /path/to/lib_pypy/_gdbm_build.py``.  This command produces a file

@@ -22,7 +22,7 @@ def slot_sq_length(space, w_obj):
 
 @slot_function([PyObject], lltype.Signed, error=-1)
 def slot_tp_hash(space, w_obj):
-    return space.int_w(space.hash(w_obj))
+    return space.hash_w(w_obj)
 
 @slot_function([PyObject, Py_ssize_t], PyObject)
 def slot_sq_item(space, w_obj, index):
@@ -48,6 +48,11 @@ def slot_tp_new(space, w_type, w_args, w_kwds):
     args = Arguments(space, [w_type],
                      w_stararg=w_args, w_starstararg=w_kwds)
     return space.call_args(w_impl, args)
+
+@slot_function([PyObject, PyObject, PyObject], PyObject)
+def slot_tp_call(space, w_self, w_args, w_kwds):
+    args = Arguments(space, [], w_stararg=w_args, w_starstararg=w_kwds)
+    return space.call_args(w_self, args)
 
 # unary functions
 

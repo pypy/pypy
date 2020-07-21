@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import assert_
 from rpython.translator.translator import TranslationContext
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.llinterp import LLException
-from rpython.rtyper.error import MissingRTypeOperation
+from rpython.rtyper.error import MissingRTypeOperation, TyperError
 
 
 class MyException(Exception):
@@ -165,3 +165,10 @@ class TestException(BaseRtypingTest):
             except OverflowError:
                 return 42
         py.test.raises(MissingRTypeOperation, self.interpret, f, [])
+
+    def test_cannot_raise_something_annotated_as_none(self):
+        def g():
+            return None
+        def f():
+            raise g()
+        py.test.raises(TyperError, rtype, f)

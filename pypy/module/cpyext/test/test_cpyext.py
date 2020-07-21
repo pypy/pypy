@@ -14,6 +14,8 @@ from rpython.tool import leakfinder
 from rpython.rlib import rawrefcount
 from rpython.tool.udir import udir
 
+import pypy.module.cpyext.moduledef  # Make sure all the functions are registered
+
 only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_names"
 
 @api.cpython_api([], api.PyObject)
@@ -80,23 +82,6 @@ def get_cpyext_info(space):
 def freeze_refcnts(self):
     rawrefcount._dont_free_any_more()
 
-def preload(space, name):
-    from pypy.module.cpyext.pyobject import make_ref
-    if '.' not in name:
-        w_obj = space.builtin.getdictvalue(space, name)
-    else:
-        module, localname = name.rsplit('.', 1)
-        code = "(): import {module}; return {module}.{localname}"
-        code = code.format(**locals())
-        w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
-def preload_expr(space, expr):
-    from pypy.module.cpyext.pyobject import make_ref
-    code = "(): return {}".format(expr)
-    w_obj = space.appexec([], code)
-    make_ref(space, w_obj)
-
 def is_interned_string(space, w_obj):
     try:
         s = space.str_w(w_obj)
@@ -138,6 +123,7 @@ class LeakCheckingTest(object):
                                    'itertools', 'time', 'binascii',
                                    'mmap'
                                    ])
+    spaceconfig["objspace.std.withspecialisedtuple"] = True
 
     @classmethod
     def preload_builtins(cls, space):
@@ -145,13 +131,37 @@ class LeakCheckingTest(object):
         Eagerly create pyobjs for various builtins so they don't look like
         leaks.
         """
-        for name in [
-                'buffer', 'mmap.mmap',
-                'types.FunctionType', 'types.CodeType',
-                'types.TracebackType', 'types.FrameType']:
-            preload(space, name)
-        for expr in ['type(str.join)']:
-            preload_expr(space, expr)
+        from pypy.module.cpyext.pyobject import make_ref
+        w_to_preload = space.appexec([], """():
+            import sys
+            import mmap
+            #
+            # copied&pasted to avoid importing the whole types.py, which is
+            # expensive on py3k
+            # <types.py>
+            def _f(): pass
+            FunctionType = type(_f)
+            CodeType = type(_f.__code__)
+            try:
+                raise TypeError
+            except TypeError:
+                tb = sys.exc_info()[2]
+                TracebackType = type(tb)
+                FrameType = type(tb.tb_frame)
+                del tb
+            # </types.py>
+            return [
+                buffer,
+                mmap.mmap,
+                FunctionType,
+                CodeType,
+                TracebackType,
+                FrameType,
+                type(str.join),
+            ]
+        """)
+        for w_obj in space.unpackiterable(w_to_preload):
+            make_ref(space, w_obj)
 
     def cleanup(self):
         self.space.getexecutioncontext().cleanup_cpyext_state()
@@ -381,6 +391,11 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
 
     def test_export_function(self):
         import sys
+        if '__pypy__' in sys.modules:
+            from cpyext import is_cpyext_function
+        else:
+            import inspect
+            is_cpyext_function = inspect.isbuiltin
         init = """
         if (Py_IsInitialized())
             Py_InitModule("foo", methods);
@@ -399,6 +414,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         assert 'foo' in sys.modules
         assert 'return_pi' in dir(module)
         assert module.return_pi is not None
+        assert is_cpyext_function(module.return_pi)
         assert module.return_pi() == 3.14
         assert module.return_pi.__module__ == 'foo'
 
@@ -436,7 +452,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         {
             if (self)
             {
-                Py_INCREF(self);
+                Py_IncRef(self);
                 return self;
             }
             else
@@ -630,7 +646,8 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
             Py_ssize_t refcnt_after;
             Py_INCREF(true_obj);
             Py_INCREF(true_obj);
-            PyBool_Check(true_obj);
+            if (!PyBool_Check(true_obj))
+                Py_RETURN_NONE;
             refcnt_after = true_obj->ob_refcnt;
             Py_DECREF(true_obj);
             Py_DECREF(true_obj);
@@ -777,14 +794,14 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         # Set an exception and return NULL
         raises(TypeError, module.set, None)
 
-        # clear any exception and return a value 
+        # clear any exception and return a value
         assert module.clear(1) == 1
 
         # Set an exception, but return non-NULL
         expected = 'An exception was set, but function returned a value'
         exc = raises(SystemError, module.set, 1)
         assert exc.value[0] == expected
-        
+
 
         # Clear the exception and return a value, all is OK
         assert module.clear(1) == 1

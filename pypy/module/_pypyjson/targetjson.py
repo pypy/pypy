@@ -93,9 +93,6 @@ class FakeSpace(object):
         assert isinstance(key, W_Unicode)
         d.dictval[key.unival] = value
 
-    def newunicode(self, x):
-        return W_Unicode(x)
-
     def newtext(self, x):
         return W_String(x)
     newbytes = newtext

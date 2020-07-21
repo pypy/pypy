@@ -17,6 +17,7 @@ from rpython.rtyper.rbuiltin import gen_cast
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.simplify import cleanup_graph
+from rpython.memory.gctransform.log import log
 
 
 class GcHighLevelOp(object):
@@ -138,9 +139,15 @@ class BaseGCTransformer(object):
         return any_inlining
 
     def inline_helpers_and_postprocess(self, graphs):
+        next_dot = 0
         for graph in graphs:
             any_inlining = self.inline and self.inline_helpers_into(graph)
             self.postprocess_graph(graph, any_inlining)
+            #
+            next_dot -= 1
+            if next_dot <= 0:
+                log.dot()
+                next_dot = 50
 
     def postprocess_graph(self, graph, any_inlining):
         pass
@@ -210,9 +217,6 @@ class BaseGCTransformer(object):
         self.var_last_needed_in = None
         self.curr_block = None
 
-    def start_transforming_graph(self, graph):
-        pass    # for asmgcc.py
-
     def transform_graph(self, graph):
         if graph in self.minimal_transform:
             if self.minimalgctransformer:
@@ -222,7 +226,6 @@ class BaseGCTransformer(object):
         if graph in self.seen_graphs:
             return
         self.seen_graphs.add(graph)
-        self.start_transforming_graph(graph)
 
         self.links_to_split = {} # link -> vars to pop_alive across the link
 
@@ -358,6 +361,9 @@ class BaseGCTransformer(object):
                   [rmodel.inputconst(lltype.Bool, False)],
                   resultvar=op.result)
 
+    def gct_gc_writebarrier_before_move(self, hop):
+        pass
+
     def gct_gc_pin(self, hop):
         op = hop.spaceop
         hop.genop("same_as",
@@ -424,7 +430,7 @@ MinimalGCTransformer.MinimalGCTransformer = None
 
 # ________________________________________________________________
 
-def mallocHelpers():
+def mallocHelpers(gckind):
     class _MallocHelpers(object):
         def _freeze_(self):
             return True
@@ -462,9 +468,17 @@ def mallocHelpers():
     mh._ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
     mh.ll_malloc_varsize_no_length = _ll_malloc_varsize_no_length
 
+    if gckind == 'raw':
+        llopstore = llop.raw_store
+    elif gckind == 'gc':
+        llopstore = llop.gc_store
+    else:
+        raise AssertionError(gckind)
+
+
     def ll_malloc_varsize(length, size, itemsize, lengthoffset):
         result = mh.ll_malloc_varsize_no_length(length, size, itemsize)
-        (result + lengthoffset).signed[0] = length
+        llopstore(lltype.Void, result, lengthoffset, length)
         return result
     mh.ll_malloc_varsize = ll_malloc_varsize
 
@@ -483,7 +497,7 @@ class GCTransformer(BaseGCTransformer):
     def __init__(self, translator, inline=False):
         super(GCTransformer, self).__init__(translator, inline=inline)
 
-        mh = mallocHelpers()
+        mh = mallocHelpers(gckind='raw')
         mh.allocate = llmemory.raw_malloc
         ll_raw_malloc_fixedsize = mh._ll_malloc_fixedsize
         ll_raw_malloc_fixedsize_zero = mh._ll_malloc_fixedsize_zero
@@ -535,12 +549,7 @@ class GCTransformer(BaseGCTransformer):
         return self.varsize_malloc_helper(hop, flags, meth, [])
 
     def gct_gc_add_memory_pressure(self, hop):
-        if hasattr(self, 'raw_malloc_memory_pressure_ptr'):
-            op = hop.spaceop
-            size = op.args[0]
-            return hop.genop("direct_call",
-                          [self.raw_malloc_memory_pressure_ptr,
-                           size])
+        pass
 
     def varsize_malloc_helper(self, hop, flags, meth, extraargs):
         def intconst(c): return rmodel.inputconst(lltype.Signed, c)
@@ -574,9 +583,10 @@ class GCTransformer(BaseGCTransformer):
                                                                     c_offset_to_length):
         if flags.get('add_memory_pressure', False):
             if hasattr(self, 'raw_malloc_memory_pressure_varsize_ptr'):
+                v_adr = rmodel.inputconst(llmemory.Address, llmemory.NULL)
                 hop.genop("direct_call",
                           [self.raw_malloc_memory_pressure_varsize_ptr,
-                           v_length, c_item_size])
+                           v_length, c_item_size, v_adr])
         if c_offset_to_length is None:
             if flags.get('zero'):
                 fnptr = self.raw_malloc_varsize_no_length_zero_ptr

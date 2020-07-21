@@ -1,10 +1,11 @@
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address
+from _ctypes.basics import (
+    _CData, _CDataMeta, cdata_from_address, ArgumentError, keepalive_key,
+    is_struct_shape, sizeof)
 from _ctypes.primitive import SimpleType, _SimpleCData
-from _ctypes.basics import ArgumentError, keepalive_key
-from _ctypes.basics import is_struct_shape
 from _ctypes.builtin import get_errno, set_errno, get_last_error, set_last_error
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 import traceback
 
@@ -59,6 +60,9 @@ class CFuncPtrType(_CDataMeta):
         return True
 
     from_address = cdata_from_address
+
+    def _getformat(self):
+        return 'X{}'
 
 
 class CFuncPtr(_CData):
@@ -268,6 +272,7 @@ class CFuncPtr(_CData):
             return
 
         raise TypeError("Unknown constructor %s" % (args,))
+    _init_no_arg_ = __init__
 
     def _wrap_callable(self, to_call, argtypes):
         def f(*args):
@@ -485,6 +490,8 @@ class CFuncPtr(_CData):
         return cobj, cobj._to_ffi_param(), type(cobj)
 
     def _convert_args_for_callback(self, argtypes, args):
+        from _ctypes.structure import StructOrUnion
+        #
         assert len(argtypes) == len(args)
         newargs = []
         for argtype, arg in zip(argtypes, args):
@@ -494,6 +501,10 @@ class CFuncPtr(_CData):
                 param = param._get_buffer_value()
             elif self._is_primitive(argtype):
                 param = param.value
+            elif isinstance(param, StructOrUnion):   # not a *pointer* to struct
+                newparam = StructOrUnion.__new__(type(param))
+                param._copy_to(newparam._buffer.buffer)
+                param = newparam
             newargs.append(param)
         return newargs
 
@@ -557,7 +568,7 @@ class CFuncPtr(_CData):
                         keepalive, newarg, newargtype = self._conv_param(argtype, defval)
                     else:
                         import ctypes
-                        val = argtype._type_()
+                        val = argtype._type_._newowninstance_()
                         keepalive = None
                         newarg = ctypes.byref(val)
                         newargtype = type(newarg)

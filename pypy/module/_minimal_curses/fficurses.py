@@ -5,32 +5,40 @@ from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.tool import rffi_platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-# We cannot trust ncurses5-config, it's broken in various ways in
-# various versions.  For example it might not list -ltinfo even though
-# it's needed, or --cflags might be completely empty.  On Ubuntu 10.04
-# it gives -I/usr/include/ncurses, which doesn't exist at all.  Crap.
-
 def try_cflags():
     yield ExternalCompilationInfo(includes=['curses.h', 'term.h'])
     yield ExternalCompilationInfo(includes=['curses.h', 'term.h'],
                                   include_dirs=['/usr/include/ncurses'])
+    yield ExternalCompilationInfo(includes=['curses.h', 'term.h'],
+                                  include_dirs=['/usr/include/ncursesw'])
     yield ExternalCompilationInfo(includes=['ncurses/curses.h',
                                             'ncurses/term.h'])
 
 def try_ldflags():
-    yield ExternalCompilationInfo(libraries=['curses'])
     yield ExternalCompilationInfo(libraries=['curses', 'tinfo'])
+    yield ExternalCompilationInfo(libraries=['curses'])
+    yield ExternalCompilationInfo(libraries=['ncurses', 'tinfo'])
     yield ExternalCompilationInfo(libraries=['ncurses'])
     yield ExternalCompilationInfo(libraries=['ncurses'],
+                                  library_dirs=['/usr/lib64'])
+    yield ExternalCompilationInfo(libraries=['ncursesw'],
                                   library_dirs=['/usr/lib64'])
 
 def try_tools():
     try:
-        yield ExternalCompilationInfo.from_pkg_config("ncurses")
+        yield ExternalCompilationInfo.from_config_tool("ncursesw6-config")
     except Exception:
         pass
     try:
         yield ExternalCompilationInfo.from_config_tool("ncurses5-config")
+    except Exception:
+        pass
+    try:
+        yield ExternalCompilationInfo.from_pkg_config("ncursesw")
+    except Exception:
+        pass
+    try:
+        yield ExternalCompilationInfo.from_pkg_config("ncursesw")
     except Exception:
         pass
 

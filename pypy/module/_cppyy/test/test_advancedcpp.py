@@ -22,7 +22,8 @@ class AppTestADVANCEDCPP:
     def setup_class(cls):
         cls.w_test_dct = cls.space.newtext(test_dct)
         cls.w_advanced = cls.space.appexec([], """():
-            import ctypes
+            import ctypes, _cppyy
+            _cppyy._post_import_startup()
             return ctypes.CDLL(%r, ctypes.RTLD_GLOBAL)""" % (test_dct, ))
 
     def test01_default_arguments(self):
@@ -55,6 +56,12 @@ class AppTestADVANCEDCPP:
             assert d.m_b ==  t(4)
             assert d.m_c ==  t(5)
             d.__destruct__()
+
+            defaulter_func = getattr(cppyy.gbl, '%s_defaulter_func' %n)
+            answers = [11, 22, 33, 3]
+            for idx in range(4):
+                assert defaulter_func(idx) == answers[idx]
+
         test_defaulter('short',  int)
         test_defaulter('ushort', int)
         test_defaulter('int',    int)
@@ -65,6 +72,13 @@ class AppTestADVANCEDCPP:
         test_defaulter('ullong', long)
         test_defaulter('float',  float)
         test_defaulter('double', float)
+
+        assert cppyy.gbl.string_defaulter_func(0)               == "aap"
+        assert cppyy.gbl.string_defaulter_func(0, "zus")        == "zus"
+        assert cppyy.gbl.string_defaulter_func(1)               == "noot"
+        assert cppyy.gbl.string_defaulter_func(1, "zus")        == "noot"
+        assert cppyy.gbl.string_defaulter_func(1, "zus", "jet") == "jet"
+        assert cppyy.gbl.string_defaulter_func(2)               == "mies"
 
     def test02_simple_inheritance(self):
         """Test binding of a basic inheritance structure"""
@@ -146,6 +160,8 @@ class AppTestADVANCEDCPP:
         assert gbl.a_ns.d_ns.e_class().m_e            == -5
         assert gbl.a_ns.d_ns.e_class.f_class.s_f      == 66
         assert gbl.a_ns.d_ns.e_class.f_class().m_f    == -6
+
+        raises(TypeError, gbl.a_ns)
 
     def test03a_namespace_lookup_on_update(self):
         """Test whether namespaces can be shared across dictionaries."""
@@ -473,6 +489,23 @@ class AppTestADVANCEDCPP:
         d2.__destruct__()
         d1.__destruct__()
 
+        RTS = cppyy.gbl.refers_to_self
+
+        r1 = RTS()
+        r2 = RTS()
+        r1.m_other = r2
+
+        r3 = r1.m_other
+        r4 = r1.m_other
+        assert r3 is r4
+
+        assert r3 == r2
+        assert r3 is r2
+
+        r3.extra = 42
+        assert r2.extra == 42
+        assert r4.extra == 42
+
     def test11_multi_methods(self):
         """Test calling of methods from multiple inheritance"""
 
@@ -652,7 +685,64 @@ class AppTestADVANCEDCPP:
 
         assert cppyy.gbl.my_global_double == 12.
         assert len(cppyy.gbl.my_global_array) == 500
-        assert cppyy.gbl.my_global_string == "aap  noot  mies"
+        assert cppyy.gbl.my_global_string1 == "aap  noot  mies"
+        assert cppyy.gbl.my_global_string2 == "zus jet teun"
         # TODO: currently fails b/c double** not understood as &double*
         #assert cppyy.gbl.my_global_ptr[0] == 1234.
 
+        v = cppyy.gbl.my_global_int_holders
+        assert len(v) == 5
+        expected_vals = [13, 42, 88, -1, 17]
+        for i in range(len(v)):
+            assert v[i].m_val == expected_vals[i]
+
+    def test22_exceptions(self):
+        """Catching of C++ exceptions"""
+
+        import _cppyy as cppyy
+        Thrower = cppyy.gbl.Thrower
+
+        Thrower.throw_anything.__useffi__  = False
+        Thrower.throw_exception.__useffi__ = False
+
+        t = Thrower()
+
+        assert raises(Exception, t.throw_anything)
+        assert raises(Exception, t.throw_exception)
+
+        try:
+            t.throw_exception()
+        except Exception as e:
+            "C++ function failed" in str(e)
+
+    def test23_using(self):
+        """Accessibility of using declarations"""
+
+        import _cppyy as cppyy
+
+        assert cppyy.gbl.UsingBase().vcheck() == 'A'
+
+        B = cppyy.gbl.UsingDerived
+        assert not 'UsingBase' in B.__init__.__doc__
+
+        b1 = B()
+        assert b1.m_int    == 13
+        assert b1.m_int2   == 42
+        assert b1.vcheck() == 'B'
+ 
+        b2 = B(10)
+        assert b2.m_int    == 10
+        assert b2.m_int2   == 42
+        assert b2.vcheck() == 'B'
+
+        b3 = B(b2)
+        assert b3.m_int    == 10
+        assert b3.m_int2   == 42
+        assert b3.vcheck() == 'B'
+
+    def test24_typedef_to_private_class(self):
+        """Typedefs to private classes should not resolve"""
+
+        import _cppyy as cppyy
+
+        assert cppyy.gbl.TypedefToPrivateClass().f().m_val == 42

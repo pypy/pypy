@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import OperationError
 from pypy.objspace.std.classdict import ClassDictStrategy
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, build_type_checkers_flags, Py_ssize_t,
@@ -9,7 +10,7 @@ from pypy.module.cpyext.api import (
     bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP, as_pyobj,
         make_typedescr, track_reference, create_ref, from_ref, decref,
-        Py_IncRef)
+        incref)
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
@@ -71,68 +72,69 @@ PyDict_Check, PyDict_CheckExact = build_type_checkers_flags("Dict")
 @cpython_api([PyObject, PyObject], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyDict_GetItem(space, w_dict, w_key):
-    try:
-        w_res = space.getitem(w_dict, w_key)
-    except:
+    if not isinstance(w_dict, W_DictMultiObject):
         return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_res
+    try:
+        return w_dict.getitem(w_key)
+    except OperationError:
+        return None
+
+@cpython_api([PyObject, PyObject], PyObject, result_borrowed=True)
+def _PyDict_GetItemWithError(space, w_dict, w_key):
+    # Like PyDict_GetItem(), but doesn't swallow the error
+    if not isinstance(w_dict, W_DictMultiObject):
+        PyErr_BadInternalCall(space)
+    return w_dict.getitem(w_key)
 
 @cpython_api([PyObject, PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItem(space, w_dict, w_key, w_obj):
-    if PyDict_Check(space, w_dict):
-        space.setitem(w_dict, w_key, w_obj)
-        return 0
-    else:
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.setitem(w_key, w_obj)
+    return 0
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PyDict_DelItem(space, w_dict, w_key):
-    if PyDict_Check(space, w_dict):
-        space.delitem(w_dict, w_key)
-        return 0
-    else:
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.descr_delitem(space, w_key)
+    return 0
 
 @cpython_api([PyObject, CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyDict_SetItemString(space, w_dict, key_ptr, w_obj):
-    if PyDict_Check(space, w_dict):
-        key = rffi.charp2str(key_ptr)
-        space.setitem_str(w_dict, key, w_obj)
-        return 0
-    else:
+    w_key = space.newtext(rffi.charp2str(key_ptr))
+    if not isinstance(w_dict, W_DictMultiObject):
         PyErr_BadInternalCall(space)
+    w_dict.setitem(w_key, w_obj)
+    return 0
 
 @cpython_api([PyObject, CONST_STRING], PyObject, error=CANNOT_FAIL,
              result_borrowed=True)
 def PyDict_GetItemString(space, w_dict, key):
     """This is the same as PyDict_GetItem(), but key is specified as a
     char*, rather than a PyObject*."""
-    try:
-        w_res = space.finditem_str(w_dict, rffi.charp2str(key))
-    except:
-        w_res = None
+    w_key = space.newtext(rffi.charp2str(key))
+    if not isinstance(w_dict, W_DictMultiObject):
+        return None
     # NOTE: this works so far because all our dict strategies store
     # *values* as full objects, which stay alive as long as the dict is
     # alive and not modified.  So we can return a borrowed ref.
     # XXX this is wrong with IntMutableCell.  Hope it works...
-    return w_res
+    return w_dict.getitem(w_key)
 
 @cpython_api([PyObject, CONST_STRING], rffi.INT_real, error=-1)
 def PyDict_DelItemString(space, w_dict, key_ptr):
     """Remove the entry in dictionary p which has a key specified by the string
     key.  Return 0 on success or -1 on failure."""
-    if PyDict_Check(space, w_dict):
-        key = rffi.charp2str(key_ptr)
-        # our dicts dont have a standardized interface, so we need
-        # to go through the space
-        space.delitem(w_dict, space.newtext(key))
-        return 0
-    else:
-        PyErr_BadInternalCall(space)
+    w_key = space.newtext(rffi.charp2str(key_ptr))
+    if not isinstance(w_dict, W_DictMultiObject):
+        raise PyErr_BadInternalCall(space)
+    w_dict.descr_delitem(space, w_key)
+    return 0
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyDict_Size(space, w_obj):
@@ -182,7 +184,14 @@ def PyDict_Merge(space, w_a, w_b, override):
     """
     override = rffi.cast(lltype.Signed, override)
     w_keys = space.call_method(w_b, "keys")
-    for w_key  in space.iteriterable(w_keys):
+    w_iter = space.iter(w_keys)
+    while 1:
+        try:
+            w_key = space.next(w_iter)
+        except OperationError as e:
+            if not e.match(space, space.w_StopIteration):
+                raise
+            break
         if not _has_val(space, w_a, w_key) or override != 0:
             space.setitem(w_a, w_key, space.getitem(w_b, w_key))
     return 0
@@ -265,14 +274,15 @@ def PyDict_Next(space, w_dict, ppos, pkey, pvalue):
     if pos == 0:
         # Store the current keys in the PyDictObject.
         from pypy.objspace.std.listobject import W_ListObject
-        decref(space, py_dict.c__tmpkeys)
         w_keys = space.call_method(space.w_dict, "keys", w_dict)
         # w_keys must use the object strategy in order to keep the keys alive
         if not isinstance(w_keys, W_ListObject):
             return 0     # XXX should not call keys() above
         w_keys.switch_to_object_strategy()
+        oldkeys = py_dict.c__tmpkeys
         py_dict.c__tmpkeys = create_ref(space, w_keys)
-        Py_IncRef(space, py_dict.c__tmpkeys)
+        incref(space, py_dict.c__tmpkeys)
+        decref(space, oldkeys)
     else:
         if not py_dict.c__tmpkeys:
             # pos should have been 0, cannot fail so return 0

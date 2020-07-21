@@ -126,6 +126,7 @@ def get_additional_entrypoints(space, w_initstdio):
             space.appexec([w_path, space.newtext(home), w_initstdio],
             r"""(path, home, initstdio):
                 import sys
+                # don't import anything more above this: sys.path is not set
                 sys.path[:] = path
                 sys.executable = home
                 initstdio(unbuffered=True)
@@ -215,6 +216,7 @@ class PyPyTarget(object):
     usage = SUPPRESS_USAGE
 
     take_options = True
+    space = None
 
     def opt_parser(self, config):
         parser = to_optparse(config, useoptions=["objspace.*"],
@@ -327,10 +329,10 @@ class PyPyTarget(object):
         translate.log_config(config.objspace, "PyPy config object")
 
         # obscure hack to stuff the translation options into the translated PyPy
-        import pypy.module.sys
+        from pypy.module.sys.moduledef import Module as SysModule
         options = make_dict(config)
-        wrapstr = 'space.wrap(%r)' % (options) # import time
-        pypy.module.sys.Module.interpleveldefs['pypy_translation_info'] = wrapstr
+        wrapstr = 'space.wrap(%r)' % (options)  # import time
+        SysModule.interpleveldefs['pypy_translation_info'] = wrapstr
         if config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
 
@@ -348,9 +350,14 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            filename = os.path.join(pypydir, 'tool', 'build_cffi_imports.py')
+            filename = os.path.join(pypydir, '..', 'lib_pypy', 'tools',
+                                   'build_cffi_imports.py')
+            if sys.platform == 'darwin':
+                argv = [filename, '--embed-dependencies']
+            else:
+                argv = [filename,]
             status, out, err = run_subprocess(str(driver.compute_exe_name()),
-                                              [filename])
+                                              argv)
             sys.stdout.write(out)
             sys.stderr.write(err)
             # otherwise, ignore errors
@@ -364,15 +371,21 @@ class PyPyTarget(object):
         from pypy.module.pypyjit.hooks import pypy_hooks
         return PyPyJitPolicy(pypy_hooks)
 
+    def get_gchooks(self):
+        from pypy.module.gc.hook import LowLevelGcHooks
+        if self.space is None:
+            raise Exception("get_gchooks must be called after get_entry_point")
+        return self.space.fromcache(LowLevelGcHooks)
+
     def get_entry_point(self, config):
-        space = make_objspace(config)
+        self.space = make_objspace(config)
 
         # manually imports app_main.py
         filename = os.path.join(pypydir, 'interpreter', 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
-        w_dict = app.getwdict(space)
-        entry_point, _ = create_entry_point(space, w_dict)
+        w_dict = app.getwdict(self.space)
+        entry_point, _ = create_entry_point(self.space, w_dict)
 
         return entry_point, None, PyPyAnnotatorPolicy()
 
@@ -381,7 +394,7 @@ class PyPyTarget(object):
                      'jitpolicy', 'get_entry_point',
                      'get_additional_config_options']:
             ns[name] = getattr(self, name)
-
+        ns['get_gchooks'] = self.get_gchooks
 
 PyPyTarget().interface(globals())
 

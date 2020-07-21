@@ -705,6 +705,7 @@ class CTypeSpace(object):
         self.struct_typedefs = {}
         self._handled = set()
         self._frozen = False
+        self._cdecl_type_cache = {} # {cdecl: TYPE} cache
         if includes is not None:
             for header in includes:
                 self.include(header)
@@ -732,6 +733,7 @@ class CTypeSpace(object):
             if tp.type_name is None:
                 tp.type_name = name
             tp = self.realize_struct(tp)
+            self.structs[obj.realtype] = tp
         self.definitions[name] = tp
 
     def add_macro(self, name, value):
@@ -840,6 +842,14 @@ class CTypeSpace(object):
             raise NotImplementedError
 
     def gettype(self, cdecl):
+        try:
+            return self._cdecl_type_cache[cdecl]
+        except KeyError:
+            result = self._real_gettype(cdecl)
+            self._cdecl_type_cache[cdecl] = result
+            return result
+
+    def _real_gettype(self, cdecl):
         obj = self.ctx.parse_type(cdecl)
         result = self.convert_type(obj)
         if isinstance(result, DelayedStruct):

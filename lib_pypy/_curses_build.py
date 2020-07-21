@@ -1,7 +1,59 @@
-from cffi import FFI
+from cffi import FFI, VerificationError
+import os
+import sys
+
+version_str = '''
+    static const int NCURSES_VERSION_MAJOR;
+    static const int NCURSES_VERSION_MINOR;
+'''
+
+def find_library(options):
+    for library in options:
+        ffi = FFI()
+        ffi.cdef(version_str)
+        ffi.set_source("_curses_cffi_check", version_str, libraries=[library])
+        try:
+            # Check that the link succeeds
+            ffi.compile(verbose=1)
+        except (VerificationError) as e:
+            e_last = e
+            continue
+        else:
+            return library
+
+    # If none of the options is available, present the user a meaningful
+    # error message
+    raise e_last
+
+def find_curses_dir_and_name():
+    for base in ('/usr', '/usr/local'):
+        if os.path.exists(os.path.join(base, 'include', 'ncursesw')):
+            return base, 'ncursesw'
+        if os.path.exists(os.path.join(base, 'include', 'ncurses')):
+            return base, 'ncurses'
+        if sys.platform == 'darwin':
+            return '', None
+        if os.path.exists(os.path.join(base, 'lib', 'libncursesw.so')):
+            return base, 'ncursesw'
+        if os.path.exists(os.path.join(base, 'lib', 'libncurses.so')):
+            return base, 'ncurses'
+    return '', None
+
+base, name = find_curses_dir_and_name()
+if base:
+    include_dirs = [os.path.join(base, 'include', name)]
+    library_dirs = [os.path.join(base, 'lib')]
+    libs = [name, name.replace('ncurses', 'panel')]
+    print('using {} from {}'.format(name, base))
+else:
+    include_dirs = []
+    library_dirs = []
+    libs = [find_library(['ncursesw', 'ncurses']),
+                find_library(['panelw', 'panel']),
+           ]
+    print('using {} from general compiler paths'.format(libs[0]))
 
 ffi = FFI()
-
 ffi.set_source("_curses_cffi", """
 #ifdef __APPLE__
 /* the following define is necessary for OS X 10.6+; without it, the
@@ -10,6 +62,13 @@ ffi.set_source("_curses_cffi", """
 #define NCURSES_OPAQUE 0
 #endif
 
+
+/* ncurses 6 change behaviour  and makes all pointers opaque, 
+  lets define backward compatibility. It doesn't harm 
+  previous versions */
+
+#define NCURSES_INTERNALS 1
+#define NCURSES_REENTRANT 0
 #include <ncurses.h>
 #include <panel.h>
 #include <term.h>
@@ -41,7 +100,10 @@ int _m_ispad(WINDOW *win) {
 void _m_getsyx(int *yx) {
     getsyx(yx[0], yx[1]);
 }
-""", libraries=['ncurses', 'panel'])
+""", libraries=libs,
+     library_dirs = library_dirs,
+     include_dirs=include_dirs,
+)
 
 
 ffi.cdef("""
@@ -63,6 +125,7 @@ MEVENT;
 static const int ERR, OK;
 static const int TRUE, FALSE;
 static const int KEY_MIN, KEY_MAX;
+static const int KEY_CODE_YES;
 
 static const int COLOR_BLACK;
 static const int COLOR_RED;
@@ -122,11 +185,11 @@ static const int REPORT_MOUSE_POSITION;
 
 int setupterm(char *, int, int *);
 
-WINDOW *stdscr;
-int COLORS;
-int COLOR_PAIRS;
-int COLS;
-int LINES;
+extern WINDOW *stdscr;
+extern int COLORS;
+extern int COLOR_PAIRS;
+extern int COLS;
+extern int LINES;
 
 int baudrate(void);
 int beep(void);
@@ -302,7 +365,7 @@ bool is_term_resized(int, int);
 #define _m_NetBSD ...
 int _m_ispad(WINDOW *);
 
-chtype acs_map[];
+extern chtype acs_map[];
 
 // For _curses_panel:
 
@@ -325,6 +388,14 @@ int replace_panel(PANEL *,WINDOW *);
 int panel_hidden(const PANEL *);
 
 void _m_getsyx(int *yx);
+""")
+
+if 'ncursesw' in libs:
+    ffi.cdef("""
+typedef int... wint_t;
+int wget_wch(WINDOW *, wint_t *);
+int mvwget_wch(WINDOW *, int, int, wint_t *);
+int unget_wch(const wchar_t);
 """)
 
 

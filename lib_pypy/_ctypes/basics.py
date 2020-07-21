@@ -1,9 +1,17 @@
 import _rawffi
 from _rawffi import alt as _ffi
+from __pypy__ import newmemoryview
 import sys
 
-try: from __pypy__ import builtinify
-except ImportError: builtinify = lambda f: f
+try:
+    from __pypy__ import builtinify
+except ImportError:
+    builtinify = lambda f: f
+
+try:
+    from __pypy__.bufferable import bufferable
+except ImportError:
+    bufferable = object
 
 keepalive_key = str # XXX fix this when provided with test
 
@@ -49,10 +57,13 @@ class _CDataMeta(type):
         else:
             return self.from_param(as_parameter)
 
+    def _build_ffiargtype(self):
+        return _shape_to_ffi_type(self._ffiargshape_)
+
     def get_ffi_argtype(self):
         if self._ffiargtype:
             return self._ffiargtype
-        self._ffiargtype = _shape_to_ffi_type(self._ffiargshape_)
+        self._ffiargtype = self._build_ffiargtype()
         return self._ffiargtype
 
     def _CData_output(self, resbuffer, base=None, index=-1):
@@ -61,7 +72,7 @@ class _CDataMeta(type):
         'resbuffer' is a _rawffi array of length 1 containing the value,
         and this returns a general Python object that corresponds.
         """
-        res = object.__new__(self)
+        res = bufferable.__new__(self)
         res.__class__ = self
         res.__dict__['_buffer'] = resbuffer
         if base is not None:
@@ -117,7 +128,7 @@ class _CDataMeta(type):
             raise ValueError(
                 "Buffer size too small (%d instead of at least %d bytes)"
                 % (len(buf) + offset, size + offset))
-        result = self()
+        result = self._newowninstance_()
         dest = result._buffer.buffer
         try:
             raw_addr = buf._pypy_raw_address()
@@ -127,6 +138,14 @@ class _CDataMeta(type):
             from ctypes import memmove
             memmove(dest, raw_addr, size)
         return result
+
+    def _newowninstance_(self):
+        result = self.__new__(self)
+        result._init_no_arg_()
+        return result
+
+    def _getformat(self):
+        raise ValueError('cannot get format string for %r' % self)
 
 
 class CArgObject(object):
@@ -150,7 +169,7 @@ class CArgObject(object):
     def __ne__(self, other):
         return self._obj != other
 
-class _CData(object):
+class _CData(bufferable):
     """ The most basic object for all ctypes types
     """
     __metaclass__ = _CDataMeta
@@ -159,6 +178,7 @@ class _CData(object):
 
     def __init__(self, *args, **kwds):
         raise TypeError("%s has no type" % (type(self),))
+    _init_no_arg_ = __init__
 
     def _ensure_objects(self):
         if '_objects' not in self.__dict__:
@@ -187,7 +207,10 @@ class _CData(object):
             return self.value
 
     def __buffer__(self, flags):
-        return buffer(self._buffer)
+        rawview = memoryview(self._buffer)
+        fmt = type(self)._getformat()
+        itemsize = sizeof(type(self))
+        return newmemoryview(rawview, itemsize, fmt, ())
 
     def _get_b_base(self):
         try:
@@ -219,8 +242,7 @@ def alignment(tp):
 
 @builtinify
 def byref(cdata, offset=0):
-    # "pointer" is imported at the end of this module to avoid circular
-    # imports
+    from _ctypes.pointer import pointer
     ptr = pointer(cdata)
     if offset != 0:
         ptr._buffer[0] += offset
@@ -295,7 +317,3 @@ def as_ffi_pointer(value, ffitype):
         raise ArgumentError("expected %s instance, got %s" % (type(value),
                                                               ffitype))
     return value._get_buffer_value()
-
-
-# used by "byref"
-from _ctypes.pointer import pointer

@@ -104,6 +104,12 @@ class InteractiveInterpreter:
         except SystemExit:
             raise
         except:
+            if softspace(sys.stdout, 0):
+                print
+            try:
+                sys.stdout.flush()
+            except:
+                pass
             self.showtraceback()
         else:
             if softspace(sys.stdout, 0):

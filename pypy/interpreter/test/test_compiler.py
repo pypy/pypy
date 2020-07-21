@@ -77,7 +77,7 @@ class BaseTestCompiler:
         """)
         assert self.space.unwrap(w_args) == (
             'unindent does not match any outer indentation level',
-            ('<string>', 3, 0, ' y\n'))
+            ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
         code = self.compiler.compile('from __future__ import division\n',
@@ -775,6 +775,27 @@ class AppTestCompiler:
         assert math.copysign(1., c[0]) == -1.0
         assert math.copysign(1., c[1]) == -1.0
 
+    def test_zeros_not_mixed_in_lambdas(self):
+        import math
+        code = compile("x = lambda: -0.0; y = lambda: 0.0", "<test>", "exec")
+        consts = code.co_consts
+        x, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x != y
+
+    @py.test.mark.skipif('config.option.runappdirect')
+    def test_dont_share_lambdas(self):
+        # the two lambdas's codes aren't shared (CPython does that but it's
+        # completely pointless: it only applies to identical lambdas that are
+        # defined on the same line)
+        code = compile("x = lambda: 0; y = lambda: 0", "<test>", "exec")
+        consts = code.co_consts
+        x, y, z = consts
+        assert isinstance(x, type(code)) and isinstance(y, type(code))
+        assert x is not y
+        assert x == y
+
     def test_dict_and_set_literal_order(self):
         x = 1
         l1 = list({1:'a', 3:'b', 2:'c', 4:'d'})
@@ -1111,3 +1132,9 @@ class AppTestExceptions:
             skip()
         code = 'u"""\\\n# -*- coding: utf-8 -*-\n\xc2\xa4"""\n'
         assert eval(code) == u'# -*- coding: utf-8 -*-\n\xc2\xa4'
+
+    def test_asterror_has_line_without_file(self):
+        code = u"print(1)\na/2 = 5\n"
+        with raises(SyntaxError) as excinfo:
+            compile(code, 'not a file!', 'exec')
+        assert excinfo.value.text == "a/2 = 5\n"

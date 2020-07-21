@@ -18,9 +18,10 @@ elif sys.platform == 'win32':
     linklibs = ['tcl85', 'tk85']
     libdirs = []
 elif sys.platform == 'darwin':
-    incdirs = ['/System/Library/Frameworks/Tk.framework/Versions/Current/Headers/']
-    linklibs = ['tcl', 'tk']
-    libdirs = []
+    # homebrew
+    incdirs = ['/usr/local/opt/tcl-tk/include']
+    linklibs = ['tcl8.6', 'tk8.6']
+    libdirs = ['/usr/local/opt/tcl-tk/lib']
 else:
     # On some Linux distributions, the tcl and tk libraries are
     # stored in /usr/include, so we must check this case also
@@ -36,8 +37,11 @@ else:
         for _ver in ['8.6', '8.5', '']:
             incdirs = []
             linklibs = ['tcl' + _ver, 'tk' + _ver]
-            if os.path.isfile(''.join(['/usr/lib/lib', linklibs[1], '.so'])):
-                found = True
+            for lib in ['/usr/lib/lib', '/usr/lib64/lib']: 
+                if os.path.isfile(''.join([lib, linklibs[1], '.so'])):
+                    found = True
+                    break
+            if found:
                 break
     if not found:
         sys.stderr.write("*** TCL libraries not found!  Falling back...\n")

@@ -5,10 +5,11 @@ from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CANNOT_FAIL, CONST_STRING, FILEP, fread, feof, Py_ssize_tP,
-    cpython_struct, is_valid_fp)
+    cpython_struct, ferror)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.pyerrors import PyErr_SetFromErrno
 from pypy.module.cpyext.funcobject import PyCodeObject
+from pypy.module.cpyext.frameobject import PyFrameObject
 from pypy.module.__builtin__ import compiling
 
 PyCompilerFlags = cpython_struct(
@@ -58,6 +59,11 @@ def PyEval_GetGlobals(space):
         return None
     return caller.get_w_globals()    # borrowed ref
 
+@cpython_api([], PyFrameObject, error=CANNOT_FAIL, result_borrowed=True)
+def PyEval_GetFrame(space):
+    caller = space.getexecutioncontext().gettopframe_nohidden()
+    return caller    # borrowed ref, may be null
+
 @cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
@@ -88,6 +94,11 @@ def PyObject_Call(space, w_obj, w_args, w_kw):
     empty tuple if no arguments are needed. Returns the result of the call on
     success, or NULL on failure.  This is the equivalent of the Python expression
     apply(callable_object, args, kw) or callable_object(*args, **kw)."""
+    return space.call(w_obj, w_args, w_kw)
+
+
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
+def PyCFunction_Call(space, w_obj, w_args, w_kw):
     return space.call(w_obj, w_args, w_kw)
 
 # These constants are also defined in include/eval.h
@@ -155,22 +166,22 @@ def PyRun_File(space, fp, filename, start, w_globals, w_locals):
     BUF_SIZE = 8192
     source = ""
     filename = rffi.charp2str(filename)
-    buf = lltype.malloc(rffi.CCHARP.TO, BUF_SIZE, flavor='raw')
-    if not is_valid_fp(fp):
-        lltype.free(buf, flavor='raw')
-        PyErr_SetFromErrno(space, space.w_IOError)
-        return None
-    try:
+    with rffi.scoped_alloc_buffer(BUF_SIZE) as buf:
         while True:
-            count = fread(buf, 1, BUF_SIZE, fp)
+            try:
+                count = fread(buf.raw, 1, BUF_SIZE, fp)
+            except OSError:
+                PyErr_SetFromErrno(space, space.w_IOError)
+                return
             count = rffi.cast(lltype.Signed, count)
-            source += rffi.charpsize2str(buf, count)
+            source += rffi.charpsize2str(buf.raw, count)
             if count < BUF_SIZE:
+                if ferror(fp):
+                    PyErr_SetFromErrno(space, space.w_IOError)
+                    return
                 if feof(fp):
                     break
                 PyErr_SetFromErrno(space, space.w_IOError)
-    finally:
-        lltype.free(buf, flavor='raw')
     return run_string(space, source, filename, start, w_globals, w_locals)
 
 # Undocumented function!

@@ -17,7 +17,7 @@ class AppTestObject:
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
-            return space.wrap(space.unicode_w(w_obj))
+            return space.newutf8(space.utf8_w(w_obj), w_obj._length)
         cls.w_unwrap_wrap_unicode = space.wrap(gateway.interp2app(w_unwrap_wrap_unicode))
         def w_unwrap_wrap_str(space, w_obj):
             return space.wrap(space.str_w(w_obj))
@@ -194,7 +194,8 @@ class AppTestObject:
         assert id('') == (256 << 4) | 11     # always
         assert id(u'') == (257 << 4) | 11
         assert id('a') == (ord('a') << 4) | 11
-        assert id(u'\u1234') == ((~0x1234) << 4) | 11
+        # we no longer cache unicodes <128
+        # assert id(u'\u1234') == ((~0x1234) << 4) | 11
 
     def test_id_of_tuples(self):
         l = []

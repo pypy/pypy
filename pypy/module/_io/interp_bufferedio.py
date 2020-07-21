@@ -9,7 +9,7 @@ from pypy.interpreter.typedef import (
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.buffer import SimpleView
 
-from rpython.rlib.buffer import ByteBuffer, SubBuffer
+from rpython.rlib.buffer import ByteBuffer, RawByteBuffer, SubBuffer
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import r_longlong, intmask
 from rpython.rlib import rposix
@@ -101,7 +101,7 @@ class W_BufferedIOBase(W_IOBase):
             raise oefmt(space.w_TypeError, "%s() should return bytes",
                         methodname)
         data = space.bytes_w(w_data)
-        rwbuffer.setslice(0, data)
+        self.output_slice(space, rwbuffer, 0, data)
         return space.newint(len(data))
 
 W_BufferedIOBase.typedef = TypeDef(
@@ -152,7 +152,14 @@ class BufferedMixin:
             raise oefmt(space.w_ValueError,
                         "buffer size must be strictly positive")
 
-        self.buffer = ByteBuffer(self.buffer_size)
+        if space.config.translation.split_gc_address_space:
+            # When using split GC address space, it is not possible to get the
+            # raw address of a GC buffer. Therefore we use a buffer backed by
+            # raw memory.
+            self.buffer = RawByteBuffer(self.buffer_size)
+        else:
+            # TODO: test whether using the raw buffer is faster
+            self.buffer = ByteBuffer(self.buffer_size)
 
         self.lock = TryLock(space)
 
@@ -555,7 +562,7 @@ class BufferedMixin:
         remaining = n
         written = 0
         if current_size:
-            result_buffer.setslice(
+            self.output_slice(space, result_buffer,
                 written, self.buffer[self.pos:self.pos + current_size])
             remaining -= current_size
             written += current_size
@@ -600,7 +607,7 @@ class BufferedMixin:
             if remaining > 0:
                 if size > remaining:
                     size = remaining
-                result_buffer.setslice(
+                self.output_slice(space, result_buffer,
                     written, self.buffer[self.pos:self.pos + size])
                 self.pos += size
                 written += size
@@ -668,8 +675,7 @@ class BufferedMixin:
                 pos = 0
                 found = False
                 while pos < have:
-                    # 'buffer.data[]' instead of 'buffer[]' because RPython...
-                    c = self.buffer.data[pos]
+                    c = self.buffer.getitem(pos)
                     pos += 1
                     if c == '\n':
                         self.pos = pos
@@ -731,8 +737,7 @@ class BufferedMixin:
                     self._reader_reset_buf()
                 # Make some place by shifting the buffer
                 for i in range(self.write_pos, self.write_end):
-                    # XXX: messing with buffer internals
-                    self.buffer.data[i - self.write_pos] = self.buffer.data[i]
+                    self.buffer.setitem(i - self.write_pos, self.buffer.getitem(i))
                 self.write_end -= self.write_pos
                 self.raw_pos -= self.write_pos
                 newpos = self.pos - self.write_pos

@@ -8,6 +8,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.typedef import make_weakref_descr
 from pypy.module.struct.formatiterator import (
     PackFormatIterator, UnpackFormatIterator
 )
@@ -156,6 +157,7 @@ W_Struct.typedef = TypeDef("Struct",
     unpack=interp2app(W_Struct.descr_unpack),
     pack_into=interp2app(W_Struct.descr_pack_into),
     unpack_from=interp2app(W_Struct.descr_unpack_from),
+    __weakref__=make_weakref_descr(W_Struct),
 )
 
 def clearcache(space):

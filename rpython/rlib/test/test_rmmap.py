@@ -258,7 +258,7 @@ class TestMMap:
         f.flush()
         def func(no):
             m = mmap.mmap(no, 6, access=mmap.ACCESS_WRITE)
-            m.write("ciao\n")
+            assert m.write("ciao\n") == 5
             m.seek(0)
             assert m.read(6) == "ciao\nr"
             m.close()

@@ -1,3 +1,4 @@
+import math
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 from rpython.rlib.longlong2float import uint2singlefloat, singlefloat2uint
@@ -74,7 +75,6 @@ def fn_encode_nan(f1, i2):
     from rpython.rlib.longlong2float import encode_int32_into_longlong_nan
     from rpython.rlib.longlong2float import decode_int32_from_longlong_nan
     from rpython.rlib.longlong2float import is_int32_from_longlong_nan
-    from rpython.rlib.rfloat import isnan
     assert can_encode_float(f1)
     assert can_encode_int32(i2)
     l1 = float2longlong(f1)
@@ -82,7 +82,7 @@ def fn_encode_nan(f1, i2):
     assert not is_int32_from_longlong_nan(l1)
     assert is_int32_from_longlong_nan(l2)
     f1b = longlong2float(l1)
-    assert f1b == f1 or (isnan(f1b) and isnan(f1))
+    assert f1b == f1 or (math.isnan(f1b) and math.isnan(f1))
     assert decode_int32_from_longlong_nan(l2) == i2
     return 42
 

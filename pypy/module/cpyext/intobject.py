@@ -5,7 +5,8 @@ from pypy.module.cpyext.api import (
     cpython_api, cpython_struct, build_type_checkers_flags, bootstrap_function,
     PyObject, PyObjectFields, CONST_STRING, CANNOT_FAIL, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
-    make_typedescr, track_reference, from_ref)
+    make_typedescr, track_reference, from_ref, BaseCpyTypedescr)
+from pypy.module.cpyext.state import State
 from rpython.rlib.rarithmetic import r_uint, intmask, LONG_TEST, r_ulonglong
 from pypy.objspace.std.intobject import W_IntObject
 import sys
@@ -19,10 +20,24 @@ cpython_struct("PyIntObject", PyIntObjectFields, PyIntObjectStruct)
 @bootstrap_function
 def init_intobject(space):
     "Type description of PyIntObject"
+    state = space.fromcache(State)
     make_typedescr(space.w_int.layout.typedef,
                    basestruct=PyIntObject.TO,
                    attach=int_attach,
+                   alloc=int_alloc,
+                   dealloc=state.C._PyPy_int_dealloc,
                    realize=int_realize)
+
+def int_alloc(typedescr, space, w_type, itemcount):
+    state = space.fromcache(State)
+    if w_type is space.w_int:
+        # in theory here we just want to allocate, without initializing the
+        # value. However, it's just easier to call PyInt_FromLong with a dummy
+        # value; make sure it's big enough to avoid the smallint optimization
+        # (if it will ever be enabled)
+        return state.ccall("PyInt_FromLong", 0x0DEADBEE)
+    else:
+        return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
 def int_attach(space, py_obj, w_obj, w_userdata=None):
     """
@@ -48,12 +63,6 @@ def PyInt_GetMax(space):
     as defined in the system header files)."""
     return sys.maxint
 
-@cpython_api([lltype.Signed], PyObject)
-def PyInt_FromLong(space, ival):
-    """Create a new integer object with a value of ival.
-
-    """
-    return space.newint(ival)
 
 @cpython_api([PyObject], lltype.Signed, error=-1)
 def PyInt_AsLong(space, w_obj):

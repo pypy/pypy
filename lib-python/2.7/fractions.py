@@ -517,8 +517,13 @@ class Fraction(Rational):
             # Get integers right.
             return hash(self._numerator)
         # Expensive check, but definitely correct.
-        if self == float(self):
-            return hash(float(self))
+        # PyPy: the following 4 lines used to be almost twice slower:
+        #         if self == float(self):
+        #             return hash(float(self))
+        f = float(self)
+        x, y = f.as_integer_ratio()    # signs are correct: y is positive
+        if self._numerator == x and self._denominator == y:
+            return hash(f)
         else:
             # Use tuple's hash to avoid a high collision rate on
             # simple fractions.

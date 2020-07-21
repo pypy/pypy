@@ -828,7 +828,7 @@ class __extend__(W_NDimArray):
         if (axis1 < 0 or axis2 < 0 or axis1 >= self.ndims() or
                 axis2 >= self.ndims()):
             raise oefmt(space.w_ValueError,
-                        "axis1(=%d) and axis2(=%d) must be withing range "
+                        "axis1(=%d) and axis2(=%d) must be within range "
                         "(ndim=%d)", axis1, axis2, self.ndims())
         if axis1 == axis2:
             raise oefmt(space.w_ValueError,

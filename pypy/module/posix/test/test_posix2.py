@@ -1,49 +1,50 @@
-
 # -*- coding: utf-8 -*-
 
-from __future__ import with_statement
-from pypy.objspace.std import StdObjSpace
-from rpython.tool.udir import udir
-from pypy.tool.pytest.objspace import gettestobjspace
-from pypy import pypydir
-from rpython.translator.c.test.test_extfunc import need_sparse_files
-from rpython.rlib import rposix
 import os
 import py
+import pytest
 import sys
 import signal
 
-USEMODULES = ['binascii', 'posix', 'struct', 'time']
+from rpython.tool.udir import udir
+from pypy.tool.pytest.objspace import gettestobjspace
+from rpython.translator.c.test.test_extfunc import need_sparse_files
+from rpython.rlib import rposix
+
+USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
 if os.name != 'nt':
     USEMODULES += ['fcntl']
 else:
     # On windows, os.popen uses the subprocess module
-    USEMODULES += ['_rawffi', 'thread', 'signal']
+    USEMODULES += ['_rawffi', 'thread', 'signal', '_cffi_backend']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
     mod.path = udir.join('posixtestfile.txt')
     mod.path.write("this is a test")
     mod.path2 = udir.join('test_posix2-')
+    mod.path3 = udir.join('unlinktestfile.txt')
+    mod.path3.write("delete me!")
+    pdir = udir.ensure('posixtestdir', dir=True)
     pdir = udir.ensure('posixtestdir', dir=True)
     pdir.join('file1').write("test1")
-    os.chmod(str(pdir.join('file1')), 0600)
+    os.chmod(str(pdir.join('file1')), 0o600)
     pdir.join('file2').write("test2")
     pdir.join('another_longer_file_name').write("test3")
     mod.pdir = pdir
-    unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+    if sys.platform == 'darwin':
+        # see issue https://bugs.python.org/issue31380
+        unicode_dir = udir.ensure('fixc5x9fier.txt', dir=True)
+        file_name = 'cafxe9'
+    else:
+        unicode_dir = udir.ensure('fi\xc5\x9fier.txt', dir=True)
+        file_name = 'caf\xe9'
     unicode_dir.join('somefile').write('who cares?')
-    unicode_dir.join('caf\xe9').write('who knows?')
+    unicode_dir.join(file_name).write('who knows?')
     mod.unicode_dir = unicode_dir
-
-    # in applevel tests, os.stat uses the CPython os.stat.
-    # Be sure to return times with full precision
-    # even when running on top of CPython 2.4.
-    os.stat_float_times(True)
 
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
-
 
 
 GET_POSIX = "(): import %s as m ; return m" % os.name
@@ -58,7 +59,9 @@ class AppTestPosix:
         cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_path2 = space.wrap(str(path2))
+        cls.w_path3 = space.wrap(str(path3))
         cls.w_pdir = space.wrap(str(pdir))
+        cls.w_plat = space.wrap(sys.platform)
         try:
             cls.w_unicode_dir = space.wrap(
                 str(unicode_dir).decode(sys.getfilesystemencoding()))
@@ -88,6 +91,7 @@ class AppTestPosix:
             cls.w_confstr_result = space.wrap(os.confstr(confstr_name))
         cls.w_SIGABRT = space.wrap(signal.SIGABRT)
         cls.w_python = space.wrap(sys.executable)
+        cls.w_platform = space.wrap(sys.platform)
         if hasattr(os, 'major'):
             cls.w_expected_major_12345 = space.wrap(os.major(12345))
             cls.w_expected_minor_12345 = space.wrap(os.minor(12345))
@@ -99,7 +103,7 @@ class AppTestPosix:
                 # this fails because it uses ll2ctypes to call the posix
                 # functions like 'open' and 'lseek', whereas a real compiled
                 # C program would macro-define them to their longlong versions
-                py.test.skip("emulation of files can't use "
+                pytest.skip("emulation of files can't use "
                              "larger-than-long offsets")
             need_sparse_files()
 
@@ -109,14 +113,14 @@ class AppTestPosix:
     def test_some_posix_basic_operation(self):
         path = self.path
         posix = self.posix
-        fd = posix.open(path, posix.O_RDONLY, 0777)
+        fd = posix.open(path, posix.O_RDONLY, 0o777)
         fd2 = posix.dup(fd)
         assert not posix.isatty(fd2)
         s = posix.read(fd, 1)
-        assert s == 't'
+        assert s == b't'
         posix.lseek(fd, 5, 0)
         s = posix.read(fd, 1)
-        assert s == 'i'
+        assert s == b'i'
         st = posix.fstat(fd)
         posix.close(fd2)
         posix.close(fd)
@@ -170,6 +174,7 @@ class AppTestPosix:
         finally:
             posix.stat_float_times(current)
 
+
     def test_stat_result(self):
         st = self.posix.stat_result((0, 0, 0, 0, 0, 0, 0, 41, 42.1, 43))
         assert st.st_atime == 41
@@ -181,6 +186,8 @@ class AppTestPosix:
         import stat
         st = self.posix.stat(".")
         assert stat.S_ISDIR(st.st_mode)
+        st = self.posix.stat(b".")
+        assert stat.S_ISDIR(st.st_mode)
         st = self.posix.lstat(".")
         assert stat.S_ISDIR(st.st_mode)
 
@@ -188,7 +195,8 @@ class AppTestPosix:
         import sys
         import errno
         for fn in [self.posix.stat, self.posix.lstat]:
-            exc = raises(OSError, fn, "nonexistentdir/nonexistentfile")
+            with raises(OSError) as exc:
+                fn("nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
 
@@ -205,9 +213,9 @@ class AppTestPosix:
     def test_pickle(self):
         import pickle, os
         st = self.posix.stat(os.curdir)
-        print type(st).__module__
+        # print type(st).__module__
         s = pickle.dumps(st)
-        print repr(s)
+        # print repr(s)
         new = pickle.loads(s)
         assert new == st
         assert type(new) is type(st)
@@ -262,6 +270,7 @@ class AppTestPosix:
                 assert 0
 
     def test_functions_raise_error(self):
+        import sys
         def ex(func, *args):
             try:
                 func(*args)
@@ -276,13 +285,15 @@ class AppTestPosix:
         ex(self.posix.lseek, UNUSEDFD, 123, 0)
         #apparently not posix-required: ex(self.posix.isatty, UNUSEDFD)
         ex(self.posix.read, UNUSEDFD, 123)
-        ex(self.posix.write, UNUSEDFD, "x")
+        ex(self.posix.write, UNUSEDFD, b"x")
         ex(self.posix.close, UNUSEDFD)
         #UMPF cpython raises IOError ex(self.posix.ftruncate, UNUSEDFD, 123)
-        ex(self.posix.fstat, UNUSEDFD)
-        ex(self.posix.stat, "qweqwehello")
-        # how can getcwd() raise?
-        ex(self.posix.dup, UNUSEDFD)
+        if sys.platform == 'win32' and self.runappdirect:
+            # XXX kills the host interpreter untranslated
+            ex(self.posix.fstat, UNUSEDFD)
+            ex(self.posix.stat, "qweqwehello")
+            # how can getcwd() raise?
+            ex(self.posix.dup, UNUSEDFD)
 
     def test_fdopen(self):
         import errno
@@ -294,8 +305,13 @@ class AppTestPosix:
 
         # There used to be code here to ensure that fcntl is not faked
         # but we can't do that cleanly any more
-        exc = raises(OSError, posix.fdopen, fd)
-        assert exc.value.errno == errno.EBADF
+        try:
+            fid = posix.fdopen(fd)
+            fid.read(10)
+        except (IOError, OSError) as e:
+            assert e.errno == errno.EBADF
+        else:
+            assert False, "using result of fdopen(fd) on closed file must raise"
 
     def test_fdopen_hackedbuiltins(self):
         "Same test, with __builtins__.file removed"
@@ -318,15 +334,25 @@ class AppTestPosix:
         except OSError as e:
             assert e.errno == errno.EACCES
             skip("system cannot open directories")
-        exc = raises(IOError, os.fdopen, fd, 'r')
+        with raises(IOError) as exc:
+            os.fdopen(fd, 'r')
         assert exc.value.errno == errno.EISDIR
 
     def test_fdopen_keeps_fd_open_on_errors(self):
         path = self.path
         posix = self.posix
         fd = posix.open(path, posix.O_RDONLY)
-        exc = raises(OSError, posix.fdopen, fd, 'w')
-        assert str(exc.value) == "[Errno 22] Invalid argument"
+        # compatability issue - using Visual Studio 10 and above no
+        # longer raises on fid creation, only when _using_ fid
+        # win32 python2 raises IOError on flush(), win32 python3 raises OSError
+        try:
+            fid = posix.fdopen(fd, 'w')
+            fid.write('abc')
+            fid.flush()
+        except  (OSError, IOError) as e:
+            assert e.errno in (9, 22)
+        else:
+            assert False, "expected OSError"
         posix.close(fd)  # fd should not be closed
 
     def test_getcwd(self):
@@ -352,17 +378,29 @@ class AppTestPosix:
         result = posix.listdir(unicode_dir)
         typed_result = [(type(x), x) for x in result]
         assert (unicode, u'somefile') in typed_result
+        file_system_encoding = sys.getfilesystemencoding()
         try:
-            u = "caf\xe9".decode(sys.getfilesystemencoding())
+            u = "caf\xe9".decode(file_system_encoding)
         except UnicodeDecodeError:
             # Could not decode, listdir returned the byte string
             if sys.platform != 'darwin':
                 assert (str, "caf\xe9") in typed_result
             else:
-                # darwin 'normalized' it
-                assert (unicode, 'caf%E9') in typed_result
+                # if the test is being run in an utf-8 encoded macOS
+                # the posix.listdir function is returning the name of
+                # the file properly.
+                # This test should be run in multiple macOS platforms to
+                # be sure that is working as expected.
+                if file_system_encoding == 'UTF-8':
+                    assert (unicode, 'cafxe9') in typed_result
+                else:
+                    # darwin 'normalized' it
+                    assert (unicode, 'caf%E9') in typed_result
         else:
             assert (unicode, u) in typed_result
+        assert posix.access(b'caf\xe9', posix.R_OK) is False
+        assert posix.access('caf\udcc0', posix.R_OK) is False
+        assert posix.access(b'caf\xc3', posix.R_OK) is False
 
     def test_access(self):
         pdir = self.pdir + '/file1'
@@ -373,6 +411,13 @@ class AppTestPosix:
         import sys
         if sys.platform != "win32":
             assert posix.access(pdir, posix.X_OK) is False
+
+    def test_unlink(self):
+        os = self.posix
+        path = self.path3
+        with open(path, 'wb'):
+            pass
+        os.unlink(path)
 
     def test_times(self):
         """
@@ -385,7 +430,6 @@ class AppTestPosix:
         assert len(result) == 5
         for value in result:
             assert isinstance(value, float)
-
 
     def test_strerror(self):
         assert isinstance(self.posix.strerror(0), str)
@@ -410,9 +454,9 @@ class AppTestPosix:
             master_fd, slave_fd = os.openpty()
             assert isinstance(master_fd, int)
             assert isinstance(slave_fd, int)
-            os.write(slave_fd, 'x\n')
+            os.write(slave_fd, b'x\n')
             data = os.read(master_fd, 100)
-            assert data.startswith('x')
+            assert data.startswith(b'x')
             os.close(master_fd)
             os.close(slave_fd)
 
@@ -427,11 +471,11 @@ class AppTestPosix:
             assert isinstance(master_fd, int)
             if childpid == 0:
                 data = os.read(0, 100)
-                if data.startswith('abc'):
+                if data.startswith(b'abc'):
                     os._exit(42)
                 else:
                     os._exit(43)
-            os.write(master_fd, 'abc\n')
+            os.write(master_fd, b'abc\n')
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
 
@@ -449,22 +493,21 @@ class AppTestPosix:
 
         def test_execv_raising(self):
             os = self.posix
-            raises(OSError, 'os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])')
+            with raises(OSError):
+                os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])
 
         def test_execv_no_args(self):
             os = self.posix
-            raises(ValueError, os.execv, "notepad", [])
-            raises(ValueError, os.execve, "notepad", [], {})
+            with raises(ValueError):
+                os.execv("notepad", [])
+            with raises(ValueError):
+                os.execve("notepad", [], {})
 
         def test_execv_raising2(self):
             os = self.posix
             for n in 3, [3, "a"]:
-                try:
+                with raises(TypeError) as excinfo:
                     os.execv("xxx", n)
-                except TypeError as t:
-                    assert str(t) == "execv() arg 2 must be an iterable of strings"
-                else:
-                    py.test.fail("didn't raise")
 
         def test_execv_unicode(self):
             os = self.posix
@@ -480,7 +523,8 @@ class AppTestPosix:
                 os.execv(u"/bin/sh", ["sh", "-c",
                                       u"echo caf\xe9 \u1234 > onefile"])
             os.waitpid(pid, 0)
-            assert open("onefile").read() == output
+            with open("onefile") as fid:
+                assert fid.read() == output
             os.unlink("onefile")
 
         def test_execve(self):
@@ -509,7 +553,8 @@ class AppTestPosix:
                                       u"echo caf\xe9 \u1234 > onefile"],
                           {'ddd': 'xxx'})
             os.waitpid(pid, 0)
-            assert open("onefile").read() == output
+            with open("onefile") as fid:
+                assert fid.read() == output
             os.unlink("onefile")
         pass # <- please, inspect.getsource(), don't crash
 
@@ -548,24 +593,29 @@ class AppTestPosix:
             assert res == '1\n'
 
     def test_popen_child_fds(self):
-        import os
-        with open(os.path.join(self.pdir, 'file1'), 'r') as fd:
+        os = self.posix
+        with open('/'.join([self.pdir, 'file1']), 'r') as fd:
             with self.posix.popen('%s -c "import os; print os.read(%d, 10)" 2>&1' % (self.python, fd.fileno())) as stream:
                 res = stream.read()
-                if os.name == 'nt':
+                if self.plat == 'win32':
                     assert '\nOSError: [Errno 9]' in res
                 else:
                     assert res == 'test1\n'
+    if sys.platform == "win32":
+        # using startfile in app_startfile creates global state
+        test_popen.dont_track_allocations = True
+        test_popen_with.dont_track_allocations = True
+        test_popen_child_fds.dont_track_allocations = True
+
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific
             posix = self.posix
-            import os
-            sysdrv = os.getenv("SystemDrive", "C:")
+            sysdrv = posix.environ.get("SystemDrive", "C:")
             # just see if it does anything
             path = sysdrv + 'hubber'
-            assert os.sep in posix._getfullpathname(path)
+            assert '\\' in posix._getfullpathname(path)
 
     def test_utime(self):
         os = self.posix
@@ -573,7 +623,7 @@ class AppTestPosix:
         # XXX utimes & float support
         path = join(self.pdir, "test_utime.txt")
         fh = open(path, "w")
-        fh.write("x")
+        fh.write(b"x")
         fh.close()
         from time import time, sleep
         t0 = time()
@@ -585,8 +635,12 @@ class AppTestPosix:
 
     def test_utime_raises(self):
         os = self.posix
-        raises(TypeError, "os.utime('xxx', 3)")
-        raises(OSError, "os.utime('somefilewhichihopewouldneverappearhere', None)")
+        import errno
+        with raises(TypeError):
+            os.utime('xxx', 3)
+        with raises(OSError) as exc:
+            os.utime('somefilewhichihopewouldneverappearhere', None)
+        assert exc.value.errno == errno.ENOENT
 
     for name in rposix.WAIT_MACROS:
         if hasattr(os, name):
@@ -626,9 +680,12 @@ class AppTestPosix:
         @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setuid_error(self):
             os = self.posix
-            raises(OverflowError, os.setuid, -2)
-            raises(OverflowError, os.setuid, 2**32)
-            raises(OSError, os.setuid, -1)
+            with raises(OverflowError):
+                os.setuid(-2)
+            with raises(OverflowError):
+                os.setuid(2**32)
+            with raises(OSError):
+                os.setuid(-1)
 
     if hasattr(os, 'getgid'):
         def test_os_getgid(self):
@@ -643,7 +700,8 @@ class AppTestPosix:
     if hasattr(os, 'setgroups'):
         def test_os_setgroups(self):
             os = self.posix
-            raises(TypeError, os.setgroups, [2, 5, "hello"])
+            with raises(TypeError):
+                os.setgroups([2, 5, "hello"])
             try:
                 os.setgroups(os.getgroups())
             except OSError:
@@ -652,39 +710,49 @@ class AppTestPosix:
     if hasattr(os, 'initgroups'):
         def test_os_initgroups(self):
             os = self.posix
-            raises(OSError, os.initgroups, "crW2hTQC", 100)
+            with raises(OSError):
+                os.initgroups("crW2hTQC", 100)
 
     if hasattr(os, 'tcgetpgrp'):
         def test_os_tcgetpgrp(self):
             os = self.posix
-            raises(OSError, os.tcgetpgrp, 9999)
+            with raises(OSError):
+                os.tcgetpgrp(9999)
 
     if hasattr(os, 'tcsetpgrp'):
         def test_os_tcsetpgrp(self):
             os = self.posix
-            raises(OSError, os.tcsetpgrp, 9999, 1)
+            with raises(OSError):
+                os.tcsetpgrp(9999, 1)
 
     if hasattr(os, 'getpgid'):
         def test_os_getpgid(self):
             os = self.posix
             assert os.getpgid(os.getpid()) == self.getpgid
-            raises(OSError, os.getpgid, 1234567)
+            with raises(OSError):
+                os.getpgid(1234567)
 
     if hasattr(os, 'setgid'):
-        @py.test.mark.skipif("sys.version_info < (2, 7, 4)")
+        @pytest.mark.skipif("sys.version_info < (2, 7, 4)")
         def test_os_setgid_error(self):
             os = self.posix
-            raises(OverflowError, os.setgid, -2)
-            raises(OverflowError, os.setgid, 2**32)
-            raises(OSError, os.setgid, -1)
-            raises(OSError, os.setgid, -1L)
-            raises(OSError, os.setgid, 2**32-1)
+            with raises(OverflowError):
+                os.setgid(-2)
+            with raises(OverflowError):
+                os.setgid(2**32)
+            with raises(OSError):
+                os.setgid(-1)
+            with raises(OSError):
+                os.setgid(-1L)
+            with raises(OSError):
+                os.setgid(2**32-1)
 
     if hasattr(os, 'getsid'):
         def test_os_getsid(self):
             os = self.posix
             assert os.getsid(0) == self.getsid0
-            raises(OSError, os.getsid, -100000)
+            with raises(OSError):
+                os.getsid(-100000)
 
     if hasattr(os, 'getresuid'):
         def test_os_getresuid(self):
@@ -719,22 +787,27 @@ class AppTestPosix:
 
         def test_os_sysconf_error(self):
             os = self.posix
-            raises(ValueError, os.sysconf, "!@#$%!#$!@#")
+            with raises(ValueError):
+                os.sysconf("!@#$%!#$!@#")
 
     if hasattr(os, 'fpathconf'):
         def test_os_fpathconf(self):
             os = self.posix
             assert os.fpathconf(1, "PC_PIPE_BUF") >= 128
-            raises(OSError, os.fpathconf, -1, "PC_PIPE_BUF")
-            raises(ValueError, os.fpathconf, 1, "##")
+            with raises(OSError):
+                os.fpathconf(-1, "PC_PIPE_BUF")
+            with raises(ValueError):
+                os.fpathconf(1, "##")
 
     if hasattr(os, 'pathconf'):
         def test_os_pathconf(self):
             os = self.posix
             assert os.pathconf("/tmp", "PC_NAME_MAX") >= 31
             # Linux: the following gets 'No such file or directory'
-            raises(OSError, os.pathconf, "", "PC_PIPE_BUF")
-            raises(ValueError, os.pathconf, "/tmp", "##")
+            with raises(OSError):
+                os.pathconf("", "PC_PIPE_BUF")
+            with raises(ValueError):
+                os.pathconf("/tmp", "##")
 
     if hasattr(os, 'confstr'):
         def test_os_confstr(self):
@@ -745,7 +818,8 @@ class AppTestPosix:
 
         def test_os_confstr_error(self):
             os = self.posix
-            raises(ValueError, os.confstr, "!@#$%!#$!@#")
+            with raises(ValueError):
+                os.confstr("!@#$%!#$!@#")
 
     if hasattr(os, 'wait'):
         def test_os_wait(self):
@@ -784,7 +858,8 @@ class AppTestPosix:
             assert os.minor(12345) == self.expected_minor_12345
             assert os.makedev(self.expected_major_12345,
                               self.expected_minor_12345) == 12345
-            raises((ValueError, OverflowError), os.major, -1)
+            with raises((ValueError, OverflowError)):
+                os.major(-1)
 
     if hasattr(os, 'fsync'):
         def test_fsync(self):
@@ -802,7 +877,8 @@ class AppTestPosix:
                 os.fsync(fd)
             except OSError:
                 pass
-            raises(ValueError, os.fsync, -1)
+            with raises(ValueError):
+                os.fsync(-1)
 
     if hasattr(os, 'fdatasync'):
         def test_fdatasync(self):
@@ -818,29 +894,28 @@ class AppTestPosix:
                 os.fdatasync(fd)
             except OSError:
                 pass
-            raises(ValueError, os.fdatasync, -1)
+            with raises(ValueError):
+                os.fdatasync(-1)
 
     if hasattr(os, 'fchdir'):
         def test_fchdir(self):
             os = self.posix
             localdir = os.getcwd()
-            try:
-                os.mkdir(self.path2 + 'dir')
-                fd = os.open(self.path2 + 'dir', os.O_RDONLY)
+            os.mkdir(self.path2 + 'fchdir')
+            for func in [os.fchdir, os.chdir]:
+                fd = os.open(self.path2 + 'fchdir', os.O_RDONLY)
                 try:
                     os.fchdir(fd)
                     mypath = os.getcwd()
                 finally:
-                    os.close(fd)
-                assert mypath.endswith('test_posix2-dir')
-                raises(OSError, os.fchdir, fd)
-                raises(ValueError, os.fchdir, -1)
-            finally:
-                os.chdir(localdir)
+                    os.chdir(localdir)
+            with raises(ValueError):
+                os.fchdir(-1)
 
     def test_largefile(self):
         os = self.posix
-        fd = os.open(self.path2 + 'test_largefile', os.O_RDWR | os.O_CREAT, 0666)
+        fd = os.open(self.path2 + 'test_largefile',
+                     os.O_RDWR | os.O_CREAT, 0666)
         os.ftruncate(fd, 10000000000L)
         res = os.lseek(fd, 9900000000L, 0)
         assert res == 9900000000L
@@ -862,24 +937,26 @@ class AppTestPosix:
                 count = os.write(fd, s)
                 assert count > 0
                 s = s[count:]
-        writeall('hello, ')
+        writeall(b'hello, ')
         writeall(buffer('world!\n'))
         res = os.lseek(fd, 0, 0)
         assert res == 0
-        data = ''
+        data = b''
         while True:
             s = os.read(fd, 100)
             if not s:
                 break
             data += s
-        assert data == 'hello, world!\n'
+        assert data == b'hello, world!\n'
         os.close(fd)
 
     def test_write_unicode(self):
         os = self.posix
-        fd = os.open(self.path2 + 'test_write_unicode', os.O_RDWR | os.O_CREAT, 0666)
+        fd = os.open(self.path2 + 'test_write_unicode',
+                     os.O_RDWR | os.O_CREAT, 0666)
         os.write(fd, u'X')
-        raises(UnicodeEncodeError, os.write, fd, u'\xe9')
+        with raises(UnicodeEncodeError):
+            os.write(fd, u'\xe9')
         os.lseek(fd, 0, 0)
         data = os.read(fd, 2)
         assert data == 'X'
@@ -911,14 +988,18 @@ class AppTestPosix:
         os.closerange(start, stop)
         for fd in fds:
             os.close(fd)     # should not have been closed
-        for fd in range(start, stop):
-            raises(OSError, os.fstat, fd)   # should have been closed
+        if self.platform == 'win32' and self.runappdirect:
+            # XXX kills the host interpreter untranslated
+            for fd in range(start, stop):
+                with raises(OSError):
+                    os.fstat(fd)   # should have been closed
 
     if hasattr(os, 'chown'):
         def test_chown(self):
             os = self.posix
             os.unlink(self.path)
-            raises(OSError, os.chown, self.path, os.getuid(), os.getgid())
+            with raises(OSError):
+                os.chown(self.path, os.getuid(), os.getgid())
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
@@ -928,7 +1009,8 @@ class AppTestPosix:
         def test_lchown(self):
             os = self.posix
             os.unlink(self.path)
-            raises(OSError, os.lchown, self.path, os.getuid(), os.getgid())
+            with raises(OSError):
+                os.lchown(self.path, os.getuid(), os.getgid())
             os.symlink('foobar', self.path)
             os.lchown(self.path, os.getuid(), os.getgid())
 
@@ -944,16 +1026,20 @@ class AppTestPosix:
             import sys
             os = self.posix
             os.unlink(self.path)
-            raises(OSError, os.chmod, self.path, 0600)
+            with raises(OSError):
+                os.chmod(self.path, 0600)
             f = open(self.path, "w")
             f.write("this is a test")
             f.close()
             if sys.platform == 'win32':
                 os.chmod(self.path, 0400)
                 assert (os.stat(self.path).st_mode & 0600) == 0400
+                os.chmod(self.path, 0700)
             else:
                 os.chmod(self.path, 0200)
                 assert (os.stat(self.path).st_mode & 0777) == 0200
+                os.chmod(self.path, 0700)
+            os.unlink(self.path)
 
     if hasattr(os, 'fchmod'):
         def test_fchmod(self):
@@ -963,6 +1049,7 @@ class AppTestPosix:
             assert (os.fstat(f.fileno()).st_mode & 0777) == 0200
             f.close()
             assert (os.stat(self.path).st_mode & 0777) == 0200
+            os.unlink(self.path)
 
     if hasattr(os, 'mkfifo'):
         def test_mkfifo(self):
@@ -1105,7 +1192,7 @@ class AppTestPosix:
             assert w[-1].lineno == f_tmpnam_warning.func_code.co_firstlineno
 
     def test_has_kill(self):
-        import os
+        os = self.posix
         assert hasattr(os, 'kill')
 
     def test_pipe_flush(self):
@@ -1140,7 +1227,8 @@ class AppTestPosix:
             startfile = self.posix.startfile
             for t1 in [str, unicode]:
                 for t2 in [str, unicode]:
-                    e = raises(WindowsError, startfile, t1("\\"), t2("close"))
+                    with raises(WindowsError) as e:
+                        startfile(t1("\\"), t2("close"))
                     assert e.value.args[0] == 1155
                     assert e.value.args[1] == (
                         "No application is associated with the "
@@ -1148,35 +1236,66 @@ class AppTestPosix:
                     if len(e.value.args) > 2:
                         assert e.value.args[2] == t1("\\")
             #
-            e = raises(WindowsError, startfile, "\\foo\\bar\\baz")
+            with raises(WindowsError) as e:
+                startfile("\\foo\\bar\\baz")
             assert e.value.args[0] == 2
             assert e.value.args[1] == (
                 "The system cannot find the file specified")
             if len(e.value.args) > 2:
                 assert e.value.args[2] == "\\foo\\bar\\baz"
 
+    @pytest.mark.skipif("sys.platform != 'win32'")
+    def test_rename(self):
+        os = self.posix
+        fname = self.path2 + 'rename.txt'
+        with open(fname, "w") as f:
+            f.write("this is a rename test")
+        str_name = str(self.pdir) + '/test_rename.txt'
+        os.rename(fname, str_name)
+        with open(str_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(str_name, fname)
+        unicode_name = str(self.udir) + u'/test\u03be.txt'
+        os.rename(fname, unicode_name)
+        with open(unicode_name) as f:
+            assert f.read() == 'this is a rename test'
+        os.rename(unicode_name, fname)
+
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
+        cls.w_posix = space.appexec([], GET_POSIX)
 
-    if sys.platform != 'win32':
-        def test_environ(self):
-            import posix
-            assert posix.environ['PATH']
-            del posix.environ['PATH']
-            def fn(): posix.environ['PATH']
-            raises(KeyError, fn)
-    else:
-        def test_environ(self):
-            import nt
-            assert 'ADLDJSSLDFKJSD' not in nt.environ
-            def fn(): nt.environ['ADLDJSSLDFKJSD']
-            raises(KeyError, fn)
+    def test_environ(self):
+        import sys, os
+        environ = os.environ
+        if not environ:
+            skip('environ not filled in for untranslated tests')
+        for k, v in environ.items():
+            assert type(k) is str
+            assert type(v) is str
+        name = next(iter(environ))
+        assert environ[name] is not None
+        del environ[name]
+        with raises(KeyError):
+            environ[name]
+
+    @pytest.mark.dont_track_allocations('putenv intentionally keeps strings alive')
+    def test_environ_nonascii(self):
+        import sys, os
+        name, value = 'PYPY_TEST_日本', 'foobar日本'
+        os.environ[name] = value
+        assert os.environ[name] == value
+        assert os.getenv(name) == value
+        del os.environ[name]
+        assert os.environ.get(name) is None
+        assert os.getenv(name) is None
 
     if hasattr(__import__(os.name), "unsetenv"):
         def test_unsetenv_nonexisting(self):
-            import os
+            os = self.posix
             os.unsetenv("XYZABC") #does not raise
             try:
                 os.environ["ABCABC"]
@@ -1244,7 +1363,7 @@ class AppTestUnicodeFilename:
         try:
             f = file(ufilename, 'w')
         except UnicodeEncodeError:
-            py.test.skip("encoding not good enough")
+            pytest.skip("encoding not good enough")
         f.write("test")
         f.close()
         cls.space = space
@@ -1257,9 +1376,10 @@ class AppTestUnicodeFilename:
             content = self.posix.read(fd, 50)
         finally:
             self.posix.close(fd)
-        assert content == "test"
+        assert content == b"test"
 
 
+from pypy import pypydir
 class TestPexpect(object):
     # XXX replace with AppExpectTest class as soon as possible
     def setup_class(cls):

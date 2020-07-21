@@ -13,3 +13,4 @@ RPY_EXTERN void pypy_x86_check_sse2(void);
 #include <intrin.h>
 #pragma intrinsic(__rdtsc)
 #define READ_TIMESTAMP(val)   do { val = (long long)__rdtsc(); } while (0)
+#define READ_TIMESTAMP_UNIT TIMESTAMP_UNIT_TSC

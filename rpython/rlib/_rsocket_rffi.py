@@ -33,6 +33,7 @@ if _POSIX:
                 'arpa/inet.h',
                 'stdint.h',
                 'errno.h',
+                'limits.h',
                 )
     if _HAS_AF_PACKET:
         includes += ('netpacket/packet.h',
@@ -113,6 +114,7 @@ class CConfig:
     F_GETFL = platform.DefinedConstantInteger('F_GETFL')
     F_SETFL = platform.DefinedConstantInteger('F_SETFL')
     FIONBIO = platform.DefinedConstantInteger('FIONBIO')
+    PIPE_BUF = platform.DefinedConstantInteger('PIPE_BUF')
 
     INVALID_SOCKET = platform.DefinedConstantInteger('INVALID_SOCKET')
     INET_ADDRSTRLEN = platform.DefinedConstantInteger('INET_ADDRSTRLEN')
@@ -147,7 +149,7 @@ IPPROTO_FRAGMENT IPPROTO_GGP IPPROTO_GRE IPPROTO_HELLO IPPROTO_HOPOPTS
 IPPROTO_ICMPV6 IPPROTO_IDP IPPROTO_IGMP IPPROTO_IPCOMP IPPROTO_IPIP
 IPPROTO_IPV4 IPPROTO_IPV6 IPPROTO_MAX IPPROTO_MOBILE IPPROTO_ND IPPROTO_NONE
 IPPROTO_PIM IPPROTO_PUP IPPROTO_ROUTING IPPROTO_RSVP IPPROTO_TCP IPPROTO_TP
-IPPROTO_VRRP IPPROTO_XTP
+IPPROTO_VRRP IPPROTO_XTP IPPROTO_SCTP
 
 IPV6_CHECKSUM IPV6_DONTFRAG IPV6_DSTOPTS IPV6_HOPLIMIT IPV6_HOPOPTS
 IPV6_JOIN_GROUP IPV6_LEAVE_GROUP IPV6_MULTICAST_HOPS IPV6_MULTICAST_IF
@@ -177,7 +179,7 @@ PACKET_LOOPBACK PACKET_FASTROUTE
 
 
 SOCK_DGRAM SOCK_RAW SOCK_RDM SOCK_SEQPACKET SOCK_STREAM
-SOCK_CLOEXEC
+SOCK_CLOEXEC SOCK_NONBLOCK
 
 SOL_SOCKET SOL_IPX SOL_AX25 SOL_ATALK SOL_NETROM SOL_ROSE
 
@@ -201,9 +203,12 @@ WSA_WAIT_TIMEOUT WSA_WAIT_FAILED INFINITE
 FD_CONNECT_BIT FD_CLOSE_BIT
 WSA_IO_PENDING WSA_IO_INCOMPLETE WSA_INVALID_HANDLE
 WSA_INVALID_PARAMETER WSA_NOT_ENOUGH_MEMORY WSA_OPERATION_ABORTED
+WSA_FLAG_OVERLAPPED
 SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME SIOCGIFINDEX
+
+SO_DOMAIN SO_PROTOCOL SO_PEERSEC SO_PASSSEC TCP_USER_TIMEOUT TCP_CONGESTION
 '''.split()
 
 for name in constant_names:
@@ -211,8 +216,8 @@ for name in constant_names:
 
 if _WIN32:
     # some SDKs define these values with an enum, #ifdef won't work
-    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY'):
-        setattr(CConfig, name, platform.ConstantInteger(name))
+    for name in ('RCVALL_ON', 'RCVALL_OFF', 'RCVALL_SOCKETLEVELONLY', 'TCP_FASTOPEN'):
+        setattr(CConfig, name, platform.DefinedConstantInteger(name))
         constant_names.append(name)
 
 constants["BDADDR_ANY"] =  "00:00:00:00:00:00"
@@ -223,6 +228,7 @@ constants_w_defaults = [('SOL_IP', 0),
                         ('SOL_UDP', 17),
                         ('SOMAXCONN', 5),
                         ('IPPROTO_IP', 6),
+                        ('IPPROTO_IPV6', 41),
                         ('IPPROTO_ICMP', 1),
                         ('IPPROTO_TCP', 6),
                         ('IPPROTO_UDP', 17),
@@ -373,12 +379,6 @@ if HAVE_SENDMSG:
         #define ANC_DATA_TOO_LARGE -1001
         #define ANC_DATA_TOO_LARGEX -1002
 
-        /*
-            Even though you could, theoretically, receive more than one message, IF you set the socket option,
-            CPython has hardcoded the message number to 1, and implemented the option to receive more then 1 in a
-            different socket method: recvmsg_into
-        */
-        #define MSG_IOVLEN 1 // CPython has hardcoded this as well.
         #if INT_MAX > 0x7fffffff
             #define SOCKLEN_T_LIMIT 0x7fffffff
         #else
@@ -490,9 +490,6 @@ if HAVE_SENDMSG:
         {
             struct sockaddr* address; // address fields
             socklen_t addrlen;
-            int* length_of_messages; // message fields
-            char** messages;
-            int no_of_messages;
             int size_of_ancillary; // ancillary fields
             int* levels;
             int* types;
@@ -510,21 +507,19 @@ if HAVE_SENDMSG:
         RPY_EXTERN
         int recvmsg_implementation(
                                   int socket_fd,
-                                  int message_size,
                                   int ancillary_size,
                                   int flags,
                                   struct sockaddr* address,
                                   socklen_t* addrlen,
-                                  long** length_of_messages,
+                                  int* message_lengths,
                                   char** messages,
-                                  long* no_of_messages,
+                                  int no_of_messages,
                                   long* size_of_ancillary,
                                   long** levels,
                                   long** types,
                                   char** file_descr,
                                   long** descr_per_ancillary,
                                   long* retflag)
-
         {
 
             struct sockaddr* recvd_address;
@@ -533,10 +528,10 @@ if HAVE_SENDMSG:
             void *controlbuf = NULL;
             struct cmsghdr *cmsgh;
             int cmsg_status;
-            struct iovec iov;
             struct recvmsg_info* retinfo;
             int error_flag = 0;   // variable to be set in case of special errors.
             int cmsgdatalen = 0;
+            size_t i;
 
             // variables that are set to 1, if the message charp has been allocated
             // and if the ancillary variables have been allocated. To be used in case of failure.
@@ -550,10 +545,17 @@ if HAVE_SENDMSG:
                 goto fail;
             }
 
-            // Setup the messages iov struct memory
-            iov.iov_base = (char*) malloc(message_size);
-            memset(iov.iov_base, 0, message_size);
-            iov.iov_len = message_size;
+            // Add the message
+            struct iovec *iovs = NULL;
+            if (no_of_messages > 0) {
+                iovs = (struct iovec*) malloc(no_of_messages * sizeof(struct iovec));
+                memset(iovs, 0, no_of_messages * sizeof(struct iovec));
+
+                for (i=0; i < no_of_messages; i++) {
+                    iovs[i].iov_base = messages[i];
+                    iovs[i].iov_len = message_lengths[i];
+                }
+            }
 
             // Setup the ancillary buffer memory
             controlbuf = malloc(ancillary_size);
@@ -567,17 +569,13 @@ if HAVE_SENDMSG:
             // Setup the msghdr struct
             msg.msg_name = recvd_address;
             msg.msg_namelen = recvd_addrlen;
-            msg.msg_iov = &iov;
-            msg.msg_iovlen = MSG_IOVLEN;
+            msg.msg_iov = iovs;
+            msg.msg_iovlen = no_of_messages;
             msg.msg_control = controlbuf;
             msg.msg_controllen = ancillary_size;
 
             // Link my structure to the msghdr fields
             retinfo->address = msg.msg_name;
-            retinfo->length_of_messages = (int*) malloc (MSG_IOVLEN * sizeof(int));
-            retinfo->no_of_messages = MSG_IOVLEN;
-            retinfo->messages = (char**) malloc (MSG_IOVLEN * sizeof(char*));
-            retinfo->messages[0] = msg.msg_iov->iov_base;
 
             iov_alloc = 1;
             ssize_t bytes_recvd = 0;
@@ -589,7 +587,6 @@ if HAVE_SENDMSG:
             }
 
             retinfo->addrlen = (socklen_t) msg.msg_namelen;
-            retinfo->length_of_messages[0] = msg.msg_iov->iov_len;
 
             // Count the ancillary items & allocate the memory
             int anc_counter = 0;
@@ -606,7 +603,7 @@ if HAVE_SENDMSG:
             anc_alloc = 1;
 
             // Extract the ancillary items
-            int i=0;
+            i=0;
             for (cmsgh = ((msg.msg_controllen > 0) ? CMSG_FIRSTHDR(&msg) : NULL);
                  cmsgh != NULL; cmsgh = CMSG_NXTHDR(&msg, cmsgh)) {
                  size_t local_size = 0;
@@ -630,27 +627,13 @@ if HAVE_SENDMSG:
             *addrlen = retinfo->addrlen;
 
             // Set the parameters of message
-            no_of_messages[0] = retinfo->no_of_messages;
             size_of_ancillary[0] = retinfo->size_of_ancillary;
-            *length_of_messages = (long*) malloc (sizeof(long) * retinfo->no_of_messages);
-            //memcpy(*length_of_messages, retinfo->length_of_messages, sizeof(int) * retinfo->no_of_messages);
-            int counter = 0;
-            for (i=0; i< retinfo->no_of_messages; i++){
-                counter += retinfo->length_of_messages[i];
-                length_of_messages[0][i] = retinfo->length_of_messages[i];
-            }
-            memset(*messages, 0, sizeof(char) * counter);
-            counter = 0;
-            for(i=0; i< retinfo->no_of_messages; i++){
-                memcpy(*messages+counter,retinfo->messages[i],retinfo->length_of_messages[i]);
-                counter += retinfo->length_of_messages[i];
-            }
 
             // Set the parameters of ancillary
             *levels = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
             *types = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
             *descr_per_ancillary = (long*) malloc (sizeof(long) * retinfo->size_of_ancillary);
-            counter = 0;
+            int counter = 0;
             for (i=0; i < retinfo->size_of_ancillary; i++){
                 counter += retinfo->descr_per_ancillary[i];
                 // Convert the int* to long*
@@ -671,18 +654,16 @@ if HAVE_SENDMSG:
 
             // Free the memory
             free(retinfo->address);
-            free(retinfo->length_of_messages);
             free(retinfo->levels);
             free(retinfo->types);
             free(retinfo->descr_per_ancillary);
-            for(i = 0; i<retinfo->no_of_messages; i++)
-                free(retinfo->messages[i]);
             for (i = 0; i < retinfo->size_of_ancillary; i++)
                 free(retinfo->file_descr[i]);
             free(retinfo->file_descr);
-            free(retinfo->messages);
             free(retinfo);
             free(controlbuf);
+            if (iovs != NULL)
+                free(iovs);
 
             return bytes_recvd;
 
@@ -692,23 +673,19 @@ if HAVE_SENDMSG:
                 free(retinfo->levels);
                 free(retinfo->types);
                 free(retinfo->descr_per_ancillary);
-                free(retinfo->length_of_messages);
-                free(retinfo->messages[0]);
-                free(retinfo->messages);
                 free(retinfo->address);
                 free(retinfo);
                 free(controlbuf);
 
             }else{
                 if (iov_alloc){
-                    free(retinfo->length_of_messages);
-                    free(retinfo->messages[0]);
-                    free(retinfo->messages);
                     free(retinfo->address);
                     free(controlbuf);
                     free(retinfo);
                 }
             }
+            if (iovs != NULL)
+                free(iovs);
             if (error_flag==0) error_flag = -1;
             return error_flag;
 
@@ -828,7 +805,7 @@ if HAVE_SENDMSG:
                 msg.msg_iov = iovs;
                 msg.msg_iovlen = no_of_messages;
 
-                for (i=0; i< no_of_messages; i++){
+                for (i=0; i < no_of_messages; i++){
                     iovs[i].iov_base = messages[i];
                     iovs[i].iov_len = length_of_messages[i];
                 }
@@ -869,13 +846,13 @@ if HAVE_SENDMSG:
                 }
 
                 controlbuf = malloc(controllen);
-                msg.msg_control= controlbuf;
+                msg.msg_control = controlbuf;
                 msg.msg_controllen = controllen;
 
                 // memset controlbuf to 0 to avoid trash in the ancillary
                 memset(controlbuf, 0, controllen);
                 cmsg = NULL;
-                for (i = 0; i< control_length; i++){
+                for (i = 0; i < control_length; i++) {
                     cmsg = (i == 0) ? CMSG_FIRSTHDR(&msg) : CMSG_NXTHDR(&msg, cmsg);
 
                     cmsg->cmsg_level = (int) levels[i];
@@ -963,7 +940,7 @@ if HAVE_SENDMSG:
     post_include_bits =[ "RPY_EXTERN "
                          "int sendmsg_implementation(int socket, struct sockaddr* address, socklen_t addrlen, long* length_of_messages, char** messages, int no_of_messages, long* levels, long* types, char** file_descriptors, long* no_of_fds, int control_length, int flag );\n"
                          "RPY_EXTERN "
-                         "int recvmsg_implementation(int socket_fd, int message_size, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, long** length_of_messages, char** messages, long* no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
+                         "int recvmsg_implementation(int socket_fd, int ancillary_size, int flags, struct sockaddr* address, socklen_t* addrlen, int* message_lengths, char** messages, int no_of_messages, long* size_of_ancillary, long** levels, long** types, char** file_descr, long** descr_per_ancillary, long* flag);\n"
                          "static "
                          "int cmsg_min_space(struct msghdr *msg, struct cmsghdr *cmsgh, size_t space);\n"
                          "static "
@@ -1007,6 +984,7 @@ if _WIN32:
     CConfig.WSAPROTOCOL_INFO = platform.Struct(
         'WSAPROTOCOL_INFOA',
         [])  # Struct is just passed between functions
+
     CConfig.FROM_PROTOCOL_INFO = platform.DefinedConstantInteger(
         'FROM_PROTOCOL_INFO')
 
@@ -1031,6 +1009,45 @@ if _WIN32:
         [('onoff', rffi.ULONG),
          ('keepalivetime', rffi.ULONG),
          ('keepaliveinterval', rffi.ULONG)])
+
+    CConfig.GUID = platform.Struct(
+             'struct _GUID',
+             [('Data1', rffi.UINT),
+             ('Data2', rffi.UINT),
+             ('Data3', rffi.UINT),
+             ('Data4', rffi.CFixedArray(rffi.UCHAR, 8))
+         ])
+
+    CConfig.WSAPROTOCOLCHAIN = platform.Struct(
+        'struct _WSAPROTOCOLCHAIN',
+        [('ChainLen', rffi.INT),
+         ('ChainEntries', rffi.CFixedArray(rffi.UINT, 7))])
+
+    WSAPROTOCOLCHAIN = CConfig.WSAPROTOCOLCHAIN
+    GUID = CConfig.GUID
+
+    CConfig.WSAPROTOCOL_INFOW = platform.Struct(
+        'struct _WSAPROTOCOL_INFOW',
+        [('dwServiceFlags1', rffi.UINT),
+         ('dwServiceFlags2', rffi.UINT),
+         ('dwServiceFlags3', rffi.UINT),
+         ('dwServiceFlags4', rffi.UINT),
+         ('dwProviderFlags', rffi.UINT),
+         ('ProviderId', GUID),
+         ('dwCatalogEntryId', rffi.UINT),
+         ('ProtocolChain', WSAPROTOCOLCHAIN),
+         ('iVersion', rffi.INT),
+         ('iAddressFamily', rffi.INT),
+         ('iMaxSockAddr', rffi.INT),
+         ('iMinSockAddr', rffi.INT),
+         ('iSocketType', rffi.INT),
+         ('iProtocol', rffi.INT),
+         ('iProtocolMaxOffset', rffi.INT),
+         ('iNetworkByteOrder', rffi.INT),
+         ('iSecurityScheme', rffi.INT),
+         ('dwMessageSize', rffi.UINT),
+         ('dwProviderReserved', rffi.UINT),
+         ('szProtocol',  rffi.CFixedArray(rffi.UCHAR, 256))])
 
 
 class cConfig:
@@ -1080,7 +1097,12 @@ EINTR = cConfig.EINTR or cConfig.WSAEINTR
 EINPROGRESS = cConfig.EINPROGRESS or cConfig.WSAEINPROGRESS
 EWOULDBLOCK = cConfig.EWOULDBLOCK or cConfig.WSAEWOULDBLOCK
 EAFNOSUPPORT = cConfig.EAFNOSUPPORT or cConfig.WSAEAFNOSUPPORT
+# vs 2010 and above define both the constansts
+WSAEINPROGRESS = cConfig.WSAEINPROGRESS or cConfig.EINPROGRESS
+WSAEWOULDBLOCK = cConfig.WSAEWOULDBLOCK or cConfig.EWOULDBLOCK
+WSAEAFNOSUPPORT = cConfig.WSAEAFNOSUPPORT or cConfig.EAFNOSUPPORT
 EISCONN = cConfig.EISCONN or cConfig.WSAEISCONN
+PIPE_BUF = cConfig.PIPE_BUF    # may be None
 
 linux = cConfig.linux
 WIN32 = cConfig.WIN32
@@ -1184,14 +1206,14 @@ if _POSIX:
 
 inet_ntoa = external('inet_ntoa', [in_addr], rffi.CCHARP)
 
-if _POSIX:
-    inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
-                                       rffi.VOIDP], rffi.INT,
-                         save_err=SAVE_ERR)
 
-    inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
-                                       socklen_t], CCHARP,
-                         save_err=SAVE_ERR)
+inet_pton = external('inet_pton', [rffi.INT, rffi.CCHARP,
+                                   rffi.VOIDP], rffi.INT,
+                     save_err=SAVE_ERR)
+
+inet_ntop = external('inet_ntop', [rffi.INT, rffi.VOIDP, CCHARP,
+                                   socklen_t], CCHARP,
+                     save_err=SAVE_ERR)
 
 inet_addr = external('inet_addr', [rffi.CCHARP], rffi.UINT)
 socklen_t_ptr = lltype.Ptr(rffi.CFixedArray(socklen_t, 1))
@@ -1225,11 +1247,12 @@ socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)
-recvmsg = jit.dont_look_inside(rffi.llexternal("recvmsg_implementation",
-                                               [rffi.INT, rffi.INT, rffi.INT, rffi.INT,sockaddr_ptr, socklen_t_ptr, rffi.SIGNEDPP, rffi.CCHARPP,
-                                                rffi.SIGNEDP,rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP, rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP],
-                                               rffi.INT, save_err=SAVE_ERR,
-                                               compilation_info=compilation_info))
+recvmsg = jit.dont_look_inside(rffi.llexternal(
+    "recvmsg_implementation",
+    [rffi.INT, rffi.INT, rffi.INT, sockaddr_ptr, socklen_t_ptr,
+        rffi.INTP, rffi.CCHARPP, rffi.INT, rffi.SIGNEDP, rffi.SIGNEDPP, rffi.SIGNEDPP,
+        rffi.CCHARPP, rffi.SIGNEDPP, rffi.SIGNEDP], rffi.INT,
+    save_err=SAVE_ERR, compilation_info=compilation_info))
 
 memcpy_from_CCHARP_at_offset = jit.dont_look_inside(rffi.llexternal("memcpy_from_CCHARP_at_offset_and_size",
                                     [rffi.CCHARP, rffi.CCHARPP,rffi.INT,rffi.INT],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
@@ -1263,11 +1286,14 @@ getservbyport = external('getservbyport', [rffi.INT, rffi.CCHARP], lltype.Ptr(cC
 getprotobyname = external('getprotobyname', [rffi.CCHARP], lltype.Ptr(cConfig.protoent))
 
 if _POSIX:
-    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT)
+    fcntl = external('fcntl', [socketfd_type, rffi.INT, rffi.INT], rffi.INT,
+                     save_err=SAVE_ERR)
     socketpair_t = rffi.CArray(socketfd_type)
     socketpair = external('socketpair', [rffi.INT, rffi.INT, rffi.INT,
                           lltype.Ptr(socketpair_t)], rffi.INT,
                           save_err=SAVE_ERR)
+    sethostname = external('sethostname', [rffi.CCHARP, rffi.INT], rffi.INT,
+                           save_err=SAVE_ERR)
     if _HAS_AF_PACKET:
         ioctl = external('ioctl', [socketfd_type, rffi.INT, lltype.Ptr(ifreq)],
                          rffi.INT)
@@ -1275,7 +1301,7 @@ if _POSIX:
 if _WIN32:
     ioctlsocket = external('ioctlsocket',
                            [socketfd_type, rffi.LONG, rffi.ULONGP],
-                           rffi.INT)
+                           rffi.INT, save_err=SAVE_ERR)
 
 select = external('select',
                   [rffi.INT, fd_set, fd_set,
@@ -1328,6 +1354,20 @@ elif WIN32:
                          rffi.VOIDP, rwin32.DWORD,
                          rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
                         rffi.INT, save_err=SAVE_ERR)
+
+    WSAPROTOCOL_INFOW = cConfig.WSAPROTOCOL_INFOW
+
+    WSADuplicateSocketW = external('WSADuplicateSocketW',
+                                 [socketfd_type, rwin32.DWORD,
+                                  lltype.Ptr(WSAPROTOCOL_INFOW)],
+                                  rffi.INT, save_err=SAVE_ERR)
+
+    WSASocketW = external('WSASocketW',
+                         [rffi.INT, rffi.INT, rffi.INT,
+                          lltype.Ptr(WSAPROTOCOL_INFOW),
+                          rwin32.DWORD, rwin32.DWORD],
+                         socketfd_type, save_err=SAVE_ERR)
+
     tcp_keepalive = cConfig.tcp_keepalive
 
     WSAPROTOCOL_INFO = cConfig.WSAPROTOCOL_INFO
@@ -1361,6 +1401,18 @@ if WIN32:
     def gai_strerror_str(errno):
         return rwin32.FormatError(errno)
 
+    def socket_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
+
+    def gai_strerror_unicode(errno):
+        return rwin32.FormatErrorW(errno)[0].decode('utf-8')
+
+    def socket_strerror_utf8(errno):
+        return rwin32.FormatErrorW(errno)
+
+    def gai_strerror_utf8(errno):
+        return rwin32.FormatErrorW(errno)
+
     # WinSock does not use a bitmask in select, and uses
     # socket handles greater than FD_SETSIZE
     MAX_FD_SIZE = None
@@ -1371,5 +1423,19 @@ else:
     socket_strerror_str = os.strerror
     def gai_strerror_str(errno):
         return rffi.charp2str(gai_strerror(errno))
+
+    def socket_strerror_unicode(errno):
+        return socket_strerror_str(errno).decode('latin-1')
+
+    def gai_strerror_unicode(errno):
+        return gai_strerror_str(errno).decode('latin-1')
+
+    def socket_strerror_utf8(errno):
+        msg = socket_strerror_str(errno)
+        return msg, len(msg)
+
+    def gai_strerror_utf8(errno):
+        msg = gai_strerror_str(errno)
+        return msg, len(msg)
 
     MAX_FD_SIZE = FD_SETSIZE

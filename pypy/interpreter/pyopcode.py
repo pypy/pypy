@@ -147,10 +147,12 @@ class __extend__(pyframe.PyFrame):
         while True:
             self.last_instr = intmask(next_instr)
             if jit.we_are_jitted():
-                ec.bytecode_only_trace(self)
+                if self.debugdata:
+                    ec.bytecode_only_trace(self)
+                    next_instr = r_uint(self.last_instr)
             else:
                 ec.bytecode_trace(self)
-            next_instr = r_uint(self.last_instr)
+                next_instr = r_uint(self.last_instr)
             opcode = ord(co_code[next_instr])
             next_instr += 1
 
@@ -176,10 +178,13 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 65536) | (hi * 256) | lo
 
             if opcode == opcodedesc.RETURN_VALUE.index:
+                if not self.blockstack_non_empty():
+                    self.frame_finished_execution = True  # for generators
+                    raise Return
                 w_returnvalue = self.popvalue()
                 block = self.unrollstack(SReturnValue.kind)
                 if block is None:
-                    self.pushvalue(w_returnvalue)   # XXX ping pong
+                    self.pushvalue(w_returnvalue)
                     raise Return
                 else:
                     unroller = SReturnValue(w_returnvalue)
@@ -437,6 +442,8 @@ class __extend__(pyframe.PyFrame):
                 self.WITH_CLEANUP(oparg, next_instr)
             elif opcode == opcodedesc.YIELD_VALUE.index:
                 self.YIELD_VALUE(oparg, next_instr)
+            elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
+                self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
                 self.MISSING_OPCODE(oparg, next_instr)
 
@@ -830,8 +837,20 @@ class __extend__(pyframe.PyFrame):
         w_metaclass = find_metaclass(self.space, w_bases,
                                      w_methodsdict, self.get_w_globals(),
                                      self.get_builtin())
-        w_newclass = self.space.call_function(w_metaclass, w_name,
-                                              w_bases, w_methodsdict)
+        try:
+            w_newclass = self.space.call_function(w_metaclass, w_name,
+                                                  w_bases, w_methodsdict)
+        except OperationError as e:
+            # give a more comprehensible error message for TypeErrors
+            if e.got_any_traceback():
+                raise
+            if not e.match(self.space, self.space.w_TypeError):
+                raise
+            raise oefmt(self.space.w_TypeError,
+                "metaclass found to be '%N', but calling %R "
+                "with args (%R, %R, dict) raised %R",
+                w_metaclass, w_metaclass, w_name, w_bases,
+                e.get_w_value(self.space))
         self.pushvalue(w_newclass)
 
     def STORE_NAME(self, varindex, next_instr):
@@ -1047,9 +1066,16 @@ class __extend__(pyframe.PyFrame):
     def YIELD_VALUE(self, oparg, next_instr):
         raise Yield
 
+    def _revdb_jump_backward(self, jumpto):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import jump_backward
+        jump_backward(self, jumpto)
+
     def jump_absolute(self, jumpto, ec):
         # this function is overridden by pypy.module.pypyjit.interp_jit
         check_nonneg(jumpto)
+        if self.space.reverse_debugging:
+            self._revdb_jump_backward(jumpto)
         return jumpto
 
     def JUMP_FORWARD(self, jumpby, next_instr):
@@ -1302,6 +1328,18 @@ class __extend__(pyframe.PyFrame):
         w_value = self.popvalue()
         w_dict = self.peekvalue()
         self.space.setitem(w_dict, w_key, w_value)
+
+    def _revdb_load_var(self, oparg):
+        # moved in its own function for the import statement
+        from pypy.interpreter.reverse_debugging import load_metavar
+        w_var = load_metavar(oparg)
+        self.pushvalue(w_var)
+
+    def LOAD_REVDB_VAR(self, oparg, next_instr):
+        if self.space.reverse_debugging:
+            self._revdb_load_var(oparg)
+        else:
+            self.MISSING_OPCODE(oparg, next_instr)
 
 
 ### ____________________________________________________________ ###
@@ -1607,7 +1645,7 @@ app = gateway.applevel(r'''
         else:
             skip_leading_underscores = False
         for name in all:
-            if skip_leading_underscores and name[0]=='_':
+            if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)
 ''', filename=__file__)

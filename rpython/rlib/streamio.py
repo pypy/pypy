@@ -317,7 +317,8 @@ class DiskFile(Stream):
         os.lseek(self.fd, offset, whence)
 
     def tell(self):
-        return os.lseek(self.fd, 0, 1)
+        result = os.lseek(self.fd, 0, 1)
+        return r_longlong(result)
 
     def read(self, n):
         assert isinstance(n, int)
@@ -525,7 +526,7 @@ def PassThrough(meth_name, flush_buffers):
                       return self.base.%s(%s)
 """
     d = {}
-    exec code % (meth_name, args, meth_name, args) in d
+    exec(code % (meth_name, args, meth_name, args), d)
     return d[meth_name]
 
 
@@ -708,7 +709,9 @@ class BufferingInputStream(Stream):
                     assert stop >= 0
                     chunks.append(self.buf[:stop])
                     break
-                chunks.append(self.buf)
+                buf = self.buf
+                assert buf is not None
+                chunks.append(buf)
             return ''.join(chunks)
 
     def readline(self):

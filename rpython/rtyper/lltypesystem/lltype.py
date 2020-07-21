@@ -8,7 +8,7 @@ from rpython.rlib.objectmodel import Symbolic
 from rpython.rlib.rarithmetic import (
     base_int, intmask, is_emulated_long, is_valid_int, longlonglongmask,
     longlongmask, maxint, normalizedinttype, r_int, r_longfloat, r_longlong,
-    r_longlonglong, r_singlefloat, r_uint, r_ulonglong)
+    r_longlonglong, r_singlefloat, r_uint, r_ulonglong, r_ulonglonglong)
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
@@ -467,12 +467,16 @@ class Array(ContainerType):
     _str_fields = saferecursive(_str_fields, '...')
 
     def __str__(self):
-        return "%s of %s " % (self.__class__.__name__,
-                               self._str_fields(),)
+        hints = (' ' + str(self._hints)) if self._hints else ''
+        return "%s of %s%s " % (self.__class__.__name__,
+                                self._str_fields(),
+                                hints)
 
     def _short_name(self):
-        return "%s %s" % (self.__class__.__name__,
-                          self.OF._short_name(),)
+        hints = (' ' + str(self._hints)) if self._hints else ''
+        return "%s %s%s" % (self.__class__.__name__,
+                            self.OF._short_name(),
+                            hints)
     _short_name = saferecursive(_short_name, '...')
 
     def _container_example(self):
@@ -676,6 +680,7 @@ _numbertypes = {int: Number("Signed", int, intmask)}
 _numbertypes[r_int] = _numbertypes[int]
 _numbertypes[r_longlonglong] = Number("SignedLongLongLong", r_longlonglong,
                                       longlonglongmask)
+
 if r_longlong is not r_int:
     _numbertypes[r_longlong] = Number("SignedLongLong", r_longlong,
                                       longlongmask)
@@ -700,6 +705,7 @@ Unsigned = build_number("Unsigned", r_uint)
 SignedLongLong = build_number("SignedLongLong", r_longlong)
 SignedLongLongLong = build_number("SignedLongLongLong", r_longlonglong)
 UnsignedLongLong = build_number("UnsignedLongLong", r_ulonglong)
+UnsignedLongLongLong = build_number("UnsignedLongLongLong", r_ulonglonglong)
 
 Float       = Primitive("Float",       0.0)                  # C type 'double'
 SingleFloat = Primitive("SingleFloat", r_singlefloat(0.0))   # 'float'
@@ -813,7 +819,11 @@ def typeOf(val):
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
-                return SignedLongLong
+                raise OverflowError("integer %r is out of bounds for Signed "
+                                    "(it would fit SignedLongLong, but we "
+                                    "won't implicitly return SignedLongLong "
+                                    "for typeOf(%r) where type(%r) is long)"
+                                    % (val, val, val))
             else:
                 raise OverflowError("integer %r is out of bounds" % (val,))
         if tp is bool:

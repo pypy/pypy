@@ -27,7 +27,7 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
     else:
         graph_lines = source.split("\n")
         if offset is not None:
-            linestart = offset2lineno(graph.func.func_code, offset)
+            linestart = offset2lineno(graph.func.__code__, offset)
             linerange = (linestart, linestart)
             here = None
         else:
@@ -35,7 +35,7 @@ def source_lines1(graph, block, operindex=None, offset=None, long=False,
                 return []
 
             def toline(operindex):
-                return offset2lineno(graph.func.func_code, block.operations[operindex].offset)
+                return offset2lineno(graph.func.__code__, block.operations[operindex].offset)
             if operindex is None:
                 linerange = (toline(0), toline(-1))
                 if not long:
@@ -117,9 +117,9 @@ def format_simple_call(annotator, oper, msg):
                     func_name = "%s.__init__" % func.__name__
                     func = func.__init__.im_func
                 else:
-                    func_name = func.func_name
+                    func_name = func.__name__
                 r = "function %s <%s, line %s>" % (func_name,
-                       func.func_code.co_filename, func.func_code.co_firstlineno)
+                       func.__code__.co_filename, func.__code__.co_firstlineno)
             except (AttributeError, TypeError):
                 r = repr(desc)
         msg.append("  %s returning" % (r,))

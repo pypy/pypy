@@ -1,11 +1,12 @@
 # NOTE: run this script with LANG=en_US.UTF-8
+# works with pip install mercurial==3.0
 
 import py
 import sys
 from collections import defaultdict
 import operator
 import re
-import mercurial.localrepo
+import mercurial.hg
 import mercurial.ui
 
 ROOT = py.path.local(__file__).join('..', '..', '..', '..')
@@ -18,12 +19,13 @@ alias = {
     'Antonio Cuni': ['antocuni', 'anto'],
     'Armin Rigo': ['arigo', 'arfigo', 'armin', 'arigato'],
     'Maciej Fijalkowski': ['fijal'],
-    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf'],
+    'Carl Friedrich Bolz-Tereick': ['Carl Friedrich Bolz', 'cfbolz', 'cf', 'cbolz'],
     'Samuele Pedroni': ['pedronis', 'samuele', 'samule'],
-    'Richard Plangger':['planrich'],
-    'Michael Hudson': ['mwh'],
+    'Richard Plangger': ['planrich', 'plan_rich'],
+    'Remi Meier': ['remi'],
+    'Michael Hudson-Doyle': ['mwh', 'Michael Hudson'],
     'Holger Krekel': ['hpk', 'holger krekel', 'holger', 'hufpk'],
-    "Amaury Forgeot d'Arc": ['afa'],
+    "Amaury Forgeot d'Arc": ['afa', 'amauryfa@gmail.com'],
     'Alex Gaynor': ['alex', 'agaynor'],
     'David Schneider': ['bivab', 'david'],
     'Christian Tismer': ['chris', 'christian', 'tismer',
@@ -41,7 +43,7 @@ alias = {
     'Mark Pearse': ['mwp'],
     'Toon Verwaest': ['tverwaes'],
     'Eric van Riet Paap': ['ericvrp'],
-    'Jacob Hallen': ['jacob', 'jakob'],
+    'Jacob Hallen': ['jacob', 'jakob', 'jacob hallen'],
     'Anders Lehmann': ['ale', 'anders'],
     'Bert Freudenberg': ['bert'],
     'Boris Feigin': ['boris', 'boria'],
@@ -69,18 +71,26 @@ alias = {
     'Manuel Jacob': ['mjacob'],
     'Rami Chowdhury': ['necaris'],
     'Stanislaw Halik': ['Stanislaw Halik', 'w31rd0'],
-    'Wenzhu Man':['wenzhu man', 'wenzhuman'],
-    'Anton Gulenko':['anton gulenko', 'anton_gulenko'],
-    'Richard Lancaster':['richardlancaster'],
-    'William Leslie':['William ML Leslie'],
-    'Spenser Bauman':['Spenser Andrew Bauman'],
-    'Raffael Tfirst':['raffael.tfirst@gmail.com'],
-    'timo':['timo@eistee.fritz.box'],
-    'Jasper Schulz':['Jasper.Schulz', 'jbs'],
-    'Aaron Gallagher':['"Aaron Gallagher'],
-    'Yasir Suhail':['yasirs'],
+    'Wenzhu Man': ['wenzhu man', 'wenzhuman'],
+    'Anton Gulenko': ['anton gulenko', 'anton_gulenko'],
+    'Richard Lancaster': ['richardlancaster'],
+    'William Leslie': ['William ML Leslie'],
+    'Spenser Bauman': ['Spenser Andrew Bauman'],
+    'Raffael Tfirst': ['raffael.tfirst@gmail.com'],
+    'timo': ['timo@eistee.fritz.box'],
+    'Jasper Schulz': ['Jasper.Schulz', 'jbs'],
+    'Aaron Gallagher': ['"Aaron Gallagher'],
+    'Yasir Suhail': ['yasirs'],
     'Squeaky': ['squeaky'],
-    "Amaury Forgeot d'Arc": ['amauryfa@gmail.com'],
+    "Dodan Mihai": ['mihai.dodan@gmail.com'],
+    'Wim Lavrijsen': ['wlav'],
+    'Toon Verwaest': ['toon', 'tverwaes'],
+    'Seo Sanghyeon': ['sanxiyn'],
+    'Leonardo Santagada': ['santagada'],
+    'Laurence Tratt': ['ltratt'],
+    'Pieter Zieschang': ['pzieschang', 'p_zieschang@yahoo.de'],
+    'John Witulski': ['witulski'],
+    'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     }
 
 alias_map = {}
@@ -102,7 +112,8 @@ def get_more_authors(log):
         return set()
     ignore_words = ['around', 'consulting', 'yesterday', 'for a bit', 'thanks',
                     'in-progress', 'bits of', 'even a little', 'floating',
-                    'a bit', 'reviewing']
+                    'a bit', 'reviewing', 'looking', 'advising', 'partly', 'ish',
+                    'watching', 'mostly', 'jumping']
     sep_words = ['and', ';', '+', '/', 'with special  by']
     nicknames = match.group(1)
     for word in ignore_words:
@@ -121,7 +132,7 @@ def get_more_authors(log):
 
 def main(show_numbers):
     ui = mercurial.ui.ui()
-    repo = mercurial.localrepo.localrepository(ui, str(ROOT))
+    repo = mercurial.hg.repository(ui, str(ROOT))
     authors_count = defaultdict(int)
     for i in repo:
         ctx = repo[i]

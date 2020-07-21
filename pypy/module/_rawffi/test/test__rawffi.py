@@ -262,14 +262,17 @@ class AppTestFfi:
             raise AssertionError("did not fail??")
 
     def test_libload_None(self):
-        if self.iswin32:
-            skip("unix specific")
         import _rawffi
         # this should return *all* loaded libs, dlopen(NULL)
-        dll = _rawffi.CDLL(None)
-        func = dll.ptr('rand', [], 'i')
-        res = func()
-        assert res[0] != 0
+        try:
+            dll = _rawffi.CDLL(None)
+        except TypeError:
+            if not self.iswin32:
+                raise
+        else:
+            func = dll.ptr('rand', [], 'i')
+            res = func()
+            assert res[0] != 0
 
     def test_libc_load(self):
         import _rawffi
@@ -300,7 +303,7 @@ class AppTestFfi:
         get_char = lib.ptr('get_char', ['P', 'H'], 'c')
         A = _rawffi.Array('c')
         B = _rawffi.Array('H')
-        dupa = A(5, 'dupa')
+        dupa = A(5, b'dupa')
         dupaptr = dupa.byptr()
         for i in range(4):
             intptr = B(1)
@@ -316,11 +319,11 @@ class AppTestFfi:
         import _rawffi
         A = _rawffi.Array('c')
         buf = A(10, autofree=True)
-        buf[0] = '*'
-        assert buf[1:5] == '\x00' * 4
-        buf[7:] = 'abc'
-        assert buf[9] == 'c'
-        assert buf[:8] == '*' + '\x00'*6 + 'a'
+        buf[0] = b'*'
+        assert buf[1:5] == b'\x00' * 4
+        buf[7:] = b'abc'
+        assert buf[9] == b'c'
+        assert buf[:8] == b'*' + b'\x00'*6 + b'a'
 
     def test_returning_str(self):
         import _rawffi
@@ -329,17 +332,17 @@ class AppTestFfi:
         A = _rawffi.Array('c')
         arg1 = A(1)
         arg2 = A(1)
-        arg1[0] = 'y'
-        arg2[0] = 'x'
+        arg1[0] = b'y'
+        arg2[0] = b'x'
         res = char_check(arg1, arg2)
-        assert _rawffi.charp2string(res[0]) == 'xxxxxx'
-        assert _rawffi.charp2rawstring(res[0]) == 'xxxxxx'
-        assert _rawffi.charp2rawstring(res[0], 3) == 'xxx'
-        a = A(6, 'xx\x00\x00xx')
-        assert _rawffi.charp2string(a.buffer) == 'xx'
-        assert _rawffi.charp2rawstring(a.buffer, 4) == 'xx\x00\x00'
-        arg1[0] = 'x'
-        arg2[0] = 'y'
+        assert _rawffi.charp2string(res[0]) == b'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0]) == b'xxxxxx'
+        assert _rawffi.charp2rawstring(res[0], 3) == b'xxx'
+        a = A(6, b'xx\x00\x00xx')
+        assert _rawffi.charp2string(a.buffer) == b'xx'
+        assert _rawffi.charp2rawstring(a.buffer, 4) == b'xx\x00\x00'
+        arg1[0] = b'x'
+        arg2[0] = b'y'
         res = char_check(arg1, arg2)
         assert res[0] == 0
         assert _rawffi.charp2string(res[0]) is None
@@ -347,23 +350,39 @@ class AppTestFfi:
         arg2.free()
         a.free()
 
+    def test_unicode_array(self):
+        import _rawffi
+        A = _rawffi.Array('u')
+        a = A(6, u'\u1234')
+        assert a[0] == u'\u1234'
+        a[0] = u'\U00012345'
+        assert a[0] == u'\U00012345'
+        a[0] = u'\ud800'
+        assert a[0] == u'\ud800'
+        B = _rawffi.Array('i')
+        b = B.fromaddress(a.itemaddress(0), 1)
+        b[0] = 0xffffffff
+        raises(ValueError, "a[0]")
+        a.free()
+
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')
         a = A(6, u'xx\x00\x00xx')
-        res = _rawffi.wcharp2unicode(a.buffer)
-        assert isinstance(res, unicode)
-        assert res == u'xx'
+        for i in (-1, 6):
+            res = _rawffi.wcharp2unicode(a.buffer, i)
+            assert isinstance(res, unicode)
+            assert res == u'xx'
         a.free()
 
     def test_rawstring2charp(self):
         import _rawffi
         A = _rawffi.Array('c')
-        a = A(10, 'x'*10)
-        _rawffi.rawstring2charp(a.buffer, "foobar")
-        assert ''.join([a[i] for i in range(10)]) == "foobarxxxx"
+        a = A(10, b'x'*10)
+        _rawffi.rawstring2charp(a.buffer, b"foobar")
+        assert b''.join([a[i] for i in range(10)]) == b"foobarxxxx"
         _rawffi.rawstring2charp(a.buffer, buffer("baz"))
-        assert ''.join([a[i] for i in range(10)]) == "bazbarxxxx"
+        assert b''.join([a[i] for i in range(10)]) == b"bazbarxxxx"
         a.free()
 
     def test_raw_callable(self):
@@ -498,13 +517,13 @@ class AppTestFfi:
         X = _rawffi.Structure([('x1', 'i'), ('x2', 'h'), ('x3', 'c'), ('next', 'P')])
         next = X()
         next.next = 0
-        next.x3 = 'x'
+        next.x3 = b'x'
         x = X()
         x.next = next
         x.x1 = 1
         x.x2 = 2
-        x.x3 = 'x'
-        assert X.fromaddress(x.next).x3 == 'x'
+        x.x3 = b'x'
+        assert X.fromaddress(x.next).x3 == b'x'
         x.free()
         next.free()
         create_double_struct = lib.ptr("create_double_struct", [], 'P')
@@ -759,9 +778,9 @@ class AppTestFfi:
 
     def test_raising_callback(self):
         import _rawffi, sys
-        import StringIO
+        from StringIO import StringIO
         lib = _rawffi.CDLL(self.lib_name)
-        err = StringIO.StringIO()
+        err = StringIO()
         orig = sys.stderr
         sys.stderr = err
         try:
@@ -798,7 +817,6 @@ class AppTestFfi:
     def test_sizes_and_alignments(self):
         import _rawffi
         for k, (s, a) in self.sizes_and_alignments.iteritems():
-            print k,s,a
             assert _rawffi.sizeof(k) == s
             assert _rawffi.alignment(k) == a
 
@@ -896,25 +914,12 @@ class AppTestFfi:
         if sys.maxunicode > 65535:
             # UCS4 build
             if sys.byteorder == 'big':
-                assert b[0] == '\x00'
-                assert b[1] == '\x00'
-                assert b[2] == '\x00'
-                assert b[3] == 'x'
-                assert b[4] == '\x00'
-                assert b[5] == '\x00'
-                assert b[6] == '\x00'
-                assert b[7] == 'y'
+                assert b[0:8] == b'\x00\x00\x00x\x00\x00\x00y'
             else:
-                assert b[0] == 'x'
-                assert b[1] == '\x00'
-                assert b[2] == '\x00'
-                assert b[3] == '\x00'
-                assert b[4] == 'y'
+                assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
-            assert b[0] == 'x'
-            assert b[1] == '\x00'
-            assert b[2] == 'y'
+            assert b[0:2] == b'x\x00y'
         a.free()
 
     def test_truncate(self):
@@ -1048,13 +1053,10 @@ class AppTestFfi:
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
-        print >> sys.stderr, "getting..."
         sum_x_y = lib.ptr('sum_x_y', [(X_Y, 1)], 'l')
         x_y.x = 200
         x_y.y = 220
-        print >> sys.stderr, "calling..."
         res = sum_x_y(x_y)
-        print >> sys.stderr, "done"
         assert res[0] == 420
         x_y.free()
 
@@ -1228,6 +1230,23 @@ class AppTestFfi:
         lib = _rawffi.CDLL(self.lib_name)
         assert lib.name == self.lib_name
 
+    def test_wcharp2rawunicode(self):
+        import _rawffi
+        A = _rawffi.Array('i')
+        arg = A(1)
+        arg[0] = 0x1234
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0))
+        assert u == u'\u1234'
+        u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
+        assert u == u'\u1234'
+        arg[0] = -1
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg[0] = 0x110000
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        arg.free()
+
 
 class AppTestAutoFree:
     spaceconfig = dict(usemodules=['_rawffi', 'struct'])
@@ -1262,8 +1281,8 @@ class AppTestAutoFree:
             oldnum = '?'
 
         A = _rawffi.Array('c')
-        a = A(6, 'xxyxx\x00', autofree=True)
-        assert _rawffi.charp2string(a.buffer) == 'xxyxx'
+        a = A(6, b'xxyxx\x00', autofree=True)
+        assert _rawffi.charp2string(a.buffer) == b'xxyxx'
         a = None
         gc.collect()
         if oldnum != '?':

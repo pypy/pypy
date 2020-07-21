@@ -36,8 +36,8 @@ RPY_EXTERN void* vmprof_stack_new(void);
 RPY_EXTERN int vmprof_stack_append(void*, long);
 RPY_EXTERN long vmprof_stack_pop(void*);
 RPY_EXTERN void vmprof_stack_free(void*);
-RPY_EXTERN intptr_t vmprof_get_traceback(void *, void *, intptr_t*, intptr_t);
-RPY_EXTERN long vmprof_get_profile_path(const char *, long);
+RPY_EXTERN intptr_t vmprof_get_traceback(void *, void *, void**, intptr_t);
+RPY_EXTERN long vmprof_get_profile_path(char *, long);
 RPY_EXTERN int vmprof_stop_sampling(void);
 RPY_EXTERN void vmprof_start_sampling(void);
 

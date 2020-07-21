@@ -4,7 +4,7 @@ from pypy.module.cpyext import pystrtod
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
-from pypy.module.cpyext.pystrtod import PyOS_string_to_double
+from pypy.module.cpyext.pystrtod import PyOS_string_to_double, INTP_real
 
 
 class TestPyOS_string_to_double(BaseApiTest):
@@ -90,7 +90,7 @@ class TestPyOS_string_to_double(BaseApiTest):
 class TestPyOS_double_to_string(BaseApiTest):
 
     def test_format_code(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(150.0, 'e', 1, 0, ptype)
         assert '1.5e+02' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -99,7 +99,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_precision(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(3.14159269397, 'g', 5, 0, ptype)
         assert '3.1416' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -108,7 +108,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_flags_sign(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(-3.14, 'g', 3, 1, ptype)
         assert '-3.14' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -117,7 +117,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_flags_add_dot_0(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(3, 'g', 5, 2, ptype)
         assert '3.0' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -126,7 +126,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_flags_alt(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(314., 'g', 3, 4, ptype)
         assert '314.' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -135,7 +135,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_ptype_nan(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(float('nan'), 'g', 3, 4, ptype)
         assert 'nan' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -144,7 +144,7 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_ptype_infinity(self, api):
-        ptype = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+        ptype = lltype.malloc(INTP_real.TO, 1, flavor='raw')
         r = api.PyOS_double_to_string(1e200 * 1e200, 'g', 0, 0, ptype)
         assert 'inf' == rffi.charp2str(r)
         type_value = rffi.cast(lltype.Signed, ptype[0])
@@ -153,8 +153,8 @@ class TestPyOS_double_to_string(BaseApiTest):
         lltype.free(ptype, flavor='raw')
 
     def test_ptype_null(self, api):
-        ptype = lltype.nullptr(rffi.INTP.TO)
+        ptype = lltype.nullptr(INTP_real.TO)
         r = api.PyOS_double_to_string(3.14, 'g', 3, 0, ptype)
         assert '3.14' == rffi.charp2str(r)
-        assert ptype == lltype.nullptr(rffi.INTP.TO)
+        assert ptype == lltype.nullptr(INTP_real.TO)
         rffi.free_charp(r)

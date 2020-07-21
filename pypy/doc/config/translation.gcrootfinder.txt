@@ -1,16 +1,7 @@
 Choose the method used to find the roots in the GC.  This only
-applies to our framework GCs.  You have a choice of two
-alternatives:
+applies to our framework GCs.
 
 - ``--gcrootfinder=shadowstack``: use a so-called "shadow
   stack", which is an explicitly maintained custom stack of
-  root pointers.  This is the most portable solution.
-
-- ``--gcrootfinder=asmgcc``: use assembler hackery to find the
-  roots directly from the normal stack.  This is a bit faster,
-  but platform specific.  It works so far with GCC or MSVC,
-  on i386 and x86-64.  It is tested only on Linux 
-  so other platforms (as well as MSVC) may need
-  various fixes before they can be used. Note asmgcc will be deprecated
-  at some future date, and does not work with clang.
-
+  root pointers.  This is the most portable solution, and also
+  the only one available now.

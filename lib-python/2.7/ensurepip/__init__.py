@@ -4,17 +4,19 @@ from __future__ import print_function
 import os
 import os.path
 import pkgutil
+import runpy
 import shutil
 import sys
 import tempfile
+import warnings
 
 
 __all__ = ["version", "bootstrap"]
 
 
-_SETUPTOOLS_VERSION = "28.8.0"
+_SETUPTOOLS_VERSION = "44.0.0"
 
-_PIP_VERSION = "9.0.1"
+_PIP_VERSION = "20.0.2"
 
 _PROJECTS = [
     ("setuptools", _SETUPTOOLS_VERSION),
@@ -27,11 +29,18 @@ def _run_pip(args, additional_paths=None):
     if additional_paths is not None:
         sys.path = additional_paths + sys.path
 
-    # Install the bundled software
-    import pip
-    pip.main(args)
-
-
+    # Invoke pip as if it's the main module, and catch the exit.
+    backup_argv = sys.argv[:]
+    sys.argv[1:] = args
+    try:
+        runpy.run_module("pip", run_name="__main__", alter_sys=True)
+    except SystemExit as e:
+        return e.code
+    finally:
+        sys.argv[:] = backup_argv
+ 
+    raise SystemError("pip have not exited, that should never happen")
+ 
 def version():
     """
     Returns a string specifying the bundled version of pip.
@@ -95,7 +104,8 @@ def bootstrap(root=None, upgrade=False, user=False,
             additional_paths.append(os.path.join(tmpdir, wheel_name))
 
         # Construct the arguments to be passed to the pip command
-        args = ["install", "--no-index", "--find-links", tmpdir]
+        args = ["install", "--no-warn-script-location", "--no-index",
+                "--find-links", tmpdir]
         if root:
             args += ["--root", root]
         if upgrade:

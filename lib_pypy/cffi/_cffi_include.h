@@ -7,6 +7,16 @@
    we can learn about Py_DEBUG from pyconfig.h, but it is unclear if
    the same works for the other two macros.  Py_DEBUG implies them,
    but not the other way around.
+
+   Issue #350 is still open: on Windows, the code here causes it to link
+   with PYTHON36.DLL (for example) instead of PYTHON3.DLL.  A fix was
+   attempted in 164e526a5515 and 14ce6985e1c3, but reverted: virtualenv
+   does not make PYTHON3.DLL available, and so the "correctly" compiled
+   version would not run inside a virtualenv.  We will re-apply the fix
+   after virtualenv has been fixed for some time.  For explanation, see
+   issue #355.  For a workaround if you want PYTHON3.DLL and don't worry
+   about virtualenv, see issue #350.  See also 'py_limited_api' in
+   setuptools_ext.py.
 */
 #if !defined(_CFFI_USE_EMBEDDING) && !defined(Py_LIMITED_API)
 #  include <pyconfig.h>
@@ -251,14 +261,62 @@ _CFFI_UNUSED_FN static int _cffi_to_c_char32_t(PyObject *o)
         return (int)_cffi_to_c_wchar3216_t(o);
 }
 
-_CFFI_UNUSED_FN static PyObject *_cffi_from_c_char32_t(int x)
+_CFFI_UNUSED_FN static PyObject *_cffi_from_c_char32_t(unsigned int x)
 {
     if (sizeof(_cffi_wchar_t) == 4)
         return _cffi_from_c_wchar_t((_cffi_wchar_t)x);
     else
-        return _cffi_from_c_wchar3216_t(x);
+        return _cffi_from_c_wchar3216_t((int)x);
 }
 
+union _cffi_union_alignment_u {
+    unsigned char m_char;
+    unsigned short m_short;
+    unsigned int m_int;
+    unsigned long m_long;
+    unsigned long long m_longlong;
+    float m_float;
+    double m_double;
+    long double m_longdouble;
+};
+
+struct _cffi_freeme_s {
+    struct _cffi_freeme_s *next;
+    union _cffi_union_alignment_u alignment;
+};
+
+_CFFI_UNUSED_FN static int
+_cffi_convert_array_argument(struct _cffi_ctypedescr *ctptr, PyObject *arg,
+                             char **output_data, Py_ssize_t datasize,
+                             struct _cffi_freeme_s **freeme)
+{
+    char *p;
+    if (datasize < 0)
+        return -1;
+
+    p = *output_data;
+    if (p == NULL) {
+        struct _cffi_freeme_s *fp = (struct _cffi_freeme_s *)PyObject_Malloc(
+            offsetof(struct _cffi_freeme_s, alignment) + (size_t)datasize);
+        if (fp == NULL)
+            return -1;
+        fp->next = *freeme;
+        *freeme = fp;
+        p = *output_data = (char *)&fp->alignment;
+    }
+    memset((void *)p, 0, (size_t)datasize);
+    return _cffi_convert_array_from_object(p, ctptr, arg);
+}
+
+_CFFI_UNUSED_FN static void
+_cffi_free_array_arguments(struct _cffi_freeme_s *freeme)
+{
+    do {
+        void *p = (void *)freeme;
+        freeme = freeme->next;
+        PyObject_Free(p);
+    } while (freeme != NULL);
+}
 
 /**********  end CPython-specific section  **********/
 #else

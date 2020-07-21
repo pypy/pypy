@@ -558,6 +558,11 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     rgc.ll_arraycopy(source.ll_items(), dest.ll_items(),
                      source_start, dest_start, length)
 
+@signature(types.any(), types.int(), types.int(), types.int(), returns=types.none())
+def ll_arraymove(lst, source_start, dest_start, length):
+    # copy the slice [source_start:source_stop] to the slice [dest_start:..]
+    rgc.ll_arraymove(lst.ll_items(), source_start, dest_start, length)
+
 
 def ll_copy(RESLIST, l):
     length = l.ll_length()
@@ -588,15 +593,10 @@ def ll_append(l, newitem):
     l.ll_setitem_fast(length, newitem)
 
 # this one is for the special case of insert(0, x)
-@jit.look_inside_iff(lambda l,n: jit.isvirtual(l))
 def ll_prepend(l, newitem):
     length = l.ll_length()
     l._ll_resize_ge(length+1)           # see "a note about overflows" above
-    dst = length
-    while dst > 0:
-        src = dst - 1
-        l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
-        dst = src
+    ll_arraymove(l, 0, 1, length)
     l.ll_setitem_fast(0, newitem)
 
 def ll_concat(RESLIST, l1, l2):
@@ -612,17 +612,12 @@ def ll_concat(RESLIST, l1, l2):
     return l
 # no oopspec -- the function is inlined by the JIT
 
-@jit.look_inside_iff(lambda l,i,n: jit.isvirtual(l) and jit.isconstant(i))
 def ll_insert_nonneg(l, index, newitem):
     length = l.ll_length()
     ll_assert(0 <= index, "negative list insertion index")
     ll_assert(index <= length, "list insertion index out of bound")
     l._ll_resize_ge(length+1)           # see "a note about overflows" above
-    dst = length
-    while dst > index:
-        src = dst - 1
-        l.ll_setitem_fast(dst, l.ll_getitem_fast(src))
-        dst = src
+    ll_arraymove(l, index, index + 1, length - index)
     l.ll_setitem_fast(index, newitem)
 
 def ll_pop_nonneg(func, l, index):
@@ -656,14 +651,9 @@ def ll_pop_zero(func, l):
     if func is dum_checkidx and (length == 0):
         raise IndexError
     ll_assert(length > 0, "pop(0) from empty list")
-    newlength = length - 1
     res = l.ll_getitem_fast(0)
-    j = 0
-    j1 = j+1
-    while j < newlength:
-        l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
-        j = j1
-        j1 += 1
+    newlength = length - 1
+    ll_arraymove(l, 1, 0, newlength)
     null = ll_null_item(l)
     if null is not None:
         l.ll_setitem_fast(newlength, null)
@@ -769,18 +759,12 @@ def ll_delitem_nonneg(func, l, index):
     else:
         ll_assert(index < length, "list delitem index out of bound")
     newlength = length - 1
-    j = index
-    j1 = j+1
-    while j < newlength:
-        l.ll_setitem_fast(j, l.ll_getitem_fast(j1))
-        j = j1
-        j1 += 1
-
+    ll_arraymove(l, index + 1, index, newlength - index)
     null = ll_null_item(l)
     if null is not None:
         l.ll_setitem_fast(newlength, null)
     l._ll_resize_le(newlength)
-ll_delitem_nonneg.oopspec = 'list.delitem(l, index)'
+# no oopspec -- the function is inlined by the JIT
 
 def ll_delitem(func, l, index):
     if func is dum_checkidx:
@@ -948,13 +932,8 @@ def ll_listdelslice_startstop(l, start, stop):
     ll_assert(stop >= start, "del l[x:y] with x > y")
     if stop > length:
         stop = length
+    ll_arraymove(l, stop, start, length - stop)
     newlength = length - (stop-start)
-    j = start
-    i = stop
-    while j < newlength:
-        l.ll_setitem_fast(j, l.ll_getitem_fast(i))
-        i += 1
-        j += 1
     null = ll_null_item(l)
     if null is not None:
         j = length - 1

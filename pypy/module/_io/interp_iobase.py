@@ -55,7 +55,7 @@ class W_IOBase(W_Root):
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
-        self.w_dict = space.newdict()
+        self.w_dict = space.newdict(instance=True)
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
@@ -274,6 +274,14 @@ class W_IOBase(W_Root):
                     raise
                 else:
                     break
+
+    @staticmethod
+    def output_slice(space, rwbuffer, target_pos, data):
+        if target_pos + len(data) > rwbuffer.getlength():
+            raise oefmt(space.w_RuntimeError,
+                        "target buffer has shrunk during operation")
+        rwbuffer.setslice(target_pos, data)
+
 
 W_IOBase.typedef = TypeDef(
     '_io._IOBase',

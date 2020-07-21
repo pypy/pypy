@@ -86,8 +86,15 @@ INSTALL_SCHEMES = {
     'pypy': {
         'purelib': '$base/site-packages',
         'platlib': '$base/site-packages',
-        'headers': '$base/include',
+        'headers': '$base/include/$dist_name',
         'scripts': '$base/bin',
+        'data'   : '$base',
+        },
+    'pypy_nt': {
+        'purelib': '$base/site-packages',
+        'platlib': '$base/site-packages',
+        'headers': '$base/include/$dist_name',
+        'scripts': '$base/Scripts',
         'data'   : '$base',
         },
     }
@@ -475,8 +482,11 @@ class install (Command):
     def select_scheme (self, name):
         # it's the caller's problem if they supply a bad name!
         if (hasattr(sys, 'pypy_version_info') and
-            not name.endswith(('_user', '_home'))):
-            name = 'pypy'
+                not name.endswith(('_user', '_home'))):
+            if os.name == 'nt':
+                name = 'pypy_nt'
+            else:
+                name = 'pypy'
         scheme = INSTALL_SCHEMES[name]
         for key in SCHEME_KEYS:
             attrname = 'install_' + key
@@ -491,6 +501,11 @@ class install (Command):
                 if os.name == 'posix' or os.name == 'nt':
                     val = os.path.expanduser(val)
                 val = subst_vars(val, self.config_vars)
+                # install_headers can end with a '/' if $dist_name is ''
+                # see issue 3140, and the comment in ./utils.py that CPython
+                # apparently never uses $dist_name
+                if len(val) > 0 and val[-1] == '/':
+                    val = val[:-1]
                 setattr(self, attr, val)
 
 

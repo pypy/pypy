@@ -1,5 +1,6 @@
 import py
 import sys, os, re
+import textwrap
 
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import SUPPORT__THREAD
@@ -518,6 +519,50 @@ class TestStandalone(StandaloneTests):
         assert out.strip() == 'got:.-1.'
         assert not err
         assert path.check(file=0)
+
+    def test_debug_start_stop_timestamp(self):
+        from rpython.rlib.rtimer import read_timestamp
+        def entry_point(argv):
+            timestamp = bool(int(argv[1]))
+            ts1 = debug_start("foo", timestamp=timestamp)
+            ts2 = read_timestamp()
+            ts3 = debug_stop("foo", timestamp=timestamp)
+            print ts1
+            print ts2
+            print ts3
+            return 0
+        t, cbuilder = self.compile(entry_point)
+
+        def parse_out(out):
+            lines = out.strip().splitlines()
+            ts1, ts2, ts3 = lines
+            return int(ts1), int(ts2), int(ts3)
+
+        # check with PYPYLOG :-
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': ':-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG profiling only
+        out, err = cbuilder.cmdexec("1", err=True, env={'PYPYLOG': '-'})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+        expected = ('[%x] {foo\n' % ts1 +
+                    '[%x] foo}\n' % ts3)
+        assert err == expected
+
+        # check with PYPYLOG undefined
+        out, err = cbuilder.cmdexec("1", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts3 > ts2 > ts1
+
+        # check with PYPYLOG undefined and timestamp=False
+        out, err = cbuilder.cmdexec("0", err=True, env={})
+        ts1, ts2, ts3 = parse_out(out)
+        assert ts1 == ts3 == 42;
 
     def test_debug_print_start_stop_nonconst(self):
         def entry_point(argv):
@@ -1101,21 +1146,32 @@ class TestStandalone(StandaloneTests):
         out = cbuilder.cmdexec('')
         assert out.strip() == 'ok'
 
+    def test_int_manipulation(self):
+        # Distilled from micronumpy.descriptor._compute_hash
+        # which, for some version of gcc8 compiler produced
+        # out1 == out2
+        from rpython.rlib.rarithmetic import intmask
+        
+        def entry_point(argv):
+            if len(argv) < 4:
+                print 'need 3 arguments, not %s' % str(argv)
+                return -1
+            flags = 0
+            x = 0x345678
+            y = 0x345678
+            s = str(argv[1])[0]
+            y = intmask((1000003 * y) ^ ord(s))
+            y = intmask((1000003 * y) ^ ord(str(argv[2])[0]))
+            y = (1000003 * y)
+            y = intmask(y ^ flags)
+            y = intmask((1000003 * y) ^ int(argv[3]))
+            print y
+            return 0
 
-class TestMaemo(TestStandalone):
-    def setup_class(cls):
-        py.test.skip("TestMaemo: tests skipped for now")
-        from rpython.translator.platform.maemo import check_scratchbox
-        check_scratchbox()
-        config = get_combined_translation_config(translating=True)
-        config.translation.platform = 'maemo'
-        cls.config = config
-
-    def test_profopt(self):
-        py.test.skip("Unsupported")
-
-    def test_prof_inline(self):
-        py.test.skip("Unsupported")
+        t, cbuilder = self.compile(entry_point)
+        out1 = cbuilder.cmdexec(args=['i', '>', '64'])
+        out2 = cbuilder.cmdexec(args=['f', '>', '64'])
+        assert out1 != out2
 
 
 class TestThread(object):

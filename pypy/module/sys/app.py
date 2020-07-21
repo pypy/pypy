@@ -11,6 +11,11 @@ def excepthook(exctype, value, traceback):
 
     # Flush stdout as well, both files may refer to the same file
     try:
+        if sys.stdout.softspace:
+            print
+    except:
+        pass
+    try:
         sys.stdout.flush()
     except:
         pass

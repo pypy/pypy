@@ -256,6 +256,30 @@ class AppTestSysModulePortedFromCPython:
             print repr(err.getvalue())
             assert err.getvalue().endswith("ValueError: %s\n" % expectedoutput)
 
+    def test_excepthook_flushes_stdout(self):
+        import sys, cStringIO
+        savestdout = sys.stdout
+        out = cStringIO.StringIO()
+        sys.stdout = out
+
+        eh = sys.__excepthook__
+
+        try:
+            raise ValueError(42)
+        except ValueError as exc:
+            print "hello"     # with end-of-line
+            eh(*sys.exc_info())
+        try:
+            raise ValueError(42)
+        except ValueError as exc:
+            print 123, 456,     # no end-of-line here
+            assert sys.stdout.softspace
+            eh(*sys.exc_info())
+            assert not sys.stdout.softspace
+
+        sys.stdout = savestdout
+        assert out.getvalue() == 'hello\n123 456\n'   # with a final \n added
+
     # FIXME: testing the code for a lost or replaced excepthook in
     # Python/pythonrun.c::PyErr_PrintEx() is tricky.
 

@@ -15,10 +15,16 @@
 #include <pthread.h>
 #endif
 
+#ifdef VMPROF_UNIX
 #include "vmprof_getpc.h"
+#endif
 
 #ifdef VMPROF_LINUX
 #include <syscall.h>
+#endif
+
+#ifdef VMPROF_BSD
+#include <sys/syscall.h>
 #endif
 
 #define MAX_FUNC_NAME 1024
@@ -77,24 +83,13 @@ char *vmprof_init(int fd, double interval, int memory,
 
 int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
 
-/* Seems that CPython 3.5.1 made our job harder.  Did not find out how
-   to do that without these hacks.  We can't use PyThreadState_GET(),
-   because that calls PyThreadState_Get() which fails an assert if the
-   result is NULL. */
-#if PY_MAJOR_VERSION >= 3 && !defined(_Py_atomic_load_relaxed)
-                             /* this was abruptly un-defined in 3.5.1 */
-void *volatile _PyThreadState_Current;
-   /* XXX simple volatile access is assumed atomic */
-#  define _Py_atomic_load_relaxed(pp)  (*(pp))
-#endif
-
 #ifdef RPYTHON_VMPROF
 #ifndef RPYTHON_LL2CTYPES
 PY_STACK_FRAME_T *get_vmprof_stack(void);
 #endif
 RPY_EXTERN
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
-                              intptr_t *result_p, intptr_t result_length);
+                              void **result_p, intptr_t result_length);
 #endif
 
 int vmprof_get_signal_type(void);

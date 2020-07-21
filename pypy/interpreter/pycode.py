@@ -15,7 +15,7 @@ from pypy.interpreter.astcompiler.consts import (
     CO_GENERATOR, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY)
 from pypy.tool.stdlib_opcode import opcodedesc, HAVE_ARGUMENT
 from rpython.rlib.rarithmetic import intmask, r_longlong
-from rpython.rlib.objectmodel import compute_hash
+from rpython.rlib.objectmodel import compute_hash, we_are_translated
 from rpython.rlib import jit
 from rpython.rlib.debug import debug_start, debug_stop, debug_print
 
@@ -61,7 +61,9 @@ class PyCode(eval.Code):
                           "co_firstlineno", "co_flags", "co_freevars[*]",
                           "co_lnotab", "co_names_w[*]", "co_nlocals",
                           "co_stacksize", "co_varnames[*]",
-                          "_args_as_cellvars[*]", "w_globals?"]
+                          "_args_as_cellvars[*]",
+                          "w_globals?",
+                          "cell_families[*]"]
 
     def __init__(self, space,  argcount, nlocals, stacksize, flags,
                      code, consts, names, varnames, filename,
@@ -115,6 +117,7 @@ class PyCode(eval.Code):
 
     def _initialize(self):
         from pypy.objspace.std.mapdict import init_mapdict_cache
+        from pypy.interpreter.nestedscope import CellFamily
         if self.co_cellvars:
             argcount = self.co_argcount
             assert argcount >= 0     # annotator hint
@@ -122,31 +125,14 @@ class PyCode(eval.Code):
                 argcount += 1
             if self.co_flags & CO_VARKEYWORDS:
                 argcount += 1
-            # Cell vars could shadow already-set arguments.
-            # The compiler used to be clever about the order of
-            # the variables in both co_varnames and co_cellvars, but
-            # it no longer is for the sake of simplicity.  Moreover
-            # code objects loaded from CPython don't necessarily follow
-            # an order, which could lead to strange bugs if .pyc files
-            # produced by CPython are loaded by PyPy.  Note that CPython
-            # contains the following bad-looking nested loops at *every*
-            # function call!
-
-            # Precompute what arguments need to be copied into cellvars
-            args_as_cellvars = []
             argvars = self.co_varnames
             cellvars = self.co_cellvars
-            for i in range(len(cellvars)):
-                cellname = cellvars[i]
-                for j in range(argcount):
-                    if cellname == argvars[j]:
-                        # argument j has the same name as the cell var i
-                        while len(args_as_cellvars) <= i:
-                            args_as_cellvars.append(-1)   # pad
-                        args_as_cellvars[i] = j
-            self._args_as_cellvars = args_as_cellvars[:]
+            args_as_cellvars = _compute_args_as_cellvars(argvars, cellvars, argcount)
+            self._args_as_cellvars = args_as_cellvars
+            self.cell_families = [CellFamily(name) for name in cellvars]
         else:
             self._args_as_cellvars = []
+            self.cell_families = []
 
         self._compute_flatcall()
 
@@ -340,7 +326,7 @@ class PyCode(eval.Code):
                 return space.w_False
 
         for i in range(len(self.co_consts_w)):
-            if not space.eq_w(self.co_consts_w[i], w_other.co_consts_w[i]):
+            if not _code_const_eq(space, self.co_consts_w[i], w_other.co_consts_w[i]):
                 return space.w_False
 
         return space.w_True
@@ -360,8 +346,13 @@ class PyCode(eval.Code):
         for w_name in self.co_names_w:
             w_result = space.xor(w_result, space.hash(w_name))
         for w_const in self.co_consts_w:
-            w_result = space.xor(w_result, space.hash(w_const))
+            w_key = self.const_comparison_key(space, w_const)
+            w_result = space.xor(w_result, space.hash(w_key))
         return w_result
+
+    @staticmethod
+    def const_comparison_key(space, w_obj):
+        return _convert_const(space, w_obj)
 
     @unwrap_spec(argcount=int, nlocals=int, stacksize=int, flags=int,
                  codestring='bytes',
@@ -425,8 +416,70 @@ class PyCode(eval.Code):
         return "<code object %s, file '%s', line %d>" % (
             self.co_name, self.co_filename, self.co_firstlineno)
 
+    def iterator_greenkey_printable(self):
+        return self.get_repr()
+
     def __repr__(self):
         return self.get_repr()
 
     def repr(self, space):
         return space.newtext(self.get_repr())
+
+def _compute_args_as_cellvars(varnames, cellvars, argcount):
+    # Cell vars could shadow already-set arguments.
+    # The compiler used to be clever about the order of
+    # the variables in both co_varnames and co_cellvars, but
+    # it no longer is for the sake of simplicity.  Moreover
+    # code objects loaded from CPython don't necessarily follow
+    # an order, which could lead to strange bugs if .pyc files
+    # produced by CPython are loaded by PyPy.  Note that CPython
+    # contains the following bad-looking nested loops at *every*
+    # function call!
+
+    # Precompute what arguments need to be copied into cellvars
+    args_as_cellvars = []
+    for i in range(len(cellvars)):
+        cellname = cellvars[i]
+        for j in range(argcount):
+            if cellname == varnames[j]:
+                # argument j has the same name as the cell var i
+                while len(args_as_cellvars) < i:
+                    args_as_cellvars.append(-1)   # pad
+                args_as_cellvars.append(j)
+                last_arg_cellarg = i
+    return args_as_cellvars[:]
+
+
+def _code_const_eq(space, w_a, w_b):
+    # this is a mess! CPython has complicated logic for this. essentially this
+    # is supposed to be a "strong" equal, that takes types and signs of numbers
+    # into account, quite similar to how PyPy's 'is' behaves, but recursively
+    # in tuples and frozensets as well. Since PyPy already implements these
+    # rules correctly for ints, floats, bools, complex in 'is' and 'id', just
+    # use those.
+    return space.eq_w(_convert_const(space, w_a), _convert_const(space, w_b))
+
+def _convert_const(space, w_a):
+    # use id to convert constants. for tuples and frozensets use tuples and
+    # frozensets of converted contents.
+    w_type = space.type(w_a)
+    if space.is_w(w_type, space.w_unicode):
+        # unicodes are supposed to compare by value, but not equal to bytes
+        return space.newtuple([w_type, w_a])
+    if space.is_w(w_type, space.w_bytes):
+        # and vice versa
+        return space.newtuple([w_type, w_a])
+    if type(w_a) is PyCode:
+        return w_a
+    # for tuples and frozensets convert recursively
+    if space.is_w(w_type, space.w_tuple):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newtuple(elements_w)
+    if space.is_w(w_type, space.w_frozenset):
+        elements_w = [_convert_const(space, w_x)
+                for w_x in space.unpackiterable(w_a)]
+        return space.newfrozenset(elements_w)
+    # use id for the rest
+    return space.id(w_a)
+

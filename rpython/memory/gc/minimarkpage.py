@@ -9,7 +9,6 @@ NULL = llmemory.NULL
 WORD_POWER_2 = {32: 2, 64: 3}[LONG_BIT]
 assert 1 << WORD_POWER_2 == WORD
 
-
 # Terminology: the memory is subdivided into "arenas" containing "pages".
 # A page contains a number of allocated objects, called "blocks".
 
@@ -94,6 +93,7 @@ class ArenaCollection(object):
         self.arena_size = arena_size
         self.page_size = page_size
         self.small_request_threshold = small_request_threshold
+        self.arenas_count = 0
         #
         # 'pageaddr_for_size': for each size N between WORD and
         # small_request_threshold (included), contains either NULL or
@@ -140,6 +140,9 @@ class ArenaCollection(object):
         # the total memory used, counting every block in use, without
         # the additional bookkeeping stuff.
         self.total_memory_used = r_uint(0)
+        self.peak_memory_used = r_uint(0)
+        self.total_memory_alloced = r_uint(0)
+        self.peak_memory_alloced = r_uint(0)
 
 
     def _new_page_ptr_list(self, length):
@@ -293,6 +296,10 @@ class ArenaCollection(object):
         # 'arena_base' points to the start of malloced memory; it might not
         # be a page-aligned address
         arena_base = llarena.arena_malloc(self.arena_size, False)
+        self.total_memory_alloced += self.arena_size
+        self.peak_memory_alloced = max(self.total_memory_alloced,
+                                       self.peak_memory_alloced)
+
         if not arena_base:
             out_of_memory("out of memory: couldn't allocate the next arena")
         arena_end = arena_base + self.arena_size
@@ -311,6 +318,7 @@ class ArenaCollection(object):
         arena.freepages = firstpage
         self.num_uninitialized_pages = npages
         self.current_arena = arena
+        self.arenas_count += 1
         #
     allocate_new_arena._dont_inline_ = True
 
@@ -319,6 +327,8 @@ class ArenaCollection(object):
         """Prepare calls to mass_free_incremental(): moves the chained lists
         into 'self.old_xxx'.
         """
+        self.peak_memory_used = max(self.peak_memory_used,
+                                    self.total_memory_used)
         self.total_memory_used = r_uint(0)
         #
         size_class = self.small_request_threshold >> WORD_POWER_2
@@ -397,7 +407,9 @@ class ArenaCollection(object):
                     # The whole arena is empty.  Free it.
                     llarena.arena_reset(arena.base, self.arena_size, 4)
                     llarena.arena_free(arena.base)
+                    self.total_memory_alloced -= self.arena_size
                     lltype.free(arena, flavor='raw', track_allocation=False)
+                    self.arenas_count -= 1
                     #
                 else:
                     # Insert 'arena' in the correct arenas_lists[n]

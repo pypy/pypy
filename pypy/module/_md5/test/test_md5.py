@@ -24,7 +24,8 @@ class AppTestMD5(object):
         assert self.md5.md5().digest_size == 16
         if sys.version_info >= (2, 5):
             assert self.md5.blocksize == 1
-            assert self.md5.md5().digestsize == 16
+            # implementation detail, not part of the API
+            # assert self.md5.md5().digestsize == 16
 
     def test_MD5Type(self):
         """

@@ -104,9 +104,10 @@ def load_source(space, w_modulename, w_filename, w_file=None):
 
     w_mod = importing.load_source_module(
         space, w_modulename, w_mod,
-        filename, stream.readall(), stream.try_to_find_file_descriptor())
+        filename, importing._wrap_readall(space, stream),
+        stream.try_to_find_file_descriptor())
     if space.is_none(w_file):
-        stream.close()
+        importing._wrap_close(space, stream)
     return w_mod
 
 @unwrap_spec(filename='fsencode', check_afterwards=int)
@@ -115,14 +116,15 @@ def _run_compiled_module(space, w_modulename, filename, w_file, w_module,
     # the function 'imp._run_compiled_module' is a pypy-only extension
     stream = get_file(space, w_file, filename, 'rb')
 
-    magic = importing._r_long(stream)
-    timestamp = importing._r_long(stream)
+    magic = importing._wrap_r_long(space, stream)
+    timestamp = importing._wrap_r_long(space, stream)
 
     w_mod = importing.load_compiled_module(
         space, w_modulename, w_module, filename, magic, timestamp,
-        stream.readall(), check_afterwards=check_afterwards)
+        importing._wrap_readall(space, stream),
+        check_afterwards=check_afterwards)
     if space.is_none(w_file):
-        stream.close()
+        importing._wrap_close(space, stream)
     return w_mod
 
 @unwrap_spec(filename='fsencode')

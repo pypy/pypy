@@ -64,19 +64,22 @@ class CBuilder(object):
     split = False
 
     def __init__(self, translator, entrypoint, config, gcpolicy=None,
-            secondary_entrypoints=()):
+                 gchooks=None, secondary_entrypoints=()):
         self.translator = translator
         self.entrypoint = entrypoint
         self.entrypoint_name = getattr(self.entrypoint, 'func_name', None)
         self.originalentrypoint = entrypoint
         self.config = config
         self.gcpolicy = gcpolicy    # for tests only, e.g. rpython/memory/
+        self.gchooks = gchooks
         self.eci = self.get_eci()
         self.secondary_entrypoints = secondary_entrypoints
 
     def get_eci(self):
         pypy_include_dir = py.path.local(__file__).join('..')
         include_dirs = [pypy_include_dir]
+        if self.config.translation.reverse_debugger:
+            include_dirs.append(pypy_include_dir.join('..', 'revdb'))
         return ExternalCompilationInfo(include_dirs=include_dirs)
 
     def build_database(self):
@@ -84,16 +87,17 @@ class CBuilder(object):
 
         gcpolicyclass = self.get_gcpolicyclass()
 
-        if self.config.translation.gcrootfinder == "asmgcc":
-            if not self.standalone:
-                raise NotImplementedError("--gcrootfinder=asmgcc requires standalone")
-
         exctransformer = translator.getexceptiontransformer()
         db = LowLevelDatabase(translator, standalone=self.standalone,
                               gcpolicyclass=gcpolicyclass,
+                              gchooks=self.gchooks,
                               exctransformer=exctransformer,
                               thread_enabled=self.config.translation.thread,
-                              sandbox=self.config.translation.sandbox)
+                              sandbox=self.config.translation.sandbox,
+                              split_gc_address_space=
+                                 self.config.translation.split_gc_address_space,
+                              reverse_debugger=
+                                 self.config.translation.reverse_debugger)
         self.db = db
 
         # give the gc a chance to register interest in the start-up functions it
@@ -114,6 +118,10 @@ class CBuilder(object):
                 db.get(getfunctionptr(bk.getdesc(func).getuniquegraph()))
 
             self.c_entrypoint_name = pfname
+
+        if self.config.translation.reverse_debugger:
+            from rpython.translator.revdb import gencsupp
+            gencsupp.prepare_database(db)
 
         for obj in exports.EXPORTS_obj2name.keys():
             db.getcontainernode(obj)
@@ -159,7 +167,8 @@ class CBuilder(object):
     # use generate_source(defines=DEBUG_DEFINES) to force the #definition
     # of the macros that enable debugging assertions
     DEBUG_DEFINES = {'RPY_ASSERT': 1,
-                     'RPY_LL_ASSERT': 1}
+                     'RPY_LL_ASSERT': 1,
+                     'RPY_REVDB_PRINT_ALL': 1}
 
     def generate_source(self, db=None, defines={}, exe_name=None):
         assert self.c_source_filename is None
@@ -179,6 +188,8 @@ class CBuilder(object):
             defines['COUNT_OP_MALLOCS'] = 1
         if self.config.translation.sandbox:
             defines['RPY_SANDBOXED'] = 1
+        if self.config.translation.reverse_debugger:
+            defines['RPY_REVERSE_DEBUGGER'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
@@ -207,6 +218,10 @@ class CBuilder(object):
             fn = py.path.local(fn)
             if not fn.relto(udir):
                 newname = self.targetdir.join(fn.basename)
+                if newname.check(exists=True):
+                    raise ValueError(
+                        "Cannot have two different separate_module_sources "
+                        "with the same basename, please rename one: %s" % fn.basename)
                 fn.copy(newname)
                 fn = newname
             extrafiles.append(fn)
@@ -288,6 +303,9 @@ class CStandaloneBuilder(CBuilder):
             SetErrorMode(old_mode)
         if res.returncode != 0:
             if expect_crash:
+                if type(expect_crash) is int and expect_crash != res.returncode:
+                    raise Exception("Returned %d, but expected %d" % (
+                        res.returncode, expect_crash))
                 return res.out, res.err
             print >> sys.stderr, res.err
             raise Exception("Returned %d" % (res.returncode,))
@@ -352,6 +370,7 @@ class CStandaloneBuilder(CBuilder):
     def gen_makefile(self, targetdir, exe_name=None, headers_to_precompile=[]):
         module_files = self.eventually_copy(self.eci.separate_module_files)
         self.eci.separate_module_files = []
+        self.eci.compile_extra += ('-DPYPY_MAKEFILE',)
         cfiles = [self.c_source_filename] + self.extrafiles + list(module_files)
         if exe_name is not None:
             exe_name = targetdir.join(exe_name)
@@ -486,61 +505,8 @@ class CStandaloneBuilder(CBuilder):
             mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
             mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
 
-        #XXX: this conditional part is not tested at all
         if self.config.translation.gcrootfinder == 'asmgcc':
-            if self.translator.platform.name == 'msvc':
-                raise Exception("msvc no longer supports asmgcc")
-            _extra = ''
-            if self.config.translation.shared:
-                _extra = ' -fPIC'
-            _extra += ' -fdisable-tree-fnsplit'   # seems to help
-            mk.definition('DEBUGFLAGS',
-                '-O2 -fomit-frame-pointer -g'+ _extra)
-
-            if self.config.translation.shared:
-                mk.definition('PYPY_MAIN_FUNCTION', "pypy_main_startup")
-            else:
-                mk.definition('PYPY_MAIN_FUNCTION', "main")
-
-            mk.definition('PYTHON', get_recent_cpython_executable())
-
-            mk.definition('GCMAPFILES', '$(subst .vmprof.s,.gcmap,$(subst .c,.gcmap,$(SOURCES)))')
-            mk.definition('OBJECTS1', '$(subst .vmprof.s,.o,$(subst .c,.o,$(SOURCES)))')
-            mk.definition('OBJECTS', '$(OBJECTS1) gcmaptable.s')
-
-            # the CFLAGS passed to gcc when invoked to assembler the .s file
-            # must not contain -g.  This confuses gcc 5.1.  (Note that it
-            # would seem that gcc 5.1 with "-g" does not produce debugging
-            # info in a format that gdb 4.7.1 can read.)
-            mk.definition('CFLAGS_AS', '$(patsubst -g,,$(CFLAGS))')
-
-            # the rule that transforms %.c into %.o, by compiling it to
-            # %.s, then applying trackgcroot to get %.lbl.s and %.gcmap, and
-            # finally by using the assembler ($(CC) again for now) to get %.o
-            mk.rule('%.o %.gcmap', '%.c', [
-                '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -frandom-seed=$< '
-                    '-o $*.s -S $< $(INCLUDEDIRS)',
-                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.s > $*.gctmp',
-                '$(CC) $(CFLAGS_AS) -o $*.o -c $*.lbl.s',
-                'mv $*.gctmp $*.gcmap',
-                'rm $*.s $*.lbl.s'])
-
-            # this is for manually written assembly files which needs to be parsed by asmgcc
-            mk.rule('%.o %.gcmap', '%.vmprof.s', [
-                '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                    '-t $*.vmprof.s > $*.gctmp',
-                '$(CC) -o $*.o -c $*.vmprof.lbl.s',
-                'mv $*.gctmp $*.gcmap',
-                'rm $*.vmprof.lbl.s'])
-
-            # the rule to compute gcmaptable.s
-            mk.rule('gcmaptable.s', '$(GCMAPFILES)',
-                    [
-                         '$(PYTHON) $(RPYDIR)/translator/c/gcc/trackgcroot.py '
-                         '$(GCMAPFILES) > $@.tmp',
-                     'mv $@.tmp $@'])
-
+            raise AssertionError("asmgcc not supported any more")
         else:
             if self.translator.platform.name == 'msvc':
                 mk.definition('DEBUGFLAGS', '-MD -Zi')
@@ -723,6 +689,8 @@ class SourceGenerator:
 
         print >> f, '#define PYPY_FILE_NAME "%s"' % os.path.basename(f.name)
         print >> f, '#include "src/g_include.h"'
+        if self.database.reverse_debugger:
+            print >> f, '#include "revdb_def.h"'
         print >> f
 
         nextralines = 11 + 1
@@ -763,6 +731,8 @@ class SourceGenerator:
                     print >> fc, '#include "preimpl.h"'
                     print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
+                    if self.database.reverse_debugger:
+                        print >> fc, '#include "revdb_def.h"'
                     print >> fc
                 print >> fc, MARKER
                 for node, impl in nodeiter:
@@ -801,6 +771,10 @@ def gen_threadlocal_structdef(f, database):
     for field in fields:
         print >> f, ('#define RPY_TLOFS_%s  offsetof(' % field.fieldname +
                      'struct pypy_threadlocal_s, %s)' % field.fieldname)
+    if fields:
+        print >> f, '#define RPY_TLOFSFIRST  RPY_TLOFS_%s' % fields[0].fieldname
+    else:
+        print >> f, '#define RPY_TLOFSFIRST  sizeof(struct pypy_threadlocal_s)'
     print >> f, 'struct pypy_threadlocal_s {'
     print >> f, '\tint ready;'
     print >> f, '\tchar *stack_end;'
@@ -838,10 +812,6 @@ def gen_startupcode(f, database):
     # generate the start-up code and put it into a function
     print >> f, 'void RPython_StartupCode(void) {'
 
-    bk = database.translator.annotator.bookkeeper
-    if bk.thread_local_fields:
-        print >> f, '\tRPython_ThreadLocals_ProgramInit();'
-
     for line in database.gcpolicy.gc_startup_code():
         print >> f,"\t" + line
 
@@ -866,7 +836,7 @@ def commondefs(defines):
     defines['PYPY_LONG_BIT'] = LONG_BIT
     defines['PYPY_LONGLONG_BIT'] = LONGLONG_BIT
 
-def add_extra_files(eci):
+def add_extra_files(database, eci):
     srcdir = py.path.local(__file__).join('..', 'src')
     files = [
         srcdir / 'entrypoint.c',       # ifdef PYPY_STANDALONE
@@ -885,6 +855,9 @@ def add_extra_files(eci):
     ]
     if _CYGWIN:
         files.append(srcdir / 'cygwin_wait.c')
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        files += gencsupp.extra_files()
     return eci.merge(ExternalCompilationInfo(separate_module_files=files))
 
 
@@ -932,7 +905,10 @@ def gen_source(database, modulename, targetdir,
         n = database.instrument_ncounter
         print >>fi, "#define PYPY_INSTRUMENT_NCOUNTER %d" % n
         fi.close()
+    if database.reverse_debugger:
+        from rpython.translator.revdb import gencsupp
+        gencsupp.write_revdb_def_file(database, targetdir.join('revdb_def.h'))
 
-    eci = add_extra_files(eci)
+    eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
     return eci, filename, sg.getextrafiles(), headers_to_precompile

@@ -5,8 +5,8 @@ from pypy.module.cpyext.api import (
     PyVarObjectFields, Py_ssize_t, CONST_STRING, CANNOT_FAIL, slot_function)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
-    PyObject, PyObjectP, Py_DecRef, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, Py_IncRef, get_w_obj_and_decref,
+    PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
+    make_typedescr, get_typedescr, as_pyobj, get_w_obj_and_decref,
     pyobj_has_w_obj)
 from pypy.objspace.std.bytesobject import W_BytesObject
 
@@ -215,7 +215,7 @@ def _PyString_Resize(space, ref, newsize):
     try:
         py_newstr = new_empty_str(space, newsize)
     except MemoryError:
-        Py_DecRef(space, ref[0])
+        decref(space, ref[0])
         ref[0] = lltype.nullptr(PyObject.TO)
         raise
     to_cp = newsize
@@ -224,7 +224,7 @@ def _PyString_Resize(space, ref, newsize):
         to_cp = oldsize
     for i in range(to_cp):
         py_newstr.c_ob_sval[i] = py_str.c_ob_sval[i]
-    Py_DecRef(space, ref[0])
+    decref(space, ref[0])
     ref[0] = rffi.cast(PyObject, py_newstr)
     return 0
 
@@ -260,7 +260,7 @@ def PyString_ConcatAndDel(space, ref, newpart):
     try:
         PyString_Concat(space, ref, newpart)
     finally:
-        Py_DecRef(space, newpart)
+        decref(space, newpart)
 
 @cpython_api([PyObject, PyObject], PyObject)
 def PyString_Format(space, w_format, w_args):
@@ -294,7 +294,7 @@ def PyString_InternInPlace(space, string):
     alias."""
     w_str = from_ref(space, string[0])
     w_str = space.new_interned_w_str(w_str)
-    Py_DecRef(space, string[0])
+    decref(space, string[0])
     string[0] = make_ref(space, w_str)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)

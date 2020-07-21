@@ -7,8 +7,8 @@
 extern "C" {
 #endif
 
-#define PyMem_MALLOC(n)		malloc((n) ? (n) : 1)
-#define PyMem_REALLOC(p, n)	realloc((p), (n) ? (n) : 1)
+#define PyMem_MALLOC(n)		malloc(((n) != 0) ? (n) : 1)
+#define PyMem_REALLOC(p, n)	realloc((p), ((n) != 0) ? (n) : 1)
 #define PyMem_FREE		free
 
 PyAPI_FUNC(void *) PyMem_Malloc(size_t);

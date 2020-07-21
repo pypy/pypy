@@ -1,3 +1,6 @@
+
+from rpython.rlib import rutf8
+
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
@@ -201,9 +204,21 @@ def show_warning(space, w_filename, lineno, w_text, w_category,
     w_stderr = space.sys.get("stderr")
 
     # Print "filename:lineno: category: text\n"
-    message = "%s:%d: %s: %s\n" % (space.text_w(w_filename), lineno,
-                                   space.text_w(w_name), space.text_w(w_text))
-    space.call_method(w_stderr, "write", space.newtext(message))
+    try:
+        message = "%s:%d: %s: %s\n" % (space.text_w(w_filename), lineno,
+                                       space.text_w(w_name),
+                                       space.text_w(w_text))
+    except OperationError as e:
+        if e.async(space):
+            raise
+        message = "%s:%d: %s: %s\n" % (space.utf8_w(w_filename), lineno,
+                                        space.utf8_w(w_name),
+                                        space.utf8_w(w_text))
+        lgt = rutf8.check_utf8(message, True)
+        w_message = space.newutf8(message, lgt)
+    else:
+        w_message = space.newtext(message)
+    space.call_method(w_stderr, "write", w_message)
 
     # Print "  source_line\n"
     if not w_sourceline:
@@ -248,7 +263,7 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if space.isinstance_w(w_message, space.w_Warning):
         w_text = space.str(w_message)
         w_category = space.type(w_message)
-    elif (not space.isinstance_w(w_message, space.w_unicode) or
+    elif (not space.isinstance_w(w_message, space.w_unicode) and
           not space.isinstance_w(w_message, space.w_bytes)):
         w_text = space.str(w_message)
         w_message = space.call_function(w_category, w_message)
@@ -339,7 +354,7 @@ def get_source_line(space, w_globals, lineno):
         return None
 
     # Split the source into lines.
-    w_source_list = space.call_method(w_source, "splitlines")
+    w_source_list = space.call_method(space.w_text, "splitlines", w_source)
 
     # Get the source line.
     w_source_line = space.getitem(w_source_list, space.newint(lineno - 1))

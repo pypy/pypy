@@ -295,7 +295,7 @@ class VectorAssemblerMixin(object):
         _source = genop_vec_float_arith.format(type=op,
                                                p_op_s=OP+'PS',
                                                p_op_d=OP+'PD')
-        exec py.code.Source(_source).compile()
+        exec(py.code.Source(_source).compile())
     del genop_vec_float_arith
 
     def genop_vec_float_truediv(self, op, arglocs, resloc):
@@ -695,7 +695,7 @@ class VectorRegallocMixin(object):
                 if not candidate_to_spill:
                     raise NoVariableToSpill
                 reg = xrm.reg_bindings[candidate_to_spill]
-                xrm._spill_var(candidate_to_spill, forbidden_vars, None)
+                xrm._spill_var(forbidden_vars, reg)
                 xrm.free_regs.append(reg)
             loc = xrm.free_regs.pop()
             self.assembler.mov(selected_reg, loc)

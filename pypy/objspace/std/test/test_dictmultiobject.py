@@ -1,3 +1,4 @@
+# -*- encoding: utf-8 -*-
 import sys
 import py
 
@@ -141,11 +142,12 @@ class TestW_DictObject(object):
         w_d.initialize_content([(wb("a"), w(1)), (wb("b"), w(2))])
         assert self.space.listview_bytes(w_d) == ["a", "b"]
 
+    @py.test.mark.skip("possible re-enable later?")
     def test_listview_unicode_dict(self):
         w = self.space.wrap
         w_d = self.space.newdict()
         w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(2))])
-        assert self.space.listview_unicode(w_d) == [u"a", u"b"]
+        assert self.space.listview_ascii(w_d) == ["a", "b"]
 
     def test_listview_int_dict(self):
         w = self.space.wrap
@@ -172,13 +174,14 @@ class TestW_DictObject(object):
         w_l = self.space.call_method(w_d, "keys")
         assert sorted(self.space.listview_bytes(w_l)) == ["a", "b"]
 
+        #---the rest is for listview_unicode(), which is disabled---
         # XXX: it would be nice if the test passed without monkeypatch.undo(),
         # but we need space.newlist_unicode for it
-        monkeypatch.undo()
-        w_d = self.space.newdict()
-        w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
-        w_l = self.space.call_method(w_d, "keys")
-        assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
+        # monkeypatch.undo()
+        # w_d = self.space.newdict()
+        # w_d.initialize_content([(w(u"a"), w(1)), (w(u"b"), w(6))])
+        # w_l = self.space.call_method(w_d, "keys")
+        # assert sorted(self.space.listview_unicode(w_l)) == [u"a", u"b"]
 
 class AppTest_DictObject:
     def setup_class(cls):
@@ -227,6 +230,33 @@ class AppTest_DictObject:
         raises(KeyError, d.pop, "abc")
         assert len(d) == 2
 
+    def test_pop_empty_bug(self):
+        d = {}
+        assert d.pop(1, 2) == 2
+        def f(**d): return d
+        d = f()
+        assert d.pop(1, 2) == 2
+
+    def test_pop_kwargs(self):
+        def kw(**d): return d
+        d = kw(o=2, t=4)
+        dd = d.copy()
+        result = dd.pop("o")
+        assert result == 2
+        assert len(dd) == 1
+        dd = d.copy()
+        result = dd.pop("o", 44)
+        assert result == 2
+        assert len(dd) == 1
+        result = dd.pop("o", 44)
+        assert result == 44
+        assert len(dd) == 1
+        raises(KeyError, dd.pop, "33")
+
+        assert d.pop("abc", None) is None
+        raises(KeyError, d.pop, "abc")
+        assert len(d) == 2
+
     def test_has_key(self):
         d = {1: 2, 3: 4}
         assert d.has_key(1)
@@ -262,7 +292,8 @@ class AppTest_DictObject:
 
     def test_reversed_dict(self):
         import __pypy__
-        for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}]:
+        def kw(**d): return d
+        for d in [{}, {1: 2, 3: 4, 5: 6}, {"a": 5, "b": 2, "c": 6}, kw(a=1, b=2)]:
             assert list(__pypy__.reversed_dict(d)) == d.keys()[::-1]
         raises(TypeError, __pypy__.reversed_dict, 42)
 
@@ -310,7 +341,8 @@ class AppTest_DictObject:
             return k
         for last in [False, True]:
             for d, key in [({1: 2, 3: 4, 5: 6}, 3),
-                           ({"a": 5, "b": 2, "c": 6}, "b"),
+                           ({b"a": 5, b"b": 2, b"c": 6}, b"b"),
+                           ({u"a": 5, u"b": 2, u"c": 6}, u"b"),
                            (kwdict(d=7, e=8, f=9), "e")]:
                 other_keys = [k for k in d if k != key]
                 __pypy__.move_to_end(d, key, last=last)
@@ -885,6 +917,12 @@ class AppTestDictViews:
         assert (r == "dict_values(['ABC', 10])" or
                 r == "dict_values([10, 'ABC'])")
 
+    def test_recursive_repr(self):
+        d = {1: 2}
+        d[2] = d.viewvalues()
+        print repr(d)
+        assert repr(d) == '{1: 2, 2: dict_values([2, ...])}'
+
     def test_keys_set_operations(self):
         d1 = {'a': 1, 'b': 2}
         d2 = {'b': 3, 'c': 2}
@@ -1122,8 +1160,11 @@ class AppTestStrategies(object):
         assert d.keys() == [u"a"]
         assert type(d.keys()[0]) is unicode
 
+        d = {}
+        d[u"ä"] = 1
+        assert "UnicodeDictStrategy" in self.get_strategy(d)
+
     def test_empty_to_int(self):
-        import sys
         d = {}
         d[1] = "hi"
         assert "IntDictStrategy" in self.get_strategy(d)
@@ -1244,6 +1285,9 @@ class FakeSpace:
 
     def fromcache(self, cls):
         return cls(self)
+
+    def _side_effects_ok(self):
+        return True
 
     w_StopIteration = StopIteration
     w_None = None

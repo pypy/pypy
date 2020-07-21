@@ -239,7 +239,7 @@ class JitHookInterfaceTests(object):
 
         hashes = Hashes()
 
-        class Hooks(object):
+        class Hooks(JitHookInterface):
             def before_compile(self, debug_info):
                 pass
 
@@ -279,6 +279,44 @@ class JitHookInterfaceTests(object):
         assert len(hashes.t) == 0
         self.meta_interp(main, [1, 1], policy=JitPolicy(hooks))
         assert len(hashes.t) == 1
+
+
+    def test_are_hooks_enabled(self):
+        reasons = []
+
+        class MyJitIface(JitHookInterface):
+            def are_hooks_enabled(self):
+                return False
+
+            def on_abort(self, reason, jitdriver, greenkey, greenkey_repr, logops, ops):
+                reasons.append(reason)
+
+        iface = MyJitIface()
+
+        myjitdriver = JitDriver(greens=['foo'], reds=['x', 'total'],
+                                get_printable_location=lambda *args: 'blah')
+
+        class Foo:
+            _immutable_fields_ = ['a?']
+
+            def __init__(self, a):
+                self.a = a
+
+        def f(a, x):
+            foo = Foo(a)
+            total = 0
+            while x > 0:
+                myjitdriver.jit_merge_point(foo=foo, x=x, total=total)
+                total += foo.a
+                foo.a += 1
+                x -= 1
+            return total
+        #
+        assert f(100, 7) == 721
+        res = self.meta_interp(f, [100, 7], policy=JitPolicy(iface))
+        assert res == 721
+        assert reasons == []
+
 
 class LLJitHookInterfaceTests(JitHookInterfaceTests):
     # use this for any backend, instead of the super class

@@ -1,5 +1,6 @@
 from rpython.jit.metainterp.history import Const, ConstInt
 from rpython.jit.metainterp.history import FrontendOp, RefFrontendOp
+from rpython.jit.metainterp.history import new_ref_dict
 from rpython.jit.metainterp.resoperation import rop, OpHelpers
 from rpython.jit.metainterp.executor import constant_from_op
 from rpython.rlib.rarithmetic import r_uint32, r_uint
@@ -61,12 +62,17 @@ class CacheEntry(object):
         # on writes to the field.
         self.quasiimmut_seen = None
 
+        # set of refs for *constants* that we've seen a quasi-immut field on.
+        self.quasiimmut_seen_refs = None
+
     def _clear_cache_on_write(self, seen_allocation_of_target):
         if not seen_allocation_of_target:
             self.cache_seen_allocation.clear()
         self.cache_anything.clear()
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
+        if self.quasiimmut_seen_refs is not None:
+            self.quasiimmut_seen_refs.clear()
 
     def _seen_alloc(self, ref_box):
         if not isinstance(ref_box, RefFrontendOp):
@@ -100,6 +106,8 @@ class CacheEntry(object):
         self._invalidate_unescaped(self.cache_seen_allocation)
         if self.quasiimmut_seen is not None:
             self.quasiimmut_seen.clear()
+        if self.quasiimmut_seen_refs is not None:
+            self.quasiimmut_seen_refs.clear()
 
     def _invalidate_unescaped(self, d):
         for ref_box in d.keys():
@@ -162,6 +170,12 @@ class HeapCache(object):
         # heap array cache
         # maps descrs to {index: CacheEntry} dicts
         self.heap_array_cache = {}
+        self.need_guard_not_invalidated = True
+
+        # result of one loop invariant call
+        self.loop_invariant_result = None
+        self.loop_invariant_descr = None
+        self.loop_invariant_arg0int = -1
 
     def reset_keep_likely_virtuals(self):
         # Update only 'head_version', but 'likely_virtual_version' remains
@@ -211,8 +225,7 @@ class HeapCache(object):
             assert len(argboxes) == 3
             box, indexbox, fieldbox = argboxes
             self._escape_from_write(box, fieldbox)
-        elif ((opnum == rop.CALL_R or opnum == rop.CALL_I or
-               opnum == rop.CALL_N or opnum == rop.CALL_F) and
+        elif (opnum == rop.CALL_N and
               descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYCOPY and
               isinstance(argboxes[3], ConstInt) and
               isinstance(argboxes[4], ConstInt) and
@@ -221,6 +234,15 @@ class HeapCache(object):
             # ARRAYCOPY with constant starts and constant length doesn't escape
             # its argument
             # XXX really?
+            pass
+        elif (opnum == rop.CALL_N and
+              descr.get_extra_info().oopspecindex == descr.get_extra_info().OS_ARRAYMOVE and
+              isinstance(argboxes[2], ConstInt) and
+              isinstance(argboxes[3], ConstInt) and
+              isinstance(argboxes[4], ConstInt) and
+              descr.get_extra_info().single_write_descr_array is not None):
+            # ARRAYMOVE with constant starts and constant length doesn't escape
+            # its argument
             pass
         # GETFIELD_GC, PTR_EQ, and PTR_NE don't escape their
         # arguments
@@ -264,6 +286,7 @@ class HeapCache(object):
             opnum == rop.SETFIELD_RAW or
             opnum == rop.SETARRAYITEM_RAW or
             opnum == rop.SETINTERIORFIELD_RAW or
+            opnum == rop.RECORD_EXACT_CLASS or
             opnum == rop.RAW_STORE or
             opnum == rop.ASSERT_NOT_NONE):
             return
@@ -271,6 +294,7 @@ class HeapCache(object):
             rop._NOSIDEEFFECT_FIRST <= opnum <= rop._NOSIDEEFFECT_LAST or
             rop._GUARD_FIRST <= opnum <= rop._GUARD_LAST):
             return
+        self.need_guard_not_invalidated = True # can do better, but good start
         if (OpHelpers.is_plain_call(opnum) or
             OpHelpers.is_call_loopinvariant(opnum) or
             OpHelpers.is_cond_call_value(opnum) or
@@ -286,6 +310,9 @@ class HeapCache(object):
             # effects are so well defined.
             elif effectinfo.oopspecindex == effectinfo.OS_ARRAYCOPY:
                 self._clear_caches_arraycopy(opnum, descr, argboxes, effectinfo)
+                return
+            elif effectinfo.oopspecindex == effectinfo.OS_ARRAYMOVE:
+                self._clear_caches_arraymove(opnum, descr, argboxes, effectinfo)
                 return
             else:
                 # Only invalidate things that are escaped
@@ -303,29 +330,54 @@ class HeapCache(object):
         # above, but hit an assertion in "pypy test_multiprocessing.py".
         self.reset_keep_likely_virtuals()
 
-    def _clear_caches_arraycopy(self, opnum, desrc, argboxes, effectinfo):
-        seen_allocation_of_target = self._check_flag(
-                                            argboxes[2], HF_SEEN_ALLOCATION)
+    def _clear_caches_arraycopy(self, opnum, descr, argboxes, effectinfo):
+        self._clear_caches_arrayop(argboxes[1], argboxes[2],
+                                   argboxes[3], argboxes[4], argboxes[5],
+                                   effectinfo)
+
+    def _clear_caches_arraymove(self, opnum, descr, argboxes, effectinfo):
+        self._clear_caches_arrayop(argboxes[1], argboxes[1],
+                                   argboxes[2], argboxes[3], argboxes[4],
+                                   effectinfo)
+
+    def _clear_caches_arrayop(self, source_box, dest_box,
+                              source_start_box, dest_start_box, length_box,
+                              effectinfo):
+        seen_allocation_of_target = self._check_flag(dest_box,
+                                                     HF_SEEN_ALLOCATION)
         if (
-            isinstance(argboxes[3], ConstInt) and
-            isinstance(argboxes[4], ConstInt) and
-            isinstance(argboxes[5], ConstInt) and
+            isinstance(source_start_box, ConstInt) and
+            isinstance(dest_start_box, ConstInt) and
+            isinstance(length_box, ConstInt) and
             effectinfo.single_write_descr_array is not None
         ):
             descr = effectinfo.single_write_descr_array
             cache = self.heap_array_cache.get(descr, None)
-            srcstart = argboxes[3].getint()
-            dststart = argboxes[4].getint()
-            length = argboxes[5].getint()
-            for i in xrange(length):
+            srcstart = source_start_box.getint()
+            dststart = dest_start_box.getint()
+            length = length_box.getint()
+
+            index_current = 0
+            index_delta = +1
+            index_stop = length
+            if srcstart < dststart:   # iterate in reverse order (for ARRAYMOVE)
+                index_current = index_stop - 1
+                index_delta = -1
+                index_stop = -1
+
+            while index_current != index_stop:
+                i = index_current
+                index_current += index_delta
+                assert i >= 0
+
                 value = self.getarrayitem(
-                    argboxes[1],
+                    source_box,
                     ConstInt(srcstart + i),
                     descr,
                 )
                 if value is not None:
                     self.setarrayitem(
-                        argboxes[2],
+                        dest_box,
                         ConstInt(dststart + i),
                         value,
                         descr,
@@ -386,7 +438,7 @@ class HeapCache(object):
         self._set_flag(box, HF_KNOWN_NULLITY)
 
     def is_nonstandard_virtualizable(self, box):
-        return self._check_flag(box, HF_NONSTD_VABLE)
+        return self._check_flag(box, HF_NONSTD_VABLE) or self._check_flag(box, HF_SEEN_ALLOCATION)
 
     def nonstandard_virtualizables_now_known(self, box):
         self._set_flag(box, HF_NONSTD_VABLE)
@@ -499,15 +551,37 @@ class HeapCache(object):
 
     def is_quasi_immut_known(self, fielddescr, box):
         cache = self.heap_cache.get(fielddescr, None)
-        if cache is not None and cache.quasiimmut_seen is not None:
-            return box in cache.quasiimmut_seen
+        if cache is not None:
+            if isinstance(box, Const):
+                if cache.quasiimmut_seen_refs is not None:
+                    return box.getref_base() in cache.quasiimmut_seen_refs
+            else:
+                if cache.quasiimmut_seen is not None:
+                    return box in cache.quasiimmut_seen
         return False
 
     def quasi_immut_now_known(self, fielddescr, box):
         cache = self.heap_cache.get(fielddescr, None)
         if cache is None:
             cache = self.heap_cache[fielddescr] = CacheEntry(self)
-        if cache.quasiimmut_seen is not None:
-            cache.quasiimmut_seen[box] = None
+        if isinstance(box, Const):
+            if cache.quasiimmut_seen_refs is None:
+                cache.quasiimmut_seen_refs = new_ref_dict()
+            cache.quasiimmut_seen_refs[box.getref_base()] = None
         else:
-            cache.quasiimmut_seen = {box: None}
+            if cache.quasiimmut_seen is not None:
+                cache.quasiimmut_seen[box] = None
+            else:
+                cache.quasiimmut_seen = {box: None}
+
+    def call_loopinvariant_known_result(self, allboxes, descr):
+        if self.loop_invariant_descr is not descr:
+            return None
+        if self.loop_invariant_arg0int != allboxes[0].getint():
+            return None
+        return self.loop_invariant_result
+
+    def call_loopinvariant_now_known(self, allboxes, descr, res):
+        self.loop_invariant_descr = descr
+        self.loop_invariant_arg0int = allboxes[0].getint()
+        self.loop_invariant_result = res

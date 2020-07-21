@@ -66,8 +66,7 @@ Highlights
   already been release and works well with PyPy 1.6.
 
 * The CPython extension module API has been improved and now supports many
-  more extensions. For information on which one are supported, please refer to
-  our `compatibility wiki`_.
+  more extensions.
 
 * Multibyte encoding support: this was of of the last areas in which we were
   still behind CPython, but now we fully support them.
@@ -91,5 +90,4 @@ Armin Rigo and the PyPy team
 
 .. _`jitviewer`: http://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
 .. _`bug tracker`: https://bugs.pypy.org
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 

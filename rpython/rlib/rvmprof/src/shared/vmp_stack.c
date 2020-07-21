@@ -16,7 +16,7 @@
 
 #ifdef VMP_SUPPORTS_NATIVE_PROFILING
 
-#ifdef VMPROF_LINUX
+#if defined(VMPROF_LINUX) || defined(VMPROF_BSD)
 #include "unwind/vmprof_unwind.h"
 typedef mcontext_t unw_context_t;
 
@@ -29,6 +29,7 @@ static int (*unw_get_proc_name)(unw_cursor_t *, char *, size_t, unw_word_t*) = N
 static int (*unw_is_signal_frame)(unw_cursor_t *) = NULL;
 static int (*unw_getcontext)(unw_context_t *) = NULL;
 #else
+#define UNW_LOCAL_ONLY
 #include <libunwind.h>
 #endif
 
@@ -81,12 +82,6 @@ int vmp_profiles_python_lines(void) {
 
 static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, void ** result, int * depth, int max_depth)
 {
-    int len;
-    int addr;
-    int j;
-    uint64_t line;
-    char *lnotab;
-
 #ifndef RPYTHON_VMPROF // pypy does not support line profiling
     if (vmp_profiles_python_lines()) {
         // In the line profiling mode we save a line number for every frame.
@@ -98,27 +93,8 @@ static PY_STACK_FRAME_T * _write_python_stack_entry(PY_STACK_FRAME_T * frame, vo
 
         // NOTE: the profiling overhead can be reduced by storing co_lnotab in the dump and
         // moving this computation to the reader instead of doing it here.
-        lnotab = PyStr_AS_STRING(frame->f_code->co_lnotab);
-
-        if (lnotab != NULL) {
-            line = (uint64_t)frame->f_lineno;
-            addr = 0;
-
-            len = (int)PyStr_GET_SIZE(frame->f_code->co_lnotab);
-
-            for (j = 0; j < len; j += 2) {
-                addr += lnotab[j];
-                if (addr > frame->f_lasti) {
-                    break;
-                }
-                line += lnotab[j+1];
-            }
-            result[*depth] = (void*) line;
-            *depth = *depth + 1;
-        } else {
-            result[*depth] = (void*) 0;
-            *depth = *depth + 1;
-        }
+        result[*depth] = (void*) (int64_t) PyFrame_GetLineNumber(frame);
+        *depth = *depth + 1;
     }
     result[*depth] = (void*)CODE_ADDR_TO_UID(FRAME_CODE(frame));
     *depth = *depth + 1;
@@ -213,14 +189,18 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     ret = unw_getcontext(&uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_getcontext did not retreive context, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
     ret = unw_init_local(&cursor, &uc);
     if (ret < 0) {
         // could not initialize lib unwind cursor and context
+#if DEBUG
         fprintf(stderr, "WARNING: unw_init_local did not succeed, switching to python profiling mode \n");
+#endif
         vmp_native_disable();
         return vmp_walk_and_record_python_stack_only(frame, result, max_depth, 0, pc);
     }
@@ -229,7 +209,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
         while (signal < 0) {
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr, "WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
             signal++;
@@ -244,7 +226,9 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
             }
             int err = unw_step(&cursor);
             if (err <= 0) {
+#if DEBUG
                 fprintf(stderr,"WARNING: did not find signal frame, skipping sample\n");
+#endif
                 return 0;
             }
         }
@@ -261,7 +245,7 @@ int vmp_walk_and_record_stack(PY_STACK_FRAME_T *frame, void ** result,
     }
 
     int depth = 0;
-    PY_STACK_FRAME_T * top_most_frame = frame;
+    //PY_STACK_FRAME_T * top_most_frame = frame;
     while ((depth + _per_loop()) <= max_depth) {
         unw_get_proc_info(&cursor, &pip);
 
@@ -399,7 +383,7 @@ int vmp_read_vmaps(const char * fname) {
     if (fd == NULL) {
         return 0;
     }
-    char * saveptr;
+    char * saveptr = NULL;
     char * line = NULL;
     char * he = NULL;
     char * name;
@@ -509,13 +493,15 @@ teardown:
 static const char * vmprof_error = NULL;
 static void * libhandle = NULL;
 
-
 #ifdef VMPROF_LINUX
+#include <link.h>
 #define LIBUNWIND "libunwind.so"
 #ifdef __i386__
 #define PREFIX "x86"
+#define LIBUNWIND_SUFFIX ""
 #elif __x86_64__
 #define PREFIX "x86_64"
+#define LIBUNWIND_SUFFIX "-x86_64"
 #endif
 #define U_PREFIX "_U"
 #define UL_PREFIX "_UL"
@@ -523,10 +509,41 @@ static void * libhandle = NULL;
 
 int vmp_native_enable(void) {
 #ifdef VMPROF_LINUX
+    void * oldhandle = NULL;
+    struct link_map * map = NULL;
     if (libhandle == NULL) {
+        // on linux, the wheel includes the libunwind shared object.
+        libhandle = dlopen(NULL, RTLD_NOW);
+        if (libhandle != NULL) {
+            // load the link map, it will contain an entry to
+            // .libs_vmprof/libunwind-...so, this is the file that is
+            // distributed with the wheel.
+            if (dlinfo(libhandle, RTLD_DI_LINKMAP, &map) != 0) {
+                (void)dlclose(libhandle);
+                libhandle = NULL;
+                goto bail_out;
+            }
+            // grab the new handle
+            do {
+                if (strstr(map->l_name, ".libs_vmprof/libunwind" LIBUNWIND_SUFFIX) != NULL) {
+                    oldhandle = libhandle;
+                    libhandle = dlopen(map->l_name, RTLD_LAZY|RTLD_LOCAL);
+                    (void)dlclose(oldhandle);
+                    oldhandle = NULL;
+                    goto loaded_libunwind;
+                }
+                map = map->l_next;
+            } while (map != NULL);
+            // did not find .libs_vmprof/libunwind...
+            (void)dlclose(libhandle);
+            libhandle = NULL;
+        }
+
+        // fallback! try to load the system's libunwind.so
         if ((libhandle = dlopen(LIBUNWIND, RTLD_LAZY | RTLD_LOCAL)) == NULL) {
             goto bail_out;
         }
+loaded_libunwind:
         if ((unw_get_reg = dlsym(libhandle, UL_PREFIX PREFIX "_get_reg")) == NULL) {
             goto bail_out;
         }
@@ -568,7 +585,9 @@ void vmp_native_disable(void) {
     if (libhandle != NULL) {
         if (dlclose(libhandle)) {
             vmprof_error = dlerror();
+#if DEBUG
             fprintf(stderr, "could not close libunwind at runtime. error: %s\n", vmprof_error);
+#endif
         }
         libhandle = NULL;
     }

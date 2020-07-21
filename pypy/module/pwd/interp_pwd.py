@@ -37,7 +37,8 @@ config = rffi_platform.configure(CConfig)
 passwd_p = lltype.Ptr(config['passwd'])
 
 def external(name, args, result, **kwargs):
-    return rffi.llexternal(name, args, result, compilation_info=eci, **kwargs)
+    return rffi.llexternal(name, args, result, compilation_info=eci,
+                           releasegil=False, **kwargs)
 
 c_getpwuid = external("getpwuid", [uid_t], passwd_p)
 c_getpwnam = external("getpwnam", [rffi.CCHARP], passwd_p)

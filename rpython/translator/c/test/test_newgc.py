@@ -78,7 +78,7 @@ class UsingFrameworkTest(object):
             prefix, name = fullname.split('_', 1)
             definefunc = getattr(cls, fullname)
             func = definefunc.im_func(cls)
-            func.func_name = 'f_' + name
+            func.__name__ = 'f_' + name
             if prefix == 'definestr':
                 funcsstr.append(func)
                 funcs0.append(None)
@@ -574,7 +574,7 @@ class UsingFrameworkTest(object):
             return compute_hash(x)
         for size in ([random.randrange(0, 260) for i in range(10)] +
                      [random.randrange(260, 60000)]):
-            print 'PREBUILT DICTIONARY OF SIZE', size
+            #print 'PREBUILT DICTIONARY OF SIZE', size
             keys = [X() for j in range(size)]
             d = r_dict(keq, khash)
             for j in range(size):
@@ -1614,7 +1614,7 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 digest = ropenssl.EVP_get_digestbyname('sha1')
                 self.ctx = ropenssl.EVP_MD_CTX_new()
                 ropenssl.EVP_DigestInit(self.ctx, digest)
-                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64)
+                rgc.add_memory_pressure(ropenssl.HASH_MALLOC_SIZE + 64, self)
 
             def __del__(self):
                 ropenssl.EVP_MD_CTX_free(self.ctx)
@@ -1625,12 +1625,16 @@ class TestMiniMarkGC(TestSemiSpaceGC):
                 am3 = am2
                 am2 = am1
                 am1 = A()
+            am1 = am2 = am3 = None
             # what can we use for the res?
-            return 0
+            for i in range(10):
+                gc.collect()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
         return f
 
     def test_nongc_opaque_attached_to_gc(self):
         res = self.run("nongc_opaque_attached_to_gc")
+        # the res is 0 for non-memory-pressure-accounting GC
         assert res == 0
 
     def define_limited_memory(self):
@@ -1668,6 +1672,38 @@ class TestMiniMarkGC(TestSemiSpaceGC):
 
 class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     gcpolicy = "incminimark"
+
+    def define_total_memory_pressure(cls):
+        class A(object):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+            def __del__(self):
+                pass
+
+        class B(A):
+            def __init__(self):
+                rgc.add_memory_pressure(10, self)
+
+        class C(A):
+            pass
+
+        class Glob(object):
+            pass
+        glob = Glob()
+
+        def f():
+            glob.l = [None] * 3
+            for i in range(10000):
+                glob.l[i % 3] = A()
+                glob.l[(i + 1) % 3] = B()
+                glob.l[(i + 2) % 3] = C()
+            return rgc.get_stats(rgc.TOTAL_MEMORY_PRESSURE)
+        return f
+
+    def test_total_memory_pressure(self):
+        res = self.run("total_memory_pressure")
+        assert res == 30 # total reachable is 3
 
     def define_random_pin(self):
         class A:
@@ -1776,6 +1812,144 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
     def test_ignore_finalizer(self):
         res = self.run("ignore_finalizer")
         assert res == 1    # translated: x1 is removed from the list
+
+    def define_enable_disable(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f(should_disable):
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            if should_disable:
+                gc.disable()
+                assert not gc.isenabled()
+            # try to trigger a major collection
+            N = 100 # this should be enough, increase if not
+            lst = []
+            for i in range(N):
+                lst.append(chr(i%256) * (1024*1024))
+                #print i, counter.val
+            #
+            gc.enable()
+            assert gc.isenabled()
+            return counter.val
+        return f
+
+    def test_enable_disable(self):
+        # first, run with normal gc. If the assert fails it means that in the
+        # loop we don't allocate enough mem to trigger a major collection. Try
+        # to increase N
+        deleted = self.run("enable_disable", 0)
+        assert deleted == 1, 'This should not fail, try to increment N'
+        #
+        # now, run with gc.disable: this should NOT free x1
+        deleted = self.run("enable_disable", 1)
+        assert deleted == 0
+
+    def define_collect_step(self):
+        class Counter(object):
+            val = 0
+        counter = Counter()
+        class X(object):
+            def __del__(self):
+                counter.val += 1
+        def f():
+            x1 = X()
+            rgc.collect() # make x1 old
+            assert not rgc.can_move(x1)
+            x1 = None
+            #
+            gc.disable()
+            n = 0
+            states = []
+            while True:
+                n += 1
+                val = rgc.collect_step()
+                states.append((rgc.old_state(val), rgc.new_state(val)))
+                if rgc.is_done(val):
+                    break
+                if n == 100:
+                    print 'Endless loop!'
+                    assert False, 'this looks like an endless loop'
+                
+            if n < 4: # we expect at least 4 steps
+                print 'Too few steps! n =', n
+                assert False
+
+            # check that the state transitions are reasonable
+            first_state, _ = states[0]
+            for i, (old_state, new_state) in enumerate(states):
+                is_last = (i == len(states) - 1)
+                is_valid = False
+                if is_last:
+                    assert old_state != new_state == first_state
+                else:
+                    assert new_state == old_state or new_state == old_state+1
+
+            return counter.val
+        return f
+
+    def test_collect_step(self):
+        deleted = self.run("collect_step")
+        assert deleted == 1
+
+    def define_total_gc_time(cls):
+        def f():
+            l = []
+            for i in range(1000000):
+                l.append(str(i))
+            l = []
+            for i in range(10):
+                rgc.collect()
+            return rgc.get_stats(rgc.TOTAL_GC_TIME)
+        return f
+
+    def test_total_gc_time(self):
+        res = self.run("total_gc_time")
+        assert res > 0 # should take a few microseconds
+
+    def define_increase_root_stack_depth(cls):
+        class X:
+            pass
+        def g(n):
+            if n <= 0:
+                return None
+            x = X()
+            x.n = n
+            x.next = g(n - 1)
+            return x
+        def f(depth):
+            from rpython.rlib.rstack import _stack_set_length_fraction
+            _stack_set_length_fraction(50.0)
+            # ^^^ the default is enough for at least 10'000 (but less than
+            # 100'000) recursions of the simple function g().  We multiply
+            # it by 50.0 to make sure that 200'000 works.  The default
+            # shadowstack depth is 163'840 entries, so 200'000 overflows
+            # that default shadowstack depth, and gives a segfault unless
+            # the following line works too.
+            from rpython.rlib.rgc import increase_root_stack_depth
+            increase_root_stack_depth(depth + 100)
+            #
+            g(depth)
+            return 42
+        return f
+
+    def test_increase_root_stack_depth(self):
+        if not sys.platform.startswith('linux'):
+            py.test.skip("linux only")
+        #
+        def myrunner(args):
+            args1 = ['/bin/bash', '-c', 'ulimit -s unlimited && %s' %
+                     (' '.join(args),)]
+            return subprocess.check_output(args1)
+        res = self.run("increase_root_stack_depth", 200000, runner=myrunner)
+        assert res == 42
 
 
 # ____________________________________________________________________

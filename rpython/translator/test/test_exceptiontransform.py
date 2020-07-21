@@ -266,3 +266,26 @@ class TestExceptionTransform:
         f = self.compile(foo, [])
         res = f()
         assert res == 42
+
+    def test_llhelper_can_raise(self):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.annlowlevel import llhelper
+
+        def fn(a, b):
+            if b == 0:
+                raise ZeroDivisionError
+            return a/b
+
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        def h(a, b):
+            fnptr = llhelper(FN, fn)
+            try:
+                return fnptr(a, b)
+            except ZeroDivisionError:
+                return -a
+
+        compiled_h = self.compile(h, [int, int])
+        res = compiled_h(39, 3)
+        assert res == 13
+        res = compiled_h(39, 0)
+        assert res == -39

@@ -4,6 +4,8 @@
 
 from _pwdgrp_cffi import ffi, lib
 import _structseq
+import thread
+_lock = thread.allocate_lock()
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
@@ -33,32 +35,33 @@ def _group_from_gstruct(res):
 
 @builtinify
 def getgrgid(gid):
-    res = lib.getgrgid(gid)
-    if not res:
-        # XXX maybe check error eventually
-        raise KeyError(gid)
-    return _group_from_gstruct(res)
+    with _lock:
+        res = lib.getgrgid(gid)
+        if not res:
+            # XXX maybe check error eventually
+            raise KeyError(gid)
+        return _group_from_gstruct(res)
 
 @builtinify
 def getgrnam(name):
-    if not isinstance(name, basestring):
-        raise TypeError("expected string")
     name = str(name)
-    res = lib.getgrnam(name)
-    if not res:
-        raise KeyError("'getgrnam(): name not found: %s'" % name)
-    return _group_from_gstruct(res)
+    with _lock:
+        res = lib.getgrnam(name)
+        if not res:
+            raise KeyError("getgrnam(): name not found: %s" % name)
+        return _group_from_gstruct(res)
 
 @builtinify
 def getgrall():
-    lib.setgrent()
     lst = []
-    while 1:
-        p = lib.getgrent()
-        if not p:
-            break
-        lst.append(_group_from_gstruct(p))
-    lib.endgrent()
+    with _lock:
+        lib.setgrent()
+        while 1:
+            p = lib.getgrent()
+            if not p:
+                break
+            lst.append(_group_from_gstruct(p))
+        lib.endgrent()
     return lst
 
 __all__ = ('struct_group', 'getgrgid', 'getgrnam', 'getgrall')

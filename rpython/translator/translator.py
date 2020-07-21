@@ -141,6 +141,9 @@ def graphof(translator, func):
     if isinstance(func, FunctionGraph):
         return func
     result = []
+    if hasattr(func, 'im_func'):
+        # make it possible to translate bound methods
+        func = func.im_func
     for graph in translator.graphs:
         if getattr(graph, 'func', None) is func:
             result.append(graph)

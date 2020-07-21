@@ -39,7 +39,9 @@ class Darwin(posix.BasePosix):
         # we get the basename of the executable we're trying to build.
         return (list(self.shared_only)
                 + ['-dynamiclib', '-install_name', '@rpath/' + target_basename,
-                   '-undefined', 'dynamic_lookup', '-flat_namespace']
+                   '-undefined', 'dynamic_lookup', '-flat_namespace',
+                   '-headerpad_max_install_names',
+                  ]
                 + args)
 
     def _include_dirs_for_libffi(self):
@@ -66,12 +68,12 @@ class Darwin(posix.BasePosix):
 
     def _include_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--cflags-only-I",
-                                ['/usr/include'],
+                                ['/usr/include', '/usr/local/opt/openssl/include'],
                                 check_result_dir=True)
 
     def _library_dirs_for_openssl(self):
         return self._pkg_config("openssl", "--libs-only-L",
-                                ['/usr/lib'],
+                                ['/usr/lib', '/usr/local/opt/openssl/lib'],
                                 check_result_dir=True)
 
     def _frameworks(self, frameworks):
@@ -99,6 +101,7 @@ class Darwin(posix.BasePosix):
                      no_precompile_cfiles = [], profopt=False, config=None):
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
+        extra_libs = self.extra_libs
         if len(fs) > 0:
             # concat (-framework, FrameworkName) pairs
             self.extra_libs += tuple(map(" ".join, zip(fs[::2], fs[1::2])))
@@ -107,6 +110,7 @@ class Darwin(posix.BasePosix):
                                 headers_to_precompile=headers_to_precompile,
                                 no_precompile_cfiles = no_precompile_cfiles,
                                 profopt=profopt, config=config)
+        self.extra_libs = extra_libs
         return mk
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp

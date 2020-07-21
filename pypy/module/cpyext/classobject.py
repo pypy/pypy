@@ -1,8 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.api import (
-    PyObjectFields, CANNOT_FAIL,
-    cpython_api, bootstrap_function, build_type_checkers)
-from pypy.module.cpyext.pyobject import PyObject, make_ref, from_ref, Py_DecRef, make_typedescr
+from pypy.module.cpyext.api import CANNOT_FAIL, cpython_api, build_type_checkers
+from pypy.module.cpyext.pyobject import (
+    PyObject, make_ref, from_ref, make_typedescr)
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.module.__builtin__.interp_classobj import W_ClassObject, W_InstanceObject
 

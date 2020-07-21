@@ -1,20 +1,24 @@
 import py
 
-from pypy.module.cpyext.pyobject import PyObject, PyObjectP, make_ref, from_ref
+from pypy.module.cpyext.pyobject import (
+    PyObject, PyObjectP, make_ref, from_ref, incref, decref)
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.debug import FatalError
+from pypy.module.cpyext.state import State
 from pypy.module.cpyext.tupleobject import (
     PyTupleObject, PyTuple_Check, PyTuple_SetItem, PyTuple_Size)
 
 
 class TestTupleObject(BaseApiTest):
 
-    def test_tupleobject(self, space):
+    def test_tupleobject_base(self, space):
         assert not PyTuple_Check(space, space.w_None)
         with raises_w(space, SystemError):
-            PyTuple_SetItem(space, space.w_None, 0, space.w_None)
+            n = make_ref(space, space.w_None)
+            incref(space, n)
+            PyTuple_SetItem(space, n, 0, n)
         atuple = space.newtuple([space.wrap(0), space.wrap(1),
                                  space.wrap('yay')])
         assert PyTuple_Size(space, atuple) == 3
@@ -22,9 +26,10 @@ class TestTupleObject(BaseApiTest):
             PyTuple_Size(space, space.newlist([]))
 
     def test_tuple_realize_refuses_nulls(self, space, api):
-        py_tuple = api.PyTuple_New(1)
+        state = space.fromcache(State)
+        py_tuple = state.ccall("PyTuple_New", 1)
         py.test.raises(FatalError, from_ref, space, py_tuple)
-        api.Py_DecRef(py_tuple)
+        decref(space, py_tuple)
 
     def test_tuple_resize(self, space, api):
         w_42 = space.wrap(42)
@@ -32,7 +37,8 @@ class TestTupleObject(BaseApiTest):
         w_44 = space.wrap(44)
         ar = lltype.malloc(PyObjectP.TO, 1, flavor='raw')
 
-        py_tuple = api.PyTuple_New(3)
+        state = space.fromcache(State)
+        py_tuple = state.ccall("PyTuple_New", 3)
         # inside py_tuple is an array of "PyObject *" items which each hold
         # a reference
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
@@ -43,9 +49,9 @@ class TestTupleObject(BaseApiTest):
         assert space.int_w(space.len(w_tuple)) == 2
         assert space.int_w(space.getitem(w_tuple, space.wrap(0))) == 42
         assert space.int_w(space.getitem(w_tuple, space.wrap(1))) == 43
-        api.Py_DecRef(ar[0])
+        decref(space, ar[0])
 
-        py_tuple = api.PyTuple_New(3)
+        py_tuple = state.ccall("PyTuple_New", 3)
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[0] = make_ref(space, w_42)
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[1] = make_ref(space, w_43)
         rffi.cast(PyTupleObject, py_tuple).c_ob_item[2] = make_ref(space, w_44)
@@ -59,19 +65,32 @@ class TestTupleObject(BaseApiTest):
         assert space.int_w(space.len(w_tuple)) == 10
         for i in range(10):
             assert space.int_w(space.getitem(w_tuple, space.wrap(i))) == 42 + i
-        api.Py_DecRef(ar[0])
+        decref(space, ar[0])
+
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 1)
+        assert api.PyTuple_Size(ar[0]) == 1
+        decref(space, ar[0])
+
+        py_tuple = state.ccall("PyTuple_New", 1)
+        ar[0] = py_tuple
+        api._PyTuple_Resize(ar, 5)
+        assert api.PyTuple_Size(ar[0]) == 5
+        decref(space, ar[0])
 
         lltype.free(ar, flavor='raw')
 
     def test_setitem(self, space, api):
-        py_tuple = api.PyTuple_New(2)
+        state = space.fromcache(State)
+        py_tuple = state.ccall("PyTuple_New", 2)
         api.PyTuple_SetItem(py_tuple, 0, make_ref(space, space.wrap(42)))
         api.PyTuple_SetItem(py_tuple, 1, make_ref(space, space.wrap(43)))
 
         w_tuple = from_ref(space, py_tuple)
         assert space.eq_w(w_tuple, space.newtuple([space.wrap(42),
                                                    space.wrap(43)]))
-        api.Py_DecRef(py_tuple)
+        decref(space, py_tuple)
 
     def test_getslice(self, space, api):
         w_tuple = space.newtuple([space.wrap(i) for i in range(10)])
@@ -207,3 +226,42 @@ class AppTestTuple(AppTestCpythonExtensionBase):
             raises(SystemError, module.set_after_use, s)
         else:
             module.set_after_use(s)
+
+    def test_mp_length(self):
+        # issue 2968: creating a subclass of tuple in C led to recursion
+        # since the default tp_new needs to build a w_obj, but that needs
+        # to call space.len_w, which needs to call tp_new.
+        module = self.import_extension('foo', [
+            ("get_size", "METH_NOARGS",
+             """
+                return (PyObject*)&THPSizeType;
+             """),
+            ], prologue='''
+                #include "Python.h"
+
+                struct THPSize {
+                  PyTupleObject tuple;
+                } THPSize;
+
+                static PyMappingMethods THPSize_as_mapping = {
+                    0, //PyTuple_Type.tp_as_mapping->mp_length,
+                    0,
+                    0
+                };
+
+                PyTypeObject THPSizeType = {
+                  PyVarObject_HEAD_INIT(0, 0)
+                  "torch.Size",                          /* tp_name */
+                  sizeof(THPSize),                       /* tp_basicsize */
+                };
+            ''' , more_init = '''
+                THPSize_as_mapping.mp_length = PyTuple_Type.tp_as_mapping->mp_length;
+                THPSizeType.tp_base = &PyTuple_Type;
+                THPSizeType.tp_flags = Py_TPFLAGS_DEFAULT;
+                THPSizeType.tp_as_mapping = &THPSize_as_mapping;
+                THPSizeType.tp_new = PyTuple_Type.tp_new;
+                if (PyType_Ready(&THPSizeType) < 0) INITERROR;
+            ''')
+        SZ = module.get_size()
+        s = SZ((1, 2, 3))
+        assert len(s) == 3

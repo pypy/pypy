@@ -2,7 +2,8 @@ from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED)
 from rpython.jit.metainterp.resoperation import rop, OpHelpers, AbstractResOp,\
      ResOperation
-from rpython.jit.metainterp.optimizeopt.util import make_dispatcher_method
+from rpython.jit.metainterp.optimizeopt.util import (
+    make_dispatcher_method, get_box_replacement)
 from rpython.jit.metainterp.optimizeopt.shortpreamble import PreambleOp
 from rpython.jit.metainterp.optimize import SpeculativeError
 
@@ -57,9 +58,9 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if box0.same_box(opt.get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
+            if box0.same_box(get_box_replacement(op.getarg(0))) and op.getdescr() is descr:
                 op = self.force_preamble_op(opt, op, i)
-                return opt.get_box_replacement(op)
+                return get_box_replacement(op)
         return None
 
     def lookup2(self, opt, box0, box1, descr):
@@ -67,23 +68,23 @@ class RecentPureOps(object):
             op = self.lst[i]
             if op is None:
                 break
-            if (box0.same_box(opt.get_box_replacement(op.getarg(0))) and
-                box1.same_box(opt.get_box_replacement(op.getarg(1))) and
+            if (box0.same_box(get_box_replacement(op.getarg(0))) and
+                box1.same_box(get_box_replacement(op.getarg(1))) and
                 op.getdescr() is descr):
                 op = self.force_preamble_op(opt, op, i)
-                return opt.get_box_replacement(op)
+                return get_box_replacement(op)
         return None
 
     def lookup(self, optimizer, op):
         numargs = op.numargs()
         if numargs == 1:
             return self.lookup1(optimizer,
-                                optimizer.get_box_replacement(op.getarg(0)),
+                                get_box_replacement(op.getarg(0)),
                                 op.getdescr())
         elif numargs == 2:
             return self.lookup2(optimizer,
-                                optimizer.get_box_replacement(op.getarg(0)),
-                                optimizer.get_box_replacement(op.getarg(1)),
+                                get_box_replacement(op.getarg(0)),
+                                get_box_replacement(op.getarg(1)),
                                 op.getdescr())
         else:
             assert False
@@ -205,7 +206,7 @@ class OptPure(Optimization):
         old_start_index = OpHelpers.is_cond_call_value(old_op.opnum)
         for i in range(old_start_index, old_op.numargs()):
             box = old_op.getarg(i)
-            if not self.get_box_replacement(op.getarg(j)).same_box(box):
+            if not get_box_replacement(op.getarg(j)).same_box(box):
                 break
             j += 1
         else:
@@ -239,14 +240,10 @@ class OptPure(Optimization):
 
     def pure_from_args(self, opnum, args, op, descr=None):
         newop = ResOperation(opnum,
-                             [self.get_box_replacement(arg) for arg in args],
+                             [get_box_replacement(arg) for arg in args],
                              descr=descr)
         newop.set_forwarded(op)
         self.pure(opnum, newop)
-
-    def has_pure_result(self, opnum, args, descr):
-        return False
-    # XXX
 
     def get_pure_result(self, op):
         recentops = self.getrecentops(op.getopnum())

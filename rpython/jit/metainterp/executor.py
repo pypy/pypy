@@ -81,7 +81,7 @@ def _do_call(cpu, metainterp, argboxes, descr, rettype):
 def new_do_call(rettype):
     def do_call(cpu, metainterp, argboxes, descr):
         return _do_call(cpu, metainterp, argboxes, descr, rettype)
-    do_call.func_name = "do_call_" + rettype
+    do_call.__name__ = "do_call_" + rettype
     return do_call
 
 do_call_r = new_do_call("r")
@@ -441,6 +441,7 @@ def _make_execute_list():
                          rop.GC_STORE,
                          rop.GC_STORE_INDEXED,
                          rop.LOAD_FROM_GC_TABLE,
+                         rop.LOAD_EFFECTIVE_ADDRESS,
                          ):      # list of opcodes never executed by pyjitpl
                 continue
             if rop._VEC_PURE_FIRST <= value <= rop._VEC_PURE_LAST:
@@ -480,7 +481,7 @@ def make_execute_function(name, func):
         #
         return func(*newargs)
     #
-    do.func_name = 'do_' + name
+    do.__name__ = 'do_' + name
     return do
 
 def get_execute_funclist(num_args, withdescr):

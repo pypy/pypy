@@ -120,7 +120,7 @@ def enforceargs(*types_, **kwds):
     """ Decorate a function with forcing of RPython-level types on arguments.
     None means no enforcing.
 
-    When not translated, the type of the actual arguments are checked against
+    When not translated, the type of the actual arguments is checked against
     the enforced types every time the function is called. You can disable the
     typechecking by passing ``typecheck=False`` to @enforceargs.
     """
@@ -137,21 +137,17 @@ def enforceargs(*types_, **kwds):
     def decorator(f):
         def get_annotation(t):
             from rpython.annotator.signature import annotation
-            from rpython.annotator.model import SomeObject, SomeString, SomeUnicodeString
+            from rpython.annotator.model import SomeObject
             if isinstance(t, SomeObject):
                 return t
-            s_result = annotation(t)
-            if (isinstance(s_result, SomeString) or
-                isinstance(s_result, SomeUnicodeString)):
-                return s_result.__class__(can_be_None=True)
-            return s_result
+            return annotation(t)
+
         def get_type_descr_of_argument(arg):
             # we don't want to check *all* the items in list/dict: we assume
             # they are already homogeneous, so we only check the first
             # item. The case of empty list/dict is handled inside typecheck()
             if isinstance(arg, list):
-                item = arg[0]
-                return [get_type_descr_of_argument(item)]
+                return [get_type_descr_of_argument(arg[0])]
             elif isinstance(arg, dict):
                 key, value = next(arg.iteritems())
                 return {get_type_descr_of_argument(key): get_type_descr_of_argument(value)}
@@ -180,7 +176,7 @@ def enforceargs(*types_, **kwds):
                 s_argtype = get_annotation(get_type_descr_of_argument(arg))
                 if not s_expected.contains(s_argtype):
                     msg = "%s argument %r must be of type %s" % (
-                        f.func_name, srcargs[i], expected_type)
+                        f.__name__, srcargs[i], expected_type)
                     raise TypeError(msg)
         #
         template = """
@@ -258,6 +254,13 @@ def sc_assert(ctx, *args_w):
     if not ctx.guessbool(op.bool(w_condition).eval(ctx)):
         raise Raise(ctx.exc_from_raise(const(AssertionError), w_msg))
 
+def llhelper_can_raise(func):
+    """
+    Instruct ll2ctypes that this llhelper can raise RPython exceptions, which
+    should be propagated.
+    """
+    func._llhelper_can_raise_ = True
+    return func
 
 # ____________________________________________________________
 
@@ -404,6 +407,37 @@ class Entry(ExtRegistryEntry):
         translator = hop.rtyper.annotator.translator
         hop.exception_cannot_occur()
         return hop.inputconst(lltype.Void, translator.config)
+
+
+def revdb_flag_io_disabled():
+    if not revdb_enabled():
+        return False
+    return _revdb_flag_io_disabled()
+
+def _revdb_flag_io_disabled():
+    # moved in its own function for the import statement
+    from rpython.rlib import revdb
+    return revdb.flag_io_disabled()
+
+@not_rpython
+def revdb_enabled():
+    return False
+
+class Entry(ExtRegistryEntry):
+    _about_ = revdb_enabled
+
+    def compute_result_annotation(self):
+        from rpython.annotator import model as annmodel
+        config = self.bookkeeper.annotator.translator.config
+        if config.translation.reverse_debugger:
+            return annmodel.s_True
+        else:
+            return annmodel.s_False
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem import lltype
+        hop.exception_cannot_occur()
+        return hop.inputconst(lltype.Bool, hop.s_result.const)
 
 # ____________________________________________________________
 
@@ -577,9 +611,9 @@ def _hash_float(f):
     In RPython, floats cannot be used with ints in dicts, anyway.
     """
     from rpython.rlib.rarithmetic import intmask
-    from rpython.rlib.rfloat import isfinite, isinf
+    from rpython.rlib.rfloat import isfinite
     if not isfinite(f):
-        if isinf(f):
+        if math.isinf(f):
             if f < 0.0:
                 return -271828
             else:
@@ -701,13 +735,6 @@ class Entry(ExtRegistryEntry):
 def hlinvoke(repr, llcallable, *args):
     raise TypeError("hlinvoke is meant to be rtyped and not called direclty")
 
-def is_in_callback():
-    """Returns True if we're currently in a callback *or* if there are
-    multiple threads around.
-    """
-    from rpython.rtyper.lltypesystem import rffi
-    return rffi.stackcounter.stacks_counter > 1
-
 
 class UnboxedValue(object):
     """A mixin class to use for classes that have exactly one field which
@@ -776,11 +803,19 @@ class r_dict(object):
     def _newdict(self):
         return {}
 
-    def __init__(self, key_eq, key_hash, force_non_null=False):
+    def __init__(self, key_eq, key_hash, force_non_null=False, simple_hash_eq=False):
+        """ force_non_null=True means that the key can never be None (even if
+        the annotator things it could be)
+
+        simple_hash_eq=True means that the hash function is very fast, meaning it's
+        efficient enough that the dict does not have to store the hash per key.
+        It also implies that neither the hash nor the eq function will mutate
+        the dictionary. """
         self._dict = self._newdict()
         self.key_eq = key_eq
         self.key_hash = key_hash
         self.force_non_null = force_non_null
+        self.simple_hash_eq = simple_hash_eq
 
     def __getitem__(self, key):
         return self._dict[_r_dictkey(self, key)]
@@ -984,7 +1019,9 @@ def _untranslated_move_to_end(d, key, last):
         items = d.items()
         d.clear()
         d[key] = value
-        d.update(items)
+        # r_dict.update does not support list of tuples, do it manually
+        for key, value in items:
+            d[key] = value
 
 @specialize.call_location()
 def move_to_end(d, key, last=True):

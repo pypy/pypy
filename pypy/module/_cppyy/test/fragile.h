@@ -30,6 +30,7 @@ public:
     void overload(int, no_such_class* p = 0) {}
 };
 
+
 static const int dummy_location = 0xdead;
 
 class E {
@@ -105,6 +106,7 @@ public:
 
 class M {
 public:
+    virtual ~M() {}
     enum E1 { kOnce=42 };
     enum E2 { kTwice=12 };
 };

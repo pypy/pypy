@@ -166,8 +166,8 @@ class __extend__(pairtype(SomeTypeOf, SomeTypeOf)):
 
 # cloning a function with identical code, for the can_only_throw attribute
 def _clone(f, can_only_throw = None):
-    newfunc = type(f)(f.func_code, f.func_globals, f.func_name,
-                      f.func_defaults, f.func_closure)
+    newfunc = type(f)(f.__code__, f.__globals__, f.__name__,
+                      f.__defaults__, f.__closure__)
     if can_only_throw is not None:
         newfunc.can_only_throw = can_only_throw
     return newfunc
@@ -378,18 +378,10 @@ class __extend__(pairtype(SomeChar, SomeChar)):
         return SomeChar(no_nul=no_nul)
 
 
-class __extend__(pairtype(SomeChar, SomeUnicodeCodePoint),
-                 pairtype(SomeUnicodeCodePoint, SomeChar)):
-    def union((uchr1, uchr2)):
-        return SomeUnicodeCodePoint()
-
 class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeCodePoint)):
     def union((uchr1, uchr2)):
         no_nul = uchr1.no_nul and uchr2.no_nul
         return SomeUnicodeCodePoint(no_nul=no_nul)
-
-    def add((chr1, chr2)):
-        return SomeUnicodeString()
 
 class __extend__(pairtype(SomeString, SomeUnicodeString),
                  pairtype(SomeUnicodeString, SomeString)):
@@ -648,6 +640,20 @@ class __extend__(pairtype(SomeUnicodeCodePoint, SomeUnicodeString),
             result.const = str1.const + str2.const
         return result
 
+for cmp_op in [op.lt, op.le, op.eq, op.ne, op.gt, op.ge]:
+    @cmp_op.register(SomeUnicodeString, SomeString)
+    @cmp_op.register(SomeUnicodeString, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeString)
+    @cmp_op.register(SomeChar, SomeUnicodeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeString)
+    @cmp_op.register(SomeUnicodeCodePoint, SomeChar)
+    @cmp_op.register(SomeString, SomeUnicodeCodePoint)
+    @cmp_op.register(SomeChar, SomeUnicodeCodePoint)
+    def cmp_str_unicode(annotator, v1, v2):
+        raise AnnotatorError(
+            "Comparing byte strings with unicode strings is not RPython")
+
+
 class __extend__(pairtype(SomeInteger, SomeList)):
 
     def mul((int1, lst2)):
@@ -729,6 +735,10 @@ def setitem_SomeInstance(annotator, v_ins, v_idx, v_value):
     return [get_setitem,
             op.simple_call(get_setitem.result, v_idx, v_value)]
 
+@op.contains.register_transform(SomeInstance)
+def contains_SomeInstance(annotator, v_ins, v_idx):
+    get_contains = op.getattr(v_ins, const('__contains__'))
+    return [get_contains, op.simple_call(get_contains.result, v_idx)]
 
 class __extend__(pairtype(SomeIterator, SomeIterator)):
 

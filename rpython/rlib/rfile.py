@@ -173,10 +173,10 @@ def create_file(filename, mode="r", buffering=-1):
 
 def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
-    rposix.validate_fd(fd)
     ll_mode = rffi.str2charp(newmode)
     try:
-        ll_file = c_fdopen(fd, ll_mode)
+        with rposix.FdValidator(fd):
+            ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
@@ -311,6 +311,10 @@ class RFile(object):
     def _check_closed(self):
         if not self._ll_file:
             raise ValueError("I/O operation on closed file")
+
+    @property
+    def closed(self):
+        return not self._ll_file
 
     def _fread(self, buf, n, stream):
         if not self._univ_newline:

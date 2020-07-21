@@ -14,7 +14,8 @@ os.environ['PYTEST_PLUGINS'] = ''
 popen = subprocess.Popen(
     [sys.executable, "pypy/test_all.py",
      "--pypy=pypy/goal/pypy-c",
-     "--timeout=3600",
+     "--timeout=1324",   # make it easy to search for
+     "--duration=10",
      "--resultlog=cpython.log", "lib-python",
      ] + sys.argv[1:],
     cwd=rootdir)

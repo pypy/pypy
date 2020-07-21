@@ -15,17 +15,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#ifdef __GNUC__
-/* Hack to prevent this function from being inlined.  Helps asmgcc
-   because the main() function has often a different prologue/epilogue. */
-RPY_EXTERN
-int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
-#endif
-
-# ifdef PYPY_USE_ASMGCC
-#  include "structdef.h"
-#  include "forwarddecl.h"
-# endif
 
 #if defined(MS_WINDOWS)
 #  include <stdio.h>
@@ -35,22 +24,21 @@ int pypy_main_function(int argc, char *argv[]) __attribute__((__noinline__));
 
 #ifdef RPY_WITH_GIL
 # include <src/thread.h>
+# include <src/threadlocal.h>
+#endif
+
+#ifdef RPY_REVERSE_DEBUGGER
+# include <src-revdb/revdb_include.h>
 #endif
 
 RPY_EXPORTED
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
-#endif
-    pypy_asm_stack_bottom();
     RPython_StartupCode();
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter--;
-#endif
 #ifdef RPY_WITH_GIL
     RPyGilRelease();
 #endif
@@ -74,14 +62,15 @@ int pypy_main_function(int argc, char *argv[])
        program starts threads, it needs to call rgil.gil_allocate().
        RPyGilAcquire() still works without that, but crash if it finds
        that it really needs to wait on a mutex. */
+    RPython_ThreadLocals_ProgramInit();
     RPyGilAcquire();
 #endif
 
-#ifdef PYPY_USE_ASMGCC
-    pypy_g_rpython_rtyper_lltypesystem_rffi_StackCounter.sc_inst_stacks_counter++;
-#endif
-    pypy_asm_stack_bottom();
     instrument_setup();
+
+#ifdef RPY_REVERSE_DEBUGGER
+    rpy_reverse_db_setup(&argc, &argv);
+#endif
 
 #ifndef MS_WINDOWS
     /* this message does no longer apply to win64 :-) */
@@ -94,7 +83,11 @@ int pypy_main_function(int argc, char *argv[])
 
     RPython_StartupCode();
 
+#ifndef RPY_REVERSE_DEBUGGER
     exitcode = STANDALONE_ENTRY_POINT(argc, argv);
+#else
+    exitcode = rpy_reverse_db_main(STANDALONE_ENTRY_POINT, argc, argv);
+#endif
 
     pypy_debug_alloc_results();
 

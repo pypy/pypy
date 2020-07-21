@@ -447,7 +447,10 @@ class W_CData(W_Root):
             with self as ptr:
                 w_res = W_CDataGCP(space, ptr, self.ctype, self, w_destructor)
         if size != 0:
-            rgc.add_memory_pressure(size)
+            if isinstance(w_res, W_CDataGCP):
+                rgc.add_memory_pressure(size, w_res)
+            else:
+                rgc.add_memory_pressure(size, self)
         return w_res
 
     def unpack(self, length):
@@ -479,6 +482,19 @@ class W_CData(W_Root):
 
     def get_structobj(self):
         return None
+
+    def enter_exit(self, exit_now):
+        raise oefmt(self.space.w_ValueError,
+            "only 'cdata' object from ffi.new(), ffi.gc(), ffi.from_buffer() "
+            "or ffi.new_allocator()() can be used with the 'with' keyword or "
+            "ffi.release()")
+
+    def descr_enter(self):
+        self.enter_exit(False)
+        return self
+
+    def descr_exit(self, args_w):
+        self.enter_exit(True)
 
 
 class W_CDataMem(W_CData):
@@ -532,14 +548,33 @@ class W_CDataNewOwning(W_CData):
     def get_structobj(self):
         return self
 
+    def enter_exit(self, exit_now):
+        from pypy.module._cffi_backend.ctypeptr import W_CTypePtrOrArray
+        if not isinstance(self.ctype, W_CTypePtrOrArray):
+            W_CData.enter_exit(self, exit_now)
+        elif exit_now:
+            self._do_exit()
+
+    def _do_exit(self):
+        raise NotImplementedError
+
 
 class W_CDataNewStd(W_CDataNewOwning):
     """Subclass using the standard allocator, lltype.malloc()/lltype.free()"""
-    _attrs_ = []
+    _attrs_ = ['explicitly_freed']
+    explicitly_freed = False
 
     @rgc.must_be_light_finalizer
     def __del__(self):
-        lltype.free(self._ptr, flavor='raw')
+        if not self.explicitly_freed:
+            lltype.free(self._ptr, flavor='raw')
+
+    def _do_exit(self):
+        if not self.explicitly_freed:
+            rgc.add_memory_pressure(-self._sizeof(), self)
+            self.explicitly_freed = True
+            rgc.may_ignore_finalizer(self)
+            lltype.free(self._ptr, flavor='raw')
 
 
 class W_CDataNewNonStd(W_CDataNewOwning):
@@ -547,7 +582,16 @@ class W_CDataNewNonStd(W_CDataNewOwning):
     _attrs_ = ['w_raw_cdata', 'w_free']
 
     def _finalize_(self):
-        self.space.call_function(self.w_free, self.w_raw_cdata)
+        if self.w_free is not None:
+            self.space.call_function(self.w_free, self.w_raw_cdata)
+
+    def _do_exit(self):
+        w_free = self.w_free
+        if w_free is not None:
+            rgc.add_memory_pressure(-self._sizeof(), self)
+            self.w_free = None
+            self.may_unregister_rpython_finalizer(self.space)
+            self.space.call_function(w_free, self.w_raw_cdata)
 
 
 class W_CDataPtrToStructOrUnion(W_CData):
@@ -576,6 +620,12 @@ class W_CDataPtrToStructOrUnion(W_CData):
             return structobj
         else:
             return None
+
+    def enter_exit(self, exit_now):
+        if exit_now:
+            structobj = self.structobj
+            if isinstance(structobj, W_CDataNewOwning):
+                structobj._do_exit()
 
 
 class W_CDataSliced(W_CData):
@@ -615,21 +665,31 @@ class W_CDataHandle(W_CData):
 
 class W_CDataFromBuffer(W_CData):
     _attrs_ = ['buf', 'length', 'w_keepalive']
-    _immutable_fields_ = ['buf', 'length', 'w_keepalive']
+    _immutable_fields_ = ['buf', 'length']
 
-    def __init__(self, space, cdata, ctype, buf, w_object):
+    def __init__(self, space, cdata, length, ctype, buf, w_object):
         W_CData.__init__(self, space, cdata, ctype)
         self.buf = buf
-        self.length = buf.getlength()
+        self.length = length
         self.w_keepalive = w_object
 
     def get_array_length(self):
         return self.length
 
     def _repr_extra(self):
-        w_repr = self.space.repr(self.w_keepalive)
-        return "buffer len %d from '%s' object" % (
-            self.length, self.space.type(self.w_keepalive).name)
+        from pypy.module._cffi_backend import ctypearray
+        if self.w_keepalive is None:
+            return "buffer RELEASED"
+        obj_tp_name = self.space.type(self.w_keepalive).name
+        if isinstance(self.ctype, ctypearray.W_CTypeArray):
+            return "buffer len %d from '%s' object" % (self.length, obj_tp_name)
+        else:
+            return "buffer from '%s' object" % (obj_tp_name,)
+
+    def enter_exit(self, exit_now):
+        # for now, limited effect on PyPy
+        if exit_now:
+            self.w_keepalive = None
 
 
 class W_CDataGCP(W_CData):
@@ -644,6 +704,9 @@ class W_CDataGCP(W_CData):
         self.register_finalizer(space)
 
     def _finalize_(self):
+        self.invoke_finalizer()
+
+    def invoke_finalizer(self):
         w_destructor = self.w_destructor
         if w_destructor is not None:
             self.w_destructor = None
@@ -653,11 +716,19 @@ class W_CDataGCP(W_CData):
         self.w_destructor = None
         self.may_unregister_rpython_finalizer(self.space)
 
+    def enter_exit(self, exit_now):
+        if exit_now:
+            self.may_unregister_rpython_finalizer(self.space)
+            self.invoke_finalizer()
+
 
 W_CData.typedef = TypeDef(
-    '_cffi_backend.CData',
-    __module__ = '_cffi_backend',
-    __name__ = '<cdata>',
+    '_cffi_backend._CDataBase',
+    __doc__ = "The internal base type for CData objects.  Use FFI.CData to "
+              "access it.  Always check with isinstance(): subtypes are "
+              "sometimes returned on CPython, for performance reasons.",
+    __module__ = '_cffi_backend',   # attribute also visible on instances
+    __name__ = '<cdata>',           # attribute also visible on instances
     __repr__ = interp2app(W_CData.repr),
     __nonzero__ = interp2app(W_CData.nonzero),
     __int__ = interp2app(W_CData.int),
@@ -683,5 +754,7 @@ W_CData.typedef = TypeDef(
     __iter__ = interp2app(W_CData.iter),
     __weakref__ = make_weakref_descr(W_CData),
     __dir__ = interp2app(W_CData.dir),
+    __enter__ = interp2app(W_CData.descr_enter),
+    __exit__ = interp2app(W_CData.descr_exit),
     )
 W_CData.typedef.acceptable_as_base_class = False

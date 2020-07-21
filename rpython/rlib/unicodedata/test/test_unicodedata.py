@@ -3,10 +3,11 @@ import random
 import unicodedata
 
 import py
+import pytest
 
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
-    unicodedb_8_0_0)
+    unicodedb_8_0_0, unicodedb_11_0_0)
 
 
 class TestUnicodeData(object):
@@ -148,3 +149,25 @@ class TestUnicodeData800(object):
     def test_changed_in_version_8(self):
         assert unicodedb_6_2_0.toupper_full(0x025C) == [0x025C]
         assert unicodedb_8_0_0.toupper_full(0x025C) == [0xA7AB]
+
+    def test_casefold(self):
+        # returns None when we have no special casefolding rule,
+        # which means that tolower_full() should be used instead
+        assert unicodedb_8_0_0.casefold_lookup(0x1000) == None
+        assert unicodedb_8_0_0.casefold_lookup(0x0061) == None
+        assert unicodedb_8_0_0.casefold_lookup(0x0041) == None
+        # a case where casefold() != lower()
+        assert unicodedb_8_0_0.casefold_lookup(0x00DF) == [ord('s'), ord('s')]
+        # returns the argument itself, and not None, in rare cases
+        # where tolower_full() would return something different
+        assert unicodedb_8_0_0.casefold_lookup(0x13A0) == [0x13A0]
+
+class TestUnicodeData1100(object):
+    def test_changed_in_version_11(self):
+        unicodedb_11_0_0.name(0x1f970) == 'SMILING FACE WITH SMILING EYES AND THREE HEARTS'
+
+@pytest.mark.parametrize('db', [
+    unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0, unicodedb_8_0_0,
+    unicodedb_11_0_0])
+def test_turkish_i(db):
+    assert db.tolower_full(0x0130) == [0x69, 0x307]

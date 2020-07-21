@@ -231,6 +231,9 @@ return next yielded value or raise StopIteration."""
         self.frame = None
         rgc.may_ignore_finalizer(self)
 
+    def iterator_greenkey(self, space):
+        return self.pycode
+
 
 def get_printable_location_genentry(bytecode):
     return '%s <generator>' % (bytecode.get_repr(),)

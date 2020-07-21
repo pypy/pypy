@@ -3,7 +3,11 @@
    OP_GC_RAWREFCOUNT_INIT(callback, r): the callback is not supported here
    OP_GC_RAWREFCOUNT_CREATE_LINK_PYOBJ(): not implemented, maybe not needed
 */
+#define RPY_USES_RAWREFCOUNT
 
+#ifdef RPY_REVERSE_DEBUGGER
+/* these macros are defined in src-revdb/revdb_include.h */
+#else
 #define OP_GC_RAWREFCOUNT_CREATE_LINK_PYPY(gcobj, pyobj, r)   \
     gc_rawrefcount_create_link_pypy(gcobj, pyobj)
 
@@ -15,6 +19,7 @@
 
 #define OP_GC_RAWREFCOUNT_NEXT_DEAD(r)   \
     r = gc_rawrefcount_next_dead()
+#endif
 
 #define OP_GC_RAWREFCOUNT_MARK_DEALLOCATING(gcobj, pyobj, r)  /* nothing */
 

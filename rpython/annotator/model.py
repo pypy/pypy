@@ -30,6 +30,7 @@ generic element in some specific subset of the set of all objects.
 from __future__ import absolute_import
 
 import inspect
+import math
 import weakref
 from types import BuiltinFunctionType, MethodType
 from collections import OrderedDict, defaultdict
@@ -169,13 +170,12 @@ class SomeFloat(SomeObject):
     def __eq__(self, other):
         if (type(self) is SomeFloat and type(other) is SomeFloat and
             self.is_constant() and other.is_constant()):
-            from rpython.rlib.rfloat import isnan, copysign
             # NaN unpleasantness.
-            if isnan(self.const) and isnan(other.const):
+            if math.isnan(self.const) and math.isnan(other.const):
                 return True
             # 0.0 vs -0.0 unpleasantness.
             if not self.const and not other.const:
-                return copysign(1., self.const) == copysign(1., other.const)
+                return math.copysign(1., self.const) == math.copysign(1., other.const)
             #
         return super(SomeFloat, self).__eq__(other)
 

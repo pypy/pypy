@@ -43,27 +43,6 @@ def test_myexception(space):
     else:
         assert False, "got no exception!"
 
-def app_test_exception():
-    try:
-        raise AssertionError("42")
-    except AssertionError:
-        pass
-    else:
-        raise AssertionError("app level AssertionError mixup!")
-
-def app_test_exception_with_message():
-    try:
-        assert 0, "Failed"
-    except AssertionError as e:
-        assert e.msg == "Failed"
-
-def app_test_comparison():
-    try:
-        assert 3 > 4
-    except AssertionError as e:
-        assert "3 > 4" in e.msg
-
-
 def test_appexecinfo(space):
     try:
         space.appexec([], "(): raise ValueError")
@@ -79,6 +58,9 @@ def test_appexecinfo(space):
         pass
     assert not appex.errisinstance(A)
 
+# this is used by test_wrapped_function_with_different_name below
+def inc(self, x):
+    return x+1
 
 class AppTestWithWrappedInterplevelAttributes:
     def setup_class(cls):
@@ -100,6 +82,11 @@ class AppTestWithWrappedInterplevelAttributes:
 
     def test_equal(self):
         assert self.compute(3) == 5
+
+    w_inc = inc
+
+    def test_wrapped_function_with_different_name(self):
+        assert self.inc(41) == 42
 
 
 def test_app_test_blow(testdir):

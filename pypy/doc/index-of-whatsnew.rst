@@ -7,6 +7,14 @@ CPython 2.7 compatible versions
 .. toctree::
 
    whatsnew-head.rst
+   whatsnew-pypy2-7.3.1.rst
+   whatsnew-pypy2-7.3.0.rst
+   whatsnew-pypy2-7.2.0.rst
+   whatsnew-pypy2-7.1.0.rst
+   whatsnew-pypy2-7.0.0.rst
+   whatsnew-pypy2-6.0.0.rst
+   whatsnew-pypy2-5.10.0.rst
+   whatsnew-pypy2-5.10.0.rst
    whatsnew-pypy2-5.9.0.rst
    whatsnew-pypy2-5.8.0.rst
    whatsnew-pypy2-5.7.0.rst
@@ -31,12 +39,25 @@ CPython 2.7 compatible versions
    whatsnew-2.0.0-beta1.rst
    whatsnew-1.9.rst
 
+
+CPython 3.6 compatible versions
+-------------------------------
+
+.. toctree::
+    whatsnew-pypy3-head.rst
+    whatsnew-pypy3-7.3.1.rst
+    whatsnew-pypy3-7.3.0.rst
+    whatsnew-pypy3-7.2.0.rst
+    whatsnew-pypy3-7.1.0.rst
+
 CPython 3.5 compatible versions
 -------------------------------
 
 .. toctree::
 
-   whatsnew-pypy3-head.rst
+   whatsnew-pypy3-7.0.0.rst
+   whatsnew-pypy3-6.0.0.rst
+   whatsnew-pypy3-5.10.0.rst
    whatsnew-pypy3-5.9.0.rst
    whatsnew-pypy3-5.8.0.rst
    whatsnew-pypy3-5.7.0.rst
@@ -49,10 +70,4 @@ CPython 3.3 compatible versions
    whatsnew-pypy3-5.5.0.rst
    whatsnew-pypy3-5.1.1-alpha1.rst
 
-CPython 3.2 compatible versions
--------------------------------
 
-.. toctree::
-
-   whatsnew-pypy3-2.4.0.rst
-   whatsnew-pypy3-2.3.1.rst
