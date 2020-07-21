@@ -209,7 +209,14 @@ int pypysig_set_wakeup_fd(int fd, int send_flags)
      The call to getsockopt() can fail for a number of reasons, starting
      from WSAStartup() never called.  CPython is more careful about
      distinguishing error cases.  We just assume that a failure means
-     that the fd is not a socket descriptor but a file descriptor. */
+     that the fd is not a socket descriptor but a file descriptor.
+
+     Win64 note: in theory, socket descriptors could be 64-bit there,
+     but in practice they always fit in 32-bit so it shouldn't really
+     be a problem according to:
+             https://stackoverflow.com/questions/1953639/
+             is-it-safe-to-cast-socket-to-int-under-win64
+     */
   if (fd != -1) {
     int res;
     int res_size = sizeof res;
