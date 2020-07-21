@@ -6,6 +6,7 @@
 #ifdef _WIN32
 #include <process.h>
 #include <io.h>
+#include <winsock2.h>
 #else
 #include <unistd.h>
 #endif
