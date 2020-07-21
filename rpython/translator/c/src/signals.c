@@ -40,7 +40,7 @@
 struct pypysig_long_struct pypysig_counter = {0};
 static long volatile pypysig_flags_bits[N_LONGSIG];
 static int wakeup_fd = -1;
-static int wakeup_send_flags = 1;
+static int wakeup_send_flags = PYPYSIG_WITH_NUL_BYTE;
 
 #undef pypysig_getaddr_occurred
 void *pypysig_getaddr_occurred(void)
@@ -204,6 +204,19 @@ int pypysig_poll(void)
 int pypysig_set_wakeup_fd(int fd, int send_flags)
 {
   int old_fd = wakeup_fd;
+#ifdef _WIN32
+  /* check if 'fd' seems to be a socket handle instead of a file handle.
+     The call to getsockopt() can fail for a number of reasons, starting
+     from WSAStartup() never called.  CPython is more careful about
+     distinguishing error cases.  We just assume that a failure means
+     that the fd is not a socket descriptor but a file descriptor. */
+  if (fd != -1) {
+    int res;
+    int res_size = sizeof res;
+    if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&res, &res_size) == 0)
+      send_flags |= PYPYSIG_USE_SEND;
+  }
+#endif
   wakeup_fd = fd;
   wakeup_send_flags = send_flags;
   return old_fd;
