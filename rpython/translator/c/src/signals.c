@@ -7,6 +7,7 @@
 #include <process.h>
 #include <io.h>
 #include <winsock2.h>
+#pragma comment(lib,"ws2_32.lib")   /* for getsockopt() and send() */
 #else
 #include <unistd.h>
 #endif
