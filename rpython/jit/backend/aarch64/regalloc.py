@@ -64,6 +64,8 @@ class ARMFrameManager(FrameManager):
         return loc.position
 
 class ARMRegisterManager(RegisterManager):
+    FORBID_TEMP_BOXES = True
+
     def return_constant(self, v, forbidden_vars=[], selected_reg=None):
         self._check_type(v)
         if isinstance(v, Const):
@@ -74,7 +76,7 @@ class ARMRegisterManager(RegisterManager):
             else:
                 tp = INT
             loc = self.get_scratch_reg(tp,
-                    self.temp_boxes + forbidden_vars,
+                    forbidden_vars,
                     selected_reg=selected_reg)
             immvalue = self.convert_to_imm(v)
             self.assembler.load(loc, immvalue)
