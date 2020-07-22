@@ -1,4 +1,5 @@
 from rpython.flowspace.model import summary
+from rpython.rlib.objectmodel import assert_
 from rpython.translator.backendopt.removeassert import remove_asserts
 from rpython.translator.backendopt.constfold import constant_fold_graph
 from rpython.translator.backendopt.test import test_constfold
@@ -28,13 +29,13 @@ def check(fn, args, expected_result, remaining_raise=False):
 
 def test_simple():
     def fn(n):
-        assert n >= 1
+        assert_(n >= 1)
         return n-1
     check(fn, [125], 124)
 
 def test_simple_melting_away():
     def fn(n):
-        assert n >= 1
+        assert_(n >= 1)
         return n-1
     graph, t = get_graph(fn, [int])
     assert summary(graph) == {'int_ge': 1, 'int_sub': 1}
@@ -50,13 +51,13 @@ def test_simple_melting_away():
 
 def test_and():
     def fn(n):
-        assert n >= 1 and n < 10
+        assert_(n >= 1 and n < 10)
         return n-1
     check(fn, [1], 0)
 
 def test_or():
     def fn(n):
-        assert n >= 1 or n % 2 == 0
+        assert_(n >= 1 or n % 2 == 0)
         return n-1
     check(fn, [-120], -121)
 
@@ -74,7 +75,7 @@ def test_isinstance():
             return b
     def fn(n):
         x = g(n)
-        assert isinstance(x, B)
+        assert_(isinstance(x, B))
         return x.value
     t, graph = check(fn, [5], 321)
     assert summary(graph)['debug_assert'] == 1
@@ -92,7 +93,7 @@ def test_with_exception():
     def fn(n):
         try:
             g(n)
-            assert False
+            assert_(False)
         except ValueError:
             return 42
     check(fn, [-8], 42, remaining_raise=True)

@@ -859,7 +859,7 @@ class TestCRffi(BaseTestRffi):
                 p = rawptrs[i]
                 expected = strings[i] + '\x00'
                 for j in range(len(expected)):
-                    assert p[j] == expected[j]
+                    assert_(p[j] == expected[j])
 
         def f(n):
             strings = ["foo%d" % i for i in range(n)]
@@ -871,7 +871,7 @@ class TestCRffi(BaseTestRffi):
             for i in range(len(strings)):   # check that it still returns the
                                             # same raw ptrs
                 p1 = rffi._get_raw_address_buf_from_string(strings[i])
-                assert rawptrs[i] == p1
+                assert_(rawptrs[i] == p1)
             del strings
             rgc.collect(); rgc.collect(); rgc.collect()
             return 42

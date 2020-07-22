@@ -4,6 +4,7 @@ import struct
 import subprocess
 import signal
 
+from rpython.rlib.objectmodel import assert_
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.interactive import Translation
 from rpython.translator.sandbox.sandlib import read_message, write_message
@@ -51,9 +52,9 @@ def run_in_subprocess(exe):
 def test_open_dup():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
-        assert fd == 77
+        assert_(fd == 77)
         fd2 = os.dup(fd)
-        assert fd2 == 78
+        assert_(fd2 == 78)
         return 0
 
     exe = compile(entry_point)
@@ -69,9 +70,9 @@ def test_open_dup_rposix():
     from rpython.rlib import rposix
     def entry_point(argv):
         fd = rposix.open("/tmp/foobar", os.O_RDONLY, 0777)
-        assert fd == 77
+        assert_(fd == 77)
         fd2 = rposix.dup(fd)
-        assert fd2 == 78
+        assert_(fd2 == 78)
         return 0
 
     exe = compile(entry_point)
@@ -86,11 +87,11 @@ def test_open_dup_rposix():
 def test_read_write():
     def entry_point(argv):
         fd = os.open("/tmp/foobar", os.O_RDONLY, 0777)
-        assert fd == 77
+        assert_(fd == 77)
         res = os.read(fd, 123)
-        assert res == "he\x00llo"
+        assert_(res == "he\x00llo")
         count = os.write(fd, "world\x00!\x00")
-        assert count == 42
+        assert_(count == 42)
         os.close(fd)
         return 0
 

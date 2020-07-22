@@ -5,6 +5,7 @@ from rpython.translator import exceptiontransform
 from rpython.flowspace.model import summary
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.translator.backendopt.all import backend_optimizations
+from rpython.rlib.objectmodel import assert_
 from rpython.conftest import option
 import sys
 
@@ -259,9 +260,9 @@ class TestExceptionTransform:
         def foo():
             # a bit hard to test, really
             a = llop.get_exception_addr(llmemory.Address)
-            assert lltype.typeOf(a) is llmemory.Address
+            assert_(lltype.typeOf(a) is llmemory.Address)
             a = llop.get_exc_value_addr(llmemory.Address)
-            assert lltype.typeOf(a) is llmemory.Address
+            assert_(lltype.typeOf(a) is llmemory.Address)
             return 42
         f = self.compile(foo, [])
         res = f()

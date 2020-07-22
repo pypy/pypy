@@ -7,6 +7,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.flowspace.model import Constant, summary
 from rpython.rtyper.llinterp import LLInterpreter
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import assert_
 from rpython.conftest import option
 
 class A:
@@ -222,7 +223,7 @@ class TestLLType(object):
                 return b
         def fn(n):
             x = g(n)
-            assert isinstance(x, B)
+            assert_(isinstance(x, B))
             return x.value
         t = self.translateopt(fn, [int], really_remove_asserts=True,
                               remove_asserts=True)
