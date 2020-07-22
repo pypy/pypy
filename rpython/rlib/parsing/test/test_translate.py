@@ -4,6 +4,7 @@ from rpython.rlib.parsing.makepackrat import BacktrackException, Status
 from rpython.rlib.parsing.regex import *
 from rpython.rlib.parsing.parsing import *
 from rpython.translator.c.test.test_genc import compile
+from rpython.rlib.objectmodel import assert_
 
 
 class TestTranslateLexer(object):
@@ -100,7 +101,7 @@ primary: "(" <additive> ")" | <DECIMAL>;
     def f():
         tree = parse("(0 +! 10) *! (999 +! 10) +! 1")
         tree = ToAST().visit_additive(tree)
-        assert len(tree) == 1
+        assert_(len(tree) == 1)
         tree = tree[0]
         return tree.symbol + " " + "-&-".join([c.symbol for c in tree.children])
     res1 = f()

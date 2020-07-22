@@ -7,7 +7,8 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end)
+    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end,
+    assert_)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -21,54 +22,54 @@ def strange_key_hash(key):
 def play_with_r_dict(d):
     d['hello'] = 41
     d['hello'] = 42
-    assert d['hi there'] == 42
+    assert_(d['hi there'] == 42)
     try:
         unexpected = d["dumb"]
     except KeyError:
         pass
     else:
-        assert False, "should have raised, got %s" % unexpected
-    assert len(d) == 1
-    assert 'oops' not in d
+        assert_(False, "should have raised, got %s" % unexpected)
+    assert_(len(d) == 1)
+    assert_('oops' not in d)
 
     count = 0
     for x in d:
-        assert x == 'hello'
+        assert_(x == 'hello')
         count += 1
-    assert count == 1
+    assert_(count == 1)
 
-    assert d.get('hola', -1) == 42
-    assert d.get('salut', -1) == -1
+    assert_(d.get('hola', -1) == 42)
+    assert_(d.get('salut', -1) == -1)
     d1 = d.copy()
     del d['hu!']
-    assert len(d) == 0
-    assert d1.keys() == ['hello']
+    assert_(len(d) == 0)
+    assert_(d1.keys() == ['hello'])
     d.update(d1)
-    assert d.values() == [42]
+    assert_(d.values() == [42])
     lst = d.items()
-    assert len(lst) == 1 and len(lst[0]) == 2
-    assert lst[0][0] == 'hello' and lst[0][1] == 42
+    assert_(len(lst) == 1 and len(lst[0]) == 2)
+    assert_(lst[0][0] == 'hello' and lst[0][1] == 42)
 
     count = 0
     for x in d.iterkeys():
-        assert x == 'hello'
+        assert_(x == 'hello')
         count += 1
-    assert count == 1
+    assert_(count == 1)
 
     count = 0
     for x in d.itervalues():
-        assert x == 42
+        assert_(x == 42)
         count += 1
-    assert count == 1
+    assert_(count == 1)
 
     count = 0
     for x in d.iteritems():
-        assert len(x) == 2 and x[0] == 'hello' and x[1] == 42
+        assert_(len(x) == 2 and x[0] == 'hello' and x[1] == 42)
         count += 1
-    assert count == 1
+    assert_(count == 1)
 
     d.clear()
-    assert d.keys() == []
+    assert_(d.keys() == [])
     return True   # for the tests below
 
 
@@ -372,22 +373,22 @@ class TestObjectModel(BaseRtypingTest):
         class Foo(object):
             pass
         def f(i):
-            assert compute_hash(i) == compute_hash(42)
-            assert compute_hash(i + 1.0) == compute_hash(43.0)
-            assert compute_hash("Hello" + str(i)) == compute_hash("Hello42")
+            assert_(compute_hash(i) == compute_hash(42))
+            assert_(compute_hash(i + 1.0) == compute_hash(43.0))
+            assert_(compute_hash("Hello" + str(i)) == compute_hash("Hello42"))
             if i == 42:
                 p = None
             else:
                 p = Foo()
-            assert compute_hash(p) == compute_hash(None)
-            assert (compute_hash(("world", None, i, 7.5)) ==
-                    compute_hash(("world", None, 42, 7.5)))
+            assert_(compute_hash(p) == compute_hash(None))
+            assert_(compute_hash(("world", None, i, 7.5)) ==
+                compute_hash(("world", None, 42, 7.5)))
             q = Foo()
-            assert compute_hash(q) == compute_identity_hash(q)
+            assert_(compute_hash(q) == compute_identity_hash(q))
             from rpython.rlib.rfloat import INFINITY, NAN
-            assert compute_hash(INFINITY) == 314159
-            assert compute_hash(-INFINITY) == -271828
-            assert compute_hash(NAN) == 0
+            assert_(compute_hash(INFINITY) == 314159)
+            assert_(compute_hash(-INFINITY) == -271828)
+            assert_(compute_hash(NAN) == 0)
             return i * 2
         res = self.interpret(f, [42])
         assert res == 84
@@ -620,8 +621,8 @@ def test_iteritems_with_hash():
 def test_contains_with_hash():
     def f(i):
         d = {i + .5: 5}
-        assert contains_with_hash(d, i + .5, compute_hash(i + .5))
-        assert not contains_with_hash(d, i + .3, compute_hash(i + .3))
+        assert_(contains_with_hash(d, i + .5, compute_hash(i + .5)))
+        assert_(not contains_with_hash(d, i + .3, compute_hash(i + .3)))
         return 0
 
     f(29)
@@ -670,11 +671,11 @@ def test_delitem_if_value_is():
         x612 = X()
         d = {i + .5: x42, i + .6: x612}
         delitem_if_value_is(d, i + .5, x612)
-        assert (i + .5) in d
+        assert_((i + .5) in d)
         delitem_if_value_is(d, i + .5, x42)
-        assert (i + .5) not in d
+        assert_((i + .5) not in d)
         delitem_if_value_is(d, i + .5, x612)
-        assert (i + .5) not in d
+        assert_((i + .5) not in d)
         return 0
 
     f(29)
@@ -684,9 +685,9 @@ def test_rdict_with_hash():
     def f(i):
         d = r_dict(strange_key_eq, strange_key_hash)
         h = strange_key_hash("abc")
-        assert h == strange_key_hash("aXX") and strange_key_eq("abc", "aXX")
+        assert_(h == strange_key_hash("aXX") and strange_key_eq("abc", "aXX"))
         setitem_with_hash(d, "abc", h, i)
-        assert getitem_with_hash(d, "aXX", h) == i
+        assert_(getitem_with_hash(d, "aXX", h) == i)
         try:
             getitem_with_hash(d, "bYY", strange_key_hash("bYY"))
         except KeyError:

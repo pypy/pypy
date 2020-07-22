@@ -6,6 +6,7 @@ from rpython.rlib import rvmprof
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.objectmodel import assert_
 
 @pytest.mark.usefixtures('init')
 class RVMProfTest(object):
@@ -33,7 +34,7 @@ class TestExecuteCode(RVMProfTest):
 
     def entry_point(self):
         res = self.main(self.MyCode(), 5)
-        assert res == 42
+        assert_(res == 42)
         return 0
 
     @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
@@ -58,7 +59,7 @@ class TestResultClass(RVMProfTest):
 
     def entry_point(self):
         a = self.main(7, self.MyCode())
-        assert isinstance(a, self.A)
+        assert_(isinstance(a, self.A))
         return 0
 
     def test(self):
@@ -67,7 +68,7 @@ class TestResultClass(RVMProfTest):
 
 
 class TestRegisterCode(RVMProfTest):
-    
+
     @rvmprof.vmprof_execute_code("xcode1", lambda self, code, num: code)
     def main(self, code, num):
         print num
@@ -77,7 +78,7 @@ class TestRegisterCode(RVMProfTest):
         code = self.MyCode()
         rvmprof.register_code(code, lambda code: 'some code')
         res = self.main(code, 5)
-        assert res == 42
+        assert_(res == 42)
         return 0
 
     def test(self):

@@ -2,6 +2,7 @@ import os, sys, py, errno, gc
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool.udir import udir
 from rpython.rlib import rfile
+from rpython.rlib.objectmodel import assert_
 
 
 class TestFile(BaseRtypingTest):
@@ -21,7 +22,7 @@ class TestFile(BaseRtypingTest):
             except ValueError:
                 pass
             else:
-                assert False
+                assert_(False)
             f.close()
 
         f()
@@ -37,53 +38,53 @@ class TestFile(BaseRtypingTest):
             except ValueError:
                 pass
             else:
-                assert False
+                assert_(False)
 
             try:
                 open('zzz')
             except IOError as e:
-                assert e.errno == errno.ENOENT
+                assert_(e.errno == errno.ENOENT)
             else:
-                assert False
+                assert_(False)
 
             try:
                 open('.')
             except IOError as e:
                 if os.name == 'posix':
-                    assert e.errno == errno.EISDIR
+                    assert_(e.errno == errno.EISDIR)
                 else:
-                    assert e.errno == errno.EACCES
+                    assert_(e.errno == errno.EACCES)
             else:
-                assert False
+                assert_(False)
 
             try:
                 os.fdopen(42, "badmode")
             except ValueError:
                 pass
             else:
-                assert False
+                assert_(False)
 
             try:
                 fd = os.open('.', os.O_RDONLY, 0777)
             except OSError as e:
-                assert os.name == 'nt' and e.errno == errno.EACCES
+                assert_(os.name == 'nt' and e.errno == errno.EACCES)
             else:
-                assert os.name != 'nt'
+                assert_(os.name != 'nt')
                 if run:
                     try:
                         os.fdopen(fd)
                     except IOError as e:
-                        assert e.errno == errno.EISDIR
+                        assert_(e.errno == errno.EISDIR)
                     else:
-                        assert False
+                        assert_(False)
                 os.close(fd)
 
             try:
                 os.fdopen(12345)
             except OSError as e:
-                assert e.errno == errno.EBADF
+                assert_(e.errno == errno.EBADF)
             else:
-                assert False
+                assert_(False)
 
         f(sys.version_info >= (2, 7, 9))
         self.interpret(f, [True])
@@ -97,9 +98,9 @@ class TestFile(BaseRtypingTest):
             f = open(fname, 'w', 1)
             f.write('dupa\ndupb')
             f2 = open(fname, 'r')
-            assert f2.read() == 'dupa\n'
+            assert_(f2.read() == 'dupa\n')
             f.close()
-            assert f2.read() == 'dupb'
+            assert_(f2.read() == 'dupb')
             f2.close()
 
         f()
@@ -117,9 +118,9 @@ class TestFile(BaseRtypingTest):
             g.close()
             f.write('dupa\ndupb')
             f2 = open(fname, 'r')
-            assert f2.read() == 'dupa\n'
+            assert_(f2.read() == 'dupa\n')
             f.close()
-            assert f2.read() == 'dupb'
+            assert_(f2.read() == 'dupb')
             f2.close()
 
         f()
@@ -133,11 +134,11 @@ class TestFile(BaseRtypingTest):
             f = open(fname, 'w', 128)
             f.write('dupa\ndupb')
             f2 = open(fname, 'r')
-            assert f2.read() == ''
+            assert_(f2.read() == '')
             f.write('z' * 120)
-            assert f2.read() != ''
+            assert_(f2.read() != '')
             f.close()
-            assert f2.read() != ''
+            assert_(f2.read() != '')
             f2.close()
 
         f()
@@ -153,11 +154,11 @@ class TestFile(BaseRtypingTest):
             g.close()
             f.write('dupa\ndupb')
             f2 = open(fname, 'r')
-            assert f2.read() == ''
+            assert_(f2.read() == '')
             f.write('z' * 120)
-            assert f2.read() != ''
+            assert_(f2.read() != '')
             f.close()
-            assert f2.read() != ''
+            assert_(f2.read() != '')
             f2.close()
 
         f()
@@ -174,13 +175,13 @@ class TestFile(BaseRtypingTest):
             except IOError as e:
                 pass
             else:
-                assert False
+                assert_(False)
             try:
                 f.readline()
             except IOError as e:
                 pass
             else:
-                assert False
+                assert_(False)
             f.write("dupa\x00dupb")
             f.close()
             for mode in ['r', 'U']:
@@ -190,21 +191,21 @@ class TestFile(BaseRtypingTest):
                 except IOError as e:
                     pass
                 else:
-                    assert False
+                    assert_(False)
                 dupa = f2.read(0)
-                assert dupa == ""
+                assert_(dupa == "")
                 dupa = f2.read()
-                assert dupa == "dupa\x00dupb"
+                assert_(dupa == "dupa\x00dupb")
                 f2.seek(0)
                 dupa = f2.readline(0)
-                assert dupa == ""
+                assert_(dupa == "")
                 dupa = f2.readline(2)
-                assert dupa == "du"
+                assert_(dupa == "du")
                 dupa = f2.readline(100)
-                assert dupa == "pa\x00dupb"
+                assert_(dupa == "pa\x00dupb")
                 f2.seek(0)
                 dupa = f2.readline()
-                assert dupa == "dupa\x00dupb"
+                assert_(dupa == "dupa\x00dupb")
                 f2.close()
 
         f()
@@ -224,11 +225,11 @@ class TestFile(BaseRtypingTest):
             d = f.read(1)
             e = f.read()
             f.close()
-            assert a == "d"
-            assert b == "u"
-            assert c == "p"
-            assert d == "a"
-            assert e == ""
+            assert_(a == "d")
+            assert_(b == "u")
+            assert_(c == "p")
+            assert_(d == "a")
+            assert_(e == "")
 
         f()
         self.interpret(f, [])
@@ -240,27 +241,27 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, 'U')
-            assert f.read() == "dupa\ndupb\ndupc\ndupd"
-            assert f.read() == ""
+            assert_(f.read() == "dupa\ndupb\ndupc\ndupd")
+            assert_(f.read() == "")
             f.seek(0)
-            assert f.read(10) == "dupa\ndupb\n"
-            assert f.read(42) == "dupc\ndupd"
-            assert f.read(1) == ""
+            assert_(f.read(10) == "dupa\ndupb\n")
+            assert_(f.read(42) == "dupc\ndupd")
+            assert_(f.read(1) == "")
             f.seek(0)
-            assert f.readline() == "dupa\n"
-            assert f.tell() == 5
-            assert f.readline() == "dupb\n"
-            assert f.tell() == 11
-            assert f.readline() == "dupc\n"
-            assert f.tell() == 16
-            assert f.readline() == "dupd"
-            assert f.tell() == 20
-            assert f.readline() == ""
+            assert_(f.readline() == "dupa\n")
+            assert_(f.tell() == 5)
+            assert_(f.readline() == "dupb\n")
+            assert_(f.tell() == 11)
+            assert_(f.readline() == "dupc\n")
+            assert_(f.tell() == 16)
+            assert_(f.readline() == "dupd")
+            assert_(f.tell() == 20)
+            assert_(f.readline() == "")
             f.seek(0)
-            assert f.readline() == "dupa\n"
-            assert f.readline() == "dupb\n"
+            assert_(f.readline() == "dupa\n")
+            assert_(f.readline() == "dupb\n")
             f.seek(4)
-            assert f.read(1) == "\n"
+            assert_(f.read(1) == "\n")
             f.close()
 
         f()
@@ -273,23 +274,23 @@ class TestFile(BaseRtypingTest):
             f = open(fname, "w+")
             f.write("abcdef")
             f.seek(0)
-            assert f.read() == "abcdef"
+            assert_(f.read() == "abcdef")
             f.seek(1)
-            assert f.read() == "bcdef"
+            assert_(f.read() == "bcdef")
             f.seek(2)
             f.seek(-2, 2)
-            assert f.read() == "ef"
+            assert_(f.read() == "ef")
             f.seek(2)
             f.seek(-1, 1)
-            assert f.read() == "bcdef"
+            assert_(f.read() == "bcdef")
             #---is the following behavior interesting in RPython?
             #---I claim not, and it doesn't work on Windows
             #try:
             #    f.seek(0, 42)
             #except IOError as e:
-            #    assert e.errno == errno.EINVAL
+            #    assert_(e.errno == errno.EINVAL)
             #else:
-            #    assert False
+            #    assert_(False)
             f.close()
 
         f()
@@ -301,7 +302,7 @@ class TestFile(BaseRtypingTest):
             f = os.tmpfile()
             f.write("xxx")
             f.seek(0)
-            assert f.read() == "xxx"
+            assert_(f.read() == "xxx")
             f.close()
 
         f()
@@ -320,7 +321,7 @@ class TestFile(BaseRtypingTest):
             except IOError as e:
                 pass
             else:
-                assert False
+                assert_(False)
             f2.write("xxx")
             f2.close()
 
@@ -335,7 +336,7 @@ class TestFile(BaseRtypingTest):
 
         def f():
             f = open(fname, "w")
-            assert not f.isatty()
+            assert_(not f.isatty())
             try:
                 return f.fileno()
             finally:
@@ -372,7 +373,7 @@ class TestFile(BaseRtypingTest):
             f.write("xyz")
             f.flush()
             f2 = open(fname)
-            assert f2.read() == "xyz"
+            assert_(f2.read() == "xyz")
             f2.close()
             f.close()
 
@@ -390,7 +391,7 @@ class TestFile(BaseRtypingTest):
             f.truncate()
             f.seek(0)
             data = f.read()
-            assert data == "hello w"
+            assert_(data == "hello w")
             f.close()
             f = open(fname)
             try:
@@ -398,7 +399,7 @@ class TestFile(BaseRtypingTest):
             except IOError as e:
                 pass
             else:
-                assert False
+                assert_(False)
             f.close()
 
         f()
@@ -411,15 +412,15 @@ class TestFile(BaseRtypingTest):
         def f():
             with open(fname, "w") as f:
                 f.write("dupa")
-                assert not f.closed
+                assert_(not f.closed)
 
             try:
-                assert f.closed
+                assert_(f.closed)
                 f.write("dupb")
             except ValueError:
                 pass
             else:
-                assert False
+                assert_(False)
 
         f()
         assert open(fname, "r").read() == "dupa"
@@ -531,7 +532,7 @@ class TestPopenR(BaseRtypingTest):
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()
             f.close()
-            assert s == "%s\n" % printval
+            assert_(s == "%s\n" % printval)
         self.interpret(f, [])
 
     def test_pclose(self):
@@ -542,7 +543,7 @@ class TestPopenR(BaseRtypingTest):
         def f():
             f = rfile.create_popen_file(cmd, "r")
             s = f.read()
-            assert s == "%s\n" % printval
+            assert_(s == "%s\n" % printval)
             return f.close()
         r = self.interpret(f, [])
         assert os.WEXITSTATUS(r) == retval

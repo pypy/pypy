@@ -5,6 +5,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
+from rpython.rlib.objectmodel import assert_
 
 
 class W_Root(object):
@@ -238,8 +239,8 @@ class TestTranslated(StandaloneTests):
             ob = lltype.malloc(PyObjectS, flavor='raw', zero=True)
             rawrefcount.create_link_pypy(p, ob)
             ob.c_ob_refcnt += REFCNT_FROM_PYPY
-            assert rawrefcount.from_obj(PyObject, p) == ob
-            assert rawrefcount.to_obj(W_Root, ob) == p
+            assert_(rawrefcount.from_obj(PyObject, p) == ob)
+            assert_(rawrefcount.to_obj(W_Root, ob) == p)
             return ob, p
 
         FTYPE = rawrefcount.RAWREFCOUNT_DEALLOC_TRIGGER

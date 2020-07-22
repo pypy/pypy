@@ -9,6 +9,7 @@ from rpython.rlib.debug import (check_annotation, make_sure_not_resized,
                              NotAListOfChars)
 from rpython.rlib import debug
 from rpython.rtyper.test.test_llinterp import interpret, gengraph
+from rpython.rlib.objectmodel import assert_
 
 @pytest.fixture
 def debuglog(monkeypatch):
@@ -42,7 +43,7 @@ def test_check_annotation():
 
 def test_check_nonneg():
     def f(x):
-        assert x >= 5
+        assert_(x >= 5)
         check_nonneg(x)
     interpret(f, [9])
 

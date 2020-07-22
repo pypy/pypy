@@ -3,9 +3,10 @@
 from rpython.rtyper.test.test_llinterp import gengraph, interpret
 from rpython.rlib.rsre import rsre_core
 from rpython.rlib.rsre.rsre_re import compile
+from rpython.rlib.objectmodel import assert_
 
 def main(n):
-    assert n >= 0
+    assert_(n >= 0)
     pattern = [n] * n
     string = chr(n) * n
     rsre_core.search(pattern, string)

@@ -8,6 +8,7 @@ from rpython.annotator import model as annmodel
 from rpython.annotator.annrpython import RPythonAnnotator
 from rpython.rtyper.rclass import OBJECTPTR
 from rpython.rtyper.lltypesystem import lltype, llmemory
+from rpython.rlib.objectmodel import assert_
 
 from rpython.rtyper.test.tool import BaseRtypingTest
 
@@ -295,7 +296,7 @@ class TestRErased(BaseRtypingTest):
                 l = prebuilt_l
                 e = prebuilt_e
             #assert is_integer(e) is False
-            assert unerase_list_X(e) is l
+            assert_(unerase_list_X(e) is l)
         self.interpret(l, [0])
         self.interpret(l, [1])
         self.interpret(l, [2])
@@ -314,7 +315,7 @@ class TestRErased(BaseRtypingTest):
                 p = s.gcref
             else:
                 p = erase(l)
-            assert unerase(p) is l
+            assert_(unerase(p) is l)
         self.interpret(l, [3])
         self.interpret(l, [8])
 
