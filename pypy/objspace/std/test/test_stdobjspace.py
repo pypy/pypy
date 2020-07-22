@@ -82,10 +82,11 @@ class TestW_StdObjSpace:
 
     def test_wrap_string(self):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
+        from pypy.objspace.std.unicodeobject import BadUtf8
         w_x = self.space.wrap('foo')
         assert isinstance(w_x, W_UnicodeObject)
         assert w_x._utf8 == 'foo'
         #
         # calling space.wrap() on a byte string which is not utf-8 should
         # never happen.
-        py.test.raises(UnicodeDecodeError, self.space.wrap, 'foo\xF0')
+        py.test.raises(BadUtf8, self.space.wrap, 'foo\xF0')

@@ -107,6 +107,9 @@ class W_LongObject(W_AbstractLongObject):
     def toint(self):
         return self.num.toint()
 
+    def _fits_int(self):
+        return self.num.fits_int()
+
     @staticmethod
     def fromfloat(space, f):
         return newlong(space, rbigint.fromfloat(f))

@@ -32,3 +32,16 @@ Use utf8 in locale.py, add `PyUnicode_{En,De}code_Locale`
 .. branch: exc.object
 
 Allow errorhandlers to modify the underlying str/bytes being converted
+
+.. branch: win-unicode
+
+Fix PyUnicode handling of windows where wchar_t is 2 bytes
+
+.. branch: list-with-longs
+
+Internally, integers are W_IntObject or W_LongObject depending on how large
+they are.  It's possible to obtain W_LongObject even though the integer is
+small enough, depending on how you build it (e.g. dividing two very large
+integers).  The problem now fixed was that these small W_LongObjects caused
+various optimizations to stop working: for example, storing one in a list
+of W_IntObjects caused the list to loose its int optimization (issue #3250).
