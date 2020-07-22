@@ -108,9 +108,9 @@ class VFPRegisterManager(ARMRegisterManager):
     def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
         assert type == FLOAT  # for now
         box = TempFloat()
-        self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
+        self.temp_boxes.append(box)
         return reg
 
 
@@ -143,9 +143,9 @@ class CoreRegisterManager(ARMRegisterManager):
             box = TempInt()
         else:
             box = TempPtr()
-        self.temp_boxes.append(box)
         reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
                                                     selected_reg=selected_reg)
+        self.temp_boxes.append(box)
         return reg
 
     def get_free_reg(self):
