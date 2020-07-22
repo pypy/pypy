@@ -19,6 +19,7 @@ from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rthread import get_or_make_ident
 
 # SMALLBUF determines how many utf-8 characters will be
 # buffered within the stream, in order to support reads
@@ -170,7 +171,12 @@ class W_WinConsoleIO(W_RawIOBase):
         self.blksize = 0
         self.buf = ''
 
+    def needs_finalizer(self):
+        return False
+
     def _dealloc_warn_w(self, space, w_source):
+        with open(r'd:\temp\winconsole.log', 'a') as fid:
+            fid.write('179 _dealloc_warn_w\n')
         buf = self.buf
         if buf:
             lltype.free(buf, flavor='raw')
@@ -265,6 +271,9 @@ class W_WinConsoleIO(W_RawIOBase):
         if self.fd >= 0:
             self.handle = rwin32.get_osfhandle(self.fd)
             self.closehandle = False
+            with open(r'd:\temp\winconsole.log', 'a') as fid:
+                fid.write('232 init thread %d fd %d handle %d\n' % (
+                            get_or_make_ident(), self.fd, rffi.cast(rffi.INT, self.handle)))
         else:
             access = rwin32.GENERIC_READ
             self.closehandle = True
@@ -293,6 +302,9 @@ class W_WinConsoleIO(W_RawIOBase):
                     rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
+            with open(r'd:\temp\winconsole.log', 'a') as fid:
+                fid.write('232 init thread %d name %s handle %d\n' % (get_or_make_ident(), 
+                        space.utf8_w(w_path), rffi.cast(rffi.INT, self.handle)))
             lltype.free(name, flavor='raw')
             
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
@@ -463,13 +475,13 @@ class W_WinConsoleIO(W_RawIOBase):
         return space.newtext(utf8, lgt)
 
     def write_w(self, space, w_data):
-        if self.handle == rwin32.INVALID_HANDLE_VALUE:
-            raise err_closed(space)
-        
         if not self.writable:
             raise err_mode(space,"writing")
-        
         utf8 = space.utf8_w(w_data)
+        with open(r'd:\temp\winconsole.log', 'a') as fid:
+            fid.write('470 utf8 "%s" fd %d thread %d handle %d\n' % (utf8,
+                    space.int_w(self.fileno_w(space)), get_or_make_ident(),
+                    rffi.cast(rffi.INT, self.handle)))
         if not len(utf8):
             return space.newint(0)
         
@@ -478,20 +490,32 @@ class W_WinConsoleIO(W_RawIOBase):
         errh = state.encode_error_handler
         utf16 = utf8_encode_utf_16(utf8, 'strict', errh, allow_surrogates=False)
         wlen = len(utf16) // 2
+        with open(r'd:\temp\winconsole.log', 'a') as fid:
+            fid.write('480 wlen %d errno %d\n' %(wlen, rwin32.GetLastError_saved()))
     
+        if self.handle == rwin32.INVALID_HANDLE_VALUE:
+            with open(r'd:\temp\winconsole.log', 'a') as fid:
+                fid.write('484 invalid handle\n')
+            raise err_closed(space)
+        
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as n:
             with rffi.scoped_nonmovingbuffer(utf16) as dataptr:
                 # skip BOM, start at 1
                 offset = 1
                 while offset < wlen:
+                    rwin32.SetLastError_saved(0)
                     res = rwin32.WriteConsoleW(self.handle,
                             rffi.cast(rwin32.LPVOID, rffi.ptradd(dataptr, offset * 2)),
                             wlen - offset, n , rffi.cast(rwin32.LPVOID, 0))
+                    nwrote = intmask(n[0])
                     if not res:
                         err = rwin32.GetLastError_saved()
+                        with open(r'd:\temp\winconsole.log', 'a') as fid:
+                            fid.write('498 error %d writing %d after %d of %d\n' % (err, nwrote, offset, wlen))
                         raise OperationError(space.w_WindowsError, space.newint(err))
-                    nwrote = intmask(n[0])
                     offset += nwrote
+                with open(r'd:\temp\winconsole.log', 'a') as fid:
+                    fid.write('502 wrote %d\n' % (offset - 1))
                 return space.newint(offset - 1)
             
     def get_blksize(self,space):
