@@ -1,5 +1,5 @@
 import sys, os
-from rpython.rlib.objectmodel import UnboxedValue
+from rpython.rlib.objectmodel import UnboxedValue, assert_
 
 
 class A(object):
@@ -38,24 +38,24 @@ prebuilt_b = B(939393)
 
 def entry_point(argv):
     n = 100 + len(argv)
-    assert C(n).get_untagged_value() == n
+    assert_(C(n).get_untagged_value() == n)
 
     x = makeint(42)
-    assert isinstance(x, C)
-    assert x.smallint == 42
+    assert_(isinstance(x, C))
+    assert_(x.smallint == 42)
 
     x = makeint(sys.maxint)
-    assert isinstance(x, B)
-    assert x.normalint == sys.maxint
+    assert_(isinstance(x, B))
+    assert_(x.normalint == sys.maxint)
 
     x = makeint2(12)
-    assert x.meth(1000) == 1015
+    assert_(x.meth(1000) == 1015)
 
     x = makeint2(-1)
-    assert x.meth(1000) == 1114
+    assert_(x.meth(1000) == 1114)
 
     x = makeint2(0)
-    assert x.meth(1000) == 940395
+    assert_(x.meth(1000) == 940395)
 
     os.write(1, "ALL OK\n")
     return 0

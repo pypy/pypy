@@ -3,8 +3,9 @@ import weakref
 import py
 
 from rpython.rlib import rgc, debug
-from rpython.rlib.objectmodel import (keepalive_until_here, compute_unique_id,
-    compute_hash, current_object_addr_as_int)
+from rpython.rlib.objectmodel import (
+    keepalive_until_here, compute_unique_id, compute_hash,
+    current_object_addr_as_int, assert_)
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.lltypesystem.rstr import STR
@@ -230,7 +231,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                 if i & 1 == 0:
                     a = A()
                     a.index = i
-                assert a is not None
+                assert_(a is not None)
                 weakrefs.append(weakref.ref(a))
                 if i % 7 == 6:
                     keepalive.append(a)
@@ -239,9 +240,9 @@ class TestUsingBoehm(AbstractGCTestClass):
             for i in range(n):
                 a = weakrefs[i]()
                 if i % 7 == 6:
-                    assert a is not None
+                    assert_(a is not None)
                 if a is not None:
-                    assert a.index == i & ~1
+                    assert_(a.index == i & ~1)
                 else:
                     count_free += 1
             keepalive_until_here(keepalive)
@@ -286,7 +287,7 @@ class TestUsingBoehm(AbstractGCTestClass):
             lst = [weakref.ref(a) for i in range(n)]
             rgc.collect()
             for r in lst:
-                assert r() is a
+                assert_(r() is a)
         c_fn = self.getcompiled(fn, [int])
         c_fn(100)
 
@@ -424,7 +425,7 @@ class TestUsingBoehm(AbstractGCTestClass):
                 a = fq.next_dead()
                 if a is None:
                     break
-                assert a.i not in seen
+                assert_(a.i not in seen)
                 seen[a.i] = True
             if len(seen) < 500:
                 print "seen only %d!" % len(seen)

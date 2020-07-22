@@ -5,7 +5,8 @@ import sys, os
 import py
 
 from rpython.rlib.rstackovf import StackOverflow
-from rpython.rlib.objectmodel import compute_hash, current_object_addr_as_int
+from rpython.rlib.objectmodel import (
+    compute_hash, current_object_addr_as_int, assert_)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, r_longlong, intmask, longlongmask
 from rpython.rtyper.lltypesystem import rffi, lltype
@@ -145,7 +146,7 @@ class TestTypedTestCase(object):
     def test_memoryerror(self):
         def g(i):
             return [0] * i
-        
+
         def f(i):
             try:
                 lst = g(i)
@@ -613,7 +614,7 @@ class TestTypedTestCase(object):
             if algo == "siphash24":
                 from rpython.rlib import rsiphash
                 rsiphash.enable_siphash24()
-            assert length >= 1
+            assert_(length >= 1)
             return str((compute_hash(s),
                         compute_hash(u),
                         compute_hash(v),
@@ -657,7 +658,7 @@ class TestTypedTestCase(object):
             #       didn't do the initial rehashing on its own
             for key, h in objectmodel.iterkeys_with_hash(prebuilt_d):
                 print key, h
-                assert h == compute_hash(key)
+                assert_(h == compute_hash(key))
             return 42
 
         f = self.getcompiled(fn, [int])
@@ -759,7 +760,7 @@ class TestTypedTestCase(object):
                 return f(n)
             except StackOverflow:
                 return -42
-        
+
         def f(n):
             if n == 0:
                 return 1

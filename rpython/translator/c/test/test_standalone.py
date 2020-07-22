@@ -4,7 +4,7 @@ import textwrap
 
 from rpython.config.translationoption import get_combined_translation_config
 from rpython.config.translationoption import SUPPORT__THREAD
-from rpython.rlib.objectmodel import keepalive_until_here
+from rpython.rlib.objectmodel import keepalive_until_here, assert_
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.debug import ll_assert, have_debug_prints, debug_flush
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
@@ -245,18 +245,18 @@ class TestStandalone(StandaloneTests):
         t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=True)
         t.backendopt()
         exe = t.compile()
-        assert (os.path.isfile("%s" % exe))
+        assert os.path.isfile("%s" % exe)
 
         t = Translation(entry_point, backend='c', profopt=True, profoptargs="10", shared=False)
         t.backendopt()
         exe = t.compile()
-        assert (os.path.isfile("%s" % exe))
+        assert os.path.isfile("%s" % exe)
 
         import rpython.translator.goal.targetrpystonedalone as rpy
         t = Translation(rpy.entry_point, backend='c', profopt=True, profoptargs='1000', shared=False)
         t.backendopt()
         exe = t.compile()
-        assert (os.path.isfile("%s" % exe))
+        assert os.path.isfile("%s" % exe)
 
 
     if hasattr(os, 'setpgrp'):
@@ -297,7 +297,7 @@ class TestStandalone(StandaloneTests):
         filename = str(udir.join('test_standalone_largefile'))
         r4800000000 = r_longlong(4800000000L)
         def entry_point(argv):
-            assert str(r4800000000 + r_longlong(len(argv))) == '4800000003'
+            assert_(str(r4800000000 + r_longlong(len(argv))) == '4800000003')
             fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0644)
             os.lseek(fd, r4800000000, 0)
             newpos = os.lseek(fd, 0, 1)
@@ -794,7 +794,7 @@ class TestStandalone(StandaloneTests):
 
     def test_assertion_error_debug(self):
         def entry_point(argv):
-            assert len(argv) != 1
+            assert_(len(argv) != 1)
             return 0
         t, cbuilder = self.compile(entry_point, debug=True)
         out, err = cbuilder.cmdexec("", expect_crash=True)
@@ -804,7 +804,7 @@ class TestStandalone(StandaloneTests):
 
     def test_assertion_error_nondebug(self):
         def g(x):
-            assert x != 1
+            assert_(x != 1)
         def f(argv):
             try:
                 g(len(argv))
@@ -1120,7 +1120,7 @@ class TestStandalone(StandaloneTests):
             "NOT_RPYTHON"
         def entry_point(argv):
             state.seen += 100
-            assert state.seen == 101
+            assert_(state.seen == 101)
             print 'ok'
             enablestartup()
             return 0
@@ -1151,7 +1151,7 @@ class TestStandalone(StandaloneTests):
         # which, for some version of gcc8 compiler produced
         # out1 == out2
         from rpython.rlib.rarithmetic import intmask
-        
+
         def entry_point(argv):
             if len(argv) < 4:
                 print 'need 3 arguments, not %s' % str(argv)
@@ -1248,9 +1248,9 @@ class TestThread(object):
                     break
                 time.sleep(0.1)      # invokes before/after
             # check that the malloced structures were not overwritten
-            assert s1.x == 0x11111111
-            assert s2.x == 0x22222222
-            assert s3.x == 0x33333333
+            assert_(s1.x == 0x11111111)
+            assert_(s2.x == 0x22222222)
+            assert_(s3.x == 0x33333333)
             os.write(1, "done\n")
             return 0
 
@@ -1296,7 +1296,7 @@ class TestThread(object):
             rposix.set_saved_errno(value)
             for i in range(10000000):
                 pass
-            assert rposix.get_saved_errno() == value
+            assert_(rposix.get_saved_errno() == value)
 
         def bootstrap():
             rthread.gc_thread_start()
@@ -1331,15 +1331,15 @@ class TestThread(object):
                     break
                 time.sleep(0.1)      # invokes before/after
             # check that the malloced structures were not overwritten
-            assert x2.head == 51
-            assert x2.tail.head == 62
-            assert x2.tail.tail.head == 74
-            assert x2.tail.tail.tail is None
+            assert_(x2.head == 51)
+            assert_(x2.tail.head == 62)
+            assert_(x2.tail.tail.head == 74)
+            assert_(x2.tail.tail.tail is None)
             # check the structures produced by the threads
             for i in range(5):
-                assert state.xlist[i].head == 123
-                assert state.xlist[i].tail.head == 456
-                assert state.xlist[i].tail.tail is None
+                assert_(state.xlist[i].head == 123)
+                assert_(state.xlist[i].tail.head == 456)
+                assert_(state.xlist[i].tail.tail is None)
                 os.write(1, "%d ok\n" % (i+1))
             return 0
 
@@ -1368,8 +1368,8 @@ class TestThread(object):
                 print "Testing..."
             else:
                 pid, status = os.waitpid(childpid, 0)
-                assert pid == childpid
-                assert status == 0
+                assert_(pid == childpid)
+                assert_(status == 0)
                 print "OK."
             return 0
 

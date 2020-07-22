@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem.lltype import *
 from rpython.rtyper.lltypesystem import rffi
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.sourcetools import func_with_new_name
+from rpython.rlib.objectmodel import assert_
 
 
 class TestLowLevelType(object):
@@ -45,12 +46,12 @@ class TestLowLevelType(object):
             a3[2].v = -4
             a42[0][0] = -5
             a42[5][6] = -6
-            assert a7[0] == -1
-            assert a7[6] == -2
-            assert a3[0].v == -3
-            assert a3.item2.v == -4
-            assert a42[0][0] == -5
-            assert a42[5][6] == -6
+            assert_(a7[0] == -1)
+            assert_(a7[6] == -2)
+            assert_(a3[0].v == -3)
+            assert_(a3.item2.v == -4)
+            assert_(a42[0][0] == -5)
+            assert_(a42[5][6] == -6)
             return len(a42)*100 + len(a42[4])
         fn = self.getcompiled(llf, [])
         res = fn()
@@ -64,7 +65,7 @@ class TestLowLevelType(object):
         def llf():
             tree.root[0].a = tree.root
             tree.root[1].a = tree.other
-            assert tree.root[0].a[0].a[0].a[0].a[0].a[1].a == tree.other
+            assert_(tree.root[0].a[0].a[0].a[0].a[0].a[1].a == tree.other)
         fn = self.getcompiled(llf, [])
         fn()
 
@@ -80,7 +81,7 @@ class TestLowLevelType(object):
             s = ''
             for i in range(5):
                 s += chr(64+a[i])
-            assert s == "HELLO"
+            assert_(s == "HELLO")
         fn = self.getcompiled(llf, [])
         fn()
 
@@ -555,9 +556,9 @@ class TestLowLevelType(object):
             for i in xrange(len(data)):
                 a[i] = data[i]
             a2 = rffi.ptradd(a, 2)
-            assert typeOf(a2) == typeOf(a) == Ptr(ARRAY_OF_CHAR)
+            assert_(typeOf(a2) == typeOf(a) == Ptr(ARRAY_OF_CHAR))
             for i in xrange(len(data) - 2):
-                assert a2[i] == a[i + 2]
+                assert_(a2[i] == a[i + 2])
             free(a, flavor='raw')
 
         fn = self.getcompiled(llf, [])
@@ -610,7 +611,7 @@ class TestLowLevelType(object):
             s = ''
             for i in range(5):
                 s += chr(64+a[i])
-            assert s == "HELLO"
+            assert_(s == "HELLO")
         fn = self.getcompiled(llf, [])
         fn()
 
@@ -628,7 +629,7 @@ class TestLowLevelType(object):
                 s = ''
                 for i in range(5):
                     s += a[i]
-                assert s == "85?!" + lastchar
+                assert_(s == "85?!" + lastchar)
             fn = self.getcompiled(llf, [])
             fn()
 
@@ -793,12 +794,12 @@ class TestLowLevelType(object):
                 # ARM has stronger rules about aligned memory access
                 # so according to the rules for round_up_for_allocation
                 # we get two words here
-                assert ssize == llmemory.sizeof(Signed) * 2
+                assert_(ssize == llmemory.sizeof(Signed) * 2)
             else:
-                assert ssize == llmemory.sizeof(Signed)
-            assert msize == llmemory.sizeof(Signed) * 2
-            assert smsize == msize
-            assert mssize == msize
+                assert_(ssize == llmemory.sizeof(Signed))
+            assert_(msize == llmemory.sizeof(Signed) * 2)
+            assert_(smsize == msize)
+            assert_(mssize == msize)
         #
         def f():
             check(glob_sizes)
@@ -1029,10 +1030,10 @@ class TestLowLevelType(object):
         def check(lst):
             hashes = []
             for i, (s, a) in enumerate(lst):
-                assert a.x == i
+                assert_(a.x == i)
                 rgc.ll_write_final_null_char(s)
             for i, (s, a) in enumerate(lst):
-                assert a.x == i     # check it was not overwritten
+                assert_(a.x == i)     # check it was not overwritten
         def f():
             check(prebuilt)
             lst1 = []

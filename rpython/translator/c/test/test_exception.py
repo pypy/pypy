@@ -4,6 +4,7 @@ from rpython.translator.c.test import test_typed
 from rpython.translator.c.test import test_backendoptimized
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import ovfcheck
+from rpython.rlib.objectmodel import assert_
 
 getcompiled = test_typed.TestTypedTestCase().getcompiled
 getcompiledopt = test_backendoptimized.TestTypedOptimizedTestCase().getcompiled
@@ -117,7 +118,7 @@ def test_memoryerror():
 
 def test_assert():
     def testfn(n):
-        assert n >= 0
+        assert_(n >= 0)
 
     f1 = getcompiled(testfn, [int])
     res = f1(0)

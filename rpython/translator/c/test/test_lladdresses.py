@@ -1,7 +1,7 @@
 import py, sys
 from rpython.rtyper.lltypesystem.llmemory import *
 from rpython.translator.c.test.test_genc import compile
-from rpython.rlib.objectmodel import free_non_gc_object
+from rpython.rlib.objectmodel import free_non_gc_object, assert_
 
 def test_null():
     def f():
@@ -64,10 +64,10 @@ def test_memory_float():
         s.x = 123.2
         a = cast_ptr_to_adr(s)
         b = a + offset
-        assert b.float[0] == 123.2
+        assert_(b.float[0] == 123.2)
         b.float[0] = 234.1
         (a + offsety).float[0] = value
-        assert s.x == 234.1
+        assert_(s.x == 234.1)
         return s.x + value
     fc = compile(f, [float])
     res = fc(42.42)
@@ -90,7 +90,7 @@ def test_pointer_arithmetic():
     def f(offset, char):
         char = chr(char)
         addr = raw_malloc(10000)
-        same_offset = (addr + 2 * offset - offset) - addr 
+        same_offset = (addr + 2 * offset - offset) - addr
         addr.char[offset] = char
         result = (addr + same_offset).char[0]
         raw_free(addr)

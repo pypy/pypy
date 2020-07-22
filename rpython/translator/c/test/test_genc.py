@@ -589,7 +589,7 @@ def test_ordered_dict():
     d = OrderedDict(expected)
 
     def f():
-        assert d.items() == expected
+        assert_(d.items() == expected)
 
     fn = compile(f, [])
     fn()

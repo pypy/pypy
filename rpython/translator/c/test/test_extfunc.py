@@ -2,6 +2,7 @@ import py
 import os, time, sys
 from rpython.tool.udir import udir
 from rpython.rlib.rarithmetic import r_longlong
+from rpython.rlib.objectmodel import assert_
 from rpython.annotator import model as annmodel
 from rpython.translator.c.test.test_genc import compile
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -54,13 +55,13 @@ def test_open_read_write_seek_close():
     def does_stuff():
         fd = os.open(filename, os.O_WRONLY | os.O_CREAT, 0777)
         count = os.write(fd, "hello world\n")
-        assert count == len("hello world\n")
+        assert_(count == len("hello world\n"))
         os.close(fd)
         fd = os.open(filename, os.O_RDONLY, 0777)
         result = os.lseek(fd, 1, 0)
-        assert result == 1
+        assert_(result == 1)
         data = os.read(fd, 500)
-        assert data == "ello world\n"
+        assert_(data == "ello world\n")
         os.close(fd)
 
     f1 = compile(does_stuff, [])
@@ -95,7 +96,7 @@ def test_ftruncate():
         fd = os.open(filename, os.O_RDWR, 0777)
         os.ftruncate(fd, 5)
         data = os.read(fd, 500)
-        assert data == "hello"
+        assert_(data == "hello")
         os.close(fd)
     does_stuff()
     f1 = compile(does_stuff, [])
@@ -123,11 +124,11 @@ def test_largefile():
         fd = os.open(filename, os.O_RDWR | os.O_CREAT, 0666)
         os.ftruncate(fd, r10000000000)
         res = os.lseek(fd, r9900000000, 0)
-        assert res == r9900000000
+        assert_(res == r9900000000)
         res = os.lseek(fd, -r5000000000, 1)
-        assert res == r4900000000
+        assert_(res == r4900000000)
         res = os.lseek(fd, -r5200000000, 2)
-        assert res == r4800000000
+        assert_(res == r4800000000)
         os.close(fd)
         try:
             os.lseek(fd, 0, 0)
@@ -137,7 +138,7 @@ def test_largefile():
             print "DID NOT RAISE"
             raise AssertionError
         st = os.stat(filename)
-        assert st.st_size == r10000000000
+        assert_(st.st_size == r10000000000)
     does_stuff()
     os.unlink(filename)
     f1 = compile(does_stuff, [])
@@ -185,7 +186,7 @@ def test_os_stat_raises_winerror():
             os.stat("nonexistentdir/nonexistentfile")
         except WindowsError as e:
             return e.winerror
-        return 0    
+        return 0
     f = compile(call_stat, [])
     res = f()
     expected = call_stat()
@@ -329,24 +330,24 @@ def test_pipe_dup_dup2():
         a, b = os.pipe()
         c = os.dup(a)
         d = os.dup(b)
-        assert a != b
-        assert a != c
-        assert a != d
-        assert b != c
-        assert b != d
-        assert c != d
+        assert_(a != b)
+        assert_(a != c)
+        assert_(a != d)
+        assert_(b != c)
+        assert_(b != d)
+        assert_(c != d)
         os.close(c)
         os.dup2(d, c)
         e, f = os.pipe()
-        assert e != a
-        assert e != b
-        assert e != c
-        assert e != d
-        assert f != a
-        assert f != b
-        assert f != c
-        assert f != d
-        assert f != e
+        assert_(e != a)
+        assert_(e != b)
+        assert_(e != c)
+        assert_(e != d)
+        assert_(f != a)
+        assert_(f != b)
+        assert_(f != c)
+        assert_(f != d)
+        assert_(f != e)
         os.close(a)
         os.close(b)
         os.close(c)
@@ -466,7 +467,7 @@ if hasattr(os, 'link'):
         def does_stuff():
             os.symlink(tmpfile1, tmpfile2)
             os.link(tmpfile1, tmpfile3)
-            assert os.readlink(tmpfile2) == tmpfile1
+            assert_(os.readlink(tmpfile2) == tmpfile1)
             flag= 0
             st = os.lstat(tmpfile1)
             flag = flag*10 + stat.S_ISREG(st[0])
@@ -491,7 +492,7 @@ if hasattr(os, 'fork'):
             if pid == 0:   # child
                 os._exit(4)
             pid1, status1 = os.waitpid(pid, 0)
-            assert pid1 == pid
+            assert_(pid1 == pid)
             return status1
         f1 = compile(does_stuff, [])
         status1 = f1()
@@ -507,7 +508,7 @@ if hasattr(os, 'fork'):
                     os._exit(4)
                 os.kill(pid, signal.SIGTERM)  # in the parent
                 pid1, status1 = os.waitpid(pid, 0)
-                assert pid1 == pid
+                assert_(pid1 == pid)
                 return status1
             f1 = compile(does_stuff, [])
             status1 = f1()
@@ -527,7 +528,7 @@ elif hasattr(os, 'waitpid'):
             #if pid == 0:   # child
             #    os._exit(4)
             pid1, status1 = os.waitpid(pid, 0)
-            assert pid1 == pid
+            assert_(pid1 == pid)
             return status1
         f1 = compile(does_stuff, [])
         status1 = f1()

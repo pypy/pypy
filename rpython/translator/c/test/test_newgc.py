@@ -1823,12 +1823,12 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         def f(should_disable):
             x1 = X()
             rgc.collect() # make x1 old
-            assert not rgc.can_move(x1)
+            assert_(not rgc.can_move(x1))
             x1 = None
             #
             if should_disable:
                 gc.disable()
-                assert not gc.isenabled()
+                assert_(not gc.isenabled())
             # try to trigger a major collection
             N = 100 # this should be enough, increase if not
             lst = []
@@ -1837,7 +1837,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                 #print i, counter.val
             #
             gc.enable()
-            assert gc.isenabled()
+            assert_(gc.isenabled())
             return counter.val
         return f
 
@@ -1862,7 +1862,7 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
         def f():
             x1 = X()
             rgc.collect() # make x1 old
-            assert not rgc.can_move(x1)
+            assert_(not rgc.can_move(x1))
             x1 = None
             #
             gc.disable()
@@ -1876,11 +1876,11 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                     break
                 if n == 100:
                     print 'Endless loop!'
-                    assert False, 'this looks like an endless loop'
-                
+                    assert_(False, 'this looks like an endless loop')
+
             if n < 4: # we expect at least 4 steps
                 print 'Too few steps! n =', n
-                assert False
+                assert_(False)
 
             # check that the state transitions are reasonable
             first_state, _ = states[0]
@@ -1888,9 +1888,9 @@ class TestIncrementalMiniMarkGC(TestMiniMarkGC):
                 is_last = (i == len(states) - 1)
                 is_valid = False
                 if is_last:
-                    assert old_state != new_state == first_state
+                    assert_(old_state != new_state == first_state)
                 else:
-                    assert new_state == old_state or new_state == old_state+1
+                    assert_(new_state == old_state or new_state == old_state+1)
 
             return counter.val
         return f
