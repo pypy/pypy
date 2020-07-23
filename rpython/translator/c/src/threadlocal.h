@@ -138,7 +138,7 @@ RPY_EXTERN pthread_key_t pypy_threadlocal_key;
 // we need pypy_threadlocal_s.
 #include <src/thread.h>
 
-static INLINE long _rpygil_get_my_ident(void)
+static INLINE Signed _rpygil_get_my_ident(void)
 {
 #ifdef RPY_TLOFS_thread_ident
     struct pypy_threadlocal_s *p = (struct pypy_threadlocal_s *)_RPy_ThreadLocals_Get();
@@ -150,7 +150,7 @@ static INLINE long _rpygil_get_my_ident(void)
 #endif
 }
 
-static INLINE int _rpygil_acquire_fast_path(void)
+static INLINE Signed _rpygil_acquire_fast_path(void)
 {
     return pypy_compare_and_swap(&rpy_fastgil, 0, _rpygil_get_my_ident());
 }
@@ -164,10 +164,10 @@ static INLINE void _RPyGilRelease(void) {
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
     pypy_lock_release(&rpy_fastgil);
 }
-static INLINE long *_RPyFetchFastGil(void) {
+static INLINE Signed *_RPyFetchFastGil(void) {
     return &rpy_fastgil;
 }
-static INLINE long _RPyGilGetHolder(void) {
+static INLINE Signed _RPyGilGetHolder(void) {
     return rpy_fastgil;
 }
 

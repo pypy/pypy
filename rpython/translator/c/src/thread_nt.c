@@ -20,10 +20,11 @@ typedef struct RPyOpaque_ThreadLock NRMUTEX, *PNRMUTEX;
 typedef struct {
 	void (*func)(void *);
 	void *arg;
-	long id;
+	Signed id;
 	HANDLE done;
 } callobj;
 
+/* win64: _beginthread takes a UINT so we can store this in a long */
 static long _pypythread_stacksize = 0;
 
 static void gil_fatal(const char *msg, DWORD dw) {
@@ -40,22 +41,22 @@ bootstrap(void *call)
 	void (*func)(void *) = obj->func;
 	void *arg = obj->arg;
 
-	obj->id = GetCurrentThreadId();
+	obj->id = (Signed)GetCurrentThreadId();
 	if (!ReleaseSemaphore(obj->done, 1, NULL))
         gil_fatal("bootstrap ReleaseSemaphore", 0);
 	func(arg);
 }
 
-long RPyThreadStart(void (*func)(void))
+Signed RPyThreadStart(void (*func)(void))
 {
     /* a kind-of-invalid cast, but the 'func' passed here doesn't expect
        any argument, so it's unlikely to cause problems */
     return RPyThreadStartEx((void(*)(void *))func, NULL);
 }
 
-long RPyThreadStartEx(void (*func)(void *), void *arg)
+Signed RPyThreadStartEx(void (*func)(void *), void *arg)
 {
-	unsigned long rv;
+	Unsigned rv;
 	callobj obj;
 
 	obj.id = -1;	/* guilty until proved innocent */
@@ -66,7 +67,7 @@ long RPyThreadStartEx(void (*func)(void *), void *arg)
 		return -1;
 
 	rv = _beginthread(bootstrap, _pypythread_stacksize, &obj);
-	if (rv == (unsigned long)-1) {
+	if (rv == (Unsigned)-1) {
 		/* I've seen errno == EAGAIN here, which means "there are
 		 * too many threads".
 		 */
@@ -87,15 +88,18 @@ long RPyThreadStartEx(void (*func)(void *), void *arg)
 /************************************************************/
 
 /* minimum/maximum thread stack sizes supported */
+/* win64: _beginthread takes a UINT, so max must be <4GB.
+   It is also stored in a LONG (see above), it must be <2GB.
+   The functions below take Signed to simplify Python code. */
 #define THREAD_MIN_STACKSIZE    0x8000      /* 32kB */
 #define THREAD_MAX_STACKSIZE    0x10000000  /* 256MB */
 
-long RPyThreadGetStackSize(void)
+Signed RPyThreadGetStackSize(void)
 {
 	return _pypythread_stacksize;
 }
 
-long RPyThreadSetStackSize(long newsize)
+Signed RPyThreadSetStackSize(Signed newsize)
 {
 	if (newsize == 0) {    /* set to default */
 		_pypythread_stacksize = 0;
@@ -104,7 +108,7 @@ long RPyThreadSetStackSize(long newsize)
 
 	/* check the range */
 	if (newsize >= THREAD_MIN_STACKSIZE && newsize < THREAD_MAX_STACKSIZE) {
-		_pypythread_stacksize = newsize;
+		_pypythread_stacksize = (long) newsize;
 		return 0;
 	}
 	return -1;
@@ -214,7 +218,7 @@ int RPyThreadAcquireLock(struct RPyOpaque_ThreadLock *lock, int waitflag)
     return RPyThreadAcquireLockTimed(lock, waitflag ? -1 : 0, /*intr_flag=*/0);
 }
 
-long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
+Signed RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 {
     if (LeaveNonRecursiveMutex(lock))
         return 0;   /* success */
@@ -276,8 +280,13 @@ static INLINE void mutex1_unlock(mutex1_t *mutex) {
 }
 
 //#define pypy_lock_test_and_set(ptr, value)  see thread_nt.h
+#ifdef _WIN64
+#define atomic_increment(ptr)          InterlockedIncrement64(ptr)
+#define atomic_decrement(ptr)          InterlockedDecrement64(ptr)
+#else
 #define atomic_increment(ptr)          InterlockedIncrement(ptr)
 #define atomic_decrement(ptr)          InterlockedDecrement(ptr)
+#endif
 #ifdef YieldProcessor
 #  define RPy_YieldProcessor()         YieldProcessor()
 #else
