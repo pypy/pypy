@@ -111,7 +111,7 @@ def _fits_into_signed(TYPE):
 # ======================================================================
 
 IS_32_BIT = (r_uint.BITS == 32)
-IS_WIN64 = os.name == 'nt' and not IS_32_BIT
+IS_WIN64 = os.name == 'nt' and (r_uint.BITS == 64)
 
 @specialize.memo()
 def _check_type(TYPE):
