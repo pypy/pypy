@@ -191,7 +191,7 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
     RPyLockStatus success;
-    RPY_TIMEOUT_T milliseconds;
+    RPY_TIMEOUT_T milliseconds = -1;
 
     if (microseconds >= 0) {
         milliseconds = microseconds / 1000;
