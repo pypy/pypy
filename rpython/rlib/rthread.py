@@ -163,7 +163,9 @@ class Lock(object):
 
     def acquire(self, flag):
         if flag:
-            c_thread_acquirelock(self._lock, 1)
+            res = c_thread_acquirelock(self._lock, 1)
+            if rffi.cast(lltype.Signed, res) != 1:
+                raise error("lock acquire returned an unexpected error")
             return True
         else:
             res = c_thread_acquirelock_timed_NOAUTO(
