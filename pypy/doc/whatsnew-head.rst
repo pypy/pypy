@@ -38,3 +38,7 @@ array with proper GC support. Improves ``while lst: lst.pop(0)``.
 .. branch: no-str-unicode-union
 
 Remove all implicit str-unicode conversions in RPython.
+
+.. brach: initialize_lock_timeout_on_windows
+
+Fix uninitialized value in rlock.acquire on windows, fixes issue 3252
