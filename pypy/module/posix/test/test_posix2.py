@@ -1688,7 +1688,6 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
 
