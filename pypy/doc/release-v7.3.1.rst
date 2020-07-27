@@ -125,7 +125,7 @@ Changes shared across versions
 ------------------------------
 - We now package and ship the script to rebuild all the stdlib helper modules
   that on CPython are written as c-extensions and in PyPy use CFFI. These are
-  located in ``lib_pypy``, and the build script in ``lib_pypy/tools``.
+  located in ``lib_pypy``, and the build script in ``lib_pypy/pypy_tools``.
 - Implement CPython 16055_: Fixes incorrect error text for
   ``int('1', base=1000)``.
 - Handle NaN correctly in ``array.array``.
