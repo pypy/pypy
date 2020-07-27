@@ -36,6 +36,10 @@ typedef struct {
     long bottom;
 } RECT;
 
+typedef struct {
+    unsigned char a, b, c;
+} THREEBYTES;
+
 
 EXPORT int PointInRect(RECT *prc, POINT pt)
 {
@@ -107,6 +111,15 @@ EXPORT unsigned int foo_4bytes(unsigned int a)
 EXPORT void modify_struct_value(RECT r)
 {
     r.left = r.right = r.top = r.bottom = 500;
+}
+
+EXPORT THREEBYTES return_three_bytes(void)
+{
+    THREEBYTES result;
+    result.a = 12;
+    result.b = 34;
+    result.c = 56;
+    return result;
 }
 """
 
@@ -398,3 +411,22 @@ class TestOwnLib(object):
 
         err = lib1.dlclose(handle)
         assert err == 0
+
+    def test_return_three_bytes(self):
+        if self.module is None:
+            py.test.skip("fix the auto-generation of the tiny test lib")
+        if self.__class__.Backend is CTypesBackend:
+            py.test.skip("not working on win32 on the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef struct {
+                unsigned char a, b, c;
+            } THREEBYTES;
+
+            THREEBYTES return_three_bytes(void);
+        """)
+        lib = ffi.dlopen(self.module)
+        tb = lib.return_three_bytes()
+        assert tb.a == 12
+        assert tb.b == 34
+        assert tb.c == 56
