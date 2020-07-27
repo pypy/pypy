@@ -169,9 +169,18 @@ class AppTestScandir(object):
         raises(OSError, d.is_dir)
         assert d.is_symlink()
 
-    def test_fdopendir_unsupported(self):
+    def test_fdopendir(self):
         posix = self.posix
-        raises(TypeError, posix.scandir, 1234)
+        if 'HAVE_FDOPENDIR' in posix._have_functions:
+            raises(OSError, posix.scandir, 1234)
+            fd = posix.open(self.dir1, posix.O_RDONLY)
+            try:
+                d = next(posix.scandir(fd))
+                assert d.name == 'file1'
+            finally:
+                posix.close(fd)
+        else:
+            raises(ValueError, posix.scandir, 1234)
 
     def test_inode(self):
         posix = self.posix

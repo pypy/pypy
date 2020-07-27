@@ -4,41 +4,55 @@ from rpython.rlib import rgc
 from rpython.rlib import rposix, rposix_scandir, rposix_stat
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, interp2app
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
+from pypy.interpreter.error import (OperationError, oefmt, wrap_oserror,
+                                    wrap_oserror2)
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 
-from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
+from pypy.module.posix.interp_posix import (path_or_fd, build_stat_result,
+                                            _WIN32, dup)
 
 
 # XXX: update os.supports_fd when fd support is implemented
-def scandir(space, w_path=None):
+@unwrap_spec(path=path_or_fd(allow_fd=rposix.HAVE_FDOPENDIR, nullable=True))
+def scandir(space, path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
-    if space.is_none(w_path):
-        w_path = space.newtext(".")
-
-    if _WIN32:
-        # accepts unicode or path-like
-        if space.isinstance_w(w_path, space.w_bytes):
-            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
-                                           " on Windows, use Unicode instead")
-        path = space.fsencode_w(w_path).decode('utf-8')
+    try:
+        space._try_buffer_w(path.w_path, space.BUF_FULL_RO)
+    except BufferInterfaceNotFound:
+        as_bytes = (path.as_unicode is None)
         result_is_bytes = False
     else:
-        # accepts unicode, bytes, or path-like
-        if space.isinstance_w(w_path, space.w_bytes):
-            path = space.bytes0_w(w_path)
-            result_is_bytes = True
-        else:
-            path = space.fsencode_w(w_path)
-            result_is_bytes = False
-
-    # now 'path' is always bytes on posix and always unicode on windows
-    try:
-        dirp = rposix_scandir.opendir(path)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    path_prefix = path
+        as_bytes = True
+        result_is_bytes = True
+    if path.as_fd != -1:
+        if not rposix.HAVE_FDOPENDIR:
+            # needed for translation, in practice this is dead code
+            raise oefmt(space.w_TypeError,
+                "scandir: illegal type for path argument")
+        try:
+            dirfd = rposix.dup(path.as_fd, inheritable=False)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        dirp = rposix.c_fdopendir(dirfd)
+        if not dirp:
+            rposix.c_close(dirfd)
+            e = rposix.get_saved_errno()
+            raise oefmt(space.w_ValueError, "invalid fd %d", path.as_fd)
+        path_prefix = ''
+    elif as_bytes:
+        path_prefix = path.as_bytes
+        try:
+            dirp = rposix_scandir.opendir(path.as_bytes)
+        except OSError as e:
+            raise wrap_oserror2(space, e, space.newbytes(path.as_bytes), eintr_retry=False)
+    else:
+        path_prefix = path.as_unicode
+        try:
+            dirp = rposix_scandir.opendir(path.as_unicode)
+        except OSError as e:
+            raise wrap_oserror2(space, e, space.newtext(path.as_unicode), eintr_retry=False)
     if not _WIN32:
         if len(path_prefix) > 0 and path_prefix[-1] != '/':
             path_prefix += '/'
