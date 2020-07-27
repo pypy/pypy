@@ -10,6 +10,8 @@
 #pragma comment(lib,"ws2_32.lib")   /* for getsockopt() and send() */
 #else
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #endif
 #include <signal.h>
 

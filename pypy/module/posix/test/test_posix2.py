@@ -48,8 +48,11 @@ def setup_module(mod):
     # an escaped surrogate
     mod.esurrogate_dir = udir.ensure(surrogate_name, dir=True)
 
-    mod.dir_unicode = udir.ensure(u'dir_extra', dir=True)
-    mod.dir_unicode.join(u'ca\u2014f\xe9').write('test')
+    try:
+        mod.dir_unicode = udir.ensure(u'dir_extra', dir=True)
+        mod.dir_unicode.join(u'ca\u2014f\xe9').write('test')
+    except UnicodeEncodeError:    # fsencoding can't encode that, skip tests
+        mod.dir_unicode = None
 
     # Initialize sys.filesystemencoding
     # space.call_method(space.getbuiltinmodule('sys'), 'getfilesystemencoding')
@@ -71,7 +74,8 @@ class AppTestPosix:
         cls.w_pdir = space.wrap(str(pdir))
         cls.w_bytes_dir = space.newbytes(str(bytes_dir))
         cls.w_esurrogate_dir = space.newbytes(str(esurrogate_dir))
-        cls.w_dir_unicode = space.wrap(unicode(dir_unicode))
+        cls.w_dir_unicode = space.wrap(unicode(dir_unicode)
+                                       if dir_unicode is not None else None)
         if hasattr(os, 'getuid'):
             cls.w_getuid = space.wrap(os.getuid())
             cls.w_geteuid = space.wrap(os.geteuid())
@@ -382,6 +386,8 @@ class AppTestPosix:
         assert expected in result
 
     def test_listdir_unicode(self):
+        if self.dir_unicode is None:
+            skip("couldn't encode unicode file name")
         posix = self.posix
         result = posix.listdir(self.dir_unicode)
         assert all(type(x) is str for x in result)
@@ -1693,7 +1699,6 @@ class AppTestPosix:
 
 class AppTestEnvironment(object):
     def setup_class(cls):
-        cls.w_posix = space.appexec([], GET_POSIX)
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
 
