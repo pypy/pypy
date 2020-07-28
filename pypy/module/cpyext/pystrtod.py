@@ -73,6 +73,7 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
                 else:
                     return -rfloat.INFINITY
             else:
+                rposix._set_errno(rffi.cast(rffi.INT, 0))
                 raise oefmt(w_overflow_exception, "value too large")
         return result
     finally:
