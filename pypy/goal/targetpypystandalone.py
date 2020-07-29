@@ -350,7 +350,7 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            filename = os.path.join(pypydir, '..', 'lib_pypy', 'tools',
+            filename = os.path.join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
             if sys.platform == 'darwin':
                 argv = [filename, '--embed-dependencies']

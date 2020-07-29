@@ -174,7 +174,7 @@ class MsvcPlatform(Platform):
     if _find_executable('jom.exe'):
         make = 'jom.exe'
 
-    cflags = ('/MD', '/O2', '/Zi')
+    cflags = ('/MD', '/O2', '/FS', '/Zi')
     link_flags = ('/debug','/LARGEADDRESSAWARE')
     standalone_only = ()
     shared_only = ()
@@ -190,7 +190,7 @@ class MsvcPlatform(Platform):
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
                 if x64:
-                    self.externals_branch = 'win34_%d' % self.vsver
+                    self.externals_branch = 'win64_%d' % self.vsver
                 else:
                     self.externals_branch = 'win32_%d' % self.vsver
         else:
