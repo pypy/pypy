@@ -47,7 +47,7 @@ if _WIN32:
 
     /* Get the module where the "fopen" function resides in */
     RPY_EXTERN
-    HANDLE pypy_get_libc_handle() {
+    HMODULE pypy_get_libc_handle() {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
