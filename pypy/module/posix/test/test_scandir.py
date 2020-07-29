@@ -171,14 +171,20 @@ class AppTestScandir(object):
 
     def test_fdopendir(self):
         posix = self.posix
+        import stat
         if 'HAVE_FDOPENDIR' in posix._have_functions:
             raises(OSError, posix.scandir, 1234)
-            fd = posix.open(self.dir1, posix.O_RDONLY)
+            # do like shutil._rmtree_safe_fd
+            topfd = posix.open(self.dir2, posix.O_RDONLY)
             try:
-                d = next(posix.scandir(fd))
-                assert d.name == 'file1'
+                with posix.scandir(topfd) as scandir_it:
+                    entries = list(scandir_it)
+                assert len(entries) > 0
+                entry = entries[0]
+                stat_val = entry.stat(follow_symlinks=False)
+                assert stat.S_ISDIR(stat_val.st_mode)
             finally:
-                posix.close(fd)
+                posix.close(topfd)
         else:
             raises(ValueError, posix.scandir, 1234)
 

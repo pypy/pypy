@@ -67,16 +67,17 @@ def scandir(space, path=None):
         dirfd = rposix.c_dirfd(dirp)
     else:
         dirfd = -1
-    return W_ScandirIterator(space, dirp, dirfd, w_path_prefix, result_is_bytes)
+    return W_ScandirIterator(space, dirp, dirfd, w_path_prefix, result_is_bytes, path.as_fd)
 
 
 class W_ScandirIterator(W_Root):
     _in_next = False
 
-    def __init__(self, space, dirp, dirfd, w_path_prefix, result_is_bytes):
+    def __init__(self, space, dirp, dirfd, w_path_prefix, result_is_bytes, orig_fd):
         self.space = space
         self.dirp = dirp
         self.dirfd = dirfd
+        self.orig_fd = orig_fd
         self.w_path_prefix = w_path_prefix
         self.result_is_bytes = result_is_bytes
         self.register_finalizer(space)
@@ -228,7 +229,7 @@ class W_DirEntry(W_Root):
             """Get the lstat() of the direntry."""
             if (self.flags & FLAG_LSTAT) == 0:
                 # Unlike CPython, try to use fstatat() if possible
-                dirfd = self.scandir_iterator.dirfd
+                dirfd = self.scandir_iterator.orig_fd
                 if rposix.HAVE_FSTATAT and dirfd != -1:
                     st = rposix_stat.fstatat(self.name, dirfd,
                                              follow_symlinks=False)
@@ -273,7 +274,7 @@ class W_DirEntry(W_Root):
 
                 if must_call_stat:
                     # Must call stat().  Try to use fstatat() if possible
-                    dirfd = self.scandir_iterator.dirfd
+                    dirfd = self.scandir_iterator.orig_fd
                     if dirfd != -1 and rposix.HAVE_FSTATAT:
                         st = rposix_stat.fstatat(self.name, dirfd,
                                                  follow_symlinks=True)
