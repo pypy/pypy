@@ -47,20 +47,20 @@ if _WIN32:
 
     /* Get the module where the "fopen" function resides in */
     RPY_EXTERN
-    HANDLE pypy_get_libc_handle(void) {
+    HMODULE pypy_get_libc_handle(void) {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
 
         if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
-            return 0;
+            return (HMODULE)0;
 
         GetModuleFileName((HMODULE)mi.AllocationBase, buf, 500);
 
         return (HMODULE)mi.AllocationBase;
     }
     ''']
-    post_include_bits = ['RPY_EXTERN HANDLE pypy_get_libc_handle(void);\n']
+    post_include_bits = ['RPY_EXTERN HMODULE pypy_get_libc_handle(void);\n',]
 else:
     separate_module_sources = []
     post_include_bits = []
