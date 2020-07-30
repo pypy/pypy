@@ -60,7 +60,7 @@ if _WIN32:
         return (HMODULE)mi.AllocationBase;
     }
     ''']
-    post_include_bits=['HMODULE pypy_get_libc_handle(void)',]
+    post_include_bits=['HMODULE pypy_get_libc_handle(void);',]
 else:
     separate_module_sources = []
     post_include_bits = []
