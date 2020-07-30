@@ -189,6 +189,7 @@ class MsvcPlatform(Platform):
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
+                self.version = "MSVC %s" % str(self.vsver)
                 if x64:
                     self.externals_branch = 'win64_%d' % self.vsver
                 else:
