@@ -1700,7 +1700,7 @@ else:
         size = sizeof(_c.in_addr)
         buf = mallocbuf(size)
         try:
-            rffi.cast(rffi.UINTP, buf)[0] = packed_addr
+            rffi.cast(rffi.UINTP, buf)[0] = rffi.cast(rffi.UINT, packed_addr)
             return ''.join([buf[i] for i in range(size)])
         finally:
             lltype.free(buf, flavor='raw')
