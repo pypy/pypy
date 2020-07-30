@@ -1169,10 +1169,12 @@ class TestStandalone(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point)
-        # windows interprets > as redirection, escape with ^
-        # TODO cross-platform fix
-        out1 = cbuilder.cmdexec(args=['i', '^>', '64'])
-        out2 = cbuilder.cmdexec(args=['f', '^>', '64'])
+        arg2 = '>'
+        if sys.platform == 'win32':
+            # windows interprets > as redirection, escape with ^
+            arg2 = '^>'
+        out1 = cbuilder.cmdexec(args=['i', arg2, '64'])
+        out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
         assert out1 != out2
 
 
