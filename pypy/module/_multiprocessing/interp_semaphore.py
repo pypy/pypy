@@ -4,7 +4,7 @@ import sys
 import time
 
 from rpython.rlib import jit, rgc, rthread
-from rpython.rlib.rarithmetic import r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -316,7 +316,7 @@ if sys.platform == 'win32':
         try:
             if not _ReleaseSemaphore(self.handle, 1, previous_ptr):
                 raise rwin32.lastSavedWindowsError("ReleaseSemaphore")
-            return previous_ptr[0] + 1
+            return intmask(previous_ptr[0]) + 1
         finally:
             lltype.free(previous_ptr, flavor='raw')
 
