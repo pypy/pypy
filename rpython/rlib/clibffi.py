@@ -53,15 +53,17 @@ if _WIN32:
         memset(&mi, 0, sizeof(mi));
 
         if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
-            return 0;
+            return (HMODULE)0;
 
         GetModuleFileName((HMODULE)mi.AllocationBase, buf, 500);
 
         return (HMODULE)mi.AllocationBase;
     }
     ''']
+    post_include_bits=['HMODULE pypy_get_libc_handle(void)',]
 else:
     separate_module_sources = []
+    post_include_bits = []
 
 
 if not _WIN32:
@@ -80,6 +82,7 @@ if not _WIN32:
         includes = includes,
         libraries = libraries,
         separate_module_sources = separate_module_sources,
+        post_include_bits = post_include_bits,
         include_dirs = platform.include_dirs_for_libffi(),
         library_dirs = platform.library_dirs_for_libffi(),
         link_files = link_files,
@@ -93,6 +96,7 @@ elif _MINGW:
         libraries = libraries,
         includes = includes,
         separate_module_sources = separate_module_sources,
+        post_include_bits = post_include_bits,
         )
 
     eci = rffi_platform.configure_external_library(
@@ -113,6 +117,7 @@ else:
         libraries = ['kernel32'],
         include_dirs = [libffidir, cdir],
         separate_module_sources = separate_module_sources,
+        post_include_bits = post_include_bits,
         separate_module_files = [libffidir.join('ffi.c'),
                                  libffidir.join('prep_cif.c'),
                                  libffidir.join(asm_ifc),
