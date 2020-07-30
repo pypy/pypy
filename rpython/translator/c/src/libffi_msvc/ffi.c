@@ -46,7 +46,7 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
   register ffi_type **p_arg;
 
   argp = stack;
-  if (ecif->cif->rtype->type == FFI_TYPE_STRUCT)
+  if (ecif->cif->flags == FFI_TYPE_STRUCT)
     {
       *(void **) argp = ecif->rvalue;
       argp += sizeof(void *);
@@ -102,6 +102,15 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
 	      FFI_ASSERT(0);
 	    }
 	}
+#ifdef _WIN64
+      else if (z != 1 && z != 2 && z != 4 && z != 8)
+        {
+          /* On Win64, if a single argument takes more than 8 bytes,
+             then it is always passed by reference. */
+          *(void **)argp = *p_argv;
+          z = 8;
+        }
+#endif
       else
 	{
 	  memcpy(argp, *p_argv, z);
@@ -110,7 +119,7 @@ void ffi_prep_args(char *stack, extended_cif *ecif)
       argp += z;
     }
 
-  if (argp - stack > ecif->cif->bytes) 
+  if (argp - stack > (long)ecif->cif->bytes)
     {
       ffi_fatalerror("FFI BUG: not enough stack space for arguments");
     }
@@ -124,12 +133,25 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
   switch (cif->rtype->type)
     {
     case FFI_TYPE_VOID:
-    case FFI_TYPE_STRUCT:
     case FFI_TYPE_SINT64:
     case FFI_TYPE_FLOAT:
     case FFI_TYPE_DOUBLE:
     case FFI_TYPE_LONGDOUBLE:
       cif->flags = (unsigned) cif->rtype->type;
+      break;
+
+    case FFI_TYPE_STRUCT:
+      /* MSVC returns small structures in registers.  Put in cif->flags
+         the value FFI_TYPE_STRUCT only if the structure is big enough;
+         otherwise, put the 4- or 8-bytes integer type. */
+      if (cif->rtype->size == 1 ||
+          cif->rtype->size == 2 ||
+          cif->rtype->size == 4)
+        cif->flags = FFI_TYPE_INT;
+      else if (cif->rtype->size == 8)
+        cif->flags = FFI_TYPE_SINT64;
+      else
+        cif->flags = FFI_TYPE_STRUCT;
       break;
 
     case FFI_TYPE_UINT64:
@@ -148,27 +170,12 @@ ffi_status ffi_prep_cif_machdep(ffi_cif *cif)
 }
 
 #ifdef _WIN32
-/*@-declundef@*/
-/*@-exportheader@*/
 extern int
-ffi_call_SYSV(void (*)(char *, extended_cif *), 
-	      /*@out@*/ extended_cif *, 
-	      unsigned, unsigned, 
-	      /*@out@*/ unsigned *, 
-	      void (*fn)());
-/*@=declundef@*/
-/*@=exportheader@*/
-
-/*@-declundef@*/
-/*@-exportheader@*/
-extern int
-ffi_call_STDCALL(void (*)(char *, extended_cif *),
-		 /*@out@*/ extended_cif *,
-		 unsigned, unsigned,
-		 /*@out@*/ unsigned *,
-		 void (*fn)());
-/*@=declundef@*/
-/*@=exportheader@*/
+ffi_call_x86(void (*)(char *, extended_cif *),
+            /*@out@*/ extended_cif *,
+            unsigned, unsigned,
+            /*@out@*/ unsigned *,
+            void (*fn)());
 #endif
 
 #ifdef _WIN64
@@ -195,7 +202,7 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
   /* value address then we need to make one		        */
 
   if ((rvalue == NULL) && 
-      (cif->rtype->type == FFI_TYPE_STRUCT))
+      (cif->flags == FFI_TYPE_STRUCT))
     {
       /*@-sysunrecog@*/
       ecif.rvalue = alloca(cif->rtype->size);
@@ -209,23 +216,14 @@ ffi_call(/*@dependent@*/ ffi_cif *cif,
     {
 #if !defined(_WIN64)
     case FFI_SYSV:
-      /*@-usedef@*/
-      return ffi_call_SYSV(ffi_prep_args, &ecif, cif->bytes, 
-			   cif->flags, ecif.rvalue, fn);
-      /*@=usedef@*/
-      break;
-
     case FFI_STDCALL:
-      /*@-usedef@*/
-      return ffi_call_STDCALL(ffi_prep_args, &ecif, cif->bytes,
-			      cif->flags, ecif.rvalue, fn);
-      /*@=usedef@*/
+      return ffi_call_x86(ffi_prep_args, &ecif, cif->bytes, 
+                         cif->flags, ecif.rvalue, fn);
       break;
 #else
     case FFI_SYSV:
       /*@-usedef@*/
-      /* Function call needs at least 40 bytes stack size, on win64 AMD64 */
-      return ffi_call_AMD64(ffi_prep_args, &ecif, cif->bytes ? cif->bytes : 40,
+      return ffi_call_AMD64(ffi_prep_args, &ecif, cif->bytes,
 			   cif->flags, ecif.rvalue, fn);
       /*@=usedef@*/
       break;
@@ -250,7 +248,7 @@ void *
 #else
 static void __fastcall
 #endif
-ffi_closure_SYSV (ffi_closure *closure, int *argp)
+ffi_closure_SYSV (ffi_closure *closure, char *argp)
 {
   // this is our return value storage
   long double    res;
@@ -260,7 +258,7 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
   void         **arg_area;
   unsigned short rtype;
   void          *resp = (void*)&res;
-  void *args = &argp[1];
+  void *args = argp + sizeof(void *);
 
   cif         = closure->cif;
   arg_area    = (void**) alloca (cif->nargs * sizeof (void*));  
@@ -291,15 +289,11 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
 	    _asm fld DWORD PTR [eax] ;
 //      asm ("flds (%0)" : : "r" (resp) : "st" );
     }
-  else if (rtype == FFI_TYPE_DOUBLE)
+  else if (rtype == FFI_TYPE_DOUBLE || rtype == FFI_TYPE_LONGDOUBLE)
     {
 	    _asm mov eax, resp ;
 	    _asm fld QWORD PTR [eax] ;
 //      asm ("fldl (%0)" : : "r" (resp) : "st", "st(1)" );
-    }
-  else if (rtype == FFI_TYPE_LONGDOUBLE)
-    {
-//      asm ("fldt (%0)" : : "r" (resp) : "st", "st(1)" );
     }
   else if (rtype == FFI_TYPE_SINT64)
     {
@@ -311,6 +305,10 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
 //	   : : "r"(resp)
 //	   : "eax", "edx");
     }
+  else if (rtype == FFI_TYPE_STRUCT)
+    {
+        _asm mov eax, resp ;
+    }
 #else
   /* now, do a generic return based on the value of rtype */
   if (rtype == FFI_TYPE_INT)
@@ -321,13 +319,9 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
     {
       asm ("flds (%0)" : : "r" (resp) : "st" );
     }
-  else if (rtype == FFI_TYPE_DOUBLE)
+  else if (rtype == FFI_TYPE_DOUBLE || rtype == FFI_TYPE_LONGDOUBLE)
     {
       asm ("fldl (%0)" : : "r" (resp) : "st", "st(1)" );
-    }
-  else if (rtype == FFI_TYPE_LONGDOUBLE)
-    {
-      asm ("fldt (%0)" : : "r" (resp) : "st", "st(1)" );
     }
   else if (rtype == FFI_TYPE_SINT64)
     {
@@ -335,6 +329,10 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
 	   "movl 4(%0),%%edx" 
 	   : : "r"(resp)
 	   : "eax", "edx");
+    }
+  else if (rtype == FFI_TYPE_STRUCT)
+    {
+      asm ("movl %0,%%eax" : : "r" (resp) : "eax");
     }
 #endif
 #endif
@@ -344,6 +342,8 @@ ffi_closure_SYSV (ffi_closure *closure, int *argp)
      result types except for floats; we have to 'mov xmm0, rax' in the
      caller to correct this.
   */
+  if (rtype == FFI_TYPE_STRUCT)
+      return resp;
   return *(void **)resp;
 #endif
 }
@@ -361,7 +361,7 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 
   argp = stack;
 
-  if ( cif->rtype->type == FFI_TYPE_STRUCT ) {
+  if ( cif->flags == FFI_TYPE_STRUCT ) {
     *rvalue = *(void **) argp;
     argp += 4;
   }
@@ -381,6 +381,16 @@ ffi_prep_incoming_args_SYSV(char *stack, void **rvalue,
 
       /* because we're little endian, this is what it turns into.   */
 
+#ifdef _WIN64
+      if (z != 1 && z != 2 && z != 4 && z != 8)
+        {
+          /* On Win64, if a single argument takes more than 8 bytes,
+             then it is always passed by reference. */
+          *p_argv = *((void**) argp);
+          z = 8;
+        }
+      else
+#endif
       *p_argv = (void*) argp;
 
       p_argv++;
@@ -402,7 +412,7 @@ ffi_prep_closure (ffi_closure* closure,
   short bytes;
   char *tramp;
 #ifdef _WIN64
-  int mask;
+  int mask = 0;
 #endif
   FFI_ASSERT (cif->abi == FFI_SYSV);
   
@@ -440,6 +450,11 @@ ffi_prep_closure (ffi_closure* closure,
        || cif->arg_types[3]->type == FFI_TYPE_DOUBLE))
     mask |= 8;
 
+  /* if we return a non-small struct, then the first argument is a pointer
+   * to the return area, and all real arguments are shifted by one */
+  if (cif->flags == FFI_TYPE_STRUCT)
+    mask = (mask & ~8) << 1;
+
   /* 41 BB ----         mov         r11d,mask */
   BYTES("\x41\xBB"); INT(mask);
 
@@ -475,6 +490,5 @@ ffi_prep_closure (ffi_closure* closure,
   closure->cif  = cif;
   closure->user_data = user_data;
   closure->fun  = fun;
-
   return FFI_OK;
 }
