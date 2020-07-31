@@ -46,17 +46,19 @@ if _WIN:
     from rpython.rlib import rwin32
     from pypy.interpreter.error import wrap_oserror
     from rpython.rlib import rthread as thread
-    from rpython.rlib.rsignal import eci
 
-    eci.includes = eci.includes + ('windows.h',)
-    eci.post_include_bits = eci.post_include_bits + (
+    eci = ExternalCompilationInfo(
+        includes = ['windows.h'],
+        post_include_bits = [
             "RPY_EXTERN\n"
             "BOOL pypy_timemodule_setCtrlHandler(HANDLE event);\n"
-            "RPY_EXTERN ULONGLONG pypy_GetTickCount64(FARPROC address);",
-            )
-    eci.separate_module_sources = eci.separate_module_sources + ('''
+            "RPY_EXTERN ULONGLONG pypy_GetTickCount64(FARPROC address);"
+        ],
+        separate_module_sources=['''
             /* this 'extern' is defined in translator/c/src/signals.c */
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
             extern HANDLE pypy_sigint_interrupt_event;
+            #endif
 
             static BOOL WINAPI CtrlHandlerRoutine(
               DWORD dwCtrlType)
@@ -66,7 +68,9 @@ if _WIN:
 
             BOOL pypy_timemodule_setCtrlHandler(HANDLE event)
             {
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
                 pypy_sigint_interrupt_event = event;
+            #endif
                 return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
             }
 
@@ -76,7 +80,8 @@ if _WIN:
                 return func();
             }
 
-        ''',)
+        '''],
+        )
     _setCtrlHandlerRoutine = rffi.llexternal(
         'pypy_timemodule_setCtrlHandler',
         [rwin32.HANDLE], rwin32.BOOL,
