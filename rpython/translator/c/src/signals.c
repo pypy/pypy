@@ -116,6 +116,11 @@ static void write_str(int fd, const char *p)
     res = write(fd, p, i);
 }
 
+#ifdef _WIN32
+/* this is set manually from pypy3's module/time/interp_time */
+HANDLE pypy_sigint_interrupt_event = NULL;
+#endif
+
 static void signal_setflag_handler(int signum)
 {
     pypysig_pushback(signum);
@@ -154,6 +159,11 @@ static void signal_setflag_handler(int signum)
         }
         errno = old_errno;
     }
+
+#ifdef _WIN32
+    if (signum == SIGINT && pypy_sigint_interrupt_event)
+        SetEvent(pypy_sigint_interrupt_event);
+#endif
 }
 
 void pypysig_setflag(int signum)

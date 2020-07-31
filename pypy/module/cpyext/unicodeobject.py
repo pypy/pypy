@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rstring
-from rpython.rlib.rarithmetic import widen
+from rpython.rlib.rarithmetic import widen, r_uint
 from rpython.rlib import rstring, rutf8
 from rpython.tool.sourcetools import func_renamer
 
@@ -18,7 +18,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj)
+    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
@@ -49,7 +49,6 @@ default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
 
 PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode")
 
-MAX_UNICODE = 1114111
 WCHAR_KIND = 0
 _1BYTE_KIND = 1
 _2BYTE_KIND = 2
@@ -357,7 +356,7 @@ def _readify(space, py_obj, value):
     for c in rutf8.Utf8StringIterator(value):
         if c > maxchar:
             maxchar = c
-            if maxchar > MAX_UNICODE:
+            if maxchar > rutf8.MAXUNICODE:
                 raise oefmt(space.w_ValueError,
                     "Character U+%s is not in range [U+0000; U+10ffff]",
                     '%x' % maxchar)
@@ -1264,7 +1263,7 @@ def PyUnicode_New(space, size, maxchar):
         if rffi.sizeof(lltype.UniChar) == 2:
             is_sharing = True
     else:
-        if maxchar > MAX_UNICODE:
+        if maxchar > rutf8.MAXUNICODE:
             raise oefmt(space.w_SystemError,
                         "invalid maximum character passed to PyUnicode_New")
         kind = _4BYTE_KIND
@@ -1301,3 +1300,70 @@ def PyUnicode_New(space, size, maxchar):
         set_wsize(pyobj, size)
         set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
     return pyobj
+
+@cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
+          Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
+def PyUnicode_FindChar(space, ref, ch, start, end, direction):
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    w_str = from_ref(space, ref)
+    ch = widen(ch)
+    if ch > rutf8.MAXUNICODE:
+        raise oefmt(space.w_ValueError, "character out of range")
+    w_ch = space.newtext(unichr(ch))
+    if rffi.cast(lltype.Signed, direction) > 0:
+        w_pos = space.call_method(w_str, "find", w_ch,
+                                  space.newint(start), space.newint(end))
+    else:
+        w_pos = space.call_method(w_str, "rfind", w_ch,
+                                  space.newint(start), space.newint(end))
+    return space.int_w(w_pos)
+
+@cts.decl("Py_UCS4 PyUnicode_ReadChar(PyObject *unicode, Py_ssize_t index)", error=-1)
+def PyUnicode_ReadChar(space, ref, index):
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    if not get_ready(ref):
+        PyErr_BadArgument(space)
+    if index < 0 or index > get_len(ref):
+        raise oefmt(space.w_IndexError, "string index out of range")
+    w_obj = from_ref(space, ref)
+    w_ch = space.getitem(w_obj, space.newint(index))
+    return space.int_w(space.ord(w_ch))
+        
+@cts.decl("int PyUnicode_WriteChar(PyObject *unicode, Py_ssize_t index, Py_UCS4 ch)", error=-1)
+def PyUnicode_WriteChar(space, ref, index, ch):
+    """ Write a single ch at index before ref is ready. In order for this to
+    succeed:
+    - ch and ref[index] when converted to utf8 must be the same length
+    - ref must not have a RPython object
+    - ref must not have been processed by _PyUnicode_Ready
+    """
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    if index < 0 or index > get_len(ref):
+        raise oefmt(space.w_IndexError, "string index out of range")
+    if get_ready(ref):
+        raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
+    if not has_utf8_memory(ref):
+        raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
+    # this is rarithetic.r_uint, not rffi.r_uint
+    ch = r_uint(ch)
+    if ch > rutf8.MAXUNICODE:
+        raise oefmt(space.w_ValueError, "character out of range")
+    utf8 = get_utf8(ref)
+    as_str = rffi.charp2str(utf8)
+    start = 0
+    if index > 0:
+        start = rutf8.next_codepoint_pos(as_str, index - 1)
+    end = rutf8.next_codepoint_pos(as_str, index)
+    ch_as_utf8 = rutf8.unichr_as_utf8(ch)
+    if len(ch_as_utf8) != end - start:
+        raise oefmt(space.w_ValueError, 
+                    'cannot write ch to string, would need to reallocate')
+    j = 0
+    for i in range(start, end):
+        utf8[i] = ch_as_utf8[j]
+        j += 1
+    return 0
+ 

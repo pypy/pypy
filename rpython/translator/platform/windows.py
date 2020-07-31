@@ -189,28 +189,13 @@ class MsvcPlatform(Platform):
             Platform.__init__(self, 'cl.exe')
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
+                self.version = "MSVC %s" % str(self.vsver)
                 if x64:
                     self.externals_branch = 'win64_%d' % self.vsver
                 else:
                     self.externals_branch = 'win32_%d' % self.vsver
         else:
             self.cc = cc
-
-        # detect version of current compiler
-        try:
-            returncode, stdout, stderr = _run_subprocess(self.cc, [],
-                                                     env=self.c_environ)
-        except EnvironmentError:
-            log.msg('Could not run %s using PATH=\n%s' %(self.cc,
-                '\n'.join(self.c_environ['PATH'].split(';'))))
-            raise
-        r = re.search(r'Microsoft.+C/C\+\+.+\s([0-9]+)\.([0-9]+).*', stderr)
-        if r is not None:
-            log.msg('compiler %s' % stderr)
-            self.version = int(''.join(r.groups())) / 10 - 60
-        else:
-            # Probably not a msvc compiler...
-            self.version = 0
 
         # Try to find a masm assembler
         returncode, stdout, stderr = _run_subprocess('ml.exe', [],
@@ -463,7 +448,7 @@ class MsvcPlatform(Platform):
         for rule in rules:
             m.rule(*rule)
 
-        if len(headers_to_precompile)>0 and self.version >= 80:
+        if len(headers_to_precompile) > 0:
             # at least from VS2013 onwards we need to include PCH
             # objects in the final link command
             linkobjs = 'stdafx.obj '
@@ -478,18 +463,12 @@ class MsvcPlatform(Platform):
         if icon and not shared:
             extra_deps.append('icon.res')
             linkobjs = 'icon.res ' + linkobjs
-        if self.version < 80:
-            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA) /out:$@' +\
-                      ' $(LIBDIRS) $(LIBS) ' + linkobjs,
-                   ])
-        else:
-            m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                    [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                      ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                      ' /MANIFESTFILE:$*.manifest ' + linkobjs,
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
-                    ])
+        m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
+                [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
+                  ' /MANIFESTFILE:$*.manifest ' + linkobjs,
+                'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                ])
         m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
                 [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
                   ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,

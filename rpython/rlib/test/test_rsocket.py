@@ -6,6 +6,10 @@ import socket as cpy_socket
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.buffer import RawByteBuffer
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 def setup_module(mod):
     rsocket_startup()
@@ -722,6 +726,7 @@ def test_socket_saves_errno(do_recv):
         RSocket(family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
 
+@pytest.mark.skipif(fcntl is None, reason="requires fcntl")
 def test_socket_init_non_blocking():
     import fcntl, os
     s = RSocket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK)
@@ -734,7 +739,7 @@ def test_socket_init_non_blocking():
 # have superuser privileges.
 @pytest.mark.skipif(sys.platform == "win32",
         reason='No sethostname on Windows')
-@pytest.mark.skipif(os.geteuid() == 0,
+@pytest.mark.skipif(not hasattr(os, 'geteuid') or os.geteuid() == 0,
         reason='Running as superuser is not supported.')
 def test_sethostname():
     # just in case it worked anyway, use the old hostname

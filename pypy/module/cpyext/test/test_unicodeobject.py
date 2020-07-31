@@ -457,7 +457,71 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.make(3, 0x1234) == u'\u1234' * 3
         assert module.make(7, 0x12345) == u'\U00012345' * 7
 
+    def test_char_ops(self):
+        module = self.import_extension('char_ops', [
+            ("readchar", "METH_VARARGS",
+            """
+                PyObject *obj = PyTuple_GetItem(args, 0);
+                Py_ssize_t indx = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                Py_UCS4 chr = PyUnicode_ReadChar(obj, indx);
+                if (chr == (Py_UCS4)-1 || chr == (Py_UCS4)-2) {
+                    return NULL;
+                }
+                return PyLong_FromLong(chr);
+            """),
+            ("writechar", "METH_VARARGS",
+            """
+                char *str;
+                Py_ssize_t indx;
+                int ch;
+                if (!PyArg_ParseTuple(args, "sni", &str, &indx, &ch)) {
+                    return NULL;
+                }
+                if (ch > (int)0xffff || ch < 0) {
+                    PyErr_SetString(PyExc_OverflowError, "ch is out of bounds");
+                    return NULL;
+                }
+                PyObject * newstr = PyUnicode_FromString(str);
+                int ret = PyUnicode_WriteChar(newstr, indx, ch);
+                if (ret < 0) {
+                    Py_DECREF(newstr);
+                    return NULL;
+                }
+                return newstr;
+            """),
+            ("findchar", "METH_VARARGS",
+            """
+                PyObject *uni;
+                int ch;
+                Py_ssize_t start, end, ret;
+                int direction;
+                if (!PyArg_ParseTuple(args, "Oinni", &uni, &ch, &start, &end, &direction)) {
+                    return NULL;
+                }
+                if (ch > (int)0xffff || ch < 0) {
+                    PyErr_SetString(PyExc_OverflowError, "ch is out of bounds");
+                    return NULL;
+                }
+                ret = PyUnicode_FindChar(uni, (Py_UCS4)ch, start, end, direction);
+                if (ret == -2) return NULL;
+                return PyLong_FromLong(ret);
+            """),
+            ])
+        s = 'abcdef'
+        assert module.readchar(s, 3) == ord(s[3])
+        try:
+            newstr = module.writechar(s, 3, ord('z'))
+            assert newstr[3] == 'z'
+            assert newstr[0] == 'a'
+        except SystemError:
+            # raises on PyPy
+            pass
+        indx = module.findchar(s, ord('z'), 0, -1, 0)
+        assert indx == -1
+        indx = module.findchar(s, ord('d'), 0, -1, 0)
+        assert indx == 3 
 
+ 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
