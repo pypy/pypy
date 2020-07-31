@@ -118,7 +118,7 @@ static void write_str(int fd, const char *p)
 
 #ifdef _WIN32
 /* this is set manually from pypy3's module/time/interp_time */
-HANDLE pypy_sigint_interrupt_event;
+HANDLE pypy_sigint_interrupt_event = NULL;
 #endif
 
 static void signal_setflag_handler(int signum)
