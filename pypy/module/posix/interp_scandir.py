@@ -25,7 +25,7 @@ def scandir(space, w_path=None):
             result_is_bytes = False
         # 'path' is always bytes on posix and always unicode on windows
         try:
-            dirp = rposix_scandir.opendir(path)
+            dirp = rposix_scandir.opendir(path, len(path))
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         path_prefix = path
