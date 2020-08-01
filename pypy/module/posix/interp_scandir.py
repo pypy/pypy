@@ -65,7 +65,10 @@ def scandir(space, path=None):
     else:
         if len(path_prefix) > 0 and path_prefix[-1] not in ('\\', '/', ':'):
             path_prefix += '\\'
-        w_path_prefix = space.newtext(path_prefix)
+        if result_is_bytes:
+            w_path_prefix = space.newbytes(path_prefix)
+        else:
+            w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
@@ -137,14 +140,9 @@ class W_ScandirIterator(W_Root):
                                                   eintr_retry=False))
                 if not entry:
                     raise self.fail()
-                if not _WIN32:
-                    name = rposix_scandir.get_name_bytes(entry)
-                    if name != '.' and name != '..':
-                        break
-                else:
-                    name = rposix_scandir.get_name_unicode(entry)
-                    if name != u'.' and name != u'..':
-                        break
+                name = rposix_scandir.get_name_bytes(entry)
+                if name != '.' and name != '..':
+                    break
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
@@ -205,7 +203,10 @@ class W_DirEntry(W_Root):
             if not scandir_iterator.result_is_bytes:
                 w_name = self.space.fsdecode(w_name)
         else:
-            w_name = self.space.newtext(name)
+            if not scandir_iterator.result_is_bytes:
+                w_name = self.space.newtext(name)
+            else:
+                w_name = self.space.newbytes(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
