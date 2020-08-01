@@ -193,7 +193,7 @@ class W_DirEntry(W_Root):
     def __init__(self, scandir_iterator, name, known_type, inode):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
-        self.name = name     # always bytes on Posix; always unicode on Windows
+        self.name = name     # always bytes, used only on posix
         self.inode = inode
         self.flags = known_type
         #
