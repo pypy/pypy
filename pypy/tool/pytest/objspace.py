@@ -71,6 +71,14 @@ class TinyObjSpace(object):
             return list(self.wrap(item) for item in obj)
         return obj
 
+    def newtext(self, obj):
+        assert isinstance(obj, str)
+        return obj.decode('utf-8')
+
+    def newbytes(self, obj):
+        assert isinstance(obj, str)
+        return obj
+
     def unpackiterable(self, itr):
         return list(itr)
 
