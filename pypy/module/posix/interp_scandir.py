@@ -23,28 +23,33 @@ def scandir(space, w_path=None):
         else:
             path = space.fsencode_w(w_path)
             result_is_bytes = False
-    else:
-        if space.isinstance_w(w_path, space.w_bytes):
-            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
-                                           " on Windows, use Unicode instead")
-        path = space.realunicode_w(w_path)
-        result_is_bytes = False
-
-    # 'path' is always bytes on posix and always unicode on windows
-    try:
-        dirp = rposix_scandir.opendir(path)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    path_prefix = path
-    if not _WIN32:
+        # 'path' is always bytes on posix and always unicode on windows
+        try:
+            dirp = rposix_scandir.opendir(path)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+        path_prefix = path
         if len(path_prefix) > 0 and path_prefix[-1] != '/':
             path_prefix += '/'
         w_path_prefix = space.newbytes(path_prefix)
         if not result_is_bytes:
             w_path_prefix = space.fsdecode(w_path_prefix)
     else:
-        if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
-            path_prefix += u'\\'
+        if space.isinstance_w(w_path, space.w_bytes):
+            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
+                                           " on Windows, use Unicode instead")
+        path = space.utf8_w(w_path)
+        lgt = space.len_w(w_path)
+        result_is_bytes = False
+        # 'path' is always bytes on posix and always unicode on windows
+        try:
+            dirp = rposix_scandir.opendir(path, lgt)
+        except OSError as e:
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
+
+        path_prefix = path
+        if len(path_prefix) > 0 and path_prefix[-1] not in ('\\', '/', ':'):
+            path_prefix += '\\'
         w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
