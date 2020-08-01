@@ -33,7 +33,8 @@ class AppTestScandir(object):
     def setup_class(cls):
         space = cls.space
         cls.w_WIN32 = space.wrap(sys.platform == 'win32')
-        cls.w_sep = space.wrap(os.sep)
+        cls.w_sep = space.newtext(os.sep)
+        cls.w_sepB = space.newbytes(os.sep)
         cls.w_posix = space.appexec([], test_posix2.GET_POSIX)
         cls.w_dir_empty = space.wrap(_make_dir('empty', {}))
         cls.w_dir0 = space.wrap(_make_dir('dir0', {'f1': 'file',
@@ -77,19 +78,14 @@ class AppTestScandir(object):
         assert type(d.name) is str
         assert type(d.path) is str
         assert d.path == self.sep + d.name
-        if not self.WIN32:
-            d = next(posix.scandir(b'.'))
-            assert type(d.name) is bytes
-            assert type(d.path) is bytes
-            assert d.path == b'./' + d.name
-            d = next(posix.scandir(b'/'))
-            assert type(d.name) is bytes
-            assert type(d.path) is bytes
-            assert d.path == b'/' + d.name
-        else:
-            raises(TypeError, posix.scandir, b'.')
-            raises(TypeError, posix.scandir, b'/')
-            raises(TypeError, posix.scandir, b'\\')
+        d = next(posix.scandir(b'.'))
+        assert type(d.name) is bytes
+        assert type(d.path) is bytes
+        assert d.path == b'.' + self.sepB + d.name
+        d = next(posix.scandir(b'/'))
+        assert type(d.name) is bytes
+        assert type(d.path) is bytes
+        assert d.path == b'/' + d.name
 
     def test_stat1(self):
         posix = self.posix
@@ -186,8 +182,9 @@ class AppTestScandir(object):
             finally:
                 posix.close(topfd)
         else:
-            raises(ValueError, posix.scandir, 1234)
+            raises(TypeError, posix.scandir, 1234)
 
+    @py.test.mark.skipif(sys.platform == "win32", reason="no inode support")
     def test_inode(self):
         posix = self.posix
         d = next(posix.scandir(self.dir1))

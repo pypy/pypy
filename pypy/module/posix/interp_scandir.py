@@ -44,13 +44,16 @@ def scandir(space, path=None):
     elif as_bytes:
         path_prefix = path.as_bytes
         try:
-            dirp = rposix_scandir.opendir(path.as_bytes)
+            name = path.as_bytes
+            dirp = rposix_scandir.opendir(name, len(name))
         except OSError as e:
             raise wrap_oserror2(space, e, space.newbytes(path.as_bytes), eintr_retry=False)
     else:
-        path_prefix = path.as_unicode
+        w_path = path.w_path
+        path_prefix = space.utf8_w(w_path)
+        lgt = len(path_prefix)
         try:
-            dirp = rposix_scandir.opendir(path.as_unicode)
+            dirp = rposix_scandir.opendir(path_prefix, lgt)
         except OSError as e:
             raise wrap_oserror2(space, e, space.newtext(path.as_unicode), eintr_retry=False)
     if not _WIN32:
@@ -60,8 +63,8 @@ def scandir(space, path=None):
         if not result_is_bytes:
             w_path_prefix = space.fsdecode(w_path_prefix)
     else:
-        if len(path_prefix) > 0 and path_prefix[-1] not in (u'\\', u'/', u':'):
-            path_prefix += u'\\'
+        if len(path_prefix) > 0 and path_prefix[-1] not in ('\\', '/', ':'):
+            path_prefix += '\\'
         w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
