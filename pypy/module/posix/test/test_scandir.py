@@ -181,6 +181,12 @@ class AppTestScandir(object):
                 assert stat.S_ISDIR(stat_val.st_mode)
             finally:
                 posix.close(topfd)
+            fd = posix.open(self.dir0 + self.sep + 'f1', posix.O_RDONLY)
+            try:
+                with raises(NotADirectoryError):
+                    posix.scandir(fd)
+            finally:
+                posix.close(fd)
         else:
             raises(TypeError, posix.scandir, 1234)
 

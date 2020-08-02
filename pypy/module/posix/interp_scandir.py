@@ -1,5 +1,5 @@
 import stat
-from errno import ENOENT
+from errno import ENOENT, ENOTDIR
 from rpython.rlib import rgc
 from rpython.rlib import rposix, rposix_scandir, rposix_stat
 
@@ -39,7 +39,10 @@ def scandir(space, path=None):
         if not dirp:
             rposix.c_close(dirfd)
             e = rposix.get_saved_errno()
-            raise oefmt(space.w_ValueError, "invalid fd %d", path.as_fd)
+            if e.errno == ENOTDIR:
+                raise oefmt(space.w_NotADirectoryError, "invalid fd %d", path.as_fd)
+            else:
+                raise wrap_oserror(space, e, eintr_retry=False)
         path_prefix = ''
     elif as_bytes:
         path_prefix = path.as_bytes
