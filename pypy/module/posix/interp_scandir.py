@@ -40,9 +40,10 @@ def scandir(space, path=None):
             rposix.c_close(dirfd)
             e = rposix.get_saved_errno()
             if e == ENOTDIR:
-                raise oefmt(space.w_NotADirectoryError, "invalid fd %d", path.as_fd)
+                w_type = space.w_NotADirectoryError
             else:
-                raise wrap_oserror(space, e, eintr_retry=False)
+                w_type = space.w_ValueError
+            raise oefmt(w_type, "invalid fd %d", path.as_fd)
         path_prefix = ''
     elif as_bytes:
         path_prefix = path.as_bytes
