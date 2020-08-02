@@ -35,10 +35,12 @@ def do_recv_from_recvmsg_into(socket, buffersize, flags=0):
 
 
 
-@pytest.fixture(scope="module",
-    params=[RSocket.recv, do_recv_from_recvmsg,
-        do_recv_from_recvinto, do_recv_from_recvmsg_into],
-    ids=["recv", "recvmsg", "recvinto", "recvmsg_into"])
+fix = [(RSocket.recv, "recv"), (do_recv_from_recvinto, "recvinto")]
+if rsocket._c.HAVE_SENDMSG:
+    fix += [(do_recv_from_recvmsg, 'recvmsg'), (do_recv_from_recvmsg_into, "recvmsg_into")]
+params, ids = zip(*fix)
+
+@pytest.fixture(scope="module", params=params, ids=ids)
 def do_recv(request):
     return request.param
 
@@ -498,6 +500,8 @@ def test_getsetsockopt_global():
     reuse = getsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR)
     assert reuse != 0
 
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='requires bound socket')
 def test_get_socket_family():
     s = RSocket(AF_INET, SOCK_STREAM)
     fd = s.fd
