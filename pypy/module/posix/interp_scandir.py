@@ -39,7 +39,7 @@ def scandir(space, path=None):
         if not dirp:
             rposix.c_close(dirfd)
             e = rposix.get_saved_errno()
-            if e.errno == ENOTDIR:
+            if e == ENOTDIR:
                 raise oefmt(space.w_NotADirectoryError, "invalid fd %d", path.as_fd)
             else:
                 raise wrap_oserror(space, e, eintr_retry=False)
