@@ -55,7 +55,7 @@ def scandir(space, path=None):
         try:
             dirp = rposix_scandir.opendir(path_prefix, lgt)
         except OSError as e:
-            raise wrap_oserror2(space, e, space.newtext(path.as_unicode), eintr_retry=False)
+            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
     if not _WIN32:
         if len(path_prefix) > 0 and path_prefix[-1] != '/':
             path_prefix += '/'
