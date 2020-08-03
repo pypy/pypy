@@ -65,10 +65,6 @@ class StandaloneTests(object):
             kwds = {'secondary_entrypoints': [(i, None) for i in entrypoints]}
         else:
             kwds = {}
-        if '/O2' in t.platform.cflags:
-            # MSVC with '/O2' optimizes out tail calls
-            cflags = list(set(t.platform.cflags) ^ set(('/O2',))) + ['/O1']
-            t.platform.cflags = cflags
         cbuilder = CStandaloneBuilder(t, entry_point, t.config, **kwds)
         if debug:
             cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
