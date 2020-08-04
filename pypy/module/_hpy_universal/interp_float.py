@@ -10,6 +10,6 @@ def HPyFloat_FromDouble(space, ctx, v):
 
 @API.func("double HPyFloat_AsDouble(HPyContext ctx, HPy h)")
 def HPyFloat_AsDouble(space, ctx, h):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_obj = handles.deref(space, h)
+    value = space.float_w(w_obj)
+    return value
