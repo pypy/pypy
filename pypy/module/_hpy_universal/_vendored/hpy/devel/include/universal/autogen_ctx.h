@@ -23,6 +23,7 @@ struct _HPyContext_s {
     HPy (*ctx_Long_FromUnsignedLongLong)(HPyContext ctx, unsigned long long v);
     long (*ctx_Long_AsLong)(HPyContext ctx, HPy h);
     HPy (*ctx_Float_FromDouble)(HPyContext ctx, double v);
+    double (*ctx_Float_AsDouble)(HPyContext ctx, HPy h);
     HPy (*ctx_Add)(HPyContext ctx, HPy h1, HPy h2);
     HPy (*ctx_Subtract)(HPyContext ctx, HPy h1, HPy h2);
     HPy (*ctx_Multiply)(HPyContext ctx, HPy h1, HPy h2);
@@ -91,5 +92,5 @@ struct _HPyContext_s {
     HPy (*ctx_Dict_GetItem)(HPyContext ctx, HPy h_dict, HPy h_key);
     HPy (*ctx_FromPyObject)(HPyContext ctx, cpy_PyObject *obj);
     cpy_PyObject *(*ctx_AsPyObject)(HPyContext ctx, HPy h);
-    cpy_PyObject *(*ctx_CallRealFunctionFromTrampoline)(HPyContext ctx, cpy_PyObject *self, cpy_PyObject *args, cpy_PyObject *kw, void *func, HPyFunc_Signature sig);
+    cpy_PyObject *(*ctx_CallRealFunctionFromTrampoline)(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args);
 };

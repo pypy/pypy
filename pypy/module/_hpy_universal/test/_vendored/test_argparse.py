@@ -36,6 +36,14 @@ class TestParseItem(HPyTest):
         assert mod.f(1) == 1
         assert mod.f(-2) == -2
 
+    def test_d(self):
+        import pytest
+        mod = self.make_parse_item("d", "double", "HPyFloat_FromDouble")
+        assert mod.f(1.) == 1.
+        assert mod.f(-2) == -2.
+        with pytest.raises(TypeError):
+            mod.f("x")
+
     def test_O(self):
         mod = self.make_parse_item("O", "HPy", "HPy_Dup")
         assert mod.f("a") == "a"

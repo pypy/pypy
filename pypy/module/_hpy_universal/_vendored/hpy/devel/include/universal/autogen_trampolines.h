@@ -40,6 +40,10 @@ static inline HPy HPyFloat_FromDouble(HPyContext ctx, double v) {
      return ctx->ctx_Float_FromDouble ( ctx, v ); 
 }
 
+static inline double HPyFloat_AsDouble(HPyContext ctx, HPy h) {
+     return ctx->ctx_Float_AsDouble ( ctx, h ); 
+}
+
 static inline HPy HPy_Add(HPyContext ctx, HPy h1, HPy h2) {
      return ctx->ctx_Add ( ctx, h1, h2 ); 
 }
@@ -308,7 +312,7 @@ static inline cpy_PyObject *HPy_AsPyObject(HPyContext ctx, HPy h) {
      return ctx->ctx_AsPyObject ( ctx, h ); 
 }
 
-static inline cpy_PyObject *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, cpy_PyObject *self, cpy_PyObject *args, cpy_PyObject *kw, void *func, HPyFunc_Signature sig) {
-     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, kw, func, sig ); 
+static inline cpy_PyObject *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args) {
+     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, sig, func, args ); 
 }
 

@@ -75,6 +75,19 @@ class TestBasic(HPyTest):
         """)
         assert mod.f(45) == 90
 
+    def test_float_asdouble(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                double a = HPyFloat_AsDouble(ctx, arg);
+                return HPyFloat_FromDouble(ctx, a * 2.);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f(1.) == 2.
+
     def test_wrong_number_of_arguments(self):
         import pytest
         mod = self.make_module("""

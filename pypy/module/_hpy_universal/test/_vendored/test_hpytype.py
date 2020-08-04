@@ -45,13 +45,14 @@ class TestType(HPyTest):
                 return HPyLong_FromLong(ctx, 1234);
             }
 
+            static HPyDef *Dummy_defines[] = {
+                &Dummy_repr,
+                &Dummy_abs,
+                NULL
+            };
             static HPyType_Spec Dummy_spec = {
                 .name = "mytest.Dummy",
-                .defines = {
-                    &Dummy_repr,
-                    &Dummy_abs,
-                    NULL
-                }
+                .defines = Dummy_defines
             };
 
             @EXPORT_TYPE("Dummy", Dummy_spec)
@@ -75,13 +76,15 @@ class TestType(HPyTest):
                 return HPyLong_FromLong(ctx, 1234);
             }
 
-            static HPyType_Spec dummy_type_spec = {
-                .name = "mytest.Dummy",
-                .defines = {
+            static HPyDef *dummy_type_defines[] = {
                     &Dummy_foo,
                     &Dummy_bar,
                     NULL
-                }
+            };
+
+            static HPyType_Spec dummy_type_spec = {
+                .name = "mytest.Dummy",
+                .defines = dummy_type_defines
             };
 
             @EXPORT_TYPE("Dummy", dummy_type_spec)
@@ -118,14 +121,15 @@ class TestType(HPyTest):
                 return HPyLong_FromLong(ctx, point->x*10 + point->y);
             }
 
+            static HPyDef *Point_defines[] = {
+                &Point_new,
+                &Point_foo,
+                NULL
+            };
             static HPyType_Spec Point_spec = {
                 .name = "mytest.Point",
                 .basicsize = sizeof(PointObject),
-                .defines = {
-                    &Point_new,
-                    &Point_foo,
-                    NULL
-                }
+                .defines = Point_defines
             };
 
             @EXPORT_TYPE("Point", Point_spec)

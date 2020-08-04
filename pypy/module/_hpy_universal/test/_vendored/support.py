@@ -12,16 +12,17 @@ def reindent(s, indent):
 class ExtensionTemplate(object):
 
     INIT_TEMPLATE = textwrap.dedent("""
+    static HPyDef *moduledefs[] = {
+        %(defines)s
+        NULL
+    };
     static HPyModuleDef moduledef = {
         HPyModuleDef_HEAD_INIT,
         .m_name = "%(name)s",
         .m_doc = "some test for hpy",
         .m_size = -1,
         .legacy_methods = %(legacy_methods)s,
-        .defines = {
-            %(defines)s
-            NULL
-        }
+        .defines = moduledefs
     };
 
     HPy_MODINIT(%(name)s)
