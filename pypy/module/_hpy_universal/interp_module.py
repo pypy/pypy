@@ -14,19 +14,14 @@ def HPyModule_Create(space, ctx, hpydef):
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
-    # add all the functions defined in hpydef.c_m_methods
-    if hpydef.c_m_methods:
-        p = hpydef.c_m_methods
+    # add the functions defined in hpydef.c_legacy_methods
+    if hpydef.c_legacy_methods:
+        p = hpydef.c_legacy_methods
         i = 0
         legacy_methoddefs = [] # for those using the old C-API calling convention
         while p[i].c_ml_name:
-            if widen(p[i].c_ml_flags) & llapi._HPy_METH:
-                # hpy native methods
-                w_extfunc = interp_extfunc.W_ExtensionFunction(p[i], w_mod)
-                space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
-            else:
-                # legacy cpyext-based methods, to be processed later
-                legacy_methoddefs.append(p[i])
+            # legacy cpyext-based methods, to be processed later
+            legacy_methoddefs.append(p[i])
             i += 1
         if legacy_methoddefs:
             if space.config.objspace.hpy_cpyext_API:
@@ -36,4 +31,13 @@ def HPyModule_Create(space, ctx, hpydef):
                         "Module %s contains legacy methods, but _hpy_universal "
                         "was compiled without cpyext support", modname)
     #
+    # add the native HPy defines
+    if hpydef.c_defines:
+        p = hpydef.c_defines
+        i = 0
+        while p[i]:
+            # hpy native methods
+            w_extfunc = interp_extfunc.W_ExtensionFunction(p[i].c_meth, w_mod)
+            space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
+            i += 1
     return handles.new(space, w_mod)

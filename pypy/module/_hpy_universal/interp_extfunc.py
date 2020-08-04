@@ -10,24 +10,18 @@ from pypy.module._hpy_universal.state import State
 class W_ExtensionFunction(W_Root):
     _immutable_fields_ = ["flags", "name"]
 
-    def __init__(self, ml, w_self):
-        self.ml = ml
+    def __init__(self, hpymeth, w_self):
+        self.hpymeth = hpymeth
         self.w_self = w_self
-        self.name = rffi.constcharp2str(self.ml.c_ml_name)
-        self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
-        # fetch the real HPy function pointer, by calling ml_meth, which
-        # is a function that returns it and also the CPython-only trampoline
-        with lltype.scoped_alloc(
-                rffi.CArray(llapi.HPyMeth_O), 1) as funcptr:
-            with lltype.scoped_alloc(
-                    rffi.CArray(llapi._HPyCPyCFunction), 1) as ignored_trampoline:
-                ml.c_ml_meth(funcptr, ignored_trampoline)
-                self.cfuncptr = funcptr[0]
+        self.name = rffi.constcharp2str(self.hpymeth.c_name)
+        self.flags = rffi.cast(lltype.Signed, self.hpymeth.c_signature)
+        self.cfuncptr = self.hpymeth.c_impl
 
     def call_noargs(self, space):
         state = space.fromcache(State)
         with handles.using(space, self.w_self) as h_self:
-            h_result = self.cfuncptr(state.ctx, h_self, 0)
+            func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
+            h_result = func(state.ctx, h_self)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
@@ -35,7 +29,8 @@ class W_ExtensionFunction(W_Root):
         state = space.fromcache(State)
         with handles.using(space, self.w_self) as h_self:
             with handles.using(space, w_arg) as h_arg:
-                h_result = self.cfuncptr(state.ctx, h_self, h_arg)
+                func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
+                h_result = func(state.ctx, h_self, h_arg)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
@@ -68,9 +63,7 @@ class W_ExtensionFunction(W_Root):
 
     def call_varargs(self, space, h_self, args_h, n):
         state = space.fromcache(State)
-        # XXX: is it correct to use rffi.cast instead of some kind of
-        # lltype.cast_*?
-        fptr = rffi.cast(llapi.HPyMeth_VarArgs, self.cfuncptr)
+        fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
         return fptr(state.ctx, h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, __args__):
@@ -86,7 +79,7 @@ class W_ExtensionFunction(W_Root):
                 space.setitem_str(w_kw, key, w_value)
             h_kw = handles.new(space, w_kw)
 
-        fptr = rffi.cast(llapi.HPyMeth_Keywords, self.cfuncptr)
+        fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
         try:
             return fptr(state.ctx, h_self, args_h, n, h_kw)
         finally:

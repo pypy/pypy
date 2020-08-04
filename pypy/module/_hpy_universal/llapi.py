@@ -130,29 +130,67 @@ typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);
 
-typedef HPy (*HPyMeth_O)(HPyContext ctx, HPy self, HPy args);
-typedef HPy (*HPyMeth_VarArgs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyMeth_Keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs,
-                                HPy kw);
-typedef void *_HPyCPyCFunction; // not used here
-typedef void (*_HPyMethodPairFunc)(HPyMeth_O *out_func,
-                                   _HPyCPyCFunction *out_trampoline);
+// typedefs corresponding to the various HPyFunc_Signature members
+typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
+typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
+typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self,
+                                HPy *args, HPy_ssize_t nargs, HPy kw);
 
+typedef int HPySlot_Slot;
+typedef int HPyFunc_Signature;
+
+/* hpydef.h */
 
 typedef struct {
-    const char         *ml_name;
-    _HPyMethodPairFunc ml_meth;
-    int                ml_flags;
-    const char         *ml_doc;
-} HPyMethodDef;
+    HPySlot_Slot slot;     // The slot to fill
+    void *impl;            // Function pointer to the implementation
+    void *cpy_trampoline;  // Used by CPython to call impl
+} HPySlot;
+
+typedef struct {
+    const char *name;             // The name of the built-in function/method
+    const char *doc;              // The __doc__ attribute, or NULL
+    void *impl;                   // Function pointer to the implementation
+    void *cpy_trampoline;         // Used by CPython to call impl
+    HPyFunc_Signature signature;  // Indicates impl's expected the signature
+} HPyMeth;
+
+/*
+typedef struct {
+    ...
+} HPyMember;
+
+typedef struct {
+    ...
+} HPyGetSet;
+*/
+
+typedef int HPyDef_Kind;  // HACK
+
+typedef struct {
+    HPyDef_Kind kind;
+    //union {
+    //    HPySlot slot;
+        HPyMeth meth;
+        // HPyMember member;
+        // HPyGetSet getset;
+    //};
+} HPyDef;
+
+/* hpymodule.h */
+
+typedef int cpy_PyMethodDef;
 
 typedef struct {
     void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
     const char* m_name;
     const char* m_doc;
     HPy_ssize_t m_size;
-    HPyMethodDef *m_methods;
+    cpy_PyMethodDef *legacy_methods;
+    HPyDef **defines;
 } HPyModuleDef;
+
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -171,23 +209,18 @@ HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
 
 HPyInitFunc = cts.gettype('HPyInitFunc')
-_HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
-HPyMeth_O = cts.gettype('HPyMeth_O')
-HPyMeth_VarArgs = cts.gettype('HPyMeth_VarArgs')
-HPyMeth_Keywords = cts.gettype('HPyMeth_Keywords')
 
-HPyMethodDef = cts.gettype('HPyMethodDef')
+cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
-# CTypeSpace converts "HPyMethodDef*" into lltype.Ptr(HPyMethodDef), but we
+# CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
 # want a CArrayPtr instead, so that we can index the items inside
 # HPyModule_Create
-HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
+HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
 
-_HPy_METH = 0x100000
-HPy_METH_VARARGS  = 0x0001 | _HPy_METH
-HPy_METH_KEYWORDS = 0x0003 | _HPy_METH
-HPy_METH_NOARGS   = 0x0004 | _HPy_METH
-HPy_METH_O        = 0x0008 | _HPy_METH
+HPy_METH_VARARGS  = 1
+HPy_METH_KEYWORDS = 2
+HPy_METH_NOARGS   = 3
+HPy_METH_O        = 4
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
