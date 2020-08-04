@@ -59,6 +59,7 @@ typedef struct _HPyContext_s {
     void * ctx_Long_FromUnsignedLongLong;
     void * ctx_Long_AsLong;
     void * ctx_Float_FromDouble;
+    void * ctx_Float_AsDouble;
     void * ctx_Add;
     void * ctx_Subtract;
     void * ctx_Multiply;
@@ -96,6 +97,7 @@ typedef struct _HPyContext_s {
     void * ctx_Err_SetString;
     void * ctx_Err_Occurred;
     void * ctx_Object_IsTrue;
+    void * ctx_Type_FromSpec;
     void * ctx_GetAttr;
     void * ctx_GetAttr_s;
     void * ctx_HasAttr;
@@ -108,6 +110,8 @@ typedef struct _HPyContext_s {
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
+    void * ctx_Cast;
+    void * ctx_New;
     void * ctx_Bytes_Check;
     void * ctx_Bytes_Size;
     void * ctx_Bytes_GET_SIZE;
@@ -190,6 +194,18 @@ typedef struct {
     cpy_PyMethodDef *legacy_methods;
     HPyDef **defines;
 } HPyModuleDef;
+
+/* hpytype.h */
+
+typedef struct {
+    const char* name;
+    char has_pyobject_head;
+    int basicsize;
+    int itemsize;
+    unsigned int flags;
+    void *legacy_slots; // PyType_Slot *
+    HPyDef **defines;   /* points to an array of 'HPyDef *' */
+} HPyType_Spec;
 
 """)
 

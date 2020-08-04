@@ -7,3 +7,9 @@ from pypy.module._hpy_universal import handles
 def HPyFloat_FromDouble(space, ctx, v):
     w_obj = space.newfloat(v)
     return handles.new(space, w_obj)
+
+@API.func("double HPyFloat_AsDouble(HPyContext ctx, HPy h)")
+def HPyFloat_AsDouble(space, ctx, h):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
