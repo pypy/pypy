@@ -33,13 +33,13 @@ class TestType(HPyTest):
 
     def test_slots(self):
         mod = self.make_module("""
-            HPyDef_SLOT(Dummy_repr, HPy_tp_repr, Dummy_repr_impl, HPyFunc_NOARGS);
+            HPyDef_SLOT(Dummy_repr, HPy_tp_repr, Dummy_repr_impl, HPyFunc_REPRFUNC);
             static HPy Dummy_repr_impl(HPyContext ctx, HPy self)
             {
                 return HPyUnicode_FromString(ctx, "<Dummy>");
             }
 
-            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute, Dummy_abs_impl, HPyFunc_NOARGS);
+            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute, Dummy_abs_impl, HPyFunc_UNARYFUNC);
             static HPy Dummy_abs_impl(HPyContext ctx, HPy self)
             {
                 return HPyLong_FromLong(ctx, 1234);
@@ -137,3 +137,27 @@ class TestType(HPyTest):
         """)
         p = mod.Point()
         assert p.foo() == 73
+
+    def test_getitem(self):
+        mod = self.make_module("""
+            HPyDef_SLOT(Dummy_getitem, HPy_sq_item, Dummy_getitem_impl, HPyFunc_SSIZEARGFUNC);
+            static HPy Dummy_getitem_impl(HPyContext ctx, HPy self, HPy_ssize_t idx)
+            {
+                return HPyLong_FromLong(ctx, (long)idx*2);
+            }
+
+            static HPyDef *Dummy_defines[] = {
+                &Dummy_getitem,
+                NULL
+            };
+            static HPyType_Spec Dummy_spec = {
+                .name = "mytest.Dummy",
+                .defines =  Dummy_defines
+            };
+
+            @EXPORT_TYPE("Dummy", Dummy_spec)
+            @INIT
+        """)
+        d = mod.Dummy()
+        assert d[4] == 8
+        assert d[21] == 42

@@ -5,15 +5,37 @@ typedef enum {
     HPyFunc_VARARGS  = 1,  // METH_VARARGS
     HPyFunc_KEYWORDS = 2,  // METH_VARARGS | METH_KEYWORDS
     HPyFunc_NOARGS   = 3,  // METH_NOARGS
-    HPyFunc_O        = 4   // METH_O
+    HPyFunc_O        = 4,  // METH_O
+
+    HPyFunc_UNARYFUNC,
+    HPyFunc_BINARYFUNC,
+    HPyFunc_TERNARYFUNC,
+    HPyFunc_INQUIRY,
+    HPyFunc_LENFUNC,
+    HPyFunc_SSIZEARGFUNC,
+    HPyFunc_SSIZESSIZEARGFUNC,
+    HPyFunc_SSIZEOBJARGPROC,
+    HPyFunc_SSIZESSIZEOBJARGPROC,
+    HPyFunc_OBJOBJARGPROC,
+    HPyFunc_FREEFUNC,
+    HPyFunc_DESTRUCTOR,
+    HPyFunc_GETATTRFUNC,
+    HPyFunc_GETATTROFUNC,
+    HPyFunc_SETATTRFUNC,
+    HPyFunc_SETATTROFUNC,
+    HPyFunc_REPRFUNC,
+    HPyFunc_HASHFUNC,
+    HPyFunc_RICHCMPFUNC,
+    HPyFunc_GETITERFUNC,
+    HPyFunc_ITERNEXTFUNC,
+    HPyFunc_DESCRGETFUNC,
+    HPyFunc_DESCRSETFUNC,
+    HPyFunc_INITPROC,
+
 } HPyFunc_Signature;
 
-// typedefs corresponding to the various HPyFunc_Signature members
-typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
-typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
-typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self,
-                                HPy *args, HPy_ssize_t nargs, HPy kw);
+/* The typedefs corresponding to the various HPyFunc_Signature members
+   are produced inside autogen_hpyfunc_declare.h. */
 
 
 /* Emit a forward declaration for a function SYM having a signature SIG, where
@@ -45,8 +67,10 @@ typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self,
 
 #ifdef HPY_UNIVERSAL_ABI
 #  include "universal/hpyfunc_trampolines.h"
+#  include "universal/autogen_hpyfunc_trampolines.h"
 #else
 #  include "cpython/hpyfunc_trampolines.h"
+#  include "cpython/autogen_hpyfunc_trampolines.h"
 #endif // HPY_UNIVERSAL_ABI
 
 #endif /* HPY_UNIVERSAL_HPYFUNC_H */

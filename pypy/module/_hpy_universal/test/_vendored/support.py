@@ -7,7 +7,8 @@ PY2 = sys.version_info[0] == 2
 
 def reindent(s, indent):
     s = textwrap.dedent(s)
-    return textwrap.indent(s, ' '*indent)
+    return ''.join(' '*indent + line if line.strip() else line
+        for line in s.splitlines(True))
 
 class ExtensionTemplate(object):
 
