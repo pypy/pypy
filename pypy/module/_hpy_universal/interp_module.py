@@ -37,7 +37,7 @@ def HPyModule_Create(space, ctx, hpydef):
         i = 0
         while p[i]:
             # hpy native methods
-            w_extfunc = interp_extfunc.W_ExtensionFunction(p[i].c_meth, w_mod)
+            w_extfunc = interp_extfunc.W_ExtensionFunction(space, p[i].c_meth, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     return handles.new(space, w_mod)

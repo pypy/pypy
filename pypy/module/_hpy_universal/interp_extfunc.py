@@ -6,15 +6,24 @@ from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 
+METH_FLAGS = [
+    llapi.HPy_METH_VARARGS,
+    llapi.HPy_METH_KEYWORDS,
+    llapi.HPy_METH_NOARGS,
+    llapi.HPy_METH_O
+]
 
 class W_ExtensionFunction(W_Root):
+    # XXX: should we have separate classes for each mode?
     _immutable_fields_ = ["flags", "name"]
 
-    def __init__(self, hpymeth, w_self):
+    def __init__(self, space, hpymeth, w_self):
         self.hpymeth = hpymeth
         self.w_self = w_self
         self.name = rffi.constcharp2str(self.hpymeth.c_name)
         self.flags = rffi.cast(lltype.Signed, self.hpymeth.c_signature)
+        if self.flags not in METH_FLAGS:
+            raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
         self.cfuncptr = self.hpymeth.c_impl
 
     def call_noargs(self, space):
