@@ -4,36 +4,45 @@
 
 int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list vl)
 {
-  switch (*(*fmt)++) {
-  case 'i': {
-      int *output = va_arg(vl, int *);
-      _BREAK_IF_OPTIONAL(current_arg);
-      long value = HPyLong_AsLong(ctx, current_arg);
-      if (value == -1 && HPyErr_Occurred(ctx))
-          return 0;
-      *output = (int)value;
-      break;
-  }
-  case 'l': {
-      long *output = va_arg(vl, long *);
-      _BREAK_IF_OPTIONAL(current_arg);
-      long value = HPyLong_AsLong(ctx, current_arg);
-      if (value == -1 && HPyErr_Occurred(ctx))
-          return 0;
-      *output = value;
-      break;
-  }
-  case 'O': {
-      HPy *output = va_arg(vl, HPy *);
-      _BREAK_IF_OPTIONAL(current_arg);
-      *output = current_arg;
-      break;
-  }
-  default:
-      HPyErr_SetString(ctx, ctx->h_ValueError, "XXX: Unknown arg format code");
-      return 0;
-  }
-  return 1;
+    switch (*(*fmt)++) {
+    case 'i': {
+        int *output = va_arg(vl, int *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        long value = HPyLong_AsLong(ctx, current_arg);
+        if (value == -1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = (int)value;
+        break;
+    }
+    case 'l': {
+        long *output = va_arg(vl, long *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        long value = HPyLong_AsLong(ctx, current_arg);
+        if (value == -1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+    case 'd': {
+        double* output = va_arg(vl, double *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        double value = HPyFloat_AsDouble(ctx, current_arg);
+        if (value == -1.0 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+    case 'O': {
+        HPy *output = va_arg(vl, HPy *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        *output = current_arg;
+        break;
+    }
+    default:
+        HPyErr_SetString(ctx, ctx->h_ValueError, "XXX: Unknown arg format code");
+        return 0;
+    }
+    return 1;
 }
 
 HPyAPI_RUNTIME_FUNC(int)
