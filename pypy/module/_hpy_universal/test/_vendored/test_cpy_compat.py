@@ -202,3 +202,83 @@ class TestCPythonCompatibility(HPyTest):
         assert mod.g(45) == 90
         assert mod.h(4, 5, 6) == 456
         assert mod.k(c=6, b=5, a=4) == 456
+
+    def test_legacy_slots_repr(self):
+        mod = self.make_module("""
+            #include <Python.h>
+
+            static PyObject *Dummy_repr(PyObject *self)
+            {
+                return PyUnicode_FromString("myrepr");
+            }
+
+            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute, Dummy_abs_impl, HPyFunc_UNARYFUNC);
+            static HPy Dummy_abs_impl(HPyContext ctx, HPy self)
+            {
+                return HPyLong_FromLong(ctx, 1234);
+            }
+
+            static HPyDef *Dummy_defines[] = {
+                &Dummy_abs,
+                NULL
+            };
+            static PyType_Slot Dummy_type_slots[] = {
+                {Py_tp_repr, Dummy_repr},
+                {0, 0},
+            };
+            static HPyType_Spec Dummy_spec = {
+                .name = "mytest.Dummy",
+                .legacy_slots = Dummy_type_slots,
+                .defines = Dummy_defines
+            };
+
+            @EXPORT_TYPE("Dummy", Dummy_spec)
+            @INIT
+        """)
+        d = mod.Dummy()
+        assert repr(d) == 'myrepr'
+        assert abs(d) == 1234
+
+    def test_legacy_slots_methods(self):
+        mod = self.make_module("""
+            #include <Python.h>
+
+            static PyObject *Dummy_foo(PyObject *self, PyObject *arg)
+            {
+                Py_INCREF(arg);
+                return arg;
+            }
+
+            HPyDef_METH(Dummy_bar, "bar", Dummy_bar_impl, HPyFunc_NOARGS)
+            static HPy Dummy_bar_impl(HPyContext ctx, HPy self)
+            {
+                return HPyLong_FromLong(ctx, 1234);
+            }
+
+            static PyMethodDef dummy_methods[] = {
+               {"foo", Dummy_foo, METH_O},
+               {NULL, NULL}         /* Sentinel */
+            };
+
+            static PyType_Slot dummy_type_slots[] = {
+                {Py_tp_methods, dummy_methods},
+                {0, 0},
+            };
+
+            static HPyDef *dummy_type_defines[] = {
+                    &Dummy_bar,
+                    NULL
+            };
+
+            static HPyType_Spec dummy_type_spec = {
+                .name = "mytest.Dummy",
+                .legacy_slots = dummy_type_slots,
+                .defines = dummy_type_defines
+            };
+
+            @EXPORT_TYPE("Dummy", dummy_type_spec)
+            @INIT
+        """)
+        d = mod.Dummy()
+        assert d.foo(21) == 21
+        assert d.bar() == 1234

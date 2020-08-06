@@ -172,7 +172,7 @@ class TestBasic(HPyTest):
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
-                long x = HPyLong_AsLong(ctx, arg);
+                HPyLong_AsLong(ctx, arg);
                 if (HPyErr_Occurred(ctx)) {
                     HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
                     return HPy_NULL;

@@ -97,6 +97,7 @@ class TestType(HPyTest):
     def test_HPy_New(self):
         mod = self.make_module("""
             typedef struct {
+                HPyObject_HEAD
                 long x;
                 long y;
             } PointObject;

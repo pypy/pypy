@@ -3,9 +3,27 @@
 
 #include <stdbool.h>
 
+/* To be able to be compatible with CPython (in both CPython and Universal ABI
+   modes) we need to reserve some space at the beginning of user-defined
+   structs which will contain ob_refcnt and ob_type. However, HPy users should
+   not be able to access them directly.
+
+   Alternate implementations are free to use this extra space as they
+   want. Moreover, if they do NOT need this extra space, they can avoid
+   wasting memory by allocating sizeof(_HPyObject_head_s) bytes less inside
+   their implementation of HPy_New.
+*/
+
+
+struct _HPyObject_head_s {
+    HPy_ssize_t _reserved0;
+    void *_reserved1;
+};
+#define HPyObject_HEAD struct _HPyObject_head_s _ob_head;
+
+
 typedef struct {
     const char* name;
-    bool has_pyobject_head;
     int basicsize;
     int itemsize;
     unsigned int flags;

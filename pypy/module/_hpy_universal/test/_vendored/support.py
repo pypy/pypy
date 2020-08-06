@@ -174,11 +174,20 @@ class ExtensionCompiler:
             extra_filename = self._expand('extmod_%d' % i, template)
             sources.append(extra_filename)
         #
+        compile_args = [
+            '-g', '-O0',
+            '-Wfatal-errors',    # stop after one error (unrelated to warnings)
+            '-Werror',           # turn warnings into errors (all, for now)
+        ]
+        link_args = [
+            '-g',
+        ]
+        #
         ext = get_extension(str(filename), name,
                             sources=sources,
                             include_dirs=[self.include_dir],
-                            extra_compile_args=['-Wfatal-errors', '-g', '-O0'],
-                            extra_link_args=['-g'])
+                            extra_compile_args=compile_args,
+                            extra_link_args=link_args)
         so_filename = c_compile(str(self.tmpdir), ext,
                                 compiler_verbose=self.compiler_verbose,
                                 universal_mode=self.universal_mode,

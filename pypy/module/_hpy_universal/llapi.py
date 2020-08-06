@@ -199,7 +199,6 @@ typedef struct {
 
 typedef struct {
     const char* name;
-    char has_pyobject_head;
     int basicsize;
     int itemsize;
     unsigned int flags;
