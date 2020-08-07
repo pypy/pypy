@@ -3,7 +3,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import _create_new_type
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import handles
+from pypy.module._hpy_universal import handles, llapi
 from .interp_extfunc import W_ExtensionMethod
 
 
@@ -18,6 +18,10 @@ def _HPy_New(space, ctx, h_type, data):
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return 0
     raise NotImplementedError
+
+def fill_slot(space, w_type, hpyslot):
+    raise oefmt(space.w_NotImplementedError, "Slots are not supported")
+
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)")
 def HPyType_FromSpec(space, ctx, spec):
@@ -44,12 +48,16 @@ def HPyType_FromSpec(space, ctx, spec):
         i = 0
         while p[i]:
             kind = rffi.cast(lltype.Signed, p[i].c_kind)
-            if kind != 2:  # XXX
-                raise oefmt(space.w_NotImplementedError, "Only methods are supported")
-            hpymeth = p[i].c_meth
-            w_extfunc = W_ExtensionMethod(space, hpymeth, w_result)
-            w_result.setdictvalue(
-                space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
+            if kind == llapi.HPyDef_Kind_Slot:
+                hpyslot = llapi.cts.cast('HPyDef_Slot*', p[i]).c_slot
+                fill_slot(space, w_result, hpyslot)
+            elif kind == llapi.HPyDef_Kind_Meth:
+                hpymeth = p[i].c_meth
+                w_extfunc = W_ExtensionMethod(space, hpymeth, w_result)
+                w_result.setdictvalue(
+                    space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
+            else:
+                raise oefmt(space.w_RuntimeError, "Unspported HPyDef kind!")
             i += 1
     return handles.new(space, w_result)
 

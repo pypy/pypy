@@ -202,6 +202,13 @@ typedef struct {
     //};
 } HPyDef;
 
+// work around rffi's lack of support for unions
+typedef struct {
+    HPyDef_Kind kind;
+    HPySlot slot;
+} HPyDef_Slot;
+
+
 /* hpymodule.h */
 
 typedef int cpy_PyMethodDef;
@@ -270,6 +277,9 @@ HPy_EQ = 2
 HPy_NE = 3
 HPy_GT = 4
 HPy_GE = 5
+
+HPyDef_Kind_Slot = 1
+HPyDef_Kind_Meth = 2
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
