@@ -4,6 +4,7 @@ import pypy.module.__builtin__.operation as operation
 from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
+from . import llapi
 
 @API.func("int HPy_IsTrue(HPyContext ctx, HPy h)")
 def HPy_IsTrue(space, ctx, h_obj):
@@ -141,15 +142,43 @@ def HPy_Bytes(space, ctx, h_obj):
 
 @API.func("HPy HPy_RichCompare(HPyContext ctx, HPy v, HPy w, int op)")
 def HPy_RichCompare(space, ctx, v, w, op):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_o1 = handles.deref(space, v)
+    w_o2 = handles.deref(space, w)
+    w_result = rich_compare(space, w_o1, w_o2, op)
+    return handles.new(space, w_result)
+
+def rich_compare(space, w_o1, w_o2, opid_int):
+    opid = rffi.cast(lltype.Signed, opid_int)
+    if opid == llapi.HPy_LT:
+        return space.lt(w_o1, w_o2)
+    elif opid == llapi.HPy_LE:
+        return space.le(w_o1, w_o2)
+    elif opid == llapi.HPy_EQ:
+        return space.eq(w_o1, w_o2)
+    elif opid == llapi.HPy_NE:
+        return space.ne(w_o1, w_o2)
+    elif opid == llapi.HPy_GT:
+        return space.gt(w_o1, w_o2)
+    elif opid == llapi.HPy_GE:
+        return space.ge(w_o1, w_o2)
+    else:
+        raise oefmt(space.w_SystemError, "Bad internal call!")
+
 
 @API.func("int HPy_RichCompareBool(HPyContext ctx, HPy v, HPy w, int op)")
 def HPy_RichCompareBool(space, ctx, v, w, op):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_o1 = handles.deref(space, v)
+    w_o2 = handles.deref(space, w)
+    # Quick result when objects are the same.
+    # Guarantees that identity implies equality.
+    if space.is_w(w_o1, w_o2):
+        opid = rffi.cast(lltype.Signed, op)
+        if opid == llapi.HPy_EQ:
+            return API.int(1)
+        if opid == llapi.HPy_NE:
+            return API.int(0)
+    w_result = rich_compare(space, w_o1, w_o2, op)
+    return API.int(space.is_true(w_result))
 
 @API.func("HPy_hash_t HPy_Hash(HPyContext ctx, HPy obj)")
 def HPy_Hash(space, ctx, obj):

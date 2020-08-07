@@ -226,6 +226,13 @@ typedef struct {
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyType_Spec;
 
+/* Rich comparison opcodes */
+#define HPy_LT 0
+#define HPy_LE 1
+#define HPy_EQ 2
+#define HPy_NE 3
+#define HPy_GT 4
+#define HPy_GE 5
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -256,6 +263,13 @@ HPy_METH_VARARGS  = 1
 HPy_METH_KEYWORDS = 2
 HPy_METH_NOARGS   = 3
 HPy_METH_O        = 4
+
+HPy_LT = 0
+HPy_LE = 1
+HPy_EQ = 2
+HPy_NE = 3
+HPy_GT = 4
+HPy_GE = 5
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
