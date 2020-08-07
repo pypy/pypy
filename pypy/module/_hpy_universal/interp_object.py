@@ -6,11 +6,9 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
 @API.func("int HPy_IsTrue(HPyContext ctx, HPy h)")
-def HPy_IsTrue(space, ctx, h):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
-
+def HPy_IsTrue(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    return API.int(space.is_true(w_obj))
 
 @API.func("HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy h_name)")
 def HPy_GetAttr(space, ctx, h_obj, h_name):
