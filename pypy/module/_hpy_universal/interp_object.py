@@ -181,7 +181,6 @@ def HPy_RichCompareBool(space, ctx, v, w, op):
     return API.int(space.is_true(w_result))
 
 @API.func("HPy_hash_t HPy_Hash(HPyContext ctx, HPy obj)")
-def HPy_Hash(space, ctx, obj):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+def HPy_Hash(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    return API.cts.cast('HPy_hash_t', space.hash_w(w_obj))
