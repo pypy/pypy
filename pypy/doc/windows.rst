@@ -81,7 +81,7 @@ slower translation::
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
     # This is done as part of translation
-    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
+    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/pypy_tools/build_cffi_imports.py
 
 .. _build instructions: http://pypy.org/download.html#building-from-source
 

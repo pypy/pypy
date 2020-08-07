@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rstring
-from rpython.rlib.rarithmetic import widen
+from rpython.rlib.rarithmetic import widen, r_uint
 from rpython.rlib import rstring, rutf8
 from rpython.tool.sourcetools import func_renamer
 
@@ -18,7 +18,7 @@ from pypy.module.cpyext.api import (
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj)
+    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
@@ -49,7 +49,6 @@ default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
 
 PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers("Unicode")
 
-MAX_UNICODE = 1114111
 WCHAR_KIND = 0
 _1BYTE_KIND = 1
 _2BYTE_KIND = 2
@@ -102,14 +101,16 @@ def unicode_realize(space, py_obj):
         size = get_len(py_obj)
         kind = get_kind(py_obj)
         value = rffi.charpsize2str(data, size * kind)
+        state = space.fromcache(CodecState)
+        eh = state.decode_error_handler
         if kind == _1BYTE_KIND:
-            s_utf8, lgt, _ = str_decode_latin_1(value, 'strict', True, None)
+            s_utf8, lgt, _ = str_decode_latin_1(value, 'strict', True, eh)
         elif kind == _2BYTE_KIND:
-            decoded = str_decode_utf_16_helper(value, 'strict', True, None,
+            decoded = str_decode_utf_16_helper(value, 'strict', True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         elif kind == _4BYTE_KIND:
-            decoded = str_decode_utf_32_helper(value, 'strict', True, None,
+            decoded = str_decode_utf_32_helper(value, 'strict', True, eh,
                                                byteorder=BYTEORDER)
             s_utf8, lgt = decoded[:2]
         else:
@@ -355,7 +356,7 @@ def _readify(space, py_obj, value):
     for c in rutf8.Utf8StringIterator(value):
         if c > maxchar:
             maxchar = c
-            if maxchar > MAX_UNICODE:
+            if maxchar > rutf8.MAXUNICODE:
                 raise oefmt(space.w_ValueError,
                     "Character U+%s is not in range [U+0000; U+10ffff]",
                     '%x' % maxchar)
@@ -443,15 +444,47 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     if not space.issubtype_w(w_type, space.w_unicode):
         raise oefmt(space.w_TypeError, "expected unicode object")
     if not get_wbuffer(ref):
-        # Copy unicode buffer
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.utf8_w(w_unicode)
         lgt = space.len_w(w_unicode)
-        set_wbuffer(ref, rffi.utf82wcharp(u, lgt))
+        if rffi.sizeof(lltype.UniChar) == 2:
+            # Handle surrogates
+            wbuf = utf82wcharp_ex(u, lgt)
+        else:
+            wbuf = rffi.utf82wcharp(u, lgt)
+        set_wbuffer(ref, wbuf)
         set_wsize(ref, lgt)
     if psize:
         psize[0] = get_wsize(ref)
     return get_wbuffer(ref)
+
+def utf82wcharp_ex(utf8, unilen, track_allocation=True):
+    # slightly different than rffi.utf82wcharp for sizeof(wchar_t) == 2 and
+    # maxunicode==0x10ffff. Very similar to utf8_encode_utf_16_helper
+    # but allocates a buffer, and no error handler. Passes surrogates through.
+    wlen = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            wlen += 1
+        wlen += 1
+    w = lltype.malloc(rffi.CWCHARP.TO, wlen + 1, flavor='raw',
+                      track_allocation=track_allocation)
+    index = 0
+    for ch in rutf8.Utf8StringIterator(utf8):
+        if ch > 0xffff:
+            w[index] = unichr(0xD800 | ((ch - 0x10000) >> 10))
+            index += 1
+            w[index] = unichr(0xDC00 | ((ch - 0x10000) & 0x3FF))
+        else:
+            w[index] = unichr(ch)
+        index += 1
+    w[index] = unichr(0)
+    assert wlen == index
+    return w
+utf82wcharp_ex._annenforceargs_ = [str, int, bool]
+
+
+
 
 @cts.decl("Py_UNICODE * PyUnicode_AsUnicode(PyObject *unicode)")
 def PyUnicode_AsUnicode(space, ref):
@@ -1179,24 +1212,27 @@ def PyUnicode_Substring(space, w_str, start, end):
                                         space.newint(1)))
 
 @cts.decl("Py_UCS4 *PyUnicode_AsUCS4(PyObject *u, Py_UCS4 *buffer, Py_ssize_t buflen, int copy_null)")
-def PyUnicode_AsUCS4(space, ref, pbuffer, buflen, copy_null):
-    c_buffer = PyUnicode_AsUnicode(space, ref)
-    c_length = get_wsize(ref)
-
-    size = c_length
+def PyUnicode_AsUCS4(space, w_obj, pbuffer, buflen, copy_null):
+    from pypy.module._codecs.locale import _utf82rawwcharp_loop
+    # Use the underlying RPython object
+    utf8 = space.utf8_w(w_obj)
+    ulen = space.len_w(w_obj)
     if rffi.cast(lltype.Signed, copy_null):
-        size += 1
+        ulen += 1
     if not pbuffer:   # internal, for PyUnicode_AsUCS4Copy()
-        pbuffer = lltype.malloc(rffi.CArray(Py_UCS4), size,
+        pbuffer = lltype.malloc(rffi.CArray(Py_UCS4), ulen,
                                 flavor='raw', track_allocation=False)
-    elif buflen < size:
+    elif buflen < ulen:
         raise oefmt(space.w_SystemError, "PyUnicode_AsUCS4: buflen too short")
-
-    i = 0
-    while i < size:
-        pbuffer[i] = rffi.cast(Py_UCS4, c_buffer[i])
-        i += 1
+    u_iter = rutf8.Utf8StringIterator(utf8)
+    count = 0
+    for oc in u_iter:
+        pbuffer[count] = rffi.cast(Py_UCS4, oc)
+        count += 1
+    if rffi.cast(lltype.Signed, copy_null):
+        pbuffer[count] = rffi.cast(Py_UCS4, 0)
     return pbuffer
+
 
 @cts.decl("Py_UCS4 *PyUnicode_AsUCS4Copy(PyObject *u)")
 def PyUnicode_AsUCS4Copy(space, ref):
@@ -1227,7 +1263,7 @@ def PyUnicode_New(space, size, maxchar):
         if rffi.sizeof(lltype.UniChar) == 2:
             is_sharing = True
     else:
-        if maxchar > MAX_UNICODE:
+        if maxchar > rutf8.MAXUNICODE:
             raise oefmt(space.w_SystemError,
                         "invalid maximum character passed to PyUnicode_New")
         kind = _4BYTE_KIND
@@ -1264,3 +1300,70 @@ def PyUnicode_New(space, size, maxchar):
         set_wsize(pyobj, size)
         set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
     return pyobj
+
+@cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
+          Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
+def PyUnicode_FindChar(space, ref, ch, start, end, direction):
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    w_str = from_ref(space, ref)
+    ch = widen(ch)
+    if ch > rutf8.MAXUNICODE:
+        raise oefmt(space.w_ValueError, "character out of range")
+    w_ch = space.newtext(unichr(ch))
+    if rffi.cast(lltype.Signed, direction) > 0:
+        w_pos = space.call_method(w_str, "find", w_ch,
+                                  space.newint(start), space.newint(end))
+    else:
+        w_pos = space.call_method(w_str, "rfind", w_ch,
+                                  space.newint(start), space.newint(end))
+    return space.int_w(w_pos)
+
+@cts.decl("Py_UCS4 PyUnicode_ReadChar(PyObject *unicode, Py_ssize_t index)", error=-1)
+def PyUnicode_ReadChar(space, ref, index):
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    if not get_ready(ref):
+        PyErr_BadArgument(space)
+    if index < 0 or index > get_len(ref):
+        raise oefmt(space.w_IndexError, "string index out of range")
+    w_obj = from_ref(space, ref)
+    w_ch = space.getitem(w_obj, space.newint(index))
+    return space.int_w(space.ord(w_ch))
+        
+@cts.decl("int PyUnicode_WriteChar(PyObject *unicode, Py_ssize_t index, Py_UCS4 ch)", error=-1)
+def PyUnicode_WriteChar(space, ref, index, ch):
+    """ Write a single ch at index before ref is ready. In order for this to
+    succeed:
+    - ch and ref[index] when converted to utf8 must be the same length
+    - ref must not have a RPython object
+    - ref must not have been processed by _PyUnicode_Ready
+    """
+    if not PyUnicode_Check(space, ref):
+        PyErr_BadArgument(space)
+    if index < 0 or index > get_len(ref):
+        raise oefmt(space.w_IndexError, "string index out of range")
+    if get_ready(ref):
+        raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
+    if not has_utf8_memory(ref):
+        raise oefmt(space.w_SystemError, "Cannot modify a string currently used")
+    # this is rarithetic.r_uint, not rffi.r_uint
+    ch = r_uint(ch)
+    if ch > rutf8.MAXUNICODE:
+        raise oefmt(space.w_ValueError, "character out of range")
+    utf8 = get_utf8(ref)
+    as_str = rffi.charp2str(utf8)
+    start = 0
+    if index > 0:
+        start = rutf8.next_codepoint_pos(as_str, index - 1)
+    end = rutf8.next_codepoint_pos(as_str, index)
+    ch_as_utf8 = rutf8.unichr_as_utf8(ch)
+    if len(ch_as_utf8) != end - start:
+        raise oefmt(space.w_ValueError, 
+                    'cannot write ch to string, would need to reallocate')
+    j = 0
+    for i in range(start, end):
+        utf8[i] = ch_as_utf8[j]
+        j += 1
+    return 0
+ 

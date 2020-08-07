@@ -135,6 +135,7 @@ class AppTestWinConsoleIO:
         import _io
         with _io._WindowsConsoleIO('CONOUT$', 'w') as f:
             assert f.write(b'abdefg') == 6
+            assert f.write(b'\r\r') == 2
             
     @pytest.mark.skip('test hangs')
     def test_partial_reads(self):

@@ -41,6 +41,7 @@ eci = ExternalCompilationInfo(
     includes = includes,
     separate_module_files = [cdir / 'src' / 'signals.c'],
     include_dirs = [str(cdir)],
+    pre_include_bits = ["#define PYPY_SIGINT_INTERRUPT_EVENT 1\n"],
 )
 
 class CConfig:

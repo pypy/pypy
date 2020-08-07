@@ -408,6 +408,7 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
+    @pytest.mark.skipif("sys.platform == 'win32'")
     def test_socket_close_exception(self):
         import _socket, errno
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
@@ -415,6 +416,7 @@ class AppTestSocket:
         e = raises(OSError, s.close)
         assert e.value.errno in (errno.EBADF, errno.ENOTSOCK)
 
+    @pytest.mark.skipif("sys.platform == 'win32'")
     def test_setblocking_invalidfd(self):
         import _socket
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
