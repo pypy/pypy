@@ -1,7 +1,9 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.function import descr_function_get, Method
 from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
@@ -26,47 +28,46 @@ class W_ExtensionFunction(W_Root):
             raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
         self.cfuncptr = self.hpymeth.c_impl
 
-    def call_noargs(self, space):
+    def call_noargs(self, space, h_self):
         state = space.fromcache(State)
-        with handles.using(space, self.w_self) as h_self:
-            func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-            h_result = func(state.ctx, h_self)
+        func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
+        h_result = func(state.ctx, h_self)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
-    def call_o(self, space, w_arg):
+    def call_o(self, space, h_self, w_arg):
         state = space.fromcache(State)
-        with handles.using(space, self.w_self) as h_self:
-            with handles.using(space, w_arg) as h_arg:
-                func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-                h_result = func(state.ctx, h_self, h_arg)
+        with handles.using(space, w_arg) as h_arg:
+            func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
+            h_result = func(state.ctx, h_self, h_arg)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
-    def call_varargs_kw(self, space, __args__, has_keywords):
+    def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
         # ctx_CallRealFunctionFromTrampoline in cpython-universal
-        n = len(__args__.arguments_w)
+        n = len(__args__.arguments_w) - skip_args
 
         # XXX this looks inefficient: ideally, we would like the equivalent of
         # alloca(): do we have it in RPython? The alternative is to wrap
         # arguments_w in a tuple, convert to handle and pass it to a C
         # function whichs calls alloca() and the forwards everything to the
         # functpr
-        with handles.using(space, self.w_self) as h_self:
-            with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
-                for i, w_obj in enumerate(__args__.arguments_w):
-                    args_h[i] = handles.new(space, w_obj)
+        with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
+            i = 0
+            while i < n:
+                args_h[i] = handles.new(space, __args__.arguments_w[i + skip_args])
+                i += 1
 
-                if has_keywords:
-                    h_result = self.call_keywords(space, h_self, args_h, n, __args__)
-                else:
-                    h_result = self.call_varargs(space, h_self, args_h, n)
+            if has_keywords:
+                h_result = self.call_keywords(space, h_self, args_h, n, __args__)
+            else:
+                h_result = self.call_varargs(space, h_self, args_h, n)
 
-                # XXX this should probably be in a try/finally. We should add a
-                # test to check that we don't leak handles
-                for i in range(n):
-                    handles.close(space, args_h[i])
+            # XXX this should probably be in a try/finally. We should add a
+            # test to check that we don't leak handles
+            for i in range(n):
+                handles.close(space, args_h[i])
 
         return handles.consume(space, h_result)
 
@@ -97,11 +98,15 @@ class W_ExtensionFunction(W_Root):
 
 
     def descr_call(self, space, __args__):
+        with handles.using(space, self.w_self) as h_self:
+            self.call(space, h_self, __args__)
+
+    def call(self, space, h_self, __args__, skip_args=0):
         flags = self.flags
-        length = len(__args__.arguments_w)
+        length = len(__args__.arguments_w) - skip_args
 
         if flags == llapi.HPy_METH_KEYWORDS:
-            return self.call_varargs_kw(space, __args__, has_keywords=True)
+            return self.call_varargs_kw(space, h_self, __args__, has_keywords=True)
 
         if __args__.keywords:
             raise oefmt(space.w_TypeError,
@@ -109,7 +114,7 @@ class W_ExtensionFunction(W_Root):
 
         if flags == llapi.HPy_METH_NOARGS:
             if length == 0:
-                return self.call_noargs(space)
+                return self.call_noargs(space, h_self)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
 
@@ -118,10 +123,10 @@ class W_ExtensionFunction(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            return self.call_o(space, __args__.arguments_w[0])
+            return self.call_o(space, h_self, __args__.arguments_w[skip_args])
 
         if flags == llapi.HPy_METH_VARARGS:
-            return self.call_varargs_kw(space, __args__, has_keywords=False)
+            return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=False)
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
@@ -132,3 +137,36 @@ W_ExtensionFunction.typedef = TypeDef(
     __call__ = interp2app(W_ExtensionFunction.descr_call),
     )
 W_ExtensionFunction.typedef.acceptable_as_base_class = False
+
+
+class W_ExtensionMethod(W_ExtensionFunction):
+    def __init__(self, space, hpymeth, w_objclass):
+        W_ExtensionFunction.__init__(self, space, hpymeth, space.w_None)
+        self.w_objclass = w_objclass
+
+    def descr_call(self, space, __args__):
+        # XXX: basically a copy of cpyext's W_PyCMethodObject.descr_call()
+        if len(__args__.arguments_w) == 0:
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' of '%s' object needs an argument",
+                self.name, self.w_objclass.getname(space))
+        w_instance = __args__.arguments_w[0]
+        # XXX: needs a stricter test
+        if not space.isinstance_w(w_instance, self.w_objclass):
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' requires a '%s' object but received a '%T'",
+                self.name, w_objclass.name, w_instance)
+        #
+        with handles.using(space, w_instance) as h_instance:
+            return self.call(space, h_instance, __args__, skip_args=1)
+
+W_ExtensionMethod.typedef = TypeDef(
+    'method_descriptor_',
+    __get__ = interp2app(descr_function_get),
+    __call__ = interp2app(W_ExtensionMethod.descr_call),
+    )
+W_ExtensionMethod.typedef.acceptable_as_base_class = False
