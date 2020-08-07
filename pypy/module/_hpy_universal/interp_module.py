@@ -16,6 +16,7 @@ def HPyModule_Create(space, ctx, hpydef):
     #
     # add the functions defined in hpydef.c_legacy_methods
     if hpydef.c_legacy_methods:
+        raise oefmt(space.w_NotImplementedError, "Legacy methods are not supported yet")
         p = hpydef.c_legacy_methods
         i = 0
         legacy_methoddefs = [] # for those using the old C-API calling convention
