@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
+from pypy.objspace.std.bytesobject import invoke_bytes_method
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
@@ -109,29 +110,36 @@ def HPy_SetItem_s(space, ctx, h_obj, key, h_val):
     space.setitem(w_obj, w_key, w_val)
     return API.int(0)
 
-@API.func("HPy HPy_Repr(HPyContext ctx, HPy obj)")
-def HPy_Repr(space, ctx, obj):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("HPy HPy_Repr(HPyContext ctx, HPy h_obj)")
+def HPy_Repr(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    w_res = space.repr(w_obj)
+    return handles.new(space, w_res)
 
-@API.func("HPy HPy_Str(HPyContext ctx, HPy obj)")
-def HPy_Str(space, ctx, obj):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("HPy HPy_Str(HPyContext ctx, HPy h_obj)")
+def HPy_Str(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    w_res = space.str(w_obj)
+    return handles.new(space, w_res)
 
-@API.func("HPy HPy_ASCII(HPyContext ctx, HPy obj)")
-def HPy_ASCII(space, ctx, obj):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("HPy HPy_ASCII(HPyContext ctx, HPy h_obj)")
+def HPy_ASCII(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    w_res = operation.ascii(space, w_obj)
+    return handles.new(space, w_res)
 
-@API.func("HPy HPy_Bytes(HPyContext ctx, HPy obj)")
-def HPy_Bytes(space, ctx, obj):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+@API.func("HPy HPy_Bytes(HPyContext ctx, HPy h_obj)")
+def HPy_Bytes(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    if space.type(w_obj) is space.w_bytes:
+        return handles.dup(h_obj)
+    w_result = invoke_bytes_method(space, w_obj)
+    if w_result is not None:
+        return handles.new(space, w_result)
+    # return PyBytes_FromObject(space, w_obj)
+    buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
+    w_res = space.newbytes(buffer.as_str())
+    return handles.new(space, w_res)
 
 @API.func("HPy HPy_RichCompare(HPyContext ctx, HPy v, HPy w, int op)")
 def HPy_RichCompare(space, ctx, v, w, op):
