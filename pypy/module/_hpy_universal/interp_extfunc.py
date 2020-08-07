@@ -99,14 +99,14 @@ class W_ExtensionFunction(W_Root):
 
     def descr_call(self, space, __args__):
         with handles.using(space, self.w_self) as h_self:
-            self.call(space, h_self, __args__)
+            return self.call(space, h_self, __args__)
 
     def call(self, space, h_self, __args__, skip_args=0):
         flags = self.flags
         length = len(__args__.arguments_w) - skip_args
 
         if flags == llapi.HPy_METH_KEYWORDS:
-            return self.call_varargs_kw(space, h_self, __args__, has_keywords=True)
+            return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=True)
 
         if __args__.keywords:
             raise oefmt(space.w_TypeError,
