@@ -131,7 +131,7 @@ def HPy_ASCII(space, ctx, h_obj):
 def HPy_Bytes(space, ctx, h_obj):
     w_obj = handles.deref(space, h_obj)
     if space.type(w_obj) is space.w_bytes:
-        return handles.dup(h_obj)
+        return handles.dup(space, h_obj)
     w_result = invoke_bytes_method(space, w_obj)
     if w_result is not None:
         return handles.new(space, w_result)
