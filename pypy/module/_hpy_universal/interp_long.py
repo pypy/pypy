@@ -10,10 +10,9 @@ def HPyLong_FromLong(space, ctx, value):
     return handles.new(space, w_obj)
 
 @API.func("HPy HPyLong_FromUnsignedLong(HPyContext ctx, unsigned long value)")
-def HPyLong_FromUnsignedLong(space, ctx, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+def HPyLong_FromUnsignedLong(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
 
 @API.func("HPy HPyLong_FromLongLong(HPyContext ctx, long long v)")
 def HPyLong_FromLongLong(space, ctx, v):
@@ -26,16 +25,14 @@ def HPyLong_FromUnsignedLongLong(space, ctx, v):
     return handles.new(space, w_obj)
 
 @API.func("HPy HPyLong_FromSize_t(HPyContext ctx, size_t value)")
-def HPyLong_FromSize_t(space, ctx, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+def HPyLong_FromSize_t(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
 
 @API.func("HPy HPyLong_FromSsize_t(HPyContext ctx, HPy_ssize_t value)")
-def HPyLong_FromSsize_t(space, ctx, value):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+def HPyLong_FromSsize_t(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
 
 @API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)")
 def HPyLong_AsLong(space, ctx, h):
