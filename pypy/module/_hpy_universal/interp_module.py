@@ -16,21 +16,12 @@ def HPyModule_Create(space, ctx, hpydef):
     #
     # add the functions defined in hpydef.c_legacy_methods
     if hpydef.c_legacy_methods:
-        raise oefmt(space.w_NotImplementedError, "Legacy methods are not supported yet")
-        p = hpydef.c_legacy_methods
-        i = 0
-        legacy_methoddefs = [] # for those using the old C-API calling convention
-        while p[i].c_ml_name:
-            # legacy cpyext-based methods, to be processed later
-            legacy_methoddefs.append(p[i])
-            i += 1
-        if legacy_methoddefs:
-            if space.config.objspace.hpy_cpyext_API:
-                attach_legacy_methods(space, legacy_methoddefs, w_mod, modname)
-            else:
-                raise oefmt(space.w_RuntimeError,
-                        "Module %s contains legacy methods, but _hpy_universal "
-                        "was compiled without cpyext support", modname)
+        if space.config.objspace.hpy_cpyext_API:
+            attach_legacy_methods(space, hpydef.c_legacy_methods, w_mod, modname)
+        else:
+            raise oefmt(space.w_RuntimeError,
+                    "Module %s contains legacy methods, but _hpy_universal "
+                    "was compiled without cpyext support", modname)
     #
     # add the native HPy defines
     if hpydef.c_defines:
