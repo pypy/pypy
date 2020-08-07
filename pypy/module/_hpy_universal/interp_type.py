@@ -17,3 +17,9 @@ def HPyType_FromSpec(space, ctx, spec):
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return 0
     raise NotImplementedError
+
+@API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
+def HPyType_GenericNew(space, ctx, type, args, nargs, kw):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError

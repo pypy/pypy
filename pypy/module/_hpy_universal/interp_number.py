@@ -103,3 +103,10 @@ def HPy_InPlacePower(space, ctx, h1, h2, h3):
     else:
         w_res = space.inplace_pow(w_o1, w_o2)
     return handles.new(space, w_res)
+
+@API.func("int HPyNumber_Check(HPyContext ctx, HPy h)")
+def HPyNumber_Check(space, ctx, h):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+

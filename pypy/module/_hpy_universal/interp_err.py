@@ -51,3 +51,9 @@ def hpy_err_Occurred_rpy(space):
     # ll2ctypes:get_ctypes_trampoline:invoke_via_ctypes
     res = ll2ctypes._callback_exc_info is not None
     return API.int(res)
+
+@API.func("HPy HPyErr_NoMemory(HPyContext ctx)")
+def HPyErr_NoMemory(space, ctx):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError

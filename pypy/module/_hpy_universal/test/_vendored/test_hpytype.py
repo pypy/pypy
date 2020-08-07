@@ -63,6 +63,7 @@ class TestType(HPyTest):
         assert abs(d) == 1234
 
     def test_tp_methods(self):
+        import pytest
         mod = self.make_module("""
             HPyDef_METH(Dummy_foo, "foo", Dummy_foo_impl, HPyFunc_O)
             static HPy Dummy_foo_impl(HPyContext ctx, HPy self, HPy arg)
@@ -76,9 +77,16 @@ class TestType(HPyTest):
                 return HPyLong_FromLong(ctx, 1234);
             }
 
+            HPyDef_METH(Dummy_identity, "identity", Dummy_identity_impl, HPyFunc_NOARGS)
+            static HPy Dummy_identity_impl(HPyContext ctx, HPy self)
+            {
+                return HPy_Dup(ctx, self);
+            }
+
             static HPyDef *dummy_type_defines[] = {
                     &Dummy_foo,
                     &Dummy_bar,
+                    &Dummy_identity,
                     NULL
             };
 
@@ -93,6 +101,12 @@ class TestType(HPyTest):
         d = mod.Dummy()
         assert d.foo(21) == 42
         assert d.bar() == 1234
+        assert d.identity() is d
+        with pytest.raises(TypeError):
+            mod.Dummy.identity()
+        class A: pass
+        with pytest.raises(TypeError):
+            mod.Dummy.identity(A())
 
     def test_HPy_New(self):
         mod = self.make_module("""
@@ -138,6 +152,41 @@ class TestType(HPyTest):
         """)
         p = mod.Point()
         assert p.foo() == 73
+
+    def test_HPyType_GenericNew(self):
+        mod = self.make_module("""
+            typedef struct {
+                HPyObject_HEAD
+                long x;
+                long y;
+            } PointObject;
+
+            HPyDef_SLOT(Point_new, HPy_tp_new, HPyType_GenericNew, HPyFunc_KEYWORDS)
+
+            HPyDef_METH(Point_foo, "foo", Point_foo_impl, HPyFunc_NOARGS)
+            static HPy Point_foo_impl(HPyContext ctx, HPy self)
+            {
+                PointObject *point = HPy_CAST(ctx, PointObject, self);
+                return HPyLong_FromLong(ctx, point->x*10 + point->y);
+            }
+
+            static HPyDef *Point_defines[] = {
+                &Point_new,
+                &Point_foo,
+                NULL
+            };
+            static HPyType_Spec Point_spec = {
+                .name = "mytest.Point",
+                .basicsize = sizeof(PointObject),
+                .defines = Point_defines
+            };
+
+            @EXPORT_TYPE("Point", Point_spec)
+            @INIT
+        """)
+        p = mod.Point()
+        assert p.foo() == 0
+
 
     def test_getitem(self):
         mod = self.make_module("""

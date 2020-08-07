@@ -93,6 +93,11 @@
     { \
         return _h2py(IMPL(_HPyGetContext(), _py2h(arg0))); \
     }
+#define _HPyFunc_TRAMPOLINE_HPyFunc_HASHFUNC(SYM, IMPL) \
+    static HPy_hash_t SYM(cpy_PyObject *arg0) \
+    { \
+        return (IMPL(_HPyGetContext(), _py2h(arg0))); \
+    }
 #define _HPyFunc_TRAMPOLINE_HPyFunc_RICHCMPFUNC(SYM, IMPL) \
     static cpy_PyObject *SYM(cpy_PyObject *arg0, cpy_PyObject *arg1, int arg2) \
     { \

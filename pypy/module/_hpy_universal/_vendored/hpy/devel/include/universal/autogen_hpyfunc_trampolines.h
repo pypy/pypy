@@ -265,6 +265,20 @@ typedef struct {
 
 typedef struct {
     cpy_PyObject *arg0;
+    HPy_hash_t result;
+} _HPyFunc_args_HASHFUNC;
+
+#define _HPyFunc_TRAMPOLINE_HPyFunc_HASHFUNC(SYM, IMPL) \
+    static HPy_hash_t SYM(cpy_PyObject *arg0) \
+    { \
+        _HPyFunc_args_HASHFUNC a = { arg0 }; \
+        _HPy_CallRealFunctionFromTrampoline( \
+           _ctx_for_trampolines, HPyFunc_HASHFUNC, IMPL, &a); \
+        return a.result; \
+    }
+
+typedef struct {
+    cpy_PyObject *arg0;
     cpy_PyObject *arg1;
     int arg2;
     cpy_PyObject * result;

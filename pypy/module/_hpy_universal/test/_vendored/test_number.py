@@ -182,3 +182,18 @@ class TestNumber(HPyTest):
             @INIT
         """)
         assert mod.f(m1, m2) == m1.__imatmul__(m2)
+
+    def test_number_check(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                int cond = HPyNumber_Check(ctx, arg);
+                return HPyLong_FromLong(ctx, cond);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f("foo") == 0
+        assert mod.f(42) == 1
+        assert mod.f(42.1) == 1

@@ -30,3 +30,11 @@
     ((void)sizeof((*data)->_ob_head._reserved0), /* ERROR: expected a variable of type T** with T a structure starting with HPyObject_HEAD */ \
      (void**)data)                                                            \
   ))
+
+/* Rich comparison opcodes */
+#define HPy_LT 0
+#define HPy_LE 1
+#define HPy_EQ 2
+#define HPy_NE 3
+#define HPy_GT 4
+#define HPy_GE 5

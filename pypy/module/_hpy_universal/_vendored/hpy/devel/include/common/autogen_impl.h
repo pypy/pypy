@@ -13,6 +13,11 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromLong)(HPyContext ctx, long value)
     return _py2h(PyLong_FromLong(value));
 }
 
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromUnsignedLong)(HPyContext ctx, unsigned long value)
+{
+    return _py2h(PyLong_FromUnsignedLong(value));
+}
+
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromLongLong)(HPyContext ctx, long long v)
 {
     return _py2h(PyLong_FromLongLong(v));
@@ -21,6 +26,16 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromLongLong)(HPyContext ctx, long long v
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromUnsignedLongLong)(HPyContext ctx, unsigned long long v)
 {
     return _py2h(PyLong_FromUnsignedLongLong(v));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromSize_t)(HPyContext ctx, size_t value)
+{
+    return _py2h(PyLong_FromSize_t(value));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Long_FromSsize_t)(HPyContext ctx, HPy_ssize_t value)
+{
+    return _py2h(PyLong_FromSsize_t(value));
 }
 
 HPyAPI_STORAGE long _HPy_IMPL_NAME(Long_AsLong)(HPyContext ctx, HPy h)
@@ -36,6 +51,11 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Float_FromDouble)(HPyContext ctx, double v)
 HPyAPI_STORAGE double _HPy_IMPL_NAME(Float_AsDouble)(HPyContext ctx, HPy h)
 {
     return PyFloat_AsDouble(_h2py(h));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Number_Check)(HPyContext ctx, HPy h)
+{
+    return PyNumber_Check(_h2py(h));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Add)(HPyContext ctx, HPy h1, HPy h2)
@@ -213,7 +233,12 @@ HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, co
     return PyErr_SetString(_h2py(h_type), message);
 }
 
-HPyAPI_STORAGE int _HPy_IMPL_NAME(Object_IsTrue)(HPyContext ctx, HPy h)
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Err_NoMemory)(HPyContext ctx)
+{
+    return _py2h(PyErr_NoMemory());
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(IsTrue)(HPyContext ctx, HPy h)
 {
     return PyObject_IsTrue(_h2py(h));
 }
@@ -256,6 +281,41 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(GetItem)(HPyContext ctx, HPy obj, HPy
 HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(SetItem)(HPyContext ctx, HPy obj, HPy key, HPy value)
 {
     return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Repr)(HPyContext ctx, HPy obj)
+{
+    return _py2h(PyObject_Repr(_h2py(obj)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Str)(HPyContext ctx, HPy obj)
+{
+    return _py2h(PyObject_Str(_h2py(obj)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(ASCII)(HPyContext ctx, HPy obj)
+{
+    return _py2h(PyObject_ASCII(_h2py(obj)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Bytes)(HPyContext ctx, HPy obj)
+{
+    return _py2h(PyObject_Bytes(_h2py(obj)));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(RichCompare)(HPyContext ctx, HPy v, HPy w, int op)
+{
+    return _py2h(PyObject_RichCompare(_h2py(v), _h2py(w), op));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(RichCompareBool)(HPyContext ctx, HPy v, HPy w, int op)
+{
+    return PyObject_RichCompareBool(_h2py(v), _h2py(w), op);
+}
+
+HPyAPI_STORAGE HPy_hash_t _HPy_IMPL_NAME_NOPREFIX(Hash)(HPyContext ctx, HPy obj)
+{
+    return PyObject_Hash(_h2py(obj));
 }
 
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Bytes_Check)(HPyContext ctx, HPy h)

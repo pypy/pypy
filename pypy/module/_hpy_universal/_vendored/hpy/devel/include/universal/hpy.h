@@ -15,6 +15,7 @@
 
 /* HPy types */
 typedef intptr_t HPy_ssize_t;
+typedef intptr_t HPy_hash_t;
 struct _HPy_s { HPy_ssize_t _i; };
 typedef struct _HPy_s HPy;
 typedef struct _HPyContext_s *HPyContext;

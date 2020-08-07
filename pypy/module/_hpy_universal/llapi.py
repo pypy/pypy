@@ -37,6 +37,7 @@ cts = CTypeSpace()
 cts.headers.append('stdint.h')
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
+typedef intptr_t HPy_hash_t;
 
 // see below for more info about HPy vs _struct_HPy_s
 typedef struct _HPy_s {
@@ -51,15 +52,25 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_False;
     struct _HPy_s h_ValueError;
     struct _HPy_s h_TypeError;
+    struct _HPy_s h_BaseObjectType;
+    struct _HPy_s h_TypeType;
+    struct _HPy_s h_LongType;
+    struct _HPy_s h_UnicodeType;
+    struct _HPy_s h_TupleType;
+    struct _HPy_s h_ListType;
     void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
     void * ctx_Long_FromLong;
+    void * ctx_Long_FromUnsignedLong;
     void * ctx_Long_FromLongLong;
     void * ctx_Long_FromUnsignedLongLong;
+    void * ctx_Long_FromSize_t;
+    void * ctx_Long_FromSsize_t;
     void * ctx_Long_AsLong;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
+    void * ctx_Number_Check;
     void * ctx_Add;
     void * ctx_Subtract;
     void * ctx_Multiply;
@@ -96,8 +107,10 @@ typedef struct _HPyContext_s {
     void * ctx_InPlaceOr;
     void * ctx_Err_SetString;
     void * ctx_Err_Occurred;
-    void * ctx_Object_IsTrue;
+    void * ctx_Err_NoMemory;
+    void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
+    void * ctx_Type_GenericNew;
     void * ctx_GetAttr;
     void * ctx_GetAttr_s;
     void * ctx_HasAttr;
@@ -112,6 +125,13 @@ typedef struct _HPyContext_s {
     void * ctx_SetItem_s;
     void * ctx_Cast;
     void * ctx_New;
+    void * ctx_Repr;
+    void * ctx_Str;
+    void * ctx_ASCII;
+    void * ctx_Bytes;
+    void * ctx_RichCompare;
+    void * ctx_RichCompareBool;
+    void * ctx_Hash;
     void * ctx_Bytes_Check;
     void * ctx_Bytes_Size;
     void * ctx_Bytes_GET_SIZE;

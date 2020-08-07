@@ -4,13 +4,19 @@ import pypy.module.__builtin__.operation as operation
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
+@API.func("int HPy_IsTrue(HPyContext ctx, HPy h)")
+def HPy_IsTrue(space, ctx, h):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+
 @API.func("HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy h_name)")
 def HPy_GetAttr(space, ctx, h_obj, h_name):
     w_obj = handles.deref(space, h_obj)
     w_name = handles.deref(space, h_name)
     w_res = space.getattr(w_obj, w_name)
     return handles.new(space, w_res)
-
 
 @API.func("HPy HPy_GetAttr_s(HPyContext ctx, HPy h_obj, const char *name)")
 def HPy_GetAttr_s(space, ctx, h_obj, name):
@@ -102,3 +108,45 @@ def HPy_SetItem_s(space, ctx, h_obj, key, h_val):
     w_val = handles.deref(space, h_val)
     space.setitem(w_obj, w_key, w_val)
     return API.int(0)
+
+@API.func("HPy HPy_Repr(HPyContext ctx, HPy obj)")
+def HPy_Repr(space, ctx, obj):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("HPy HPy_Str(HPyContext ctx, HPy obj)")
+def HPy_Str(space, ctx, obj):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("HPy HPy_ASCII(HPyContext ctx, HPy obj)")
+def HPy_ASCII(space, ctx, obj):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("HPy HPy_Bytes(HPyContext ctx, HPy obj)")
+def HPy_Bytes(space, ctx, obj):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("HPy HPy_RichCompare(HPyContext ctx, HPy v, HPy w, int op)")
+def HPy_RichCompare(space, ctx, v, w, op):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("int HPy_RichCompareBool(HPyContext ctx, HPy v, HPy w, int op)")
+def HPy_RichCompareBool(space, ctx, v, w, op):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError
+
+@API.func("HPy_hash_t HPy_Hash(HPyContext ctx, HPy obj)")
+def HPy_Hash(space, ctx, obj):
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
+    raise NotImplementedError

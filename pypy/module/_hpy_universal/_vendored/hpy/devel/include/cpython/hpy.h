@@ -31,6 +31,7 @@
 
 typedef struct { PyObject *_o; } HPy;
 typedef Py_ssize_t HPy_ssize_t;
+typedef Py_hash_t HPy_hash_t;
 
 /* For internal usage only. These should be #undef at the end of this header.
    If you need to convert HPy to PyObject* and vice-versa, you should use the
@@ -45,6 +46,12 @@ typedef struct _HPyContext_s {
     HPy h_False;
     HPy h_ValueError;
     HPy h_TypeError;
+    HPy h_BaseObjectType;
+    HPy h_TypeType;
+    HPy h_LongType;
+    HPy h_UnicodeType;
+    HPy h_TupleType;
+    HPy h_ListType;
 } *HPyContext;
 
 /* XXX! should be defined only once, not once for every .c! */
@@ -71,6 +78,12 @@ _HPyGetContext(void) {
         ctx->h_False = _py2h(Py_False);
         ctx->h_ValueError = _py2h(PyExc_ValueError);
         ctx->h_TypeError = _py2h(PyExc_TypeError);
+        ctx->h_BaseObjectType = _py2h((PyObject *)&PyBaseObject_Type);
+        ctx->h_TypeType = _py2h((PyObject *)&PyType_Type);
+        ctx->h_LongType = _py2h((PyObject *)&PyLong_Type);
+        ctx->h_UnicodeType = _py2h((PyObject *)&PyUnicode_Type);
+        ctx->h_TupleType = _py2h((PyObject *)&PyTuple_Type);
+        ctx->h_ListType = _py2h((PyObject *)&PyList_Type);
     }
     return ctx;
 }
@@ -143,6 +156,12 @@ HPyAPI_FUNC(HPy)
 _HPy_New(HPyContext ctx, HPy h, void **data)
 {
     return ctx_New(ctx, h, data);
+}
+
+HPyAPI_FUNC(HPy)
+HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)
+{
+    return ctx_Type_GenericNew(ctx, type, args, nargs, kw);
 }
 
 HPyAPI_FUNC(void*)

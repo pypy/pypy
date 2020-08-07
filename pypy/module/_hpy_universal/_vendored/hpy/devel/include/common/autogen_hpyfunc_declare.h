@@ -29,6 +29,7 @@
 #define _HPyFunc_DECLARE_HPyFunc_SETATTRFUNC(SYM) static int SYM(HPyContext ctx, HPy, char *, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_SETATTROFUNC(SYM) static int SYM(HPyContext ctx, HPy, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_REPRFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
+#define _HPyFunc_DECLARE_HPyFunc_HASHFUNC(SYM) static HPy_hash_t SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_RICHCMPFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy, int)
 #define _HPyFunc_DECLARE_HPyFunc_GETITERFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_ITERNEXTFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
@@ -57,6 +58,7 @@ typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
 typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
 typedef int (*HPyFunc_setattrofunc)(HPyContext ctx, HPy, HPy, HPy);
 typedef HPy (*HPyFunc_reprfunc)(HPyContext ctx, HPy);
+typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, int);
 typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
