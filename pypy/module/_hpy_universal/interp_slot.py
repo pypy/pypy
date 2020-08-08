@@ -1,0 +1,174 @@
+from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.unroll import unrolling_iterable
+from pypy.interpreter.error import oefmt
+from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.function import descr_function_get
+from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.objspace.std.typeobject import W_TypeObject
+
+from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal.state import State
+
+SlotEnum = llapi.cts.gettype('HPySlot_Slot')
+VALID_SLOTS = tuple(sorted(value
+    for key, value in SlotEnum.__dict__.items()
+    if key.startswith('HPy_')))
+
+class W_SlotWrapper(W_Root):
+    _immutable_fields_ = ["slot"]
+
+    def __init__(self, slot, method_name, cfuncptr, w_objclass):
+        self.slot = slot
+        self.name = method_name
+        self.cfuncptr = cfuncptr
+        self.w_objclass = w_objclass
+
+    def check_args(self, space, __args__, arity):
+        length = len(__args__.arguments_w)
+        if length != arity:
+            raise oefmt(space.w_TypeError, "expected %d arguments, got %d",
+                        arity, length)
+        if __args__.keywords:
+            raise oefmt(space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.name)
+
+    def descr_call(self, space, __args__):
+        # XXX: basically a copy of cpyext's W_PyCMethodObject.descr_call()
+        if len(__args__.arguments_w) == 0:
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' of '%s' object needs an argument",
+                self.name, self.w_objclass.getname(space))
+        w_instance = __args__.arguments_w[0]
+        # XXX: needs a stricter test
+        if not space.isinstance_w(w_instance, self.w_objclass):
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' requires a '%s' object but received a '%T'",
+                self.name, w_objclass.name, w_instance)
+        #
+        with handles.using(space, w_instance) as h_instance:
+            return self.call(space, h_instance, __args__)
+
+    def call(self, space, h_self, __args__):
+        raise oefmt(space.w_RuntimeError)
+
+W_SlotWrapper.typedef = TypeDef(
+    'slot_wrapper',
+    __get__ = interp2app(descr_function_get),
+    __call__ = interp2app(W_SlotWrapper.descr_call),
+    )
+W_SlotWrapper.typedef.acceptable_as_base_class = False
+
+def fill_slot_unimplemented(space, w_type, slot_num, hpyslot):
+    raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", slot_num)
+
+for key, value in sorted(SlotEnum.__dict__.items(), key=lambda x: x[1]):
+    if not key.startswith('HPy_'):
+        continue
+    globals()['fill_slot_' + key[4:]] = fill_slot_unimplemented
+
+class W_SlotWrapper_reprfunc(W_SlotWrapper):
+    def call(self, space, h_self, __args__):
+        self.check_args(space, __args__, 1)
+        state = space.fromcache(State)
+        func = llapi.cts.cast('HPyFunc_reprfunc', self.cfuncptr)
+        h_result = func(state.ctx, h_self)
+        return handles.consume(space, h_result)
+
+def fill_slot_tp_repr(space, w_type, slot_num, hpyslot):
+    w_slotwrapper = W_SlotWrapper_reprfunc(slot_num, '__repr__', hpyslot.c_impl, w_type)
+    w_type.setdictvalue(space, '__repr__', w_slotwrapper)
+
+
+class W_SlotWrapper_unaryfunc(W_SlotWrapper):
+    def call(self, space, h_self, __args__):
+        self.check_args(space, __args__, 1)
+        state = space.fromcache(State)
+        func = llapi.cts.cast('HPyFunc_unaryfunc', self.cfuncptr)
+        h_result = func(state.ctx, h_self)
+        return handles.consume(space, h_result)
+
+def make_unary_slot_filler(method_name):
+    def fill_slot_unary(space, w_type, slot_num, hpyslot):
+        w_slotwrapper = W_SlotWrapper_unaryfunc(slot_num, method_name, hpyslot.c_impl, w_type)
+        w_type.setdictvalue(space, method_name, w_slotwrapper)
+    return fill_slot_unary
+
+UNARYFUNC_SLOTS = [
+    ('nb_absolute', '__abs__'),
+    ('nb_float', '__float__'),
+    ('nb_index', '__index__'),
+    ('nb_int', '__int__'),
+    ('nb_invert', '__invert__'),
+    ('nb_negative', '__neg__'),
+    ('nb_positive', '__pos__'),
+    ('tp_iter', '__iter__'),
+    ('tp_repr', '__repr__'),
+    ('tp_str', '__str__'),
+    ('am_await', '__await__'),
+    ('am_aiter', '__aiter__'),
+    ('am_anext', '__anext__'),
+]
+
+for slot, meth in UNARYFUNC_SLOTS:
+    globals()['fill_slot_%s' % slot] = make_unary_slot_filler(meth)
+
+
+class W_SlotWrapper_binaryfunc(W_SlotWrapper):
+    def call(self, space, h_self, __args__):
+        self.check_args(space, __args__, 2)
+        func = llapi.cts.cast('HPYFunc_binaryfunc', self.cfuncptr)
+        w_x = __args__.arguments_w[0]
+        state = space.fromcache(State)
+        with handles.using(space, w_x) as h_x:
+            h_result = func(state.ctx, h_self, h_x)
+            return handles.consume(space, h_result)
+
+def make_binary_slot_filler(method_name):
+    def fill_slot_binary(space, w_type, slot_num, hpyslot):
+        w_slotwrapper = W_SlotWrapper_binaryfunc(slot_num, method_name, hpyslot.c_impl, w_type)
+        w_type.setdictvalue(space, method_name, w_slotwrapper)
+    return fill_slot_binary
+
+BINARYFUNC_SLOTS = [
+    ('mp_subscript', '__getitem__'),
+    ('nb_inplace_add', '__iadd__'),
+    ('nb_inplace_and', '__iand__'),
+    ('nb_inplace_floor_divide', '__ifloordiv__'),
+    ('nb_inplace_lshift', '__ilshift__'),
+    ('nb_inplace_multiply', '__imul__'),
+    ('nb_inplace_or', '__ior__'),
+    ('nb_inplace_power', '__ipow__'),
+    ('nb_inplace_remainder', '__imod__'),
+    ('nb_inplace_rshift', '__irshift__'),
+    ('nb_inplace_subtract', '__isub__'),
+    ('nb_inplace_true_divide', '__itruediv__'),
+    ('nb_inplace_xor', '__ixor__'),
+    ('sq_concat', '__add__'),
+    ('sq_inplace_concat', '__iadd__'),
+    ('nb_inplace_matrix_multiply', '__imatmul__'),
+]
+
+for slot, meth in BINARYFUNC_SLOTS:
+    globals()['fill_slot_%s' % slot] = make_binary_slot_filler(meth)
+
+
+SLOT_FILLERS = []
+for key, value in sorted(SlotEnum.__dict__.items(), key=lambda x: x[1]):
+    if not key.startswith('HPy_'):
+        continue
+    SLOT_FILLERS.append((value, globals()['fill_slot_' + key[4:]]))
+SLOT_FILLERS = unrolling_iterable(SLOT_FILLERS)
+
+def fill_slot(space, w_type, hpyslot):
+    slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+    for slot, func in SLOT_FILLERS:
+        if slot_num == slot:
+            func(space, w_type, slot_num, hpyslot)
+            break
+    else:
+        raise oefmt(space.w_RuntimeError, "Unsupported HPy slot")

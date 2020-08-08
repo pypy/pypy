@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.function import descr_function_get, Method
+from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 

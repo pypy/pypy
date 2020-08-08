@@ -35,6 +35,10 @@ cts = CTypeSpace()
 # translation: it is used only as a nice way to declare the lltype.* types
 # which are needed here
 cts.headers.append('stdint.h')
+with open(str(INCLUDE_DIR/'common'/'typeslots.h')) as f:
+    lines = f.readlines()
+    src = ''.join(lines[2:-1])  # strip include guard
+    cts.parse_source(src)
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
@@ -153,15 +157,6 @@ typedef struct _HPyContext_s {
 typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);
-
-// typedefs corresponding to the various HPyFunc_Signature members
-typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
-typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
-typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self,
-                                HPy *args, HPy_ssize_t nargs, HPy kw);
-
-typedef int HPySlot_Slot;
 typedef int HPyFunc_Signature;
 
 /* hpydef.h */
@@ -190,7 +185,13 @@ typedef struct {
 } HPyGetSet;
 */
 
-typedef int HPyDef_Kind;  // HACK
+typedef enum {
+    HPyDef_Kind_Slot = 1,
+    HPyDef_Kind_Meth = 2
+    // HPyDef_Kind_Member = 3,
+    // HPyDef_Kind_GetSet = 4,
+} HPyDef_Kind;
+
 
 typedef struct {
     HPyDef_Kind kind;
@@ -240,6 +241,37 @@ typedef struct {
 #define HPy_NE 3
 #define HPy_GT 4
 #define HPy_GE 5
+
+/* autogen_hpyfunc_declare.h */
+
+typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
+typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
+typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_unaryfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_binaryfunc)(HPyContext ctx, HPy, HPy);
+typedef HPy (*HPyFunc_ternaryfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_inquiry)(HPyContext ctx, HPy);
+typedef HPy_ssize_t (*HPyFunc_lenfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_ssizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t);
+typedef HPy (*HPyFunc_ssizessizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t);
+typedef int (*HPyFunc_ssizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_objobjargproc)(HPyContext ctx, HPy, HPy, HPy);
+typedef void (*HPyFunc_freefunc)(HPyContext ctx, void *);
+typedef void (*HPyFunc_destructor)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_getattrfunc)(HPyContext ctx, HPy, char *);
+typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
+typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
+typedef int (*HPyFunc_setattrofunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef HPy (*HPyFunc_reprfunc)(HPyContext ctx, HPy);
+typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, int);
+typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy, HPy, HPy);
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -277,9 +309,6 @@ HPy_EQ = 2
 HPy_NE = 3
 HPy_GT = 4
 HPy_GE = 5
-
-HPyDef_Kind_Slot = 1
-HPyDef_Kind_Meth = 2
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
