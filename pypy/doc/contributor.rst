@@ -80,6 +80,7 @@ Contributors
   Bob Ippolito
   Bruno Gola
   David Malcolm
+  Yannick Jadoul
   Squeaky
   Edd Barrett
   Timo Paulssen
@@ -92,12 +93,13 @@ Contributors
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
-  Yannick Jadoul
   Jeremy Thurgood
+  nulano
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
   Mark Pearse
+  Julian Berman
   Simon Cross
   Tobias Pape
   Andreas Stührk
@@ -105,7 +107,6 @@ Contributors
   Stian Andreassen
   Guido van Rossum
   Pavel Vinogradov
-  Julian Berman
   William Leslie
   Paweł Piotr Przeradowski
   marky1991
@@ -213,6 +214,7 @@ Contributors
   Florin Papa
   Arianna Avanzini
   Jens-Uwe Mager
+  Matt Billenstein
   Valentina Mukhamedzhanova
   Stefano Parmesan
   touilleMan
@@ -231,6 +233,7 @@ Contributors
   Andrew Dalke
   Alejandro J. Cura
   Vladimir Kryachko
+  Miro Hrončok
   Gabriel
   Thomas Hisch
   Mark Williams
@@ -258,7 +261,6 @@ Contributors
   Dan Buch
   Lene Wagner
   Tomo Cocoa
-  Miro Hrončok
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -278,6 +280,7 @@ Contributors
   Jeong YunWon
   dakarpov@gmail.com
   Christopher Armstrong
+  Bolutife Ogunsola
   Aaron Tubbs
   Vasantha Ganesh K
   Jason Michalski
@@ -323,12 +326,14 @@ Contributors
   Daniel Neuhäuser
   Flavio Percoco
   halgari
+  Michał Górny
   Jim Baker
   Chris Lambacher
   John Aldis
   coolbutuseless@gmail.com
   Yasen Kiprov
   Mike Bayer
+  mark doerr
   Rodrigo Araújo
   Daniil Yarancev
   Min RK
@@ -353,6 +358,7 @@ Contributors
   Boglarka Vezer
   gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
   PavloKapyshin
+  shaolo1
   Hervé Beraud
   Tomer Chachamu
   Christopher Groskopf
@@ -381,6 +387,7 @@ Contributors
   pizi
   Tomáš Pružina
   James Robert
+  Chris AtLee
   Armin Ronacher
   Diana Popa
   Mike Kaplinskiy
@@ -398,6 +405,7 @@ Contributors
   paugier
   Dan Loewenherz
   werat
+  Tomas Hrnciar
   Filip Salomonsson
   Niclas Olofsson
   Zsolt Cserna
