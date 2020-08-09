@@ -8,6 +8,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
+from .interp_extfunc import W_ExtensionFunction
 
 SlotEnum = llapi.cts.gettype('HPySlot_Slot')
 VALID_SLOTS = tuple(sorted(value
@@ -155,6 +156,10 @@ BINARYFUNC_SLOTS = [
 
 for slot, meth in BINARYFUNC_SLOTS:
     globals()['fill_slot_%s' % slot] = make_binary_slot_filler(meth)
+
+def fill_slot_tp_new(space, w_type, slot_num, hpyslot):
+    w_slotwrapper = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS, hpyslot.c_impl, space.w_None)
+    w_type.setdictvalue(space, '__new__', w_slotwrapper)
 
 
 SLOT_FILLERS = []
