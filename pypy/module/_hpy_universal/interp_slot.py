@@ -64,7 +64,7 @@ W_SlotWrapper.typedef = TypeDef(
 W_SlotWrapper.typedef.acceptable_as_base_class = False
 
 def fill_slot_unimplemented(space, w_type, slot_num, hpyslot):
-    raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", slot_num)
+    raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", str(slot_num))
 
 for key, value in sorted(SlotEnum.__dict__.items(), key=lambda x: x[1]):
     if not key.startswith('HPy_'):
