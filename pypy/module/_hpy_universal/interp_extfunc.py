@@ -19,14 +19,13 @@ class W_ExtensionFunction(W_Root):
     # XXX: should we have separate classes for each mode?
     _immutable_fields_ = ["flags", "name"]
 
-    def __init__(self, space, hpymeth, w_self):
-        self.hpymeth = hpymeth
+    def __init__(self, space, name, flags, cfuncptr, w_self):
         self.w_self = w_self
-        self.name = rffi.constcharp2str(self.hpymeth.c_name)
-        self.flags = rffi.cast(lltype.Signed, self.hpymeth.c_signature)
+        self.name = name
+        self.flags = flags
         if self.flags not in METH_FLAGS:
             raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
-        self.cfuncptr = self.hpymeth.c_impl
+        self.cfuncptr = cfuncptr
 
     def call_noargs(self, space, h_self):
         state = space.fromcache(State)
@@ -140,8 +139,8 @@ W_ExtensionFunction.typedef.acceptable_as_base_class = False
 
 
 class W_ExtensionMethod(W_ExtensionFunction):
-    def __init__(self, space, hpymeth, w_objclass):
-        W_ExtensionFunction.__init__(self, space, hpymeth, space.w_None)
+    def __init__(self, space, name, flags, impl, w_objclass):
+        W_ExtensionFunction.__init__(self, space, name, flags, impl, space.w_None)
         self.w_objclass = w_objclass
 
     def descr_call(self, space, __args__):

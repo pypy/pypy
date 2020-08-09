@@ -52,7 +52,9 @@ def HPyType_FromSpec(space, ctx, spec):
                 fill_slot(space, w_result, hpyslot)
             elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
                 hpymeth = p[i].c_meth
-                w_extfunc = W_ExtensionMethod(space, hpymeth, w_result)
+                name = rffi.constcharp2str(hpymeth.c_name)
+                flags = rffi.cast(lltype.Signed, hpymeth.c_signature)
+                w_extfunc = W_ExtensionMethod(space, name, flags, hpymeth.c_impl, w_result)
                 w_result.setdictvalue(
                     space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
             else:
