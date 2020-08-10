@@ -30,7 +30,7 @@ class CConfig:
     _compilation_info_ = eci
 
     if WIN32:
-        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
+        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.UNSIGNED)
         WORD = rffi_platform.SimpleType("WORD", rffi.USHORT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
@@ -50,7 +50,7 @@ class CConfig:
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         LPBYTE = rffi_platform.SimpleType("LPBYTE", rffi.UCHARP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
-        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
+        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.UNSIGNED)
 
         HRESULT = rffi_platform.SimpleType("HRESULT", rffi.LONG)
         HLOCAL = rffi_platform.SimpleType("HLOCAL", rffi.VOIDP)

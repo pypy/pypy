@@ -34,7 +34,7 @@ class CConfig:
     CHECK_LIBRARY = platform.Has('dump("x", (long)&BZ2_bzCompress)')
 
     off_t = platform.SimpleType("off_t", rffi.LONGLONG)
-    size_t = platform.SimpleType("size_t", rffi.ULONG)
+    size_t = platform.SimpleType("size_t", rffi.UNSIGNED)
     BUFSIZ = platform.ConstantInteger("BUFSIZ")
     _alloc_type = lltype.FuncType([rffi.VOIDP, rffi.INT, rffi.INT], rffi.VOIDP)
     _free_type = lltype.FuncType([rffi.VOIDP, rffi.VOIDP], lltype.Void)
@@ -106,7 +106,7 @@ else:
     BIGCHUNK = 512 * 1024
 
 if BZ_CONFIG_ERROR:
-    if rffi.sizeof(rffi.LONG) >= 8:
+    if rffi.sizeof(rffi.SIGNED) >= 8:
         def _bzs_total_out(bzs):
             return (rffi.getintfield(bzs, 'c_total_out_hi32') << 32) + \
                    rffi.getintfield(bzs, 'c_total_out_lo32')
