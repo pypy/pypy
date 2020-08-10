@@ -142,7 +142,7 @@ class AppTestThread(AppTestCpythonExtensionBase):
                          "tss_is_created should not succeed yet");
                      return NULL;
                 }
-                /* This should be a no-op
+                /* This should be a no-op */
                 PyThread_tss_delete(&_tss_key);
                 /* Py_LIMITED_API */
                 tss_key = PyThread_tss_alloc();
