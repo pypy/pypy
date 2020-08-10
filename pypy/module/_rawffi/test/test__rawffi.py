@@ -245,6 +245,7 @@ class AppTestFfi:
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
         cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
+        cls.w_is64bit = space.wrap(sys.maxint > 2147483647)
 
     def test_libload(self):
         import _rawffi
@@ -1020,8 +1021,8 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
     def test_stackcheck(self):
-        if self.platform != "msvc":
-            skip("win32 msvc specific")
+        if self.platform != "msvc" or self.is64bit:
+            skip("32-bit win32 msvc specific")
 
         # Even if the call corresponds to the specified signature,
         # the STDCALL calling convention may detect some errors
