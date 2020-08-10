@@ -6,6 +6,10 @@ import socket as cpy_socket
 from rpython.translator.c.test.test_genc import compile
 from rpython.rlib.buffer import RawByteBuffer
 
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 def setup_module(mod):
     rsocket_startup()
@@ -31,10 +35,12 @@ def do_recv_from_recvmsg_into(socket, buffersize, flags=0):
 
 
 
-@pytest.fixture(scope="module",
-    params=[RSocket.recv, do_recv_from_recvmsg,
-        do_recv_from_recvinto, do_recv_from_recvmsg_into],
-    ids=["recv", "recvmsg", "recvinto", "recvmsg_into"])
+fix = [(RSocket.recv, "recv"), (do_recv_from_recvinto, "recvinto")]
+if rsocket._c.HAVE_SENDMSG:
+    fix += [(do_recv_from_recvmsg, 'recvmsg'), (do_recv_from_recvmsg_into, "recvmsg_into")]
+params, ids = zip(*fix)
+
+@pytest.fixture(scope="module", params=params, ids=ids)
 def do_recv(request):
     return request.param
 
@@ -494,6 +500,8 @@ def test_getsetsockopt_global():
     reuse = getsockopt_int(fd, SOL_SOCKET, SO_REUSEADDR)
     assert reuse != 0
 
+
+@pytest.mark.skipif(sys.platform == 'win32', reason='requires bound socket')
 def test_get_socket_family():
     s = RSocket(AF_INET, SOCK_STREAM)
     fd = s.fd
@@ -722,6 +730,7 @@ def test_socket_saves_errno(do_recv):
         RSocket(family=AF_INET, type=SOCK_STREAM, proto=SOL_UDP)
     assert e.value.errno in (errno.EPROTOTYPE, errno.EPROTONOSUPPORT)
 
+@pytest.mark.skipif(fcntl is None, reason="requires fcntl")
 def test_socket_init_non_blocking():
     import fcntl, os
     s = RSocket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK)
@@ -734,7 +743,7 @@ def test_socket_init_non_blocking():
 # have superuser privileges.
 @pytest.mark.skipif(sys.platform == "win32",
         reason='No sethostname on Windows')
-@pytest.mark.skipif(os.geteuid() == 0,
+@pytest.mark.skipif(not hasattr(os, 'geteuid') or os.geteuid() == 0,
         reason='Running as superuser is not supported.')
 def test_sethostname():
     # just in case it worked anyway, use the old hostname
