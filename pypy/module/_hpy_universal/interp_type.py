@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import _create_new_type
+from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles, llapi
@@ -16,9 +17,14 @@ def _HPy_Cast(space, ctx, h):
 
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
 def _HPy_New(space, ctx, h_type, data):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_type = handles.deref(space, h_type)
+    w_result = space.allocate_instance(W_ObjectObject, w_type)
+    basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
+    data = llapi.cts.cast('void**', data)
+    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, flavor='raw')
+    h = handles.new(space, w_result)
+    data[0] = rffi.cast(data._TYPE.TO.OF, c_obj)
+    return h
 
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)")
@@ -41,6 +47,7 @@ def HPyType_FromSpec(space, ctx, spec):
 
     w_result = _create_new_type(
         space, space.w_type, space.newtext(name), w_bases, w_dict, __args__)
+    w_result.setdictvalue(space, '__hpy_basicsize__', space.newint(spec.c_basicsize))
     if spec.c_defines:
         p = spec.c_defines
         i = 0

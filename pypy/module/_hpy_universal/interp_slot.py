@@ -158,8 +158,8 @@ for slot, meth in BINARYFUNC_SLOTS:
     globals()['fill_slot_%s' % slot] = make_binary_slot_filler(meth)
 
 def fill_slot_tp_new(space, w_type, slot_num, hpyslot):
-    w_slotwrapper = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS, hpyslot.c_impl, space.w_None)
-    w_type.setdictvalue(space, '__new__', w_slotwrapper)
+    w_func = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS, hpyslot.c_impl, w_type)
+    w_type.setdictvalue(space, '__new__', w_func)
 
 
 SLOT_FILLERS = []
