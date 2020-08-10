@@ -759,6 +759,10 @@ SIGNED = lltype.Signed
 SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
 SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 
+# Unsigned, Unsigned *
+UNSIGNED = lltype.Unsigned
+UNSIGNEDP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
+
 
 # various type mapping
 
