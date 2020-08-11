@@ -1845,13 +1845,6 @@ class AppTestPep475Retry:
         assert signalled != []
         assert got.startswith(b'h')
 
-    if hasattr(rposix, 'getgrouplist'):
-        def test_getgrouplist(self):
-            posix, os = self.posix, self.os
-            user = pwd.getpwuid(os.getuid())[0]
-            group = pwd.getpwuid(os.getuid())[3]
-            self.assertIn(group, posix.getgrouplist(user, group))
-
     if hasattr(rposix, 'test_sched_rr_get_interval'):
         def test_sched_rr_get_interval(self):
             posix= self.posix

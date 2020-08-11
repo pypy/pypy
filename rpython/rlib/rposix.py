@@ -1975,32 +1975,6 @@ if not _WIN32:
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
 
-    c_sched_rr_get_interval = external('sched_rr_get_interval', [rffi.PID_T, TIMESPEC],
-                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_sched_getscheduler = external('sched_getscheduler', [rffi.PID_T],
-                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_sched_setscheduler = external('sched_getscheduler', [rffi.PID_T, rffi.INT, SCHED_PARAM],
-                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_sched_getparam = external('sched_getparam', [rffi.PID_T, SCHED_PARAM],
-                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-    c_sched_setparam = external('sched_setparam', [rffi.PID_T, SCHED_PARAM],
-                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
-
-    def sched_rr_get_interval(pid, interval):
-        return handle_posix_error('sched_rr_get_interval', c_sched_rr_get_interval(pid, interval))
-
-    def sched_getscheduler (pid):
-        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid))
-
-    def sched_setscheduler (pid, policy, param):
-        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, policy, param))
-
-    def sched_getparam (pid, param):
-        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, param))
-
-    def sched_setparam (pid, param):
-        return handle_posix_error('sched_setscheduler ', c_sched_setscheduler (pid, param))
-
 
 #___________________________________________________________________
 
@@ -2157,8 +2131,10 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
             includes=['sys/stat.h',
-                    'unistd.h',
-                    'fcntl.h'],
+                      'unistd.h',
+                      'fcntl.h',
+                      'sched.h',
+                     ],
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
         AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
@@ -2175,7 +2151,45 @@ if not _WIN32:
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
+
     TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+    SCHED_PARAM2P = rffi.CArrayPtr(SCHED_PARAM)
+
+    c_sched_rr_get_interval = external('sched_rr_get_interval',
+                              [rffi.PID_T, TIMESPEC2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getscheduler = external('sched_getscheduler', [rffi.PID_T],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setscheduler = external('sched_setscheduler',
+                              [rffi.PID_T, rffi.INT, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getparam = external('sched_getparam', [rffi.PID_T, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setparam = external('sched_setparam', [rffi.PID_T, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+
+    def sched_rr_get_interval(pid):
+        with lltype.scoped_alloc(TIMESPEC2P.TO, 1) as interval:
+            handle_posix_error('sched_rr_get_interval', c_sched_rr_get_interval(pid, interval))
+            return interval[0].c_tv_sec + 1e-9 * interval[0].c_tv_nsec;
+
+    def sched_getscheduler(pid):
+        return handle_posix_error('sched_getscheduler', c_sched_getscheduler(pid))
+
+    def sched_setscheduler(pid, policy, priority):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
+            handle_posix_error('sched_setscheduler', c_sched_setscheduler(pid, policy, param))
+
+    def sched_getparam (pid):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            handle_posix_error('sched_getparam', c_sched_getparam(pid, param))
+            return param[0].c_sched_priority
+
+    def sched_setparam(pid, priority):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
+            handle_posix_error('sched_setparam', c_sched_setparam(pid, param))
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',

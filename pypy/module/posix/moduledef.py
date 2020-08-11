@@ -163,15 +163,13 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
     if hasattr(os, 'ctermid'):
         interpleveldefs['ctermid'] = 'interp_posix.ctermid'
-     if hasattr(rposix, 'getgrouplist'):
-        interpleveldefs['getgrouplist'] = 'interp_posix.getgrouplist'
     if hasattr(rposix, 'sched_rr_get_interval'):
         interpleveldefs['sched_rr_get_interval'] = 'interp_posix.sched_rr_get_interval'
     if hasattr(rposix, 'sched_getscheduler'):
         interpleveldefs['sched_getscheduler'] = 'interp_posix.sched_getscheduler'
     if hasattr(rposix, 'sched_setscheduler'):
         interpleveldefs['sched_setscheduler'] = 'interp_posix.sched_setscheduler'
-     if hasattr(rposix, 'sched_getparam'):
+    if hasattr(rposix, 'sched_getparam'):
         interpleveldefs['sched_getparam'] = 'interp_posix.sched_getparam'
     if hasattr(rposix, 'sched_setparam'):
         interpleveldefs['sched_setparam'] = 'interp_posix.sched_setparam'

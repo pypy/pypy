@@ -897,14 +897,18 @@ def test_xattr(name, value, follow_symlinks, use_fd):
         if use_fd:
             os.close(file_id)
 
+@pytest.mark.skipif(not hasattr(rposix, 'getgrouplist'),
+    reason="Requires working rposix.getgrouplist()")
 @rposix_requires('getgrouplist')
-def test_getgrouplist(self):
+def test_getgrouplist():
+    import pwd
     user = pwd.getpwuid(os.getuid())[0]
     group = pwd.getpwuid(os.getuid())[3]
     assert group in rposix.getgrouplist(user, group)
 
-@rposix_requires('test_sched_rr_get_interval')
-def test_sched_rr_get_interval(self):
+@pytest.mark.skipif(not hasattr(rposix, 'sched_rr_get_interval'),
+    reason="Requires working rposix.sched_rr_get_interval()")
+def test_sched_rr_get_interval():
     try:
         interval = rposix.sched_rr_get_interval(0)
     except OSError as e:
@@ -912,14 +916,15 @@ def test_sched_rr_get_interval(self):
         # processes with the SCHED_RR scheduler in effect.
         if e.errno != errno.EINVAL:
                 raise
-            self.skipTest("only works on SCHED_RR processes")
+        pytest.mark.skip("only works on SCHED_RR processes")
     assert isinstance(interval, float)
     # Reasonable constraints, I think.
     assert interval > 0
     assert interval < 1.
 
-@rposix_requires('sched_getscheduler')
-def test_get_and_set_scheduler_and_param(self):
+@pytest.mark.skipif(not hasattr(rposix, 'sched_getscheduler'),
+    reason="Requires working rposix.sched_getscheduler()")
+def test_get_and_set_scheduler_and_param():
     possible_schedulers = [sched for name, sched in rposix.__dict__.items()
                                    if name.startswith("SCHED_")]
     mine = rposix.sched_getscheduler(0)
@@ -930,11 +935,13 @@ def test_get_and_set_scheduler_and_param(self):
         if e.errno != errno.EPERM:
             raise
     else:
-        self.assertIn(parent, possible_schedulers)
-    assert rposix.sched_getscheduler(-1) is OSError
-    assert rposix.sched_getparam(-1) is OSError
+        assert parent in possible_schedulers
+    with pytest.raises(OSError):
+        rposix.sched_getscheduler(-1)
+    with pytest.raises(OSError):
+        rposix.sched_getparam(-1)
     param = rposix.sched_getparam(0)
-    assert isinstance(param.sched_priority, int)
+    assert param == 0
 
     # POSIX states that calling sched_setparam() or sched_setscheduler() on
     # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
@@ -946,15 +953,19 @@ def test_get_and_set_scheduler_and_param(self):
         except OSError as e:
             if e.errno != errno.EPERM:
                 raise
-        assert rposix.sched_setparam(-1, param) is OSError
-    assert rposix.sched_setscheduler(-1, mine, param) is OSError
-    assert rposix.sched_setscheduler(0, mine, None) is TypeError
-    assert rposix.sched_setparam(0, 43) is TypeError
-    param = rposix.sched_param(None)
-    assert rposix.sched_setparam(0, param) is TypeError
+        with pytest.raises(OSError):
+            rposix.sched_setparam(-1, param)
+    with pytest.raises(OSError):
+        rposix.sched_setscheduler(-1, mine, param)
+    with pytest.raises(TypeError):
+        rposix.sched_setscheduler(0, mine, None)
+    with pytest.raises(TypeError):
+        rposix.sched_setparam(0, None)
 
     large = 214748364700
-    param = rposix.sched_param(large)
-    assert rposix.sched_setparam(0, param) is OverflowError
-    param = rposix.sched_param(sched_priority=-large)
-    assert rposix.sched_setparam(0, param) is OverflowError
+    param = large # rposix.sched_param(large)
+    with pytest.raises(OSError):
+        rposix.sched_setparam(0, param)
+    # param = rposix.sched_param(sched_priority=-large)
+    # with pytest.raises(OverflowError):
+    #    rposix.sched_setparam(0, param)
