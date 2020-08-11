@@ -2772,6 +2772,8 @@ class LLtypeBackendTest(BaseBackendTest):
         from rpython.rlib.clibffi import _WIN32
         if not _WIN32:
             py.test.skip("Windows test only")
+        if sys.maxint > 2 ** 32:
+            py.test.skip("Windows 32-bit test only")
         from rpython.rlib.libffi import WinDLL, types, ArgChain
         from rpython.rlib.rwin32 import DWORD
         libc = WinDLL('KERNEL32')
@@ -2831,8 +2833,8 @@ class LLtypeBackendTest(BaseBackendTest):
         cpu = self.cpu
 
         for ffitype, result, TP in [
-            (types.ulong,  r_uint(sys.maxint + 10), lltype.Unsigned),
-            (types.slong,  -4321, lltype.Signed),
+            (types.unsigned,  r_uint(sys.maxint + 10), lltype.Unsigned),
+            (types.signed,  -4321, lltype.Signed),
             (types.uint8,  200, rffi.UCHAR),
             (types.sint8,  -42, rffi.SIGNEDCHAR),
             (types.uint16, 50000, rffi.USHORT),
@@ -2998,7 +3000,7 @@ class LLtypeBackendTest(BaseBackendTest):
                 elif ARGTYPES[i] is lltype.Signed:
                     c_source.append('    fprintf(stderr, "x%d = %%ld\\n", x%d);' % (i, i))
                 elif ARGTYPES[i] is rffi.UINT:
-                    c_source.append('    fprintf(stderr, "x%d = %%u\\n", x%d);' % (i, i))                    
+                    c_source.append('    fprintf(stderr, "x%d = %%u\\n", x%d);' % (i, i))
             for i in range(len(ARGTYPES)):
                 c_source.append('    argcopy_%s_x%d = x%d;' % (fn_name, i, i))
             c_source.append('}')
