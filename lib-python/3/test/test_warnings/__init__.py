@@ -1292,9 +1292,7 @@ A()
 import gc; gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
-        # note: "__main__" filename is not correct, it should be the name
-        # of the script
-        self.assertEqual(err.decode(), '__main__:7: UserWarning: test')
+        self.assertEqual(err.decode(), '-c:7: UserWarning: test')
 
     @support.cpython_only
     def test_late_resource_warning(self):
