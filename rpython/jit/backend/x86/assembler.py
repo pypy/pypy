@@ -999,7 +999,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # We should avoid if possible to use ecx or edx because they
             # would be used to pass arguments #3 and #4 (even though, so
             # far, the assembler only receives two arguments).
-            tloc = esi
+            tloc = callbuilder.CallBuilder64.ARGUMENTS_GPR[1]   # esi/edx
             old = r10
         # eax = address in the stack of a 3-words struct vmprof_stack_s
         self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
@@ -1029,11 +1029,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
-            self.mc.MOV_sr(THREADLOCAL_OFS, esi.value)
+            r_arg2 = callbuilder.CallBuilder64.ARGUMENTS_GPR[1]   # esi/edx
+            self.mc.MOV_sr(THREADLOCAL_OFS, r_arg2.value)
         if self.cpu.translate_support_code:
-            self._call_header_vmprof()     # on X86_64, this uses esi
+            self._call_header_vmprof()     # on X86_64, this uses esi/edx
         if IS_X86_64:
-            self.mc.MOV_rr(ebp.value, edi.value)
+            r_arg1 = callbuilder.CallBuilder64.ARGUMENTS_GPR[0]   # edi/ecx
+            self.mc.MOV_rr(ebp.value, r_arg1.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
 

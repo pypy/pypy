@@ -5,7 +5,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.jit.metainterp.history import INT, FLOAT
 from rpython.jit.backend.x86.arch import (WORD, IS_X86_64, IS_X86_32,
                                           PASS_ON_MY_FRAME, FRAME_FIXED_SIZE,
-                                          THREADLOCAL_OFS)
+                                          THREADLOCAL_OFS, WIN64)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -509,9 +509,11 @@ class CallBuilder32(CallBuilderX86):
 
 class CallBuilder64(CallBuilderX86):
 
-    ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
+    if not WIN64:
+        ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
+    else:
+        ARGUMENTS_GPR = [ecx, edx, r8, r9]
     ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
-    _ALL_CALLEE_SAVE_GPR = [ebx, r12, r13, r14, r15]
 
     next_arg_gpr = 0
     next_arg_xmm = 0
