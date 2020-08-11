@@ -289,36 +289,3 @@ PyThread_tss_get(Py_tss_t *key)
     return pthread_getspecific(key->_key);
 }
 
-#endif  /* !_WIN32 */
-
-/* Cross-platform components of TSS API implementation.  */
-
-Py_tss_t *
-PyThread_tss_alloc(void)
-{
-    Py_tss_t *new_key = (Py_tss_t *)PyMem_RawMalloc(sizeof(Py_tss_t));
-    if (new_key == NULL) {
-        return NULL;
-    }
-    new_key->_is_initialized = 0;
-    return new_key;
-}
-
-void
-PyThread_tss_free(Py_tss_t *key)
-{
-    if (key != NULL) {
-        PyThread_tss_delete(key);
-        PyMem_RawFree((void *)key);
-    }
-}
-
-int
-PyThread_tss_is_created(Py_tss_t *key)
-{
-    assert(key != NULL);
-    return key->_is_initialized;
-}
-
-
-

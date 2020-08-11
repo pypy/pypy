@@ -1,6 +1,11 @@
 #include <Python.h>
 #include "src/thread.h"
 
+/* 
+ * For platform-specific implementations, see 
+ * pythread_nt.c and pythread_posix.c
+ */
+
 long
 PyThread_get_thread_ident(void)
 {
@@ -65,6 +70,35 @@ PyThread_start_new_thread(void (*func)(void *), void *arg)
 {
     PyThread_init_thread();
     return RPyThreadStartEx(func, arg);
+}
+
+/* Cross-platform components of TSS API implementation.  */
+
+Py_tss_t *
+PyThread_tss_alloc(void)
+{
+    Py_tss_t *new_key = (Py_tss_t *)PyMem_RawMalloc(sizeof(Py_tss_t));
+    if (new_key == NULL) {
+        return NULL;
+    }
+    new_key->_is_initialized = 0;
+    return new_key;
+}
+
+void
+PyThread_tss_free(Py_tss_t *key)
+{
+    if (key != NULL) {
+        PyThread_tss_delete(key);
+        PyMem_RawFree((void *)key);
+    }
+}
+
+int
+PyThread_tss_is_created(Py_tss_t *key)
+{
+    assert(key != NULL);
+    return key->_is_initialized;
 }
 
 
