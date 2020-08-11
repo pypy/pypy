@@ -450,10 +450,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # A final TEST8 before the RET, for the caller.  Careful to
             # not follow this instruction with another one that changes
             # the status of the CPU flags!
-            if IS_X86_32:
-                mc.MOV_rs(eax.value, 3*WORD)
-            else:
-                mc.MOV_rs(eax.value, WORD)
+            mc.MOV_rs(eax.value, WORD + add_to_esp)
             mc.TEST8(addr_add_const(eax, descr.jit_wb_if_flag_byteofs),
                      imm(-0x80))
         #
