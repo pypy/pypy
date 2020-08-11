@@ -1479,6 +1479,11 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "intobject.c",
                          source_dir / "tupleobject.c",
                          ]
+if WIN32:
+    separate_module_files.append(source_dir / "pythread_nt.c")
+else:
+    separate_module_files.append(source_dir / "pythread_posix.c")
+
 
 def build_eci(code, use_micronumpy=False, translating=False):
     "NOT_RPYTHON"
@@ -1551,7 +1556,6 @@ def setup_micronumpy(space):
         return use_micronumpy
     # import registers api functions by side-effect, we also need HEADER
     from pypy.module.cpyext.ndarrayobject import HEADER
-    global separate_module_files
     register_global("PyArray_Type",
         'PyTypeObject*',  "space.gettypeobject(W_NDimArray.typedef)",
         header=HEADER)
