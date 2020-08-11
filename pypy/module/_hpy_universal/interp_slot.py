@@ -122,7 +122,7 @@ for slot, meth in UNARYFUNC_SLOTS:
 class W_SlotWrapper_binaryfunc(W_SlotWrapper):
     def call(self, space, h_self, __args__):
         self.check_args(space, __args__, 2)
-        func = llapi.cts.cast('HPYFunc_binaryfunc', self.cfuncptr)
+        func = llapi.cts.cast('HPyFunc_binaryfunc', self.cfuncptr)
         w_x = __args__.arguments_w[0]
         state = space.fromcache(State)
         with handles.using(space, w_x) as h_x:
