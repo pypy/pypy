@@ -55,7 +55,7 @@ class W_SlotWrapper(W_Root):
             return self.call(space, h_instance, __args__)
 
     def call(self, space, h_self, __args__):
-        raise oefmt(space.w_RuntimeError)
+        raise oefmt(space.w_RuntimeError, "bad slot wrapper")
 
 W_SlotWrapper.typedef = TypeDef(
     'slot_wrapper',
