@@ -165,6 +165,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         self._store_and_reset_exception(mc, None, ebx, ecx)
 
+        mc.MOV_ri(r11.value, 0x1111)
+        mc.INT3()   # FIXME
+
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.MOV_rr(ebp.value, eax.value)
         self._restore_exception(mc, None, ebx, ecx)
@@ -196,22 +199,24 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                                      supports_floats, callee_only)
         # the caller already did push_gcmap(store=True)
         if IS_X86_64:
-            mc.SUB(esp, imm(WORD))     # alignment
+            if WIN64:
+                add_to_esp = WORD * 5      # alignment + shadow store
+            else:
+                add_to_esp = WORD          # alignment
+            mc.SUB(esp, imm(add_to_esp))
             #self.set_extra_stack_depth(mc, 2 * WORD)
             # the arguments are already in the correct registers
         else:
             # we want space for 4 arguments + call + alignment
-            mc.SUB(esp, imm(WORD * 7))
+            add_to_esp = WORD * 7
+            mc.SUB(esp, imm(add_to_esp))
             #self.set_extra_stack_depth(mc, 8 * WORD)
             # store the arguments at the correct place in the stack
             for i in range(4):
                 mc.MOV_sr(i * WORD, cond_call_register_arguments[i].value)
         mc.CALL(eax)
         self._reload_frame_if_necessary(mc)
-        if IS_X86_64:
-            mc.ADD(esp, imm(WORD))
-        else:
-            mc.ADD(esp, imm(WORD * 7))
+        mc.ADD(esp, imm(add_to_esp))
         #self.set_extra_stack_depth(mc, 0)
         self.pop_gcmap(mc)   # cancel the push_gcmap(store=True) in the caller
         self._pop_all_regs_from_frame(mc, [eax], supports_floats, callee_only)
@@ -277,6 +282,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc.MOV_rr(esi.value, ecx.value) # tid
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         #self.set_extra_stack_depth(mc, 16)
+        mc.MOV_ri(r11.value, 0x3333)
+        mc.INT3()   # FIXME
         mc.CALL(imm(follow_jump(addr)))
         self._reload_frame_if_necessary(mc)
         mc.ADD_ri(esp.value, 16 - WORD)
@@ -348,6 +355,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.PUSH_r(esp.value)
         #
         # esp is now aligned to a multiple of 16 again
+        mc.MOV_ri(r11.value, 0x4444)
+        mc.INT3()   # FIXME
         mc.CALL(imm(follow_jump(slowpathaddr)))
         #
         if IS_X86_32:
@@ -443,6 +452,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)
             self._store_and_reset_exception(mc, exc0, exc1)
+            mc.MOV_ri(r11.value, 0x5555)
+            mc.INT3()   # FIXME
 
         mc.CALL(imm(func))
         #
@@ -887,6 +898,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
             assembler.frame_depth_to_patch.append(ofs2)
             assembler.push_gcmap(mc, self.gcmap, store=True)
+            mc.MOV_ri(r11.value, 0x6666)
+            mc.INT3()   # FIXME
             mc.CALL(imm(assembler._frame_realloc_slowpath))
 
     def _check_frame_depth(self, mc, gcmap):
@@ -919,6 +932,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.MOV_rr(edi.value, ebp.value)
         mc.MOV_ri(esi.value, 0xffffff)
         ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
+        mc.MOV_ri(r11.value, 0x7777)
+        mc.INT3()   # FIXME
         mc.CALL(imm(self.cpu.realloc_frame_crash))
         # patch the JG above
         mc.patch_forward_jump(jg_location)
@@ -1052,6 +1067,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     class StackCheckSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
+            mc.MOV_ri(r11.value, 0x8888)
+            mc.INT3()   # FIXME
             mc.CALL(imm(assembler.stack_check_slowpath))
 
     def _call_header_with_stack_check(self):
@@ -2526,6 +2543,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     class MallocCondSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             assembler.push_gcmap(mc, self.gcmap, store=True)
+            mc.MOV_ri(r11.value, 0xBBBB)
+            mc.INT3()   # FIXME
             mc.CALL(imm(follow_jump(assembler.malloc_slowpath)))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
@@ -2574,6 +2593,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             lengthloc = self.lengthloc
             assert lengthloc is not ecx and lengthloc is not edx
             mc.MOV(edx, lengthloc)
+            mc.MOV_ri(r11.value, 0xCCCC)
+            mc.INT3()   # FIXME
             mc.CALL(imm(follow_jump(addr)))
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
@@ -2748,7 +2769,7 @@ def not_implemented(msg):
         llop.debug_print(lltype.Void, msg)
     raise NotImplementedError(msg)
 
-cond_call_register_arguments = [edi, esi, edx, ecx]
+cond_call_register_arguments = callbuilder.CallBuilder64.ARGUMENTS_GPR[:4]
 
 class BridgeAlreadyCompiled(Exception):
     pass
