@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib import rgc
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import _create_new_type
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -11,6 +12,7 @@ from .interp_slot import fill_slot
 class W_HPyObject(W_ObjectObject):
     hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
+    @rgc.must_be_light_finalizer
     def __del__(self):
         if self.hpy_data:
             lltype.free(self.hpy_data , flavor='raw')
