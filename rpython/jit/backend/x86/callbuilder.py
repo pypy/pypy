@@ -511,9 +511,10 @@ class CallBuilder64(CallBuilderX86):
 
     if not WIN64:
         ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
+        ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
     else:
         ARGUMENTS_GPR = [ecx, edx, r8, r9]
-    ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+        ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3]
 
     next_arg_gpr = 0
     next_arg_xmm = 0
@@ -521,6 +522,8 @@ class CallBuilder64(CallBuilderX86):
     def _unused_gpr(self, hint):
         i = self.next_arg_gpr
         self.next_arg_gpr = i + 1
+        if WIN64:
+            self.next_arg_xmm = self.next_arg_gpr
         try:
             res = self.ARGUMENTS_GPR[i]
         except IndexError:
@@ -530,6 +533,8 @@ class CallBuilder64(CallBuilderX86):
     def _unused_xmm(self):
         i = self.next_arg_xmm
         self.next_arg_xmm = i + 1
+        if WIN64:
+            self.next_arg_gpr = self.next_arg_xmm
         try:
             return self.ARGUMENTS_XMM[i]
         except IndexError:
@@ -546,6 +551,8 @@ class CallBuilder64(CallBuilderX86):
         argtypes = self.argtypes
 
         on_stack = 0
+        if WIN64:
+            on_stack = 4      # shadow parameters (space reserved by the caller)
         for i in range(len(arglocs)):
             loc = arglocs[i]
             if loc.is_float():
@@ -582,8 +589,11 @@ class CallBuilder64(CallBuilderX86):
                 if arg.is_float() or (i < len(argtypes) and argtypes[i]=='S'):
                     floats += 1
             all_args = len(arglocs)
-            stack_depth = (max(all_args - floats - len(self.ARGUMENTS_GPR), 0)
-                           + max(floats - len(self.ARGUMENTS_XMM), 0))
+            if not WIN64:
+                stack_depth = (max(all_args - floats - len(self.ARGUMENTS_GPR), 0)
+                               + max(floats - len(self.ARGUMENTS_XMM), 0))
+            else:
+                stack_depth = max(all_args, 4)
             assert stack_depth == on_stack
 
         self.subtract_esp_aligned(on_stack - self.stack_max)
