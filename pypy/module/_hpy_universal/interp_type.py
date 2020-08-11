@@ -17,8 +17,6 @@ class W_HPyObject(W_ObjectObject):
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 
-
-
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
 def _HPy_Cast(space, ctx, h):
     w_obj = handles.deref(space, h)
@@ -32,7 +30,7 @@ def _HPy_New(space, ctx, h_type, data):
     w_result = space.allocate_instance(W_HPyObject, w_type)
     basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
     data = llapi.cts.cast('void**', data)
-    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, flavor='raw')
+    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
     w_result.hpy_data = c_obj
     data[0] = c_obj
     h = handles.new(space, w_result)
@@ -82,7 +80,10 @@ def HPyType_FromSpec(space, ctx, spec):
     return handles.new(space, w_result)
 
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
-def HPyType_GenericNew(space, ctx, type, args, nargs, kw):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+def HPyType_GenericNew(space, ctx, h_type, args, nargs, kw):
+    w_type = handles.deref(space, h_type)
+    w_result = space.allocate_instance(W_HPyObject, w_type)
+    basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
+    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
+    w_result.hpy_data = c_obj
+    return handles.new(space, w_result)
