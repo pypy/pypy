@@ -158,6 +158,7 @@ class CPU_X86_64(AbstractX86CPU):
     else:
         CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi, regloc.r12,
                                  regloc.r15]
+        HAS_CODEMAP = False
 
     IS_64_BIT = True
 
