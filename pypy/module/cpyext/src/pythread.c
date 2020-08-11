@@ -108,7 +108,7 @@ any of the other functions are called.  There's also a hidden assumption
 that calls to PyThread_create_key() are serialized externally.
 ------------------------------------------------------------------------ */
 
-#ifdef MS_WINDOWS
+#ifndef _WIN32
 #include <windows.h>
 
 /* use native Windows TLS functions */
@@ -238,7 +238,7 @@ PyThread_tss_get(Py_tss_t *key)
     SetLastError(error);
     return result;
 }
-#else  /* MS_WINDOWS */
+#else  /* _WIN32 */
 
 /* A singly-linked list of struct key objects remembers all the key->value
  * associations.  File static keyhead heads the list.  keymutex is used
@@ -490,7 +490,7 @@ PyThread_tss_get(Py_tss_t *key)
     return pthread_getspecific(key->_key);
 }
 
-#endif  /* !MS_WINDOWS */
+#endif  /* !_WIN32 */
 
 /* Cross-platform components of TSS API implementation.  */
 

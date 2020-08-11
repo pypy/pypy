@@ -27,7 +27,7 @@ PyAPI_DATA(int) Py_UnbufferedStdioFlag;
 PyAPI_DATA(int) Py_HashRandomizationFlag;
 PyAPI_DATA(int) Py_IsolatedFlag;
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 PyAPI_DATA(int) Py_LegacyWindowsStdioFlag;
 #endif
 

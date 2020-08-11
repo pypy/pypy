@@ -41,7 +41,7 @@ typedef struct _Py_tss_t Py_tss_t;  /* opaque */
     /* Darwin needs pthread.h to know type name the pthread_key_t. */
 #   include <pthread.h>
 #   define NATIVE_TSS_KEY_T     pthread_key_t
-#elif defined(NT_THREADS)
+#elif defined(_WIN32)
     /* In Windows, native TSS key type is DWORD,
        but hardcode the unsigned long to avoid errors for include directive.
     */
