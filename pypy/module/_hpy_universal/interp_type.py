@@ -8,22 +8,34 @@ from pypy.module._hpy_universal import handles, llapi
 from .interp_extfunc import W_ExtensionMethod
 from .interp_slot import fill_slot
 
+class W_HPyObject(W_ObjectObject):
+    hpy_data = lltype.nullptr(rffi.VOIDP.TO)
+
+    def __del__(self):
+        if self.hpy_data:
+            lltype.free(self.hpy_data , flavor='raw')
+            self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
+
+
+
 
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
 def _HPy_Cast(space, ctx, h):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    w_obj = handles.deref(space, h)
+    if not isinstance(w_obj, W_HPyObject):
+        raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
+    return w_obj.hpy_data
 
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
 def _HPy_New(space, ctx, h_type, data):
     w_type = handles.deref(space, h_type)
-    w_result = space.allocate_instance(W_ObjectObject, w_type)
+    w_result = space.allocate_instance(W_HPyObject, w_type)
     basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
     data = llapi.cts.cast('void**', data)
     c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, flavor='raw')
+    w_result.hpy_data = c_obj
+    data[0] = c_obj
     h = handles.new(space, w_result)
-    data[0] = rffi.cast(data._TYPE.TO.OF, c_obj)
     return h
 
 
