@@ -515,6 +515,8 @@ class CallBuilder64(CallBuilderX86):
     else:
         ARGUMENTS_GPR = [ecx, edx, r8, r9]
         ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3]
+    ARG0 = ARGUMENTS_GPR[0]
+    ARG1 = ARGUMENTS_GPR[1]
 
     next_arg_gpr = 0
     next_arg_xmm = 0

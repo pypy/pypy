@@ -21,7 +21,7 @@ from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME, THREADLOCAL_OFS,
-                                       DEFAULT_FRAME_BYTES)
+                                       DEFAULT_FRAME_BYTES, WIN64)
 from rpython.jit.backend.x86.regloc import (eax, ecx, edx, ebx, esp, ebp, esi,
     xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, r8, r9, r10, r11, edi,
     r12, r13, r14, r15, X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,
@@ -393,17 +393,23 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # on the stack even on X86_64.  It must restore stack alignment
         # accordingly.
         mc = codebuf.MachineCodeBlockWrapper()
+        add_to_esp = 0
         #
         if not for_frame:
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             if IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
+                add_to_esp = 2 * WORD
                 mc.SUB_ri(esp.value, 2 * WORD)
                 mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
             else:
-                mc.MOV_rs(edi.value, WORD)
+                mc.MOV_rs(callbuilder.CallBuilder64.ARG0.value, WORD)
+                if WIN64:
+                    add_to_esp = 4 * WORD
+                    mc.SUB_ri(esp.value, 4 * WORD)    # for the shadow store
+                    # (seems 4 words are overwritten, not just 1??)
         else:
             # NOTE: don't save registers on the jitframe here!
             # It might override already-saved values that will be
@@ -418,6 +424,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # exception that occurred in the CALL, if any).
             assert not withcards
             # we have one word to align
+            add_to_esp = 7 * WORD
             mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
             mc.MOV_sr(WORD, eax.value) # save for later
             if self.cpu.supports_floats:
@@ -452,9 +459,9 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
 
         if not for_frame:
-            if IS_X86_32:
+            if add_to_esp != 0:
                 # ADD touches CPU flags
-                mc.LEA_rs(esp.value, 2 * WORD)
+                mc.LEA_rs(esp.value, add_to_esp)
             self._pop_all_regs_from_frame(mc, [], withfloats, callee_only=True)
             mc.RET16_i(WORD)
             # Note that wb_slowpath[0..3] end with a RET16_i, which must be
@@ -468,7 +475,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self._restore_exception(mc, exc0, exc1)
             mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
             mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
-            mc.LEA_rs(esp.value, 7 * WORD)
+            mc.LEA_rs(esp.value, add_to_esp)
             mc.RET()
 
         rawstart = mc.materialize(self.cpu, [])
@@ -999,7 +1006,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # We should avoid if possible to use ecx or edx because they
             # would be used to pass arguments #3 and #4 (even though, so
             # far, the assembler only receives two arguments).
-            tloc = callbuilder.CallBuilder64.ARGUMENTS_GPR[1]   # esi/edx
+            tloc = callbuilder.CallBuilder64.ARG1   # esi/edx
             old = r10
         # eax = address in the stack of a 3-words struct vmprof_stack_s
         self.mc.LEA_rs(eax.value, (FRAME_FIXED_SIZE - 4) * WORD)
@@ -1029,12 +1036,12 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self.mc.SUB_ri(esp.value, FRAME_FIXED_SIZE * WORD)
         self.mc.MOV_sr(PASS_ON_MY_FRAME * WORD, ebp.value)
         if IS_X86_64:
-            r_arg2 = callbuilder.CallBuilder64.ARGUMENTS_GPR[1]   # esi/edx
+            r_arg2 = callbuilder.CallBuilder64.ARG1   # esi/edx
             self.mc.MOV_sr(THREADLOCAL_OFS, r_arg2.value)
         if self.cpu.translate_support_code:
             self._call_header_vmprof()     # on X86_64, this uses esi/edx
         if IS_X86_64:
-            r_arg1 = callbuilder.CallBuilder64.ARGUMENTS_GPR[0]   # edi/ecx
+            r_arg1 = callbuilder.CallBuilder64.ARG0   # edi/ecx
             self.mc.MOV_rr(ebp.value, r_arg1.value)
         else:
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
@@ -2092,7 +2099,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 size = WORD
             self.save_into_mem(raw_stack(base_ofs), return_val, imm(size))
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
-        
+
         descr = op.getdescr()
         faildescrindex = self.get_gcref_from_faildescr(descr)
         if IS_X86_64:
@@ -2650,7 +2657,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # It is only supported if 'translate_support_code' is
         # true; otherwise, the execute_token() was done with a
         # dummy value for the stack location THREADLOCAL_OFS
-        # 
+        #
         assert self.cpu.translate_support_code
         assert isinstance(resloc, RegLoc)
         self.mc.MOV_rs(resloc.value, THREADLOCAL_OFS)
