@@ -1974,6 +1974,34 @@ if not _WIN32:
             lltype.free(ngroups_p, flavor='raw')
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
+
+    c_sched_rr_get_interval = external('sched_rr_get_interval', [rffi.PID_T, TIMESPEC],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getscheduler = external('sched_getscheduler', [rffi.PID_T],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setscheduler = external('sched_getscheduler', [rffi.PID_T, rffi.INT, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getparam = external('sched_getparam', [rffi.PID_T, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setparam = external('sched_setparam', [rffi.PID_T, SCHED_PARAM],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+
+    def sched_rr_get_interval(pid, interval):
+        return handle_posix_error('sched_rr_get_interval', c_sched_rr_get_interval(pid, interval))
+
+    def sched_getscheduler (pid):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid))
+
+    def sched_setscheduler (pid, policy, param):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, policy, param))
+
+    def sched_getparam (pid, param):
+        return handle_posix_error('sched_getscheduler ', c_sched_getscheduler (pid, param))
+
+    def sched_setparam (pid, param):
+        return handle_posix_error('sched_setscheduler ', c_sched_setscheduler (pid, param))
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2142,6 +2170,8 @@ if not _WIN32:
         TIMESPEC = rffi_platform.Struct('struct timespec', [
             ('tv_sec', rffi.TIME_T),
             ('tv_nsec', rffi.LONG)])
+        SCHED_PARAM = rffi_platform.Struct('struct sched_param', [
+            ('sched_priority', rffi.INT)])
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)

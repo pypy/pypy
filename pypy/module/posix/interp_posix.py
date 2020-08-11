@@ -2764,3 +2764,78 @@ def fspath(space, w_path):
         w_path,
         w_result
     )
+
+def getgrouplist(space, user, group, groups, n_groups):
+    """ function scans the group database to obtain the
+    list of groups that user belongs to.  Up to *ngroups
+    of these groups are returned in the array groups."""
+
+    while True:
+        try:
+            res = rposix.getgrouplist(user, group, groups, n_groups)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+
+def sched_rr_get_interval(space, pid, interval):
+    """ get execution time limits. """
+
+    while True:
+        try:
+            res = rposix.sched_rr_get_interval(user, pid, interval)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+
+
+def sched_getscheduler(space, pid):
+    """ get scheduling policy/parameters. """
+
+    while True:
+        try:
+            res = rposix.sched_getscheduler(pid)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+
+def sched_setscheduler(space, pid, policy, param):
+    """ set scheduling policy/parameters. """
+
+    while True:
+        try:
+            res = rposix.sched_setscheduler(pid, policy, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+
+def sched_getparam(space, pid, param):
+    """ get scheduling parameters. """
+
+    while True:
+        try:
+            res = rposix.sched_getparam(pid, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+def sched_setparam(space, pid, param):
+    """ set scheduling parameters. """
+
+    while True:
+        try:
+            res = rposix.sched_setparam(pid, param)
+        except OSError as e:
+            wrap_oserror(space, e, eintr_retry=True)
+        else:
+            return space.newint(res)
+
+

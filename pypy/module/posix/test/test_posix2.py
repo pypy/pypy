@@ -1844,3 +1844,66 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
+
+    if hasattr(rposix, 'getgrouplist'):
+        def test_getgrouplist(self):
+            posix, os = self.posix, self.os
+            user = pwd.getpwuid(os.getuid())[0]
+            group = pwd.getpwuid(os.getuid())[3]
+            self.assertIn(group, posix.getgrouplist(user, group))
+
+    if hasattr(rposix, 'test_sched_rr_get_interval'):
+        def test_sched_rr_get_interval(self):
+            posix= self.posix
+            try:
+                interval = posix.sched_rr_get_interval(0)
+            except OSError as e:
+                # This likely means that sched_rr_get_interval is only valid for
+                # processes with the SCHED_RR scheduler in effect.
+                if e.errno != errno.EINVAL:
+                    raise
+                self.skipTest("only works on SCHED_RR processes")
+            self.assertIsInstance(interval, float)
+            # Reasonable constraints, I think.
+            self.assertGreaterEqual(interval, 0.)
+            self.assertLess(interval, 1.)
+
+    if hasattr(rposix, 'test_sched_rr_get_interval'):
+        def test_get_and_set_scheduler_and_param(self):
+            posix= self.posix
+            possible_schedulers = [sched for name, sched in posix.__dict__.items()
+                                   if name.startswith("SCHED_")]
+            mine = posix.sched_getscheduler(0)
+            self.assertIn(mine, possible_schedulers)
+            try:
+                parent = posix.sched_getscheduler(os.getppid())
+            except OSError as e:
+                if e.errno != errno.EPERM:
+                    raise
+            else:
+                self.assertIn(parent, possible_schedulers)
+            self.assertRaises(OSError, posix.sched_getscheduler, -1)
+            self.assertRaises(OSError, posix.sched_getparam, -1)
+            param = posix.sched_getparam(0)
+            self.assertIsInstance(param.sched_priority, int)
+            # POSIX states that calling sched_setparam() or sched_setscheduler() on
+            # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
+            # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
+            if not sys.platform.startswith(('freebsd', 'netbsd')):
+                try:
+                    posix.sched_setscheduler(0, mine, param)
+                    posix.sched_setparam(0, param)
+                except OSError as e:
+                    if e.errno != errno.EPERM:
+                        raise
+                self.assertRaises(OSError, posix.sched_setparam, -1, param)
+            self.assertRaises(OSError, posix.sched_setscheduler, -1, mine, param)
+            self.assertRaises(TypeError, posix.sched_setscheduler, 0, mine, None)
+            self.assertRaises(TypeError, posix.sched_setparam, 0, 43)
+            param = posix.sched_param(None)
+            self.assertRaises(TypeError, posix.sched_setparam, 0, param)
+            large = 214748364700
+            param = posix.sched_param(large)
+            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
+            param = posix.sched_param(sched_priority=-large)
+            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
