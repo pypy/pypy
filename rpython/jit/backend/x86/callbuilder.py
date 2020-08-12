@@ -177,8 +177,11 @@ class CallBuilderX86(AbstractCallBuilder):
 
         if handle_lasterror and (save_err & rffi.RFFI_READSAVED_LASTERROR):
             # must call SetLastError().  There are no registers to save
-            # because we are on 32-bit in this case: no register contains
+            # if we are on 32-bit in this case: no register contains
             # the arguments to the main function we want to call afterwards.
+            # On win64, though, it's more messy.  It could be better optimized
+            # but for now we save (again) the registers containing arguments,
+            # and restore them afterwards.
             from rpython.rlib.rwin32 import _SetLastError
             adr = llmemory.cast_ptr_to_adr(_SetLastError)
             SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
@@ -197,8 +200,10 @@ class CallBuilderX86(AbstractCallBuilder):
                 self.mc.stack_frame_size_delta(-WORD)
                 self.mc.MOV(esp, self.saved_stack_position_reg)
             else:
+                self.win64_save_register_args()
                 mc.MOV_rm(ecx.value, (tlofsreg.value, lasterror))
                 mc.CALL(imm(follow_jump(SetLastError_addr)))
+                self.win64_restore_register_args()
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
@@ -522,6 +527,8 @@ class CallBuilder64(CallBuilderX86):
 
     next_arg_gpr = 0
     next_arg_xmm = 0
+    win64_arg_gpr = 0
+    win64_arg_xmm = 0
 
     def _unused_gpr(self, hint):
         i = self.next_arg_gpr
@@ -532,6 +539,8 @@ class CallBuilder64(CallBuilderX86):
             res = self.ARGUMENTS_GPR[i]
         except IndexError:
             return None
+        if WIN64:
+            self.win64_arg_gpr |= 1 << i
         return res
 
     def _unused_xmm(self):
@@ -540,9 +549,30 @@ class CallBuilder64(CallBuilderX86):
         if WIN64:
             self.next_arg_gpr = self.next_arg_xmm
         try:
-            return self.ARGUMENTS_XMM[i]
+            res = self.ARGUMENTS_XMM[i]
         except IndexError:
             return None
+        if WIN64:
+            self.win64_arg_xmm |= 1 << i
+        return res
+
+    def win64_save_register_args(self):
+        assert len(self.ARGUMENTS_GPR) == 4
+        assert len(self.ARGUMENTS_XMM) == 4
+        for i in range(4):
+            if self.win64_arg_gpr & (1 << i):
+                self.mc.MOV_sr(i * WORD, self.ARGUMENTS_GPR[i].value)
+            elif self.win64_arg_xmm & (1 << i):
+                self.mc.MOVSD_sx(i * WORD, self.ARGUMENTS_XMM[i].value)
+        self.mc.SUB_ri(esp.value, 4 * WORD)
+
+    def win64_restore_register_args(self):
+        self.mc.ADD_ri(esp.value, 4 * WORD)
+        for i in range(4):
+            if self.win64_arg_gpr & (1 << i):
+                self.mc.MOV_rs(self.ARGUMENTS_GPR[i].value, i * WORD)
+            elif self.win64_arg_xmm & (1 << i):
+                self.mc.MOVSD_xs(self.ARGUMENTS_XMM[i].value, i * WORD)
 
     def prepare_arguments(self):
         src_locs = []
