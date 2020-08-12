@@ -67,7 +67,6 @@ class X86_64_RegisterManager(X86RegisterManager):
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
     if WIN64:
         all_regs.remove(r13)
-        all_regs.remove(r14)
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]

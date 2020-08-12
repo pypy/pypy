@@ -163,7 +163,7 @@ class CallBuilderX86(AbstractCallBuilder):
         """Load the current 'esp' value into a callee-saved register.
         Further calls just return the same register, by assuming it is
         indeed saved."""
-        assert IS_X86_32
+        assert IS_X86_32     # only for 32-bit Windows
         assert stdcall_or_cdecl and self.is_call_release_gil
         if self.saved_stack_position_reg is None:
             # pick a register saved across calls
@@ -182,20 +182,23 @@ class CallBuilderX86(AbstractCallBuilder):
             from rpython.rlib.rwin32 import _SetLastError
             adr = llmemory.cast_ptr_to_adr(_SetLastError)
             SetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
-            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             if save_err & rffi.RFFI_ALT_ERRNO:
                 lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
             else:
                 lasterror = llerrno.get_rpy_lasterror_offset(self.asm.cpu)
-            tlofsreg = self.get_tlofs_reg()    # => esi, callee-saved
-            self.save_stack_position()         # => edi, callee-saved
-            mc.PUSH_m((tlofsreg.value, lasterror))
-            mc.CALL(imm(follow_jump(SetLastError_addr)))
-            # restore the stack position without assuming a particular
-            # calling convention of _SetLastError()
-            self.mc.stack_frame_size_delta(-WORD)
-            self.mc.MOV(esp, self.saved_stack_position_reg)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12, callee-saved
+            if not WIN64:
+                self.save_stack_position()         # => edi, callee-saved
+                mc.PUSH_m((tlofsreg.value, lasterror))
+                mc.CALL(imm(follow_jump(SetLastError_addr)))
+                # restore the stack position without assuming a particular
+                # calling convention of _SetLastError()
+                self.mc.stack_frame_size_delta(-WORD)
+                self.mc.MOV(esp, self.saved_stack_position_reg)
+            else:
+                mc.MOV_rm(ecx.value, (tlofsreg.value, lasterror))
+                mc.CALL(imm(follow_jump(SetLastError_addr)))
 
         if save_err & rffi.RFFI_READSAVED_ERRNO:
             # Just before a call, read '*_errno' and write it into the
@@ -252,7 +255,6 @@ class CallBuilderX86(AbstractCallBuilder):
                 from rpython.rlib._rsocket_rffi import _WSAGetLastError
                 adr = llmemory.cast_ptr_to_adr(_WSAGetLastError)
             GetLastError_addr = self.asm.cpu.cast_adr_to_int(adr)
-            assert isinstance(self, CallBuilder32)    # Windows 32-bit only
             #
             if save_err & rffi.RFFI_ALT_ERRNO:
                 lasterror = llerrno.get_alt_lasterror_offset(self.asm.cpu)
@@ -262,7 +264,7 @@ class CallBuilderX86(AbstractCallBuilder):
             self.result_value_saved_early = True
             mc.CALL(imm(follow_jump(GetLastError_addr)))
             #
-            tlofsreg = self.get_tlofs_reg()    # => esi (possibly reused)
+            tlofsreg = self.get_tlofs_reg()    # => esi or r12 (possibly reused)
             mc.MOV32_mr((tlofsreg.value, lasterror), eax.value)
 
     class ReacqGilSlowPath(codebuf.SlowPath):
@@ -419,7 +421,7 @@ class CallBuilder32(CallBuilderX86):
         self.num_moves = num_moves
 
     def emit_raw_call(self):
-        if stdcall_or_cdecl and self.is_call_release_gil:
+        if IS_X86_32 and stdcall_or_cdecl and self.is_call_release_gil:
             # Dynamically accept both stdcall and cdecl functions.
             # We could try to detect from pyjitpl which calling
             # convention this particular function takes, which would
@@ -429,7 +431,7 @@ class CallBuilder32(CallBuilderX86):
             self.mc.MOV(esp, self.saved_stack_position_reg)
         else:
             self.mc.CALL(self.fnloc)
-            if self.callconv != FFI_DEFAULT_ABI:
+            if IS_X86_32 and self.callconv != FFI_DEFAULT_ABI:
                 # in the STDCALL ABI, the CALL above has an effect on
                 # the stack depth.  Adjust 'mc._frame_size'.
                 delta = self._fix_stdcall(self.callconv)

@@ -40,9 +40,12 @@ if WORD == 4:
     THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
 else:
     # rbp + rbx + r12 + r13 + r14 + r15 + threadlocal + 12 extra words = 19
-    # win64: we save instead rbp + rbx + rsi + rdi + r12 + r15
-    # win64: and we never use r13 or r14
-    FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
+    # win64: we save instead rbp + rbx + rsi + rdi + r12 + 12 extra words = 17
+    # win64: and we save r14 + 15 in the shadow store, and never use r13
+    if not WIN64:
+        FRAME_FIXED_SIZE = 19 + 4 # 4 for vmprof, XXX make more compact!
+    else:
+        FRAME_FIXED_SIZE = 17 + 4 # 4 for vmprof, XXX make more compact!
     PASS_ON_MY_FRAME = 12
     JITFRAME_FIXED_SIZE = 28 # 13 GPR + 15 XMM
     if not WIN64:
@@ -53,6 +56,8 @@ else:
         # 'threadlocal_addr' is passed as 2nd argument in %edx,
         # and is moved into its official shadow store location.
         THREADLOCAL_OFS = (FRAME_FIXED_SIZE + 2) * WORD
+        SHADOWSTORE2_OFS = (FRAME_FIXED_SIZE + 3) * WORD
+        SHADOWSTORE3_OFS = (FRAME_FIXED_SIZE + 4) * WORD
 
 assert PASS_ON_MY_FRAME >= 12
 

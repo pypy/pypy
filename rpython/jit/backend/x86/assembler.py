@@ -18,6 +18,7 @@ from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regalloc import (RegAlloc, get_ebp_ofs,
     gpr_reg_mgr_cls, xmm_reg_mgr_cls)
 from rpython.jit.backend.llsupport.regalloc import (get_scale, valid_addressing_size)
+from rpython.jit.backend.x86 import arch
 from rpython.jit.backend.x86.arch import (FRAME_FIXED_SIZE, WORD, IS_X86_64,
                                        JITFRAME_FIXED_SIZE, IS_X86_32,
                                        PASS_ON_MY_FRAME, THREADLOCAL_OFS,
@@ -1058,7 +1059,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self.mc.MOV_rs(ebp.value, (FRAME_FIXED_SIZE + 1) * WORD)
 
         for i, loc in enumerate(self.cpu.CALLEE_SAVE_REGISTERS):
-            self.mc.MOV_sr((PASS_ON_MY_FRAME + i + 1) * WORD, loc.value)
+            ofs = (PASS_ON_MY_FRAME + i + 1) * WORD
+            if WIN64 and i == 4: ofs = arch.SHADOWSTORE2_OFS
+            if WIN64 and i == 5: ofs = arch.SHADOWSTORE3_OFS
+            self.mc.MOV_sr(ofs, loc.value)
 
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
@@ -1094,8 +1098,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             self._call_footer_shadowstack(gcrootmap)
 
         for i in range(len(self.cpu.CALLEE_SAVE_REGISTERS)-1, -1, -1):
-            self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value,
-                           (i + 1 + PASS_ON_MY_FRAME) * WORD)
+            ofs = (i + 1 + PASS_ON_MY_FRAME) * WORD
+            if WIN64 and i == 4: ofs = arch.SHADOWSTORE2_OFS
+            if WIN64 and i == 5: ofs = arch.SHADOWSTORE3_OFS
+            self.mc.MOV_rs(self.cpu.CALLEE_SAVE_REGISTERS[i].value, ofs)
 
         self.mc.MOV_rs(ebp.value, PASS_ON_MY_FRAME * WORD)
         self.mc.ADD_ri(esp.value, FRAME_FIXED_SIZE * WORD)
