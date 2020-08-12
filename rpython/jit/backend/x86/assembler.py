@@ -143,11 +143,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         self._push_all_regs_to_frame(mc, [], self.cpu.supports_floats)
         # the caller already did push_gcmap(store=True)
 
+        tmpreg = ecx
         if IS_X86_64:
-            mc.MOV_rs(esi.value, WORD*2)
+            mc.MOV_rs(callbuilder.CallBuilder64.ARG1.value, WORD*2)     # esi/edx
             # push first arg
-            mc.MOV_rr(edi.value, ebp.value)
+            mc.MOV_rr(callbuilder.CallBuilder64.ARG0.value, ebp.value)  # edi/ecx
             align = callbuilder.align_stack_words(1)
+            if WIN64:
+                align += 4    # shadow space
+                tmpreg = r12
             mc.SUB_ri(esp.value, (align - 1) * WORD)
         else:
             align = callbuilder.align_stack_words(3)
@@ -164,9 +168,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         #
         #self.set_extra_stack_depth(mc, align * WORD)
 
-        self._store_and_reset_exception(mc, None, ebx, ecx)
-
-        BRK(mc, 0x1111) # FIXME
+        self._store_and_reset_exception(mc, None, ebx, tmpreg)
 
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.MOV_rr(ebp.value, eax.value)
@@ -894,7 +896,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
             assembler.frame_depth_to_patch.append(ofs2)
             assembler.push_gcmap(mc, self.gcmap, store=True)
-            BRK(mc, 0x6666) # FIXME
             mc.CALL(imm(assembler._frame_realloc_slowpath))
 
     def _check_frame_depth(self, mc, gcmap):
