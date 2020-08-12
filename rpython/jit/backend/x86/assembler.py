@@ -417,8 +417,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc.MOV_rs(callbuilder.CallBuilder64.ARG0.value, WORD)
                 if WIN64:
                     add_to_esp = 4 * WORD
-                    mc.SUB_ri(esp.value, 4 * WORD)    # for the shadow store
-                    # (seems 4 words are overwritten, not just 1??)
+                    mc.SUB_ri(esp.value, 4 * WORD)    # the 4-words shadow store
         else:
             # NOTE: don't save registers on the jitframe here!
             # It might override already-saved values that will be
