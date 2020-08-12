@@ -166,8 +166,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
         self._store_and_reset_exception(mc, None, ebx, ecx)
 
-        mc.MOV_ri(r11.value, 0x1111)
-        mc.INT3()   # FIXME
+        BRK(mc, 0x1111) # FIXME
 
         mc.CALL(imm(self.cpu.realloc_frame))
         mc.MOV_rr(ebp.value, eax.value)
@@ -283,8 +282,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc.MOV_rr(esi.value, ecx.value) # tid
                 mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
         #self.set_extra_stack_depth(mc, 16)
-        mc.MOV_ri(r11.value, 0x3333)
-        mc.INT3()   # FIXME
+        BRK(mc, 0x3333) # FIXME
         mc.CALL(imm(follow_jump(addr)))
         self._reload_frame_if_necessary(mc)
         mc.ADD_ri(esp.value, 16 - WORD)
@@ -356,8 +354,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             mc.PUSH_r(esp.value)
         #
         # esp is now aligned to a multiple of 16 again
-        mc.MOV_ri(r11.value, 0x4444)
-        mc.INT3()   # FIXME
+        BRK(mc, 0x4444) # FIXME
         mc.CALL(imm(follow_jump(slowpathaddr)))
         #
         if IS_X86_32:
@@ -452,8 +449,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)
             self._store_and_reset_exception(mc, exc0, exc1)
-            mc.MOV_ri(r11.value, 0x5555)
-            mc.INT3()   # FIXME
+            BRK(mc, 0x5555) # FIXME
 
         mc.CALL(imm(func))
         #
@@ -898,8 +894,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
             assembler.frame_depth_to_patch.append(ofs2)
             assembler.push_gcmap(mc, self.gcmap, store=True)
-            mc.MOV_ri(r11.value, 0x6666)
-            mc.INT3()   # FIXME
+            BRK(mc, 0x6666) # FIXME
             mc.CALL(imm(assembler._frame_realloc_slowpath))
 
     def _check_frame_depth(self, mc, gcmap):
@@ -932,8 +927,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.MOV_rr(edi.value, ebp.value)
         mc.MOV_ri(esi.value, 0xffffff)
         ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
-        mc.MOV_ri(r11.value, 0x7777)
-        mc.INT3()   # FIXME
+        BRK(mc, 0x7777) # FIXME
         mc.CALL(imm(self.cpu.realloc_frame_crash))
         # patch the JG above
         mc.patch_forward_jump(jg_location)
@@ -1070,8 +1064,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     class StackCheckSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
-            mc.MOV_ri(r11.value, 0x8888)
-            mc.INT3()   # FIXME
+            BRK(mc, 0x8888) # FIXME
             mc.CALL(imm(assembler.stack_check_slowpath))
 
     def _call_header_with_stack_check(self):
@@ -2548,8 +2541,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     class MallocCondSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             assembler.push_gcmap(mc, self.gcmap, store=True)
-            mc.MOV_ri(r11.value, 0xBBBB)
-            mc.INT3()   # FIXME
+            BRK(mc, 0xBBBB) # FIXME
             mc.CALL(imm(follow_jump(assembler.malloc_slowpath)))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
@@ -2598,8 +2590,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             lengthloc = self.lengthloc
             assert lengthloc is not ecx and lengthloc is not edx
             mc.MOV(edx, lengthloc)
-            mc.MOV_ri(r11.value, 0xCCCC)
-            mc.INT3()   # FIXME
+            BRK(mc, 0xCCCC) # FIXME
             mc.CALL(imm(follow_jump(addr)))
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
@@ -2778,3 +2769,12 @@ cond_call_register_arguments = callbuilder.CallBuilder64.ARGUMENTS_GPR[:4]
 
 class BridgeAlreadyCompiled(Exception):
     pass
+
+
+
+
+def BRK(mc, imm_value):
+    mc.MOV_ri(r13.value, imm_value)
+    mc.INT3()
+    # SOMETIMES, in VS debugger, you land in the middle of ffi.c (???)
+    # and you must do a "step" to the next instruction to see this INT3
