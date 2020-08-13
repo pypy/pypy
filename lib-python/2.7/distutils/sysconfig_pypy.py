@@ -88,7 +88,14 @@ def _init_posix():
         g['CC'] += ' -arch %s' % (arch,)
         g['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
 
-    global _config_vars
+    # pypy only: give us control over the ABI tag in a wheel name
+    if '__pypy__' in sys.builtin_module_names:
+        for suffix, mode, type_ in imp.get_suffixes():
+            if type_ == imp.C_EXTENSION:
+                g['SOABI'] = suffix.split('.')[1]
+                break
+
+    rlobal _config_vars
     _config_vars = g
 
 
@@ -99,6 +106,11 @@ def _init_nt():
     g['SO'] = [s[0] for s in imp.get_suffixes() if s[2] == imp.C_EXTENSION][0]
     g['VERSION'] = get_python_version().replace(".", "")
     g['BINDIR'] = os.path.dirname(os.path.abspath(sys.executable))
+
+    # pypy only: give us control over the ABI tag in a wheel name
+    if '__pypy__' in sys.builtin_module_names:
+        so_ext = imp.get_suffixes()[0][0]
+        g['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
 
     global _config_vars
     _config_vars = g
