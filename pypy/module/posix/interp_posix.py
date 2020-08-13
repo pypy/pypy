@@ -11,7 +11,9 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
-from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
+from rpython.rlib.rarithmetic import (
+    r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
+
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
@@ -2775,8 +2777,7 @@ def sched_rr_get_interval(space, pid):
     except OSError as e:
         wrap_oserror(space, e, eintr_retry=True)
     else:
-        return space.newint(res)
-
+        return space.newfloat(res)
 
 
 @unwrap_spec(pid=int)
@@ -2800,7 +2801,7 @@ def sched_setscheduler(space, pid, policy, param):
     except OSError as e:
         wrap_oserror(space, e, eintr_retry=True)
     else:
-            return space.newint(res)
+        return space.newint(res)
 
 
 @unwrap_spec(pid=int)
@@ -2814,10 +2815,13 @@ def sched_getparam(space, pid):
     else:
         return space.newint(res)
 
+
 @unwrap_spec(pid=int, param=int)
 def sched_setparam(space, pid, param):
     """ set scheduling parameters. """
 
+    if param > INT_MAX or param < INT_MIN:
+        raise oefmt(space.w_OverflowError, "sched_priority out of range")
     try:
         res = rposix.sched_setparam(pid, param)
     except OSError as e:

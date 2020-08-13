@@ -1845,7 +1845,7 @@ class AppTestPep475Retry:
         assert signalled != []
         assert got.startswith(b'h')
 
-    if hasattr(rposix, 'test_sched_rr_get_interval'):
+    if hasattr(rposix, 'sched_rr_get_interval'):
         def test_sched_rr_get_interval(self):
             posix= self.posix
             try:
@@ -1856,29 +1856,30 @@ class AppTestPep475Retry:
                 if e.errno != errno.EINVAL:
                     raise
                 self.skipTest("only works on SCHED_RR processes")
-            self.assertIsInstance(interval, float)
+            assert isinstance(interval, float)
             # Reasonable constraints, I think.
-            self.assertGreaterEqual(interval, 0.)
-            self.assertLess(interval, 1.)
+            assert 0 < interval < 1
 
-    if hasattr(rposix, 'test_sched_rr_get_interval'):
         def test_get_and_set_scheduler_and_param(self):
             posix= self.posix
+            import sys
             possible_schedulers = [sched for name, sched in posix.__dict__.items()
                                    if name.startswith("SCHED_")]
             mine = posix.sched_getscheduler(0)
-            self.assertIn(mine, possible_schedulers)
+            assert mine in possible_schedulers
             try:
-                parent = posix.sched_getscheduler(os.getppid())
+                parent = posix.sched_getscheduler(posix.getppid())
             except OSError as e:
                 if e.errno != errno.EPERM:
                     raise
             else:
-                self.assertIn(parent, possible_schedulers)
-            self.assertRaises(OSError, posix.sched_getscheduler, -1)
-            self.assertRaises(OSError, posix.sched_getparam, -1)
+                assert parent in possible_schedulers
+            with raises(OSError):
+                posix.sched_getscheduler(-1)
+            with raises(OSError):
+                posix.sched_getparam(-1)
             param = posix.sched_getparam(0)
-            self.assertIsInstance(param.sched_priority, int)
+            assert isinstance(param, int)
             # POSIX states that calling sched_setparam() or sched_setscheduler() on
             # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
             # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
@@ -1889,14 +1890,23 @@ class AppTestPep475Retry:
                 except OSError as e:
                     if e.errno != errno.EPERM:
                         raise
-                self.assertRaises(OSError, posix.sched_setparam, -1, param)
-            self.assertRaises(OSError, posix.sched_setscheduler, -1, mine, param)
-            self.assertRaises(TypeError, posix.sched_setscheduler, 0, mine, None)
-            self.assertRaises(TypeError, posix.sched_setparam, 0, 43)
-            param = posix.sched_param(None)
-            self.assertRaises(TypeError, posix.sched_setparam, 0, param)
+                with raises(OSError):
+                    posix.sched_setparam(-1, param)
+            with raises(OSError):
+                posix.sched_setscheduler(-1, mine, param)
+            with raises(TypeError):
+                posix.sched_setscheduler(0, mine, None)
+            with raises(TypeError):
+                posix.sched_setparam(0,None)
+            # param = posix.sched_param(None)
+            with raises(TypeError):
+                posix.sched_setparam(0, None)
             large = 214748364700
-            param = posix.sched_param(large)
-            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
-            param = posix.sched_param(sched_priority=-large)
-            self.assertRaises(OverflowError, posix.sched_setparam, 0, param)
+            # param = posix.sched_param(large)
+            param = large
+            with raises(OverflowError):
+                posix.sched_setparam(0, param)
+            # param = posix.sched_param(sched_priority=-large)
+            param = -large
+            with raises(OverflowError):
+                posix.sched_setparam(0, param)
