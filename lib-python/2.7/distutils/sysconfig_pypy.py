@@ -95,7 +95,7 @@ def _init_posix():
                 g['SOABI'] = suffix.split('.')[1]
                 break
 
-    rlobal _config_vars
+    global _config_vars
     _config_vars = g
 
 
