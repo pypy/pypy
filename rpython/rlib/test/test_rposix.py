@@ -5,6 +5,7 @@ from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_genc import compile
 from rpython.tool.pytest.expecttest import ExpectTest
 from rpython.tool.udir import udir
+from rpython.translator.platform import platform
 from rpython.rlib import rposix, rposix_stat, rstring
 import os, sys
 import errno
@@ -222,45 +223,45 @@ class TestPosixFunction:
     def test_os_write(self):
         #Same as test in rpython/test/test_rbuiltin
         fname = str(udir.join('os_test.txt'))
-        fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+        fd = rposix.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
         assert fd >= 0
         rposix.write(fd, 'Hello world')
-        os.close(fd)
+        rposix.close(fd)
         with open(fname) as fid:
             assert fid.read() == "Hello world"
-        fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
-        os.close(fd)
+        fd = rposix.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+        rposix.close(fd)
         py.test.raises(OSError, rposix.write, fd, 'Hello world')
 
     def test_os_close(self):
         fname = str(udir.join('os_test.txt'))
-        fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+        fd = rposix.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
         assert fd >= 0
-        os.write(fd, 'Hello world')
+        rposix.write(fd, 'Hello world')
         rposix.close(fd)
         py.test.raises(OSError, rposix.close, fd)
 
     def test_os_lseek(self):
         fname = str(udir.join('os_test.txt'))
-        fd = os.open(fname, os.O_RDWR|os.O_CREAT, 0777)
+        fd = rposix.open(fname, os.O_RDWR|os.O_CREAT, 0777)
         assert fd >= 0
-        os.write(fd, 'Hello world')
+        rposix.write(fd, 'Hello world')
         rposix.lseek(fd,0,0)
-        assert os.read(fd, 11) == 'Hello world'
-        os.close(fd)
+        assert rposix.read(fd, 11) == 'Hello world'
+        rposix.close(fd)
         py.test.raises(OSError, rposix.lseek, fd, 0, 0)
 
     def test_os_fsync(self):
-        fname = str(udir.join('os_test.txt'))
-        fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
+        fname = str(udir.join('test_fsync.txt'))
+        fd = rposix.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
         assert fd >= 0
-        os.write(fd, 'Hello world')
+        rposix.write(fd, 'Hello world')
         rposix.fsync(fd)
-        os.close(fd)
-        fid = open(fname)
-        assert fid.read() == 'Hello world'
-        fid.close()
-        py.test.raises(OSError, rposix.fsync, fd)
+        rposix.close(fd)
+        with open(fname, 'r') as fid:
+            assert fid.read() == 'Hello world'
+        with pytest.raises(OSError):
+            rposix.fsync(fd)
 
     @py.test.mark.skipif("not hasattr(os, 'fdatasync')")
     def test_os_fdatasync(self):
@@ -484,7 +485,17 @@ class BasePosixUnicodeOrAscii:
         fd = fid.fileno()
         assert rposix.is_valid_fd(fd) == 1
         fid.close()
-        assert rposix.is_valid_fd(fd) == 0
+        if platform.version < 100:
+            # MSVC 9 only, otherwise we prevent crashing the app byinstall an
+            # _invalid_parameter_error_handler via einter/exit_suppres_iph
+            # and use "with FdValidator"
+            assert rposix.is_valid_fd(fd) == 0
+        else:
+            # should fail, not crash
+            with pytest.raises(OSError):
+                rposix.read(fd, 1)
+
+
 
     def test_putenv(self):
         from rpython.rlib import rposix_environ
@@ -617,17 +628,17 @@ def test_renameat(tmpdir):
     assert tmpdir.join('file2').check(exists=True)
 
 def test_set_inheritable():
-    fd1, fd2 = os.pipe()
+    fd1, fd2 = rposix.pipe()
     rposix.set_inheritable(fd1, True)
     assert rposix.get_inheritable(fd1) == True
     rposix.set_inheritable(fd1, False)
     assert rposix.get_inheritable(fd1) == False
-    os.close(fd1)
-    os.close(fd2)
+    rposix.close(fd1)
+    rposix.close(fd2)
 
 def test_SetNonInheritableCache():
     cache = rposix.SetNonInheritableCache()
-    fd1, fd2 = os.pipe()
+    fd1, fd2 = rposix.pipe()
     if sys.platform == 'win32':
         rposix.set_inheritable(fd1, True)
         rposix.set_inheritable(fd2, True)
@@ -640,12 +651,12 @@ def test_SetNonInheritableCache():
     assert cache.cached_inheritable == 1
     assert rposix.get_inheritable(fd1) == False
     assert rposix.get_inheritable(fd1) == False
-    os.close(fd1)
-    os.close(fd2)
+    rposix.close(fd1)
+    rposix.close(fd2)
 
 def test_dup_dup2_non_inheritable():
     for preset in [False, True]:
-        fd1, fd2 = os.pipe()
+        fd1, fd2 = rposix.pipe()
         rposix.set_inheritable(fd1, preset)
         rposix.set_inheritable(fd2, preset)
         fd3 = rposix.dup(fd1, True)
@@ -656,10 +667,10 @@ def test_dup_dup2_non_inheritable():
         assert rposix.get_inheritable(fd4) == False
         rposix.dup2(fd2, fd3, True)
         assert rposix.get_inheritable(fd3) == True
-        os.close(fd1)
-        os.close(fd2)
-        os.close(fd3)
-        os.close(fd4)
+        rposix.close(fd1)
+        rposix.close(fd2)
+        rposix.close(fd3)
+        rposix.close(fd4)
 
 def test_sync():
     if sys.platform != 'win32':
@@ -671,15 +682,15 @@ def test_cpu_count():
 
 @rposix_requires('set_status_flags')
 def test_set_status_flags():
-    fd1, fd2 = os.pipe()
+    fd1, fd2 = rposix.pipe()
     try:
         flags = rposix.get_status_flags(fd1)
         assert flags & rposix.O_NONBLOCK == 0
         rposix.set_status_flags(fd1, flags | rposix.O_NONBLOCK)
         assert rposix.get_status_flags(fd1) & rposix.O_NONBLOCK != 0
     finally:
-        os.close(fd1)
-        os.close(fd2)
+        rposix.close(fd1)
+        rposix.close(fd2)
 
 @rposix_requires('getpriority')
 def test_getpriority():
