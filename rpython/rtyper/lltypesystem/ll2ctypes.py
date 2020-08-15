@@ -1137,9 +1137,11 @@ def uninitialized2ctypes(T):
 if ctypes:
     def get_libc_name():
         if sys.platform == 'win32':
-            # Parses sys.version and deduces the version of the compiler
-            import distutils.msvccompiler
-            version = distutils.msvccompiler.get_build_version()
+            version = platform.vsver // 10
+            if not version:
+                # Parses sys.version and deduces the version of the compiler
+                import distutils.msvccompiler
+                version = distutils.msvccompiler.get_build_version()
             if version is None:
                 # This logic works with official builds of Python.
                 if sys.version_info < (2, 4):
