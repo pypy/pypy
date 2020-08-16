@@ -18,6 +18,7 @@ from rpython.conftest import option
 from rpython.flowspace.model import summary
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib import rposix
 
 class BaseTestRffi:
     def test_basic(self):
@@ -240,12 +241,7 @@ class BaseTestRffi:
         assert fn() == 8
 
     def test_externvar(self):
-        import os
-        if os.name == 'nt':
-            # Windows CRT badly aborts when an invalid fd is used.
-            bad_fd = 0
-        else:
-            bad_fd = 12312312
+        bad_fd = 12312312
 
         def f():
             set_saved_errno(12)
@@ -253,7 +249,7 @@ class BaseTestRffi:
 
         def g():
             try:
-                os.write(bad_fd, "xxx")
+                rposix.write(bad_fd, "xxx")
             except OSError:
                 pass
             return get_saved_errno()

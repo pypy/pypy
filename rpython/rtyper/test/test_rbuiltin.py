@@ -13,6 +13,7 @@ from rpython.rtyper.test import test_llinterp
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.tool import udir
 from rpython.translator.translator import graphof
+from rpython.rlib import rposix
 
 
 def enum_direct_calls(translator, func):
@@ -196,28 +197,31 @@ class TestRbuiltin(BaseRtypingTest):
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
             os.write(fd, "hello world")
+            os.close(res)
             return fd
         def f():
             return wr_open(tmpdir)
         res = self.interpret(f, [])
-        os.close(res)
-        hello = open(tmpdir).read()
+        fid = open(tmpdir)
+        hello = fid.read()
         assert hello == "hello world"
         fd = os.open(tmpdir, os.O_WRONLY|os.O_CREAT, 777)
         os.close(fd)
         py.test.raises(OSError, os.write, fd, "hello world")
+        fid.close()
 
     def test_os_write_single_char(self):
         tmpdir = str(udir.udir.join("os_write_test_char"))
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
             os.write(fd, "x")
+            os.close(fd)
             return fd
         def f():
             return wr_open(tmpdir)
         res = self.interpret(f, [])
-        os.close(res)
-        hello = open(tmpdir).read()
+        with open(tmpdir) as fid:
+            hello = fid.read()
         assert hello == "x"
 
     def test_os_read(self):
@@ -262,7 +266,7 @@ class TestRbuiltin(BaseRtypingTest):
             return os.dup(fd)
         res = self.interpret(fn, [0])
         try:
-            os.close(res)
+            rposix.close(res)
         except OSError:
             pass
         count = 0
@@ -279,7 +283,7 @@ class TestRbuiltin(BaseRtypingTest):
         def f():
             return wr_open(tmpdir)
         res = self.interpret(f, [])
-        os.close(res)
+        rposix.close(res)
         count = 0
         for dir_call in enum_direct_calls(test_llinterp.typer.annotator.translator, wr_open):
             cfptr = dir_call.args[0]
