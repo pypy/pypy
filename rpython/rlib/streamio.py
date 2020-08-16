@@ -115,11 +115,7 @@ def open_path_helper(path, os_flags, append, signal_checker=None):
     # XXX for now always return DiskFile
     fd = rposix.open(path, os_flags, 0666)
     if append:
-        try:
-            os.lseek(fd, 0, 2)
-        except OSError:
-            # XXX does this pass make sense?
-            pass
+        rposix.lseek(fd, 0, 2)
     return DiskFile(fd, signal_checker)
 
 def decode_mode(mode):
@@ -202,14 +198,14 @@ if sys.platform == "win32":
 
     def _setfd_binary(fd):
         # Allow this to succeed on invalid fd's
-        if rposix.is_valid_fd(fd):
+        with rposix.FdValidator(fd):
             _setmode(fd, os.O_BINARY)
 
     def ftruncate_win32(fd, size):
-        curpos = os.lseek(fd, 0, 1)
+        curpos = rposix.lseek(fd, 0, 1)
         try:
             # move to the position to be truncated
-            os.lseek(fd, size, 0)
+            rposix.lseek(fd, size, 0)
             # Truncate.  Note that this may grow the file!
             handle = get_osfhandle(fd)
             if not SetEndOfFile(handle):
@@ -217,7 +213,7 @@ if sys.platform == "win32":
                                    "Could not truncate file")
         finally:
             # we restore the file pointer position in any case
-            os.lseek(fd, curpos, 0)
+            rposix.lseek(fd, curpos, 0)
 
 
 class Stream(object):
@@ -307,24 +303,24 @@ class Stream(object):
 
 
 class DiskFile(Stream):
-    """Standard I/O basis stream using os.open/close/read/write/lseek"""
+    """Standard I/O basis stream using rposix.open/close/read/write/lseek"""
 
     def __init__(self, fd, signal_checker=None):
         self.fd = fd
         self.signal_checker = signal_checker
 
     def seek(self, offset, whence):
-        os.lseek(self.fd, offset, whence)
+        rposix.lseek(self.fd, offset, whence)
 
     def tell(self):
-        result = os.lseek(self.fd, 0, 1)
+        result = rposix.lseek(self.fd, 0, 1)
         return r_longlong(result)
 
     def read(self, n):
         assert isinstance(n, int)
         while True:
             try:
-                return os.read(self.fd, n)
+                return rposix.read(self.fd, n)
             except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
@@ -338,7 +334,7 @@ class DiskFile(Stream):
         result = StringBuilder()
         while True:
             try:
-                c = os.read(self.fd, 1)
+                c = rposix.read(self.fd, 1)
             except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
@@ -356,7 +352,7 @@ class DiskFile(Stream):
     def write(self, data):
         while data:
             try:
-                n = os.write(self.fd, data)
+                n = rposix.write(self.fd, data)
             except OSError as e:
                 if e.errno != errno.EINTR:
                     raise
@@ -367,25 +363,14 @@ class DiskFile(Stream):
 
     def close1(self, closefileno):
         if closefileno:
-            os.close(self.fd)
+            rposix.close(self.fd)
 
     if sys.platform == "win32":
         def truncate(self, size):
             ftruncate_win32(self.fd, size)
     else:
         def truncate(self, size):
-            # Note: for consistency, in translated programs a failing
-            # os.ftruncate() raises OSError.  However, on top of
-            # CPython, we get an IOError.  As it is (as far as I know)
-            # the only place that have this behavior, we just convert it
-            # to an OSError instead of adding IOError to StreamErrors.
-            if we_are_translated():
-                os.ftruncate(self.fd, size)
-            else:
-                try:
-                    os.ftruncate(self.fd, size)
-                except IOError as e:
-                    raise OSError(*e.args)
+            rposix.ftruncate(self.fd, size)
 
     def try_to_find_file_descriptor(self):
         return self.fd
