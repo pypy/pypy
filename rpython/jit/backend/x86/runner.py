@@ -149,7 +149,8 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
-    vector_ext = X86VectorExt()
+    if not WIN64:
+        vector_ext = X86VectorExt()
     backend_name = 'x86_64'
     NUM_REGS = 16
     if not WIN64:
