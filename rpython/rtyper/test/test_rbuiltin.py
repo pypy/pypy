@@ -197,7 +197,7 @@ class TestRbuiltin(BaseRtypingTest):
         def wr_open(fname):
             fd = os.open(fname, os.O_WRONLY|os.O_CREAT, 0777)
             os.write(fd, "hello world")
-            os.close(res)
+            os.close(fd)
             return fd
         def f():
             return wr_open(tmpdir)
