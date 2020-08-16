@@ -3,6 +3,7 @@ import os, sys, py
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rfile import create_file
 from rpython.rlib import rmmap as mmap
 from rpython.rlib.rmmap import RTypeError, RValueError, alloc, free
 from rpython.rlib.rmmap import madvise_free
@@ -45,7 +46,7 @@ class TestMMap:
             else:
                 raise Exception("didn't raise")
 
-        f = open(self.tmpname + "a", "w+")
+        f = create_file(self.tmpname + "a", "w+")
         
         f.write("c")
         f.flush()
@@ -54,7 +55,7 @@ class TestMMap:
         f.close()
 
     def test_create(self):
-        f = open(self.tmpname + "b", "w+")
+        f = create_file(self.tmpname + "b", "w+")
         
         f.write("c")
         f.flush()
@@ -69,7 +70,7 @@ class TestMMap:
 
     @py.test.mark.skipif("os.name != 'posix'")
     def test_unmap_range(self):
-        f = open(self.tmpname + "-unmap-range", "w+")
+        f = create_file(self.tmpname + "-unmap-range", "w+")
         left, right, size = 100, 200, 500  # in pages
 
         f.write(size*4096*"c")
@@ -92,7 +93,7 @@ class TestMMap:
         f.close()
 
     def test_close(self):
-        f = open(self.tmpname + "c", "w+")
+        f = create_file(self.tmpname + "c", "w+")
         
         f.write("c")
         f.flush()
@@ -110,7 +111,7 @@ class TestMMap:
         f.close()
 
     def test_read_byte(self):
-        f = open(self.tmpname + "d", "w+")
+        f = create_file(self.tmpname + "d", "w+")
 
         f.write("c")
         f.flush()
@@ -130,7 +131,7 @@ class TestMMap:
 
     def test_readline(self):
         import os
-        f = open(self.tmpname + "e", "w+")
+        f = create_file(self.tmpname + "e", "w+")
 
         f.write("foo\n")
         f.flush()
@@ -149,7 +150,7 @@ class TestMMap:
         f.close()
 
     def test_read(self):
-        f = open(self.tmpname + "f", "w+")
+        f = create_file(self.tmpname + "f", "w+")
         
         f.write("foobar")
         f.flush()
@@ -165,7 +166,7 @@ class TestMMap:
         f.close()
 
     def test_find_rfind(self):
-        f = open(self.tmpname + "g", "w+")
+        f = create_file(self.tmpname + "g", "w+")
         f.write("foobarfoobar\0")
         f.flush()
         m = mmap.mmap(f.fileno(), 13)
@@ -181,7 +182,7 @@ class TestMMap:
         f.close()
 
     def test_find(self):
-        f = open(self.tmpname + "g", "w+")
+        f = create_file(self.tmpname + "g", "w+")
         f.write("foobarfoobar\0")
         f.flush()
 
@@ -208,7 +209,7 @@ class TestMMap:
         f.close()
 
     def test_is_modifiable(self):
-        f = open(self.tmpname + "h", "w+")
+        f = create_file(self.tmpname + "h", "w+")
         
         f.write("foobar")
         f.flush()
@@ -232,7 +233,7 @@ class TestMMap:
         f.close()
 
     def test_seek(self):
-        f = open(self.tmpname + "i", "w+")
+        f = create_file(self.tmpname + "i", "w+")
         
         f.write("foobar")
         f.flush()
@@ -252,7 +253,7 @@ class TestMMap:
         f.close()
 
     def test_write(self):
-        f = open(self.tmpname + "j", "w+")
+        f = create_file(self.tmpname + "j", "w+")
 
         f.write("foobar")
         f.flush()
@@ -266,7 +267,7 @@ class TestMMap:
         f.close()
 
     def test_write_byte(self):
-        f = open(self.tmpname + "k", "w+")
+        f = create_file(self.tmpname + "k", "w+")
         
         f.write("foobar")
         f.flush()
@@ -284,7 +285,7 @@ class TestMMap:
     def test_write_readonly(self):
         if os.name == "nt":
             py.test.skip("Needs PROT_READ")
-        f = open(self.tmpname + "l", "w+")
+        f = create_file(self.tmpname + "l", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ)
@@ -295,7 +296,7 @@ class TestMMap:
     def test_write_without_protwrite(self):
         if os.name == "nt":
             py.test.skip("Needs PROT_WRITE")
-        f = open(self.tmpname + "l2", "w+")
+        f = create_file(self.tmpname + "l2", "w+")
         f.write("foobar")
         f.flush()
         m = mmap.mmap(f.fileno(), 6, prot=mmap.PROT_READ|mmap.PROT_EXEC)
@@ -305,7 +306,7 @@ class TestMMap:
         f.close()
 
     def test_size(self):
-        f = open(self.tmpname + "l3", "w+")
+        f = create_file(self.tmpname + "l3", "w+")
         
         f.write("foobar")
         f.flush()
@@ -319,7 +320,7 @@ class TestMMap:
         f.close()
 
     def test_tell(self):
-        f = open(self.tmpname + "m", "w+")
+        f = create_file(self.tmpname + "m", "w+")
         
         f.write("c")
         f.flush()
@@ -333,7 +334,7 @@ class TestMMap:
         f.close()
 
     def test_move(self):
-        f = open(self.tmpname + "o", "w+")
+        f = create_file(self.tmpname + "o", "w+")
         
         f.write("foobar")
         f.flush()
@@ -357,7 +358,7 @@ class TestMMap:
         
         import os
         
-        f = open(self.tmpname + "p", "w+")
+        f = create_file(self.tmpname + "p", "w+")
         f.write("foobar")
         f.flush()
 
@@ -375,7 +376,7 @@ class TestMMap:
 
     def test_len(self):
         
-        f = open(self.tmpname + "q", "w+")
+        f = create_file(self.tmpname + "q", "w+")
         f.write("foobar")
         f.flush()
 
@@ -389,7 +390,7 @@ class TestMMap:
      
     def test_get_item(self):
         
-        f = open(self.tmpname + "r", "w+")
+        f = create_file(self.tmpname + "r", "w+")
         f.write("foobar")
         f.flush()
 
@@ -405,7 +406,7 @@ class TestMMap:
         f.close()
     
     def test_set_item(self):
-        f = open(self.tmpname + "s", "w+")
+        f = create_file(self.tmpname + "s", "w+")
         f.write("foobar")
         f.flush()
 
@@ -433,7 +434,7 @@ class TestMMap:
         f.close()
 
     def test_double_close(self):
-        f = open(self.tmpname + "s", "w+")
+        f = create_file(self.tmpname + "s", "w+")
         f.write("foobar")
         f.flush()
 
@@ -474,11 +475,11 @@ class TestMMap:
         if sys.platform != "win32":
             py.test.skip("Windows-only test")
 
-        f = open(self.tmpname + "t", "w+")
+        f = create_file(self.tmpname + "t", "w+")
         f.write("foobar")
         f.flush()
 
-        f = open(self.tmpname + "t", "r+b")
+        f = create_file(self.tmpname + "t", "r+b")
         m = mmap.mmap(f.fileno(), 0)
         f.close()
         py.test.raises(WindowsError, m.resize, 0)
