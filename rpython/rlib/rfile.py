@@ -80,8 +80,25 @@ c_pclose = llexternal('pclose', [FILEP], rffi.INT,
 # threads and the RFile class cannot translate.  See c684bf704d1f
 c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-_fclose2 = (c_fclose, c_fclose_in_del)
-_pclose2 = (c_pclose, c_pclose_in_del)
+
+def fclose(fd):
+    with rposix.FdValidator(c_fileno(fd)):
+        return c_fclose(fd)
+
+def pclose(fd):
+    with rposix.FdValidator(c_fileno(fd)):
+        return c_pclose(fd)
+
+def fclose_in_del(fd):
+    with rposix.FdValidator(fd.fileno()):
+        return c_fclose_in_del(fd.fileno())
+
+def pclose_in_del(fd):
+    with rposix.FdValidator(fd):
+        return c_pclose_in_del(fd.fileno())
+
+_fclose2 = (fclose, fclose_in_del)
+_pclose2 = (pclose, c_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
