@@ -402,22 +402,23 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         # on the stack even on X86_64.  It must restore stack alignment
         # accordingly.
         mc = codebuf.MachineCodeBlockWrapper()
-        add_to_esp = 0
+        shadow_save = 4 * WORD if WIN64 else 0    # win64: 4 extra unused words before CALL
         #
         if not for_frame:
             self._push_all_regs_to_frame(mc, [], withfloats, callee_only=True)
             if IS_X86_32:
                 # we have 2 extra words on stack for retval and we pass 1 extra
                 # arg, so we need to substract 2 words
+                assert shadow_save == 0
                 add_to_esp = 2 * WORD
                 mc.SUB_ri(esp.value, 2 * WORD)
                 mc.MOV_rs(eax.value, 3 * WORD) # 2 + 1
                 mc.MOV_sr(0, eax.value)
             else:
-                mc.MOV_rs(callbuilder.CallBuilder64.ARG0.value, WORD)
-                if WIN64:
-                    add_to_esp = 4 * WORD
-                    mc.SUB_ri(esp.value, 4 * WORD)    # the 4-words shadow store
+                add_to_esp = shadow_save
+                if add_to_esp != 0:
+                    mc.SUB_ri(esp.value, add_to_esp)    # the 4-words shadow store
+                mc.MOV_rs(callbuilder.CallBuilder64.ARG0.value, WORD + add_to_esp)
         else:
             # NOTE: don't save registers on the jitframe here!
             # It might override already-saved values that will be
@@ -432,26 +433,25 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # exception that occurred in the CALL, if any).
             assert not withcards
             # we have one word to align
-            add_to_esp = 7 * WORD
-            mc.SUB_ri(esp.value, 7 * WORD) # align and reserve some space
-            mc.MOV_sr(WORD, eax.value) # save for later
+            add_to_esp = shadow_save + 7 * WORD
+            mc.SUB_ri(esp.value, add_to_esp) # align and reserve some space
+            mc.MOV_sr(shadow_save + WORD, eax.value) # save for later
             if self.cpu.supports_floats:
-                mc.MOVSD_sx(2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
+                mc.MOVSD_sx(shadow_save + 2 * WORD, xmm0.value)   # 32-bit: also 3 * WORD
             if IS_X86_32:
-                mc.MOV_sr(4 * WORD, edx.value)
-                mc.MOV_sr(0, ebp.value)
+                mc.MOV_sr(shadow_save + 4 * WORD, edx.value)
+                mc.MOV_sr(shadow_save, ebp.value)
                 exc0, exc1 = esi, edi
             else:
-                mc.MOV_rr(edi.value, ebp.value)
+                mc.MOV_rr(callbuilder.CallBuilder64.ARG0.value, ebp.value)
                 exc0, exc1 = ebx, r12
-            mc.MOV(RawEspLoc(WORD * 5, REF), exc0)
-            mc.MOV(RawEspLoc(WORD * 6, INT), exc1)
+            mc.MOV(RawEspLoc(shadow_save + WORD * 5, REF), exc0)
+            mc.MOV(RawEspLoc(shadow_save + WORD * 6, INT), exc1)
             # note that it's safe to store the exception in register,
             # since the call to write barrier can't collect
             # (and this is assumed a bit left and right here, like lack
             # of _reload_frame_if_necessary)
             self._store_and_reset_exception(mc, exc0, exc1)
-            BRK(mc, 0x5555) # FIXME
 
         mc.CALL(imm(func))
         #
@@ -474,13 +474,13 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             # taken care of in the caller by stack_frame_size_delta(-WORD)
         else:
             if IS_X86_32:
-                mc.MOV_rs(edx.value, 4 * WORD)
+                mc.MOV_rs(edx.value, shadow_save + 4 * WORD)
             if self.cpu.supports_floats:
-                mc.MOVSD_xs(xmm0.value, 2 * WORD)
-            mc.MOV_rs(eax.value, WORD) # restore
+                mc.MOVSD_xs(xmm0.value, shadow_save + 2 * WORD)
+            mc.MOV_rs(eax.value, shadow_save + WORD) # restore
             self._restore_exception(mc, exc0, exc1)
-            mc.MOV(exc0, RawEspLoc(WORD * 5, REF))
-            mc.MOV(exc1, RawEspLoc(WORD * 6, INT))
+            mc.MOV(exc0, RawEspLoc(shadow_save + WORD * 5, REF))
+            mc.MOV(exc1, RawEspLoc(shadow_save + WORD * 6, INT))
             mc.LEA_rs(esp.value, add_to_esp)
             mc.RET()
 
@@ -1045,7 +1045,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         if IS_X86_64:
             r_arg2 = callbuilder.CallBuilder64.ARG1   # esi/edx
             self.mc.MOV_sr(THREADLOCAL_OFS, r_arg2.value)
-        if self.cpu.translate_support_code:
+        if self.cpu.translate_support_code and not WIN64:
             self._call_header_vmprof()     # on X86_64, this uses esi/edx
         if IS_X86_64:
             r_arg1 = callbuilder.CallBuilder64.ARG0   # edi/ecx
@@ -1083,7 +1083,7 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     def _call_footer(self):
         # the return value is the jitframe
-        if self.cpu.translate_support_code:
+        if self.cpu.translate_support_code and not WIN64:
             self._call_footer_vmprof()
         self.mc.MOV_rr(eax.value, ebp.value)
 
