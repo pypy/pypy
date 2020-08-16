@@ -80,25 +80,26 @@ c_pclose = llexternal('pclose', [FILEP], rffi.INT,
 # threads and the RFile class cannot translate.  See c684bf704d1f
 c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
+c_fileno_in_del = llexternal(fileno, [FILEP], rffi.INT, releasegil=False)
 
-def fclose(fd):
+def fclose_with_validator(fd):
     with rposix.FdValidator(c_fileno(fd)):
         return c_fclose(fd)
 
-def pclose(fd):
+def pclose_with_validator(fd):
     with rposix.FdValidator(c_fileno(fd)):
         return c_pclose(fd)
 
 def fclose_in_del(fd):
-    with rposix.FdValidator(fd.fileno()):
-        return c_fclose_in_del(fd.fileno())
+    with rposix.FdValidator(c_fileno_in_del(fd)):
+        return c_fclose_in_del(fd)
 
 def pclose_in_del(fd):
-    with rposix.FdValidator(fd):
-        return c_pclose_in_del(fd.fileno())
+    with rposix.FdValidator(c_fileno_in_del(fd)):
+        return c_pclose_in_del(fd)
 
-_fclose2 = (fclose, fclose_in_del)
-_pclose2 = (pclose, c_pclose_in_del)
+_fclose2 = (fclose_with_validator, fclose_in_del)
+_pclose2 = (pclose_with_validator, c_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)
