@@ -269,13 +269,17 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 if os.name == 'nt':
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
-        rffi.INT, compilation_info=errno_eci,
+        rffi.INT, compilation_info=errno_eci, releasegil=False,
         ))
     c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
-                                  [], rffi.VOIDP, compilation_info=errno_eci))
+                                  [], rffi.VOIDP, compilation_info=errno_eci,
+                                  releasegil=False,
+                                  ))
     c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void,
-                                  compilation_info=errno_eci))
+                                  compilation_info=errno_eci,
+                                  releasegil=False,
+                                  ))
 
     @enforceargs(int)
     def _validate_fd(fd):
