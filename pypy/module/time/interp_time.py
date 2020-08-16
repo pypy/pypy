@@ -896,7 +896,7 @@ def strftime(space, format, w_tup=None):
         fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
         if we_are_translated():
             # Visual 2005+
-            fmts = fmts + 'D'
+            fmts = fmts + 'ADFgGhnrRtTuV'
         length = len(format)
         i = 0
         while i < length:
