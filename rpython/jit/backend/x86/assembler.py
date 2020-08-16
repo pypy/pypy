@@ -253,7 +253,10 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             addr = self.cpu.gc_ll_descr.get_malloc_fn_addr('malloc_unicode')
         else:
             addr = self.cpu.gc_ll_descr.get_malloc_slowpath_array_addr()
-        mc.SUB_ri(esp.value, 16 - WORD)  # restore 16-byte alignment
+        add_to_esp = 16 - WORD     # restore 16-byte alignment
+        if WIN64:
+            add_to_esp += 4 * WORD    # shadow space before the CALL
+        mc.SUB_ri(esp.value, add_to_esp)
         # magically, the above is enough on X86_32 to reserve 3 stack places
         if kind == 'fixed':
             mc.SUB_rr(edx.value, ecx.value) # compute the size we want
@@ -262,15 +265,15 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
                     mc.MOV_sr(WORD, ebp.value)        # for tests only
             else:
-                mc.MOV_rr(edi.value, edx.value)   # length argument
+                mc.MOV_rr(callbuilder.CallBuilder64.ARG0.value, edx.value)   # length argument
                 if hasattr(self.cpu.gc_ll_descr, 'passes_frame'):
-                    mc.MOV_rr(esi.value, ebp.value)   # for tests only
+                    mc.MOV_rr(callbuilder.CallBuilder64.ARG1.value, ebp.value)   # for tests only
         elif kind == 'str' or kind == 'unicode':
             if IS_X86_32:
                 # stack layout: [---][---][---][ret].. with 3 free stack places
                 mc.MOV_sr(0, edx.value)     # store the length
             elif IS_X86_64:
-                mc.MOV_rr(edi.value, edx.value)   # length argument
+                mc.MOV_rr(callbuilder.CallBuilder64.ARG0.value, edx.value)   # length argument
         else:
             if IS_X86_32:
                 # stack layout: [---][---][---][ret][gcmap][itemsize]...
@@ -279,15 +282,17 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
                 mc.MOV_rs(edx.value, WORD * 5)  # load the itemsize
                 mc.MOV_sr(WORD * 0, edx.value)  # store the itemsize
             else:
-                # stack layout: [---][ret][gcmap][itemsize]...
-                # (already in edx)              # length
-                mc.MOV_rr(esi.value, ecx.value) # tid
-                mc.MOV_rs(edi.value, WORD * 3)  # load the itemsize
+                # stack layout: [win64:4*shadowsave][---][ret][gcmap][itemsize]...
+                # (careful ordering of the following three instructions for Win64, because
+                # there we have ARG0==ecx and ARG1==edx)
+                if callbuilder.CallBuilder64.ARG2 is not edx:
+                    mc.MOV_rr(callbuilder.CallBuilder64.ARG2.value, edx.value) # length
+                mc.MOV_rr(callbuilder.CallBuilder64.ARG1.value, ecx.value) # tid
+                mc.MOV_rs(callbuilder.CallBuilder64.ARG0.value, add_to_esp + WORD * 2)  # load the itemsize
         #self.set_extra_stack_depth(mc, 16)
-        BRK(mc, 0x3333) # FIXME
         mc.CALL(imm(follow_jump(addr)))
         self._reload_frame_if_necessary(mc)
-        mc.ADD_ri(esp.value, 16 - WORD)
+        mc.ADD_ri(esp.value, add_to_esp)
         #self.set_extra_stack_depth(mc, 0)
         #
         mc.TEST_rr(eax.value, eax.value)
@@ -348,21 +353,21 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc = codebuf.MachineCodeBlockWrapper()
         #
         if IS_X86_64:
-            mc.MOV_rr(edi.value, esp.value)
-            mc.SUB_ri(esp.value, WORD)   # alignment
+            mc.MOV_rr(callbuilder.CallBuilder64.ARG0.value, esp.value)
+            add_to_esp = WORD
+            if WIN64:
+                add_to_esp += 4 * WORD    # shadow space before the CALL
+            mc.SUB_ri(esp.value, add_to_esp)   # alignment
         #
         if IS_X86_32:
             mc.SUB_ri(esp.value, 2*WORD) # alignment
             mc.PUSH_r(esp.value)
+            add_to_esp = 3 * WORD
         #
         # esp is now aligned to a multiple of 16 again
-        BRK(mc, 0x4444) # FIXME
         mc.CALL(imm(follow_jump(slowpathaddr)))
         #
-        if IS_X86_32:
-            mc.ADD_ri(esp.value, 3*WORD)    # alignment
-        else:
-            mc.ADD_ri(esp.value, WORD)
+        mc.ADD_ri(esp.value, add_to_esp)
         #
         mc.MOV(eax, heap(self.cpu.pos_exception()))
         mc.TEST_rr(eax.value, eax.value)
@@ -928,7 +933,8 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
         mc.MOV_rr(edi.value, ebp.value)
         mc.MOV_ri(esi.value, 0xffffff)
         ofs2 = mc.get_relative_pos(break_basic_block=False) - 4
-        BRK(mc, 0x7777) # FIXME
+        if WIN64:
+            assert False   # implement me if needed on Win64
         mc.CALL(imm(self.cpu.realloc_frame_crash))
         # patch the JG above
         mc.patch_forward_jump(jg_location)
@@ -1065,7 +1071,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
 
     class StackCheckSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
-            BRK(mc, 0x8888) # FIXME
             mc.CALL(imm(assembler.stack_check_slowpath))
 
     def _call_header_with_stack_check(self):
@@ -2542,7 +2547,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
     class MallocCondSlowPath(codebuf.SlowPath):
         def generate_body(self, assembler, mc):
             assembler.push_gcmap(mc, self.gcmap, store=True)
-            BRK(mc, 0xBBBB) # FIXME
             mc.CALL(imm(follow_jump(assembler.malloc_slowpath)))
 
     def malloc_cond(self, nursery_free_adr, nursery_top_adr, size, gcmap):
@@ -2591,7 +2595,6 @@ class Assembler386(BaseAssembler, VectorAssemblerMixin):
             lengthloc = self.lengthloc
             assert lengthloc is not ecx and lengthloc is not edx
             mc.MOV(edx, lengthloc)
-            BRK(mc, 0xCCCC) # FIXME
             mc.CALL(imm(follow_jump(addr)))
 
     def malloc_cond_varsize(self, kind, nursery_free_adr, nursery_top_adr,
@@ -2770,12 +2773,3 @@ cond_call_register_arguments = callbuilder.CallBuilder64.ARGUMENTS_GPR[:4]
 
 class BridgeAlreadyCompiled(Exception):
     pass
-
-
-
-
-def BRK(mc, imm_value):
-    mc.MOV_ri(r13.value, imm_value)
-    mc.INT3()
-    # SOMETIMES, in VS debugger, you land in the middle of ffi.c (???)
-    # and you must do a "step" to the next instruction to see this INT3

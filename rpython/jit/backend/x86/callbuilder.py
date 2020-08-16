@@ -524,6 +524,7 @@ class CallBuilder64(CallBuilderX86):
         ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3]
     ARG0 = ARGUMENTS_GPR[0]
     ARG1 = ARGUMENTS_GPR[1]
+    ARG2 = ARGUMENTS_GPR[2]
 
     next_arg_gpr = 0
     next_arg_xmm = 0
@@ -557,6 +558,12 @@ class CallBuilder64(CallBuilderX86):
         return res
 
     def win64_save_register_args(self):
+        # Arguments 0 to 3 are in argument registers; further arguments are already in the stack
+        # beyond 4 unused words that will be the shadow space for the CALL.  We can save these
+        # arguments 0 to 3 inside that space, but after we do, we need to reserve another shadow
+        # space for the call to SetLastError that we'll do immediately afterwards...
+        # We might instead save arguments inside esi/edi/r14/r15 at this point, which should
+        # be free and callee-save on Win64.  Unclear it's worth the crash if I'm wrong, though...
         assert len(self.ARGUMENTS_GPR) == 4
         assert len(self.ARGUMENTS_XMM) == 4
         for i in range(4):
