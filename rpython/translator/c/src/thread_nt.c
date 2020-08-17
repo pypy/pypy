@@ -108,6 +108,7 @@ Signed RPyThreadSetStackSize(Signed newsize)
 
 	/* check the range */
 	if (newsize >= THREAD_MIN_STACKSIZE && newsize < THREAD_MAX_STACKSIZE) {
+	    /* win64: this cast is safe, see THREAD_MAX_STACKSIZE comment */
 		_pypythread_stacksize = (long) newsize;
 		return 0;
 	}
