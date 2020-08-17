@@ -620,14 +620,17 @@ if not _WIN32:
     def lockf(fd, cmd, length):
         return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
-c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
-                       macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-if not _WIN32:
+if _WIN32:
+    c_ftruncate = external('_chsize_s', [rffi.INT, rffi.LONGLONG], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+else:
     c_sync = external('sync', [], lltype.Void)
+    c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
+                       macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):

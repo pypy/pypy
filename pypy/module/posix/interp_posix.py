@@ -394,7 +394,7 @@ def ftruncate(space, fd, length):
     """Truncate a file (by file descriptor) to a specified length."""
     while True:
         try:
-            os.ftruncate(fd, length)
+            rposix.ftruncate(fd, length)
             break
         except OSError as e:
             wrap_oserror(space, e, eintr_retry=True)
