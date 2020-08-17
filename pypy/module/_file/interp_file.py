@@ -6,6 +6,8 @@ from rpython.rlib import streamio
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rstring import StringBuilder
+from rpython.rlib import rposix
+from rpython.rlib import rposix_stat
 from pypy.module._file.interp_stream import W_AbstractStream, StreamErrors
 from pypy.module.posix.interp_posix import dispatch_filename
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
@@ -84,7 +86,7 @@ class W_File(W_AbstractStream):
 
     def check_not_dir(self, fd):
         try:
-            st = os.fstat(fd)
+            st = rposix_stat.fstat(fd)
         except OSError:
             pass
         else:
@@ -314,7 +316,7 @@ class W_File(W_AbstractStream):
 
     def direct_isatty(self):
         self.getstream()    # check if the file is still open
-        return os.isatty(self.fd)
+        return rposix.isatty(self.fd)
 
     def direct_readinto(self, w_rwbuffer):
         from pypy.module._file.readinto import direct_readinto
