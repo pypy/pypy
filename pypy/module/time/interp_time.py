@@ -910,7 +910,6 @@ def strftime(space, format, w_tup=None):
                     raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 
-    print 'format', format
     format = utf8_encode_locale_surrogateescape(format, len(format))
     i = 1024
     while True:
