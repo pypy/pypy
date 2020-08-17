@@ -1150,7 +1150,7 @@ def size_and_sign(tp):
     except AttributeError:
         if not isinstance(tp, lltype.Primitive):
             unsigned = False
-        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, LONGDOUBLE, llmemory.Address):
             unsigned = False
         elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
             unsigned = True
@@ -1172,7 +1172,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr) 
+    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr)
                             or tp is llmemory.Address):
         return LONG_BIT/8
     if tp is lltype.Char or tp is lltype.Bool:
