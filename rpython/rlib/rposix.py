@@ -329,8 +329,7 @@ def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
         try:
-            with FdValidator(fd):
-                os.close(fd)
+            close(fd)
         except OSError:
             pass
 

@@ -117,7 +117,7 @@ def lseek(space, fd, pos, how):
 If how == 0, 'pos' is relative to the start of the file; if how == 1, to the
 current position; if how == 2, to the end."""
     try:
-        pos = os.lseek(fd, pos, how)
+        pos = rposix.lseek(fd, pos, how)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -128,7 +128,7 @@ def isatty(space, fd):
     """Return True if 'fd' is an open file descriptor connected to the
 slave end of a terminal."""
     try:
-        res = os.isatty(fd)
+        res = rposix.isatty(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -138,7 +138,7 @@ slave end of a terminal."""
 def read(space, fd, buffersize):
     """Read data from a file descriptor."""
     try:
-        s = os.read(fd, buffersize)
+        s = rposix.read(fd, buffersize)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -150,7 +150,7 @@ def write(space, fd, w_data):
 actually written, which may be smaller than len(data)."""
     data = space.getarg_w('s*', w_data)
     try:
-        res = os.write(fd, data.as_str())
+        res = rposix.write(fd, data.as_str())
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -160,7 +160,7 @@ actually written, which may be smaller than len(data)."""
 def close(space, fd):
     """Close a file descriptor (for low level IO)."""
     try:
-        os.close(fd)
+        rposix.close(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -173,7 +173,7 @@ def closerange(fd_low, fd_high):
 def ftruncate(space, fd, length):
     """Truncate a file to a specified length."""
     try:
-        os.ftruncate(fd, length)
+        rposix.ftruncate(fd, length)
     except IOError as e:
         if not objectmodel.we_are_translated():
             # Python 2.6 raises an IOError here. Let's not repeat that mistake.
@@ -189,7 +189,7 @@ def fsync(space, w_fd):
     """Force write of file with filedescriptor to disk."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        os.fsync(fd)
+        rposix.fsync(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -198,7 +198,7 @@ def fdatasync(space, w_fd):
 Does not force update of metadata."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        os.fdatasync(fd)
+        rposix.fdatasync(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -207,7 +207,7 @@ def fchdir(space, w_fd):
 opened on a directory, not a file."""
     fd = space.c_filedescriptor_w(w_fd)
     try:
-        os.fchdir(fd)
+        rposix.fchdir(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
 
@@ -345,7 +345,7 @@ def dup(space, fd):
     """Create a copy of the file descriptor.  Return the new file
 descriptor."""
     try:
-        newfd = os.dup(fd)
+        newfd = rposix.dup(fd)
     except OSError as e:
         raise wrap_oserror(space, e)
     else:
@@ -355,7 +355,7 @@ descriptor."""
 def dup2(space, old_fd, new_fd):
     """Duplicate a file descriptor."""
     try:
-        os.dup2(old_fd, new_fd)
+        rposix.dup2(old_fd, new_fd)
     except OSError as e:
         raise wrap_oserror(space, e)
 

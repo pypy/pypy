@@ -37,7 +37,7 @@ an outout-buffering stream.
 import os, sys, errno
 from rpython.rlib.objectmodel import specialize, we_are_translated, not_rpython
 from rpython.rlib.rarithmetic import r_longlong, intmask
-from rpython.rlib import rposix, nonconst, _rsocket_rffi as _c
+from rpython.rlib import rposix, rfile, nonconst, _rsocket_rffi as _c
 from rpython.rlib.rstring import StringBuilder
 
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC, O_APPEND
@@ -389,13 +389,13 @@ class MMapFile(Stream):
 
     def remapfile(self):
         import mmap
-        size = os.fstat(self.fd).st_size
+        size = rfile.fstat(self.fd).st_size
         self.mm = mmap.mmap(self.fd, size, access=self.access)
 
     def close1(self, closefileno):
         self.mm.close()
         if closefileno:
-            os.close(self.fd)
+            rposix.close(self.fd)
 
     def tell(self):
         return self.pos

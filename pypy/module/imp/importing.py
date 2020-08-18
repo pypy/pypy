@@ -12,7 +12,7 @@ from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.streamutil import wrap_streamerror
-from rpython.rlib import streamio, jit
+from rpython.rlib import streamio, jit, rposix_stat
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
@@ -925,7 +925,7 @@ def load_source_module(space, w_modulename, w_mod, pathname, source, fd,
                   (space.text_w(w_modulename), pathname))
 
     try:
-        src_stat = os.fstat(fd)
+        src_stat = rposix_stat.fstat(fd)
     except OSError as e:
         raise wrap_oserror(space, e, pathname)   # better report this error
     cpathname = pathname + 'c'
