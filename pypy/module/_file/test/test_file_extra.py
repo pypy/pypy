@@ -9,7 +9,7 @@ udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
 # XXX this file is a random test.  It may only fail occasionally
 # depending on the details of the random string SAMPLE.
 
-SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(12487)])
+SAMPLE = ''.join([chr(random.randrange(0, 256)) for i in range(2487)])
 for extra in ['\r\r', '\r\n', '\n\r', '\n\n']:
     for i in range(20):
         j = random.randrange(0, len(SAMPLE)+1)
@@ -443,7 +443,7 @@ class AppTestAFewExtra:
         f = file(fn, flags)
         expected = ''
         pos = 0
-        for i in range(5000):
+        for i in range(1000):
             x = random.random()
             if x < 0.4:
                 l = int(x*100)
