@@ -608,7 +608,7 @@ entries '.' and '..' even if they are present in the directory."""
 def pipe(space):
     "Create a pipe.  Returns (read_end, write_end)."
     try:
-        fd1, fd2 = os.pipe()
+        fd1, fd2 = rposix.pipe()
     except OSError as e:
         raise wrap_oserror(space, e)
     return space.newtuple([space.newint(fd1), space.newint(fd2)])
