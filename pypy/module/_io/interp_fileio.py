@@ -4,7 +4,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2)
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rlib.rarithmetic import r_longlong
-from rpython.rlib.rposix import c_read, get_saved_errno
+from rpython.rlib import rposix, rposix_stat
 from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import lltype, rffi
 from os import O_RDONLY, O_WRONLY, O_RDWR, O_CREAT, O_TRUNC
@@ -93,9 +93,9 @@ BIGCHUNK = 512 * 1024
 
 def new_buffersize(fd, currentsize):
     try:
-        st = os.fstat(fd)
+        st = rposix_stat.fstat(fd)
         end = st.st_size
-        pos = os.lseek(fd, 0, 1)
+        pos = rposix.lseek(fd, 0, 1)
     except OSError:
         pass
     else:
@@ -153,7 +153,7 @@ class W_FileIO(W_RawIOBase):
         try:
             if fd >= 0:
                 try:
-                    os.fstat(fd)
+                    rposix_stat.fstat(fd)
                 except OSError as e:
                     if e.errno == errno.EBADF:
                         raise wrap_oserror(space, e)
@@ -184,7 +184,7 @@ class W_FileIO(W_RawIOBase):
                 # For consistent behaviour, we explicitly seek to the end of file
                 # (otherwise, it might be done only on the first write()).
                 try:
-                    os.lseek(self.fd, 0, os.SEEK_END)
+                    rposix.lseek(self.fd, 0, os.SEEK_END)
                 except OSError as e:
                     raise wrap_oserror(space, e, w_exception_class=space.w_IOError)
         except:
@@ -233,7 +233,7 @@ class W_FileIO(W_RawIOBase):
         self.fd = -1
 
         try:
-            os.close(fd)
+            rposix.close(fd)
         except OSError as e:
             raise wrap_oserror(space, e, w_exception_class=space.w_IOError)
 
@@ -258,7 +258,7 @@ class W_FileIO(W_RawIOBase):
         if self.fd < 0:
             return
         try:
-            st = os.fstat(self.fd)
+            st = rposix_stat.fstat(self.fd)
         except OSError:
             return
         if stat.S_ISDIR(st.st_mode):
@@ -269,7 +269,7 @@ class W_FileIO(W_RawIOBase):
     def seek_w(self, space, pos, whence=0):
         self._check_closed(space)
         try:
-            pos = os.lseek(self.fd, pos, whence)
+            pos = rposix.lseek(self.fd, pos, whence)
         except OSError as e:
             raise wrap_oserror(space, e,
                                 w_exception_class=space.w_IOError)
@@ -278,7 +278,7 @@ class W_FileIO(W_RawIOBase):
     def tell_w(self, space):
         self._check_closed(space)
         try:
-            pos = os.lseek(self.fd, 0, 1)
+            pos = rposix.lseek(self.fd, 0, 1)
         except OSError as e:
             raise wrap_oserror(space, e,
                                 w_exception_class=space.w_IOError)
@@ -296,7 +296,7 @@ class W_FileIO(W_RawIOBase):
         self._check_closed(space)
         if self.seekable < 0:
             try:
-                os.lseek(self.fd, 0, os.SEEK_CUR)
+                rposix.lseek(self.fd, 0, os.SEEK_CUR)
             except OSError:
                 self.seekable = 0
             else:
@@ -312,7 +312,7 @@ class W_FileIO(W_RawIOBase):
     def isatty_w(self, space):
         self._check_closed(space)
         try:
-            res = os.isatty(self.fd)
+            res = rposix.isatty(self.fd)
         except OSError as e:
             raise wrap_oserror(space, e, w_exception_class=space.w_IOError)
         return space.newbool(res)
@@ -339,7 +339,7 @@ class W_FileIO(W_RawIOBase):
         data = space.getarg_w('s*', w_data).as_str()
 
         try:
-            n = os.write(self.fd, data)
+            n = rposix.write(self.fd, data)
         except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
@@ -357,7 +357,7 @@ class W_FileIO(W_RawIOBase):
             return self.readall_w(space)
 
         try:
-            s = os.read(self.fd, size)
+            s = rposix.read(self.fd, size)
         except OSError as e:
             if e.errno == errno.EAGAIN:
                 return space.w_None
@@ -382,7 +382,7 @@ class W_FileIO(W_RawIOBase):
         if not target_address:
             # unoptimized case
             try:
-                buf = os.read(self.fd, length)
+                buf = rposix.read(self.fd, length)
             except OSError as e:
                 if e.errno == errno.EAGAIN:
                     return space.w_None
@@ -393,13 +393,13 @@ class W_FileIO(W_RawIOBase):
         else:
             # optimized case: reading more than 64 bytes into a rwbuffer
             # with a valid raw address
-            got = c_read(self.fd, target_address, length)
+            got = rposix.c_read(self.fd, target_address, length)
             keepalive_until_here(rwbuffer)
             got = rffi.cast(lltype.Signed, got)
             if got >= 0:
                 return space.newint(got)
             else:
-                err = get_saved_errno()
+                err = rposix.get_saved_errno()
                 if err == errno.EAGAIN:
                     return space.w_None
                 e = OSError(err, "read failed")
@@ -415,7 +415,7 @@ class W_FileIO(W_RawIOBase):
             newsize = int(new_buffersize(self.fd, total))
 
             try:
-                chunk = os.read(self.fd, newsize - total)
+                chunk = rposix.read(self.fd, newsize - total)
             except OSError as e:
                 if e.errno == errno.EINTR:
                     space.getexecutioncontext().checksignals()
@@ -434,14 +434,6 @@ class W_FileIO(W_RawIOBase):
             total += len(chunk)
         return space.newbytes(builder.build())
 
-    if sys.platform == "win32":
-        def _truncate(self, size):
-            from rpython.rlib.streamio import ftruncate_win32
-            ftruncate_win32(self.fd, size)
-    else:
-        def _truncate(self, size):
-            os.ftruncate(self.fd, size)
-
     def truncate_w(self, space, w_size=None):
         self._check_closed(space)
         self._check_writable(space)
@@ -449,7 +441,8 @@ class W_FileIO(W_RawIOBase):
             w_size = self.tell_w(space)
 
         try:
-            self._truncate(space.r_longlong_w(w_size))
+            size = space.r_longlong_w(w_size)
+            rposix.ftruncate(self.fd, size)
         except OSError as e:
             raise wrap_oserror(space, e, w_exception_class=space.w_IOError)
 
