@@ -1,5 +1,6 @@
 import os, random, sys
 import rpython.tool.udir
+from rpython.rlib import rposix
 import py
 
 udir = rpython.tool.udir.udir.ensure('test_file_extra', dir=1)
@@ -292,7 +293,7 @@ class AppTestFdOpen(BaseROTests):
         else:
             w_filetype = os    # TinyObjSpace, for "py.test -A"
                                # (CPython has no file.fdopen, only os.fdopen)
-        fd = os.open(AppTestFile.expected_filename, os.O_RDONLY | O_BINARY)
+        fd = rposix.open(AppTestFile.expected_filename, os.O_RDONLY | O_BINARY, 0777)
         self.w_file = space.call_method(
             w_filetype,
             'fdopen',
