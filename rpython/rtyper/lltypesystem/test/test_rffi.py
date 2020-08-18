@@ -885,7 +885,7 @@ class TestCRffi(BaseTestRffi):
             del os.environ['PYPYLOG']
 
         import re
-        r = re.compile(r"freeing str [[] [0-9a-fx]+ []]")
+        r = re.compile(r"freeing str [[] [0-9a-fxA-FX]+ []]")
         matches = r.findall(error)
         assert len(matches) == 10000        # must be all 10000 strings,
         assert len(set(matches)) == 10000   # and no duplicates
