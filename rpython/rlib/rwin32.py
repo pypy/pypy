@@ -165,7 +165,9 @@ if WIN32:
         (into the same "saved LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_rpy_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_saved(err):
         """Set the value of the saved LastError.  This value will be used in
@@ -188,7 +190,9 @@ if WIN32:
         (into the same "saved alt LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_alt_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_alt_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_alt_saved(err):
         """Set the value of the saved alt LastError.  This value will be used in
