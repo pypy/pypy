@@ -1,6 +1,7 @@
 from __future__ import with_statement
 import pytest, os, errno
 from pypy.interpreter.gateway import interp2app, unwrap_spec
+from rpython.rlib import rposix
 
 def getfile(space):
     return space.appexec([], """():
@@ -389,15 +390,14 @@ Delivered-To: gkj@sundance.gregorykjohnson.com'''
 class AppTestNonblocking(object):
     def setup_class(cls):
         from pypy.module._file.interp_file import W_File
-        from rpython.rlib import rposix
         if cls.runappdirect:
             pytest.skip("works with internals of _file impl on py.py")
 
-        cls.old_read = rposix.read
+        cls.space.old_read = rposix.read
 
         def read(fd, n=None):
             if fd != 424242:
-                return cls.old_read(fd, n)
+                return cls.space.old_read(fd, n)
             if cls.state == 0:
                 cls.state += 1
                 return "xyz"
@@ -415,8 +415,7 @@ class AppTestNonblocking(object):
         self.__class__.state = 0
 
     def teardown_class(cls):
-        from rpython.rlib import rposix
-        rposix.read = cls.old_read
+        rposix.read = cls.space.old_read
 
     def test_nonblocking_file_all(self):
         res = self.stream.read()
