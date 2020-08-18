@@ -166,8 +166,7 @@ class W_FileIO(W_RawIOBase):
                     raise oefmt(space.w_ValueError,
                                 "Cannot use closefd=False with file name")
 
-                from pypy.module.posix.interp_posix import (
-                    dispatch_filename, rposix)
+                from pypy.module.posix.interp_posix import dispatch_filename
                 try:
                     self.fd = dispatch_filename(rposix.open)(
                         space, w_name, flags, 0666)
