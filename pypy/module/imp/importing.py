@@ -12,7 +12,7 @@ from pypy.interpreter.baseobjspace import W_Root, CannotHaveLock
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.streamutil import wrap_streamerror
-from rpython.rlib import streamio, jit, rposix_stat
+from rpython.rlib import streamio, jit, rposix_stat, rposix
 from rpython.rlib.streamio import StreamErrors
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from pypy.module.sys.version import PYPY_VERSION
@@ -1098,7 +1098,7 @@ def open_exclusive(space, cpathname, mode):
 
     flags = (os.O_EXCL|os.O_CREAT|os.O_WRONLY|os.O_TRUNC|
              streamio.O_BINARY)
-    fd = os.open(cpathname, flags, mode)
+    fd = rposix.open(cpathname, flags, mode)
     return streamio.fdopen_as_stream(fd, "wb")
 
 def write_compiled_module(space, co, cpathname, src_mode, src_mtime):
