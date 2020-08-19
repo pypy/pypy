@@ -161,6 +161,20 @@ def fill_slot_tp_new(space, w_type, slot_num, hpyslot):
     w_func = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS, hpyslot.c_impl, w_type)
     w_type.setdictvalue(space, '__new__', w_func)
 
+class W_SlotWrapper_ssizeargfunc(W_SlotWrapper):
+    def call(self, space, h_self, __args__):
+        self.check_args(space, __args__, 2)
+        func = llapi.cts.cast('HPyFunc_ssizeargfunc', self.cfuncptr)
+        w_index = __args__.arguments_w[1]
+        index = space.int_w(space.index(w_index))
+        state = space.fromcache(State)
+        h_result = func(state.ctx, h_self, index)
+        return handles.consume(space, h_result)
+
+def fill_slot_sq_item(space, w_type, slot_num, hpyslot):
+    w_slotwrapper = W_SlotWrapper_ssizeargfunc(slot_num, '__getitem__', hpyslot.c_impl, w_type)
+    w_type.setdictvalue(space, '__getitem__', w_slotwrapper)
+
 
 SLOT_FILLERS = []
 for key, value in sorted(SlotEnum.__dict__.items(), key=lambda x: x[1]):
