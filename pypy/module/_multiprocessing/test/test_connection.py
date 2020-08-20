@@ -209,6 +209,7 @@ class AppTestSocketConnection(BaseConnectionTest):
         data2 = sock.recv(8)
         assert data2 == '\x00\x00\x00\x04defg'
 
+    py.test.mark.skipif(sys.platform=='win32', reason='crashes untranslated')
     def test_repr(self):
         import _multiprocessing, os
         fd = os.dup(1)     # closed by Connection.__del__
