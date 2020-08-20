@@ -22,7 +22,7 @@ if sys.platform == 'win32':
     from pypy.module._multiprocessing.interp_win32 import (
         _GetTickCount, handle_w)
 
-    SEM_VALUE_MAX = sys.maxint
+    SEM_VALUE_MAX = int(2**31-1) # max rffi.LONG
 
     _CreateSemaphore = rwin32.winexternal(
         'CreateSemaphoreA', [rffi.VOIDP, rffi.LONG, rffi.LONG, rwin32.LPCSTR],
