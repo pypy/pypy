@@ -19,6 +19,7 @@ class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
 
     def __init__(self, slot, method_name, cfuncptr, w_objclass):
+        #import pdb;pdb.set_trace()
         self.slot = slot
         self.name = method_name
         self.cfuncptr = cfuncptr
@@ -172,6 +173,7 @@ class W_SlotWrapper_ssizeargfunc(W_SlotWrapper):
         return handles.consume(space, h_result)
 
 def fill_slot_sq_item(space, w_type, slot_num, hpyslot):
+    #import pdb;pdb.set_trace()
     w_slotwrapper = W_SlotWrapper_ssizeargfunc(slot_num, '__getitem__', hpyslot.c_impl, w_type)
     w_type.setdictvalue(space, '__getitem__', w_slotwrapper)
 
