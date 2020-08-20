@@ -26,6 +26,17 @@ def test_simple():
     cts = parse_source(decl)
     assert cts.definitions == {'Py_ssize_t': rffi.SSIZE_T}
 
+def test_win64():
+    decl = """
+    #ifdef _WIN64
+    typedef long long Py_ssize_t;
+    #else
+    typedef long Py_ssize_t;
+    #endif
+    """
+    cts = parse_source(decl)
+    assert cts.definitions == {'Py_ssize_t': rffi.SIGNED}
+
 def test_macro():
     decl = """
     typedef ssize_t Py_ssize_t;

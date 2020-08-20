@@ -728,7 +728,7 @@ cts.parse_header(parse_dir / 'cpyext_object.h')
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -1371,8 +1371,8 @@ def write_header(header_name, decls):
         '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-#define Signed   __int64           /* xxx temporary fix */
-#define Unsigned unsigned __int64  /* xxx temporary fix */
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
 #else
 #define Signed   Py_ssize_t     /* xxx temporary fix */
 #define Unsigned unsigned long  /* xxx temporary fix */

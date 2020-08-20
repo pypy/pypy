@@ -75,12 +75,12 @@ def setup():
         #include <sys/types.h>
         #ifdef _MSC_VER
         #define _Bool char
-        #ifndef _WIN64
-        typedef int ssize_t;
-        typedef unsigned int size_t;
-        #else
+        #ifdef _WIN64
         typedef long long ssize_t;
         typedef unsigned long long size_t;
+        #else
+        typedef int ssize_t;
+        typedef unsigned int size_t;
         #endif
         #endif"""]
     field_names = dict.fromkeys(INSPECT)

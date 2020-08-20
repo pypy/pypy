@@ -21,6 +21,12 @@ _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
 _r_define = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
+_r_ifdef_win64 = re.compile(r"^\s*#\s*ifdef\s+_WIN64\s*\n"
+                            r"((?:[^\\#]|\\.)*?\n)?"
+                            r"^\s*#\s*else\s*\n"
+                            r"((?:[^\\#]|\\.)*?\n)?"
+                            r"^\s*#\s*endif\s*$",
+                            re.DOTALL | re.MULTILINE)
 _r_words = re.compile(r"\w+|\S")
 _parser_cache = None
 _r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
@@ -46,6 +52,12 @@ def _preprocess(csource, macros):
         macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
+    # Process "#ifdef _WIN64 ... #else ... #endif" blocks.
+    # This is used in cpyext_object.h to define Py_ssize_t
+    if sys.platform == "win32" and sys.maxint > 2**32:
+        csource = _r_ifdef_win64.sub(r"\1", csource)
+    else:
+        csource = _r_ifdef_win64.sub(r"\2", csource)
     #
     # BIG HACK: replace WINAPI or __stdcall with "volatile const".
     # It doesn't make sense for the return type of a function to be
@@ -666,7 +678,7 @@ add_inttypes()
 CNAME_TO_LLTYPE['int'] = rffi.INT_real
 CNAME_TO_LLTYPE['wchar_t'] = lltype.UniChar
 if 'ssize_t' not in CNAME_TO_LLTYPE:  # on Windows
-    CNAME_TO_LLTYPE['ssize_t'] = CNAME_TO_LLTYPE['long']
+    CNAME_TO_LLTYPE['ssize_t'] = rffi.SIGNED
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
@@ -775,7 +787,10 @@ class CTypeSpace(object):
                 if hdr not in all_headers:
                     all_headers.append(hdr)
         if sys.platform == 'win32':
-            compile_extra = ['-Dssize_t=long']
+            if sys.maxint > 2**32:
+                compile_extra = ['-Dssize_t=__int64']
+            else:
+                compile_extra = ['-Dssize_t=long']
         else:
             compile_extra = []
         return ExternalCompilationInfo(
