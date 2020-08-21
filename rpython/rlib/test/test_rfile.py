@@ -25,10 +25,12 @@ class TestFile(BaseRtypingTest):
             f.close()
 
         f()
-        assert open(fname, "r").read() == "dupa"
+        with open(fname, "r") as fid:
+            assert fid.read() == "dupa"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname, "r").read() == "dupa"
+        with open(fname, "r") as fid:
+            assert fid.read() == "dupa"
 
     def test_open_errors(self):
         def f(run):
@@ -58,7 +60,7 @@ class TestFile(BaseRtypingTest):
 
             try:
                 os.fdopen(42, "badmode")
-            except ValueError:
+            except  ValueError:
                 pass
             else:
                 assert False
@@ -325,10 +327,12 @@ class TestFile(BaseRtypingTest):
             f2.close()
 
         f()
-        assert open(fname).read() == "xxx"
+        with open(fname) as fid:
+            assert fid.read() == "xxx"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname).read() == "xxx"
+        with open(fname) as fid:
+            assert fid.read() == "xxx"
 
     def test_fileno(self):
         fname = str(self.tmpdir.join('file_5'))
@@ -422,10 +426,12 @@ class TestFile(BaseRtypingTest):
                 assert False
 
         f()
-        assert open(fname, "r").read() == "dupa"
+        with open(fname) as fid:
+            assert fid.read() == "dupa"
         os.unlink(fname)
         self.interpret(f, [])
-        assert open(fname, "r").read() == "dupa"
+        with open(fname) as fid:
+            assert fid.read() == "dupa"
 
 
 class TestDirect:
@@ -470,7 +476,8 @@ class TestDirect:
                 s = ''.join([chr(32+(k&63)) for k in range(j, j + i)])
                 j += 1
                 print >> f, s
-        expected = open(fname).readlines()
+        with open(fname) as fid:
+            expected = fid.readlines()
         expected += ['', '']
         assert len(expected) == 252
 

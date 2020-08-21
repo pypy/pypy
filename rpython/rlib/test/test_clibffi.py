@@ -8,6 +8,7 @@ from rpython.rlib.clibffi import *
 from rpython.rlib.objectmodel import keepalive_until_here
 from rpython.rtyper.lltypesystem.ll2ctypes import ALLOCATED
 from rpython.rtyper.lltypesystem import rffi, lltype
+import gc
 import py
 import sys
 import time
@@ -50,6 +51,7 @@ class TestCLibffi(BaseFfiTest):
     def test_library_open(self):
         lib = self.get_libc()
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_library_get_func(self):
@@ -58,6 +60,7 @@ class TestCLibffi(BaseFfiTest):
         py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], ffi_type_void)
         del ptr
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_library_func_call(self):
@@ -73,6 +76,7 @@ class TestCLibffi(BaseFfiTest):
         # not very hard check, but something :]
         del ptr
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_call_args(self):
@@ -89,6 +93,7 @@ class TestCLibffi(BaseFfiTest):
         assert res == 27.0
         del pow
         del libm
+        gc.collect()
         assert not ALLOCATED
 
     def test_wrong_args(self):
@@ -104,6 +109,7 @@ class TestCLibffi(BaseFfiTest):
         py.test.raises(ValueError, "ctime.push_arg(z)")
         del ctime
         del libc
+        gc.collect()
         lltype.free(z, flavor='raw')
         # allocation check makes no sense, since we've got GcStructs around
 
@@ -137,6 +143,7 @@ class TestCLibffi(BaseFfiTest):
         lltype.free(l_t, flavor='raw')
         del ctime
         del libc
+        gc.collect()
         assert not ALLOCATED
 
     def test_closure_heap(self):
@@ -241,6 +248,7 @@ class TestCLibffi(BaseFfiTest):
         lltype.free(buffer, flavor='raw')
         del pow
         del libm
+        gc.collect()
         assert not ALLOCATED
 
     def test_make_struct_ffitype_e(self):
@@ -314,6 +322,7 @@ class TestCLibffi(BaseFfiTest):
         lltype.free(tpe, flavor='raw')
         del lib
 
+        gc.collect()
         assert not ALLOCATED
 
     def test_ret_struct_val(self):
@@ -391,6 +400,7 @@ class TestCLibffi(BaseFfiTest):
         del give
         del perturb
         lltype.free(tpe, flavor='raw')
+        gc.collect()
         del lib
 
         assert not ALLOCATED
@@ -426,6 +436,7 @@ class TestCLibffi(BaseFfiTest):
         lltype.free(buffer, flavor='raw')
         del fun
 
+        gc.collect()
         assert not ALLOCATED
 
 class TestWin32Handles(BaseFfiTest):
