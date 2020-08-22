@@ -15,6 +15,8 @@ VALID_SLOTS = tuple(sorted(value
     for key, value in SlotEnum.__dict__.items()
     if key.startswith('HPy_')))
 
+# NOTE: most subclasses of W_SlotWrapper are inside autogen_interp_slots.py,
+# and they are imported at the very bottom of this file
 class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
 
@@ -52,8 +54,7 @@ class W_SlotWrapper(W_Root):
                 "descriptor '%8' requires a '%s' object but received a '%T'",
                 self.name, w_objclass.name, w_instance)
         #
-        with handles.using(space, w_instance) as h_instance:
-            return self.call(space, h_instance, __args__)
+        return self.call(space, __args__)
 
     def call(self, space, h_self, __args__):
         raise oefmt(space.w_RuntimeError, "bad slot wrapper")
@@ -73,26 +74,10 @@ for key, value in sorted(SlotEnum.__dict__.items(), key=lambda x: x[1]):
         continue
     globals()['fill_slot_' + key[4:]] = fill_slot_unimplemented
 
-class W_SlotWrapper_reprfunc(W_SlotWrapper):
-    def call(self, space, h_self, __args__):
-        self.check_args(space, __args__, 1)
-        state = space.fromcache(State)
-        func = llapi.cts.cast('HPyFunc_reprfunc', self.cfuncptr)
-        h_result = func(state.ctx, h_self)
-        return handles.consume(space, h_result)
-
 def fill_slot_tp_repr(space, w_type, slot_num, hpyslot):
     w_slotwrapper = W_SlotWrapper_reprfunc(slot_num, '__repr__', hpyslot.c_impl, w_type)
     w_type.setdictvalue(space, '__repr__', w_slotwrapper)
 
-
-class W_SlotWrapper_unaryfunc(W_SlotWrapper):
-    def call(self, space, h_self, __args__):
-        self.check_args(space, __args__, 1)
-        state = space.fromcache(State)
-        func = llapi.cts.cast('HPyFunc_unaryfunc', self.cfuncptr)
-        h_result = func(state.ctx, h_self)
-        return handles.consume(space, h_result)
 
 def make_unary_slot_filler(method_name):
     def fill_slot_unary(space, w_type, slot_num, hpyslot):
@@ -119,16 +104,6 @@ UNARYFUNC_SLOTS = [
 for slot, meth in UNARYFUNC_SLOTS:
     globals()['fill_slot_%s' % slot] = make_unary_slot_filler(meth)
 
-
-class W_SlotWrapper_binaryfunc(W_SlotWrapper):
-    def call(self, space, h_self, __args__):
-        self.check_args(space, __args__, 2)
-        func = llapi.cts.cast('HPyFunc_binaryfunc', self.cfuncptr)
-        w_x = __args__.arguments_w[0]
-        state = space.fromcache(State)
-        with handles.using(space, w_x) as h_x:
-            h_result = func(state.ctx, h_self, h_x)
-            return handles.consume(space, h_result)
 
 def make_binary_slot_filler(method_name):
     def fill_slot_binary(space, w_type, slot_num, hpyslot):
@@ -162,15 +137,6 @@ def fill_slot_tp_new(space, w_type, slot_num, hpyslot):
     w_func = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS, hpyslot.c_impl, w_type)
     w_type.setdictvalue(space, '__new__', w_func)
 
-class W_SlotWrapper_ssizeargfunc(W_SlotWrapper):
-    def call(self, space, h_self, __args__):
-        self.check_args(space, __args__, 2)
-        func = llapi.cts.cast('HPyFunc_ssizeargfunc', self.cfuncptr)
-        w_index = __args__.arguments_w[1]
-        index = space.int_w(space.index(w_index))
-        state = space.fromcache(State)
-        h_result = func(state.ctx, h_self, index)
-        return handles.consume(space, h_result)
 
 def fill_slot_sq_item(space, w_type, slot_num, hpyslot):
     #import pdb;pdb.set_trace()
@@ -193,3 +159,6 @@ def fill_slot(space, w_type, hpyslot):
             break
     else:
         raise oefmt(space.w_RuntimeError, "Unsupported HPy slot")
+
+# XXX: this import at the bottom is very ugly, we need to find a better way
+from pypy.module._hpy_universal.autogen_interp_slots import *
