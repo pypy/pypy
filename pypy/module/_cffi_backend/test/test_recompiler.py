@@ -11,7 +11,7 @@ def get_ext_suffix():
     # soabi is None on cpython < 3.7 (incl 2.7), 'pypy-73' on pypy2 v7.3.1
     # and something like 'cpython-38-x86_64-linux-gnu' on cpython 3.8
     soabi = get_config_var('SOABI') or ''
-    ret = get_config_var('SOABI') + get_config_var('SO')
+    ret = soabi + get_config_var('SO')
     # either '.so' or 'pypy-73.so'
     if ret[0] == '.':
         return ret[1:]
