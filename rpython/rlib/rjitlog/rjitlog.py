@@ -33,11 +33,9 @@ eci_kwds = dict(
     includes = ['rjitlog.h'],
     libraries = _libs,
     separate_module_files = [SRC.join('rjitlog.c')],
-    #XXX where is this used??
+    # XXX this appears to be no longer used:
     post_include_bits=['#define RPYTHON_JITLOG\n'],
     )
-if not we_are_translated():
-    eci_kwds['compile_extra'] = ['-DJITLOG=%s' % test_jitlog_name]
 eci = ExternalCompilationInfo(**eci_kwds)
 
 # jit log functions

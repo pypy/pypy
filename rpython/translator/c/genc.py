@@ -190,6 +190,8 @@ class CBuilder(object):
             defines['RPY_SANDBOXED'] = 1
         if self.config.translation.reverse_debugger:
             defines['RPY_REVERSE_DEBUGGER'] = 1
+        if self.config.translation.rpython_translate:
+            defines['RPY_TRANSLATE'] = 1
         if CBuilder.have___thread is None:
             CBuilder.have___thread = self.translator.platform.check___thread()
         if not self.standalone:
