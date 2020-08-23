@@ -28,6 +28,15 @@
 #endif
 #include <errno.h>
 
+#define Py_XSTR(x)   #x
+#define Py_STR(x)  Py_XSTR(x)
+
+#ifndef JITLOG
+#define JITLOG JITLOG
+#endif
+
+static char * envname = Py_STR(JITLOG);
+
 static int jitlog_fd = -1;
 static int jitlog_ready = 0;
 
@@ -43,7 +52,7 @@ void jitlog_try_init_using_env(void) {
     if (jitlog_ready) { return; }
 
     /* untranslated this is set to JITLOG_FORTESTING via a #define */
-    filename = getenv("JITLOG");
+    filename = getenv(envname);
 
     if (filename && filename[0]) {
         // mode is 644
@@ -63,9 +72,9 @@ void jitlog_try_init_using_env(void) {
         return;
     }
 #ifndef _WIN32
-    unsetenv("JITLOG");
+    unsetenv(envname);
 #else
-    putenv("JITLOG=");
+    putenv(#JITLOG "=");
 #endif
     jitlog_ready = 1;
 }

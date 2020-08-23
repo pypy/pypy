@@ -23,6 +23,7 @@ from rpython.annotator import model as annmodel
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rjitlog')
 SRC = ROOT.join('src')
+test_jitlog_name = 'JITLOG_FORTESTS'
 
 _libs = []
 if sys.platform.startswith('linux'):
@@ -36,7 +37,7 @@ eci_kwds = dict(
     post_include_bits=['#define RPYTHON_JITLOG\n'],
     )
 if not we_are_translated():
-    eci_kwds['post_include_bits'].append('#define JITLOG JITLOG_FORTESTING')
+    eci_kwds['compile_extra'] = ['-DJITLOG=%s' % test_jitlog_name]
 eci = ExternalCompilationInfo(**eci_kwds)
 
 # jit log functions
