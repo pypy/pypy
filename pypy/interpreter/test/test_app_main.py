@@ -100,6 +100,9 @@ class TestParseCommandLine:
         saved_sys_stdout = sys.stdout
         saved_sys_stderr = sys.stdout
         app_main.os = os
+        def we_are_translated():
+            return False
+        app_main.we_are_translated = we_are_translated
         try:
             os.environ.update(env)
             sys.stdout = sys.stderr = StringIO.StringIO()
