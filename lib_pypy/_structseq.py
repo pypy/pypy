@@ -77,12 +77,15 @@ class structseqtype(type):
 builtin_dict = dict
 
 def structseq_new(cls, sequence, dict={}):
-    sequence = tuple(sequence)
     dict = builtin_dict(dict)
     # visible fields
     visible_count = cls.n_sequence_fields
     # total fields (unnamed are not yet supported, extra fields not included)
     real_count = cls.n_fields
+    if visible_count == 1:
+        sequence = tuple([sequence])
+    else:
+        sequence = tuple(sequence)
     length = len(sequence)
     if length < visible_count:
         if visible_count < real_count:
