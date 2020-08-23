@@ -12,7 +12,6 @@ from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.jit.metainterp import resoperation as resoperations
 from rpython.jit.metainterp.resoperation import rop
 from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
-from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_longlong
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rlib.objectmodel import compute_unique_id, always_inline
@@ -33,8 +32,11 @@ eci_kwds = dict(
     includes = ['rjitlog.h'],
     libraries = _libs,
     separate_module_files = [SRC.join('rjitlog.c')],
+    #XXX where is this used??
     post_include_bits=['#define RPYTHON_JITLOG\n'],
     )
+if not we_are_translated():
+    eci_kwds['post_include_bits'].append('#define JITLOG JITLOG_FORTESTING')
 eci = ExternalCompilationInfo(**eci_kwds)
 
 # jit log functions

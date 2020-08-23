@@ -42,6 +42,7 @@ void jitlog_try_init_using_env(void) {
     char * filename;
     if (jitlog_ready) { return; }
 
+    /* untranslated this is set to JITLOG_FORTESTING via a #define */
     filename = getenv("JITLOG");
 
     if (filename && filename[0]) {
