@@ -2792,12 +2792,18 @@ def sched_getscheduler(space, pid):
         return space.newint(res)
 
 
-@unwrap_spec(pid=int, policy=int, param=int)
-def sched_setscheduler(space, pid, policy, param):
+@unwrap_spec(pid=int, policy=int)
+def sched_setscheduler(space, pid, policy, w_param):
     """ set scheduling policy/parameters. """
-
+    w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                  space.newtext('sched_param'))
+    if not space.isinstance_w(w_param, w_sched_param):
+        raise oefmt(space.w_TypeError, "must have a sched_param object")
+    priority = space.int_w(space.getitem(w_param, space.newint(0)))
+    if priority > INT_MAX or priority < INT_MIN:
+        raise oefmt(space.w_OverflowError, "sched_priority %d out of range", priority)
     try:
-        res = rposix.sched_setscheduler(pid, policy, param)
+        res = rposix.sched_setscheduler(pid, policy, priority)
     except OSError as e:
         wrap_oserror(space, e, eintr_retry=True)
     else:
@@ -2813,17 +2819,24 @@ def sched_getparam(space, pid):
     except OSError as e:
         wrap_oserror(space, e, eintr_retry=True)
     else:
-        return space.newint(res)
+        w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                      space.newtext('sched_param'))
+
+        return space.call_function(w_sched_param, space.newint(res))
 
 
-@unwrap_spec(pid=int, param=int)
-def sched_setparam(space, pid, param):
+@unwrap_spec(pid=int, )
+def sched_setparam(space, pid, w_param):
     """ set scheduling parameters. """
-
-    if param > INT_MAX or param < INT_MIN:
+    w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                  space.newtext('sched_param'))
+    if not space.isinstance_w(w_param, w_sched_param):
+        raise oefmt(space.w_TypeError, "must have a sched_param object")
+    priority = space.int_w(space.getitem(w_param, space.newint(0)))
+    if priority > INT_MAX or priority < INT_MIN:
         raise oefmt(space.w_OverflowError, "sched_priority out of range")
     try:
-        res = rposix.sched_setparam(pid, param)
+        res = rposix.sched_setparam(pid, priority)
     except OSError as e:
         wrap_oserror(space, e, eintr_retry=True)
     else:

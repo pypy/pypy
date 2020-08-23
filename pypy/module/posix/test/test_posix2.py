@@ -1814,8 +1814,6 @@ class AppTestPep475Retry:
     def setup_class(cls):
         if os.name != 'posix':
             skip("xxx tests are posix-only")
-        if cls.runappdirect:
-            skip("xxx does not work with -A")
 
         def fd_data_after_delay(space):
             g = os.popen("sleep 5 && echo hello", "r")
@@ -1879,7 +1877,8 @@ class AppTestPep475Retry:
             with raises(OSError):
                 posix.sched_getparam(-1)
             param = posix.sched_getparam(0)
-            assert isinstance(param, int)
+            assert isinstance(param, posix.sched_param)
+            assert isinstance(param.sched_priority, int)
             # POSIX states that calling sched_setparam() or sched_setscheduler() on
             # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
             # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
@@ -1902,11 +1901,9 @@ class AppTestPep475Retry:
             with raises(TypeError):
                 posix.sched_setparam(0, None)
             large = 214748364700
-            # param = posix.sched_param(large)
-            param = large
+            param = posix.sched_param(large)
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
-            # param = posix.sched_param(sched_priority=-large)
-            param = -large
+            param = posix.sched_param(-large)
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
