@@ -261,6 +261,18 @@ class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
+class wrap_objssizeargproc(W_PyCWrapperObject):
+    def call(self, space, w_self, __args__):
+        self.check_args(__args__, 2)
+        func = self.get_func_to_call()
+        func_target = rffi.cast(ssizessizeobjargproc, func)
+        i = space.int_w(space.index(__args__.arguments_w[0]))
+        j = space.int_w(space.index(__args__.arguments_w[1]))
+        w_y = __args__.arguments_w[2]
+        res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
+        if rffi.cast(lltype.Signed, res) == -1:
+            space.fromcache(State).check_and_raise_exception(always=True)
+
 class wrap_lenfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 0)
@@ -271,7 +283,7 @@ class wrap_lenfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-class wrap_sq_item(W_PyCWrapperObject):
+class wrap_ssizeargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 1)
         func = self.get_func_to_call()
@@ -976,11 +988,11 @@ static slotdef slotdefs[] = {
                "x.__len__() <==> len(x)"),
         SQSLOT("__add__", sq_concat, slot_sq_concat, wrap_binaryfunc,
           "x.__add__(y) <==> x+y"),
-        SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__mul__", sq_repeat, NULL, wrap_ssizeargproc,
           "x.__mul__(n) <==> x*n"),
-        SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc,
+        SQSLOT("__rmul__", sq_repeat, NULL, wrap_ssizeargproc,
           "x.__rmul__(n) <==> n*x"),
-        SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_sq_item,
+        SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_ssizeargproc,
                "x.__getitem__(y) <==> x[y]"),
         SQSLOT("__getslice__", sq_slice, slot_sq_slice, wrap_ssizessizeargfunc,
                "x.__getslice__(i, j) <==> x[i:j]\n\
