@@ -261,18 +261,6 @@ class wrap_ssizessizeobjargproc(W_PyCWrapperObject):
         if rffi.cast(lltype.Signed, res) == -1:
             space.fromcache(State).check_and_raise_exception(always=True)
 
-class wrap_objssizeargproc(W_PyCWrapperObject):
-    def call(self, space, w_self, __args__):
-        self.check_args(__args__, 2)
-        func = self.get_func_to_call()
-        func_target = rffi.cast(ssizessizeobjargproc, func)
-        i = space.int_w(space.index(__args__.arguments_w[0]))
-        j = space.int_w(space.index(__args__.arguments_w[1]))
-        w_y = __args__.arguments_w[2]
-        res = generic_cpy_call(space, func_target, w_self, i, j, w_y)
-        if rffi.cast(lltype.Signed, res) == -1:
-            space.fromcache(State).check_and_raise_exception(always=True)
-
 class wrap_lenfunc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 0)
@@ -613,7 +601,6 @@ def make_binary_slot_int(space, typedef, name, attr):
 BINARY_SLOTS_INT = [
     'tp_as_sequence.c_sq_item',
     'tp_as_sequence.c_sq_repeat',
-    'tp_as_sequence.c_sq_repeat',
     'tp_as_sequence.c_sq_inplace_repeat',]
 for name in BINARY_SLOTS_INT:
     slot_factory(name)(make_binary_slot_int)
@@ -882,7 +869,7 @@ def _make_missing_wrapper(name):
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_delslice', 'wrap_coercefunc']
+missing_wrappers = ['wrap_delslice', 'wrap_coercefunc']
 for name in missing_wrappers:
     _make_missing_wrapper(name)
 
@@ -1016,7 +1003,7 @@ static slotdef slotdefs[] = {
         SQSLOT("__iadd__", sq_inplace_concat, NULL,
           wrap_binaryfunc, "x.__iadd__(y) <==> x+=y"),
         SQSLOT("__imul__", sq_inplace_repeat, NULL,
-          wrap_indexargfunc, "x.__imul__(y) <==> x*=y"),
+          wrap_ssizeargproc, "x.__imul__(y) <==> x*=y"),
 
         MPSLOT("__len__", mp_length, slot_mp_length, wrap_lenfunc,
                "x.__len__() <==> len(x)"),
