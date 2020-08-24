@@ -100,8 +100,8 @@ class TestParseCommandLine:
         saved_sys_argv = sys.argv[:]
         saved_sys_stdout = sys.stdout
         saved_sys_stderr = sys.stdout
+        app_main.WE_ARE_TRANSLATED = False
         app_main.os = os
-        env['PYPY_IS_UNTRANSLATED'] = '1'
         try:
             os.environ.update(env)
             sys.stdout = sys.stderr = StringIO.StringIO()
@@ -120,6 +120,7 @@ class TestParseCommandLine:
             sys.stderr = saved_sys_stderr
             if __pypy__:
                 __pypy__.set_debug(True)
+            app_main.WE_ARE_TRANSLATED = True
 
     def test_all_combinations_I_can_think_of(self):
         self.check([], {}, sys_argv=[''], run_stdin=True)
@@ -262,9 +263,7 @@ class TestInteraction:
         return child
 
     def spawn(self, argv):
-        env = os.environ.copy()
-        env['PYPY_IS_UNTRANSLATED'] = '1'
-        return self._spawn(sys.executable, [app_main] + argv, env=env)
+        return self._spawn(sys.executable, [app_main] + argv)
 
     def test_interactive(self):
         child = self.spawn([])
@@ -648,9 +647,6 @@ class TestInteraction:
 class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
-        if env is None:
-            env = os.environ.copy()
-        env['PYPY_IS_UNTRANSLATED'] = '1'
         if os.name == 'nt':
             if __pypy__ is None:
                 py.test.skip('app_main cannot run on non-pypy for windows')
