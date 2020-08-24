@@ -12,7 +12,7 @@ INCLUDE_DIR = BASE_DIR.join('include')
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
-    includes=["universal/hpy.h", "hpyerr.h"],
+    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
@@ -207,7 +207,7 @@ typedef struct {
 typedef struct {
     HPyDef_Kind kind;
     HPySlot slot;
-} HPyDef_Slot;
+} _pypy_HPyDef_as_slot;
 
 
 /* hpymodule.h */

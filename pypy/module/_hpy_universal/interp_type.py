@@ -67,7 +67,7 @@ def HPyType_FromSpec(space, ctx, spec):
         while p[i]:
             kind = rffi.cast(lltype.Signed, p[i].c_kind)
             if kind == HPyDef_Kind.HPyDef_Kind_Slot:
-                hpyslot = llapi.cts.cast('HPyDef_Slot*', p[i]).c_slot
+                hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
                 fill_slot(space, w_result, hpyslot)
             elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
                 hpymeth = p[i].c_meth
