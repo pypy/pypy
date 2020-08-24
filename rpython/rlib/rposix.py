@@ -268,6 +268,8 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
+    # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
+    # we can replace FdValidator with Suppress_IPH
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
@@ -295,6 +297,18 @@ if os.name == 'nt':
         def __exit__(self, *args):
             c_exit_suppress_iph(self.invalid_param_hndlr)
 
+    class Suppress_IPH(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph(self.invalid_param_hndlr)
+
     def _bound_for_write(fd, count):
         if count > 32767 and c_isatty(fd):
             # CPython Issue #11395, PyPy Issue #2636: the Windows console
@@ -310,6 +324,17 @@ else:
     class FdValidator(object):
 
         def __init__(self, fd):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    class Suppress_IPH(object):
+
+        def __init__(self):
             pass
 
         def __enter__(self):
