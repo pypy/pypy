@@ -100,9 +100,7 @@ class TestParseCommandLine:
         saved_sys_stdout = sys.stdout
         saved_sys_stderr = sys.stdout
         app_main.os = os
-        def we_are_translated():
-            return False
-        app_main.we_are_translated = we_are_translated
+        env['PYPY_IS_UNTRANSLATED'] = '1'
         try:
             os.environ.update(env)
             sys.stdout = sys.stderr = StringIO.StringIO()
@@ -263,7 +261,9 @@ class TestInteraction:
         return child
 
     def spawn(self, argv):
-        return self._spawn(sys.executable, [app_main] + argv)
+        env = os.environ.copy()
+        env['PYPY_IS_UNTRANSLATED'] = '1'
+        return self._spawn(sys.executable, [app_main] + argv, env=env)
 
     def test_interactive(self):
         child = self.spawn([])
@@ -647,6 +647,9 @@ class TestInteraction:
 class TestNonInteractive:
     def run_with_status_code(self, cmdline, senddata='', expect_prompt=False,
             expect_banner=False, python_flags='', env=None):
+        if env is None:
+            env = os.environ.copy()
+        env['PYPY_IS_UNTRANSLATED'] = '1'
         if os.name == 'nt':
             if __pypy__ is None:
                 py.test.skip('app_main cannot run on non-pypy for windows')
@@ -867,6 +870,7 @@ class TestNonInteractive:
 
         with chdir_and_unset_pythonpath(tmpdir):
             data = self.run(cmdline, python_flags='-S')
+        print data
 
         assert data == "some text\n"
 

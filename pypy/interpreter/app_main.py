@@ -299,7 +299,9 @@ def initstdio(unbuffered=False):
 
 def we_are_translated():
     # app-level, very different from rpython.rlib.objectmodel.we_are_translated
-    return hasattr(sys, 'pypy_translation_info')
+    # used in test_app_main
+    import os
+    os.environ.get('PYPY_IS_UNTRANSLATED', '0') == '1'
 
 IS_WINDOWS = 'nt' in sys.builtin_module_names
 
