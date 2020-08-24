@@ -1977,6 +1977,8 @@ if not _WIN32:
             lltype.free(ngroups_p, flavor='raw')
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,

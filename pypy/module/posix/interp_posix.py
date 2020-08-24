@@ -11,7 +11,9 @@ except ImportError:
 from rpython.rlib import rposix, rposix_stat, rfile
 from rpython.rlib import objectmodel, rurandom
 from rpython.rlib.objectmodel import specialize, not_rpython
-from rpython.rlib.rarithmetic import r_longlong, intmask, r_uint, r_int
+from rpython.rlib.rarithmetic import (
+    r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
+
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import func_with_new_name
@@ -2764,3 +2766,78 @@ def fspath(space, w_path):
         w_path,
         w_result
     )
+
+
+@unwrap_spec(pid=int)
+def sched_rr_get_interval(space, pid):
+    """ get execution time limits. """
+
+    try:
+        res = rposix.sched_rr_get_interval(pid)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        return space.newfloat(res)
+
+
+@unwrap_spec(pid=int)
+def sched_getscheduler(space, pid):
+    """ get scheduling policy/parameters. """
+
+    try:
+        res = rposix.sched_getscheduler(pid)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        return space.newint(res)
+
+
+@unwrap_spec(pid=int, policy=int)
+def sched_setscheduler(space, pid, policy, w_param):
+    """ set scheduling policy/parameters. """
+    w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                  space.newtext('sched_param'))
+    if not space.isinstance_w(w_param, w_sched_param):
+        raise oefmt(space.w_TypeError, "must have a sched_param object")
+    priority = space.int_w(space.getitem(w_param, space.newint(0)))
+    if priority > INT_MAX or priority < INT_MIN:
+        raise oefmt(space.w_OverflowError, "sched_priority %d out of range", priority)
+    try:
+        res = rposix.sched_setscheduler(pid, policy, priority)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        return space.newint(res)
+
+
+@unwrap_spec(pid=int)
+def sched_getparam(space, pid):
+    """ get scheduling parameters. """
+
+    try:
+        res = rposix.sched_getparam(pid)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                      space.newtext('sched_param'))
+
+        return space.call_function(w_sched_param, space.newint(res))
+
+
+@unwrap_spec(pid=int, )
+def sched_setparam(space, pid, w_param):
+    """ set scheduling parameters. """
+    w_sched_param = space.getattr(space.getbuiltinmodule(os.name),
+                                  space.newtext('sched_param'))
+    if not space.isinstance_w(w_param, w_sched_param):
+        raise oefmt(space.w_TypeError, "must have a sched_param object")
+    priority = space.int_w(space.getitem(w_param, space.newint(0)))
+    if priority > INT_MAX or priority < INT_MIN:
+        raise oefmt(space.w_OverflowError, "sched_priority out of range")
+    try:
+        res = rposix.sched_setparam(pid, priority)
+    except OSError as e:
+        wrap_oserror(space, e, eintr_retry=True)
+    else:
+        return space.newint(res)
