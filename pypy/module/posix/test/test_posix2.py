@@ -1807,42 +1807,6 @@ class AppTestUnicodeFilename:
             self.posix.close(fd)
         assert content == b"test"
 
-
-class AppTestPep475Retry:
-    spaceconfig = {'usemodules': USEMODULES}
-
-    def setup_class(cls):
-        if os.name != 'posix':
-            skip("xxx tests are posix-only")
-
-        def fd_data_after_delay(space):
-            g = os.popen("sleep 5 && echo hello", "r")
-            cls._keepalive_g = g
-            return space.wrap(g.fileno())
-
-        cls.w_posix = space.appexec([], GET_POSIX)
-        cls.w_fd_data_after_delay = cls.space.wrap(
-            interp2app(fd_data_after_delay))
-
-    def test_pep475_retry_read(self):
-        import _signal as signal
-        signalled = []
-
-        def foo(*args):
-            signalled.append("ALARM")
-
-        signal.signal(signal.SIGALRM, foo)
-        try:
-            fd = self.fd_data_after_delay()
-            signal.alarm(1)
-            got = self.posix.read(fd, 100)
-            self.posix.close(fd)
-        finally:
-            signal.signal(signal.SIGALRM, signal.SIG_DFL)
-
-        assert signalled != []
-        assert got.startswith(b'h')
-
     if hasattr(rposix, 'sched_rr_get_interval'):
         def test_sched_rr_get_interval(self):
             posix= self.posix
@@ -1907,3 +1871,42 @@ class AppTestPep475Retry:
             param = posix.sched_param(-large)
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
+
+class AppTestPep475Retry:
+    spaceconfig = {'usemodules': USEMODULES}
+
+    def setup_class(cls):
+        if os.name != 'posix':
+            skip("xxx tests are posix-only")
+        if cls.runappdirect:
+            skip("xxx does not work with -A")
+
+        def fd_data_after_delay(space):
+            g = os.popen("sleep 5 && echo hello", "r")
+            cls._keepalive_g = g
+            return space.wrap(g.fileno())
+
+        cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_fd_data_after_delay = cls.space.wrap(
+            interp2app(fd_data_after_delay))
+
+    def test_pep475_retry_read(self):
+        import _signal as signal
+        signalled = []
+
+        def foo(*args):
+            signalled.append("ALARM")
+
+        signal.signal(signal.SIGALRM, foo)
+        try:
+            fd = self.fd_data_after_delay()
+            signal.alarm(1)
+            got = self.posix.read(fd, 100)
+            self.posix.close(fd)
+        finally:
+            signal.signal(signal.SIGALRM, signal.SIG_DFL)
+
+        assert signalled != []
+        assert got.startswith(b'h')
+
+
