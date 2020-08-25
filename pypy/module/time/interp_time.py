@@ -16,6 +16,7 @@ from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import we_are_translated
 import math
 import os
 import sys
@@ -881,7 +882,21 @@ def strftime(space, format, w_tup=None):
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
     if _WIN:
-        # check that the format string contains only valid directives
+        # Check that the format string contains only valid directives
+        # We don't really need this. Instead we could use a FdValidator to wrap
+        # the call to c_strftime so that a failure does not crash the process,
+        # and then check the error code after the call to c_strftime (when
+        # buf==0), which is what CPython does.
+        #
+        # We use this pre-call check since, when untranslated, since the host
+        # python and the c_strftime use different runtimes, and the c_strftime
+        # call goes through the ctypes call of the host python's runtime, which
+        # is different than the FdValidator runtime.
+        # See the msvcrt branch ...
+        fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
+        if we_are_translated():
+            # Visual 2005+
+            fmts = fmts + 'ADFgGhnrRtTuV'
         length = len(format)
         i = 0
         while i < length:
@@ -890,7 +905,8 @@ def strftime(space, format, w_tup=None):
                 if i < length and format[i] == '#':
                     # not documented by python
                     i += 1
-                if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
+                # Assume visual studio 2015
+                if i >= length or format[i] not in fmts:
                     raise oefmt(space.w_ValueError, "invalid format string")
             i += 1
 

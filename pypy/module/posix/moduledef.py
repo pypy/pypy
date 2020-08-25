@@ -89,6 +89,8 @@ corresponding Unix manual entries for more information on calls."""
         'fspath': 'interp_posix.fspath',
         'putenv': 'interp_posix.putenv',
         'unsetenv': 'interp_posix.unsetenv',
+        'ftruncate': 'interp_posix.ftruncate',
+        'truncate': 'interp_posix.truncate',
     }
 
     if hasattr(os, 'chown'):
@@ -99,9 +101,6 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['fchown'] = 'interp_posix.fchown'
     if hasattr(os, 'fchmod'):
         interpleveldefs['fchmod'] = 'interp_posix.fchmod'
-    if hasattr(os, 'ftruncate'):
-        interpleveldefs['ftruncate'] = 'interp_posix.ftruncate'
-        interpleveldefs['truncate'] = 'interp_posix.truncate'
     if hasattr(os, 'fsync'):
         interpleveldefs['fsync'] = 'interp_posix.fsync'
     if hasattr(os, 'fdatasync'):
@@ -163,6 +162,15 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['getlogin'] = 'interp_posix.getlogin'
     if hasattr(os, 'ctermid'):
         interpleveldefs['ctermid'] = 'interp_posix.ctermid'
+    if hasattr(rposix, 'sched_rr_get_interval'):
+        interpleveldefs['sched_rr_get_interval'] = 'interp_posix.sched_rr_get_interval'
+    if hasattr(rposix, 'sched_setscheduler'):
+        interpleveldefs['sched_setscheduler'] = 'interp_posix.sched_setscheduler'
+        interpleveldefs['sched_getscheduler'] = 'interp_posix.sched_getscheduler'
+    if hasattr(rposix, 'sched_getparam'):
+        interpleveldefs['sched_getparam'] = 'interp_posix.sched_getparam'
+        appleveldefs['sched_param'] = 'app_posix.sched_param'
+        interpleveldefs['sched_setparam'] = 'interp_posix.sched_setparam'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
                  'seteuid', 'setgid', 'setegid', 'getgroups', 'getpgrp',

@@ -107,6 +107,16 @@ class AppTestIterator(AppTestCpythonExtensionBase):
             {
                 return 2;
             }
+            static PyObject *
+            sq_repeat(PyObject *self, Py_ssize_t n) {
+                return PyLong_FromLong(144);
+            }
+            static PyObject *
+            sq_inplace_repeat(PyObject *self, Py_ssize_t n) {
+                fprintf(stdout, "in sq_inplace_repeat, n=%ld\\n", n);
+                Py_INCREF(self);
+                return self;
+            }
             PySequenceMethods tp_as_sequence;
             static PyTypeObject Foo_Type = {
                 PyVarObject_HEAD_INIT(NULL, 0)
@@ -117,6 +127,8 @@ class AppTestIterator(AppTestCpythonExtensionBase):
                 Foo_Type.tp_as_sequence = &tp_as_sequence;
                 tp_as_sequence.sq_length = sq_length;
                 tp_as_sequence.sq_item = sq_item;
+                tp_as_sequence.sq_repeat = sq_repeat;
+                tp_as_sequence.sq_inplace_repeat = sq_inplace_repeat;
                 if (PyType_Ready(&Foo_Type) < 0) INITERROR;
             ''')
         obj = module.test()
@@ -128,3 +140,6 @@ class AppTestIterator(AppTestCpythonExtensionBase):
         assert next(it) == 42
         #
         assert module.check(obj) == 1
+        assert obj * 3 == 144
+        obj *= 3
+        assert obj[1] == 42

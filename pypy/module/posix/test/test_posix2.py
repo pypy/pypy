@@ -1691,6 +1691,72 @@ class AppTestPosix:
             assert isinstance(w, int)
             assert isinstance(h, int)
 
+    if hasattr(rposix, 'sched_rr_get_interval'):
+        def test_sched_rr_get_interval(self):
+            posix= self.posix
+            try:
+                interval = posix.sched_rr_get_interval(0)
+            except OSError as e:
+                # This likely means that sched_rr_get_interval is only valid for
+                # processes with the SCHED_RR scheduler in effect.
+                if e.errno != errno.EINVAL:
+                    raise
+                self.skipTest("only works on SCHED_RR processes")
+            assert isinstance(interval, float)
+            # Reasonable constraints, I think.
+            assert 0 < interval < 1
+
+        def test_get_and_set_scheduler_and_param(self):
+            posix= self.posix
+            import sys
+            possible_schedulers = [sched for name, sched in posix.__dict__.items()
+                                   if name.startswith("SCHED_")]
+            mine = posix.sched_getscheduler(0)
+            assert mine in possible_schedulers
+            try:
+                parent = posix.sched_getscheduler(posix.getppid())
+            except OSError as e:
+                if e.errno != errno.EPERM:
+                    raise
+            else:
+                assert parent in possible_schedulers
+            with raises(OSError):
+                posix.sched_getscheduler(-1)
+            with raises(OSError):
+                posix.sched_getparam(-1)
+            param = posix.sched_getparam(0)
+            assert isinstance(param, posix.sched_param)
+            assert isinstance(param.sched_priority, int)
+            # POSIX states that calling sched_setparam() or sched_setscheduler() on
+            # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
+            # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
+            if not sys.platform.startswith(('freebsd', 'netbsd')):
+                try:
+                    posix.sched_setscheduler(0, mine, param)
+                    posix.sched_setparam(0, param)
+                except OSError as e:
+                    if e.errno != errno.EPERM:
+                        raise
+                with raises(OSError):
+                    posix.sched_setparam(-1, param)
+            with raises(OSError):
+                posix.sched_setscheduler(-1, mine, param)
+            with raises(TypeError):
+                posix.sched_setscheduler(0, mine, None)
+            with raises(TypeError):
+                posix.sched_setparam(0,None)
+            # param = posix.sched_param(None)
+            with raises(TypeError):
+                posix.sched_setparam(0, None)
+            large = 214748364700
+            param = posix.sched_param(large)
+            with raises(OverflowError):
+                posix.sched_setparam(0, param)
+            param = posix.sched_param(-large)
+            with raises(OverflowError):
+                posix.sched_setparam(0, param)
+
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -1844,3 +1910,5 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
+
+

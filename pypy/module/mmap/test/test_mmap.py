@@ -883,3 +883,17 @@ class AppTestMMap:
         raises(ValueError, m.write, b'abc')
         assert m.tell() == 5000
         m.close()
+
+    def test_iter_yields_bytes(self):
+        # issue 3282: inconsistency in Python 3
+        from mmap import mmap
+        f = open(self.tmpname + "iter", "wb+")
+        f.write(b"AB")
+        f.flush()
+
+        m = mmap(f.fileno(), 2)
+        assert [m[0], m[1]] == [65, 66]
+        assert list(m) == [b"A", b"B"]
+        assert list(iter(m)) == [b"A", b"B"]
+        assert list(reversed(m)) == [b"B", b"A"]
+        assert list(enumerate(m)) == [(0, b"A"), (1, b"B")]

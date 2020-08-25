@@ -27,6 +27,8 @@ from rpython.rlib import rposix
 
 _WIN32 = sys.platform.startswith('win')
 _LINUX = sys.platform.startswith('linux')
+_MACOS = sys.platform.startswith('darwin')
+_BSD = sys.platform.startswith('openbsd')
 
 if _WIN32:
     from rpython.rlib import rwin32
@@ -36,7 +38,7 @@ if _WIN32:
 # - ALL_STAT_FIELDS contains Float fields if the system can retrieve
 #   sub-second timestamps.
 # - TIMESPEC is defined when the "struct stat" contains st_atim field.
-if sys.platform.startswith('linux') or sys.platform.startswith('openbsd'):
+if _LINUX or _MACOS or _BSD:
     from rpython.rlib.rposix import TIMESPEC
 else:
     TIMESPEC = None
@@ -394,10 +396,15 @@ def posix_declaration(try_to_add=None):
     if TIMESPEC is not None:
 
         def _expand(lst, originalname, timespecname):
+            if _MACOS:  # fields are named e.g. st_atimespec
+                timespecname = originalname + "spec"
+            else:  # fields are named e.g. st_atim, with no e
+                timespecname = originalname[:-1]
+
             for i, (_name, _TYPE) in enumerate(lst):
                 if _name == originalname:
                     # replace the 'st_atime' field of type rffi.DOUBLE
-                    # with a field 'st_atim' of type 'struct timespec'
+                    # with the corresponding 'struct timespec' field
                     lst[i] = (timespecname, TIMESPEC)
                     break
 
@@ -457,9 +464,14 @@ STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]
 def build_stat_result(st):
     # only for LL backends
     if TIMESPEC is not None:
-        atim = st.c_st_atim
-        mtim = st.c_st_mtim
-        ctim = st.c_st_ctim
+        if _MACOS:
+            atim = st.c_st_atimespec
+            mtim = st.c_st_mtimespec
+            ctim = st.c_st_ctimespec
+        else:
+            atim = st.c_st_atim
+            mtim = st.c_st_mtim
+            ctim = st.c_st_ctim
         atime, extra_atime = atim.c_tv_sec, int(atim.c_tv_nsec)
         mtime, extra_mtime = mtim.c_tv_sec, int(mtim.c_tv_nsec)
         ctime, extra_ctime = ctim.c_tv_sec, int(ctim.c_tv_nsec)
