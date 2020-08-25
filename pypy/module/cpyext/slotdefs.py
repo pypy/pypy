@@ -259,7 +259,7 @@ class wrap_lenfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-class wrap_sq_item(W_PyCWrapperObject):
+class wrap_ssizeargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 1)
         func = self.get_func_to_call()
@@ -592,7 +592,6 @@ def make_binary_slot_int(space, typedef, name, attr):
 BINARY_SLOTS_INT = [
     'tp_as_sequence.c_sq_item',
     'tp_as_sequence.c_sq_repeat',
-    'tp_as_sequence.c_sq_repeat',
     'tp_as_sequence.c_sq_inplace_repeat',]
 for name in BINARY_SLOTS_INT:
     slot_factory(name)(make_binary_slot_int)
@@ -842,7 +841,7 @@ def _make_missing_wrapper(name):
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
+missing_wrappers = ['wrap_del']
 for name in missing_wrappers:
     _make_missing_wrapper(name)
 
@@ -1112,11 +1111,11 @@ static slotdef slotdefs[] = {
 
     SQSLOT("__add__", sq_concat, NULL, wrap_binaryfunc,
            "__add__($self, value, /)\n--\n\nReturn self+value."),
-    SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
+    SQSLOT("__mul__", sq_repeat, NULL, wrap_ssizeargproc,
            "__mul__($self, value, /)\n--\n\nReturn self*value.n"),
-    SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc,
+    SQSLOT("__rmul__", sq_repeat, NULL, wrap_ssizeargproc,
            "__rmul__($self, value, /)\n--\n\nReturn self*value."),
-    SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_sq_item,
+    SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_ssizeargproc,
            "__getitem__($self, key, /)\n--\n\nReturn self[key]."),
     SQSLOT("__setitem__", sq_ass_item, slot_sq_ass_item, wrap_sq_setitem,
            "__setitem__($self, key, value, /)\n--\n\nSet self[key] to value."),
@@ -1128,7 +1127,7 @@ static slotdef slotdefs[] = {
            wrap_binaryfunc,
            "__iadd__($self, value, /)\n--\n\nImplement self+=value."),
     SQSLOT("__imul__", sq_inplace_repeat, NULL,
-           wrap_indexargfunc,
+           wrap_ssizeargproc,
            "__imul__($self, value, /)\n--\n\nImplement self*=value."),
 
     {NULL}

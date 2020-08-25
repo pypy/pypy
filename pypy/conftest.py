@@ -84,7 +84,7 @@ def pytest_addoption(parser):
            help="python interpreter to run appdirect tests with")
     group.addoption('-D', '--direct-apptest', action="store_true",
            default=False, dest="direct_apptest",
-           help="run applevel_XXX.py tests directly on host interpreter")
+           help="run '%s' tests directly on host interpreter" % APPLEVEL_FN)
     group.addoption('--direct', action="store_true",
            default=False, dest="rundirect",
            help="run pexpect tests directly")

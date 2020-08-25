@@ -1849,3 +1849,5 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
+
+

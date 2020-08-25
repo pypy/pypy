@@ -19,6 +19,13 @@ class AppTestSemaphore:
         cls.w_SEMAPHORE = cls.space.wrap(SEMAPHORE)
         cls.w_RECURSIVE = cls.space.wrap(RECURSIVE_MUTEX)
         cls.w_runappdirect = cls.space.wrap(cls.runappdirect)
+        # import here since importing _multiprocessing imports multiprocessing
+        # (in interp_connection) to get the BufferTooShort exception, which on
+        # win32 imports msvcrt which imports via cffi which allocates ccharp
+        # that are never released. This trips up the LeakChecker if done in a
+        # test function
+        cls.w_multiprocessing = cls.space.appexec([],
+                                  '(): import multiprocessing as m; return m')
 
     @py.test.mark.skipif("sys.platform == 'win32'")
     def test_sem_unlink(self):
@@ -31,7 +38,7 @@ class AppTestSemaphore:
         else:
             assert 0, "should have raised"
 
-    def test_semaphore(self):
+    def test_semaphore_basic(self):
         from _multiprocessing import SemLock
         import sys
         assert SemLock.SEM_VALUE_MAX > 10

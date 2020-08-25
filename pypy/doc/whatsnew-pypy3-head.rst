@@ -45,3 +45,8 @@ small enough, depending on how you build it (e.g. dividing two very large
 integers).  The problem now fixed was that these small W_LongObjects caused
 various optimizations to stop working: for example, storing one in a list
 of W_IntObjects caused the list to loose its int optimization (issue #3250).
+
+.. branch: redo-pr-639
+
+Add ``os.sched_rr_get_interval``, ``os.sched_getscheduler``,
+``sched_setscheduler``, ``sched_getparam``

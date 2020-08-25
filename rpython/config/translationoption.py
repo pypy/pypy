@@ -294,6 +294,9 @@ translation_optiondescription = OptionDescription(
                          ('translation.jit', False),
                          ('translation.gc', 'boehm'),
                          ('translation.continuation', False)]),
+    BoolOption("rpython_translate",
+               "Set to true by rpython/bin/rpython and translate.py",
+               default=False),
 ])
 
 def get_combined_translation_config(other_optdescr=None,
