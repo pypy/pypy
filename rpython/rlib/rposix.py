@@ -309,7 +309,7 @@ if os.name == 'nt':
             pass
 
         def __enter__(self):
-            self.invalid_param_hndlr = c_enter_suppress_iph_del
+            self.invalid_param_hndlr = c_enter_suppress_iph_del()
             return self
 
         def __exit__(self, *args):
