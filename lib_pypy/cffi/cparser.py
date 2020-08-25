@@ -29,7 +29,7 @@ _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
 _r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
-_r_line_directive = re.compile(r"^[ \t]*#[ \t]*line\b.*$", re.MULTILINE)
+_r_line_directive = re.compile(r"^[ \t]*#[ \t]*(?:line|\d+)\b.*$", re.MULTILINE)
 _r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
 _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
 _r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
@@ -166,9 +166,9 @@ def _warn_for_non_extern_non_static_global_variable(decl):
 
 def _remove_line_directives(csource):
     # _r_line_directive matches whole lines, without the final \n, if they
-    # start with '#line' with some spacing allowed.  This function stores
-    # them away and replaces them with exactly the string '#line@N', where
-    # N is the index in the list 'line_directives'.
+    # start with '#line' with some spacing allowed, or '#NUMBER'.  This
+    # function stores them away and replaces them with exactly the string
+    # '#line@N', where N is the index in the list 'line_directives'.
     line_directives = []
     def replace(m):
         i = len(line_directives)

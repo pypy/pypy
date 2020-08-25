@@ -7,6 +7,12 @@ CONSTANTS = [
     ('True', lambda space: space.w_True),
     ('ValueError', lambda space: space.w_ValueError),
     ('TypeError', lambda space: space.w_TypeError),
+    ('BaseObjectType', lambda space: space.w_object),
+    ('TypeType', lambda space: space.w_type),
+    ('LongType', lambda space: space.w_int),
+    ('UnicodeType', lambda space: space.w_unicode),
+    ('TupleType', lambda space: space.w_tuple),
+    ('ListType', lambda space: space.w_list),
     ]
 
 

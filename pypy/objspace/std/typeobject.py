@@ -48,22 +48,22 @@ def unwrap_cell(space, w_value):
     return w_value
 
 def write_cell(space, w_cell, w_value):
-    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
     if w_cell is None:
         # attribute does not exist at all, write it without a cell first
         return w_value
     if isinstance(w_cell, ObjectMutableCell):
         w_cell.w_value = w_value
         return None
-    elif isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
-        w_cell.intvalue = w_value.intval
+    elif isinstance(w_cell, IntMutableCell) and is_plain_int1(w_value):
+        w_cell.intvalue = plain_int_w(space, w_value)
         return None
     elif space.is_w(w_cell, w_value):
         # If the new value and the current value are the same, don't
         # create a level of indirection, or mutate the version.
         return None
-    if type(w_value) is W_IntObject:
-        return IntMutableCell(w_value.intval)
+    if is_plain_int1(w_value):
+        return IntMutableCell(plain_int_w(space, w_value))
     else:
         return ObjectMutableCell(w_value)
 
@@ -807,6 +807,12 @@ def _check_new_args(space, w_name, w_bases, w_dict):
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
+    if hasattr(space, 'is_fake_objspace'):
+        # this is for the various test_ztranslation around: if we are using
+        # the fake objspace, we don't want to annotate all the code which is
+        # specific to StdObjSpace. We just return a "random" W_Root.
+        return space.newlong(42)
+
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)

@@ -13,7 +13,7 @@ class TestObject(HPyTest):
     def test_getattr(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy name, result;
@@ -26,7 +26,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return result;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -55,7 +55,7 @@ class TestObject(HPyTest):
     def test_getattr_s(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy result;
@@ -64,7 +64,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return result;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -92,7 +92,7 @@ class TestObject(HPyTest):
 
     def test_hasattr(self):
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy name;
@@ -108,7 +108,7 @@ class TestObject(HPyTest):
                     return HPy_Dup(ctx, ctx->h_True);
                 return HPy_Dup(ctx, ctx->h_False);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -142,7 +142,7 @@ class TestObject(HPyTest):
 
     def test_hasattr_s(self):
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 int result;
@@ -153,7 +153,7 @@ class TestObject(HPyTest):
                     return HPy_Dup(ctx, ctx->h_True);
                 return HPy_Dup(ctx, ctx->h_False);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -186,7 +186,7 @@ class TestObject(HPyTest):
     def test_setattr(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy name;
@@ -200,7 +200,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return HPy_Dup(ctx, ctx->h_None);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -245,7 +245,7 @@ class TestObject(HPyTest):
     def test_setattr_s(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 int result;
@@ -254,7 +254,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return HPy_Dup(ctx, ctx->h_None);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
 
@@ -299,7 +299,7 @@ class TestObject(HPyTest):
     def test_getitem(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy key, result;
@@ -312,7 +312,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return result;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({3: "hello"}) == "hello"
@@ -327,7 +327,7 @@ class TestObject(HPyTest):
     def test_getitem_i(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy result;
@@ -336,7 +336,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return result;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({3: "hello"}) == "hello"
@@ -351,7 +351,7 @@ class TestObject(HPyTest):
     def test_getitem_s(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy result;
@@ -360,7 +360,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return result;
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({"limes": "hello"}) == "hello"
@@ -374,7 +374,7 @@ class TestObject(HPyTest):
     def test_setitem(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 HPy key;
@@ -388,7 +388,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return HPy_Dup(ctx, arg);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({}) == {3: True}
@@ -402,7 +402,7 @@ class TestObject(HPyTest):
     def test_setitem_i(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 int result;
@@ -411,7 +411,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return HPy_Dup(ctx, arg);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({}) == {3: True}
@@ -425,7 +425,7 @@ class TestObject(HPyTest):
     def test_setitem_s(self):
         import pytest
         mod = self.make_module("""
-            HPy_DEF_METH_O(f)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 int result;
@@ -434,7 +434,7 @@ class TestObject(HPyTest):
                     return HPy_NULL;
                 return HPy_Dup(ctx, arg);
             }
-            @EXPORT f HPy_METH_O
+            @EXPORT(f)
             @INIT
         """)
         assert mod.f({}) == {"limes": True}

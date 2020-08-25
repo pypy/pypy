@@ -5,6 +5,9 @@ from pypy.objspace.std.setobject import (
     IntegerIteratorImplementation, IntegerSetStrategy, ObjectSetStrategy,
     UnicodeIteratorImplementation, AsciiSetStrategy)
 from pypy.objspace.std.listobject import W_ListObject
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
+
 
 class TestW_SetStrategies:
 
@@ -149,3 +152,14 @@ class TestW_SetStrategies:
         #
         #s = W_SetObject(space, self.wrapped([u"a", u"b"]))
         #assert sorted(space.listview_unicode(s)) == [u"a", u"b"]
+
+    def test_integer_strategy_with_w_long(self):
+        # tests all calls to is_plain_int1() so far
+        space = self.space
+        w = W_LongObject(rbigint.fromlong(42))
+        s1 = W_SetObject(space, self.wrapped([]))
+        s1.add(w)
+        assert s1.strategy is space.fromcache(IntegerSetStrategy)
+        #
+        s1 = W_SetObject(space, space.newlist([w]))
+        assert s1.strategy is space.fromcache(IntegerSetStrategy)

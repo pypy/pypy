@@ -29,32 +29,18 @@ def attach_legacy_methods(space, hpymethods, w_mod, modname):
     Convert HPyMethodDef[] into PyMethodDef[], and wrap the methods into the
     proper cpyext.W_*Function objects
     """
-    PyMethodDefP = rffi.CArrayPtr(PyMethodDef)
+    from pypy.module.cpyext.api import cts as cpyts
+    methods = cpyts.cast('PyMethodDef*', hpymethods)
 
     # convert hpymethods into a C array of PyMethodDef
     dict_w = {}
-    n = len(hpymethods)
-    pymethods = lltype.malloc(PyMethodDefP.TO, n+1, zero=True, flavor='raw')
-    for i in range(n):
-        src = hpymethods[i] # HPyMethodDef
-        dst = pymethods[i]  # PyMethodDef
-        dst.c_ml_name = src.c_ml_name
-        dst.c_ml_doc = src.c_ml_doc
-        # for legacy methods, ml_meth contains a PyCFunction which can be
-        # called using the old C-API/cpyext calling convention
-        dst.c_ml_meth = rffi.cast(PyCFunction, src.c_ml_meth)
-        rffi.setintfield(dst, 'c_ml_flags', widen(src.c_ml_flags) & ~llapi._HPy_METH)
-    pymethods[n].c_ml_name = lltype.nullptr(rffi.CONST_CCHARP.TO)
-    #
-    # convert_method_defs expects a PyMethodDef*, not a PyMethodDef[]
-    p_pymethods = rffi.cast(lltype.Ptr(PyMethodDef), pymethods)
-    convert_method_defs(space, dict_w, p_pymethods, None, w_mod, modname)
+    convert_method_defs(space, dict_w, methods, None, w_mod, modname)
 
     for key, w_func in dict_w.items():
         space.setattr(w_mod, space.newtext(key), w_func)
 
     # transfer the ownership of pymethods to W_CPyStaticData
-    w_static_data = W_CPyStaticData(space, pymethods)
+    w_static_data = W_CPyStaticData(space, methods)
     space.setattr(w_mod, space.newtext("__cpy_static_data__"), w_static_data)
 
 

@@ -24,6 +24,10 @@ static inline HPy HPyLong_FromLong(HPyContext ctx, long value) {
      return ctx->ctx_Long_FromLong ( ctx, value ); 
 }
 
+static inline HPy HPyLong_FromUnsignedLong(HPyContext ctx, unsigned long value) {
+     return ctx->ctx_Long_FromUnsignedLong ( ctx, value ); 
+}
+
 static inline HPy HPyLong_FromLongLong(HPyContext ctx, long long v) {
      return ctx->ctx_Long_FromLongLong ( ctx, v ); 
 }
@@ -32,12 +36,28 @@ static inline HPy HPyLong_FromUnsignedLongLong(HPyContext ctx, unsigned long lon
      return ctx->ctx_Long_FromUnsignedLongLong ( ctx, v ); 
 }
 
+static inline HPy HPyLong_FromSize_t(HPyContext ctx, size_t value) {
+     return ctx->ctx_Long_FromSize_t ( ctx, value ); 
+}
+
+static inline HPy HPyLong_FromSsize_t(HPyContext ctx, HPy_ssize_t value) {
+     return ctx->ctx_Long_FromSsize_t ( ctx, value ); 
+}
+
 static inline long HPyLong_AsLong(HPyContext ctx, HPy h) {
      return ctx->ctx_Long_AsLong ( ctx, h ); 
 }
 
 static inline HPy HPyFloat_FromDouble(HPyContext ctx, double v) {
      return ctx->ctx_Float_FromDouble ( ctx, v ); 
+}
+
+static inline double HPyFloat_AsDouble(HPyContext ctx, HPy h) {
+     return ctx->ctx_Float_AsDouble ( ctx, h ); 
+}
+
+static inline int HPyNumber_Check(HPyContext ctx, HPy h) {
+     return ctx->ctx_Number_Check ( ctx, h ); 
 }
 
 static inline HPy HPy_Add(HPyContext ctx, HPy h1, HPy h2) {
@@ -184,8 +204,20 @@ static inline int HPyErr_Occurred(HPyContext ctx) {
      return ctx->ctx_Err_Occurred ( ctx ); 
 }
 
-static inline int HPyObject_IsTrue(HPyContext ctx, HPy h) {
-     return ctx->ctx_Object_IsTrue ( ctx, h ); 
+static inline HPy HPyErr_NoMemory(HPyContext ctx) {
+     return ctx->ctx_Err_NoMemory ( ctx ); 
+}
+
+static inline int HPy_IsTrue(HPyContext ctx, HPy h) {
+     return ctx->ctx_IsTrue ( ctx, h ); 
+}
+
+static inline HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec) {
+     return ctx->ctx_Type_FromSpec ( ctx, spec ); 
+}
+
+static inline HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw) {
+     return ctx->ctx_Type_GenericNew ( ctx, type, args, nargs, kw ); 
 }
 
 static inline HPy HPy_GetAttr(HPyContext ctx, HPy obj, HPy name) {
@@ -234,6 +266,38 @@ static inline int HPy_SetItem_i(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy va
 
 static inline int HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy value) {
      return ctx->ctx_SetItem_s ( ctx, obj, key, value ); 
+}
+
+static inline void *_HPy_Cast(HPyContext ctx, HPy h) {
+     return ctx->ctx_Cast ( ctx, h ); 
+}
+
+static inline HPy HPy_Repr(HPyContext ctx, HPy obj) {
+     return ctx->ctx_Repr ( ctx, obj ); 
+}
+
+static inline HPy HPy_Str(HPyContext ctx, HPy obj) {
+     return ctx->ctx_Str ( ctx, obj ); 
+}
+
+static inline HPy HPy_ASCII(HPyContext ctx, HPy obj) {
+     return ctx->ctx_ASCII ( ctx, obj ); 
+}
+
+static inline HPy HPy_Bytes(HPyContext ctx, HPy obj) {
+     return ctx->ctx_Bytes ( ctx, obj ); 
+}
+
+static inline HPy HPy_RichCompare(HPyContext ctx, HPy v, HPy w, int op) {
+     return ctx->ctx_RichCompare ( ctx, v, w, op ); 
+}
+
+static inline int HPy_RichCompareBool(HPyContext ctx, HPy v, HPy w, int op) {
+     return ctx->ctx_RichCompareBool ( ctx, v, w, op ); 
+}
+
+static inline HPy_hash_t HPy_Hash(HPyContext ctx, HPy obj) {
+     return ctx->ctx_Hash ( ctx, obj ); 
 }
 
 static inline int HPyBytes_Check(HPyContext ctx, HPy h) {
@@ -292,15 +356,15 @@ static inline HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key) {
      return ctx->ctx_Dict_GetItem ( ctx, h_dict, h_key ); 
 }
 
-static inline HPy HPy_FromPyObject(HPyContext ctx, struct _object *obj) {
+static inline HPy HPy_FromPyObject(HPyContext ctx, cpy_PyObject *obj) {
      return ctx->ctx_FromPyObject ( ctx, obj ); 
 }
 
-static inline struct _object *HPy_AsPyObject(HPyContext ctx, HPy h) {
+static inline cpy_PyObject *HPy_AsPyObject(HPyContext ctx, HPy h) {
      return ctx->ctx_AsPyObject ( ctx, h ); 
 }
 
-static inline struct _object *_HPy_CallRealFunctionFromTrampoline(HPyContext ctx, struct _object *self, struct _object *args, struct _object *kw, void *func, int ml_flags) {
-     return ctx->ctx_CallRealFunctionFromTrampoline ( ctx, self, args, kw, func, ml_flags ); 
+static inline void _HPy_CallRealFunctionFromTrampoline(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args) {
+     ctx->ctx_CallRealFunctionFromTrampoline ( ctx, sig, func, args ); 
 }
 

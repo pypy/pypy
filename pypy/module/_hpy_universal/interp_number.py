@@ -103,3 +103,11 @@ def HPy_InPlacePower(space, ctx, h1, h2, h3):
     else:
         w_res = space.inplace_pow(w_o1, w_o2)
     return handles.new(space, w_res)
+
+@API.func("int HPyNumber_Check(HPyContext ctx, HPy h)")
+def HPyNumber_Check(space, ctx, h):
+    w_obj = handles.deref(space, h)
+    if (space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__') or
+        0): # XXX in py3.8: space.lookup(w_obj, '__index__')):
+        return API.int(1)
+    return API.int(0)

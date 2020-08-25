@@ -9,6 +9,11 @@ def HPyLong_FromLong(space, ctx, value):
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(space, w_obj)
 
+@API.func("HPy HPyLong_FromUnsignedLong(HPyContext ctx, unsigned long value)")
+def HPyLong_FromUnsignedLong(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
+
 @API.func("HPy HPyLong_FromLongLong(HPyContext ctx, long long v)")
 def HPyLong_FromLongLong(space, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
@@ -16,6 +21,16 @@ def HPyLong_FromLongLong(space, ctx, v):
 
 @API.func("HPy HPyLong_FromUnsignedLongLong(HPyContext ctx, unsigned long long v)")
 def HPyLong_FromUnsignedLongLong(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
+
+@API.func("HPy HPyLong_FromSize_t(HPyContext ctx, size_t value)")
+def HPyLong_FromSize_t(space, ctx, v):
+    w_obj = space.newlong_from_rarith_int(v)
+    return handles.new(space, w_obj)
+
+@API.func("HPy HPyLong_FromSsize_t(HPyContext ctx, HPy_ssize_t value)")
+def HPyLong_FromSsize_t(space, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(space, w_obj)
 

@@ -11,7 +11,8 @@ BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
 
 eci = ExternalCompilationInfo(
-    includes=["universal/hpy.h", "hpyerr.h"],
+    compile_extra = ["-DHPY_UNIVERSAL_ABI"],
+    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h"],
     include_dirs=[
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
@@ -34,8 +35,13 @@ cts = CTypeSpace()
 # translation: it is used only as a nice way to declare the lltype.* types
 # which are needed here
 cts.headers.append('stdint.h')
+with open(str(INCLUDE_DIR/'common'/'typeslots.h')) as f:
+    lines = f.readlines()
+    src = ''.join(lines[2:-1])  # strip include guard
+    cts.parse_source(src)
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
+typedef intptr_t HPy_hash_t;
 
 // see below for more info about HPy vs _struct_HPy_s
 typedef struct _HPy_s {
@@ -50,14 +56,25 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_False;
     struct _HPy_s h_ValueError;
     struct _HPy_s h_TypeError;
+    struct _HPy_s h_BaseObjectType;
+    struct _HPy_s h_TypeType;
+    struct _HPy_s h_LongType;
+    struct _HPy_s h_UnicodeType;
+    struct _HPy_s h_TupleType;
+    struct _HPy_s h_ListType;
     void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
     void * ctx_Long_FromLong;
+    void * ctx_Long_FromUnsignedLong;
     void * ctx_Long_FromLongLong;
     void * ctx_Long_FromUnsignedLongLong;
+    void * ctx_Long_FromSize_t;
+    void * ctx_Long_FromSsize_t;
     void * ctx_Long_AsLong;
     void * ctx_Float_FromDouble;
+    void * ctx_Float_AsDouble;
+    void * ctx_Number_Check;
     void * ctx_Add;
     void * ctx_Subtract;
     void * ctx_Multiply;
@@ -94,7 +111,10 @@ typedef struct _HPyContext_s {
     void * ctx_InPlaceOr;
     void * ctx_Err_SetString;
     void * ctx_Err_Occurred;
-    void * ctx_Object_IsTrue;
+    void * ctx_Err_NoMemory;
+    void * ctx_IsTrue;
+    void * ctx_Type_FromSpec;
+    void * ctx_Type_GenericNew;
     void * ctx_GetAttr;
     void * ctx_GetAttr_s;
     void * ctx_HasAttr;
@@ -107,6 +127,15 @@ typedef struct _HPyContext_s {
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
+    void * ctx_Cast;
+    void * ctx_New;
+    void * ctx_Repr;
+    void * ctx_Str;
+    void * ctx_ASCII;
+    void * ctx_Bytes;
+    void * ctx_RichCompare;
+    void * ctx_RichCompareBool;
+    void * ctx_Hash;
     void * ctx_Bytes_Check;
     void * ctx_Bytes_Size;
     void * ctx_Bytes_GET_SIZE;
@@ -128,30 +157,121 @@ typedef struct _HPyContext_s {
 typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);
+typedef int HPyFunc_Signature;
 
-typedef HPy (*HPyMeth_O)(HPyContext ctx, HPy self, HPy args);
-typedef HPy (*HPyMeth_VarArgs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyMeth_Keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs,
-                                HPy kw);
-typedef void *_HPyCPyCFunction; // not used here
-typedef void (*_HPyMethodPairFunc)(HPyMeth_O *out_func,
-                                   _HPyCPyCFunction *out_trampoline);
+/* hpydef.h */
+
+typedef struct {
+    HPySlot_Slot slot;     // The slot to fill
+    void *impl;            // Function pointer to the implementation
+    void *cpy_trampoline;  // Used by CPython to call impl
+} HPySlot;
+
+typedef struct {
+    const char *name;             // The name of the built-in function/method
+    const char *doc;              // The __doc__ attribute, or NULL
+    void *impl;                   // Function pointer to the implementation
+    void *cpy_trampoline;         // Used by CPython to call impl
+    HPyFunc_Signature signature;  // Indicates impl's expected the signature
+} HPyMeth;
+
+/*
+typedef struct {
+    ...
+} HPyMember;
+
+typedef struct {
+    ...
+} HPyGetSet;
+*/
+
+typedef enum {
+    HPyDef_Kind_Slot = 1,
+    HPyDef_Kind_Meth = 2
+    // HPyDef_Kind_Member = 3,
+    // HPyDef_Kind_GetSet = 4,
+} HPyDef_Kind;
 
 
 typedef struct {
-    const char         *ml_name;
-    _HPyMethodPairFunc ml_meth;
-    int                ml_flags;
-    const char         *ml_doc;
-} HPyMethodDef;
+    HPyDef_Kind kind;
+    //union {
+    //    HPySlot slot;
+        HPyMeth meth;
+        // HPyMember member;
+        // HPyGetSet getset;
+    //};
+} HPyDef;
+
+// work around rffi's lack of support for unions
+typedef struct {
+    HPyDef_Kind kind;
+    HPySlot slot;
+} _pypy_HPyDef_as_slot;
+
+
+/* hpymodule.h */
+
+typedef int cpy_PyMethodDef;
 
 typedef struct {
     void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
     const char* m_name;
     const char* m_doc;
     HPy_ssize_t m_size;
-    HPyMethodDef *m_methods;
+    cpy_PyMethodDef *legacy_methods;
+    HPyDef **defines;
 } HPyModuleDef;
+
+/* hpytype.h */
+
+typedef struct {
+    const char* name;
+    int basicsize;
+    int itemsize;
+    unsigned int flags;
+    void *legacy_slots; // PyType_Slot *
+    HPyDef **defines;   /* points to an array of 'HPyDef *' */
+} HPyType_Spec;
+
+/* Rich comparison opcodes */
+#define HPy_LT 0
+#define HPy_LE 1
+#define HPy_EQ 2
+#define HPy_NE 3
+#define HPy_GT 4
+#define HPy_GE 5
+
+/* autogen_hpyfunc_declare.h */
+
+typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
+typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
+typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_unaryfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_binaryfunc)(HPyContext ctx, HPy, HPy);
+typedef HPy (*HPyFunc_ternaryfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_inquiry)(HPyContext ctx, HPy);
+typedef HPy_ssize_t (*HPyFunc_lenfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_ssizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t);
+typedef HPy (*HPyFunc_ssizessizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t);
+typedef int (*HPyFunc_ssizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_objobjargproc)(HPyContext ctx, HPy, HPy, HPy);
+typedef void (*HPyFunc_freefunc)(HPyContext ctx, void *);
+typedef void (*HPyFunc_destructor)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_getattrfunc)(HPyContext ctx, HPy, char *);
+typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
+typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
+typedef int (*HPyFunc_setattrofunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef HPy (*HPyFunc_reprfunc)(HPyContext ctx, HPy);
+typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, int);
+typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
+typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy, HPy, HPy);
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
@@ -170,23 +290,25 @@ HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
 
 HPyInitFunc = cts.gettype('HPyInitFunc')
-_HPyCPyCFunction = cts.gettype('_HPyCPyCFunction')
-HPyMeth_O = cts.gettype('HPyMeth_O')
-HPyMeth_VarArgs = cts.gettype('HPyMeth_VarArgs')
-HPyMeth_Keywords = cts.gettype('HPyMeth_Keywords')
 
-HPyMethodDef = cts.gettype('HPyMethodDef')
+cpy_PyMethodDef = cts.gettype('cpy_PyMethodDef')
 HPyModuleDef = cts.gettype('HPyModuleDef')
-# CTypeSpace converts "HPyMethodDef*" into lltype.Ptr(HPyMethodDef), but we
+# CTypeSpace converts "PyMethodDef*" into lltype.Ptr(PyMethodDef), but we
 # want a CArrayPtr instead, so that we can index the items inside
 # HPyModule_Create
-HPyModuleDef._flds['c_m_methods'] = rffi.CArrayPtr(HPyMethodDef)
+HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
 
-_HPy_METH = 0x100000
-HPy_METH_VARARGS  = 0x0001 | _HPy_METH
-HPy_METH_KEYWORDS = 0x0003 | _HPy_METH
-HPy_METH_NOARGS   = 0x0004 | _HPy_METH
-HPy_METH_O        = 0x0008 | _HPy_METH
+HPy_METH_VARARGS  = 1
+HPy_METH_KEYWORDS = 2
+HPy_METH_NOARGS   = 3
+HPy_METH_O        = 4
+
+HPy_LT = 0
+HPy_LE = 1
+HPy_EQ = 2
+HPy_NE = 3
+HPy_GT = 4
+HPy_GE = 5
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],

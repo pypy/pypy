@@ -75,6 +75,7 @@ class TestIterator(BaseApiTest):
 
 class AppTestCNumber(AppTestCpythonExtensionBase):
     def test_PyNumber_Check(self):
+        import sys
         mod = self.import_extension('foo', [
             ("test_PyNumber_Check", "METH_VARARGS",
              '''
@@ -84,3 +85,12 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
             ''')])
         val = mod.test_PyNumber_Check(10)
         assert val == 1
+        #
+        class MyIndex:
+            def __index__(self):
+                return 42
+        val = mod.test_PyNumber_Check(MyIndex())
+        if sys.version_info >= (3, 8):
+            assert val == 1
+        else:
+            assert val == 0

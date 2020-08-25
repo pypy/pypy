@@ -1,76 +1,78 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 
+METH_FLAGS = [
+    llapi.HPy_METH_VARARGS,
+    llapi.HPy_METH_KEYWORDS,
+    llapi.HPy_METH_NOARGS,
+    llapi.HPy_METH_O
+]
 
 class W_ExtensionFunction(W_Root):
+    # XXX: should we have separate classes for each mode?
     _immutable_fields_ = ["flags", "name"]
 
-    def __init__(self, ml, w_self):
-        self.ml = ml
+    def __init__(self, space, name, flags, cfuncptr, w_self):
         self.w_self = w_self
-        self.name = rffi.constcharp2str(self.ml.c_ml_name)
-        self.flags = rffi.cast(lltype.Signed, self.ml.c_ml_flags)
-        # fetch the real HPy function pointer, by calling ml_meth, which
-        # is a function that returns it and also the CPython-only trampoline
-        with lltype.scoped_alloc(
-                rffi.CArray(llapi.HPyMeth_O), 1) as funcptr:
-            with lltype.scoped_alloc(
-                    rffi.CArray(llapi._HPyCPyCFunction), 1) as ignored_trampoline:
-                ml.c_ml_meth(funcptr, ignored_trampoline)
-                self.cfuncptr = funcptr[0]
+        self.name = name
+        self.flags = flags
+        if self.flags not in METH_FLAGS:
+            raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
+        self.cfuncptr = cfuncptr
 
-    def call_noargs(self, space):
+    def call_noargs(self, space, h_self):
         state = space.fromcache(State)
-        with handles.using(space, self.w_self) as h_self:
-            h_result = self.cfuncptr(state.ctx, h_self, 0)
+        func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
+        h_result = func(state.ctx, h_self)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
-    def call_o(self, space, w_arg):
+    def call_o(self, space, h_self, w_arg):
         state = space.fromcache(State)
-        with handles.using(space, self.w_self) as h_self:
-            with handles.using(space, w_arg) as h_arg:
-                h_result = self.cfuncptr(state.ctx, h_self, h_arg)
+        with handles.using(space, w_arg) as h_arg:
+            func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
+            h_result = func(state.ctx, h_self, h_arg)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
-    def call_varargs_kw(self, space, __args__, has_keywords):
+    def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
         # ctx_CallRealFunctionFromTrampoline in cpython-universal
-        n = len(__args__.arguments_w)
+        n = len(__args__.arguments_w) - skip_args
 
         # XXX this looks inefficient: ideally, we would like the equivalent of
         # alloca(): do we have it in RPython? The alternative is to wrap
         # arguments_w in a tuple, convert to handle and pass it to a C
         # function whichs calls alloca() and the forwards everything to the
         # functpr
-        with handles.using(space, self.w_self) as h_self:
-            with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
-                for i, w_obj in enumerate(__args__.arguments_w):
-                    args_h[i] = handles.new(space, w_obj)
+        with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
+            i = 0
+            while i < n:
+                args_h[i] = handles.new(space, __args__.arguments_w[i + skip_args])
+                i += 1
 
-                if has_keywords:
-                    h_result = self.call_keywords(space, h_self, args_h, n, __args__)
-                else:
-                    h_result = self.call_varargs(space, h_self, args_h, n)
+            if has_keywords:
+                h_result = self.call_keywords(space, h_self, args_h, n, __args__)
+            else:
+                h_result = self.call_varargs(space, h_self, args_h, n)
 
-                # XXX this should probably be in a try/finally. We should add a
-                # test to check that we don't leak handles
-                for i in range(n):
-                    handles.close(space, args_h[i])
+            # XXX this should probably be in a try/finally. We should add a
+            # test to check that we don't leak handles
+            for i in range(n):
+                handles.close(space, args_h[i])
 
         return handles.consume(space, h_result)
 
     def call_varargs(self, space, h_self, args_h, n):
         state = space.fromcache(State)
-        # XXX: is it correct to use rffi.cast instead of some kind of
-        # lltype.cast_*?
-        fptr = rffi.cast(llapi.HPyMeth_VarArgs, self.cfuncptr)
+        fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
         return fptr(state.ctx, h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, __args__):
@@ -86,7 +88,7 @@ class W_ExtensionFunction(W_Root):
                 space.setitem_str(w_kw, key, w_value)
             h_kw = handles.new(space, w_kw)
 
-        fptr = rffi.cast(llapi.HPyMeth_Keywords, self.cfuncptr)
+        fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
         try:
             return fptr(state.ctx, h_self, args_h, n, h_kw)
         finally:
@@ -95,11 +97,15 @@ class W_ExtensionFunction(W_Root):
 
 
     def descr_call(self, space, __args__):
+        with handles.using(space, self.w_self) as h_self:
+            return self.call(space, h_self, __args__)
+
+    def call(self, space, h_self, __args__, skip_args=0):
         flags = self.flags
-        length = len(__args__.arguments_w)
+        length = len(__args__.arguments_w) - skip_args
 
         if flags == llapi.HPy_METH_KEYWORDS:
-            return self.call_varargs_kw(space, __args__, has_keywords=True)
+            return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=True)
 
         if __args__.keywords:
             raise oefmt(space.w_TypeError,
@@ -107,7 +113,7 @@ class W_ExtensionFunction(W_Root):
 
         if flags == llapi.HPy_METH_NOARGS:
             if length == 0:
-                return self.call_noargs(space)
+                return self.call_noargs(space, h_self)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
 
@@ -116,10 +122,10 @@ class W_ExtensionFunction(W_Root):
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
-            return self.call_o(space, __args__.arguments_w[0])
+            return self.call_o(space, h_self, __args__.arguments_w[skip_args])
 
         if flags == llapi.HPy_METH_VARARGS:
-            return self.call_varargs_kw(space, __args__, has_keywords=False)
+            return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=False)
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
@@ -130,3 +136,36 @@ W_ExtensionFunction.typedef = TypeDef(
     __call__ = interp2app(W_ExtensionFunction.descr_call),
     )
 W_ExtensionFunction.typedef.acceptable_as_base_class = False
+
+
+class W_ExtensionMethod(W_ExtensionFunction):
+    def __init__(self, space, name, flags, impl, w_objclass):
+        W_ExtensionFunction.__init__(self, space, name, flags, impl, space.w_None)
+        self.w_objclass = w_objclass
+
+    def descr_call(self, space, __args__):
+        # XXX: basically a copy of cpyext's W_PyCMethodObject.descr_call()
+        if len(__args__.arguments_w) == 0:
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' of '%s' object needs an argument",
+                self.name, self.w_objclass.getname(space))
+        w_instance = __args__.arguments_w[0]
+        # XXX: needs a stricter test
+        if not space.isinstance_w(w_instance, self.w_objclass):
+            w_objclass = self.w_objclass
+            assert isinstance(w_objclass, W_TypeObject)
+            raise oefmt(space.w_TypeError,
+                "descriptor '%8' requires a '%s' object but received a '%T'",
+                self.name, w_objclass.name, w_instance)
+        #
+        with handles.using(space, w_instance) as h_instance:
+            return self.call(space, h_instance, __args__, skip_args=1)
+
+W_ExtensionMethod.typedef = TypeDef(
+    'method_descriptor_',
+    __get__ = interp2app(descr_function_get),
+    __call__ = interp2app(W_ExtensionMethod.descr_call),
+    )
+W_ExtensionMethod.typedef.acceptable_as_base_class = False

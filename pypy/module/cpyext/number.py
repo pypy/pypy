@@ -23,7 +23,8 @@ def PyNumber_Check(space, w_obj):
     # the type of w_obj has got a method __int__ or __float__.
     if w_obj is None:
         return 0
-    if space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__'):
+    if (space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__') or
+        0): # XXX in py3.8: space.lookup(w_obj, '__index__')):
         return 1
     return 0
 

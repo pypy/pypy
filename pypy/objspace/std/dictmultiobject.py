@@ -595,7 +595,6 @@ class EmptyDictStrategy(DictStrategy):
         return self.erase(None)
 
     def switch_to_correct_strategy(self, w_dict, w_key):
-        from pypy.objspace.std.intobject import W_IntObject
         if type(w_key) is self.space.StringObjectCls:
             self.switch_to_bytes_strategy(w_dict)
             return
@@ -1253,14 +1252,15 @@ class IntDictStrategy(AbstractTypedStrategy, DictStrategy):
         return self.space.newint(unwrapped)
 
     def unwrap(self, wrapped):
-        return self.space.int_w(wrapped)
+        from pypy.objspace.std.listobject import plain_int_w
+        return plain_int_w(self.space, wrapped)
 
     def get_empty_storage(self):
         return self.erase({})
 
     def is_correct_type(self, w_obj):
-        from pypy.objspace.std.intobject import W_IntObject
-        return type(w_obj) is W_IntObject
+        from pypy.objspace.std.listobject import is_plain_int1
+        return is_plain_int1(w_obj)
 
     def _never_equal_to(self, w_lookup_type):
         space = self.space

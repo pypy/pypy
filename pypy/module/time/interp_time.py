@@ -55,22 +55,22 @@ if _WIN:
             "RPY_EXTERN ULONGLONG pypy_GetTickCount64(FARPROC address);"
         ],
         separate_module_sources=['''
-            static HANDLE interrupt_event;
+            /* this 'extern' is defined in translator/c/src/signals.c */
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
+            extern HANDLE pypy_sigint_interrupt_event;
+            #endif
 
             static BOOL WINAPI CtrlHandlerRoutine(
               DWORD dwCtrlType)
             {
-                SetEvent(interrupt_event);
-                /* allow other default handlers to be called.
-                 * Default Python handler will setup the
-                 * KeyboardInterrupt exception.
-                 */
-                return 0;
+                return TRUE;     /* like CPython 3.6 */
             }
 
             BOOL pypy_timemodule_setCtrlHandler(HANDLE event)
             {
-                interrupt_event = event;
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
+                pypy_sigint_interrupt_event = event;
+            #endif
                 return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
             }
 

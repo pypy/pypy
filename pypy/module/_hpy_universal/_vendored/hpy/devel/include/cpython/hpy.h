@@ -31,6 +31,7 @@
 
 typedef struct { PyObject *_o; } HPy;
 typedef Py_ssize_t HPy_ssize_t;
+typedef Py_hash_t HPy_hash_t;
 
 /* For internal usage only. These should be #undef at the end of this header.
    If you need to convert HPy to PyObject* and vice-versa, you should use the
@@ -39,14 +40,18 @@ typedef Py_ssize_t HPy_ssize_t;
 #define _h2py(x) (x._o)
 #define _py2h(o) ((HPy){o})
 
-#include "meth.h"
-
 typedef struct _HPyContext_s {
     HPy h_None;
     HPy h_True;
     HPy h_False;
     HPy h_ValueError;
     HPy h_TypeError;
+    HPy h_BaseObjectType;
+    HPy h_TypeType;
+    HPy h_LongType;
+    HPy h_UnicodeType;
+    HPy h_TupleType;
+    HPy h_ListType;
 } *HPyContext;
 
 /* XXX! should be defined only once, not once for every .c! */
@@ -73,6 +78,12 @@ _HPyGetContext(void) {
         ctx->h_False = _py2h(Py_False);
         ctx->h_ValueError = _py2h(PyExc_ValueError);
         ctx->h_TypeError = _py2h(PyExc_TypeError);
+        ctx->h_BaseObjectType = _py2h((PyObject *)&PyBaseObject_Type);
+        ctx->h_TypeType = _py2h((PyObject *)&PyType_Type);
+        ctx->h_LongType = _py2h((PyObject *)&PyLong_Type);
+        ctx->h_UnicodeType = _py2h((PyObject *)&PyUnicode_Type);
+        ctx->h_TupleType = _py2h((PyObject *)&PyTuple_Type);
+        ctx->h_ListType = _py2h((PyObject *)&PyList_Type);
     }
     return ctx;
 }
@@ -90,24 +101,6 @@ HPy_Close(HPyContext ctx, HPy handle)
 {
     Py_XDECREF(_h2py(handle));
 }
-
-/* moduleobject.h */
-typedef PyModuleDef HPyModuleDef;
-
-#define HPyModuleDef_HEAD_INIT PyModuleDef_HEAD_INIT
-
-HPyAPI_FUNC(HPy)
-HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef) {
-    return _py2h(PyModule_Create(mdef));
-}
-
-#define HPy_MODINIT(modname)                                   \
-    static HPy init_##modname##_impl(HPyContext ctx);          \
-    PyMODINIT_FUNC                                             \
-    PyInit_##modname(void)                                     \
-    {                                                          \
-        return _h2py(init_##modname##_impl(_HPyGetContext())); \
-    }
 
 HPyAPI_FUNC(HPy)
 HPy_FromPyObject(HPyContext ctx, PyObject *obj)
@@ -134,7 +127,47 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
 #undef _HPy_IMPL_NAME_NOPREFIX
 #undef _HPy_IMPL_NAME
 
-// include runtime functions
-#include "../common/runtime.h"
+#include "../common/cpy_types.h"
+
+#include "../common/macros.h"
+#include "../common/runtime/argparse.h"
+
+#include "../common/hpyfunc.h"
+#include "../common/hpydef.h"
+#include "../common/hpytype.h"
+#include "../common/hpymodule.h"
+#include "../common/runtime/ctx_module.h"
+#include "../common/runtime/ctx_type.h"
+
+
+HPyAPI_FUNC(HPy)
+HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef)
+{
+    return ctx_Module_Create(ctx, mdef);
+}
+
+HPyAPI_FUNC(HPy)
+HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)
+{
+    return ctx_Type_FromSpec(ctx, spec);
+}
+
+HPyAPI_FUNC(HPy)
+_HPy_New(HPyContext ctx, HPy h, void **data)
+{
+    return ctx_New(ctx, h, data);
+}
+
+HPyAPI_FUNC(HPy)
+HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)
+{
+    return ctx_Type_GenericNew(ctx, type, args, nargs, kw);
+}
+
+HPyAPI_FUNC(void*)
+_HPy_Cast(HPyContext ctx, HPy h)
+{
+    return ctx_Cast(ctx, h);
+}
 
 #endif /* !HPy_CPYTHON_H */

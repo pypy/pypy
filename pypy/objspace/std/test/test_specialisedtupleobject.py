@@ -1,6 +1,8 @@
 from pypy.objspace.std.specialisedtupleobject import _specialisations
 from pypy.objspace.std.test import test_tupleobject
 from pypy.objspace.std.tupleobject import W_TupleObject
+from pypy.objspace.std.longobject import W_LongObject
+from rpython.rlib.rbigint import rbigint
 from pypy.tool.pytest.objspace import gettestobjspace
 
 
@@ -21,6 +23,11 @@ class TestW_SpecialisedTupleObject():
 
     def test_specialisedtupleclassname(self):
         w_tuple = self.space.newtuple([self.space.wrap(1), self.space.wrap(2)])
+        assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
+
+    def test_integer_strategy_with_w_long(self):
+        w = W_LongObject(rbigint.fromlong(42))
+        w_tuple = self.space.newtuple([w, w])
         assert w_tuple.__class__.__name__ == 'W_SpecialisedTupleObject_ii'
 
     def hash_test(self, values, must_be_specialized):
