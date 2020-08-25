@@ -22,7 +22,6 @@ corresponding Unix manual entries for more information on calls."""
         'uname_result': 'app_posix.uname_result',
         'urandom': 'app_posix.urandom',
         'terminal_size': 'app_posix.terminal_size',
-        'sched_param': 'app_posix.sched_param',
     }
     if os.name == 'nt':
         del appleveldefs['urandom'] # at interp on win32
@@ -165,13 +164,12 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['ctermid'] = 'interp_posix.ctermid'
     if hasattr(rposix, 'sched_rr_get_interval'):
         interpleveldefs['sched_rr_get_interval'] = 'interp_posix.sched_rr_get_interval'
-    if hasattr(rposix, 'sched_getscheduler'):
-        interpleveldefs['sched_getscheduler'] = 'interp_posix.sched_getscheduler'
     if hasattr(rposix, 'sched_setscheduler'):
         interpleveldefs['sched_setscheduler'] = 'interp_posix.sched_setscheduler'
+        interpleveldefs['sched_getscheduler'] = 'interp_posix.sched_getscheduler'
     if hasattr(rposix, 'sched_getparam'):
         interpleveldefs['sched_getparam'] = 'interp_posix.sched_getparam'
-    if hasattr(rposix, 'sched_setparam'):
+        appleveldefs['sched_param'] = 'app_posix.sched_param'
         interpleveldefs['sched_setparam'] = 'interp_posix.sched_setparam'
 
     for name in ['setsid', 'getuid', 'geteuid', 'getgid', 'getegid', 'setuid',
