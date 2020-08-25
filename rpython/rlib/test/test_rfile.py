@@ -59,7 +59,7 @@ class TestFile(BaseRtypingTest):
                 assert False
 
             try:
-                os.fdopen(42, "badmode")
+                rfile.create_fdopen_rfile(42, "badmode")
             except  ValueError:
                 pass
             else:

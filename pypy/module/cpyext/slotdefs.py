@@ -259,7 +259,7 @@ class wrap_lenfunc(W_PyCWrapperObject):
             space.fromcache(State).check_and_raise_exception(always=True)
         return space.newint(res)
 
-class wrap_sq_item(W_PyCWrapperObject):
+class wrap_ssizeargproc(W_PyCWrapperObject):
     def call(self, space, w_self, __args__):
         self.check_args(__args__, 1)
         func = self.get_func_to_call()
@@ -592,7 +592,6 @@ def make_binary_slot_int(space, typedef, name, attr):
 BINARY_SLOTS_INT = [
     'tp_as_sequence.c_sq_item',
     'tp_as_sequence.c_sq_repeat',
-    'tp_as_sequence.c_sq_repeat',
     'tp_as_sequence.c_sq_inplace_repeat',]
 for name in BINARY_SLOTS_INT:
     slot_factory(name)(make_binary_slot_int)
@@ -842,7 +841,7 @@ def _make_missing_wrapper(name):
     missing_wrapper.__name__ = name
     globals()[name] = missing_wrapper
 
-missing_wrappers = ['wrap_indexargfunc', 'wrap_del']
+missing_wrappers = ['wrap_del']
 for name in missing_wrappers:
     _make_missing_wrapper(name)
 

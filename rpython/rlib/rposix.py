@@ -268,6 +268,8 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
+    # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
+    # we can replace FdValidator with SuppressIPH
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
@@ -275,6 +277,12 @@ if os.name == 'nt':
                                   [], rffi.VOIDP, compilation_info=errno_eci))
     c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void,
+                                  compilation_info=errno_eci))
+    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=errno_eci,
+                                  releasegil=False))
+    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void, releasegil=False,
                                   compilation_info=errno_eci))
 
     @enforceargs(int)
@@ -287,6 +295,30 @@ if os.name == 'nt':
 
         def __init__(self, fd):
             _validate_fd(fd)
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph(self.invalid_param_hndlr)
+
+    class SuppressIPH_del(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph_del()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph_del(self.invalid_param_hndlr)
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
 
         def __enter__(self):
             self.invalid_param_hndlr = c_enter_suppress_iph()
@@ -317,6 +349,19 @@ else:
 
         def __exit__(self, *args):
             pass
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    SuppressIPH_del = SuppressIPH
 
     def _bound_for_write(fd, count):
         return count

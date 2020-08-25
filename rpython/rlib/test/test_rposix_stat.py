@@ -28,8 +28,8 @@ class TestPosixStatFunctions:
             assert abs(int(rposix_stat.stat(unicode(f)).st_mtime * 1000) - expected) < 2
 
         if sys.platform == 'win32':
-            check('c:/')
-            check(os.environ['TEMP'])
+            check(os.environ['SYSTEMDRIVE'])   # C:
+            check(os.environ['PROGRAMDATA'])  # C:\ProgramData
         else:
             check('/')
             check('/dev')

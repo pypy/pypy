@@ -4,6 +4,7 @@ Tests for the entry point of pypy3-c, app_main.py.
 from __future__ import with_statement
 import py
 import sys, os, re, runpy, subprocess
+import shutil
 from rpython.tool.udir import udir
 from contextlib import contextmanager
 from pypy import pypydir
@@ -654,8 +655,8 @@ class TestNonInteractive:
                 import __pypy__
             except:
                 py.test.skip('app_main cannot run on non-pypy for windows')
-        cmdline = '%s %s "%s" %s' % (get_python3(), python_flags,
-                                     app_main, cmdline)
+(??)        cmdline = '%s %s "%s" %s %s' % (sys.executable, python_flags,
+(??)                                     app_main, python_flags, cmdline)
         print 'POPEN:', cmdline
         process = subprocess.Popen(
             cmdline,
@@ -810,6 +811,7 @@ class TestNonInteractive:
                         expect_prompt=True, expect_banner=False)
         assert '42\n' in data
 
+    @py.test.mark.skipif('sys.platform=="win32"', reason="windows, sendata, and quoting problems")
     def test_putenv_fires_interactive_within_process(self):
         try:
             import __pypy__
@@ -915,6 +917,14 @@ class TestNonInteractive:
                 if old_pythonpath is not None:
                     os.putenv('PYTHONPATH', old_pythonpath)
 
+        # if we are running in a virtualenv, messing with site.py will
+        # make runpy.py and pkgutil unavailable. They are needed to run
+        # app_main. Copy them into the tmpdir
+        runpy_dir = os.path.dirname(runpy.__file__)
+        import pkgutil
+        pkgutil_dir = os.path.dirname(pkgutil.__file__)
+        shutil.copy(os.path.join(runpy_dir, 'runpy.py'), str(tmpdir))
+        shutil.copy(os.path.join(pkgutil_dir, 'pkgutil.py'), str(tmpdir))
         tmpdir.join('site.py').write('print("SHOULD NOT RUN")')
         runme_py = tmpdir.join('runme.py')
         runme_py.write('print("some text")')

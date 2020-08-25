@@ -272,10 +272,7 @@ def fdopen(fd, mode, bufsize=-1):
 # ____________________________________________________________
 # Main entry point
 
-def we_are_translated():
-    # app-level, very different from rpython.rlib.objectmodel.we_are_translated
-    return hasattr(sys, 'pypy_translation_info')
-
+WE_ARE_TRANSLATED = True   # patch to False if we're not really translated
 IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
@@ -544,7 +541,7 @@ def parse_command_line(argv):
         (not options["ignore_environment"] and os.getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
 
-    if we_are_translated():
+    if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.dont_write_bytecode = bool(sys.flags.dont_write_bytecode)
@@ -552,7 +549,7 @@ def parse_command_line(argv):
     sys._xoptions = dict(x.split('=', 1) if '=' in x else (x, True)
                          for x in options['_xoptions'])
 
-##    if not we_are_translated():
+##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
 ##        print '%40s: %s' % ("sys.argv", sys.argv)
@@ -574,8 +571,8 @@ def run_command_line(interactive,
                      isolated,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
-    # but we need more in the translated PyPy for the compiler package
-    if '__pypy__' not in sys.builtin_module_names:
+    # but we need more in the PyPy level for the compiler package
+    if not WE_ARE_TRANSLATED:
         sys.setrecursionlimit(5000)
     import os
 
@@ -942,6 +939,7 @@ if __name__ == '__main__':
         import os
         return os.path.abspath(os.path.join(s, '..'))
 
+    WE_ARE_TRANSLATED = False
     import os
     reset = []
     if 'PYTHONINSPECT_' in os.environ:

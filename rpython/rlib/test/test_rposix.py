@@ -477,15 +477,6 @@ class BasePosixUnicodeOrAscii:
             except Exception:
                 pass
 
-    @win_only
-    def test_is_valid_fd(self):
-        assert rposix.is_valid_fd(0) == 1
-        fid = open(str(udir.join('validate_test.txt')), 'w')
-        fd = fid.fileno()
-        assert rposix.is_valid_fd(fd) == 1
-        fid.close()
-        assert rposix.is_valid_fd(fd) == 0
-
     def test_putenv(self):
         from rpython.rlib import rposix_environ
 
