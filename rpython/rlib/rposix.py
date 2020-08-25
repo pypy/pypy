@@ -269,7 +269,7 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 if os.name == 'nt':
     # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
-    # we can replace FdValidator with Suppress_IPH
+    # we can replace FdValidator with SuppressIPH
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
@@ -297,7 +297,7 @@ if os.name == 'nt':
         def __exit__(self, *args):
             c_exit_suppress_iph(self.invalid_param_hndlr)
 
-    class Suppress_IPH(object):
+    class SuppressIPH(object):
 
         def __init__(self):
             pass
@@ -332,7 +332,7 @@ else:
         def __exit__(self, *args):
             pass
 
-    class Suppress_IPH(object):
+    class SuppressIPH(object):
 
         def __init__(self):
             pass
