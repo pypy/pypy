@@ -109,7 +109,7 @@ class AppTestIterator(AppTestCpythonExtensionBase):
             }
             static PyObject *
             sq_repeat(PyObject *self, Py_ssize_t n) {
-                return PyInt_FromLong(144);
+                return PyLong_FromLong(144);
             }
             static PyObject *
             sq_inplace_repeat(PyObject *self, Py_ssize_t n) {

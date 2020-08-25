@@ -1111,11 +1111,11 @@ static slotdef slotdefs[] = {
 
     SQSLOT("__add__", sq_concat, NULL, wrap_binaryfunc,
            "__add__($self, value, /)\n--\n\nReturn self+value."),
-    SQSLOT("__mul__", sq_repeat, NULL, wrap_indexargfunc,
+    SQSLOT("__mul__", sq_repeat, NULL, wrap_ssizeargproc,
            "__mul__($self, value, /)\n--\n\nReturn self*value.n"),
-    SQSLOT("__rmul__", sq_repeat, NULL, wrap_indexargfunc,
+    SQSLOT("__rmul__", sq_repeat, NULL, wrap_ssizeargproc,
            "__rmul__($self, value, /)\n--\n\nReturn self*value."),
-    SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_sq_item,
+    SQSLOT("__getitem__", sq_item, slot_sq_item, wrap_ssizeargproc,
            "__getitem__($self, key, /)\n--\n\nReturn self[key]."),
     SQSLOT("__setitem__", sq_ass_item, slot_sq_ass_item, wrap_sq_setitem,
            "__setitem__($self, key, value, /)\n--\n\nSet self[key] to value."),
@@ -1127,7 +1127,7 @@ static slotdef slotdefs[] = {
            wrap_binaryfunc,
            "__iadd__($self, value, /)\n--\n\nImplement self+=value."),
     SQSLOT("__imul__", sq_inplace_repeat, NULL,
-           wrap_indexargfunc,
+           wrap_ssizeargproc,
            "__imul__($self, value, /)\n--\n\nImplement self*=value."),
 
     {NULL}
