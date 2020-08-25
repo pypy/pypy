@@ -90,11 +90,11 @@ c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
 
 def wrap_fclose_in_del(filep):
-    with rposix.SuppressIPH():
+    with rposix.SuppressIPH_del():
         return c_fclose_in_del(filep)
 
 def wrap_pclose_in_del(filep):
-    with rposix.SuppressIPH():
+    with rposix.SuppressIPH_del():
         return c_pclose_in_del(filep)
 
 _fclose2 = (wrap_fclose, wrap_fclose_in_del)
