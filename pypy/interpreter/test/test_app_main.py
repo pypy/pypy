@@ -670,8 +670,8 @@ class TestNonInteractive:
                 import __pypy__
             except:
                 py.test.skip('app_main cannot run on non-pypy for windows')
-(??)        cmdline = '%s %s "%s" %s %s' % (sys.executable, python_flags,
-(??)                                     app_main, python_flags, cmdline)
+        cmdline = '%s %s "%s" %s %s' % (get_python3(), python_flags,
+                                     app_main, python_flags, cmdline)
         print 'POPEN:', cmdline
         process = subprocess.Popen(
             cmdline,
