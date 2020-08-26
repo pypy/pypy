@@ -53,6 +53,11 @@ HPyAPI_STORAGE double _HPy_IMPL_NAME(Float_AsDouble)(HPyContext ctx, HPy h)
     return PyFloat_AsDouble(_h2py(h));
 }
 
+HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME_NOPREFIX(Length)(HPyContext ctx, HPy h)
+{
+    return PyObject_Length(_h2py(h));
+}
+
 HPyAPI_STORAGE int _HPy_IMPL_NAME(Number_Check)(HPyContext ctx, HPy h)
 {
     return PyNumber_Check(_h2py(h));
@@ -363,6 +368,11 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_FromWideChar)(HPyContext ctx, const wc
     return _py2h(PyUnicode_FromWideChar(w, size));
 }
 
+HPyAPI_STORAGE int _HPy_IMPL_NAME(List_Check)(HPyContext ctx, HPy h)
+{
+    return PyList_Check(_h2py(h));
+}
+
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(List_New)(HPyContext ctx, HPy_ssize_t len)
 {
     return _py2h(PyList_New(len));
@@ -371,6 +381,11 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME(List_New)(HPyContext ctx, HPy_ssize_t len)
 HPyAPI_STORAGE int _HPy_IMPL_NAME(List_Append)(HPyContext ctx, HPy h_list, HPy h_item)
 {
     return PyList_Append(_h2py(h_list), _h2py(h_item));
+}
+
+HPyAPI_STORAGE int _HPy_IMPL_NAME(Dict_Check)(HPyContext ctx, HPy h)
+{
+    return PyDict_Check(_h2py(h));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Dict_New)(HPyContext ctx)

@@ -7,6 +7,8 @@ typedef enum {
     HPyFunc_NOARGS   = 3,  // METH_NOARGS
     HPyFunc_O        = 4,  // METH_O
 
+    HPyFunc_DESTROYFUNC,
+
     HPyFunc_UNARYFUNC,
     HPyFunc_BINARYFUNC,
     HPyFunc_TERNARYFUNC,
@@ -18,7 +20,6 @@ typedef enum {
     HPyFunc_SSIZESSIZEOBJARGPROC,
     HPyFunc_OBJOBJARGPROC,
     HPyFunc_FREEFUNC,
-    HPyFunc_DESTRUCTOR,
     HPyFunc_GETATTRFUNC,
     HPyFunc_GETATTROFUNC,
     HPyFunc_SETATTRFUNC,
@@ -31,6 +32,8 @@ typedef enum {
     HPyFunc_DESCRGETFUNC,
     HPyFunc_DESCRSETFUNC,
     HPyFunc_INITPROC,
+    HPyFunc_GETTER,
+    HPyFunc_SETTER,
 
 } HPyFunc_Signature;
 

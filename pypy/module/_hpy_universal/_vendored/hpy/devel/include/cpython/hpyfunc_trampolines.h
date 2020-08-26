@@ -40,4 +40,24 @@
                                  items, nargs, _py2h(kw)));             \
     }
 
+#define _HPyFunc_TRAMPOLINE_HPyFunc_INITPROC(SYM, IMPL)                 \
+    static int                                                          \
+    SYM(PyObject *self, PyObject *args, PyObject *kw)                   \
+    {                                                                   \
+        /* get the tuple elements as an array of "PyObject *", which */ \
+        /* is equivalent to an array of "HPy" with enough casting... */ \
+        HPy *items = (HPy *)&PyTuple_GET_ITEM(args, 0);                 \
+        Py_ssize_t nargs = PyTuple_GET_SIZE(args);                      \
+        return IMPL(_HPyGetContext(), _py2h(self),                      \
+                    items, nargs, _py2h(kw));                           \
+    }
+
+#define _HPyFunc_TRAMPOLINE_HPyFunc_DESTROYFUNC(SYM, IMPL)              \
+    static void                                                         \
+    SYM(PyObject *self)                                                 \
+    {                                                                   \
+        IMPL(self);                                                     \
+        Py_TYPE(self)->tp_free(self);                                   \
+    }
+
 #endif // HPY_CPYTHON_HPYFUNC_TRAMPOLINES_H

@@ -121,26 +121,24 @@ class Spec(object):
 
 
 class ExtensionCompiler:
-    def __init__(self, tmpdir, abimode, base_dir, compiler_verbose=False,
-                 cpython_include_dirs=None):
+    def __init__(self, tmpdir, hpy_devel, hpy_abi, compiler_verbose=False,
+                 extra_include_dirs=None):
         """
-        base_dir is the directory where to find include/, runtime/src,
-        etc. Usually it will point to hpy/devel/, but alternate implementation
-        can point to their own place.
+        hpy_devel is an instance of HPyDevel which specifies where to find
+        include/, runtime/src, etc. Usually it will point to hpy/devel/, but
+        alternate implementations can point to their own place (e.g. pypy puts
+        it into pypy/module/_hpy_universal/_vendored)
 
-        cpython_include_dirs is a list of dirs where to find Python.h. If None,
-        _build will automatically use the include dirs provided by distutils.
-        Alternate Python implementations can use this to #include their own
-        version of Python.h
+        extra_include_dirs is a list of include dirs which is put BEFORE all
+        others. By default it is empty, but it is used e.g. by PyPy to make
+        sure that #include <Python.h> picks its own version, instead of the
+        system-wide one.
         """
         self.tmpdir = tmpdir
-        self.abimode = abimode
-        self.base_dir = py.path.local(base_dir)
-        self.include_dir = self.base_dir.join('include')
-        self.src_dir = self.base_dir.join('src', 'runtime')
-        self.universal_mode = self.abimode == 'universal'
+        self.hpy_devel = hpy_devel
+        self.hpy_abi = hpy_abi
         self.compiler_verbose = compiler_verbose
-        self.cpython_include_dirs = cpython_include_dirs
+        self.extra_include_dirs = extra_include_dirs
 
     def _expand(self, name, template):
         source = expand_template(template, name)
@@ -159,17 +157,9 @@ class ExtensionCompiler:
         """
         Create and compile a HPy module from the template
         """
+        from distutils.core import Extension
         filename = self._expand(name, main_template)
-        #
-        # XXX: we should probably use hpy.devel.get_sources() to get all the
-        # needed files
-        sources = [
-            str(self.src_dir.join('argparse.c')),
-        ]
-        if self.abimode == 'cpython':
-            sources.append(str(self.src_dir.join('ctx_module.c')))
-            sources.append(str(self.src_dir.join('ctx_type.c')))
-        #
+        sources = [str(filename)]
         for i, template in enumerate(extra_templates):
             extra_filename = self._expand('extmod_%d' % i, template)
             sources.append(extra_filename)
@@ -183,15 +173,17 @@ class ExtensionCompiler:
             '-g',
         ]
         #
-        ext = get_extension(str(filename), name,
-                            sources=sources,
-                            include_dirs=[self.include_dir],
-                            extra_compile_args=compile_args,
-                            extra_link_args=link_args)
+        ext = Extension(
+            name,
+            sources=sources,
+            include_dirs=self.extra_include_dirs,
+            extra_compile_args=compile_args,
+            extra_link_args=link_args)
+
         so_filename = c_compile(str(self.tmpdir), ext,
-                                compiler_verbose=self.compiler_verbose,
-                                universal_mode=self.universal_mode,
-                                cpython_include_dirs=self.cpython_include_dirs)
+                                hpy_devel=self.hpy_devel,
+                                hpy_abi=self.hpy_abi,
+                                compiler_verbose=self.compiler_verbose)
         return so_filename
 
     def make_module(self, main_template, name, extra_templates):
@@ -200,19 +192,19 @@ class ExtensionCompiler:
         is not put into sys.modules
         """
         so_filename = self.compile_module(main_template, name, extra_templates)
-        if self.universal_mode:
+        if self.hpy_abi == 'universal':
             return self.load_universal_module(name, so_filename)
         else:
             return self.load_cython_module(name, so_filename)
 
     def load_universal_module(self, name, so_filename):
-        assert self.abimode == 'universal'
+        assert self.hpy_abi == 'universal'
         import hpy.universal
         spec = Spec(name, so_filename)
         return hpy.universal.load_from_spec(spec)
 
     def load_cython_module(self, name, so_filename):
-        assert self.abimode == 'cpython'
+        assert self.hpy_abi == 'cpython'
         # we've got a normal CPython module compiled with the CPython API/ABI,
         # let's load it normally. It is important to do the imports only here,
         # because this file will be imported also by PyPy tests which runs on
@@ -242,20 +234,11 @@ class HPyTest:
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
 
-def get_extension(srcfilename, modname, sources=(), **kwds):
-    from distutils.core import Extension
-    allsources = [srcfilename]
-    for src in sources:
-        allsources.append(os.path.normpath(src))
-    return Extension(name=modname, sources=allsources, **kwds)
-
-def c_compile(tmpdir, ext, compiler_verbose=0, debug=None,
-              universal_mode=False, cpython_include_dirs=None):
+def c_compile(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     """Compile a C extension module using distutils."""
     saved_environ = os.environ.copy()
     try:
-        outputfilename = _build(tmpdir, ext, compiler_verbose, debug,
-                                universal_mode, cpython_include_dirs)
+        outputfilename = _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose, debug)
         outputfilename = os.path.abspath(outputfilename)
     finally:
         # workaround for a distutils bugs where some env vars can
@@ -265,13 +248,12 @@ def c_compile(tmpdir, ext, compiler_verbose=0, debug=None,
                 os.environ[key] = value
     return outputfilename
 
-def _build(tmpdir, ext, compiler_verbose=0, debug=None, universal_mode=False,
-           cpython_include_dirs=None):
+def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     # XXX compact but horrible :-(
     from distutils.core import Distribution
     import distutils.errors, distutils.log
     #
-    dist = Distribution({'ext_modules': [ext]})
+    dist = Distribution()
     dist.parse_config_files()
     options = dist.get_option_dict('build_ext')
     if debug is None:
@@ -281,44 +263,17 @@ def _build(tmpdir, ext, compiler_verbose=0, debug=None, universal_mode=False,
     options['build_lib'] = ('ffiplatform', tmpdir)
     options['build_temp'] = ('ffiplatform', tmpdir)
     #
+    # this is the equivalent of passing --hpy-abi from setup.py's command line
+    dist.hpy_abi = hpy_abi
+    hpy_devel.fix_distribution(dist, hpy_ext_modules=[ext])
+    #
     old_level = distutils.log.set_threshold(0) or 0
     try:
         distutils.log.set_verbosity(compiler_verbose)
-        if universal_mode:
-            cmd_obj = dist.get_command_obj('build_ext')
-            cmd_obj.finalize_options()
-            if cpython_include_dirs is None:
-                cpython_include_dirs = cmd_obj.include_dirs
-            soname = _build_universal(tmpdir, ext, cpython_include_dirs)
-        else:
-            dist.run_command('build_ext')
-            cmd_obj = dist.get_command_obj('build_ext')
-            [soname] = cmd_obj.get_outputs()
+        dist.run_command('build_ext')
+        cmd_obj = dist.get_command_obj('build_ext')
+        [soname] = cmd_obj.get_outputs()
     finally:
         distutils.log.set_threshold(old_level)
     #
     return soname
-
-def _build_universal(tmpdir, ext, cpython_include_dirs):
-    from distutils.ccompiler import new_compiler, get_default_compiler
-    from distutils.sysconfig import customize_compiler
-
-    compiler = new_compiler(get_default_compiler())
-    customize_compiler(compiler)
-
-    include_dirs = ext.include_dirs + cpython_include_dirs
-    objects = compiler.compile(ext.sources,
-                               output_dir=tmpdir,
-                               macros=[('HPY_UNIVERSAL_ABI', None)],
-                               include_dirs=include_dirs,
-                               extra_preargs=ext.extra_compile_args)
-
-    filename = ext.name + '.hpy.so'
-    compiler.link(compiler.SHARED_LIBRARY,
-                  objects,
-                  filename,
-                  tmpdir,
-                  extra_preargs=ext.extra_link_args,
-                  # export_symbols=...
-                  )
-    return os.path.join(tmpdir, filename)

@@ -74,6 +74,7 @@ typedef struct _HPyContext_s {
     void * ctx_Long_AsLong;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
+    void * ctx_Length;
     void * ctx_Number_Check;
     void * ctx_Add;
     void * ctx_Subtract;
@@ -145,15 +146,23 @@ typedef struct _HPyContext_s {
     void * ctx_Unicode_Check;
     void * ctx_Unicode_AsUTF8String;
     void * ctx_Unicode_FromWideChar;
+    void * ctx_List_Check;
     void * ctx_List_New;
     void * ctx_List_Append;
+    void * ctx_Dict_Check;
     void * ctx_Dict_New;
     void * ctx_Dict_SetItem;
     void * ctx_Dict_GetItem;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
+    void * ctx_CallDestroyAndThenDealloc;
+    void * ctx_ListBuilder_New;
+    void * ctx_ListBuilder_Set;
+    void * ctx_ListBuilder_Build;
+    void * ctx_ListBuilder_Cancel;
 } _struct_HPyContext_s;
+
 typedef struct _HPyContext_s *HPyContext;
 
 typedef HPy (*HPyInitFunc)(HPyContext ctx);

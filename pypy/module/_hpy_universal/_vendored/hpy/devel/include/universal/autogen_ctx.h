@@ -33,6 +33,7 @@ struct _HPyContext_s {
     long (*ctx_Long_AsLong)(HPyContext ctx, HPy h);
     HPy (*ctx_Float_FromDouble)(HPyContext ctx, double v);
     double (*ctx_Float_AsDouble)(HPyContext ctx, HPy h);
+    HPy_ssize_t (*ctx_Length)(HPyContext ctx, HPy h);
     int (*ctx_Number_Check)(HPyContext ctx, HPy h);
     HPy (*ctx_Add)(HPyContext ctx, HPy h1, HPy h2);
     HPy (*ctx_Subtract)(HPyContext ctx, HPy h1, HPy h2);
@@ -104,12 +105,19 @@ struct _HPyContext_s {
     int (*ctx_Unicode_Check)(HPyContext ctx, HPy h);
     HPy (*ctx_Unicode_AsUTF8String)(HPyContext ctx, HPy h);
     HPy (*ctx_Unicode_FromWideChar)(HPyContext ctx, const wchar_t *w, HPy_ssize_t size);
+    int (*ctx_List_Check)(HPyContext ctx, HPy h);
     HPy (*ctx_List_New)(HPyContext ctx, HPy_ssize_t len);
     int (*ctx_List_Append)(HPyContext ctx, HPy h_list, HPy h_item);
+    int (*ctx_Dict_Check)(HPyContext ctx, HPy h);
     HPy (*ctx_Dict_New)(HPyContext ctx);
     int (*ctx_Dict_SetItem)(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val);
     HPy (*ctx_Dict_GetItem)(HPyContext ctx, HPy h_dict, HPy h_key);
     HPy (*ctx_FromPyObject)(HPyContext ctx, cpy_PyObject *obj);
     cpy_PyObject *(*ctx_AsPyObject)(HPyContext ctx, HPy h);
     void (*ctx_CallRealFunctionFromTrampoline)(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args);
+    void (*ctx_CallDestroyAndThenDealloc)(HPyContext ctx, void *func, cpy_PyObject *self);
+    HPyListBuilder (*ctx_ListBuilder_New)(HPyContext ctx, HPy_ssize_t initial_size);
+    void (*ctx_ListBuilder_Set)(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item);
+    HPy (*ctx_ListBuilder_Build)(HPyContext ctx, HPyListBuilder builder);
+    void (*ctx_ListBuilder_Cancel)(HPyContext ctx, HPyListBuilder builder);
 };

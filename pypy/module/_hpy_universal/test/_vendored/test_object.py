@@ -443,3 +443,20 @@ class TestObject(HPyTest):
 
         with pytest.raises(TypeError):
             mod.f([])
+
+    def test_length(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                HPy_ssize_t result;
+                result = HPy_Length(ctx, arg);
+                if (result < 0)
+                    return HPy_NULL;
+                return HPyLong_FromSsize_t(ctx, result);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f([5,6,7,8]) == 4
+        assert mod.f({"a": 1}) == 1

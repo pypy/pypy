@@ -56,6 +56,10 @@ static inline double HPyFloat_AsDouble(HPyContext ctx, HPy h) {
      return ctx->ctx_Float_AsDouble ( ctx, h ); 
 }
 
+static inline HPy_ssize_t HPy_Length(HPyContext ctx, HPy h) {
+     return ctx->ctx_Length ( ctx, h ); 
+}
+
 static inline int HPyNumber_Check(HPyContext ctx, HPy h) {
      return ctx->ctx_Number_Check ( ctx, h ); 
 }
@@ -336,12 +340,20 @@ static inline HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_
      return ctx->ctx_Unicode_FromWideChar ( ctx, w, size ); 
 }
 
+static inline int HPyList_Check(HPyContext ctx, HPy h) {
+     return ctx->ctx_List_Check ( ctx, h ); 
+}
+
 static inline HPy HPyList_New(HPyContext ctx, HPy_ssize_t len) {
      return ctx->ctx_List_New ( ctx, len ); 
 }
 
 static inline int HPyList_Append(HPyContext ctx, HPy h_list, HPy h_item) {
      return ctx->ctx_List_Append ( ctx, h_list, h_item ); 
+}
+
+static inline int HPyDict_Check(HPyContext ctx, HPy h) {
+     return ctx->ctx_Dict_Check ( ctx, h ); 
 }
 
 static inline HPy HPyDict_New(HPyContext ctx) {
@@ -366,5 +378,25 @@ static inline cpy_PyObject *HPy_AsPyObject(HPyContext ctx, HPy h) {
 
 static inline void _HPy_CallRealFunctionFromTrampoline(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args) {
      ctx->ctx_CallRealFunctionFromTrampoline ( ctx, sig, func, args ); 
+}
+
+static inline void _HPy_CallDestroyAndThenDealloc(HPyContext ctx, void *func, cpy_PyObject *self) {
+     ctx->ctx_CallDestroyAndThenDealloc ( ctx, func, self ); 
+}
+
+static inline HPyListBuilder HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size) {
+     return ctx->ctx_ListBuilder_New ( ctx, initial_size ); 
+}
+
+static inline void HPyListBuilder_Set(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item) {
+     ctx->ctx_ListBuilder_Set ( ctx, builder, index, h_item ); 
+}
+
+static inline HPy HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder) {
+     return ctx->ctx_ListBuilder_Build ( ctx, builder ); 
+}
+
+static inline void HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder) {
+     ctx->ctx_ListBuilder_Cancel ( ctx, builder ); 
 }
 

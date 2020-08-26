@@ -30,6 +30,7 @@
 #define HPyAPI_RUNTIME_FUNC(restype) _HPy_HIDDEN restype
 
 typedef struct { PyObject *_o; } HPy;
+typedef struct { HPy _lst; } HPyListBuilder;
 typedef Py_ssize_t HPy_ssize_t;
 typedef Py_hash_t HPy_hash_t;
 
@@ -138,6 +139,7 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
 #include "../common/hpymodule.h"
 #include "../common/runtime/ctx_module.h"
 #include "../common/runtime/ctx_type.h"
+#include "../common/runtime/ctx_listbuilder.h"
 
 
 HPyAPI_FUNC(HPy)
@@ -168,6 +170,31 @@ HPyAPI_FUNC(void*)
 _HPy_Cast(HPyContext ctx, HPy h)
 {
     return ctx_Cast(ctx, h);
+}
+
+HPyAPI_FUNC(HPyListBuilder)
+HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
+{
+    return ctx_ListBuilder_New(ctx, initial_size);
+}
+
+HPyAPI_FUNC(void)
+HPyListBuilder_Set(HPyContext ctx, HPyListBuilder builder,
+                   HPy_ssize_t index, HPy h_item)
+{
+    ctx_ListBuilder_Set(ctx, builder, index, h_item);
+}
+
+HPyAPI_FUNC(HPy)
+HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder)
+{
+    return ctx_ListBuilder_Build(ctx, builder);
+}
+
+HPyAPI_FUNC(void)
+HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)
+{
+    ctx_ListBuilder_Cancel(ctx, builder);
 }
 
 #endif /* !HPy_CPYTHON_H */

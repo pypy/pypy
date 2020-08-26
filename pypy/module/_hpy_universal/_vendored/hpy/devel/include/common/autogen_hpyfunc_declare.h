@@ -23,7 +23,6 @@
 #define _HPyFunc_DECLARE_HPyFunc_SSIZESSIZEOBJARGPROC(SYM) static int SYM(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_OBJOBJARGPROC(SYM) static int SYM(HPyContext ctx, HPy, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_FREEFUNC(SYM) static void SYM(HPyContext ctx, void *)
-#define _HPyFunc_DECLARE_HPyFunc_DESTRUCTOR(SYM) static void SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_GETATTRFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, char *)
 #define _HPyFunc_DECLARE_HPyFunc_GETATTROFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_SETATTRFUNC(SYM) static int SYM(HPyContext ctx, HPy, char *, HPy)
@@ -35,7 +34,10 @@
 #define _HPyFunc_DECLARE_HPyFunc_ITERNEXTFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESCRGETFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESCRSETFUNC(SYM) static int SYM(HPyContext ctx, HPy, HPy, HPy)
-#define _HPyFunc_DECLARE_HPyFunc_INITPROC(SYM) static int SYM(HPyContext ctx, HPy, HPy, HPy)
+#define _HPyFunc_DECLARE_HPyFunc_INITPROC(SYM) static int SYM(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw)
+#define _HPyFunc_DECLARE_HPyFunc_GETTER(SYM) static HPy SYM(HPyContext ctx, HPy, void *)
+#define _HPyFunc_DECLARE_HPyFunc_SETTER(SYM) static int SYM(HPyContext ctx, HPy, HPy, void *)
+#define _HPyFunc_DECLARE_HPyFunc_DESTROYFUNC(SYM) static void SYM(void *)
 
 typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
 typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
@@ -52,7 +54,6 @@ typedef int (*HPyFunc_ssizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy);
 typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
 typedef int (*HPyFunc_objobjargproc)(HPyContext ctx, HPy, HPy, HPy);
 typedef void (*HPyFunc_freefunc)(HPyContext ctx, void *);
-typedef void (*HPyFunc_destructor)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_getattrfunc)(HPyContext ctx, HPy, char *);
 typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
 typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
@@ -64,4 +65,7 @@ typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
 typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
+typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
+typedef void (*HPyFunc_destroyfunc)(void *);

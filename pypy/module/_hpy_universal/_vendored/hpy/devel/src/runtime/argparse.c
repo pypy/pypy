@@ -2,11 +2,11 @@
 
 #define _BREAK_IF_OPTIONAL(current_arg) if (HPy_IsNull(current_arg)) break;
 
-int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list vl)
+int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list *vl)
 {
     switch (*(*fmt)++) {
     case 'i': {
-        int *output = va_arg(vl, int *);
+        int *output = va_arg(*vl, int *);
         _BREAK_IF_OPTIONAL(current_arg);
         long value = HPyLong_AsLong(ctx, current_arg);
         if (value == -1 && HPyErr_Occurred(ctx))
@@ -15,7 +15,7 @@ int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list
         break;
     }
     case 'l': {
-        long *output = va_arg(vl, long *);
+        long *output = va_arg(*vl, long *);
         _BREAK_IF_OPTIONAL(current_arg);
         long value = HPyLong_AsLong(ctx, current_arg);
         if (value == -1 && HPyErr_Occurred(ctx))
@@ -24,7 +24,7 @@ int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list
         break;
     }
     case 'd': {
-        double* output = va_arg(vl, double *);
+        double* output = va_arg(*vl, double *);
         _BREAK_IF_OPTIONAL(current_arg);
         double value = HPyFloat_AsDouble(ctx, current_arg);
         if (value == -1.0 && HPyErr_Occurred(ctx))
@@ -33,7 +33,7 @@ int _HPyArg_ParseItem(HPyContext ctx, HPy current_arg, const char **fmt, va_list
         break;
     }
     case 'O': {
-        HPy *output = va_arg(vl, HPy *);
+        HPy *output = va_arg(*vl, HPy *);
         _BREAK_IF_OPTIONAL(current_arg);
         *output = current_arg;
         break;
@@ -66,7 +66,7 @@ HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
           current_arg = args[i];
         }
         if (!HPy_IsNull(current_arg) || optional) {
-          if (!_HPyArg_ParseItem(ctx, current_arg, &fmt1, vl)) {
+          if (!_HPyArg_ParseItem(ctx, current_arg, &fmt1, &vl)) {
             return 0;
           }
         }
@@ -138,7 +138,7 @@ HPyArg_ParseKeywords(HPyContext ctx, HPy *args, HPy_ssize_t nargs, HPy kw,
         current_arg = HPyDict_GetItem(ctx, kw, HPyUnicode_FromString(ctx, keywords[i]));
       }
       if (!HPy_IsNull(current_arg) || optional) {
-        if (!_HPyArg_ParseItem(ctx, current_arg, &fmt1, vl)) {
+        if (!_HPyArg_ParseItem(ctx, current_arg, &fmt1, &vl)) {
           return 0;
         }
       }

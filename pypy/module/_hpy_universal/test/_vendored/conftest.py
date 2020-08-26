@@ -7,16 +7,16 @@ def pytest_addoption(parser):
         help="Print to stdout the commands used to invoke the compiler")
 
 @pytest.fixture(scope='session')
-def hpy_base_dir(request):
-    from hpy.devel import get_base_dir
-    return get_base_dir()
+def hpy_devel(request):
+    from hpy.devel import HPyDevel
+    return HPyDevel()
 
 @pytest.fixture(params=['cpython', 'universal'])
-def abimode(request):
+def hpy_abi(request):
     return request.param
 
 @pytest.fixture
-def compiler(request, tmpdir, abimode, hpy_base_dir):
+def compiler(request, tmpdir, hpy_devel, hpy_abi):
     compiler_verbose = request.config.getoption('--compiler-v')
-    return ExtensionCompiler(tmpdir, abimode, hpy_base_dir,
+    return ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                              compiler_verbose=compiler_verbose)

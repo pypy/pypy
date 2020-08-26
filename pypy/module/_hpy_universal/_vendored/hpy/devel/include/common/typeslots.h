@@ -47,12 +47,12 @@ typedef enum {
     HPy_sq_item = 44,
     HPy_sq_length = 45,
     HPy_sq_repeat = 46,
-    HPy_tp_alloc = 47,
+    /*HPy_tp_alloc = 47,*/
     HPy_tp_base = 48,
     HPy_tp_bases = 49,
     HPy_tp_call = 50,
     HPy_tp_clear = 51,
-    HPy_tp_dealloc = 52,
+    /*HPy_tp_dealloc = 52,*/
     HPy_tp_del = 53,
     HPy_tp_descr_get = 54,
     HPy_tp_descr_set = 55,
@@ -64,7 +64,7 @@ typedef enum {
     HPy_tp_is_gc = 61,
     HPy_tp_iter = 62,
     HPy_tp_iternext = 63,
-    HPy_tp_methods = 64,
+    /*HPy_tp_methods = 64,*/
     HPy_tp_new = 65,
     HPy_tp_repr = 66,
     HPy_tp_richcompare = 67,
@@ -72,15 +72,18 @@ typedef enum {
     HPy_tp_setattro = 69,
     HPy_tp_str = 70,
     HPy_tp_traverse = 71,
-    HPy_tp_members = 72,
-    HPy_tp_getset = 73,
-    HPy_tp_free = 74,
+    /*HPy_tp_members = 72,*/
+    /*HPy_tp_getset = 73,*/
+    /*HPy_tp_free = 74,*/
     HPy_nb_matrix_multiply = 75,
     HPy_nb_inplace_matrix_multiply = 76,
     HPy_am_await = 77,
     HPy_am_aiter = 78,
     HPy_am_anext = 79,
-    HPy_tp_finalize = 80
+    HPy_tp_finalize = 80,
+
+    /* extra HPy slots */
+    HPy_tp_destroy = 1000,
 } HPySlot_Slot;
 
 #endif // HPY_UNIVERSAL_TYPESLOTS_H
