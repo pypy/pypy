@@ -361,13 +361,17 @@ class AppTestTime:
 
     def test_strftime_bounds_checking(self):
         import time
+        import os
 
         # make sure that strftime() checks the bounds of the various parts
         # of the time tuple.
 
         # check year
         time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-        time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+        if os.name == 'nt':
+            raises(ValueError(time.strftime, '', (0, 1, 1, 0, 0, 0, 0, 1, -1)))
+        else:
+            time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
         # check month
         raises(ValueError, time.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
@@ -396,8 +400,6 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strftime_nonascii(self):
-        skip("unsure but I think this would also fail on CPython 3.x "
-             "on systems without wcsftime() (same reason)")
         import _locale
         prev_loc = _locale.setlocale(_locale.LC_TIME)
         try:
