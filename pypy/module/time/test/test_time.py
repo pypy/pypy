@@ -1,3 +1,10 @@
+import pytest
+from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
+
+YEAR_10000_CRASHES = False
+if libc_name == 'msvcr90.dll':
+    YEAR_10000_CRASHES = True
+
 class AppTestTime:
     spaceconfig = {
         "usemodules": ['time', 'struct', 'binascii', 'signal'],
@@ -385,6 +392,15 @@ class AppTestTime:
                 del os.environ['TZ']
             time.tzset()
 
+    @pytest.mark.skipif(YEAR_10000_CRASHES, reason='MSVC<10 crashes unconditionally')
+    def test_large_year_does_not_crash(self):
+        # may fail on windows but should not crash
+        import time
+        try:
+            time.strftime('%Y', (10000, 0, 0, 0, 0, 0, 0, 0, 0))
+        except ValueError:
+            pass
+
     def test_strftime(self):
         import time
         import os, sys
@@ -436,13 +452,17 @@ class AppTestTime:
 
     def test_strftime_bounds_checking(self):
         import time
+        import os
 
         # make sure that strftime() checks the bounds of the various parts
         # of the time tuple.
 
         # check year
         time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-        time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+        if os.name == 'nt':
+            raises(ValueError(time.strftime, '', (0, 1, 1, 0, 0, 0, 0, 1, -1)))
+        else:
+            time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
         # check month
         raises(ValueError, time.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
@@ -471,8 +491,6 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     def test_strftime_nonascii(self):
-        skip("unsure but I think this would also fail on CPython 3.x "
-             "on systems without wcsftime() (same reason)")
         import _locale
         prev_loc = _locale.setlocale(_locale.LC_TIME)
         try:

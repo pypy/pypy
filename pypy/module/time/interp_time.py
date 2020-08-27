@@ -5,7 +5,8 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.interpreter.unicodehelper import (
+    decode_utf8sp, utf8_encode_utf_16, str_decode_utf_16)
 from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
@@ -386,7 +387,11 @@ if _WIN:
                             [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
-c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+if _WIN:
+    strftime_call = 'wcsftime'
+else:
+    strftime_call = 'strftime'
+c_strftime = external(strftime_call, [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_timezone(space):
@@ -951,49 +956,55 @@ def strftime(space, format, w_tup=None):
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
     if _WIN:
-        # Check that the format string contains only valid directives
-        # We don't really need this. Instead we could use a FdValidator to wrap
-        # the call to c_strftime so that a failure does not crash the process,
-        # and then check the error code after the call to c_strftime (when
-        # buf==0), which is what CPython does.
-        #
-        # We use this pre-call check since, when untranslated, since the host
-        # python and the c_strftime use different runtimes, and the c_strftime
-        # call goes through the ctypes call of the host python's runtime, which
-        # is different than the FdValidator runtime.
-        # See the msvcrt branch ...
-        fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
-        if we_are_translated():
-            # Visual 2005+
-            fmts = fmts + 'ADFgGhnrRtTuV'
-        length = len(format)
-        i = 0
-        while i < length:
-            if format[i] == '%':
-                i += 1
-                if i < length and format[i] == '#':
-                    # not documented by python
-                    i += 1
-                # Assume visual studio 2015
-                if i >= length or format[i] not in fmts:
-                    raise oefmt(space.w_ValueError, "invalid format string")
-            i += 1
+        tm_year = rffi.getintfield(buf_value, 'c_tm_year')
+        if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
+            raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
+     
+        if not we_are_translated():
+            # We use this pre-call check since, when untranslated, since the host
+            # python and the c_strftime use different runtimes, and the c_strftime
+            # call goes through the ctypes call of the host python's runtime, which
+            # can be different than the translated runtime
 
-    format = utf8_encode_locale_surrogateescape(format, len(format))
+            # Remove this when we no longer allow msvcrt9
+            fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
+            length = len(format)
+            i = 0
+            while i < length:
+                if format[i] == '%':
+                    i += 1
+                    if i < length and format[i] == '#':
+                        # not documented by python
+                        i += 1
+                    # Assume visual studio 2015
+                    if i >= length or format[i] not in fmts:
+                        raise oefmt(space.w_ValueError, "invalid format string")
+                i += 1
+        # utf8_encode_utf_16 prefixes the BOM
+        format_for_call = utf8_encode_utf_16(format, 'strict', None, True)[2:]
+    else:
+        format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
     i = 1024
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
         try:
-            buflen = c_strftime(outbuf, i, format, buf_value)
+            with rposix.SuppressIPH():
+                buflen = c_strftime(outbuf, i, format_for_call, buf_value)
             if buflen > 0 or i >= 256 * len(format):
                 # if the buffer is 256 times as long as the format,
                 # it's probably not failing for lack of room!
                 # More likely, the format yields an empty result,
                 # e.g. an empty format, or %Z when the timezone
                 # is unknown.
-                result = rffi.charp2strn(outbuf, intmask(buflen))
-                decoded, size = str_decode_locale_surrogateescape(result)
+                if _WIN:
+                    wcharp = rffi.cast(rffi.CWCHARP, outbuf)
+                    decoded, size = rffi.wcharp2utf8n(wcharp, intmask(buflen))
+                else:
+                    result = rffi.charp2strn(outbuf, intmask(buflen))
+                    decoded, size = str_decode_locale_surrogateescape(result)
                 return space.newutf8(decoded, size)
+            if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                raise oefmt(space.w_ValueError, "invalid format string")
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i
