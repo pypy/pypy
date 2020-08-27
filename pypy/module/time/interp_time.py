@@ -6,8 +6,10 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import math
+
+import errno
 import os
+import math
 import sys
 import time as pytime
 
