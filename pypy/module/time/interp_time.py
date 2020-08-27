@@ -16,9 +16,10 @@ from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-from rpython.rlib.objectmodel import we_are_translated
-import math
+
+import errno
 import os
+import math
 import sys
 import time as pytime
 
