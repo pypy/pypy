@@ -15,7 +15,7 @@ from rpython.rlib.rarithmetic import (
     r_longlong, intmask, r_uint, r_int, INT_MIN, INT_MAX)
 
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter.buffer import BufferInterfaceNotFound
@@ -2523,6 +2523,22 @@ if _WIN32:
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
         return space.newtext(s, lgt)
+
+    @unwrap_spec(fd=c_int)
+    def get_handle_inheritable(space, fd):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            return space.newbool(rwin32.get_handle_inheritable(handle))
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+
+    @unwrap_spec(fd=c_int, inheritable=bool)
+    def set_handle_inheritable(space, fd, inheritable):
+        handle = rffi.cast(rwin32.HANDLE, fd)
+        try:
+            rwin32.set_handle_inheritable(handle, inheritable)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
 
 
 def chflags():

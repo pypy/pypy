@@ -188,6 +188,8 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs.update({
                 '_getfileinformation': 'interp_posix._getfileinformation',
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
+                'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
+                'set_handle_inheritable': 'interp_posix.set_handle_inheritable',
         })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'

@@ -1696,6 +1696,23 @@ class AppTestPosix:
         retP = [x.name for x in self.posix.scandir(self.Path('.'))]
         assert retU == retP
 
+@py.test.mark.skipif("sys.platform != 'win32'")
+class AppTestNt(object):
+    spaceconfig = {'usemodules': ['posix', '_socket']}
+    def setup_class(cls):
+        cls.w_path = space.wrap(str(path))
+        cls.w_posix = space.appexec([], GET_POSIX)
+
+    def test_handle_inheritable(self):
+        import _socket
+        posix = self.posix
+        if hasattr(posix, 'get_handle_inheritable'):
+            # PEP 446, python 3.4+
+            s = _socket.socket()
+            assert not posix.get_handle_inheritable(s.fileno())
+            posix.set_handle_inheritable(s.fileno(), True)
+            assert posix.get_handle_inheritable(s.fileno())
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
