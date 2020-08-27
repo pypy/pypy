@@ -6,6 +6,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.objectmodel import we_are_translated
 
 import errno
 import os
