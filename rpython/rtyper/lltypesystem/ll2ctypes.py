@@ -1169,6 +1169,8 @@ if ctypes:
         rtld_default_lib = ctypes.CDLL("ld-elf.so.1", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
+else:
+    libc_name = 'no ctypes'
 
 # ____________________________________________
 
