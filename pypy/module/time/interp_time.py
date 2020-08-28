@@ -390,10 +390,10 @@ if _WIN:
                             rffi.INT, win_eci, calling_conv='c')
 
 if _WIN:
-    strftime_call = 'wcsftime'
+    c_strftime = external('wcsftime', [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
+                      rffi.SIZE_T)
 else:
-    strftime_call = 'strftime'
-c_strftime = external(strftime_call, [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+    c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_timezone(space):
@@ -957,6 +957,7 @@ def strftime(space, format, w_tup=None):
     rffi.setintfield(buf_value, "c_tm_year",
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
+    i = 1024
     if _WIN:
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
@@ -982,34 +983,39 @@ def strftime(space, format, w_tup=None):
                     if i >= length or format[i] not in fmts:
                         raise oefmt(space.w_ValueError, "invalid format string")
                 i += 1
-        # utf8_encode_utf_16 prefixes the BOM
-        format_for_call = utf8_encode_utf_16(format, 'strict', None, True)[2:]
+        # wcharp with track_allocation=True
+        format_for_call = rffi.utf82wcharp(format, len(format))
     else:
         format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
-    i = 1024
-    while True:
-        outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
-        try:
-            with rposix.SuppressIPH():
-                buflen = c_strftime(outbuf, i, format_for_call, buf_value)
-            if buflen > 0 or i >= 256 * len(format):
-                # if the buffer is 256 times as long as the format,
-                # it's probably not failing for lack of room!
-                # More likely, the format yields an empty result,
-                # e.g. an empty format, or %Z when the timezone
-                # is unknown.
-                if _WIN:
-                    wcharp = rffi.cast(rffi.CWCHARP, outbuf)
-                    decoded, size = rffi.wcharp2utf8n(wcharp, intmask(buflen))
-                else:
-                    result = rffi.charp2strn(outbuf, intmask(buflen))
-                    decoded, size = str_decode_locale_surrogateescape(result)
-                return space.newutf8(decoded, size)
-            if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
-                raise oefmt(space.w_ValueError, "invalid format string")
-        finally:
-            lltype.free(outbuf, flavor='raw')
-        i += i
+    try:
+        while True:
+            if _WIN:
+                outbuf = lltype.malloc(rffi.CWCHARP.TO, i, flavor='raw')
+            else:
+                outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
+            try:
+                with rposix.SuppressIPH():
+                    buflen = c_strftime(outbuf, i, format_for_call, buf_value)
+                if buflen > 0 or i >= 256 * len(format):
+                    # if the buffer is 256 times as long as the format,
+                    # it's probably not failing for lack of room!
+                    # More likely, the format yields an empty result,
+                    # e.g. an empty format, or %Z when the timezone
+                    # is unknown.
+                    if _WIN:
+                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
+                    else:
+                        result = rffi.charp2strn(outbuf, intmask(buflen))
+                        decoded, size = str_decode_locale_surrogateescape(result)
+                    return space.newutf8(decoded, size)
+                if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                    raise oefmt(space.w_ValueError, "invalid format string")
+            finally:
+                lltype.free(outbuf, flavor='raw')
+            i += i
+    finally:
+        if _WIN:
+            rffi.free_wcharp(format_for_call)
 
 if HAS_MONOTONIC:
     if _WIN:

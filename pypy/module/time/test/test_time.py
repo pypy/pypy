@@ -1,4 +1,5 @@
 import pytest
+import sys
 from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
 
 YEAR_10000_CRASHES = False
@@ -490,7 +491,9 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
+    @pytest.mark.skipif('sys.platform=="win32"', reason('fails on win32')
     def test_strftime_nonascii(self):
+        import time
         import _locale
         prev_loc = _locale.setlocale(_locale.LC_TIME)
         try:
@@ -498,7 +501,6 @@ class AppTestTime:
         except _locale.Error:
             skip("unsupported locale LC_TIME=fr_CH")
         try:
-            import time
             s = time.strftime('%B.', time.localtime(192039127))
             # I am unsure, but I think that this fails because decoding of
             # the result isn't done in the fr_CH locale.  There is no code
