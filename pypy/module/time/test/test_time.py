@@ -491,7 +491,7 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
-    @pytest.mark.skipif('sys.platform=="win32"', reason('fails on win32')
+    @pytest.mark.skipif('sys.platform=="win32"', reason='fails on win32')
     def test_strftime_nonascii(self):
         import time
         import _locale
