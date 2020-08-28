@@ -186,8 +186,9 @@ class Y1900Tests(unittest.TestCase):
 
     def test_y_before_1900(self):
         # Issue #13674, #19634
+        # PyPy uses wcsftime on windows, see timemodule.c
         t = (1899, 1, 1, 0, 0, 0, 0, 0, 0)
-        if (sys.platform == "win32"
+        if (0 # sys.platform == "win32"
         or sys.platform.startswith(("aix", "sunos", "solaris"))):
             with self.assertRaises(ValueError):
                 time.strftime("%y", t)
