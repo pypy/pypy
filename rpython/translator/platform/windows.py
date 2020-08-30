@@ -176,7 +176,7 @@ class MsvcPlatform(Platform):
 
     cflags = ('/MD', '/O2', '/FS', '/Zi')
     # allow >2GB address space, set stack to 3MB (1MB is too small)
-    link_flags = ('/debug','/LARGEADDRESSAWARE', '/STACK:3145728)
+    link_flags = ('/debug','/LARGEADDRESSAWARE', '/STACK:3145728')
     standalone_only = ()
     shared_only = ()
     environ = None
