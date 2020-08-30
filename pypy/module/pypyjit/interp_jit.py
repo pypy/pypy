@@ -198,11 +198,13 @@ exiting (blackhole) steps, but just not from the final assembler.
 
 Note that the return value of the callable is ignored, because
 there is no reasonable way to guess what it should be in case the
-function is not called.
+function is not called.  Instead, calling the callable returns
+the callable itself, for convenience (see below).
 
 This is meant to be used notably in sys.settrace() for coverage-
 like tools.  For that purpose, if g = not_from_assembler(f), then
-'g(*args)' may call 'f(*args)' but it always return g itself.
+'g(*args)' may call 'f(*args)' or not.  As g() always returns g
+itself, you can directly set sys.settrace(g).
 """,
     __new__ = interp2app(not_from_assembler_new),
     __call__ = interp2app(W_NotFromAssembler.descr_call),
@@ -252,7 +254,7 @@ def trace_next_iteration_hash(space, hash):
 
 # def set_compile_loop(space, w_hook):
 #     from rpython.rlib.nonconst import NonConstant
-    
+
 #     cache = space.fromcache(Cache)
 #     assert w_hook is not None
 #     cache.w_compile_loop = w_hook
