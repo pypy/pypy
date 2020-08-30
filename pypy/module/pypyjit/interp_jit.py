@@ -238,6 +238,10 @@ def trace_next_iteration_hash(space, hash):
     jit_hooks.trace_next_iteration_hash('pypyjit', hash)
     return space.w_None
 
+@dont_look_inside
+def releaseall(space):
+    jit_hooks.stats_memmgr_release_all(None)
+
 # class Cache(object):
 #     in_recursion = False
 
@@ -252,7 +256,7 @@ def trace_next_iteration_hash(space, hash):
 
 # def set_compile_loop(space, w_hook):
 #     from rpython.rlib.nonconst import NonConstant
-    
+
 #     cache = space.fromcache(Cache)
 #     assert w_hook is not None
 #     cache.w_compile_loop = w_hook
