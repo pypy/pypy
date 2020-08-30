@@ -254,12 +254,11 @@ class AppTestRecompilerPython:
         from re_python_pysrc import ffi
         ffi.new("selfref_ptr_t")
 
+    @py.test.mark.skipif('WIN32', reason='uses "dl" explicitly')
     def test_dlopen_handle(self):
         import _cffi_backend, sys
         self.fix_path()
         from re_python_pysrc import ffi
-        if self.dl_libpath is None:
-            py.test.skip("uses 'dl' explicitly")
         lib1 = ffi.dlopen(self.dl_libpath)
         handle = lib1.dlopen(self.extmod.encode(sys.getfilesystemencoding()),
                              _cffi_backend.RTLD_LAZY)

@@ -85,6 +85,8 @@ class AppTestC(object):
                 else:
                     import ctypes.util
                     path = ctypes.util.find_library(space.text_w(w_name))
+                if path is None:
+                    py.test.skip("cannot find library '%s'" % (space.str_w(w_name),))
                 return space.appexec([space.wrap(path), w_is_global],
                 """(path, is_global):
                     import _cffi_backend

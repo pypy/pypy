@@ -1,3 +1,19 @@
+import py
+import pytest
+
+def _setup_path():
+    import os, sys
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+_setup_path()
+from _cffi_backend import *
+from _cffi_backend import _get_types, _get_common_types
+try:
+    from _cffi_backend import _testfunc
+except ImportError:
+    def _testfunc(num):
+        pytest.skip("_testunc() not available")
+from _cffi_backend import __version__
+
 # ____________________________________________________________
 
 import sys
@@ -52,8 +68,10 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = ctypes.util.find_library(name)
         if path is None and name == 'c':
             assert sys.platform == 'win32'
-            assert sys.version_info >= (3,)
-            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
+            assert (sys.version_info >= (3,) or
+                    '__pypy__' in sys.builtin_module_names)
+            py.test.skip("dlopen(None) cannot work on Windows "
+                         "with PyPy or Python 3")
     return load_library(path, flags)
 
 def test_load_library():
@@ -2535,8 +2553,8 @@ def test_errno():
     assert get_errno() == 95
 
 def test_errno_callback():
-    if globals().get('PY_DOT_PY'):
-        py.test.skip("cannot run this test on py.py (e.g. fails on Windows)")
+    if globals().get('PY_DOT_PY') == '2.5':
+        py.test.skip("cannot run this test on py.py with Python 2.5")
     set_errno(95)
     def cb():
         e = get_errno()
