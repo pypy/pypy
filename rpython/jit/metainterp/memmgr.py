@@ -81,3 +81,9 @@ class MemoryManager(object):
             # a single one is not enough for all tests :-(
             rgc.collect(); rgc.collect(); rgc.collect()
         debug_stop("jit-mem-collect")
+
+    def release_all_loops(self):
+        debug_start("jit-mem-releaseall")
+        debug_print("Loop tokens cleared:", len(self.alive_loops))
+        self.alive_loops.clear()
+        debug_stop("jit-mem-releaseall")
