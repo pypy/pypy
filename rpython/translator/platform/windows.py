@@ -175,7 +175,8 @@ class MsvcPlatform(Platform):
         make = 'jom.exe'
 
     cflags = ('/MD', '/O2', '/FS', '/Zi')
-    link_flags = ('/debug','/LARGEADDRESSAWARE')
+    # allow >2GB address space, set stack to 3MB (1MB is too small)
+    link_flags = ('/debug','/LARGEADDRESSAWARE', '/STACK:3145728)
     standalone_only = ()
     shared_only = ()
     environ = None
