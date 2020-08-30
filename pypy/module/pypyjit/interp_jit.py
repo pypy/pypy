@@ -240,6 +240,10 @@ def trace_next_iteration_hash(space, hash):
     jit_hooks.trace_next_iteration_hash('pypyjit', hash)
     return space.w_None
 
+@dont_look_inside
+def releaseall(space):
+    jit_hooks.stats_memmgr_release_all(None)
+
 # class Cache(object):
 #     in_recursion = False
 
