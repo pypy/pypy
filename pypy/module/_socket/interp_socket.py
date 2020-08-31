@@ -211,7 +211,7 @@ class W_Socket(W_Root):
                     fdobj = space.bytes_w(w_fileno)
                     if len(fdobj) != rffi.sizeof(_c.WSAPROTOCOL_INFOW):
                         raise oefmt(space.w_ValueError,
-                            "socket descriptor string has wrong size, should be %s bytes",
+                            "socket descriptor string has wrong size, should be %d bytes",
                             rffi.sizeof(_c.WSAPROTOCOL_INFOW))
                     info_charptr = rffi.str2charp(fdobj)
                     try:
