@@ -242,6 +242,12 @@ def trace_next_iteration_hash(space, hash):
 
 @dont_look_inside
 def releaseall(space):
+    """ Mark all current machine code objects as ready to release.  They will
+    be released at the next GC (unless they are currently in use in the stack
+    of one of the threads).  Doing pypyjit.releaseall(); gc.collect() is a
+    heavy hammer that forces the JIT roughly to the state of a newly started
+    PyPy.
+    """
     jit_hooks.stats_memmgr_release_all(None)
 
 # class Cache(object):

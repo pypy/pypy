@@ -42,3 +42,9 @@ Remove all implicit str-unicode conversions in RPython.
 .. branch: initialize_lock_timeout_on_windows
 
 Fix uninitialized value in rlock.acquire on windows, fixes issue 3252
+
+.. branch: jit-releaseall 
+
+Add ``pypyjit.releaseall()`` that marks all current machine code
+objects as ready to release. They will be released at the next GC (unless they
+are currently in use in the stack of one of the threads).
