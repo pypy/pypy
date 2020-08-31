@@ -268,7 +268,6 @@ typedef int (*HPyFunc_ssizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy);
 typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
 typedef int (*HPyFunc_objobjargproc)(HPyContext ctx, HPy, HPy, HPy);
 typedef void (*HPyFunc_freefunc)(HPyContext ctx, void *);
-typedef void (*HPyFunc_destructor)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_getattrfunc)(HPyContext ctx, HPy, char *);
 typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
 typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
@@ -280,7 +279,10 @@ typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
 typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
+typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
+typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in

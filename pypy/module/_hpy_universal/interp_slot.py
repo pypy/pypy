@@ -7,7 +7,7 @@ from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
-from .interp_extfunc import W_ExtensionFunction
+from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
 
 SlotEnum = llapi.cts.gettype('HPySlot_Slot')
 
@@ -60,6 +60,39 @@ W_SlotWrapper.typedef = TypeDef(
     __call__ = interp2app(W_SlotWrapper.descr_call),
     )
 W_SlotWrapper.typedef.acceptable_as_base_class = False
+
+class W_SlotWrapper_initproc(W_SlotWrapper):
+    def call(self, space, __args__):
+        with handles.using(space, __args__.arguments_w[0]) as h_self:
+            n = len(__args__.arguments_w) - 1
+            with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
+                i = 0
+                while i < n:
+                    args_h[i] = handles.new(space, __args__.arguments_w[i + 1])
+                    i += 1
+                h_kw = 0
+                if __args__.keywords:
+                    w_kw = space.newdict()
+                    for i in range(len(__args__.keywords)):
+                        key = __args__.keywords[i]
+                        w_value = __args__.keywords_w[i]
+                        space.setitem_str(w_kw, key, w_value)
+                    h_kw = handles.new(space, w_kw)
+                fptr = llapi.cts.cast('HPyFunc_initproc', self.cfuncptr)
+                state = space.fromcache(State)
+                try:
+                    result = fptr(state.ctx, h_self, args_h, n, h_kw)
+                finally:
+                    if h_kw:
+                        handles.close(space, h_kw)
+                    for i in range(n):
+                        handles.close(space, args_h[i])
+        if rffi.cast(lltype.Signed, result) < 0:
+            # If we're here, it means no exception was set
+            raise oefmt(space.w_SystemError,
+                "Function returned an error result without setting an exception")
+        return space.w_None
+
 
 # NOTE: we need to import this module here, to avoid circular imports
 from pypy.module._hpy_universal import autogen_interp_slots as AGS # "Auto Gen Slots"
@@ -121,7 +154,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_getattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattro',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('tp_init',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('tp_init',                    '__init__',      W_SlotWrapper_initproc),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
     ('tp_iter',                    '__iter__',      AGS.W_SlotWrapper_unaryfunc),
 #   ('tp_iternext',                '__xxx__',       AGS.W_SlotWrapper_...),
