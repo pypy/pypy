@@ -8,4 +8,5 @@ check_rpython_annotations:
 hpy_tests:
     image: octobus/ci-for-pypy
     script:
+      - pip install -r requirements.txt
       - ./pytest.py pypy/module/_hpy_universal/
