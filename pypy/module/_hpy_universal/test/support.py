@@ -53,7 +53,8 @@ class HPyExtensionCompiler(_support.ExtensionCompiler):
 
 class HPyAppTest(object):
     """
-    Base class for HPy app tests
+    Base class for HPy app tests. This is used as a mixin, and individual
+    subclasses are created by conftest.make_hpy_apptest
     """
     spaceconfig = {'usemodules': ['_hpy_universal']}
 
