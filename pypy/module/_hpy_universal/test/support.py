@@ -2,53 +2,13 @@ import py
 import pytest
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
-from pypy.tool.cpyext.extbuild import c_compile
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module._hpy_universal.llapi import BASE_DIR
 from pypy.module._hpy_universal.test._vendored import support as _support
+from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
 
 COMPILER_VERBOSE = False
 
-class HPyDevel(object):
-    def __init__(self, base_dir):
-        self.base_dir = base_dir
-        self.include_dir = base_dir / 'include'
-        self.src_dir = base_dir / 'src' / 'runtime'
-        # extra_sources are needed both in CPython and Universal mode
-        self._extra_sources = [
-            self.src_dir / 'argparse.c',
-            ]
-
-
-class HPyExtensionCompiler(_support.ExtensionCompiler):
-    def compile_module(self, main_template, name, extra_templates):
-        """
-        Create and compile a HPy module from the template
-        """
-        filename = self._expand(name, main_template)
-        sources = [str(filename)]
-        for i, template in enumerate(extra_templates):
-            extra_filename = self._expand('extmod_%d' % i, template)
-            sources.append(extra_filename)
-        #
-        compile_args = [
-            '-g', '-O0',
-            '-Wfatal-errors',    # stop after one error (unrelated to warnings)
-            '-Werror',           # turn warnings into errors (all, for now)
-            '-DHPY_UNIVERSAL_ABI',
-        ]
-        link_args = [
-            '-g',
-        ]
-        #
-        modname = name.split('.')[-1]
-        so_filename = c_compile(
-            sources + map(str, self.hpy_devel._extra_sources),
-            outputfilename=self.tmpdir / modname,
-            compile_extra=compile_args,
-            link_extra=link_args,
-            include_dirs=[str(self.hpy_devel.include_dir)] + self.extra_include_dirs)
-        return str(so_filename)
 
 
 class HPyAppTest(object):
@@ -70,9 +30,9 @@ class HPyAppTest(object):
     def setup_method(self, meth):
         if self.space.config.objspace.usemodules.cpyext:
             from pypy.module import cpyext
-            cpython_include_dirs = cpyext.api.include_dirs
+            cpyext_include_dirs = cpyext.api.include_dirs
         else:
-            cpython_include_dirs = []
+            cpyext_include_dirs = None
         #
         # it would be nice to use the 'compiler' fixture to provide
         # make_module as the std HPyTest do. However, we don't have the space
@@ -80,10 +40,12 @@ class HPyAppTest(object):
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
                                                  prefix=meth.__name__ + '-',
                                                  keep=0)  # keep everything
-        compiler = HPyExtensionCompiler(tmpdir, HPyDevel(BASE_DIR), 'universal',
+
+        hpy_devel = HPyDevel(str(BASE_DIR))
+        compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
                                               compiler_verbose=COMPILER_VERBOSE,
-                                              extra_include_dirs=cpython_include_dirs)
-        #
+                                              extra_include_dirs=cpyext_include_dirs)
+
         @unwrap_spec(source_template='text', name='text', w_extra_templates=W_Root)
         def descr_make_module(space, source_template, name='mytest',
                               w_extra_templates=None):
