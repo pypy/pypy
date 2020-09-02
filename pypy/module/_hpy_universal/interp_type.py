@@ -13,6 +13,12 @@ from rpython.rlib.rutf8 import surrogate_in_utf8
 class W_HPyObject(W_ObjectObject):
     hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
+    def _finalize_(self):
+        w_type = self.space.type(self)
+        assert isinstance(w_type, W_HPyTypeObject)
+        if w_type.tp_destroy:
+            w_type.tp_destroy(self.hpy_data)
+
     @rgc.must_be_light_finalizer
     def __del__(self):
         if self.hpy_data:
@@ -20,6 +26,7 @@ class W_HPyObject(W_ObjectObject):
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
+    tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     def __init__(self, space, name, bases_w, dict_w, basicsize=0):
         W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
         self.basicsize = basicsize
@@ -95,9 +102,12 @@ def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
 def _create_instance(space, w_type):
     assert isinstance(w_type, W_HPyTypeObject)
     w_result = space.allocate_instance(W_HPyObject, w_type)
+    w_result.space = space
     basicsize = w_type.basicsize
     c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
     w_result.hpy_data = c_obj
+    if w_type.tp_destroy:
+        w_result.register_finalizer(space)
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")

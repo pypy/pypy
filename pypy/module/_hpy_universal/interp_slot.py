@@ -185,6 +185,9 @@ def fill_slot(space, w_type, hpyslot):
                                      hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
+    elif slot_num == SlotEnum.HPy_tp_destroy:
+        w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
+        return
 
     # generic cases
     for slotname, methname, cls in SLOTS:
