@@ -60,7 +60,7 @@ class GcRewriterAssembler(object):
         self._delayed_zero_setfields = {}
         self.last_zero_arrays = []
         self._setarrayitems_occurred = {}   # {box: {set-of-indexes}}
-        self._constant_additions = {}   # {box: (older_box, constant_add)}
+        self._constant_additions = {}   # {old_box: (older_box, constant_add)}
 
     def remember_known_length(self, op, val):
         self._known_lengths[op] = val
@@ -138,6 +138,8 @@ class GcRewriterAssembler(object):
 
     def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
                                  itemsize, factor, offset):
+        index_box, offset = self._try_use_older_box(index_box, factor,
+                                                    offset)
         factor, offset, index_box = \
                 self._emit_mul_if_factor_offset_not_supported(index_box,
                         factor, offset)
@@ -146,8 +148,6 @@ class GcRewriterAssembler(object):
             args = [ptr_box, ConstInt(offset), value_box, ConstInt(itemsize)]
             newload = ResOperation(rop.GC_STORE, args)
         else:
-            index_box, offset = self._try_use_older_box(index_box, factor,
-                                                        offset)
             args = [ptr_box, index_box, value_box, ConstInt(factor),
                     ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(rop.GC_STORE_INDEXED, args)
@@ -174,14 +174,16 @@ class GcRewriterAssembler(object):
         # recently with an older box argument and a constant argument,
         # then use instead the older box and fold the constant inside the
         # offset.
-        index_box = self.get_box_replacement(index_box)
-        if index_box in self._constant_additions:
+        if (not isinstance(index_box, ConstInt) and
+                index_box in self._constant_additions):
             index_box, extra_offset = self._constant_additions[index_box]
             offset += factor * extra_offset
         return index_box, offset
 
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
                                 factor, offset, sign, type='i'):
+        index_box, offset = self._try_use_older_box(index_box, factor,
+                                                    offset)
         factor, offset, index_box = \
                 self._emit_mul_if_factor_offset_not_supported(index_box,
                         factor, offset)
@@ -197,8 +199,6 @@ class GcRewriterAssembler(object):
             args = [ptr_box, ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(OpHelpers.get_gc_load(optype), args)
         else:
-            index_box, offset = self._try_use_older_box(index_box, factor,
-                                                        offset)
             args = [ptr_box, index_box, ConstInt(factor),
                     ConstInt(offset), ConstInt(itemsize)]
             newload = ResOperation(OpHelpers.get_gc_load_indexed(optype), args)
@@ -1000,16 +1000,16 @@ class GcRewriterAssembler(object):
         # note: if op is a INT_ADD_OVF or INT_SUB_OVF, we ignore the OVF
         # and proceed normally.  The idea is that if we use the result later,
         # then this means this result did not overflow.
-        v_arg1 = self.get_box_replacement(op.getarg(1))
+        v_arg1 = op.getarg(1)
         if isinstance(v_arg1, ConstInt):
             constant = v_arg1.getint()
             if is_subtraction:
                 constant = -constant
-            box = self.get_box_replacement(op.getarg(0))
+            box = op.getarg(0)
         else:
             if is_subtraction:
                 return
-            v_arg0 = self.get_box_replacement(op.getarg(0))
+            v_arg0 = op.getarg(0)
             if not isinstance(v_arg0, ConstInt):
                 return
             constant = v_arg0.getint()
@@ -1019,8 +1019,7 @@ class GcRewriterAssembler(object):
         if box in self._constant_additions:
             box, extra_offset = self._constant_additions[box]
             constant += extra_offset
-        self._constant_additions[self.get_box_replacement(op)] = (
-            box, constant)
+        self._constant_additions[op] = (box, constant)
 
     def _gcref_index(self, gcref):
         if self.gcrefs_map is None:
