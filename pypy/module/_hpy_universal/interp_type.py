@@ -35,15 +35,9 @@ def _HPy_Cast(space, ctx, h):
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
 def _HPy_New(space, ctx, h_type, data):
     w_type = handles.deref(space, h_type)
-    w_result = space.allocate_instance(W_HPyObject, w_type)
-    if isinstance(w_type, W_HPyTypeObject):
-        basicsize = w_type.basicsize
-    else:
-        basicsize = 0
+    w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
-    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
-    w_result.hpy_data = c_obj
-    data[0] = c_obj
+    data[0] = w_result.hpy_data
     h = handles.new(space, w_result)
     return h
 
@@ -98,14 +92,16 @@ def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
     w_type.ready()
     return w_type
 
+def _create_instance(space, w_type):
+    assert isinstance(w_type, W_HPyTypeObject)
+    w_result = space.allocate_instance(W_HPyObject, w_type)
+    basicsize = w_type.basicsize
+    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
+    w_result.hpy_data = c_obj
+    return w_result
+
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(space, h_type)
-    w_result = space.allocate_instance(W_HPyObject, w_type)
-    if isinstance(w_type, W_HPyTypeObject):
-        basicsize = w_type.basicsize
-    else:
-        basicsize = 0
-    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
-    w_result.hpy_data = c_obj
+    w_result = _create_instance(space, w_type)
     return handles.new(space, w_result)
