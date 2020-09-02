@@ -1,13 +1,14 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc
 from pypy.interpreter.argument import Arguments
-from pypy.objspace.std.typeobject import _create_new_type
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles, llapi
 from .interp_extfunc import W_ExtensionMethod
 from .interp_slot import fill_slot
+from rpython.rlib.rutf8 import surrogate_in_utf8
 
 class W_HPyObject(W_ObjectObject):
     hpy_data = lltype.nullptr(rffi.VOIDP.TO)
@@ -17,6 +18,11 @@ class W_HPyObject(W_ObjectObject):
         if self.hpy_data:
             lltype.free(self.hpy_data , flavor='raw')
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
+
+class W_HPyTypeObject(W_TypeObject):
+    def __init__(self, space, name, bases_w, dict_w, basicsize=0):
+        W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
+        self.basicsize = basicsize
 
 
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
@@ -30,7 +36,10 @@ def _HPy_Cast(space, ctx, h):
 def _HPy_New(space, ctx, h_type, data):
     w_type = handles.deref(space, h_type)
     w_result = space.allocate_instance(W_HPyObject, w_type)
-    basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
+    if isinstance(w_type, W_HPyTypeObject):
+        basicsize = w_type.basicsize
+    else:
+        basicsize = 0
     data = llapi.cts.cast('void**', data)
     c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
     w_result.hpy_data = c_obj
@@ -41,7 +50,7 @@ def _HPy_New(space, ctx, h_type, data):
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)")
 def HPyType_FromSpec(space, ctx, spec):
-    w_dict = space.newdict()
+    dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
     if dotpos < 0:
@@ -52,14 +61,12 @@ def HPyType_FromSpec(space, ctx, spec):
         modname = specname[:dotpos]
 
     if modname is not None:
-        space.setitem_str(w_dict, '__module__', space.newtext(modname))
+        dict_w['__module__'] = space.newtext(modname)
 
-    w_bases = space.newtuple([])
-    __args__ = Arguments(space, [])
+    bases_w = []
 
     w_result = _create_new_type(
-        space, space.w_type, space.newtext(name), w_bases, w_dict, __args__)
-    w_result.setdictvalue(space, '__hpy_basicsize__', space.newint(spec.c_basicsize))
+        space, space.w_type, name, bases_w, dict_w, spec.c_basicsize)
     if spec.c_defines:
         p = spec.c_defines
         i = 0
@@ -81,11 +88,24 @@ def HPyType_FromSpec(space, ctx, spec):
             i += 1
     return handles.new(space, w_result)
 
+def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
+    pos = surrogate_in_utf8(name)
+    if pos >= 0:
+        raise oefmt(space.w_ValueError, "can't encode character in position "
+                    "%d, surrogates not allowed", pos)
+    w_type = W_HPyTypeObject(
+        space, name, bases_w or [space.w_object], dict_w, basicsize)
+    w_type.ready()
+    return w_type
+
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(space, h_type)
     w_result = space.allocate_instance(W_HPyObject, w_type)
-    basicsize = space.int_w(w_type.getdictvalue(space, '__hpy_basicsize__'))
+    if isinstance(w_type, W_HPyTypeObject):
+        basicsize = w_type.basicsize
+    else:
+        basicsize = 0
     c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
     w_result.hpy_data = c_obj
     return handles.new(space, w_result)
