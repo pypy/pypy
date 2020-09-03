@@ -65,9 +65,10 @@ def HPyType_FromSpec(space, ctx, spec):
         dict_w['__module__'] = space.newtext(modname)
 
     bases_w = []
+    basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(
-        space, space.w_type, name, bases_w, dict_w, spec.c_basicsize)
+        space, space.w_type, name, bases_w, dict_w, basicsize)
     if spec.c_defines:
         p = spec.c_defines
         i = 0
