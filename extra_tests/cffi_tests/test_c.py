@@ -2553,8 +2553,8 @@ def test_errno():
     assert get_errno() == 95
 
 def test_errno_callback():
-    if globals().get('PY_DOT_PY') == '2.5':
-        py.test.skip("cannot run this test on py.py with Python 2.5")
+    if globals().get('PY_DOT_PY'):
+        py.test.skip("cannot run this test on py.py (e.g. fails on Windows)")
     set_errno(95)
     def cb():
         e = get_errno()
