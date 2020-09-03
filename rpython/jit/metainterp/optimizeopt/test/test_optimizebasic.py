@@ -3385,6 +3385,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_strunicode_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_lt(self):
         ops = """
         [i0]
@@ -3418,6 +3419,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_le(self):
         ops = """
         [i0]
@@ -3451,6 +3453,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_gt(self):
         ops = """
         [i0]
@@ -3484,6 +3487,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_ge(self):
         ops = """
         [i0]
@@ -3517,6 +3521,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_not_ge(self):
         ops = """
         [i0]
@@ -3538,6 +3543,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_not_gt(self):
         ops = """
         [i0]
@@ -3559,6 +3565,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_not_le(self):
         ops = """
         [i0]
@@ -3580,6 +3587,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_not_lt(self):
         ops = """
         [i0]
@@ -3613,6 +3621,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_lt_inv(self):
         ops = """
         [i0]
@@ -3632,6 +3641,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_range(self):
         ops = """
         [i0]
@@ -3643,6 +3653,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_le_inv(self):
         ops = """
         [i0]
@@ -3662,6 +3673,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_gt_inv(self):
         ops = """
         [i0]
@@ -3681,6 +3693,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_ge_inv(self):
         ops = """
         [i0]
@@ -3700,6 +3713,7 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
     def test_bound_unsigned_bug1(self):
         ops = """
         [i0]
