@@ -8,6 +8,7 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles, llapi
 from .interp_extfunc import W_ExtensionMethod
 from .interp_slot import fill_slot
+from .interp_descr import add_member, add_getset
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
 class W_HPyObject(W_ObjectObject):
@@ -85,6 +86,12 @@ def HPyType_FromSpec(space, ctx, spec):
                 w_extfunc = W_ExtensionMethod(space, name, flags, hpymeth.c_impl, w_result)
                 w_result.setdictvalue(
                     space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
+            elif kind == HPyDef_Kind.HPyDef_Kind_Member:
+                hpymember = llapi.cts.cast('_pypy_HPyDef_as_member*', p[i]).c_member
+                add_member(space, w_result, hpymember)
+            elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
+                hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
+                add_getset(space, w_result, hpygetset)
             else:
                 raise oefmt(space.w_RuntimeError, "Unspported HPyDef kind!")
             i += 1
