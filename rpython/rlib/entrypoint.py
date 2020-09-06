@@ -87,7 +87,7 @@ def entrypoint_highlevel(key, argtypes, c_name=None):
         exec source.compile() in d
         wrapper = d['wrapper']
         secondary_entrypoints.setdefault(key, []).append((wrapper, argtypes))
-        wrapper.func_name = func.func_name
+        wrapper.__name__ = func.__name__
         if c_name is not None:
             wrapper.c_name = c_name
         export_symbol(wrapper)

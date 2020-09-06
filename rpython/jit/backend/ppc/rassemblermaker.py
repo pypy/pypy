@@ -66,7 +66,7 @@ def make_func(name, desc):
     src = 'def %s(self, %s):\n    %s'%(name, ', '.join(sig), '\n    '.join(body))
     d = {'r_uint':r_uint, 'desc': desc}
     #print src
-    exec compile2(src) in d
+    exec(compile2(src), d)
     return d[name]
 
 def make_rassembler(cls):

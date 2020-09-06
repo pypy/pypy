@@ -387,16 +387,6 @@ class CifDescrBuilder(object):
                     "does not support")
             nflat += flat
 
-        if USE_C_LIBFFI_MSVC and is_result_type:
-            # MSVC returns small structures in registers.  Pretend int32 or
-            # int64 return type.  This is needed as a workaround for what
-            # is really a bug of libffi_msvc seen as an independent library
-            # (ctypes has a similar workaround).
-            if ctype.size <= 4:
-                return clibffi.ffi_type_sint32
-            if ctype.size <= 8:
-                return clibffi.ffi_type_sint64
-
         # allocate an array of (nflat + 1) ffi_types
         elements = self.fb_alloc(rffi.sizeof(FFI_TYPE_P) * (nflat + 1))
         elements = rffi.cast(FFI_TYPE_PP, elements)

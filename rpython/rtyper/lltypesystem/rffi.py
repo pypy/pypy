@@ -1023,6 +1023,14 @@ def make_string_mappings(strtype):
  ) = make_string_mappings(unicode)
 
 
+def constcharp2str(cp):
+    """
+    Like charp2str, but takes a CONST_CCHARP instead
+    """
+    cp = cast(CCHARP, cp)
+    return charp2str(cp)
+constcharp2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP)]
+
 @not_rpython
 def _deprecated_get_nonmovingbuffer(*args):
     raise Exception(

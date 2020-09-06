@@ -8,7 +8,7 @@ def parse_doc(s):
     startrev = None
     branches = set()
     def parseline(line):
-        _, value = line.split(':', 1)
+        _, value = line.split('#')[0].split(':', 1)
         return value.strip()
     #
     for line in s.splitlines():

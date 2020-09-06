@@ -3,6 +3,7 @@ import random
 import unicodedata
 
 import py
+import pytest
 
 from rpython.rlib.unicodedata import (
     unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0,
@@ -164,3 +165,9 @@ class TestUnicodeData800(object):
 class TestUnicodeData1100(object):
     def test_changed_in_version_11(self):
         unicodedb_11_0_0.name(0x1f970) == 'SMILING FACE WITH SMILING EYES AND THREE HEARTS'
+
+@pytest.mark.parametrize('db', [
+    unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0, unicodedb_8_0_0,
+    unicodedb_11_0_0])
+def test_turkish_i(db):
+    assert db.tolower_full(0x0130) == [0x69, 0x307]

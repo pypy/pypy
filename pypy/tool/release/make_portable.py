@@ -1,17 +1,40 @@
 #!/usr/bin/env python
 
 bundle = ['sqlite3', 'ssl', 'crypto', 'ffi', 'expat', 'tcl8', 'tk8', 'gdbm',
-          'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel', 'panelw']
+          'lzma', 'tinfo', 'tinfow', 'ncursesw', 'panelw', 'ncurses', 'panel',
+          'panelw']
 
 import os
 from os.path import dirname, relpath, join, exists, basename, realpath
-from shutil import copy2, copytree
+from shutil import copy, copytree
 import sys
 from glob import glob
 from subprocess import check_output, check_call
 
 
+def get_deps_darwin(binary):
+    deps = {}
+    output = check_output(['otool', '-L', binary])
+    output = output.splitlines()
+    output = output[1:]  # first line is binary name
+    for line in output:
+        path = line.strip().split()[0]
+        if (not path or
+                not path.startswith('/usr/local/') or
+                basename(path) == basename(binary)):
+            continue
+
+        needed = basename(path)
+
+        deps[needed] = path
+        deps.update(get_deps(path))
+
+    return deps
+
 def get_deps(binary):
+    if sys.platform == 'darwin':
+        return get_deps_darwin(binary)
+
     deps = {}
     output = check_output(['ldd', binary])
     for line in output.splitlines():
@@ -22,7 +45,6 @@ def get_deps(binary):
         if path == 'not found':
             print('Broken dependency in ' + binary)
         path = path.split(' ')[0]
-        path = realpath(path)
         if not path:
             continue
 
@@ -49,7 +71,7 @@ def copy_deps(deps):
     for needed, path in deps.items():
         bname = basename(path)
 
-        copy2(path, 'lib/' + bname)
+        copy(realpath(path), 'lib/' + bname)
         copied[path] = 'lib/' + bname
 
         if not exists('lib/' + needed):
@@ -63,8 +85,22 @@ def rpath_binaries(binaries):
 
     for binary in binaries:
         check_call(['chmod', 'a+w', binary])
-        rpath = join('$ORIGIN', relpath('lib', dirname(binary)))
-        check_call(['patchelf', '--set-rpath', rpath, binary])
+        if sys.platform == 'darwin':
+            rpath = join('@executable_path', relpath('lib', dirname(binary)))
+            check_call(['install_name_tool', '-add_rpath', rpath, binary])
+
+            # change path for deps, this deps call is sorta redundant, but we
+            # don't have this dependency info in the passed in data...
+            deps = get_deps(binary)
+            for dep, path in deps.items():
+                rpath = join('@rpath', dep)
+                if rpath != path:
+                    print('Set RPATH of {0} for {1} to {2}'.format(binary, path, rpath))
+                    check_call(['install_name_tool', '-change', path, rpath, binary])
+
+        else:
+            rpath = join('$ORIGIN', relpath('lib', dirname(binary)))
+            check_call(['patchelf', '--set-rpath', rpath, binary])
 
         rpaths[binary] = rpath
 
@@ -72,12 +108,17 @@ def rpath_binaries(binaries):
 
 
 def make_portable():
-    binaries = glob('bin/libpypy*.so')
+    exts = ['so']
+    if sys.platform == 'darwin':
+        exts = ['dylib', 'so']
+
+    binaries = glob('bin/libpypy*.' + exts[0])
     if not binaries:
-        raise ValueError('Could not find bin/libpypy*.so in "%s"' % os.getcwd())
-    binaries.extend(glob('lib_pypy/*_cffi.pypy*.so'))
-    binaries.extend(glob('lib_pypy/_pypy_openssl*.so'))
-    binaries.extend(glob('lib_pypy/_tkinter/*_cffi.pypy*.so'))
+        raise ValueError('Could not find bin/libpypy*.%s in "%s"' % (exts[0], os.getcwd()))
+    for ext in exts:
+        binaries.extend(glob('lib_pypy/*_cffi.pypy*.' + ext))
+        binaries.extend(glob('lib_pypy/_pypy_openssl*.' + ext))
+        binaries.extend(glob('lib_pypy/_tkinter/*_cffi.pypy*.' + ext))
 
     deps = gather_deps(binaries)
 
@@ -86,14 +127,23 @@ def make_portable():
     for path, item in copied.items():
         print('Copied {0} to {1}'.format(path, item))
 
-    copytree('/usr/share/tcl8.5', 'lib/tcl')
-    copytree('/usr/share/tk8.5', 'lib/tk')
-
     binaries.extend(copied.values())
 
     rpaths = rpath_binaries(binaries)
     for binary, rpath in rpaths.items():
         print('Set RPATH of {0} to {1}'.format(binary, rpath))
+
+    # copy tcl/tk shared files, search /usr and copy the containing dir...
+    found_tk = found_tcl = False
+    for path, dirs, files in os.walk('/usr'):
+        if not found_tk and 'tk.tcl' in files:
+            print('Found tk shared files at: %s' % (path))
+            found_tk = True
+            copytree(path, 'lib/tk')
+        if not found_tcl and 'init.tcl' in files:
+            print('Found tcl shared files at: %s' % (path))
+            found_tcl = True
+            copytree(path, 'lib/tcl')
 
     return deps
 

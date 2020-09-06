@@ -2,7 +2,7 @@ from __future__ import with_statement
 """
 This file is OBSCURE.  Really.  The purpose is to avoid copying and changing
 'test_c.py' from cffi/c/ in the original CFFI repository:
-    https://bitbucket.org/cffi/cffi
+    https://foss.heptapod.net/pypy/cffi/
 
 Adding a test here involves:
 1. add a test to cffi/c/test.py
@@ -55,6 +55,8 @@ class AppTestC(object):
             else:
                 import ctypes.util
                 path = ctypes.util.find_library(space.str_w(w_name))
+                if path is None:
+                    py.test.skip("cannot find library '%s'" % (space.str_w(w_name),))
             return space.appexec([space.wrap(path), w_is_global],
             """(path, is_global):
                 import _cffi_backend

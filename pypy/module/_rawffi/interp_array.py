@@ -6,16 +6,15 @@ to app-level with apropriate interface
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, interp_attrproperty_w
 from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
-from pypy.module._rawffi.interp_rawffi import segfault_exception
-from pypy.module._rawffi.interp_rawffi import W_DataShape, W_DataInstance
-from pypy.module._rawffi.interp_rawffi import unwrap_value, wrap_value
-from pypy.module._rawffi.interp_rawffi import TYPEMAP
-from pypy.module._rawffi.interp_rawffi import size_alignment
-from pypy.module._rawffi.interp_rawffi import unpack_shape_with_length
-from pypy.module._rawffi.interp_rawffi import read_ptr, write_ptr
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib import rgc, clibffi
+from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.buffer import RawBufferView
+
+from pypy.module._rawffi.interp_rawffi import (
+    segfault_exception, W_DataShape, W_DataInstance, unwrap_value, wrap_value,
+    TYPEMAP, size_alignment, unpack_shape_with_length, read_ptr, write_ptr,)
+from pypy.module._rawffi.buffer import RawFFIBuffer
 
 
 class W_Array(W_DataShape):
@@ -192,6 +191,11 @@ class W_ArrayInstance(W_DataInstance):
         for i in range(len(value)):
             ll_buffer[start + i] = value[i]
 
+    def buffer_w(self, space, flags):
+        return RawBufferView(
+            RawFFIBuffer(self), self.shape.itemcode, self.shape.size)
+
+
 W_ArrayInstance.typedef = TypeDef(
     'ArrayInstance',
     __repr__    = interp2app(W_ArrayInstance.descr_repr),
@@ -215,6 +219,7 @@ class W_ArrayInstanceAutoFree(W_ArrayInstance):
     def __del__(self):
         if self.ll_buffer:
             self._free()
+
 
 W_ArrayInstanceAutoFree.typedef = TypeDef(
     'ArrayInstanceAutoFree',

@@ -2,7 +2,11 @@
 import re, py
 from rpython.rlib.rsre.test.test_match import get_code, get_code_and_re
 from rpython.rlib.rsre.test import support
-from rpython.rlib.rsre import rsre_core, rsre_utf8
+from rpython.rlib.rsre import rsre_core, rsre_utf8, rsre_char
+
+def setup_module(mod):
+    from rpython.rlib.unicodedata import unicodedb
+    rsre_char.set_unicode_db(unicodedb)
 
 
 class BaseTestSearch:
@@ -252,3 +256,29 @@ class TestSearchUtf8(BaseTestSearch):
         assert not self.match(r, u"üüüüüüü".encode("utf-8"))
         assert     self.match(r, u"üüüüüüüü".encode("utf-8"))
         assert     self.match(r, u"üüüüüüüüü".encode("utf-8"))
+
+    def test_literal_uni_ignore(self):
+        r = get_code(u"(?i)\u0135")
+        assert self.match(r, u'\u0134')
+        assert self.match(r, u'\u0134'.lower())
+        assert not self.match(r, "a")
+        assert not self.match(r, "A")
+
+    def test_literal_uni_ignore_repeat_one(self):
+        r = get_code(u"(?i)ab*c")
+        assert self.match(r, 'ac')
+        assert self.match(r, 'abc')
+        assert self.match(r, 'abbbbbc')
+        assert not self.match(r, 'a')
+        assert not self.match(r, 'axc')
+        assert not self.match(r, 'c')
+
+    def test_in_uni_ignore_repeat_one(self):
+        r = get_code(u"(?i)[^ab]*$")
+        assert self.match(r, u'zzstzc')
+        assert self.match(r, u'c')
+        assert self.match(r, u'üüü\u0134c')
+        assert not self.match(r, 'cccca')
+        assert not self.match(r, 'bc')
+        assert not self.match(r, 'b')
+

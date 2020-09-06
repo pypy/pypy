@@ -114,6 +114,7 @@ copyrighted by one or more of the following people and organizations:
   Bob Ippolito
   Bruno Gola
   David Malcolm
+  Yannick Jadoul
   Squeaky
   Edd Barrett
   Timo Paulssen
@@ -126,12 +127,13 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   Konstantin Lopuhin
   John Witulski
-  Yannick Jadoul
   Jeremy Thurgood
+  nulano
   Greg Price
   Ivan Sichmann Freitas
   Dario Bertini
   Mark Pearse
+  Julian Berman
   Simon Cross
   Tobias Pape
   Andreas Stührk
@@ -139,7 +141,6 @@ copyrighted by one or more of the following people and organizations:
   Stian Andreassen
   Guido van Rossum
   Pavel Vinogradov
-  Julian Berman
   William Leslie
   Paweł Piotr Przeradowski
   marky1991
@@ -247,6 +248,7 @@ copyrighted by one or more of the following people and organizations:
   Florin Papa
   Arianna Avanzini
   Jens-Uwe Mager
+  Matt Billenstein
   Valentina Mukhamedzhanova
   Stefano Parmesan
   touilleMan
@@ -265,6 +267,7 @@ copyrighted by one or more of the following people and organizations:
   Andrew Dalke
   Alejandro J. Cura
   Vladimir Kryachko
+  Miro Hrončok
   Gabriel
   Thomas Hisch
   Mark Williams
@@ -292,7 +295,6 @@ copyrighted by one or more of the following people and organizations:
   Dan Buch
   Lene Wagner
   Tomo Cocoa
-  Miro Hrončok
   David Lievens
   Neil Blakey-Milner
   Henrik Vendelbo
@@ -312,6 +314,7 @@ copyrighted by one or more of the following people and organizations:
   Jeong YunWon
   dakarpov@gmail.com
   Christopher Armstrong
+  Bolutife Ogunsola
   Aaron Tubbs
   Vasantha Ganesh K
   Jason Michalski
@@ -357,12 +360,14 @@ copyrighted by one or more of the following people and organizations:
   Daniel Neuhäuser
   Flavio Percoco
   halgari
+  Michał Górny
   Jim Baker
   Chris Lambacher
   John Aldis
   coolbutuseless@gmail.com
   Yasen Kiprov
   Mike Bayer
+  mark doerr
   Rodrigo Araújo
   Daniil Yarancev
   Min RK
@@ -387,6 +392,7 @@ copyrighted by one or more of the following people and organizations:
   Boglarka Vezer
   gabrielg@ec2-54-146-239-158.compute-1.amazonaws.com
   PavloKapyshin
+  shaolo1
   Hervé Beraud
   Tomer Chachamu
   Christopher Groskopf
@@ -415,6 +421,7 @@ copyrighted by one or more of the following people and organizations:
   pizi
   Tomáš Pružina
   James Robert
+  Chris AtLee
   Armin Ronacher
   Diana Popa
   Mike Kaplinskiy
@@ -432,6 +439,7 @@ copyrighted by one or more of the following people and organizations:
   paugier
   Dan Loewenherz
   werat
+  Tomas Hrnciar
   Filip Salomonsson
   Niclas Olofsson
   Zsolt Cserna

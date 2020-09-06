@@ -4,6 +4,18 @@ from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.module._cffi_backend.newtype import _clean_cache
 import pypy.module.cpyext.api     # side-effect of pre-importing it
+from sysconfig import get_config_var
+
+
+def get_ext_suffix():
+    # soabi is None on cpython < 3.7 (incl 2.7), 'pypy-73' on pypy2 v7.3.1
+    # and something like 'cpython-38-x86_64-linux-gnu' on cpython 3.8
+    soabi = get_config_var('SOABI') or ''
+    ret = soabi + get_config_var('SO')
+    # either '.so' or 'pypy-73.so'
+    if ret[0] == '.':
+        return ret[1:]
+    return ret
 
 
 @unwrap_spec(cdef='text', module_name='text', source='text', packed=int)
@@ -66,7 +78,7 @@ def prepare(space, cdef, module_name, source, w_includes=None,
             **kwargs)
     ffiplatform.compile(str(rdir), ext)
 
-    for extension in ['so', 'pyd', 'dylib']:
+    for extension in [get_ext_suffix(), 'so', 'pyd', 'dylib']:
         so_file = str(rdir.join('%s.%s' % (path, extension)))
         if os.path.exists(so_file):
             break

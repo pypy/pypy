@@ -23,10 +23,10 @@ for n1 in 'get set del'.split():
     for n2 in '', '_nonneg':
         name = 'll_%sitem%s' % (n1, n2)
         globals()['_' + name] = globals()[name]
-        exec """if 1:
+        exec("""if 1:
             def %s(*args):
                 return _%s(dum_checkidx, %s*args)
-""" % (name, name, extraarg)
+""" % (name, name, extraarg))
 del n1, n2, name
 
 
@@ -1321,7 +1321,7 @@ class TestRlist(BaseRtypingTest):
 
     def test_unicharlist_extension_1(self):
         def f(n):
-            s = 'hello%d' % n
+            s = u'hello%d' % n
             l = [u'a', u'b']
             l += s
             return ''.join([chr(ord(c)) for c in l])
@@ -1348,7 +1348,7 @@ class TestRlist(BaseRtypingTest):
 
     def test_unicharlist_extension_2(self):
         def f(n, i):
-            s = 'hello%d' % n
+            s = u'hello%d' % n
             assert 0 <= i <= len(s)
             l = [u'a', u'b']
             l += s[i:]
@@ -1377,7 +1377,7 @@ class TestRlist(BaseRtypingTest):
 
     def test_unicharlist_extension_3(self):
         def f(n, i, j):
-            s = 'hello%d' % n
+            s = u'hello%d' % n
             assert 0 <= i <= j <= len(s)
             l = [u'a', u'b']
             l += s[i:j]
@@ -1396,7 +1396,7 @@ class TestRlist(BaseRtypingTest):
 
     def test_unicharlist_extension_4(self):
         def f(n):
-            s = 'hello%d' % n
+            s = u'hello%d' % n
             l = [u'a', u'b']
             l += s[:-1]
             return ''.join([chr(ord(c)) for c in l])
@@ -1416,7 +1416,7 @@ class TestRlist(BaseRtypingTest):
     def test_unicharlist_extension_5(self):
         def f(count):
             l = [u'a', u'b']
-            l += '.' * count     # NON-UNICODE-char * count
+            l += u'.' * count
             return ''.join([chr(ord(c)) for c in l])
         res = self.interpret(f, [7])
         assert self.ll_to_string(res) == 'ab.......'
@@ -1487,7 +1487,7 @@ class TestRlist(BaseRtypingTest):
             op = block.operations[-1]
             assert op.opname == 'direct_call'
             func = op.args[2].value
-            assert ('foldable' in func.func_name) == \
+            assert ('foldable' in func.__name__) == \
                    ("y[*]" in immutable_fields)
 
     def test_hints(self):

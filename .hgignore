@@ -94,4 +94,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
+^lib
 

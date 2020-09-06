@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.0", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.2", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -52,8 +52,10 @@ def find_and_load_library(name, flags=RTLD_NOW):
         path = ctypes.util.find_library(name)
         if path is None and name == 'c':
             assert sys.platform == 'win32'
-            assert sys.version_info >= (3,)
-            py.test.skip("dlopen(None) cannot work on Windows with Python 3")
+            assert (sys.version_info >= (3,) or
+                    '__pypy__' in sys.builtin_module_names)
+            py.test.skip("dlopen(None) cannot work on Windows "
+                         "with PyPy or Python 3")
     return load_library(path, flags)
 
 def test_load_library():
@@ -96,7 +98,7 @@ def test_cast_to_signed_char():
     p = new_primitive_type("signed char")
     x = cast(p, -65 + 17*256)
     assert repr(x) == "<cdata 'signed char' -65>"
-    assert repr(type(x)) == "<%s '_cffi_backend.CData'>" % type_or_class
+    assert repr(type(x)) == "<%s '_cffi_backend._CDataBase'>" % type_or_class
     assert int(x) == -65
     x = cast(p, -66 + (1<<199)*256)
     assert repr(x) == "<cdata 'signed char' -66>"
@@ -2535,8 +2537,8 @@ def test_errno():
     assert get_errno() == 95
 
 def test_errno_callback():
-    if globals().get('PY_DOT_PY') == '2.5':
-        py.test.skip("cannot run this test on py.py with Python 2.5")
+    if globals().get('PY_DOT_PY'):
+        py.test.skip("cannot run this test on py.py (e.g. fails on Windows)")
     set_errno(95)
     def cb():
         e = get_errno()
@@ -4440,3 +4442,41 @@ def test_huge_structure():
     BStruct = new_struct_type("struct foo")
     complete_struct_or_union(BStruct, [('a1', BArray, -1)])
     assert sizeof(BStruct) == sys.maxsize
+
+def test_get_types():
+    import _cffi_backend
+    CData, CType = _get_types()
+    assert CData is _cffi_backend._CDataBase
+    assert CType is _cffi_backend.CType
+
+def test_type_available_with_correct_names():
+    import _cffi_backend
+    check_names = [
+        'CType',
+        'CField',
+        'CLibrary',
+        '_CDataBase',
+        'FFI',
+        'Lib',
+        'buffer',
+    ]
+    if '__pypy__' in sys.builtin_module_names:
+        check_names += [
+            '__CData_iterator',
+            '__FFIGlobSupport',
+            '__FFIAllocator',
+            '__FFIFunctionWrapper',
+        ]
+    else:
+        check_names += [
+            '__CDataOwn',
+            '__CDataOwnGC',
+            '__CDataFromBuf',
+            '__CDataGCP',
+            '__CData_iterator',
+            '__FFIGlobSupport',
+        ]
+    for name in check_names:
+        tp = getattr(_cffi_backend, name)
+        assert isinstance(tp, type)
+        assert (tp.__module__, tp.__name__) == ('_cffi_backend', name)

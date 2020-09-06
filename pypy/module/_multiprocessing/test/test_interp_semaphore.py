@@ -12,6 +12,8 @@ from pypy.module._multiprocessing.interp_semaphore import (
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
 def test_semlock_release(space):
+    # trigger the setup() code in time.moduledef
+    space.getbuiltinmodule('time')
     sem_name = '/test8'
     _handle = create_semaphore(space, sem_name, 1, 1)
     try:
@@ -24,14 +26,20 @@ def test_semlock_release(space):
             w_sentinel = allocate_lock(space)
             yield_thread()
             w_sentinel.descr_lock_acquire(space)  # releases GIL
-            yield_thread()
-            created.append(w_sentinel)
-            w_got = w_lock.acquire(space, w_timeout=space.newfloat(5.))  # releases GIL
-            if space.is_true(w_got):
+            try:
                 yield_thread()
-                w_lock.release(space)
-                successful.append(w_sentinel)
-            w_sentinel.descr_lock_release(space)
+                created.append(w_sentinel)
+                w_got = w_lock.acquire(space, w_timeout=space.newfloat(5.))  # releases GIL
+                if space.is_true(w_got):
+                    yield_thread()
+                    w_lock.release(space)
+                    successful.append(w_sentinel)
+                w_sentinel.descr_lock_release(space)
+            except:
+                import traceback
+                traceback.print_exc()
+                w_sentinel.descr_lock_release(space)
+                raise
         w_run = space.wrap(interp2app(run))
 
         w_lock.acquire(space)

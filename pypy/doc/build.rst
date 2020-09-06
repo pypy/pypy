@@ -18,7 +18,7 @@ development. You can read more about how to develop PyPy here_, and latest
 translated (hopefully functional) binary packages are available on our
 buildbot's `nightly builds`_
 
-.. _here: getting-started-dev.html
+.. _here: contributing.html
 .. _`nightly builds`: http://buildbot.pypy.org/nightly
 
 You will need the build dependencies below to run the tests.
@@ -226,7 +226,7 @@ import libraries in the `out-of-line API mode`_. This is done by the following
 command::
 
    cd pypy/goal
-   PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
+   PYTHONPATH=../.. ./pypy-c ../../lib_pypy/pypy_tools/build_cffi_imports.py
 
 .. _`out-of-line API mode`: http://cffi.readthedocs.org/en/latest/overview.html#real-example-api-level-out-of-line
 

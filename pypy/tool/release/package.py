@@ -42,7 +42,7 @@ STDLIB_VER = "2.7"
 
 POSIX_EXE = 'pypy'
 
-from lib_pypy.tools.build_cffi_imports import (create_cffi_import_libraries,
+from lib_pypy.pypy_tools.build_cffi_imports import (create_cffi_import_libraries,
         MissingDependenciesError, cffi_build_scripts)
 
 def ignore_patterns(*patterns):
@@ -353,7 +353,8 @@ def package(*args, **kwds):
                         '(default on OS X)')
     parser.add_argument('--make-portable',
                         dest='make_portable',
-                        action='store_true',
+                        action=NegateAction,
+                        default=(ARCH in ('darwin',)),
                         help='make the package portable by shipping '
                             'dependent shared objects and mangling RPATH')
     options = parser.parse_args(args)

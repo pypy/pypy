@@ -207,3 +207,9 @@ class TestBasic(EmbeddingTests):
         self.compile('add1-test', [initerror_cffi])
         output = self.execute('add1-test')
         assert output == "got: 0 0\n"    # plus lots of info to stderr
+
+    def test_embedding_with_unicode(self):
+        withunicode_cffi = self.prepare_module('withunicode')
+        self.compile('add1-test', [withunicode_cffi])
+        output = self.execute('add1-test')
+        assert output == "255\n4660\n65244\ngot: 0 0\n"

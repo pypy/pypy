@@ -208,10 +208,10 @@ class AppTestFFI(BaseAppTestFFI):
         mystrlen = libfoo.getfunc('mystrlen', [types.char_p], types.slong)
         #
         # first, try automatic conversion from a string
-        assert mystrlen('foobar') == 6
+        assert mystrlen(b'foobar') == 6
         # then, try to pass an explicit pointer
         CharArray = _rawffi.Array('c')
-        mystr = CharArray(7, 'foobar')
+        mystr = CharArray(7, b'foobar')
         assert mystrlen(mystr.buffer) == 6
         mystr.free()
         mystrlen.free_temp_buffers()
@@ -258,7 +258,7 @@ class AppTestFFI(BaseAppTestFFI):
         do_nothing = libfoo.getfunc('do_nothing', [types.char_p], types.char_p)
         CharArray = _rawffi.Array('c')
         #
-        ptr = do_nothing('foobar')
+        ptr = do_nothing(b'foobar')
         array = CharArray.fromaddress(ptr, 7)
         assert list(array) == list('foobar\00')
         do_nothing.free_temp_buffers()
@@ -380,7 +380,9 @@ class AppTestFFI(BaseAppTestFFI):
         libfoo = CDLL(self.libfoo_name)
         my_toupper = libfoo.getfunc('my_toupper', [types.char],
                                     types.char)
-        assert my_toupper('c') == 'C'
+        res = my_toupper(b'c')
+        assert type(res) is bytes
+        assert res == b'C'
 
     def test_unichar_args(self):
         """

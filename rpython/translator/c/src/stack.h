@@ -45,6 +45,8 @@ void LL_stack_set_length_fraction(double);
 
 #ifdef __GNUC__
 #  define PYPY_INHIBIT_TAIL_CALL()   asm("/* inhibit_tail_call */")
+#elif defined(_MSC_VER )
+#  define PYPY_INHIBIT_TAIL_CALL()   __asm NOP /* inhibit_tail_call */
 #else
 #  define PYPY_INHIBIT_TAIL_CALL()   /* add hints for other compilers here */
 #endif

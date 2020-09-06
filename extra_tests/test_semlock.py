@@ -18,6 +18,8 @@ def test_notify_all():
         if lock.acquire(timeout=5.):
             results.append(n)
             lock.release()
+        else:
+            print("lock acquire timed out!")
 
     threads = [Thread(target=f, args=(i,)) for i in range(N_THREADS)]
     n_started = N_THREADS
@@ -32,6 +34,7 @@ def test_notify_all():
             else:
                 t.started = True
         time.sleep(0.1)
+        print("started %d threads" % n_started)
     for t in threads:
         if t.started:
             t.join()

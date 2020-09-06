@@ -32,13 +32,20 @@ set_unicode_db(pypy.objspace.std.unicodeobject.unicodedb)
 # ____________________________________________________________
 #
 
+class UnicodeAsciiMatchContext(rsre_core.StrMatchContext):
+    # we make a subclass just to mark that it originates from a W_UnicodeObject
+    pass
+
 
 def slice_w(space, ctx, start, end, w_default):
     # 'start' and 'end' are byte positions
     if ctx.ZERO <= start <= end:
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.newbytes(ctx._buffer.getslice(start, 1, end-start))
-        if isinstance(ctx, rsre_core.StrMatchContext):
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            s = ctx._string[start:end]
+            return space.newutf8(s, len(s))
+        elif isinstance(ctx, rsre_core.StrMatchContext):
             start = ctx._real_pos(start)
             end = ctx._real_pos(end)
             return space.newbytes(ctx._string[start:end])
@@ -106,8 +113,8 @@ class W_SRE_Pattern(W_Root):
         raise oefmt(space.w_TypeError, "cannot copy this pattern object")
 
     def make_ctx(self, w_string, pos=0, endpos=sys.maxint):
-        """Make a StrMatchContext, BufMatchContext or a Utf8MatchContext for
-        searching in the given w_string object."""
+        """Make a StrMatchContext, BufMatchContext, UnicodeAsciiMatchContext or
+        a Utf8MatchContext for searching in the given w_string object."""
         space = self.space
         if pos < 0:
             pos = 0
@@ -122,20 +129,20 @@ class W_SRE_Pattern(W_Root):
             elif pos >= length:
                 bytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                bytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, pos)
+                bytepos = w_unicode_obj._index_to_byte(pos)
             if endpos >= length:
                 endbytepos = len(utf8str)
             else:
-                index_storage = w_unicode_obj._get_index_storage()
-                endbytepos = rutf8.codepoint_position_at_index(utf8str,
-                                index_storage, endpos)
-            ctx = rsre_utf8.Utf8MatchContext(
-                utf8str, bytepos, endbytepos, self.flags)
-            # xxx we store the w_string on the ctx too, for
-            # W_SRE_Match.bytepos_to_charindex()
-            ctx.w_unicode_obj = w_unicode_obj
+                endbytepos = w_unicode_obj._index_to_byte(endpos)
+            if w_unicode_obj.is_ascii():
+                ctx = UnicodeAsciiMatchContext(
+                        utf8str, bytepos, endbytepos)
+            else:
+                ctx = rsre_utf8.Utf8MatchContext(
+                    utf8str, bytepos, endbytepos)
+                # we store the w_string on the ctx too, for
+                # W_SRE_Match.bytepos_to_charindex()
+                ctx.w_unicode_obj = w_unicode_obj
             return ctx
         elif space.isinstance_w(w_string, space.w_bytes):
             str = space.bytes_w(w_string)
@@ -153,19 +160,22 @@ class W_SRE_Pattern(W_Root):
             if endpos > size:
                 endpos = size
             return rsre_core.BufMatchContext(buf,
-                                             pos, endpos, self.flags)
+                                             pos, endpos)
 
     def fresh_copy(self, ctx):
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             result = rsre_utf8.Utf8MatchContext(
-                ctx._utf8, ctx.match_start, ctx.end, ctx.flags)
+                ctx._utf8, ctx.match_start, ctx.end)
             result.w_unicode_obj = ctx.w_unicode_obj
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            result = UnicodeAsciiMatchContext(
+                ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.StrMatchContext):
             result = self._make_str_match_context(
                 ctx._string, ctx.match_start, ctx.end)
         elif isinstance(ctx, rsre_core.BufMatchContext):
             result = rsre_core.BufMatchContext(
-                ctx._buffer, ctx.match_start, ctx.end, ctx.flags)
+                ctx._buffer, ctx.match_start, ctx.end)
         else:
             raise AssertionError("bad ctx type")
         result.match_end = ctx.match_end
@@ -174,7 +184,7 @@ class W_SRE_Pattern(W_Root):
     def _make_str_match_context(self, str, pos, endpos):
         # for tests to override
         return rsre_core.StrMatchContext(str,
-                                         pos, endpos, self.flags)
+                                         pos, endpos)
 
     def getmatch(self, ctx, found):
         if found:
@@ -380,7 +390,8 @@ class W_SRE_Pattern(W_Root):
                 assert not isinstance(ctx, rsre_utf8.Utf8MatchContext)
                 return space.newbytes(result_bytes), n
             elif use_builder == 'U':
-                assert isinstance(ctx, rsre_utf8.Utf8MatchContext)
+                assert (isinstance(ctx, UnicodeAsciiMatchContext) or
+                        isinstance(ctx, rsre_utf8.Utf8MatchContext))
                 return space.newutf8(result_bytes,
                                      rutf8.codepoints_in_utf8(result_bytes)), n
             else:
@@ -411,12 +422,15 @@ def _sub_append_slice(ctx, space, use_builder, sublist_w,
         if isinstance(ctx, rsre_core.BufMatchContext):
             assert use_builder == 'S'
             return strbuilder.append(ctx._buffer.getslice(start, 1, end-start))
+        if isinstance(ctx, UnicodeAsciiMatchContext):
+            assert use_builder == 'U'
+            return strbuilder.append_slice(ctx._string, start, end)
         if isinstance(ctx, rsre_core.StrMatchContext):
             assert use_builder == 'S'
             start = ctx._real_pos(start)
             end = ctx._real_pos(end)
             return strbuilder.append_slice(ctx._string, start, end)
-        elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
+        if isinstance(ctx, rsre_utf8.Utf8MatchContext):
             assert use_builder == 'U'
             return strbuilder.append_slice(ctx._utf8, start, end)
         assert 0, "unreachable"
@@ -440,7 +454,7 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
     # so that we don't need to do it here.  Creating new SRE_Pattern
     # objects all the time would be bad for the JIT, which relies on the
     # identity of the CompiledPattern() object.
-    srepat.code = rsre_core.CompiledPattern(code)
+    srepat.code = rsre_core.CompiledPattern(code, flags)
     srepat.num_groups = groups
     srepat.w_groupindex = w_groupindex
     srepat.w_indexgroup = w_indexgroup
@@ -563,10 +577,7 @@ class W_SRE_Match(W_Root):
         # handling.
         ctx = self.ctx
         if isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            index_storage = ctx.w_unicode_obj._get_index_storage()
-            return rutf8.codepoint_index_at_byte_position(
-                ctx.w_unicode_obj._utf8, index_storage, bytepos,
-                ctx.w_unicode_obj._len())
+            return ctx.w_unicode_obj._byte_to_index(bytepos)
         else:
             return bytepos
 
@@ -648,11 +659,12 @@ class W_SRE_Match(W_Root):
         ctx = self.ctx
         if isinstance(ctx, rsre_core.BufMatchContext):
             return space.newbytes(ctx._buffer.as_str())
+        elif isinstance(ctx, UnicodeAsciiMatchContext):
+            return space.newutf8(ctx._string, len(ctx._string))
         elif isinstance(ctx, rsre_core.StrMatchContext):
             return space.newbytes(ctx._string)
         elif isinstance(ctx, rsre_utf8.Utf8MatchContext):
-            lgt = rutf8.codepoints_in_utf8(ctx._utf8)
-            return space.newutf8(ctx._utf8, lgt)
+            return ctx.w_unicode_obj
         else:
             raise SystemError
 

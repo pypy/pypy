@@ -412,6 +412,58 @@ def ll_arraycopy(source, dest, source_start, dest_start, length):
     keepalive_until_here(source)
     keepalive_until_here(dest)
 
+@jit.oopspec('list.ll_arraymove(array, source_start, dest_start, length)')
+@enforceargs(None, int, int, int)
+@specialize.ll()
+def ll_arraymove(array, source_start, dest_start, length):
+    from rpython.rtyper.lltypesystem.lloperation import llop
+    from rpython.rlib.objectmodel import keepalive_until_here
+
+    # XXX: Hack to ensure that we get a proper effectinfo.write_descrs_arrays
+    # and also, maybe, speed up very small cases
+    if length <= 1:
+        if length == 1:
+            copy_item(array, array, source_start, dest_start)
+        return
+
+    TP = lltype.typeOf(array).TO
+
+    slowpath = False
+    if must_split_gc_address_space():
+        slowpath = True
+    elif _contains_gcptr(TP.OF):
+        # if the array has card marks set, then this will perform a
+        # general (card-less) write barrier on it, because the marked cards
+        # are no longer necessarily the right ones after the move.
+        # Otherwise, if the GC doesn't support cards, this is a no-op,
+        # because we're not writing any new GC pointer into the array:
+        # we're just moving existing ones around.
+        llop.gc_writebarrier_before_move(lltype.Void, array)
+    if slowpath:
+        # if we translate with the option 'split_gc_address_space',
+        # then move by hand
+        delta = dest_start - source_start
+        if delta < 0:
+            i = source_start
+            stop = source_start + length
+            while i < stop:
+                copy_item(array, array, i, i + delta)
+                i += 1
+        elif delta > 0:
+            i = source_start + length
+            while i > source_start:
+                i -= 1
+                copy_item(array, array, i, i + delta)
+        return
+    array_addr = llmemory.cast_ptr_to_adr(array)
+    mv_source_addr = (array_addr + llmemory.itemoffsetof(TP, 0) +
+                      llmemory.sizeof(TP.OF) * source_start)
+    mv_dest_addr = (array_addr + llmemory.itemoffsetof(TP, 0) +
+                    llmemory.sizeof(TP.OF) * dest_start)
+
+    llmemory.raw_memmove_no_free(mv_source_addr, mv_dest_addr,
+                                 llmemory.sizeof(TP.OF) * length)
+    keepalive_until_here(array)
 
 @jit.oopspec('rgc.ll_shrink_array(p, smallerlength)')
 @enforceargs(None, int)

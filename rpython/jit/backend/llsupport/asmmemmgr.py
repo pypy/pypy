@@ -36,8 +36,8 @@ class AsmMemoryManager(object):
         """
         result = self._allocate_block(minsize)
         (start, stop) = result
-        smaller_stop = start + maxsize
-        if smaller_stop + self.min_fragment <= stop:
+        if maxsize <= stop - start - self.min_fragment:
+            smaller_stop = start + maxsize
             self._add_free_block(smaller_stop, stop)
             stop = smaller_stop
             result = (start, stop)
@@ -66,13 +66,8 @@ class AsmMemoryManager(object):
         else:
             return False    # too small to record
 
-    def _allocate_large_block(self, minsize):
-        # Compute 'size' from 'minsize': it must be rounded up to
-        # 'large_alloc_size'.  Additionally, we use the following line
-        # to limit how many mmap() requests the OS will see in total:
-        minsize = max(minsize, intmask(self.total_memory_allocated >> 4))
-        size = minsize + self.large_alloc_size - 1
-        size = (size // self.large_alloc_size) * self.large_alloc_size
+    def _mmap_alloc(self, size):
+        # overridden by a test
         data = rmmap.alloc(size)
         if not we_are_translated():
             if self._allocated is None:
@@ -82,6 +77,16 @@ class AsmMemoryManager(object):
                 # Hack to make sure that mcs are not within 32-bits of one
                 # another for testing purposes
                 rmmap.hint.pos += 0x80000000 - size
+        return data
+
+    def _allocate_large_block(self, minsize):
+        # Compute 'size' from 'minsize': it must be rounded up to
+        # 'large_alloc_size'.  Additionally, we use the following line
+        # to limit how many mmap() requests the OS will see in total:
+        minsize = max(minsize, intmask(self.total_memory_allocated >> 4))
+        size = minsize + self.large_alloc_size - 1
+        size = (size // self.large_alloc_size) * self.large_alloc_size
+        data = self._mmap_alloc(size)
         self.total_memory_allocated += r_uint(size)
         data = rffi.cast(lltype.Signed, data)
         return self._add_free_block(data, data + size)
@@ -101,13 +106,17 @@ class AsmMemoryManager(object):
             left_start = self.free_blocks_end[start]
             self._del_free_block(left_start, start)
             start = left_start
+            assert start not in self.free_blocks_end
         # Merge with the block on the right
         if stop in self.free_blocks:
             right_stop = self.free_blocks[stop]
             self._del_free_block(stop, right_stop)
             stop = right_stop
+            assert stop not in self.free_blocks
         # Add it to the dicts
+        assert start not in self.free_blocks
         self.free_blocks[start] = stop
+        assert stop not in self.free_blocks_end
         self.free_blocks_end[stop] = start
         i = self._get_index(stop - start)
         self.blocks_by_size[i].append(start)
@@ -141,6 +150,7 @@ class AsmMemoryManager(object):
                     # any block found in a larger group is big enough
                     start = self.blocks_by_size[i].pop(0)
                     stop = self.free_blocks[start]
+                    assert start + length <= stop
                     break
                 i += 1
             else:

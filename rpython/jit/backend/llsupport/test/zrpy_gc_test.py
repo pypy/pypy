@@ -140,9 +140,9 @@ class BaseFrameworkTests(object):
             if afterfunc is None:
                 def afterfunc(n, x, x0, x1, x2, x3, x4, x5, x6, x7, l, s):
                     pass
-            beforefunc.func_name = 'before_'+name
-            loopfunc.func_name = 'loop_'+name
-            afterfunc.func_name = 'after_'+name
+            beforefunc.__name__ = 'before_'+name
+            loopfunc.__name__ = 'loop_'+name
+            afterfunc.__name__ = 'after_'+name
             funcs.append((beforefunc, loopfunc, afterfunc))
             assert name not in name_to_func
             name_to_func[name] = len(name_to_func)
