@@ -23,7 +23,7 @@ There are open issues with incomplete compatibility and c-extension support.
 
 You can download the v7.1.1 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -61,8 +61,8 @@ Unfortunately at the moment of writing our ARM buildbots are out of service,
 so for now we are **not** releasing any binary for the ARM architecture,
 although PyPy does support ARM 32 bit processors.
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog

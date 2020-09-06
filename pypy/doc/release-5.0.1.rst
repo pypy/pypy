@@ -29,8 +29,8 @@ This release supports **x86** machines on most common operating systems
 newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux, and the
 big- and little-endian variants of **PPC64** running Linux.
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Please update, and continue to help us make PyPy better.
 

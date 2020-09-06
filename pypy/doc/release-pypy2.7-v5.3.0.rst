@@ -11,13 +11,13 @@ and much of SciPy is supported as well.
 
 We updated cffi_ to version 1.7 (small changes, documented here_).
 
-.. _`PyPy3.3 v5.2 alpha 1`: http://morepypy.blogspot.com/2016/05/pypy33-v52-alpha-1-released.html
+.. _`PyPy3.3 v5.2 alpha 1`: https://morepypy.blogspot.com/2016/05/pypy33-v52-alpha-1-released.html
 .. _cffi: https://cffi.readthedocs.org
-.. _here: http://cffi.readthedocs.io/en/latest/whatsnew.html
+.. _here: https://cffi.readthedocs.io/en/latest/whatsnew.html
 
 You can download the PyPy2.7 v5.3 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -28,10 +28,10 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 
 What is PyPy?
 =============
@@ -54,8 +54,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Other Highlights (since 5.1 released in April 2016)
 =========================================================
@@ -113,7 +113,7 @@ Other Highlights (since 5.1 released in April 2016)
   * Fix issue #2226: Another tweak in the incremental GC- this should ensure
     that progress in the major GC occurs quickly enough in all cases.
 
-  * Clarify and refactor documentation on http://doc.pypy.org
+  * Clarify and refactor documentation on https://doc.pypy.org
 
   * Use "must be unicode, not %T" in unicodedata TypeErrors.
 
@@ -181,7 +181,7 @@ Other Highlights (since 5.1 released in April 2016)
 
   * Compile c snippets with -Werror, and fix warnings it exposed
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.3.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.3.0.html
 .. _Numpy: https://bitbucket.org/pypy/numpy
 .. _`the repo`: https://bitbucket.org/pypy/numpy
 

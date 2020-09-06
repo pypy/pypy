@@ -60,7 +60,7 @@ please continue reporting issues as they crop up.
 
 You can find links to download the v7.3.2 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -81,7 +81,7 @@ building wheels for PyPy.
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
-.. _`CFFI`: http://cffi.readthedocs.io
+.. _`CFFI`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`multibuild system`: https://github.com/matthew-brett/multibuild
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel
@@ -121,8 +121,8 @@ Unfortunately at the moment of writing our ARM32 buildbots are out of service,
 so for now we are **not** releasing any binaries for that architecture,
 although PyPy does support ARM 32 bit processors. 
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog
@@ -235,32 +235,32 @@ Python 3.6 C-API
   ``PyUnicode_{Find,Read,Write}Char``,
 - Fix ``PyUnicode_*`` handling on windows where ``wchar_t`` is 2 bytes
 
-.. _`issue 3187`: https://foss.heptapod.net/pypy/pypy/issues/3187
-.. _`issue 3178`: https://foss.heptapod.net/pypy/pypy/issues/3178
-.. _`issue 3177`: https://foss.heptapod.net/pypy/pypy/issues/3177
-.. _`issue 3188`: https://foss.heptapod.net/pypy/pypy/issues/3188
-.. _`issue 3198`: https://foss.heptapod.net/pypy/pypy/issues/3198
-.. _`issue 3232`: https://foss.heptapod.net/pypy/pypy/issues/3232
-.. _`issue 3239`: https://foss.heptapod.net/pypy/pypy/issues/3239
-.. _`issue 3230`: https://foss.heptapod.net/pypy/pypy/issues/3230
-.. _`issue 3242`: https://foss.heptapod.net/pypy/pypy/issues/3242
-.. _`issue 3243`: https://foss.heptapod.net/pypy/pypy/issues/3243
-.. _`issue 3247`: https://foss.heptapod.net/pypy/pypy/issues/3247
-.. _`issue 3250`: https://foss.heptapod.net/pypy/pypy/issues/3250
-.. _`issue 3251`: https://foss.heptapod.net/pypy/pypy/issues/3251
-.. _`issue 3252`: https://foss.heptapod.net/pypy/pypy/issues/3252
-.. _`issue 3255`: https://foss.heptapod.net/pypy/pypy/issues/3255
-.. _`issue 3269`: https://foss.heptapod.net/pypy/pypy/issues/3269
-.. _`issue 3274`: https://foss.heptapod.net/pypy/pypy/issues/3274
-.. _`issue 3282`: https://foss.heptapod.net/pypy/pypy/issues/3282
-.. _`issue 3281`: https://foss.heptapod.net/pypy/pypy/issues/3281
+.. _`issue 3187`: https://foss.heptapod.net/pypy/pypy/-/issues/3187
+.. _`issue 3178`: https://foss.heptapod.net/pypy/pypy/-/issues/3178
+.. _`issue 3177`: https://foss.heptapod.net/pypy/pypy/-/issues/3177
+.. _`issue 3188`: https://foss.heptapod.net/pypy/pypy/-/issues/3188
+.. _`issue 3198`: https://foss.heptapod.net/pypy/pypy/-/issues/3198
+.. _`issue 3232`: https://foss.heptapod.net/pypy/pypy/-/issues/3232
+.. _`issue 3239`: https://foss.heptapod.net/pypy/pypy/-/issues/3239
+.. _`issue 3230`: https://foss.heptapod.net/pypy/pypy/-/issues/3230
+.. _`issue 3242`: https://foss.heptapod.net/pypy/pypy/-/issues/3242
+.. _`issue 3243`: https://foss.heptapod.net/pypy/pypy/-/issues/3243
+.. _`issue 3247`: https://foss.heptapod.net/pypy/pypy/-/issues/3247
+.. _`issue 3250`: https://foss.heptapod.net/pypy/pypy/-/issues/3250
+.. _`issue 3251`: https://foss.heptapod.net/pypy/pypy/-/issues/3251
+.. _`issue 3252`: https://foss.heptapod.net/pypy/pypy/-/issues/3252
+.. _`issue 3255`: https://foss.heptapod.net/pypy/pypy/-/issues/3255
+.. _`issue 3269`: https://foss.heptapod.net/pypy/pypy/-/issues/3269
+.. _`issue 3274`: https://foss.heptapod.net/pypy/pypy/-/issues/3274
+.. _`issue 3282`: https://foss.heptapod.net/pypy/pypy/-/issues/3282
+.. _`issue 3281`: https://foss.heptapod.net/pypy/pypy/-/issues/3281
 
-.. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/merge_request/723
-.. _`merge request 729`: https://foss.heptapod.net/pypy/pypy/merge_request/729
-.. _`merge request 730`: https://foss.heptapod.net/pypy/pypy/merge_request/730
-.. _`merge request 736`: https://foss.heptapod.net/pypy/pypy/merge_request/736
-.. _`merge request 732`: https://foss.heptapod.net/pypy/pypy/merge_request/732
-.. _`merge request 744`: https://foss.heptapod.net/pypy/pypy/merge_request/744
+.. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
+.. _`merge request 729`: https://foss.heptapod.net/pypy/pypy/-/merge_request/729
+.. _`merge request 730`: https://foss.heptapod.net/pypy/pypy/-/merge_request/730
+.. _`merge request 736`: https://foss.heptapod.net/pypy/pypy/-/merge_request/736
+.. _`merge request 732`: https://foss.heptapod.net/pypy/pypy/-/merge_request/732
+.. _`merge request 744`: https://foss.heptapod.net/pypy/pypy/-/merge_request/744
 
 .. _31976: https://bugs.python.org/issue31976
 .. _35519: https://bugs.python.org/issue35519

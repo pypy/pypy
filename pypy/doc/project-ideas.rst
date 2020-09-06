@@ -40,20 +40,17 @@ to get you thinking:
 Simple tasks for newcomers
 --------------------------
 
-* Tkinter module missing support for threads:
-  https://bitbucket.org/pypy/pypy/issue/1929/tkinter-broken-for-threaded-python-on-both
-
 * Optimize random:
-  https://bitbucket.org/pypy/pypy/issue/1901/try-using-a-different-implementation-of
+  https://foss.heptapod.net/pypy/pypy/-/issues/1901
 
 * Implement AF_XXX packet types of sockets:
-  https://bitbucket.org/pypy/pypy/issue/1942/support-for-af_xxx-sockets
+  https://foss.heptapod.net/pypy/pypy/-/issues/1942
 
 * Help with documentation. One task would be to document rpython configuration
   options currently listed only on :doc:`this site <configuration>` also on the
   RPython_ documentation site.
 
-.. _RPython: http://rpython.readthedocs.io
+.. _RPython: https://rpython.readthedocs.io/en/latest
 
 Mid-to-large tasks
 ------------------
@@ -73,8 +70,8 @@ own improvement ideas. In any case, if you feel like working on some of those
 projects, or anything else in PyPy, pop up on IRC or write to us on the
 `mailing list`_.
 
-.. _issue tracker: http://bugs.pypy.org
-.. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _issue tracker: https://foss.heptapod.net/pypy/pypy/-/issues
+.. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
 
 Explicit typing in RPython
@@ -111,11 +108,8 @@ NumPy rebooted
 --------------
 
 Our cpyext C-API compatiblity layer can now run upstream NumPy unmodified.
-Release PyPy2.7-v6.0 still fails about 10 of the ~6000 test in the NumPy
-test suite. We need to improve our ctypes structure -> memoryview conversions_,
-and to refactor the way `NumPy adds docstrings`_.
+We need to refactor the way `NumPy adds docstrings`_.
 
-.. _conversions: https://bitbucket.org/pypy/pypy/issues/2930 
 .. _`NumPy adds docstrings`: https://github.com/numpy/numpy/issues/10167
 
 We also are looking for help in how to hijack NumPy dtype conversion and
@@ -150,8 +144,8 @@ this is an ideal task to get started, because it does not require any deep
 knowledge of the internals. Head over to `vmprof-python`_, `vmprof-server`_ and
 `vmprof-integration`_ to find open issues and documentation.
 
-.. _jitviewer: http://vmprof.com
-.. _vmprof.com: http://vmprof.com
+.. _jitviewer: https://vmprof.com
+.. _vmprof.com: https://vmprof.com
 .. _vmprof-python: https://github.com/vmprof/vmprof-python
 .. _vmprof-server: https://github.com/vmprof/vmprof-server
 .. _vmprof-integration: https://github.com/vmprof/vmprof-integration
@@ -259,7 +253,7 @@ to be got from them!):
 
 * `hg`
 
-.. _runner: http://speed.pypy.org
+.. _runner: https://speed.pypy.org
 .. _`CPython site`: https://speed.python.org/
 
 
@@ -311,20 +305,20 @@ Alternatively, an approach we used to recommend was to rewrite C extensions
 using more pypy-friendly technologies, e.g. cffi. Here is a partial list of
 good work that needs to be finished:
 
-**wxPython** https://bitbucket.org/amauryfa/wxpython-cffi
+**wxPython-cffi** `archived copy of the bitbucket repo`_
 
     Status: A project by a PyPy developer to adapt the Phoenix sip build system to cffi
 
-    The project is a continuation of a 2013 GSOC https://bitbucket.org/waedt/wxpython_cffi
+    The project is a continuation of a 2013 GSOC https://waedt.blogspot.com/
 
-    TODO: Merge the latest version of the wrappers and finish the sip conversion
+    TODO: Revive the archive, merge the latest version of the wrappers and finish
+    the sip conversion
+
+.. _`archived copy of the bitbucket repo`: https://bitbucket-archive.softwareheritage.org/projects/am/amauryfa/wxpython-cffi.html
 
 **pygame** https://github.com/CTPUG/pygame_cffi
 
-    Status: see blog post <http://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
+    Status: see blog post <https://morepypy.blogspot.com/2014/03/pygamecffi-pygame-on-pypy.html>
 
     TODO: see the end of the blog post
 
-**pyopengl** https://bitbucket.org/duangle/pyopengl-cffi
-
-    Status: unknown

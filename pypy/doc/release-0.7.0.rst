@@ -45,11 +45,11 @@ become a viable contender in that area sometime next year.
 Where to start? 
 -----------------------------
 
-Getting started:    http://codespeak.net/pypy/dist/pypy/doc/getting-started.html
+Getting started:    https://codespeak.net/pypy/dist/pypy/doc/getting-started.html
 
-PyPy Documentation: http://codespeak.net/pypy/dist/pypy/doc/ 
+PyPy Documentation: https://codespeak.net/pypy/dist/pypy/doc/ 
 
-PyPy Homepage:      http://codespeak.net/pypy/
+PyPy Homepage:      https://codespeak.net/pypy/
 
 The interpreter and object model implementations shipped with
 the 0.7 version can run on their own and implement the core
@@ -74,9 +74,9 @@ not have got that far without the coding and feedback support
 from numerous people.   Please feel free to give feedback and 
 raise questions. 
 
-    contact points: http://codespeak.net/pypy/dist/pypy/doc/contact.html
+    contact points: https://codespeak.net/pypy/dist/pypy/doc/contact.html
 
-    contributor list: http://codespeak.net/pypy/dist/pypy/doc/contributor.html
+    contributor list: https://codespeak.net/pypy/dist/pypy/doc/contributor.html
 
 have fun, 
     

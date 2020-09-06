@@ -17,7 +17,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the PyPy2.7 v5.4 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -30,10 +30,10 @@ with making RPython's JIT even better.
 
 .. _cffi: https://cffi.readthedocs.org
 .. _JIT: https://morepypy.blogspot.com.au/2016/08/pypy-tooling-upgrade-jitviewer-and.html
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 
 What is PyPy?
 =============
@@ -56,8 +56,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Other Highlights (since 5.3 released in June 2016)
 =========================================================
@@ -210,7 +210,7 @@ Other Highlights (since 5.3 released in June 2016)
     `interp_posix.py`, based on the clean-up of CPython 2.7.x 
 
 .. _`JIT logging`: https://morepypy.blogspot.com/2016/08/pypy-tooling-upgrade-jitviewer-and.html
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.4.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.4.0.html
 
 Please update, and continue to help us make PyPy better.
 
