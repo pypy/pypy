@@ -12,6 +12,7 @@ class Module(MixedModule):
         'dont_trace_here': 'interp_jit.dont_trace_here',
         'trace_next_iteration': 'interp_jit.trace_next_iteration',
         'trace_next_iteration_hash': 'interp_jit.trace_next_iteration_hash',
+        'releaseall': 'interp_jit.releaseall',
         'set_compile_hook': 'interp_resop.set_compile_hook',
         'set_abort_hook': 'interp_resop.set_abort_hook',
         'set_trace_too_long_hook': 'interp_resop.set_trace_too_long_hook',
