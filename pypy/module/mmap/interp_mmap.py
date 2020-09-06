@@ -227,6 +227,32 @@ class W_MMap(W_Root):
     def descr_exit(self, space, __args__):
         self.close()
 
+    def descr_iter(self, space):
+        return space.appexec([self], """(m):
+            def iterate():
+                i = 0
+                while True:
+                    c = m[i:i+1]
+                    if not c:
+                        break
+                    yield c
+                    i += 1
+            return iterate()
+        """)
+
+    def descr_reversed(self, space):
+        return space.appexec([self], """(m):
+            def iterate():
+                i = len(m) - 1
+                while i >= 0:
+                    c = m[i:i+1]
+                    if not c:
+                        break
+                    yield c
+                    i -= 1
+            return iterate()
+        """)
+
 
 if rmmap._POSIX:
 
@@ -286,6 +312,8 @@ W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __enter__ = interp2app(W_MMap.descr_enter),
     __exit__ = interp2app(W_MMap.descr_exit),
     __weakref__ = make_weakref_descr(W_MMap),
+    __iter__ = interp2app(W_MMap.descr_iter),
+    __reversed__ = interp2app(W_MMap.descr_reversed),
 
     closed = GetSetProperty(W_MMap.closed_get),
 )

@@ -213,29 +213,29 @@ class MIFrame(object):
                     'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge',
                     ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
                 return self.execute(rop.%s, b1, b2)
-        ''' % (_opimpl, _opimpl.upper())).compile()
+        ''' % (_opimpl, _opimpl.upper())).compile())
 
     for _opimpl in ['int_eq', 'int_ne', 'int_lt', 'int_le', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne',
                     'instance_ptr_eq', 'instance_ptr_ne']:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             @arguments("box", "box")
             def opimpl_%s(self, b1, b2):
                 if b1 is b2: # crude fast check
                     return %s
                 return self.execute(rop.%s, b1, b2)
         ''' % (_opimpl, FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
-        ).compile()
+        ).compile())
 
     for (_opimpl, resop) in [
             ('int_add_jump_if_ovf', 'INT_ADD_OVF'),
             ('int_sub_jump_if_ovf', 'INT_SUB_OVF'),
             ('int_mul_jump_if_ovf', 'INT_MUL_OVF')]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             @arguments("label", "box", "box", "orgpc")
             def opimpl_%s(self, lbl, b1, b2, orgpc):
                 self.metainterp.ovf_flag = False
@@ -247,7 +247,7 @@ class MIFrame(object):
                     self.pc = lbl
                     return None # but don't emit GUARD_OVERFLOW
                 return resbox
-        ''' % (_opimpl, resop)).compile()
+        ''' % (_opimpl, resop)).compile())
 
     for _opimpl in ['int_is_true', 'int_is_zero', 'int_neg', 'int_invert',
                     'cast_float_to_int', 'cast_int_to_float',
@@ -257,11 +257,11 @@ class MIFrame(object):
                     'convert_float_bytes_to_longlong',
                     'convert_longlong_bytes_to_float', 'int_force_ge_zero',
                     ]:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             @arguments("box")
             def opimpl_%s(self, b):
                 return self.execute(rop.%s, b)
-        ''' % (_opimpl, _opimpl.upper())).compile()
+        ''' % (_opimpl, _opimpl.upper())).compile())
 
     @arguments("box")
     def opimpl_int_same_as(self, box):
@@ -381,7 +381,7 @@ class MIFrame(object):
     for _opimpl in ['int_lt', 'int_le', 'int_eq', 'int_ne', 'int_gt', 'int_ge',
                     'ptr_eq', 'ptr_ne', 'float_lt', 'float_le', 'float_eq',
                     'float_ne', 'float_gt', 'float_ge']:
-        exec py.code.Source('''
+        exec(py.code.Source('''
             @arguments("box", "box", "label", "orgpc")
             def opimpl_goto_if_not_%s(self, b1, b2, target, orgpc):
                 if %s and b1 is b2:
@@ -391,7 +391,7 @@ class MIFrame(object):
                 self.opimpl_goto_if_not(condbox, target, orgpc)
         ''' % (_opimpl, not _opimpl.startswith('float_'),
                FASTPATHS_SAME_BOXES[_opimpl.split("_")[-1]], _opimpl.upper())
-        ).compile()
+        ).compile())
 
     def _establish_nullity(self, box, orgpc):
         heapcache = self.metainterp.heapcache
@@ -3432,7 +3432,7 @@ def _get_opimpl_method(name, argcodes):
     #
     unboundmethod = getattr(MIFrame, 'opimpl_' + name).im_func
     argtypes = unrolling_iterable(unboundmethod.argtypes)
-    handler.func_name = 'handler_' + name
+    handler.__name__ = 'handler_' + name
     return handler
 
 def put_back_list_of_boxes3(frame, position, newvalue):

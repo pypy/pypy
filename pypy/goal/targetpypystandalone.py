@@ -137,10 +137,12 @@ def get_additional_entrypoints(space, w_initstdio):
             # (in unbuffered mode, to avoid troubles) and import site
             space.appexec([w_path, space.newfilename(home), w_initstdio],
             r"""(path, home, initstdio):
-                import os, sys
+                import sys 
+                # don't import anything more above this: sys.path is not set
                 sys.path[:] = path
                 sys.executable = home
                 initstdio(unbuffered=True)
+                import os   # don't move it to the first line of this function!
                 _MACOSX = sys.platform == 'darwin'
                 if _MACOSX:
                     # __PYVENV_LAUNCHER__, used by CPython on macOS, should be ignored
@@ -376,7 +378,7 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            filename = os.path.join(pypydir, '..', 'lib_pypy', 'tools',
+            filename = os.path.join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
             if sys.platform == 'darwin':
                 argv = [filename, '--embed-dependencies']

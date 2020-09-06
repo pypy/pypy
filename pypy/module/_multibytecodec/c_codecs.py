@@ -154,7 +154,7 @@ def multibytecodec_decerror(decodebuf, e, errors,
         replace = UNICODE_REPLACEMENT_CHARACTER
     else:
         assert errorcb
-        replace, end, rettype = errorcb(errors, namecb, reason,
+        replace, end, rettype, obj = errorcb(errors, namecb, reason,
                                stringdata, start, end)
         # 'replace' is UTF8 encoded unicode, rettype is 'u'
     lgt = rutf8.codepoints_in_utf8(replace)
@@ -269,7 +269,7 @@ def multibytecodec_encerror(encodebuf, e, errors,
         rettype = 'u'
     else:
         assert errorcb
-        replace, end, rettype = errorcb(errors, namecb, reason,
+        replace, end, rettype, obj = errorcb(errors, namecb, reason,
                             unicodedata, start, end)
     if rettype == 'u':
         codec = pypy_cjk_enc_getcodec(encodebuf)

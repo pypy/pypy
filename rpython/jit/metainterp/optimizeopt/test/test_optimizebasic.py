@@ -3019,6 +3019,21 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, ops)
 
+    def test_arraymove_1(self):
+        ops = '''
+        [i0]
+        p1 = new_array(6, descr=arraydescr)
+        setarrayitem_gc(p1, 1, i0, descr=arraydescr)
+        call_n(0, p1, 0, 2, 0, descr=arraymovedescr)    # 0-length arraymove
+        i2 = getarrayitem_gc_i(p1, 1, descr=arraydescr)
+        jump(i2)
+        '''
+        expected = '''
+        [i0]
+        jump(i0)
+        '''
+        self.optimize_loop(ops, expected)
+
     def test_bound_lt(self):
         ops = """
         [i0]
@@ -3369,6 +3384,346 @@ class TestOptimizeBasic(BaseTestBasic):
         jump(p0)
         """
         self.optimize_strunicode_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_lt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(i0, 10)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(i0, 9)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_le(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(i0, 9)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(i0, 8)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_gt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(10, i0)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(9, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_ge(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(9, i0)
+        guard_true(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(8, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_ge(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_ge(i0, 10)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_gt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_gt(i0, 9)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_le(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_le(10, i0)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_not_lt(self):
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(9, i0)
+        guard_false(i4) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+        #
+        ops = """
+        [i0]
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        i4 = uint_lt(8, i0)
+        guard_true(i4) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_lt_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_lt(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_range(self):
+        ops = """
+        [i0]
+        i2 = uint_lt(i0, -10)
+        guard_true(i2) []
+        i3 = uint_gt(i0, -20)
+        guard_true(i3) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_le_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        i2 = int_lt(i0, 11)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_le(i0, 10)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_gt_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_gt(10, i0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 10)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_gt(10, i0)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_ge_inv(self):
+        ops = """
+        [i0]
+        i1 = uint_ge(10, i0)
+        guard_true(i1) []
+        i2 = int_lt(i0, 11)
+        guard_true(i2) []
+        i3 = int_ge(i0, 0)
+        guard_true(i3) []
+        jump()
+        """
+        expected = """
+        [i0]
+        i1 = uint_ge(10, i0)
+        guard_true(i1) []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
+    @py.test.mark.xfail()  # see comment about optimize_UINT in intbounds.py
+    def test_bound_unsigned_bug1(self):
+        ops = """
+        [i0]
+        i1 = int_ge(i0, 5)
+        guard_true(i1) []
+        i2 = uint_lt(i0, -50)
+        guard_true(i2) []
+        jump()
+        """
+        self.optimize_loop(ops, ops)
 
     def test_addsub_const(self):
         ops = """

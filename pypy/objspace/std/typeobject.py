@@ -48,22 +48,22 @@ def unwrap_cell(space, w_value):
     return w_value
 
 def write_cell(space, w_cell, w_value):
-    from pypy.objspace.std.intobject import W_IntObject
+    from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
     if w_cell is None:
         # attribute does not exist at all, write it without a cell first
         return w_value
     if isinstance(w_cell, ObjectMutableCell):
         w_cell.w_value = w_value
         return None
-    elif isinstance(w_cell, IntMutableCell) and type(w_value) is W_IntObject:
-        w_cell.intvalue = w_value.intval
+    elif isinstance(w_cell, IntMutableCell) and is_plain_int1(w_value):
+        w_cell.intvalue = plain_int_w(space, w_value)
         return None
     elif space.is_w(w_cell, w_value):
         # If the new value and the current value are the same, don't
         # create a level of indirection, or mutate the version.
         return None
-    if type(w_value) is W_IntObject:
-        return IntMutableCell(w_value.intval)
+    if is_plain_int1(w_value):
+        return IntMutableCell(plain_int_w(space, w_value))
     else:
         return ObjectMutableCell(w_value)
 
@@ -847,6 +847,23 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     _set_names(space, w_type)
     _init_subclass(space, w_type, __args__)
     return w_type
+
+def _calculate_metaclass(space, w_metaclass, bases_w):
+    """Determine the most derived metatype"""
+    w_winner = w_metaclass
+    for base in bases_w:
+        w_typ = space.type(base)
+        if space.is_w(w_typ, space.w_classobj):
+            continue # special-case old-style classes
+        if space.issubtype_w(w_winner, w_typ):
+            continue
+        if space.issubtype_w(w_typ, w_winner):
+            w_winner = w_typ
+            continue
+        msg = ("metaclass conflict: the metaclass of a derived class must be "
+               "a (non-strict) subclass of the metaclasses of all its bases")
+        raise oefmt(space.w_TypeError, msg)
+    return w_winner
 
 def _store_type_in_classcell(space, w_type, w_classcell, dict_w):
     from pypy.interpreter.nestedscope import Cell

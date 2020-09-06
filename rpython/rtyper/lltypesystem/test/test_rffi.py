@@ -142,6 +142,33 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 3
 
+    def test_constcharp2str(self):
+        c_source = py.code.Source("""
+        const char *z(void)
+        {
+            return "hello world";
+        }
+        """)
+        eci = ExternalCompilationInfo(separate_module_sources=[c_source],
+                                     post_include_bits=['const char *z(void);'])
+        z = llexternal('z', [], CONST_CCHARP, compilation_info=eci)
+
+        def f():
+            l_buf = lltype.malloc(CCHARP.TO, 5, flavor='raw')
+            l_buf[0] = 'A'
+            l_buf[1] = 'B'
+            l_buf[2] = 'C'
+            l_buf[3] = '\x00'
+            l_buf[4] = 'E'
+            l_constbuf = cast(CONST_CCHARP, l_buf)
+            res = constcharp2str(l_constbuf)
+            lltype.free(l_buf, flavor='raw')
+            return len(res)
+
+        assert f() == 3
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == 3
+
     def test_stringstar(self):
         c_source = """
         #include <string.h>
@@ -813,7 +840,7 @@ def test_ptradd_interpret():
     interpret(test_ptradd, [])
 
 def test_voidptr():
-    assert repr(VOIDP) == "<* Array of void >"
+    assert repr(VOIDP) == "<* Array of void {'nolength': True, 'render_as_void': True} >"
 
 class TestCRffi(BaseTestRffi):
     def compile(self, func, args, **kwds):
@@ -862,7 +889,7 @@ class TestCRffi(BaseTestRffi):
             del os.environ['PYPYLOG']
 
         import re
-        r = re.compile(r"freeing str [[] [0-9a-fx]+ []]")
+        r = re.compile(r"freeing str [[] [0-9a-fxA-FX]+ []]")
         matches = r.findall(error)
         assert len(matches) == 10000        # must be all 10000 strings,
         assert len(set(matches)) == 10000   # and no duplicates

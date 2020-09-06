@@ -65,7 +65,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from 3 new contributors,
+previous release, we have accepted contributions from 13 new contributors,
 thanks for pitching in.
 
 If you are a python library maintainer and use c-extensions, please consider
@@ -125,7 +125,7 @@ Changes shared across versions
 ------------------------------
 - We now package and ship the script to rebuild all the stdlib helper modules
   that on CPython are written as c-extensions and in PyPy use CFFI. These are
-  located in ``lib_pypy``, and the build script in ``lib_pypy/tools``.
+  located in ``lib_pypy``, and the build script in ``lib_pypy/pypy_tools``.
 - Implement CPython 16055_: Fixes incorrect error text for
   ``int('1', base=1000)``.
 - Handle NaN correctly in ``array.array``.
@@ -175,6 +175,8 @@ Changes shared across versions
   respectively
 - Fix potential segfault in the zipimporter
 - Fixes in the JIT backend for PowerPC 
+- Update the statically-linked openssl to 1.1.1f on macOS.
+- Fix `re` grouprefs which were broken for unicode
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

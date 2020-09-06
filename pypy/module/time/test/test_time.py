@@ -1,3 +1,11 @@
+import pytest
+import sys
+from rpython.rtyper.lltypesystem.ll2ctypes import libc_name
+
+YEAR_10000_CRASHES = False
+if libc_name == 'msvcr90.dll':
+    YEAR_10000_CRASHES = True
+
 class AppTestTime:
     spaceconfig = {
         "usemodules": ['time', 'struct', 'binascii', 'signal'],
@@ -294,6 +302,15 @@ class AppTestTime:
                 del os.environ['TZ']
             time.tzset()
 
+    @pytest.mark.skipif(YEAR_10000_CRASHES, reason='MSVC<10 crashes unconditionally')
+    def test_large_year_does_not_crash(self):
+        # may fail on windows but should not crash
+        import time
+        try:
+            time.strftime('%Y', (10000, 0, 0, 0, 0, 0, 0, 0, 0))
+        except ValueError:
+            pass
+
     def test_strftime(self):
         import time
         import os, sys
@@ -345,13 +362,17 @@ class AppTestTime:
 
     def test_strftime_bounds_checking(self):
         import time
+        import os
 
         # make sure that strftime() checks the bounds of the various parts
         # of the time tuple.
 
         # check year
         time.strftime('', (1899, 1, 1, 0, 0, 0, 0, 1, -1))
-        time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
+        if os.name == 'nt':
+            raises(ValueError(time.strftime, '', (0, 1, 1, 0, 0, 0, 0, 1, -1)))
+        else:
+            time.strftime('', (0, 1, 1, 0, 0, 0, 0, 1, -1))
 
         # check month
         raises(ValueError, time.strftime, '', (1900, 13, 1, 0, 0, 0, 0, 1, -1))
@@ -378,6 +399,25 @@ class AppTestTime:
         # check daylight savings flag
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, -2))
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
+
+    @pytest.mark.skipif('sys.platform=="win32"', reason='fails on win32')
+    def test_strftime_nonascii(self):
+        import time
+        import _locale
+        prev_loc = _locale.setlocale(_locale.LC_TIME)
+        try:
+            _locale.setlocale(_locale.LC_TIME, "fr_CH")
+        except _locale.Error:
+            skip("unsupported locale LC_TIME=fr_CH")
+        try:
+            s = time.strftime('%B.', time.localtime(192039127))
+            # I am unsure, but I think that this fails because decoding of
+            # the result isn't done in the fr_CH locale.  There is no code
+            # to grab the LC_TIME locale specifically, which is the one
+            # used by strftime().
+            assert s == "f\xe9vrier."
+        finally:
+            _locale.setlocale(_locale.LC_TIME, prev_loc)
 
     def test_strptime(self):
         import time
@@ -458,3 +498,12 @@ class AppTestTime:
 
         assert signalled != []
         assert t2 - t1 > 2.99
+
+    def test_tm_gmtoff_valid(self):
+        import time
+        local = time.localtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None
+        local = time.gmtime()
+        assert local.tm_gmtoff is not None
+        assert local.tm_zone is not None

@@ -331,3 +331,9 @@ def test_cursor_del(con):
     con.execute("SELECT * FROM foo")
     import gc; gc.collect()
     con.execute("DROP TABLE foo")  # no error
+
+def test_isolation_bug():
+    con = _sqlite3.connect(":memory:", isolation_level=None)
+    cur = con.cursor()
+    cur.execute("create table foo(x);")
+

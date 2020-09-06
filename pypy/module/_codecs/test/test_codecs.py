@@ -1,3 +1,4 @@
+# coding: utf-8
 import sys
 import pytest
 
@@ -587,7 +588,6 @@ class AppTestPartialEvaluation:
 
     def test_partial_utf8(self):
         import _codecs
-        encoding = 'utf-8'
         check_partial = [
                 u"\x00",
                 u"\x00",
@@ -606,19 +606,20 @@ class AppTestPartialEvaluation:
                 u"\x00\xff\u07ff\u0800\uffff\U00010000",
             ]
 
-        buffer = b''
+        buf = b''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u07ff\u0800\uffff\U00010000".encode(encoding), check_partial):
-            buffer += bytes([c])
-            res = _codecs.utf_8_decode(buffer,'strict',False)
-            if res[1] >0 :
-                buffer = b''
-            result += res[0]
+        uval = u"\x00\xff\u07ff\u0800\uffff\U00010000"
+        for (c, partialresult) in zip(uval.encode('utf-8'), check_partial):
+            buf += bytes([c])
+            print('partial buf', buf)
+            val, lgt = _codecs.utf_8_decode(buf, 'strict', False)
+            if lgt >0 :
+                buf = b''
+            result += val
             assert result == partialresult
 
     def test_partial_utf16(self):
         import _codecs
-        encoding = 'utf-16'
         check_partial = [
                     u"", # first byte of BOM read
                     u"", # second byte of BOM read => byteorder known
@@ -635,13 +636,14 @@ class AppTestPartialEvaluation:
                     u"\x00\xff\u0100\uffff",
                     u"\x00\xff\u0100\uffff\U00010000",
                 ]
-        buffer = b''
+        buf = b''
         result = u""
-        for (c, partialresult) in zip(u"\x00\xff\u0100\uffff\U00010000".encode(encoding), check_partial):
-            buffer += bytes([c])
-            res = _codecs.utf_16_decode(buffer,'strict',False)
+        uval = u"\x00\xff\u0100\uffff\U00010000"
+        for (c, partialresult) in zip(uval.encode('utf-16'), check_partial):
+            buf += bytes([c])
+            res = _codecs.utf_16_decode(buf, 'strict', False)
             if res[1] >0 :
-                buffer = b''
+                buf = b''
             result += res[0]
             assert result == partialresult
 
@@ -949,6 +951,15 @@ class AppTestPartialEvaluation:
             d.setstate(state)
             part2 = d.encode(u[i:], True)
             assert s == part1 + part2
+
+    def test_utf_8_decode(self):
+        import _codecs
+        utf8 = 'åäö'.encode('iso-8859-1')
+        assert utf8 == b'\xe5\xe4\xf6'
+        uval, lgt = _codecs.utf_8_decode(utf8, 'replace')
+        assert lgt == 3
+        assert [ord(x) for x in uval] == [65533, 65533, 65533]
+        
 
     def test_escape_decode_escaped_newline(self):
         import _codecs
@@ -1607,3 +1618,18 @@ class AppTestPartialEvaluation:
             assert r == res[1]
             r = s.decode('utf8', 'custom_replace')
             assert r == res[0]
+
+    def test_replace_with_long(self):
+        import _codecs
+        def replace_with_long(exc):
+            if isinstance(exc, UnicodeDecodeError):
+                exc.object = b"\x00" * 8
+                return ('\ufffd', exc.start)
+            else:
+                raise TypeError("don't know how to handle %r" % exc)
+        _codecs.register_error("test.replace_with_long", replace_with_long)
+
+        res = b'\x00'.decode('utf-16', 'test.replace_with_long')
+        assert res == u'\ufffd\x00\x00\x00\x00'
+        res = b'\x00'.decode('utf-32', 'test.replace_with_long')
+        assert res == u'\ufffd\x00\x00'

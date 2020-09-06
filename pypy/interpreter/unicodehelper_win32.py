@@ -155,6 +155,7 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
     res = StringBuilder(lgt)
     try:
         pos = 0
+        # TODO: update s if obj != s is returned from an errorhandler
         for uni in Utf8StringIterator(s):
             if used_default_p:
                 used_default_p[0] = rffi.cast(rwin32.BOOL, False)
@@ -171,14 +172,15 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
             
             if outsize == 0:
                 if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
-                    r, pos, retype = errorhandler(errors, name,
-                                       "invalid character", s, pos, pos+1)
+                    r, pos, retype, obj = errorhandler(errors, name,
+                                           "invalid character", s, pos, pos+1)
                     res.append(r)
                     continue
                 raise rwin32.lastSavedWindowsError()
             # If we used a default char, then we failed!
             if (used_default_p and rffi.cast(lltype.Bool, used_default_p[0])):
-                r, pos, retype = errorhandler(errors, name, "invalid character", s, pos, pos+1)
+                r, pos, retype, obj = errorhandler(errors, name,
+                                                   "invalid character", s, pos, pos+1)
                 res.append(r)
                 continue
             with rffi.scoped_alloc_buffer(outsize) as buf:
@@ -189,8 +191,8 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
                     raise rwin32.lastSavedWindowsError()
                 if (used_default_p and
                     rffi.cast(lltype.Bool, used_default_p[0])):
-                        r, pos, rettype = errorhandler(errors, name, "invalid character",
-                                           s, pos, pos + 1)
+                        r, pos, rettype, obj = errorhandler(errors, name, "invalid character",
+                                                            s, pos, pos + 1)
                         res.append(r)
                 else:
                     result = buf.str(outsize)

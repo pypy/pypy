@@ -14,8 +14,7 @@ class AppTestStructseq:
         ns = dict(_structseq=_structseq,
                   ssfield=_structseq.structseqfield)
         # need to exec since it uses the py3k-only metaclass syntax
-        exec("""\
-class mydata(metaclass=_structseq.structseqtype):
+        exec("""class mydata(metaclass=_structseq.structseqtype):
     st_mode  = ssfield(0, "protection bits")
     st_ino   = ssfield(1)
     st_dev   = ssfield(2)
@@ -37,6 +36,17 @@ class mydata(metaclass=_structseq.structseqtype):
                        default=lambda self: self._st_ctime_as_int)
 """, ns)
         return ns['mydata']
+
+    def w_get_small(self):
+        _structseq = self._structseq
+        ns = dict(_structseq=_structseq,
+                  ssfield=_structseq.structseqfield)
+        # need to exec since it uses the py3k-only metaclass syntax
+        exec("""class small(metaclass=_structseq.structseqtype):
+    one  = ssfield(0, "one")
+""", ns)
+        return ns['small']
+
 
     def test_class(self):
         mydata = self.get_mydata()
@@ -107,3 +117,13 @@ class mydata(metaclass=_structseq.structseqtype):
         mydata = self.get_mydata()
         x = mydata(range(100, 113))
         raises((TypeError, AttributeError), "x.some_random_attribute = 1")
+
+    def test_small(self):
+        small = self.get_small()
+        # strange, but for CPython compatibility, a structseq with one field
+        # accepts a non-sequence single value and
+        # if given a tuple, puts the whole tuple into the field
+        x = small(0)
+        assert x[0] == 0
+        x = small((0, 0, 0))
+        assert x[0] == (0, 0, 0)

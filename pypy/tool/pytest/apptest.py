@@ -298,12 +298,12 @@ class AppTestMethod(py.test.collect.Function):
                 else:
                     obj = getattr(instance, name)
                     if isinstance(obj, types.MethodType):
-                        source = py.std.inspect.getsource(obj).lstrip()
+                        source = py.code.Source(obj).indent()
                         w_func = space.appexec([], textwrap.dedent("""
                         ():
-                            %s
+                        %s
                             return %s
-                        """) % (source, name))
+                        """) % (source, obj.__name__))
                         w_obj = Method(space, w_func, w_instance)
                     else:
                         w_obj = obj
@@ -366,4 +366,3 @@ class AppClassCollector(py.test.Class):
                                           space.newtuple([]),
                                           space.newdict())
         self.w_class = w_class
-

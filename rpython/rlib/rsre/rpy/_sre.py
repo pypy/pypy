@@ -1,5 +1,6 @@
-from rpython.rlib.rsre import rsre_char, rsre_core
+from rpython.rlib.rsre import rsre_char, rsre_core, rsre_constants
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.objectmodel import we_are_translated
 
 VERSION = "2.7.6"
 MAGIC = 20031017
@@ -12,7 +13,9 @@ class GotIt(Exception):
     pass
 
 def compile(pattern, flags, code, *args):
-    raise GotIt(rsre_core.CompiledPattern([intmask(i) for i in code]), flags, args)
+    if not we_are_translated() and isinstance(pattern, unicode):
+        flags |= rsre_constants.SRE_FLAG_UNICODE   # for rsre_re.py
+    raise GotIt(rsre_core.CompiledPattern([intmask(i) for i in code], flags), flags, args)
 
 
 def get_code(regexp, flags=0, allargs=False):

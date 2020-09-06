@@ -241,6 +241,23 @@ class TestFunction(object):
             else:
                 assert "None" in printed
 
+    def test_callback_returning_struct_three_bytes(self):
+        if self.Backend is CTypesBackend:
+            py.test.skip("not supported with the ctypes backend")
+        ffi = FFI(backend=self.Backend())
+        ffi.cdef("""
+            typedef struct {
+                unsigned char a, b, c;
+            } THREEBYTES;
+        """)
+        def cb():
+            return (12, 34, 56)
+        fptr = ffi.callback("THREEBYTES(*)(void)", cb)
+        tb = fptr()
+        assert tb.a == 12
+        assert tb.b == 34
+        assert tb.c == 56
+
     def test_passing_array(self):
         ffi = FFI(backend=self.Backend())
         ffi.cdef("""

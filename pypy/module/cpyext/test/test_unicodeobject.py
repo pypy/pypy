@@ -10,7 +10,6 @@ from pypy.module.cpyext.pyobject import decref, from_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
 import sys, py
 from pypy.module.cpyext.unicodeobject import *
-from pypy.module.cpyext.unicodeobject import _PyUnicode_Ready
 
 class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_unicodeobject(self):
@@ -121,7 +120,7 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_default_encoded_string", "METH_O",
              '''
-                PyObject* result = _PyUnicode_AsDefaultEncodedString(args, "replace");
+                PyObject* result = PyUnicode_AsEncodedString(args, NULL, "replace");
                 Py_INCREF(result);
                 return result;
              '''
@@ -380,7 +379,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
     def test_invalid(self):
         m = self.import_module('_widechar')
         if m.get_sizeof_wchar() != 4:
-            pytest.skip('only for sizeof(wchar)==4')
+            #pytest.skip('only for sizeof(wchar)==4')
+            return
         exc = raises(ValueError, m.test_widechar)
         assert (str(exc.value) == 'character U+110000 is not in range '
                 '[U+0000; U+10ffff]'), str(exc.value)
@@ -457,7 +457,71 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.make(3, 0x1234) == u'\u1234' * 3
         assert module.make(7, 0x12345) == u'\U00012345' * 7
 
+    def test_char_ops(self):
+        module = self.import_extension('char_ops', [
+            ("readchar", "METH_VARARGS",
+            """
+                PyObject *obj = PyTuple_GetItem(args, 0);
+                Py_ssize_t indx = PyLong_AsLong(PyTuple_GetItem(args, 1));
+                Py_UCS4 chr = PyUnicode_ReadChar(obj, indx);
+                if (chr == (Py_UCS4)-1 || chr == (Py_UCS4)-2) {
+                    return NULL;
+                }
+                return PyLong_FromLong(chr);
+            """),
+            ("writechar", "METH_VARARGS",
+            """
+                char *str;
+                Py_ssize_t indx;
+                int ch;
+                if (!PyArg_ParseTuple(args, "sni", &str, &indx, &ch)) {
+                    return NULL;
+                }
+                if (ch > (int)0xffff || ch < 0) {
+                    PyErr_SetString(PyExc_OverflowError, "ch is out of bounds");
+                    return NULL;
+                }
+                PyObject * newstr = PyUnicode_FromString(str);
+                int ret = PyUnicode_WriteChar(newstr, indx, ch);
+                if (ret < 0) {
+                    Py_DECREF(newstr);
+                    return NULL;
+                }
+                return newstr;
+            """),
+            ("findchar", "METH_VARARGS",
+            """
+                PyObject *uni;
+                int ch;
+                Py_ssize_t start, end, ret;
+                int direction;
+                if (!PyArg_ParseTuple(args, "Oinni", &uni, &ch, &start, &end, &direction)) {
+                    return NULL;
+                }
+                if (ch > (int)0xffff || ch < 0) {
+                    PyErr_SetString(PyExc_OverflowError, "ch is out of bounds");
+                    return NULL;
+                }
+                ret = PyUnicode_FindChar(uni, (Py_UCS4)ch, start, end, direction);
+                if (ret == -2) return NULL;
+                return PyLong_FromLong(ret);
+            """),
+            ])
+        s = 'abcdef'
+        assert module.readchar(s, 3) == ord(s[3])
+        try:
+            newstr = module.writechar(s, 3, ord('z'))
+            assert newstr[3] == 'z'
+            assert newstr[0] == 'a'
+        except SystemError:
+            # raises on PyPy
+            pass
+        indx = module.findchar(s, ord('z'), 0, -1, 0)
+        assert indx == -1
+        indx = module.findchar(s, ord('d'), 0, -1, 0)
+        assert indx == 3 
 
+ 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
         encoding = rffi.charp2str(PyUnicode_GetDefaultEncoding(space, ))
@@ -658,6 +722,33 @@ class TestUnicode(BaseApiTest):
         with lltype.scoped_alloc(PyObjectP.TO, 1) as result:
             with pytest.raises(OperationError):
                 PyUnicode_FSConverter(space, w_input, result)
+
+
+    def test_locale(self, space):
+        # Input is bytes
+        w_input = space.newbytes("test")
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_DecodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+
+        # Input is unicode
+        w_input = space.newtext("test", 4)
+        with rffi.scoped_str2charp('strict') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp(None) as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        with rffi.scoped_str2charp('surrogateescape') as errors:
+            w_ret = PyUnicode_EncodeLocale(space, w_input, errors)
+            assert space.utf8_w(w_ret) == 'test'
+        # 'errors' is invalid
+        with rffi.scoped_str2charp('something else') as errors:
+            with pytest.raises(OperationError):
+                PyUnicode_EncodeLocale(space, w_input, errors)
 
 
     def test_IS(self, space):
@@ -1048,30 +1139,24 @@ class TestUnicode(BaseApiTest):
     def test_Ready(self, space):
         def as_py_uni(val):
             py_obj = new_empty_unicode(space, len(val))
-            set_wbuffer(py_obj, rffi.unicode2wcharp(val))
+            w_obj = space.wrap(val)
+            # calls _PyUnicode_Ready
+            unicode_attach(space, py_obj, w_obj)
             return py_obj
 
         py_str = as_py_uni(u'abc')  # ASCII
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 1
 
         py_str = as_py_uni(u'café')  # latin1
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 1
         assert get_ascii(py_str) == 0
 
         py_str = as_py_uni(u'Росси́я')  # UCS2
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 2
         assert get_ascii(py_str) == 0
 
         py_str = as_py_uni(u'***\U0001f4a9***')  # UCS4
-        assert get_kind(py_str) == 0
-        _PyUnicode_Ready(space, py_str)
         assert get_kind(py_str) == 4
         assert get_ascii(py_str) == 0
 
@@ -1102,4 +1187,17 @@ class TestUnicode(BaseApiTest):
         assert x_chunk[1] == ord('b')
         assert x_chunk[2] == 0x0660
         assert x_chunk[3] == 0
+        lltype.free(target_chunk, flavor='raw')
+
+    def test_wide_as_ucs4(self, space):
+        w_x = space.wrap(u'\U00100900')
+        x_chunk = PyUnicode_AsUCS4Copy(space, w_x)
+        assert x_chunk[0] == 0x00100900
+        Py_UCS4 = lltype.typeOf(x_chunk).TO.OF
+        lltype.free(x_chunk, flavor='raw', track_allocation=False)
+
+        target_chunk = lltype.malloc(rffi.CArray(Py_UCS4), 1, flavor='raw')
+        x_chunk = PyUnicode_AsUCS4(space, w_x, target_chunk, 1, 0)
+        assert x_chunk == target_chunk
+        assert x_chunk[0] == 0x00100900
         lltype.free(target_chunk, flavor='raw')

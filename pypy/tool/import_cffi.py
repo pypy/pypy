@@ -40,6 +40,8 @@ def main(cffi_dir):
         path = test_dest.join(p.relto(cffi_dir.join('testing')))
         path.join('..').ensure(dir=1)
         path.write_binary(fixeol(''.join(mangle(p.readlines(), p.ext))))
+    path = test_dest.join('test_c.py')
+    path.write_binary(fixeol(cffi_dir.join('c', 'test_c.py').read()))
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

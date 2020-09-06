@@ -5,6 +5,8 @@ try:
 except ImportError:
     py.test.skip("to run on top of a translated pypy-c")
 
+py.test.skip("convert to an apptest")
+
 import sys, random
 from rpython.tool.udir import udir
 

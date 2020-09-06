@@ -24,6 +24,7 @@ from _weakrefset import WeakSet, _IterationGuard
 import collections  # Import after _weakref to avoid circular import.
 import sys
 import itertools
+import __pypy__
 
 ProxyTypes = (ProxyType, CallableProxyType)
 
@@ -37,9 +38,9 @@ try:
 except ImportError:
     def _delitem_if_value_is(d, key, value):
         try:
-            if self.data[key] is value:  # fall-back: there is a potential
+            if d[key] is value:  # fall-back: there is a potential
                 #             race condition in multithreaded programs HERE
-                del self.data[key]
+                del d[key]
         except KeyError:
             pass
 
@@ -172,7 +173,7 @@ class WeakValueDictionary(collections.MutableMapping):
         # the weakref callbacks may be called at an unknown later time.
         # original code was: return len(self.data)
         result = 0
-        for wr in self.data.values():
+        for wr in list(self.data.values()):
             result += (wr() is not None)
         return result
 
@@ -429,7 +430,7 @@ class WeakKeyDictionary(collections.MutableMapping):
 #        return len(self.data) - len(self._pending_removals)
 #
         result = 0
-        for wr in self.data:
+        for wr in list(self.data):
             result += (wr() is not None)
         return result
 

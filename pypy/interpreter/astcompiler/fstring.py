@@ -55,7 +55,11 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
         # CPython has an equivalent hack :-(
         value = stnode.get_value()
         if value is not None:
-            column_offset = value.find(source) + stnode.get_column()
+            offset = value.find(source)
+            assert offset >= 0
+            last_nl = max(0, value.rfind('\n', 0, offset))
+            column_offset = offset - last_nl + stnode.get_column()
+            lineno += value.count('\n', 0, last_nl+1)
 
     info = pyparse.CompileInfo("<fstring>", "eval",
                                consts.PyCF_SOURCE_IS_UTF8 |
@@ -66,7 +70,8 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
 
     ast = ast_from_node(astbuilder.space, parse_tree, info,
                         recursive_parser=parser)
-    fixup_fstring_positions(ast, lineno, column_offset)
+    # column_offset - 1 to exclude prefixed ( in paren_source
+    fixup_fstring_positions(ast, lineno, column_offset - 1)
     return ast
 
 def fixup_fstring_positions(ast, line_offset, column_offset):
@@ -80,8 +85,9 @@ class FixPosVisitor(ast.GenericASTVisitor):
 
     def visited(self, node):
         if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
+            if node.lineno == 1:
+                node.col_offset += self.column_offset
             node.lineno += self.line_offset
-            node.col_offset += self.column_offset
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
@@ -248,11 +254,14 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
 
 
 def fstring_find_literal(astbuilder, fstr, atom_node, rec):
+    space = astbuilder.space
+    raw = fstr.raw_mode
+
     # Return the next literal part.  Updates the current index inside 'fstr'.
     # Differs from CPython: this version handles double-braces on its own.
     s = fstr.unparsed
     literal_start = fstr.current_index
-    in_named_escape = False
+    assert literal_start >= 0
 
     # Get any literal string. It ends when we hit an un-doubled left
     # brace (which isn't part of a unicode name escape such as
@@ -261,18 +270,42 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     builder = StringBuilder()
     while i < len(s):
         ch = s[i]
-        if (not in_named_escape and ch == '{' and i - literal_start >= 2
-                and s[i - 2] == '\\' and s[i - 1] == 'N'):
-            in_named_escape = True
-        elif in_named_escape and ch == '}':
-            in_named_escape = False
-        elif ch == '{' or ch == '}':
+        i += 1
+        if not raw and ch == '\\' and i < len(s):
+            ch = s[i]
+            i += 1
+            if ch == 'N':
+                if i < len(s) and s[i] == '{':
+                    while i < len(s) and s[i] != '}':
+                        i += 1
+                    if i < len(s):
+                        i += 1
+                    continue
+                elif i < len(s):
+                    i += 1
+                break
+            if ch == '{':
+                msg = "invalid escape sequence '%s'"
+                try:
+                    space.warn(space.newtext(msg % ch), space.w_DeprecationWarning)
+                except error.OperationError as e:
+                    if e.match(space, space.w_DeprecationWarning):
+                        astbuilder.error(msg % ch, atom_node)
+                    else:
+                        raise
+        if ch == '{' or ch == '}':
             # Check for doubled braces, but only at the top level. If
             # we checked at every level, then f'{0:{3}}' would fail
             # with the two closing braces.
-            if rec == 0 and i + 1 < len(s) and s[i + 1] == ch:
+            if rec == 0 and i < len(s) and s[i] == ch:
+                assert 0 <= i <= len(s)
+                builder.append(s[literal_start:i])
                 i += 1   # skip over the second brace
+                literal_start = i
             elif rec == 0 and ch == '}':
+                i -= 1
+                assert i >= 0
+                fstr.current_index = i
                 # Where a single '{' is the start of a new expression, a
                 # single '}' is not allowed.
                 astbuilder.error("f-string: single '}' is not allowed",
@@ -281,15 +314,16 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                 # We're either at a '{', which means we're starting another
                 # expression; or a '}', which means we're at the end of this
                 # f-string (for a nested format_spec).
+                i -= 1
                 break
-        builder.append(ch)
-        i += 1
+    assert 0 <= i <= len(s)
+    assert i == len(s) or s[i] == '{' or s[i] == '}'
+    builder.append(s[literal_start:i])
 
     fstr.current_index = i
-    space = astbuilder.space
     literal = builder.build()
     lgt = codepoints_in_utf8(literal)
-    if not fstr.raw_mode and '\\' in literal:
+    if not raw and '\\' in literal:
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
         literal, lgt, pos = unicodehelper.decode_unicode_escape(space, literal)

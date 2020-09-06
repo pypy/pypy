@@ -31,7 +31,7 @@ class AppTestSemaphore:
         else:
             assert 0, "should have raised"
 
-    def test_semaphore(self):
+    def test_semaphore_basic(self):
         from _multiprocessing import SemLock
         import sys
         assert SemLock.SEM_VALUE_MAX > 10

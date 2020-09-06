@@ -311,7 +311,7 @@ class ParserBuilder(RPythonVisitor, Codebuilder):
         m = {'Status': Status,
              'Nonterminal': Nonterminal,
              'Symbol': Symbol,}
-        exec py.code.Source(self.get_code()).compile() in m
+        exec(py.code.Source(self.get_code()).compile(), m)
         return m['Parser']
 
     def memoize_header(self, name, args):
@@ -665,7 +665,7 @@ class MetaPackratParser(type):
             if isinstance(value, type):
                 value.__module__ = result.__module__ #XXX help the annotator
             if isinstance(value, type(lambda: None)):
-                value = new.function(value.func_code, frame.f_globals)
+                value = new.function(value.__code__, frame.f_globals)
             if not hasattr(result, key) and key not in forbidden:
                 setattr(result, key, value)
         if result.__init__ == object.__init__:

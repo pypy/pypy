@@ -499,6 +499,7 @@ LL_OPERATIONS = {
     'gc_thread_after_fork': LLOp(),   # arguments: (result_of_fork, opaqueaddr)
     'gc_writebarrier':      LLOp(canrun=True),
     'gc_writebarrier_before_copy': LLOp(canrun=True),
+    'gc_writebarrier_before_move': LLOp(canrun=True),
     'gc_heap_stats'       : LLOp(canmallocgc=True),
     'gc_pin'              : LLOp(canrun=True),
     'gc_unpin'            : LLOp(canrun=True),

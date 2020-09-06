@@ -89,7 +89,6 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW.__name__ == "getarg_KW"
         assert mod.getarg_KW(*(), **{}) == ((), {})
 
-
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [
             ('isCFunction', 'METH_O',
@@ -206,3 +205,44 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.with_signature_and_extra_newlines.__doc__
         assert (mod.with_signature_and_extra_newlines.__text_signature__ ==
                 '($module, /, parameter)')
+
+    def test_callfunc(self):
+        mod = self.import_extension('foo', [
+            ('callfunc', 'METH_VARARGS',
+             '''
+                PyObject *func, *argseq=NULL, *kwargs=NULL;
+                if (!PyArg_ParseTuple(args, "O|OO", &func, &argseq, &kwargs)) {
+                    return NULL;
+                }
+                if (!PyCFunction_Check(func)) {
+                    Py_RETURN_FALSE;
+                }
+                if (argseq == NULL) {
+                    return PyCFunction_Call(func, NULL, NULL);
+                }
+                if (kwargs == NULL) {
+                    return PyCFunction_Call(func, argseq, NULL);
+                }
+                return PyCFunction_Call(func, argseq, kwargs);
+             '''
+             ),
+             # Define some C functions so we can test this
+             ('func_NOARGS', 'METH_NOARGS',
+              '''
+                    Py_RETURN_TRUE;
+              '''),
+            ('func_KW', 'METH_VARARGS | METH_KEYWORDS',
+             '''
+             if (!kwargs) kwargs = Py_None;
+             return Py_BuildValue("OO", args, kwargs);
+             '''
+             ),
+            ])
+        ret = mod.callfunc(mod.func_NOARGS, ())
+        assert ret is True
+        ret = mod.callfunc(mod.func_KW, (1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        assert ret == ((1, 2, 3), {'a':'a', 'b':'b', 'c':'c'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (), {'a': 'a'})
+        with raises(TypeError):
+            mod.callfunc(mod.func_NOARGS, (1, 2, 3))

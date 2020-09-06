@@ -356,20 +356,21 @@ class AppTestFfi:
         A = _rawffi.Array('u')
         a = A(6, u'\u1234')
         assert a[0] == u'\u1234'
-        a[0] = u'\U00012345'
-        assert a[0] == u'\U00012345'
         a[0] = u'\ud800'
         assert a[0] == u'\ud800'
-        B = _rawffi.Array('i')
-        b = B.fromaddress(a.itemaddress(0), 1)
-        b[0] = 0xffffffff
-        raises(ValueError, "a[0]")
+        if _rawffi.sizeof('u') == 4:
+            a[0] = u'\U00012345'
+            assert a[0] == u'\U00012345'
+            B = _rawffi.Array('i')
+            b = B.fromaddress(a.itemaddress(0), 1)
+            b[0] = 0xffffffff
+            raises(ValueError, "a[0]")
         a.free()
 
     def test_returning_unicode(self):
         import _rawffi
         A = _rawffi.Array('u')
-        a = A(6, 'xx\x00\x00xx')
+        a = A(6, u'xx\x00\x00xx')
         for i in (-1, 6):
             res = _rawffi.wcharp2unicode(a.buffer, i)
             assert isinstance(res, str)
@@ -910,12 +911,12 @@ class AppTestFfi:
         import _rawffi, sys
         A = _rawffi.Array('u')
         a = A(3)
-        a[0] = 'x'
-        a[1] = 'y'
-        a[2] = 'z'
-        assert a[0] == 'x'
+        a[0] = u'x'
+        a[1] = u'y'
+        a[2] = u'z'
+        assert a[0] == u'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
-        if sys.maxunicode > 65535:
+        if _rawffi.sizeof('u') == 4:
             # UCS4 build
             if sys.byteorder == 'big':
                 assert b[0:8] == b'\x00\x00\x00x\x00\x00\x00y'
@@ -923,7 +924,8 @@ class AppTestFfi:
                 assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
-            assert b[0:2] == b'x\x00y'
+            print(b[0:4])
+            assert b[0:4] == b'x\x00y\x00'
         a.free()
 
     def test_truncate(self):
@@ -1057,13 +1059,10 @@ class AppTestFfi:
         X_Y = _rawffi.Structure([('x', 'l'), ('y', 'l')])
         x_y = X_Y()
         lib = _rawffi.CDLL(self.lib_name)
-        print("getting...")
         sum_x_y = lib.ptr('sum_x_y', [(X_Y, 1)], 'l')
         x_y.x = 200
         x_y.y = 220
-        print("calling...")
         res = sum_x_y(x_y)
-        print("done")
         assert res[0] == 420
         x_y.free()
 
@@ -1149,8 +1148,8 @@ class AppTestFfi:
         a[3] = b'x'
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == ord(b'x')
-        b[6] = ord(b'y')
+        assert b[3] == b'x'
+        b[6] = b'y'
         assert a[6] == b'y'
         b[3:5] = b'zt'
         assert a[3] == b'z'
@@ -1158,9 +1157,9 @@ class AppTestFfi:
 
         b = memoryview(a)
         assert len(b) == 10
-        assert b[3] == ord(b'z')
-        b[3] = ord(b'x')
-        assert b[3] == ord(b'x')
+        assert b[3] == b'z'
+        b[3] = b'x'
+        assert b[3] == b'x'
 
     def test_pypy_raw_address(self):
         import _rawffi
@@ -1253,11 +1252,12 @@ class AppTestFfi:
         u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
         assert u == u'\u1234'
         arg[0] = -1
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
-        arg[0] = 0x110000
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        if _rawffi.sizeof('u') == 4:
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+            arg[0] = 0x110000
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
         arg.free()
 
 

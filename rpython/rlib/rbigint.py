@@ -43,6 +43,12 @@ else:
     LONG_TYPE = rffi.LONGLONG
     ULONG_TYPE = rffi.ULONGLONG
 
+    if LONG_BIT >= 64:
+        raise Exception("please review rbigint.py: compiling on 64-bit without"
+                        " a 128-bit integer type may be broken, notably in"
+                        " fromint(), because in this case we need to return"
+                        " rbigints with up to three digits, I think")
+
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
 
@@ -450,6 +456,23 @@ class rbigint(object):
             if res >= 0:
                 raise OverflowError
         return res
+
+    def fits_int(self):
+        n = self.numdigits()
+        if n < MAX_DIGITS_THAT_CAN_FIT_IN_INT:
+            return True
+        if n > MAX_DIGITS_THAT_CAN_FIT_IN_INT:
+            return False
+        try:
+            x = self._touint_helper()
+        except OverflowError:
+            return False
+        if self.sign >= 0:
+            res = intmask(x)
+            return res >= 0
+        else:
+            res = intmask(-x)
+            return res < 0
 
     @jit.elidable
     def tolonglong(self):
@@ -1446,6 +1469,8 @@ _jmapping = [(5 * SHIFT) % 5,
 
 
 # if the bigint has more digits than this, it cannot fit into an int
+# Also, if it has less digits than this, then it must be <=sys.maxint in
+# absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
 

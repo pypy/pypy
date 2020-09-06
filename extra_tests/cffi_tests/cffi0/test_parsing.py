@@ -175,7 +175,7 @@ def test_remove_line_continuation_comments():
         double // blah \\
                   more comments
         x(void);
-        double // blah\\\\
+        double // blah // blah\\\\
         y(void);
         double // blah\\ \
                   etc
@@ -185,6 +185,93 @@ def test_remove_line_continuation_comments():
     m.x
     m.y
     m.z
+
+def test_dont_remove_comment_in_line_directives():
+    ffi = FFI(backend=FakeBackend())
+    e = py.test.raises(CDefError, ffi.cdef, """
+        \t # \t line \t 8 \t "baz.c" \t
+
+        some syntax error here
+    """)
+    assert str(e.value) == "parse error\nbaz.c:9:14: before: syntax"
+    #
+    e = py.test.raises(CDefError, ffi.cdef, """
+        #line 7 "foo//bar.c"
+
+        some syntax error here
+    """)
+    #
+    assert str(e.value) == "parse error\nfoo//bar.c:8:14: before: syntax"
+    ffi = FFI(backend=FakeBackend())
+    e = py.test.raises(CDefError, ffi.cdef, """
+        \t # \t 8 \t "baz.c" \t
+
+        some syntax error here
+    """)
+    assert str(e.value) == "parse error\nbaz.c:9:14: before: syntax"
+    #
+    e = py.test.raises(CDefError, ffi.cdef, """
+        # 7 "foo//bar.c"
+
+        some syntax error here
+    """)
+    assert str(e.value) == "parse error\nfoo//bar.c:8:14: before: syntax"
+
+def test_multiple_line_directives():
+    ffi = FFI(backend=FakeBackend())
+    e = py.test.raises(CDefError, ffi.cdef,
+    """ #line 5 "foo.c"
+        extern int xx;
+        #line 6 "bar.c"
+        extern int yy;
+        #line 7 "baz.c"
+        some syntax error here
+        #line 8 "yadda.c"
+        extern int zz;
+    """)
+    assert str(e.value) == "parse error\nbaz.c:7:14: before: syntax"
+    #
+    e = py.test.raises(CDefError, ffi.cdef,
+    """ # 5 "foo.c"
+        extern int xx;
+        # 6 "bar.c"
+        extern int yy;
+        # 7 "baz.c"
+        some syntax error here
+        # 8 "yadda.c"
+        extern int zz;
+    """)
+    assert str(e.value) == "parse error\nbaz.c:7:14: before: syntax"
+
+def test_commented_line_directive():
+    ffi = FFI(backend=FakeBackend())
+    e = py.test.raises(CDefError, ffi.cdef, """
+        /*
+        #line 5 "foo.c"
+        */
+        void xx(void);
+
+        #line 6 "bar.c"
+        /*
+        #line 35 "foo.c"
+        */
+        some syntax error
+    """)
+    #
+    assert str(e.value) == "parse error\nbar.c:9:14: before: syntax"
+    e = py.test.raises(CDefError, ffi.cdef, """
+        /*
+        # 5 "foo.c"
+        */
+        void xx(void);
+
+        # 6 "bar.c"
+        /*
+        # 35 "foo.c"
+        */
+        some syntax error
+    """)
+    assert str(e.value) == "parse error\nbar.c:9:14: before: syntax"
 
 def test_line_continuation_in_defines():
     ffi = FFI(backend=FakeBackend())

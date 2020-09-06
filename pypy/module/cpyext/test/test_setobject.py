@@ -38,6 +38,16 @@ class TestTupleObject(BaseApiTest):
         assert res == 0
         assert api.PySet_Size(w_set) == 4
 
+    def test_frozenset_add(self, space, api):
+        w_set = api.PyFrozenSet_New(None)
+        api.PySet_Add(w_set, space.wrap(4))
+        assert api.PySet_Size(w_set) == 1
+        api.PySet_Add(w_set, space.wrap(5))
+        assert api.PySet_Size(w_set) == 2
+        assert space.hash_w(w_set) != 0   # makes the set really frozen
+        with raises_w(space, SystemError):
+            api.PySet_Add(w_set, space.wrap(6))
+
     def test_set_contains(self, space, api):
         w_set = api.PySet_New(space.wrap([1, 2, 3, 4]))
         assert api.PySet_Contains(w_set, space.wrap(1))

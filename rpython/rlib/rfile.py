@@ -75,13 +75,30 @@ c_fclose = llexternal('fclose', [FILEP], rffi.INT,
 c_pclose = llexternal('pclose', [FILEP], rffi.INT,
                       save_err=rffi.RFFI_SAVE_ERRNO)
 
+def wrap_fclose(filep):
+    with rposix.SuppressIPH():
+        return c_fclose(filep)
+
+def wrap_pclose(filep):
+    with rposix.SuppressIPH():
+        return c_fclose(filep)
+
 # Note: the following two functions are called from __del__ methods,
 # so must be 'releasegil=False'.  Otherwise, a program using both
 # threads and the RFile class cannot translate.  See c684bf704d1f
 c_fclose_in_del = llexternal('fclose', [FILEP], rffi.INT, releasegil=False)
 c_pclose_in_del = llexternal('pclose', [FILEP], rffi.INT, releasegil=False)
-_fclose2 = (c_fclose, c_fclose_in_del)
-_pclose2 = (c_pclose, c_pclose_in_del)
+
+def wrap_fclose_in_del(filep):
+    with rposix.SuppressIPH_del():
+        return c_fclose_in_del(filep)
+
+def wrap_pclose_in_del(filep):
+    with rposix.SuppressIPH_del():
+        return c_pclose_in_del(filep)
+
+_fclose2 = (wrap_fclose, wrap_fclose_in_del)
+_pclose2 = (wrap_pclose, wrap_pclose_in_del)
 
 c_getc = llexternal('getc', [FILEP], rffi.INT, macro=True)
 c_ungetc = llexternal('ungetc', [rffi.INT, FILEP], rffi.INT)

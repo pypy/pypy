@@ -26,7 +26,6 @@ build_time_vars = {
     'ARFLAGS': "rc",
     'EXE': "",
     'LIBDIR': os.path.join(sys.prefix, 'bin'),
-    'VERSION': sys.version[:3]
 }
 
 if find_executable("gcc"):
@@ -39,15 +38,22 @@ if find_executable("gcc"):
         build_time_vars["CXX"] = "g++ -pthread"
 
 if sys.platform[:6] == "darwin":
-    import platform
-    if platform.machine() == 'i386':
-        if platform.architecture()[0] == '32bit':
+    # don't import platform - it imports subprocess -> threading.
+    # gevent-based projects need to be first to import threading and
+    # monkey-patch as early as possible in the lifetime of their process.
+    # https://foss.heptapod.net/pypy/pypy/-/issues/3269
+    _, _, _, _, machine = os.uname()
+    import struct
+    wordsize = struct.calcsize('P') # void* : 4 on 32bit, 8 on 64bit
+    if machine == 'i386':
+        if wordsize == 4:
+
             arch = 'i386'
         else:
             arch = 'x86_64'
     else:
         # just a guess
-        arch = platform.machine()
+        arch = machine
     build_time_vars['LDSHARED'] += ' -undefined dynamic_lookup'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     if "CXX" in build_time_vars:

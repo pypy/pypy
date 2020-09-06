@@ -4,7 +4,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.typedef import TypeDef
 from pypy.objspace.std.bytesobject import W_BytesObject
-from pypy.objspace.std.intobject import W_IntObject
+from pypy.objspace.std.listobject import is_plain_int1, plain_int_w
 from pypy.objspace.std.unicodeobject import W_UnicodeObject
 from pypy.objspace.std.util import IDTAG_SPECIAL, IDTAG_SHIFT
 
@@ -635,6 +635,12 @@ class W_FrozensetObject(W_BaseSetObject):
 
         return space.newint(hash)
 
+    def cpyext_add_frozen(self, w_key):
+        if self.hash != 0:
+            return False
+        self.add(w_key)
+        return True
+
 W_FrozensetObject.typedef = TypeDef("frozenset",
     __doc__ = """frozenset(iterable) --> frozenset object
 
@@ -795,7 +801,7 @@ class EmptySetStrategy(SetStrategy):
         return clone
 
     def add(self, w_set, w_key):
-        if type(w_key) is W_IntObject:
+        if is_plain_int1(w_key):
             strategy = self.space.fromcache(IntegerSetStrategy)
         elif type(w_key) is W_BytesObject:
             strategy = self.space.fromcache(BytesSetStrategy)
@@ -1319,7 +1325,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return self.unerase(w_set.sstorage).keys()
 
     def is_correct_type(self, w_key):
-        return type(w_key) is W_IntObject
+        return is_plain_int1(w_key)
 
     def may_contain_equal_elements(self, strategy):
         if strategy is self.space.fromcache(BytesSetStrategy):
@@ -1333,7 +1339,7 @@ class IntegerSetStrategy(AbstractUnwrappedSetStrategy, SetStrategy):
         return True
 
     def unwrap(self, w_item):
-        return self.space.int_w(w_item)
+        return plain_int_w(self.space, w_item)
 
     def wrap(self, item):
         return self.space.newint(item)
@@ -1636,7 +1642,7 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
     iterable_w = space.listview(w_iterable)
     # check for integers
     for w_item in iterable_w:
-        if type(w_item) is not W_IntObject:
+        if not is_plain_int1(w_item):
             break
     else:
         w_set.strategy = space.fromcache(IntegerSetStrategy)

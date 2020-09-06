@@ -5,9 +5,10 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.interpreter.unicodehelper import (
+    decode_utf8sp, utf8_encode_utf_16, str_decode_utf_16)
 from pypy.module._codecs.locale import (
-    str_decode_locale_surrogateescape, unicode_encode_locale_surrogateescape)
+    str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
     intmask, r_ulonglong, r_longfloat, widen, ovfcheck, ovfcheck_float_to_int,
@@ -16,8 +17,11 @@ from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import math
+from rpython.rlib.objectmodel import we_are_translated
+
+import errno
 import os
+import math
 import sys
 import time as pytime
 
@@ -55,22 +59,22 @@ if _WIN:
             "RPY_EXTERN ULONGLONG pypy_GetTickCount64(FARPROC address);"
         ],
         separate_module_sources=['''
-            static HANDLE interrupt_event;
+            /* this 'extern' is defined in translator/c/src/signals.c */
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
+            extern HANDLE pypy_sigint_interrupt_event;
+            #endif
 
             static BOOL WINAPI CtrlHandlerRoutine(
               DWORD dwCtrlType)
             {
-                SetEvent(interrupt_event);
-                /* allow other default handlers to be called.
-                 * Default Python handler will setup the
-                 * KeyboardInterrupt exception.
-                 */
-                return 0;
+                return TRUE;     /* like CPython 3.6 */
             }
 
             BOOL pypy_timemodule_setCtrlHandler(HANDLE event)
             {
-                interrupt_event = event;
+            #ifdef PYPY_SIGINT_INTERRUPT_EVENT
+                pypy_sigint_interrupt_event = event;
+            #endif
                 return SetConsoleCtrlHandler(CtrlHandlerRoutine, TRUE);
             }
 
@@ -365,7 +369,11 @@ if _WIN:
                             [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
-c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+if _WIN:
+    c_strftime = external('wcsftime', [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
+                      rffi.SIZE_T)
+else:
+    c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_timezone(space):
@@ -381,7 +389,9 @@ def _init_timezone(space):
             blen = c_get_tzname(0, i, None)
             with rffi.scoped_alloc_buffer(blen) as buf:
                 s = c_get_tzname(blen, i, buf.raw)
-                tzname[i] = buf.str(s - 1)
+                tzn = buf.str(s - 1)
+                tznutf8, _ = str_decode_locale_surrogateescape(tzn)
+                tzname[i] = tznutf8
 
     if _POSIX:
         if _CYGWIN:
@@ -477,33 +487,41 @@ if not _WIN:
 from rpython.rlib import rwin32
 
 def sleep(space, w_secs):
-    ns = timestamp_w(space, w_secs)
-    if not (ns >= 0):
+    delay_ns = timestamp_w(space, w_secs)
+    if not (delay_ns >= 0):
         raise oefmt(space.w_ValueError,
                     "sleep length must be non-negative")
-    end_time = _monotonic(space) + float(ns) / SECS_TO_NS
+    secs = float(delay_ns) / SECS_TO_NS
+    end_time = _monotonic(space) + secs
     while True:
+        # 'secs' is reduced at the end of the loop, for the next iteration.
         if _WIN:
             # as decreed by Guido, only the main thread can be
             # interrupted.
             main_thread = space.fromcache(State).main_thread
             interruptible = (main_thread == thread.get_ident())
-            millisecs = ns // MS_TO_NS
-            if millisecs == 0 or not interruptible:
-                rtime.sleep(float(ns) / SECS_TO_NS)
+            millisecs = secs * 1000.0
+            if millisecs < 1.0 or not interruptible:
+                rtime.sleep(secs)
                 break
+            MAX = 0x7fffffff
+            if millisecs < MAX:
+                interval = int(millisecs)
+            else:
+                interval = MAX
             interrupt_event = space.fromcache(State).get_interrupt_event()
             rwin32.ResetEvent(interrupt_event)
-            rc = rwin32.WaitForSingleObject(interrupt_event, millisecs)
-            if rc != rwin32.WAIT_OBJECT_0:
+            rc = rwin32.WaitForSingleObject(interrupt_event, interval)
+            was_interrupted = rc == rwin32.WAIT_OBJECT_0
+            if not was_interrupted and interval < MAX:
                 break
         else:
             void = lltype.nullptr(rffi.VOIDP.TO)
             with lltype.scoped_alloc(TIMEVAL) as t:
-                seconds = ns // SECS_TO_NS
-                us = (ns % SECS_TO_NS) // US_TO_NS
-                rffi.setintfield(t, 'c_tv_sec', int(seconds))
-                rffi.setintfield(t, 'c_tv_usec', int(us))
+                frac = int(math.fmod(secs, 1.0) * 1000000.)
+                assert frac >= 0
+                rffi.setintfield(t, 'c_tv_sec', int(secs))
+                rffi.setintfield(t, 'c_tv_usec', frac)
 
                 res = rffi.cast(rffi.LONG, c_select(0, void, void, void, t))
             if res == 0:
@@ -546,7 +564,7 @@ def _get_inttime(space, w_seconds):
                     "timestamp out of range for platform time_t")
     return t
 
-def _tm_to_tuple(space, t):
+def _tm_to_tuple(space, t, zone="UTC", offset=0):
     time_tuple = [
         space.newint(rffi.getintfield(t, 'c_tm_year') + 1900),
         space.newint(rffi.getintfield(t, 'c_tm_mon') + 1), # want january == 1
@@ -563,9 +581,9 @@ def _tm_to_tuple(space, t):
         tm_zone, lgt, pos = decode_utf8sp(space, rffi.charp2str(t.c_tm_zone))
         extra = [space.newtext(tm_zone, lgt),
                  space.newint(rffi.getintfield(t, 'c_tm_gmtoff'))]
-        w_time_tuple = space.newtuple(time_tuple + extra)
     else:
-        w_time_tuple = space.newtuple(time_tuple)
+        extra = [space.newtext(zone), space.newint(offset)]
+    w_time_tuple = space.newtuple(time_tuple + extra)
     w_struct_time = _get_module_object(space, 'struct_time')
     w_obj = space.call_function(w_struct_time, w_time_tuple)
     return w_obj
@@ -752,7 +770,7 @@ def gmtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_ValueError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    return _tm_to_tuple(space, p, zone="UTC", offset=0)
 
 def localtime(space, w_seconds=None):
     """localtime([seconds]) -> (tm_year, tm_mon, tm_day, tm_hour, tm_min,
@@ -770,7 +788,17 @@ def localtime(space, w_seconds=None):
     if not p:
         raise OperationError(space.w_OSError,
                              space.newtext(*_get_error_msg()))
-    return _tm_to_tuple(space, p)
+    if HAS_TM_ZONE:
+        return _tm_to_tuple(space, p)
+    else:
+        offset = space.int_w(_get_module_object(space, "timezone"))
+        daylight_w = _get_module_object(space, 'daylight')
+        tzname_w =  _get_module_object(space, 'tzname')
+        zone_w = space.getitem(tzname_w, daylight_w)
+        if not space.eq_w(daylight_w, space.newint(0)):
+            offset -= 3600
+        return _tm_to_tuple(space, p, zone=space.utf8_w(zone_w), offset=-offset)
+        
 
 def mktime(space, w_tup):
     """mktime(tuple) -> floating point number
@@ -860,38 +888,65 @@ def strftime(space, format, w_tup=None):
     rffi.setintfield(buf_value, "c_tm_year",
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
-    if _WIN:
-        # check that the format string contains only valid directives
-        length = len(format)
-        i = 0
-        while i < length:
-            if format[i] == '%':
-                i += 1
-                if i < length and format[i] == '#':
-                    # not documented by python
-                    i += 1
-                if i >= length or format[i] not in "aAbBcdHIjmMpSUwWxXyYzZ%":
-                    raise oefmt(space.w_ValueError, "invalid format string")
-            i += 1
-
-    format = unicode_encode_locale_surrogateescape(format.decode('utf8'))
     i = 1024
-    while True:
-        outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
-        try:
-            buflen = c_strftime(outbuf, i, format, buf_value)
-            if buflen > 0 or i >= 256 * len(format):
-                # if the buffer is 256 times as long as the format,
-                # it's probably not failing for lack of room!
-                # More likely, the format yields an empty result,
-                # e.g. an empty format, or %Z when the timezone
-                # is unknown.
-                result = rffi.charp2strn(outbuf, intmask(buflen))
-                decoded, size = str_decode_locale_surrogateescape(result)
-                return space.newutf8(decoded, size)
-        finally:
-            lltype.free(outbuf, flavor='raw')
-        i += i
+    if _WIN:
+        tm_year = rffi.getintfield(buf_value, 'c_tm_year')
+        if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
+            raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
+     
+        if not we_are_translated():
+            # We use this pre-call check since, when untranslated, since the host
+            # python and the c_strftime use different runtimes, and the c_strftime
+            # call goes through the ctypes call of the host python's runtime, which
+            # can be different than the translated runtime
+
+            # Remove this when we no longer allow msvcrt9
+            fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
+            length = len(format)
+            i = 0
+            while i < length:
+                if format[i] == '%':
+                    i += 1
+                    if i < length and format[i] == '#':
+                        # not documented by python
+                        i += 1
+                    # Assume visual studio 2015
+                    if i >= length or format[i] not in fmts:
+                        raise oefmt(space.w_ValueError, "invalid format string")
+                i += 1
+        # wcharp with track_allocation=True
+        format_for_call = rffi.utf82wcharp(format, len(format))
+    else:
+        format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+    try:
+        while True:
+            if _WIN:
+                outbuf = lltype.malloc(rffi.CWCHARP.TO, i, flavor='raw')
+            else:
+                outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
+            try:
+                with rposix.SuppressIPH():
+                    buflen = c_strftime(outbuf, i, format_for_call, buf_value)
+                if buflen > 0 or i >= 256 * len(format):
+                    # if the buffer is 256 times as long as the format,
+                    # it's probably not failing for lack of room!
+                    # More likely, the format yields an empty result,
+                    # e.g. an empty format, or %Z when the timezone
+                    # is unknown.
+                    if _WIN:
+                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
+                    else:
+                        result = rffi.charp2strn(outbuf, intmask(buflen))
+                        decoded, size = str_decode_locale_surrogateescape(result)
+                    return space.newutf8(decoded, size)
+                if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                    raise oefmt(space.w_ValueError, "invalid format string")
+            finally:
+                lltype.free(outbuf, flavor='raw')
+            i += i
+    finally:
+        if _WIN:
+            rffi.free_wcharp(format_for_call)
 
 if HAS_MONOTONIC:
     if _WIN:

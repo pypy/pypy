@@ -13,7 +13,7 @@ class Codebuilder(object):
         m = {'Status': Status,
              'Nonterminal': Nonterminal,
              'Symbol': Symbol,}
-        exec py.code.Source(self.get_code()).compile() in m
+        exec(py.code.Source(self.get_code()).compile(), m)
         return m['Parser']
 
     def emit(self, line):

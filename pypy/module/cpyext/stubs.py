@@ -1326,16 +1326,6 @@ def PyType_ClearCache(space, ):
     raise NotImplementedError
 
 
-@cpython_api([PyTypeObjectPtr], lltype.Signed, error=CANNOT_FAIL)
-def PyType_GetFlags(space, type):
-    """Return the tp_flags member of type. This function is primarily
-    meant for use with Py_LIMITED_API; the individual flag bits are
-    guaranteed to be stable across Python releases, but access to
-    tp_flags itself is not part of the limited API.
-    """
-    raise NotImplementedError
-
-
 @cpython_api([], rffi.INT_real, error=-1)
 def PyUnicode_ClearFreeList(space, ):
     """Clear the free list. Return the total number of freed items."""

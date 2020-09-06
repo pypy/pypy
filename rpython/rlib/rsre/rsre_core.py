@@ -1,51 +1,11 @@
 import sys
 from rpython.rlib.debug import check_nonneg
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.rsre import rsre_char
+from rpython.rlib.rsre import rsre_char, rsre_constants as consts
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.objectmodel import we_are_translated, not_rpython
 from rpython.rlib import jit
 from rpython.rlib.rsre.rsre_jit import install_jitdriver, install_jitdriver_spec
-
-
-OPCODE_FAILURE            = 0
-OPCODE_SUCCESS            = 1
-OPCODE_ANY                = 2
-OPCODE_ANY_ALL            = 3
-OPCODE_ASSERT             = 4
-OPCODE_ASSERT_NOT         = 5
-OPCODE_AT                 = 6
-OPCODE_BRANCH             = 7
-#OPCODE_CALL              = 8
-OPCODE_CATEGORY           = 9
-OPCODE_CHARSET            = 10
-OPCODE_BIGCHARSET         = 11
-OPCODE_GROUPREF           = 12
-OPCODE_GROUPREF_EXISTS    = 13
-OPCODE_GROUPREF_IGNORE    = 14
-OPCODE_IN                 = 15
-OPCODE_IN_IGNORE          = 16
-OPCODE_INFO               = 17
-OPCODE_JUMP               = 18
-OPCODE_LITERAL            = 19
-OPCODE_LITERAL_IGNORE     = 20
-OPCODE_MARK               = 21
-OPCODE_MAX_UNTIL          = 22
-OPCODE_MIN_UNTIL          = 23
-OPCODE_NOT_LITERAL        = 24
-OPCODE_NOT_LITERAL_IGNORE = 25
-OPCODE_NEGATE             = 26
-OPCODE_RANGE              = 27
-OPCODE_REPEAT             = 28
-OPCODE_REPEAT_ONE         = 29
-#OPCODE_SUBPATTERN        = 30
-OPCODE_MIN_REPEAT_ONE     = 31
-OPCODE_RANGE_IGNORE       = 32
-
-# not used by Python itself
-OPCODE_UNICODE_GENERAL_CATEGORY = 70
-
-# ____________________________________________________________
 
 _seen_specname = {}
 
@@ -57,8 +17,8 @@ def specializectx(func):
     """
     from rpython.rlib.rsre.rsre_utf8 import Utf8MatchContext
 
-    assert func.func_code.co_varnames[0] == 'ctx'
-    specname = '_spec_' + func.func_name
+    assert func.__code__.co_varnames[0] == 'ctx'
+    specname = '_spec_' + func.__name__
     while specname in _seen_specname:
         specname += '_'
     _seen_specname[specname] = True
@@ -91,10 +51,11 @@ class EndOfString(Exception):
     pass
 
 class CompiledPattern(object):
-    _immutable_fields_ = ['pattern[*]']
+    _immutable_fields_ = ['pattern[*]', 'flags']
 
-    def __init__(self, pattern):
+    def __init__(self, pattern, flags):
         self.pattern = pattern
+        self.flags = flags
         # check we don't get the old value of MAXREPEAT
         # during the untranslated tests. 
         # On python3, MAXCODE can appear in patterns. It will be 65535
@@ -115,21 +76,20 @@ class CompiledPattern(object):
 
 class AbstractMatchContext(object):
     """Abstract base class"""
-    _immutable_fields_ = ['flags', 'end']
+    _immutable_fields_ = ['end']
     match_start = 0
     match_end = 0
     match_marks = None
     match_marks_flat = None
     fullmatch_only = False
 
-    def __init__(self, match_start, end, flags):
+    def __init__(self, match_start, end):
         # 'match_start' and 'end' must be known to be non-negative
         # and they must not be more than len(string).
         check_nonneg(match_start)
         check_nonneg(end)
         self.match_start = match_start
         self.end = end
-        self.flags = flags
 
     def reset(self, start):
         self.match_start = start
@@ -146,7 +106,7 @@ class AbstractMatchContext(object):
         raise NotImplementedError
 
     @not_rpython
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         """Similar to str()."""
         raise NotImplementedError
 
@@ -268,21 +228,21 @@ class BufMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_buffer"]
 
-    def __init__(self, buf, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, buf, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._buffer = buf
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._buffer.getitem(index))
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return BufMatchContext(self._buffer, start,
-                               self.end, self.flags)
+                               self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -293,23 +253,21 @@ class StrMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_string"]
 
-    def __init__(self, string, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, string, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._string = string
-        if not we_are_translated() and isinstance(string, unicode):
-            self.flags |= rsre_char.SRE_FLAG_UNICODE   # for rsre_re.py
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._string[index])
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return StrMatchContext(self._string, start,
-                               self.end, self.flags)
+                               self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -323,21 +281,21 @@ class UnicodeMatchContext(FixedMatchContext):
 
     _immutable_fields_ = ["_unicodestr"]
 
-    def __init__(self, unicodestr, match_start, end, flags):
-        FixedMatchContext.__init__(self, match_start, end, flags)
+    def __init__(self, unicodestr, match_start, end):
+        FixedMatchContext.__init__(self, match_start, end)
         self._unicodestr = unicodestr
 
     def str(self, index):
         check_nonneg(index)
         return ord(self._unicodestr[index])
 
-    def lowstr(self, index):
+    def lowstr(self, index, flags):
         c = self.str(index)
-        return rsre_char.getlower(c, self.flags)
+        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return UnicodeMatchContext(self._unicodestr, start,
-                                   self.end, self.flags)
+                                   self.end)
 
     def get_single_byte(self, base_position, index):
         return self.str(base_position + index)
@@ -637,10 +595,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         # (green) argument for 'ppos'.  If not, the following assert fails.
         jit.assert_green(op)
 
-        if op == OPCODE_FAILURE:
+        if op == consts.OPCODE_FAILURE:
             return
 
-        elif op == OPCODE_SUCCESS:
+        elif op == consts.OPCODE_SUCCESS:
             if ctx.fullmatch_only:
                 if ptr != ctx.end:
                     return     # not a full match
@@ -648,27 +606,27 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ctx.match_marks = marks
             return MATCHED_OK
 
-        elif (op == OPCODE_MAX_UNTIL or
-              op == OPCODE_MIN_UNTIL):
+        elif (op == consts.OPCODE_MAX_UNTIL or
+              op == consts.OPCODE_MIN_UNTIL):
             ctx.match_end = ptr
             ctx.match_marks = marks
             return MATCHED_OK
 
-        elif op == OPCODE_ANY:
+        elif op == consts.OPCODE_ANY:
             # match anything (except a newline)
             # <ANY>
             if ptr >= ctx.end or rsre_char.is_linebreak(ctx.str(ptr)):
                 return
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_ANY_ALL:
+        elif op == consts.OPCODE_ANY_ALL:
             # match anything
             # <ANY_ALL>
             if ptr >= ctx.end:
                 return
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_ASSERT:
+        elif op == consts.OPCODE_ASSERT:
             # assert subpattern
             # <ASSERT> <0=skip> <1=back> <pattern>
             try:
@@ -684,7 +642,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             marks = ctx.match_marks
             ppos += pattern.pat(ppos)
 
-        elif op == OPCODE_ASSERT_NOT:
+        elif op == consts.OPCODE_ASSERT_NOT:
             # assert not subpattern
             # <ASSERT_NOT> <0=skip> <1=back> <pattern>
 
@@ -701,20 +659,20 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                     return
             ppos += pattern.pat(ppos)
 
-        elif op == OPCODE_AT:
+        elif op == consts.OPCODE_AT:
             # match at given position (e.g. at beginning, at boundary, etc.)
             # <AT> <code>
             if not sre_at(ctx, pattern.pat(ppos), ptr):
                 return
             ppos += 1
 
-        elif op == OPCODE_BRANCH:
+        elif op == consts.OPCODE_BRANCH:
             # alternation
             # <BRANCH> <0=skip> code <JUMP> ... <NULL>
             result = BranchMatchResult(ppos, ptr, marks)
             return result.find_first_result(ctx, pattern)
 
-        elif op == OPCODE_CATEGORY:
+        elif op == consts.OPCODE_CATEGORY:
             # seems to be never produced, but used by some tests from
             # pypy/module/_sre/test
             # <CATEGORY> <category>
@@ -724,7 +682,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ptr = ctx.next(ptr)
             ppos += 1
 
-        elif op == OPCODE_GROUPREF:
+        elif op == consts.OPCODE_GROUPREF:
             # match backreference
             # <GROUPREF> <groupnum>
             startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
@@ -735,18 +693,18 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ptr = ctx.go_forward_by_bytes(ptr, length_bytes)
             ppos += 1
 
-        elif op == OPCODE_GROUPREF_IGNORE:
+        elif op == consts.OPCODE_GROUPREF_IGNORE:
             # match backreference
             # <GROUPREF> <groupnum>
             startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
             if length_bytes < 0:
                 return     # group was not previously defined
-            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes)
+            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes, pattern.flags)
             if ptr < ctx.ZERO:
                 return     # no match
             ppos += 1
 
-        elif op == OPCODE_GROUPREF_EXISTS:
+        elif op == consts.OPCODE_GROUPREF_EXISTS:
             # conditional match depending on the existence of a group
             # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
             _, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
@@ -755,7 +713,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             else:
                 ppos += pattern.pat(ppos+1)    # jump to 'codeno'
 
-        elif op == OPCODE_IN:
+        elif op == consts.OPCODE_IN:
             # match set member (or non_member)
             # <IN> <skip> <set>
             if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
@@ -764,26 +722,26 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ppos += pattern.pat(ppos)
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_IN_IGNORE:
+        elif op == consts.OPCODE_IN_IGNORE:
             # match set member (or non_member), ignoring case
             # <IN> <skip> <set>
             if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
-                                                             ctx.lowstr(ptr)):
+                                                             ctx.lowstr(ptr, pattern.flags)):
                 return
             ppos += pattern.pat(ppos)
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_INFO:
+        elif op == consts.OPCODE_INFO:
             # optimization info block
             # <INFO> <0=skip> <1=flags> <2=min> ...
             if ctx.maximum_distance(ptr, ctx.end) < pattern.pat(ppos+2):
                 return
             ppos += pattern.pat(ppos)
 
-        elif op == OPCODE_JUMP:
+        elif op == consts.OPCODE_JUMP:
             ppos += pattern.pat(ppos)
 
-        elif op == OPCODE_LITERAL:
+        elif op == consts.OPCODE_LITERAL:
             # match literal string
             # <LITERAL> <code>
             if ptr >= ctx.end or ctx.str(ptr) != pattern.pat(ppos):
@@ -791,22 +749,22 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_LITERAL_IGNORE:
+        elif op == consts.OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
             # <LITERAL_IGNORE> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr) != pattern.pat(ppos):
+            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_MARK:
+        elif op == consts.OPCODE_MARK:
             # set mark
             # <MARK> <gid>
             gid = pattern.pat(ppos)
             marks = Mark(gid, ptr, marks)
             ppos += 1
 
-        elif op == OPCODE_NOT_LITERAL:
+        elif op == consts.OPCODE_NOT_LITERAL:
             # match if it's not a literal string
             # <NOT_LITERAL> <code>
             if ptr >= ctx.end or ctx.str(ptr) == pattern.pat(ppos):
@@ -814,15 +772,15 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_NOT_LITERAL_IGNORE:
+        elif op == consts.OPCODE_NOT_LITERAL_IGNORE:
             # match if it's not a literal string, ignoring case
             # <NOT_LITERAL> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr) == pattern.pat(ppos):
+            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == OPCODE_REPEAT:
+        elif op == consts.OPCODE_REPEAT:
             # general repeat.  in this version of the re module, all the work
             # is done here, and not on the later UNTIL operator.
             # <REPEAT> <skip> <1=min> <2=max> item <UNTIL> tail
@@ -833,7 +791,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             untilppos = ppos + pattern.pat(ppos)
             tailppos = untilppos + 1
             op = pattern.pat(untilppos)
-            if op == OPCODE_MAX_UNTIL:
+            if op == consts.OPCODE_MAX_UNTIL:
                 # the hard case: we have to match as many repetitions as
                 # possible, followed by the 'tail'.  we do this by
                 # remembering each state for each possible number of
@@ -841,7 +799,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                 result = MaxUntilMatchResult(ppos, tailppos, ptr, marks)
                 return result.find_first_result(ctx, pattern)
 
-            elif op == OPCODE_MIN_UNTIL:
+            elif op == consts.OPCODE_MIN_UNTIL:
                 # first try to match the 'tail', and if it fails, try
                 # to match one more 'item' and try again
                 result = MinUntilMatchResult(ppos, tailppos, ptr, marks)
@@ -850,7 +808,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             else:
                 raise Error("missing UNTIL after REPEAT")
 
-        elif op == OPCODE_REPEAT_ONE:
+        elif op == consts.OPCODE_REPEAT_ONE:
             # match repeated sequence (maximizing regexp).
             # this operator only works if the repeated item is
             # exactly one character wide, and we're not already
@@ -873,7 +831,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             result = RepeatOneMatchResult(nextppos, minptr, ptr, marks)
             return result.find_first_result(ctx, pattern)
 
-        elif op == OPCODE_MIN_REPEAT_ONE:
+        elif op == consts.OPCODE_MIN_REPEAT_ONE:
             # match repeated sequence (minimizing regexp).
             # this operator only works if the repeated item is
             # exactly one character wide, and we're not already
@@ -925,12 +883,12 @@ def match_repeated(ctx, ptr, oldptr, length_bytes):
     return True
 
 @specializectx
-def match_repeated_ignore(ctx, ptr, oldptr, length_bytes):
+def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, flags):
     oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
     while oldptr < oldend:
         if ptr >= ctx.end:
             return -1
-        if ctx.lowstr(ptr) != ctx.lowstr(oldptr):
+        if ctx.lowstr(ptr, flags) != ctx.lowstr(oldptr, flags):
             return -1
         ptr = ctx.next(ptr)
         oldptr = ctx.next(oldptr)
@@ -997,19 +955,19 @@ def match_IN(ctx, pattern, ptr, ppos):
     return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.str(ptr))
 @specializectx
 def match_IN_IGNORE(ctx, pattern, ptr, ppos):
-    return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr))
+    return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr, pattern.flags))
 @specializectx
 def match_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) == pattern.pat(ppos+1)
 @specializectx
 def match_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr) == pattern.pat(ppos+1)
+    return ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) != pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr) != pattern.pat(ppos+1)
+    return ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos+1)
 
 def _make_fre(checkerfn):
     if checkerfn == match_ANY_ALL:
@@ -1057,14 +1015,14 @@ def _make_fre(checkerfn):
     return fre
 
 unroll_char_checker = [
-    (OPCODE_ANY,                match_ANY),
-    (OPCODE_ANY_ALL,            match_ANY_ALL),
-    (OPCODE_IN,                 match_IN),
-    (OPCODE_IN_IGNORE,          match_IN_IGNORE),
-    (OPCODE_LITERAL,            match_LITERAL),
-    (OPCODE_LITERAL_IGNORE,     match_LITERAL_IGNORE),
-    (OPCODE_NOT_LITERAL,        match_NOT_LITERAL),
-    (OPCODE_NOT_LITERAL_IGNORE, match_NOT_LITERAL_IGNORE),
+    (consts.OPCODE_ANY,                match_ANY),
+    (consts.OPCODE_ANY_ALL,            match_ANY_ALL),
+    (consts.OPCODE_IN,                 match_IN),
+    (consts.OPCODE_IN_IGNORE,          match_IN_IGNORE),
+    (consts.OPCODE_LITERAL,            match_LITERAL),
+    (consts.OPCODE_LITERAL_IGNORE,     match_LITERAL_IGNORE),
+    (consts.OPCODE_NOT_LITERAL,        match_NOT_LITERAL),
+    (consts.OPCODE_NOT_LITERAL_IGNORE, match_NOT_LITERAL_IGNORE),
     ]
 unroll_fre_checker = [(_op, _make_fre(_fn))
                       for (_op, _fn) in unroll_char_checker]
@@ -1074,58 +1032,45 @@ unroll_fre_checker  = unrolling_iterable(unroll_fre_checker)
 
 ##### At dispatch
 
-AT_BEGINNING = 0
-AT_BEGINNING_LINE = 1
-AT_BEGINNING_STRING = 2
-AT_BOUNDARY = 3
-AT_NON_BOUNDARY = 4
-AT_END = 5
-AT_END_LINE = 6
-AT_END_STRING = 7
-AT_LOC_BOUNDARY = 8
-AT_LOC_NON_BOUNDARY = 9
-AT_UNI_BOUNDARY = 10
-AT_UNI_NON_BOUNDARY = 11
-
 @specializectx
 def sre_at(ctx, atcode, ptr):
-    if (atcode == AT_BEGINNING or
-        atcode == AT_BEGINNING_STRING):
+    if (atcode == consts.AT_BEGINNING or
+        atcode == consts.AT_BEGINNING_STRING):
         return ptr == ctx.ZERO
 
-    elif atcode == AT_BEGINNING_LINE:
+    elif atcode == consts.AT_BEGINNING_LINE:
         try:
             prevptr = ctx.prev(ptr)
         except EndOfString:
             return True
         return rsre_char.is_linebreak(ctx.str(prevptr))
 
-    elif atcode == AT_BOUNDARY:
+    elif atcode == consts.AT_BOUNDARY:
         return at_boundary(ctx, ptr)
 
-    elif atcode == AT_NON_BOUNDARY:
+    elif atcode == consts.AT_NON_BOUNDARY:
         return at_non_boundary(ctx, ptr)
 
-    elif atcode == AT_END:
+    elif atcode == consts.AT_END:
         return (ptr == ctx.end or
             (ctx.next(ptr) == ctx.end and rsre_char.is_linebreak(ctx.str(ptr))))
 
-    elif atcode == AT_END_LINE:
+    elif atcode == consts.AT_END_LINE:
         return ptr == ctx.end or rsre_char.is_linebreak(ctx.str(ptr))
 
-    elif atcode == AT_END_STRING:
+    elif atcode == consts.AT_END_STRING:
         return ptr == ctx.end
 
-    elif atcode == AT_LOC_BOUNDARY:
+    elif atcode == consts.AT_LOC_BOUNDARY:
         return at_loc_boundary(ctx, ptr)
 
-    elif atcode == AT_LOC_NON_BOUNDARY:
+    elif atcode == consts.AT_LOC_NON_BOUNDARY:
         return at_loc_non_boundary(ctx, ptr)
 
-    elif atcode == AT_UNI_BOUNDARY:
+    elif atcode == consts.AT_UNI_BOUNDARY:
         return at_uni_boundary(ctx, ptr)
 
-    elif atcode == AT_UNI_NON_BOUNDARY:
+    elif atcode == consts.AT_UNI_NON_BOUNDARY:
         return at_uni_non_boundary(ctx, ptr)
 
     return False
@@ -1170,23 +1115,23 @@ def _adjust(start, end, length):
     elif end > length: end = length
     return start, end
 
-def match(pattern, string, start=0, end=sys.maxint, flags=0, fullmatch=False):
+def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(string, start, end, flags)
+    ctx = StrMatchContext(string, start, end)
     ctx.fullmatch_only = fullmatch
     if match_context(ctx, pattern):
         return ctx
     else:
         return None
 
-def fullmatch(pattern, string, start=0, end=sys.maxint, flags=0):
-    return match(pattern, string, start, end, flags, fullmatch=True)
+def fullmatch(pattern, string, start=0, end=sys.maxint):
+    return match(pattern, string, start, end, fullmatch=True)
 
-def search(pattern, string, start=0, end=sys.maxint, flags=0):
+def search(pattern, string, start=0, end=sys.maxint):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
-    ctx = StrMatchContext(string, start, end, flags)
+    ctx = StrMatchContext(string, start, end)
     if search_context(ctx, pattern):
         return ctx
     else:
@@ -1209,15 +1154,15 @@ def search_context(ctx, pattern):
         return False
     base = 0
     charset = False
-    if pattern.pat(base) == OPCODE_INFO:
+    if pattern.pat(base) == consts.OPCODE_INFO:
         flags = pattern.pat(2)
-        if flags & rsre_char.SRE_INFO_PREFIX:
+        if flags & consts.SRE_INFO_PREFIX:
             if pattern.pat(5) > 1:
                 return fast_search(ctx, pattern)
         else:
-            charset = (flags & rsre_char.SRE_INFO_CHARSET)
+            charset = (flags & consts.SRE_INFO_CHARSET)
         base += 1 + pattern.pat(1)
-    if pattern.pat(base) == OPCODE_LITERAL:
+    if pattern.pat(base) == consts.OPCODE_LITERAL:
         return literal_search(ctx, pattern, base)
     if charset:
         return charset_search(ctx, pattern, base)

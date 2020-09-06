@@ -1117,8 +1117,34 @@ class AppTestUnicodeExtra:
         import re
         match = re.search(u"\u1234", u"\u1233\u1234\u1235")
         assert match.string == u"\u1233\u1234\u1235"
+        # check ascii version too
+        match = re.search(u"a", u"bac")
+        assert match.string == u"bac"
 
     def test_match_start(self):
         import re
         match = re.search(u"\u1234", u"\u1233\u1234\u1235")
         assert match.start() == 1
+
+    def test_match_repr_span(self):
+        import re
+        match = re.match(u"\u1234", u"\u1234")
+        assert match.span() == (0, 1)
+        assert "span=(0, 1), match='\u1234'" in repr(match)
+
+    def test_match_repr_truncation(self):
+        import re
+        s = "xy" + u"\u1234" * 50
+        match = re.match(s, s)
+        # this used to produce invalid utf-8 by truncating repr(s)
+        # after 50 bytes
+        assert "span=(0, 52), match=" + repr(s)[:50] + ">" in repr(match)
+
+    def test_pattern_repr_truncation(self):
+        import re
+        s = "xy" + u"\u1234" * 200
+        pattern = re.compile(s)
+        # this used to produce invalid utf-8 by truncating repr(s)
+        # after 200 bytes
+        assert repr(pattern) == "re.compile(%s)" % (repr(s)[:200],)
+
