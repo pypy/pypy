@@ -40,7 +40,7 @@ This move was covered more extensively in this `blog post`_. We have seen an
 increase in the number of drive-by contributors who are able to use gitlab +
 mercurial to create merge requests.
 
-The `CFFI`_ backend has been updated to version 14.1. We recommend using CFFI
+The `CFFI`_ backend has been updated to version 1.14.2. We recommend using CFFI
 rather than c-extensions to interact with C, and using cppyy_ for performant
 wrapping of C++ code for Python.
 
@@ -156,6 +156,30 @@ Changes shared across versions
   like NumPy.
 - Update ``libffi_msvc`` by copying the fixes done in cffi, and also fix when
   returning a ``struct`` in CFFI
+- Add full precision times from ``os.stat`` on macOS
+- PyPy 2.7 only: add SOABI to distutils.sysconfig so wheel gets the correct ABI
+  tag
+- Use the full set of format strings in ``time.strftime`` on windows. After the
+  transition to a more modern MSVC compiler, windows now supports strings like
+  ``%D`` and others.
+- Raise like CPython when ``strftime()`` year outside 1 - 9999 on windows
+- Use ``wcsftime`` in ``strftime()`` on windows
+- Fix `issue 3282`_ where iterating over a ``mmap`` should return an ``int``,
+  not a ``byte``
+- Use ``_chsize_s`` for ftruncate on windows: CPython issue 23668_
+- Allow untranslated tests to run on top of PyPY2.7, not only CPython2.7
+- Add missing ``os`` functions ``os.sched_rr_get_interval``,
+  ``os.sched_getscheduler``, ``os.sched_setscheduler``, ``os.sched_getparam``
+- Set ``buffer`` to ``None`` on close of buffered ``io`` classes
+- Use the ``Suppres_IPH`` context manager wherever CPython uses
+  ``_Py_BEGIN_SUPPRESS_IPH``, ``_Py_END_SUPPRESS_IPH``
+- Fix leaked string if an exception occurs in socket.settimeout on windows
+- close open ``mmap`` and ``zipfile`` resources in stdlib tests
+- Make stack 3MB on windows which aligns expectations with Linux
+- Add ``pypyjit.releaseall()`` that marks all current machine code objects as
+  ready to release. They will be released at the next GC (unless they are
+  currently in use in the stack of one of the threads).
+
 
 
 C-API (cpyext) and c-extensions
@@ -163,8 +187,9 @@ C-API (cpyext) and c-extensions
 - Add ``PyCFunction_Call``
 - use ``space.getitem`` in ``PySequence_ITEM``, fixes `pybind11 2146`_
 - give preference to ``as_sequence.sq_item`` in ``PySequence_ITEM``
-- In Py_EnterRecursiveCall, ``char*`` -> ``const char *``, `issue 3232_`
+- In Py_EnterRecursiveCall, ``char*`` -> ``const char *``, `issue 3232`_
 - Fix ``PySet_Add`` for ``frozenset`` (`issue 3251`_)
+- Support using ``sq_repeat`` and ``sq_inplace_repeat``, `issue 3281`_
 
 Python 3.6 only
 ---------------
@@ -200,6 +225,8 @@ Python 3.6 only
 - Inhibit compiler tail-call optimization via ``PYPY_INHIBIT_TAIL_CALL`` on windows
 - When ``pypy -m pip`` fails to find ``pip``, give an error message that hints
   at ``pypy -m ensurepip``
+- Fix broken ``_socket.share`` on windows
+- Add missing ``os.{gs}et_handle_inheritable`` (PEP 446) on windows
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -223,6 +250,8 @@ Python 3.6 C-API
 .. _`issue 3255`: https://foss.heptapod.net/pypy/pypy/issues/3255
 .. _`issue 3269`: https://foss.heptapod.net/pypy/pypy/issues/3269
 .. _`issue 3274`: https://foss.heptapod.net/pypy/pypy/issues/3274
+.. _`issue 3282`: https://foss.heptapod.net/pypy/pypy/issues/3282
+.. _`issue 3281`: https://foss.heptapod.net/pypy/pypy/issues/3281
 
 .. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/merge_request/723
 .. _`merge request 729`: https://foss.heptapod.net/pypy/pypy/merge_request/729
@@ -235,5 +264,6 @@ Python 3.6 C-API
 .. _35519: https://bugs.python.org/issue35519
 .. _30465: https://bugs.python.org/issue30465
 .. _39413: https://bugs.python.org/issue39413
+.. _23668: https://bugs.python.org/issue39413
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146
