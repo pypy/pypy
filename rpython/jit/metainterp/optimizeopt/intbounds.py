@@ -378,6 +378,61 @@ class OptIntBounds(Optimization):
         else:
             return self.emit(op)
 
+    # The optimize_UINT_xx functions are disabled.  They work, but the
+    # resulting PyPy is subtly broken.  This is probably because we only
+    # have INT_ADD/INT_SUB, not the unsigned version, and the logic here
+    # assumes that they are non-overflowing signed arithmetic.  That's
+    # wrong, and they get too small intervals.  That's usually not a
+    # problem, but it can definitely be a problem if it's followed by
+    # one of the UINT_* comparisons.
+    def DISABLED_optimize_UINT_LT(self, op):
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b1.known_nonnegative() and b1.known_lt(b2):
+            self.make_constant_int(op, 1)
+        elif b2.known_nonnegative() and b1.known_ge(b2):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
+    def DISABLED_optimize_UINT_LE(self, op):
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b1.known_nonnegative() and b1.known_le(b2):
+            self.make_constant_int(op, 1)
+        elif b2.known_nonnegative() and b1.known_gt(b2):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
+    def DISABLED_optimize_UINT_GT(self, op):
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b2.known_nonnegative() and b1.known_gt(b2):
+            self.make_constant_int(op, 1)
+        elif b1.known_nonnegative() and b1.known_le(b2):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
+    def DISABLED_optimize_UINT_GE(self, op):
+        arg1 = get_box_replacement(op.getarg(0))
+        arg2 = get_box_replacement(op.getarg(1))
+        b1 = self.getintbound(arg1)
+        b2 = self.getintbound(arg2)
+        if b2.known_nonnegative() and b1.known_ge(b2):
+            self.make_constant_int(op, 1)
+        elif b1.known_nonnegative() and b1.known_lt(b2):
+            self.make_constant_int(op, 0)
+        else:
+            return self.emit(op)
+
     def optimize_INT_EQ(self, op):
         arg0 = get_box_replacement(op.getarg(0))
         b1 = self.getintbound(arg0)
@@ -589,6 +644,71 @@ class OptIntBounds(Optimization):
             else:
                 assert r.getint() == 0
                 self.make_int_lt(op.getarg(0), op.getarg(1))
+
+    def make_uint_lt(self, box1, box2):
+        b2 = self.getintbound(box2)
+        if b2.known_nonnegative:
+            b1 = self.getintbound(box1)
+            if b1.make_lt(b2) | b1.make_ge(IntBound(0, 0)):
+                self.propagate_bounds_backward(box1)
+            #if b2.make_gt(b1):
+            # ^^ probably correct but I fail to see a case where it is helpful
+            #    self.propagate_bounds_backward(box2)
+        # elif box1 is known to be < 0... let's ignore that case
+
+    def make_uint_le(self, box1, box2):
+        b2 = self.getintbound(box2)
+        if b2.known_nonnegative:
+            b1 = self.getintbound(box1)
+            if b1.make_le(b2) | b1.make_ge(IntBound(0, 0)):
+                self.propagate_bounds_backward(box1)
+            #if b2.make_ge(b1):
+            # ^^ probably correct but I fail to see a case where it is helpful
+            #    self.propagate_bounds_backward(box2)
+        # elif box1 is known to be < 0... let's ignore that case
+
+    def make_uint_gt(self, box1, box2):
+        self.make_uint_lt(box2, box1)
+
+    def make_uint_ge(self, box1, box2):
+        self.make_uint_le(box2, box1)
+
+    # see DISABLED_optimize_UINT_xx above.
+    def DISABLED_propagate_bounds_UINT_LT(self, op):
+        r = self.getintbound(op)
+        if r.is_constant():
+            if r.getint() == 1:
+                self.make_uint_lt(op.getarg(0), op.getarg(1))
+            else:
+                assert r.getint() == 0
+                self.make_uint_ge(op.getarg(0), op.getarg(1))
+
+    def DISABLED_propagate_bounds_UINT_GT(self, op):
+        r = self.getintbound(op)
+        if r.is_constant():
+            if r.getint() == 1:
+                self.make_uint_gt(op.getarg(0), op.getarg(1))
+            else:
+                assert r.getint() == 0
+                self.make_uint_le(op.getarg(0), op.getarg(1))
+
+    def DISABLED_propagate_bounds_UINT_LE(self, op):
+        r = self.getintbound(op)
+        if r.is_constant():
+            if r.getint() == 1:
+                self.make_uint_le(op.getarg(0), op.getarg(1))
+            else:
+                assert r.getint() == 0
+                self.make_uint_gt(op.getarg(0), op.getarg(1))
+
+    def DISABLED_propagate_bounds_UINT_GE(self, op):
+        r = self.getintbound(op)
+        if r.is_constant():
+            if r.getint() == 1:
+                self.make_uint_ge(op.getarg(0), op.getarg(1))
+            else:
+                assert r.getint() == 0
+                self.make_uint_lt(op.getarg(0), op.getarg(1))
 
     def propagate_bounds_INT_EQ(self, op):
         r = self.getintbound(op)
