@@ -23,12 +23,13 @@ The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3.0 (Dec
 2019) and 7.3.1 (April 2020) releases, but read on to find out what is new.
 
-The major new feature is prelminary support for the Universal mode of HPy: a
-new way of writing c-extension modules to totally encapsulate the `PyObject*`.
-The goal, as laid out in the `HPy blog post`_, is to enable a migration path
-for c-extension authors who wish their code to be performant on alternative
-interpreters like GraalPython_ (written on top of the Java virtual machine),
-RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
+..
+  The major new feature is prelminary support for the Universal mode of HPy: a
+  new way of writing c-extension modules to totally encapsulate the `PyObject*`.
+  The goal, as laid out in the `HPy blog post`_, is to enable a migration path
+  for c-extension authors who wish their code to be performant on alternative
+  interpreters like GraalPython_ (written on top of the Java virtual machine),
+  RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
 
 Conda Forge now `supports PyPy`_ as a python interpreter. The support is quite
 complete for linux and macOS. This is the result of a lot of
@@ -237,6 +238,7 @@ Python 3.6 C-API
 .. _`issue 3187`: https://foss.heptapod.net/pypy/pypy/issues/3187
 .. _`issue 3178`: https://foss.heptapod.net/pypy/pypy/issues/3178
 .. _`issue 3177`: https://foss.heptapod.net/pypy/pypy/issues/3177
+.. _`issue 3188`: https://foss.heptapod.net/pypy/pypy/issues/3188
 .. _`issue 3198`: https://foss.heptapod.net/pypy/pypy/issues/3198
 .. _`issue 3232`: https://foss.heptapod.net/pypy/pypy/issues/3232
 .. _`issue 3239`: https://foss.heptapod.net/pypy/pypy/issues/3239
@@ -264,6 +266,7 @@ Python 3.6 C-API
 .. _35519: https://bugs.python.org/issue35519
 .. _30465: https://bugs.python.org/issue30465
 .. _39413: https://bugs.python.org/issue39413
-.. _23668: https://bugs.python.org/issue39413
+.. _23668: https://bugs.python.org/issue23668
+.. _29104: https://bugs.python.org/issue29104
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146
