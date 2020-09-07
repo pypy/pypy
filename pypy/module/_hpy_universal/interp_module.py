@@ -31,9 +31,9 @@ def HPyModule_Create(space, ctx, hpydef):
             # hpy native methods
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
-            flags = rffi.cast(lltype.Signed, hpymeth.c_signature)
+            sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             w_extfunc = interp_extfunc.W_ExtensionFunction(
-                space, name, flags, hpymeth.c_impl, w_mod)
+                space, name, sig, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     return handles.new(space, w_mod)

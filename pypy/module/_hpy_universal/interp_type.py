@@ -81,12 +81,12 @@ def HPyType_FromSpec(space, ctx, spec):
             elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
                 hpymeth = p[i].c_meth
                 name = rffi.constcharp2str(hpymeth.c_name)
-                flags = rffi.cast(lltype.Signed, hpymeth.c_signature)
-                w_extfunc = W_ExtensionMethod(space, name, flags, hpymeth.c_impl, w_result)
+                sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
+                w_extfunc = W_ExtensionMethod(space, name, sig, hpymeth.c_impl, w_result)
                 w_result.setdictvalue(
                     space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
             else:
-                raise oefmt(space.w_RuntimeError, "Unspported HPyDef.kind: %d", kind)
+                raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
             i += 1
     return handles.new(space, w_result)
 
