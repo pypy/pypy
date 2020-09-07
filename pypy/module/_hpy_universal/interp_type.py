@@ -28,6 +28,9 @@ class W_HPyObject(W_ObjectObject):
 class W_HPyTypeObject(W_TypeObject):
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
     def __init__(self, space, name, bases_w, dict_w, basicsize=0):
+        # XXX: there is a discussion going on to make it possible to create
+        # non-heap types with HPyType_FromSpec. Remember to fix this place
+        # when it's the case.
         W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
         self.basicsize = basicsize
 
@@ -36,6 +39,7 @@ class W_HPyTypeObject(W_TypeObject):
 def _HPy_Cast(space, ctx, h):
     w_obj = handles.deref(space, h)
     if not isinstance(w_obj, W_HPyObject):
+        # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
     return w_obj.hpy_data
 
@@ -105,6 +109,7 @@ def _create_instance(space, w_type):
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
     basicsize = w_type.basicsize
+    # XXX: I (antocuni) think that the +16 is simply wrong. Will fix in a later commit
     c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
     w_result.hpy_data = c_obj
     if w_type.tp_destroy:

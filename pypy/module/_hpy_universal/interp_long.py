@@ -6,6 +6,7 @@ from pypy.module._hpy_universal import handles
 
 @API.func("HPy HPyLong_FromLong(HPyContext ctx, long value)")
 def HPyLong_FromLong(space, ctx, value):
+    # XXX: cpyext does space.newlong: write a test and fix
     w_obj = space.newint(rffi.cast(lltype.Signed, value))
     return handles.new(space, w_obj)
 
@@ -31,6 +32,7 @@ def HPyLong_FromSize_t(space, ctx, v):
 
 @API.func("HPy HPyLong_FromSsize_t(HPyContext ctx, HPy_ssize_t value)")
 def HPyLong_FromSsize_t(space, ctx, v):
+    # XXX: cpyext uses space.newlong: is there any difference?
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(space, w_obj)
 

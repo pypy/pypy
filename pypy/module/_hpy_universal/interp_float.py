@@ -10,6 +10,8 @@ def HPyFloat_FromDouble(space, ctx, v):
 
 @API.func("double HPyFloat_AsDouble(HPyContext ctx, HPy h)")
 def HPyFloat_AsDouble(space, ctx, h):
+    # XXX: the cpyext version calls space.float_w(space.float(w_obj)): we need
+    # to add a test in HPy to test for that, and fix
     w_obj = handles.deref(space, h)
     value = space.float_w(w_obj)
     return value

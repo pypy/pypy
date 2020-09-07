@@ -111,12 +111,14 @@ def HPy_SetItem_s(space, ctx, h_obj, key, h_val):
 
 @API.func("HPy HPy_Repr(HPyContext ctx, HPy h_obj)")
 def HPy_Repr(space, ctx, h_obj):
+    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(space, h_obj)
     w_res = space.repr(w_obj)
     return handles.new(space, w_res)
 
 @API.func("HPy HPy_Str(HPyContext ctx, HPy h_obj)")
 def HPy_Str(space, ctx, h_obj):
+    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(space, h_obj)
     w_res = space.str(w_obj)
     return handles.new(space, w_res)
@@ -129,13 +131,16 @@ def HPy_ASCII(space, ctx, h_obj):
 
 @API.func("HPy HPy_Bytes(HPyContext ctx, HPy h_obj)")
 def HPy_Bytes(space, ctx, h_obj):
+    # XXX: cpyext checks and returns <NULL>. Add a test to HPy and fix here
     w_obj = handles.deref(space, h_obj)
     if space.type(w_obj) is space.w_bytes:
+        # XXX write a test for this case
         return handles.dup(space, h_obj)
     w_result = invoke_bytes_method(space, w_obj)
     if w_result is not None:
         return handles.new(space, w_result)
     # return PyBytes_FromObject(space, w_obj)
+    # XXX: write a test for this case
     buffer = space.buffer_w(w_obj, space.BUF_FULL_RO)
     w_res = space.newbytes(buffer.as_str())
     return handles.new(space, w_res)
