@@ -184,23 +184,62 @@ typedef struct {
     HPyFunc_Signature signature;  // Indicates impl's expected the signature
 } HPyMeth;
 
-/*
+typedef enum {
+    HPyMember_SHORT = 0,
+    HPyMember_INT = 1,
+    HPyMember_LONG = 2,
+    HPyMember_FLOAT = 3,
+    HPyMember_DOUBLE = 4,
+    HPyMember_STRING = 5,
+    HPyMember_OBJECT = 6,
+    HPyMember_CHAR = 7,   /* 1-character string */
+    HPyMember_BYTE = 8,   /* 8-bit signed int */
+    /* unsigned variants: */
+    HPyMember_UBYTE = 9,
+    HPyMember_USHORT = 10,
+    HPyMember_UINT = 11,
+    HPyMember_ULONG = 12,
+
+    /* Added by Jack: strings contained in the structure */
+    HPyMember_STRING_INPLACE = 13,
+
+    /* Added by Lillo: bools contained in the structure (assumed char) */
+    HPyMember_BOOL = 14,
+    HPyMember_OBJECT_EX = 16,  /* Like T_OBJECT, but raises AttributeError
+                                  when the value is NULL, instead of
+                                  converting to None. */
+    HPyMember_LONGLONG = 17,
+    HPyMember_ULONGLONG = 18,
+
+    HPyMember_HPYSSIZET = 19,  /* HPy_ssize_t */
+    HPyMember_NONE = 20,       /* Value is always None */
+
+} HPyMember_FieldType;
+
 typedef struct {
-    ...
+    const char *name;
+    HPyMember_FieldType type;
+    HPy_ssize_t offset;
+    int readonly;
+    const char *doc;
 } HPyMember;
 
 typedef struct {
-    ...
+    const char *name;
+    void *getter_impl;            // Function pointer to the implementation
+    void *setter_impl;            // Same; this may be NULL
+    void *getter_cpy_trampoline;  // Used by CPython to call getter_impl
+    void *setter_cpy_trampoline;  // Same; this may be NULL
+    const char *doc;
+    void *closure;
 } HPyGetSet;
-*/
 
 typedef enum {
     HPyDef_Kind_Slot = 1,
-    HPyDef_Kind_Meth = 2
-    // HPyDef_Kind_Member = 3,
-    // HPyDef_Kind_GetSet = 4,
+    HPyDef_Kind_Meth = 2,
+    HPyDef_Kind_Member = 3,
+    HPyDef_Kind_GetSet = 4,
 } HPyDef_Kind;
-
 
 typedef struct {
     HPyDef_Kind kind;
@@ -217,6 +256,16 @@ typedef struct {
     HPyDef_Kind kind;
     HPySlot slot;
 } _pypy_HPyDef_as_slot;
+
+typedef struct {
+    HPyDef_Kind kind;
+    HPyMember member;
+} _pypy_HPyDef_as_member;
+
+typedef struct {
+    HPyDef_Kind kind;
+    HPyGetSet getset;
+} _pypy_HPyDef_as_getset;
 
 
 /* hpymodule.h */
