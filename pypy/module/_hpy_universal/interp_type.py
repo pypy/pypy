@@ -86,7 +86,7 @@ def HPyType_FromSpec(space, ctx, spec):
                 w_result.setdictvalue(
                     space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
             else:
-                raise oefmt(space.w_RuntimeError, "Unspported HPyDef kind!")
+                raise oefmt(space.w_RuntimeError, "Unspported HPyDef.kind: %d", kind)
             i += 1
     return handles.new(space, w_result)
 
