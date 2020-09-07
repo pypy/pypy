@@ -8,23 +8,23 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 
-METH_FLAGS = [
-    llapi.HPy_METH_VARARGS,
-    llapi.HPy_METH_KEYWORDS,
-    llapi.HPy_METH_NOARGS,
-    llapi.HPy_METH_O
-]
+SUPPORTED_SIGNATURES = (
+    llapi.HPyFunc_VARARGS,
+    llapi.HPyFunc_KEYWORDS,
+    llapi.HPyFunc_NOARGS,
+    llapi.HPyFunc_O
+)
 
 class W_ExtensionFunction(W_Root):
-    # XXX: should we have separate classes for each mode?
-    _immutable_fields_ = ["flags", "name"]
+    # XXX: should we have separate classes for each sig?
+    _immutable_fields_ = ["sig", "name"]
 
-    def __init__(self, space, name, flags, cfuncptr, w_self):
+    def __init__(self, space, name, sig, cfuncptr, w_self):
         self.w_self = w_self
         self.name = name
-        self.flags = flags
-        if self.flags not in METH_FLAGS:
-            raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
+        self.sig = sig
+        if self.sig not in SUPPORTED_SIGNATURES:
+            raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
         self.cfuncptr = cfuncptr
 
     def call_noargs(self, space, h_self):
@@ -101,30 +101,30 @@ class W_ExtensionFunction(W_Root):
             return self.call(space, h_self, __args__)
 
     def call(self, space, h_self, __args__, skip_args=0):
-        flags = self.flags
+        sig = self.sig
         length = len(__args__.arguments_w) - skip_args
 
-        if flags == llapi.HPy_METH_KEYWORDS:
+        if sig == llapi.HPyFunc_KEYWORDS:
             return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=True)
 
         if __args__.keywords:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
 
-        if flags == llapi.HPy_METH_NOARGS:
+        if sig == llapi.HPyFunc_NOARGS:
             if length == 0:
                 return self.call_noargs(space, h_self)
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", self.name)
 
-        if flags == llapi.HPy_METH_O:
+        if sig == llapi.HPyFunc_O:
             if length != 1:
                 raise oefmt(space.w_TypeError,
                             "%s() takes exactly one argument (%d given)",
                             self.name, length)
             return self.call_o(space, h_self, __args__.arguments_w[skip_args])
 
-        if flags == llapi.HPy_METH_VARARGS:
+        if sig == llapi.HPyFunc_VARARGS:
             return self.call_varargs_kw(space, h_self, __args__, skip_args, has_keywords=False)
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
@@ -139,8 +139,8 @@ W_ExtensionFunction.typedef.acceptable_as_base_class = False
 
 
 class W_ExtensionMethod(W_ExtensionFunction):
-    def __init__(self, space, name, flags, impl, w_objclass):
-        W_ExtensionFunction.__init__(self, space, name, flags, impl, space.w_None)
+    def __init__(self, space, name, sig, impl, w_objclass):
+        W_ExtensionFunction.__init__(self, space, name, sig, impl, space.w_None)
         self.w_objclass = w_objclass
 
     def descr_call(self, space, __args__):

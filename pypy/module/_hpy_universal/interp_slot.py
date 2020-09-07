@@ -181,7 +181,7 @@ def fill_slot(space, w_type, hpyslot):
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
     if slot_num == SlotEnum.HPy_tp_new:
-        w_func = W_ExtensionFunction(space, '__new__', llapi.HPy_METH_KEYWORDS,
+        w_func = W_ExtensionFunction(space, '__new__', llapi.HPyFunc_KEYWORDS,
                                      hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return

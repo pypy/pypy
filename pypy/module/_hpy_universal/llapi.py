@@ -309,10 +309,13 @@ HPyModuleDef = cts.gettype('HPyModuleDef')
 # HPyModule_Create
 HPyModuleDef._flds['c_legacy_methods'] = rffi.CArrayPtr(cpy_PyMethodDef)
 
-HPy_METH_VARARGS  = 1
-HPy_METH_KEYWORDS = 2
-HPy_METH_NOARGS   = 3
-HPy_METH_O        = 4
+# enum HPyFunc_Signature {
+HPyFunc_VARARGS  = 1
+HPyFunc_KEYWORDS = 2
+HPyFunc_NOARGS   = 3
+HPyFunc_O        = 4
+# ...
+# }
 
 HPy_LT = 0
 HPy_LE = 1
