@@ -23,7 +23,9 @@ class W_HPyObject(W_ObjectObject):
     @rgc.must_be_light_finalizer
     def __del__(self):
         if self.hpy_data:
-            lltype.free(self.hpy_data , flavor='raw')
+            # see the comment inside _create_instance for why this is needed
+            c_obj = rffi.ptradd(self.hpy_data, llapi.SIZEOF_HPyObject_HEAD)
+            lltype.free(c_obj , flavor='raw')
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
@@ -116,9 +118,19 @@ def _create_instance(space, w_type):
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
     basicsize = w_type.basicsize
-    # XXX: I (antocuni) think that the +16 is simply wrong. Will fix in a later commit
-    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize + 16, zero=True, flavor='raw')
-    w_result.hpy_data = c_obj
+    #
+    # ad explained by the comment at the top of hpytype.h, user-defined
+    # structs begin with HPyObject_HEAD to reserve some space. However, in
+    # PyPy we don't need that space so we just pretend to allocate it by
+    # malloc()ing LESS bytes than requested, and returning a pointer allocate
+    # LESS bytes than requested, so ensure that the offsets for user-defined
+    # fields are still correct.  Obviously, dereferencing the first
+    # SIZEOF_HPyObject_HEAD bytes of it will be undefined behavior, but this
+    # should never happen, unless the user accesses the fields called
+    # "_reserved0" and "_reserved1"
+    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize - llapi.SIZEOF_HPyObject_HEAD,
+                          zero=True, flavor='raw')
+    w_result.hpy_data = rffi.ptradd(c_obj, -llapi.SIZEOF_HPyObject_HEAD)
     if w_type.tp_destroy:
         w_result.register_finalizer(space)
     return w_result

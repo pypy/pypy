@@ -27,6 +27,7 @@ eci = ExternalCompilationInfo(
         // handle struct types which are not typedefs
         typedef struct _HPyContext_s _struct_HPyContext_s;
         typedef struct _HPy_s _struct_HPy_s;
+        typedef struct _HPyObject_head_s _struct_HPyObject_head_s;
     """],
 )
 
@@ -283,6 +284,11 @@ typedef struct {
 
 /* hpytype.h */
 
+typedef struct _HPyObject_head_s {
+    HPy_ssize_t _reserved0;
+    void *_reserved1;
+} _struct_HPyObject_head_s;
+
 typedef struct {
     const char* name;
     int basicsize;
@@ -372,6 +378,8 @@ HPy_EQ = 2
 HPy_NE = 3
 HPy_GT = 4
 HPy_GE = 5
+
+SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
 
 # HPy API functions which are implemented directly in C
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
