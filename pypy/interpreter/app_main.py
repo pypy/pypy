@@ -869,8 +869,7 @@ def run_command_line(interactive,
             if hasattr(sys, '__interactivehook__'):
                 run_toplevel(sys.__interactivehook__)
             pypy_version_info = getattr(sys, 'pypy_version_info', sys.version_info)
-            irc_topic = pypy_version_info[3] != 'final' or (
-                            readenv and os.getenv('PYPY_IRC_TOPIC'))
+            irc_topic = readenv and os.getenv('PYPY_IRC_TOPIC')
             success = run_toplevel(interactive_console, mainmodule,
                                    quiet=quiet or not irc_topic)
         except SystemExit as e:
