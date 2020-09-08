@@ -115,7 +115,7 @@ class W_HPyMemberDescriptor(GetSetProperty):
         setter = member_set
         GetSetProperty.__init__(
             self, member_get, setter, member_del, doc,
-            cls=None, use_closure=True, tag="hpy")
+            cls=None, use_closure=True, tag="hpy_member")
 
     def readonly_attribute(self, space):   # overwritten
         # XXX write a test
@@ -183,7 +183,7 @@ class W_HPyGetSetProperty(GetSetProperty):
             #fdel = ...
         GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
-                                tag="hpy", name=name)
+                                tag="hpy_getset", name=name)
 
     def readonly_attribute(self, space):   # overwritten
         raise NotImplementedError # XXX write a test
