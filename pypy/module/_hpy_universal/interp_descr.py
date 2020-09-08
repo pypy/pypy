@@ -7,13 +7,16 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp2app)
-from .llapi import cts
+from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal.state import State
 
 ADDRESS = lltype.Signed
 
 def check_descr(space, w_obj, w_type):
     if not space.isinstance_w(w_obj, w_type):
         raise DescrMismatch()
+
+# ======== HPyDef_Kind_Member ========
 
 converter_data = [                     # range checking
     ('SHORT',  rffi.SHORT,                      True),
@@ -31,7 +34,7 @@ converter_data = [                     # range checking
     ('ULONGLONG', rffi.ULONGLONG,   False),
     ('HPYSSIZET', rffi.SSIZE_T,               False),
     ]
-Enum = cts.gettype('HPyMember_FieldType')
+Enum = llapi.cts.gettype('HPyMember_FieldType')
 converters = unrolling_iterable([
     (getattr(Enum, 'HPyMember_' + name), typ) for name, typ, _ in converter_data])
 
@@ -140,5 +143,46 @@ def add_member(space, w_type, hpymember):
     w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
     w_type.setdictvalue(space, name, w_descr)
 
+
+# ======== HPyDef_Kind_GetSet ========
+
+def getset_get(w_getset, space, w_self):
+    state = space.fromcache(State)
+    cfuncptr = w_getset.hpygetset.c_getter_impl
+    func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
+    # XXX: write a test to check that we pass hpygetset.c_closure
+    c_closure = lltype.nullptr(rffi.VOIDP.TO)
+    with handles.using(space, w_self) as h_self:
+        h_result = func(state.ctx, h_self, c_closure)
+    return handles.consume(space, h_result)
+    
+
+class W_HPyGetSetProperty(GetSetProperty):
+    def __init__(self, w_type, hpygetset):
+        self.hpygetset = hpygetset
+        self.w_type = w_type
+        #
+        name = rffi.constcharp2str(hpygetset.c_name)
+        doc = fset = fget = fdel = None
+        if hpygetset.c_doc:
+            doc = rffi.constcharp2str(hpygetset.c_doc)
+        if hpygetset.c_getter_impl:
+            fget = getset_get
+        ## if getset.c_set:
+        ##     fset = GettersAndSetters.setter.im_func
+        ##     fdel = GettersAndSetters.deleter.im_func
+        GetSetProperty.__init__(self, fget, fset, fdel, doc,
+                                cls=None, use_closure=True,
+                                tag="hpy", name=name)
+
+    def readonly_attribute(self, space):   # overwritten
+        raise NotImplementedError # XXX write a test
+        ## raise oefmt(space.w_AttributeError,
+        ##     "attribute '%s' of '%N' objects is not writable",
+        ##     self.name, self.w_type)
+
+
+
 def add_getset(space, w_type, hpygetset):
-    raise oefmt(space.w_NotImplementedError, "getsets")
+    w_descr = W_HPyGetSetProperty(w_type, hpygetset)
+    w_type.setdictvalue(space, w_descr.name, w_descr)
