@@ -24,7 +24,8 @@ class W_ExtensionFunction(W_Root):
         self.name = name
         self.sig = sig
         if self.sig not in SUPPORTED_SIGNATURES:
-            raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
+            raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
+            #raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
         self.cfuncptr = cfuncptr
 
     def call_noargs(self, space, h_self):
