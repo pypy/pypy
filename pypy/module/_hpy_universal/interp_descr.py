@@ -9,6 +9,7 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp2app)
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
+from pypy.module._hpy_universal.apiset import API
 
 ADDRESS = lltype.Signed
 
@@ -117,6 +118,7 @@ class W_HPyMemberDescriptor(GetSetProperty):
             cls=None, use_closure=True, tag="hpy")
 
     def readonly_attribute(self, space):   # overwritten
+        # XXX write a test
         raise oefmt(space.w_AttributeError,
             "attribute '%s' of '%N' objects is not writable",
             self.name, self.w_type)
@@ -154,6 +156,15 @@ def getset_get(w_getset, space, w_self):
         h_result = func(state.ctx, h_self, w_getset.hpygetset.c_closure)
     return handles.consume(space, h_result)
     
+def getset_set(w_getset, space, w_self, w_value):
+    state = space.fromcache(State)
+    cfuncptr = w_getset.hpygetset.c_setter_impl
+    func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
+    with handles.using(space, w_self) as h_self:
+        with handles.using(space, w_value) as h_value:
+            h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
+    return API.int(0)
+
 
 class W_HPyGetSetProperty(GetSetProperty):
     def __init__(self, w_type, hpygetset):
@@ -166,9 +177,10 @@ class W_HPyGetSetProperty(GetSetProperty):
             doc = rffi.constcharp2str(hpygetset.c_doc)
         if hpygetset.c_getter_impl:
             fget = getset_get
-        ## if getset.c_set:
-        ##     fset = GettersAndSetters.setter.im_func
-        ##     fdel = GettersAndSetters.deleter.im_func
+        if hpygetset.c_setter_impl:
+            fset = getset_set
+            # XXX: write a test to check that 'del' works
+            #fdel = ...
         GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
                                 tag="hpy", name=name)
