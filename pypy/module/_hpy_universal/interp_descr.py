@@ -150,10 +150,8 @@ def getset_get(w_getset, space, w_self):
     state = space.fromcache(State)
     cfuncptr = w_getset.hpygetset.c_getter_impl
     func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
-    # XXX: write a test to check that we pass hpygetset.c_closure
-    c_closure = lltype.nullptr(rffi.VOIDP.TO)
     with handles.using(space, w_self) as h_self:
-        h_result = func(state.ctx, h_self, c_closure)
+        h_result = func(state.ctx, h_self, w_getset.hpygetset.c_closure)
     return handles.consume(space, h_result)
     
 
