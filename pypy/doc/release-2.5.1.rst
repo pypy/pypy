@@ -6,7 +6,7 @@ We're pleased to announce PyPy 2.5.1, Pineapple `Bromeliad`_ following on the he
 
 You can download the PyPy 2.5.1 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
@@ -24,10 +24,10 @@ so we can finish those projects! The three sub-projects are:
 * `NumPy`_ which requires installation of our fork of upstream numpy,
   available `on bitbucket`_
 
-.. _`Bromeliad`: http://xkcd.com/1498
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`Bromeliad`: https://xkcd.com/1498
+.. _`Py3k`: https://pypy.org/py3donate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _`NumPy`: https://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 We would also like to encourage new people to join the project. PyPy has many
@@ -35,10 +35,10 @@ layers and we need help with all of them: `PyPy`_ and `Rpython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_ with making
 Rpython's JIT even better.
 
-.. _`PyPy`: http://doc.pypy.org 
-.. _`Rpython`: http://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`PyPy`: https://doc.pypy.org 
+.. _`Rpython`: https://rpython.readthedocs.org
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 
 What is PyPy?
 =============
@@ -55,8 +55,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights 
 ==========
@@ -94,15 +94,15 @@ Highlights
   our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
   #pypy.
 
-.. _`PyPy documentation`: http://doc.pypy.org
-.. _`RPython documentation`: http://rpython.readthedocs.org
+.. _`PyPy documentation`: https://doc.pypy.org
+.. _`RPython documentation`: https://rpython.readthedocs.org
 .. _`ssl module`: https://docs.python.org/3/library/ssl.html
 .. _`PEP 466`: https://www.python.org/dev/peps/pep-0466
 .. _`PEP 476`: https://www.python.org/dev/peps/pep-0476
 .. _`PEP 477`: https://www.python.org/dev/peps/pep-0477
 .. _`POODLE attack`: https://www.imperialviolet.org/2014/10/14/poodle.html
 .. _`ensurepip module`: https://docs.python.org/2/library/ensurepip.html
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.1.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.5.1.html
 
 Please try it out and let us know what you think. We welcome
 success stories, `experiments`_,  or `benchmarks`_, we know you are using PyPy, please tell us about it!
@@ -111,5 +111,5 @@ Cheers
 
 The PyPy Team
 
-.. _`experiments`: http://morepypy.blogspot.com/2015/02/experiments-in-pyrlang-with-rpython.html
+.. _`experiments`: https://morepypy.blogspot.com/2015/02/experiments-in-pyrlang-with-rpython.html
 .. _`benchmarks`: https://mithrandi.net/blog/2015/03/axiom-benchmark-results-on-pypy-2-5-0

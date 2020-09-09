@@ -5,7 +5,7 @@ PyPy 2.0.2 - Fermi Panini
 We're pleased to announce PyPy 2.0.2.  This is a stable bugfix release
 over `2.0`_ and `2.0.1`_.  You can download it here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 It fixes a crash in the JIT when calling external C functions (with
 ctypes/cffi) in a multithreaded context.
@@ -23,7 +23,7 @@ due to its integrated tracing JIT compiler.
 This release supports x86 machines running Linux 32/64, Mac OS X 64 or
 Windows 32.  Support for ARM is progressing but not bug-free yet.
 
-.. _`pypy 2.0 and cpython 2.7.3`: http://speed.pypy.org
+.. _`pypy 2.0 and cpython 2.7.3`: https://speed.pypy.org
 
 Highlights
 ==========
