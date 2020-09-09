@@ -45,7 +45,9 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = ['sphinx.ext.extlinks',
               'sphinx.ext.intersphinx',
-              'sphinx.ext.graphviz']
+              'sphinx.ext.graphviz',
+              'sphinx_affiliates',
+             ]
 
 # Canonical URL (including the '/') so searching from pypy docs finds these
 affiliate_options = {
