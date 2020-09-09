@@ -201,3 +201,9 @@ class W_HPyGetSetProperty(GetSetProperty):
 def add_getset(space, w_type, hpygetset):
     w_descr = W_HPyGetSetProperty(w_type, hpygetset)
     w_type.setdictvalue(space, w_descr.name, w_descr)
+    #
+    # the following is needed to ensure that we annotate getset_*, else
+    # test_ztranslation fails
+    if hasattr(space, 'is_fake_objspace'):
+        w_descr.descr_property_get(space, space.w_None)
+        w_descr.descr_property_set(space, space.w_None, space.w_None)
