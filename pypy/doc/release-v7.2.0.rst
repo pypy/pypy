@@ -59,7 +59,7 @@ end-user bug reports, so please continue reporting issues as they crop up.
 
 You can download the v7.2 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -75,7 +75,7 @@ thanks for pitching in.
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
-.. _`CFFI`: http://cffi.readthedocs.io
+.. _`CFFI`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`Baroque Software`: https://baroquesoftware.com
@@ -110,8 +110,8 @@ Unfortunately at the moment of writing our ARM buildbots are out of service,
 so for now we are **not** releasing any binary for the ARM architecture (32
 bit), although PyPy does support ARM 32 bit processors. 
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog
