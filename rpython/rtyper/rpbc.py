@@ -823,6 +823,13 @@ class __extend__(pairtype(FunctionRepr, MultipleFrozenPBCRepr)):
             return Constant(value, lltype)
         return NotImplemented
 
+class __extend__(pairtype(MultipleFrozenPBCRepr, FunctionRepr)):
+    def convert_from_to((r_frozen1, r_fn2), v, llops):
+        if r_fn2.lowleveltype is Void:
+            value = r_fn2.s_pbc.const
+            return Constant(value, Void)
+        return NotImplemented
+
 
 class MethodOfFrozenPBCRepr(Repr):
     """Representation selected for a PBC of method object(s) of frozen PBCs.

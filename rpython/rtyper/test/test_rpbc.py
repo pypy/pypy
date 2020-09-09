@@ -1815,6 +1815,30 @@ class TestRPBC(BaseRtypingTest):
             return h3
         self.interpret(g, [-5])
 
+    def test_single_function_from_noncallable_pbcs(self):
+        from rpython.annotator import annrpython
+        a = annrpython.RPythonAnnotator()
+
+        def h1(i):
+            return i + 5
+        def h3(i):
+            "NOT_RPYTHON"   # should not be annotated
+            return i + 7
+
+        def other_func(i):
+            h1(i)
+            return h1
+
+        def g(i):
+            if i & 1:
+                fn = h1
+            else:
+                fn = h3
+            h1(i)
+            if fn is h1:
+                fn(i)
+        self.interpret(g, [-5])
+
 # ____________________________________________________________
 
 def test_hlinvoke_simple():
