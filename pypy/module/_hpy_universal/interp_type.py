@@ -29,7 +29,9 @@ class W_HPyObject(W_ObjectObject):
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
+    basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
+    
     def __init__(self, space, name, bases_w, dict_w, basicsize=0):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
