@@ -9,7 +9,6 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp2app)
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
-from pypy.module._hpy_universal.apiset import API
 
 ADDRESS = lltype.Signed
 
@@ -56,6 +55,11 @@ def member_get(w_descr, space, w_obj):
         value = rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), addr)[0]
         return space.newfloat(value)
     elif kind == Enum.HPyMember_BOOL:
+        raise NotImplementedError
+        # the following code raises the following rpython error, we need an
+        # alternative way to fix it:
+        # TyperError: arithmetic not supported on <UCHAR>, its size is too small
+        #   v3551 = bool(value_104)
         value = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)[0]
         w_result = space.newbool(bool(value))
     else:
@@ -163,7 +167,8 @@ def getset_set(w_getset, space, w_self, w_value):
     with handles.using(space, w_self) as h_self:
         with handles.using(space, w_value) as h_value:
             h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
-    return API.int(0)
+            # XXX: write a test to check that we do the correct thing if
+            # c_setter raises an exception
 
 
 class W_HPyGetSetProperty(GetSetProperty):
