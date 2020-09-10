@@ -20,15 +20,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise copy is made and the memoryview points to a
-    new bytes object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
