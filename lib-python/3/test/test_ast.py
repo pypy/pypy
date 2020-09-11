@@ -4,6 +4,7 @@ import os
 import sys
 import unittest
 import weakref
+from textwrap import dedent
 
 from test import support
 
@@ -63,6 +64,10 @@ exec_tests = [
     "while v:pass",
     # If
     "if v:pass",
+    # If-Elif
+    "if a:\n  pass\nelif b:\n  pass",
+    # If-Elif-Else
+    "if a:\n  pass\nelif b:\n  pass\nelse:\n  pass",
     # With
     "with x as y: pass",
     "with x as y, z as q: pass",
@@ -124,6 +129,14 @@ exec_tests = [
     "{*{1, 2}, 3}",
     # Asynchronous comprehensions
     "async def f():\n [i async for b in c]",
+    # Decorated FunctionDef
+    "@deco1\n@deco2()\n@deco3(1)\ndef f(): pass",
+    # Decorated AsyncFunctionDef
+    "@deco1\n@deco2()\n@deco3(1)\nasync def f(): pass",
+    # Decorated ClassDef
+    "@deco1\n@deco2()\n@deco3(1)\nclass C: pass",
+    # Decorator with generator argument
+    "@deco(a for a in b)\ndef f(): pass",
 ]
 
 # These are compiled through "single"
@@ -461,6 +474,35 @@ class ASTHelpers_Test(unittest.TestCase):
             "lineno=1, col_offset=0), lineno=1, col_offset=0)])"
         )
 
+    def test_dump_incomplete(self):
+        node = ast.Raise(lineno=3, col_offset=4)
+        self.assertEqual(ast.dump(node),
+            "Raise()"
+        )
+        self.assertEqual(ast.dump(node, include_attributes=True),
+            "Raise(lineno=3, col_offset=4)"
+        )
+        node = ast.Raise(exc=ast.Name(id='e', ctx=ast.Load()), lineno=3, col_offset=4)
+        self.assertEqual(ast.dump(node),
+            "Raise(exc=Name(id='e', ctx=Load()))"
+        )
+        self.assertEqual(ast.dump(node, annotate_fields=False),
+            "Raise(Name('e', Load()))"
+        )
+        self.assertEqual(ast.dump(node, include_attributes=True),
+            "Raise(exc=Name(id='e', ctx=Load()), lineno=3, col_offset=4)"
+        )
+        self.assertEqual(ast.dump(node, annotate_fields=False, include_attributes=True),
+            "Raise(Name('e', Load()), lineno=3, col_offset=4)"
+        )
+        node = ast.Raise(cause=ast.Name(id='e', ctx=ast.Load()))
+        self.assertEqual(ast.dump(node),
+            "Raise(cause=Name(id='e', ctx=Load()))"
+        )
+        self.assertEqual(ast.dump(node, annotate_fields=False),
+            "Raise(cause=Name('e', Load()))"
+        )
+
     def test_copy_location(self):
         src = ast.parse('1 + 1', mode='eval')
         src.body.right = ast.copy_location(ast.Num(2), src.body.right)
@@ -559,6 +601,18 @@ class ASTHelpers_Test(unittest.TestCase):
         self.assertIsNone(ast.get_docstring(node.body[0]))
         node = ast.parse('async def foo():\n  x = "not docstring"')
         self.assertIsNone(ast.get_docstring(node.body[0]))
+
+    def test_elif_stmt_start_position(self):
+        node = ast.parse('if a:\n    pass\nelif b:\n    pass\n')
+        elif_stmt = node.body[0].orelse[0]
+        self.assertEqual(elif_stmt.lineno, 3)
+        self.assertEqual(elif_stmt.col_offset, 0)
+
+    def test_elif_stmt_start_position_with_else(self):
+        node = ast.parse('if a:\n    pass\nelif b:\n    pass\nelse:\n    pass\n')
+        elif_stmt = node.body[0].orelse[0]
+        self.assertEqual(elif_stmt.lineno, 3)
+        self.assertEqual(elif_stmt.col_offset, 0)
 
     def test_literal_eval(self):
         self.assertEqual(ast.literal_eval('[1, 2, 3]'), [1, 2, 3])
@@ -1123,6 +1177,44 @@ class ConstantTests(unittest.TestCase):
         self.assertEqual(ast.literal_eval(binop), 10+20j)
 
 
+class NodeVisitorTests(unittest.TestCase):
+    def test_old_constant_nodes(self):
+        class Visitor(ast.NodeVisitor):
+            def visit_Num(self, node):
+                log.append((node.lineno, 'Num', node.n))
+            def visit_Str(self, node):
+                log.append((node.lineno, 'Str', node.s))
+            def visit_Bytes(self, node):
+                log.append((node.lineno, 'Bytes', node.s))
+            def visit_NameConstant(self, node):
+                log.append((node.lineno, 'NameConstant', node.value))
+            def visit_Ellipsis(self, node):
+                log.append((node.lineno, 'Ellipsis', ...))
+        mod = ast.parse(dedent('''\
+            i = 42
+            f = 4.25
+            c = 4.25j
+            s = 'string'
+            b = b'bytes'
+            t = True
+            n = None
+            e = ...
+            '''))
+        visitor = Visitor()
+        log = []
+        visitor.visit(mod)
+        self.assertEqual(log, [
+            (1, 'Num', 42),
+            (2, 'Num', 4.25),
+            (3, 'Num', 4.25j),
+            (4, 'Str', 'string'),
+            (5, 'Bytes', b'bytes'),
+            (6, 'NameConstant', True),
+            (7, 'NameConstant', None),
+            (8, 'Ellipsis', ...),
+        ])
+
+
 def main():
     if __name__ != '__main__':
         return
@@ -1159,6 +1251,8 @@ exec_results = [
 ('Module', [('For', (1, 0), ('Name', (1, 4), 'v', ('Store',)), ('Name', (1, 9), 'v', ('Load',)), [('Pass', (1, 11))], [])]),
 ('Module', [('While', (1, 0), ('Name', (1, 6), 'v', ('Load',)), [('Pass', (1, 8))], [])]),
 ('Module', [('If', (1, 0), ('Name', (1, 3), 'v', ('Load',)), [('Pass', (1, 5))], [])]),
+('Module', [('If', (1, 0), ('Name', (1, 3), 'a', ('Load',)), [('Pass', (2, 2))], [('If', (3, 0), ('Name', (3, 5), 'b', ('Load',)), [('Pass', (4, 2))], [])])]),
+('Module', [('If', (1, 0), ('Name', (1, 3), 'a', ('Load',)), [('Pass', (2, 2))], [('If', (3, 0), ('Name', (3, 5), 'b', ('Load',)), [('Pass', (4, 2))], [('Pass', (6, 2))])])]),
 ('Module', [('With', (1, 0), [('withitem', ('Name', (1, 5), 'x', ('Load',)), ('Name', (1, 10), 'y', ('Store',)))], [('Pass', (1, 13))])]),
 ('Module', [('With', (1, 0), [('withitem', ('Name', (1, 5), 'x', ('Load',)), ('Name', (1, 10), 'y', ('Store',))), ('withitem', ('Name', (1, 13), 'z', ('Load',)), ('Name', (1, 18), 'q', ('Store',)))], [('Pass', (1, 21))])]),
 ('Module', [('Raise', (1, 0), ('Call', (1, 6), ('Name', (1, 6), 'Exception', ('Load',)), [('Str', (1, 16), 'string')], []), None)]),
@@ -1187,6 +1281,10 @@ exec_results = [
 ('Module', [('Expr', (1, 0), ('Dict', (1, 0), [None, ('Num', (1, 10), 2)], [('Dict', (1, 3), [('Num', (1, 4), 1)], [('Num', (1, 6), 2)]), ('Num', (1, 12), 3)]))]),
 ('Module', [('Expr', (1, 0), ('Set', (1, 0), [('Starred', (1, 1), ('Set', (1, 2), [('Num', (1, 3), 1), ('Num', (1, 6), 2)]), ('Load',)), ('Num', (1, 10), 3)]))]),
 ('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Expr', (2, 1), ('ListComp', (2, 2), ('Name', (2, 2), 'i', ('Load',)), [('comprehension', ('Name', (2, 14), 'b', ('Store',)), ('Name', (2, 19), 'c', ('Load',)), [], 1)]))], [], None)]),
+('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Pass', (4, 9))], [('Name', (1, 1), 'deco1', ('Load',)), ('Call', (2, 1), ('Name', (2, 1), 'deco2', ('Load',)), [], []), ('Call', (3, 1), ('Name', (3, 1), 'deco3', ('Load',)), [('Num', (3, 7), 1)], [])], None)]),
+('Module', [('AsyncFunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Pass', (4, 15))], [('Name', (1, 1), 'deco1', ('Load',)), ('Call', (2, 1), ('Name', (2, 1), 'deco2', ('Load',)), [], []), ('Call', (3, 1), ('Name', (3, 1), 'deco3', ('Load',)), [('Num', (3, 7), 1)], [])], None)]),
+('Module', [('ClassDef', (1, 0), 'C', [], [], [('Pass', (4, 9))], [('Name', (1, 1), 'deco1', ('Load',)), ('Call', (2, 1), ('Name', (2, 1), 'deco2', ('Load',)), [], []), ('Call', (3, 1), ('Name', (3, 1), 'deco3', ('Load',)), [('Num', (3, 7), 1)], [])])]),
+('Module', [('FunctionDef', (1, 0), 'f', ('arguments', [], None, [], [], None, []), [('Pass', (2, 9))], [('Call', (1, 1), ('Name', (1, 1), 'deco', ('Load',)), [('GeneratorExp', (1, 6), ('Name', (1, 6), 'a', ('Load',)), [('comprehension', ('Name', (1, 12), 'a', ('Store',)), ('Name', (1, 17), 'b', ('Load',)), [], 0)])], [])], None)]),
 ]
 single_results = [
 ('Interactive', [('Expr', (1, 0), ('BinOp', (1, 0), ('Num', (1, 0), 1), ('Add',), ('Num', (1, 2), 2)))]),

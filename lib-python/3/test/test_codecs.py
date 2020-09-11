@@ -1206,6 +1206,7 @@ class UTF8SigTest(UTF8Test, unittest.TestCase):
             got = ostream.getvalue()
             self.assertEqual(got, unistring)
 
+
 class EscapeDecodeTest(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(codecs.escape_decode(b""), (b"", 0))
@@ -1405,6 +1406,18 @@ class PunycodeTest(unittest.TestCase):
             self.assertEqual(uni, puny.decode("punycode"))
             puny = puny.decode("ascii").encode("ascii")
             self.assertEqual(uni, puny.decode("punycode"))
+
+    def test_decode_invalid(self):
+        testcases = [
+            (b"xn--w&", "strict", UnicodeError()),
+            (b"xn--w&", "ignore", "xn-"),
+        ]
+        for puny, errors, expected in testcases:
+            with self.subTest(puny=puny, errors=errors):
+                if isinstance(expected, Exception):
+                    self.assertRaises(UnicodeError, puny.decode, "punycode", errors)
+                else:
+                    self.assertEqual(puny.decode("punycode", errors), expected)
 
 
 class UnicodeInternalTest(unittest.TestCase):
@@ -1856,6 +1869,14 @@ class CodecsModuleTest(unittest.TestCase):
                 codecs.encode, 'abc', 'undefined', errors)
             self.assertRaises(UnicodeError,
                 codecs.decode, b'abc', 'undefined', errors)
+
+    def test_file_closes_if_lookup_error_raised(self):
+        mock_open = mock.mock_open()
+        with mock.patch('builtins.open', mock_open) as file:
+            with self.assertRaises(LookupError):
+                codecs.open(support.TESTFN, 'wt', 'invalid-encoding')
+
+            file().close.assert_called()
 
 
 class StreamReaderTest(unittest.TestCase):
@@ -3229,13 +3250,13 @@ class CodePageTest(unittest.TestCase):
             self.assertEqual(codec.name, 'mbcs')
 
     @support.bigmemtest(size=2**31, memuse=7, dry_run=False)
-    def test_large_input(self):
+    def test_large_input(self, size):
         # Test input longer than INT_MAX.
         # Input should contain undecodable bytes before and after
         # the INT_MAX limit.
-        encoded = (b'01234567' * (2**28-1) +
+        encoded = (b'01234567' * ((size//8)-1) +
                    b'\x85\x86\xea\xeb\xec\xef\xfc\xfd\xfe\xff')
-        self.assertEqual(len(encoded), 2**31+2)
+        self.assertEqual(len(encoded), size+2)
         decoded = codecs.code_page_decode(932, encoded, 'surrogateescape', True)
         self.assertEqual(decoded[1], len(encoded))
         del encoded
@@ -3245,6 +3266,20 @@ class CodePageTest(unittest.TestCase):
                          '6701234567'
                          '\udc85\udc86\udcea\udceb\udcec'
                          '\udcef\udcfc\udcfd\udcfe\udcff')
+
+    @support.bigmemtest(size=2**31, memuse=6, dry_run=False)
+    def test_large_utf8_input(self, size):
+        # Test input longer than INT_MAX.
+        # Input should contain a decodable multi-byte character
+        # surrounding INT_MAX
+        encoded = (b'0123456\xed\x84\x80' * (size//8))
+        self.assertEqual(len(encoded), size // 8 * 10)
+        decoded = codecs.code_page_decode(65001, encoded, 'ignore', True)
+        self.assertEqual(decoded[1], len(encoded))
+        del encoded
+        self.assertEqual(len(decoded[0]), size)
+        self.assertEqual(decoded[0][:10], '0123456\ud10001')
+        self.assertEqual(decoded[0][-11:], '56\ud1000123456\ud100')
 
 
 class ASCIITest(unittest.TestCase):

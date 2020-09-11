@@ -1057,8 +1057,7 @@ class _TestQueue(BaseTestCase):
             q = self.Queue()
             q.put(NotSerializable())
             q.put(True)
-            # bpo-30595: use a timeout of 1 second for slow buildbots
-            self.assertTrue(q.get(timeout=1.0))
+            self.assertTrue(q.get(timeout=TIMEOUT))
             close_queue(q)
 
         with test.support.captured_stderr():
@@ -2690,16 +2689,17 @@ class _TestMyManager(BaseTestCase):
         self.common(manager)
         manager.shutdown()
 
-        # If the manager process exited cleanly then the exitcode
-        # will be zero.  Otherwise (after a short timeout)
-        # terminate() is used, resulting in an exitcode of -SIGTERM.
-        self.assertEqual(manager._process.exitcode, 0)
+        # bpo-30356: BaseManager._finalize_manager() sends SIGTERM
+        # to the manager process if it takes longer than 1 second to stop,
+        # which happens on slow buildbots.
+        self.assertIn(manager._process.exitcode, (0, -signal.SIGTERM))
 
     def test_mymanager_context(self):
         with MyManager() as manager:
             self.common(manager)
         # bpo-30356: BaseManager._finalize_manager() sends SIGTERM
-        # to the manager process if it takes longer than 1 second to stop.
+        # to the manager process if it takes longer than 1 second to stop,
+        # which happens on slow buildbots.
         self.assertIn(manager._process.exitcode, (0, -signal.SIGTERM))
 
     def test_mymanager_context_prestarted(self):
@@ -3140,6 +3140,19 @@ class _TestListener(BaseTestCase):
         if self.TYPE == 'processes':
             self.assertRaises(OSError, l.accept)
 
+    @unittest.skipUnless(util.abstract_sockets_supported,
+                         "test needs abstract socket support")
+    def test_abstract_socket(self):
+        with self.connection.Listener("\0something") as listener:
+            with self.connection.Client(listener.address) as client:
+                with listener.accept() as d:
+                    client.send(1729)
+                    self.assertEqual(d.recv(), 1729)
+
+        if self.TYPE == 'processes':
+            self.assertRaises(OSError, listener.accept)
+
+
 class _TestListenerClient(BaseTestCase):
 
     ALLOWED_TYPES = ('processes', 'threads')
@@ -3410,6 +3423,16 @@ class _TestPicklingConnections(BaseTestCase):
 class _TestHeap(BaseTestCase):
 
     ALLOWED_TYPES = ('processes',)
+
+    def setUp(self):
+        super().setUp()
+        # Make pristine heap for these tests
+        self.old_heap = multiprocessing.heap.BufferWrapper._heap
+        multiprocessing.heap.BufferWrapper._heap = multiprocessing.heap.Heap()
+
+    def tearDown(self):
+        multiprocessing.heap.BufferWrapper._heap = self.old_heap
+        super().tearDown()
 
     def test_heap(self):
         iterations = 5000
@@ -5036,8 +5059,8 @@ def install_tests_in_module_dict(remote_globs, start_method):
         # Sleep 500 ms to give time to child processes to complete.
         if need_sleep:
             time.sleep(0.5)
-        multiprocessing.process._cleanup()
-        test.support.gc_collect()
+
+        multiprocessing.util._cleanup_tests()
 
     remote_globs['setUpModule'] = setUpModule
     remote_globs['tearDownModule'] = tearDownModule

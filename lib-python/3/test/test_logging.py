@@ -3223,6 +3223,37 @@ class ConfigDictTest(BaseTest):
         self.assertRaises(ValueError, bc.convert, 'cfg://!')
         self.assertRaises(KeyError, bc.convert, 'cfg://adict[2]')
 
+    def test_namedtuple(self):
+        # see bpo-39142
+        from collections import namedtuple
+
+        class MyHandler(logging.StreamHandler):
+            def __init__(self, resource, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.resource: namedtuple = resource
+
+            def emit(self, record):
+                record.msg += f' {self.resource.type}'
+                return super().emit(record)
+
+        Resource = namedtuple('Resource', ['type', 'labels'])
+        resource = Resource(type='my_type', labels=['a'])
+
+        config = {
+            'version': 1,
+            'handlers': {
+                'myhandler': {
+                    '()': MyHandler,
+                    'resource': resource
+                }
+            },
+            'root':  {'level': 'INFO', 'handlers': ['myhandler']},
+        }
+        with support.captured_stderr() as stderr:
+            self.apply_config(config)
+            logging.info('some log')
+        self.assertEqual(stderr.getvalue(), 'some log my_type\n')
+
 class ManagerTest(BaseTest):
     def test_manager_loggerclass(self):
         logged = []
@@ -3877,6 +3908,37 @@ class ModuleLevelMiscTest(BaseTest):
         logging.setLoggerClass(logging.Logger)
         self.assertEqual(logging.getLoggerClass(), logging.Logger)
 
+    def test_subclass_logger_cache(self):
+        # bpo-37258
+        message = []
+
+        class MyLogger(logging.getLoggerClass()):
+            def __init__(self, name='MyLogger', level=logging.NOTSET):
+                super().__init__(name, level)
+                message.append('initialized')
+
+        logging.setLoggerClass(MyLogger)
+        logger = logging.getLogger('just_some_logger')
+        self.assertEqual(message, ['initialized'])
+        stream = io.StringIO()
+        h = logging.StreamHandler(stream)
+        logger.addHandler(h)
+        try:
+            logger.setLevel(logging.DEBUG)
+            logger.debug("hello")
+            self.assertEqual(stream.getvalue().strip(), "hello")
+
+            stream.truncate(0)
+            stream.seek(0)
+
+            logger.setLevel(logging.INFO)
+            logger.debug("hello")
+            self.assertEqual(stream.getvalue(), "")
+        finally:
+            logger.removeHandler(h)
+            h.close()
+            logging.setLoggerClass(logging.Logger)
+
     @support.requires_type_collecting
     def test_logging_at_shutdown(self):
         # Issue #20037
@@ -3989,7 +4051,7 @@ class BasicConfigTest(unittest.TestCase):
         logging._handlers.clear()
         logging._handlers.update(self.saved_handlers)
         logging._handlerList[:] = self.saved_handler_list
-        logging.root.level = self.original_logging_level
+        logging.root.setLevel(self.original_logging_level)
 
     def test_no_kwargs(self):
         logging.basicConfig()

@@ -726,6 +726,11 @@ class IOTest(unittest.TestCase):
             file.seek(0)
             file.close()
             self.assertRaises(ValueError, file.read)
+        with self.open(support.TESTFN, "rb") as f:
+            file = self.open(f.fileno(), "rb", closefd=False)
+            self.assertEqual(file.read()[:3], b"egg")
+            file.close()
+            self.assertRaises(ValueError, file.readinto, bytearray(1))
 
     def test_no_closefd_with_filename(self):
         # can't use closefd in combination with a file name
@@ -3829,6 +3834,17 @@ class MiscIOTest(unittest.TestCase):
         self.assertEqual(g.raw.name, f.fileno())
         f.close()
         g.close()
+
+    def test_open_pipe_with_append(self):
+        # bpo-27805: Ignore ESPIPE from lseek() in open().
+        r, w = os.pipe()
+        self.addCleanup(os.close, r)
+        f = self.open(w, 'a')
+        self.addCleanup(f.close)
+        # Check that the file is marked non-seekable. On Windows, however, lseek
+        # somehow succeeds on pipes.
+        if sys.platform != 'win32':
+            self.assertFalse(f.seekable())
 
     def test_io_after_close(self):
         for kwargs in [

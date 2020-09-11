@@ -12,6 +12,7 @@ import operator
 import pickle
 import ipaddress
 import weakref
+from test.support import LARGEST, SMALLEST
 
 
 class BaseTestCase(unittest.TestCase):
@@ -405,7 +406,13 @@ class NetmaskTestMixin_v4(CommonTestMixin_v4):
     """Input validation on interfaces and networks is very similar"""
 
     def test_no_mask(self):
-        self.assertEqual(str(self.factory('1.2.3.4')), '1.2.3.4/32')
+        for address in ('1.2.3.4', 0x01020304, b'\x01\x02\x03\x04'):
+            net = self.factory(address)
+            self.assertEqual(str(net), '1.2.3.4/32')
+            self.assertEqual(str(net.netmask), '255.255.255.255')
+            self.assertEqual(str(net.hostmask), '0.0.0.0')
+            # IPv4Network has prefixlen, but IPv4Interface doesn't.
+            # Should we add it to IPv4Interface too? (bpo-36392)
 
     def test_split_netmask(self):
         addr = "1.2.3.4/32/24"
@@ -541,6 +548,15 @@ class NetworkTestCase_v4(BaseTestCase, NetmaskTestMixin_v4):
 class NetmaskTestMixin_v6(CommonTestMixin_v6):
     """Input validation on interfaces and networks is very similar"""
 
+    def test_no_mask(self):
+        for address in ('::1', 1, b'\x00'*15 + b'\x01'):
+            net = self.factory(address)
+            self.assertEqual(str(net), '::1/128')
+            self.assertEqual(str(net.netmask), 'ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff')
+            self.assertEqual(str(net.hostmask), '::')
+            # IPv6Network has prefixlen, but IPv6Interface doesn't.
+            # Should we add it to IPv4Interface too? (bpo-36392)
+
     def test_split_netmask(self):
         addr = "cafe:cafe::/128/190"
         with self.assertAddressError("Only one '/' permitted in %r" % addr):
@@ -664,20 +680,6 @@ class FactoryFunctionErrors(BaseTestCase):
         self.assertFactoryError(ipaddress.ip_network, "network")
 
 
-@functools.total_ordering
-class LargestObject:
-    def __eq__(self, other):
-        return isinstance(other, LargestObject)
-    def __lt__(self, other):
-        return False
-
-@functools.total_ordering
-class SmallestObject:
-    def __eq__(self, other):
-        return isinstance(other, SmallestObject)
-    def __gt__(self, other):
-        return False
-
 class ComparisonTests(unittest.TestCase):
 
     v4addr = ipaddress.IPv4Address(1)
@@ -766,8 +768,6 @@ class ComparisonTests(unittest.TestCase):
 
     def test_foreign_type_ordering(self):
         other = object()
-        smallest = SmallestObject()
-        largest = LargestObject()
         for obj in self.objects:
             with self.assertRaises(TypeError):
                 obj < other
@@ -777,14 +777,14 @@ class ComparisonTests(unittest.TestCase):
                 obj <= other
             with self.assertRaises(TypeError):
                 obj >= other
-            self.assertTrue(obj < largest)
-            self.assertFalse(obj > largest)
-            self.assertTrue(obj <= largest)
-            self.assertFalse(obj >= largest)
-            self.assertFalse(obj < smallest)
-            self.assertTrue(obj > smallest)
-            self.assertFalse(obj <= smallest)
-            self.assertTrue(obj >= smallest)
+            self.assertTrue(obj < LARGEST)
+            self.assertFalse(obj > LARGEST)
+            self.assertTrue(obj <= LARGEST)
+            self.assertFalse(obj >= LARGEST)
+            self.assertFalse(obj < SMALLEST)
+            self.assertTrue(obj > SMALLEST)
+            self.assertFalse(obj <= SMALLEST)
+            self.assertTrue(obj >= SMALLEST)
 
     def test_mixed_type_key(self):
         # with get_mixed_type_key, you can sort addresses and network.
@@ -2091,6 +2091,17 @@ class IpaddrUnitTest(unittest.TestCase):
                          sixtofouraddr.sixtofour)
         self.assertFalse(bad_addr.sixtofour)
 
+    # issue41004 Hash collisions in IPv4Interface and IPv6Interface
+    def testV4HashIsNotConstant(self):
+        ipv4_address1 = ipaddress.IPv4Interface("1.2.3.4")
+        ipv4_address2 = ipaddress.IPv4Interface("2.3.4.5")
+        self.assertNotEqual(ipv4_address1.__hash__(), ipv4_address2.__hash__())
+
+    # issue41004 Hash collisions in IPv4Interface and IPv6Interface
+    def testV6HashIsNotConstant(self):
+        ipv6_address1 = ipaddress.IPv6Interface("2001:658:22a:cafe:200:0:0:1")
+        ipv6_address2 = ipaddress.IPv6Interface("2001:658:22a:cafe:200:0:0:2")
+        self.assertNotEqual(ipv6_address1.__hash__(), ipv6_address2.__hash__())
 
 if __name__ == '__main__':
     unittest.main()

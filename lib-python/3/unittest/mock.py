@@ -30,6 +30,7 @@ import inspect
 import pprint
 import sys
 import builtins
+import contextlib
 from types import ModuleType, MethodType
 from functools import wraps, partial
 
@@ -60,6 +61,15 @@ def _is_exception(obj):
         isinstance(obj, BaseExceptions) or
         isinstance(obj, type) and issubclass(obj, BaseExceptions)
     )
+
+
+def _extract_mock(obj):
+    # Autospecced functions will return a FunctionType with "mock" attribute
+    # which is the actual mock object that needs to be used.
+    if isinstance(obj, FunctionTypes) and hasattr(obj, 'mock'):
+        return obj.mock
+    else:
+        return obj
 
 
 def _get_signature_object(func, as_instance, eat_self):
@@ -323,13 +333,7 @@ class _CallList(list):
 
 
 def _check_and_set_parent(parent, value, name, new_name):
-    # function passed to create_autospec will have mock
-    # attribute attached to which parent must be set
-    if isinstance(value, FunctionTypes):
-        try:
-            value = value.mock
-        except AttributeError:
-            pass
+    value = _extract_mock(value)
 
     if not _is_instance_mock(value):
         return False
@@ -433,10 +437,12 @@ class NonCallableMock(Base):
         Attach a mock as an attribute of this one, replacing its name and
         parent. Calls to the attached mock will be recorded in the
         `method_calls` and `mock_calls` attributes of this one."""
-        mock._mock_parent = None
-        mock._mock_new_parent = None
-        mock._mock_name = ''
-        mock._mock_new_name = None
+        inner_mock = _extract_mock(mock)
+
+        inner_mock._mock_parent = None
+        inner_mock._mock_new_parent = None
+        inner_mock._mock_name = ''
+        inner_mock._mock_new_name = None
 
         setattr(self, attribute, mock)
 
@@ -766,6 +772,39 @@ class NonCallableMock(Base):
         return message % (expected_string, actual_string)
 
 
+    def _get_call_signature_from_name(self, name):
+        """
+        * If call objects are asserted against a method/function like obj.meth1
+        then there could be no name for the call object to lookup. Hence just
+        return the spec_signature of the method/function being asserted against.
+        * If the name is not empty then remove () and split by '.' to get
+        list of names to iterate through the children until a potential
+        match is found. A child mock is created only during attribute access
+        so if we get a _SpecState then no attributes of the spec were accessed
+        and can be safely exited.
+        """
+        if not name:
+            return self._spec_signature
+
+        sig = None
+        names = name.replace('()', '').split('.')
+        children = self._mock_children
+
+        for name in names:
+            child = children.get(name)
+            if child is None or isinstance(child, _SpecState):
+                break
+            else:
+                # If an autospecced object is attached using attach_mock the
+                # child would be a function with mock object as attribute from
+                # which signature has to be derived.
+                child = _extract_mock(child)
+                children = child._mock_children
+                sig = child._spec_signature
+
+        return sig
+
+
     def _call_matcher(self, _call):
         """
         Given a call (or simply an (args, kwargs) tuple), return a
@@ -773,7 +812,12 @@ class NonCallableMock(Base):
         This is a best effort method which relies on the spec's signature,
         if available, or falls back on the arguments themselves.
         """
-        sig = self._spec_signature
+
+        if isinstance(_call, tuple) and len(_call) > 2:
+            sig = self._get_call_signature_from_name(_call[0])
+        else:
+            sig = self._spec_signature
+
         if sig is not None:
             if len(_call) == 2:
                 name = ''
@@ -856,13 +900,20 @@ class NonCallableMock(Base):
         If `any_order` is True then the calls can be in any order, but
         they must all appear in `mock_calls`."""
         expected = [self._call_matcher(c) for c in calls]
-        cause = expected if isinstance(expected, Exception) else None
+        cause = next((e for e in expected if isinstance(e, Exception)), None)
         all_calls = _CallList(self._call_matcher(c) for c in self.mock_calls)
         if not any_order:
             if expected not in all_calls:
+                if cause is None:
+                    problem = 'Calls not found.'
+                else:
+                    problem = ('Error processing expected calls.\n'
+                               'Errors: {}').format(
+                                   [e if isinstance(e, Exception) else None
+                                    for e in expected])
                 raise AssertionError(
-                    'Calls not found.\nExpected: %r\n'
-                    'Actual: %r' % (_CallList(calls), self.mock_calls)
+                    '%s\nExpected: %r\nActual: %r' % (
+                        problem, _CallList(calls), self.mock_calls)
                 ) from cause
             return
 
@@ -1193,13 +1244,9 @@ class _patch(object):
         @wraps(func)
         def patched(*args, **keywargs):
             extra_args = []
-            entered_patchers = []
-
-            exc_info = tuple()
-            try:
+            with contextlib.ExitStack() as exit_stack:
                 for patching in patched.patchings:
-                    arg = patching.__enter__()
-                    entered_patchers.append(patching)
+                    arg = exit_stack.enter_context(patching)
                     if patching.attribute_name is not None:
                         keywargs.update(arg)
                     elif patching.new is DEFAULT:
@@ -1207,19 +1254,6 @@ class _patch(object):
 
                 args += tuple(extra_args)
                 return func(*args, **keywargs)
-            except:
-                if (patching not in entered_patchers and
-                    _is_started(patching)):
-                    # the patcher may have been started, but an exception
-                    # raised whilst entering one of its additional_patchers
-                    entered_patchers.append(patching)
-                # Pass the exception to __exit__
-                exc_info = sys.exc_info()
-                # re-raise the exception
-                raise
-            finally:
-                for patching in reversed(entered_patchers):
-                    patching.__exit__(*exc_info)
 
         patched.patchings = [self]
         return patched
@@ -1361,19 +1395,23 @@ class _patch(object):
 
         self.temp_original = original
         self.is_local = local
-        setattr(self.target, self.attribute, new_attr)
-        if self.attribute_name is not None:
-            extra_args = {}
-            if self.new is DEFAULT:
-                extra_args[self.attribute_name] =  new
-            for patching in self.additional_patchers:
-                arg = patching.__enter__()
-                if patching.new is DEFAULT:
-                    extra_args.update(arg)
-            return extra_args
+        self._exit_stack = contextlib.ExitStack()
+        try:
+            setattr(self.target, self.attribute, new_attr)
+            if self.attribute_name is not None:
+                extra_args = {}
+                if self.new is DEFAULT:
+                    extra_args[self.attribute_name] =  new
+                for patching in self.additional_patchers:
+                    arg = self._exit_stack.enter_context(patching)
+                    if patching.new is DEFAULT:
+                        extra_args.update(arg)
+                return extra_args
 
-        return new
-
+            return new
+        except:
+            if not self.__exit__(*sys.exc_info()):
+                raise
 
     def __exit__(self, *exc_info):
         """Undo the patch."""
@@ -1394,9 +1432,9 @@ class _patch(object):
         del self.temp_original
         del self.is_local
         del self.target
-        for patcher in reversed(self.additional_patchers):
-            if _is_started(patcher):
-                patcher.__exit__(*exc_info)
+        exit_stack = self._exit_stack
+        del self._exit_stack
+        return exit_stack.__exit__(*exc_info)
 
 
     def start(self):
@@ -1414,7 +1452,7 @@ class _patch(object):
             # If the patch hasn't been started this will fail
             pass
 
-        return self.__exit__()
+        return self.__exit__(None, None, None)
 
 
 
@@ -1446,6 +1484,10 @@ def _patch_object(
     When used as a class decorator `patch.object` honours `patch.TEST_PREFIX`
     for choosing which methods to wrap.
     """
+    if type(target) is str:
+        raise TypeError(
+            f"{target!r} must be the actual object to be patched, not a str"
+        )
     getter = lambda: target
     return _patch(
         getter, attribute, new, spec, create,
@@ -1837,10 +1879,10 @@ def _set_return_value(mock, method, name):
         method.return_value = fixed
         return
 
-    return_calulator = _calculate_return_value.get(name)
-    if return_calulator is not None:
+    return_calculator = _calculate_return_value.get(name)
+    if return_calculator is not None:
         try:
-            return_value = return_calulator(mock)
+            return_value = return_calculator(mock)
         except AttributeError:
             # XXXX why do we return AttributeError here?
             #      set it as a side_effect instead?
@@ -2288,7 +2330,7 @@ def _must_skip(spec, entry, is_type):
             continue
         if isinstance(result, (staticmethod, classmethod)):
             return False
-        elif isinstance(getattr(result, '__get__', None), MethodWrapperTypes):
+        elif isinstance(result, FunctionTypes):
             # Normal method => skip if looked up on type
             # (if looked up on instance, self is already skipped)
             return is_type
@@ -2325,10 +2367,6 @@ FunctionTypes = (
     type(create_autospec),
     # instance method
     type(ANY.__eq__),
-)
-
-MethodWrapperTypes = (
-    type(ANY.__eq__.__get__),
 )
 
 

@@ -26,6 +26,7 @@ from concurrent.futures._base import (
     BrokenExecutor)
 from concurrent.futures.process import BrokenProcessPool
 from multiprocessing import get_context
+import multiprocessing.util
 
 
 def create_future(state=PENDING, exception=None, result=None):
@@ -84,8 +85,7 @@ class MyObject(object):
 
 
 class EventfulGCObj():
-    def __init__(self, ctx):
-        mgr = get_context(ctx).Manager()
+    def __init__(self, mgr):
         self.event = mgr.Event()
 
     def __del__(self):
@@ -818,11 +818,20 @@ class ProcessPoolExecutorTest(ExecutorTest):
     def test_ressources_gced_in_workers(self):
         # Ensure that argument for a job are correctly gc-ed after the job
         # is finished
-        obj = EventfulGCObj(self.ctx)
+        mgr = get_context(self.ctx).Manager()
+        obj = EventfulGCObj(mgr)
         future = self.executor.submit(id, obj)
         future.result()
 
         self.assertTrue(obj.event.wait(timeout=1))
+
+        # explicitly destroy the object to ensure that EventfulGCObj.__del__()
+        # is called while manager is still running.
+        obj = None
+        test.support.gc_collect()
+
+        mgr.shutdown()
+        mgr.join()
 
 
 create_executor_tests(ProcessPoolExecutorTest,
@@ -1245,6 +1254,7 @@ def test_main():
         test.support.run_unittest(__name__)
     finally:
         test.support.reap_children()
+        multiprocessing.util._cleanup_tests()
 
 if __name__ == "__main__":
     test_main()
