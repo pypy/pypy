@@ -5107,7 +5107,8 @@ class LLtypeBackendTest(BaseBackendTest):
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             a = lltype.malloc(A, 100)
             a[42] = 102030
-            deadframe = self.cpu.execute_token(looptoken, a, 42 - offset)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            deadframe = self.cpu.execute_token(looptoken, a_ref, 42 - offset)
             assert self.cpu.get_int_value(deadframe, 0) == 102030
         #
         for offset in [10**8, -10**8]:
@@ -5121,7 +5122,8 @@ class LLtypeBackendTest(BaseBackendTest):
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
             a = lltype.malloc(A, 100)
-            self.cpu.execute_token(looptoken, a, 42 - offset)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            self.cpu.execute_token(looptoken, a_ref, 42 - offset)
             assert a[42] == 102030
 
     def test_increment_debug_counter(self):
