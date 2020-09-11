@@ -279,6 +279,7 @@ def PyMemoryView_GetContiguous(space, w_obj, buffertype, order):
     'F'ortran order otherwise.
     """
 
+    buffertype = widen(buffertype)
     if buffertype != PyBUF_READ and buffertype != PyBUF_WRITE:
         raise oefmt(space.w_ValueError,
                     "buffertype must be PyBUF_READ or PyBUF_WRITE")
@@ -291,7 +292,7 @@ def PyMemoryView_GetContiguous(space, w_obj, buffertype, order):
     mv = make_ref(space, w_mv)
     mv = rffi.cast(PyMemoryViewObject, mv)
     view = mv.c_view
-    if buffertype == PyBUF_WRITE and view.c_readonly:
+    if buffertype == PyBUF_WRITE and widen(view.c_readonly):
         raise oefmt(space.w_BufferError,
                     "underlying buffer is not writable")
 
