@@ -1438,6 +1438,16 @@ class TestParser(TestParserMixin, TestEmailBase):
         self.assertEqual(addr_spec.domain, 'example.com')
         self.assertEqual(addr_spec.addr_spec, 'star.a.star@example.com')
 
+    def test_get_addr_spec_multiple_domains(self):
+        with self.assertRaises(errors.HeaderParseError):
+            parser.get_addr_spec('star@a.star@example.com')
+
+        with self.assertRaises(errors.HeaderParseError):
+            parser.get_addr_spec('star@a@example.com')
+
+        with self.assertRaises(errors.HeaderParseError):
+            parser.get_addr_spec('star@172.17.0.1@example.com')
+
     # get_obs_route
 
     def test_get_obs_route_simple(self):
@@ -2621,6 +2631,13 @@ class Test_parse_mime_parameters(TestParserMixin, TestEmailBase):
             # Defects are apparent missing *0*, and two 'out of sequence'.
             [errors.InvalidHeaderDefect]*3),
 
+        # bpo-37461: Check that we don't go into an infinite loop.
+        'extra_dquote': (
+            'r*="\'a\'\\"',
+            ' r="\\""',
+            'r*=\'a\'"',
+            [('r', '"')],
+            [errors.InvalidHeaderDefect]*2),
     }
 
 @parameterize
