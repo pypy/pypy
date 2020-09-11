@@ -10,6 +10,7 @@ from test import support
 from test.support import (captured_stderr, TESTFN, EnvironmentVarGuard,
                           change_cwd, check_impl_detail)
 import builtins
+import glob
 import os
 import sys
 import re
@@ -510,6 +511,23 @@ class ImportSideEffectTests(unittest.TestCase):
 class StartupImportTests(unittest.TestCase):
 
     def test_startup_imports(self):
+        # Get sys.path in isolated mode (python3 -I)
+        popen = subprocess.Popen([sys.executable, '-I', '-c',
+                                  'import sys; print(repr(sys.path))'],
+                                 stdout=subprocess.PIPE,
+                                 encoding='utf-8')
+        stdout = popen.communicate()[0]
+        self.assertEqual(popen.returncode, 0, repr(stdout))
+        isolated_paths = eval(stdout)
+
+        # bpo-27807: Even with -I, the site module executes all .pth files
+        # found in sys.path (see site.addpackage()). Skip the test if at least
+        # one .pth file is found.
+        for path in isolated_paths:
+            pth_files = glob.glob(os.path.join(path, "*.pth"))
+            if pth_files:
+                self.skipTest(f"found {len(pth_files)} .pth files in: {path}")
+
         # This tests checks which modules are loaded by Python when it
         # initially starts upon startup.
         popen = subprocess.Popen([sys.executable, '-I', '-v', '-c',
@@ -518,6 +536,7 @@ class StartupImportTests(unittest.TestCase):
                                  stderr=subprocess.PIPE,
                                  encoding='utf-8')
         stdout, stderr = popen.communicate()
+        self.assertEqual(popen.returncode, 0, (stdout, stderr))
         modules = eval(stdout)
 
         self.assertIn('site', modules)
@@ -560,12 +579,19 @@ class StartupImportTests(unittest.TestCase):
 @unittest.skipUnless(sys.platform == 'win32', "only supported on Windows")
 class _pthFileTests(unittest.TestCase):
 
-    def _create_underpth_exe(self, lines):
+    def _create_underpth_exe(self, lines, exe_pth=True):
+        import _winapi
         temp_dir = tempfile.mkdtemp()
         self.addCleanup(test.support.rmtree, temp_dir)
         exe_file = os.path.join(temp_dir, os.path.split(sys.executable)[1])
+        dll_src_file = _winapi.GetModuleFileName(sys.dllhandle)
+        dll_file = os.path.join(temp_dir, os.path.split(dll_src_file)[1])
         shutil.copy(sys.executable, exe_file)
-        _pth_file = os.path.splitext(exe_file)[0] + '._pth'
+        shutil.copy(dll_src_file, dll_file)
+        if exe_pth:
+            _pth_file = os.path.splitext(exe_file)[0] + '._pth'
+        else:
+            _pth_file = os.path.splitext(dll_file)[0] + '._pth'
         with open(_pth_file, 'w') as f:
             for line in lines:
                 print(line, file=f)
@@ -618,6 +644,31 @@ class _pthFileTests(unittest.TestCase):
             '# comment',
             'import site'
         ])
+        sys_prefix = os.path.dirname(exe_file)
+        env = os.environ.copy()
+        env['PYTHONPATH'] = 'from-env'
+        env['PATH'] = '{};{}'.format(exe_prefix, os.getenv('PATH'))
+        rc = subprocess.call([exe_file, '-c',
+            'import sys; sys.exit(not sys.flags.no_site and '
+            '%r in sys.path and %r in sys.path and %r not in sys.path and '
+            'all("\\r" not in p and "\\n" not in p for p in sys.path))' % (
+                os.path.join(sys_prefix, 'fake-path-name'),
+                libpath,
+                os.path.join(sys_prefix, 'from-env'),
+            )], env=env)
+        self.assertTrue(rc, "sys.path is incorrect")
+
+
+    def test_underpth_dll_file(self):
+        libpath = os.path.dirname(os.path.dirname(encodings.__file__))
+        exe_prefix = os.path.dirname(sys.executable)
+        exe_file = self._create_underpth_exe([
+            'fake-path-name',
+            *[libpath for _ in range(200)],
+            '',
+            '# comment',
+            'import site'
+        ], exe_pth=False)
         sys_prefix = os.path.dirname(exe_file)
         env = os.environ.copy()
         env['PYTHONPATH'] = 'from-env'

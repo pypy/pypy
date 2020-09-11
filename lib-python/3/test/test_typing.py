@@ -218,6 +218,13 @@ class TypeVarTests(BaseTestCase):
         with self.assertRaises(TypeError):
             TypeVar('X', str, float, bound=Employee)
 
+    def test_missing__name__(self):
+        # See bpo-39942
+        code = ("import typing\n"
+                "T = typing.TypeVar('T')\n"
+                )
+        exec(code, {})
+
     def test_no_bivariant(self):
         with self.assertRaises(ValueError):
             TypeVar('T', covariant=True, contravariant=True)
@@ -1505,6 +1512,65 @@ class ForwardRefTests(BaseTestCase):
         self.assertEqual(fr, typing.ForwardRef('int'))
         self.assertNotEqual(List['int'], List[int])
 
+    def test_forward_equality_gth(self):
+        c1 = typing.ForwardRef('C')
+        c1_gth = typing.ForwardRef('C')
+        c2 = typing.ForwardRef('C')
+        c2_gth = typing.ForwardRef('C')
+
+        class C:
+            pass
+        def foo(a: c1_gth, b: c2_gth):
+            pass
+
+        self.assertEqual(get_type_hints(foo, globals(), locals()), {'a': C, 'b': C})
+        self.assertEqual(c1, c2)
+        self.assertEqual(c1, c1_gth)
+        self.assertEqual(c1_gth, c2_gth)
+        self.assertEqual(List[c1], List[c1_gth])
+        self.assertNotEqual(List[c1], List[C])
+        self.assertNotEqual(List[c1_gth], List[C])
+        self.assertEquals(Union[c1, c1_gth], Union[c1])
+        self.assertEquals(Union[c1, c1_gth, int], Union[c1, int])
+
+    def test_forward_equality_hash(self):
+        c1 = typing.ForwardRef('int')
+        c1_gth = typing.ForwardRef('int')
+        c2 = typing.ForwardRef('int')
+        c2_gth = typing.ForwardRef('int')
+
+        def foo(a: c1_gth, b: c2_gth):
+            pass
+        get_type_hints(foo, globals(), locals())
+
+        self.assertEqual(hash(c1), hash(c2))
+        self.assertEqual(hash(c1_gth), hash(c2_gth))
+        self.assertEqual(hash(c1), hash(c1_gth))
+
+    def test_forward_equality_namespace(self):
+        class A:
+            pass
+        def namespace1():
+            a = typing.ForwardRef('A')
+            def fun(x: a):
+                pass
+            get_type_hints(fun, globals(), locals())
+            return a
+
+        def namespace2():
+            a = typing.ForwardRef('A')
+
+            class A:
+                pass
+            def fun(x: a):
+                pass
+
+            get_type_hints(fun, globals(), locals())
+            return a
+
+        self.assertEqual(namespace1(), namespace1())
+        self.assertNotEqual(namespace1(), namespace2())
+
     def test_forward_repr(self):
         self.assertEqual(repr(List['int']), "typing.List[ForwardRef('int')]")
 
@@ -1523,6 +1589,63 @@ class ForwardRefTests(BaseTestCase):
 
         self.assertEqual(get_type_hints(foo, globals(), locals()),
                          {'a': Tuple[T]})
+
+    def test_forward_recursion_actually(self):
+        def namespace1():
+            a = typing.ForwardRef('A')
+            A = a
+            def fun(x: a): pass
+
+            ret = get_type_hints(fun, globals(), locals())
+            return a
+
+        def namespace2():
+            a = typing.ForwardRef('A')
+            A = a
+            def fun(x: a): pass
+
+            ret = get_type_hints(fun, globals(), locals())
+            return a
+
+        def cmp(o1, o2):
+            return o1 == o2
+
+        r1 = namespace1()
+        r2 = namespace2()
+        self.assertIsNot(r1, r2)
+        self.assertRaises(RecursionError, cmp, r1, r2)
+
+    def test_union_forward_recursion(self):
+        ValueList = List['Value']
+        Value = Union[str, ValueList]
+
+        class C:
+            foo: List[Value]
+        class D:
+            foo: Union[Value, ValueList]
+        class E:
+            foo: Union[List[Value], ValueList]
+        class F:
+            foo: Union[Value, List[Value], ValueList]
+
+        self.assertEqual(get_type_hints(C, globals(), locals()), get_type_hints(C, globals(), locals()))
+        self.assertEqual(get_type_hints(C, globals(), locals()),
+                         {'foo': List[Union[str, List[Union[str, List['Value']]]]]})
+        self.assertEqual(get_type_hints(D, globals(), locals()),
+                         {'foo': Union[str, List[Union[str, List['Value']]]]})
+        self.assertEqual(get_type_hints(E, globals(), locals()),
+                         {'foo': Union[
+                             List[Union[str, List[Union[str, List['Value']]]]],
+                             List[Union[str, List['Value']]]
+                         ]
+                          })
+        self.assertEqual(get_type_hints(F, globals(), locals()),
+                         {'foo': Union[
+                             str,
+                             List[Union[str, List['Value']]],
+                             List[Union[str, List[Union[str, List['Value']]]]]
+                         ]
+                          })
 
     def test_callable_forward(self):
 
@@ -1787,6 +1910,16 @@ except StopIteration as e:
 
 gth = get_type_hints
 
+class ForRefExample:
+    @ann_module.dec
+    def func(self: 'ForRefExample'):
+        pass
+
+    @ann_module.dec
+    @ann_module.dec
+    def nested(self: 'ForRefExample'):
+        pass
+
 
 class GetTypeHintTests(BaseTestCase):
     def test_get_type_hints_from_various_objects(self):
@@ -1884,6 +2017,11 @@ class GetTypeHintTests(BaseTestCase):
                          {'z': ClassVar[CSub], 'y': int, 'b': int,
                           'x': ClassVar[Optional[B]]})
         self.assertEqual(gth(G), {'lst': ClassVar[List[T]]})
+
+    def test_get_type_hints_wrapped_decoratored_func(self):
+        expects = {'self': ForRefExample}
+        self.assertEqual(gth(ForRefExample.func), expects)
+        self.assertEqual(gth(ForRefExample.nested), expects)
 
 
 class CollectionsAbcTests(BaseTestCase):
@@ -2441,6 +2579,9 @@ class NewTypeTests(BaseTestCase):
 
 
 class NamedTupleTests(BaseTestCase):
+    class NestedEmployee(NamedTuple):
+        name: str
+        cool: int
 
     def test_basics(self):
         Emp = NamedTuple('Emp', [('name', str), ('id', int)])
@@ -2536,14 +2677,53 @@ class XMethBad2(NamedTuple):
         with self.assertRaises(TypeError):
             NamedTuple('Name', x=1, y='a')
 
-    def test_pickle(self):
+    def test_namedtuple_special_keyword_names(self):
+        NT = NamedTuple("NT", cls=type, self=object, typename=str, fields=list)
+        self.assertEqual(NT.__name__, 'NT')
+        self.assertEqual(NT._fields, ('cls', 'self', 'typename', 'fields'))
+        a = NT(cls=str, self=42, typename='foo', fields=[('bar', tuple)])
+        self.assertEqual(a.cls, str)
+        self.assertEqual(a.self, 42)
+        self.assertEqual(a.typename, 'foo')
+        self.assertEqual(a.fields, [('bar', tuple)])
+
+    def test_namedtuple_errors(self):
+        with self.assertRaises(TypeError):
+            NamedTuple.__new__()
+        with self.assertRaises(TypeError):
+            NamedTuple()
+        with self.assertRaises(TypeError):
+            NamedTuple('Emp', [('name', str)], None)
+        with self.assertRaises(ValueError):
+            NamedTuple('Emp', [('_name', str)])
+
+        Emp = NamedTuple(typename='Emp', name=str, id=int)
+        self.assertEqual(Emp.__name__, 'Emp')
+        self.assertEqual(Emp._fields, ('name', 'id'))
+
+        Emp = NamedTuple('Emp', fields=[('name', str), ('id', int)])
+        self.assertEqual(Emp.__name__, 'Emp')
+        self.assertEqual(Emp._fields, ('name', 'id'))
+
+    def test_copy_and_pickle(self):
         global Emp  # pickle wants to reference the class by name
-        Emp = NamedTuple('Emp', [('name', str), ('id', int)])
-        jane = Emp('jane', 37)
-        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
-            z = pickle.dumps(jane, proto)
-            jane2 = pickle.loads(z)
-            self.assertEqual(jane2, jane)
+        Emp = NamedTuple('Emp', [('name', str), ('cool', int)])
+        for cls in Emp, CoolEmployee, self.NestedEmployee:
+            with self.subTest(cls=cls):
+                jane = cls('jane', 37)
+                for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+                    z = pickle.dumps(jane, proto)
+                    jane2 = pickle.loads(z)
+                    self.assertEqual(jane2, jane)
+                    self.assertIsInstance(jane2, cls)
+
+                jane2 = copy(jane)
+                self.assertEqual(jane2, jane)
+                self.assertIsInstance(jane2, cls)
+
+                jane2 = deepcopy(jane)
+                self.assertEqual(jane2, jane)
+                self.assertIsInstance(jane2, cls)
 
 
 class IOTests(BaseTestCase):

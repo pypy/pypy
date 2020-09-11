@@ -6,6 +6,7 @@ import test.support
 import time
 import unittest
 import urllib.request
+import warnings
 
 from http.cookiejar import (time2isoz, http2time, iso2time, time2netscape,
      parse_ns_headers, join_header_words, split_header_words, Cookie,
@@ -122,6 +123,13 @@ class DateTimeTests(unittest.TestCase):
                               "http2time(%s) is not None\n"
                               "http2time(test) %s" % (test, http2time(test)))
 
+    def test_http2time_redos_regression_actually_completes(self):
+        # LOOSE_HTTP_DATE_RE was vulnerable to malicious input which caused catastrophic backtracking (REDoS).
+        # If we regress to cubic complexity, this test will take a very long time to succeed.
+        # If fixed, it should complete within a fraction of a second.
+        http2time("01 Jan 1970{}00:00:00 GMT!".format(" " * 10 ** 5))
+        http2time("01 Jan 1970 00:00:00{}GMT!".format(" " * 10 ** 5))
+
     def test_iso2time(self):
         def parse_date(text):
             return time.gmtime(iso2time(text))[:6]
@@ -178,6 +186,12 @@ class DateTimeTests(unittest.TestCase):
             ]:
             self.assertIsNone(iso2time(test),
                               "iso2time(%r)" % test)
+
+    def test_iso2time_performance_regression(self):
+        # If ISO_DATE_RE regresses to quadratic complexity, this test will take a very long time to succeed.
+        # If fixed, it should complete within a fraction of a second.
+        iso2time('1994-02-03{}14:15:29 -0100!'.format(' '*10**6))
+        iso2time('1994-02-03 14:15:29{}-0100!'.format(' '*10**6))
 
 
 class HeaderTests(unittest.TestCase):
@@ -560,6 +574,16 @@ class CookieTests(unittest.TestCase):
         # if expires is in future, keep cookie...
         c = CookieJar()
         future = time2netscape(time.time()+3600)
+
+        with warnings.catch_warnings(record=True) as warns:
+            headers = [f"Set-Cookie: FOO=BAR; path=/; expires={future}"]
+            req = urllib.request.Request("http://www.coyote.com/")
+            res = FakeResponse(headers, "http://www.coyote.com/")
+            cookies = c.make_cookies(res, req)
+            self.assertEqual(len(cookies), 1)
+            self.assertEqual(time2netscape(cookies[0].expires), future)
+            self.assertEqual(len(warns), 0)
+
         interact_netscape(c, "http://www.acme.com/", 'spam="bar"; expires=%s' %
                           future)
         self.assertEqual(len(c), 1)

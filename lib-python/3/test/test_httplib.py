@@ -363,6 +363,28 @@ class HeaderTests(TestCase):
         self.assertEqual(lines[3], "header: Second: val2")
 
 
+class HttpMethodTests(TestCase):
+    def test_invalid_method_names(self):
+        methods = (
+            'GET\r',
+            'POST\n',
+            'PUT\n\r',
+            'POST\nValue',
+            'POST\nHOST:abc',
+            'GET\nrHost:abc\n',
+            'POST\rRemainder:\r',
+            'GET\rHOST:\n',
+            '\nPUT'
+        )
+
+        for method in methods:
+            with self.assertRaisesRegex(
+                    ValueError, "method can't contain control characters"):
+                conn = client.HTTPConnection('example.com')
+                conn.sock = FakeSocket(None)
+                conn.request(method=method, url="/")
+
+
 class TransferEncodingTest(TestCase):
     expected_body = b"It's just a flesh wound"
 
@@ -1157,6 +1179,45 @@ class BasicTest(TestCase):
         thread.join()
         self.assertEqual(result, b"proxied data\n")
 
+    def test_putrequest_override_domain_validation(self):
+        """
+        It should be possible to override the default validation
+        behavior in putrequest (bpo-38216).
+        """
+        class UnsafeHTTPConnection(client.HTTPConnection):
+            def _validate_path(self, url):
+                pass
+
+        conn = UnsafeHTTPConnection('example.com')
+        conn.sock = FakeSocket('')
+        conn.putrequest('GET', '/\x00')
+
+    def test_putrequest_override_host_validation(self):
+        class UnsafeHTTPConnection(client.HTTPConnection):
+            def _validate_host(self, url):
+                pass
+
+        conn = UnsafeHTTPConnection('example.com\r\n')
+        conn.sock = FakeSocket('')
+        # set skip_host so a ValueError is not raised upon adding the
+        # invalid URL as the value of the "Host:" header
+        conn.putrequest('GET', '/', skip_host=1)
+
+    def test_putrequest_override_encoding(self):
+        """
+        It should be possible to override the default encoding
+        to transmit bytes in another encoding even if invalid
+        (bpo-36274).
+        """
+        class UnsafeHTTPConnection(client.HTTPConnection):
+            def _encode_request(self, str_url):
+                return str_url.encode('utf-8')
+
+        conn = UnsafeHTTPConnection('example.com')
+        conn.sock = FakeSocket('')
+        conn.putrequest('GET', '/☃')
+
+
 class ExtendedReadTest(TestCase):
     """
     Test peek(), read1(), readline()
@@ -1280,6 +1341,7 @@ class ExtendedReadTest(TestCase):
     def test_peek_0(self):
         p = self.resp.peek(0)
         self.assertLessEqual(0, len(p))
+
 
 class ExtendedReadTestChunked(ExtendedReadTest):
     """
