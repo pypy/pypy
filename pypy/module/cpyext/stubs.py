@@ -1232,16 +1232,6 @@ def PyModule_AddStringMacro(space, module, macro):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base as a string with a base
-    marker of '0b', '0o', or '0x' if applicable.  When
-    base is not 2, 8, 10, or 16, the format is 'x#num' where x is the
-    base. If n is not an int object, it is converted with
-    PyNumber_Index() first.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], PyObject)
 def PyObject_Bytes(space, o):
     """Compute a bytes representation of object o.  In 2.x, this is just a alias
