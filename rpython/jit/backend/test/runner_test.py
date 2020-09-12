@@ -5092,6 +5092,40 @@ class LLtypeBackendTest(BaseBackendTest):
         assert rffi.cast(lltype.Signed, a[1]) == 777
         lltype.free(a, flavor='raw')
 
+    def test_gc_indexed_box_plus_large_offset(self):
+        A = lltype.GcArray(lltype.Signed)
+        arraydescr = self.cpu.arraydescrof(A)
+        for offset in [10**8, -10**8]:
+            loop = parse("""
+            [p0, i0]
+            i1 = int_add(i0, %d)
+            i2 = getarrayitem_gc_i(p0, i1, descr=arraydescr)
+            finish(i2, descr=finaldescr)
+            """ % offset, namespace={"finaldescr": BasicFinalDescr(1),
+                                     "arraydescr": arraydescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            a = lltype.malloc(A, 100)
+            a[42] = 102030
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            deadframe = self.cpu.execute_token(looptoken, a_ref, 42 - offset)
+            assert self.cpu.get_int_value(deadframe, 0) == 102030
+        #
+        for offset in [10**8, -10**8]:
+            loop = parse("""
+            [p0, i0]
+            i1 = int_add(i0, %d)
+            setarrayitem_gc(p0, i1, 102030, descr=arraydescr)
+            finish(0, descr=finaldescr)
+            """ % offset, namespace={"finaldescr": BasicFinalDescr(1),
+                                     "arraydescr": arraydescr})
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            a = lltype.malloc(A, 100)
+            a_ref = lltype.cast_opaque_ptr(llmemory.GCREF, a)
+            self.cpu.execute_token(looptoken, a_ref, 42 - offset)
+            assert a[42] == 102030
+
     def test_increment_debug_counter(self):
         foo = lltype.malloc(rffi.CArray(lltype.Signed), 1, flavor='raw')
         foo[0] = 1789200

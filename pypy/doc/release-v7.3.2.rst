@@ -180,12 +180,15 @@ Changes shared across versions
 - Add ``pypyjit.releaseall()`` that marks all current machine code objects as
   ready to release. They will be released at the next GC (unless they are
   currently in use in the stack of one of the threads).
-
+- Fix possible infinite loop in `tarfile.py`: CPython issue 39017_
+- Reject control characters in http requests: CPython issue 39603_
+- Fix regex in parsing http headers to reject infinite backtracking: CPyton
+  issue 39503_
 
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Add ``PyCFunction_Call``
+- Add ``PyCFunction_Call``, contiguous part of ``PyMemoryView_GetContiguous``
 - use ``space.getitem`` in ``PySequence_ITEM``, fixes `pybind11 2146`_
 - give preference to ``as_sequence.sq_item`` in ``PySequence_ITEM``
 - In Py_EnterRecursiveCall, ``char*`` -> ``const char *``, `issue 3232`_
@@ -228,6 +231,7 @@ Python 3.6 only
   at ``pypy -m ensurepip``
 - Fix broken ``_socket.share`` on windows
 - Add missing ``os.{gs}et_handle_inheritable`` (PEP 446) on windows
+- Fix ip address hashing in `ipaddress.py`: CPython issue 41004_
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -268,5 +272,9 @@ Python 3.6 C-API
 .. _39413: https://bugs.python.org/issue39413
 .. _23668: https://bugs.python.org/issue23668
 .. _29104: https://bugs.python.org/issue29104
+.. _39017: https://bugs.python.org/issue39017
+.. _41014: https://bugs.python.org/issue41014
+.. _39603: https://bugs.python.org/issue39603
+.. _39503: https://bugs.python.org/issue39503
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146
