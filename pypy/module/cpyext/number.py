@@ -72,7 +72,7 @@ def PyNumber_ToBase(space, w_obj, base):
     w_index = space.index(w_obj)
     # A slight hack to call the internal _int_to_base method, which
     # accepts an int base rather than a str spec
-    formatter = newformat.str_formatter(space, '')
+    formatter = newformat.unicode_formatter(space, '')
     value = space.int_w(w_index)
     return space.newtext(formatter._int_to_base(base, value))
     
