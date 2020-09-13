@@ -1,4 +1,4 @@
-import os, py
+import os, pytest
 
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import unwrap_spec, interp2app
@@ -28,13 +28,13 @@ def prepare(space, cdef, module_name, source, w_includes=None,
         from cffi import recompiler     # needs to be at least cffi 1.0.4
         from cffi import ffiplatform
     except ImportError:
-        py.test.skip("system cffi module not found or older than 1.0.0")
+        pytest.skip("system cffi module not found or older than 1.0.0")
     if w_min_version is None:
         min_version = (1, 4, 0)
     else:
         min_version = tuple(space.unwrap(w_min_version))
     if cffi.__version_info__ < min_version:
-        py.test.skip("system cffi module needs to be at least %s, got %s" % (
+        pytest.skip("system cffi module needs to be at least %s, got %s" % (
             min_version, cffi.__version_info__))
     space.appexec([], """():
         import _cffi_backend     # force it to be initialized
@@ -105,7 +105,7 @@ class AppTestRecompiler:
 
     def setup_class(cls):
         if cls.runappdirect:
-            py.test.skip("not a test for -A")
+            pytest.skip("not a test for -A")
         cls.w_prepare = cls.space.wrap(interp2app(prepare))
         cls.w_udir = cls.space.wrap(str(udir))
         cls.w_os_sep = cls.space.wrap(os.sep)
@@ -1683,6 +1683,7 @@ class AppTestRecompiler:
         raises(TypeError, ffi.def_extern(name='bar', onerror=42),
                        lambda x: x)
 
+    @pytest.mark.skipif("not config.option.runappdirect")
     def test_extern_python_stdcall(self):
         ffi, lib = self.prepare("""
             extern "Python" int __stdcall foo(int);
