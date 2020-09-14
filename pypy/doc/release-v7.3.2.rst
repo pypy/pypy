@@ -2,7 +2,7 @@
 PyPy v7.3.2: release of 2.7, 3.6, and 3.7 alpha
 ===============================================
 
-..note:
+.. note:
   This is a pre-release announcement. When the release actually happens, it
   will be announced on the `morepypy blog`_
 
