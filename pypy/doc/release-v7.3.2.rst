@@ -2,6 +2,12 @@
 PyPy v7.3.2: release of 2.7, 3.6, and 3.7 alpha
 ===============================================
 
+..note:
+  This is a pre-release announcement. When the release actually happens, it
+  will be announced on the `morepypy blog`_
+
+.. _`morepypy blog`: https://morepypy.blogspot.com
+
 The PyPy team is proud to release the version 7.3.2 of PyPy, which includes
 three different interpreters:
 
@@ -13,7 +19,7 @@ three different interpreters:
     
   - PyPy3.7 alpha: which is our first release of an interpreter supporting the
     syntax and the features of Python 3.7, including the stdlib for CPython
-    3.7.4. We call this alpha quality software, but it is based off PyPy 3.6 so
+    3.7.9. We call this alpha quality software, but it is based off PyPy 3.6 so
     issues should be around compatibility and not stability. Please try it out
     and let us know what is broken or missing. We have not implemented the
     `documented changes`_ in the ``re`` module, and other pieces are also
@@ -184,11 +190,14 @@ Changes shared across versions
 - Reject control characters in http requests: CPython issue 39603_
 - Fix regex in parsing http headers to reject infinite backtracking: CPyton
   issue 39503_
+- Escape the server title when rendering from ``xmlrpc`` as HTML: CPython issue
+  38243_
 
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Add ``PyCFunction_Call``, contiguous part of ``PyMemoryView_GetContiguous``
+- Add ``PyCFunction_Call``, ``PyNumber_ToBase``, contiguous part of
+  ``PyMemoryView_GetContiguous``
 - use ``space.getitem`` in ``PySequence_ITEM``, fixes `pybind11 2146`_
 - give preference to ``as_sequence.sq_item`` in ``PySequence_ITEM``
 - In Py_EnterRecursiveCall, ``char*`` -> ``const char *``, `issue 3232`_
@@ -231,7 +240,15 @@ Python 3.6 only
   at ``pypy -m ensurepip``
 - Fix broken ``_socket.share`` on windows
 - Add missing ``os.{gs}et_handle_inheritable`` (PEP 446) on windows
-- Fix ip address hashing in `ipaddress.py`: CPython issue 41004_
+- Fix ip address hashing in ``ipaddress.py``: CPython issue 41004_
+- Disallow CR/LF in ``email.headerregistry.Address``: CPython issue 39073_
+- Ban ``reuse_address`` parameter in ``loop.create_datagram_endpoint()`` in
+  ``asyncio.base_events``: CPython issue 37228
+- Preventing newline in ``encodongs.uu.filename`` from corrupting the output
+  format: CPython issue 38945
+- Prevent backtracking in regexes in ``http.cookiejar``: Cpython issue 38804_
+- Sync ``email._header_value_parser``, ``email._parseaddr`` and their
+  respective tests: CPython 37461_ and 34155_
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -276,5 +293,12 @@ Python 3.6 C-API
 .. _41014: https://bugs.python.org/issue41014
 .. _39603: https://bugs.python.org/issue39603
 .. _39503: https://bugs.python.org/issue39503
+.. _39073: https://bugs.python.org/issue39073
+.. _37228: https://bugs.python.org/issue37228
+.. _38945: https://bugs.python.org/issue38945
+.. _38804: https://bugs.python.org/issue38804
+.. _38243: https://bugs.python.org/issue38243
+.. _37461: https://bugs.python.org/issue37461
+.. _34155: https://bugs.python.org/issue34155
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146
