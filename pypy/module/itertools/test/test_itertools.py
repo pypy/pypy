@@ -291,7 +291,7 @@ class AppTestItertools(object):
         import sys
         raises((OverflowError, ValueError),    # ValueError on top of CPython
                itertools.islice, [], sys.maxsize + 1)
-    
+
     def test_islice_intlike_args(self):
         import itertools
 
@@ -1181,3 +1181,28 @@ class AppTestItertools32:
         b = x1(*x2)
         res = list(b)
         assert res == [True, False]
+
+    def test_tee_concurrent(self):
+        from itertools import tee
+        import threading
+        start = threading.Event()
+        finish = threading.Event()
+        class I:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                start.set()
+                finish.wait()
+
+        a, b = tee(I())
+        thread = threading.Thread(target=next, args=[a])
+        thread.start()
+        try:
+            start.wait()
+            with raises(RuntimeError) as exc:
+                next(b)
+                assert 'tee' in str(exc)
+        finally:
+            finish.set()
+            thread.join()
+

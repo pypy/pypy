@@ -841,6 +841,7 @@ class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
         self.w_next = None
         self.w_obj = None
+        self.running = False
 
     def reduce_w(self, space):
         list_w = []
@@ -894,13 +895,19 @@ class W_TeeIterable(W_Root):
         w_chained_list = self.w_chained_list
         if w_chained_list is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        if w_chained_list.running:
+            raise oefmt(self.space.w_RuntimeError,
+                                 "cannot re-enter the tee iterator")
         w_obj = w_chained_list.w_obj
         if w_obj is None:
+            w_chained_list.running = True
             try:
                 w_obj = self.space.next(self.w_iterator)
+                w_chained_list.running = False
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
+                w_chained_list.running = False
                 raise
             w_chained_list.w_next = W_TeeChainedListNode(self.space)
             w_chained_list.w_obj = w_obj

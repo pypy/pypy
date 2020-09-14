@@ -576,7 +576,14 @@ def test_inet_ntop():
 @pytest.mark.skipif(getattr(rsocket, 'AF_UNIX', None) is None,
         reason='AF_UNIX not supported.')
 def test_unix_socket_connect(tmpdir, do_recv):
-    sockpath = str(tmpdir.join('test_unix_socket_connect'))
+    prev_dir = tmpdir.chdir()   # workaround for limited path length
+    try:
+        do_test_unix_socket_connect(do_recv)
+    finally:
+        prev_dir.chdir()
+
+def do_test_unix_socket_connect(do_recv):
+    sockpath = './test_unix_socket_connect'
     a = UNIXAddress(sockpath)
 
     serversock = RSocket(AF_UNIX)

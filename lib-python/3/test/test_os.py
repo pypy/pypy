@@ -42,15 +42,6 @@ try:
 except ImportError:
     _winapi = None
 try:
-    import grp
-    groups = [g.gr_gid for g in grp.getgrall() if getpass.getuser() in g.gr_mem]
-    if hasattr(os, 'getgid'):
-        process_gid = os.getgid()
-        if process_gid not in groups:
-            groups.append(process_gid)
-except ImportError:
-    groups = []
-try:
     import pwd
     all_users = [u.pw_uid for u in pwd.getpwall()]
 except (ImportError, AttributeError):
@@ -1238,13 +1229,19 @@ class ChownFileTests(unittest.TestCase):
         self.assertIsNone(os.chown(support.TESTFN, uid, gid))
         self.assertIsNone(os.chown(support.TESTFN, -1, -1))
 
-    @unittest.skipUnless(len(groups) > 1, "test needs more than one group")
-    def test_chown(self):
+    @unittest.skipUnless(hasattr(os, 'getgroups'), 'need os.getgroups')
+    def test_chown_gid(self):
+        groups = os.getgroups()
+        if len(groups) < 2:
+            self.skipTest("test needs at least 2 groups")
+
         gid_1, gid_2 = groups[:2]
         uid = os.stat(support.TESTFN).st_uid
+
         os.chown(support.TESTFN, uid, gid_1)
         gid = os.stat(support.TESTFN).st_gid
         self.assertEqual(gid, gid_1)
+
         os.chown(support.TESTFN, uid, gid_2)
         gid = os.stat(support.TESTFN).st_gid
         self.assertEqual(gid, gid_2)
@@ -2420,12 +2417,37 @@ class PidTests(unittest.TestCase):
         # We are the parent of our subprocess
         self.assertEqual(int(stdout), os.getpid())
 
+    def check_waitpid(self, code, exitcode):
+        if sys.platform == 'win32':
+            # On Windows, os.spawnv() simply joins arguments with spaces:
+            # arguments need to be quoted
+            args = [f'"{sys.executable}"', '-c', f'"{code}"']
+        else:
+            args = [sys.executable, '-c', code]
+        pid = os.spawnv(os.P_NOWAIT, sys.executable, args)
+
+        pid2, status = os.waitpid(pid, 0)
+        if sys.platform == 'win32':
+            self.assertEqual(status, exitcode << 8)
+        else:
+            self.assertTrue(os.WIFEXITED(status), status)
+            self.assertEqual(os.WEXITSTATUS(status), exitcode)
+        self.assertEqual(pid2, pid)
+
     def test_waitpid(self):
-        args = [sys.executable, '-c', 'pass']
-        # Add an implicit test for PyUnicode_FSConverter().
-        pid = os.spawnv(os.P_NOWAIT, FakePath(args[0]), args)
-        status = os.waitpid(pid, 0)
-        self.assertEqual(status, (pid, 0))
+        self.check_waitpid(code='pass', exitcode=0)
+
+    def test_waitpid_exitcode(self):
+        exitcode = 23
+        code = f'import sys; sys.exit({exitcode})'
+        self.check_waitpid(code, exitcode=exitcode)
+
+    @unittest.skipUnless(sys.platform == 'win32', 'win32-specific test')
+    def test_waitpid_windows(self):
+        # bpo-40138: test os.waitpid() with exit code larger than INT_MAX.
+        STATUS_CONTROL_C_EXIT = 0xC000013A
+        code = f'import _winapi; _winapi.ExitProcess({STATUS_CONTROL_C_EXIT})'
+        self.check_waitpid(code, exitcode=STATUS_CONTROL_C_EXIT)
 
 
 class SpawnTests(unittest.TestCase):
@@ -3240,6 +3262,11 @@ class FDInheritanceTests(unittest.TestCase):
         self.addCleanup(os.close, fd2)
         self.assertEqual(os.get_inheritable(fd2), False)
 
+    def test_dup_standard_stream(self):
+        fd = os.dup(1)
+        self.addCleanup(os.close, fd)
+        self.assertGreater(fd, 0)
+
     @unittest.skipUnless(sys.platform == 'win32', 'win32-specific test')
     def test_dup_nul(self):
         # os.dup() was creating inheritable fds for character files.
@@ -3742,6 +3769,14 @@ class TestPEP519(unittest.TestCase):
         # __fspath__ raises an exception.
         self.assertRaises(ZeroDivisionError, self.fspath,
                           FakePath(ZeroDivisionError()))
+
+    def test_pathlike_subclasshook(self):
+        # bpo-38878: subclasshook causes subclass checks
+        # true on abstract implementation.
+        class A(os.PathLike):
+            pass
+        self.assertFalse(issubclass(FakePath, A))
+        self.assertTrue(issubclass(FakePath, os.PathLike))
 
 
 class TimesTests(unittest.TestCase):

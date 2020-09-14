@@ -15,3 +15,16 @@ def register(*args, **kwargs):
 
 def cancel_dump_traceback_later(*args, **kwargs):
     pass
+
+def unregister(*args, **kwargs):
+    pass
+
+try:
+    import _thread
+except ImportError:
+    pass
+else:
+    # need the _thread module
+    def dump_traceback_later(*args, **kwargs):
+        pass
+

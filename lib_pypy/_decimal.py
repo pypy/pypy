@@ -13,6 +13,7 @@ from _decimal_cffi import ffi as _ffi, lib as _mpdec
 
 # Compatibility with the C version
 HAVE_THREADS = True
+HAVE_CONTEXTVAR = True
 if _sys.maxsize == 2**63-1:
     MAX_PREC = 999999999999999999
     MAX_EMAX = 999999999999999999

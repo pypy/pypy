@@ -1729,9 +1729,15 @@ class BaseEventLoopWithSelectorTests(test_utils.TestCase):
         reuseport_supported = hasattr(socket, 'SO_REUSEPORT')
 
         if reuseport_supported:
-            self.assertFalse(
-                sock.getsockopt(
-                    socket.SOL_SOCKET, socket.SO_REUSEPORT))
+            try:
+                self.assertFalse(
+                    sock.getsockopt(
+                        socket.SOL_SOCKET, socket.SO_REUSEPORT))
+            except OSError:
+                # Python's socket module was compiled using modern headers
+                # thus defining SO_REUSEPORT but this process is running
+                # under an older kernel that does not support SO_REUSEPORT.
+                reuseport_supported = False
         self.assertFalse(
             sock.getsockopt(
                 socket.SOL_SOCKET, socket.SO_BROADCAST))

@@ -140,7 +140,7 @@ class WeakValueDictionary(_collections_abc.MutableMapping):
         # A list of keys to be removed
         self._pending_removals = []
         self._iterating = set()
-        self.data = d = {}
+        self.data = {}
         self.update(*args, **kw)
 
     def _commit_removals(self):

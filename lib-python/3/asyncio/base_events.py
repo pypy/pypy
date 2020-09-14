@@ -518,14 +518,17 @@ class BaseEventLoop(events.AbstractEventLoop):
                     'asyncgen': agen
                 })
 
-    def run_forever(self):
-        """Run until stop() is called."""
-        self._check_closed()
+    def _check_runnung(self):
         if self.is_running():
             raise RuntimeError('This event loop is already running')
         if events._get_running_loop() is not None:
             raise RuntimeError(
                 'Cannot run the event loop while another loop is running')
+
+    def run_forever(self):
+        """Run until stop() is called."""
+        self._check_closed()
+        self._check_runnung()
         self._set_coroutine_origin_tracking(self._debug)
         self._thread_id = threading.get_ident()
 
@@ -557,6 +560,7 @@ class BaseEventLoop(events.AbstractEventLoop):
         Return the Future's result, or raise its exception.
         """
         self._check_closed()
+        self._check_runnung()
 
         new_task = not futures.isfuture(future)
         future = tasks.ensure_future(future, loop=self)
@@ -1142,7 +1146,7 @@ class BaseEventLoop(events.AbstractEventLoop):
     async def create_datagram_endpoint(self, protocol_factory,
                                        local_addr=None, remote_addr=None, *,
                                        family=0, proto=0, flags=0,
-                                       reuse_address=None, reuse_port=None,
+                                       reuse_address=_unset, reuse_port=None,
                                        allow_broadcast=None, sock=None):
         """Create datagram connection."""
         if sock is not None:
@@ -1214,7 +1218,7 @@ class BaseEventLoop(events.AbstractEventLoop):
                                      "security concern.")
                 else:
                     warnings.warn("The *reuse_address* parameter has been "
-                                  "deprecated as of 3.6.10 and is scheduled "
+                                  "deprecated as of 3.7.6 and is scheduled "
                                   "for removal in 3.11.", DeprecationWarning,
                                   stacklevel=2)
 

@@ -102,9 +102,41 @@ def log_to_stderr(level=None):
     _log_to_stderr = True
     return _logger
 
+
+# Abstract socket support
+
+def _platform_supports_abstract_sockets():
+    if sys.platform == "linux":
+        return True
+    if hasattr(sys, 'getandroidapilevel'):
+        return True
+    return False
+
+
+def is_abstract_socket_namespace(address):
+    if not address:
+        return False
+    if isinstance(address, bytes):
+        return address[0] == 0
+    elif isinstance(address, str):
+        return address[0] == "\0"
+    raise TypeError('address type of {address!r} unrecognized')
+
+
+abstract_sockets_supported = _platform_supports_abstract_sockets()
+
 #
 # Function returning a temp directory which will be removed on exit
 #
+
+def _remove_temp_dir(rmtree, tempdir):
+    rmtree(tempdir)
+
+    current_process = process.current_process()
+    # current_process() can be None if the finalizer is called
+    # late during Python finalization
+    if current_process is not None:
+        current_process._config['tempdir'] = None
 
 def get_temp_dir():
     # get name of a temp directory which will be automatically cleaned up
@@ -113,7 +145,10 @@ def get_temp_dir():
         import shutil, tempfile
         tempdir = tempfile.mkdtemp(prefix='pymp-')
         info('created temp directory %s', tempdir)
-        Finalize(None, shutil.rmtree, args=[tempdir], exitpriority=-100)
+        # keep a strong reference to shutil.rmtree(), since the finalizer
+        # can be called late during Python shutdown
+        Finalize(None, _remove_temp_dir, args=(shutil.rmtree, tempdir),
+                 exitpriority=-100)
         process.current_process()._config['tempdir'] = tempdir
     return tempdir
 
@@ -421,3 +456,24 @@ def spawnv_passfds(path, args, passfds):
     finally:
         os.close(errpipe_read)
         os.close(errpipe_write)
+
+
+def _cleanup_tests():
+    """Cleanup multiprocessing resources when multiprocessing tests
+    completed."""
+
+    from test import support
+
+    # cleanup multiprocessing
+    process._cleanup()
+
+    # Stop the ForkServer process if it's running
+    from multiprocessing import forkserver
+    forkserver._forkserver._stop()
+
+    # bpo-37421: Explicitly call _run_finalizers() to remove immediately
+    # temporary directories created by multiprocessing.util.get_temp_dir().
+    _run_finalizers()
+    support.gc_collect()
+
+    support.reap_children()

@@ -89,6 +89,10 @@ class TestParser(TestParserMixin, TestEmailBase):
         with self.assertRaises(errors.HeaderParseError):
             parser.get_encoded_word('=?abc?=')
 
+    def test_get_encoded_word_invalid_cte(self):
+        with self.assertRaises(errors.HeaderParseError):
+            parser.get_encoded_word('=?utf-8?X?somevalue?=')
+
     def test_get_encoded_word_valid_ew(self):
         self._test_get_x(parser.get_encoded_word,
                          '=?us-ascii?q?this_is_a_test?=  bird',
@@ -383,6 +387,30 @@ class TestParser(TestParserMixin, TestEmailBase):
             [errors.InvalidHeaderDefect],
             '')
 
+    def test_get_unstructured_without_trailing_whitespace_hang_case(self):
+        self._test_get_x(self._get_unst,
+            '=?utf-8?q?somevalue?=aa',
+            'somevalueaa',
+            'somevalueaa',
+            [errors.InvalidHeaderDefect],
+            '')
+
+    def test_get_unstructured_invalid_ew(self):
+        self._test_get_x(self._get_unst,
+            '=?utf-8?q?=somevalue?=',
+            '=?utf-8?q?=somevalue?=',
+            '=?utf-8?q?=somevalue?=',
+            [],
+            '')
+
+    def test_get_unstructured_invalid_ew_cte(self):
+        self._test_get_x(self._get_unst,
+            '=?utf-8?X?=somevalue?=',
+            '=?utf-8?X?=somevalue?=',
+            '=?utf-8?X?=somevalue?=',
+            [],
+            '')
+
     # get_qp_ctext
 
     def test_get_qp_ctext_only(self):
@@ -521,6 +549,10 @@ class TestParser(TestParserMixin, TestEmailBase):
     def test_get_bare_quoted_string_only_quotes(self):
         self._test_get_x(parser.get_bare_quoted_string,
                          '""', '""', '', [], '')
+
+    def test_get_bare_quoted_string_missing_endquotes(self):
+        self._test_get_x(parser.get_bare_quoted_string,
+                         '"', '""', '', [errors.InvalidHeaderDefect], '')
 
     def test_get_bare_quoted_string_following_wsp_preserved(self):
         self._test_get_x(parser.get_bare_quoted_string,
@@ -929,6 +961,12 @@ class TestParser(TestParserMixin, TestEmailBase):
             ' (foo) bar (bang) :ah', ' (foo) bar (bang) ', ' bar ', [], ':ah')
         self.assertEqual(word.token_type, 'atom')
         self.assertEqual(word[0].token_type, 'cfws')
+
+    def test_get_word_all_CFWS(self):
+        # bpo-29412: Test that we don't raise IndexError when parsing CFWS only
+        # token.
+        with self.assertRaises(errors.HeaderParseError):
+            parser.get_word('(Recipients list suppressed')
 
     def test_get_word_qs_yields_qs(self):
         word = self._test_get_x(parser.get_word,
@@ -1690,6 +1728,14 @@ class TestParser(TestParserMixin, TestEmailBase):
         self.assertEqual(display_name[3].comments, ['with trailing comment'])
         self.assertEqual(display_name.display_name, 'simple phrase.')
 
+    def test_get_display_name_for_invalid_address_field(self):
+        # bpo-32178: Test that address fields starting with `:` don't cause
+        # IndexError when parsing the display name.
+        display_name = self._test_get_x(
+            parser.get_display_name,
+            ':Foo ', '', '', [errors.InvalidHeaderDefect], ':Foo ')
+        self.assertEqual(display_name.value, '')
+
     # get_name_addr
 
     def test_get_name_addr_angle_addr_only(self):
@@ -2352,6 +2398,17 @@ class TestParser(TestParserMixin, TestEmailBase):
 
 
     # get_address_list
+
+    def test_get_address_list_CFWS(self):
+        address_list = self._test_get_x(parser.get_address_list,
+                                        '(Recipient list suppressed)',
+                                        '(Recipient list suppressed)',
+                                        ' ',
+                                        [errors.ObsoleteHeaderDefect],  # no content in address list
+                                        '')
+        self.assertEqual(address_list.token_type, 'address-list')
+        self.assertEqual(len(address_list.mailboxes), 0)
+        self.assertEqual(address_list.mailboxes, address_list.all_mailboxes)
 
     def test_get_address_list_mailboxes_simple(self):
         address_list = self._test_get_x(parser.get_address_list,
