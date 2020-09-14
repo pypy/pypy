@@ -191,10 +191,14 @@ class MsvcPlatform(Platform):
             if msvc_compiler_environ:
                 self.c_environ.update(msvc_compiler_environ)
                 self.version = "MSVC %s" % str(self.vsver)
-                if x64:
-                    self.externals_branch = 'win64_%d' % self.vsver
+                if self.vsver > 90:
+                    tag = '14x'
                 else:
-                    self.externals_branch = 'win32_%d' % self.vsver
+                    tag = '%d' % self.vsver
+                if x64:
+                    self.externals_branch = 'win64_%s' % tag
+                else:
+                    self.externals_branch = 'win32_%s' % tag
         else:
             self.cc = cc
 
