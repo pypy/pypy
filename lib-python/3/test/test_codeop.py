@@ -270,7 +270,7 @@ class CodeopTests(unittest.TestCase):
         ai("a = 'a\\\n")
 
         ai("a = 1","eval")
-        if check_impl_detail():   # on PyPy it asks for more data, which is not
+        if support.check_impl_detail():   # on PyPy it asks for more data, which is not
             ai("a = (","eval")    # completely correct but hard to fix and
                                   # really a detail (in my opinion <arigo>)
         ai("]","eval")
