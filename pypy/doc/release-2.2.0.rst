@@ -10,7 +10,7 @@ This release also contains several bugfixes and performance improvements.
 
 You can download the PyPy 2.2 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. We showed quite a bit of progress on all three projects (see below)
@@ -25,7 +25,7 @@ projects are:
 
 * NumPy: the work done is included in the PyPy 2.2 release. More details below.
 
-.. _`Raspberry Pi Foundation`: http://www.raspberrypi.org
+.. _`Raspberry Pi Foundation`: https://www.raspberrypi.org
 
 What is PyPy?
 =============
@@ -40,7 +40,7 @@ This release supports x86 machines running Linux 32/64, Mac OS X 64, Windows
 Work on the native Windows 64 is still stalling, we would welcome a volunteer
 to handle that.
 
-.. _`pypy 2.2 and cpython 2.7.2`: http://speed.pypy.org
+.. _`pypy 2.2 and cpython 2.7.2`: https://speed.pypy.org
 
 Highlights
 ==========

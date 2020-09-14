@@ -1189,16 +1189,6 @@ def PyModule_GetFilenameObject(space, module):
     __file__ attribute.  If this is not defined, or if it is not a
     unicode string, raise SystemError and return NULL; otherwise return
     a reference to a PyUnicodeObject.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base base as a string.  The base
-    argument must be one of 2, 8, 10, or 16.  For base 2, 8, or 16, the
-    returned string is prefixed with a base marker of '0b', '0o', or
-    '0x', respectively.  If n is not a Python int, it is converted with
-    PyNumber_Index() first."""
     raise NotImplementedError
 
 @cpython_api([PyFrameObject], rffi.INT_real, error=-1)

@@ -15,7 +15,7 @@ PyPy can now be embedded in a hosting application, for instance inside `uWSGI`_
 
 You can download the PyPy 2.3 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects.
@@ -31,15 +31,15 @@ so we can finish those projects!  The three sub-projects are:
 
 * `NumPy`_ which is included in the PyPy 2.3 release. More details below.
 
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _ `NumPy`: http://pypy.org/numpydonate.html
-.. _`TDD`: http://doc.pypy.org/en/latest/how-to-contribute.html
-.. _`CFFI`: http://cffi.readthedocs.org
+.. _`Py3k`: https://pypy.org/py3donate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _ `NumPy`: https://pypy.org/numpydonate.html
+.. _`TDD`: https://doc.pypy.org/en/latest/how-to-contribute.html
+.. _`CFFI`: https://cffi.readthedocs.org
 .. _`cryptography`: https://cryptography.io
 .. _`Pillow`: https://pypi.python.org/pypi/Pillow/2.4.0
 .. _`pygame-cffi`: https://github.com/CTPUG/pygame_cffi
-.. _`uWSGI`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`uWSGI`: https://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 
 What is PyPy?
 =============
@@ -57,8 +57,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy 2.3 and cpython 2.7.x`: http://speed.pypy.org
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy 2.3 and cpython 2.7.x`: https://speed.pypy.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -92,8 +92,8 @@ for more information see `whats-new`_:
 
 * Fix handling of tp_name for type objects
 
-.. _`HippyVM`: http://www.hippyvm.com
-.. _`whats-new`: http://doc.pypy.org/en/latest/whatsnew-2.3.0.html
+.. _`HippyVM`: https://www.hippyvm.com
+.. _`whats-new`: https://doc.pypy.org/en/latest/whatsnew-2.3.0.html
 
 
 New Platforms and Features

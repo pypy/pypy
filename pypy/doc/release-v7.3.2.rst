@@ -2,6 +2,12 @@
 PyPy v7.3.2: release of 2.7, 3.6, and 3.7 alpha
 ===============================================
 
+..note:
+  This is a pre-release announcement. When the release actually happens, it
+  will be announced on the `morepypy blog`_
+
+.. _`morepypy blog`: https://morepypy.blogspot.com
+
 The PyPy team is proud to release the version 7.3.2 of PyPy, which includes
 three different interpreters:
 
@@ -13,7 +19,7 @@ three different interpreters:
     
   - PyPy3.7 alpha: which is our first release of an interpreter supporting the
     syntax and the features of Python 3.7, including the stdlib for CPython
-    3.7.4. We call this alpha quality software, but it is based off PyPy 3.6 so
+    3.7.9. We call this alpha quality software, but it is based off PyPy 3.6 so
     issues should be around compatibility and not stability. Please try it out
     and let us know what is broken or missing. We have not implemented the
     `documented changes`_ in the ``re`` module, and other pieces are also
@@ -23,12 +29,13 @@ The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3.0 (Dec
 2019) and 7.3.1 (April 2020) releases, but read on to find out what is new.
 
-The major new feature is prelminary support for the Universal mode of HPy: a
-new way of writing c-extension modules to totally encapsulate the `PyObject*`.
-The goal, as laid out in the `HPy blog post`_, is to enable a migration path
-for c-extension authors who wish their code to be performant on alternative
-interpreters like GraalPython_ (written on top of the Java virtual machine),
-RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
+..
+  The major new feature is prelminary support for the Universal mode of HPy: a
+  new way of writing c-extension modules to totally encapsulate the `PyObject*`.
+  The goal, as laid out in the `HPy blog post`_, is to enable a migration path
+  for c-extension authors who wish their code to be performant on alternative
+  interpreters like GraalPython_ (written on top of the Java virtual machine),
+  RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
 
 Conda Forge now `supports PyPy`_ as a python interpreter. The support is quite
 complete for linux and macOS. This is the result of a lot of
@@ -59,7 +66,7 @@ please continue reporting issues as they crop up.
 
 You can find links to download the v7.3.2 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -80,7 +87,7 @@ building wheels for PyPy.
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
-.. _`CFFI`: http://cffi.readthedocs.io
+.. _`CFFI`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`multibuild system`: https://github.com/matthew-brett/multibuild
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel
@@ -120,8 +127,8 @@ Unfortunately at the moment of writing our ARM32 buildbots are out of service,
 so for now we are **not** releasing any binaries for that architecture,
 although PyPy does support ARM 32 bit processors. 
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog
@@ -179,12 +186,18 @@ Changes shared across versions
 - Add ``pypyjit.releaseall()`` that marks all current machine code objects as
   ready to release. They will be released at the next GC (unless they are
   currently in use in the stack of one of the threads).
-
+- Fix possible infinite loop in `tarfile.py`: CPython issue 39017_
+- Reject control characters in http requests: CPython issue 39603_
+- Fix regex in parsing http headers to reject infinite backtracking: CPyton
+  issue 39503_
+- Escape the server title when rendering from ``xmlrpc`` as HTML: CPython issue
+  38243_
 
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-- Add ``PyCFunction_Call``
+- Add ``PyCFunction_Call``, ``PyNumber_ToBase``, contiguous part of
+  ``PyMemoryView_GetContiguous``
 - use ``space.getitem`` in ``PySequence_ITEM``, fixes `pybind11 2146`_
 - give preference to ``as_sequence.sq_item`` in ``PySequence_ITEM``
 - In Py_EnterRecursiveCall, ``char*`` -> ``const char *``, `issue 3232`_
@@ -227,6 +240,15 @@ Python 3.6 only
   at ``pypy -m ensurepip``
 - Fix broken ``_socket.share`` on windows
 - Add missing ``os.{gs}et_handle_inheritable`` (PEP 446) on windows
+- Fix ip address hashing in ``ipaddress.py``: CPython issue 41004_
+- Disallow CR/LF in ``email.headerregistry.Address``: CPython issue 39073_
+- Ban ``reuse_address`` parameter in ``loop.create_datagram_endpoint()`` in
+  ``asyncio.base_events``: CPython issue 37228
+- Preventing newline in ``encodongs.uu.filename`` from corrupting the output
+  format: CPython issue 38945
+- Prevent backtracking in regexes in ``http.cookiejar``: Cpython issue 38804_
+- Sync ``email._header_value_parser``, ``email._parseaddr`` and their
+  respective tests: CPython 37461_ and 34155_
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
@@ -234,36 +256,49 @@ Python 3.6 C-API
   ``PyUnicode_{Find,Read,Write}Char``,
 - Fix ``PyUnicode_*`` handling on windows where ``wchar_t`` is 2 bytes
 
-.. _`issue 3187`: https://foss.heptapod.net/pypy/pypy/issues/3187
-.. _`issue 3178`: https://foss.heptapod.net/pypy/pypy/issues/3178
-.. _`issue 3177`: https://foss.heptapod.net/pypy/pypy/issues/3177
-.. _`issue 3198`: https://foss.heptapod.net/pypy/pypy/issues/3198
-.. _`issue 3232`: https://foss.heptapod.net/pypy/pypy/issues/3232
-.. _`issue 3239`: https://foss.heptapod.net/pypy/pypy/issues/3239
-.. _`issue 3230`: https://foss.heptapod.net/pypy/pypy/issues/3230
-.. _`issue 3242`: https://foss.heptapod.net/pypy/pypy/issues/3242
-.. _`issue 3243`: https://foss.heptapod.net/pypy/pypy/issues/3243
-.. _`issue 3247`: https://foss.heptapod.net/pypy/pypy/issues/3247
-.. _`issue 3250`: https://foss.heptapod.net/pypy/pypy/issues/3250
-.. _`issue 3251`: https://foss.heptapod.net/pypy/pypy/issues/3251
-.. _`issue 3252`: https://foss.heptapod.net/pypy/pypy/issues/3252
-.. _`issue 3255`: https://foss.heptapod.net/pypy/pypy/issues/3255
-.. _`issue 3269`: https://foss.heptapod.net/pypy/pypy/issues/3269
-.. _`issue 3274`: https://foss.heptapod.net/pypy/pypy/issues/3274
-.. _`issue 3282`: https://foss.heptapod.net/pypy/pypy/issues/3282
-.. _`issue 3281`: https://foss.heptapod.net/pypy/pypy/issues/3281
+.. _`issue 3187`: https://foss.heptapod.net/pypy/pypy/-/issues/3187
+.. _`issue 3178`: https://foss.heptapod.net/pypy/pypy/-/issues/3178
+.. _`issue 3177`: https://foss.heptapod.net/pypy/pypy/-/issues/3177
+.. _`issue 3188`: https://foss.heptapod.net/pypy/pypy/-/issues/3188
+.. _`issue 3198`: https://foss.heptapod.net/pypy/pypy/-/issues/3198
+.. _`issue 3232`: https://foss.heptapod.net/pypy/pypy/-/issues/3232
+.. _`issue 3239`: https://foss.heptapod.net/pypy/pypy/-/issues/3239
+.. _`issue 3230`: https://foss.heptapod.net/pypy/pypy/-/issues/3230
+.. _`issue 3242`: https://foss.heptapod.net/pypy/pypy/-/issues/3242
+.. _`issue 3243`: https://foss.heptapod.net/pypy/pypy/-/issues/3243
+.. _`issue 3247`: https://foss.heptapod.net/pypy/pypy/-/issues/3247
+.. _`issue 3250`: https://foss.heptapod.net/pypy/pypy/-/issues/3250
+.. _`issue 3251`: https://foss.heptapod.net/pypy/pypy/-/issues/3251
+.. _`issue 3252`: https://foss.heptapod.net/pypy/pypy/-/issues/3252
+.. _`issue 3255`: https://foss.heptapod.net/pypy/pypy/-/issues/3255
+.. _`issue 3269`: https://foss.heptapod.net/pypy/pypy/-/issues/3269
+.. _`issue 3274`: https://foss.heptapod.net/pypy/pypy/-/issues/3274
+.. _`issue 3282`: https://foss.heptapod.net/pypy/pypy/-/issues/3282
+.. _`issue 3281`: https://foss.heptapod.net/pypy/pypy/-/issues/3281
 
-.. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/merge_request/723
-.. _`merge request 729`: https://foss.heptapod.net/pypy/pypy/merge_request/729
-.. _`merge request 730`: https://foss.heptapod.net/pypy/pypy/merge_request/730
-.. _`merge request 736`: https://foss.heptapod.net/pypy/pypy/merge_request/736
-.. _`merge request 732`: https://foss.heptapod.net/pypy/pypy/merge_request/732
-.. _`merge request 744`: https://foss.heptapod.net/pypy/pypy/merge_request/744
+.. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
+.. _`merge request 729`: https://foss.heptapod.net/pypy/pypy/-/merge_request/729
+.. _`merge request 730`: https://foss.heptapod.net/pypy/pypy/-/merge_request/730
+.. _`merge request 736`: https://foss.heptapod.net/pypy/pypy/-/merge_request/736
+.. _`merge request 732`: https://foss.heptapod.net/pypy/pypy/-/merge_request/732
+.. _`merge request 744`: https://foss.heptapod.net/pypy/pypy/-/merge_request/744
 
 .. _31976: https://bugs.python.org/issue31976
 .. _35519: https://bugs.python.org/issue35519
 .. _30465: https://bugs.python.org/issue30465
 .. _39413: https://bugs.python.org/issue39413
-.. _23668: https://bugs.python.org/issue39413
+.. _23668: https://bugs.python.org/issue23668
+.. _29104: https://bugs.python.org/issue29104
+.. _39017: https://bugs.python.org/issue39017
+.. _41014: https://bugs.python.org/issue41014
+.. _39603: https://bugs.python.org/issue39603
+.. _39503: https://bugs.python.org/issue39503
+.. _39073: https://bugs.python.org/issue39073
+.. _37228: https://bugs.python.org/issue37228
+.. _38945: https://bugs.python.org/issue38945
+.. _38804: https://bugs.python.org/issue38804
+.. _38243: https://bugs.python.org/issue38243
+.. _37461: https://bugs.python.org/issue37461
+.. _34155: https://bugs.python.org/issue34155
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146

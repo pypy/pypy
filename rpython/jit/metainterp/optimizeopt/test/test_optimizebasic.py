@@ -5,6 +5,7 @@ from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rtyper import rclass
 from rpython.rtyper.lltypesystem import lltype
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt.test.test_util import (
     BaseTest, convert_old_style_to_targets)
 from rpython.jit.metainterp.history import (
@@ -1067,6 +1068,163 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_n(3)
         jump()
         """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_huge_size(self):
+        ops = """
+        []
+        p1 = new_array(150100, descr=arraydescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_negative_items_from_invalid_loop(self):
+        ops = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, -1, descr=arraydescr)
+        setarrayitem_gc(p2, -1, i2, descr=arraydescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_too_large_items(self):
+        ops = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
+        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
+        i4 = getarrayitem_gc_i(p2, 150100, descr=arraydescr)  # cached, heap.py
+        jump(p1, p2, i3, i4)
+        """
+        expected = """
+        [p1, p2]
+        i2 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)
+        i3 = getarrayitem_gc_i(p1, 150100, descr=arraydescr)  # not cached
+        setarrayitem_gc(p2, 150100, i2, descr=arraydescr)
+        jump(p1, p2, i3, i2)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_varray_negative_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array(10, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p1, -1, descr=arraydescr)
+        jump(i2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [i2]
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, -1, i2, descr=arraydescr)
+        jump()
+        """
+        expected = """
+        [i2]
+        jump()
+        """
+        # the setarrayitem_gc is completely dropped because of invalid index.
+        # we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_too_large_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array(10, descr=arraydescr)
+        i2 = getarrayitem_gc_i(p1, 10, descr=arraydescr)
+        jump(i2)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [i2]
+        p1 = new_array(10, descr=arraydescr)
+        setarrayitem_gc(p1, 10, i2, descr=arraydescr)
+        jump()
+        """
+        expected = """
+        [i2]
+        jump()
+        """
+        # the setarrayitem_gc is completely dropped because of invalid index.
+        # we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_huge_size_struct(self):
+        ops = """
+        []
+        p1 = new_array(150100, descr=complexarraydescr)
+        jump()
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_negative_items_from_invalid_loop(self):
+        ops = """
+        [p1, p2]
+        f0 = getinteriorfield_gc_f(p1, -1, descr=complexrealdescr)
+        setinteriorfield_gc(p2, -1, f0, descr=compleximagdescr)
+        jump(p1, p2)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_too_large_items(self):
+        ops = """
+        [p1, p2]
+        f2 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
+        # not cached:
+        f3 = getinteriorfield_gc_f(p1, 150100, descr=compleximagdescr)
+        setinteriorfield_gc(p2, 150100, f2, descr=complexrealdescr)
+        # this is not cached so far (it could be cached by heap.py)
+        f4 = getinteriorfield_gc_f(p2, 150100, descr=complexrealdescr)
+        jump(p1, p2, f3, f4)
+        """
+        self.optimize_loop(ops, ops)
+
+    def test_varray_struct_negative_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        f0 = getinteriorfield_gc_f(p1, -1, descr=complexrealdescr)
+        jump(f0)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [f0]
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        setinteriorfield_gc(p1, -1, f0, descr=complexrealdescr)
+        jump()
+        """
+        expected = """
+        [f0]
+        jump()
+        """
+        # the setinteriorfield_gc is completely dropped because of invalid
+        # index.  we could also raise InvalidLoop, but both choices seem OK
+        self.optimize_loop(ops, expected)
+
+    def test_varray_struct_too_large_items_from_invalid_loop_v(self):
+        ops = """
+        []
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        f0 = getinteriorfield_gc_f(p1, 10, descr=complexrealdescr)
+        jump(f0)
+        """
+        py.test.raises(InvalidLoop, self.optimize_loop, ops, ops)
+        #
+        ops = """
+        [f0]
+        p1 = new_array_clear(10, descr=complexarraydescr)
+        setinteriorfield_gc(p1, 10, f0, descr=complexrealdescr)
+        jump()
+        """
+        expected = """
+        [f0]
+        jump()
+        """
+        # the setinteriorfield_gc is completely dropped because of invalid
+        # index.  we could also raise InvalidLoop, but both choices seem OK
         self.optimize_loop(ops, expected)
 
     def test_p123_vstruct(self):

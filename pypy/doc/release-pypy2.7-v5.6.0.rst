@@ -30,7 +30,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the PyPy2.7 v5.6 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -43,10 +43,10 @@ with making RPython's JIT even better.
 
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`enhanced`: https://morepypy.blogspot.co.at/2016/11/vectorization-extended-powerpc-and-s390x.html
 
 What is PyPy?
@@ -70,8 +70,8 @@ This release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Other Highlights (since 5.4 released Aug 31, 2016)
 =========================================================
@@ -147,7 +147,7 @@ Other Highlights (since 5.4 released Aug 31, 2016)
   * Refactor and remove dead code from ``optimizeopt``, ``resume``
   
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.6.0.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.6.0.html
 
 Please update, and continue to help us make PyPy better.
 

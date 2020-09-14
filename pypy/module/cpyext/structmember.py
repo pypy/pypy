@@ -2,7 +2,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.structmemberdefs import *
-from pypy.module.cpyext.api import ADDR, PyObjectP, cpython_api, CONST_STRING
+from pypy.module.cpyext.api import PyObjectP, cpython_api, CONST_STRING
 from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
 from pypy.module.cpyext.pyerrors import PyErr_Occurred
 from pypy.module.cpyext.pyobject import PyObject, decref, from_ref, make_ref
@@ -42,9 +42,7 @@ _HEADER = 'pypy_structmember_decl.h'
 
 @cpython_api([CONST_STRING, lltype.Ptr(PyMemberDef)], PyObject, header=_HEADER)
 def PyMember_GetOne(space, obj, w_member):
-    addr = rffi.cast(ADDR, obj)
-    addr += w_member.c_offset
-
+    addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     for converter in integer_converters:
         typ, lltyp, _, _ = converter
@@ -95,8 +93,7 @@ def PyMember_GetOne(space, obj, w_member):
 @cpython_api([rffi.CCHARP, lltype.Ptr(PyMemberDef), PyObject], rffi.INT_real,
              error=-1, header=_HEADER)
 def PyMember_SetOne(space, obj, w_member, w_value):
-    addr = rffi.cast(ADDR, obj)
-    addr += w_member.c_offset
+    addr = rffi.ptradd(obj, w_member.c_offset)
     member_type = rffi.cast(lltype.Signed, w_member.c_type)
     flags = rffi.cast(lltype.Signed, w_member.c_flags)
 

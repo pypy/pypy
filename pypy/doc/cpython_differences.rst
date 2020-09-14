@@ -104,8 +104,8 @@ objects referencing each other, their ``__del__`` methods are called anyway;
 CPython would instead put them into the list ``garbage`` of the ``gc``
 module.  More information is available on the blog `[1]`__ `[2]`__.
 
-.. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
-.. __: http://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
+.. __: https://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-1.html
+.. __: https://morepypy.blogspot.com/2008/02/python-finalizers-semantics-part-2.html
 
 Note that this difference might show up indirectly in some cases.  For
 example, a generator left pending in the middle is --- again ---
@@ -114,7 +114,7 @@ difference if the ``yield`` keyword it is suspended at is itself
 enclosed in a ``try:`` or a ``with:`` block.  This shows up for example
 as `issue 736`__.
 
-.. __: http://bugs.pypy.org/issue736
+.. __: https://bugs.pypy.org/issue736
 
 Using the default GC (called ``minimark``), the built-in function ``id()``
 works like it does in CPython.  With other GCs it returns numbers that
@@ -591,11 +591,11 @@ The extension modules (i.e. modules written in C, in the standard CPython)
 that are neither mentioned above nor in :source:`lib_pypy/` are not available in PyPy.
 (You may have a chance to use them anyway with `cpyext`_.)
 
-.. _cpyext: http://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
+.. _cpyext: https://morepypy.blogspot.com/2010/04/using-cpython-extension-modules-with.html
 
 
-.. _`is ignored in PyPy`: http://bugs.python.org/issue14621
-.. _`little point`: http://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
+.. _`is ignored in PyPy`: https://bugs.python.org/issue14621
+.. _`little point`: https://events.ccc.de/congress/2012/Fahrplan/events/5152.en.html
 .. _`#2072`: https://foss.heptapod.net/pypy/pypy/issue/2072/
 .. _`issue #2653`: https://foss.heptapod.net/pypy/pypy/issues/2653/
 .. _SyntaxError: https://morepypy.blogspot.co.il/2018/04/improving-syntaxerror-in-pypy.html
