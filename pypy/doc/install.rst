@@ -26,9 +26,9 @@ may work on your system.
 Please note that the nightly builds are not
 guaranteed to be as stable as official releases, use them at your own risk.
 
-.. _most recent release: http://pypy.org/download.html
-.. _development nightly build: http://buildbot.pypy.org/nightly/trunk/
-.. _Linux binaries: http://pypy.org/download.html#linux-binaries-and-common-distributions
+.. _most recent release: https://pypy.org/download.html
+.. _development nightly build: https://buildbot.pypy.org/nightly/trunk/
+.. _Linux binaries: https://pypy.org/download.html#linux-binaries-and-common-distributions
 
 Installing PyPy
 ~~~~~~~~~~~~~~~
@@ -99,7 +99,7 @@ You should still upgrade pip and wheel to the latest versions via::
 
     $ my-pypy-env/bin/pypy -mpip install -U pip wheel
 
-.. _pip: http://pypi.python.org/pypi/pip
+.. _pip: https://pypi.python.org/pypi/pip
 .. _ensurepip: https://docs.python.org/3/library/ensurepip.html
 
 Building PyPy yourself

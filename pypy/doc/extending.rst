@@ -34,8 +34,8 @@ could still be improved, but is already good.)
 
 See the documentation here__.
 
-.. __: http://cffi.readthedocs.org/
-.. __: http://cffi.readthedocs.org/
+.. __: https://cffi.readthedocs.org/
+.. __: https://cffi.readthedocs.org/
 
 
 CTypes
@@ -48,14 +48,14 @@ CPython, but close enough for most cases.
 More (but older) information is available :doc:`here <discussion/ctypes-implementation>`.
 Also, ctypes' performance is not as good as CFFI's.
 
-.. _CPython ctypes: http://docs.python.org/library/ctypes.html
+.. _CPython ctypes: https://docs.python.org/library/ctypes.html
 
 PyPy implements ctypes as pure Python code around two built-in modules
 called ``_rawffi`` and ``_rawffi.alt``, which give a very low-level binding to
 the C library libffi_.  Nowadays it is not recommended to use directly
 these two modules.
 
-.. _libffi: http://sourceware.org/libffi/
+.. _libffi: https://sourceware.org/libffi/
 
 
 cppyy

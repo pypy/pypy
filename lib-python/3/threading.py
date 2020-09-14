@@ -1122,8 +1122,7 @@ class Thread:
         main thread is not a daemon thread and therefore all threads created in
         the main thread default to daemon = False.
 
-        The entire Python program exits when no alive non-daemon threads are
-        left.
+        The entire Python program exits when only daemon threads are left.
 
         """
         assert self._initialized, "Thread.__init__() not called"
@@ -1341,7 +1340,15 @@ def _after_fork():
 
     # fork() only copied the current thread; clear references to others.
     new_active = {}
-    current = current_thread()
+
+    try:
+        current = _active[get_ident()]
+    except KeyError:
+        # fork() was called in a thread which was not spawned
+        # by threading.Thread. For example, a thread spawned
+        # by thread.start_new_thread().
+        current = _MainThread()
+
     _main_thread = current
 
     # reset _shutdown() locks: threads re-register their _tstate_lock below

@@ -948,15 +948,12 @@ def test_get_and_set_scheduler_and_param():
             rposix.sched_setparam(-1, param)
     with pytest.raises(OSError):
         rposix.sched_setscheduler(-1, mine, param)
-    with pytest.raises(TypeError):
-        rposix.sched_setscheduler(0, mine, None)
-    with pytest.raises(TypeError):
-        rposix.sched_setparam(0, None)
 
     large = 214748364700
-    param = large # rposix.sched_param(large)
-    with pytest.raises(OSError):
-        rposix.sched_setparam(0, param)
-    # param = rposix.sched_param(sched_priority=-large)
-    # with pytest.raises(OverflowError):
-    #    rposix.sched_setparam(0, param)
+    if large < sys.maxint:
+        param = large # rposix.sched_param(large)
+        with pytest.raises(OSError):
+            rposix.sched_setparam(0, param)
+        # param = rposix.sched_param(sched_priority=-large)
+        # with pytest.raises(OverflowError):
+        #    rposix.sched_setparam(0, param)

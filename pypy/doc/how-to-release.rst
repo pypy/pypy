@@ -120,15 +120,12 @@ Other steps
   * download the builds, repackage binaries. Tag the release-candidate version
     (it is important to mark this as a candidate since usually at least two
     tries are needed to complete the process) and download and repackage source
-    from bitbucket. You may find it convenient to use the ``repackage.sh``
+    from the buildbot. You may find it convenient to use the ``repackage.sh``
     script in pypy/tool/release to do this. 
 
-    Otherwise repackage and upload source "-src.tar.bz2" to bitbucket
-    and to cobra, as some packagers prefer a clearly labeled source package
-    ( download e.g.  https://bitbucket.org/pypy/pypy/get/release-2.5.x.tar.bz2,
-    unpack, rename the top-level directory to "pypy-2.5.0-src", repack, and upload)
+    Also repackage and upload source "-src.tar.bz2"
 
-  * Upload binaries to https://bitbucket.org/pypy/pypy/downloads
+  * Upload binaries to https://buildbot.pypy.org/mirror
 
 * Send out a mailing list message asking for last-minute comments and testing
 

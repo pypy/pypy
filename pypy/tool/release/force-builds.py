@@ -54,7 +54,7 @@ def get_user():
         import pwd
         return pwd.getpwuid(os.getuid())[0]
 
-def main(branch, server, user, minimal=False):
+def main(options):
     #XXX: handle release tags
     #XXX: handle validity checks
     lock = defer.DeferredLock()
@@ -64,20 +64,20 @@ def main(branch, server, user, minimal=False):
             return None
         log.err(err, "Build force failure")
 
-    if minimal:
+    if options.minimal:
         builders = JIT_BUILDERS
     else:
         builders = RPYTHON_BUILDERS + OWN_BUILDERS + JIT_BUILDERS
 
     for builder in builders:
         print('Forcing', builder, '...')
-        url = "http://" + server + "/builders/" + builder + "/force"
+        url = "http://" + options.server + "/builders/" + builder + "/force"
         args = [
-            ('username', user),
+            ('username', options.user),
             ('revision', ''),
             ('forcescheduler', 'Force Build'),
-            ('branch', branch),
-            ('reason', "Forced by command line script")]
+            ('branch', options.branch),
+            ('reason', options.reason)]
         url = url + '?' + '&'.join([k + '=' + quote(v) for (k, v) in args])
         requests.append(
             lock.run(client.getPage, url.encode('utf-8'), followRedirect=False).addErrback(ebList))
@@ -97,6 +97,8 @@ if __name__ == '__main__':
     parser.add_option("-u", "--user", help="user name to report", default=get_user())
     parser.add_option("-m", "--minimal", action="store_true", default=False,
                       help="minimal: trigger pypy-c-jit only")
+    parser.add_option("-r", "--reason", help="reason for force",
+                      default='Forced by command line script')
     (options, args) = parser.parse_args()
     if  not options.branch:
         parser.error("branch option required")
@@ -108,4 +110,4 @@ if __name__ == '__main__':
     if options.branch.startswith('release') and not '-v' in options.branch:
         print('release branches must be of the form "release.*-v.*')
         sys.exit(-1) 
-    main(options.branch, options.server, user=options.user, minimal=options.minimal)
+    main(options)

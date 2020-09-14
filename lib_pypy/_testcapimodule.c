@@ -4669,6 +4669,19 @@ get_main_config(PyObject *self, PyObject *Py_UNUSED(args))
 #endif  /* PYPY_VERSION */
 
 
+static PyObject*
+pynumber_tobase(PyObject *module, PyObject *args)
+{
+    PyObject *obj;
+    int base;
+    if (!PyArg_ParseTuple(args, "Oi:pynumber_tobase",
+                          &obj, &base)) {
+        return NULL;
+    }
+    return PyNumber_ToBase(obj, base);
+}
+
+
 static PyMethodDef TestMethods[] = {
     {"raise_exception",         raise_exception,                 METH_VARARGS},
     {"raise_memoryerror",   (PyCFunction)raise_memoryerror,  METH_NOARGS},
@@ -4926,6 +4939,7 @@ static PyMethodDef TestMethods[] = {
     {"get_core_config", get_core_config, METH_NOARGS},
     {"get_main_config", get_main_config, METH_NOARGS},
 #endif /* PYPY_VERSION */
+    {"pynumber_tobase", pynumber_tobase, METH_VARARGS},
     {NULL, NULL} /* sentinel */
 };
 
@@ -5482,11 +5496,14 @@ PyInit__testcapi(void)
     PyModule_AddObject(m, "instancemethod", (PyObject *)&PyInstanceMethod_Type);
 
     PyModule_AddIntConstant(m, "the_number_three", 3);
+    PyObject *v;
 #ifdef WITH_PYMALLOC
-    PyModule_AddObject(m, "WITH_PYMALLOC", Py_True);
+    v = Py_True;
 #else
-    PyModule_AddObject(m, "WITH_PYMALLOC", Py_False);
+    v = Py_False;
 #endif
+    Py_INCREF(v);
+    PyModule_AddObject(m, "WITH_PYMALLOC", v);
 
     TestError = PyErr_NewException("_testcapi.error", NULL, NULL);
     Py_INCREF(TestError);

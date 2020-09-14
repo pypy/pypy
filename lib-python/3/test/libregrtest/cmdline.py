@@ -207,10 +207,17 @@ def _create_parser():
     group.add_argument('-m', '--match', metavar='PAT',
                        dest='match_tests', action='append',
                        help='match test cases and methods with glob pattern PAT')
+    group.add_argument('-i', '--ignore', metavar='PAT',
+                       dest='ignore_tests', action='append',
+                       help='ignore test cases and methods with glob pattern PAT')
     group.add_argument('--matchfile', metavar='FILENAME',
                        dest='match_filename',
                        help='similar to --match but get patterns from a '
                             'text file, one pattern per line')
+    group.add_argument('--ignorefile', metavar='FILENAME',
+                       dest='ignore_filename',
+                       help='similar to --matchfile but it receives patterns '
+                            'from text file to ignore')
     group.add_argument('-G', '--failfast', action='store_true',
                        help='fail as soon as a test fails (only with -v or -W)')
     group.add_argument('-u', '--use', metavar='RES1,RES2,...',
@@ -272,8 +279,10 @@ def _create_parser():
     group.add_argument('--junit-xml', dest='xmlpath', metavar='FILENAME',
                        help='writes JUnit-style XML results to the specified '
                             'file')
-    group.add_argument('--tempdir', dest='tempdir', metavar='PATH',
+    group.add_argument('--tempdir', metavar='PATH',
                        help='override the working directory for the test run')
+    group.add_argument('--cleanup', action='store_true',
+                       help='remove old test_python_* directories')
     return parser
 
 
@@ -313,7 +322,8 @@ def _parse_args(args, **kwargs):
          findleaks=1, use_resources=None, trace=False, coverdir='coverage',
          runleaks=False, huntrleaks=False, verbose2=False, print_slow=False,
          random_seed=None, use_mp=None, verbose3=False, forever=False,
-         header=False, failfast=False, match_tests=None, pgo=False)
+         header=False, failfast=False, match_tests=None, ignore_tests=None,
+         pgo=False)
     for k, v in kwargs.items():
         if not hasattr(ns, k):
             raise TypeError('%r is an invalid keyword argument '
@@ -389,6 +399,12 @@ def _parse_args(args, **kwargs):
         with open(ns.match_filename) as fp:
             for line in fp:
                 ns.match_tests.append(line.strip())
+    if ns.ignore_filename:
+        if ns.ignore_tests is None:
+            ns.ignore_tests = []
+        with open(ns.ignore_filename) as fp:
+            for line in fp:
+                ns.ignore_tests.append(line.strip())
     if ns.forever:
         # --forever implies --failfast
         ns.failfast = True
