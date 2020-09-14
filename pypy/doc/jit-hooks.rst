@@ -1,3 +1,5 @@
+.. _jit-hooks:
+
 JIT hooks
 =========
 

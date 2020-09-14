@@ -31,7 +31,7 @@ to improve PyPy 3.5 and probably move to 3.6 during the course of 2018.
 
 You can download the v5.10 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -42,7 +42,7 @@ layers and we need help with all of them: `PyPy`_ and `RPython`_ documentation
 improvements, tweaking popular `modules`_ to run on pypy, or general `help`_
 with making RPython's JIT even better.
 
-.. _vmprof: http://vmprof.readthedocs.io
+.. _vmprof: https://vmprof.readthedocs.io
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
@@ -70,8 +70,8 @@ The PyPy release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Changelog
 =========

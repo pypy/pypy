@@ -9,7 +9,7 @@ the "sweet spot" of PyPy. That is, classes of Python code that PyPy can greatly
 speed up should be vastly improved with this release. You can download the 1.7
 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 What is PyPy?
 =============
@@ -26,7 +26,7 @@ can greatly speed up. On average on
 our benchmark suite, PyPy 1.7 is around **30%** faster than PyPy 1.6 and up
 to **20 times** faster on some benchmarks.
 
-.. _`pypy 1.7 and cpython 2.7.1`: http://speed.pypy.org
+.. _`pypy 1.7 and cpython 2.7.1`: https://speed.pypy.org
 
 
 Highlights
@@ -89,6 +89,6 @@ of those happen faster, we urge you to donate to `numpy proposal`_ or
 `py3k proposal`_. In case you want PyPy to progress, but you trust us with
 the general direction, you can always donate to the `general pot`_.
 
-.. _`numpy proposal`: http://pypy.org/numpydonate.html
-.. _`py3k proposal`: http://pypy.org/py3donate.html
-.. _`general pot`: http://pypy.org
+.. _`numpy proposal`: https://pypy.org/numpydonate.html
+.. _`py3k proposal`: https://pypy.org/py3donate.html
+.. _`general pot`: https://pypy.org

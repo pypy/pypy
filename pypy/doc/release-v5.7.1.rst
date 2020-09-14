@@ -39,8 +39,8 @@ The PyPy 2.7 release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Please update, and continue to help us make PyPy better.
 

@@ -75,18 +75,18 @@ Papers
 .. _A Way Forward in Parallelising Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2014/position-paper.pdf
 .. _Runtime Feedback in a Meta-Tracing JIT for Efficient Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2011/jit-hints.pdf
 .. _Allocation Removal by Partial Evaluation in a Tracing JIT: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pepm2011/bolz-allocation-removal.pdf
-.. _Towards a Jitting VM for Prolog Execution: http://stups.hhu.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
-.. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: http://buildbot.pypy.org/misc/antocuni-thesis.pdf
+.. _Towards a Jitting VM for Prolog Execution: https://stups.hhu.de/mediawiki/images/a/a7/Pub-BoLeSch2010.pdf
+.. _High performance implementation of Python for CLI/.NET with JIT compiler generation for dynamic languages: https://buildbot.pypy.org/misc/antocuni-thesis.pdf
 .. _How to *not* write Virtual Machines for Dynamic Languages: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/dyla2007/dyla.pdf
 .. _`Tracing the Meta-Level: PyPy's Tracing JIT Compiler`: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2009/bolz-tracing-jit.pdf
 .. _`Faster than C#: Efficient Implementation of Dynamic Languages on .NET`: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/icooolps2009-dotnet/cli-jit.pdf
 .. _Automatic JIT Compiler Generation with Runtime Partial Evaluation: https://www.researchgate.net/profile/Davide_Ancona/publication/252023163_Automatic_generation_of_JIT_compilers_for_dynamic_languages_in_NET/links/53f2098e0cf2bc0c40e70023/Automatic-generation-of-JIT-compilers-for-dynamic-languages-in-NET.pdf
-.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: http://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
+.. _`RPython: A Step towards Reconciling Dynamically and Statically Typed OO Languages`: https://www.disi.unige.it/person/AnconaD/papers/DynamicLanguages_abstracts.html#AACM-DLS07
 .. _EU Reports: index-report.html
-.. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: http://sabi.net/nriley/pubs/dls6-riley.pdf
-.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: http://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
-.. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: http://psyco.sourceforge.net/psyco-pepm-a.ps.gz
-.. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _Hardware Transactional Memory Support for Lightweight Dynamic Language Evolution: https://sabi.net/nriley/pubs/dls6-riley.pdf
+.. _`PyGirl: Generating Whole-System VMs from High-Level Prototypes using PyPy`: https://scg.unibe.ch/archive/papers/Brun09cPyGirl.pdf
+.. _Representation-Based Just-in-Time Specialization and the Psyco Prototype for Python: https://psyco.sourceforge.net/psyco-pepm-a.ps.gz
+.. _Back to the Future in One Week -- Implementing a Smalltalk VM in PyPy: https://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _Automatic generation of JIT compilers for dynamic languages in .NET: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ecoop2009/main.pdf
 .. _Core Object Optimization Results: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/eu-report/D06.1_Core_Optimizations-2007-04-30.pdf
 .. _Compiling Dynamic Language Implementations: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/eu-report/D05.1_Publish_on_translating_a_very-high-level_description.pdf
@@ -266,8 +266,8 @@ Talks in 2003
   introduction for the Amsterdam PyPy-Sprint Dec 2003.
 
 
-.. _PyCon 2010: http://morepypy.blogspot.com/2010/02/pycon-2010-report.html
-.. _RuPy 2009: http://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
+.. _PyCon 2010: https://morepypy.blogspot.com/2010/02/pycon-2010-report.html
+.. _RuPy 2009: https://morepypy.blogspot.com/2009/11/pypy-on-rupy-2009.html
 .. _PyPy 3000: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/pypy3000.txt
 .. _What can PyPy do for you: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/usecases-slides.txt
 .. _PyPy introduction at EuroPython 2006: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2006/intro.pdf
@@ -290,12 +290,12 @@ Talks in 2003
 .. _EuroPython talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2009/
 .. _PyCon talks 2009: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon2009/
 .. _Wroclaw (Poland) presentation: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/wroclaw2009/talk.pdf
-.. _PyPy talk at OpenBossa 09: http://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
+.. _PyPy talk at OpenBossa 09: https://morepypy.blogspot.com/2009/03/pypy-talk-at-openbossa-09.html
 .. _at SFI 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/sfi2008/
 .. _at PyCon Poland 08: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pyconpl-2008/talk.pdf
 .. _The PyPy Project and You: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/osdc2008/osdc08.pdf
 .. _EuroPython talks 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/ep2008/
-.. _Maemo summit: http://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
+.. _Maemo summit: https://morepypy.blogspot.com/2008/09/pypypython-at-maemo-summit.html
 .. _PyCon UK 2008 - JIT: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/jit/pypy-vm.pdf
 .. _PyCon UK 2008 - Status: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-uk-2008/status/status.pdf
 .. _PyCon Italy 2008: https://foss.heptapod.net/pypy/extradoc/raw/branch/default/talk/pycon-italy-2008/pypy-vm.pdf
@@ -357,17 +357,17 @@ Related projects
   through it is a lot of fun.
 
 .. _TraceMonkey: https://wiki.mozilla.org/JavaScript:TraceMonkey
-.. _CLR under the hood: http://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
-.. _Stackless: http://stackless.com
-.. _Psyco: http://psyco.sourceforge.net
-.. _Jython: http://www.jython.org
-.. _Squeak: http://www.squeak.org/
-.. _Croquet: http://www.opencroquet.org/
-.. _transparent dynamic optimization: http://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
-.. _Dynamo: http://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
-.. _LLVM: http://llvm.org/
-.. _IronPython: http://ironpython.codeplex.com/
-.. _Dynamic Native Optimization of Native Interpreters: http://people.csail.mit.edu/gregs/dynamorio.html
-.. _JikesRVM: http://www.jikesrvm.org/
-.. _Tunes: http://tunes.org
-.. _old Tunes Wiki: http://buildbot.pypy.org/misc/cliki.tunes.org/
+.. _CLR under the hood: https://download.microsoft.com/download/2/4/d/24dfac0e-fec7-4252-91b9-fb2310603f14/CLRUnderTheHood.BradA.ppt
+.. _Stackless: https://stackless.com
+.. _Psyco: https://psyco.sourceforge.net
+.. _Jython: https://www.jython.org
+.. _Squeak: https://www.squeak.org/
+.. _Croquet: https://www.opencroquet.org/
+.. _transparent dynamic optimization: https://www.hpl.hp.com/techreports/1999/HPL-1999-77.pdf
+.. _Dynamo: https://www.hpl.hp.com/techreports/1999/HPL-1999-78.pdf
+.. _LLVM: https://llvm.org/
+.. _IronPython: https://ironpython.codeplex.com/
+.. _Dynamic Native Optimization of Native Interpreters: https://people.csail.mit.edu/gregs/dynamorio.html
+.. _JikesRVM: https://www.jikesrvm.org/
+.. _Tunes: https://tunes.org
+.. _old Tunes Wiki: https://buildbot.pypy.org/misc/cliki.tunes.org/
