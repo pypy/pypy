@@ -41,6 +41,7 @@ RPY_EXTERN long vmprof_get_profile_path(char *, long);
 RPY_EXTERN int vmprof_stop_sampling(void);
 RPY_EXTERN void vmprof_start_sampling(void);
 
+void *pypy_find_codemap_at_addr(long addr, long *start_addr);
 long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
                                       intptr_t addr, int max_depth);
 
