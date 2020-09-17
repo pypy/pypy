@@ -79,31 +79,34 @@ def HPyType_FromSpec(space, ctx, spec):
     w_result = _create_new_type(
         space, space.w_type, name, bases_w, dict_w, basicsize)
     if spec.c_defines:
-        p = spec.c_defines
-        i = 0
-        HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
-        while p[i]:
-            kind = rffi.cast(lltype.Signed, p[i].c_kind)
-            if kind == HPyDef_Kind.HPyDef_Kind_Slot:
-                hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
-                fill_slot(space, w_result, hpyslot)
-            elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
-                hpymeth = p[i].c_meth
-                name = rffi.constcharp2str(hpymeth.c_name)
-                sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
-                w_extfunc = W_ExtensionMethod(space, name, sig, hpymeth.c_impl, w_result)
-                w_result.setdictvalue(
-                    space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
-            elif kind == HPyDef_Kind.HPyDef_Kind_Member:
-                hpymember = llapi.cts.cast('_pypy_HPyDef_as_member*', p[i]).c_member
-                add_member(space, w_result, hpymember)
-            elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
-                hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
-                add_getset(space, w_result, hpygetset)
-            else:
-                raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
-            i += 1
+        add_slot_defs(space, ctx, w_result, spec.c_defines)
     return handles.new(space, w_result)
+
+def add_slot_defs(space, ctx, w_result, c_defines):
+    p = c_defines
+    i = 0
+    HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
+    while p[i]:
+        kind = rffi.cast(lltype.Signed, p[i].c_kind)
+        if kind == HPyDef_Kind.HPyDef_Kind_Slot:
+            hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
+            fill_slot(space, w_result, hpyslot)
+        elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
+            hpymeth = p[i].c_meth
+            name = rffi.constcharp2str(hpymeth.c_name)
+            sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
+            w_extfunc = W_ExtensionMethod(space, name, sig, hpymeth.c_impl, w_result)
+            w_result.setdictvalue(
+                space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
+        elif kind == HPyDef_Kind.HPyDef_Kind_Member:
+            hpymember = llapi.cts.cast('_pypy_HPyDef_as_member*', p[i]).c_member
+            add_member(space, w_result, hpymember)
+        elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
+            hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
+            add_getset(space, w_result, hpygetset)
+        else:
+            raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
+        i += 1
 
 def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
     pos = surrogate_in_utf8(name)
