@@ -49,23 +49,26 @@ configure_args = ['./configure',
             '--enable-silent-rules',
             '--disable-dependency-tracking',
         ]
+# please note the deliberate use of a mirror site: we can't use HTTPS
+# without an _ssl module, but the OpenSSL download site redirect HTTP
+# to HTTPS
 cffi_dependencies = {
-    'lzma': ('https://tukaani.org/xz/xz-5.2.3.tar.gz',
+    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.3.tar.gz',
              '71928b357d0a09a12a4b4c5fafca8c31c19b0e7d3b8ebb19622e96f26dbf28cb',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('https://www.openssl.org/source/openssl-1.1.1f.tar.gz',
+    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1f.tar.gz',
              '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
     # this does not compile on the buildbot, linker is missing '_history_list'
-    'broken_on_macos_gdbm': ('http://ftp.gnu.org/gnu/gdbm/gdbm-1.18.1.tar.gz',
+    'gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
-              [configure_args,
+              [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
