@@ -18,9 +18,12 @@
 #define _LARGEFILE_SOURCE 1
 /* Define on NetBSD to activate all library features */
 #define _NETBSD_SOURCE 1
-/* Define to activate features from IEEE Stds 1003.1-2008 */
-#ifndef _POSIX_C_SOURCE
-#  define _POSIX_C_SOURCE 200809L
+/* Define to activate features from IEEE Stds 1003.1-2008, except on
+   macOS where it hides a lot symbols */
+#ifndef __APPLE__
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200809L
+#  endif
 #endif
 /* Define on FreeBSD to activate all library features */
 #define __BSD_VISIBLE 1
