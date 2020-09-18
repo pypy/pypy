@@ -96,8 +96,7 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame = space.getexecutioncontext().gettopframe()
     frame.exec_(w_prog, w_globals, w_locals)
 
-def _update_bases(space, w_bases):
-    bases_w = space.fixedview(w_bases)
+def _update_bases(space, w_bases, bases_w):
     new_bases_w = []
     changed = False
     for w_base in bases_w:
@@ -121,7 +120,7 @@ def build_class(space, w_func, w_name, __args__):
         raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
     orig_bases_w, kwds_w = __args__.unpack()
     w_orig_bases = space.newtuple(orig_bases_w)
-    bases_w = _update_bases(space, w_orig_bases)
+    bases_w = _update_bases(space, w_orig_bases, orig_bases_w)
     w_bases = space.newtuple(bases_w)
     w_meta = kwds_w.pop('metaclass', None)
     if w_meta is not None:
