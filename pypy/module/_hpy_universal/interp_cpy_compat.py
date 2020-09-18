@@ -5,9 +5,12 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef
+#
 from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
 from pypy.module.cpyext.modsupport import convert_method_defs
+from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts
+#
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
@@ -42,6 +45,40 @@ def attach_legacy_methods(space, hpymethods, w_mod, modname):
     # transfer the ownership of pymethods to W_CPyStaticData
     w_static_data = W_CPyStaticData(space, methods)
     space.setattr(w_mod, space.newtext("__cpy_static_data__"), w_static_data)
+
+
+def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
+    from pypy.module.cpyext.slotdefs import wrap_unaryfunc
+    slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
+
+    i = 0
+    while True:
+        slotdef = slotdefs[i]
+        slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
+        if slotnum == 0:
+            break
+        fill_legacy_slot(space, w_type, slotdef, slotnum)
+        i += 1
+
+def fill_legacy_slot(space, w_type, slotdef, slotnum):
+    from pypy.module.cpyext.typeobject import SLOT_TABLE
+    from pypy.module.cpyext.slotdefs import slotdefs_for_wrappers
+    # XXX this needs to be refactored, e.g. by putting slotnum inside
+    # slotdefs_for_wrappers
+    for num, membername, slotname, TARGET in SLOT_TABLE:
+        if slotnum != num:
+            continue
+        for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
+            # XXX this is probably not rpython and I'm not even sure it works
+            # in all cases
+            if slotname in slot_names:
+                funcptr = slotdef.c_pfunc
+                w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr,
+                                          offset=0)
+                w_type.setdictvalue(space, method_name, w_wrapper)
+                break
+        else:
+            assert False, 'cannot find the slot'
 
 
 class W_CPyStaticData(W_Root):

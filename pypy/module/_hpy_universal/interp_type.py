@@ -9,6 +9,7 @@ from pypy.module._hpy_universal import handles, llapi
 from .interp_extfunc import W_ExtensionMethod
 from .interp_slot import fill_slot
 from .interp_descr import add_member, add_getset
+from .interp_cpy_compat import attach_legacy_slots_to_type
 from rpython.rlib.rutf8 import surrogate_in_utf8
 
 class W_HPyObject(W_ObjectObject):
@@ -78,6 +79,8 @@ def HPyType_FromSpec(space, ctx, spec):
 
     w_result = _create_new_type(
         space, space.w_type, name, bases_w, dict_w, basicsize)
+    if spec.c_legacy_slots:
+        attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
         add_slot_defs(space, ctx, w_result, spec.c_defines)
     return handles.new(space, w_result)
