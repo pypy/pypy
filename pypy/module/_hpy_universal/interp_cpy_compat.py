@@ -86,9 +86,12 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
 
 def attach_legacy_slot(space, w_type, slotdef, slotnum):
     for num, method_name, doc, wrapper_class in SLOT_WRAPPERS_TABLE:
-        if num == slotnum:            
+        if num == slotnum:
+            if wrapper_class is None:
+                # XXX: we probably need to handle manually these slots
+                raise NotImplementedError("slot wrapper for slot %d" % num)
             funcptr = slotdef.c_pfunc
-            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, offset=0)
+            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, offset=[])
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:
