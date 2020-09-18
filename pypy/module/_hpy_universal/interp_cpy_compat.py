@@ -1,6 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib import rgc
+from rpython.rlib.unroll import unrolling_iterable
+#
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.gateway import interp2app
@@ -47,6 +49,28 @@ def attach_legacy_methods(space, hpymethods, w_mod, modname):
     space.setattr(w_mod, space.newtext("__cpy_static_data__"), w_static_data)
 
 
+# ~~~ legacy_slots ~~~
+
+def make_slot_wrappers_table():
+    from pypy.module.cpyext.typeobject import SLOT_TABLE
+    from pypy.module.cpyext.slotdefs import slotdefs
+    table = [] # (slotnum, method_name, doc, wrapper_class)
+    for typeslot in slotdefs:
+        # ignore pypy-specific slots
+        if typeslot.slot_names[-1] in ('c_bf_getbuffer',
+                                       'c_bf_getreadbuffer',
+                                       'c_bf_getwritebuffer'):
+            continue
+        for num, membername, slotname, TARGET in SLOT_TABLE:
+            if typeslot.slot_names[-1] == slotname:
+                ts = typeslot
+                table.append((num, ts.method_name, ts.doc, ts.wrapper_class))
+                break
+        else:
+            assert False, 'Cannot find slot num for typeslot %s' % typeslot.slot_name
+    return table
+SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
+
 def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
@@ -57,28 +81,18 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
         slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
         if slotnum == 0:
             break
-        fill_legacy_slot(space, w_type, slotdef, slotnum)
+        attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1
 
-def fill_legacy_slot(space, w_type, slotdef, slotnum):
-    from pypy.module.cpyext.typeobject import SLOT_TABLE
-    from pypy.module.cpyext.slotdefs import slotdefs_for_wrappers
-    # XXX this needs to be refactored, e.g. by putting slotnum inside
-    # slotdefs_for_wrappers
-    for num, membername, slotname, TARGET in SLOT_TABLE:
-        if slotnum != num:
-            continue
-        for method_name, slot_names, wrapper_class, doc in slotdefs_for_wrappers:
-            # XXX this is probably not rpython and I'm not even sure it works
-            # in all cases
-            if slotname in slot_names:
-                funcptr = slotdef.c_pfunc
-                w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr,
-                                          offset=0)
-                w_type.setdictvalue(space, method_name, w_wrapper)
-                break
-        else:
-            assert False, 'cannot find the slot'
+def attach_legacy_slot(space, w_type, slotdef, slotnum):
+    for num, method_name, doc, wrapper_class in SLOT_WRAPPERS_TABLE:
+        if num == slotnum:            
+            funcptr = slotdef.c_pfunc
+            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, offset=0)
+            w_type.setdictvalue(space, method_name, w_wrapper)
+            break
+    else:
+        assert False, 'cannot find the slot %d' % (slotnum)
 
 
 class W_CPyStaticData(W_Root):
