@@ -40,13 +40,8 @@ def attach_legacy_methods(space, pymethods, w_obj, modname=None):
     pymethods = cpyts.cast('PyMethodDef*', pymethods)
     dict_w = {}
     convert_method_defs(space, dict_w, pymethods, None, w_obj, modname)
-
     for key, w_func in dict_w.items():
         space.setattr(w_obj, space.newtext(key), w_func)
-
-    # transfer the ownership of pymethods to W_CPyStaticData
-    w_static_data = W_CPyStaticData(space, pymethods)
-    space.setattr(w_obj, space.newtext("__cpy_static_data__"), w_static_data)
 
 
 # ~~~ legacy_slots ~~~
@@ -99,32 +94,3 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum):
             break
     else:
         assert False, 'cannot find the slot %d' % (slotnum)
-
-
-
-# ~~~ extra stuff ~~~
-
-class W_CPyStaticData(W_Root):
-    """
-    An object which owns the various C data structures which we need to create
-    for compatibility with cpyext.
-    """
-
-    def __init__(self, space, pymethods):
-        self.space = space
-        self.pymethods = pymethods # PyMethodDef[]
-
-    @rgc.must_be_light_finalizer
-    def __del__(self):
-        lltype.free(self.pymethods, flavor='raw')
-
-    def repr(self):
-        return self.space.newtext("<CpyStaticData>")
-
-W_CPyStaticData.typedef = TypeDef(
-    '_hpy_universal.CPyStaticData',
-    __module__ = '_hpy_universal',
-    __name__ = '<CPyStaticData>',
-    __repr__ = interp2app(W_CPyStaticData.repr),
-    )
-W_CPyStaticData.typedef.acceptable_as_base_class = False
