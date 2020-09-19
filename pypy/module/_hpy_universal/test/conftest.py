@@ -17,6 +17,9 @@ import types
 class extra_AppTestCPythonCompatibility:
     USE_CPYEXT = True
 
+class extra_AppTestExtraCPythonCompatibility:
+    USE_CPYEXT = True
+
 # ========================================================================
 # pytest hooks to automatically generate AppTests from HPy vendored tests
 # ========================================================================
