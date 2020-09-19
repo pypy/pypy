@@ -28,28 +28,29 @@ def HPy_AsPyObject(space, ctx, h):
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)
 
+# ~~~ legacy_methods ~~~
+# This is used by both modules and types
 
-def attach_legacy_methods(space, hpymethods, w_mod, modname):
+def attach_legacy_methods(space, pymethods, w_obj, modname=None):
     """
-    Convert HPyMethodDef[] into PyMethodDef[], and wrap the methods into the
-    proper cpyext.W_*Function objects
+    pymethods is passed as a void*, but it is expected to be a PyMethodDef[].
+    Wrap its items into the proper cpyext.W_*Function objects, and attach them
+    to w_obj (which can be either a module or a type).
     """
-    from pypy.module.cpyext.api import cts as cpyts
-    methods = cpyts.cast('PyMethodDef*', hpymethods)
-
-    # convert hpymethods into a C array of PyMethodDef
+    pymethods = cpyts.cast('PyMethodDef*', pymethods)
     dict_w = {}
-    convert_method_defs(space, dict_w, methods, None, w_mod, modname)
+    convert_method_defs(space, dict_w, pymethods, None, w_obj, modname)
 
     for key, w_func in dict_w.items():
-        space.setattr(w_mod, space.newtext(key), w_func)
+        space.setattr(w_obj, space.newtext(key), w_func)
 
     # transfer the ownership of pymethods to W_CPyStaticData
-    w_static_data = W_CPyStaticData(space, methods)
-    space.setattr(w_mod, space.newtext("__cpy_static_data__"), w_static_data)
+    w_static_data = W_CPyStaticData(space, pymethods)
+    space.setattr(w_obj, space.newtext("__cpy_static_data__"), w_static_data)
 
 
 # ~~~ legacy_slots ~~~
+# This is used only by types
 
 def make_slot_wrappers_table():
     from pypy.module.cpyext.typeobject import SLOT_TABLE
@@ -74,14 +75,17 @@ SLOT_WRAPPERS_TABLE = unrolling_iterable(make_slot_wrappers_table())
 def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
     from pypy.module.cpyext.slotdefs import wrap_unaryfunc
     slotdefs = rffi.cast(rffi.CArrayPtr(cpyts.gettype('PyType_Slot')), c_legacy_slots)
-
     i = 0
     while True:
         slotdef = slotdefs[i]
         slotnum = rffi.cast(lltype.Signed, slotdef.c_slot)
         if slotnum == 0:
             break
-        attach_legacy_slot(space, w_type, slotdef, slotnum)
+        elif slotnum == cpyts.macros['Py_tp_methods']:
+            pymethods = cpyts.cast('PyMethodDef*', slotdef.c_pfunc)
+            attach_legacy_methods(space, pymethods, w_type, None)
+        else:
+            attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1
 
 def attach_legacy_slot(space, w_type, slotdef, slotnum):
@@ -97,6 +101,9 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum):
     else:
         assert False, 'cannot find the slot %d' % (slotnum)
 
+
+
+# ~~~ extra stuff ~~~
 
 class W_CPyStaticData(W_Root):
     """

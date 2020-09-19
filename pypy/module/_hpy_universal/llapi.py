@@ -271,7 +271,7 @@ typedef struct {
 
 /* hpymodule.h */
 
-typedef int cpy_PyMethodDef;
+typedef void cpy_PyMethodDef;
 
 typedef struct {
     void *dummy; // this is needed because we put a comma after HPyModuleDef_HEAD_INIT :(
