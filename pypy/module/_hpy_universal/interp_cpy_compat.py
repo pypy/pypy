@@ -82,8 +82,7 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
         if slotnum == 0:
             break
         elif slotnum == cpyts.macros['Py_tp_methods']:
-            pymethods = cpyts.cast('PyMethodDef*', slotdef.c_pfunc)
-            attach_legacy_methods(space, pymethods, w_type, None)
+            attach_legacy_methods(space, slotdef.c_pfunc, w_type, None)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1
