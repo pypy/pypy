@@ -17,7 +17,8 @@ def HPyModule_Create(space, ctx, hpydef):
     # add the functions defined in hpydef.c_legacy_methods
     if hpydef.c_legacy_methods:
         if space.config.objspace.hpy_cpyext_API:
-            attach_legacy_methods(space, hpydef.c_legacy_methods, w_mod, modname)
+            pymethods = rffi.cast(rffi.VOIDP, hpydef.c_legacy_methods)
+            attach_legacy_methods(space, pymethods, w_mod, modname)
         else:
             raise oefmt(space.w_RuntimeError,
                     "Module %s contains legacy methods, but _hpy_universal "
