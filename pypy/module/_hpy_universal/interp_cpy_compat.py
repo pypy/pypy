@@ -12,10 +12,12 @@ from pypy.module.cpyext import pyobject
 from pypy.module.cpyext.methodobject import PyMethodDef, PyCFunction
 from pypy.module.cpyext.modsupport import convert_method_defs
 from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts
+from pypy.module.cpyext import structmemberdefs
 #
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
 
 @API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)", cpyext=True)
 def HPy_FromPyObject(space, ctx, obj):
@@ -42,6 +44,38 @@ def attach_legacy_methods(space, pymethods, w_obj, modname=None):
     convert_method_defs(space, dict_w, pymethods, None, w_obj, modname)
     for key, w_func in dict_w.items():
         space.setattr(w_obj, space.newtext(key), w_func)
+
+# ~~~ legacy_members ~~~
+# This is used only by types
+
+def attach_legacy_members(space, pymembers, w_type):
+    PyMemberDef = cpyts.gettype('PyMemberDef')
+    pymembers = rffi.cast(rffi.CArrayPtr(PyMemberDef), pymembers)
+    if not pymembers:
+        return
+    i = 0
+    while True:
+        pymember = pymembers[i]
+        name = pymember.c_name
+        if not name:
+            break
+        i += 1
+        name = rffi.constcharp2str(pymember.c_name)
+        doc = rffi.constcharp2str(pymember.c_doc) if pymember.c_doc else None
+        offset = rffi.cast(lltype.Signed, pymember.c_offset)
+        #
+        # NOTE: the following works only because the HPy's
+        # HPyMember_FieldType.* happen to have the same numeric value as
+        # cpyexts' structmemberdefs.T_*
+        kind = rffi.cast(lltype.Signed, pymember.c_type)
+        #
+        # XXX: write tests about the other flags? I think that READ_RESTRICTED
+        # and WRITE_RESTRICTED are not used nowadays?
+        flags = rffi.cast(lltype.Signed, pymember.c_flags)
+        readonly = flags & structmemberdefs.READONLY # XXX currently ignored, write a test
+        #
+        w_member = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
+        w_type.setdictvalue(space, name, w_member)
 
 
 # ~~~ legacy_slots ~~~
@@ -78,6 +112,8 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
             break
         elif slotnum == cpyts.macros['Py_tp_methods']:
             attach_legacy_methods(space, slotdef.c_pfunc, w_type, None)
+        elif slotnum == cpyts.macros['Py_tp_members']:
+            attach_legacy_members(space, slotdef.c_pfunc, w_type)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1

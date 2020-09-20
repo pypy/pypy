@@ -15,6 +15,14 @@ from pypy.module._hpy_universal.test._vendored.support import HPyTest
 class TestExtra(HPyTest):
     pass
 
+    """
+    Additional tests to write:
+
+      - check the .readonly field of HPyDef_MEMBER (and also the corresponding
+        flag for the PyMemberDef cpy_compat case)
+    """
+
+
 
 class TestExtraCPythonCompatibility(HPyTest):
     # these tests are run with cpyext support, see conftest.py
