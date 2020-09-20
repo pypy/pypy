@@ -189,3 +189,8 @@ def HPy_RichCompareBool(space, ctx, v, w, op):
 def HPy_Hash(space, ctx, h_obj):
     w_obj = handles.deref(space, h_obj)
     return API.cts.cast('HPy_hash_t', space.hash_w(w_obj))
+
+@API.func("HPy_ssize_t HPy_Length(HPyContext ctx, HPy h)")
+def HPy_Length(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    return space.len_w(w_obj)
