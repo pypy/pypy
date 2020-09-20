@@ -10,6 +10,14 @@ def HPyDict_New(space, ctx):
     w_dict = space.newdict()
     return handles.new(space, w_dict)
 
+@API.func("int HPyDict_Check(HPyContext ctx, HPy h)")
+def HPyDict_Check(space, ctx, h):
+    w_obj = handles.deref(space, h)
+    w_obj_type = space.type(w_obj)
+    res = (space.is_w(w_obj_type, space.w_dict) or
+           space.issubtype_w(w_obj_type, space.w_dict))
+    return API.int(res)
+
 @API.func("int HPyDict_SetItem(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val)")
 def HPyDict_SetItem(space, ctx, h_dict, h_key, h_val):
     w_dict = handles.deref(space, h_dict)
