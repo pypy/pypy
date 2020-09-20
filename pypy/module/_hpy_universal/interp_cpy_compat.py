@@ -77,6 +77,15 @@ def attach_legacy_members(space, pymembers, w_type):
         w_member = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
         w_type.setdictvalue(space, name, w_member)
 
+# ~~~ legacy_getset ~~~
+# This is used only by types
+
+def attach_legacy_getsets(space, pygetset, w_type):
+    # when we implement this, remember to unskip test_legacy_slots_getsets in
+    # conftest.py
+    raise OperationError(space.w_NotImplementedError,
+                         space.newtext("legacy getsets are not implemented yet"))
+
 
 # ~~~ legacy_slots ~~~
 # This is used only by types
@@ -114,6 +123,8 @@ def attach_legacy_slots_to_type(space, w_type, c_legacy_slots):
             attach_legacy_methods(space, slotdef.c_pfunc, w_type, None)
         elif slotnum == cpyts.macros['Py_tp_members']:
             attach_legacy_members(space, slotdef.c_pfunc, w_type)
+        elif slotnum == cpyts.macros['Py_tp_getset']:
+            attach_legacy_getsets(space, slotdef.c_pfunc, w_type)
         else:
             attach_legacy_slot(space, w_type, slotdef, slotnum)
         i += 1

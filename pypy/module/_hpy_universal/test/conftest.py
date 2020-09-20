@@ -14,9 +14,18 @@ import types
 ##         import pytest
 ##         pytest.skip('fixme')
 
+# test/_vendored/test_cpy_compat.py
 class extra_AppTestCPythonCompatibility:
     USE_CPYEXT = True
 
+    def test_legacy_slots_getsets(self):
+        # to pass this test, we need to implement HPy_AsPyObject in a way that
+        # it's compatible with HPy_CAST, as described in
+        # https://mail.python.org/archives/list/hpy-dev@python.org/thread/3TQ3AAY6AOUXZRAKWY42C77VL4AF54YC/
+        import pytest
+        pytest.skip('implement me!')
+
+# test/test_extra.py
 class extra_AppTestExtraCPythonCompatibility:
     USE_CPYEXT = True
 
