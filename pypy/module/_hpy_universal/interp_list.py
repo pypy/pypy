@@ -12,6 +12,13 @@ def HPyList_New(space, ctx, len):
         w_list = space.newlist([None] * len)
     return handles.new(space, w_list)
 
+@API.func("int HPyList_Check(HPyContext ctx, HPy h)")
+def HPyList_Check(space, ctx, h):
+    w_obj = handles.deref(space, h)
+    w_obj_type = space.type(w_obj)
+    res = (space.is_w(w_obj_type, space.w_list) or
+           space.issubtype_w(w_obj_type, space.w_list))
+    return API.int(res)
 
 @API.func("int HPyList_Append(HPyContext ctx, HPy h_list, HPy h_item)")
 def HPyList_Append(space, ctx, h_list, h_item):
