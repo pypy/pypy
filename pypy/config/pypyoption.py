@@ -41,7 +41,7 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
-    "_jitlog",
+    "_jitlog", "_hpy_universal"
     # "_hashlib", "crypt"
 ])
 
@@ -175,6 +175,10 @@ pypy_optiondescription = OptionDescription("objspace", "Object Space Options", [
                  ["fnv", "siphash24"],
                  default="siphash24",
                  cmdline="--hash"),
+
+    BoolOption("hpy_cpyext_API",
+               "Enable the HPy/cpyext API in the hpy_universal module",
+               default=True),
 
     OptionDescription("std", "Standard Object Space Options", [
         BoolOption("withtproxy", "support transparent proxies",

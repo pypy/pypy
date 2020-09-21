@@ -176,6 +176,36 @@ def test_const():
     cts = parse_source(cdef)
     assert cts.definitions['bar'].c_foo == rffi.CONST_CCHARP != rffi.CCHARP
 
+def test_enum():
+    cdef = """
+    typedef enum {
+        mp_ass_subscript = 3,
+        mp_length = 4,
+        mp_subscript = 5,
+    } Slot;
+    """
+    cts = parse_source(cdef)
+    assert cts.gettype('Slot').mp_length == 4
+
+def test_translate_enum():
+    cdef = """
+    typedef enum {
+        mp_ass_subscript = 3,
+        mp_length = 4,
+        mp_subscript = 5,
+    } Slot;
+    """
+    cts = parse_source(cdef)
+    def f():
+        return cts.gettype('Slot').mp_length
+    graph = build_flow(f)
+    simplify_graph(graph)
+    # Check that the result is constant-folded
+    assert graph.startblock.operations == []
+    [link] = graph.startblock.exits
+    assert link.target is graph.returnblock
+    assert link.args[0] == const(4)
+
 def test_gettype():
     decl = """
     typedef ssize_t Py_ssize_t;

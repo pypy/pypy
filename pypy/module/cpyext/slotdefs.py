@@ -118,7 +118,7 @@ class wrap_ternaryfunc(W_PyCWrapperObject):
         return generic_cpy_call(space, func_ternary, w_self, w_arg0, w_arg1)
 
 class wrap_ternaryfunc_r(W_PyCWrapperObject):
-    def call(self, space, w_self, __args__):    
+    def call(self, space, w_self, __args__):
         # The third argument is optional
         self.check_argsv(__args__, 1, 2)
         func = self.get_func_to_call()
