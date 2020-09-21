@@ -54,4 +54,8 @@ def hpy_err_Occurred_rpy(space):
 
 @API.func("HPy HPyErr_NoMemory(HPyContext ctx)")
 def HPyErr_NoMemory(space, ctx):
+    # hack to convince the annotator that this function returns an HPy (i.e.,
+    # a Signed)
+    if NonConstant(False):
+        return -42
     raise OperationError(space.w_MemoryError, space.w_None)
