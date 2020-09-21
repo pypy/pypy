@@ -50,6 +50,12 @@ typedef struct _HPy_s {
 } _struct_HPy_s;
 typedef HPy_ssize_t HPy;
 
+typedef struct _HPyListBuilder_s {
+    HPy_ssize_t _lst;
+} _struct_HPyListBuilder_s;
+typedef HPy_ssize_t HPyListBuilder;
+
+
 typedef struct _HPyContext_s {
     int ctx_version;
     struct _HPy_s h_None;

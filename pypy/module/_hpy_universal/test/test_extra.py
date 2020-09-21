@@ -20,6 +20,15 @@ class TestExtra(HPyTest):
 
       - check the .readonly field of HPyDef_MEMBER (and also the corresponding
         flag for the PyMemberDef cpy_compat case)
+
+
+    ListBuilder:
+
+      - in the C code there is logic to delay the MemoryError until we call
+        ListBuilder_Build, but it is not tested
+
+      - ListBuilder_Cancel is not tested
+
     """
 
 
