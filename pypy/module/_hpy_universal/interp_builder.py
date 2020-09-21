@@ -53,5 +53,5 @@ def HPyListBuilder_Build(space, ctx, builder):
 def HPyListBuilder_Cancel(space, ctx, builder):
     # XXX write a test
     from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
+    if NonConstant(False): return
     raise NotImplementedError
