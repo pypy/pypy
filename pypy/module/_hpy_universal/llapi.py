@@ -158,6 +158,8 @@ typedef struct _HPyContext_s {
     void * ctx_Dict_New;
     void * ctx_Dict_SetItem;
     void * ctx_Dict_GetItem;
+    void * ctx_FatalError;
+    void * ctx_Tuple_FromArray;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
@@ -166,6 +168,10 @@ typedef struct _HPyContext_s {
     void * ctx_ListBuilder_Set;
     void * ctx_ListBuilder_Build;
     void * ctx_ListBuilder_Cancel;
+    void * ctx_TupleBuilder_New;
+    void * ctx_TupleBuilder_Set;
+    void * ctx_TupleBuilder_Build;
+    void * ctx_TupleBuilder_Cancel;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
