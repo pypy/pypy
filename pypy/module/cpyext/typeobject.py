@@ -267,7 +267,7 @@ def convert_member_defs(space, dict_w, members, w_type):
 WARN_MISSING_SLOTS = False
 missing_slots={}
 def warn_missing_slot(space, method_name, slot_name, w_type):
-    if not we_are_translated():
+    if WARN_MISSING_SLOTS and not we_are_translated():
         if slot_name not in missing_slots:
             missing_slots[slot_name] = w_type.getname(space)
             print "missing slot %r/%r, discovered on %r" % (
@@ -291,8 +291,7 @@ def update_all_slots(space, w_type, pto):
 
         if not slot_func_helper:
             if not slot_apifunc:
-                if WARN_MISSING_SLOTS:
-                    warn_missing_slot(space, method_name, slot_name, w_type)
+                warn_missing_slot(space, method_name, slot_name, w_type)
                 continue
             slot_func_helper = slot_apifunc.get_llhelper(space)
         fill_slot(space, pto, w_type, slot_names, slot_func_helper)
