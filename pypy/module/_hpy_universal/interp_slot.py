@@ -9,7 +9,7 @@ from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
 
-SlotEnum = llapi.cts.gettype('HPySlot_Slot')
+HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 
 # NOTE: most subclasses of W_SlotWrapper are inside autogen_interp_slots.py,
 # which is imported later
@@ -180,18 +180,18 @@ SLOTS = unrolling_iterable([
 def fill_slot(space, w_type, hpyslot):
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
-    if slot_num == SlotEnum.HPy_tp_new:
+    if slot_num == HPySlot_Slot.HPy_tp_new:
         w_func = W_ExtensionFunction(space, '__new__', llapi.HPyFunc_KEYWORDS,
                                      hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
-    elif slot_num == SlotEnum.HPy_tp_destroy:
+    elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
         return
 
     # generic cases
     for slotname, methname, cls in SLOTS:
-        n = getattr(SlotEnum, 'HPy_' + slotname)
+        n = getattr(HPySlot_Slot, 'HPy_' + slotname)
         if slot_num == n:
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
