@@ -212,7 +212,7 @@ class TestCPythonCompatibility(HPyTest):
                 return PyUnicode_FromString("myrepr");
             }
 
-            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute, Dummy_abs_impl, HPyFunc_UNARYFUNC);
+            HPyDef_SLOT(Dummy_abs, Dummy_abs_impl, HPy_nb_absolute);
             static HPy Dummy_abs_impl(HPyContext ctx, HPy self)
             {
                 return HPyLong_FromLong(ctx, 1234);
@@ -294,7 +294,7 @@ class TestCPythonCompatibility(HPyTest):
                 long y;
             } PointObject;
 
-            HPyDef_SLOT(Point_new, HPy_tp_new, Point_new_impl, HPyFunc_KEYWORDS)
+            HPyDef_SLOT(Point_new, Point_new_impl, HPy_tp_new)
             static HPy Point_new_impl(HPyContext ctx, HPy cls, HPy *args,
                                       HPy_ssize_t nargs, HPy kw)
             {
@@ -353,7 +353,7 @@ class TestCPythonCompatibility(HPyTest):
                 long y;
             } PointObject;
 
-            HPyDef_SLOT(Point_new, HPy_tp_new, Point_new_impl, HPyFunc_KEYWORDS)
+            HPyDef_SLOT(Point_new, Point_new_impl, HPy_tp_new)
             static HPy Point_new_impl(HPyContext ctx, HPy cls, HPy *args,
                                       HPy_ssize_t nargs, HPy kw)
             {

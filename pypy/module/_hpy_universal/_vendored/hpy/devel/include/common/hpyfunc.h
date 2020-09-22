@@ -41,7 +41,9 @@ typedef enum {
    are produced inside autogen_hpyfunc_declare.h. */
 
 
-/* Emit a forward declaration for a function SYM having a signature SIG, where
+/* ~~~ HPyFunc_DECLARE ~~~
+
+   Emit a forward declaration for a function SYM having a signature SIG, where
    SIG is one of HPyFunc_Signature members.
 
    Strictly speaking, the anonymous enum is not needed, since it just defines
@@ -56,17 +58,19 @@ typedef enum {
     _HPyFunc_DECLARE_##SIG(SYM)
 
 
-/* Emit a CPython-compatible trampoline which calls IMPL, where IMPL has the
+/* ~~~ HPyFunc_TRAMPOLINE ~~~
+
+   Emit a CPython-compatible trampoline which calls IMPL, where IMPL has the
    signature SIG. See above for why we need the anonymous enum. The actual
    implementation of trampolines are in hpyfunc_trampolines.h, which is
-   different for the CPython and Universal cases */
+   different for the CPython and Universal cases
+*/
 #define HPyFunc_TRAMPOLINE(SYM, IMPL, SIG) \
     enum { SYM##_sig = SIG };              \
     _HPyFunc_TRAMPOLINE_##SIG(SYM, IMPL)
 
 
 #include "autogen_hpyfunc_declare.h"
-
 
 #ifdef HPY_UNIVERSAL_ABI
 #  include "universal/hpyfunc_trampolines.h"

@@ -112,6 +112,8 @@ struct _HPyContext_s {
     HPy (*ctx_Dict_New)(HPyContext ctx);
     int (*ctx_Dict_SetItem)(HPyContext ctx, HPy h_dict, HPy h_key, HPy h_val);
     HPy (*ctx_Dict_GetItem)(HPyContext ctx, HPy h_dict, HPy h_key);
+    void (*ctx_FatalError)(HPyContext ctx, const char *message);
+    HPy (*ctx_Tuple_FromArray)(HPyContext ctx, HPy items[], HPy_ssize_t n);
     HPy (*ctx_FromPyObject)(HPyContext ctx, cpy_PyObject *obj);
     cpy_PyObject *(*ctx_AsPyObject)(HPyContext ctx, HPy h);
     void (*ctx_CallRealFunctionFromTrampoline)(HPyContext ctx, HPyFunc_Signature sig, void *func, void *args);
@@ -120,4 +122,8 @@ struct _HPyContext_s {
     void (*ctx_ListBuilder_Set)(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item);
     HPy (*ctx_ListBuilder_Build)(HPyContext ctx, HPyListBuilder builder);
     void (*ctx_ListBuilder_Cancel)(HPyContext ctx, HPyListBuilder builder);
+    HPyTupleBuilder (*ctx_TupleBuilder_New)(HPyContext ctx, HPy_ssize_t initial_size);
+    void (*ctx_TupleBuilder_Set)(HPyContext ctx, HPyTupleBuilder builder, HPy_ssize_t index, HPy h_item);
+    HPy (*ctx_TupleBuilder_Build)(HPyContext ctx, HPyTupleBuilder builder);
+    void (*ctx_TupleBuilder_Cancel)(HPyContext ctx, HPyTupleBuilder builder);
 };

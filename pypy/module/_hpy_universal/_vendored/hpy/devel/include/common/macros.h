@@ -31,6 +31,15 @@
      (void**)data)                                                            \
   ))
 
+
+/* ~~~ HPyTuple_Pack ~~~
+
+   this is just syntactic sugar around HPyTuple_FromArray, to help porting the
+   exising code which uses PyTuple_Pack
+*/
+
+#define HPyTuple_Pack(ctx, n, ...) (HPyTuple_FromArray(ctx, (HPy[]){ __VA_ARGS__ }, n))
+
 /* Rich comparison opcodes */
 #define HPy_LT 0
 #define HPy_LE 1

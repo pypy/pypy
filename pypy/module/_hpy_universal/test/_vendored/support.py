@@ -10,7 +10,7 @@ def reindent(s, indent):
     return ''.join(' '*indent + line if line.strip() else line
         for line in s.splitlines(True))
 
-class ExtensionTemplate(object):
+class DefaultExtensionTemplate(object):
 
     INIT_TEMPLATE = textwrap.dedent("""
     static HPyDef *moduledefs[] = {
@@ -38,7 +38,7 @@ class ExtensionTemplate(object):
     }
     """)
 
-    r_marker = re.compile(r"^\s*@([A-Z_]+)(\(.*\))?$")
+    r_marker = re.compile(r"^\s*@([A-Za-z_]+)(\(.*\))?$")
 
     def __init__(self, src, name):
         self.src = textwrap.dedent(src)
@@ -56,7 +56,10 @@ class ExtensionTemplate(object):
             if match:
                 name, args = self.parse_marker(match)
                 meth = getattr(self, name)
-                meth(*args)
+                out = meth(*args)
+                if out is not None:
+                    out = textwrap.dedent(out)
+                    self.output.append(out)
             else:
                 self.output.append(line)
         return '\n'.join(self.output)
@@ -110,9 +113,6 @@ class ExtensionTemplate(object):
             name = name,
             spec = spec))
 
-def expand_template(template, name):
-    return ExtensionTemplate(template, name).expand()
-
 
 class Spec(object):
     def __init__(self, name, origin):
@@ -140,8 +140,8 @@ class ExtensionCompiler:
         self.compiler_verbose = compiler_verbose
         self.extra_include_dirs = extra_include_dirs
 
-    def _expand(self, name, template):
-        source = expand_template(template, name)
+    def _expand(self, ExtensionTemplate, name, template):
+        source = ExtensionTemplate(template, name).expand()
         filename = self.tmpdir.join(name + '.c')
         if PY2:
             # this code is used also by pypy tests, which run on python2. In
@@ -153,15 +153,15 @@ class ExtensionCompiler:
             filename.write(source)
         return str(filename)
 
-    def compile_module(self, main_template, name, extra_templates):
+    def compile_module(self, ExtensionTemplate, main_src, name, extra_sources):
         """
         Create and compile a HPy module from the template
         """
         from distutils.core import Extension
-        filename = self._expand(name, main_template)
+        filename = self._expand(ExtensionTemplate, name, main_src)
         sources = [str(filename)]
-        for i, template in enumerate(extra_templates):
-            extra_filename = self._expand('extmod_%d' % i, template)
+        for i, src in enumerate(extra_sources):
+            extra_filename = self._expand(ExtensionTemplate, 'extmod_%d' % i, src)
             sources.append(extra_filename)
         #
         compile_args = [
@@ -186,12 +186,13 @@ class ExtensionCompiler:
                                 compiler_verbose=self.compiler_verbose)
         return so_filename
 
-    def make_module(self, main_template, name, extra_templates):
+    def make_module(self, ExtensionTemplate, main_src, name, extra_sources):
         """
         Compile&load a modulo into memory. This is NOT a proper import: e.g. the module
         is not put into sys.modules
         """
-        so_filename = self.compile_module(main_template, name, extra_templates)
+        so_filename = self.compile_module(ExtensionTemplate, main_src, name,
+                                          extra_sources)
         if self.hpy_abi == 'universal':
             return self.load_universal_module(name, so_filename)
         else:
@@ -219,13 +220,17 @@ class ExtensionCompiler:
 
 @pytest.mark.usefixtures('initargs')
 class HPyTest:
+    ExtensionTemplate = DefaultExtensionTemplate
+
     @pytest.fixture()
     def initargs(self, compiler):
         # compiler is a fixture defined in conftest
         self.compiler = compiler
 
-    def make_module(self, source_template, name='mytest', extra_templates=()):
-        return self.compiler.make_module(source_template, name, extra_templates)
+    def make_module(self, main_src, name='mytest', extra_sources=()):
+        ExtensionTemplate = self.ExtensionTemplate
+        return self.compiler.make_module(ExtensionTemplate, main_src, name,
+                                         extra_sources)
 
     def should_check_refcount(self):
         # defaults to True on CPython, but is set to False by e.g. PyPy

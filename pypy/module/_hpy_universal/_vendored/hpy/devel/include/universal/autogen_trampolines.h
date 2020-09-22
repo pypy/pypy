@@ -368,6 +368,10 @@ static inline HPy HPyDict_GetItem(HPyContext ctx, HPy h_dict, HPy h_key) {
      return ctx->ctx_Dict_GetItem ( ctx, h_dict, h_key ); 
 }
 
+static inline HPy HPyTuple_FromArray(HPyContext ctx, HPy items[], HPy_ssize_t n) {
+     return ctx->ctx_Tuple_FromArray ( ctx, items, n ); 
+}
+
 static inline HPy HPy_FromPyObject(HPyContext ctx, cpy_PyObject *obj) {
      return ctx->ctx_FromPyObject ( ctx, obj ); 
 }
@@ -398,5 +402,21 @@ static inline HPy HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder) {
 
 static inline void HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder) {
      ctx->ctx_ListBuilder_Cancel ( ctx, builder ); 
+}
+
+static inline HPyTupleBuilder HPyTupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size) {
+     return ctx->ctx_TupleBuilder_New ( ctx, initial_size ); 
+}
+
+static inline void HPyTupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder, HPy_ssize_t index, HPy h_item) {
+     ctx->ctx_TupleBuilder_Set ( ctx, builder, index, h_item ); 
+}
+
+static inline HPy HPyTupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder) {
+     return ctx->ctx_TupleBuilder_Build ( ctx, builder ); 
+}
+
+static inline void HPyTupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder) {
+     ctx->ctx_TupleBuilder_Cancel ( ctx, builder ); 
 }
 

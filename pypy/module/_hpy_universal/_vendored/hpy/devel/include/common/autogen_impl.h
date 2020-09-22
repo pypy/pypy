@@ -235,7 +235,7 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(InPlaceOr)(HPyContext ctx, HPy h1, HP
 
 HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, const char *message)
 {
-    return PyErr_SetString(_h2py(h_type), message);
+    PyErr_SetString(_h2py(h_type), message);
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Err_NoMemory)(HPyContext ctx)

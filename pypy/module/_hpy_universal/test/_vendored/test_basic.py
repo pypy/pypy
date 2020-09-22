@@ -254,7 +254,7 @@ class TestBasic(HPyTest):
                 return HPyLong_FromLong(ctx, 10*a + b);
             }
         """
-        mod = self.make_module(main, extra_templates=[extra])
+        mod = self.make_module(main, extra_sources=[extra])
         assert mod.f() == 12345
         assert mod.g(42) == 42
         assert mod.h(5, 6) == 56
