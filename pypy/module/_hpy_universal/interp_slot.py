@@ -94,6 +94,34 @@ class W_SlotWrapper_initproc(W_SlotWrapper):
         return space.w_None
 
 
+class W_tp_new_wrapper(W_ExtensionFunction):
+    """
+    Special case for HPy_tp_new. Note that is not NOT a SlotWrapper.
+
+    This is the equivalent of CPython's tp_new_wrapper: the difference is that
+    CPython's tp_new_wrapper is a regular PyMethodDef which is wrapped inside
+    a PyCFunction, while here we have our own type
+    """
+
+    def __init__(self, space, cfuncptr, w_type):
+        W_ExtensionFunction.__init__(self, space, '__new__', llapi.HPyFunc_KEYWORDS,
+                                     cfuncptr, w_self=w_type)
+
+    def call(self, space, h_type, __args__):
+        # NOTE: h_type here is ignored. In CPython's tp_new_wrapper it is only
+        # used to fish the ->tp_new to call, but here we already have the
+        # cfuncptr
+        #
+        # XXX: tp_new_wrapper does additional checks, we should write tests
+        # and implement the same checks
+        w_self = __args__.arguments_w[0]
+        with handles.using(space, w_self) as h_self:
+            return self.call_varargs_kw(space, h_self, __args__,
+                                        skip_args=1, has_keywords=True)
+
+
+
+
 # NOTE: we need to import this module here, to avoid circular imports
 from pypy.module._hpy_universal import autogen_interp_slots as AGS # "Auto Gen Slots"
 
@@ -156,7 +184,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
     ('tp_init',                    '__init__',      W_SlotWrapper_initproc),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
-    ('tp_iter',                    '__iter__',      AGS.W_SlotWrapper_unaryfunc),
+#    ('tp_iter',                    '__iter__',      AGS.W_SlotWrapper_unaryfunc),
 #   ('tp_iternext',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   tp_new     SPECIAL-CASED
     ('tp_repr',                    '__repr__',      AGS.W_SlotWrapper_unaryfunc),
@@ -181,8 +209,7 @@ def fill_slot(space, w_type, hpyslot):
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
-        w_func = W_ExtensionFunction(space, '__new__', llapi.HPyFunc_KEYWORDS,
-                                     hpyslot.c_impl, w_type)
+        w_func = W_tp_new_wrapper(space, hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
