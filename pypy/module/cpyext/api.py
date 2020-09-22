@@ -1153,7 +1153,8 @@ def attach_c_functions(space, eci, prefix):
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
-        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_subtype_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
@@ -1504,6 +1505,8 @@ def build_eci(code, use_micronumpy=False, translating=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
+        compile_extra.append(
+                    '-DCPYEXT_TESTS')
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]
