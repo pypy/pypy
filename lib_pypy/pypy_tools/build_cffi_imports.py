@@ -53,8 +53,8 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.3.tar.gz',
-             '71928b357d0a09a12a4b4c5fafca8c31c19b0e7d3b8ebb19622e96f26dbf28cb',
+    'lzma': ('https://distfiles.macports.org/xz/xz-5.2.5.tar.gz',
+             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
              [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
