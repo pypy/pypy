@@ -16,7 +16,7 @@ syntax: regexp
 ^testresult$
 ^site-packages$
 ^site-packages/.*$
-^site-packages/.*$
+^bin/
 ^pypy/bin/pypy-c
 ^pypy/lib/
 ^pypy/module/cpyext/src/.+\.o$
