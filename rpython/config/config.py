@@ -1,4 +1,5 @@
 import optparse
+import os
 from rpython.tool.pairtype import extendabletype
 
 SUPPRESS_USAGE = optparse.SUPPRESS_USAGE
@@ -29,8 +30,12 @@ class Config(object):
     def _cfgimpl_build(self, overrides):
         for child in self._cfgimpl_descr._children:
             if isinstance(child, Option):
-                self._cfgimpl_values[child._name] = child.getdefault()
-                self._cfgimpl_value_owners[child._name] = 'default'
+                if os.getenv(child.envvar, None) is not None:
+                    self._cfgimpl_values[child._name] = os.getenv(child.envvar)
+                    self._cfgimpl_value_owners[child._name] = 'environment'
+                else:
+                    self._cfgimpl_values[child._name] = child.getdefault()
+                    self._cfgimpl_value_owners[child._name] = 'default'
             elif isinstance(child, OptionDescription):
                 self._cfgimpl_values[child._name] = Config(child, parent=self)
         self.override(overrides)
@@ -211,16 +216,20 @@ DEFAULT_OPTION_NAME = object()
 class Option(object):
     __metaclass__ = extendabletype
 
-    def __init__(self, name, doc, cmdline=DEFAULT_OPTION_NAME):
+    def __init__(self, name, doc, cmdline=DEFAULT_OPTION_NAME, envvar=None):
         self._name = name
         self.doc = doc
         self.cmdline = cmdline
+        self.envvar = envvar
 
     def validate(self, value):
         raise NotImplementedError('abstract base class')
 
     def getdefault(self):
-        return self.default
+        if self.envvar is not None:
+            return os.getenv(self.envvar, self.default)
+        else:
+            return self.default
 
     def setoption(self, config, value, who):
         name = self._name
@@ -389,8 +398,8 @@ class FloatOption(Option):
 class StrOption(Option):
     opt_type = 'string'
 
-    def __init__(self, name, doc, default=None, cmdline=DEFAULT_OPTION_NAME):
-        super(StrOption, self).__init__(name, doc, cmdline)
+    def __init__(self, name, doc, default=None, cmdline=DEFAULT_OPTION_NAME, envvar=None):
+        super(StrOption, self).__init__(name, doc, cmdline, envvar=envvar)
         self.default = default
 
     def validate(self, value):
