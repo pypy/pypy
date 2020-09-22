@@ -32,14 +32,12 @@ eci = ExternalCompilationInfo(
 )
 
 cts = CTypeSpace()
+cts.headers.append('stdint.h')
+cts.parse_source(INCLUDE_DIR.join('common', 'autogen_hpyslot.h').read())
+
 # NOTE: the following C source is NOT seen by the C compiler during
 # translation: it is used only as a nice way to declare the lltype.* types
 # which are needed here
-cts.headers.append('stdint.h')
-with open(str(INCLUDE_DIR/'common'/'typeslots.h')) as f:
-    lines = f.readlines()
-    src = ''.join(lines[2:-1])  # strip include guard
-    cts.parse_source(src)
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
