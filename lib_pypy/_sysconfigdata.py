@@ -58,5 +58,8 @@ if sys.platform[:6] == "darwin":
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
-    build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
+    if 'translation.macosx_deployment_target' in sys.pypy_translation_info:
+        build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = (
+            sys.pypy_translation_info['translation.macosx_deployment_target']
+        )
 
