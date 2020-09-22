@@ -41,6 +41,7 @@ getstatusoutput(...): Runs a command in the shell, waits for it to complete,
     then returns a (exitcode, output) tuple
 """
 
+import __pypy__
 import sys
 _mswindows = (sys.platform == "win32")
 
@@ -1830,8 +1831,8 @@ def _pypy_install_libs_after_virtualenv(target_executable):
     caller = sys._getframe(2)
     if ('virtualenv_version' in caller.f_globals and
                   'copyfile' in caller.f_globals):
-        dest_dir = sys.pypy_resolvedirof(target_executable)
-        src_dir = sys.pypy_resolvedirof(sys.executable)
+        dest_dir = __pypy__.resolvedirof(target_executable)
+        src_dir = __pypy__.resolvedirof(sys.executable)
         for libname in ['libpypy3-c.so', 'libpypy3-c.dylib', 'libpypy3-c.dll']:
             dest_library = os.path.join(dest_dir, libname)
             src_library = os.path.join(src_dir, libname)

@@ -137,8 +137,8 @@ class AppTestRecompilerPython:
     def test_dlopen_unicode(self):
         if not getattr(self, 'extmodU', None):
             skip("no unicode file name")
-        import _cffi_backend, sys
-        sys.pypy_initfsencoding()   # initialize space.sys.filesystemencoding
+        import _cffi_backend, __pypy__
+        __pypy__.initfsencoding()   # initialize space.sys.filesystemencoding
         self.fix_path()
         from re_python_pysrc import ffi
         lib = ffi.dlopen(self.extmodU)

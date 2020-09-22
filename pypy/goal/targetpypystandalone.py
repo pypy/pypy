@@ -115,7 +115,7 @@ def get_additional_entrypoints(space, w_initstdio):
     @entrypoint_highlevel('main', [rffi.CCHARP, rffi.INT],
                           c_name='pypy_setup_home')
     def pypy_setup_home(ll_home, verbose):
-        from pypy.module.sys.initpath import pypy_find_stdlib
+        from pypy.module.__pypy__.initpath import pypy_find_stdlib
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home and ord(ll_home[0]):
             home1 = rffi.charp2str(ll_home)

@@ -90,7 +90,7 @@ class AppTestCodeIntrospection:
             ]
 
         import sys
-        if hasattr(sys, 'pypy_objspaceclass'): 
+        if '__pypy__' in sys.builtin_module_names:
             testcases += [
                 (abs.__code__, {'co_name': 'abs',
                                  'co_varnames': ('val',),

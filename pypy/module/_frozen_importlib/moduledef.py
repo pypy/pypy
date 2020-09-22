@@ -1,7 +1,6 @@
 import os
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.mixedmodule import MixedModule
-from pypy.module.sys import initpath
 from pypy.module._frozen_importlib import interp_import
 
 lib_python = os.path.join(os.path.dirname(__file__),

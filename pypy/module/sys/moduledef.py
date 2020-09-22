@@ -37,7 +37,6 @@ class Module(MixedModule):
         'maxsize'               : 'space.newint(sys.maxint)',
         'byteorder'             : 'space.newtext(sys.byteorder)',
         'maxunicode'            : 'space.newint(vm.MAXUNICODE)',
-        'pypy_objspaceclass'    : 'space.newtext(repr(space))',
         'prefix'                : 'state.get(space).w_initial_prefix',
         'exec_prefix'           : 'state.get(space).w_initial_prefix',
         'path'                  : 'state.get(space).w_path',
@@ -48,10 +47,6 @@ class Module(MixedModule):
         '_framework': "space.newtext('')",
         'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
-        'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
-        'pypy_find_executable'  : 'initpath.pypy_find_executable',
-        'pypy_resolvedirof'     : 'initpath.pypy_resolvedirof',
-        'pypy_initfsencoding'   : 'initpath.pypy_initfsencoding',
 
         '_getframe'             : 'vm._getframe',
         '_current_frames'       : 'currentframes._current_frames',

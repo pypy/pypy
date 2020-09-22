@@ -1,10 +1,10 @@
 import py
 import os.path
-from pypy.module.sys.initpath import (compute_stdlib_path, find_executable,
-                                      find_stdlib, resolvedirof,
-                                      pypy_init_home, pypy_init_free,
-                                      find_pyvenv_cfg)
-from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
+from pypy.module.__pypy__.initpath import (compute_stdlib_path, find_executable,
+                                           find_stdlib, resolvedirof,
+                                           pypy_init_home, pypy_init_free,
+                                           find_pyvenv_cfg)
+from pypy.module.sys.version import CPYTHON_VERSION
 from rpython.rtyper.lltypesystem import rffi
 
 def build_hierarchy(prefix):
@@ -57,7 +57,7 @@ def test_include_libtk(tmpdir):
     assert lib_tk in path
 
 def test_find_executable(tmpdir, monkeypatch):
-    from pypy.module.sys import initpath
+    from pypy.module.__pypy__ import initpath
     tmpdir = py.path.local(os.path.realpath(str(tmpdir)))
     # /tmp/a/pypy3
     # /tmp/b/pypy3

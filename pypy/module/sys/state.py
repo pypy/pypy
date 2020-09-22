@@ -18,7 +18,7 @@ class State:
         self.setinitialpath(space)
 
     def setinitialpath(self, space):
-        from pypy.module.sys.initpath import compute_stdlib_path
+        from pypy.module.__pypy__.initpath import compute_stdlib_path
         # This initial value for sys.prefix is normally overwritten
         # at runtime by initpath.py
         srcdir = os.path.dirname(pypydir)

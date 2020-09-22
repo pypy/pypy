@@ -287,7 +287,7 @@ def entrypoint(loops=None):
             except ValueError:
                 error("Invalid argument %r;" % sys.argv[1])
         else:
-            if hasattr(sys, 'pypy_objspaceclass'):
+            if '__pypy__' in sys.builtin_module_names:
                 loops = LOOPS / 2000 # XXX rough estimate, adjust
     main(loops)
 

@@ -62,7 +62,7 @@ def test_graphserver():
     host, port = s.getsockname()     # pick a random free port
     s.close()
 
-    if hasattr(sys, 'pypy_objspaceclass'):
+    if '__pypy__' in sys.builtin_module_names:
         python = 'python'
     else:
         python = sys.executable

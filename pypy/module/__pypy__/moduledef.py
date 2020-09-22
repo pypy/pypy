@@ -123,6 +123,13 @@ class Module(MixedModule):
 
         'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
+
+        'objspaceclass': 'space.newtext(repr(space))',
+        'find_stdlib'      : 'initpath.pypy_find_stdlib',
+        'find_executable'  : 'initpath.pypy_find_executable',
+        'resolvedirof'     : 'initpath.pypy_resolvedirof',
+        'initfsencoding'   : 'initpath.pypy_initfsencoding',
+
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

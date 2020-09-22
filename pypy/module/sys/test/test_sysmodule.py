@@ -730,7 +730,8 @@ class AppTestSysModulePortedFromCPython:
         import sys
         if '__pypy__' not in sys.builtin_module_names:
             skip("only on PyPy")
-        assert isinstance(sys.pypy_objspaceclass, str)
+        import __pypy__
+        assert isinstance(__pypy__.objspaceclass, str)
         vi = sys.pypy_version_info
         assert isinstance(vi, tuple)
         assert len(vi) == 5

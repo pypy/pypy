@@ -68,6 +68,7 @@ except ImportError:
     PyCF_ACCEPT_NULL_BYTES = 0
 import errno
 import sys
+import __pypy__
 
 _MACOSX = sys.platform == 'darwin'
 
@@ -797,7 +798,7 @@ def run_command_line(interactive,
             else:
                 importer = None
             if importer is None and not isolated:
-                sys.path.insert(0, sys.pypy_resolvedirof(filename))
+                sys.path.insert(0, __pypy__.resolvedirof(filename))
             # assume it's a pyc file only if its name says so.
             # CPython goes to great lengths to detect other cases
             # of pyc file format, but I think it's ok not to care.
@@ -904,8 +905,8 @@ def setup_bootstrap_path(executable):
     #
     # Now, we try to find the absolute path of the executable and the stdlib
     # path
-    executable = sys.pypy_find_executable(executable)
-    stdlib_path = sys.pypy_find_stdlib(executable)
+    executable = __pypy__.find_executable(executable)
+    stdlib_path = __pypy__.find_stdlib(executable)
     if stdlib_path is None:
         initstdio()
         print(STDLIB_WARNING % (getattr(sys, 'prefix', '<missing>'),),
@@ -924,7 +925,7 @@ def entry_point(executable, argv):
     # import os, which is used a bit everywhere in app_main, but only imported
     # *after* setup_bootstrap_path
     setup_bootstrap_path(executable)
-    sys.pypy_initfsencoding()
+    __pypy__.initfsencoding()
     try:
         cmdline = parse_command_line(argv)
     except CommandLineError as e:
@@ -1015,10 +1016,10 @@ if __name__ == '__main__':
     old_streams = sys.stdin, sys.stdout, sys.stderr
     del sys.stdin, sys.stdout, sys.stderr
 
-    sys.pypy_find_executable = pypy_find_executable
-    sys.pypy_find_stdlib = pypy_find_stdlib
-    sys.pypy_resolvedirof = pypy_resolvedirof
-    sys.pypy_initfsencoding = lambda: None
+    __pypy__.find_executable = pypy_find_executable
+    __pypy__.find_stdlib = pypy_find_stdlib
+    __pypy__.resolvedirof = pypy_resolvedirof
+    __pypy__.initfsencoding = lambda: None
     sys.cpython_path = sys.path[:]
 
     try:

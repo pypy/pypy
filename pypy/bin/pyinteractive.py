@@ -120,8 +120,8 @@ def main_(argv=None):
     # sys.exec_prefix
     executable = argv[0]
     space.appexec([space.wrap(executable)], """(executable):
-        import sys
-        sys.pypy_find_stdlib(executable)
+        import __pypy__
+        __pypy__.find_stdlib(executable)
     """)
 
     # set warning control options (if any)

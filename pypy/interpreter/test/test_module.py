@@ -62,7 +62,7 @@ class AppTest_ModuleObject:
 
     def test_repr(self):
         import sys
-        if not hasattr(sys, "pypy_objspaceclass"):
+        if '__pypy__' not in sys.builtin_module_names:
             skip("need PyPy for _pypy_interact")
         r = repr(sys)
         assert r == "<module 'sys' (built-in)>"
