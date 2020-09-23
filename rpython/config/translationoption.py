@@ -298,7 +298,8 @@ TRANSLATION_OPTIONS = [
                default=False),
 ]
 
-if _stdlib_platform.system() == 'Darwin':
+
+if sys.platform == 'darwin':
     TRANSLATION_OPTIONS += [
         #
         # Although Intel 32bit is supported since Apple Mac OS X 10.4,
