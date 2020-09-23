@@ -486,7 +486,7 @@ class AppTestPosix:
                 skip("Need fork() to test execv()")
             pid = os.fork()
             if pid == 0:
-                os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
+                os.execv("/usr/bin/env", ["env", self.python, "-c", "open('onefile', 'w').write('1')"])
             os.waitpid(pid, 0)
             assert open("onefile").read() == "1"
             os.unlink("onefile")
@@ -533,7 +533,7 @@ class AppTestPosix:
                 skip("Need fork() to test execve()")
             pid = os.fork()
             if pid == 0:
-                os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
+                os.execve("/usr/bin/env", ["env", self.python, "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
@@ -559,20 +559,21 @@ class AppTestPosix:
         pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), "spawnv"):
+        # spawnv is from stdlib's os, so this test is never run
         def test_spawnv(self):
             os = self.posix
             import sys
-            print self.python
             ret = os.spawnv(os.P_WAIT, self.python,
-                            ['python', '-c', 'raise(SystemExit(42))'])
+                            [self.python, '-c', 'raise(SystemExit(42))'])
             assert ret == 42
 
     if hasattr(__import__(os.name), "spawnve"):
+        # spawnve is from stdlib's os, so this test is never run
         def test_spawnve(self):
             os = self.posix
             env = {'PATH':os.environ['PATH'], 'FOOBAR': '42'}
             ret = os.spawnve(os.P_WAIT, self.python,
-                             ['python', '-c',
+                             [self.python, '-c',
                               "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
                              env)
             assert ret == 42
