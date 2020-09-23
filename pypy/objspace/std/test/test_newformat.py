@@ -406,14 +406,23 @@ class AppTestFloatFormatting:
 
     def test_locale_german(self):
         import locale
-        for name in ['de_DE', 'de_DE.utf8']:
+        # German and Danish use the exact same numeric separators, but
+        # for some reason or other, macOS disagrees, and seems to
+        # specify no thousand separator in German, even in CPython
+        # 3.8. As macOS always includes all available locales, we try
+        # the Danish one first. On Linux, however, locales may require
+        # explicit installation, so Danish may not, in fact, be
+        # present. Fortunately, the German locale behaves sensibly
+        # there, so we can safely fallback to this ever so slightly
+        # more prevalent language.
+        for name in ['da_DK', 'da_DK.UTF-8', 'de_DE', 'de_DE.UTF-8']:
             try:
                 locale.setlocale(locale.LC_NUMERIC, name)
                 break
             except locale.Error:
                 pass
         else:
-            skip("no german locale")
+            skip("neither German or Danish locale available")
         x = 1234.567890
         try:
             assert locale.format('%g', x, grouping=True) == '1.234,57'
