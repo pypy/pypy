@@ -84,9 +84,7 @@ char *vmprof_init(int fd, double interval, int memory,
 int opened_profile(const char *interp_name, int memory, int proflines, int native, int real_time);
 
 #ifdef RPYTHON_VMPROF
-#ifndef RPYTHON_LL2CTYPES
 PY_STACK_FRAME_T *get_vmprof_stack(void);
-#endif
 RPY_EXTERN
 intptr_t vmprof_get_traceback(void *stack, void *ucontext,
                               void **result_p, intptr_t result_length);
