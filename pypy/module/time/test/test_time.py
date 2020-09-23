@@ -502,6 +502,7 @@ class AppTestTime:
         time.strftime('', (1900, 1, 1, 0, 0, 0, 0, 1, 2))
 
     @pytest.mark.skipif('sys.platform=="win32"', reason='fails on win32')
+    @pytest.mark.xfail
     def test_strftime_nonascii(self):
         import time
         import _locale
@@ -516,7 +517,42 @@ class AppTestTime:
             # the result isn't done in the fr_CH locale.  There is no code
             # to grab the LC_TIME locale specifically, which is the one
             # used by strftime().
-            assert s == "f\xe9vrier."
+            assert s == "f\xe9vrier.", repr(s)
+        finally:
+            _locale.setlocale(_locale.LC_TIME, prev_loc)
+
+    @pytest.mark.skipif('sys.platform=="win32"', reason='fails on win32')
+    @pytest.mark.xfail
+    def test_strftime_nonascii_utf8(self):
+        import time
+        import _locale
+        prev_loc = _locale.setlocale(_locale.LC_TIME)
+        try:
+            _locale.setlocale(_locale.LC_TIME, "fr_CH.UTF-8")
+        except _locale.Error:
+            skip("unsupported locale LC_TIME=fr_CH")
+        try:
+            s = time.strftime('%B.', time.localtime(192039127))
+            # I am unsure, but I think that this fails because decoding of
+            # the result isn't done in the fr_CH locale.  There is no code
+            # to grab the LC_TIME locale specifically, which is the one
+            # used by strftime().
+            assert s == "f\xe9vrier.", repr(s)
+        finally:
+            _locale.setlocale(_locale.LC_TIME, prev_loc)
+
+    @pytest.mark.skipif('sys.platform=="win32"', reason='fails on win32')
+    def test_strftime_non_ascii_latin1(self):
+        import time
+        import _locale
+        prev_loc = _locale.setlocale(_locale.LC_TIME)
+        try:
+            _locale.setlocale(_locale.LC_TIME, "fr_CH.ISO8859-1")
+        except _locale.Error:
+            skip("unsupported locale LC_TIME=fr_CH")
+        try:
+            s = time.strftime('%B.', time.localtime(192039127))
+            assert s == "f\xe9vrier.", repr(s)
         finally:
             _locale.setlocale(_locale.LC_TIME, prev_loc)
 
