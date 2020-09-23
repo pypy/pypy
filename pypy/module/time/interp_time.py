@@ -684,7 +684,7 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def time(space, w_info=None):
+def time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
@@ -693,17 +693,18 @@ def time(space, w_info=None):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
             if ret == 0:
-                if w_info is not None:
-                    with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
-                        if ret == 0:
-                            res = _timespec_to_seconds(tsres)
-                        else:
-                            res = 1e-9
-                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
-                                 res, False, True)
                 return space.newfloat(_timespec_to_seconds(timespec))
     return gettimeofday(space, w_info)
+
+def _get_time_info(space, w_info):
+    with lltype.scoped_alloc(TIMESPEC) as tsres:
+        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
+        if ret == 0:
+            res = _timespec_to_seconds(tsres)
+        else:
+            res = 1e-9
+        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
+                 res, False, True)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string

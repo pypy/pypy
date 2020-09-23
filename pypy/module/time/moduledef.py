@@ -22,6 +22,7 @@ class Module(MixedModule):
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
         'perf_counter': 'interp_time.perf_counter',
         'process_time': 'interp_time.process_time',
+        '_get_time_info': 'interp_time._get_time_info',
     }
 
     if rtime.HAS_CLOCK_GETTIME:
