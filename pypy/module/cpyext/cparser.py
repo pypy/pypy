@@ -830,7 +830,7 @@ class CTypeSpace(object):
                     return rffi.CArrayPtr(TO)
         elif isinstance(obj, model.FunctionPtrType):
             if obj.ellipsis:
-                raise NotImplementedError
+                raise NotImplementedError('cannot handle functions with variadic arguments')
             args = [self.convert_type(arg) for arg in obj.args]
             res = self.convert_type(obj.result)
             return lltype.Ptr(lltype.FuncType(args, res))
@@ -839,7 +839,7 @@ class CTypeSpace(object):
         elif isinstance(obj, model.ArrayType):
             return rffi.CFixedArray(self.convert_type(obj.item), obj.length)
         else:
-            raise NotImplementedError
+            raise NotImplementedError("unsupported type %s" % (type(obj),))
 
     def gettype(self, cdecl):
         try:
