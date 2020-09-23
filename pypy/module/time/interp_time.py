@@ -257,7 +257,7 @@ if _WIN:
                                             'GetSystemTimeAdjustment',
                                             [LPDWORD, LPDWORD, rwin32.LPBOOL],
                                             rffi.INT)
-    def gettimeofday(space, w_info=None):
+    def gettimeofday(space):
         with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
             _GetSystemTimeAsFileTime(system_time)
             quad_part = (system_time.c_dwLowDateTime |
@@ -274,15 +274,6 @@ if _WIN:
             microseconds = quad_part / 10 - offset
             tv_sec = microseconds / 1000000
             tv_usec = microseconds % 1000000
-            if w_info:
-                with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
-                     lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
-                     lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
-                    _GetSystemTimeAdjustment(time_adjustment, time_increment,
-                                             is_time_adjustment_disabled)
-
-                    _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
-                             time_increment[0] * 1e-7, False, True)
             return space.newfloat(tv_sec + tv_usec * 1e-6)
 else:
     if HAVE_GETTIMEOFDAY:
@@ -292,7 +283,7 @@ else:
         else:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
-    def gettimeofday(space, w_info=None):
+    def gettimeofday(space):
         if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(TIMEVAL) as timeval:
                 if GETTIMEOFDAY_NO_TZ:
@@ -301,8 +292,6 @@ else:
                     void = lltype.nullptr(rffi.VOIDP.TO)
                     errcode = c_gettimeofday(timeval, void)
                 if rffi.cast(rffi.LONG, errcode) == 0:
-                    if w_info is not None:
-                        _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     return space.newfloat(
                         widen(timeval.c_tv_sec) +
                         widen(timeval.c_tv_usec) * 1e-6)
@@ -311,13 +300,8 @@ else:
                 c_ftime(t)
                 result = (widen(t.c_time) +
                           widen(t.c_millitm) * 0.001)
-                if w_info is not None:
-                    _setinfo(space, w_info, "ftime()", 1e-3,
-                             False, True)
             return space.newfloat(result)
         else:
-            if w_info:
-                _setinfo(space, w_info, "time()", 1.0, False, True)
             return space.newint(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
 
 TM_P = lltype.Ptr(tm)
@@ -694,17 +678,45 @@ def time(space):
             ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
             if ret == 0:
                 return space.newfloat(_timespec_to_seconds(timespec))
-    return gettimeofday(space, w_info)
+    return gettimeofday(space)
 
 def _get_time_info(space, w_info):
-    with lltype.scoped_alloc(TIMESPEC) as tsres:
-        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
-        if ret == 0:
-            res = _timespec_to_seconds(tsres)
+    if _WIN:
+        with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
+             lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
+             lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
+            _GetSystemTimeAdjustment(time_adjustment, time_increment,
+                                     is_time_adjustment_disabled)
+
+            _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
+                     time_increment[0] * 1e-7, False, True)
+    else:
+        if HAS_CLOCK_GETTIME:
+            with lltype.scoped_alloc(TIMESPEC) as tsres:
+                ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
+                if ret == 0:
+                    res = _timespec_to_seconds(tsres)
+                else:
+                    res = 1e-9
+                _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
+                         res, False, True)
+                return
+        if HAVE_GETTIMEOFDAY:
+            with lltype.scoped_alloc(TIMEVAL) as timeval:
+                if GETTIMEOFDAY_NO_TZ:
+                    errcode = c_gettimeofday(timeval)
+                else:
+                    void = lltype.nullptr(rffi.VOIDP.TO)
+                    errcode = c_gettimeofday(timeval, void)
+                if rffi.cast(rffi.LONG, errcode) == 0:
+                    _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
+                    return
+        if HAVE_FTIME:
+            _setinfo(space, w_info, "ftime()", 1e-3, False, True)
         else:
-            res = 1e-9
-        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
-                 res, False, True)
+            # default
+            _setinfo(space, w_info, "time()", 1.0, False, True)
+
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -1068,7 +1080,9 @@ if _WIN:
                     return monotonic(space, w_info=w_info)
                 except Exception:
                     pass
-        return time(space, w_info=w_info)
+        if w_info:
+            _get_time_info(space, w_info)
+        return time(space)
 else:
     def perf_counter(space, w_info=None):
         if HAS_MONOTONIC:
@@ -1076,7 +1090,9 @@ else:
                 return monotonic(space, w_info=w_info)
             except Exception:
                 pass
-        return time(space, w_info=w_info)
+        if w_info:
+            _get_time_info(space, w_info)
+        return time(space)
 
 if _WIN:
     def process_time(space, w_info=None):
