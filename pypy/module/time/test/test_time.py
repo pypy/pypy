@@ -227,12 +227,12 @@ class AppTestTime:
         ltime = time.localtime()
         ltime = list(ltime)
         ltime[0] = -1
-        if os.name == "posix":
+        if sys.platform == "linux":
             time.mktime(tuple(ltime))  # Does not crash anymore
         else:
             raises(OverflowError, time.mktime, tuple(ltime))
         ltime[0] = 100
-        if os.name == "posix":
+        if sys.platform == "linux":
             time.mktime(tuple(ltime))  # Does not crash anymore
         else:
             raises(OverflowError, time.mktime, tuple(ltime))
@@ -252,9 +252,19 @@ class AppTestTime:
             assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
     def test_mktime_overflow(self):
-        import time
+        import os, sys, time
         MAX_YEAR = (1 << 31) - 1
-        MIN_YEAR = -(1 << 31) + 1900
+        if sys.platform == 'linux':
+            MIN_YEAR = -(1 << 31) + 1900
+        elif sys.platform == 'darwin':
+            # meh; this is slightly inconsistent with CPython 3.x,
+            # where the minimal value is 1901
+            MIN_YEAR = 1900
+        else:
+            # this would quickly get unwieldy if we had to list every
+            # platform; as an example, CPython on FreeBSD is
+            # consistent with Darwin
+            skip("unknown minimum year for platform %s" % (sys.platform,))
         time.mktime((MAX_YEAR,) + (0,) * 8)  # doesn't raise
         with raises(OverflowError):
             time.mktime((MAX_YEAR + 1,) + (0,) * 8)
