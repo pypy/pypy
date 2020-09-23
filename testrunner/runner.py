@@ -109,9 +109,11 @@ def getsignalname(n):
     return 'signal %d' % (n,)
 
 def execute_test(cwd, test, out, logfname, interp, test_driver,
-                 do_dry_run=False, timeout=None,
+                 do_dry_run=False, timeout=None, fail_fast=False,
                  _win32=(sys.platform=='win32')):
     args = interp + test_driver
+    if fail_fast:
+        args.append('-x')
     args += ['-p', 'resultlog',
              '--resultlog=%s' % logfname,
              #'--junitxml=%s.junit' % logfname,
@@ -167,7 +169,7 @@ def interpret_exitcode(exitcode, test, logdata=""):
         failure = False
     return failure, extralog
 
-def worker(num, n, run_param, testdirs, result_queue):
+def worker(num, n, run_param, testdirs, fail_fast, result_queue):
     sessdir = run_param.sessdir
     root = run_param.root
     get_test_driver = run_param.get_test_driver
@@ -192,7 +194,7 @@ def worker(num, n, run_param, testdirs, result_queue):
             test_driver = get_test_driver(test)
             exitcode = execute_test(root, test, one_output, logfname,
                                     interp, test_driver, do_dry_run=dry_run,
-                                    timeout=timeout)
+                                    timeout=timeout, fail_fast=fail_fast)
 
             cleanup(test)
         except:
@@ -219,15 +221,15 @@ def worker(num, n, run_param, testdirs, result_queue):
 
 invoke_in_thread = thread.start_new_thread
 
-def start_workers(n, run_param, testdirs):
+def start_workers(n, run_param, fail_fast, testdirs):
     result_queue = Queue.Queue()
     for i in range(n):
         invoke_in_thread(worker, (i, n, run_param, testdirs,
-                                  result_queue))
+                                  fail_fast, result_queue))
     return result_queue
 
 
-def execute_tests(run_param, testdirs, logfile, out):
+def execute_tests(run_param, testdirs, fail_fast, logfile, out):
     sessdir = py.path.local.make_numbered_dir(prefix='usession-testrunner-',
                                               keep=4)
     run_param.sessdir = sessdir
@@ -248,7 +250,7 @@ def execute_tests(run_param, testdirs, logfile, out):
         out.write("-- %s\n" % testname)
     out.write("-- total: %d to run\n" % len(testdirs))
 
-    result_queue = start_workers(N, run_param, testdirs)
+    result_queue = start_workers(N, run_param, fail_fast, testdirs)
 
     done = 0
     started = 0
@@ -282,6 +284,9 @@ def execute_tests(run_param, testdirs, logfile, out):
         if logdata:
             logfile.write(logdata)
 
+        if fail_fast and failure:
+            break
+
     run_param.shutdown()
 
     return failure
@@ -297,6 +302,7 @@ class RunParam(object):
     test_driver = [pytestpath]
 
     parallel_runs = 1
+    fail_fast = False
     timeout = None
     cherrypick = None
 
@@ -370,6 +376,9 @@ def main(args):
     parser.add_option("--dry-run", dest="dry_run", default=False,
                       action="store_true",
                       help="dry run"),
+    parser.add_option("--fail-fast", dest="fail_fast", default=False,
+                      action="store_true",
+                      help="stop at the first failure or error"),
     parser.add_option("--timeout", dest="timeout", default=None,
                       type="int",
                       help="timeout in secs for test processes")
@@ -419,7 +428,7 @@ def main(args):
         print >>out, '\n'.join([str((k, getattr(run_param, k))) \
                         for k in dir(run_param) if k[:2] != '__'])
 
-    res = execute_tests(run_param, testdirs, logfile, out)
+    res = execute_tests(run_param, testdirs, opts.fail_fast, logfile, out)
 
     if res:
         sys.exit(1)
