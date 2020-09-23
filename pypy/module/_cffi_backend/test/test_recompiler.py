@@ -1616,6 +1616,7 @@ class AppTestRecompiler:
         res = lib.bok()
         assert [res.a, res.b, res.c] == [10, 20, 30]
 
+    @pytest.mark.xfail(reason="long double not implemented in ctypes")
     def test_extern_python_long_double(self):
         ffi, lib = self.prepare("""
             extern "Python" int bar(int, long double, int);
