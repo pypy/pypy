@@ -300,9 +300,10 @@ class RunParam(object):
     timeout = None
     cherrypick = None
 
-    def __init__(self, root):
+    def __init__(self, root, args):
         self.root = root
         self.self = self
+        self.cherrypick = args
 
     def startup(self):
         pass
@@ -389,7 +390,7 @@ def main(args):
 
     testdirs = []
 
-    run_param = RunParam(root)
+    run_param = RunParam(root, args[1:])
     # the config files are python files whose run overrides the content
     # of the run_param instance namespace
     # in that code function overriding method should not take self
