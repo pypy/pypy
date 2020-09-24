@@ -25,6 +25,7 @@ class Module(MixedModule):
         'perf_counter_ns': 'interp_time.perf_counter_ns',
         'process_time': 'interp_time.process_time',
         'process_time_ns': 'interp_time.process_time_ns',
+        '_get_time_info': 'interp_time._get_time_info',
     }
 
     if rtime.HAS_CLOCK_GETTIME:
