@@ -2,12 +2,6 @@
 PyPy v7.3.2: release of 2.7, 3.6, and 3.7 alpha
 ===============================================
 
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `morepypy blog`_
-
-.. _`morepypy blog`: https://morepypy.blogspot.com
-
 The PyPy team is proud to release the version 7.3.2 of PyPy, which includes
 three different interpreters:
 
@@ -52,9 +46,7 @@ rather than c-extensions to interact with C, and using cppyy_ for performant
 wrapping of C++ code for Python.
 
 Numpy has begun shipping `wheels on PyPI` for PyPy, currently for linux 64-bit
-only.  We fixed ``PyUnicode_*`` C-API handling on windows, so now NumPy passes
-all tests on PyPy 3.6 win32, and wheels for PyPy windows will be available from
-the next NumPy release.
+only.  Wheels for PyPy windows will be available from the next NumPy release.
 
 A new contributor took us up on the challenge to get `windows 64-bit`` support.
 The work is proceeding on the ``win64`` branch, more help in coding or
@@ -76,7 +68,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from XXX new contributors,
+previous release, we have accepted contributions from 8 new contributors,
 thanks for pitching in.
 
 If you are a python library maintainer and use c-extensions, please consider
@@ -123,18 +115,13 @@ This PyPy release supports:
 
   * 64-bit **ARM** machines running Linux.
 
-Unfortunately at the moment of writing our ARM32 buildbots are out of service,
-so for now we are **not** releasing any binaries for that architecture,
-although PyPy does support ARM 32 bit processors. 
+PyPy does support ARM 32 bit processors, but does not release binaries.
 
 .. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
 .. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
-
 Changelog
 =========
-
-
 
 Changes shared across versions
 ------------------------------
@@ -192,6 +179,7 @@ Changes shared across versions
   issue 39503_
 - Escape the server title when rendering from ``xmlrpc`` as HTML: CPython issue
   38243_
+- Build fixes for latest XCode on MacOS
 
 
 C-API (cpyext) and c-extensions
@@ -249,6 +237,8 @@ Python 3.6 only
 - Prevent backtracking in regexes in ``http.cookiejar``: Cpython issue 38804_
 - Sync ``email._header_value_parser``, ``email._parseaddr`` and their
   respective tests: CPython 37461_ and 34155_
+- Revert extending ``time.time()`` and friends to accept an optional ``info``
+  argument, use a private ``time`` function instead.
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
