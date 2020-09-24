@@ -40,20 +40,7 @@ def get_clock_info(name):
     info.adjustable = 0
     info.resolution = 1.0
 
-    if name == "time":
-        time.time(info)
-    elif name == "monotonic" and hasattr(time, "monotonic"):
-        time.monotonic(info)
-    elif name == "clock":
-        time.clock(info)
-    elif name == "perf_counter":
-        time.perf_counter(info)
-    elif name == "process_time":
-        time.process_time(info)
-    elif name == "thread_time" and hasattr(time, "thread_time"):
-        time.monotonic(info)
-    else:
-        raise ValueError("unknown clock")
+    time._get_time_info(name, info)
     return info
 
 __doc__ = """This module provides various functions to manipulate time values.

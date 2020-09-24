@@ -725,18 +725,38 @@ def _time_impl(space, w_info, return_ns):
                     return space.newfloat(_timespec_to_seconds(timespec))
     return _gettimeofday_impl(space, w_info, return_ns)
 
-def time(space, w_info=None):
+def time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
     Fractions of a second may be present if the system clock provides them."""
-    return _time_impl(space, w_info, False)
+    return _time_impl(space, None, False)
 
-def time_ns(space, w_info=None):
+@unwrap_spec(name='text0')
+def _get_time_info(space, name, w_info):
+    """_get_time_info(name, info) -> None
+    Internal helper for get_clock_info
+    """
+    if name == 'time':
+        _time_impl(space, w_info, False)
+    elif name == 'monotonic' and HAS_MONOTONIC:
+        _monotonic_impl(space, w_info, False)
+    elif name == 'clock':
+        _clock_impl(space, w_info, False)
+    elif name == 'perf_counter':
+        _perf_counter_impl(space, w_info, False)
+    elif name == "process_time":
+        _process_time_impl(space, w_info, False)
+    elif name == "thread_time" and HAS_THREAD_TIME:
+        _thread_time_impl(space, w_info, False)
+    else:
+        oefmt(space.w_ValueError, "unknown clock")
+
+def time_ns(space):
     """time_ns() -> int
     
     Return the current time in nanoseconds since the Epoch."""
-    return _time_impl(space, w_info, True)
+    return _time_impl(space, None, True)
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -1103,17 +1123,17 @@ if HAS_MONOTONIC:
                 _setinfo(space, w_info, implementation, res, True, False)
             return w_result
 
-    def monotonic(space, w_info=None):
+    def monotonic(space):
         """monotonic() -> float
     
         Monotonic clock, cannot go backward."""
-        return _monotonic_impl(space, w_info, False)
+        return _monotonic_impl(space, None, False)
 
-    def monotonic_ns(space, w_info=None):
+    def monotonic_ns(space):
         """monotonic_ns() -> int
     
         Monotonic clock, cannot go backward, as nanoseconds."""
-        return _monotonic_impl(space, w_info, True)
+        return _monotonic_impl(space, None, True)
 
 if _WIN:
     # hacking to avoid LARGE_INTEGER which is a union...
@@ -1167,17 +1187,17 @@ else:
                 pass
         return _time_impl(space, w_info, return_ns)
 
-def perf_counter(space, w_info=None):
+def perf_counter(space):
     """perf_counter() -> float
     
     Performance counter for benchmarking."""
-    return _perf_counter_impl(space, w_info, False)
+    return _perf_counter_impl(space, None, False)
 
-def perf_counter_ns(space, w_info=None):
+def perf_counter_ns(space):
     """perf_counter_ns() -> int
     
     Performance counter for benchmarking as nanoseconds."""
-    return _perf_counter_impl(space, w_info, True)
+    return _perf_counter_impl(space, None, True)
 
 if _WIN:
     def _process_time_impl(space, w_info, return_ns):
@@ -1264,18 +1284,18 @@ else:
                         return space.newfloat(float(cpu_time) / rposix.CLOCK_TICKS_PER_SECOND)
         return _clock_impl(space, w_info, return_ns)
 
-def process_time(space, w_info=None):
+def process_time(space):
     """process_time() -> float
 
     Process time for profiling: sum of the kernel and user-space CPU time."""
-    return _process_time_impl(space, w_info, False)
+    return _process_time_impl(space, None, False)
 
-def process_time_ns(space, w_info=None):
+def process_time_ns(space):
     """process_time() -> int
 
     Process time for profiling as nanoseconds:
     sum of the kernel and user-space CPU time"""
-    return _process_time_impl(space, w_info, True)
+    return _process_time_impl(space, None, True)
 
 if HAS_THREAD_TIME:
     if _WIN:
@@ -1333,18 +1353,18 @@ if HAS_THREAD_TIME:
                     else:
                         return space.newfloat(_timespec_to_seconds(timespec))
 
-    def thread_time(space, w_info=None):
+    def thread_time(space):
         """thread_time() -> float
 
         Thread time for profiling: sum of the kernel and user-space CPU time."""
-        return _thread_time_impl(space, w_info, False)
+        return _thread_time_impl(space, None, False)
 
-    def thread_time_ns(space, w_info=None):
+    def thread_time_ns(space):
         """thread_time_ns() -> int
 
         Thread time for profiling as nanoseconds:
         sum of the kernel and user-space CPU time."""
-        return _thread_time_impl(space, w_info, True)
+        return _thread_time_impl(space, None, True)
 
 _clock = external('clock', [], rposix.CLOCK_T)
 def _clock_impl(space, w_info, return_ns):
@@ -1376,13 +1396,13 @@ def _clock_impl(space, w_info, return_ns):
     else:
         return space.newfloat(float(value) / CLOCKS_PER_SEC)
 
-def clock(space, w_info=None):
+def clock(space):
     """clock() -> floating point number
 
     Return the CPU time or real time since the start of the process or since
     the first call to clock().  This has as much precision as the system
     records."""
-    return _clock_impl(space, w_info, False)
+    return _clock_impl(space, None, False)
 
 
 def _setinfo(space, w_info, impl, res, mono, adj):
