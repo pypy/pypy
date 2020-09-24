@@ -750,7 +750,7 @@ def _get_time_info(space, name, w_info):
     elif name == "thread_time" and HAS_THREAD_TIME:
         _thread_time_impl(space, w_info, False)
     else:
-        oefmt(space.w_ValueError, "unknown clock")
+        raise oefmt(space.w_ValueError, "unknown clock")
 
 def time_ns(space):
     """time_ns() -> int
