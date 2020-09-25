@@ -13,10 +13,10 @@ three different interpreters:
     
   - PyPy3.7 alpha: which is our first release of an interpreter supporting the
     syntax and the features of Python 3.7, including the stdlib for CPython
-    3.7.9. We call this alpha quality software, but it is based off PyPy 3.6 so
-    issues should be around compatibility and not stability. Please try it out
-    and let us know what is broken or missing. We have not implemented the
-    `documented changes`_ in the ``re`` module, and other pieces are also
+    3.7.9. We call this alpha quality software, there may be issues about
+    compatibility with new and changed features in CPython 3.7.
+    Please let us know what is broken or missing. We have not implemented the
+    `documented changes`_ in the ``re`` module, and a few other pieces are also
     missing. For more information, see the `PyPy 3.7 wiki`_ page
     
 The interpreters are based on much the same codebase, thus the multiple
@@ -33,11 +33,11 @@ release. This is a micro release, all APIs are compatible with the 7.3.0 (Dec
 
 Conda Forge now `supports PyPy`_ as a python interpreter. The support is quite
 complete for linux and macOS. This is the result of a lot of
-hard work and good will on the part of the Conda Forge team.  A big shout out
+hard work and goodwill on the part of the Conda Forge team.  A big shout out
 to them for taking this on.
 
-Development of PyPy has transitioning to https://foss.heptapod.net/pypy/pypy.
-This move was covered more extensively in this `blog post`_. We have seen an
+Development of PyPy has moved to https://foss.heptapod.net/pypy/pypy.
+This was covered more extensively in this `blog post`_. We have seen an
 increase in the number of drive-by contributors who are able to use gitlab +
 mercurial to create merge requests.
 
@@ -97,8 +97,8 @@ building wheels for PyPy.
 What is PyPy?
 =============
 
-PyPy is a very compliant Python interpreter, almost a drop-in replacement for
-CPython 2.7, 3.6, and 3.7. It's fast (`PyPy and CPython 2.7.x`_ performance
+PyPy is a Python interpreter, a drop-in replacement for CPython 2.7, 3.6, and
+3.7. It's fast (`PyPy and CPython 2.7.x`_ performance
 comparison) due to its integrated tracing JIT compiler.
 
 We also welcome developers of other `dynamic languages`_ to see what RPython
