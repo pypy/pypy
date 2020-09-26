@@ -18,7 +18,10 @@ class Darwin(posix.BasePosix):
     shared_only = ()
 
     link_flags = (DARWIN_VERSION_MIN,)
-    cflags = ('-O3', '-fomit-frame-pointer', DARWIN_VERSION_MIN)
+    cflags = ('-O3',
+              '-fomit-frame-pointer',
+              ' -fno-stack-check',
+              DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
