@@ -297,8 +297,10 @@ class EnvBuilder:
                         os.path.normcase(f).startswith(('python', 'vcruntime'))
                     ]
             else:
+                # PyPy change: since PyPy does not use a PEP 397 launcer,
+                # copy the exe and dll.
                 suffixes = ['python.exe', 'python_d.exe', 'pythonw.exe',
-                            'pythonw_d.exe']
+                            'pythonw_d.exe', 'pypy3.exe', 'libpypy3-c.dll']
 
             for suffix in suffixes:
                 src = os.path.join(dirname, suffix)
