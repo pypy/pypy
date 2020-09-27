@@ -202,6 +202,9 @@ class TestAssemble(object):
             a.load_from_addr(r10, SCRATCH2, call_addr)
             a.load_from_addr(r2, SCRATCH2, call_addr+WORD)
             a.load_from_addr(r11, SCRATCH2, call_addr+2*WORD)
+            py.test.skip("this test started segfaulting on gcc110, but even "
+                     "reverting to old versions of the code still segfault, "
+                     "so not clue.  Maybe something like a ctypes issue")
         else:
             # no descriptor on little-endian, but the ABI says r12 must
             # contain the function pointer

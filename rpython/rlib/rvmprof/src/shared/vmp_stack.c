@@ -48,6 +48,10 @@ static int (*unw_getcontext)(unw_context_t *) = NULL;
 #include <dlfcn.h>
 #endif
 
+#ifdef PYPY_JIT_CODEMAP
+void *pypy_find_codemap_at_addr(long addr, long *start_addr);
+#endif
+
 int _per_loop(void) {
     // how many void* are written to the stack trace per loop iterations?
 #ifdef RPYTHON_VMPROF

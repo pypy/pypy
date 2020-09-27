@@ -537,7 +537,10 @@ class AppTestPosix:
                 skip("Need fork() to test execv()")
             pid = os.fork()
             if pid == 0:
-                os.execv("/usr/bin/env", ["env", self.python, "-c", "open('onefile', 'w').write('1')"])
+                os.execv("/usr/bin/env", ["env", self.python, "-c",
+                         ("fid = open('onefile', 'w'); "
+                          "fid.write('1'); "
+                          "fid.close()")])
             os.waitpid(pid, 0)
             assert open("onefile").read() == "1"
             os.unlink("onefile")
@@ -582,7 +585,11 @@ class AppTestPosix:
                 skip("Need fork() to test execve()")
             pid = os.fork()
             if pid == 0:
-                os.execve("/usr/bin/env", ["env", self.python, "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
+                os.execve("/usr/bin/env", ["env", self.python, "-c",
+                          ("import os; fid = open('onefile', 'w'); "
+                           "fid.write(os.environ['ddd']); "
+                           "fid.close()")],
+                          {'ddd':'xxx'})
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
