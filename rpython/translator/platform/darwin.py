@@ -3,13 +3,6 @@
 from rpython.translator.platform import posix
 import os
 
-#
-# Although Intel 32bit is supported since Apple Mac OS X 10.4, (and PPC since, ever)
-# the @rpath handling used in Darwin._args_for_shared is only availabe
-# since 10.5, so we use that as minimum requirement. Bumped to 10.7
-# to allow the use of thread-local in __thread in C.
-#
-DARWIN_VERSION_MIN = '-mmacosx-version-min=10.7'
 
 class Darwin(posix.BasePosix):
     name = "darwin"
@@ -17,11 +10,10 @@ class Darwin(posix.BasePosix):
     standalone_only = ('-mdynamic-no-pic',)
     shared_only = ()
 
-    link_flags = (DARWIN_VERSION_MIN,)
+    link_flags = ()
     cflags = ('-O3',
               '-fomit-frame-pointer',
-              '-fno-stack-check',
-              DARWIN_VERSION_MIN,)
+              '-fno-stack-check')
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
@@ -102,6 +94,15 @@ class Darwin(posix.BasePosix):
     def gen_makefile(self, cfiles, eci, exe_name=None, path=None,
                      shared=False, headers_to_precompile=[],
                      no_precompile_cfiles = [], profopt=False, config=None):
+        if getattr(config.translation, 'macosx_deployment_target', None):
+            macosx_version_min = (
+                    '-mmacosx-version-min=' +
+                    config.translation.macosx_deployment_target
+            )
+
+            self.cflags += (macosx_version_min,)
+            self.link_flags += (macosx_version_min,)
+
         # ensure frameworks are passed in the Makefile
         fs = self._frameworks(eci.frameworks)
         extra_libs = self.extra_libs

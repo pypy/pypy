@@ -95,6 +95,25 @@ class ExternalCompilationInfo(object):
         self.use_cpp_linker = use_cpp_linker
         self._platform = platform
 
+        # special handling of Mac OS X target versions
+        if self.platform.name.startswith('darwin'):
+            from rpython.config import translationoption
+
+            config = translationoption.get_translation_config()
+
+            if config is not None:
+                # we're running during a translation
+                deployment_target = getattr(config, 'macosx_deployment_target', None)
+            else:
+                # we're running in a nested environment, such as when
+                # running tests; in this case, default to the current
+                # OS for maximum coverage
+                deployment_target = os.getenv('MACOSX_DEPLOYMENT_TARGET')
+
+            if deployment_target:
+                self.compile_extra += ('-mmacosx-version-min=' + deployment_target,)
+                self.link_extra += ('-mmacosx-version-min=' + deployment_target,)
+
     @property
     def platform(self):
         if self._platform is None:

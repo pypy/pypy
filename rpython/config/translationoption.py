@@ -42,8 +42,7 @@ PLATFORMS = [
     'arm',
 ]
 
-translation_optiondescription = OptionDescription(
-        "translation", "Translation Options", [
+TRANSLATION_OPTIONS = [
     BoolOption("continuation", "enable single-shot continuations",
                default=False, cmdline="--continuation",
                requires=[("translation.type_system", "lltype")]),
@@ -297,7 +296,29 @@ translation_optiondescription = OptionDescription(
     BoolOption("rpython_translate",
                "Set to true by rpython/bin/rpython and translate.py",
                default=False),
-])
+]
+
+
+if sys.platform == 'darwin':
+    TRANSLATION_OPTIONS += [
+        #
+        # Although Intel 32bit is supported since Apple Mac OS X 10.4,
+        # (and PPC since, ever) the @rpath handling is only available
+        # since 10.5, so we use that as minimum requirement. Bumped to
+        # 10.7 to allow the use of thread-local in __thread in C.
+        #
+        # Furthermore, pick up whatever explicitly requested in the
+        # environment.
+        #
+        StrOption("macosx_deployment_target", "Minimum macOS version supported",
+                  cmdline="--macosx-version-min",
+                  default="10.7",
+                  envvar="MACOSX_DEPLOYMENT_TARGET")
+    ]
+
+translation_optiondescription = OptionDescription(
+        "translation", "Translation Options", TRANSLATION_OPTIONS,
+)
 
 def get_combined_translation_config(other_optdescr=None,
                                     existing_config=None,
