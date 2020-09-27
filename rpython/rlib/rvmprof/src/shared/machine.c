@@ -6,6 +6,7 @@
 #ifdef VMPROF_UNIX
 #include <unistd.h>
 #include <fcntl.h>
+#include <string.h>
 #endif
 
 int vmp_machine_bits(void)

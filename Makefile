@@ -39,4 +39,3 @@ endif
 
 cffi_imports: pypy-c
 	cd lib_pypy && ../pypy/goal/pypy-c pypy_tools/build_cffi_imports.py || /bin/true
-

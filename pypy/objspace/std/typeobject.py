@@ -224,6 +224,16 @@ class W_TypeObject(W_Root):
         else:
             layout = setup_user_defined_type(self, force_new_layout)
         self.layout = layout
+        self.qualname = self.getname(space)
+        if self.flag_heaptype:
+            w_qualname = self.dict_w.pop('__qualname__', None)
+            if w_qualname is not None:
+                if space.isinstance_w(w_qualname, space.w_unicode):
+                    self.qualname = space.utf8_w(w_qualname)
+                elif not self.flag_cpytype:
+                    raise oefmt(space.w_TypeError,
+                                "type __qualname__ must be a str, not %T",
+                                w_qualname)
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
@@ -812,6 +822,12 @@ def _check_new_args(space, w_name, w_bases, w_dict):
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
+    if hasattr(space, 'is_fake_objspace'):
+        # this is for the various test_ztranslation around: if we are using
+        # the fake objspace, we don't want to annotate all the code which is
+        # specific to StdObjSpace. We just return a "random" W_Root.
+        return space.newlong(42)
+
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)

@@ -264,14 +264,12 @@ class W_PyCWrapperObject(W_Root):
     """
     _immutable_fields_ = ['offset[*]']
 
-    def __init__(self, space, pto, method_name, doc, func, offset):
+    def __init__(self, space, w_type, method_name, doc, func, offset):
         self.space = space
         self.method_name = method_name
         self.doc = doc
         self.func = func
         self.offset = offset
-        pyo = rffi.cast(PyObject, pto)
-        w_type = from_ref(space, pyo)
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 

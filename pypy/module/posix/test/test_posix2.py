@@ -537,7 +537,10 @@ class AppTestPosix:
                 skip("Need fork() to test execv()")
             pid = os.fork()
             if pid == 0:
-                os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
+                os.execv("/usr/bin/env", ["env", self.python, "-c",
+                         ("fid = open('onefile', 'w'); "
+                          "fid.write('1'); "
+                          "fid.close()")])
             os.waitpid(pid, 0)
             assert open("onefile").read() == "1"
             os.unlink("onefile")
@@ -582,7 +585,11 @@ class AppTestPosix:
                 skip("Need fork() to test execve()")
             pid = os.fork()
             if pid == 0:
-                os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
+                os.execve("/usr/bin/env", ["env", self.python, "-c",
+                          ("import os; fid = open('onefile', 'w'); "
+                           "fid.write(os.environ['ddd']); "
+                           "fid.close()")],
+                          {'ddd':'xxx'})
             os.waitpid(pid, 0)
             assert open("onefile").read() == "xxx"
             os.unlink("onefile")
@@ -611,22 +618,21 @@ class AppTestPosix:
         pass # <- please, inspect.getsource(), don't crash
 
     if hasattr(__import__(os.name), "spawnv"):
+        # spawnv is from stdlib's os, so this test is never run
         def test_spawnv(self):
             os = self.posix
-            P_WAIT = 0
             import sys
-            print(self.python)
-            ret = os.spawnv(P_WAIT, self.python,
-                            ['python', '-c', 'raise(SystemExit(42))'])
+            ret = os.spawnv(os.P_WAIT, self.python,
+                            [self.python, '-c', 'raise(SystemExit(42))'])
             assert ret == 42
 
     if hasattr(__import__(os.name), "spawnve"):
+        # spawnve is from stdlib's os, so this test is never run
         def test_spawnve(self):
             os = self.posix
-            P_WAIT = 0
-            env = {'PATH':self.env_path, 'FOOBAR': '42'}
-            ret = os.spawnve(P_WAIT, self.python,
-                             ['python', '-c',
+            env = {'PATH':os.environ['PATH'], 'FOOBAR': '42'}
+            ret = os.spawnve(os.P_WAIT, self.python,
+                             [self.python, '-c',
                               "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
                              env)
             assert ret == 42
@@ -1326,6 +1332,40 @@ class AppTestPosix:
 
     if hasattr(os, 'ftruncate'):
         def test_truncate(self):
+            posix = self.posix
+            dest = self.path2
+
+            def mkfile(dest, size=4):
+                with open(dest, 'wb') as f:
+                    f.write(b'd' * size)
+
+            # Check invalid inputs
+            mkfile(dest)
+            with raises(OSError):
+                posix.truncate(dest, -1)
+            with open(dest, 'rb') as f:  # f is read-only so cannot be truncated
+                with raises(OSError):
+                    posix.truncate(f.fileno(), 1)
+            with raises(TypeError):
+                posix.truncate(dest, None)
+            with raises(TypeError):
+                posix.truncate(None, None)
+
+            # Truncate via file descriptor
+            mkfile(dest)
+            with open(dest, 'wb') as f:
+                posix.truncate(f.fileno(), 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # Truncate via filename
+            mkfile(dest)
+            posix.truncate(dest, 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # File does not exist
+            with raises(OSError) as e:
+                posix.truncate(dest + '-DOESNT-EXIST', 0)
+            assert e.value.filename == dest + '-DOESNT-EXIST'
             posix = self.posix
             dest = self.path2
 

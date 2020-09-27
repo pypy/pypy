@@ -3,8 +3,8 @@ pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 maj=7
 min=3
-rev=1
-# rc=rc1  # set to blank for actual release
+rev=2
+# rc=rc3  # set to blank for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
