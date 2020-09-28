@@ -256,7 +256,7 @@ class TclTest(unittest.TestCase):
             try:
                 p = Popen(cmd, stdout=PIPE, stderr=PIPE)
             except WindowsError as e:
-                if e.winerror == 5:
+                if e.winerror == 5 or e.winerror == 2:
                     self.skipTest('Not permitted to start the child process')
                 else:
                     raise
@@ -661,6 +661,43 @@ class TclTest(unittest.TestCase):
                 expected = {'a': (1, 2, 3), 'something': 'foo', 'status': ''}
             self.assertEqual(splitdict(tcl, arg), expected)
 
+    def test_join(self):
+        join = tkinter._join
+        tcl = self.interp.tk
+        def unpack(s):
+            return tcl.call('lindex', s, 0)
+        def check(value):
+            self.assertEqual(unpack(join([value])), value)
+            self.assertEqual(unpack(join([value, 0])), value)
+            self.assertEqual(unpack(unpack(join([[value]]))), value)
+            self.assertEqual(unpack(unpack(join([[value, 0]]))), value)
+            self.assertEqual(unpack(unpack(join([[value], 0]))), value)
+            self.assertEqual(unpack(unpack(join([[value, 0], 0]))), value)
+        check('')
+        check('spam')
+        check('sp am')
+        check('sp\tam')
+        check('sp\nam')
+        check(' \t\n')
+        check('{spam}')
+        check('{sp am}')
+        check('"spam"')
+        check('"sp am"')
+        check('{"spam"}')
+        check('"{spam}"')
+        check('sp\\am')
+        check('"sp\\am"')
+        check('"{}" "{}"')
+        check('"\\')
+        check('"{')
+        check('"}')
+        check('\n\\')
+        check('\n{')
+        check('\n}')
+        check('\\\n')
+        check('{\n')
+        check('}\n')
+
 
 character_size = 4 if sys.maxunicode > 0xFFFF else 2
 
@@ -705,25 +742,25 @@ class BigmemTclTest(unittest.TestCase):
         self.check_huge_string_builtins(value)
 
     def check_huge_string_builtins(self, value):
-        self.assertRaises(OverflowError, self.interp.tk.getint, value)
-        self.assertRaises(OverflowError, self.interp.tk.getdouble, value)
-        self.assertRaises(OverflowError, self.interp.tk.getboolean, value)
-        self.assertRaises(OverflowError, self.interp.eval, value)
-        self.assertRaises(OverflowError, self.interp.evalfile, value)
-        self.assertRaises(OverflowError, self.interp.record, value)
-        self.assertRaises(OverflowError, self.interp.adderrorinfo, value)
-        self.assertRaises(OverflowError, self.interp.setvar, value, 'x', 'a')
-        self.assertRaises(OverflowError, self.interp.setvar, 'x', value, 'a')
-        self.assertRaises(OverflowError, self.interp.unsetvar, value)
-        self.assertRaises(OverflowError, self.interp.unsetvar, 'x', value)
-        self.assertRaises(OverflowError, self.interp.adderrorinfo, value)
-        self.assertRaises(OverflowError, self.interp.exprstring, value)
-        self.assertRaises(OverflowError, self.interp.exprlong, value)
-        self.assertRaises(OverflowError, self.interp.exprboolean, value)
-        self.assertRaises(OverflowError, self.interp.splitlist, value)
-        self.assertRaises(OverflowError, self.interp.split, value)
-        self.assertRaises(OverflowError, self.interp.createcommand, value, max)
-        self.assertRaises(OverflowError, self.interp.deletecommand, value)
+        tk = self.interp.tk
+        self.assertRaises(OverflowError, tk.getint, value)
+        self.assertRaises(OverflowError, tk.getdouble, value)
+        self.assertRaises(OverflowError, tk.getboolean, value)
+        self.assertRaises(OverflowError, tk.eval, value)
+        self.assertRaises(OverflowError, tk.evalfile, value)
+        self.assertRaises(OverflowError, tk.record, value)
+        self.assertRaises(OverflowError, tk.adderrorinfo, value)
+        self.assertRaises(OverflowError, tk.setvar, value, 'x', 'a')
+        self.assertRaises(OverflowError, tk.setvar, 'x', value, 'a')
+        self.assertRaises(OverflowError, tk.unsetvar, value)
+        self.assertRaises(OverflowError, tk.unsetvar, 'x', value)
+        self.assertRaises(OverflowError, tk.exprstring, value)
+        self.assertRaises(OverflowError, tk.exprlong, value)
+        self.assertRaises(OverflowError, tk.exprboolean, value)
+        self.assertRaises(OverflowError, tk.splitlist, value)
+        self.assertRaises(OverflowError, tk.split, value)
+        self.assertRaises(OverflowError, tk.createcommand, value, max)
+        self.assertRaises(OverflowError, tk.deletecommand, value)
 
 
 def setUpModule():

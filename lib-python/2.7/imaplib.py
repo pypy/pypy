@@ -70,6 +70,7 @@ Commands = {
         'LOGIN':        ('NONAUTH',),
         'LOGOUT':       ('NONAUTH', 'AUTH', 'SELECTED', 'LOGOUT'),
         'LSUB':         ('AUTH', 'SELECTED'),
+        'MOVE':         ('SELECTED',),
         'NAMESPACE':    ('AUTH', 'SELECTED'),
         'NOOP':         ('NONAUTH', 'AUTH', 'SELECTED', 'LOGOUT'),
         'PARTIAL':      ('SELECTED',),                                  # NB: obsolete
@@ -264,8 +265,10 @@ class IMAP4:
         try:
             self.sock.shutdown(socket.SHUT_RDWR)
         except socket.error as e:
-            # The server might already have closed the connection
-            if e.errno != errno.ENOTCONN:
+            # The server might already have closed the connection.
+            # On Windows, this may result in WSAEINVAL (error 10022):
+            # An invalid operation was attempted.
+            if e.errno not in (errno.ENOTCONN, 10022):
                 raise
         finally:
             self.sock.close()
@@ -1179,16 +1182,6 @@ else:
             self.file = self.sslobj.makefile('rb')
 
 
-        def read(self, size):
-            """Read 'size' bytes from remote."""
-            return self.file.read(size)
-
-
-        def readline(self):
-            """Read line from remote."""
-            return self.file.readline()
-
-
         def send(self, data):
             """Send data to remote."""
             bytes = len(data)
@@ -1409,7 +1402,7 @@ def Time2Internaldate(date_time):
     be in the correct format.
     """
 
-    if isinstance(date_time, (int, float)):
+    if isinstance(date_time, (int, long, float)):
         tt = time.localtime(date_time)
     elif isinstance(date_time, (tuple, time.struct_time)):
         tt = date_time

@@ -129,6 +129,18 @@ class AifcMiscTest(audiotests.AudioTests, unittest.TestCase):
         #This file contains chunk types aifc doesn't recognize.
         self.f = aifc.open(findfile('Sine-1000Hz-300ms.aif'))
 
+    def test_close_opened_files_on_error(self):
+        non_aifc_file = findfile('pluck-pcm8.wav', subdir='audiodata')
+
+        class Aifc(aifc.Aifc_read):
+            def __init__(self):
+                pass
+
+        a = Aifc()
+        with self.assertRaises(aifc.Error):
+            aifc.Aifc_read.__init__(a, non_aifc_file)
+        self.assertTrue(a._file.closed)
+
     def test_write_markers_values(self):
         fout = aifc.open(io.BytesIO(), 'wb')
         self.assertEqual(fout.getmarkers(), None)
@@ -201,6 +213,14 @@ class AIFCLowLevelTest(unittest.TestCase):
     def test_read_no_comm_chunk(self):
         b = io.BytesIO('FORM' + struct.pack('>L', 4) + 'AIFF')
         self.assertRaises(aifc.Error, aifc.open, b)
+
+    def test_read_no_ssnd_chunk(self):
+        b = b'FORM' + struct.pack('>L', 4) + b'AIFC'
+        b += b'COMM' + struct.pack('>LhlhhLL', 38, 0, 0, 0, 0, 0, 0)
+        b += b'NONE' + struct.pack('B', 14) + b'not compressed' + b'\x00'
+        with self.assertRaisesRegexp(aifc.Error, 'COMM chunk and/or SSND chunk'
+                                                 ' missing'):
+            aifc.open(io.BytesIO(b))
 
     def test_read_wrong_compression_type(self):
         b = 'FORM' + struct.pack('>L', 4) + 'AIFC'

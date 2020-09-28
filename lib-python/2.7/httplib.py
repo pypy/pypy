@@ -1031,9 +1031,11 @@ class HTTPConnection:
         # prevent http header injection
         match = _contains_disallowed_method_pchar_re.search(method)
         if match:
-            raise ValueError(
-                "method can't contain control characters. %r (found "
-                "at least %r)" % (method, match.group()))
+            msg = (
+                "method can't contain control characters. {method!r} "
+                "(found at least {matched!r})"
+            ).format(matched=match.group(), method=method)
+            raise ValueError(msg)
 
     def _validate_path(self, url):
         """Validate a url for putrequest."""

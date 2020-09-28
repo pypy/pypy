@@ -604,10 +604,31 @@ class URandomFDTests(unittest.TestCase):
         assert_python_ok('-c', code)
 
 
-class ExecvpeTests(unittest.TestCase):
+class ExecTests(unittest.TestCase):
 
     def test_execvpe_with_bad_arglist(self):
         self.assertRaises(ValueError, os.execvpe, 'notepad', [], None)
+
+    def test_execve_invalid_env(self):
+        args = [sys.executable, '-c', 'pass']
+
+        # null character in the enviroment variable name
+        newenv = os.environ.copy()
+        newenv["FRUIT\0VEGETABLE"] = "cabbage"
+        with self.assertRaises(TypeError):
+            os.execve(args[0], args, newenv)
+
+        # null character in the enviroment variable value
+        newenv = os.environ.copy()
+        newenv["FRUIT"] = "orange\0VEGETABLE=cabbage"
+        with self.assertRaises(TypeError):
+            os.execve(args[0], args, newenv)
+
+        # equal character in the enviroment variable name
+        newenv = os.environ.copy()
+        newenv["FRUIT=ORANGE"] = "lemon"
+        with self.assertRaises(ValueError):
+            os.execve(args[0], args, newenv)
 
 
 @unittest.skipUnless(sys.platform == "win32", "Win32 specific tests")
@@ -719,30 +740,36 @@ class PosixUidGidTests(unittest.TestCase):
     def test_setuid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.setuid, 0)
+        self.assertRaises(TypeError, os.setuid, 'not an int')
         self.assertRaises(OverflowError, os.setuid, 1<<32)
 
     @unittest.skipUnless(hasattr(os, 'setgid'), 'test needs os.setgid()')
     def test_setgid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.setgid, 0)
+        self.assertRaises(TypeError, os.setgid, 'not an int')
         self.assertRaises(OverflowError, os.setgid, 1<<32)
 
     @unittest.skipUnless(hasattr(os, 'seteuid'), 'test needs os.seteuid()')
     def test_seteuid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.seteuid, 0)
+        self.assertRaises(TypeError, os.seteuid, 'not an int')
         self.assertRaises(OverflowError, os.seteuid, 1<<32)
 
     @unittest.skipUnless(hasattr(os, 'setegid'), 'test needs os.setegid()')
     def test_setegid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.setegid, 0)
+        self.assertRaises(TypeError, os.setegid, 'not an int')
         self.assertRaises(OverflowError, os.setegid, 1<<32)
 
     @unittest.skipUnless(hasattr(os, 'setreuid'), 'test needs os.setreuid()')
     def test_setreuid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.setreuid, 0, 0)
+        self.assertRaises(TypeError, os.setreuid, 'not an int', 0)
+        self.assertRaises(TypeError, os.setreuid, 0, 'not an int')
         self.assertRaises(OverflowError, os.setreuid, 1<<32, 0)
         self.assertRaises(OverflowError, os.setreuid, 0, 1<<32)
 
@@ -758,6 +785,8 @@ class PosixUidGidTests(unittest.TestCase):
     def test_setregid(self):
         if os.getuid() != 0:
             self.assertRaises(os.error, os.setregid, 0, 0)
+        self.assertRaises(TypeError, os.setregid, 'not an int', 0)
+        self.assertRaises(TypeError, os.setregid, 0, 'not an int')
         self.assertRaises(OverflowError, os.setregid, 1<<32, 0)
         self.assertRaises(OverflowError, os.setregid, 0, 1<<32)
 
@@ -885,6 +914,112 @@ class Win32KillTests(unittest.TestCase):
         self._kill_with_event(signal.CTRL_BREAK_EVENT, "CTRL_BREAK_EVENT")
 
 
+@unittest.skipUnless(sys.platform == "win32", "Win32 specific tests")
+class Win32ListdirTests(unittest.TestCase):
+    """Test listdir on Windows."""
+
+    def setUp(self):
+        self.created_paths = []
+        for i in range(2):
+            dir_name = 'SUB%d' % i
+            dir_path = os.path.join(support.TESTFN, dir_name)
+            file_name = 'FILE%d' % i
+            file_path = os.path.join(support.TESTFN, file_name)
+            os.makedirs(dir_path)
+            with open(file_path, 'w') as f:
+                f.write("I'm %s and proud of it. Blame test_os.\n" % file_path)
+            self.created_paths.extend([dir_name, file_name])
+        self.created_paths.sort()
+
+    def tearDown(self):
+        shutil.rmtree(support.TESTFN)
+
+    def test_listdir_no_extended_path(self):
+        """Test when the path is not an "extended" path."""
+        # unicode
+        fs_encoding = sys.getfilesystemencoding()
+        self.assertEqual(
+                sorted(os.listdir(support.TESTFN.decode(fs_encoding))),
+                [path.decode(fs_encoding) for path in self.created_paths])
+
+        # bytes
+        self.assertEqual(
+                sorted(os.listdir(os.fsencode(support.TESTFN))),
+                self.created_paths)
+
+    def test_listdir_extended_path(self):
+        """Test when the path starts with '\\\\?\\'."""
+        # See: http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx#maxpath
+        # unicode
+        fs_encoding = sys.getfilesystemencoding()
+        path = u'\\\\?\\' + os.path.abspath(support.TESTFN.decode(fs_encoding))
+        self.assertEqual(
+                sorted(os.listdir(path)),
+                [path.decode(fs_encoding) for path in self.created_paths])
+
+        # bytes
+        path = b'\\\\?\\' + os.path.abspath(support.TESTFN)
+        self.assertEqual(
+                sorted(os.listdir(path)),
+                self.created_paths)
+
+
+class SpawnTests(unittest.TestCase):
+    def _test_invalid_env(self, spawn):
+        args = [sys.executable, '-c', 'pass']
+
+        # null character in the enviroment variable name
+        newenv = os.environ.copy()
+        newenv["FRUIT\0VEGETABLE"] = "cabbage"
+        try:
+            exitcode = spawn(os.P_WAIT, args[0], args, newenv)
+        except TypeError:
+            pass
+        else:
+            self.assertEqual(exitcode, 127)
+
+        # null character in the enviroment variable value
+        newenv = os.environ.copy()
+        newenv["FRUIT"] = "orange\0VEGETABLE=cabbage"
+        try:
+            exitcode = spawn(os.P_WAIT, args[0], args, newenv)
+        except TypeError:
+            pass
+        else:
+            self.assertEqual(exitcode, 127)
+
+        # equal character in the enviroment variable name
+        newenv = os.environ.copy()
+        newenv["FRUIT=ORANGE"] = "lemon"
+        try:
+            exitcode = spawn(os.P_WAIT, args[0], args, newenv)
+        except ValueError:
+            pass
+        else:
+            self.assertEqual(exitcode, 127)
+
+        # equal character in the enviroment variable value
+        filename = test_support.TESTFN
+        self.addCleanup(test_support.unlink, filename)
+        with open(filename, "w") as fp:
+            fp.write('import sys, os\n'
+                     'if os.getenv("FRUIT") != "orange=lemon":\n'
+                     '    raise AssertionError')
+        args = [sys.executable, filename]
+        newenv = os.environ.copy()
+        newenv["FRUIT"] = "orange=lemon"
+        exitcode = spawn(os.P_WAIT, args[0], args, newenv)
+        self.assertEqual(exitcode, 0)
+
+    @unittest.skipUnless(hasattr(os, 'spawnve'), 'test needs os.spawnve()')
+    def test_spawnve_invalid_env(self):
+        self._test_invalid_env(os.spawnve)
+
+    @unittest.skipUnless(hasattr(os, 'spawnvpe'), 'test needs os.spawnvpe()')
+    def test_spawnvpe_invalid_env(self):
+        self._test_invalid_env(os.spawnvpe)
+
+
 def test_main():
     test_support.run_unittest(
         FileTests,
@@ -896,11 +1031,12 @@ def test_main():
         DevNullTests,
         URandomTests,
         URandomFDTests,
-        ExecvpeTests,
+        ExecTests,
         Win32ErrorTests,
         TestInvalidFD,
         PosixUidGidTests,
-        Win32KillTests
+        Win32KillTests,
+        SpawnTests,
     )
 
 if __name__ == "__main__":

@@ -1,8 +1,5 @@
 """Utilities to support packages."""
 
-# NOTE: This module must remain compatible with Python 2.3, as it is shared
-# by setuptools for distribution with Python 2.3 and up.
-
 import os
 import sys
 import imp
@@ -252,8 +249,8 @@ class ImpLoader:
         return mod
 
     def get_data(self, pathname):
-        with open(pathname, "rb") as f:
-            return f.read()
+        with open(pathname, "rb") as file:
+            return file.read()
 
     def _reopen(self):
         if self.file and self.file.closed:
