@@ -1,9 +1,12 @@
 in here there are copies of the Lib/ directory of the CPython HG repository
 at http://hg.python.org/cpython/
 
-the outputs for hg id or `git rev-parse HEAD` of each are:
+2.7 is using Gentoo fork of CPython 2.7 git repository with additional
+security fixes at https://gitweb.gentoo.org/fork/cpython.git
+
+the outputs for hg id or `git describe HEAD` of each are:
 
     2.7::
-        2.7.16 413a49145e35c7a2d3a7de27c5a1828449c9b2e5
+        v2.7.18-3-g138e2caeb4
     3::
         cef745775b65 (3.2) v3.2.5
