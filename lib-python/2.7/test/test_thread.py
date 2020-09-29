@@ -133,6 +133,8 @@ class ThreadRunningTests(BasicThreadTest):
             del task
             while not done:
                 time.sleep(0.01)
+                # pypy: explicitly collect garbage
+                support.gc_collect()
             self.assertEqual(thread._count(), orig)
 
     def test_save_exception_state_on_error(self):
