@@ -516,7 +516,7 @@ Misuse of the global statement can lead to a few unique syntax errors.
    ... # doctest: +ELLIPSIS
    Traceback (most recent call last):
      ...
-   SyntaxError: name 'x' is local and global (<doctest ...>, line 1)
+   SyntaxError: name 'x' is local and global
 
 
 This tests assignment-context; there was a bug in Python 2.5 where compiling
