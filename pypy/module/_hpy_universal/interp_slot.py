@@ -191,13 +191,13 @@ SLOTS = unrolling_iterable([
 #   ('tp_richcompare',             '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-    ('tp_str',                     '__str__',       AGS.W_SlotWrapper_unaryfunc),
+#    ('tp_str',                     '__str__',       AGS.W_SlotWrapper_unaryfunc),
 #   ('tp_traverse',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('nb_matrix_multiply',         '__xxx__',       AGS.W_SlotWrapper_...),
     ('nb_inplace_matrix_multiply', '__imatmul__',   AGS.W_SlotWrapper_binaryfunc),
-    ('am_await',                   '__await__',     AGS.W_SlotWrapper_unaryfunc),
-    ('am_aiter',                   '__aiter__',     AGS.W_SlotWrapper_unaryfunc),
-    ('am_anext',                   '__anext__',     AGS.W_SlotWrapper_unaryfunc),
+#    ('am_await',                   '__await__',     AGS.W_SlotWrapper_unaryfunc),
+#    ('am_aiter',                   '__aiter__',     AGS.W_SlotWrapper_unaryfunc),
+#    ('am_anext',                   '__anext__',     AGS.W_SlotWrapper_unaryfunc),
 #   ('tp_finalize',                '__xxx__',       AGS.W_SlotWrapper_...),
 
     # extra HPy-specific slots
