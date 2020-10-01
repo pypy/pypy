@@ -12,8 +12,7 @@ class Darwin(posix.BasePosix):
 
     link_flags = ()
     cflags = ('-O3',
-              '-fomit-frame-pointer',
-              '-fno-stack-check')
+              '-fomit-frame-pointer')
 
     so_ext = 'dylib'
     DEFAULT_CC = 'clang'
