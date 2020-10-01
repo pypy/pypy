@@ -301,6 +301,27 @@ def _check_for_unavailable_sdk(_config_vars):
     return _config_vars
 
 
+def _set_deployment_target(_config_vars):
+    """Assign MACOSX_DEPLOYMENT_TARGET translation options.
+
+    The MACOSX_DEPLOYMENT_TARGET environment variable selects which
+    version of macOS its build system, such as compilers and linkers,
+    will target. This is commonly set or detected during translation,
+    similar to CPython we do not allow overriding this with an
+    environment variable.
+
+    """
+
+    t = sys.pypy_translation_info.get(
+        'translation.macosx_deployment_target', None,
+    )
+
+    if t:
+        _config_vars['MACOSX_DEPLOYMENT_TARGET'] = t
+
+    return _config_vars
+
+
 def compiler_fixup(compiler_so, cc_args):
     """
     This function will strip '-isysroot PATH' and '-arch ARCH' from the
@@ -389,6 +410,9 @@ def customize_config_vars(_config_vars):
 
     Currently called from distutils.sysconfig
     """
+
+    # Set MACOSX_DEPLOYMENT_TARGET
+    _set_deployment_target(_config_vars)
 
     if not _supports_universal_builds():
         # On Mac OS X before 10.4, check if -arch and -isysroot
