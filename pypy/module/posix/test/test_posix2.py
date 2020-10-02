@@ -1758,6 +1758,7 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
         environ = self.posix.environ
@@ -1803,7 +1804,9 @@ class AppTestEnvironment(object):
         os.environ["ABCABC"] = "1"
         assert os.environ["ABCABC"] == "1"
         os.unsetenv("ABCABC")
-        cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
+            cmd = ('%s -c "import os, sys; '
+                   'sys.exit(int(\'ABCABC\' in os.environ))" '
+                   % self.python)
         res = os.system(cmd)
         assert res == 0
 

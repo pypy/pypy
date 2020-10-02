@@ -20,7 +20,6 @@ class Darwin(posix.BasePosix):
     link_flags = (DARWIN_VERSION_MIN,)
     cflags = ('-O3',
               '-fomit-frame-pointer',
-              '-fno-stack-check',
               DARWIN_VERSION_MIN,)
 
     so_ext = 'dylib'
