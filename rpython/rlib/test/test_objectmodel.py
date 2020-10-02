@@ -860,16 +860,29 @@ def test_never_allocate():
 
     @never_allocate
     class MyClass(object):
-        pass
+        def __init__(self, x):
+            self.x = x + 1
 
     @dont_inline
-    def allocate_MyClass():
-        return MyClass()
+    def allocate_MyClass(x):
+        return MyClass(x)
 
-    def f():
-        allocate_MyClass()
+    def f(x):
+        # this fails because the allocation of MyClass can't be
+        # constant-folded (because it's inside a @dont_inline function)
+        return allocate_MyClass(x).x
 
+    def g(x):
+        # this works because MyClass is constant folded, so the GC transformer
+        # never sees a malloc(MyClass)
+        return MyClass(x).x
+
+    # test what happens if MyClass escapes
     with py.test.raises(GCTransformError) as exc:
-        c_compile(f, [])
+        c_compile(f, [int])
     assert '[function allocate_MyClass]' in str(exc)
     assert 'was marked as @never_allocate' in str(exc)
+
+    # test that it works in the "normal" case
+    compiled_g = c_compile(g, [int])
+    assert compiled_g(41) == 42
