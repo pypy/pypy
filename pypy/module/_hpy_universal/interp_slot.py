@@ -97,9 +97,23 @@ class W_wrap_indexargfunc(W_SlotWrapper):
             h_result = func(ctx, h_self, h_i)
             return handles.consume(space, h_result)
 
+class W_wrap_inquirypred(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_inquiry", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        with handles.using(space, w_self) as h_self:
+            res = func(ctx, h_self)
+            res = rffi.cast(lltype.Signed, res)
+            if res == -1:
+                raise NotImplementedError('write a test')
+                #space.fromcache(State).check_and_raise_exception(always=True)
+            return space.newbool(bool(res))
+
+
 # remaining wrappers to write
 ## wrap_lenfunc(PyObject *self, PyObject *args, void *wrapped)
-## wrap_inquirypred(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc(PyObject *self, PyObject *args, void *wrapped)
@@ -189,7 +203,7 @@ SLOTS = unrolling_iterable([
     ('nb_absolute',                '__abs__',       W_wrap_unaryfunc),
     ('nb_add',                     '__add__',       W_wrap_binaryfunc),
     ('nb_and',                     '__and__',       W_wrap_binaryfunc),
-#   ('nb_bool',                    '__xxx__',       AGS.W_SlotWrapper_...),
+    ('nb_bool',                    '__bool__',      W_wrap_inquirypred),
     ('nb_divmod',                  '__divmod__',    W_wrap_binaryfunc),
     ('nb_float',                   '__float__',     W_wrap_unaryfunc),
     ('nb_floor_divide',            '__floordiv__',  W_wrap_binaryfunc),
