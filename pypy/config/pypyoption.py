@@ -45,6 +45,11 @@ working_modules.update([
     # "_hashlib", "crypt"
 ])
 
+if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+    # _hpy_universal needs tweaking to work on 32-bit linux
+    working_modules.remove('_hpy_universal')
+    
+
 import rpython.rlib.rvmprof.cintf
 if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
     working_modules.add('_vmprof')
