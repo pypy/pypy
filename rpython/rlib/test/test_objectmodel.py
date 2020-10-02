@@ -7,7 +7,8 @@ from rpython.rlib.objectmodel import (
     resizelist_hint, is_annotation_constant, always_inline, NOT_CONSTANT,
     iterkeys_with_hash, iteritems_with_hash, contains_with_hash,
     setitem_with_hash, getitem_with_hash, delitem_with_hash, import_from_mixin,
-    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end)
+    fetch_translated_config, try_inline, delitem_if_value_is, move_to_end,
+    never_allocate, dont_inline)
 from rpython.translator.translator import TranslationContext, graphof
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.test.test_llinterp import interpret
@@ -851,3 +852,24 @@ def test_import_from_mixin_immutable_fields():
         import_from_mixin(C)
 
     assert BA._immutable_fields_ == ['c', 'a']
+
+
+def test_never_allocate():
+    from rpython.translator.c.test.test_genc import compile as c_compile
+    from rpython.memory.gctransform.transform import GCTransformError
+
+    @never_allocate
+    class MyClass(object):
+        pass
+
+    @dont_inline
+    def allocate_MyClass():
+        return MyClass()
+
+    def f():
+        allocate_MyClass()
+
+    with py.test.raises(GCTransformError) as exc:
+        c_compile(f, [])
+    assert '[function allocate_MyClass]' in str(exc)
+    assert 'was marked as @never_allocate' in str(exc)
