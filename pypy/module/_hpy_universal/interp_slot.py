@@ -120,11 +120,8 @@ class W_wrap_indexargfunc(W_SlotWrapper):
 ## wrap_descr_get(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_set(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_delete(PyObject *self, PyObject *args, void *wrapped)
-## wrap_init(PyObject *self, PyObject *args, void *wrapped, PyObject *kwds)
 
-
-
-class W_SlotWrapper_initproc(W_SlotWrapper):
+class W_wrap_init(W_SlotWrapper):
     def call(self, space, __args__):
         with handles.using(space, __args__.arguments_w[0]) as h_self:
             n = len(__args__.arguments_w) - 1
@@ -163,7 +160,7 @@ class W_tp_new_wrapper(W_ExtensionFunction):
 
     This is the equivalent of CPython's tp_new_wrapper: the difference is that
     CPython's tp_new_wrapper is a regular PyMethodDef which is wrapped inside
-    a PyCFunction, while here we have our own type
+    a PyCFunction, while here we have our own type.
     """
 
     def __init__(self, space, cfuncptr, w_type):
@@ -241,7 +238,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_getattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_getattro',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
-    ('tp_init',                    '__init__',      W_SlotWrapper_initproc),
+    ('tp_init',                    '__init__',      W_wrap_init),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_iter',                    '__iter__',      W_wrap_unaryfunc),
 #   ('tp_iternext',                '__xxx__',       AGS.W_SlotWrapper_...),
@@ -268,6 +265,7 @@ def fill_slot(space, w_type, hpyslot):
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
+        # this is the moral equivalent of CPython's add_tp_new_wrapper
         w_func = W_tp_new_wrapper(space, hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
