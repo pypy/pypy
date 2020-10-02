@@ -1,3 +1,5 @@
+#! /bin/bash
+
 # Edit these appropriately before running this script
 pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
@@ -103,6 +105,17 @@ function repackage_builds {
         echo no download for $plat
     fi
 }
+
+function create_archival {
+    if [ -e $1 ]; then
+        return 0;
+    fi
+    echo repo: 45eff22199974f85fd96138d25510f4660aba5a1 > $1
+    hg log -r $tagname -T 'node: {node}\n' >> $1
+    echo branch: $branchname >> $1
+    echo tag: $tagname >> $1
+}
+
 function repackage_source {
     # Download source and repackage
     # Requires a valid $tagname, note the untarred directory is pypy-pypy-<hash>
@@ -112,6 +125,7 @@ function repackage_source {
         tar -xf archive.tar.gz
         rm archive.tar.gz
         mv pypy-release-* $rel-src
+        create_archival  $rel-src/.hg_archival.txt
         tar --owner=root --group=root --numeric-owner -cjf $rel-src.tar.bz2 $rel-src
         zip -rq $rel-src.zip $rel-src
         rm -rf $rel-src
