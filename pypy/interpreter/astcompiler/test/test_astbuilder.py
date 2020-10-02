@@ -596,6 +596,8 @@ class TestAstBuilder:
             assert isinstance(dec, ast.Name)
             assert dec.id == "dec"
             assert dec.ctx == ast.Load
+            assert dec.lineno == 1
+            assert dec.col_offset == 1
             definition = self.get_first_stmt("@mod.hi.dec\n%s" % (stmt,))
             assert len(definition.decorator_list) == 1
             dec = definition.decorator_list[0]
@@ -623,6 +625,8 @@ class TestAstBuilder:
             assert dec.keywords is None
             assert dec.starargs is None
             assert dec.kwargs is None
+            assert dec.lineno == 1
+            assert dec.col_offset == 1
             definition = self.get_first_stmt("@dec(a, b)\n%s" % (stmt,))
             assert len(definition.decorator_list) == 1
             dec = definition.decorator_list[0]
@@ -632,6 +636,8 @@ class TestAstBuilder:
             assert dec.keywords is None
             assert dec.starargs is None
             assert dec.kwargs is None
+            assert dec.lineno == 1
+            assert dec.col_offset == 1
 
     def test_augassign(self):
         aug_assigns = (
