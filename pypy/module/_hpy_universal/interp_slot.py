@@ -61,6 +61,69 @@ W_SlotWrapper.typedef = TypeDef(
     )
 W_SlotWrapper.typedef.acceptable_as_base_class = False
 
+# ~~~~~~~~~~ concrete W_SlotWrapper subclasses ~~~~~~~~~~~~~
+# these are the equivalent of the various functions wrap_* inside CPython's typeobject.c
+
+class W_wrap_binaryfunc(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_binaryfunc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_other = __args__.arguments_w[1]
+        with handles.using(space, w_self, w_other) as (h_self, h_other):
+            h_result = func(ctx, h_self, h_other)
+            return handles.consume(space, h_result)
+
+class W_wrap_unaryfunc(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_unaryfunc", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        with handles.using(space, w_self) as h_self:
+            h_result = func(ctx, h_self)
+            return handles.consume(space, h_result)
+
+class W_wrap_indexargfunc(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_i = __args__.arguments_w[1]
+        h_i = space.int_w(space.index(w_i))
+        with handles.using(space, w_self) as h_self:
+            h_result = func(ctx, h_self, h_i)
+            return handles.consume(space, h_result)
+
+# remaining wrappers to write
+## wrap_lenfunc(PyObject *self, PyObject *args, void *wrapped)
+## wrap_inquirypred(PyObject *self, PyObject *args, void *wrapped)
+## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
+## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
+## wrap_ternaryfunc(PyObject *self, PyObject *args, void *wrapped)
+## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
+## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
+## wrap_sq_setitem(PyObject *self, PyObject *args, void *wrapped)
+## wrap_sq_delitem(PyObject *self, PyObject *args, void *wrapped)
+## wrap_objobjproc(PyObject *self, PyObject *args, void *wrapped)
+## wrap_objobjargproc(PyObject *self, PyObject *args, void *wrapped)
+## wrap_delitem(PyObject *self, PyObject *args, void *wrapped)
+## wrap_setattr(PyObject *self, PyObject *args, void *wrapped)
+## wrap_delattr(PyObject *self, PyObject *args, void *wrapped)
+## wrap_hashfunc(PyObject *self, PyObject *args, void *wrapped)
+## wrap_call(PyObject *self, PyObject *args, void *wrapped, PyObject *kwds)
+## wrap_del(PyObject *self, PyObject *args, void *wrapped)
+## wrap_richcmpfunc(PyObject *self, PyObject *args, void *wrapped, int op)
+## wrap_next(PyObject *self, PyObject *args, void *wrapped)
+## wrap_descr_get(PyObject *self, PyObject *args, void *wrapped)
+## wrap_descr_set(PyObject *self, PyObject *args, void *wrapped)
+## wrap_descr_delete(PyObject *self, PyObject *args, void *wrapped)
+## wrap_init(PyObject *self, PyObject *args, void *wrapped, PyObject *kwds)
+
+
+
 class W_SlotWrapper_initproc(W_SlotWrapper):
     def call(self, space, __args__):
         with handles.using(space, __args__.arguments_w[0]) as h_self:
@@ -121,54 +184,50 @@ class W_tp_new_wrapper(W_ExtensionFunction):
 
 
 
-
-# NOTE: we need to import this module here, to avoid circular imports
-from pypy.module._hpy_universal import autogen_interp_slots as AGS # "Auto Gen Slots"
-
 SLOTS = unrolling_iterable([
     # CPython slots
 #   ('mp_ass_subscript',           '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('mp_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('mp_subscript',               '__getitem__',   AGS.W_SlotWrapper_binaryfunc),
-    ('nb_absolute',                '__abs__',       AGS.W_SlotWrapper_unaryfunc),
-    ('nb_add',                     '__add__',       AGS.W_SlotWrapper_binaryfunc),
-    ('nb_and',                     '__and__',       AGS.W_SlotWrapper_binaryfunc),
+    ('nb_absolute',                '__abs__',       W_wrap_unaryfunc),
+    ('nb_add',                     '__add__',       W_wrap_binaryfunc),
+    ('nb_and',                     '__and__',       W_wrap_binaryfunc),
 #   ('nb_bool',                    '__xxx__',       AGS.W_SlotWrapper_...),
-    ('nb_divmod',                  '__divmod__',    AGS.W_SlotWrapper_binaryfunc),
-    ('nb_float',                   '__float__',     AGS.W_SlotWrapper_unaryfunc),
-    ('nb_floor_divide',            '__floordiv__',  AGS.W_SlotWrapper_binaryfunc),
-    ('nb_index',                   '__index__',     AGS.W_SlotWrapper_unaryfunc),
-    ('nb_inplace_add',             '__iadd__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_and',             '__iand__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_floor_divide',    '__ifloordiv__', AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_lshift',          '__ilshift__',   AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_multiply',        '__imul__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_or',              '__ior__',       AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_power',           '__ipow__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_remainder',       '__imod__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_rshift',          '__irshift__',   AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_subtract',        '__isub__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_true_divide',     '__itruediv__',  AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_xor',             '__ixor__',      AGS.W_SlotWrapper_binaryfunc),
-    ('nb_int',                     '__int__',       AGS.W_SlotWrapper_unaryfunc),
-    ('nb_invert',                  '__invert__',    AGS.W_SlotWrapper_unaryfunc),
-    ('nb_lshift',                  '__lshift__',    AGS.W_SlotWrapper_binaryfunc),
-    ('nb_multiply',                '__mul__',       AGS.W_SlotWrapper_binaryfunc),
-    ('nb_negative',                '__neg__',       AGS.W_SlotWrapper_unaryfunc),
-    ('nb_or',                      '__or__',        AGS.W_SlotWrapper_binaryfunc),
-    ('nb_positive',                '__pos__',       AGS.W_SlotWrapper_unaryfunc),
+    ('nb_divmod',                  '__divmod__',    W_wrap_binaryfunc),
+    ('nb_float',                   '__float__',     W_wrap_unaryfunc),
+    ('nb_floor_divide',            '__floordiv__',  W_wrap_binaryfunc),
+    ('nb_index',                   '__index__',     W_wrap_unaryfunc),
+    ('nb_inplace_add',             '__iadd__',      W_wrap_binaryfunc),
+    ('nb_inplace_and',             '__iand__',      W_wrap_binaryfunc),
+    ('nb_inplace_floor_divide',    '__ifloordiv__', W_wrap_binaryfunc),
+    ('nb_inplace_lshift',          '__ilshift__',   W_wrap_binaryfunc),
+    ('nb_inplace_multiply',        '__imul__',      W_wrap_binaryfunc),
+    ('nb_inplace_or',              '__ior__',       W_wrap_binaryfunc),
+    ('nb_inplace_power',           '__ipow__',      W_wrap_binaryfunc),
+    ('nb_inplace_remainder',       '__imod__',      W_wrap_binaryfunc),
+    ('nb_inplace_rshift',          '__irshift__',   W_wrap_binaryfunc),
+    ('nb_inplace_subtract',        '__isub__',      W_wrap_binaryfunc),
+    ('nb_inplace_true_divide',     '__itruediv__',  W_wrap_binaryfunc),
+    ('nb_inplace_xor',             '__ixor__',      W_wrap_binaryfunc),
+    ('nb_int',                     '__int__',       W_wrap_unaryfunc),
+    ('nb_invert',                  '__invert__',    W_wrap_unaryfunc),
+    ('nb_lshift',                  '__lshift__',    W_wrap_binaryfunc),
+    ('nb_multiply',                '__mul__',       W_wrap_binaryfunc),
+    ('nb_negative',                '__neg__',       W_wrap_unaryfunc),
+    ('nb_or',                      '__or__',        W_wrap_binaryfunc),
+    ('nb_positive',                '__pos__',       W_wrap_unaryfunc),
 #   ('nb_power',                   '__xxx__',       AGS.W_SlotWrapper_...),
-    ('nb_remainder',               '__mod__',       AGS.W_SlotWrapper_binaryfunc),
-    ('nb_rshift',                  '__rshift__',    AGS.W_SlotWrapper_binaryfunc),
-    ('nb_subtract',                '__sub__',       AGS.W_SlotWrapper_binaryfunc),
-    ('nb_true_divide',             '__truediv__',   AGS.W_SlotWrapper_binaryfunc),
-    ('nb_xor',                     '__xor__',       AGS.W_SlotWrapper_binaryfunc),
+    ('nb_remainder',               '__mod__',       W_wrap_binaryfunc),
+    ('nb_rshift',                  '__rshift__',    W_wrap_binaryfunc),
+    ('nb_subtract',                '__sub__',       W_wrap_binaryfunc),
+    ('nb_true_divide',             '__truediv__',   W_wrap_binaryfunc),
+    ('nb_xor',                     '__xor__',       W_wrap_binaryfunc),
 #   ('sq_ass_item',                '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('sq_concat',                  '__add__',       AGS.W_SlotWrapper_binaryfunc),
+#   ('sq_concat',                  '__add__',       W_wrap_binaryfunc),
 #   ('sq_contains',                '__xxx__',       AGS.W_SlotWrapper_...),
-#   ('sq_inplace_concat',          '__iadd__',      AGS.W_SlotWrapper_binaryfunc),
+#   ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
 #   ('sq_inplace_repeat',          '__xxx__',       AGS.W_SlotWrapper_...),
-    ('sq_item',                    '__getitem__',   AGS.W_SlotWrapper_ssizeargfunc),
+    ('sq_item',                    '__getitem__',   W_wrap_indexargfunc),
 #   ('sq_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('sq_repeat',                  '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_base',                    '__xxx__',       AGS.W_SlotWrapper_...),
@@ -184,20 +243,20 @@ SLOTS = unrolling_iterable([
 #   ('tp_hash',                    '__xxx__',       AGS.W_SlotWrapper_...),
     ('tp_init',                    '__init__',      W_SlotWrapper_initproc),
 #   ('tp_is_gc',                   '__xxx__',       AGS.W_SlotWrapper_...),
-#    ('tp_iter',                    '__iter__',      AGS.W_SlotWrapper_unaryfunc),
+#    ('tp_iter',                    '__iter__',      W_wrap_unaryfunc),
 #   ('tp_iternext',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   tp_new     SPECIAL-CASED
-    ('tp_repr',                    '__repr__',      AGS.W_SlotWrapper_unaryfunc),
+    ('tp_repr',                    '__repr__',      W_wrap_unaryfunc),
 #   ('tp_richcompare',             '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
-#    ('tp_str',                     '__str__',       AGS.W_SlotWrapper_unaryfunc),
+#    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
 #   ('tp_traverse',                '__xxx__',       AGS.W_SlotWrapper_...),
-    ('nb_matrix_multiply',         '__matmul__',    AGS.W_SlotWrapper_binaryfunc),
-    ('nb_inplace_matrix_multiply', '__imatmul__',   AGS.W_SlotWrapper_binaryfunc),
-#    ('am_await',                   '__await__',     AGS.W_SlotWrapper_unaryfunc),
-#    ('am_aiter',                   '__aiter__',     AGS.W_SlotWrapper_unaryfunc),
-#    ('am_anext',                   '__anext__',     AGS.W_SlotWrapper_unaryfunc),
+    ('nb_matrix_multiply',         '__matmul__',    W_wrap_binaryfunc),
+    ('nb_inplace_matrix_multiply', '__imatmul__',   W_wrap_binaryfunc),
+#    ('am_await',                   '__await__',     W_wrap_unaryfunc),
+#    ('am_aiter',                   '__aiter__',     W_wrap_unaryfunc),
+#    ('am_anext',                   '__anext__',     W_wrap_unaryfunc),
 #   ('tp_finalize',                '__xxx__',       AGS.W_SlotWrapper_...),
 
     # extra HPy-specific slots
