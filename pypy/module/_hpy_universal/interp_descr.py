@@ -164,11 +164,10 @@ def getset_set(w_getset, space, w_self, w_value):
     state = space.fromcache(State)
     cfuncptr = w_getset.hpygetset.c_setter_impl
     func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
-    with handles.using(space, w_self) as h_self:
-        with handles.using(space, w_value) as h_value:
-            h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
-            # XXX: write a test to check that we do the correct thing if
-            # c_setter raises an exception
+    with handles.using(space, w_self, w_value) as (h_self, h_value):
+        h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
+        # XXX: write a test to check that we do the correct thing if
+        # c_setter raises an exception
 
 
 class W_HPyGetSetProperty(GetSetProperty):
