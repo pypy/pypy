@@ -32,6 +32,16 @@ class W_SlotWrapper(W_Root):
                         "wrapper %s doesn't take any keyword arguments",
                         self.name)
 
+    def check_argsv(self, space, __args__, min, max):
+        length = len(__args__.arguments_w)
+        if not min <= length <= max:
+            raise oefmt(self.space.w_TypeError, "expected %d-%d arguments, got %d",
+                        min, max, length)
+        if __args__.keywords:
+            raise oefmt(self.space.w_TypeError,
+                        "wrapper %s doesn't take any keyword arguments",
+                        self.name)
+
     def descr_call(self, space, __args__):
         # XXX: basically a copy of cpyext's W_PyCMethodObject.descr_call()
         if len(__args__.arguments_w) == 0:
@@ -85,6 +95,25 @@ class W_wrap_unaryfunc(W_SlotWrapper):
             h_result = func(ctx, h_self)
             return handles.consume(space, h_result)
 
+class W_wrap_ternaryfunc(W_SlotWrapper):
+    def call(self, space, __args__):
+        # Literaly quote of the corresponding CPython comment:
+        #     Note: This wrapper only works for __pow__()
+        #
+        func = llapi.cts.cast("HPyFunc_ternaryfunc", self.cfuncptr)
+        self.check_argsv(space, __args__, 2, 3)
+        n = len(__args__.arguments_w)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w1 = __args__.arguments_w[1]
+        if n == 2:
+            w2 = space.w_None
+        else:
+            w2 = __args__.arguments_w[2]
+        with handles.using(space, w_self, w1, w2) as (h_self, h1, h2):
+            h_result = func(ctx, h_self, h1, h2)
+            return handles.consume(space, h_result)
+
 class W_wrap_indexargfunc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
@@ -116,7 +145,6 @@ class W_wrap_inquirypred(W_SlotWrapper):
 ## wrap_lenfunc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
-## wrap_ternaryfunc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_setitem(PyObject *self, PyObject *args, void *wrapped)
@@ -214,7 +242,10 @@ SLOTS = unrolling_iterable([
     ('nb_inplace_lshift',          '__ilshift__',   W_wrap_binaryfunc),
     ('nb_inplace_multiply',        '__imul__',      W_wrap_binaryfunc),
     ('nb_inplace_or',              '__ior__',       W_wrap_binaryfunc),
-    ('nb_inplace_power',           '__ipow__',      W_wrap_binaryfunc),
+    # CPython is buggy here: it uses wrap_binaryfunc for nb_inplace_power, but
+    # it means you end up calling the cfunc with the wrong signature! We
+    # correctly user W_wrap_ternaryfunc instead
+    ('nb_inplace_power',           '__ipow__',      W_wrap_ternaryfunc),
     ('nb_inplace_remainder',       '__imod__',      W_wrap_binaryfunc),
     ('nb_inplace_rshift',          '__irshift__',   W_wrap_binaryfunc),
     ('nb_inplace_subtract',        '__isub__',      W_wrap_binaryfunc),
@@ -227,7 +258,7 @@ SLOTS = unrolling_iterable([
     ('nb_negative',                '__neg__',       W_wrap_unaryfunc),
     ('nb_or',                      '__or__',        W_wrap_binaryfunc),
     ('nb_positive',                '__pos__',       W_wrap_unaryfunc),
-#   ('nb_power',                   '__xxx__',       AGS.W_SlotWrapper_...),
+    ('nb_power',                   '__pow__',       W_wrap_ternaryfunc),
     ('nb_remainder',               '__mod__',       W_wrap_binaryfunc),
     ('nb_rshift',                  '__rshift__',    W_wrap_binaryfunc),
     ('nb_subtract',                '__sub__',       W_wrap_binaryfunc),
