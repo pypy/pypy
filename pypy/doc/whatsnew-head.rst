@@ -9,3 +9,7 @@ What's new in PyPy2.7 7.3.2+
 .. branch: cross_compilation_fixes
 
 Respect PKG_CONFIG and CC in more places to allow cross-compilation
+
+.. branch: darwin-sendfile-2.7
+
+Add posix.sendfile to darwin for python3.6+
