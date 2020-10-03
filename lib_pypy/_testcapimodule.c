@@ -1,6 +1,5 @@
 /* Verbatim copy of Modules/_testcapimodule.c from CPython 2.7.18 w/
  * parts disabled that rely on the not yet supported:
- * - PyBuffer_To/FromContiguous
  * - PyThread_exit_thread
  * - PyMarshal_*
  * (via the PYPY_NOT_SUPPORTED define)
@@ -394,7 +393,6 @@ test_broken_memoryview(PyObject* self)
     Py_RETURN_NONE;
 }
 
-#ifndef PYPY_NOT_SUPPORTED
 static PyObject *
 test_to_contiguous(PyObject* self, PyObject *noargs)
 {
@@ -493,7 +491,6 @@ test_from_contiguous(PyObject* self, PyObject *noargs)
 
     Py_RETURN_NONE;
 }
-#endif   /* ifndef PYPY_NOT_SUPPORTED */
 
 
 /* Tests of PyLong_{As, From}{Unsigned,}Long(), and (#ifdef HAVE_LONG_LONG)
@@ -2714,10 +2711,8 @@ static PyMethodDef TestMethods[] = {
     {"test_dict_iteration",     (PyCFunction)test_dict_iteration,METH_NOARGS},
     {"test_lazy_hash_inheritance",      (PyCFunction)test_lazy_hash_inheritance,METH_NOARGS},
     {"test_broken_memoryview",          (PyCFunction)test_broken_memoryview,METH_NOARGS},
-#ifndef PYPY_NOT_SUPPORTED
     {"test_to_contiguous",      (PyCFunction)test_to_contiguous, METH_NOARGS},
     {"test_from_contiguous",    (PyCFunction)test_from_contiguous, METH_NOARGS},
-#endif   /* ifndef PYPY_NOT_SUPPORTED */
     {"test_long_api",           (PyCFunction)test_long_api,      METH_NOARGS},
     {"test_long_and_overflow", (PyCFunction)test_long_and_overflow,
      METH_NOARGS},
