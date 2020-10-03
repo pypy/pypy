@@ -110,6 +110,8 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     PyLongObject, if it is not already one, and then return its value as
     unsigned long long, without checking for overflow.
     """
+    if w_long is None:
+        raise oefmt(space.w_SystemError, "value is NULL")
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
