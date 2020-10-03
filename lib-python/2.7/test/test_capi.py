@@ -30,6 +30,7 @@ if support.check_impl_detail(pypy=True):
             'test_buildvalue_N',
             'test_capsule',
             'test_lazy_hash_inheritance',
+            'test_long_as_unsigned_long_long_mask',
             'test_widechar',
             'TestThreadState',
             'TestPendingCalls',
@@ -156,7 +157,9 @@ class TestThreadState(unittest.TestCase):
 class Test_testcapi(unittest.TestCase):
     locals().update((name, getattr(_testcapi, name))
                     for name in dir(_testcapi)
-                    if name.startswith('test_') and not name.endswith('_code'))
+                    if name.startswith('test_')
+                    and not name.endswith('_code')
+                    and name not in skips)
 
 
 def test_main():
