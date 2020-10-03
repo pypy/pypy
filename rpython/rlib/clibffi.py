@@ -8,6 +8,8 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.rtyper.tool import rffi_platform
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.rarithmetic import intmask, is_emulated_long
+from rpython.rlib.rstruct.ieee import pack_float80, unpack_float80
+from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rmmap import alloc
 from rpython.rlib.rdynload import dlopen, dlclose, dlsym, dlsym_byordinal
@@ -386,6 +388,13 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     if c_size == TP_size:
         buf = rffi.cast(TP_P, ll_buf)
         buf[0] = arg
+    elif TP in (rffi.FLOAT, rffi.DOUBLE) and c_size > TP_size:
+        # LongDouble. Convert the python float.
+        result = StringBuilder(c_size)
+        pack_float80(result, arg, c_size, False) 
+        asbytes = result.build()
+        for i in range(c_size):
+            ll_buf[i] = asbytes[i]
     else:
         # needs byte-by-byte copying.  Make sure 'arg' is an integer type.
         # Note that this won't work for rffi.FLOAT/rffi.DOUBLE.

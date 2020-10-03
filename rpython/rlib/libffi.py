@@ -47,8 +47,6 @@ class types(object):
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
-        # XXX long double support: clibffi.ffi_type_longdouble, but then
-        # XXX fix the whole rest of this file to add a case for long double
         del cls._import
 
     @staticmethod
@@ -57,10 +55,11 @@ class types(object):
         """Returns 'v' for void, 'f' for float, 'i' for signed integer,
         and 'u' for unsigned integer.
         """
-        if   ffi_type is types.void:    return 'v'
-        elif ffi_type is types.double:  return 'f'
-        elif ffi_type is types.float:   return 's'
-        elif ffi_type is types.pointer: return 'u'
+        if   ffi_type is types.void:       return 'v'
+        elif ffi_type is types.double:     return 'f'
+        elif ffi_type is types.longdouble: return 'g'
+        elif ffi_type is types.float:      return 's'
+        elif ffi_type is types.pointer:    return 'u'
         #
         elif ffi_type is types.schar:   return 'i'
         elif ffi_type is types.uchar:   return 'u'
@@ -142,6 +141,8 @@ class ArgChain(object):
             val = rffi.cast(rffi.LONGLONG, val)
         elif TYPE is rffi.FLOAT:
             cls = SingleFloatArg
+        elif TYPE is rffi.LONGDOUBLE:
+            cls = LongDoubleArg
         else:
             raise TypeError('Unsupported argument type: %s' % TYPE)
         self._append(cls(val))
@@ -202,6 +203,18 @@ class SingleFloatArg(AbstractArg):
 
     def push(self, func, ll_args, i):
         func._push_singlefloat(self.singlefloatval, ll_args, i)
+
+class LongDoubleArg(AbstractArg):
+    """ An argument representing a C long double
+    """
+
+    def __init__(self, longdoubleval):
+        # XXX what should this be?
+        raise NotImplementedError("fix me")
+        self.longdoubleval = longdoubleval
+
+    def push(self, func, ll_args, i):
+        func._push_longdouble(self.longdoubleval, ll_args, i)
 
 
 class LongLongArg(AbstractArg):
@@ -281,6 +294,8 @@ class Func(AbstractFuncPtr):
             return self._do_call_float(self.funcsym, ll_args)
         elif RESULT is rffi.FLOAT:
             return self._do_call_singlefloat(self.funcsym, ll_args)
+        elif RESULT is rffi.LONGDOUBLE:
+            return self._do_call_longdouble(self.funcsym, ll_args)
         elif RESULT is rffi.LONGLONG or RESULT is rffi.ULONGLONG:
             assert IS_32_BIT
             res = self._do_call_longlong(self.funcsym, ll_args)
@@ -351,6 +366,11 @@ class Func(AbstractFuncPtr):
     @jit.dont_look_inside
     def _do_call_singlefloat(self, funcsym, ll_args):
         return self._do_call(funcsym, ll_args, rffi.FLOAT)
+
+    #@jit.oopspec('libffi_call_longdouble(self, funcsym, ll_args)')
+    @jit.dont_look_inside
+    def _do_call_longdouble(self, funcsym, ll_args):
+        return self._do_call(funcsym, ll_args, rffi.LONGDOUBLE)
 
     @jit.dont_look_inside
     def _do_call_raw(self, funcsym, ll_args):

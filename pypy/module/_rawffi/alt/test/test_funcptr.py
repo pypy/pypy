@@ -415,6 +415,24 @@ class AppTestFFI(BaseAppTestFFI):
         assert res == self.f_12_34_plus_56_78
 
 
+    def test_long_double_args(self):
+        """
+            #include <stdio.h>
+            DLLEXPORT long double sum_xy_longdouble(long double x, long double y)
+            {
+                /* fprintf(stdout, "x,y %g, %g\\n", x, y); */
+                return x+y;
+            }
+        """
+        from _rawffi.alt import CDLL, types
+        libfoo = CDLL(self.libfoo_name)
+        sum_xy = libfoo.getfunc('sum_xy_longdouble',
+                                [types.longdouble, types.longdouble],
+                                types.longdouble)
+        res = sum_xy(12.34, 56.78)
+        assert res  - self.f_12_34_plus_56_78 < 0.01
+
+
     def test_slonglong_args(self):
         """
             DLLEXPORT long long sum_xy_longlong(long long x, long long y)

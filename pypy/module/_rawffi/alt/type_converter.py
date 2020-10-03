@@ -48,6 +48,8 @@ class FromAppLevelConverter(object):
             self._float(w_ffitype, w_obj)
         elif w_ffitype.is_singlefloat():
             self._singlefloat(w_ffitype, w_obj)
+        elif w_ffitype.is_longdouble():
+            self._longdouble(w_ffitype, w_obj)
         elif w_ffitype.is_struct():
             if isinstance(w_obj, W_StructureInstance):
                 self.handle_struct_rawffi(w_ffitype, w_obj)
@@ -76,6 +78,12 @@ class FromAppLevelConverter(object):
         floatval = self.space.float_w(w_obj, allow_conversion=False)
         singlefloatval = r_singlefloat(floatval)
         self.handle_singlefloat(w_ffitype, w_obj, singlefloatval)
+
+    def _longdouble(self, w_ffitype, w_obj):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longdoubles are supported
+        val = self.space.float_w(w_obj, allow_conversion=False)
+        self.handle_longdouble(w_ffitype, w_obj, val)
 
     def maybe_handle_char_or_unichar_p(self, w_ffitype, w_obj):
         w_type = jit.promote(self.space.type(w_obj))
@@ -233,6 +241,8 @@ class ToAppLevelConverter(object):
             return self._float(w_ffitype)
         elif w_ffitype.is_singlefloat():
             return self._singlefloat(w_ffitype)
+        elif w_ffitype.is_longdouble():
+            return self._longdouble(w_ffitype)
         elif w_ffitype.is_struct():
             w_structdescr = w_ffitype.w_structdescr
             if isinstance(w_structdescr, W__StructDescr):
@@ -271,6 +281,12 @@ class ToAppLevelConverter(object):
         # depending on whether singlefloats are supported
         singlefloatval = self.get_singlefloat(w_ffitype)
         return self.space.newfloat(float(singlefloatval))
+
+    def _longdouble(self, w_ffitype):
+        # a separate function, which can be seen by the jit or not,
+        # depending on whether longdoubles are supported
+        longdoubleval = self.get_longdouble(w_ffitype)
+        return self.space.newfloat(float(longdoubleval))
 
     def error(self, w_ffitype):
         raise oefmt(self.space.w_TypeError,

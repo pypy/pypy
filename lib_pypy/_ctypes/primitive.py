@@ -99,6 +99,8 @@ def swap_bytes(value, sizeof, typeof, get_or_set):
         return swap_double_float('f')
     elif typeof in ('c_double', 'c_double_le', 'c_double_be'):
         return swap_double_float('d')
+    elif typeof in ('c_longdouble', 'c_longdouble_le', 'c_longdouble_be'):
+        return swap_double_float('g')
     else:
         if sizeof == 2:
             return swap_2()

@@ -6,19 +6,10 @@ from ctypes.test import need_symbol
 
 formats = "bBhHiIlLqQfd"
 
-# c_longdouble commented out for PyPy, look at the commend in test_longdouble
 formats = c_byte, c_ubyte, c_short, c_ushort, c_int, c_uint, \
-          c_long, c_ulonglong, c_float, c_double #, c_longdouble
+          c_long, c_ulonglong, c_float, c_double, c_longdouble
 
 class ArrayTestCase(unittest.TestCase):
-
-    @impl_detail('long double not supported by PyPy', pypy=False)
-    def test_longdouble(self):
-        """
-        This test is empty. It's just here to remind that we commented out
-        c_longdouble in "formats". If pypy will ever supports c_longdouble, we
-        should kill this test and uncomment c_longdouble inside formats.
-        """
 
     def test_simple(self):
         # create classes holding simple numeric types, and check

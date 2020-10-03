@@ -179,6 +179,9 @@ class PushArgumentConverter(FromAppLevelConverter):
     def handle_singlefloat(self, w_ffitype, w_obj, singlefloatval):
         self.argchain.arg(singlefloatval)
 
+    def handle_longdouble(self, w_ffitype, w_obj, longdoubleval):
+        self.argchain.arg(longdoubleval)
+
     def handle_struct(self, w_ffitype, w_structinstance):
         # arg_raw directly takes value to put inside ll_args
         ptrval = w_structinstance.rawmem
@@ -265,6 +268,9 @@ class CallFunctionConverter(ToAppLevelConverter):
 
     def get_singlefloat(self, w_ffitype):
         return self.func.call(self.argchain, rffi.FLOAT)
+
+    def get_longdouble(self, w_ffitype):
+        return self.func.call(self.argchain, rffi.LONGDOUBLE)
 
     def get_struct(self, w_ffitype, w_structdescr):
         addr = self.func.call(self.argchain, rffi.LONG, is_struct=True)
