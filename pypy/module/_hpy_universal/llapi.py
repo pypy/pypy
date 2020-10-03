@@ -53,6 +53,11 @@ typedef struct _HPyListBuilder_s {
 } _struct_HPyListBuilder_s;
 typedef HPy_ssize_t HPyListBuilder;
 
+typedef struct _HPyTupleBuilder_s {
+    HPy_ssize_t _lst;
+} _struct_HPyTupleBuilder_s;
+typedef HPy_ssize_t HPyTupleBuilder;
+
 
 typedef struct _HPyContext_s {
     int ctx_version;

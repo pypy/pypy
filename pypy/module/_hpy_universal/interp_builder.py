@@ -24,15 +24,18 @@ class W_SequenceBuilder(W_Root):
     def build_list(self):
         return self.space.newlist(self.items_w)
 
+    def build_tuple(self):
+        return self.space.newtuple(self.items_w)
 
-@API.func("HPyListBuilder HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)")
-def HPyListBuilder_New(space, ctx, initial_size):
+
+# ~~~ common code shared by HPyListBuilder and HPyTupleBuilder ~~~
+
+def _Builder_New(space, initial_size):
     w_builder = W_SequenceBuilder(space, initial_size)
     h = handles.new(space, w_builder)
     return h
 
-@API.func("void HPyListBuilder_Set(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item)")
-def HPyListBuilder_Set(space, ctx, builder, index, h_item):
+def _Builder_Set(space, builder, index, h_item):
     # XXX if builder==0, there was an error inside _New. The C code just exits
     # here, but there is no tests for it. Write it
     w_builder = handles.deref(space, builder)
@@ -40,17 +43,58 @@ def HPyListBuilder_Set(space, ctx, builder, index, h_item):
     w_item = handles.deref(space, h_item)
     w_builder.set(index, w_item)
 
-@API.func("HPy HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder)")
-def HPyListBuilder_Build(space, ctx, builder):
+def _Builder_Build(space, builder, result_type):
+    assert result_type in ('L', 'T')
     # XXX same comment as above in case builder==0
     w_builder = handles.deref(space, builder)
     assert isinstance(w_builder, W_SequenceBuilder)
-    w_list = w_builder.build_list()
-    return handles.new(space, w_list)
+    if result_type == 'L':
+        w_result = w_builder.build_list()
+    else:
+        w_result = w_builder.build_tuple()
+    return handles.new(space, w_result)
 
+def _Builder_Cancel(space, builder):
+    raise NotImplementedError
+
+
+# ~~~ HPyListBuilder ~~~
+
+@API.func("HPyListBuilder HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)")
+def HPyListBuilder_New(space, ctx, initial_size):
+    return _Builder_New(space, initial_size)
+
+@API.func("void HPyListBuilder_Set(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item)")
+def HPyListBuilder_Set(space, ctx, builder, index, h_item):
+    return _Builder_Set(space, builder, index, h_item)
+
+@API.func("HPy HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder)")
+def HPyListBuilder_Build(space, ctx, builder):
+    return _Builder_Build(space, builder, result_type='L')
 
 @API.func("void HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)")
 def HPyListBuilder_Cancel(space, ctx, builder):
+    # XXX write a test
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return
+    raise NotImplementedError
+
+# ~~~ HPyTupleBuilder ~~~
+
+@API.func("HPyTupleBuilder HPyTupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)")
+def HPyTupleBuilder_New(space, ctx, initial_size):
+    return _Builder_New(space, initial_size)
+
+@API.func("void HPyTupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder, HPy_ssize_t index, HPy h_item)")
+def HPyTupleBuilder_Set(space, ctx, builder, index, h_item):
+    return _Builder_Set(space, builder, index, h_item)
+
+@API.func("HPy HPyTupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder)")
+def HPyTupleBuilder_Build(space, ctx, builder):
+    return _Builder_Build(space, builder, result_type='T')
+
+@API.func("void HPyTupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder)")
+def HPyTupleBuilder_Cancel(space, ctx, builder):
     # XXX write a test
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return
