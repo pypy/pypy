@@ -35,10 +35,10 @@ class W_SlotWrapper(W_Root):
     def check_argsv(self, space, __args__, min, max):
         length = len(__args__.arguments_w)
         if not min <= length <= max:
-            raise oefmt(self.space.w_TypeError, "expected %d-%d arguments, got %d",
+            raise oefmt(space.w_TypeError, "expected %d-%d arguments, got %d",
                         min, max, length)
         if __args__.keywords:
-            raise oefmt(self.space.w_TypeError,
+            raise oefmt(space.w_TypeError,
                         "wrapper %s doesn't take any keyword arguments",
                         self.name)
 
@@ -209,10 +209,11 @@ class W_tp_new_wrapper(W_ExtensionFunction):
         W_ExtensionFunction.__init__(self, space, '__new__', llapi.HPyFunc_KEYWORDS,
                                      cfuncptr, w_self=w_type)
 
-    def call(self, space, h_type, __args__):
-        # NOTE: h_type here is ignored. In CPython's tp_new_wrapper it is only
-        # used to fish the ->tp_new to call, but here we already have the
-        # cfuncptr
+    def call(self, space, h_self, __args__, skip_args=0):
+        assert skip_args == 0
+        # NOTE: h_self contains the type for which we are calling __new__, but
+        # here is ignored. In CPython's tp_new_wrapper it is only used to fish
+        # the ->tp_new to call, but here we already have the cfuncptr
         #
         # XXX: tp_new_wrapper does additional checks, we should write tests
         # and implement the same checks
