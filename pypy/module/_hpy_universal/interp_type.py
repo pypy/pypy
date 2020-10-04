@@ -75,7 +75,8 @@ def get_bases_from_params(space, ctx, params):
             bases_w.append(w_base)
         elif p.c_kind == KIND.HPyType_SpecParam_BasesTuple:
             found_basestuple = True
-            XXX
+            w_bases = handles.deref(space, p.c_object)
+            bases_w = space.unpackiterable(w_bases)
         else:
             raise NotImplementedError('XXX write a test')
 
