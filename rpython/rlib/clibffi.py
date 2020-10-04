@@ -388,7 +388,7 @@ def push_arg_as_ffiptr(ffitp, arg, ll_buf):
     if c_size == TP_size:
         buf = rffi.cast(TP_P, ll_buf)
         buf[0] = arg
-    elif TP in (rffi.FLOAT, rffi.DOUBLE) and c_size > TP_size:
+    elif (TP is rffi.FLOAT or TP is rffi.DOUBLE) and c_size > TP_size:
         # LongDouble. Convert the python float. The assert should not be needed
         assert isinstance(arg, float)
         result = StringBuilder(c_size)
