@@ -151,9 +151,9 @@ HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef)
 }
 
 HPyAPI_FUNC(HPy)
-HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)
+HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)
 {
-    return ctx_Type_FromSpec(ctx, spec);
+    return ctx_Type_FromSpec(ctx, spec, params);
 }
 
 HPyAPI_FUNC(HPy)

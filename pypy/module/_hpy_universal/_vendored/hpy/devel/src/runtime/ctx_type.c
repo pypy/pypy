@@ -310,10 +310,85 @@ create_slot_defs(HPyType_Spec *hpyspec)
     return result;
 }
 
+static int check_unknown_params(HPyType_SpecParam *params, const char *name)
+{
+    if (params == NULL)
+        return 0;
+
+    int found_base = 0, found_basestuple = 0;
+    for (HPyType_SpecParam *p = params; p->kind != 0; p++) {
+        switch (p->kind) {
+            case HPyType_SpecParam_Base:
+                found_base++;
+                break;
+            case HPyType_SpecParam_BasesTuple:
+                found_basestuple++;
+                break;
+
+            default:
+                PyErr_Format(PyExc_TypeError,
+                    "unknown HPyType_SpecParam specification for '%s'",
+                    name);
+                return -1;
+        }
+    }
+    if (found_basestuple > 1) {
+        PyErr_SetString(PyExc_TypeError,
+            "multiple specifications of HPyType_SpecParam_BasesTuple");
+        return -1;
+    }
+    if (found_base && found_basestuple) {
+        PyErr_SetString(PyExc_TypeError,
+            "cannot specify both HPyType_SpecParam_Base and "
+            "HPytype_SpecParam_BasesTuple");
+        return -1;
+    }
+    return 0;
+}
+
+static PyObject *build_bases_from_params(HPyType_SpecParam *params)
+{
+    if (params == NULL)
+        return NULL;
+
+    int found_base = 0;
+    for (HPyType_SpecParam *p = params; p->kind != 0; p++) {
+        switch (p->kind) {
+            case HPyType_SpecParam_Base:
+                /* count the base entries (multiple entries are fine) */
+                found_base++;
+                break;
+            case HPyType_SpecParam_BasesTuple:
+                /* if there is instead a complete base tuple, just return it */
+                return _h2py(p->object);
+        }
+    }
+    if (found_base == 0)
+        return NULL;
+
+    PyObject *tup = PyTuple_New(found_base);
+    if (tup == NULL)
+        return NULL;
+
+    found_base = 0;
+    for (HPyType_SpecParam *p = params; p->kind != 0; p++) {
+        if (p->kind == HPyType_SpecParam_Base) {
+            PyObject *base = _h2py(p->object);
+            Py_INCREF(base);
+            PyTuple_SET_ITEM(tup, found_base, base);
+            found_base++;
+        }
+    }
+    return tup;
+}
 
 _HPy_HIDDEN HPy
-ctx_Type_FromSpec(HPyContext ctx, HPyType_Spec *hpyspec)
+ctx_Type_FromSpec(HPyContext ctx, HPyType_Spec *hpyspec,
+                  HPyType_SpecParam *params)
 {
+    if (check_unknown_params(params, hpyspec->name) < 0) {
+        return HPy_NULL;
+    }
     PyType_Spec *spec = PyMem_Calloc(1, sizeof(PyType_Spec));
     if (spec == NULL) {
         PyErr_NoMemory();
@@ -328,7 +403,11 @@ ctx_Type_FromSpec(HPyContext ctx, HPyType_Spec *hpyspec)
         PyMem_Free(spec);
         return HPy_NULL;
     }
-    PyObject *result = PyType_FromSpec(spec);
+    PyObject *bases = build_bases_from_params(params);
+    if (PyErr_Occurred()) {
+        return HPy_NULL;
+    }
+    PyObject *result = PyType_FromSpecWithBases(spec, bases);
     /* note that we do NOT free the memory which was allocated by
        create_method_defs, because that one is referenced internally by
        CPython (which probably assumes it's statically allocated) */
