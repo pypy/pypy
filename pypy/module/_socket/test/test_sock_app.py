@@ -210,6 +210,18 @@ def test_getaddrinfo(space, w_socket):
     assert space.unwrap(w_l) == True
 
 
+def test_sethostname(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname())")
+
+
+def test_sethostname_bytes(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname().encode())")
+
+
 def test_unknown_addr_as_object(space, ):
     from pypy.module._socket.interp_socket import addr_as_object
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)

@@ -392,7 +392,13 @@ if hasattr(rsocket, 'sethostname'):
 
         Set the host name.
         """
-        hostname = space.text_w(w_hostname)
+        if space.isinstance_w(w_hostname, space.w_bytes):
+            hostname = space.bytes_w(w_hostname)
+        elif space.isinstance_w(w_hostname, space.w_unicode):
+            hostname = space.fsencode_w(w_hostname)
+        else:
+            raise oefmt(space.w_TypeError,
+                        "sethostname() argument 1 must be str or bytes")
         try:
             res = rsocket.sethostname(hostname)
         except SocketError as e:
