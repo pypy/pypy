@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.debug import make_sure_not_resized
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.listobject import W_ListObject
@@ -17,12 +18,20 @@ class W_SequenceBuilder(W_Root):
     def __init__(self, space, initial_size):
         self.space = space
         self.items_w = [None] * initial_size
+        make_sure_not_resized(self.items_w)
 
     def set(self, i, w_obj):
         self.items_w[i] = w_obj
 
     def build_list(self):
-        return self.space.newlist(self.items_w)
+        # XXX is is less efficient that it should. We need to make a copy
+        # because newlist expects a resizable list. We could do the opposite a
+        # make a copy when calling newtuple, but I suspect that using
+        # HPyTupleBuilder will me more common than using HPyListBuilder. A
+        # more proper fix would be to use RPython tricks to create two
+        # distinct copies of this class, but I'm not sure it's worth the
+        # hassle.
+        return self.space.newlist(self.items_w[:])
 
     def build_tuple(self):
         return self.space.newtuple(self.items_w)
