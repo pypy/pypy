@@ -70,6 +70,12 @@ class HPyAppTest(object):
             return space.w_False
         self.w_should_check_refcount = self.space.wrap(interp2app(should_check_refcount))
 
+        self.w_compiler = self.space.appexec([], """():
+            class compiler:
+                hpy_abi = 'universal'
+            return compiler
+        """)
+
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     """
