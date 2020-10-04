@@ -59,8 +59,35 @@ def _HPy_New(space, ctx, h_type, data):
     return h
 
 
-@API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)")
-def HPyType_FromSpec(space, ctx, spec):
+def get_bases_from_params(space, ctx, params):
+    KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
+    params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
+    found_base = False
+    found_basestuple = False
+    bases_w = []
+    i = 0
+    while params[i].c_kind != 0:
+        p = params[i]
+        i += 1
+        if p.c_kind == KIND.HPyType_SpecParam_Base:
+            found_base = True
+            w_base = handles.deref(space, p.c_object)
+            bases_w.append(w_base)
+        elif p.c_kind == KIND.HPyType_SpecParam_BasesTuple:
+            found_basestuple = True
+            XXX
+        else:
+            raise NotImplementedError('XXX write a test')
+
+    if found_basestuple > 1:
+        raise NotImplementedError('XXX write a test')
+    if found_basestuple and found_base:
+        raise NotImplementedError('XXX write a test')
+
+    return bases_w
+
+@API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
+def HPyType_FromSpec(space, ctx, spec, params):
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -74,7 +101,7 @@ def HPyType_FromSpec(space, ctx, spec):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = []
+    bases_w = get_bases_from_params(space, ctx, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(
