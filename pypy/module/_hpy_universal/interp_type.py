@@ -62,6 +62,8 @@ def _HPy_New(space, ctx, h_type, data):
 def get_bases_from_params(space, ctx, params):
     KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
     params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
+    if not params:
+        return []
     found_base = False
     found_basestuple = False
     bases_w = []
