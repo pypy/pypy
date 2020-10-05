@@ -322,7 +322,7 @@ typedef enum {
 
 typedef struct {
     HPyType_SpecParam_Kind kind;
-    HPy object;
+    struct _HPy_s object;
 } HPyType_SpecParam;
 
 /* All types are dynamically allocated */

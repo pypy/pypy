@@ -68,16 +68,21 @@ def get_bases_from_params(space, ctx, params):
     found_basestuple = False
     bases_w = []
     i = 0
-    while params[i].c_kind != 0:
-        p = params[i]
+    while True:
+        # in llapi.py, HPyType_SpecParam.object is declared of type "struct
+        # _HPy_s", so we need to manually fish the ._i inside
+        p_kind = rffi.cast(lltype.Signed, params[i].c_kind)
+        p_h = params[i].c_object.c__i
+        if p_kind == 0:
+            break
         i += 1
-        if p.c_kind == KIND.HPyType_SpecParam_Base:
+        if p_kind == KIND.HPyType_SpecParam_Base:
             found_base = True
-            w_base = handles.deref(space, p.c_object)
+            w_base = handles.deref(space, p_h)
             bases_w.append(w_base)
-        elif p.c_kind == KIND.HPyType_SpecParam_BasesTuple:
+        elif p_kind == KIND.HPyType_SpecParam_BasesTuple:
             found_basestuple = True
-            w_bases = handles.deref(space, p.c_object)
+            w_bases = handles.deref(space, p_h)
             bases_w = space.unpackiterable(w_bases)
         else:
             raise NotImplementedError('XXX write a test')
