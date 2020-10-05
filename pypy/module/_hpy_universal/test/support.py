@@ -45,16 +45,18 @@ class HPyAppTest(object):
         compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
                                               compiler_verbose=COMPILER_VERBOSE,
                                               extra_include_dirs=cpyext_include_dirs)
+        ExtensionTemplate = self.ExtensionTemplate
 
-        @unwrap_spec(source_template='text', name='text', w_extra_templates=W_Root)
+        @unwrap_spec(source_template='text', name='text', w_extra_sources=W_Root)
         def descr_make_module(space, source_template, name='mytest',
-                              w_extra_templates=None):
-            if w_extra_templates is None:
-                extra_templates = ()
+                              w_extra_sources=None):
+            if w_extra_sources is None:
+                extra_sources = ()
             else:
-                items_w = space.unpackiterable(w_extra_templates)
-                extra_templates = [space.text_w(item) for item in items_w]
-            so_filename = compiler.compile_module(source_template, name, extra_templates)
+                items_w = space.unpackiterable(w_extra_sources)
+                extra_sources = [space.text_w(item) for item in items_w]
+            so_filename = compiler.compile_module(ExtensionTemplate,
+                                                  source_template, name, extra_sources)
             w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
                 """(path, modname):
                     import _hpy_universal
@@ -67,6 +69,12 @@ class HPyAppTest(object):
         def should_check_refcount(space):
             return space.w_False
         self.w_should_check_refcount = self.space.wrap(interp2app(should_check_refcount))
+
+        self.w_compiler = self.space.appexec([], """():
+            class compiler:
+                hpy_abi = 'universal'
+            return compiler
+        """)
 
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):

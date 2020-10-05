@@ -14,17 +14,18 @@ ctx_ListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
     PyObject *lst = PyList_New(initial_size);
     if (lst == NULL)
         PyErr_Clear();   /* delay the MemoryError */
-    return (HPyListBuilder){_py2h(lst)};
+    return (HPyListBuilder){(HPy_ssize_t)lst};
 }
 
 _HPy_HIDDEN void
 ctx_ListBuilder_Set(HPyContext ctx, HPyListBuilder builder,
                     HPy_ssize_t index, HPy h_item)
 {
-    PyObject *lst = _h2py(builder._lst);
+    PyObject *lst = (PyObject *)builder._lst;
     if (lst != NULL) {
         PyObject *item = _h2py(h_item);
         assert(index >= 0 && index < PyList_GET_SIZE(lst));
+        assert(PyList_GET_ITEM(lst, index) == NULL);
         Py_INCREF(item);
         PyList_SET_ITEM(lst, index, item);
     }
@@ -33,17 +34,19 @@ ctx_ListBuilder_Set(HPyContext ctx, HPyListBuilder builder,
 _HPy_HIDDEN HPy
 ctx_ListBuilder_Build(HPyContext ctx, HPyListBuilder builder)
 {
-    HPy h_lst = builder._lst;
-    builder._lst = HPy_NULL;
-    if (HPy_IsNull(h_lst))
+    PyObject *lst = (PyObject *)builder._lst;
+    if (lst == NULL) {
         PyErr_NoMemory();
-    return h_lst;
+        return HPy_NULL;
+    }
+    builder._lst = 0;
+    return _py2h(lst);
 }
 
 _HPy_HIDDEN void
 ctx_ListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)
 {
-    HPy h_lst = builder._lst;
-    builder._lst = HPy_NULL;
-    HPy_Close(ctx, h_lst);
+    PyObject *lst = (PyObject *)builder._lst;
+    builder._lst = 0;
+    Py_XDECREF(lst);
 }

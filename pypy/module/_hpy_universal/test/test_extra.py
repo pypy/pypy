@@ -53,7 +53,7 @@ class TestExtraCPythonCompatibility(HPyTest):
                 return Py_BuildValue("OO", self, other);
             }
 
-            HPyDef_SLOT(Dummy_abs, HPy_nb_absolute, Dummy_abs_impl, HPyFunc_UNARYFUNC);
+            HPyDef_SLOT(Dummy_abs, Dummy_abs_impl, HPy_nb_absolute);
             static HPy Dummy_abs_impl(HPyContext ctx, HPy self)
             {
                 return HPyLong_FromLong(ctx, 1234);

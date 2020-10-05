@@ -31,6 +31,18 @@ typedef struct {
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyType_Spec;
 
+typedef enum {
+    HPyType_SpecParam_Base = 1,
+    HPyType_SpecParam_BasesTuple = 2,
+    //HPyType_SpecParam_Metaclass = 3,
+    //HPyType_SpecParam_Module = 4,
+} HPyType_SpecParam_Kind;
+
+typedef struct {
+    HPyType_SpecParam_Kind kind;
+    HPy object;
+} HPyType_SpecParam;
+
 /* All types are dynamically allocated */
 #define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
 

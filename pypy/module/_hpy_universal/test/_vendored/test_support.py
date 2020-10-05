@@ -1,7 +1,11 @@
 from . import support
 
+def expand_template(template, name):
+    return support.DefaultExtensionTemplate(template, name).expand()
+
+
 def test_expand_template():
-    expanded = support.expand_template("""
+    expanded = expand_template("""
         @EXPORT(f)
         @EXPORT(g)
         some more C stuff
@@ -9,7 +13,7 @@ def test_expand_template():
     """, name='mytest')
     defines_table = ['&f,', '&g,']
     defines = '\n        '.join(defines_table)
-    init_code = support.ExtensionTemplate.INIT_TEMPLATE % {
+    init_code = support.DefaultExtensionTemplate.INIT_TEMPLATE % {
         'defines': defines,
         'legacy_methods': 'NULL',
         'name': 'mytest',

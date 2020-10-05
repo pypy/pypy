@@ -30,7 +30,8 @@
 #define HPyAPI_RUNTIME_FUNC(restype) _HPy_HIDDEN restype
 
 typedef struct { PyObject *_o; } HPy;
-typedef struct { HPy _lst; } HPyListBuilder;
+typedef struct { Py_ssize_t _lst; } HPyListBuilder;
+typedef struct { Py_ssize_t _tup; } HPyTupleBuilder;
 typedef Py_ssize_t HPy_ssize_t;
 typedef Py_hash_t HPy_hash_t;
 
@@ -140,7 +141,8 @@ HPy_AsPyObject(HPyContext ctx, HPy h)
 #include "../common/runtime/ctx_module.h"
 #include "../common/runtime/ctx_type.h"
 #include "../common/runtime/ctx_listbuilder.h"
-
+#include "../common/runtime/ctx_tuple.h"
+#include "../common/runtime/ctx_tuplebuilder.h"
 
 HPyAPI_FUNC(HPy)
 HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef)
@@ -149,15 +151,21 @@ HPyModule_Create(HPyContext ctx, HPyModuleDef *mdef)
 }
 
 HPyAPI_FUNC(HPy)
-HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)
+HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)
 {
-    return ctx_Type_FromSpec(ctx, spec);
+    return ctx_Type_FromSpec(ctx, spec, params);
 }
 
 HPyAPI_FUNC(HPy)
 _HPy_New(HPyContext ctx, HPy h, void **data)
 {
     return ctx_New(ctx, h, data);
+}
+
+HPyAPI_FUNC(void) _Py_NO_RETURN
+HPy_FatalError(HPyContext ctx, const char *message)
+{
+    Py_FatalError(message);
 }
 
 HPyAPI_FUNC(HPy)
@@ -195,6 +203,37 @@ HPyAPI_FUNC(void)
 HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)
 {
     ctx_ListBuilder_Cancel(ctx, builder);
+}
+
+HPyAPI_FUNC(HPyTupleBuilder)
+HPyTupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
+{
+    return ctx_TupleBuilder_New(ctx, initial_size);
+}
+
+HPyAPI_FUNC(void)
+HPyTupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder,
+                    HPy_ssize_t index, HPy h_item)
+{
+    ctx_TupleBuilder_Set(ctx, builder, index, h_item);
+}
+
+HPyAPI_FUNC(HPy)
+HPyTupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder)
+{
+    return ctx_TupleBuilder_Build(ctx, builder);
+}
+
+HPyAPI_FUNC(void)
+HPyTupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder)
+{
+    ctx_TupleBuilder_Cancel(ctx, builder);
+}
+
+HPyAPI_FUNC(HPy)
+HPyTuple_FromArray(HPyContext ctx, HPy items[], HPy_ssize_t n)
+{
+    return ctx_Tuple_FromArray(ctx, items, n);
 }
 
 #endif /* !HPy_CPYTHON_H */

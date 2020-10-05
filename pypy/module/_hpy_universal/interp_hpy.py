@@ -8,6 +8,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.llapi import BASE_DIR
 
 # these imports have side effects, as they call @API.func()
 from pypy.module._hpy_universal import (
@@ -20,11 +21,21 @@ from pypy.module._hpy_universal import (
     interp_bytes,
     interp_dict,
     interp_list,
+    interp_tuple,
     interp_builder,
     interp_object,
     interp_cpy_compat,
     interp_type,
     )
+
+
+def load_version():
+    # eval the content of _vendored/hpy/devel/version.py without importing it
+    version_py = BASE_DIR.join('version.py').read()
+    d = {}
+    exec(version_py, d)
+    return d['__version__'], d['__git_revision__']
+HPY_VERSION, HPY_GIT_REV = load_version()
 
 
 def create_hpy_module(space, name, origin, lib, initfunc_ptr):
@@ -62,6 +73,10 @@ def descr_load(space, name, libpath):
             space, space.newtext(msg), space.newtext(name), w_path)
     return create_hpy_module(space, name, libpath, lib, initptr)
 
+def descr_get_version(space):
+    w_ver = space.newtext(HPY_VERSION)
+    w_git_rev = space.newtext(HPY_GIT_REV)
+    return space.newtuple([w_ver, w_git_rev])
 
 @API.func("HPy HPy_Dup(HPyContext ctx, HPy h)")
 def HPy_Dup(space, ctx, h):
