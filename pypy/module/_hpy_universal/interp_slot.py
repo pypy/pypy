@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -140,9 +141,19 @@ class W_wrap_inquirypred(W_SlotWrapper):
                 #space.fromcache(State).check_and_raise_exception(always=True)
             return space.newbool(bool(res))
 
+class W_wrap_lenfunc(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_lenfunc", self.cfuncptr)
+        self.check_args(space, __args__, 1)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        with handles.using(space, w_self) as h_self:
+            result = func(ctx, h_self)
+            if widen(result) == -1:
+                raise NotImplementedError('write a test')
+            return space.newint(result)
 
 # remaining wrappers to write
-## wrap_lenfunc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
@@ -271,7 +282,7 @@ SLOTS = unrolling_iterable([
 #   ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
 #   ('sq_inplace_repeat',          '__xxx__',       AGS.W_SlotWrapper_...),
     ('sq_item',                    '__getitem__',   W_wrap_indexargfunc),
-#   ('sq_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
+    ('sq_length',                  '__len__',       W_wrap_lenfunc),
 #   ('sq_repeat',                  '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_base',                    '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_bases',                   '__xxx__',       AGS.W_SlotWrapper_...),
