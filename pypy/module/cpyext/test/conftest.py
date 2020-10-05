@@ -1,9 +1,20 @@
 import os
 import pytest
+import sys
+
+disabled = None
+if sys.maxsize > 2**32 and sys.platform == 'win32':
+    # cpyext not yet supported on windows 64 bit
+    disabled = True
+
+def pytest_ignore_collect(path, config):
+    path = str(path)
+    if disabled:
+        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+            return True
 
 def pytest_configure(config):
     if config.getoption('runappdirect') or config.getoption('direct_apptest'):
-        import sys
         import py
         from pypy import pypydir
         sys.path.append(str(py.path.local(pypydir) / 'tool' / 'cpyext'))
