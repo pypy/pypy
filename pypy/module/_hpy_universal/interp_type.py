@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc
+from rpython.rlib.debug import make_sure_not_resized
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -92,7 +93,8 @@ def get_bases_from_params(space, ctx, params):
     if found_basestuple and found_base:
         raise NotImplementedError('XXX write a test')
 
-    return bases_w
+    # return a copy of bases_w to ensure that it's a not-resizable list
+    return make_sure_not_resized(bases_w[:])
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, ctx, spec, params):
