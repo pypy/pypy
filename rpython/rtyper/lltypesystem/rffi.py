@@ -525,7 +525,7 @@ if os.name != 'nt':
           'int_fast64_t', 'uint_fast64_t',
           'intmax_t', 'uintmax_t'])
 else:
-    MODE_T = lltype.Signed
+    # MODE_T is set later
     PID_T = lltype.Signed
     SSIZE_T = lltype.Signed
     PTRDIFF_T = lltype.Signed
@@ -593,6 +593,9 @@ NUMBER_TYPES.append(INT_real)
 # rarithmetic.r_int, etc!  rffi.INT/r_int correspond to the C-level
 # 'int' type, whereas rarithmetic.r_int corresponds to the
 # Python-level int type (which is a C long).  Fun.
+
+if os.name == 'nt':
+    MODE_T = INT
 
 def CStruct(name, *fields, **kwds):
     """ A small helper to create external C structure, not the
