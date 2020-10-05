@@ -351,6 +351,7 @@ static PyObject *build_bases_from_params(HPyType_SpecParam *params)
     if (params == NULL)
         return NULL;
 
+    PyObject *tup;
     int found_base = 0;
     for (HPyType_SpecParam *p = params; p->kind != 0; p++) {
         switch (p->kind) {
@@ -360,13 +361,18 @@ static PyObject *build_bases_from_params(HPyType_SpecParam *params)
                 break;
             case HPyType_SpecParam_BasesTuple:
                 /* if there is instead a complete base tuple, just return it */
-                return _h2py(p->object);
+                /* we increment the reference count of the tuple here to match
+                   the reference counting on the tuple we create below when
+                   there is no HPyType_SpecParam_BasesTuple */
+                tup = _h2py(p->object);
+                Py_INCREF(tup);
+                return tup;
         }
     }
     if (found_base == 0)
         return NULL;
 
-    PyObject *tup = PyTuple_New(found_base);
+    tup = PyTuple_New(found_base);
     if (tup == NULL)
         return NULL;
 
@@ -405,12 +411,15 @@ ctx_Type_FromSpec(HPyContext ctx, HPyType_Spec *hpyspec,
     }
     PyObject *bases = build_bases_from_params(params);
     if (PyErr_Occurred()) {
+        PyMem_Free(spec->slots);
+        PyMem_Free(spec);
         return HPy_NULL;
     }
     PyObject *result = PyType_FromSpecWithBases(spec, bases);
     /* note that we do NOT free the memory which was allocated by
        create_method_defs, because that one is referenced internally by
        CPython (which probably assumes it's statically allocated) */
+    Py_XDECREF(bases);
     PyMem_Free(spec->slots);
     PyMem_Free(spec);
     return _py2h(result);
@@ -420,6 +429,7 @@ _HPy_HIDDEN HPy
 ctx_New(HPyContext ctx, HPy h_type, void **data)
 {
     PyObject *tp = _h2py(h_type);
+    assert(tp != NULL);
     if (!PyType_Check(tp)) {
         PyErr_SetString(PyExc_TypeError, "HPy_New arg 1 must be a type");
         return HPy_NULL;
@@ -428,6 +438,11 @@ ctx_New(HPyContext ctx, HPy h_type, void **data)
     PyObject *result = PyObject_New(PyObject, (PyTypeObject*)tp);
     if (!result)
         return HPy_NULL;
+#if PY_VERSION_HEX < 0x03080000
+    // Workaround for Python issue 35810; no longer necessary in Python 3.8
+    // TODO: Remove this workaround once we no longer support Python versions older than 3.8
+    Py_INCREF(tp);
+#endif
 
     *data = (void*)result;
     return _py2h(result);
@@ -436,7 +451,13 @@ ctx_New(HPyContext ctx, HPy h_type, void **data)
 _HPy_HIDDEN HPy
 ctx_Type_GenericNew(HPyContext ctx, HPy h_type, HPy *args, HPy_ssize_t nargs, HPy kw)
 {
-    PyTypeObject *type = (PyTypeObject *)_h2py(h_type);
-    PyObject *res = type->tp_alloc(type, 0);
+    PyObject *tp = _h2py(h_type);
+    assert(tp != NULL);
+    if (!PyType_Check(tp)) {
+        PyErr_SetString(PyExc_TypeError, "HPy_Type_GenericNew arg 1 must be a type");
+        return HPy_NULL;
+    }
+
+    PyObject *res = ((PyTypeObject*) tp)->tp_alloc((PyTypeObject*) tp, 0);
     return _py2h(res);
 }
