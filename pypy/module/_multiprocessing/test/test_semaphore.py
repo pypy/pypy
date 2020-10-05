@@ -86,6 +86,7 @@ class AppTestSemaphore:
 
     def test_semaphore_maxvalue(self):
         from _multiprocessing import SemLock
+        import sys
         kind = self.SEMAPHORE
         value = SemLock.SEM_VALUE_MAX
         maxvalue = SemLock.SEM_VALUE_MAX
