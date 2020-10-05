@@ -15,7 +15,7 @@ We aim to provide a compliant, flexible and fast implementation of the Python_
 Language which uses the RPython toolchain to enable new advanced high-level
 features without having to encode the low-level details.  We call this PyPy.
 
-.. _Python: http://docs.python.org/reference/
+.. _Python: https://docs.python.org/3/reference/
 
 
 High Level Goals
@@ -134,6 +134,6 @@ during translation.  Moreover, this is not reference counting; it is a real
 GC written as more RPython code.  The best one we have so far is in
 ``rpython/memory/gc/incminimark.py``.
 
-.. _`Getting Started with RPython`: http://rpython.readthedocs.org/en/latest/getting-started.html
-.. _RPython By Example: http://mesapy.org/rpython-by-example/
+.. _`Getting Started with RPython`: https://rpython.readthedocs.io/en/latest/getting-started.html
+.. _RPython By Example: https://mesapy.org/rpython-by-example/
 

@@ -530,107 +530,6 @@ class AppTestPosix:
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
 
-    if hasattr(__import__(os.name), "execv"):
-        def test_execv(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            pid = os.fork()
-            if pid == 0:
-                os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "1"
-            os.unlink("onefile")
-
-        def test_execv_raising(self):
-            os = self.posix
-            with raises(OSError):
-                os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])
-
-        def test_execv_no_args(self):
-            os = self.posix
-            with raises(ValueError):
-                os.execv("notepad", [])
-
-        def test_execv_raising2(self):
-            os = self.posix
-            for n in 3, [3, "a"]:
-                with raises(TypeError) as excinfo:
-                    os.execv("xxx", n)
-
-        def test_execv_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            try:
-                output = "caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execv("/bin/sh", ["sh", "-c",
-                                     "echo caf\xe9 \u1234 > onefile"])
-            os.waitpid(pid, 0)
-            with open("onefile", "rb") as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-
-        def test_execve(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            pid = os.fork()
-            if pid == 0:
-                os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "xxx"
-            os.unlink("onefile")
-
-        def test_execve_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            output = "caf\xe9 \u1234"
-            t = ' abc\uDCFF'
-            output += t
-            try:
-                output.encode(sys.getfilesystemencoding(), errors='surrogateescape')
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execve("/bin/sh", ["sh", "-c",
-                                        "echo -n caf\xe9 \u1234 $t > onefile"],
-                            {'ddd': 'xxx', 't': t})
-            os.waitpid(pid, 0)
-            with open("onefile", errors='surrogateescape') as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-        pass # <- please, inspect.getsource(), don't crash
-
-    if hasattr(__import__(os.name), "spawnv"):
-        def test_spawnv(self):
-            os = self.posix
-            P_WAIT = 0
-            import sys
-            print(self.python)
-            ret = os.spawnv(P_WAIT, self.python,
-                            ['python', '-c', 'raise(SystemExit(42))'])
-            assert ret == 42
-
-    if hasattr(__import__(os.name), "spawnve"):
-        def test_spawnve(self):
-            os = self.posix
-            P_WAIT = 0
-            env = {'PATH':self.env_path, 'FOOBAR': '42'}
-            ret = os.spawnve(P_WAIT, self.python,
-                             ['python', '-c',
-                              "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
-                             env)
-            assert ret == 42
-
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
             # nt specific
@@ -1757,11 +1656,29 @@ class AppTestPosix:
                 posix.sched_setparam(0, param)
 
 
+@py.test.mark.skipif("sys.platform != 'win32'")
+class AppTestNt(object):
+    spaceconfig = {'usemodules': ['posix', '_socket']}
+    def setup_class(cls):
+        cls.w_path = space.wrap(str(path))
+        cls.w_posix = space.appexec([], GET_POSIX)
+
+    def test_handle_inheritable(self):
+        import _socket
+        posix = self.posix
+        if hasattr(posix, 'get_handle_inheritable'):
+            # PEP 446, python 3.4+
+            s = _socket.socket()
+            assert not posix.get_handle_inheritable(s.fileno())
+            posix.set_handle_inheritable(s.fileno(), True)
+            assert posix.get_handle_inheritable(s.fileno())
+
 
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
         environ = self.posix.environ
@@ -1807,7 +1724,9 @@ class AppTestEnvironment(object):
         os.environ["ABCABC"] = "1"
         assert os.environ["ABCABC"] == "1"
         os.unsetenv("ABCABC")
-        cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
+        cmd = ('%s -c "import os, sys; '
+               'sys.exit(int(\'ABCABC\' in os.environ))" '
+               % self.python)
         res = os.system(cmd)
         assert res == 0
 

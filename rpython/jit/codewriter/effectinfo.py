@@ -336,7 +336,7 @@ def effectinfo_from_writeanalyze(effects, cpu,
                                  tup[1])
                     if val not in effects:
                         extraef.append(val)
-        # preserve order in the added effects issue bitbucket #2984
+        # preserve order in the added effects issue #2984
         effects = tuple(effects) + tuple(extraef)
 
         for tup in effects:

@@ -187,7 +187,7 @@ if _WIN32:
 HAS_CLOCK_GETTIME = (CLOCK_MONOTONIC is not None)
 if sys.platform == 'darwin':
     HAS_CLOCK_GETTIME = False
-    # ^^^ https://bitbucket.org/pypy/pypy/issues/2432 and others
+    # ^^^ issue #2432 and others
     # (change it manually if you *know* you want to build and run on
     # OS/X 10.12 or later)
 

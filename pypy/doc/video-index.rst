@@ -19,7 +19,7 @@ sprints, talks and everywhere else.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/WfGszrRUdtc?rel=0"
+   src="https://www.youtube.com/embed/WfGszrRUdtc?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -36,7 +36,7 @@ never been possible in the US.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/1wAOy88WxmY?rel=0"
+   src="https://www.youtube.com/embed/1wAOy88WxmY?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -53,7 +53,7 @@ project.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/c5rq4Q03zgg?rel=0"
+   src="https://www.youtube.com/embed/c5rq4Q03zgg?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -71,7 +71,7 @@ and Greenlets in PyPy.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/AWUhXW2pLDE?rel=0"
+   src="https://www.youtube.com/embed/AWUhXW2pLDE?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -90,7 +90,7 @@ the formalities required for EU funding.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/ed-zAxZtGlY?rel=0"
+   src="https://www.youtube.com/embed/ed-zAxZtGlY?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -108,7 +108,7 @@ basis, and pays special attention to flow graphs.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/7opXGaQUUA4?rel=0"
+   src="https://www.youtube.com/embed/7opXGaQUUA4?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -125,7 +125,7 @@ architecture of PyPy, especially the RPython translation toolchain.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/1YV7J74xrMI?rel=0"
+   src="https://www.youtube.com/embed/1YV7J74xrMI?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -141,7 +141,7 @@ layout, the new-style instance and gives a CLS interop demo.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/bq9ZGN3-o80?rel=0"
+   src="https://www.youtube.com/embed/bq9ZGN3-o80?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -153,7 +153,7 @@ Bram Cohen is interviewed by Steve Holden at the PyCon 2006, Dallas, US.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/EopmJWrLmWI?rel=0"
+   src="https://www.youtube.com/embed/EopmJWrLmWI?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -166,7 +166,7 @@ Dallas, US.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/RR2sX8tFGsI?rel=0"
+   src="https://www.youtube.com/embed/RR2sX8tFGsI?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -180,7 +180,7 @@ everything else.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/swsnRfj_cek?rel=0"
+   src="https://www.youtube.com/embed/swsnRfj_cek?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -193,7 +193,7 @@ sprint at the University of Palma de Mallorca, Spain. 27.1.2006
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/H_IgK9qmEss?rel=0"
+   src="https://www.youtube.com/embed/H_IgK9qmEss?rel=0"
    frameborder="0" allowfullscreen></iframe>
 
 
@@ -209,5 +209,5 @@ translation toolchain and the just-in-time compiler.
 .. raw:: html
 
    <iframe width="420" height="315"
-   src="http://www.youtube.com/embed/6dnUzVQaSlg?rel=0"
+   src="https://www.youtube.com/embed/6dnUzVQaSlg?rel=0"
    frameborder="0" allowfullscreen></iframe>

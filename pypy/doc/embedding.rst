@@ -17,7 +17,7 @@ recent versions of PyPy.
    support,`__ which gives a simpler approach that works on CPython as well
    as PyPy.
 
-.. __: http://cffi.readthedocs.org/en/latest/embedding.html
+.. __: https://cffi.readthedocs.org/en/latest/embedding.html
 
 The resulting shared library exports very few functions, however they are
 enough to accomplish everything you need, provided you follow a few principles.
@@ -278,7 +278,7 @@ In case you want to use pthreads, what you need to do is to call
 ``pypy_thread_attach`` from each of the threads that you created (but not
 from the main thread) and call ``pypy_init_threads`` from the main thread.
 
-.. _`cffi`: http://cffi.readthedocs.org/
-.. _`uwsgi`: http://uwsgi-docs.readthedocs.org/en/latest/
-.. _`PyPy uwsgi plugin`: http://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
+.. _`cffi`: https://cffi.readthedocs.org/
+.. _`uwsgi`: https://uwsgi-docs.readthedocs.org/en/latest/
+.. _`PyPy uwsgi plugin`: https://uwsgi-docs.readthedocs.org/en/latest/PyPy.html
 .. _`how to compile PyPy`: getting-started.html

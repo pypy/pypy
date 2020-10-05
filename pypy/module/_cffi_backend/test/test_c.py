@@ -82,9 +82,12 @@ class AppTestC(object):
                     w_is_global = space.wrap(0)
                 if space.is_w(w_name, space.w_None):
                     path = None
+                    w_name = space.newtext('None')
                 else:
                     import ctypes.util
                     path = ctypes.util.find_library(space.text_w(w_name))
+                if path is None and sys.platform == 'win32':
+                    py.test.skip("cannot find library '%s'" % (space.text_w(w_name),))
                 return space.appexec([space.wrap(path), w_is_global],
                 """(path, is_global):
                     import _cffi_backend

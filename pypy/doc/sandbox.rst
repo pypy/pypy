@@ -28,7 +28,7 @@ Note that this is very different from sandboxing at the Python language
 level, i.e. placing restrictions on what kind of Python code the
 attacker is allowed to run (why? read about pysandbox_).
 
-.. _SECCOMP: http://code.google.com/p/seccompsandbox/wiki/overview
+.. _SECCOMP: https://code.google.com/p/seccompsandbox/wiki/overview
 .. _pysandbox: https://mail.python.org/pipermail/python-dev/2013-November/130132.html
 
 Another point of comparison: if we were instead to try to plug CPython

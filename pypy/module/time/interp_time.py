@@ -5,7 +5,8 @@ from pypy.interpreter.error import (OperationError, oefmt,
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.timeutils import (
     SECS_TO_NS, MS_TO_NS, US_TO_NS, monotonic as _monotonic, timestamp_w)
-from pypy.interpreter.unicodehelper import decode_utf8sp
+from pypy.interpreter.unicodehelper import (
+    decode_utf8sp, utf8_encode_utf_16, str_decode_utf_16)
 from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
@@ -17,8 +18,10 @@ from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rlib.objectmodel import we_are_translated
-import math
+
+import errno
 import os
+import math
 import sys
 import time as pytime
 
@@ -254,7 +257,7 @@ if _WIN:
                                             'GetSystemTimeAdjustment',
                                             [LPDWORD, LPDWORD, rwin32.LPBOOL],
                                             rffi.INT)
-    def gettimeofday(space, w_info=None):
+    def gettimeofday(space):
         with lltype.scoped_alloc(rwin32.FILETIME) as system_time:
             _GetSystemTimeAsFileTime(system_time)
             quad_part = (system_time.c_dwLowDateTime |
@@ -271,15 +274,6 @@ if _WIN:
             microseconds = quad_part / 10 - offset
             tv_sec = microseconds / 1000000
             tv_usec = microseconds % 1000000
-            if w_info:
-                with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
-                     lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
-                     lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
-                    _GetSystemTimeAdjustment(time_adjustment, time_increment,
-                                             is_time_adjustment_disabled)
-
-                    _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
-                             time_increment[0] * 1e-7, False, True)
             return space.newfloat(tv_sec + tv_usec * 1e-6)
 else:
     if HAVE_GETTIMEOFDAY:
@@ -289,7 +283,7 @@ else:
         else:
             c_gettimeofday = external('gettimeofday',
                                       [lltype.Ptr(TIMEVAL), rffi.VOIDP], rffi.INT)
-    def gettimeofday(space, w_info=None):
+    def gettimeofday(space):
         if HAVE_GETTIMEOFDAY:
             with lltype.scoped_alloc(TIMEVAL) as timeval:
                 if GETTIMEOFDAY_NO_TZ:
@@ -298,8 +292,6 @@ else:
                     void = lltype.nullptr(rffi.VOIDP.TO)
                     errcode = c_gettimeofday(timeval, void)
                 if rffi.cast(rffi.LONG, errcode) == 0:
-                    if w_info is not None:
-                        _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
                     return space.newfloat(
                         widen(timeval.c_tv_sec) +
                         widen(timeval.c_tv_usec) * 1e-6)
@@ -308,13 +300,8 @@ else:
                 c_ftime(t)
                 result = (widen(t.c_time) +
                           widen(t.c_millitm) * 0.001)
-                if w_info is not None:
-                    _setinfo(space, w_info, "ftime()", 1e-3,
-                             False, True)
             return space.newfloat(result)
         else:
-            if w_info:
-                _setinfo(space, w_info, "time()", 1.0, False, True)
             return space.newint(c_time(lltype.nullptr(rffi.TIME_TP.TO)))
 
 TM_P = lltype.Ptr(tm)
@@ -366,7 +353,11 @@ if _WIN:
                             [rffi.SIZE_T, rffi.INT, rffi.CCHARP],
                             rffi.INT, win_eci, calling_conv='c')
 
-c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
+if _WIN:
+    c_strftime = external('wcsftime', [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, TM_P],
+                      rffi.SIZE_T)
+else:
+    c_strftime = external('strftime', [rffi.CCHARP, rffi.SIZE_T, rffi.CCHARP, TM_P],
                       rffi.SIZE_T)
 
 def _init_timezone(space):
@@ -677,7 +668,7 @@ def _checktm(space, t_ref):
     if not 0 <= rffi.getintfield(t_ref, 'c_tm_yday') <= 365:
         raise oefmt(space.w_ValueError, "day of year out of range")
 
-def time(space, w_info=None):
+def time(space):
     """time() -> floating point number
 
     Return the current time in seconds since the Epoch.
@@ -686,17 +677,46 @@ def time(space, w_info=None):
         with lltype.scoped_alloc(TIMESPEC) as timespec:
             ret = c_clock_gettime(rtime.CLOCK_REALTIME, timespec)
             if ret == 0:
-                if w_info is not None:
-                    with lltype.scoped_alloc(TIMESPEC) as tsres:
-                        ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
-                        if ret == 0:
-                            res = _timespec_to_seconds(tsres)
-                        else:
-                            res = 1e-9
-                        _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
-                                 res, False, True)
                 return space.newfloat(_timespec_to_seconds(timespec))
-    return gettimeofday(space, w_info)
+    return gettimeofday(space)
+
+def _get_time_info(space, w_info):
+    if _WIN:
+        with lltype.scoped_alloc(LPDWORD.TO, 1) as time_adjustment, \
+             lltype.scoped_alloc(LPDWORD.TO, 1) as time_increment, \
+             lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as is_time_adjustment_disabled:
+            _GetSystemTimeAdjustment(time_adjustment, time_increment,
+                                     is_time_adjustment_disabled)
+
+            _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
+                     time_increment[0] * 1e-7, False, True)
+    else:
+        if HAS_CLOCK_GETTIME:
+            with lltype.scoped_alloc(TIMESPEC) as tsres:
+                ret = c_clock_getres(rtime.CLOCK_REALTIME, tsres)
+                if ret == 0:
+                    res = _timespec_to_seconds(tsres)
+                else:
+                    res = 1e-9
+                _setinfo(space, w_info, "clock_gettime(CLOCK_REALTIME)",
+                         res, False, True)
+                return
+        if HAVE_GETTIMEOFDAY:
+            with lltype.scoped_alloc(TIMEVAL) as timeval:
+                if GETTIMEOFDAY_NO_TZ:
+                    errcode = c_gettimeofday(timeval)
+                else:
+                    void = lltype.nullptr(rffi.VOIDP.TO)
+                    errcode = c_gettimeofday(timeval, void)
+                if rffi.cast(rffi.LONG, errcode) == 0:
+                    _setinfo(space, w_info, "gettimeofday()", 1e-6, False, True)
+                    return
+        if HAVE_FTIME:
+            _setinfo(space, w_info, "ftime()", 1e-3, False, True)
+        else:
+            # default
+            _setinfo(space, w_info, "time()", 1.0, False, True)
+
 
 def ctime(space, w_seconds=None):
     """ctime([seconds]) -> string
@@ -881,53 +901,65 @@ def strftime(space, format, w_tup=None):
     rffi.setintfield(buf_value, "c_tm_year",
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
-    if _WIN:
-        # Check that the format string contains only valid directives
-        # We don't really need this. Instead we could use a FdValidator to wrap
-        # the call to c_strftime so that a failure does not crash the process,
-        # and then check the error code after the call to c_strftime (when
-        # buf==0), which is what CPython does.
-        #
-        # We use this pre-call check since, when untranslated, since the host
-        # python and the c_strftime use different runtimes, and the c_strftime
-        # call goes through the ctypes call of the host python's runtime, which
-        # is different than the FdValidator runtime.
-        # See the msvcrt branch ...
-        fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
-        if we_are_translated():
-            # Visual 2005+
-            fmts = fmts + 'ADFgGhnrRtTuV'
-        length = len(format)
-        i = 0
-        while i < length:
-            if format[i] == '%':
-                i += 1
-                if i < length and format[i] == '#':
-                    # not documented by python
-                    i += 1
-                # Assume visual studio 2015
-                if i >= length or format[i] not in fmts:
-                    raise oefmt(space.w_ValueError, "invalid format string")
-            i += 1
-
-    format = utf8_encode_locale_surrogateescape(format, len(format))
     i = 1024
-    while True:
-        outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
-        try:
-            buflen = c_strftime(outbuf, i, format, buf_value)
-            if buflen > 0 or i >= 256 * len(format):
-                # if the buffer is 256 times as long as the format,
-                # it's probably not failing for lack of room!
-                # More likely, the format yields an empty result,
-                # e.g. an empty format, or %Z when the timezone
-                # is unknown.
-                result = rffi.charp2strn(outbuf, intmask(buflen))
-                decoded, size = str_decode_locale_surrogateescape(result)
-                return space.newutf8(decoded, size)
-        finally:
-            lltype.free(outbuf, flavor='raw')
-        i += i
+    if _WIN:
+        tm_year = rffi.getintfield(buf_value, 'c_tm_year')
+        if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
+            raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
+     
+        if not we_are_translated():
+            # We use this pre-call check since, when untranslated, since the host
+            # python and the c_strftime use different runtimes, and the c_strftime
+            # call goes through the ctypes call of the host python's runtime, which
+            # can be different than the translated runtime
+
+            # Remove this when we no longer allow msvcrt9
+            fmts = "aAbBcdHIjmMpSUwWxXyYzZ%"
+            length = len(format)
+            i = 0
+            while i < length:
+                if format[i] == '%':
+                    i += 1
+                    if i < length and format[i] == '#':
+                        # not documented by python
+                        i += 1
+                    # Assume visual studio 2015
+                    if i >= length or format[i] not in fmts:
+                        raise oefmt(space.w_ValueError, "invalid format string")
+                i += 1
+        # wcharp with track_allocation=True
+        format_for_call = rffi.utf82wcharp(format, len(format))
+    else:
+        format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+    try:
+        while True:
+            if _WIN:
+                outbuf = lltype.malloc(rffi.CWCHARP.TO, i, flavor='raw')
+            else:
+                outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
+            try:
+                with rposix.SuppressIPH():
+                    buflen = c_strftime(outbuf, i, format_for_call, buf_value)
+                if buflen > 0 or i >= 256 * len(format):
+                    # if the buffer is 256 times as long as the format,
+                    # it's probably not failing for lack of room!
+                    # More likely, the format yields an empty result,
+                    # e.g. an empty format, or %Z when the timezone
+                    # is unknown.
+                    if _WIN:
+                        decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
+                    else:
+                        result = rffi.charp2strn(outbuf, intmask(buflen))
+                        decoded, size = str_decode_locale_surrogateescape(result)
+                    return space.newutf8(decoded, size)
+                if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                    raise oefmt(space.w_ValueError, "invalid format string")
+            finally:
+                lltype.free(outbuf, flavor='raw')
+            i += i
+    finally:
+        if _WIN:
+            rffi.free_wcharp(format_for_call)
 
 if HAS_MONOTONIC:
     if _WIN:
@@ -1048,7 +1080,9 @@ if _WIN:
                     return monotonic(space, w_info=w_info)
                 except Exception:
                     pass
-        return time(space, w_info=w_info)
+        if w_info:
+            _get_time_info(space, w_info)
+        return time(space)
 else:
     def perf_counter(space, w_info=None):
         if HAS_MONOTONIC:
@@ -1056,7 +1090,9 @@ else:
                 return monotonic(space, w_info=w_info)
             except Exception:
                 pass
-        return time(space, w_info=w_info)
+        if w_info:
+            _get_time_info(space, w_info)
+        return time(space)
 
 if _WIN:
     def process_time(space, w_info=None):

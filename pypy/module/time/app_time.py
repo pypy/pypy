@@ -41,7 +41,7 @@ def get_clock_info(name):
     info.resolution = 1.0
 
     if name == "time":
-        time.time(info)
+        time._get_time_info(info)
     elif name == "monotonic" and hasattr(time, "monotonic"):
         time.monotonic(info)
     elif name == "clock":

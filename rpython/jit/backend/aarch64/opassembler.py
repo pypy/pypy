@@ -382,8 +382,13 @@ class ResOpAssembler(BaseAssembler):
         value_loc, base_loc, index_loc, size_loc, ofs_loc = arglocs
         assert index_loc.is_core_reg()
         # add the base offset
-        if ofs_loc.value > 0:
-            self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+        if ofs_loc.value != 0:
+            if check_imm_arg(ofs_loc.value):
+                self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+            else:
+                # ofs_loc.value is too large for an ADD_ri
+                self.load(r.ip0, ofs_loc)
+                self.mc.ADD_rr(r.ip0.value, r.ip0.value, index_loc.value)
             index_loc = r.ip0
         scale = get_scale(size_loc.value)
         self._write_to_mem(value_loc, base_loc, index_loc, scale)
@@ -394,8 +399,13 @@ class ResOpAssembler(BaseAssembler):
         nsize = nsize_loc.value
         signed = (nsize < 0)
         # add the base offset
-        if ofs_loc.value > 0:
-            self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+        if ofs_loc.value != 0:
+            if check_imm_arg(ofs_loc.value):
+                self.mc.ADD_ri(r.ip0.value, index_loc.value, ofs_loc.value)
+            else:
+                # ofs_loc.value is too large for an ADD_ri
+                self.load(r.ip0, ofs_loc)
+                self.mc.ADD_rr(r.ip0.value, r.ip0.value, index_loc.value)
             index_loc = r.ip0
         #
         scale = get_scale(abs(nsize))

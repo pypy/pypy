@@ -100,4 +100,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
+^lib
 ^extra_tests/hpy_tests/_vendored$

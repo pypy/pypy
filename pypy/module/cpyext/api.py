@@ -136,7 +136,7 @@ METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
 Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
-Py_CLEANUP_SUPPORTED
+Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
 """.split()
 
@@ -1164,7 +1164,8 @@ def attach_c_functions(space, eci, prefix):
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
-        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_subtype_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
@@ -1517,6 +1518,8 @@ def build_eci(code, use_micronumpy=False, translating=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
+        compile_extra.append(
+                    '-DCPYEXT_TESTS')
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]

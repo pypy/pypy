@@ -42,7 +42,7 @@ growing community of PyPy users. We strongly recommend updating.
 
 You can download the v5.8 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -55,7 +55,7 @@ with making RPython's JIT even better.
 
 .. _`profile guided optimization`: https://pythonfiles.wordpress.com/2017/05/12/enabling-profile-guided-optimizations-for-pypy
 .. _shadowstack: config/translation.gcrootfinder.html
-.. _vmprof: http://vmprof.readthedocs.io
+.. _vmprof: https://vmprof.readthedocs.io
 .. _`issues with gcc toolchains`: https://bitbucket.org/pypy/pypy/issues/2572/link-time-optimization-lto-disabled
 .. _CFFI: https://cffi.readthedocs.io/en/latest/whatsnew.html
 .. _grant: https://morepypy.blogspot.com/2016/08/pypy-gets-funding-from-mozilla-for.html
@@ -65,7 +65,7 @@ with making RPython's JIT even better.
 .. _`help`: project-ideas.html
 .. _`options`: config/commandline.html#general-translation-options
 .. _`these benchmarks show`: https://morepypy.blogspot.com/2017/03/async-http-benchmarks-on-pypy3.html
-.. _`Gambit Research`: http://gambitresearch.com
+.. _`Gambit Research`: https://gambitresearch.com
 
 What is PyPy?
 =============
@@ -88,8 +88,8 @@ The PyPy 2.7 release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Highlights of the PyPy2.7, cpyext, and RPython changes (since 5.7 released March, 2017)
 =======================================================================================

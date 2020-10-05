@@ -1,5 +1,6 @@
 #pragma once
 
+#ifdef PYPY_JIT_CODEMAP
 #include "vmprof.h"
 
 #ifdef VMPROF_WINDOWS
@@ -17,7 +18,6 @@ long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
 long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
                                       intptr_t addr, int max_depth)
 {
-#ifdef PYPY_JIT_CODEMAP
     void *codemap;
     long current_pos = 0;
     intptr_t ident, local_stack[MAX_INLINE_DEPTH];
@@ -57,6 +57,6 @@ long vmprof_write_header_for_jit_addr(intptr_t *result, long n,
         result[n++] = VMPROF_JITTED_TAG;
         result[n++] = local_stack[--m];
     }
-#endif
     return n;
 }
+#endif

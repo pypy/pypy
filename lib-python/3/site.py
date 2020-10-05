@@ -355,7 +355,7 @@ def setcopyright():
     licenseargs = None
     if is_pypy:
         credits = "PyPy is maintained by the PyPy developers: http://pypy.org/"
-        license = "See https://bitbucket.org/pypy/pypy/src/default/LICENSE"
+        license = "See https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/LICENSE"
         licenseargs = (license,)
     elif sys.platform[:4] == 'java':
         credits = ("Jython is maintained by the Jython developers "

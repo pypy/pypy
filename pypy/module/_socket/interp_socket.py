@@ -209,9 +209,14 @@ class W_Socket(W_Root):
                     # it is possible to pass some bytes representing a socket
                     # in the file descriptor object on winodws
                     fdobj = space.bytes_w(w_fileno)
+                    if len(fdobj) != rffi.sizeof(_c.WSAPROTOCOL_INFOW):
+                        raise oefmt(space.w_ValueError,
+                            "socket descriptor string has wrong size, should be %d bytes",
+                            rffi.sizeof(_c.WSAPROTOCOL_INFOW))
                     info_charptr = rffi.str2charp(fdobj)
                     try:
                         info_ptr = rffi.cast(lltype.Ptr(_c.WSAPROTOCOL_INFOW), info_charptr)
+                        type = info_ptr.c_iSocketType 
                         fd = _c.WSASocketW(_c.FROM_PROTOCOL_INFO, _c.FROM_PROTOCOL_INFO,
                         _c.FROM_PROTOCOL_INFO, info_ptr, 0, _c.WSA_FLAG_OVERLAPPED)
                         if fd == rsocket.INVALID_SOCKET:

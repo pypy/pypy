@@ -1,10 +1,10 @@
+.. _jit-hooks:
+
 JIT hooks
 =========
 
 There are several hooks in the ``pypyjit`` module that may help you with
-understanding what's pypy's JIT doing while running your program. There
-are three functions related to that coming from the ``pypyjit`` module:
-
+understanding what pypy's JIT is doing while running your program:
 
 .. function:: set_compile_hook(callable, operations=True)
 
@@ -79,4 +79,15 @@ are three functions related to that coming from the ``pypyjit`` module:
    * ``asmaddr`` - an address in raw memory where assembler resides
 
    * ``asmlen`` - length of raw memory with assembler associated
+
+Resetting the JIT
+=================
+
+.. function:: releaseall()
+
+   Marks all current machine code objects as ready to release. They will be
+   released at the next GC (unless they are currently in use in the stack of
+   one of the threads).  Doing ``pypyjit.releaseall(); gc.collect()`` is a
+   heavy hammer that forces the JIT roughly back to the state of a newly
+   started PyPy.
 

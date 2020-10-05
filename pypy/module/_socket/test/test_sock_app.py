@@ -176,7 +176,7 @@ def test_pton_ipv6(space, w_socket):
         ("\x00\x01" * 6 + "\x00" * 4, "1:1:1:1:1:1::"),
         ("\xab\xcd\xef\00" + "\x00" * 12, "ABCD:EF00::"),
         ("\xab\xcd\xef\00" + "\x00" * 12, "abcd:ef00::"),
-        ("\x00\x00\x10\x10" * 4, "::1010:" + ":".join(["0:1010"] * 3)),
+        ("\x00\x00\x10\x10" * 4, ":".join(["0:1010"] * 4)),
         ("\x00" * 12 + "\x01\x02\x03\x04", "::1.2.3.4"),
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
@@ -208,6 +208,18 @@ def test_getaddrinfo(space, w_socket):
             return -1
         ''')
     assert space.unwrap(w_l) == True
+
+
+def test_sethostname(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname())")
+
+
+def test_sethostname_bytes(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname().encode())")
 
 
 def test_unknown_addr_as_object(space, ):
@@ -298,7 +310,7 @@ def test_type(space, w_socket):
     w_type = space.appexec([w_socket],
                     """(_socket,):
                     if not hasattr(_socket, 'SOCK_CLOEXEC'):
-                        return -1, False
+                        return -1
                     s = _socket.socket(_socket.AF_INET,
                                     _socket.SOCK_STREAM | _socket.SOCK_CLOEXEC)
                     return s.type
@@ -592,6 +604,7 @@ class AppTestSocket:
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
         with raises(OSError):
             s.listen()
+        s.bind(('localhost', 0))
         s.listen(1)
         data = s.share(os.getpid())
         # emulate socket.fromshare
@@ -615,7 +628,8 @@ class AppTestSocket:
         if os.name != 'nt':
             assert os.get_inheritable(s.fileno()) is False
             assert os.get_inheritable(fd) is False
-        os.close(fd)
+        s_dup = socket.socket(fileno=fd)
+        s_dup.close()
         s.close()
 
     def test_dup_error(self):
@@ -849,6 +863,7 @@ class AppTestSocketTCP:
             foo = self.serv._accept()
         raises(error, raise_error)
 
+    @pytest.mark.skipif(os.name == 'nt', reason="win32 has additional buffering")
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
         cli = socket()
@@ -925,6 +940,7 @@ class AppTestSocketTCP:
         assert nbytes == len(MSG)
         msg = buf.getvalue()[:len(MSG)]
         assert msg == MSG
+        conn.close()
 
     def test_recvfrom_into(self):
         import socket
@@ -962,6 +978,7 @@ class AppTestSocketTCP:
         buf = bytearray(8)
         exc = raises(ValueError, cli.recvfrom_into, buf, 1024)
         assert str(exc.value) == "nbytes is greater than the length of the buffer"
+        conn.close()
 
     @pytest.mark.skipif(os.name == 'nt', reason="no recvmg_into on win32")
     def test_recvmsg_into(self):
@@ -974,11 +991,12 @@ class AppTestSocketTCP:
         buf1 = bytearray(5)
         buf2 = bytearray(6)
         rettup = cli.recvmsg_into([memoryview(buf1), memoryview(buf2)])
-        print(rettup)
         nbytes, _, _, addr = rettup
         assert nbytes == 11
         assert buf1 == b'Hello'
         assert buf2 == b' World'
+        conn.close()
+        cli.close()
 
     def test_family(self):
         import socket
@@ -1003,7 +1021,8 @@ class AppTestSocketTCP:
                 os.get_inheritable(fileno)
         else:
             assert os.get_inheritable(fileno) is False
-        os.close(fileno)
+        conn = _socket.socket(fileno=fileno)
+        conn.close()
         cli.close()
 
     def test_recv_into_params(self):
@@ -1012,18 +1031,21 @@ class AppTestSocketTCP:
         cli = _socket.socket()
         cli.connect(self.serv.getsockname())
         fileno, addr = self.serv._accept()
-        os.write(fileno, b"abcdef")
+        conn = _socket.socket(fileno=fileno)
+        conn.send(b"abcdef")
         #
         m = memoryview(bytearray(5))
         raises(ValueError, cli.recv_into, m, -1)
         raises(ValueError, cli.recv_into, m, 6)
-        cli.recv_into(m,5)
+        cli.recv_into(m, 5)
         assert m.tobytes() == b"abcde"
-        os.close(fileno)
+        conn.close()
         cli.close()
 
     def test_bytearray_name(self):
         import _socket as socket
+        if not hasattr(socket, 'AF_UNIX'):
+            skip('AF_UNIX not supported.')
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.bind(bytearray(b"\x00python\x00test\x00"))
         assert s.getsockname() == b"\x00python\x00test\x00"

@@ -1,5 +1,4 @@
 # test about the binop operation rule, see issue 412
-from pypy.conftest import option
 
 class Base(object):
     def __init__(self, name):
