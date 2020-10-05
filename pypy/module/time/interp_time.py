@@ -6,8 +6,11 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib import rposix, rtime
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
-import math
+from rpython.rlib.objectmodel import we_are_translated
+
+import errno
 import os
+import math
 import sys
 import time as pytime
 
@@ -643,6 +646,9 @@ def strftime(space, format, w_tup=None):
         raise oefmt(space.w_ValueError, "daylight savings flag out of range")
 
     if _WIN:
+        tm_year = rffi.getintfield(buf_value, 'c_tm_year')
+        if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
+            raise oefmt(space.w_ValueError, "strftime() requires year in [1; 9999]")
         # check that the format string contains only valid directives
         length = len(format)
         i = 0
@@ -660,7 +666,8 @@ def strftime(space, format, w_tup=None):
     while True:
         outbuf = lltype.malloc(rffi.CCHARP.TO, i, flavor='raw')
         try:
-            buflen = c_strftime(outbuf, i, format, buf_value)
+            with rposix.SuppressIPH():
+                buflen = c_strftime(outbuf, i, format, buf_value)
             if buflen > 0 or i >= 256 * len(format):
                 # if the buffer is 256 times as long as the format,
                 # it's probably not failing for lack of room!
@@ -669,6 +676,8 @@ def strftime(space, format, w_tup=None):
                 # is unknown.
                 result = rffi.charp2strn(outbuf, intmask(buflen))
                 return space.newtext(result)
+            if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
+                raise oefmt(space.w_ValueError, "invalid format string")
         finally:
             lltype.free(outbuf, flavor='raw')
         i += i

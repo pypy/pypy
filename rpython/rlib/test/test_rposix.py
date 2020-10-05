@@ -477,15 +477,6 @@ class BasePosixUnicodeOrAscii:
             except Exception:
                 pass
 
-    @win_only
-    def test_is_valid_fd(self):
-        assert rposix.is_valid_fd(0) == 1
-        fid = open(str(udir.join('validate_test.txt')), 'w')
-        fd = fid.fileno()
-        assert rposix.is_valid_fd(fd) == 1
-        fid.close()
-        assert rposix.is_valid_fd(fd) == 0
-
     def test_putenv(self):
         from rpython.rlib import rposix_environ
 
@@ -957,15 +948,12 @@ def test_get_and_set_scheduler_and_param():
             rposix.sched_setparam(-1, param)
     with pytest.raises(OSError):
         rposix.sched_setscheduler(-1, mine, param)
-    with pytest.raises(TypeError):
-        rposix.sched_setscheduler(0, mine, None)
-    with pytest.raises(TypeError):
-        rposix.sched_setparam(0, None)
 
     large = 214748364700
-    param = large # rposix.sched_param(large)
-    with pytest.raises(OSError):
-        rposix.sched_setparam(0, param)
-    # param = rposix.sched_param(sched_priority=-large)
-    # with pytest.raises(OverflowError):
-    #    rposix.sched_setparam(0, param)
+    if large < sys.maxint:
+        param = large # rposix.sched_param(large)
+        with pytest.raises(OSError):
+            rposix.sched_setparam(0, param)
+        # param = rposix.sched_param(sched_priority=-large)
+        # with pytest.raises(OverflowError):
+        #    rposix.sched_setparam(0, param)

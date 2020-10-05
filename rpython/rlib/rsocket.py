@@ -589,9 +589,11 @@ class RSocket(object):
         def _setblocking(self, block):
             flag = lltype.malloc(rffi.ULONGP.TO, 1, flavor='raw')
             flag[0] = rffi.cast(rffi.ULONG, not block)
-            if _c.ioctlsocket(self.fd, _c.FIONBIO, flag) != 0:
-                raise self.error_handler()
-            lltype.free(flag, flavor='raw')
+            try:
+                if _c.ioctlsocket(self.fd, _c.FIONBIO, flag) != 0:
+                    raise self.error_handler()
+            finally:
+                lltype.free(flag, flavor='raw')
 
     if hasattr(_c, 'poll') and not _c.poll_may_be_broken:
         def _select(self, for_writing):

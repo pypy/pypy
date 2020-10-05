@@ -60,6 +60,7 @@ class GcRewriterAssembler(object):
         self._delayed_zero_setfields = {}
         self.last_zero_arrays = []
         self._setarrayitems_occurred = {}   # {box: {set-of-indexes}}
+        self._constant_additions = {}   # {old_box: (older_box, constant_add)}
 
     def remember_known_length(self, op, val):
         self._known_lengths[op] = val
@@ -137,6 +138,8 @@ class GcRewriterAssembler(object):
 
     def emit_gc_store_or_indexed(self, op, ptr_box, index_box, value_box,
                                  itemsize, factor, offset):
+        index_box, offset = self._try_use_older_box(index_box, factor,
+                                                    offset)
         factor, offset, index_box = \
                 self._emit_mul_if_factor_offset_not_supported(index_box,
                         factor, offset)
@@ -166,8 +169,21 @@ class GcRewriterAssembler(object):
             self.emit_op(new_index_box)
         return factor, offset, new_index_box
 
+    def _try_use_older_box(self, index_box, factor, offset):
+        # if index_box is itself an 'int_add' or 'int_sub' box created
+        # recently with an older box argument and a constant argument,
+        # then use instead the older box and fold the constant inside the
+        # offset.
+        if (not isinstance(index_box, ConstInt) and
+                index_box in self._constant_additions):
+            index_box, extra_offset = self._constant_additions[index_box]
+            offset += factor * extra_offset
+        return index_box, offset
+
     def emit_gc_load_or_indexed(self, op, ptr_box, index_box, itemsize,
                                 factor, offset, sign, type='i'):
+        index_box, offset = self._try_use_older_box(index_box, factor,
+                                                    offset)
         factor, offset, index_box = \
                 self._emit_mul_if_factor_offset_not_supported(index_box,
                         factor, offset)
@@ -352,30 +368,36 @@ class GcRewriterAssembler(object):
             if self.transform_to_gc_load(op):
                 continue
             # ---------- turn NEWxxx into CALL_MALLOC_xxx ----------
-            if rop.is_malloc(op.opnum):
+            opnum = op.getopnum()
+            if rop.is_malloc(opnum):
                 self.handle_malloc_operation(op)
                 continue
-            if (rop.is_guard(op.opnum) or
+            if (rop.is_guard(opnum) or
                     self.could_merge_with_next_guard(op, i, operations)):
                 self.emit_pending_zeros()
-            elif rop.can_malloc(op.opnum):
+            elif rop.can_malloc(opnum):
                 self.emitting_an_operation_that_can_collect()
-            elif op.getopnum() == rop.LABEL:
+            elif opnum == rop.LABEL:
                 self.emit_label()
+            # ------ record INT_ADD or INT_SUB with a constant ------
+            if opnum == rop.INT_ADD or opnum == rop.INT_ADD_OVF:
+                self.record_int_add_or_sub(op, is_subtraction=False)
+            elif opnum == rop.INT_SUB or opnum == rop.INT_SUB_OVF:
+                self.record_int_add_or_sub(op, is_subtraction=True)
             # ---- change COPY{STR|UNICODE}CONTENT into a call ------
-            if op.opnum == rop.COPYSTRCONTENT or op.opnum == rop.COPYUNICODECONTENT:
+            if opnum == rop.COPYSTRCONTENT or opnum == rop.COPYUNICODECONTENT:
                 self.rewrite_copy_str_content(op)
                 continue
             # ---------- write barriers ----------
             if self.gc_ll_descr.write_barrier_descr is not None:
-                if op.getopnum() == rop.SETFIELD_GC:
+                if opnum == rop.SETFIELD_GC:
                     self.consider_setfield_gc(op)
                     self.handle_write_barrier_setfield(op)
                     continue
-                if op.getopnum() == rop.SETINTERIORFIELD_GC:
+                if opnum == rop.SETINTERIORFIELD_GC:
                     self.handle_write_barrier_setinteriorfield(op)
                     continue
-                if op.getopnum() == rop.SETARRAYITEM_GC:
+                if opnum == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
                     self.handle_write_barrier_setarrayitem(op)
                     continue
@@ -383,15 +405,15 @@ class GcRewriterAssembler(object):
                 # this is dead code, but in case we have a gc that does
                 # not have a write barrier and does not zero memory, we would
                 # need to call it
-                if op.getopnum() == rop.SETFIELD_GC:
+                if opnum == rop.SETFIELD_GC:
                     self.consider_setfield_gc(op)
-                elif op.getopnum() == rop.SETARRAYITEM_GC:
+                elif opnum == rop.SETARRAYITEM_GC:
                     self.consider_setarrayitem_gc(op)
             # ---------- call assembler -----------
-            if OpHelpers.is_call_assembler(op.getopnum()):
+            if OpHelpers.is_call_assembler(opnum):
                 self.handle_call_assembler(op)
                 continue
-            if op.getopnum() == rop.JUMP or op.getopnum() == rop.FINISH:
+            if opnum == rop.JUMP or opnum == rop.FINISH:
                 self.emit_pending_zeros()
             #
             self.emit_op(op)
@@ -674,6 +696,10 @@ class GcRewriterAssembler(object):
         self._op_malloc_nursery = None
         self._write_barrier_applied.clear()
         self.emit_pending_zeros()
+        # we also clear _constant_additions here, rather than only in
+        # emit_label(), to avoid keeping alive the old boxes for a
+        # potentially very long time
+        self._constant_additions.clear()
 
     def write_barrier_applied(self, op):
         return self.get_box_replacement(op) in self._write_barrier_applied
@@ -970,6 +996,31 @@ class GcRewriterAssembler(object):
         self._known_lengths.clear()
         self.gcrefs_recently_loaded = None
 
+    def record_int_add_or_sub(self, op, is_subtraction):
+        # note: if op is a INT_ADD_OVF or INT_SUB_OVF, we ignore the OVF
+        # and proceed normally.  The idea is that if we use the result later,
+        # then this means this result did not overflow.
+        v_arg1 = op.getarg(1)
+        if isinstance(v_arg1, ConstInt):
+            constant = v_arg1.getint()
+            if is_subtraction:
+                constant = -constant
+            box = op.getarg(0)
+        else:
+            if is_subtraction:
+                return
+            v_arg0 = op.getarg(0)
+            if not isinstance(v_arg0, ConstInt):
+                return
+            constant = v_arg0.getint()
+            box = v_arg1
+        # invariant: if _constant_additions[b1] = (b2, val2)
+        # then b2 itself is not a key in _constant_additions
+        if box in self._constant_additions:
+            box, extra_offset = self._constant_additions[box]
+            constant += extra_offset
+        self._constant_additions[op] = (box, constant)
+
     def _gcref_index(self, gcref):
         if self.gcrefs_map is None:
             self.gcrefs_map = new_ref_dict()
@@ -1056,7 +1107,7 @@ class GcRewriterAssembler(object):
 
 @always_inline
 def cpu_simplify_scale(cpu, index_box, factor, offset):
-    # Returns (factor, offset, index_box, [ops]) where index_box is either
+    # Returns (factor, offset, index_box, emit_flag) where index_box is either
     # a non-constant BoxInt or None.
     if isinstance(index_box, ConstInt):
         return 1, index_box.value * factor + offset, None, False

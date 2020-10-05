@@ -866,10 +866,15 @@ def configure_boehm(platform=None):
         library_dir = ''
         libraries = ['gc']
         includes=['gc/gc.h']
-    eci = ExternalCompilationInfo(
-        platform=platform,
-        includes=includes,
-        libraries=libraries,
+    try:
+        eci = ExternalCompilationInfo.from_pkg_config('bdw-gc')
+        eci.includes += tuple(includes)
+        return eci
+    except ImportError:
+        eci = ExternalCompilationInfo(
+            platform=platform,
+            includes=includes,
+            libraries=libraries,
         )
     return configure_external_library(
         'gc', eci,

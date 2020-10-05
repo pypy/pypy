@@ -660,7 +660,13 @@ class SimpleServerTestCase(BaseServerTestCase):
     def test_partial_post(self):
         # Check that a partial POST doesn't make the server loop: issue #14001.
         conn = httplib.HTTPConnection(ADDR, PORT)
-        conn.request('POST', '/RPC2 HTTP/1.0\r\nContent-Length: 100\r\n\r\nbye')
+        conn.send('POST /RPC2 HTTP/1.0\r\n'
+                  'Content-Length: 100\r\n\r\n'
+                  'bye HTTP/1.1\r\n'
+                  'Host: %s:%s\r\n'
+                  'Accept-Encoding: identity\r\n'
+                  'Content-Length: 0\r\n\r\n'
+                  % (ADDR, PORT))
         conn.close()
 
 class SimpleServerEncodingTestCase(BaseServerTestCase):
@@ -855,13 +861,9 @@ class GzipServerTestCase(BaseServerTestCase):
 class ServerProxyTestCase(unittest.TestCase):
     def setUp(self):
         unittest.TestCase.setUp(self)
-        if threading:
-            self.url = URL
-        else:
-            # Without threading, http_server() and http_multi_server() will not
-            # be executed and URL is still equal to None. 'http://' is a just
-            # enough to choose the scheme (HTTP)
-            self.url = 'http://'
+        # Actual value of the URL doesn't matter if it is a string in
+        # the correct format.
+        self.url = 'http://fake.localhost'
 
     def test_close(self):
         p = xmlrpclib.ServerProxy(self.url)

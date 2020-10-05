@@ -297,10 +297,7 @@ def initstdio(unbuffered=False):
 # ____________________________________________________________
 # Main entry point
 
-def we_are_translated():
-    # app-level, very different from rpython.rlib.objectmodel.we_are_translated
-    return hasattr(sys, 'pypy_translation_info')
-
+WE_ARE_TRANSLATED = True   # patch to False if we're not really translated
 IS_WINDOWS = 'nt' in sys.builtin_module_names
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
@@ -543,7 +540,7 @@ def parse_command_line(argv):
 ##        print >> sys.stderr, (
 ##            "Warning: pypy does not implement hash randomization")
 
-    if we_are_translated():
+    if WE_ARE_TRANSLATED:
         flags = [options[flag] for flag in sys_flags]
         sys.flags = type(sys.flags)(flags)
         sys.py3kwarning = bool(sys.flags.py3k_warning)
@@ -560,7 +557,7 @@ def parse_command_line(argv):
     if os.getenv('PYTHONFAULTHANDLER'):
         run_faulthandler()
 
-##    if not we_are_translated():
+##    if not WE_ARE_TRANSLATED:
 ##        for key in sorted(options):
 ##            print '%40s: %s' % (key, options[key])
 ##        print '%40s: %s' % ("sys.argv", sys.argv)
@@ -580,8 +577,8 @@ def run_command_line(interactive,
                      verbose,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
-    # but we need more in the translated PyPy for the compiler package
-    if '__pypy__' not in sys.builtin_module_names:
+    # but we need more in the PyPy level for the compiler package
+    if not WE_ARE_TRANSLATED:
         sys.setrecursionlimit(5000)
     import os
 
@@ -590,7 +587,7 @@ def run_command_line(interactive,
     elif not sys.stdout.isatty():
         set_fully_buffered_io()
 
-    if we_are_translated():
+    if WE_ARE_TRANSLATED:
         import __pypy__
         __pypy__.save_module_content_for_future_reload(sys)
 
@@ -889,6 +886,7 @@ if __name__ == '__main__':
         import os
         return os.path.abspath(os.path.join(s, '..'))
 
+    WE_ARE_TRANSLATED = False
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)

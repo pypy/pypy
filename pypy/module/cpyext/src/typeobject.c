@@ -1,7 +1,23 @@
 #include "Python.h"
 
+/* 
+ * Mangle to _PyPy_subtype_dealloc for translation.
+ * For tests, we want to mangle as if it were a c-api function so
+ * it will not be confused with the host's similarly named function
+ */
+
+#ifdef CPYEXT_TESTS
+#define _Py_subtype_dealloc _cpyexttest_subtype_dealloc
+#ifdef __GNUC__
+__attribute__((visibility("default")))
+#else
+__declspec(dllexport)
+#endif
+#else  /* CPYEXT_TESTS */
+#define _Py_subtype_dealloc _PyPy_subtype_dealloc
+#endif  /* CPYEXT_TESTS */
 void
-_PyPy_subtype_dealloc(PyObject *obj)
+_Py_subtype_dealloc(PyObject *obj)
 {
     PyTypeObject *pto = obj->ob_type;
     PyTypeObject *base = pto;
@@ -12,12 +28,12 @@ _PyPy_subtype_dealloc(PyObject *obj)
        inheritance chain until base.c_tp_dealloc is exactly this_func, and then
        continue on up until they differ.
        */
-    while (base->tp_dealloc != &_PyPy_subtype_dealloc)
+    while (base->tp_dealloc != &_Py_subtype_dealloc)
     {
         base = base->tp_base;
         assert(base);
     }
-    while (base->tp_dealloc == &_PyPy_subtype_dealloc)
+    while (base->tp_dealloc == &_Py_subtype_dealloc)
     {
         base = base->tp_base;
         assert(base);

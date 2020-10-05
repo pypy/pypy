@@ -1283,7 +1283,7 @@ class Popen(object):
 
 
 def _pypy_install_libs_after_virtualenv(target_executable):
-    # https://bitbucket.org/pypy/pypy/issue/1922/future-proofing-virtualenv
+    # issue 1922 future-proofing-virtualenv
     #
     # PyPy 2.4.1 turned --shared on by default.  This means the pypy binary
     # depends on the 'libpypy-c.so' shared library to be able to run.

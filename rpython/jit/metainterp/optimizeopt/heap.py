@@ -179,6 +179,7 @@ class CachedField(AbstractCachedEntry):
 
 class ArrayCachedItem(AbstractCachedEntry):
     def __init__(self, index):
+        assert index >= 0
         self.index = index
         AbstractCachedEntry.__init__(self)
 
@@ -556,7 +557,7 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant():
+        if indexb.is_constant() and indexb.getint() >= 0:
             index = indexb.getint()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
@@ -578,7 +579,7 @@ class OptHeap(Optimization):
         # then remember the result of reading the array item
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
+        if indexb.is_constant() and indexb.getint() >= 0:
             index = indexb.getint()
             cf = self.arrayitem_cache(op.getdescr(), index)
             arrayinfo.setitem(op.getdescr(), indexb.getint(),
@@ -595,7 +596,7 @@ class OptHeap(Optimization):
         arrayinfo = self.ensure_ptr_info_arg0(op)
         indexb = self.getintbound(op.getarg(1))
         cf = None
-        if indexb.is_constant():
+        if indexb.is_constant() and indexb.getint() >= 0:
             index = indexb.getint()
             arrayinfo.getlenbound(None).make_gt_const(index)
             # use the cache on (arraydescr, index), which is a constant
@@ -616,7 +617,7 @@ class OptHeap(Optimization):
 
     def optimize_SETARRAYITEM_GC(self, op):
         indexb = self.getintbound(op.getarg(1))
-        if indexb.is_constant():
+        if indexb.is_constant() and indexb.getint() >= 0:
             arrayinfo = self.ensure_ptr_info_arg0(op)
             # arraybound
             arrayinfo.getlenbound(None).make_gt_const(indexb.getint())

@@ -15,9 +15,9 @@ implementation of the Python_ language.
 All of the documentation and source code is available under the MIT license,
 unless otherwise specified. Consult :source:`LICENSE`.
 
-.. _fast: http://speed.pypy.org
-.. _Python: http://python.org/
-.. _PyPy website: http://pypy.org/
+.. _fast: https://speed.pypy.org
+.. _Python: https://python.org/
+.. _PyPy website: https://pypy.org/
 
 
 .. _getting-started-index:
@@ -104,8 +104,8 @@ Meeting PyPy developers
 
 .. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
 .. _here: https://quodlibet.duckdns.org/irc/pypy/latest.log.html#irc-end
-.. _Development mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
-.. _Commit mailing list: http://mail.python.org/mailman/listinfo/pypy-commit
+.. _Development mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
+.. _Commit mailing list: https://mail.python.org/mailman/listinfo/pypy-commit
 .. _Development bug/feature tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 

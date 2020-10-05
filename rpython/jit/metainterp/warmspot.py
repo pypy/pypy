@@ -473,7 +473,7 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, supports_floats=True,
+                  no_stats=False, no_stats_history=False, supports_floats=True,
                   supports_longlong=True, supports_singlefloats=True,
                   **kwds):
         assert CPUClass is not None
@@ -482,6 +482,10 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats(None)
+            if no_stats_history:
+                stats.set_history = lambda history: None
+                # ^^^ for test_jitiface.test_memmgr_release_all.  otherwise,
+                # stats.history attribute keeps the most recent loop alive
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)

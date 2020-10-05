@@ -20,7 +20,7 @@ vmprof now works on Linux, OS X and Windows on both PyPy and CPython.
 
 You can download the PyPy 5.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project.
@@ -38,14 +38,14 @@ While not applicable only to PyPy, `cffi`_ is arguably our most significant
 contribution to the python ecosystem. PyPy 5.0 ships with
 `cffi-1.5.2`_ which now allows embedding PyPy (or cpython) in a C program.
 
-.. _`PyPy`: http://doc.pypy.org
+.. _`PyPy`: https://doc.pypy.org
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`cffi`: https://cffi.readthedocs.org
-.. _`cffi-1.5.2`: http://cffi.readthedocs.org/en/latest/whatsnew.html#v1-5-2
-.. _`modules`: http://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
-.. _`help`: http://doc.pypy.org/en/latest/project-ideas.html
+.. _`cffi-1.5.2`: https://cffi.readthedocs.org/en/latest/whatsnew.html#v1-5-2
+.. _`modules`: https://doc.pypy.org/en/latest/project-ideas.html#make-more-python-modules-pypy-friendly
+.. _`help`: https://doc.pypy.org/en/latest/project-ideas.html
 .. _`numpy`: https://bitbucket.org/pypy/numpy
-.. _vmprof: http://vmprof.readthedocs.org
+.. _vmprof: https://vmprof.readthedocs.org
 
 What is PyPy?
 =============
@@ -62,8 +62,8 @@ This release supports **x86** machines on most common operating systems
 newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux, and the
 big- and little-endian variants of **PPC64** running Linux.
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://pypyjs.org
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://pypyjs.org
 
 Other Highlights (since 4.0.1 released in November 2015)
 =========================================================
@@ -217,9 +217,9 @@ Other Highlights (since 4.0.1 released in November 2015)
 
   * Fix tokenizer to enforce universal newlines, needed for Python 3 support
 
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-5.0.0.html
-.. _`hypothesis`: http://hypothesis.readthedocs.org
-.. _`blog post`: http://morepypy.blogspot.com/2016/02/c-api-support-update.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-5.0.0.html
+.. _`hypothesis`: https://hypothesis.readthedocs.org
+.. _`blog post`: https://morepypy.blogspot.com/2016/02/c-api-support-update.html
 
 Please update, and continue to help us make PyPy better.
 

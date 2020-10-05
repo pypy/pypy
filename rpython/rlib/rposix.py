@@ -268,6 +268,8 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
+    # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
+    # we can replace FdValidator with SuppressIPH
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
@@ -275,6 +277,12 @@ if os.name == 'nt':
                                   [], rffi.VOIDP, compilation_info=errno_eci))
     c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void,
+                                  compilation_info=errno_eci))
+    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=errno_eci,
+                                  releasegil=False))
+    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void, releasegil=False,
                                   compilation_info=errno_eci))
 
     @enforceargs(int)
@@ -287,6 +295,30 @@ if os.name == 'nt':
 
         def __init__(self, fd):
             _validate_fd(fd)
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph(self.invalid_param_hndlr)
+
+    class SuppressIPH_del(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph_del()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph_del(self.invalid_param_hndlr)
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
 
         def __enter__(self):
             self.invalid_param_hndlr = c_enter_suppress_iph()
@@ -317,6 +349,19 @@ else:
 
         def __exit__(self, *args):
             pass
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    SuppressIPH_del = SuppressIPH
 
     def _bound_for_write(fd, count):
         return count
@@ -2699,7 +2744,7 @@ if not _WIN32:
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
 
-if not _WIN32:
+if sys.platform.startswith('linux'):
     sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
     _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
     c_sendfile = rffi.llexternal('sendfile',
@@ -2717,6 +2762,30 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+elif not _WIN32:
+    # Neither on Windows nor on Linux, so probably a BSD derivative of
+    # some sort. Please note that the implementation below is partial;
+    # the VOIDP is an iovec for sending headers and trailers which
+    # CPython uses for the headers and trailers argument, and it also
+    # has a flags argument. None of these are currently supported.
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/socket.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    # NB: the VOIDP is an struct sf_hdtr for sending headers and trailers
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, OFF_T, _OFF_PTR_T, rffi.VOIDP, rffi.INT],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
+            p_len[0] = rffi.cast(OFF_T, count)
+            res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            if res != 0:
+                return handle_posix_error('sendfile', res)
+            res = p_len[0]
+        return res
+
 
 # ____________________________________________________________
 # Support for *xattr functions

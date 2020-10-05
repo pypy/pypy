@@ -771,7 +771,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         value_loc = self.ensure_reg(op.getarg(2))
         assert op.getarg(3).getint() == 1    # scale
         ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(4))
-        assert ofs_loc.is_imm()  # the arg(4) should always be a small constant
+        # the arg(4) is often a small constant, but it may be too large
         size_loc = self.ensure_reg_or_any_imm(op.getarg(5))
         return [base_loc, index_loc, value_loc, ofs_loc, size_loc]
 
@@ -780,7 +780,7 @@ class Regalloc(BaseRegalloc, VectorRegalloc):
         index_loc = self.ensure_reg(op.getarg(1))
         assert op.getarg(2).getint() == 1    # scale
         ofs_loc = self.ensure_reg_or_16bit_imm(op.getarg(3))
-        assert ofs_loc.is_imm()  # the arg(3) should always be a small constant
+        # the arg(3) is often a small constant, but it may be too large
         self.free_op_vars()
         res_loc = self.force_allocate_reg(op)
         size_box = op.getarg(4)

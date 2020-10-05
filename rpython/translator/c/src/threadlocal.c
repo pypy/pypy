@@ -171,6 +171,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,
             }
         }
         break;
+    case DLL_PROCESS_ATTACH:
+    case DLL_THREAD_ATTACH:
+#ifdef RPY_WITH_GIL
+	RPython_ThreadLocals_ProgramInit();
+#endif
+	break;
     default:
         break;
     }

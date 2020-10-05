@@ -715,6 +715,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
 
+class For_r_longfloat_values_Entry(extregistry.ExtRegistryEntry):
+    _type_ = r_longfloat
+
+    def compute_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeLongFloat()
+
 
 def int_between(n, m, p):
     """ check that n <= m < p. This assumes that n <= p. This is useful because

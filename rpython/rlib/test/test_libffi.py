@@ -1,5 +1,5 @@
+import gc
 import os
-
 import py
 
 from rpython.rlib.rarithmetic import r_singlefloat, r_longlong, r_ulonglong
@@ -50,6 +50,7 @@ class TestLibffiMisc(BaseFfiTest):
     def test_library_open(self):
         lib = self.get_libc()
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_library_get_func(self):
@@ -58,6 +59,7 @@ class TestLibffiMisc(BaseFfiTest):
         py.test.raises(KeyError, lib.getpointer, 'xxxxxxxxxxxxxxx', [], types.void)
         del ptr
         del lib
+        gc.collect()
         assert not ALLOCATED
 
     def test_struct_fields(self):
@@ -382,6 +384,7 @@ class TestLibffiCall(BaseFfiTest):
             # meta_interp, because the __del__ are not properly called (hence
             # we "leak" memory)
             del libfoo
+            gc.collect()
             assert not ALLOCATED
         else:
             # the function as been called 9 times
