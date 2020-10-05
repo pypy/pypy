@@ -59,8 +59,43 @@ def _HPy_New(space, ctx, h_type, data):
     return h
 
 
-@API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec)")
-def HPyType_FromSpec(space, ctx, spec):
+def get_bases_from_params(space, ctx, params):
+    KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
+    params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
+    if not params:
+        return []
+    found_base = False
+    found_basestuple = False
+    bases_w = []
+    i = 0
+    while True:
+        # in llapi.py, HPyType_SpecParam.object is declared of type "struct
+        # _HPy_s", so we need to manually fish the ._i inside
+        p_kind = rffi.cast(lltype.Signed, params[i].c_kind)
+        p_h = params[i].c_object.c__i
+        if p_kind == 0:
+            break
+        i += 1
+        if p_kind == KIND.HPyType_SpecParam_Base:
+            found_base = True
+            w_base = handles.deref(space, p_h)
+            bases_w.append(w_base)
+        elif p_kind == KIND.HPyType_SpecParam_BasesTuple:
+            found_basestuple = True
+            w_bases = handles.deref(space, p_h)
+            bases_w = space.unpackiterable(w_bases)
+        else:
+            raise NotImplementedError('XXX write a test')
+
+    if found_basestuple > 1:
+        raise NotImplementedError('XXX write a test')
+    if found_basestuple and found_base:
+        raise NotImplementedError('XXX write a test')
+
+    return bases_w
+
+@API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
+def HPyType_FromSpec(space, ctx, spec, params):
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -74,7 +109,7 @@ def HPyType_FromSpec(space, ctx, spec):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = []
+    bases_w = get_bases_from_params(space, ctx, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(

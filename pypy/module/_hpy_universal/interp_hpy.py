@@ -8,6 +8,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal._vendored.hpy.devel import version as vendored_version
 
 # these imports have side effects, as they call @API.func()
 from pypy.module._hpy_universal import (
@@ -63,6 +64,10 @@ def descr_load(space, name, libpath):
             space, space.newtext(msg), space.newtext(name), w_path)
     return create_hpy_module(space, name, libpath, lib, initptr)
 
+def descr_get_version(space):
+    w_ver = space.newtext(vendored_version.__version__)
+    w_git = space.newtext(vendored_version.__git_revision__)
+    return space.newtuple([w_ver, w_git])
 
 @API.func("HPy HPy_Dup(HPyContext ctx, HPy h)")
 def HPy_Dup(space, ctx, h):

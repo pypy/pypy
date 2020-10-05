@@ -313,6 +313,26 @@ typedef struct {
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyType_Spec;
 
+typedef enum {
+    HPyType_SpecParam_Base = 1,
+    HPyType_SpecParam_BasesTuple = 2,
+    //HPyType_SpecParam_Metaclass = 3,
+    //HPyType_SpecParam_Module = 4,
+} HPyType_SpecParam_Kind;
+
+typedef struct {
+    HPyType_SpecParam_Kind kind;
+    struct _HPy_s object;
+} HPyType_SpecParam;
+
+/* All types are dynamically allocated */
+#define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
+
+/* Set if the type allows subclassing */
+#define HPy_TPFLAGS_BASETYPE (1UL << 10)
+#define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
+
+
 /* Rich comparison opcodes */
 #define HPy_LT 0
 #define HPy_LE 1
@@ -386,6 +406,8 @@ HPyFunc_NOARGS   = 3
 HPyFunc_O        = 4
 # ...
 # }
+
+HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
 HPy_LT = 0
 HPy_LE = 1
