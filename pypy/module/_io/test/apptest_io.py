@@ -18,6 +18,20 @@ def test_iobase():
             pass
     MyFile("file")
 
+def test_iobase_overriding():
+    import io
+    class WithIter(io.IOBase):
+        def __iter__(self):
+            yield 'foo'
+    assert WithIter().readlines() == ['foo']
+    assert WithIter().readlines(1) == ['foo']
+
+    class WithNext(io.IOBase):
+        def next(self):
+            raise StopIteration
+    assert WithNext().readlines() == []
+    assert WithNext().readlines(1) == []
+
 def test_openclose():
     import io
     with io.BufferedIOBase() as f:
