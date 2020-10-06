@@ -698,6 +698,7 @@ class DictTest(unittest.TestCase):
         test_support.check_free_after_iterating(self, lambda d: iter(d.viewvalues()), dict)
         test_support.check_free_after_iterating(self, lambda d: iter(d.viewitems()), dict)
 
+    @test_support.cpython_only
     def test_equal_operator_modifying_operand(self):
         # test fix for seg fault reported in issue 27945 part 3.
         class X(object):
@@ -785,6 +786,7 @@ class DictTest(unittest.TestCase):
             for result in d.iteritems():
                 if result[0] == 2:
                     d[2] = None # free d[2] --> X(2).__del__ was called
+                gc.collect()
 
         self.assertRaises(RuntimeError, iter_and_mutate)
 
