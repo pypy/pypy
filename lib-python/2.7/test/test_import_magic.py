@@ -47,6 +47,8 @@ class MagicNumberTests(unittest.TestCase):
             "requires discussion in python-dev and notification of "
             "community stakeholders."
         )
+        # PyPy uses cPython magic + 7 (see pypy/module/imp/importing.py)
+        EXPECTED_MAGIC_NUMBER += 7
         self.assertEqual(EXPECTED_MAGIC_NUMBER, actual)#, msg)
 
 
