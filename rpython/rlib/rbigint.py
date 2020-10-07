@@ -1311,9 +1311,11 @@ class rbigint(object):
         if mask > (MASK >> loshift) and wordshift + 1 < numdigits:
             hishift = SHIFT - loshift
             lastdigit |= self.digit(wordshift+1) << hishift
-            if mask > (MASK << (SHIFT - loshift)) and wordshift + 2 < numdigits:
-                hishift = 2*SHIFT - loshift
-                lastdigit |= self.digit(wordshift+2) << hishift
+            if SHIFT != LONG_BIT - 1:
+                # Means we don't have INT128 on 64bit.
+                if mask > (MASK << (SHIFT - loshift)) and wordshift + 2 < numdigits:
+                    hishift = 2*SHIFT - loshift
+                    lastdigit |= self.digit(wordshift+2) << hishift
         return lastdigit & mask
 
     @staticmethod
