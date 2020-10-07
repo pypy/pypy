@@ -57,20 +57,24 @@ if hasattr(os, "execv"):
     def test_execve():
         if not hasattr(os, "fork"):
             skip("Need fork() to test execve()")
+        if not os.path.isdir('/tmp'):
+            skip("Need '/tmp' for test")
         pid = os.fork()
         if pid == 0:
             os.execve("/usr/bin/env", ["env", python, "-c",
-                      ("import os; fid = open('onefile', 'w'); "
+                      ("import os; fid = open('/tmp/onefile2', 'w'); "
                        "fid.write(os.environ['ddd']); "
                        "fid.close()")],
                       {'ddd': 'xxx'})
         os.waitpid(pid, 0)
-        assert open("onefile").read() == "xxx"
-        os.unlink("onefile")
+        assert open("/tmp/onefile2").read() == "xxx"
+        os.unlink("/tmp/onefile2")
 
     def test_execve_unicode():
         if not hasattr(os, "fork"):
             skip("Need fork() to test execve()")
+        if not os.path.isdir('/tmp'):
+            skip("Need '/tmp' for test")
         try:
             output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
         except UnicodeEncodeError:
@@ -78,12 +82,12 @@ if hasattr(os, "execv"):
         pid = os.fork()
         if pid == 0:
             os.execve(u"/bin/sh", ["sh", "-c",
-                                   u"echo caf\xe9 \u1234 > onefile"],
+                                   u"echo caf\xe9 \u1234 > /tmp/onefile3"],
                       {'ddd': 'xxx'})
         os.waitpid(pid, 0)
-        with open("onefile") as fid:
+        with open("/tmp/onefile3") as fid:
             assert fid.read() == output
-        os.unlink("onefile")
+        os.unlink("/tmp/onefile3")
     pass  # <- please, inspect.getsource(), don't crash
 
 if hasattr(os, "spawnv"):
