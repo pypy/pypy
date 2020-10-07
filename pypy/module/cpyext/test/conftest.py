@@ -3,6 +3,8 @@ import pytest
 import sys
 
 disabled = None
+THIS_DIR = os.path.dirname(__file__)
+
 if sys.maxsize > 2**32 and sys.platform == 'win32':
     # cpyext not yet supported on windows 64 bit
     disabled = True
@@ -10,7 +12,7 @@ if sys.maxsize > 2**32 and sys.platform == 'win32':
 def pytest_ignore_collect(path, config):
     path = str(path)
     if disabled:
-        if commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
+        if os.path.commonprefix([path, THIS_DIR]) == THIS_DIR:  # workaround for bug in pytest<3.0.5
             return True
 
 def pytest_configure(config):
