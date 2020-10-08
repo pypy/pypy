@@ -479,6 +479,7 @@ class StrTest(
 class CAPITest(unittest.TestCase):
 
     # Test PyString_FromFormat()
+    @test_support.cpython_only
     def test_from_format(self):
         ctypes = test_support.import_module('ctypes')
         _testcapi = test_support.import_module('_testcapi')
