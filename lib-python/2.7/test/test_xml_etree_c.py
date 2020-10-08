@@ -7,7 +7,7 @@ import unittest
 cET = test_support.import_module('xml.etree.cElementTree')
 
 
-@unittest.skipUnless(cET, 'requires _elementtree')
+@unittest.skip('requires _elementtree')
 class MiscTests(unittest.TestCase):
     # Issue #8651.
     @precisionbigmemtest(size=_2G + 100, memuse=1)
