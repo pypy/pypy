@@ -31,7 +31,12 @@ def main():
         #endif
 
         typedef void PyObject;
-        typedef long Py_ssize_t; /* CPython defines it in pyport.h, PyPy in cpyext_object.h */
+        /* CPython sets Py_ssize_t in pyport.h, PyPy in cpyext_object.h */
+        #ifdef _WIN64
+        typedef long long Py_ssize_t;
+        #else
+        typedef long Py_ssize_t;
+        #endif
 
         #include <patchlevel.h>
         #include <modsupport.h>
