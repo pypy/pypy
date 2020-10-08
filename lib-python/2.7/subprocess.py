@@ -1026,6 +1026,10 @@ class Popen(object):
                             if env is None:
                                 os.execvp(executable, args)
                             else:
+                                for k, v in env.items():
+                                    if '=' in k:
+                                        raise ValueError(
+                                            "illegal environment variable name")
                                 os.execvpe(executable, args, env)
 
                         except:
