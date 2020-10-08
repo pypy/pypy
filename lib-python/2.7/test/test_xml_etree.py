@@ -1583,6 +1583,7 @@ class BasicElementTest(unittest.TestCase):
         wref = weakref.ref(e, wref_cb)
         self.assertEqual(wref().tag, 'e')
         del e
+        gc_collect()
         self.assertEqual(flag, [True])
         self.assertEqual(wref(), None)
 
