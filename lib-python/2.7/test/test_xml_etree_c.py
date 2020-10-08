@@ -4,10 +4,11 @@ from test import test_support
 from test.test_support import precisionbigmemtest, _2G
 import unittest
 
-cET = test_support.import_module('xml.etree.cElementTree')
+# PyPy: was: cET = test_support.import_module('xml.etree.cElementTree')
+cET = None
 
 
-@unittest.skip('requires _elementtree')
+@unittest.skipUnless(cET, 'requires _elementtree')
 class MiscTests(unittest.TestCase):
     # Issue #8651.
     @precisionbigmemtest(size=_2G + 100, memuse=1)
