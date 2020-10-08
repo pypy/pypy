@@ -61,11 +61,10 @@ if hasattr(os, "execv"):
             skip("Need '/tmp' for test")
         pid = os.fork()
         if pid == 0:
-            os.execve("/usr/bin/env", ["env", python, "-c",
-                      ("import os; fid = open('/tmp/onefile2', 'w'); "
-                       "fid.write(os.environ['ddd']); "
-                       "fid.close()")],
-                      {'ddd': 'xxx'})
+            os.execve("/usr/bin/sh",
+                      ["sh", "-c", "echo -n $ddd > /tmp/onefile2"],
+                      {'ddd': 'xxx'},
+                     )
         os.waitpid(pid, 0)
         assert open("/tmp/onefile2").read() == "xxx"
         os.unlink("/tmp/onefile2")
@@ -98,7 +97,7 @@ if hasattr(os, "spawnv"):
 
 if hasattr(os, "spawnve"):
     def test_spawnve():
-        env = {'PATH': os.environ['PATH'], 'FOOBAR': '42'}
-        cmd = "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"
-        ret = os.spawnve(os.P_WAIT, python, [python, '-c', cmd], env)
+        env = {'FOOBAR': '42'}
+        cmd = "exit $FOOBAR"
+        ret = os.spawnve(os.P_WAIT, "/bin/sh", ["sh", '-c', cmd], env)
         assert ret == 42
