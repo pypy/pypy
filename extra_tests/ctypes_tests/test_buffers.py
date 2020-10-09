@@ -55,15 +55,15 @@ s_ulong = {4: 'L', 8: 'Q'}[sizeof(c_long)]
     (c_ubyte, "<B"),
     (c_short, "<h"),
     (c_ushort, "<H"),
-    (c_long, f"<{s_long}"),
-    (c_ulong, f"<{s_ulong}"),
+    (c_long, "<" + s_long),
+    (c_ulong, "<" + s_ulong),
     (c_float, "<f"),
     (c_double, "<d"),
     (c_bool, "<?"),
     (py_object, "<O"),
     ## pointers
     (POINTER(c_byte), "&<b"),
-    (POINTER(POINTER(c_long)), f"&&<{s_long}"),
+    (POINTER(POINTER(c_long)), "&&<" + s_long),
     ## arrays and pointers
     (c_double * 4, "<d"),
     (c_float * 4 * 3 * 2, "<f"),
