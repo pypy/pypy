@@ -61,7 +61,7 @@ if hasattr(os, "execv"):
             skip("Need '/tmp' for test")
         pid = os.fork()
         if pid == 0:
-            os.execve("/usr/bin/sh",
+            os.execve("/bin/sh",
                       ["sh", "-c", "echo -n $ddd > /tmp/onefile2"],
                       {'ddd': 'xxx'},
                      )
