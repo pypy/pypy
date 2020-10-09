@@ -13,3 +13,7 @@ Respect PKG_CONFIG and CC in more places to allow cross-compilation
 .. branch: darwin-sendfile-2.7
 
 Add posix.sendfile to darwin for python3.6+
+
+.. branch: app_main
+
+avoid using ``import os`` until after ``import site`` in ``app_main``
