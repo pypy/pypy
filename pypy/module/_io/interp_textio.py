@@ -662,6 +662,9 @@ class W_TextIOWrapper(W_TextIOBase):
             # To prepare for tell(), we need to snapshot a point in the file
             # where the decoder's input buffer is empty.
             w_state = space.call_method(self.w_decoder, "getstate")
+            if (not space.isinstance_w(w_state, space.w_tuple)
+                    or space.len_w(w_state) != 2):
+                raise oefmt(space.w_TypeError, "illegal decoder state")
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
