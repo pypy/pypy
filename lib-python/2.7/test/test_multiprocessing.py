@@ -1619,7 +1619,7 @@ class _TestManagerRestart(BaseTestCase):
         queue = manager.get_queue()
         self.assertEqual(queue.get(), 'hello world')
         del queue
-        test_support.gc_collect()
+        support.gc_collect()
         manager.shutdown()
 
         manager = QueueManager(
@@ -2064,7 +2064,7 @@ class _TestHeap(BaseTestCase):
         if not gc.isenabled():
             gc.enable()
             self.addCleanup(gc.disable)
-        if test_support.check_impl_detail(cpython=True):
+        if support.check_impl_detail(cpython=True):
             thresholds = gc.get_threshold()
             self.addCleanup(gc.set_threshold, *thresholds)
             gc.set_threshold(10)
@@ -2130,7 +2130,7 @@ class _TestSharedCTypes(BaseTestCase):
     def test_synchronize(self):
         self.test_sharedctypes(lock=True)
 
-    @unittest.skipUnless(test_support.check_impl_detail(pypy=False), "pypy ctypes differences")
+    @unittest.skipUnless(support.check_impl_detail(pypy=False), "pypy ctypes differences")
     def test_copy(self):
         foo = _Foo(2, 5.0)
         bar = copy(foo)
@@ -2163,7 +2163,7 @@ class _TestFinalize(BaseTestCase):
         a = Foo()
         util.Finalize(a, conn.send, args=('a',))
         del a           # triggers callback for a
-        test_support.gc_collect()
+        support.gc_collect()
 
         b = Foo()
         close_b = util.Finalize(b, conn.send, args=('b',))
