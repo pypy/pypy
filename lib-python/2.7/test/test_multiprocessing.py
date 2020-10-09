@@ -2241,10 +2241,12 @@ class _TestFinalize(BaseTestCase):
                     d.clear()
 
         old_interval = sys.getcheckinterval()
-        old_threshold = gc.get_threshold()
+        if support.check_impl_detail(cpython=True):
+            old_threshold = gc.get_threshold()
         try:
             sys.setcheckinterval(10)
-            gc.set_threshold(5, 5, 5)
+            if support.check_impl_detail(cpython=True):
+                gc.set_threshold(5, 5, 5)
             threads = [threading.Thread(target=run_finalizers),
                        threading.Thread(target=make_finalizers)]
             with support.start_threads(threads):
@@ -2254,7 +2256,8 @@ class _TestFinalize(BaseTestCase):
                 raise exc[0]
         finally:
             sys.setcheckinterval(old_interval)
-            gc.set_threshold(*old_threshold)
+            if support.check_impl_detail(cpython=True):
+                gc.set_threshold(*old_threshold)
             gc.collect()  # Collect remaining Foo's
 
 
