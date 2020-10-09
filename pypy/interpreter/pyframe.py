@@ -23,7 +23,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-POP_BLOCK END_FINALLY YIELD_VALUE'''.split():
+POP_BLOCK END_FINALLY YIELD_VALUE WITH_CLEANUP'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
@@ -837,10 +837,15 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "can't jump into the middle of a block")
 
+        # Pop any blocks that we're jumping out of.
+        from pypy.interpreter.pyopcode import FinallyBlock
         while f_iblock > new_iblock:
             block = self.pop_block()
             block.cleanup(self)
             f_iblock -= 1
+            if (isinstance(block, FinallyBlock)
+                    and ord(code[block.handlerposition]) == WITH_CLEANUP):
+                self.popvalue()  # Pop the exit function.
 
         d.f_lineno = new_lineno
         self.last_instr = new_lasti
