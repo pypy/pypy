@@ -873,6 +873,10 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             w_bytes = space.call_method(self.w_encoder, "encode", w_text)
 
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "encoder should return a bytes object, not '%T'", w_bytes)
+
         b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
             self.pending_bytes = []
