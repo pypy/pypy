@@ -45,6 +45,9 @@ def normalize(fmt):
     else:
         return fmt
 
+s_long = {4: 'l', 8: 'q'}[sizeof(c_long)]
+s_ulong = {4: 'L', 8: 'Q'}[sizeof(c_long)]
+
 @pytest.mark.parametrize("tp, fmt", [
     ## simple types
     (c_char, "<c"),
@@ -52,15 +55,15 @@ def normalize(fmt):
     (c_ubyte, "<B"),
     (c_short, "<h"),
     (c_ushort, "<H"),
-    (c_long, "<l"),
-    (c_ulong, "<L"),
+    (c_long, f"<{s_long}"),
+    (c_ulong, f"<{s_ulong}"),
     (c_float, "<f"),
     (c_double, "<d"),
     (c_bool, "<?"),
     (py_object, "<O"),
     ## pointers
     (POINTER(c_byte), "&<b"),
-    (POINTER(POINTER(c_long)), "&&<l"),
+    (POINTER(POINTER(c_long)), f"&&<{s_long}"),
     ## arrays and pointers
     (c_double * 4, "<d"),
     (c_float * 4 * 3 * 2, "<f"),
