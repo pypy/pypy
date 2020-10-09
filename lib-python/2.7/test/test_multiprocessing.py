@@ -374,6 +374,7 @@ class _TestProcess(BaseTestCase):
         del c
         p.start()
         p.join()
+        support.gc_collect()
         self.assertIs(wr(), None)
         self.assertEqual(q.get(), 5)
 
@@ -1358,6 +1359,7 @@ class _TestPool(BaseTestCase):
         self.pool.map(identity, objs)
 
         del objs
+        support.gc_collect()
         time.sleep(DELTA)  # let threaded cleanup code run
         self.assertEqual(set(wr() for wr in refs), {None})
         # With a process pool, copies of the objects are returned, check
