@@ -291,7 +291,7 @@ class Connection(object):
             raise ProgrammingError(
                 "SQLite objects created in a thread can only be used in that "
                 "same thread. The object was created in thread id %d and this "
-                "is thread id %d" % (self.__thread_ident, _thread_get_ident()))
+                "is thread id %d." % (self.__thread_ident, _thread_get_ident()))
 
     def _check_thread_wrap(func):
         @wraps(func)
