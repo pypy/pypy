@@ -2744,7 +2744,7 @@ if not _WIN32:
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
 
-if not _WIN32:
+if sys.platform.startswith('linux'):
     sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
     _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
     c_sendfile = rffi.llexternal('sendfile',
@@ -2762,6 +2762,30 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+elif not _WIN32:
+    # Neither on Windows nor on Linux, so probably a BSD derivative of
+    # some sort. Please note that the implementation below is partial;
+    # the VOIDP is an iovec for sending headers and trailers which
+    # CPython uses for the headers and trailers argument, and it also
+    # has a flags argument. None of these are currently supported.
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/socket.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    # NB: the VOIDP is an struct sf_hdtr for sending headers and trailers
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, OFF_T, _OFF_PTR_T, rffi.VOIDP, rffi.INT],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
+            p_len[0] = rffi.cast(OFF_T, count)
+            res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            if res != 0:
+                return handle_posix_error('sendfile', res)
+            res = p_len[0]
+        return res
+
 
 # ____________________________________________________________
 # Support for *xattr functions

@@ -36,6 +36,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
+    'nt_pypy': {
+        'stdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'platstdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'purelib': '{base}/site-packages',
+        'platlib': '{base}/site-packages',
+        'include': '{base}/include',
+        'platinclude': '{base}/include',
+        'scripts': '{base}/Scripts',
+        'data'   : '{base}',
+        },
     'nt': {
         'stdlib': '{base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -182,11 +192,14 @@ def _expand_vars(scheme, vars):
     return res
 
 def _get_default_scheme():
-    if '__pypy__' in sys.builtin_module_names:
-        return 'pypy'
-    elif os.name == 'posix':
+    if os.name == 'posix':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'pypy'
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
+    if os.name == 'nt':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'nt_pypy'
     return os.name
 
 def _getuserbase():
@@ -530,6 +543,8 @@ def get_config_vars(*args):
         # multi-architecture, multi-os-version installers
         if sys.platform == 'darwin':
             import _osx_support
+            #PyPy only - hardcode to 10.7, like in distutils/sysconfig_pypy.py
+            _CONFIG_VARS['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
             _osx_support.customize_config_vars(_CONFIG_VARS)
 
         # PyPy:

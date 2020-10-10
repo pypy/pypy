@@ -290,5 +290,6 @@ Python 3.6 C-API
 .. _38243: https://bugs.python.org/issue38243
 .. _37461: https://bugs.python.org/issue37461
 .. _34155: https://bugs.python.org/issue34155
+.. _41004: https://bugs.python.org/issue41004
 
 .. _`pybind11 2146`: https://github.com/pybind/pybind11/pull/2146
