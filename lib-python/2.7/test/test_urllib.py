@@ -185,11 +185,12 @@ class ProxyTests(unittest.TestCase):
     def test_proxy_bypass_environment_host_match(self):
         bypass = urllib.proxy_bypass_environment
         self.env.set('NO_PROXY',
-            'localhost, anotherdomain.com, newdomain.com:1234')
+                     'localhost, anotherdomain.com, newdomain.com:1234, .d.o.t')
         self.assertTrue(bypass('localhost'))
         self.assertTrue(bypass('LocalHost'))                 # MixedCase
         self.assertTrue(bypass('LOCALHOST'))                 # UPPERCASE
         self.assertTrue(bypass('newdomain.com:1234'))
+        self.assertTrue(bypass('foo.d.o.t'))                 # issue 29142
         self.assertTrue(bypass('anotherdomain.com:8888'))
         self.assertTrue(bypass('www.newdomain.com:1234'))
         self.assertFalse(bypass('prelocalhost'))
@@ -253,6 +254,31 @@ class urlopen_HttpTests(unittest.TestCase, FakeHTTPMixin):
         try:
             fp = urllib.urlopen(url)
             self.assertEqual(fp.geturl(), url)
+        finally:
+            self.unfakehttp()
+
+    def test_url_with_control_char_rejected(self):
+        for char_no in range(0, 0x21) + range(0x7f, 0x100):
+            char = chr(char_no)
+            schemeless_url = "//localhost:7777/test%s/" % char
+            self.fakehttp(b"HTTP/1.1 200 OK\r\n\r\nHello.")
+            try:
+                # urllib quotes the URL so there is no injection.
+                resp = urllib.urlopen("http:" + schemeless_url)
+                self.assertNotIn(char, resp.geturl())
+            finally:
+                self.unfakehttp()
+
+    def test_url_with_newline_header_injection_rejected(self):
+        self.fakehttp(b"HTTP/1.1 200 OK\r\n\r\nHello.")
+        host = "localhost:7777?a=1 HTTP/1.1\r\nX-injected: header\r\nTEST: 123"
+        schemeless_url = "//" + host + ":8080/test/?test=a"
+        try:
+            # urllib quotes the URL so there is no injection.
+            resp = urllib.urlopen("http:" + schemeless_url)
+            self.assertNotIn(' ', resp.geturl())
+            self.assertNotIn('\r', resp.geturl())
+            self.assertNotIn('\n', resp.geturl())
         finally:
             self.unfakehttp()
 
@@ -878,6 +904,26 @@ class Utility_Tests(unittest.TestCase):
         self.assertEqual(splithost('/foo/bar/baz.html'),
                          (None, '/foo/bar/baz.html'))
 
+        # bpo-30500: # starts a fragment.
+        self.assertEqual(splithost('//127.0.0.1#@host.com'),
+                         ('127.0.0.1', '/#@host.com'))
+        self.assertEqual(splithost('//127.0.0.1#@host.com:80'),
+                         ('127.0.0.1', '/#@host.com:80'))
+        self.assertEqual(splithost('//127.0.0.1:80#@host.com'),
+                         ('127.0.0.1:80', '/#@host.com'))
+
+        # Empty host is returned as empty string.
+        self.assertEqual(splithost("///file"),
+                         ('', '/file'))
+
+        # Trailing semicolon, question mark and hash symbol are kept.
+        self.assertEqual(splithost("//example.net/file;"),
+                         ('example.net', '/file;'))
+        self.assertEqual(splithost("//example.net/file?"),
+                         ('example.net', '/file?'))
+        self.assertEqual(splithost("//example.net/file#"),
+                         ('example.net', '/file#'))
+
     def test_splituser(self):
         splituser = urllib.splituser
         self.assertEqual(splituser('User:Pass@www.python.org:080'),
@@ -1002,6 +1048,17 @@ class URLopener_Tests(unittest.TestCase):
             "spam://c:|windows%/:=&?~#+!$,;'@()*[]|/path/"),
             "//c:|windows%/:=&?~#+!$,;'@()*[]|/path/")
 
+    def test_local_file_open(self):
+        # bpo-35907, CVE-2019-9948: urllib must reject local_file:// scheme
+        class DummyURLopener(urllib.URLopener):
+            def open_local_file(self, url):
+                return url
+        for url in ('local_file://example', 'local-file://example'):
+            self.assertRaises(IOError, urllib.urlopen, url)
+            self.assertRaises(IOError, urllib.URLopener().open, url)
+            self.assertRaises(IOError, urllib.URLopener().retrieve, url)
+            self.assertRaises(IOError, DummyURLopener().open, url)
+            self.assertRaises(IOError, DummyURLopener().retrieve, url)
 
 # Just commented them out.
 # Can't really tell why keep failing in windows and sparc.

@@ -636,7 +636,7 @@ class W_TypeObject(W_Root):
                 w_newtype, w_newdescr = self.hack_which_new_to_call(
                     w_newtype, w_newdescr)
             #
-            w_newfunc = space.get(w_newdescr, self)
+            w_newfunc = space.get(w_newdescr, space.w_None, w_type=self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and space._side_effects_ok() and
                 isinstance(w_newtype, W_TypeObject)):

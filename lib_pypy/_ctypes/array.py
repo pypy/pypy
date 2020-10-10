@@ -109,19 +109,22 @@ class ArrayMeta(_CDataMeta):
         # array accepts very strange parameters as part of structure
         # or function argument...
         from ctypes import c_char, c_wchar
-        if issubclass(self._type_, (c_char, c_wchar)):
-            if isinstance(value, basestring):
-                if len(value) > self._length_:
-                    raise ValueError("Invalid length")
-                value = self(*value)
-            elif not isinstance(value, self):
-                raise TypeError("expected string or Unicode object, %s found"
-                                % (value.__class__.__name__,))
-        else:
-            if isinstance(value, tuple):
-                if len(value) > self._length_:
-                    raise RuntimeError("Invalid length")
-                value = self(*value)
+        if isinstance(value, self):
+            return value
+        if hasattr(self, '_type_'):
+            if issubclass(self._type_, (c_char, c_wchar)):
+                if isinstance(value, basestring):
+                    if len(value) > self._length_:
+                        raise ValueError("Invalid length")
+                    value = self(*value)
+                elif not isinstance(value, self):
+                    raise TypeError(
+                        "expected string or Unicode object, %s found"
+                        % (value.__class__.__name__,))
+        if isinstance(value, tuple):
+            if len(value) > self._length_:
+                raise RuntimeError("Invalid length")
+            value = self(*value)
         return _CDataMeta.from_param(self, value)
 
     def _build_ffiargtype(self):

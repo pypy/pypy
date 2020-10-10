@@ -97,6 +97,9 @@ def PySlice_GetIndices(space, w_slice, length, start_p, stop_p, step_p):
     in the source of your extension."""
     if not isinstance(w_slice, W_SliceObject):
         raise PyErr_BadInternalCall(space)
-    start_p[0], stop_p[0], step_p[0] = \
-            w_slice.indices3(space, length)
+    try:
+        start_p[0], stop_p[0], step_p[0] = \
+                w_slice.indices3(space, length)
+    except:
+        return -1
     return 0

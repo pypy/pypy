@@ -179,7 +179,7 @@ class TestTypeDef:
         self.space.appexec([w_obj], """(obj):
             assert type(obj).__hash__ is None
             err = raises(TypeError, hash, obj)
-            assert err.value.message == "'some_type' objects are unhashable"
+            assert str(err.value) == "unhashable type: 'some_type'"
             """)
 
     def test_destructor(self):

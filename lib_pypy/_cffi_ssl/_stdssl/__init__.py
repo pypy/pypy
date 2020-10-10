@@ -744,7 +744,7 @@ def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
 def _fs_converter(name):
     """ name must not be None """
-    if isinstance(name, str):
+    if isinstance(name, unicode):
         return name.encode(sys.getfilesystemencoding())
     return bytes(name)
 
@@ -908,7 +908,7 @@ class _SSLContext(object):
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
         options |= lib.SSL_OP_NO_COMPRESSION
-        # options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)

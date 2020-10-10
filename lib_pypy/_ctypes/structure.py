@@ -119,6 +119,8 @@ class Field(object):
         if self.is_bitfield:
             # bitfield member, use direct access
             return obj._buffer.__getattr__(self.name)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance')
         else:
             fieldtype = self.ctype
             offset = self.num
@@ -142,6 +144,8 @@ class Field(object):
             from ctypes import memmove
             dest = obj._buffer.fieldaddress(self.name)
             memmove(dest, arg, fieldtype._fficompositesize_)
+        elif not isinstance(obj, _CData):
+            raise(TypeError, 'not a ctype instance')
         else:
             obj._buffer.__setattr__(self.name, arg)
 
@@ -208,6 +212,9 @@ class StructOrUnionMeta(_CDataMeta):
             self._fields_ = []  # As a side-effet, this also sets the ffishape.
 
     __setattr__ = struct_setattr
+
+    def _is_abstract(self):
+        return False
 
     def from_address(self, address):
         instance = StructOrUnion.__new__(self)
@@ -317,7 +324,9 @@ class StructOrUnion(_CData):
         memmove(addr, origin, self._fficompositesize_)
 
     def _to_ffi_param(self):
-        return self._buffer
+        newparam = StructOrUnion.__new__(type(self))
+        self._copy_to(newparam._buffer.buffer)
+        return newparam._buffer
 
     def __buffer__(self, flags):
         fmt = type(self)._getformat()

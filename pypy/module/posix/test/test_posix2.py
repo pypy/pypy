@@ -391,7 +391,7 @@ class AppTestPosix:
                 # the file properly.
                 # This test should be run in multiple macOS platforms to
                 # be sure that is working as expected.
-                if file_system_encoding == 'UTF-8':
+                if file_system_encoding.lower() == 'utf-8':
                     assert (unicode, 'cafxe9') in typed_result
                 else:
                     # darwin 'normalized' it
@@ -1214,6 +1214,14 @@ class AppTestEnvironment(object):
                    % self.python)
             res = os.system(cmd)
             assert res == 0
+
+    def test_putenv_invalid_name(self):
+        import os, sys
+        if sys.platform.startswith('win'):
+            os.putenv("=hidden", "foo")
+            raises(ValueError, os.putenv, "foo=bar", "xxx")
+        else:
+            raises(ValueError, os.putenv, "=foo", "xxx")
 
 
 class AppTestPosixUnicode:

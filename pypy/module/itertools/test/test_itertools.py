@@ -1155,3 +1155,31 @@ class AppTestItertools27(object):
         myiter = Iterator()
         islice = itertools.islice(myiter, 5, 8)
         raises(StopIteration, islice.next)
+
+
+class AppTestItertools28(object):
+    spaceconfig = {"usemodules": ['itertools', 'thread']}
+
+    def test_tee_concurrent(self):
+        from itertools import tee
+        import threading
+        start = threading.Event()
+        finish = threading.Event()
+        class I:
+            def __iter__(self):
+                return self
+            def next(self):
+                start.set()
+                assert finish.wait(5), 'timed out'
+
+        a, b = tee(I())
+        thread = threading.Thread(target=next, args=[a])
+        thread.start()
+        try:
+            start.wait()
+            with raises(RuntimeError) as exc:
+                next(b)
+                assert 'tee' in str(exc)
+        finally:
+            finish.set()
+            thread.join()

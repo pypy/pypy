@@ -332,7 +332,12 @@ class EntryTest(AbstractWidgetTest, unittest.TestCase):
         self.entry.wait_visibility()
         self.entry.update_idletasks()
 
-        self.assertEqual(self.entry.identify(5, 5), "textarea")
+        # bpo-27313: macOS Cocoa widget differs from X, allow either
+        if sys.platform == 'darwin':
+            self.assertIn(self.entry.identify(5, 5),
+                ("textarea", "Combobox.button") )
+        else:
+            self.assertEqual(self.entry.identify(5, 5), "textarea")
         self.assertEqual(self.entry.identify(-1, -1), "")
 
         self.assertRaises(tkinter.TclError, self.entry.identify, None, 5)
@@ -1487,6 +1492,15 @@ class TreeviewTest(AbstractWidgetTest, unittest.TestCase):
             self.tv.insert('', 'end', text=value), text=None),
             value)
 
+        # test for values which are not None
+        itemid = self.tv.insert('', 'end', 0)
+        self.assertEqual(itemid, '0')
+        itemid = self.tv.insert('', 'end', 0.0)
+        self.assertEqual(itemid, '0.0')
+        # this is because False resolves to 0 and element with 0 iid is already present
+        self.assertRaises(tkinter.TclError, self.tv.insert, '', 'end', False)
+        self.assertRaises(tkinter.TclError, self.tv.insert, '', 'end', '')
+
 
     def test_selection(self):
         # item 'none' doesn't exist
@@ -1666,10 +1680,6 @@ tests_gui = (
         NotebookTest, PanedWindowTest, ProgressbarTest,
         RadiobuttonTest, ScaleTest, ScrollbarTest, SeparatorTest,
         SizegripTest, TreeviewTest, WidgetTest,
-        )
-
-tests_gui = (
-        TreeviewTest,
         )
 
 if __name__ == "__main__":
