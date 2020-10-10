@@ -391,7 +391,7 @@ class AppTestPosix:
                 # the file properly.
                 # This test should be run in multiple macOS platforms to
                 # be sure that is working as expected.
-                if file_system_encoding == 'UTF-8':
+                if file_system_encoding.lower() == 'utf-8':
                     assert (unicode, 'cafxe9') in typed_result
                 else:
                     # darwin 'normalized' it
