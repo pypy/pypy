@@ -51,7 +51,7 @@ def FromWideIntObj(app, value):
     wide = tkffi.new("Tcl_WideInt*")
     if tklib.Tcl_GetWideIntFromObj(app.interp, value, wide) != tklib.TCL_OK:
         app.raiseTclError()
-    return wide[0]
+    return int(wide[0])
 
 # Only when tklib.HAVE_LIBTOMMATH!
 def FromBignumObj(app, value):
