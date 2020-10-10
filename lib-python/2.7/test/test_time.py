@@ -193,8 +193,8 @@ class TimeTestCase(unittest.TestCase):
         # Max year is only limited by the size of C int.
         asc = time.asctime((TIME_MAXYEAR, 6, 1) + (0,) * 6)
         self.assertEqual(asc[-len(str(TIME_MAXYEAR)):], str(TIME_MAXYEAR))
-        # pypy: raises ValueError instead of OverflowError
-        self.assertRaises(ValueError, time.asctime,
+        # pypy: raises ValueError instead of OverflowError on 64bit
+        self.assertRaises((ValueError, OverflowError), time.asctime,
                           (TIME_MAXYEAR + 1,) + (0,) * 8)
         self.assertRaises(TypeError, time.asctime, 0)
         self.assertRaises(TypeError, time.asctime, ())
