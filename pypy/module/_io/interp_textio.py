@@ -662,6 +662,9 @@ class W_TextIOWrapper(W_TextIOBase):
             # To prepare for tell(), we need to snapshot a point in the file
             # where the decoder's input buffer is empty.
             w_state = space.call_method(self.w_decoder, "getstate")
+            if (not space.isinstance_w(w_state, space.w_tuple)
+                    or space.len_w(w_state) != 2):
+                raise oefmt(space.w_TypeError, "illegal decoder state")
             # Given this, we know there was a valid snapshot point
             # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
             w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
@@ -735,6 +738,7 @@ class W_TextIOWrapper(W_TextIOBase):
             chars, lgt = self.decoded.get_chars(-1)
             w_result = space.newutf8(chars, lgt)
             w_final = space.add(w_result, w_decoded)
+            self.decoded.reset()
             self.snapshot = None
             return w_final
 
@@ -869,6 +873,10 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             w_bytes = space.call_method(self.w_encoder, "encode", w_text)
 
+        if not space.isinstance_w(w_bytes, space.w_bytes):
+            raise oefmt(space.w_TypeError,
+                        "encoder should return a bytes object, not '%T'", w_bytes)
+
         b = space.bytes_w(w_bytes)
         if not self.pending_bytes:
             self.pending_bytes = []
@@ -882,6 +890,7 @@ class W_TextIOWrapper(W_TextIOBase):
         if needflush:
             space.call_method(self.w_buffer, "flush")
 
+        self.decoded.reset()
         self.snapshot = None
 
         if self.w_decoder:

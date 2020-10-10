@@ -1215,6 +1215,14 @@ class AppTestEnvironment(object):
             res = os.system(cmd)
             assert res == 0
 
+    def test_putenv_invalid_name(self):
+        import os, sys
+        if sys.platform.startswith('win'):
+            os.putenv("=hidden", "foo")
+            raises(ValueError, os.putenv, "foo=bar", "xxx")
+        else:
+            raises(ValueError, os.putenv, "=foo", "xxx")
+
 
 class AppTestPosixUnicode:
     def setup_class(cls):
