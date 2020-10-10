@@ -590,9 +590,9 @@ class AppTestSocket:
         else:
             assert ret == b'\x00\x00'
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
 
     def test_getsockopt_bad_length(self):
         import _socket
