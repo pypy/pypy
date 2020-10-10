@@ -590,9 +590,9 @@ class AppTestSocket:
         else:
             assert ret == b'\x00\x00'
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
 
     def test_getsockopt_bad_length(self):
         import _socket
@@ -766,6 +766,7 @@ class AppTestSocketTCP:
 
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
+        import sys
         cli = socket()
         cli.connect(self.serv.getsockname())
         t, addr = self.serv.accept()
@@ -793,7 +794,12 @@ class AppTestSocketTCP:
         try:
             while 1:
                 count += cli.send(b'foobar' * 70)
-                assert count < 100000
+                if sys.platform == 'darwin':
+                    # MacOS will auto-tune up to 512k
+                    # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
+                    assert count < 1000000
+                else:
+                    assert count < 100000
         except timeout:
             pass
         t.recv(count)
