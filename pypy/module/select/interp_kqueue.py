@@ -161,9 +161,10 @@ class W_Kqueue(W_Root):
                         max_events)
 
         if space.is_w(w_changelist, space.w_None):
-            changelist_len = 0
+            changelist_list = []
         else:
-            changelist_len = space.len_w(w_changelist)
+            changelist_list = space.listview(w_changelist)
+        changelist_len = len(changelist_list)
 
         with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist:
             with lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist:
@@ -184,8 +185,8 @@ class W_Kqueue(W_Root):
                         ptimeout = lltype.nullptr(timespec)
 
                     if not space.is_w(w_changelist, space.w_None):
-                        i = 0
-                        for w_ev in space.listview(w_changelist):
+                        for i in range(changelist_len):
+                            w_ev = changelist_list[i]
                             ev = space.interp_w(W_Kevent, w_ev)
                             changelist[i].c_ident = ev.ident
                             changelist[i].c_filter = ev.filter
@@ -193,7 +194,6 @@ class W_Kqueue(W_Root):
                             changelist[i].c_fflags = ev.fflags
                             changelist[i].c_data = ev.data
                             changelist[i].c_udata = ev.udata
-                            i += 1
                         pchangelist = changelist
                     else:
                         pchangelist = lltype.nullptr(rffi.CArray(kevent))
