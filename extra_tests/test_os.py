@@ -61,12 +61,12 @@ if hasattr(os, "execv"):
             skip("Need '/tmp' for test")
         pid = os.fork()
         if pid == 0:
-            os.execve("/usr/bin/sh",
-                      ["sh", "-c", "echo -n $ddd > /tmp/onefile2"],
+            os.execve("/bin/sh",
+                      ["sh", "-c", "echo $ddd > /tmp/onefile2"],
                       {'ddd': 'xxx'},
                      )
         os.waitpid(pid, 0)
-        assert open("/tmp/onefile2").read() == "xxx"
+        assert open("/tmp/onefile2").read().rstrip() == "xxx"
         os.unlink("/tmp/onefile2")
 
     def test_execve_unicode():
