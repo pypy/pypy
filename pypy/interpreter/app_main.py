@@ -598,6 +598,10 @@ def run_command_line(interactive,
         sys.setrecursionlimit(5000)
     getenv = get_getenv()
 
+    readenv = not ignore_environment
+    io_encoding = getenv("PYTHONIOENCODING") if readenv else None
+    initstdio(io_encoding, unbuffered)
+
     if 'faulthandler' in sys.builtin_module_names:
         if 'faulthandler' in sys._xoptions or getenv('PYTHONFAULTHANDLER'):
             import faulthandler
@@ -620,10 +624,6 @@ def run_command_line(interactive,
             import site
         except:
             print("'import site' failed", file=sys.stderr)
-
-    readenv = not ignore_environment
-    io_encoding = getenv("PYTHONIOENCODING") if readenv else None
-    initstdio(io_encoding, unbuffered)
 
     pythonwarnings = readenv and getenv('PYTHONWARNINGS')
     if pythonwarnings:
