@@ -252,8 +252,8 @@ class TestSysConfig(unittest.TestCase):
                         not import_module('_testcapi'), config_h)
 
     def test_get_scheme_names(self):
-        wanted = ('nt', 'pypy_nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
-                  'posix_home', 'posix_prefix', 'posix_user', 'pypy')
+        wanted = ('nt', 'nt_user', 'os2', 'os2_home', 'osx_framework_user',
+                  'posix_home', 'posix_prefix', 'posix_user', 'pypy', 'pypy_nt')
         self.assertEqual(get_scheme_names(), wanted)
 
     @unittest.skipIf(check_impl_detail(pypy=True),
