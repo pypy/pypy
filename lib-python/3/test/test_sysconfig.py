@@ -237,7 +237,7 @@ class TestSysConfig(unittest.TestCase):
         self.assertTrue(os.path.isfile(config_h), config_h)
 
     def test_get_scheme_names(self):
-        wanted = ('nt', 'nt_user', 'osx_framework_user',
+        wanted = ('nt', 'nt_user', 'osx_framework_user', 'pypy_nt',
                   'posix_home', 'posix_prefix', 'posix_user', 'pypy')
         self.assertEqual(get_scheme_names(), wanted)
 
