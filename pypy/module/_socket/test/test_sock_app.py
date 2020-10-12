@@ -892,18 +892,20 @@ class AppTestSocketTCP:
         cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
-        try:
-            while 1:
-                count += cli.send(b'foobar' * 70)
-                if sys.platform == 'darwin':
-                    # MacOS will auto-tune up to 512k
-                    # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
-                    assert count < 1000000
-                else:
-                    assert count < 100000
-        except timeout:
-            pass
-        t.recv(count)
+        if sys.platform != 'win32':
+            # windows never fills the buffer
+            try:
+                while 1:
+                    count += cli.send(b'foobar' * 70)
+                    if sys.platform == 'darwin':
+                        # MacOS will auto-tune up to 512k
+                        # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
+                        assert count < 1000000
+                    else:
+                        assert count < 100000
+            except timeout:
+                pass
+            t.recv(count)
         # test sendall() timeout
         try:
             while 1:
