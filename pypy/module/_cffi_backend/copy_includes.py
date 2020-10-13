@@ -40,6 +40,16 @@ def main():
 
         #include <patchlevel.h>
         #include <modsupport.h>
+        
+        #include <stdarg.h>
+        #include <stdio.h>
+        #include <string.h>
+        #include <assert.h>
+        #include <locale.h>
+        #include <ctype.h>
+        
+        /* normally defined in "pythread.h", but we can't include that */
+        #define WITH_THREAD
     """)
     if exists(join(include, 'Python.h')):
         return
