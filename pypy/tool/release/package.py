@@ -1,4 +1,4 @@
-/usr/bin/env python
+#!/usr/bin/env python
 from __future__ import print_function 
 """ packages PyPy, provided that it's already built.
 It uses 'pypy/goal/pypy3-c' and parts of the rest of the working
