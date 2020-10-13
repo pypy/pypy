@@ -28,7 +28,7 @@ if hasattr(os, "execv"):
         with raises(ValueError):
             os.execv("notepad", [])
         # PyPy needs at least one arg, CPython 2.7 is fine without
-        with raises(ValueError):
+        with raises(FileNotFoundError):
             os.execve("notepad", [], {})
 
     def test_execv_raising2():
@@ -41,16 +41,13 @@ if hasattr(os, "execv"):
             skip("Need fork() to test execv()")
         if not os.path.isdir('/tmp'):
             skip("Need '/tmp' for test")
-        try:
-            output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-        except UnicodeEncodeError:
-            skip("encoding not good enough")
+        output = u"caf\xe9 \u1234\n"
         pid = os.fork()
         if pid == 0:
             os.execv(u"/bin/sh", ["sh", "-c",
                                   u"echo caf\xe9 \u1234 > /tmp/onefile1"])
         os.waitpid(pid, 0)
-        with open("/tmp/onefile1") as fid:
+        with open("/tmp/onefile1", encoding='utf-8') as fid:
             assert fid.read() == output
         os.unlink("/tmp/onefile1")
 
@@ -66,7 +63,8 @@ if hasattr(os, "execv"):
                       {'ddd': 'xxx'},
                      )
         os.waitpid(pid, 0)
-        assert open("/tmp/onefile2").read().rstrip() == "xxx"
+        with open("/tmp/onefile2") as fid:
+            fid.read().rstrip() == "xxx"
         os.unlink("/tmp/onefile2")
 
     def test_execve_unicode():
@@ -74,17 +72,14 @@ if hasattr(os, "execv"):
             skip("Need fork() to test execve()")
         if not os.path.isdir('/tmp'):
             skip("Need '/tmp' for test")
-        try:
-            output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-        except UnicodeEncodeError:
-            skip("encoding not good enough")
+        output = u"caf\xe9 \u1234\n"
         pid = os.fork()
         if pid == 0:
             os.execve(u"/bin/sh", ["sh", "-c",
                                    u"echo caf\xe9 \u1234 > /tmp/onefile3"],
-                      {'ddd': 'xxx'})
+                      {'ddd': 'xxx', 'LANG': 'en_US.UTF-8'})
         os.waitpid(pid, 0)
-        with open("/tmp/onefile3") as fid:
+        with open("/tmp/onefile3", encoding="utf-8") as fid:
             assert fid.read() == output
         os.unlink("/tmp/onefile3")
     pass  # <- please, inspect.getsource(), don't crash
