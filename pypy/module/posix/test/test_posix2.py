@@ -1655,6 +1655,14 @@ class AppTestPosix:
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
 
+    def test_execv_no_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", [])
+        # PyPy needs at least one arg, CPython 2.7 is fine without
+        with raises(ValueError):
+            posix.execve("notepad", [], {})
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):

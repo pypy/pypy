@@ -28,7 +28,7 @@ if hasattr(os, "execv"):
         with raises(ValueError):
             os.execv("notepad", [])
         # PyPy needs at least one arg, CPython 2.7 is fine without
-        with raises(FileNotFoundError):
+        with raises(ValueError):
             os.execve("notepad", [], {})
 
     def test_execv_raising2():

@@ -1597,6 +1597,9 @@ On some platforms, you may specify an open file descriptor for path;
         raise oefmt(space.w_TypeError,
             "execve: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    if len(args) < 1:
+        raise oefmt(space.w_ValueError,
+            "execve() arg 2 must not be empty")
     env = _env2interp(space, w_env)
     try:
         path = space.fsencode_w(w_path)
