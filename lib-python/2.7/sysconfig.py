@@ -36,7 +36,7 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
-    'nt_pypy': {
+    'pypy_nt': {
         'stdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
         'platstdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
         'purelib': '{base}/site-packages',
@@ -199,7 +199,7 @@ def _get_default_scheme():
         return 'posix_prefix'
     if os.name == 'nt':
         if '__pypy__' in sys.builtin_module_names:
-            return 'nt_pypy'
+            return 'pypy_nt'
     return os.name
 
 def _getuserbase():

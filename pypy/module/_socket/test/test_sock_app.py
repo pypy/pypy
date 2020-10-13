@@ -393,17 +393,6 @@ class AppTestSocket:
         if os.name != 'nt':
             raises(OSError, os.close, fileno)
 
-    def test_socket_track_resources(self):
-        import _socket, os, gc, sys, cStringIO
-        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM, 0)
-        fileno = s.fileno()
-        assert s.fileno() >= 0
-        s.close()
-        assert s.fileno() < 0
-        s.close()
-        if os.name != 'nt':
-            raises(OSError, os.close, fileno)
-
     @pytest.mark.skipif("config.option.runappdirect")
     def test_track_resources(self):
         import os, gc, sys, cStringIO
@@ -791,18 +780,20 @@ class AppTestSocketTCP:
         cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
-        try:
-            while 1:
-                count += cli.send(b'foobar' * 70)
-                if sys.platform == 'darwin':
-                    # MacOS will auto-tune up to 512k
-                    # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
-                    assert count < 1000000
-                else:
-                    assert count < 100000
-        except timeout:
-            pass
-        t.recv(count)
+        if sys.platform != 'win32':
+            # windows never fills the buffer
+            try:
+                while 1:
+                    count += cli.send(b'foobar' * 70)
+                    if sys.platform == 'darwin':
+                        # MacOS will auto-tune up to 512k
+                        # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
+                        assert count < 1000000
+                    else:
+                        assert count < 100000
+            except timeout:
+                pass
+            t.recv(count)
         # test sendall() timeout
         try:
             while 1:
