@@ -982,6 +982,12 @@ class AppTestPosix:
             #Always suceeds on Linux
             os.sched_yield()
 
+    if hasattr(rposix, 'sched_getparam'):
+        def test_sched_param_kwargs(self):
+            os = self.posix
+            sp = os.sched_param(sched_priority=1)
+            assert sp.sched_priority == 1
+
     def test_write_buffer(self):
         os = self.posix
         fd = os.open(self.path2 + 'test_write_buffer',
@@ -1837,5 +1843,3 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
-
-
