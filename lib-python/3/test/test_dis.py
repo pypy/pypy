@@ -469,15 +469,13 @@ class DisWithFileTests(DisTests):
 
 
 
-# CPython 3.5 gives a stack size of 4 whereas it really needs only 3
-# http://bugs.python.org/issue24340
 code_info_code_info = """\
 Name:              code_info
 Filename:          (.*)
 Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
-Stack size:        (4|3)
+Stack size:        3
 Flags:             OPTIMIZED, NEWLOCALS, NOFREE, 0x100000
 Constants:
    0: %r
@@ -596,15 +594,13 @@ async def async_def():
     async for a in b: pass
     async with c as d: pass
 
-# CPython 3.5 gives a stack size of 17 whereas it really needs only 7
-# http://bugs.python.org/issue24340
 code_info_async_def = """\
 Name:              async_def
 Filename:          (.*)
 Argument count:    0
 Kw-only arguments: 0
 Number of locals:  2
-Stack size:        (16|7)
+Stack size:        7
 Flags:             OPTIMIZED, NEWLOCALS, NOFREE, COROUTINE
 Constants:
    0: None
