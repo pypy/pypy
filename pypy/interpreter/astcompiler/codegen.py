@@ -561,8 +561,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 otherwise = end
             if_.test.accept_jump_if(self, False, otherwise)
             self.visit_sequence(if_.body)
-            self.emit_jump(ops.JUMP_FORWARD, end)
             if if_.orelse:
+                self.emit_jump(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
                 self.visit_sequence(if_.orelse)
         self.use_next_block(end)
