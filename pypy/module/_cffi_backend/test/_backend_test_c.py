@@ -1454,7 +1454,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
