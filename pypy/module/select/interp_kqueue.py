@@ -308,33 +308,40 @@ class W_Kevent(W_Root):
             assert False
 
     def compare_all_fields(self, space, other, op):
-        if not space.interp_w(W_Kevent, other):
-            if op == "eq":
-                return False
-            elif op == "ne":
-                return True
-            else:
-                raise oefmt(space.w_TypeError,
-                            "cannot compare kevent to incompatible type")
-        return self._compare_all_fields(space.interp_w(W_Kevent, other), op)
+        if not isinstance(other, W_Kevent):
+            return space.w_NotImplemented
+        negate = False
+        if op == 'ne':
+            negate = True
+            op = 'eq'
+        elif op == 'le':
+            negate = True
+            op = 'gt'
+        elif op == 'ge':
+            negate = True
+            op = 'lt'
+        r = self._compare_all_fields(space.interp_w(W_Kevent, other), op)
+        if negate:
+            r = not r
+        return space.newbool(r)
 
     def descr__eq__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "eq"))
+        return self.compare_all_fields(space, w_other, "eq")
 
     def descr__ne__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "eq"))
+        return self.compare_all_fields(space, w_other, "ne")
 
     def descr__le__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "gt"))
+        return self.compare_all_fields(space, w_other, "le")
 
     def descr__lt__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "lt"))
+        return self.compare_all_fields(space, w_other, "lt")
 
     def descr__ge__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "lt"))
+        return self.compare_all_fields(space, w_other, "ge")
 
     def descr__gt__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "gt"))
+        return self.compare_all_fields(space, w_other, "gt")
 
     def descr_get_ident(self, space):
         return space.newint(self.ident)
