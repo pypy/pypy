@@ -39,9 +39,12 @@ class AppTestKqueue(object):
         assert cmp(ev, other) == -1
         assert ev < other
         assert other >= ev
-        raises(TypeError, cmp, ev, None)
-        raises(TypeError, cmp, ev, 1)
-        raises(TypeError, cmp, ev, "ev")
+        assert cmp(ev, None) != 0
+        assert cmp(ev, 1) !=  0
+        assert cmp(ev, "ev") != 0
+        assert cmp(ev, None) == -cmp(None, ev)
+        assert cmp(ev, 1) == -cmp(1, ev)
+        assert cmp(ev, "ev") == -cmp("ev", ev)
 
         ev = select.kevent(fd, select.KQ_FILTER_WRITE)
         assert ev.ident == fd

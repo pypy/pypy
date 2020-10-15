@@ -603,3 +603,12 @@ if WIN32:
     GetStringTypeW = winexternal(
         'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
         save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    _SetEnvironmentVariableW = winexternal(
+        'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def SetEnvironmentVariableW(name, value):
+        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
+            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf) 

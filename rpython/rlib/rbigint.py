@@ -468,6 +468,23 @@ class rbigint(object):
                 raise OverflowError
         return res
 
+    def fits_int(self):
+        n = self.numdigits()
+        if n < MAX_DIGITS_THAT_CAN_FIT_IN_INT:
+            return True
+        if n > MAX_DIGITS_THAT_CAN_FIT_IN_INT:
+            return False
+        try:
+            x = self._touint_helper()
+        except OverflowError:
+            return False
+        if self.sign >= 0:
+            res = intmask(x)
+            return res >= 0
+        else:
+            res = intmask(-x)
+            return res < 0
+
     @jit.elidable
     def tolonglong(self):
         return _AsLongLong(self)
@@ -1468,6 +1485,8 @@ _jmapping = [(5 * SHIFT) % 5,
 
 
 # if the bigint has more digits than this, it cannot fit into an int
+# Also, if it has less digits than this, then it must be <=sys.maxint in
+# absolute value and so it must fit an int.
 MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
 

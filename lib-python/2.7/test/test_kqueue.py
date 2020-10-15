@@ -238,8 +238,8 @@ class TestKQueue(unittest.TestCase):
         with self.assertRaises(OSError) as cm:
             kq.control([event], 0, 0)
 
-        self.assertEqual(cm.exception.args[0], errno.EBADF)
-        self.assertEqual(cm.exception.errno, errno.EBADF)
+        self.assertIn(cm.exception.args[0], (errno.EBADF, errno.ENOENT))
+        self.assertIn(cm.exception.errno, (errno.EBADF, errno.ENOENT))
 
         kq.close()
 
