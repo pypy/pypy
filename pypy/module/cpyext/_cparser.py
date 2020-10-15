@@ -10,15 +10,20 @@ import weakref, re
 
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
-_r_define = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
+_r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
+_r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
+_r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
+_r_partial_array = re.compile(r"\[\s*\.\.\.\s*\]")
 _r_words = re.compile(r"\w+|\S")
 _parser_cache = None
 _r_int_literal = re.compile(r"-?0?x?[0-9a-f]+[lu]*$", re.IGNORECASE)
 _r_stdcall1 = re.compile(r"\b(__stdcall|WINAPI)\b")
 _r_stdcall2 = re.compile(r"[(]\s*(__stdcall|WINAPI)\b")
 _r_cdecl = re.compile(r"\b__cdecl\b")
+_r_extern_python = re.compile(r'\bextern\s*"'
+                              r'(Python|Python\s*\+\s*C|C\s*\+\s*Python)"\s*.')
 _r_star_const_space = re.compile(       # matches "* const "
     r"[*]\s*((const|volatile|restrict)\b\s*)+")
 
@@ -27,6 +32,98 @@ def _get_parser():
     if _parser_cache is None:
         _parser_cache = pycparser.CParser()
     return _parser_cache
+
+def _workaround_for_old_pycparser(csource):
+    # Workaround for a pycparser issue (fixed between pycparser 2.10 and
+    # 2.14): "char*const***" gives us a wrong syntax tree, the same as
+    # for "char***(*const)".  This means we can't tell the difference
+    # afterwards.  But "char(*const(***))" gives us the right syntax
+    # tree.  The issue only occurs if there are several stars in
+    # sequence with no parenthesis inbetween, just possibly qualifiers.
+    # Attempt to fix it by adding some parentheses in the source: each
+    # time we see "* const" or "* const *", we add an opening
+    # parenthesis before each star---the hard part is figuring out where
+    # to close them.
+    parts = []
+    while True:
+        match = _r_star_const_space.search(csource)
+        if not match:
+            break
+        #print repr(''.join(parts)+csource), '=>',
+        parts.append(csource[:match.start()])
+        parts.append('('); closing = ')'
+        parts.append(match.group())   # e.g. "* const "
+        endpos = match.end()
+        if csource.startswith('*', endpos):
+            parts.append('('); closing += ')'
+        level = 0
+        i = endpos
+        while i < len(csource):
+            c = csource[i]
+            if c == '(':
+                level += 1
+            elif c == ')':
+                if level == 0:
+                    break
+                level -= 1
+            elif c in ',;=':
+                if level == 0:
+                    break
+            i += 1
+        csource = csource[endpos:i] + closing + csource[i:]
+        #print repr(''.join(parts)+csource)
+    parts.append(csource)
+    return ''.join(parts)
+
+def _preprocess_extern_python(csource):
+    # input: `extern "Python" int foo(int);` or
+    #        `extern "Python" { int foo(int); }`
+    # output:
+    #     void __cffi_extern_python_start;
+    #     int foo(int);
+    #     void __cffi_extern_python_stop;
+    #
+    # input: `extern "Python+C" int foo(int);`
+    # output:
+    #     void __cffi_extern_python_plus_c_start;
+    #     int foo(int);
+    #     void __cffi_extern_python_stop;
+    parts = []
+    while True:
+        match = _r_extern_python.search(csource)
+        if not match:
+            break
+        endpos = match.end() - 1
+        #print
+        #print ''.join(parts)+csource
+        #print '=>'
+        parts.append(csource[:match.start()])
+        if 'C' in match.group(1):
+            parts.append('void __cffi_extern_python_plus_c_start; ')
+        else:
+            parts.append('void __cffi_extern_python_start; ')
+        if csource[endpos] == '{':
+            # grouping variant
+            closing = csource.find('}', endpos)
+            if closing < 0:
+                raise api.CDefError("'extern \"Python\" {': no '}' found")
+            if csource.find('{', endpos + 1, closing) >= 0:
+                raise NotImplementedError("cannot use { } inside a block "
+                                          "'extern \"Python\" { ... }'")
+            parts.append(csource[endpos+1:closing])
+            csource = csource[closing+1:]
+        else:
+            # non-grouping variant
+            semicolon = csource.find(';', endpos)
+            if semicolon < 0:
+                raise api.CDefError("'extern \"Python\": no ';' found")
+            parts.append(csource[endpos:semicolon+1])
+            csource = csource[semicolon+1:]
+        parts.append(' void __cffi_extern_python_stop;')
+        #print ''.join(parts)+csource
+        #print
+    parts.append(csource)
+    return ''.join(parts)
 
 def _preprocess(csource, macros):
     # Remove comments.  NOTE: this only work because the cdef() section
@@ -39,6 +136,9 @@ def _preprocess(csource, macros):
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
     #
+    if pycparser.__version__ < '2.14':
+        csource = _workaround_for_old_pycparser(csource)
+    #
     # BIG HACK: replace WINAPI or __stdcall with "volatile const".
     # It doesn't make sense for the return type of a function to be
     # "volatile volatile const", so we abuse it to detect __stdcall...
@@ -47,6 +147,33 @@ def _preprocess(csource, macros):
     csource = _r_stdcall2.sub(' volatile volatile const(', csource)
     csource = _r_stdcall1.sub(' volatile volatile const ', csource)
     csource = _r_cdecl.sub(' ', csource)
+    #
+    # Replace `extern "Python"` with start/end markers
+    csource = _preprocess_extern_python(csource)
+    #
+    # Replace "[...]" with "[__dotdotdotarray__]"
+    csource = _r_partial_array.sub('[__dotdotdotarray__]', csource)
+    #
+    # Replace "...}" with "__dotdotdotNUM__}".  This construction should
+    # occur only at the end of enums; at the end of structs we have "...;}"
+    # and at the end of vararg functions "...);".  Also replace "=...[,}]"
+    # with ",__dotdotdotNUM__[,}]": this occurs in the enums too, when
+    # giving an unknown value.
+    matches = list(_r_partial_enum.finditer(csource))
+    for number, match in enumerate(reversed(matches)):
+        p = match.start()
+        if csource[p] == '=':
+            p2 = csource.find('...', p, match.end())
+            assert p2 > p
+            csource = '%s,__dotdotdot%d__ %s' % (csource[:p], number,
+                                                 csource[p2+3:])
+        else:
+            assert csource[p:p+3] == '...'
+            csource = '%s __dotdotdot%d__ %s' % (csource[:p], number,
+                                                 csource[p+3:])
+    # Replace all remaining "..." with the same name, "__dotdotdot__",
+    # which is declared with a typedef for the purpose of C parsing.
+    csource = csource.replace('...', ' __dotdotdot__ ')
 
     for name, value in reversed(macros.items()):
         csource = re.sub(r'\b%s\b' % name, value, csource)
@@ -178,6 +305,7 @@ class Parser(object):
                 break
         #
         try:
+            self._inside_extern_python = '__cffi_extern_python_stop'
             for decl in iterator:
                 if isinstance(decl, pycparser.c_ast.Decl):
                     self._parse_decl(decl)
@@ -221,6 +349,8 @@ class Parser(object):
             value = value.strip()
             if _r_int_literal.match(value):
                 self._add_integer_constant(key, value)
+            elif value == '...':
+                self._declare('macro ' + key, value)
             else:
                 self._declare('macro ' + key, value)
 
@@ -228,6 +358,10 @@ class Parser(object):
         tp = self._get_type_pointer(tp, quals)
         if self._options.get('dllexport'):
             tag = 'dllexport_python '
+        elif self._inside_extern_python == '__cffi_extern_python_start':
+            tag = 'extern_python '
+        elif self._inside_extern_python == '__cffi_extern_python_plus_c_start':
+            tag = 'extern_python_plus_c '
         else:
             tag = 'function '
         self._declare(tag + decl.name, tp)
@@ -274,7 +408,17 @@ class Parser(object):
                         _r_int_literal.match(decl.init.expr.value)):
                     self._add_integer_constant(decl.name,
                                                '-' + decl.init.expr.value)
+                elif (tp is model.void_type and
+                      decl.name.startswith('__cffi_extern_python_')):
+                    # hack: `extern "Python"` in the C source is replaced
+                    # with "void __cffi_extern_python_start;" and
+                    # "void __cffi_extern_python_stop;"
+                    self._inside_extern_python = decl.name
                 else:
+                    if self._inside_extern_python !='__cffi_extern_python_stop':
+                        raise api.CDefError(
+                            "cannot declare constants or "
+                            "variables with 'extern \"Python\"'")
                     if (quals & model.Q_CONST) and not tp.is_array_type:
                         self._declare('constant ' + decl.name, tp, quals=quals)
                     else:
@@ -295,6 +439,11 @@ class Parser(object):
             prevobj, prevquals = self._declarations[name]
             if prevobj is obj and prevquals == quals:
                 return
+            if not self._options.get('override'):
+                raise api.FFIError(
+                    "multiple declarations of %s (for interactive usage, "
+                    "try cdef(xx, override=True))" % (name,))
+        assert '__dotdotdot__' not in name.split()
         self._declarations[name] = (obj, quals)
         if included:
             self._included_declarations.add(obj)
@@ -374,6 +523,9 @@ class Parser(object):
                 ident = ' '.join(names)
                 if ident == 'void':
                     return model.void_type, quals
+                if ident == '__dotdotdot__':
+                    raise api.FFIError(':%d: bad usage of "..."' %
+                            typenode.coord.line)
                 tp0, quals0 = resolve_common_type(self, ident)
                 return tp0, (quals | quals0)
             #
@@ -496,6 +648,8 @@ class Parser(object):
             elif kind == 'union':
                 tp = model.UnionType(explicit_name, None, None, None)
             elif kind == 'enum':
+                if explicit_name == '__dotdotdot__':
+                    raise CDefError("Enums cannot be declared with ...")
                 tp = self._build_enum_type(explicit_name, type.values)
             else:
                 raise AssertionError("kind = %r" % (kind,))
@@ -530,6 +684,13 @@ class Parser(object):
         fldbitsize = []
         fldquals = []
         for decl in type.decls:
+            if (isinstance(decl.type, pycparser.c_ast.IdentifierType) and
+                    ''.join(decl.type.names) == '__dotdotdot__'):
+                # XXX pycparser is inconsistent: 'names' should be a list
+                # of strings, but is sometimes just one string.  Use
+                # str.join() as a way to cope with both.
+                self._make_partial(tp, nested)
+                continue
             if decl.bitsize is None:
                 bitsize = -1
             else:
@@ -614,6 +775,9 @@ class Parser(object):
             enumvalues = []
             nextenumvalue = 0
             for enum in decls.enumerators:
+                if _r_enum_dotdotdot.match(enum.name):
+                    partial = True
+                    continue
                 if enum.value is not None:
                     nextenumvalue = self._parse_constant(enum.value)
                 enumerators.append(enum.name)
