@@ -2022,6 +2022,8 @@ if not _WIN32:
             lltype.free(ngroups_p, flavor='raw')
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2168,7 +2170,7 @@ class CConfig:
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
             lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
-            symlinkat unlinkat utimensat""".split():
+            symlinkat unlinkat utimensat sched_getparam""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
@@ -2179,7 +2181,6 @@ if not _WIN32:
             includes=['sys/stat.h',
                       'unistd.h',
                       'fcntl.h',
-                      'sched.h',
                      ],
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
@@ -2192,13 +2193,26 @@ if not _WIN32:
         TIMESPEC = rffi_platform.Struct('struct timespec', [
             ('tv_sec', rffi.TIME_T),
             ('tv_nsec', rffi.LONG)])
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+
+    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if HAVE_SCHED_GETPARAM:
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/stat.h',
+                      'unistd.h',
+                      'sched.h',
+                     ],
+        )
         SCHED_PARAM = rffi_platform.Struct('struct sched_param', [
             ('sched_priority', rffi.INT)])
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
 
-    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
     SCHED_PARAM2P = rffi.CArrayPtr(SCHED_PARAM)
 
     c_sched_rr_get_interval = external('sched_rr_get_interval',
@@ -2237,6 +2251,7 @@ if not _WIN32:
         with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
             param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
             return handle_posix_error('sched_setparam', c_sched_setparam(pid, param))
+
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
