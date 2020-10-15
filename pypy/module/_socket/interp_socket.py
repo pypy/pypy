@@ -289,10 +289,12 @@ class W_Socket(W_Root):
 
     def descr_repr(self, space):
         fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        family = widen(self.sock.family)  # these are too small on win64
+        tp = widen(self.sock.type)
+        proto = widen(self.sock.proto)
         return space.newtext("<socket object, fd=%d, family=%d,"
                              " type=%d, proto=%d>" %
-                          (fd, self.sock.family,
-                           self.sock.type, self.sock.proto))
+                          (fd, family, tp, proto))
 
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
