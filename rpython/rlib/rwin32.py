@@ -11,7 +11,7 @@ from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
@@ -549,7 +549,7 @@ if WIN32:
         try:
             if not _GetHandleInformation(handle, pflags):
                 raise lastSavedWindowsError("GetHandleInformation")
-            flags = pflags[0]
+            flags = widen(pflags[0])
         finally:
             lltype.free(pflags, flavor='raw')
         return (flags & HANDLE_FLAG_INHERIT) != 0
