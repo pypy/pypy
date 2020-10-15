@@ -56,7 +56,7 @@ def pytest_ignore_collect(path, config):
     if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
                                    '_vendored', 'test_support.py'):
         return True
-    if disabled:
+    if disable:
         return True
 
 def make_hpy_apptest(collector, name, cls):
