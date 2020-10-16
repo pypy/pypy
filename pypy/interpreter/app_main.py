@@ -581,7 +581,7 @@ def parse_command_line(argv):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
-        if os.getenv('PYTHONDEVMODE'):
+        if getenv('PYTHONDEVMODE'):
             options["dev_mode"] = True
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
