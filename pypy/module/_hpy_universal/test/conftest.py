@@ -1,3 +1,4 @@
+import sys
 import types
 
 # ================================
@@ -13,6 +14,12 @@ import types
 ##     def test_exception_occurred(self):
 ##         import pytest
 ##         pytest.skip('fixme')
+
+disable = False
+
+if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+    # skip all tests on linux32
+    disable = True
 
 # test/_vendored/test_cpy_compat.py
 class extra_AppTestCPythonCompatibility:
@@ -48,6 +55,8 @@ def pytest_pycollect_makeitem(collector, name, obj):
 def pytest_ignore_collect(path, config):
     if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
                                    '_vendored', 'test_support.py'):
+        return True
+    if disable:
         return True
 
 def make_hpy_apptest(collector, name, cls):

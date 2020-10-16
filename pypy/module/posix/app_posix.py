@@ -1,5 +1,5 @@
 # NOT_RPYTHON
-from _structseq import structseqtype, structseqfield
+from _structseq import structseqtype, structseqfield, structseq_new
 
 # XXX we need a way to access the current module's globals more directly...
 import errno
@@ -125,10 +125,16 @@ class times_result(metaclass=structseqtype):
     children_system = structseqfield(3, "system time of children")
     elapsed = structseqfield(4, "elapsed time since an arbitray point in the past")
 
+
 class sched_param(metaclass=structseqtype):
     name = "posix.sched_param"
     __module__ = "posix"
+
     sched_priority = structseqfield(0, "sched_priority")
+
+    def __new__(cls, sched_priority):
+        return structseq_new(cls, sched_priority)
+
 
 if osname == 'posix':
     def wait():

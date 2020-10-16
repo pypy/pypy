@@ -32,14 +32,12 @@ eci = ExternalCompilationInfo(
 )
 
 cts = CTypeSpace()
+cts.headers.append('stdint.h')
+cts.parse_source(INCLUDE_DIR.join('common', 'autogen_hpyslot.h').read())
+
 # NOTE: the following C source is NOT seen by the C compiler during
 # translation: it is used only as a nice way to declare the lltype.* types
 # which are needed here
-cts.headers.append('stdint.h')
-with open(str(INCLUDE_DIR/'common'/'typeslots.h')) as f:
-    lines = f.readlines()
-    src = ''.join(lines[2:-1])  # strip include guard
-    cts.parse_source(src)
 cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
@@ -54,6 +52,11 @@ typedef struct _HPyListBuilder_s {
     HPy_ssize_t _lst;
 } _struct_HPyListBuilder_s;
 typedef HPy_ssize_t HPyListBuilder;
+
+typedef struct _HPyTupleBuilder_s {
+    HPy_ssize_t _lst;
+} _struct_HPyTupleBuilder_s;
+typedef HPy_ssize_t HPyTupleBuilder;
 
 
 typedef struct _HPyContext_s {
@@ -160,6 +163,8 @@ typedef struct _HPyContext_s {
     void * ctx_Dict_New;
     void * ctx_Dict_SetItem;
     void * ctx_Dict_GetItem;
+    void * ctx_FatalError;
+    void * ctx_Tuple_FromArray;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
@@ -168,6 +173,10 @@ typedef struct _HPyContext_s {
     void * ctx_ListBuilder_Set;
     void * ctx_ListBuilder_Build;
     void * ctx_ListBuilder_Cancel;
+    void * ctx_TupleBuilder_New;
+    void * ctx_TupleBuilder_Set;
+    void * ctx_TupleBuilder_Build;
+    void * ctx_TupleBuilder_Cancel;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
@@ -304,6 +313,26 @@ typedef struct {
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
 } HPyType_Spec;
 
+typedef enum {
+    HPyType_SpecParam_Base = 1,
+    HPyType_SpecParam_BasesTuple = 2,
+    //HPyType_SpecParam_Metaclass = 3,
+    //HPyType_SpecParam_Module = 4,
+} HPyType_SpecParam_Kind;
+
+typedef struct {
+    HPyType_SpecParam_Kind kind;
+    struct _HPy_s object;
+} HPyType_SpecParam;
+
+/* All types are dynamically allocated */
+#define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
+
+/* Set if the type allows subclassing */
+#define HPy_TPFLAGS_BASETYPE (1UL << 10)
+#define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
+
+
 /* Rich comparison opcodes */
 #define HPy_LT 0
 #define HPy_LE 1
@@ -377,6 +406,8 @@ HPyFunc_NOARGS   = 3
 HPyFunc_O        = 4
 # ...
 # }
+
+HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
 HPy_LT = 0
 HPy_LE = 1

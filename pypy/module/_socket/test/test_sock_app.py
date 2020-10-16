@@ -210,6 +210,18 @@ def test_getaddrinfo(space, w_socket):
     assert space.unwrap(w_l) == True
 
 
+def test_sethostname(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname())")
+
+
+def test_sethostname_bytes(space, w_socket):
+    space.raises_w(space.w_OSError, space.appexec,
+                   [w_socket],
+                   "(_socket): _socket.sethostname(_socket.gethostname().encode())")
+
+
 def test_unknown_addr_as_object(space, ):
     from pypy.module._socket.interp_socket import addr_as_object
     c_addr = lltype.malloc(rsocket._c.sockaddr, flavor='raw', track_allocation=False)
@@ -551,9 +563,9 @@ class AppTestSocket:
         else:
             assert ret == b'\x00\x00'
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, True)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
         s.setsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 1)
-        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) == 1
+        assert s.getsockopt(_socket.IPPROTO_TCP, _socket.TCP_NODELAY, 0) != 0
 
     def test_getsockopt_bad_length(self):
         import _socket
@@ -913,6 +925,7 @@ class AppTestSocketTCP:
     @pytest.mark.skipif(os.name == 'nt', reason="win32 has additional buffering")
     def test_recv_send_timeout(self):
         from _socket import socket, timeout, SOL_SOCKET, SO_RCVBUF, SO_SNDBUF
+        import sys
         cli = socket()
         cli.settimeout(1.0)
         cli.connect(self.serv.getsockname())
@@ -938,13 +951,20 @@ class AppTestSocketTCP:
         cli.setsockopt(SOL_SOCKET, SO_SNDBUF, 4096)
         # test send() timeout
         count = 0
-        try:
-            while 1:
-                count += cli.send(b'foobar' * 70)
-                assert count < 100000
-        except timeout:
-            pass
-        t.recv(count)
+        if sys.platform != 'win32':
+            # windows never fills the buffer
+            try:
+                while 1:
+                    count += cli.send(b'foobar' * 70)
+                    if sys.platform == 'darwin':
+                        # MacOS will auto-tune up to 512k
+                        # (net.inet.tcp.doauto{rcv,snd}buf sysctls)
+                        assert count < 1000000
+                    else:
+                        assert count < 100000
+            except timeout:
+                pass
+            t.recv(count)
         # test sendall() timeout
         try:
             while 1:

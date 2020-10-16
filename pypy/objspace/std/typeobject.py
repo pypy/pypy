@@ -922,7 +922,8 @@ def _precheck_for_new(space, w_type):
     return w_type
 
 def _set_names(space, w_type):
-    for key, w_value in w_type.dict_w.iteritems():
+
+    for key, w_value in w_type.dict_w.items():
         w_meth = space.lookup(w_value, '__set_name__')
         if w_meth is not None:
             try:

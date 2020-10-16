@@ -128,9 +128,20 @@ class TestReleaseCallback(object):
 
 
 
+class TestUsing(object):
 
-def test_using(fakespace):
-    mgr = fakespace.fromcache(HandleManager)
-    with handles.using(fakespace, 'hello') as h:
-        assert mgr.handles_w[h] == 'hello'
-    assert mgr.handles_w[h] is None
+    def test_simple(self, fakespace):
+        mgr = fakespace.fromcache(HandleManager)
+        with handles.using(fakespace, 'hello') as h:
+            assert mgr.handles_w[h] == 'hello'
+        assert mgr.handles_w[h] is None
+
+    def test_multiple_handles(self, fakespace):
+        mgr = fakespace.fromcache(HandleManager)
+        with handles.using(fakespace, 'hello', 'world', 'foo') as (h1, h2, h3):
+            assert mgr.handles_w[h1] == 'hello'
+            assert mgr.handles_w[h2] == 'world'
+            assert mgr.handles_w[h3] == 'foo'
+        assert mgr.handles_w[h1] is None
+        assert mgr.handles_w[h2] is None
+        assert mgr.handles_w[h3] is None

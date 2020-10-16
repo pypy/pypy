@@ -3,6 +3,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.c.test.test_standalone import StandaloneTests
 from rpython.config.translationoption import get_combined_translation_config
 from pypy.config.pypyoption import get_pypy_config
+from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.fake.checkmodule import checkmodule
 from pypy.objspace.fake.objspace import FakeObjSpace
 from pypy.module._hpy_universal.state import State
@@ -43,6 +44,7 @@ def test_checkmodule():
         attach_dict_strategy(space)
         p = lltype.malloc(DUMMY_CPYEXT_STRUCT, flavor='raw')
         lltype.free(p, flavor='raw')
+        W_TypeObject(space, 'foo', [], {}).hasmro = False
 
     rpython_opts = {'translation.gc': 'boehm'}
     # it isn't possible to ztranslate cpyext easily, so we check _hpy_universal

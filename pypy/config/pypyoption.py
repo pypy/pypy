@@ -45,11 +45,6 @@ working_modules.update([
     # "_hashlib", "crypt"
 ])
 
-if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
-    # _hpy_universal needs tweaking to work on 32-bit linux
-    working_modules.remove('_hpy_universal')
-    
-
 import rpython.rlib.rvmprof.cintf
 if rpython.rlib.rvmprof.cintf.IS_SUPPORTED:
     working_modules.add('_vmprof')
@@ -94,6 +89,10 @@ if sys.platform == "sunos5":
     working_modules.remove("termios")
     if "_cppyy" in working_modules:
         working_modules.remove("_cppyy")  # depends on ctypes
+
+if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+    # _hpy_universal needs tweaking to work on 32-bit linux
+    working_modules.remove('_hpy_universal')
 
 #if sys.platform.startswith("linux"):
 #    _mach = os.popen('uname -m', 'r').read().strip()

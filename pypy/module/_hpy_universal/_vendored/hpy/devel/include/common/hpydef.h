@@ -4,7 +4,7 @@
 #include <stddef.h> /* to make sure "offsetof" is available for our users */
 
 #include "common/hpyfunc.h"
-#include "common/typeslots.h"
+#include "common/autogen_hpyslot.h"
 
 typedef struct {
     HPySlot_Slot slot;     // The slot to fill
@@ -89,7 +89,31 @@ typedef struct {
 
 // macros to automatically define HPyDefs of various kinds
 
-#define HPyDef_SLOT(SYM, SLOT, IMPL, SIG)                               \
+/* ~~~ HPySlot_SIG ~~~
+
+  Macro-magic to automatically determine the HPyFunc_Signature from a
+  symbolic slot name such as HPy_tp_repr, HPy_nb_add, etc.
+ */
+
+#define HPySlot_SIG(SLOT) _HPySlot_SIG__##SLOT
+// Macros such as _HPySlot_SIG__HPy_tp_add &co. are defined in autogen_hpyslot.h
+
+
+
+/* ~~~ HPyDef_SLOT ~~~
+
+   This is the official version of HPyDef_SLOT, which automatically determines
+   the SIG from the SLOT. The anonymous enum is needed to get a nice
+   compile-time error in case we pass a SLOT which does not exist, see the
+   more detailed explanation in the comments around HPyFunc_DECLARE in
+   hpyfunc.h
+*/
+#define HPyDef_SLOT(SYM, IMPL, SLOT)                            \
+    enum { SYM##_slot = SLOT };                                 \
+    _HPyDef_SLOT(SYM, IMPL, SLOT, HPySlot_SIG(SLOT))
+
+// this is the actual implementation, after we determined the SIG
+#define _HPyDef_SLOT(SYM, IMPL, SLOT, SIG)                              \
     HPyFunc_DECLARE(IMPL, SIG);                                         \
     HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);                    \
     HPyDef SYM = {                                                      \

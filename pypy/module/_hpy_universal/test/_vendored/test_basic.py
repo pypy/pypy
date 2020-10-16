@@ -11,6 +11,16 @@ from .support import HPyTest
 
 class TestBasic(HPyTest):
 
+    def test_get_version(self):
+        if self.compiler.hpy_abi != 'universal':
+            return
+        import hpy.universal
+        version, gitrev = hpy.universal.get_version()
+        # it's a bit hard to test the CONTENT of these values. Let's just
+        # check that they are strings...
+        assert isinstance(version, str)
+        assert isinstance(gitrev, str)
+
     def test_empty_module(self):
         import sys
         mod = self.make_module("""
@@ -254,7 +264,7 @@ class TestBasic(HPyTest):
                 return HPyLong_FromLong(ctx, 10*a + b);
             }
         """
-        mod = self.make_module(main, extra_templates=[extra])
+        mod = self.make_module(main, extra_sources=[extra])
         assert mod.f() == 12345
         assert mod.g(42) == 42
         assert mod.h(5, 6) == 56
