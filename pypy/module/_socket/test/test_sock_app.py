@@ -86,6 +86,7 @@ def test_getprotobyname(space, w_socket):
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
 @pytest.mark.skipif("not hasattr(socket, 'fromfd')")
+@pytest.mark.skipif("sys.platform=='win32'")
 def test_fromfd(space, w_socket, tmpdir):
     path = tmpdir / 'fd'
     path.write('fo')
