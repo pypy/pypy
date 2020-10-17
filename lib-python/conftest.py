@@ -304,6 +304,7 @@ testmap = [
     RegrTest('test_longexp.py', core=True),
     RegrTest('test_lzma.py'),
     RegrTest('test_macpath.py'),
+    RegrTest('test_macurl2path.py')
     RegrTest('test_mailbox.py'),
     RegrTest('test_mailcap.py'),
     RegrTest('test_marshal.py', core=True),
