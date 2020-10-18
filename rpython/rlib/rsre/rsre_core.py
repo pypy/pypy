@@ -80,6 +80,13 @@ class CompiledPattern(object):
                 rsre_char.getlower_locale(char_ord) == pattern or
                 rsre_char.getupper_locale(char_ord) == pattern)
 
+    def charset_loc_ignore(self, ctx, ppos, char_ord):
+        lo = rsre_char.getlower_locale(char_ord)
+        if rsre_char.check_charset(ctx, self, ppos, lo):
+            return True
+        up = rsre_char.getupper_locale(char_ord)
+        return up != lo and rsre_char.check_charset(ctx, self, ppos, up)
+
     def pat(self, index):
         jit.promote(self)
         check_nonneg(index)
@@ -715,6 +722,17 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                 return     # no match
             ppos += 1
 
+        elif consts.eq(op, consts.OPCODE37_GROUPREF_LOC_IGNORE):
+            # locale version of OPCODE_GROUPREF_IGNORE
+            # <GROUPREF> <groupnum>
+            startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
+            if length_bytes < 0:
+                return     # group was not previously defined
+            ptr = match_repeated_loc_ignore(ctx, ptr, startptr, length_bytes)
+            if ptr < ctx.ZERO:
+                return     # no match
+            ppos += 1
+
         elif op == consts.OPCODE_GROUPREF_EXISTS:
             # conditional match depending on the existence of a group
             # <GROUPREF_EXISTS> <group> <skip> codeyes <JUMP> codeno ...
@@ -738,6 +756,24 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # <IN> <skip> <set>
             if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
                                                              pattern.lowa(ctx.str(ptr))):
+                return
+            ppos += pattern.pat(ppos)
+            ptr = ctx.next(ptr)
+
+        elif consts.eq(op, consts.OPCODE37_IN_UNI_IGNORE):
+            # match set member (or non_member), ignoring case, unicode mode
+            # <IN> <skip> <set>
+            if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
+                                                             rsre_char.getlower_unicode(ctx.str(ptr))):
+                return
+            ppos += pattern.pat(ppos)
+            ptr = ctx.next(ptr)
+
+        elif consts.eq(op, consts.OPCODE37_IN_LOC_IGNORE):
+            # match set member (or non_member), ignoring case, locale mode
+            # <IN> <skip> <set>
+            if ptr >= ctx.end or not pattern.charset_loc_ignore(ctx, ppos+1,
+                                                                ctx.str(ptr)):
                 return
             ppos += pattern.pat(ppos)
             ptr = ctx.next(ptr)
@@ -807,7 +843,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == consts.OPCODE37_NOT_LITERAL_UNI_IGNORE:
+        elif consts.eq(op, consts.OPCODE37_NOT_LITERAL_UNI_IGNORE):
             # match if it's not a literal string, ignoring case, unicode mode
             # <NOT_LITERAL> <code>
             if ptr >= ctx.end or rsre_char.getlower_unicode(ctx.str(ptr)) == pattern.pat(ppos):
@@ -815,7 +851,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             ppos += 1
             ptr = ctx.next(ptr)
 
-        elif op == consts.OPCODE37_NOT_LITERAL_LOC_IGNORE:
+        elif consts.eq(op, consts.OPCODE37_NOT_LITERAL_LOC_IGNORE):
             # match if it's not a literal string, ignoring case, locale mode
             # <NOT_LITERAL> <code>
             if ptr >= ctx.end or pattern.char_loc_ignore(ppos, ctx.str(ptr)):
@@ -944,6 +980,18 @@ def match_repeated_uni_ignore(ctx, ptr, oldptr, length_bytes, pattern):
         if ptr >= ctx.end:
             return -1
         if rsre_char.getlower_unicode(ctx.str(ptr)) != rsre_char.getlower_unicode(ctx.str(oldptr)):
+            return -1
+        ptr = ctx.next(ptr)
+        oldptr = ctx.next(oldptr)
+    return ptr
+
+@specializectx
+def match_repeated_loc_ignore(ctx, ptr, oldptr, length_bytes, pattern):
+    oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
+    while oldptr < oldend:
+        if ptr >= ctx.end:
+            return -1
+        if rsre_char.getlower_locale(ctx.str(ptr)) != rsre_char.getlower_locale(ctx.str(oldptr)):
             return -1
         ptr = ctx.next(ptr)
         oldptr = ctx.next(oldptr)
