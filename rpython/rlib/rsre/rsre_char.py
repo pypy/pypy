@@ -57,16 +57,22 @@ BIG_ENDIAN = sys.byteorder == "big"
 def getlower_ascii(char_ord):
     return char_ord + int_between(ord('A'), char_ord, ord('Z') + 1) * (ord('a') - ord('A'))
 
+def getlower_locale(char_ord):
+    if char_ord < 256:      # cheating!  Well, CPython does too.
+        char_ord = tolower(char_ord)
+    return char_ord
+
+def getlower_unicode(char_ord):
+    if char_ord < 128: # shortcut for ascii
+        return getlower_ascii(char_ord)
+    assert unicodedb is not None
+    return unicodedb.tolower(char_ord)
+
 def getlower(char_ord, flags):
     if flags & consts.SRE_FLAG_LOCALE:
-        if char_ord < 256:      # cheating!  Well, CPython does too.
-            char_ord = tolower(char_ord)
-        return char_ord
+        char_ord = getlower_locale(char_ord)
     elif flags & consts.SRE_FLAG_UNICODE:
-        if char_ord < 128: # shortcut for ascii
-            return getlower_ascii(char_ord)
-        assert unicodedb is not None
-        char_ord = unicodedb.tolower(char_ord)
+        char_ord = getlower_unicode(char_ord)
     else:
         char_ord = getlower_ascii(char_ord)
     return char_ord
@@ -74,16 +80,22 @@ def getlower(char_ord, flags):
 def getupper_ascii(char_ord):
     return char_ord - int_between(ord('a'), char_ord, ord('z') + 1) * (ord('a') - ord('A'))
 
+def getupper_locale(char_ord):
+    if char_ord < 256:      # cheating!  Well, CPython does too.
+        char_ord = toupper(char_ord)
+    return char_ord
+
+def getupper_unicode(char_ord):
+    if char_ord < 128: # shortcut for ascii
+        return getupper_ascii(char_ord)
+    assert unicodedb is not None
+    return unicodedb.toupper(char_ord)
+
 def getupper(char_ord, flags):
     if flags & consts.SRE_FLAG_LOCALE:
-        if char_ord < 256:      # cheating!  Well, CPython does too.
-            char_ord = toupper(char_ord)
-        return char_ord
+        char_ord = getupper_locale(char_ord)
     elif flags & consts.SRE_FLAG_UNICODE:
-        if char_ord < 128: # shortcut for ascii
-            return getupper_ascii(char_ord)
-        assert unicodedb is not None
-        char_ord = unicodedb.toupper(char_ord)
+        char_ord = getupper_unicode(char_ord)
     else:
         char_ord = getupper_ascii(char_ord)
     return char_ord
@@ -223,10 +235,20 @@ def set_range(ctx, pattern, index, char_code):
 def set_range_ignore(ctx, pattern, index, char_code):
     # <RANGE_IGNORE> <lower> <upper>
     # the char_code is already lower cased
+    assert not consts.V37
     lower = pattern.pattern[index + 1]
     upper = pattern.pattern[index + 2]
     match1 = int_between(lower, char_code, upper + 1)
     match2 = int_between(lower, getupper(char_code, pattern.flags), upper + 1)
+    return match1 | match2, index + 3
+
+def set_range_uni_ignore(ctx, pattern, index, char_code):
+    # <RANGE_UNI_IGNORE> <lower> <upper>
+    # the char_code is already lower cased
+    lower = pattern.pattern[index + 1]
+    upper = pattern.pattern[index + 2]
+    match1 = int_between(lower, char_code, upper + 1)
+    match2 = int_between(lower, getupper_unicode(char_code), upper + 1)
     return match1 | match2, index + 3
 
 def set_bigcharset(ctx, pattern, index, char_code):
@@ -301,6 +323,7 @@ set_dispatch_table = {
     consts.OPCODE_LITERAL: set_literal,
     consts.OPCODE_RANGE: set_range,
     consts.OPCODE27_RANGE_IGNORE: set_range_ignore,
+    consts.OPCODE37_RANGE_UNI_IGNORE: set_range_uni_ignore,
     consts.OPCODE_UNICODE_GENERAL_CATEGORY: set_unicode_general_category,
 }
 set_dispatch_table.pop(None, None)   # remove the OPCODE27_* or OPCODE37_*

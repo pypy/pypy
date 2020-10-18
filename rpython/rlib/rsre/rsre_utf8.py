@@ -20,10 +20,6 @@ class Utf8MatchContext(AbstractMatchContext):
         check_nonneg(index)
         return rutf8.codepoint_at_pos(self._utf8, index)
 
-    def lowstr(self, index, flags):
-        c = self.str(index)
-        return rsre_char.getlower(c, flags)
-
     def get_single_byte(self, base_position, index):
         return self._utf8[base_position + index]
 

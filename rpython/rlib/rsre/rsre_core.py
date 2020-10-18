@@ -51,17 +51,34 @@ class EndOfString(Exception):
     pass
 
 class CompiledPattern(object):
-    _immutable_fields_ = ['pattern[*]', 'flags']
+    _immutable_fields_ = ['pattern[*]', '_getlower', '_getupper']
 
     def __init__(self, pattern, flags):
         self.pattern = pattern
-        self.flags = flags
+        if not consts.V37:      # 'flags' is ignored in >=3.7 mode
+            self.flags = flags
         # check we don't get the old value of MAXREPEAT
         # during the untranslated tests. 
         # On python3, MAXCODE can appear in patterns. It will be 65535
         # when CODESIZE is 2
         if not we_are_translated() and rsre_char.CODESIZE != 2:
             assert 65535 not in pattern
+
+    def lowa(self, char_ord):
+        """Pre-3.7: uses getlower(flags).
+           Post-3.7: this is always getlower_ascii().
+        """
+        if not consts.V37:
+            return rsre_char.getlower(char_ord, self.flags)
+        else:
+            return rsre_char.getlower_ascii(char_ord)
+
+    def char_loc_ignore(self, index, char_ord):
+        assert consts.V37
+        pattern = self.pat(index)
+        return (char_ord == pattern or
+                rsre_char.getlower_locale(char_ord) == pattern or
+                rsre_char.getupper_locale(char_ord) == pattern)
 
     def pat(self, index):
         jit.promote(self)
@@ -99,15 +116,10 @@ class AbstractMatchContext(object):
     @not_rpython
     def str(self, index):
         """Must be overridden in a concrete subclass.
-        The tag ^^^ here is used to generate a translation-time crash
+        The @not_rpython is used to generate a translation-time crash
         if there is a call to str() that is indirect.  All calls must
         be direct for performance reasons; you need to specialize the
         caller with @specializectx."""
-        raise NotImplementedError
-
-    @not_rpython
-    def lowstr(self, index, flags):
-        """Similar to str()."""
         raise NotImplementedError
 
     # The following methods are provided to be overriden in
@@ -236,10 +248,6 @@ class BufMatchContext(FixedMatchContext):
         check_nonneg(index)
         return ord(self._buffer.getitem(index))
 
-    def lowstr(self, index, flags):
-        c = self.str(index)
-        return rsre_char.getlower(c, flags)
-
     def fresh_copy(self, start):
         return BufMatchContext(self._buffer, start,
                                self.end)
@@ -260,10 +268,6 @@ class StrMatchContext(FixedMatchContext):
     def str(self, index):
         check_nonneg(index)
         return ord(self._string[index])
-
-    def lowstr(self, index, flags):
-        c = self.str(index)
-        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return StrMatchContext(self._string, start,
@@ -288,10 +292,6 @@ class UnicodeMatchContext(FixedMatchContext):
     def str(self, index):
         check_nonneg(index)
         return ord(self._unicodestr[index])
-
-    def lowstr(self, index, flags):
-        c = self.str(index)
-        return rsre_char.getlower(c, flags)
 
     def fresh_copy(self, start):
         return UnicodeMatchContext(self._unicodestr, start,
@@ -699,7 +699,18 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
             if length_bytes < 0:
                 return     # group was not previously defined
-            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes, pattern.flags)
+            ptr = match_repeated_ignore(ctx, ptr, startptr, length_bytes, pattern)
+            if ptr < ctx.ZERO:
+                return     # no match
+            ppos += 1
+
+        elif consts.eq(op, consts.OPCODE37_GROUPREF_UNI_IGNORE):
+            # unicode version of OPCODE_GROUPREF_IGNORE
+            # <GROUPREF> <groupnum>
+            startptr, length_bytes = get_group_ref(ctx, marks, pattern.pat(ppos))
+            if length_bytes < 0:
+                return     # group was not previously defined
+            ptr = match_repeated_uni_ignore(ctx, ptr, startptr, length_bytes)
             if ptr < ctx.ZERO:
                 return     # no match
             ppos += 1
@@ -726,7 +737,7 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             # match set member (or non_member), ignoring case
             # <IN> <skip> <set>
             if ptr >= ctx.end or not rsre_char.check_charset(ctx, pattern, ppos+1,
-                                                             ctx.lowstr(ptr, pattern.flags)):
+                                                             pattern.lowa(ctx.str(ptr))):
                 return
             ppos += pattern.pat(ppos)
             ptr = ctx.next(ptr)
@@ -752,7 +763,23 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_LITERAL_IGNORE:
             # match literal string, ignoring case
             # <LITERAL_IGNORE> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos):
+            if ptr >= ctx.end or pattern.lowa(ctx.str(ptr)) != pattern.pat(ppos):
+                return
+            ppos += 1
+            ptr = ctx.next(ptr)
+
+        elif consts.eq(op, consts.OPCODE37_LITERAL_UNI_IGNORE):
+            # match literal string, ignoring case, unicode mode
+            # <LITERAL_IGNORE> <code>
+            if ptr >= ctx.end or rsre_char.getlower_unicode(ctx.str(ptr)) != pattern.pat(ppos):
+                return
+            ppos += 1
+            ptr = ctx.next(ptr)
+
+        elif consts.eq(op, consts.OPCODE37_LITERAL_LOC_IGNORE):
+            # match literal string, ignoring case, locale mode
+            # <LITERAL_IGNORE> <code>
+            if ptr >= ctx.end or not pattern.char_loc_ignore(ppos, ctx.str(ptr)):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -775,7 +802,23 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
         elif op == consts.OPCODE_NOT_LITERAL_IGNORE:
             # match if it's not a literal string, ignoring case
             # <NOT_LITERAL> <code>
-            if ptr >= ctx.end or ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos):
+            if ptr >= ctx.end or pattern.lowa(ctx.str(ptr)) == pattern.pat(ppos):
+                return
+            ppos += 1
+            ptr = ctx.next(ptr)
+
+        elif op == consts.OPCODE37_NOT_LITERAL_UNI_IGNORE:
+            # match if it's not a literal string, ignoring case, unicode mode
+            # <NOT_LITERAL> <code>
+            if ptr >= ctx.end or rsre_char.getlower_unicode(ctx.str(ptr)) == pattern.pat(ppos):
+                return
+            ppos += 1
+            ptr = ctx.next(ptr)
+
+        elif op == consts.OPCODE37_NOT_LITERAL_LOC_IGNORE:
+            # match if it's not a literal string, ignoring case, locale mode
+            # <NOT_LITERAL> <code>
+            if ptr >= ctx.end or pattern.char_loc_ignore(ppos, ctx.str(ptr)):
                 return
             ppos += 1
             ptr = ctx.next(ptr)
@@ -883,12 +926,24 @@ def match_repeated(ctx, ptr, oldptr, length_bytes):
     return True
 
 @specializectx
-def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, flags):
+def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, pattern):
     oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
     while oldptr < oldend:
         if ptr >= ctx.end:
             return -1
-        if ctx.lowstr(ptr, flags) != ctx.lowstr(oldptr, flags):
+        if pattern.lowa(ctx.str(ptr)) != pattern.lowa(ctx.str(oldptr)):
+            return -1
+        ptr = ctx.next(ptr)
+        oldptr = ctx.next(oldptr)
+    return ptr
+
+@specializectx
+def match_repeated_uni_ignore(ctx, ptr, oldptr, length_bytes, pattern):
+    oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
+    while oldptr < oldend:
+        if ptr >= ctx.end:
+            return -1
+        if rsre_char.getlower_unicode(ctx.str(ptr)) != rsre_char.getlower_unicode(ctx.str(oldptr)):
             return -1
         ptr = ctx.next(ptr)
         oldptr = ctx.next(oldptr)
@@ -955,19 +1010,31 @@ def match_IN(ctx, pattern, ptr, ppos):
     return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.str(ptr))
 @specializectx
 def match_IN_IGNORE(ctx, pattern, ptr, ppos):
-    return rsre_char.check_charset(ctx, pattern, ppos+2, ctx.lowstr(ptr, pattern.flags))
+    return rsre_char.check_charset(ctx, pattern, ppos+2, pattern.lowa(ctx.str(ptr)))
 @specializectx
 def match_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) == pattern.pat(ppos+1)
 @specializectx
 def match_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr, pattern.flags) == pattern.pat(ppos+1)
+    return pattern.lowa(ctx.str(ptr)) == pattern.pat(ppos+1)
+@specializectx
+def match_LITERAL_UNI_IGNORE(ctx, pattern, ptr, ppos):
+    return rsre_char.getlower_unicode(ctx.str(ptr)) == pattern.pat(ppos+1)
+@specializectx
+def match_LITERAL_LOC_IGNORE(ctx, pattern, ptr, ppos):
+    return pattern.char_loc_ignore(ppos+1, ctx.str(ptr))
 @specializectx
 def match_NOT_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) != pattern.pat(ppos+1)
 @specializectx
 def match_NOT_LITERAL_IGNORE(ctx, pattern, ptr, ppos):
-    return ctx.lowstr(ptr, pattern.flags) != pattern.pat(ppos+1)
+    return pattern.lowa(ctx.str(ptr)) != pattern.pat(ppos+1)
+@specializectx
+def match_NOT_LITERAL_UNI_IGNORE(ctx, pattern, ptr, ppos):
+    return rsre_char.getlower_unicode(ctx.str(ptr)) != pattern.pat(ppos+1)
+@specializectx
+def match_NOT_LITERAL_LOC_IGNORE(ctx, pattern, ptr, ppos):
+    return not pattern.char_loc_ignore(ppos+1, ctx.str(ptr))
 
 def _make_fre(checkerfn):
     if checkerfn == match_ANY_ALL:
@@ -1021,9 +1088,15 @@ unroll_char_checker = [
     (consts.OPCODE_IN_IGNORE,          match_IN_IGNORE),
     (consts.OPCODE_LITERAL,            match_LITERAL),
     (consts.OPCODE_LITERAL_IGNORE,     match_LITERAL_IGNORE),
+    (consts.OPCODE37_LITERAL_UNI_IGNORE,      match_LITERAL_UNI_IGNORE),
+    (consts.OPCODE37_LITERAL_LOC_IGNORE,      match_LITERAL_LOC_IGNORE),
     (consts.OPCODE_NOT_LITERAL,        match_NOT_LITERAL),
     (consts.OPCODE_NOT_LITERAL_IGNORE, match_NOT_LITERAL_IGNORE),
+    (consts.OPCODE37_NOT_LITERAL_UNI_IGNORE,  match_NOT_LITERAL_UNI_IGNORE),
+    (consts.OPCODE37_NOT_LITERAL_LOC_IGNORE,  match_NOT_LITERAL_LOC_IGNORE),
     ]
+unroll_char_checker = [(_op, _fn) for (_op, _fn) in unroll_char_checker
+                       if _op is not None]
 unroll_fre_checker = [(_op, _make_fre(_fn))
                       for (_op, _fn) in unroll_char_checker]
 

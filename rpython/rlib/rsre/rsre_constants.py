@@ -1,5 +1,6 @@
 # Horrible import-time hack.
 # Blame CPython for renumbering these OPCODE_* at some point.
+from rpython.rlib.objectmodel import specialize
 try:
     import pypy.module.sys.version
     V37 = pypy.module.sys.version.CPYTHON_VERSION >= (3, 7)
@@ -55,6 +56,10 @@ OPCODE37_RANGE_UNI_IGNORE         = 40 if V37 else None
 
 # not used by Python itself
 OPCODE_UNICODE_GENERAL_CATEGORY = 70
+
+@specialize.argtype(1)
+def eq(op, const):
+    return const is not None and op == const
 
 
 AT_BEGINNING = 0
