@@ -300,7 +300,8 @@ set_dispatch_table = {
     consts.OPCODE_BIGCHARSET: set_bigcharset,
     consts.OPCODE_LITERAL: set_literal,
     consts.OPCODE_RANGE: set_range,
-    consts.OPCODE_RANGE_IGNORE: set_range_ignore,
+    consts.OPCODE27_RANGE_IGNORE: set_range_ignore,
     consts.OPCODE_UNICODE_GENERAL_CATEGORY: set_unicode_general_category,
 }
+set_dispatch_table.pop(None, None)   # remove the OPCODE27_* or OPCODE37_*
 set_dispatch_unroll = unrolling_iterable(sorted(set_dispatch_table.items()))
