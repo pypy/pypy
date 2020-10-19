@@ -95,6 +95,7 @@ class AppTestSrePattern:
         assert ["a", "u"] == re.findall("b(.)", "abalbus")
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
+        assert ['', '', 'X', '', ''] == re.findall("X??", "1X4")
 
     def test_findall_unicode(self):
         import re
@@ -349,6 +350,10 @@ class AppTestSreMatch:
         # this fails on CPython 3.5:
         assert re.sub(b'a', bytearray(b'\\n'), b'axa') == b'\nx\n'
 
+    def test_sub_emptymatch(self):
+        import re
+        assert re.sub(r"b*", "*", "abc") == "*a**c*"
+
     def test_match_array(self):
         import re, array
         a = array.array('b', b'hello')
@@ -440,9 +445,8 @@ class AppTestSreScanner:
         assert "a" == p.match().group(0)
         assert "a" == p.match().group(0)
         assert None == p.match()
-        assert "a" == p.match().group(0)
-        assert "a" == p.match().group(0)
-        assert None == p.match()
+        # the rest has been changed somewhere between Python 2.6.9
+        # and Python 2.7.18.  PyPy now follows the 2.7.18 behavior
         assert None == p.match()
         assert None == p.match()
 
@@ -459,6 +463,14 @@ class AppTestSreScanner:
             skip("2.3 is different here")
         p = re.compile(".*").scanner("bla")
         assert ("bla", "") == (p.search().group(0), p.search().group(0))
+        assert None == p.search()
+
+    def test_scanner_empty_match(self):
+        import re, sys
+        p = re.compile("a??").scanner("bac")
+        assert ("", "", "a", "", "") == (
+            p.search().group(0), p.search().group(0), p.search().group(0),
+            p.search().group(0), p.search().group(0))
         assert None == p.search()
 
     def test_no_pattern(self):
@@ -1109,10 +1121,14 @@ class AppTestOptimizations:
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
 
-    def test_split_nonempty(self):
+    def test_split_empty(self):
         import re
-        raises(ValueError, re.split, '', '')
-        re.split("a*", '')    # -> warning
+        assert re.split('', '') == ['', '']
+        assert re.split('', 'ab') == ['', 'a', 'b', '']
+        assert re.split('a*', '') == ['', '']
+        assert re.split('a*', 'a') == ['', '', '']
+        assert re.split('a*', 'aa') == ['', '', '']
+        assert re.split('a*', 'baaac') == ['', 'b', '', 'c', '']
 
     def test_type_names(self):
         import re

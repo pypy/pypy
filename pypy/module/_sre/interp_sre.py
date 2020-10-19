@@ -294,7 +294,7 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        ctx.fullmatch_only = True
+        ctx.match_mode = rsre_core.MODE_FULL
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
@@ -324,12 +324,7 @@ class W_SRE_Pattern(W_Root):
                     w_item = allgroups_w(space, ctx, fmarks, num_groups,
                                          w_emptystr)
             matchlist_w.append(w_item)
-            reset_at = ctx.match_end
-            if ctx.match_start == ctx.match_end:
-                if reset_at == ctx.end:
-                    break
-                reset_at = ctx.next_indirect(reset_at)
-            ctx.reset(reset_at)
+            ctx.reset(ctx.match_end, ctx.match_start == ctx.match_end)
         return space.newlist(matchlist_w)
 
     @unwrap_spec(pos=int, endpos=int)
@@ -343,14 +338,6 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
         space = self.space
-
-        if self.code.pattern[0] != consts.OPCODE_INFO or self.code.pattern[3] == 0:
-            if self.code.pattern[0] == consts.OPCODE_INFO and self.code.pattern[4] == 0:
-                raise oefmt(space.w_ValueError,
-                            "split() requires a non-empty pattern match.")
-            space.warn(
-                space.newtext("split() requires a non-empty pattern match."),
-                space.w_FutureWarning)
         #
         splitlist = []
         n = 0
@@ -359,11 +346,6 @@ class W_SRE_Pattern(W_Root):
         while not maxsplit or n < maxsplit:
             if not searchcontext(space, ctx, self.code):
                 break
-            if ctx.match_start == ctx.match_end:     # zero-width match
-                if ctx.match_start == ctx.end:       # or end of string
-                    break
-                ctx.reset(ctx.next_indirect(ctx.match_end))
-                continue
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
             # add groups (if any)
@@ -374,7 +356,7 @@ class W_SRE_Pattern(W_Root):
                                          space.w_None))
             n += 1
             last = ctx.match_end
-            ctx.reset(last)
+            ctx.reset(last, ctx.match_start == last)
         splitlist.append(slice_w(space, ctx, last, ctx.end, space.w_None))
         return space.newlist(splitlist)
 
@@ -474,9 +456,7 @@ class W_SRE_Pattern(W_Root):
                 _sub_append_slice(
                     ctx, space, use_builder, sublist_w,
                     strbuilder, last_pos, ctx.match_start)
-            if not (last_pos == ctx.match_start
-                             == ctx.match_end and n > 0):
-                # the above ignores empty matches on latest position
+            if 1:  # keeps the following block indented
                 last_pos = ctx.match_end
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
@@ -495,15 +475,9 @@ class W_SRE_Pattern(W_Root):
                     else:
                         sublist_w.append(w_filter)
                 n += 1
-            elif last_pos >= ctx.end:
-                break    # empty match at the end: finished
 
             start = ctx.match_end
-            if start == ctx.match_start:
-                if start == ctx.end:
-                    break
-                start = ctx.next_indirect(start)
-            ctx.reset(start)
+            ctx.reset(start, ctx.match_start == start)
 
         if last_pos < ctx.end:
             _sub_append_slice(ctx, space, use_builder, sublist_w,
@@ -889,26 +863,14 @@ class W_SRE_Scanner(W_Root):
         ctx = self.ctx
         assert ctx is not None
         if found:
+            thisstart = ctx.match_start
             nextstart = ctx.match_end
-            exhausted = False
-            if ctx.match_start == nextstart:
-                if nextstart == ctx.end:
-                    exhausted = True
-                else:
-                    nextstart = ctx.next_indirect(nextstart)
-            if exhausted:
-                self.ctx = None
-            else:
-                self.ctx = self.srepat.fresh_copy(ctx)
-                self.ctx.match_start = nextstart
+            self.ctx = self.srepat.fresh_copy(ctx)
+            self.ctx.reset(nextstart, thisstart == nextstart)
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
-            # obscure corner case
-            if ctx.match_start == ctx.end:
-                self.ctx = None
-            else:
-                ctx.match_start = ctx.next_indirect(ctx.match_start)
+            self.ctx = None
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

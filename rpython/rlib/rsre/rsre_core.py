@@ -98,6 +98,10 @@ class CompiledPattern(object):
         assert result >= 0
         return result
 
+MODE_ANY = '\x00'         # an empty match is fine
+MODE_NONEMPTY = '\x01'    # must have a non-empty match
+MODE_FULL = '\x02'        # must match the whole string
+
 class AbstractMatchContext(object):
     """Abstract base class"""
     _immutable_fields_ = ['end']
@@ -105,7 +109,7 @@ class AbstractMatchContext(object):
     match_end = 0
     match_marks = None
     match_marks_flat = None
-    fullmatch_only = False
+    match_mode = MODE_ANY
 
     def __init__(self, match_start, end):
         # 'match_start' and 'end' must be known to be non-negative
@@ -115,10 +119,20 @@ class AbstractMatchContext(object):
         self.match_start = match_start
         self.end = end
 
-    def reset(self, start):
+    def reset(self, start, must_advance=False):
         self.match_start = start
         self.match_marks = None
         self.match_marks_flat = None
+        #
+        assert MODE_ANY == chr(False)
+        assert MODE_NONEMPTY == chr(True)
+        self.match_mode = chr(must_advance)
+
+    @not_rpython
+    def _fullmatch_only(self, x=None):
+        raise Exception("'ctx.fullmatch_only' was replaced with"
+                        " 'ctx.match_mode'")
+    fullmatch_only = property(_fullmatch_only, _fullmatch_only)
 
     @not_rpython
     def str(self, index):
@@ -606,9 +620,13 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             return
 
         elif op == consts.OPCODE_SUCCESS:
-            if ctx.fullmatch_only:
+            mode = ctx.match_mode
+            if mode == MODE_FULL:
                 if ptr != ctx.end:
                     return     # not a full match
+            elif mode == MODE_NONEMPTY:
+                if ptr == ctx.match_start:
+                    return     # empty match
             ctx.match_end = ptr
             ctx.match_marks = marks
             return MATCHED_OK
@@ -640,10 +658,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
                 ptr1 = ctx.prev_n(ptr, pattern.pat(ppos+1), ctx.ZERO)
             except EndOfString:
                 return
-            saved = ctx.fullmatch_only
-            ctx.fullmatch_only = False
+            saved = ctx.match_mode
+            ctx.match_mode = MODE_ANY
             stop = sre_match(ctx, pattern, ppos + 2, ptr1, marks) is None
-            ctx.fullmatch_only = saved
+            ctx.match_mode = saved
             if stop:
                 return
             marks = ctx.match_marks
@@ -658,10 +676,10 @@ def sre_match(ctx, pattern, ppos, ptr, marks):
             except EndOfString:
                 pass
             else:
-                saved = ctx.fullmatch_only
-                ctx.fullmatch_only = False
+                saved = ctx.match_mode
+                ctx.match_mode = MODE_ANY
                 stop = sre_match(ctx, pattern, ppos + 2, ptr1, marks) is not None
-                ctx.fullmatch_only = saved
+                ctx.match_mode = saved
                 if stop:
                     return
             ppos += pattern.pat(ppos)
@@ -1239,7 +1257,8 @@ def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     assert isinstance(pattern, CompiledPattern)
     start, end = _adjust(start, end, len(string))
     ctx = StrMatchContext(string, start, end)
-    ctx.fullmatch_only = fullmatch
+    if fullmatch:
+        ctx.match_mode = MODE_FULL
     if match_context(ctx, pattern):
         return ctx
     else:
