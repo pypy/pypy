@@ -974,7 +974,7 @@ def match_repeated_ignore(ctx, ptr, oldptr, length_bytes, pattern):
     return ptr
 
 @specializectx
-def match_repeated_uni_ignore(ctx, ptr, oldptr, length_bytes, pattern):
+def match_repeated_uni_ignore(ctx, ptr, oldptr, length_bytes):
     oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
     while oldptr < oldend:
         if ptr >= ctx.end:
@@ -986,7 +986,7 @@ def match_repeated_uni_ignore(ctx, ptr, oldptr, length_bytes, pattern):
     return ptr
 
 @specializectx
-def match_repeated_loc_ignore(ctx, ptr, oldptr, length_bytes, pattern):
+def match_repeated_loc_ignore(ctx, ptr, oldptr, length_bytes):
     oldend = ctx.go_forward_by_bytes(oldptr, length_bytes)
     while oldptr < oldend:
         if ptr >= ctx.end:
