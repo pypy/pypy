@@ -45,10 +45,10 @@ else:
 # codesize. But sre_compile will compile some stuff differently depending on the
 # codesize (e.g., charsets).
 from rpython.rlib.runicode import MAXUNICODE
-if MAXUNICODE == 65535:
+if MAXUNICODE == 65535 and not consts.V37:
     CODESIZE = 2
 else:
-    CODESIZE = 4
+    CODESIZE = 4        # always 4 from py3.7
 
 copyright = "_sre.py 2.4 Copyright 2005 by Nik Haldimann"
 

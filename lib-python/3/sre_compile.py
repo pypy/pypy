@@ -415,11 +415,7 @@ def _mk_bitmap(bits, _CODEBITS=_CODEBITS, _int=int):
 
 def _bytes_to_codes(b):
     # Convert block indices to word array
-    if _sre.CODESIZE == 2:
-        code = 'H'
-    else:
-        code = 'I'
-    a = memoryview(b).cast(code)
+    a = memoryview(b).cast('I')
     assert a.itemsize == _sre.CODESIZE
     assert len(a) * a.itemsize == len(b)
     return a.tolist()
