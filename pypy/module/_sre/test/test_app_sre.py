@@ -403,9 +403,8 @@ class AppTestSreScanner:
         assert "a" == p.match().group(0)
         assert "a" == p.match().group(0)
         assert None == p.match()
-        assert "a" == p.match().group(0)
-        assert "a" == p.match().group(0)
-        assert None == p.match()
+        # the rest has been changed somewhere between Python 2.6.9
+        # and Python 2.7.18.  PyPy now follows the 2.7.18 behavior
         assert None == p.match()
         assert None == p.match()
 
