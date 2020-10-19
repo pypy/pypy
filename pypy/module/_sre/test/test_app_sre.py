@@ -29,6 +29,8 @@ class AppTestSrePy:
     def test_codesize(self):
         import _sre
         assert _sre.getcodesize() == _sre.CODESIZE
+        # in py3.7, it should always be 4
+        assert _sre.CODESIZE == 4
 
 
 class AppTestSrePattern:
