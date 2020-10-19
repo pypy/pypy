@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, int_between
 from rpython.rlib import jit, rutf8
 from rpython.rlib.rstring import StringBuilder
 
@@ -15,13 +15,24 @@ from rpython.rlib.rstring import StringBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8, rsre_constants as consts
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unicode_db
 
 
-@unwrap_spec(char_ord=int, flags=int)
-def w_getlower(space, char_ord, flags):
-    return space.newint(getlower(char_ord, flags))
+@unwrap_spec(character=int)
+def w_ascii_iscased(space, character):
+    return space.newbool(rsre_char.iscased_ascii(character))
 
+@unwrap_spec(character=int)
+def w_unicode_iscased(space, character):
+    return space.newbool(rsre_char.iscased_unicode(character))
+
+@unwrap_spec(character=int)
+def w_ascii_tolower(space, character):
+    return space.newint(rsre_char.getlower_ascii(character))
+
+@unwrap_spec(character=int)
+def w_unicode_tolower(space, character):
+    return space.newint(rsre_char.getlower_unicode(character))
 
 def w_getcodesize(space):
     return space.newint(CODESIZE)

@@ -100,6 +100,18 @@ def getupper(char_ord, flags):
         char_ord = getupper_ascii(char_ord)
     return char_ord
 
+def iscased_ascii(char_ord):   # used by py3.7
+    upper = int_between(ord('A'), char_ord, ord('Z')+1)
+    lower = int_between(ord('a'), char_ord, ord('z')+1)
+    return upper | lower
+
+def iscased_unicode(char_ord):   # used by py3.7
+    # NOTE: this is not unicodedb.iscased().  As per CPython 3.7, it is
+    # something different which---as far as I can tell---doesn't really
+    # have a meaning on its own, but well.
+    return (char_ord != getlower_unicode(char_ord) or
+            char_ord != getupper_unicode(char_ord))
+
 #### Category helpers
 
 is_a_word = [(chr(i).isalnum() or chr(i) == '_') for i in range(256)]
