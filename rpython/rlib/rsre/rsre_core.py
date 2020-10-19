@@ -1060,6 +1060,12 @@ def match_IN(ctx, pattern, ptr, ppos):
 def match_IN_IGNORE(ctx, pattern, ptr, ppos):
     return rsre_char.check_charset(ctx, pattern, ppos+2, pattern.lowa(ctx.str(ptr)))
 @specializectx
+def match_IN_UNI_IGNORE(ctx, pattern, ptr, ppos):
+    return rsre_char.check_charset(ctx, pattern, ppos+2, rsre_char.getlower_unicode(ctx.str(ptr)))
+@specializectx
+def match_IN_LOC_IGNORE(ctx, pattern, ptr, ppos):
+    return pattern.charset_loc_ignore(ctx, ppos+2, ctx.str(ptr))
+@specializectx
 def match_LITERAL(ctx, pattern, ptr, ppos):
     return ctx.str(ptr) == pattern.pat(ppos+1)
 @specializectx
@@ -1088,32 +1094,23 @@ def _make_fre(checkerfn):
     if checkerfn == match_ANY_ALL:
         def fre(ctx, pattern, ptr, end, ppos):
             return end
-    elif checkerfn == match_IN:
-        install_jitdriver_spec('MatchIn',
+    elif checkerfn in (match_IN, match_IN_IGNORE, match_IN_UNI_IGNORE):
+        # produces three jitdrivers:
+        #     MatchIn
+        #     MatchInIgnore
+        #     MatchInUniIgnore
+        name = checkerfn.__name__.title().replace('_', '')
+        method_name = "jitdriver_" + name
+        install_jitdriver_spec(name,
                                greens=['ppos', 'pattern'],
                                reds=['ptr', 'end', 'ctx'],
                                debugprint=(1, 0))
         @specializectx
         def fre(ctx, pattern, ptr, end, ppos):
             while True:
-                ctx.jitdriver_MatchIn.jit_merge_point(ctx=ctx, ptr=ptr,
+                getattr(ctx, method_name).jit_merge_point(ctx=ctx, ptr=ptr,
                                                       end=end, ppos=ppos,
                                                       pattern=pattern)
-                if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
-                    ptr = ctx.next(ptr)
-                else:
-                    return ptr
-    elif checkerfn == match_IN_IGNORE:
-        install_jitdriver_spec('MatchInIgnore',
-                               greens=['ppos', 'pattern'],
-                               reds=['ptr', 'end', 'ctx'],
-                               debugprint=(1, 0))
-        @specializectx
-        def fre(ctx, pattern, ptr, end, ppos):
-            while True:
-                ctx.jitdriver_MatchInIgnore.jit_merge_point(ctx=ctx, ptr=ptr,
-                                                            end=end, ppos=ppos,
-                                                            pattern=pattern)
                 if ptr < end and checkerfn(ctx, pattern, ptr, ppos):
                     ptr = ctx.next(ptr)
                 else:
@@ -1134,6 +1131,8 @@ unroll_char_checker = [
     (consts.OPCODE_ANY_ALL,            match_ANY_ALL),
     (consts.OPCODE_IN,                 match_IN),
     (consts.OPCODE_IN_IGNORE,          match_IN_IGNORE),
+    (consts.OPCODE37_IN_UNI_IGNORE,           match_IN_UNI_IGNORE),
+    (consts.OPCODE37_IN_LOC_IGNORE,           match_IN_LOC_IGNORE),
     (consts.OPCODE_LITERAL,            match_LITERAL),
     (consts.OPCODE_LITERAL_IGNORE,     match_LITERAL_IGNORE),
     (consts.OPCODE37_LITERAL_UNI_IGNORE,      match_LITERAL_UNI_IGNORE),
