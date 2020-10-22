@@ -13,11 +13,8 @@ from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
-# py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
-else:
-    USEMODULES += ['_rawffi', 'thread', '_cffi_backend']
+    USEMODULES += ['_socket']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -1693,12 +1690,17 @@ class AppTestEnvironment(object):
         cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
+        import sys
         environ = self.posix.environ
         if not environ:
             skip('environ not filled in for untranslated tests')
+        if sys.platform == 'win32':
+            rawenv = str
+        else:
+            rawenv = bytes
         for k, v in environ.items():
-            assert type(k) is bytes
-            assert type(v) is bytes
+            assert type(k) is rawenv
+            assert type(v) is rawenv
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
