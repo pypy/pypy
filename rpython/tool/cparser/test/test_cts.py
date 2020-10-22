@@ -225,23 +225,6 @@ def test_struct_in_func_args():
     FUNCPTR = cts.gettype('func')
     assert FUNCPTR.TO.ARGS == (OBJ,)
 
-def test_write_func():
-    from pypy.module.cpyext.api import ApiFunction
-    from rpython.translator.c.database import LowLevelDatabase
-    db = LowLevelDatabase()
-    cdef = """
-    typedef ssize_t Py_ssize_t;
-    """
-    cts = parse_source(cdef)
-    cdecl = "Py_ssize_t * some_func(Py_ssize_t*)"
-    decl = cts.parse_func(cdecl)
-    api_function = ApiFunction(
-        decl.get_llargs(cts), decl.get_llresult(cts), lambda space, x: None,
-        cdecl=decl)
-    assert (api_function.get_api_decl('some_func', db)
-            == "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
-
-
 def test_wchar_t():
     cdef = """
     typedef struct { wchar_t* x; } test;
