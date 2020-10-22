@@ -227,6 +227,9 @@ class AppTestPosix:
                 fn("nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
+            with raises(OSError) as exc:
+                fn("")
+            assert exc.value.errno == errno.ENOENT
 
         with raises(TypeError) as excinfo:
             self.posix.stat(None)
@@ -364,15 +367,10 @@ class AppTestPosix:
     def test_listdir_default(self):
         import sys
         posix = self.posix
-        if sys.platform == 'win32':
-            defaults = ['.', '', None]
-            assert posix.listdir(b'.') == posix.listdir(b'')
-        else:
-            defaults = ['.', None]
-            for v in ['', b'']:
-                with raises(FileNotFoundError):
-                    posix.listdir(v)
-        for v in defaults:
+        for v in ['', b'']:
+            with raises(FileNotFoundError):
+                posix.listdir(v)
+        for v in ['.', None]:
             assert posix.listdir() == posix.listdir(v)
 
     def test_listdir_bytes(self):
