@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from . import cmodel as model
+from . import model
 from .commontypes import COMMON_TYPES, resolve_common_type
 from .error import FFIError, CDefError
 try:

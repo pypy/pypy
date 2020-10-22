@@ -2,7 +2,7 @@ from rpython.flowspace.model import const
 from rpython.flowspace.objspace import build_flow
 from rpython.translator.simplify import simplify_graph
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.cparser import parse_source, CTypeSpace
+from rpython.tool.cparser import parse_source, CTypeSpace
 
 def test_configure():
     decl = """
@@ -226,7 +226,7 @@ def test_struct_in_func_args():
     assert FUNCPTR.TO.ARGS == (OBJ,)
 
 def test_write_func():
-    from ..api import ApiFunction
+    from pypy.module.cpyext.api import ApiFunction
     from rpython.translator.c.database import LowLevelDatabase
     db = LowLevelDatabase()
     cdef = """
@@ -238,8 +238,8 @@ def test_write_func():
     api_function = ApiFunction(
         decl.get_llargs(cts), decl.get_llresult(cts), lambda space, x: None,
         cdecl=decl)
-    assert (api_function.get_api_decl('some_func', db) ==
-            "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
+    assert (api_function.get_api_decl('some_func', db)
+            == "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
 
 
 def test_wchar_t():
@@ -249,7 +249,7 @@ def test_wchar_t():
     cts = parse_source(cdef, headers=['stddef.h'])
     obj = lltype.malloc(cts.gettype('test'), flavor='raw')
     obj.c_x = cts.cast('wchar_t*', 0)
-    obj.c_x =  lltype.nullptr(rffi.CWCHARP.TO)
+    obj.c_x = lltype.nullptr(rffi.CWCHARP.TO)
     lltype.free(obj, flavor='raw')
 
 def test_translate_cast():
