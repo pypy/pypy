@@ -1,3 +1,4 @@
+import pytest
 from rpython.flowspace.model import const
 from rpython.flowspace.objspace import build_flow
 from rpython.translator.simplify import simplify_graph
@@ -98,6 +99,7 @@ def test_multiple_sources():
     Object = cts.definitions['Object']
     assert Object.c_type.TO is Type
 
+@pytest.mark.xfail(reason='Should we support this?')
 def test_incomplete():
     cdef = """
     typedef ssize_t Py_ssize_t;
@@ -122,7 +124,6 @@ def test_incomplete_struct():
     cdef = """
     typedef struct s *ptr;
     struct s {void* x;};
-    typedef struct s __s;  // HACK!
     """
     cts = parse_source(cdef)
     PTR = cts.gettype("ptr")
@@ -166,6 +167,17 @@ def test_nested_struct():
     bar = cts.gettype('bar')
     assert isinstance(bar, lltype.Struct)
     hash(bar)  # bar is hashable
+
+def test_named_struct():
+    cdef = """
+    struct foo {
+        int x;
+    };
+    """
+    cts = parse_source(cdef)
+    foo = cts.gettype('struct foo')
+    assert isinstance(foo, lltype.Struct)
+    hash(foo)
 
 def test_const():
     cdef = """

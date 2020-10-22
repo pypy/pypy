@@ -106,6 +106,12 @@ class CTypeSpace(object):
         assert name not in self.macros
         self.macros[name] = value
 
+    def add_struct(self, name, obj, quals):
+        tp = self.convert_type(obj, quals)
+        if isinstance(tp, DelayedStruct):
+            tp = self.realize_struct(tp)
+        self.structs[obj] = tp
+
     def new_struct(self, obj):
         if obj.name == '_IO_FILE':  # cffi weirdness
             return cname_to_lltype('FILE')
@@ -161,6 +167,9 @@ class CTypeSpace(object):
             elif name.startswith('macro '):
                 name = name[6:]
                 self.add_macro(name, obj)
+            elif name.startswith('struct '):
+                name = name[7:]
+                self.add_struct(name, obj, quals)
         if not self._config_entries:
             return
         eci = self.build_eci()
