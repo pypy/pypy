@@ -81,16 +81,18 @@ class CTypeSpace(object):
         self.structs.update(other.structs)
         self.includes.append(other)
 
-    def parse_source(self, source):
+    def parse_source(self, source, configure=True):
         self.sources.append(source)
         self.ctx.parse(source)
-        self.configure_types()
+        if configure:
+            self.configure_types()
 
-    def parse_header(self, header_path):
+    def parse_header(self, header_path, configure=True):
         self.headers.append(str(header_path))
         self.parsed_headers.append(header_path)
         self.ctx.parse(header_path.read())
-        self.configure_types()
+        if configure:
+            self.configure_types()
 
     def add_typedef(self, name, obj, quals):
         assert name not in self.definitions

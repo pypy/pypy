@@ -115,8 +115,10 @@ def test_incomplete():
     } Buffer;
 
     """
+    cts = CTypeSpace()
+    cts.parse_source(cdef, configure=False)
     with pytest.raises(ValueError):
-        parse_source(cdef)
+        cts.configure_types()
 
 def test_incomplete_struct():
     cdef = """
