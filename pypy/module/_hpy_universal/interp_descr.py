@@ -64,10 +64,10 @@ def member_get(w_descr, space, w_obj):
     elif kind == Enum.HPyMember_STRING:
         cstr_p = rffi.cast(rffi.CCHARPP, addr)
         if cstr_p[0]:
-            result = rffi.charp2str(cstr_p[0])
+            value = rffi.charp2str(cstr_p[0])
+            return space.newtext(value)
         else:
-            raise NotImplementedError('write a test')
-        return space.newtext(result)
+            return space.w_None
     elif kind == Enum.HPyMember_STRING_INPLACE:
         value = rffi.charp2str(rffi.cast(rffi.CCHARP, addr))
         return space.newtext(value)
