@@ -31,6 +31,54 @@ class TestExtra(HPyTest):
 
     """
 
+    # this is an update for the already-existing test in test_hpytype.py 
+    def test_HPyDef_METH(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(Dummy_foo, "foo", Dummy_foo_impl, HPyFunc_O, .doc="hello")
+            static HPy Dummy_foo_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                return HPy_Add(ctx, arg, arg);
+            }
+
+            HPyDef_METH(Dummy_bar, "bar", Dummy_bar_impl, HPyFunc_NOARGS)
+            static HPy Dummy_bar_impl(HPyContext ctx, HPy self)
+            {
+                return HPyLong_FromLong(ctx, 1234);
+            }
+
+            HPyDef_METH(Dummy_identity, "identity", Dummy_identity_impl, HPyFunc_NOARGS)
+            static HPy Dummy_identity_impl(HPyContext ctx, HPy self)
+            {
+                return HPy_Dup(ctx, self);
+            }
+
+            static HPyDef *dummy_type_defines[] = {
+                    &Dummy_foo,
+                    &Dummy_bar,
+                    &Dummy_identity,
+                    NULL
+            };
+
+            static HPyType_Spec dummy_type_spec = {
+                .name = "mytest.Dummy",
+                .defines = dummy_type_defines
+            };
+
+            @EXPORT_TYPE("Dummy", dummy_type_spec)
+            @INIT
+        """)
+        d = mod.Dummy()
+        assert d.foo.__doc__ == 'hello'
+        assert d.bar.__doc__ is None
+        assert d.foo(21) == 42
+        assert d.bar() == 1234
+        assert d.identity() is d
+        with pytest.raises(TypeError):
+            mod.Dummy.identity()
+        class A: pass
+        with pytest.raises(TypeError):
+            mod.Dummy.identity(A())
 
 
 class TestExtraCPythonCompatibility(HPyTest):
