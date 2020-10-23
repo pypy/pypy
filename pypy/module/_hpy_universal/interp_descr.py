@@ -111,18 +111,23 @@ def member_del(w_descr, space, w_obj):
 
 
 class W_HPyMemberDescriptor(GetSetProperty):
-    def __init__(self, w_type, kind, name, doc, offset):
+    def __init__(self, w_type, kind, name, doc, offset, is_readonly):
         self.kind = kind
         self.name = name
         self.w_type = w_type
         self.offset = offset
-        setter = member_set
+        self.is_readonly = is_readonly
+        if is_readonly:
+            setter = None
+            deleter = None
+        else:
+            setter = member_set
+            deleter = member_del
         GetSetProperty.__init__(
-            self, member_get, setter, member_del, doc,
+            self, member_get, setter, deleter, doc,
             cls=None, use_closure=True, tag="hpy_member")
 
     def readonly_attribute(self, space):   # overwritten
-        # XXX write a test
         raise oefmt(space.w_AttributeError,
             "attribute '%s' of '%N' objects is not writable",
             self.name, self.w_type)
@@ -143,10 +148,11 @@ assert not W_HPyMemberDescriptor.typedef.acceptable_as_base_class  # no __new__
 
 def add_member(space, w_type, hpymember):
     name = rffi.constcharp2str(hpymember.c_name)
-    doc = rffi.constcharp2str(hpymember.c_doc) if hpymember.c_doc else None
-    offset = rffi.cast(lltype.Signed, hpymember.c_offset)
     kind = rffi.cast(lltype.Signed, hpymember.c_type)
-    w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
+    offset = rffi.cast(lltype.Signed, hpymember.c_offset)
+    readonly = rffi.cast(lltype.Signed, hpymember.c_readonly)
+    doc = rffi.constcharp2str(hpymember.c_doc) if hpymember.c_doc else None
+    w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset, readonly)
     w_type.setdictvalue(space, name, w_descr)
 
 
