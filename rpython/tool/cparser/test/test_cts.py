@@ -99,7 +99,6 @@ def test_multiple_sources():
     Object = cts.definitions['Object']
     assert Object.c_type.TO is Type
 
-@pytest.mark.xfail(reason='Should we support this?')
 def test_incomplete():
     cdef = """
     typedef ssize_t Py_ssize_t;
@@ -116,9 +115,8 @@ def test_incomplete():
     } Buffer;
 
     """
-    cts = parse_source(cdef)
-    Object = cts.gettype('Object')
-    assert isinstance(Object, lltype.Struct)
+    with pytest.raises(ValueError):
+        parse_source(cdef)
 
 def test_incomplete_struct():
     cdef = """

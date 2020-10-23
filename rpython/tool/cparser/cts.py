@@ -132,6 +132,8 @@ class CTypeSpace(object):
 
     def realize_struct(self, struct):
         type_name = struct.get_type_name()
+        if struct.fields is None:
+            raise ValueError('Missing definition for %s' % type_name)
         entry = rffi_platform.Struct(type_name, struct.fields)
         self._config_entries[entry] = struct.TYPE
         return struct.TYPE
