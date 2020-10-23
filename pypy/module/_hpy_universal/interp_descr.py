@@ -55,13 +55,9 @@ def member_get(w_descr, space, w_obj):
         value = rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), addr)[0]
         return space.newfloat(value)
     elif kind == Enum.HPyMember_BOOL:
-        raise NotImplementedError
-        # the following code raises the following rpython error, we need an
-        # alternative way to fix it:
-        # TyperError: arithmetic not supported on <UCHAR>, its size is too small
-        #   v3551 = bool(value_104)
         value = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)[0]
-        w_result = space.newbool(bool(value))
+        value = rffi.cast(lltype.Signed, value)
+        return space.newbool(bool(value))
     elif kind == Enum.HPyMember_CHAR:
         value = rffi.cast(rffi.CCHARP, addr)[0]
         return space.newtext(value)
@@ -105,9 +101,9 @@ def member_set(w_descr, space, w_obj, w_value):
         ptr[0] = value
         return
     elif kind == Enum.HPyMember_BOOL:
-        if space.is_w(w_obj, space.w_False):
+        if space.is_w(w_value, space.w_False):
             value = False
-        elif space.is_w(w_obj, space.w_True):
+        elif space.is_w(w_value, space.w_True):
             value = True
         else:
             raise oefmt(space.w_TypeError, "attribute value type must be bool")
