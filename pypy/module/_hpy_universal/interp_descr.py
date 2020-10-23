@@ -62,6 +62,9 @@ def member_get(w_descr, space, w_obj):
         #   v3551 = bool(value_104)
         value = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)[0]
         w_result = space.newbool(bool(value))
+    elif kind == Enum.HPyMember_CHAR:
+        value = rffi.cast(rffi.CCHARP, addr)[0]
+        return space.newtext(value)
     elif kind == Enum.HPyMember_STRING:
         cstr_p = rffi.cast(rffi.CCHARPP, addr)
         result = rffi.charp2str(cstr_p[0]) # XXX should we check for NULL? Write a test
@@ -105,6 +108,12 @@ def member_set(w_descr, space, w_obj, w_value):
         ptr = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
         ptr[0] = rffi.cast(rffi.UCHAR, value)
         return
+    elif kind == Enum.HPyMember_CHAR:
+        str_value = space.text_w(w_value)
+        if len(str_value) != 1:
+            raise oefmt(space.w_TypeError, "string of length 1 expected")
+        ptr = rffi.cast(rffi.CCHARP, addr)
+        ptr[0] = str_value[0]
     elif kind == Enum.HPyMember_STRING:
         raise oefmt(space.w_TypeError, 'readonly attribute')
     else:
