@@ -218,7 +218,7 @@ class W_tp_new_wrapper(W_ExtensionFunction):
 
     def __init__(self, space, cfuncptr, w_type):
         W_ExtensionFunction.__init__(self, space, '__new__', llapi.HPyFunc_KEYWORDS,
-                                     cfuncptr, w_self=w_type)
+                                     None, cfuncptr, w_self=w_type)
 
     def call(self, space, h_self, __args__, skip_args=0):
         assert skip_args == 0
