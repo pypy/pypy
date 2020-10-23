@@ -67,8 +67,14 @@ def member_get(w_descr, space, w_obj):
         return space.newtext(value)
     elif kind == Enum.HPyMember_STRING:
         cstr_p = rffi.cast(rffi.CCHARPP, addr)
-        result = rffi.charp2str(cstr_p[0]) # XXX should we check for NULL? Write a test
+        if cstr_p[0]:
+            result = rffi.charp2str(cstr_p[0])
+        else:
+            raise NotImplementedError('write a test')
         return space.newtext(result)
+    elif kind == Enum.HPyMember_STRING_INPLACE:
+        value = rffi.charp2str(rffi.cast(rffi.CCHARP, addr))
+        return space.newtext(value)
     else:
         # missing: STRING, STRING_INPLACE, OBJECT, OBJECT_EX, NONE
         raise oefmt(space.w_NotImplementedError, '...')
@@ -114,7 +120,7 @@ def member_set(w_descr, space, w_obj, w_value):
             raise oefmt(space.w_TypeError, "string of length 1 expected")
         ptr = rffi.cast(rffi.CCHARP, addr)
         ptr[0] = str_value[0]
-    elif kind == Enum.HPyMember_STRING:
+    elif kind in (Enum.HPyMember_STRING, Enum.HPyMember_STRING_INPLACE):
         raise oefmt(space.w_TypeError, 'readonly attribute')
     else:
         raise oefmt(space.w_NotImplementedError, '...')
