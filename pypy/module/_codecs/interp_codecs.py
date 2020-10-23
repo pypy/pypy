@@ -756,13 +756,13 @@ if getattr(unicodehelper, '_WIN32', False):
         final = space.is_true(w_final)
         state = space.fromcache(CodecState)
         try:
-            result, length, pos = unicodehelper.str_decode_code_page(code_page,
+            result, pos, length = unicodehelper.str_decode_code_page(code_page,
                                    string, errors, final,
                                    state.decode_error_handler)
         except OSError as e:
             raise wrap_oserror(space, e)
         # must return bytes, pos
-        return space.newtuple([space.newutf8(result, length), space.newint(pos)])
+        return space.newtuple([space.newutf8(result, length), space.newint(len(string))])
 
 
 # utf-8 functions are not regular, because we have to pass

@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.runicode import (BOOLP, WideCharToMultiByte,
          MultiByteToWideChar)
 from rpython.rlib.rutf8 import (Utf8StringIterator, next_codepoint_pos,
-                                StringBuilder)
+                                StringBuilder, check_utf8)
 from rpython.rlib import rwin32
 
 def Py_UNICODE_HIGH_SURROGATE(ch):
@@ -89,7 +89,7 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
             r, pos = _decode_cp_error(s, errorhandler,
                                            encoding, errors, final, start, end)
             res.append(r)
-            return pos
+            return pos, check_utf8(r, True)
 
         with rffi.scoped_alloc_unicodebuffer(outsize) as buf:
             # do the conversion
@@ -98,14 +98,14 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
                 r, pos = _decode_cp_error(s, errorhandler,
                                            encoding, errors, final, start, end)
                 res.append(r)
-                return pos
+                return pos, check_utf8(r, True)
             else:
                 res.append(_unibuf_to_utf8(buf.str(outsize), outsize))
-    return end
+    return end, check_utf8(piece, True)
 
 def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     """Decodes a byte string s from a code page cp with an error handler.
-    Returns utf8 result, original s length
+    Returns utf8 result, codepoints in s
     """
     insize = len(s)
     if insize == 0:
@@ -115,17 +115,19 @@ def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     assert errorhandler is not None
     res = StringBuilder(insize)
     if errors == 'strict':
-        _decode_helper(cp, s, flags, encoding, errors, errorhandler,
+        pos, outsize = _decode_helper(cp, s, flags, encoding, errors, errorhandler,
                        final, 0, len(s), res)
     else:
         prev_pos = 0
         pos = 0
+        outsize = 0
         while pos < len(s):
             pos = next_codepoint_pos(s, prev_pos)
-            pos = _decode_helper(cp, s, flags, encoding, errors,
+            pos, _outsize = _decode_helper(cp, s, flags, encoding, errors,
                                  errorhandler, final, prev_pos, pos, res)
             prev_pos = pos
-    return res.build(), insize
+            outsize += _outsize
+    return res.build(), outsize
 
 def str_decode_mbcs(s, errors, errorhandler, final=False):
     return str_decode_code_page(rwin32.CP_ACP, s, errors, errorhandler, final)
