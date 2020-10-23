@@ -58,14 +58,15 @@ typedef struct _HPyTupleBuilder_s {
 } _struct_HPyTupleBuilder_s;
 typedef HPy_ssize_t HPyTupleBuilder;
 
-
 typedef struct _HPyContext_s {
     int ctx_version;
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
+    struct _HPy_s h_Exception;
     struct _HPy_s h_ValueError;
     struct _HPy_s h_TypeError;
+    struct _HPy_s h_IndexError;
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
     struct _HPy_s h_LongType;
@@ -177,6 +178,10 @@ typedef struct _HPyContext_s {
     void * ctx_TupleBuilder_Set;
     void * ctx_TupleBuilder_Build;
     void * ctx_TupleBuilder_Cancel;
+    void * ctx_Tracker_New;
+    void * ctx_Tracker_Add;
+    void * ctx_Tracker_RemoveAll;
+    void * ctx_Tracker_Free;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
