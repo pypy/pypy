@@ -32,30 +32,6 @@ class TestSlots(HPyTest):
         assert p.x == 1
         assert p.y == 2
 
-    def test_sq_item_and_sq_length(self):
-        mod = self.make_module("""
-            @DEFINE_PointObject
-
-            HPyDef_SLOT(Point_getitem, Point_getitem_impl, HPy_sq_item);
-            static HPy Point_getitem_impl(HPyContext ctx, HPy self, HPy_ssize_t idx)
-            {
-                return HPyLong_FromLong(ctx, (long)idx*2);
-            }
-
-            HPyDef_SLOT(Point_length, Point_length_impl, HPy_sq_length);
-            static HPy_ssize_t Point_length_impl(HPyContext ctx, HPy self)
-            {
-                return 1234;
-            }
-
-            @EXPORT_POINT_TYPE(&Point_getitem, &Point_length)
-            @INIT
-        """)
-        p = mod.Point()
-        assert p[4] == 8
-        assert p[21] == 42
-        assert len(p) == 1234
-
     def test_tp_destroy(self):
         import gc
         mod = self.make_module("""
@@ -287,3 +263,173 @@ class TestSlots(HPyTest):
         tmp = p
         tmp **= 42
         assert tmp == (p, 'inplace_power', 42, None)
+
+
+class TestSqSlots(HPyTest):
+
+    ExtensionTemplate = PointTemplate
+
+    def test_sq_item_and_sq_length(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+
+            HPyDef_SLOT(Point_getitem, Point_getitem_impl, HPy_sq_item);
+            static HPy Point_getitem_impl(HPyContext ctx, HPy self, HPy_ssize_t idx)
+            {
+                return HPyLong_FromLong(ctx, (long)idx*2);
+            }
+
+            HPyDef_SLOT(Point_length, Point_length_impl, HPy_sq_length);
+            static HPy_ssize_t Point_length_impl(HPyContext ctx, HPy self)
+            {
+                return 1234;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_getitem, &Point_length)
+            @INIT
+        """)
+        p = mod.Point()
+        assert p[4] == 8
+        assert p[21] == 42
+        assert len(p) == 1234
+
+    def test_sq_ass_item(self):
+        import pytest
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_xy
+
+            HPyDef_SLOT(Point_setitem, Point_setitem_impl, HPy_sq_ass_item);
+            static int Point_setitem_impl(HPyContext ctx, HPy self, HPy_ssize_t idx,
+                                          HPy h_value)
+            {
+                long value;
+                if (HPy_IsNull(h_value))
+                    value = -123; // this is the del p[] case
+                else {
+                    value = HPyLong_AsLong(ctx, h_value);
+                    if (HPyErr_Occurred(ctx))
+                        return -1;
+                }
+                PointObject *point = HPy_CAST(ctx, PointObject, self);
+                if (idx == 0)
+                    point->x = value;
+                else if (idx == 1)
+                    point->y = value;
+                else {
+                    HPyErr_SetString(ctx, ctx->h_IndexError, "invalid index");
+                    return -1;
+                }
+                return 0;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_x, &Point_y, &Point_setitem)
+            @INIT
+        """)
+        p = mod.Point()
+        p[0] = 100
+        assert p.x == 100
+        p[1] = 200
+        assert p.y == 200
+        with pytest.raises(IndexError):
+            p[2] = 300
+        #
+        del p[0]
+        assert p.x == -123
+        del p[1]
+        assert p.y == -123
+
+    def test_sq_concat_and_sq_inplace_concat(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+
+            HPyDef_SLOT(Point_concat, Point_concat_impl, HPy_sq_concat);
+            static HPy Point_concat_impl(HPyContext ctx, HPy self, HPy other)
+            {
+                HPy s = HPyUnicode_FromString(ctx, "sq_concat");
+                HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, s);
+                return res;
+            }
+
+            HPyDef_SLOT(Point_inplace_concat, Point_inplace_concat_impl,
+                        HPy_sq_inplace_concat);
+            static HPy Point_inplace_concat_impl(HPyContext ctx, HPy self, HPy other)
+            {
+                HPy s = HPyUnicode_FromString(ctx, "sq_inplace_concat");
+                HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, s);
+                return res;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_concat, &Point_inplace_concat)
+            @INIT
+        """)
+        p = mod.Point()
+        res = p + 42
+        assert res == (p, "sq_concat", 42)
+        #
+        tmp = p
+        tmp += 43
+        assert tmp == (p, "sq_inplace_concat", 43)
+
+    def test_sq_repeat_and_sq_inplace_repeat(self):
+        mod = self.make_module("""
+            @DEFINE_PointObject
+
+            HPyDef_SLOT(Point_repeat, Point_repeat_impl, HPy_sq_repeat);
+            static HPy Point_repeat_impl(HPyContext ctx, HPy self, HPy_ssize_t t)
+            {
+                HPy s = HPyUnicode_FromString(ctx, "sq_repeat");
+                HPy other = HPyLong_FromLong(ctx, t);
+                HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, s);
+                return res;
+            }
+
+            HPyDef_SLOT(Point_inplace_repeat, Point_inplace_repeat_impl,
+                        HPy_sq_inplace_repeat);
+            static HPy Point_inplace_repeat_impl(HPyContext ctx, HPy self, HPy_ssize_t t)
+            {
+                HPy s = HPyUnicode_FromString(ctx, "sq_inplace_repeat");
+                HPy other = HPyLong_FromLong(ctx, t);
+                HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, s);
+                return res;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_repeat, &Point_inplace_repeat)
+            @INIT
+        """)
+        p = mod.Point()
+        res = p * 42
+        assert res == (p, "sq_repeat", 42)
+        #
+        tmp = p
+        tmp *= 43
+        assert tmp == (p, "sq_inplace_repeat", 43)
+
+    def test_sq_contains(self):
+        import pytest
+        mod = self.make_module("""
+            @DEFINE_PointObject
+
+            HPyDef_SLOT(Point_contains, Point_contains_impl, HPy_sq_contains);
+            static int Point_contains_impl(HPyContext ctx, HPy self, HPy other)
+            {
+                long val = HPyLong_AsLong(ctx, other);
+                if (HPyErr_Occurred(ctx))
+                    return -1;
+                if (val == 42)
+                    return 1;
+                return 0;
+            }
+
+            @EXPORT_POINT_TYPE(&Point_contains)
+            @INIT
+        """)
+        p = mod.Point()
+        assert 42 in p
+        assert 43 not in p
+        with pytest.raises(TypeError):
+            'hello' in p

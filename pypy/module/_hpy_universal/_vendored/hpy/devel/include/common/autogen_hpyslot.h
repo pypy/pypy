@@ -42,8 +42,14 @@ typedef enum {
     HPy_nb_subtract = 36,
     HPy_nb_true_divide = 37,
     HPy_nb_xor = 38,
+    HPy_sq_ass_item = 39,
+    HPy_sq_concat = 40,
+    HPy_sq_contains = 41,
+    HPy_sq_inplace_concat = 42,
+    HPy_sq_inplace_repeat = 43,
     HPy_sq_item = 44,
     HPy_sq_length = 45,
+    HPy_sq_repeat = 46,
     HPy_tp_init = 60,
     HPy_tp_new = 65,
     HPy_tp_repr = 66,
@@ -85,8 +91,14 @@ typedef enum {
 #define _HPySlot_SIG__HPy_nb_subtract HPyFunc_BINARYFUNC
 #define _HPySlot_SIG__HPy_nb_true_divide HPyFunc_BINARYFUNC
 #define _HPySlot_SIG__HPy_nb_xor HPyFunc_BINARYFUNC
+#define _HPySlot_SIG__HPy_sq_ass_item HPyFunc_SSIZEOBJARGPROC
+#define _HPySlot_SIG__HPy_sq_concat HPyFunc_BINARYFUNC
+#define _HPySlot_SIG__HPy_sq_contains HPyFunc_OBJOBJPROC
+#define _HPySlot_SIG__HPy_sq_inplace_concat HPyFunc_BINARYFUNC
+#define _HPySlot_SIG__HPy_sq_inplace_repeat HPyFunc_SSIZEARGFUNC
 #define _HPySlot_SIG__HPy_sq_item HPyFunc_SSIZEARGFUNC
 #define _HPySlot_SIG__HPy_sq_length HPyFunc_LENFUNC
+#define _HPySlot_SIG__HPy_sq_repeat HPyFunc_SSIZEARGFUNC
 #define _HPySlot_SIG__HPy_tp_init HPyFunc_INITPROC
 #define _HPySlot_SIG__HPy_tp_new HPyFunc_KEYWORDS
 #define _HPySlot_SIG__HPy_tp_repr HPyFunc_REPRFUNC

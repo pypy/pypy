@@ -54,7 +54,12 @@ _HPy_HIDDEN void
 ctx_TupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder)
 {
     PyObject *tup = (PyObject *)builder._tup;
+    if (tup == NULL) {
+        // we don't report the memory error here: the builder
+        // is being cancelled (so the result of the builder is not being used)
+        // and likely it's being cancelled during the handling of another error
+        return;
+    }
     builder._tup = 0;
     Py_XDECREF(tup);
 }
-

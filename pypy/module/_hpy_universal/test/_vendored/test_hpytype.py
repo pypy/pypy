@@ -352,7 +352,7 @@ class TestType(HPyTest):
                 double DOUBLE_member;
                 const char* STRING_member;
                 char CHAR_member;
-                char ISTRING_member[5];
+                char ISTRING_member[6];
                 char BOOL_member;
             } FooObject;
 
@@ -369,7 +369,8 @@ class TestType(HPyTest):
                 const char * s = "Hello";
                 foo->STRING_member = s;
                 foo->CHAR_member = 'A';
-                strcpy(foo->ISTRING_member, "Hello");
+                strncpy(foo->ISTRING_member, "Hello", 6);
+                foo->BOOL_member = 0;
                 return h_obj;
             }
 
@@ -460,7 +461,7 @@ class TestType(HPyTest):
                 double DOUBLE_member;
                 const char* STRING_member;
                 char CHAR_member;
-                char ISTRING_member[5];
+                char ISTRING_member[6];
                 char BOOL_member;
             } FooObject;
 
@@ -477,7 +478,8 @@ class TestType(HPyTest):
                 const char * s = "Hello";
                 foo->STRING_member = s;
                 foo->CHAR_member = 'A';
-                strcpy(foo->ISTRING_member, "Hello");
+                strncpy(foo->ISTRING_member, "Hello", 6);
+                foo->BOOL_member = 0;
                 return h_obj;
             }
 
