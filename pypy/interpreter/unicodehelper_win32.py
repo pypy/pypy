@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.runicode import (BOOLP, WideCharToMultiByte,
          MultiByteToWideChar)
 from rpython.rlib.rutf8 import (Utf8StringIterator, next_codepoint_pos,
-                                StringBuilder, check_utf8)
+                                StringBuilder, codepoints_in_utf8, check_utf8)
 from rpython.rlib import rwin32
 
 def Py_UNICODE_HIGH_SURROGATE(ch):
@@ -52,7 +52,7 @@ def _decode_cp_error(s, errorhandler, encoding, errors, final, start, end):
     else:
         raise rwin32.lastSavedWindowsError()
 
-def _unibuf_to_utf8(uni, insize):
+def _unibuf_to_utf8(dataptr, insize):
     """Encode the widechar unicode buffer u to utf8
     Should never error, since the buffer comes from a call to
     MultiByteToWideChar
@@ -60,21 +60,19 @@ def _unibuf_to_utf8(uni, insize):
     flags = 0
     cp = rwin32.CP_UTF8
     used_default_p = lltype.nullptr(BOOLP.TO)
-    assert uni is not None
-    with rffi.scoped_nonmoving_unicodebuffer(uni) as dataptr:
-        # first get the size of the result
-        outsize = WideCharToMultiByte(cp, flags, dataptr, insize,
-                                    None, 0, None, used_default_p)
-        if outsize == 0:
+    # first get the size of the result
+    outsize = WideCharToMultiByte(cp, flags, dataptr, insize,
+                                None, 0, None, used_default_p)
+    if outsize == 0:
+        raise rwin32.lastSavedWindowsError()
+    with rffi.scoped_alloc_buffer(outsize) as buf:
+        # do the conversion
+        if WideCharToMultiByte(cp, flags, dataptr, insize, buf.raw,
+                outsize, None, used_default_p) == 0:
             raise rwin32.lastSavedWindowsError()
-        with rffi.scoped_alloc_buffer(outsize) as buf:
-            # do the conversion
-            if WideCharToMultiByte(cp, flags, dataptr, insize, buf.raw,
-                    outsize, None, used_default_p) == 0:
-                raise rwin32.lastSavedWindowsError()
-            result = buf.str(outsize)
-            assert result is not None
-            return result
+        result = buf.str(outsize)
+        assert result is not None
+        return result
 
 def _decode_helper(cp, s, flags, encoding, errors, errorhandler, 
                    final, start, end, res):
@@ -99,9 +97,12 @@ def _decode_helper(cp, s, flags, encoding, errors, errorhandler,
                                            encoding, errors, final, start, end)
                 res.append(r)
                 return pos, check_utf8(r, True)
-            else:
-                res.append(_unibuf_to_utf8(buf.str(outsize), outsize))
-    return end, check_utf8(piece, True)
+            buf_as_str = buf.str(outsize)
+            assert buf_as_str is not None
+            with rffi.scoped_nonmoving_unicodebuffer(buf_as_str) as dataptr:
+                conv = _unibuf_to_utf8(dataptr, outsize)
+            res.append(conv)
+            return end, codepoints_in_utf8(conv)
 
 def str_decode_code_page(cp, s, errors, errorhandler, final=False):
     """Decodes a byte string s from a code page cp with an error handler.
@@ -195,11 +196,10 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
                     rffi.cast(lltype.Bool, used_default_p[0])):
                         r, pos, rettype, obj = errorhandler(errors, name, "invalid character",
                                                             s, pos, pos + 1)
-                        res.append(r)
                 else:
-                    result = buf.str(outsize)
-                    assert result is not None
-                    res.append(result)
+                    r = buf.str(outsize)
+                    assert r is not None
+                res.append(r)
             pos += 1
         return res.build()
     finally:
