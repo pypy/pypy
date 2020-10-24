@@ -210,12 +210,14 @@ def test_getaddrinfo(space, w_socket):
     assert space.unwrap(w_l) == True
 
 
+@pytest.mark.skipif("not hasattr(socket, 'sethostname')")
 def test_sethostname(space, w_socket):
     space.raises_w(space.w_OSError, space.appexec,
                    [w_socket],
                    "(_socket): _socket.sethostname(_socket.gethostname())")
 
 
+@pytest.mark.skipif("not hasattr(socket, 'sethostname')")
 def test_sethostname_bytes(space, w_socket):
     space.raises_w(space.w_OSError, space.appexec,
                    [w_socket],
