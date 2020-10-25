@@ -182,13 +182,25 @@ class W_wrap_sq_delitem(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.w_None
 
+class W_wrap_objobjproc(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_objobjproc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_key = __args__.arguments_w[1]
+        with handles.using(space, w_self, w_key) as (h_self, h_key):
+            res = func(ctx, h_self, h_key)
+            res = widen(res)
+            if res == -1:
+                raise NotImplementedError('write a test')
+            return space.newbool(bool(res))
 
 # remaining wrappers to write
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
-## wrap_objobjproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjargproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_delitem(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_setattr(PyObject *self, PyObject *args, void *wrapped)
@@ -310,7 +322,7 @@ SLOTS = unrolling_iterable([
     ('sq_ass_item',                '__setitem__',   W_wrap_sq_setitem),
     ('sq_ass_item',                '__delitem__',   W_wrap_sq_delitem),
     ('sq_concat',                  '__add__',       W_wrap_binaryfunc),
-#   ('sq_contains',                '__xxx__',       AGS.W_SlotWrapper_...),
+    ('sq_contains',                '__contains__',  W_wrap_objobjproc),
     ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
     ('sq_inplace_repeat',          '__imul__',      W_wrap_indexargfunc),
     ('sq_item',                    '__getitem__',   W_wrap_indexargfunc),
