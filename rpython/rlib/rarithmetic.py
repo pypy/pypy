@@ -158,8 +158,8 @@ def _should_widen_type(tp):
 
 # the replacement for sys.maxint
 maxint = int(LONG_TEST - 1)
-# for now, it should be equal to sys.maxint on all supported platforms
-assert maxint == sys.maxint
+# for now, it should be equal to sys.maxsize on all supported platforms
+assert maxint == sys.maxsize
 
 @specialize.argtype(0)
 def is_valid_int(r):
@@ -197,7 +197,7 @@ def ovfcheck_float_to_longlong(x):
         return r_longlong(x)
     raise OverflowError
 
-if sys.maxint == 2147483647:
+if maxint == 2147483647:
     def ovfcheck_float_to_int(x):
         if math.isnan(x):
             raise OverflowError
@@ -298,6 +298,8 @@ def highest_bit(n):
         n >>= 1
     return i
 
+if sys.version_info > (3, 0):
+    long = int
 
 class base_int(long):
     """ fake unsigned integer implementation """
@@ -808,7 +810,7 @@ def byteswap(arg):
         return longlong2float(rffi.cast(rffi.LONGLONG, res))
     return rffi.cast(T, res)
 
-if sys.maxint == 2147483647:
+if maxint == 2147483647:
     def ovfcheck_int32_add(x, y):
         return ovfcheck(x + y)
     def ovfcheck_int32_sub(x, y):
@@ -878,7 +880,7 @@ def mulmod(a, b, c):
 # String parsing support
 # ---------------------------
 
-OVF_DIGITS = len(str(sys.maxint))
+OVF_DIGITS = len(str(maxint))
 
 def string_to_int(s, base=10, allow_underscores=False, no_implicit_octal=False):
     """Utility to converts a string to an integer.

@@ -34,6 +34,10 @@ import math
 import weakref
 from types import BuiltinFunctionType, MethodType
 from collections import OrderedDict, defaultdict
+import sys
+
+if sys.version_info >= (3, 0):
+    unicode = str
 
 import rpython
 from rpython.tool import descriptor
@@ -287,7 +291,7 @@ class SomeStringOrUnicode(SomeObject):
 
 class SomeString(SomeStringOrUnicode):
     "Stands for an object which is known to be a string."
-    knowntype = str
+    knowntype = bytes
 
     def noneify(self):
         return SomeString(can_be_None=True, no_nul=self.no_nul)

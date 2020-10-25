@@ -1,10 +1,20 @@
 """
 This module defines all the SpaceOperations used in rpython.flowspace.
 """
-
-import __builtin__
-import __future__
 import operator
+try:
+    import __builtin__ as builtins
+    builtins_str = '__builtin__'
+except ImportError:
+    import builtins
+    builtins_str = 'builtins'
+    unichr = chr
+    unicode = str
+    cmp = operator.lt
+    def coerce(*args):
+        return type(sum(args))
+    buffer = memoryview
+import __future__
 import sys
 import types
 from rpython.tool.pairtype import pair, DoubleDispatchRegistry
@@ -12,6 +22,7 @@ from rpython.rlib.unroll import unrolling_iterable, _unroller
 from rpython.tool.sourcetools import compile2
 from rpython.flowspace.model import (Constant, WrapException, const, Variable,
                                      SpaceOperation)
+from rpython.tool.twothree import metaclass
 from rpython.flowspace.specialcase import register_flow_sc
 from rpython.annotator.model import (
     SomeTuple, AnnotatorError, read_can_only_throw)
@@ -62,9 +73,8 @@ class HLOperationMeta(type):
             cls._registry = DoubleDispatchRegistry()
             cls._transform = DoubleDispatchRegistry()
 
-
+@metaclass(HLOperationMeta)
 class HLOperation(SpaceOperation):
-    __metaclass__ = HLOperationMeta
     pure = False
     can_overflow = False
     dispatch = None  # number of arguments to dispatch on
@@ -606,7 +616,7 @@ class CallOp(HLOperation):
                                types.BuiltinMethodType,
                                types.ClassType,
                                types.TypeType)) and
-                    c.__module__ in ['__builtin__', 'exceptions']):
+                    c.__module__ in [builtins_str, 'exceptions']):
                 return builtins_exceptions.get(c, [])
         # *any* exception for non-builtins
         return [Exception]
@@ -657,9 +667,9 @@ func2op[type] = op.type
 func2op[operator.truth] = op.bool
 func2op[pow] = op.pow
 func2op[operator.pow] = op.pow
-func2op[__builtin__.iter] = op.iter
+func2op[builtins.iter] = op.iter
 func2op[getattr] = op.getattr
-func2op[__builtin__.next] = op.next
+func2op[builtins.next] = op.next
 
 for fn, oper in func2op.items():
     register_flow_sc(fn)(oper.make_sc())

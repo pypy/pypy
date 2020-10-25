@@ -1,5 +1,6 @@
+import sys
 import weakref
-from types import MethodType, NoneType
+from types import MethodType
 
 from rpython.annotator.bookkeeper import analyzer_for, immutablevalue
 from rpython.annotator.model import (
@@ -12,6 +13,9 @@ from rpython.rlib.rarithmetic import (
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool import leakfinder
 from rpython.tool.identity_dict import identity_dict
+
+if sys.version_info >= (3, 0):
+    unichr = chr
 
 class State(object):
     pass
@@ -90,7 +94,7 @@ def safe_equal(x, y, TLS=TLS):
 class frozendict(dict):
 
     def __hash__(self):
-        items = self.items()
+        items = list(self.items())
         items.sort()
         return hash(tuple(items))
 
@@ -147,7 +151,7 @@ class LowLevelType(object):
             pass
         if hash_level >= 3:
             return 0
-        items = self.__dict__.items()
+        items = list(self.__dict__.items())
         items.sort()
         TLS.nested_hash_level = hash_level + 1
         try:
@@ -811,7 +815,7 @@ def typeOf(val):
         tp = type(val)
         if tp is _uninitialized:
             raise UninitializedMemoryAccess("typeOf uninitialized value")
-        if tp is NoneType:
+        if tp is type(None):
             return Void   # maybe
         if tp is int:
             return Signed

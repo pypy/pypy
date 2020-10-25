@@ -1301,7 +1301,7 @@ def chmod(path, mode):
         attr = win32traits.GetFileAttributes(path)
         if attr == win32traits.INVALID_FILE_ATTRIBUTES:
             raise rwin32.lastSavedWindowsError()
-        if mode & 0200: # _S_IWRITE
+        if mode & 0o0200: # _S_IWRITE
             attr &= ~win32traits.FILE_ATTRIBUTE_READONLY
         else:
             attr |= win32traits.FILE_ATTRIBUTE_READONLY

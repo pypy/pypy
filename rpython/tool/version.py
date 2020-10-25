@@ -1,3 +1,4 @@
+from __future__ import print_function
 import py
 import os
 from subprocess import Popen, PIPE
@@ -47,7 +48,7 @@ def _get_hg_version(hgexe, root):
 
     try:
         p = Popen([str(hgexe), 'version', '-q'],
-                  stdout=PIPE, stderr=PIPE, env=env)
+                  stdout=PIPE, stderr=PIPE, env=env, universal_newlines=True)
     except OSError as e:
         maywarn(e)
         return default_retval
@@ -138,4 +139,4 @@ def _get_git_version(root):
 
 
 if __name__ == '__main__':
-    print get_repo_version_info()
+    print(get_repo_version_info())

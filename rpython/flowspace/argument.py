@@ -113,7 +113,8 @@ class CallSpec(object):
             return self.arguments_w + [const(x) for x in self.w_stararg.value]
 
     @classmethod
-    def fromshape(cls, (shape_cnt, shape_keys, shape_star), data_w):
+    def fromshape(cls, arg, data_w):
+        shape_cnt, shape_keys, shape_star = arg
         args_w = data_w[:shape_cnt]
         p = end_keys = shape_cnt + len(shape_keys)
         if shape_star:

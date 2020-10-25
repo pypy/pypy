@@ -1,9 +1,8 @@
-import sys
-
 import py
 
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.objectmodel import CDefinedIntSymbolic, keepalive_until_here, specialize, not_rpython, we_are_translated
+from rpython.rlib.rarithmetic import maxint
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.sourcetools import rpython_wrapper
@@ -194,7 +193,7 @@ def elidable_promote(promote_args='all'):
                 (arg, arg))
         code.append("    return _orig_func_unlikely_name(%s)\n" % (argstring, ))
         d = {"_orig_func_unlikely_name": func, "hint": hint}
-        exec py.code.Source("\n".join(code)).compile() in d
+        exec(py.code.Source("\n".join(code)).compile(), d)
         result = d["f"]
         result.__name__ = func.__name__ + "_promote"
         return result
@@ -227,7 +226,7 @@ def look_inside_iff(predicate):
             "func": func,
             "we_are_jitted": we_are_jitted,
         }
-        exec py.code.Source("""
+        exec(py.code.Source("""
             @dont_look_inside
             def trampoline(%(arguments)s):
                 return func(%(arguments)s)
@@ -243,7 +242,7 @@ def look_inside_iff(predicate):
                 else:
                     return trampoline(%(arguments)s)
             f.__name__ = func.__name__ + "_look_inside_iff"
-        """ % {"arguments": ", ".join(args)}).compile() in d
+        """ % {"arguments": ", ".join(args)}).compile(), d)
         return d["f"]
     return inner
 
@@ -397,8 +396,8 @@ def current_trace_length():
     return -1
 
 @oopspec('jit.debug(string, arg1, arg2, arg3, arg4)')
-def jit_debug(string, arg1=-sys.maxint-1, arg2=-sys.maxint-1,
-                      arg3=-sys.maxint-1, arg4=-sys.maxint-1):
+def jit_debug(string, arg1=-maxint-1, arg2=-maxint-1,
+                      arg3=-maxint-1, arg4=-maxint-1):
     """When JITted, cause an extra operation JIT_DEBUG to appear in
     the graphs.  Should not be left after debugging."""
     keepalive_until_here(string) # otherwise the whole function call is removed
@@ -435,7 +434,7 @@ def jit_callback(name):
             'jitdriver': jitdriver,
             'real_callback': func,
             }
-        exec compile2(source) in miniglobals
+        exec(compile2(source), miniglobals)
         return miniglobals['callback_with_jitdriver']
     return decorate
 

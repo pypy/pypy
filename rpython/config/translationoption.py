@@ -19,7 +19,7 @@ DEFL_GC = "incminimark"   # XXX
 
 DEFL_ROOTFINDER_WITHJIT = "shadowstack"
 
-IS_64_BITS = sys.maxint > 2147483647
+IS_64_BITS = sys.maxsize > 2147483647
 
 SUPPORT__THREAD = (    # whether the particular C compiler supports __thread
     sys.platform.startswith("linux") or     # Linux works

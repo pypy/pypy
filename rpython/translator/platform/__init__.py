@@ -3,12 +3,15 @@
 import py, os, sys
 
 from rpython.tool.runsubprocess import run_subprocess as _run_subprocess
-from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.tool.ansi_print import AnsiLogger
 
 log = AnsiLogger("platform")
-
+try:
+    from rpython.tool.udir import udir
+except NameError:
+    # when run with python3, udir does not yet import
+    udir = None
 
 class CompilationError(Exception):
     def __init__(self, out, err):

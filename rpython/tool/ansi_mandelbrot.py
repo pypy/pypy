@@ -1,3 +1,4 @@
+from __future__ import print_function
 import sys
 
 from py.io import ansi_print, get_terminal_width
@@ -16,7 +17,7 @@ Light Gray  0;37     White         1;37
 
 import os
 if os.environ.get('TERM', 'dumb').find('256') > 0:
-    from ansiramp import ansi_ramp80
+    from .ansiramp import ansi_ramp80
     palette = map(lambda x: "38;5;%d" % x, ansi_ramp80)
 else:
     palette = [39, 34, 35, 36, 31, 33, 32, 37]
@@ -120,7 +121,7 @@ class Driver(object):
 
     def restart(self):
         """ Restarts the current generator. """
-        print >>sys.stderr
+        print(file=sys.stderr)
         self.init()
 
     def dot(self):
@@ -134,7 +135,8 @@ class Driver(object):
                     self.init()
         except StopIteration:
             if DEBUG and self.interesting_coordinates:
-                print >>sys.stderr, "Interesting coordinates:", self.interesting_coordinates
+                print("Interesting coordinates:", self.interesting_coordinates,
+                      file=sys.stderr)
                 self.interesting_coordinates = []
             kwargs = self.kwargs
             self.zoom_location += 1
@@ -144,7 +146,7 @@ class Driver(object):
             self.max_colour = loc[3]
             if DEBUG:
                 # Only used for debugging new locations:
-                print "Colour range", self.colour_range
+                print("Colour range", self.colour_range)
             self.colour_range = None
             self.restart()
             return
@@ -152,7 +154,7 @@ class Driver(object):
             self.interesting_coordinates.append(dict(x=(x, self.mandelbrot.x_range[x]),
                                                      y=(y, self.mandelbrot.y_range[y])))
         if x == self.width - 1:
-            print >>sys.stderr
+            print(file=sys.stderr)
 
     def print_pixel(self, colour, invert=1):
         chars = [".", ".", "+", "*", "%", "#"]
@@ -183,4 +185,4 @@ if __name__ == '__main__':
         if 0 and random.random() < 0.01:
             string = "WARNING! " * 3
             d.jump(len(string))
-            print string,
+            print(string, end='')

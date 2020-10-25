@@ -1,6 +1,11 @@
 import os
 from rpython.flowspace.model import Constant
 
+if not hasattr(os, 'tmpfile'):
+    def tmpfile(*args, **kwargs):
+        pass
+    os.tmpfile = tmpfile
+
 SPECIAL_CASES = {}
 
 def register_flow_sc(func):

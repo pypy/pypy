@@ -23,6 +23,9 @@ class _BaseOpcodeDesc(object):
         return (cmp(self.__class__, other.__class__) or
                 cmp(self.sortkey(), other.sortkey()))
 
+    def __lt__(self, other):
+        return self.sortkey() < other.sortkey()
+
     def __str__(self):
         return "<OpcodeDesc code=%d name=%s at %x>" % (self.index, self.name, id(self))
     
@@ -59,7 +62,7 @@ class BytecodeSpec(object):
             setattr(self.opcodedesc, methodname, desc)
             self.opdescmap[index] = desc
         # fill the ordered opdesc list
-        self.ordered_opdescs = lst = self.opdescmap.values() 
+        self.ordered_opdescs = lst = list(self.opdescmap.values())
         lst.sort()
     
     def to_globals(self, globals_dict):

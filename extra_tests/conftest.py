@@ -15,3 +15,8 @@ def pytest_runtest_setup(item):
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "pypy_only: PyPy-specific test")
+
+@pytest.fixture()
+def IS_PYPY():
+    return '__pypy__' in sys.builtin_module_names
+
