@@ -168,12 +168,26 @@ class W_wrap_sq_setitem(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.w_None
 
+class W_wrap_sq_delitem(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_i = __args__.arguments_w[1]
+        i = space.int_w(space.index(w_i))
+        with handles.using(space, w_self) as h_self:
+            result = func(ctx, h_self, i, llapi.HPy_NULL)
+            if widen(result) == -1:
+                raise NotImplementedError('write a test')
+            return space.w_None
+
+
 # remaining wrappers to write
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
-## wrap_sq_delitem(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjargproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_delitem(PyObject *self, PyObject *args, void *wrapped)
@@ -248,7 +262,10 @@ class W_tp_new_wrapper(W_ExtensionFunction):
                                         skip_args=1, has_keywords=True)
 
 
-
+# the following table shows how to map C-level slots into Python-level
+# __methods__. Note that if a C-level slot corresponds to multiple
+# __methods__, it appears multiple times (e.g. sq_ass_item corresponds to both
+# __setitem__ and __delitem__).
 SLOTS = unrolling_iterable([
     # CPython slots
 #   ('mp_ass_subscript',           '__xxx__',       AGS.W_SlotWrapper_...),
@@ -291,6 +308,7 @@ SLOTS = unrolling_iterable([
     ('nb_true_divide',             '__truediv__',   W_wrap_binaryfunc),
     ('nb_xor',                     '__xor__',       W_wrap_binaryfunc),
     ('sq_ass_item',                '__setitem__',   W_wrap_sq_setitem),
+    ('sq_ass_item',                '__delitem__',   W_wrap_sq_delitem),
 #   ('sq_concat',                  '__add__',       W_wrap_binaryfunc),
 #   ('sq_contains',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
@@ -345,12 +363,14 @@ def fill_slot(space, w_type, hpyslot):
         return
 
     # generic cases
+    found = False
     for slotname, methname, cls in SLOTS:
         assert methname != '__xxx__' # sanity check
         n = getattr(HPySlot_Slot, 'HPy_' + slotname)
         if slot_num == n:
+            found = True
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
-            return
 
-    raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", str(slot_num))
+    if not found:
+        raise oefmt(space.w_NotImplementedError, "Unimplemented slot: %s", str(slot_num))
