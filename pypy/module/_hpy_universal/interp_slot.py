@@ -121,10 +121,10 @@ class W_wrap_indexargfunc(W_SlotWrapper):
         self.check_args(space, __args__, 2)
         ctx = space.fromcache(State).ctx
         w_self = __args__.arguments_w[0]
-        w_i = __args__.arguments_w[1]
-        h_i = space.int_w(space.index(w_i))
+        w_idx = __args__.arguments_w[1]
+        idx = space.int_w(space.index(w_idx))
         with handles.using(space, w_self) as h_self:
-            h_result = func(ctx, h_self, h_i)
+            h_result = func(ctx, h_self, idx)
             return handles.consume(space, h_result)
 
 class W_wrap_inquirypred(W_SlotWrapper):
@@ -153,17 +153,43 @@ class W_wrap_lenfunc(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.newint(result)
 
+def sq_getindex(space, w_sequence, w_idx):
+    """
+    This is equivalent to CPython's typeobject.c:getindex().
+    We call it sq_getindex because it's used only by sq_* slots.
+    """
+    idx = space.int_w(space.index(w_idx))
+    if idx < 0 and space.lookup(w_sequence, '__len__'):
+        # It is worth noting that we are doing the lookup of __len__ twice,
+        # one above and one inside space.len_w. The JIT should optimize it
+        # away, but it might be a minor slowdown for interpreted code.
+        n = space.len_w(w_sequence)
+        idx += n
+    return idx
+
+class W_wrap_sq_item(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_idx = __args__.arguments_w[1]
+        idx = sq_getindex(space, w_self, w_idx)
+        with handles.using(space, w_self) as h_self:
+            h_result = func(ctx, h_self, idx)
+            return handles.consume(space, h_result)
+
 class W_wrap_sq_setitem(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
         self.check_args(space, __args__, 3)
         ctx = space.fromcache(State).ctx
         w_self = __args__.arguments_w[0]
-        w_i = __args__.arguments_w[1]
-        i = space.int_w(space.index(w_i))
+        w_idx = __args__.arguments_w[1]
+        idx = sq_getindex(space, w_self, w_idx)
         w_value = __args__.arguments_w[2]
         with handles.using(space, w_self, w_value) as (h_self, h_value):
-            result = func(ctx, h_self, i, h_value)
+            result = func(ctx, h_self, idx, h_value)
             if widen(result) == -1:
                 raise NotImplementedError('write a test')
             return space.w_None
@@ -174,10 +200,10 @@ class W_wrap_sq_delitem(W_SlotWrapper):
         self.check_args(space, __args__, 2)
         ctx = space.fromcache(State).ctx
         w_self = __args__.arguments_w[0]
-        w_i = __args__.arguments_w[1]
-        i = space.int_w(space.index(w_i))
+        w_idx = __args__.arguments_w[1]
+        idx = sq_getindex(space, w_self, w_idx)
         with handles.using(space, w_self) as h_self:
-            result = func(ctx, h_self, i, llapi.HPy_NULL)
+            result = func(ctx, h_self, idx, llapi.HPy_NULL)
             if widen(result) == -1:
                 raise NotImplementedError('write a test')
             return space.w_None
@@ -200,7 +226,6 @@ class W_wrap_objobjproc(W_SlotWrapper):
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
-## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjargproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_delitem(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_setattr(PyObject *self, PyObject *args, void *wrapped)
@@ -325,7 +350,7 @@ SLOTS = unrolling_iterable([
     ('sq_contains',                '__contains__',  W_wrap_objobjproc),
     ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
     ('sq_inplace_repeat',          '__imul__',      W_wrap_indexargfunc),
-    ('sq_item',                    '__getitem__',   W_wrap_indexargfunc),
+    ('sq_item',                    '__getitem__',   W_wrap_sq_item),
     ('sq_length',                  '__len__',       W_wrap_lenfunc),
     ('sq_repeat',                  '__mul__',       W_wrap_indexargfunc),
 #   ('tp_base',                    '__xxx__',       AGS.W_SlotWrapper_...),

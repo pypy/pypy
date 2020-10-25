@@ -289,9 +289,10 @@ class TestSqSlots(HPyTest):
             @INIT
         """)
         p = mod.Point()
+        assert len(p) == 1234
         assert p[4] == 8
         assert p[21] == 42
-        assert len(p) == 1234
+        assert p[-1] == 1233 * 2
 
     def test_sq_ass_item(self):
         import pytest
@@ -299,6 +300,12 @@ class TestSqSlots(HPyTest):
             @DEFINE_PointObject
             @DEFINE_Point_new
             @DEFINE_Point_xy
+
+            HPyDef_SLOT(Point_len, Point_len_impl, HPy_sq_length);
+            static HPy_ssize_t Point_len_impl(HPyContext ctx, HPy self)
+            {
+                return 2;
+            }
 
             HPyDef_SLOT(Point_setitem, Point_setitem_impl, HPy_sq_ass_item);
             static int Point_setitem_impl(HPyContext ctx, HPy self, HPy_ssize_t idx,
@@ -324,20 +331,30 @@ class TestSqSlots(HPyTest):
                 return 0;
             }
 
-            @EXPORT_POINT_TYPE(&Point_new, &Point_x, &Point_y, &Point_setitem)
+            @EXPORT_POINT_TYPE(&Point_new, &Point_x, &Point_y, &Point_len, &Point_setitem)
             @INIT
         """)
         p = mod.Point(1, 2)
+        # check __setitem__
         p[0] = 100
         assert p.x == 100
         p[1] = 200
         assert p.y == 200
         with pytest.raises(IndexError):
             p[2] = 300
-        #
+        # check __delitem__
         del p[0]
         assert p.x == -123
         del p[1]
+        assert p.y == -123
+        # check negative indexes
+        p[-2] = 400
+        p[-1] = 500
+        assert p.x == 400
+        assert p.y == 500
+        del p[-2]
+        assert p.x == -123
+        del p[-1]
         assert p.y == -123
 
     def test_sq_concat_and_sq_inplace_concat(self):
