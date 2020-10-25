@@ -8,7 +8,7 @@ implementation."""
     return space.newtext(space.sys.defaultencoding)
 
 if sys.platform == "win32":
-    base_encoding = "mbcs"
+    base_encoding = "utf-8"
     base_error = "strict"
 elif sys.platform == "darwin":
     base_encoding = "utf-8"

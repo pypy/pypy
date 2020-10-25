@@ -133,6 +133,9 @@ def str_decode_code_page(cp, s, errors, errorhandler, final=False):
 def str_decode_mbcs(s, errors, errorhandler, final=False):
     return str_decode_code_page(rwin32.CP_ACP, s, errors, errorhandler, final)
 
+def str_decode_utf8(s, errors, errorhandler, final=False):
+    return str_decode_code_page(rwin32.CP_UTF8, s, errors, errorhandler, final)
+
 def str_decode_oem(s, errors, errorhandler, final=False):
     return str_decode_code_page(rwin32.CP_OEMCP, s, errors, errorhandler, final)
 
@@ -197,6 +200,9 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
 
 def utf8_encode_mbcs(s, errors, errorhandler):
         return utf8_encode_code_page(rwin32.CP_ACP, s, errors, errorhandler)
+            
+def utf8_encode_utf8(s, errors, errorhandler):
+        return utf8_encode_code_page(rwin32.CP_UTF8, s, errors, errorhandler)
             
 
 def utf8_encode_oem(s, errors, errorhandler):

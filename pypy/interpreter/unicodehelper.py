@@ -67,7 +67,7 @@ def fsdecode(space, w_string):
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_mbcs(utf8, 'strict', True, errorhandler)
+        utf8, _, lgt = str_decode_utf8(utf8, 'strict', True, errorhandler)
     elif 0 and  _MACOSX:
         utf8, lgt, pos  = str_decode_utf8(utf8, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
@@ -91,8 +91,7 @@ def fsencode(space, w_uni):
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
         errorhandler=state.encode_error_handler
-        utf8 = space.utf8_w(w_uni)
-        bytes = utf8_encode_mbcs(utf8, 'strict', errorhandler)
+        bytes = space.utf8_w(w_uni)
     elif 0 and _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
@@ -364,11 +363,17 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
 if _WIN32:
     import pypy.interpreter.unicodehelper_win32 as win32
     def utf8_encode_mbcs(s, errors, errorhandler, allow_surrogates=False):
-        res = win32.utf8_encode_mbcs(s, errors, errorhandler)
-        return res
+        return win32.utf8_encode_mbcs(s, errors, errorhandler)
+
+    def utf8_encode_utf8(s, errors, errorhandler, allow_surrogates=False):
+        return win32.utf8_encode_utf8(s, errors, errorhandler)
 
     def str_decode_mbcs(s, errors, final, errorhandler):
         res, size = win32.str_decode_mbcs(s, errors, errorhandler, final=final)
+        return res, size, size
+
+    def str_decode_utf8(s, errors, final, errorhandler):
+        res, size = win32.str_decode_utf8(s, errors, errorhandler, final=final)
         return res, size, size
 
     def utf8_encode_oem(s, errors, errorhandler, allow_surrogates=False):
