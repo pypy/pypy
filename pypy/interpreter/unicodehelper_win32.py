@@ -157,58 +157,47 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
     chars = lltype.malloc(rffi.CWCHARP.TO, 2, flavor = 'raw')
     res = StringBuilder(lgt)
     try:
-        pos = 0
-        # TODO: update s if obj != s is returned from an errorhandler
-        for uni in Utf8StringIterator(s):
-            if used_default_p:
-                used_default_p[0] = rffi.cast(rwin32.BOOL, False)
-            if uni < 0x10000:
-                chars[0] = rffi.cast(lltype.UniChar, uni)
-                charsize = 1
-            else:
-                chars[0] = Py_UNICODE_HIGH_SURROGATE(uni)
-                chars[1] = Py_UNICODE_LOW_SURROGATE(uni)
-                charsize = 2
-                # first get the size of the result
-            outsize = WideCharToMultiByte(cp, flags, chars, charsize, None, 0,
-                                           None, used_default_p)
-            
-            if outsize == 0:
-                if rwin32.GetLastError_saved() == rwin32.ERROR_NO_UNICODE_TRANSLATION:
-                    r, pos, retype, obj = errorhandler(errors, name,
-                                           "invalid character", s, pos, pos+1)
-                    res.append(r)
-                    continue
-                raise rwin32.lastSavedWindowsError()
-            # If we used a default char, then we failed!
-            if (used_default_p and rffi.cast(lltype.Bool, used_default_p[0])):
-                r, pos, retype, obj = errorhandler(errors, name,
-                                                   "invalid character", s, pos, pos+1)
-                res.append(r)
-                continue
-            with rffi.scoped_alloc_buffer(outsize) as buf:
-                # do the conversion
-                if WideCharToMultiByte(cp, flags,
-                                       chars, charsize, buf.raw, outsize,
-                                       None, used_default_p) == 0:
-                    raise rwin32.lastSavedWindowsError()
-                if (used_default_p and
-                    rffi.cast(lltype.Bool, used_default_p[0])):
-                        r, pos, rettype, obj = errorhandler(errors, name, "invalid character",
-                                                            s, pos, pos + 1)
+        with rffi.scoped_alloc_buffer(4) as buf:
+            pos = 0
+            # TODO: update s if obj != s is returned from an errorhandler
+            for uni in Utf8StringIterator(s):
+                if used_default_p:
+                    used_default_p[0] = rffi.cast(rwin32.BOOL, False)
+                if uni < 0x10000:
+                    chars[0] = rffi.cast(lltype.UniChar, uni)
+                    charsize = 1
                 else:
-                    r = buf.str(outsize)
-                    assert r is not None
+                    chars[0] = Py_UNICODE_HIGH_SURROGATE(uni)
+                    chars[1] = Py_UNICODE_LOW_SURROGATE(uni)
+                    charsize = 2
+                    # first get the size of the result
+                outsize = WideCharToMultiByte(cp, flags, chars, charsize,
+                                              buf.raw, 4, None, used_default_p)
+            
+                if outsize > 0:
+                    if not (used_default_p and used_default_p[0]):
+                        r = buf.str(outsize)
+                        assert r is not None
+                        res.append(r)
+                        pos += 1
+                        continue
+                elif rwin32.GetLastError_saved() != rwin32.ERROR_NO_UNICODE_TRANSLATION:
+                    raise rwin32.lastSavedWindowsError()
+                # If we used a default char, then we failed!
+                r, pos, retype, obj = errorhandler(errors, name,
+                                               "invalid character", s, pos, pos+1)
                 res.append(r)
-            pos += 1
-        return res.build()
+                pos += 1
     finally:
         lltype.free(chars, flavor='raw')
         if used_default_p:
             lltype.free(used_default_p, flavor='raw')
+    return res.build()
+
 
 def utf8_encode_mbcs(s, errors, errorhandler):
         return utf8_encode_code_page(rwin32.CP_ACP, s, errors, errorhandler)
+            
 
 def utf8_encode_oem(s, errors, errorhandler):
         return utf8_encode_code_page(rwin32.CP_OEMCP, s, errors, errorhandler)
