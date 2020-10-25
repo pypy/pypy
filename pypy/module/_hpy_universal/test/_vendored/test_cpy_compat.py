@@ -291,6 +291,7 @@ class TestCPythonCompatibility(HPyTest):
         assert d.bar() == 1234
 
     def test_legacy_slots_members(self):
+        import pytest
         mod = self.make_module("""
             #include <Python.h>
             #include "structmember.h"
@@ -319,6 +320,7 @@ class TestCPythonCompatibility(HPyTest):
             // legacy members
             static PyMemberDef legacy_members[] = {
                 {"y", T_LONG, offsetof(PointObject, y), 0},
+                {"y_ro", T_LONG, offsetof(PointObject, y), READONLY},
                 {NULL}
             };
 
@@ -345,8 +347,11 @@ class TestCPythonCompatibility(HPyTest):
         p = mod.Point()
         assert p.x == 7
         assert p.y == 3
+        assert p.y_ro == 3
         p.x = 123
         p.y = 456
+        with pytest.raises(AttributeError):
+            p.y_ro = 789
         assert p.x == 123
         assert p.y == 456
 
