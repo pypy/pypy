@@ -297,6 +297,7 @@ class TestSqSlots(HPyTest):
         import pytest
         mod = self.make_module("""
             @DEFINE_PointObject
+            @DEFINE_Point_new
             @DEFINE_Point_xy
 
             HPyDef_SLOT(Point_setitem, Point_setitem_impl, HPy_sq_ass_item);
@@ -323,10 +324,10 @@ class TestSqSlots(HPyTest):
                 return 0;
             }
 
-            @EXPORT_POINT_TYPE(&Point_x, &Point_y, &Point_setitem)
+            @EXPORT_POINT_TYPE(&Point_new, &Point_x, &Point_y, &Point_setitem)
             @INIT
         """)
-        p = mod.Point()
+        p = mod.Point(1, 2)
         p[0] = 100
         assert p.x == 100
         p[1] = 200

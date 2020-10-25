@@ -153,12 +153,26 @@ class W_wrap_lenfunc(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.newint(result)
 
+class W_wrap_sq_setitem(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
+        self.check_args(space, __args__, 3)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_i = __args__.arguments_w[1]
+        i = space.int_w(space.index(w_i))
+        w_value = __args__.arguments_w[2]
+        with handles.using(space, w_self, w_value) as (h_self, h_value):
+            result = func(ctx, h_self, i, h_value)
+            if widen(result) == -1:
+                raise NotImplementedError('write a test')
+            return space.w_None
+
 # remaining wrappers to write
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_ternaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_item(PyObject *self, PyObject *args, void *wrapped)
-## wrap_sq_setitem(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_sq_delitem(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjproc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_objobjargproc(PyObject *self, PyObject *args, void *wrapped)
@@ -276,7 +290,7 @@ SLOTS = unrolling_iterable([
     ('nb_subtract',                '__sub__',       W_wrap_binaryfunc),
     ('nb_true_divide',             '__truediv__',   W_wrap_binaryfunc),
     ('nb_xor',                     '__xor__',       W_wrap_binaryfunc),
-#   ('sq_ass_item',                '__xxx__',       AGS.W_SlotWrapper_...),
+    ('sq_ass_item',                '__setitem__',   W_wrap_sq_setitem),
 #   ('sq_concat',                  '__add__',       W_wrap_binaryfunc),
 #   ('sq_contains',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('sq_inplace_concat',          '__iadd__',      W_wrap_binaryfunc),
