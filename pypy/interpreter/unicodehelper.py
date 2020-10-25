@@ -67,7 +67,7 @@ def fsdecode(space, w_string):
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_utf8(utf8, 'strict', True, errorhandler)
+        utf8, _, lgt = str_decode_utf8(utf8, 'surrogateescape', True, errorhandler)
     elif 0 and  _MACOSX:
         utf8, lgt, pos  = str_decode_utf8(utf8, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
@@ -91,7 +91,8 @@ def fsencode(space, w_uni):
     state = space.fromcache(interp_codecs.CodecState)
     if _WIN32:
         errorhandler=state.encode_error_handler
-        bytes = space.utf8_w(w_uni)
+        utf8 = space.utf8_w(w_uni)
+        bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler)
     elif 0 and _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
