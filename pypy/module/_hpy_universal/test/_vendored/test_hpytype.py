@@ -124,7 +124,7 @@ class TestType(HPyTest):
     def test_HPyDef_METH(self):
         import pytest
         mod = self.make_module("""
-            HPyDef_METH(Dummy_foo, "foo", Dummy_foo_impl, HPyFunc_O)
+            HPyDef_METH(Dummy_foo, "foo", Dummy_foo_impl, HPyFunc_O, .doc="hello")
             static HPy Dummy_foo_impl(HPyContext ctx, HPy self, HPy arg)
             {
                 return HPy_Add(ctx, arg, arg);
@@ -158,6 +158,8 @@ class TestType(HPyTest):
             @INIT
         """)
         d = mod.Dummy()
+        assert d.foo.__doc__ == 'hello'
+        assert d.bar.__doc__ is None
         assert d.foo(21) == 42
         assert d.bar() == 1234
         assert d.identity() is d
@@ -351,6 +353,7 @@ class TestType(HPyTest):
                 float FLOAT_member;
                 double DOUBLE_member;
                 const char* STRING_member;
+                const char *STRING_null_member;
                 char CHAR_member;
                 char ISTRING_member[6];
                 char BOOL_member;
@@ -368,6 +371,7 @@ class TestType(HPyTest):
                 foo->DOUBLE_member = 1.;
                 const char * s = "Hello";
                 foo->STRING_member = s;
+                foo->STRING_null_member = NULL;
                 foo->CHAR_member = 'A';
                 strncpy(foo->ISTRING_member, "Hello", 6);
                 foo->BOOL_member = 0;
@@ -377,6 +381,7 @@ class TestType(HPyTest):
             HPyDef_MEMBER(Foo_FLOAT_member, "FLOAT_member", HPyMember_FLOAT, offsetof(FooObject, FLOAT_member))
             HPyDef_MEMBER(Foo_DOUBLE_member, "DOUBLE_member", HPyMember_DOUBLE, offsetof(FooObject, DOUBLE_member))
             HPyDef_MEMBER(Foo_STRING_member, "STRING_member", HPyMember_STRING, offsetof(FooObject, STRING_member))
+            HPyDef_MEMBER(Foo_STRING_null_member, "STRING_null_member", HPyMember_STRING, offsetof(FooObject, STRING_null_member))
             HPyDef_MEMBER(Foo_CHAR_member, "CHAR_member", HPyMember_CHAR, offsetof(FooObject, CHAR_member))
             HPyDef_MEMBER(Foo_ISTRING_member, "ISTRING_member", HPyMember_STRING_INPLACE, offsetof(FooObject, ISTRING_member))
             HPyDef_MEMBER(Foo_BOOL_member, "BOOL_member", HPyMember_BOOL, offsetof(FooObject, BOOL_member))
@@ -387,6 +392,7 @@ class TestType(HPyTest):
                     &Foo_FLOAT_member,
                     &Foo_DOUBLE_member,
                     &Foo_STRING_member,
+                    &Foo_STRING_null_member,
                     &Foo_CHAR_member,
                     &Foo_ISTRING_member,
                     &Foo_BOOL_member,
@@ -418,6 +424,7 @@ class TestType(HPyTest):
             del foo.DOUBLE_member
 
         assert foo.STRING_member == "Hello"
+        assert foo.STRING_null_member is None
         with pytest.raises(TypeError):
             foo.STRING_member = "world"
         with pytest.raises(TypeError):

@@ -203,13 +203,18 @@ class TestCPythonCompatibility(HPyTest):
         assert mod.h(4, 5, 6) == 456
         assert mod.k(c=6, b=5, a=4) == 456
 
-    def test_legacy_slots_repr(self):
+    def test_legacy_slots(self):
         mod = self.make_module("""
             #include <Python.h>
 
             static PyObject *Dummy_repr(PyObject *self)
             {
                 return PyUnicode_FromString("myrepr");
+            }
+
+            static PyObject *Dummy_add(PyObject *self, PyObject *other)
+            {
+                return Py_BuildValue("OO", self, other);
             }
 
             HPyDef_SLOT(Dummy_abs, Dummy_abs_impl, HPy_nb_absolute);
@@ -224,6 +229,7 @@ class TestCPythonCompatibility(HPyTest):
             };
             static PyType_Slot Dummy_type_slots[] = {
                 {Py_tp_repr, Dummy_repr},
+                {Py_nb_add, Dummy_add},
                 {0, 0},
             };
             static HPyType_Spec Dummy_spec = {
@@ -237,6 +243,7 @@ class TestCPythonCompatibility(HPyTest):
         """)
         d = mod.Dummy()
         assert repr(d) == 'myrepr'
+        assert d + 42 == (d, 42)
         assert abs(d) == 1234
 
     def test_legacy_slots_methods(self):
