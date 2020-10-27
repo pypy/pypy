@@ -278,7 +278,7 @@ class TestString(BaseTestPyPyC):
                 for i in range(len(u)):
                     u[i] # ID: index0
         """, [])
-        ops = log.loops[0].ops_by_id("index0")
+        ops = log.loops[1].ops_by_id("index0")
         for op in ops:
             assert op.bridge is None
 
