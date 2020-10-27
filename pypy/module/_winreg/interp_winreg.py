@@ -693,7 +693,7 @@ data_type is an integer that identifies the type of the value data."""
                     ret = rwinreg.RegEnumValueW(
                         hkey, index, valueBufP, valueSize,
                         null_dword, retType, dataBufP, dataSize)
-                    if ret == rwinreg.ERROR_MORE_DATA and bufDataSize < 1e5:
+                    if ret == rwinreg.ERROR_MORE_DATA:
                         # Resize and retry. For dynamic keys, the value of
                         # dataSize[0] is useless (always 1) so do what CPython
                         # does, except they use 2 instead of 4
