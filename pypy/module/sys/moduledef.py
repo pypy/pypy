@@ -150,9 +150,9 @@ class Module(MixedModule):
         "NOT_RPYTHON"
         space = self.space
 
-        if 0 and not space.config.translating:
-            ##from pypy.module.sys.interp_encoding import _getfilesystemencoding
-            ##self.filesystemencoding = _getfilesystemencoding(space)
+        if not space.config.translating:
+            ## from pypy.module.sys.interp_encoding import _getfilesystemencoding
+            ## self.filesystemencoding = _getfilesystemencoding(space)
             # XXX the two lines above take a few seconds to run whenever
             # we initialize the space; for tests, use a simpler version.
             # Check what exactly breaks, if anything, in py3.6.  This is
