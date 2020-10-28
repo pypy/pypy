@@ -1667,7 +1667,7 @@ class AppTestPosix:
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
-    spaceconfig = {'usemodules': ['posix', '_socket']}
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -1758,6 +1758,7 @@ def check_fsencoding(space, pytestconfig):
 
 @py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_posix = space.appexec([], GET_POSIX)
 
