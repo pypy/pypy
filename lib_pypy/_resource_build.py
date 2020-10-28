@@ -73,6 +73,22 @@ static int my_setrlimit(int resource, long long cur, long long max)
     return setrlimit(resource, &rl);
 }
 
+#ifdef __linux__
+static int my_prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
+{
+    struct rlimit new_rl, old_rl;
+    new_rl.rlim_cur = cur & RLIM_INFINITY;
+    new_rl.rlim_max = max & RLIM_INFINITY;
+
+    if(prlimit(pid, resource, (set ? &new_rl : NULL), &old_rl) == -1)
+        return -1;
+
+    result[0] = old_rl.rlim_cur;
+    result[1] = old_rl.rlim_max;
+    return 0;
+}
+#endif
+
 """.replace('$RLIMIT_CONSTS', ''.join(rlimit_consts)))
 
 
@@ -108,6 +124,8 @@ static double my_stime(struct rusage *);
 void getrusage(int who, struct rusage *result);
 int my_getrlimit(int resource, long long result[2]);
 int my_setrlimit(int resource, long long cur, long long max);
+
+int my_prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
 
 int wait3(int *status, int options, struct rusage *rusage);
 int wait4(int pid, int *status, int options, struct rusage *rusage);
