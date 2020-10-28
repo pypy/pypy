@@ -1,4 +1,5 @@
 from cffi import FFI
+import sys
 
 ffi = FFI()
 
@@ -125,12 +126,15 @@ void getrusage(int who, struct rusage *result);
 int my_getrlimit(int resource, long long result[2]);
 int my_setrlimit(int resource, long long cur, long long max);
 
-int my_prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
-
 int wait3(int *status, int options, struct rusage *rusage);
 int wait4(int pid, int *status, int options, struct rusage *rusage);
 """)
 
+
+if sys.platform.startswith("linux"):
+    ffi.cdef("""
+int my_prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
+""")
 
 if __name__ == "__main__":
     ffi.compile()
