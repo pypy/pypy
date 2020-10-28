@@ -86,6 +86,7 @@ def test_getprotobyname(space, w_socket):
     assert space.unwrap(w_n) == socket.IPPROTO_TCP
 
 @pytest.mark.skipif("not hasattr(socket, 'fromfd')")
+@pytest.mark.skipif("sys.platform=='win32'")
 def test_fromfd(space, w_socket, tmpdir):
     path = tmpdir / 'fd'
     path.write('fo')
@@ -167,11 +168,11 @@ def test_ntop_ipv6(space, w_socket):
     if not socket.has_ipv6:
         pytest.skip("No IPv6 on this platform")
     tests = [
-        ("\x00" * 16, "::"),
-        ("\x01" * 16, ":".join(["101"] * 8)),
-        ("\x00\x00\x10\x10" * 4, None),  # "::1010:" + ":".join(["0:1010"] * 3)),
-        ("\x00" * 12 + "\x01\x02\x03\x04", "::1.2.3.4"),
-        ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
+        (b"\x00" * 16, "::"),
+        (b"\x01" * 16, ":".join(["101"] * 8)),
+        (b"\x00\x00\x10\x10" * 4, None),  # "::1010:" + ":".join(["0:1010"] * 3)),
+        (b"\x00" * 12 + "\x01\x02\x03\x04", "::1.2.3.4"),
+        (b"\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
     for packed, ip in tests:
         w_ip = space.appexec([w_socket, space.wrap(packed)],
@@ -183,6 +184,7 @@ def test_ntop_ipv6(space, w_socket):
         assert space.unwrap(w_packed) == packed
 
 def test_pton_ipv6(space, w_socket):
+    import sys
     if not hasattr(socket, 'inet_pton'):
         pytest.skip('No socket.inet_pton on this platform')
     if not socket.has_ipv6:
@@ -195,10 +197,13 @@ def test_pton_ipv6(space, w_socket):
         ("\x00\x01" * 6 + "\x00" * 4, "1:1:1:1:1:1::"),
         ("\xab\xcd\xef\00" + "\x00" * 12, "ABCD:EF00::"),
         ("\xab\xcd\xef\00" + "\x00" * 12, "abcd:ef00::"),
-        ("\x00\x00\x10\x10" * 4, "::1010:" + ":".join(["0:1010"] * 3)),
         ("\x00" * 12 + "\x01\x02\x03\x04", "::1.2.3.4"),
         ("\x00" * 10 + "\xff\xff\x01\x02\x03\x04", "::ffff:1.2.3.4"),
     ]
+    if sys.platform != 'win32':
+        tests.append(
+            ("\x00\x00\x10\x10" * 4, "::1010:" + ":".join(["0:1010"] * 3))
+        )
     for packed, ip in tests:
         w_packed = space.appexec([w_socket, space.wrap(ip)],
             "(_socket, ip): return _socket.inet_pton(_socket.AF_INET6, ip)")

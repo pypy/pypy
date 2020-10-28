@@ -925,6 +925,11 @@ def listdir(path):
             raise OSError(get_saved_errno(), "opendir failed")
         return _listdir(dirp)
     else:  # _WIN32 case
+        if not path:
+            traits = _preferred_traits('')
+            win32traits = make_win32_traits(traits)
+            raise OSError(win32traits.ERROR_FILE_NOT_FOUND,
+                         "listdir called with invalid path")
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
