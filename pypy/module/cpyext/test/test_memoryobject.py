@@ -164,7 +164,19 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
             ("get_contiguous", "METH_O",
              """
                return PyMemoryView_GetContiguous(args, PyBUF_READ, 'C');
-            """)
+            """),
+            ("get_readonly", "METH_O",
+             """
+                Py_buffer view;
+                int readonly;
+                memset(&view, 0, sizeof(view));
+                if (PyObject_GetBuffer(args, &view, PyBUF_SIMPLE) != 0) {
+                    return NULL;
+                }
+                readonly = view.readonly;
+                PyBuffer_Release(&view);
+                return PyLong_FromLong(readonly);
+            """),
             ])
         module = self.import_module(name='buffer_test')
         arr = module.PyMyArray(10)
@@ -177,6 +189,8 @@ class AppTestBufferProtocol(AppTestCpythonExtensionBase):
         foo.test_contiguous(arr)
         contig = foo.get_contiguous(arr)
         foo.test_contiguous(contig)
+        ro = foo.get_readonly(b'abc')
+        assert ro == 1
         try:
             from _numpypy import multiarray as np
         except ImportError:
