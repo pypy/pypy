@@ -89,11 +89,13 @@ def memory_realize(space, obj):
 @slot_function([PyObject], lltype.Void)
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
-    if mem_obj.c_view.c_obj:
-        decref(space, mem_obj.c_view.c_obj)
-    if mem_obj.c_view.c_flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
-        lltype.free(mem_obj.c_view.c_format, flavor='raw')
-    mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
+    view = mem_obj.c_view
+    if view.c_obj:
+        decref(space, view.c_obj)
+    view.c_obj = rffi.cast(PyObject, 0)
+    flags = widen(view.c_flags)
+    if flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
+        lltype.free(view.c_format, flavor='raw')
     _dealloc(space, py_obj)
 
 def fill_Py_buffer(space, buf, view):
@@ -106,7 +108,9 @@ def fill_Py_buffer(space, buf, view):
     n = len(fmt)
     view.c_format = lltype.malloc(rffi.CCHARP.TO, n + 1, flavor='raw',
                                   add_memory_pressure=True)
-    view.c_flags |= FORMAT_ALLOCATED
+    flags = widen(view.c_flags)
+    flags |= FORMAT_ALLOCATED
+    view.c_flags = rffi.cast(rffi.INT_real, flags)
     for i in range(n):
         view.c_format[i] = fmt[i]
     view.c_format[n] = '\x00'
