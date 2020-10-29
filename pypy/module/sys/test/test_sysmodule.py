@@ -136,11 +136,11 @@ class AppTestAppSysTests:
     def test_getfilesystemencoding(self):
         import sys
         enc = sys.getfilesystemencoding()
-        if self.appdirect:
-            assert enc == self.filesystemenc
-        else:
+        # even before bootstraping, the encoding should match
+        assert enc == self.filesystemenc
+        if not self.appdirect:
             # see comment in 'setup_after_space_initialization'
-            untranslated_enc = {'win32': 'mbcs', 'darwin': 'utf-8'}.get(enc, 'ascii')
+            untranslated_enc = {'win32': 'utf-8', 'darwin': 'utf-8'}.get(enc, 'utf-8')
             assert enc == untranslated_enc
 
     def test_float_info(self):

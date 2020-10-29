@@ -152,8 +152,6 @@ class Path(object):
 def _path_from_unicode(space, w_value):
     if _WIN32:
         path_u = FileEncoder(space, w_value).as_unicode()
-        if not path_u:
-            path_u = u'.'
         return Path(-1, None, path_u, w_value)
     else:
         path_b = space.bytes0_w(space.fsencode(w_value))
@@ -161,9 +159,6 @@ def _path_from_unicode(space, w_value):
 
 def _path_from_bytes(space, w_value):
     path_b = space.bytes0_w(w_value)
-    if _WIN32:
-        if not path_b:
-            path_b = '.'
     return Path(-1, path_b, None, w_value)
 
 @specialize.arg(2, 3)
@@ -1093,8 +1088,11 @@ entries '.' and '..' even if they are present in the directory."""
         try:
             if u:
                 result_u = rposix.listdir(path.as_unicode)
-            else:
+            elif path.as_bytes:
                 result = rposix.listdir(path.as_bytes)
+            else:
+                # rposix.listdir will raise the error, but None is invalid here
+                result = rposix.listdir('')
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
         if u:

@@ -27,7 +27,11 @@ class W_HKEY(W_Root):
         self.register_finalizer(space)
 
     def _finalize_(self):
-        self.Close(self.space)
+        # ignore errors
+        try:
+            self.Close(self.space)
+        except:
+            pass
 
     def as_int(self):
         return rffi.cast(rffi.SIZE_T, self.hkey)

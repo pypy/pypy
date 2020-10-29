@@ -13,11 +13,8 @@ from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
-# py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
-else:
-    USEMODULES += ['_rawffi', 'thread', '_cffi_backend']
+    USEMODULES += ['_socket']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -227,6 +224,9 @@ class AppTestPosix:
                 fn("nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
+            with raises(OSError) as exc:
+                fn("")
+            assert exc.value.errno == errno.ENOENT
 
         with raises(TypeError) as excinfo:
             self.posix.stat(None)
@@ -364,15 +364,10 @@ class AppTestPosix:
     def test_listdir_default(self):
         import sys
         posix = self.posix
-        if sys.platform == 'win32':
-            defaults = ['.', '', None]
-            assert posix.listdir(b'.') == posix.listdir(b'')
-        else:
-            defaults = ['.', None]
-            for v in ['', b'']:
-                with raises(FileNotFoundError):
-                    posix.listdir(v)
-        for v in defaults:
+        for v in ['', b'']:
+            with raises(FileNotFoundError):
+                posix.listdir(v)
+        for v in ['.', None]:
             assert posix.listdir() == posix.listdir(v)
 
     def test_listdir_bytes(self):
@@ -1645,7 +1640,7 @@ class AppTestPosix:
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
-    spaceconfig = {'usemodules': ['posix', '_socket']}
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -1668,12 +1663,17 @@ class AppTestEnvironment(object):
         cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
+        import sys
         environ = self.posix.environ
         if not environ:
             skip('environ not filled in for untranslated tests')
+        if sys.platform == 'win32':
+            rawenv = str
+        else:
+            rawenv = bytes
         for k, v in environ.items():
-            assert type(k) is bytes
-            assert type(v) is bytes
+            assert type(k) is rawenv
+            assert type(v) is rawenv
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
@@ -1731,6 +1731,7 @@ def check_fsencoding(space, pytestconfig):
 
 @py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_posix = space.appexec([], GET_POSIX)
 
