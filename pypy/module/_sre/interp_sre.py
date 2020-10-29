@@ -893,11 +893,7 @@ class W_SRE_Scanner(W_Root):
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
-            # obscure corner case
-            if ctx.match_start == ctx.end:
-                self.ctx = None
-            else:
-                ctx.match_start = ctx.next_indirect(ctx.match_start)
+            self.ctx = None
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

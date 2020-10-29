@@ -16,4 +16,12 @@ Add posix.sendfile to darwin for python3.6+
 
 .. branch: app_main
 
-avoid using ``import os`` until after ``import site`` in ``app_main``
+Avoid using ``import os`` until after ``import site`` in ``app_main``
+
+.. branch: stdlib-2.7.18-3
+
+Update lib-python/2.7 to stdlib-2.7.18 and fix many tests
+
+.. branch: cptpcrd-resource-prlimit
+
+Add ``prlimit`` to ``resource``
