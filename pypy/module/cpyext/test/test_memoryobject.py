@@ -289,22 +289,8 @@ class AppTestBufferInfo(AppTestCpythonExtensionBase):
               ('c', 'i')],
              )
         x = np.arange(dt1.itemsize, dtype='int8').view(dt1)
-        # pytest can catch warnings from v2.8 and up, we ship 2.5
-        import warnings
-        warnings.filterwarnings("error")
-        try:
-            try:
-                y = get_buffer_info(x, ['SIMPLE'])
-            except UserWarning as e:
-                pass
-            else:
-                assert False ,"PyPy-specific UserWarning not raised" \
-                          " on too long format string"
-        finally:
-            warnings.resetwarnings()
         # calling get_buffer_info on x creates a memory leak,
         # which is detected as an error at test teardown:
         # Exception TypeError: "'NoneType' object is not callable"
         #         in <bound method ConcreteArray.__del__ ...> ignored
-
 
