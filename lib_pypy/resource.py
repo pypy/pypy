@@ -121,7 +121,7 @@ if sys.platform.startswith("linux"):
 
         result = ffi.new("long long[2]")
 
-        if lib.my_prlimit(pid, resource, limits is not None, limit0, limit1, result) == -1:
+        if lib._prlimit(pid, resource, limits is not None, limit0, limit1, result) == -1:
             if ffi.errno == EINVAL:
                 raise ValueError("current limit exceeds maximum limit")
             elif ffi.errno == EPERM:
