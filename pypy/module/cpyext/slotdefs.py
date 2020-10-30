@@ -832,6 +832,44 @@ def make_tp_descr_set(space, typedef, name, attr):
     return slot_tp_descr_set
 
 
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
+
+def slot_from_buffer_w(space, typedef):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, c_view, flags):
+        w_obj = w_self
+        if c_view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
+
 def _make_missing_wrapper(name):
     assert name not in globals()
     class missing_wrapper(W_PyCWrapperObject):
