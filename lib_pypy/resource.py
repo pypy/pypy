@@ -10,8 +10,7 @@ except ImportError:
     builtinify = lambda f: f
 
 
-class error(Exception):
-    pass
+error = OSError
 
 class struct_rusage(metaclass=_structseq.structseqtype):
     """struct_rusage: Result from getrusage.
@@ -67,7 +66,7 @@ def getrusage(who):
     if lib.getrusage(who, ru) == -1:
         if ffi.errno == EINVAL:
             raise ValueError("invalid who parameter")
-        raise error(ffi.errno)
+        raise OSError(ffi.errno, os.strerror(ffi.errno))
     return _make_struct_rusage(ru)
 
 @builtinify
@@ -77,7 +76,7 @@ def getrlimit(resource):
 
     result = ffi.new("long long[2]")
     if lib.my_getrlimit(resource, result) == -1:
-        raise error(ffi.errno)
+        raise OSError(ffi.errno, os.strerror(ffi.errno))
     return (result[0], result[1])
 
 @builtinify
@@ -99,7 +98,7 @@ def setrlimit(resource, limits):
         elif ffi.errno == EPERM:
             raise ValueError("not allowed to raise maximum limit")
         else:
-            raise error(ffi.errno)
+            raise OSError(ffi.errno, os.strerror(ffi.errno))
 
 if sys.platform.startswith("linux"):
     @builtinify
@@ -124,10 +123,8 @@ if sys.platform.startswith("linux"):
         if lib._prlimit(pid, resource, limits is not None, limit0, limit1, result) == -1:
             if ffi.errno == EINVAL:
                 raise ValueError("current limit exceeds maximum limit")
-            elif ffi.errno == EPERM:
-                raise ValueError("not allowed to raise maximum limit")
             else:
-                raise error(ffi.errno)
+                raise OSError(ffi.errno, os.strerror(ffi.errno))
 
         return (result[0], result[1])
 
