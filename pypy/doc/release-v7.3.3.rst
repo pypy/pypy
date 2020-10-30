@@ -149,6 +149,7 @@ C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Check for ``None`` in ``PyLong_AsUnsignedLongLong``
 - Dynamically allocate ``Py_buffer.format`` if needed (issue 3336_)
+- Fix for readonly flag on PyObject_GetBuffer(<bytes>, view) (issue 3307_)
 
 Python 3.6+
 -----------
@@ -178,6 +179,7 @@ Python 3.6 C-API
 .. _3331: https://foss.heptapod.net/pypy/pypy/-/issues/3331
 .. _3324: https://foss.heptapod.net/pypy/pypy/-/issues/3324
 .. _3334: https://foss.heptapod.net/pypy/pypy/-/issues/3334
+.. _3307: https://foss.heptapod.net/pypy/pypy/-/issues/3307
 
 .. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
 
