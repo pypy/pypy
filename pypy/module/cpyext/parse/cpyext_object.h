@@ -80,17 +80,18 @@ typedef struct bufferinfo {
     Py_ssize_t itemsize;
     int readonly;
     int ndim;
-    int flags;
     char *format;
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
+    void *internal; /* always NULL for app-level objects */
+    /* PyPy extensions */
+    int flags;
     Py_ssize_t _strides[Py_MAX_NDIMS];
     Py_ssize_t _shape[Py_MAX_NDIMS];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    void *internal; /* always NULL for app-level objects */
 } Py_buffer;
 
 

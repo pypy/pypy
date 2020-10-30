@@ -402,18 +402,18 @@ test_to_contiguous(PyObject* self, PyObject *noargs)
     Py_ssize_t shape = 5;
     Py_ssize_t strides = 2 * itemsize;
     Py_buffer view = {
-        data,
-        NULL,
-        5 * itemsize,
-        itemsize,
-        1,
-        1,
-        NULL,
-        &shape,
-        &strides,
-        NULL,
-        {0, 0},
-        NULL
+        .buf = data,
+        .obj = NULL,
+        .len = 5 * itemsize,
+        .itemsize = itemsize,
+        .readonly = 1,
+        .ndim = 1,
+        .format = NULL,
+        .shape = &shape,
+        .strides = &strides,
+        .suboffsets = NULL,
+        ._strides = {0, 0},
+        .flags = 0,
     };
     int i;
 
@@ -450,18 +450,18 @@ test_from_contiguous(PyObject* self, PyObject *noargs)
     Py_ssize_t shape = 5;
     Py_ssize_t strides = 2 * itemsize;
     Py_buffer view = {
-        data,
-        NULL,
-        5 * itemsize,
-        itemsize,
-        1,
-        1,
-        NULL,
-        &shape,
-        &strides,
-        NULL,
-        {0, 0},
-        NULL
+        .buf = data,
+        .obj = NULL,
+        .len = 5 * itemsize,
+        .itemsize = itemsize,
+        .readonly = 1,
+        .ndim = 1,
+        .format = NULL,
+        .shape = &shape,
+        .strides = &strides,
+        .suboffsets = NULL,
+        ._strides = {0, 0},
+        .flags = 0,
     };
     int *ptr;
     int i;
