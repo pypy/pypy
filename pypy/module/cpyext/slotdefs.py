@@ -831,19 +831,6 @@ def make_tp_descr_set(space, typedef, name, attr):
         return 0
     return slot_tp_descr_set
 
-
-            except ValueError:
-                s = buf.as_str()
-                w_s = space.newbytes(s)
-                c_view.c_obj = make_ref(space, w_s)
-                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
-                                        s, track_allocation=False))
-                rffi.setintfield(c_view, 'c_readonly', 1)
-            ret = fill_Py_buffer(space, buf, c_view)
-            return ret
-        return 0
-    return buff_w
-
 def slot_from_buffer_w(space, typedef):
     name = 'bf_getbuffer'
     @slot_function([PyObject, Py_bufferP, rffi.INT_real],
@@ -858,6 +845,8 @@ def slot_from_buffer_w(space, typedef):
             try:
                 c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                 c_view.c_obj = make_ref(space, w_obj)
+                if space.isinstance_w(w_obj, space.w_bytes):
+                    rffi.setintfield(c_view, 'c_readonly', 1)
             except ValueError:
                 s = buf.as_str()
                 w_s = space.newbytes(s)
