@@ -2,7 +2,7 @@
 
 from _resource_cffi import ffi, lib
 from errno import EINVAL, EPERM
-import _structseq, os, sys
+import _structseq, os
 
 try:
     from __pypy__ import builtinify
@@ -100,36 +100,6 @@ def setrlimit(resource, limits):
             raise ValueError("not allowed to raise maximum limit")
         else:
             raise error(ffi.errno)
-
-if sys.platform.startswith("linux"):
-    @builtinify
-    def prlimit(pid, resource, limits = None):
-        if not (0 <= resource < lib.RLIM_NLIMITS):
-            return ValueError("invalid resource specified")
-
-        if limits is not None:
-            limits = tuple(limits)
-            if len(limits) != 2:
-                raise ValueError("expected a tuple of 2 integers")
-
-            # accept and round down floats, like CPython does
-            limit0 = int(limits[0])
-            limit1 = int(limits[1])
-        else:
-            limit0 = 0
-            limit1 = 0
-
-        result = ffi.new("long long[2]")
-
-        if lib._prlimit(pid, resource, limits is not None, limit0, limit1, result) == -1:
-            if ffi.errno == EINVAL:
-                raise ValueError("current limit exceeds maximum limit")
-            elif ffi.errno == EPERM:
-                raise ValueError("not allowed to raise maximum limit")
-            else:
-                raise error(ffi.errno)
-
-        return (result[0], result[1])
 
 
 @builtinify
