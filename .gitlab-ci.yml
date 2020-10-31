@@ -2,3 +2,11 @@ check_rpython_annotations:
     image: octobus/ci-for-pypy
     script:
       - (cd pypy/goal; python2 ../../rpython/bin/rpython --batch -O2 --annotate targetpypystandalone)
+
+# these tests are meant to be run only in the hpy branch, remove it once it
+# has been merged
+hpy_tests:
+    image: octobus/ci-for-pypy
+    script:
+      - pip install -r requirements.txt
+      - ./pytest.py pypy/module/_hpy_universal/

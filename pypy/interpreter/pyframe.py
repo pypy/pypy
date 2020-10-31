@@ -23,7 +23,8 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START'''.split():
+SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
+'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
 class FrameDebugData(object):
@@ -706,6 +707,11 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "f_lineno can only be set by a trace function")
 
+        code = self.pycode.co_code
+        if ord(code[self.last_instr]) == YIELD_VALUE:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from a yield statement")
+
         # Only allow jumps when we're tracing a line event.
         d = self.getorcreatedebug()
         if not d.is_in_line_tracing:
@@ -753,7 +759,6 @@ class PyFrame(W_Root):
         # cases (AFAIK) where a line's code can start with DUP_TOP or
         # POP_TOP, but if any ever appear, they'll be subject to the same
         # restriction (but with a different error message).
-        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise oefmt(space.w_ValueError,
                         "can't jump to 'except' line as there's no exception")

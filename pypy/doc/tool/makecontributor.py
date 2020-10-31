@@ -1,3 +1,4 @@
+from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
 # works with pip install mercurial==3.0
 
@@ -94,7 +95,7 @@ alias = {
     }
 
 alias_map = {}
-for name, nicks in alias.iteritems():
+for name, nicks in alias.items():
     for nick in nicks:
         alias_map[nick] = name
 
@@ -132,13 +133,13 @@ def get_more_authors(log):
 
 def main(show_numbers):
     ui = mercurial.ui.ui()
-    repo = mercurial.hg.repository(ui, str(ROOT))
+    repo = mercurial.hg.repository(ui, str(ROOT).encode('utf-8'))
     authors_count = defaultdict(int)
     for i in repo:
         ctx = repo[i]
         authors = set()
-        authors.add(get_canonical_author(ctx.user()))
-        authors.update(get_more_authors(ctx.description()))
+        authors.add(get_canonical_author(ctx.user().decode('utf-8')))
+        authors.update(get_more_authors(ctx.description().decode('utf-8')))
         for author in authors:
             if author not in excluded:
                 authors_count[author] += 1
@@ -153,13 +154,13 @@ def main(show_numbers):
     ##     else:
     ##         print name
 
-    items = authors_count.items()
+    items = list(authors_count.items())
     items.sort(key=operator.itemgetter(1), reverse=True)
     for name, n in items:
         if show_numbers:
-            print '%5d %s' % (n, name)
+            print('%5d %s' % (n, name))
         else:
-            print '  ' + name
+            print('  ' + name)
 
 if __name__ == '__main__':
     show_numbers = '-n' in sys.argv

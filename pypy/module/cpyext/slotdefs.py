@@ -118,7 +118,7 @@ class wrap_ternaryfunc(W_PyCWrapperObject):
         return generic_cpy_call(space, func_ternary, w_self, w_arg0, w_arg1)
 
 class wrap_ternaryfunc_r(W_PyCWrapperObject):
-    def call(self, space, w_self, __args__):    
+    def call(self, space, w_self, __args__):
         # The third argument is optional
         self.check_argsv(__args__, 1, 2)
         func = self.get_func_to_call()
@@ -831,6 +831,33 @@ def make_tp_descr_set(space, typedef, name, attr):
         return 0
     return slot_tp_descr_set
 
+def slot_from_buffer_w(space, typedef):
+    name = 'bf_getbuffer'
+    @slot_function([PyObject, Py_bufferP, rffi.INT_real],
+            rffi.INT_real, error=-1)
+    @func_renamer("cpyext_%s_%s" % (name, typedef.name))
+    def buff_w(space, w_self, c_view, flags):
+        w_obj = w_self
+        if c_view:
+            #like PyObject_GetBuffer
+            flags = widen(flags)
+            buf = space.buffer_w(w_obj, flags)
+            try:
+                c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
+                c_view.c_obj = make_ref(space, w_obj)
+                if space.isinstance_w(w_obj, space.w_bytes):
+                    rffi.setintfield(c_view, 'c_readonly', 1)
+            except ValueError:
+                s = buf.as_str()
+                w_s = space.newbytes(s)
+                c_view.c_obj = make_ref(space, w_s)
+                c_view.c_buf = rffi.cast(rffi.VOIDP, rffi.str2charp(
+                                        s, track_allocation=False))
+                rffi.setintfield(c_view, 'c_readonly', 1)
+            ret = fill_Py_buffer(space, buf, c_view)
+            return ret
+        return 0
+    return buff_w
 
 def _make_missing_wrapper(name):
     assert name not in globals()

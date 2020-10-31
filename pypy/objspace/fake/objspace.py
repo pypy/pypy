@@ -1,12 +1,15 @@
 from rpython.annotator.model import SomeInstance, s_None
+from rpython.annotator.listdef import s_list_of_strings
 from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize,
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
 from rpython.tool.sourcetools import compile2, func_with_new_name
 from rpython.translator.translator import TranslationContext
+from rpython.translator.c.genc import CStandaloneBuilder
 
 from pypy.tool.option import make_config
 from pypy.interpreter import argument, gateway
@@ -75,7 +78,6 @@ class W_UnicodeOjbect(W_MyObject):
         return NonConstant(42)
     def _len(self):
         return self._length
-    
 
 class W_MyType(W_MyObject):
     name = "foobar"
@@ -151,7 +153,22 @@ class FakeObjSpace(ObjSpace):
         # In Python2, this is triggered by W_InstanceObject.__getslice__.
         def build_slice():
             self.newslice(self.w_None, self.w_None, self.w_None)
+        def attach_list_strategy():
+            # this is needed for modules which interacts directly with
+            # std.listobject.W_ListObject, e.g. after an isinstance check. For
+            # example, _hpy_universal. We need to attach a couple of attributes
+            # so that the annotator annotates them with the correct types
+            from pypy.objspace.std.listobject import W_ListObject, ObjectListStrategy
+            space = self
+            w_obj = w_some_obj()
+            if isinstance(w_obj, W_ListObject):
+                w_obj.space = space
+                w_obj.strategy = ObjectListStrategy(space)
+                list_w = [w_some_obj(), w_some_obj()]
+                w_obj.lstorage = w_obj.strategy.erase(list_w)
+
         self._seen_extras.append(build_slice)
+        self._seen_extras.append(attach_list_strategy)
 
     def _freeze_(self):
         return True
@@ -176,6 +193,7 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newtuple(self, list_w):
+        make_sure_not_resized(list_w)
         for w_x in list_w:
             is_root(w_x)
         return w_some_obj()
@@ -188,6 +206,9 @@ class FakeObjSpace(ObjSpace):
     newfrozenset = newset
 
     def newlist(self, list_w):
+        # make sure that the annotator thinks that the list is resized
+        list_w.append(W_Root())
+        #
         for w_x in list_w:
             is_root(w_x)
         return W_MyListObj()
@@ -204,6 +225,10 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newlong(self, x):
+        return w_some_obj()
+
+    @specialize.argtype(1)
+    def newlong_from_rarith_int(self, x):
         return w_some_obj()
 
     def newfloat(self, x):
@@ -387,7 +412,9 @@ class FakeObjSpace(ObjSpace):
 
     # ----------
 
-    def translates(self, func=None, argtypes=None, seeobj_w=[], **kwds):
+    def translates(self, func=None, argtypes=None, seeobj_w=[],
+                   extra_func=None, c_compile=False,
+                   **kwds):
         config = make_config(None, **kwds)
         if func is not None:
             if argtypes is None:
@@ -397,10 +424,14 @@ class FakeObjSpace(ObjSpace):
         t = TranslationContext(config=config)
         self.t = t     # for debugging
         ann = t.buildannotator()
-        def _do_startup():
+
+        def entry_point(argv):
             self.threadlocals.enter_thread(self)
             W_SliceObject(w_some_obj(), w_some_obj(), w_some_obj())
-        ann.build_types(_do_startup, [], complete_now=False)
+            if extra_func:
+                extra_func(self)
+            return 0
+        ann.build_types(entry_point, [s_list_of_strings], complete_now=False)
         if func is not None:
             ann.build_types(func, argtypes, complete_now=False)
         if seeobj_w:
@@ -422,6 +453,12 @@ class FakeObjSpace(ObjSpace):
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
+        if c_compile:
+            cbuilder = CStandaloneBuilder(t, entry_point, t.config)
+            cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
+            cbuilder.compile()
+            return t, cbuilder
+
 
     def setup(space):
         for name in (ObjSpace.ConstantTable +

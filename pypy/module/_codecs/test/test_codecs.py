@@ -1463,6 +1463,7 @@ class AppTestPartialEvaluation:
         assert toencode[0].encode('mbcs') == toencode[1]
         raises(UnicodeEncodeError, u'\u040a'.encode, 'mbcs')
         assert b'cafx\e9'.decode('mbcs') == u'cafx\e9'
+        assert b'\xe6'.decode('mbcs') == u'\xe6'
 
     def test_handler_string_result(self):
         import _codecs

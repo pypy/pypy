@@ -127,7 +127,7 @@ def name_float(value, db):
         else:
             return '(_PyPy_dg_stdnan(1))'
     else:
-        x = repr(value)
+        x = repr(float(value))
         assert not x.startswith('n')
         return x
 name_longfloat = name_float

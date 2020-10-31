@@ -174,9 +174,10 @@ class W_Kqueue(W_Root):
                         max_events)
 
         if space.is_w(w_changelist, space.w_None):
-            changelist_len = 0
+            changelist_list = []
         else:
-            changelist_len = space.len_w(w_changelist)
+            changelist_list = space.listview(w_changelist)
+        changelist_len = len(changelist_list)
 
         with lltype.scoped_alloc(rffi.CArray(kevent), changelist_len) as changelist:
             with lltype.scoped_alloc(rffi.CArray(kevent), max_events) as eventlist:
@@ -196,8 +197,8 @@ class W_Kqueue(W_Root):
                         ptimeout = lltype.nullptr(timespec)
 
                     if not space.is_w(w_changelist, space.w_None):
-                        i = 0
-                        for w_ev in space.listview(w_changelist):
+                        for i in range(changelist_len):
+                            w_ev = changelist_list[i]
                             ev = space.interp_w(W_Kevent, w_ev)
                             changelist[i].c_ident = ev.ident
                             changelist[i].c_filter = ev.filter
@@ -331,33 +332,40 @@ class W_Kevent(W_Root):
             assert False
 
     def compare_all_fields(self, space, other, op):
-        if not space.interp_w(W_Kevent, other):
-            if op == "eq":
-                return False
-            elif op == "ne":
-                return True
-            else:
-                raise oefmt(space.w_TypeError,
-                            "cannot compare kevent to incompatible type")
-        return self._compare_all_fields(space.interp_w(W_Kevent, other), op)
+        if not isinstance(other, W_Kevent):
+            return space.w_NotImplemented
+        negate = False
+        if op == 'ne':
+            negate = True
+            op = 'eq'
+        elif op == 'le':
+            negate = True
+            op = 'gt'
+        elif op == 'ge':
+            negate = True
+            op = 'lt'
+        r = self._compare_all_fields(space.interp_w(W_Kevent, other), op)
+        if negate:
+            r = not r
+        return space.newbool(r)
 
     def descr__eq__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "eq"))
+        return self.compare_all_fields(space, w_other, "eq")
 
     def descr__ne__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "eq"))
+        return self.compare_all_fields(space, w_other, "ne")
 
     def descr__le__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "gt"))
+        return self.compare_all_fields(space, w_other, "le")
 
     def descr__lt__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "lt"))
+        return self.compare_all_fields(space, w_other, "lt")
 
     def descr__ge__(self, space, w_other):
-        return space.newbool(not self.compare_all_fields(space, w_other, "lt"))
+        return self.compare_all_fields(space, w_other, "ge")
 
     def descr__gt__(self, space, w_other):
-        return space.newbool(self.compare_all_fields(space, w_other, "gt"))
+        return self.compare_all_fields(space, w_other, "gt")
 
     def descr_get_ident(self, space):
         return space.newint(self.ident)

@@ -250,7 +250,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3'):
+            for suffix in ('python', 'python3', 'pypy3'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -297,8 +297,10 @@ class EnvBuilder:
                         os.path.normcase(f).startswith(('python', 'vcruntime'))
                     ]
             else:
+                # PyPy change: since PyPy does not use a PEP 397 launcer,
+                # copy the exe and dll.
                 suffixes = ['python.exe', 'python_d.exe', 'pythonw.exe',
-                            'pythonw_d.exe']
+                            'pythonw_d.exe', 'pypy3.exe', 'libpypy3-c.dll']
 
             for suffix in suffixes:
                 src = os.path.join(dirname, suffix)

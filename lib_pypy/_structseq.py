@@ -64,9 +64,9 @@ class structseqtype(type):
         for i,field in enumerate(extra_fields):
             field.index = None     # no longer relevant
 
-        assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)
-        dict['__new__'] = structseq_new
+        if '__new__' not in dict:
+            dict['__new__'] = structseq_new
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr

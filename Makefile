@@ -38,5 +38,4 @@ endif
 	cd pypy/goal && $(RUNINTERP) ../../rpython/bin/rpython $(JOBS) -Ojit targetpypystandalone.py
 
 cffi_imports: pypy-c
-	cd lib_pypy && ../pypy/goal/pypy-c pypy_tools/build_cffi_imports.py || /bin/true
-
+	cd lib_pypy && ../pypy/goal/pypy3-c pypy_tools/build_cffi_imports.py || /bin/true

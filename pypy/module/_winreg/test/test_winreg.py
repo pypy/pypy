@@ -33,7 +33,7 @@ class AppTestFfi:
         import _winreg as winreg
         space = cls.space
         cls.root_key = winreg.HKEY_CURRENT_USER
-        cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
+        cls.test_key_name = "SOFTWARE\\Pypy Test Key - Delete Me [%d]" % os.getpid()
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
@@ -56,7 +56,9 @@ class AppTestFfi:
         import _winreg
         try:
             _winreg.DeleteKey(cls.root_key, cls.test_key_name)
-        except WindowsError:
+        except WindowsError as e:
+            print('could not delete key')
+            print(str(e))
             pass
 
     def test_constants(self):
@@ -244,6 +246,8 @@ class AppTestFfi:
 
     def test_dynamic_key(self):
         from winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
+        if not self.runappdirect:
+            skip('crashes untranslated')
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)
         except WindowsError as e:

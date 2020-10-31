@@ -553,14 +553,22 @@ def sleep(space, w_secs):
         if secs <= 0:
             break
 
+
 def _get_module_object(space, obj_name):
     w_module = space.getbuiltinmodule('time')
     w_obj = space.getattr(w_module, space.newtext(obj_name))
     return w_obj
 
+
 def _set_module_object(space, obj_name, w_obj_value):
     w_module = space.getbuiltinmodule('time')
     space.setattr(w_module, space.newtext(obj_name), w_obj_value)
+    # XXX find a more appropriate way to ensure the values are preserved
+    # across module reloading
+    from pypy.interpreter.mixedmodule import MixedModule
+    assert isinstance(w_module, MixedModule)
+    w_module.reset_lazy_initial_values()
+
 
 def _get_inttime(space, w_seconds):
     # w_seconds can be a wrapped None (it will be automatically wrapped
@@ -750,7 +758,7 @@ def _get_time_info(space, name, w_info):
     elif name == "thread_time" and HAS_THREAD_TIME:
         _thread_time_impl(space, w_info, False)
     else:
-        oefmt(space.w_ValueError, "unknown clock")
+        raise oefmt(space.w_ValueError, "unknown clock")
 
 def time_ns(space):
     """time_ns() -> int

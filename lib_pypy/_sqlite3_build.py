@@ -278,6 +278,8 @@ def _has_backup():
 
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
+    _ffi.cdef("int sqlite3_load_extension(sqlite3 *db, const char *, "
+                                                 "const char *, char **);")
 if _has_backup():
     _ffi.cdef("""
 typedef ... sqlite3_backup;
