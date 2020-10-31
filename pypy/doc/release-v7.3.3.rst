@@ -73,7 +73,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from XXX new contributors,
+previous release, we have accepted contributions from 2 new contributors,
 thanks for pitching in.
 
 If you are a python library maintainer and use c-extensions, please consider
