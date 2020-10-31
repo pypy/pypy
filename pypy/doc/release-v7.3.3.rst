@@ -73,7 +73,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from XXX new contributors,
+previous release, we have accepted contributions from 2 new contributors,
 thanks for pitching in.
 
 If you are a python library maintainer and use c-extensions, please consider
@@ -149,6 +149,7 @@ C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Check for ``None`` in ``PyLong_AsUnsignedLongLong``
 - Dynamically allocate ``Py_buffer.format`` if needed (issue 3336_)
+- Fix for readonly flag on PyObject_GetBuffer(<bytes>, view) (issue 3307_)
 
 Python 3.6+
 -----------
@@ -178,6 +179,7 @@ Python 3.6 C-API
 .. _3331: https://foss.heptapod.net/pypy/pypy/-/issues/3331
 .. _3324: https://foss.heptapod.net/pypy/pypy/-/issues/3324
 .. _3334: https://foss.heptapod.net/pypy/pypy/-/issues/3334
+.. _3307: https://foss.heptapod.net/pypy/pypy/-/issues/3307
 
 .. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
 
