@@ -100,6 +100,10 @@ If you are new with Mercurial and Heptapod, you can read this `short tutorial`_
 
 .. _`short tutorial`: https://heptapod.net/pages/quick-start-guide.html
 
+However, we recommend at this time you **not** use topic branches. We prefer
+the usual mercurial named branch model, as pointed out in the :ref:`FAQ
+<github>` about why we didn't move to git.
+
 Get Access
 ----------
 

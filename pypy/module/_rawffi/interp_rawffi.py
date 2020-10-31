@@ -661,7 +661,7 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     # see also
-    # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
+    # issue #1944 ctypes-on-windows-getlasterror
     def get_last_error(space):
         return space.newint(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
@@ -669,7 +669,7 @@ if sys.platform == 'win32':
         rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
-    # (https://bugs.pypy.org/issue1242)
+    # issue 1242
     def get_last_error(space):
         return space.newint(0)
     @unwrap_spec(error=int)

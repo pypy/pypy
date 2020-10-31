@@ -869,6 +869,7 @@ def tee(space, w_iterable, n=2):
 
 class TeeChainedListNode(object):
     w_obj = None
+    running = False
 
 
 class W_TeeIterable(W_Root):
@@ -883,9 +884,16 @@ class W_TeeIterable(W_Root):
 
     def next_w(self):
         chained_list = self.chained_list
+        if chained_list.running:
+            raise oefmt(self.space.w_RuntimeError,
+                        "cannot re-enter the tee iterator")
         w_obj = chained_list.w_obj
         if w_obj is None:
-            w_obj = self.space.next(self.w_iterator)
+            chained_list.running = True
+            try:
+                w_obj = self.space.next(self.w_iterator)
+            finally:
+                chained_list.running = False
             chained_list.next = TeeChainedListNode()
             chained_list.w_obj = w_obj
         self.chained_list = chained_list.next

@@ -391,7 +391,7 @@ class AppTestPosix:
                 # the file properly.
                 # This test should be run in multiple macOS platforms to
                 # be sure that is working as expected.
-                if file_system_encoding == 'UTF-8':
+                if file_system_encoding.lower() == 'utf-8':
                     assert (unicode, 'cafxe9') in typed_result
                 else:
                     # darwin 'normalized' it
@@ -478,104 +478,6 @@ class AppTestPosix:
             os.write(master_fd, b'abc\n')
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
-
-    if hasattr(__import__(os.name), "execv"):
-        def test_execv(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            pid = os.fork()
-            if pid == 0:
-                os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "1"
-            os.unlink("onefile")
-
-        def test_execv_raising(self):
-            os = self.posix
-            with raises(OSError):
-                os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])
-
-        def test_execv_no_args(self):
-            os = self.posix
-            with raises(ValueError):
-                os.execv("notepad", [])
-            with raises(ValueError):
-                os.execve("notepad", [], {})
-
-        def test_execv_raising2(self):
-            os = self.posix
-            for n in 3, [3, "a"]:
-                with raises(TypeError) as excinfo:
-                    os.execv("xxx", n)
-
-        def test_execv_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            try:
-                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execv(u"/bin/sh", ["sh", "-c",
-                                      u"echo caf\xe9 \u1234 > onefile"])
-            os.waitpid(pid, 0)
-            with open("onefile") as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-
-        def test_execve(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            pid = os.fork()
-            if pid == 0:
-                os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "xxx"
-            os.unlink("onefile")
-
-        def test_execve_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            try:
-                output = u"caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execve(u"/bin/sh", ["sh", "-c",
-                                      u"echo caf\xe9 \u1234 > onefile"],
-                          {'ddd': 'xxx'})
-            os.waitpid(pid, 0)
-            with open("onefile") as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-        pass # <- please, inspect.getsource(), don't crash
-
-    if hasattr(__import__(os.name), "spawnv"):
-        def test_spawnv(self):
-            os = self.posix
-            import sys
-            print self.python
-            ret = os.spawnv(os.P_WAIT, self.python,
-                            ['python', '-c', 'raise(SystemExit(42))'])
-            assert ret == 42
-
-    if hasattr(__import__(os.name), "spawnve"):
-        def test_spawnve(self):
-            os = self.posix
-            env = {'PATH':os.environ['PATH'], 'FOOBAR': '42'}
-            ret = os.spawnve(os.P_WAIT, self.python,
-                             ['python', '-c',
-                              "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
-                             env)
-            assert ret == 42
 
     def test_popen(self):
         os = self.posix
@@ -1267,6 +1169,7 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
         import sys, os
@@ -1306,9 +1209,19 @@ class AppTestEnvironment(object):
             os.environ["ABCABC"] = "1"
             assert os.environ["ABCABC"] == "1"
             os.unsetenv("ABCABC")
-            cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
+            cmd = ('%s -c "import os, sys; '
+                   'sys.exit(int(\'ABCABC\' in os.environ))" '
+                   % self.python)
             res = os.system(cmd)
             assert res == 0
+
+    def test_putenv_invalid_name(self):
+        import os, sys
+        if sys.platform.startswith('win'):
+            os.putenv("=hidden", "foo")
+            raises(ValueError, os.putenv, "foo=bar", "xxx")
+        else:
+            raises(ValueError, os.putenv, "=foo", "xxx")
 
 
 class AppTestPosixUnicode:

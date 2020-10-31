@@ -922,6 +922,11 @@ def listdir(path):
             raise OSError(get_saved_errno(), "opendir failed")
         return _listdir(dirp)
     else:  # _WIN32 case
+        if not path:
+            traits = _preferred_traits('')
+            win32traits = make_win32_traits(traits)
+            raise OSError(win32traits.ERROR_FILE_NOT_FOUND,
+                         "listdir called with invalid path")
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
@@ -2022,6 +2027,8 @@ if not _WIN32:
             lltype.free(ngroups_p, flavor='raw')
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2168,7 +2175,7 @@ class CConfig:
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
             lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
-            symlinkat unlinkat utimensat""".split():
+            symlinkat unlinkat utimensat sched_getparam""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
@@ -2179,7 +2186,6 @@ if not _WIN32:
             includes=['sys/stat.h',
                       'unistd.h',
                       'fcntl.h',
-                      'sched.h',
                      ],
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
@@ -2192,13 +2198,26 @@ if not _WIN32:
         TIMESPEC = rffi_platform.Struct('struct timespec', [
             ('tv_sec', rffi.TIME_T),
             ('tv_nsec', rffi.LONG)])
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+
+    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if HAVE_SCHED_GETPARAM:
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/stat.h',
+                      'unistd.h',
+                      'sched.h',
+                     ],
+        )
         SCHED_PARAM = rffi_platform.Struct('struct sched_param', [
             ('sched_priority', rffi.INT)])
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
 
-    TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
     SCHED_PARAM2P = rffi.CArrayPtr(SCHED_PARAM)
 
     c_sched_rr_get_interval = external('sched_rr_get_interval',
@@ -2237,6 +2256,7 @@ if not _WIN32:
         with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
             param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
             return handle_posix_error('sched_setparam', c_sched_setparam(pid, param))
+
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
@@ -2744,7 +2764,7 @@ if not _WIN32:
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
 
-if not _WIN32:
+if sys.platform.startswith('linux'):
     sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
     _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
     c_sendfile = rffi.llexternal('sendfile',
@@ -2762,6 +2782,30 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+elif not _WIN32:
+    # Neither on Windows nor on Linux, so probably a BSD derivative of
+    # some sort. Please note that the implementation below is partial;
+    # the VOIDP is an iovec for sending headers and trailers which
+    # CPython uses for the headers and trailers argument, and it also
+    # has a flags argument. None of these are currently supported.
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/socket.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    # NB: the VOIDP is an struct sf_hdtr for sending headers and trailers
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, OFF_T, _OFF_PTR_T, rffi.VOIDP, rffi.INT],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
+            p_len[0] = rffi.cast(OFF_T, count)
+            res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            if res != 0:
+                return handle_posix_error('sendfile', res)
+            res = p_len[0]
+        return res
+
 
 # ____________________________________________________________
 # Support for *xattr functions

@@ -822,6 +822,8 @@ def slot_from___buffer__(space, typedef, buff_fn):
             try:
                 c_view.c_buf = rffi.cast(rffi.VOIDP, buf.get_raw_address())
                 c_view.c_obj = make_ref(space, w_obj)
+                if space.isinstance_w(w_obj, space.w_bytes):
+                    rffi.setintfield(c_view, 'c_readonly', 1)
             except ValueError:
                 s = buf.as_str()
                 w_s = space.newbytes(s)

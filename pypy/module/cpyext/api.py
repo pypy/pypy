@@ -131,7 +131,7 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
-METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
+METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
@@ -1153,7 +1153,8 @@ def attach_c_functions(space, eci, prefix):
                    rffi.VOIDP, '_pypy_rawrefcount_w_marker_deallocating',
                    eci, _nowrapper=True, c_type='void *')
     state.C._PyPy_subtype_dealloc = rffi.llexternal(
-        '_PyPy_subtype_dealloc', [PyObject], lltype.Void,
+        mangle_name(prefix, '_Py_subtype_dealloc'),
+        [PyObject], lltype.Void,
         compilation_info=eci, _nowrapper=True)
     state.C._PyPy_object_dealloc = rffi.llexternal(
         '_PyPy_object_dealloc', [PyObject], lltype.Void,
@@ -1504,6 +1505,8 @@ def build_eci(code, use_micronumpy=False, translating=False):
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
             compile_extra.append('-g')
+        compile_extra.append(
+                    '-DCPYEXT_TESTS')
 
     # Generate definitions for global structures
     structs = ["#include <Python.h>"]

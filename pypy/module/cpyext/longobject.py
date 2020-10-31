@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
@@ -6,7 +7,7 @@ from pypy.objspace.std.longobject import W_LongObject
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
 from pypy.module.cpyext.intobject import PyInt_AsUnsignedLongMask
-from rpython.rlib.rbigint import rbigint, InvalidSignednessError
+from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
 
@@ -97,10 +98,14 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
+    if not w_long:
+        return PyErr_BadInternalCall(space)
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
+            if not w_long:
+                raise
             e.w_type = space.w_OverflowError
         raise
 
@@ -110,6 +115,8 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     PyLongObject, if it is not already one, and then return its value as
     unsigned long long, without checking for overflow.
     """
+    if w_long is None:
+        raise oefmt(space.w_SystemError, "value is NULL")
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 

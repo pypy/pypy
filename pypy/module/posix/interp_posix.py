@@ -534,6 +534,15 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
+    # Search from index 1 because on Windows starting '=' is allowed for
+    # defining hidden environment variables.
+    if _WIN32:
+        if len(name) == 0 or '=' in name[1:]:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+    else:
+        if '=' in name:
+            raise oefmt(space.w_ValueError, "illegal environment variable name")
+
     if _WIN32 and len(name) > _MAX_ENV:
         raise oefmt(space.w_ValueError,
                     "the environment variable is longer than %d bytes",

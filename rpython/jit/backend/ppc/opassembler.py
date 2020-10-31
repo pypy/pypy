@@ -755,13 +755,19 @@ class FieldOpAssembler(object):
     def _apply_offset(self, index_loc, ofs_loc):
         # If offset != 0 then we have to add it here.  Note that
         # mc.addi() would not be valid with operand r0.
-        assert ofs_loc.is_imm()                # must be an immediate...
-        assert _check_imm_arg(ofs_loc.getint())   # ...that fits 16 bits
         assert index_loc.is_core_reg()
         assert index_loc is not r.SCRATCH2
-        # (simplified version of _apply_scale())
-        if ofs_loc.value > 0:
-            self.mc.addi(r.SCRATCH2.value, index_loc.value, ofs_loc.value)
+        if ofs_loc.is_imm():
+            # if it is an immediate, it must fit into 16 bits
+            assert _check_imm_arg(ofs_loc.getint())
+            # (simplified version of _apply_scale())
+            if ofs_loc.value != 0:
+                self.mc.addi(r.SCRATCH2.value, index_loc.value, ofs_loc.value)
+                index_loc = r.SCRATCH2
+        else:
+            # larger immediates are loaded into a register in regalloc.py
+            assert ofs_loc.is_core_reg()
+            self.mc.add(r.SCRATCH2.value, index_loc.value, ofs_loc.value)
             index_loc = r.SCRATCH2
         return index_loc
 

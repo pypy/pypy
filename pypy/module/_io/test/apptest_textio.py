@@ -225,6 +225,29 @@ def test_flush_error_on_close():
     raises(IOError, txt.close)  # exception not swallowed
     assert txt.closed
 
+def test_illegal_encoder():
+    # bpo-31271: A TypeError should be raised in case the return value of
+    # encoder's encode() is invalid.
+    class BadEncoder:
+        def encode(self, dummy):
+            return u'spam'
+    def get_bad_encoder(dummy):
+        return BadEncoder()
+    import codecs
+    rot13 = codecs.lookup("rot13")
+    text_encoding = rot13._is_text_encoding
+    incrementalencoder = rot13.incrementalencoder
+    rot13._is_text_encoding = True
+    rot13.incrementalencoder = get_bad_encoder
+    try:
+        t = _io.TextIOWrapper(_io.BytesIO(b'foo'), encoding="rot13")
+    finally:
+        rot13._is_text_encoding = text_encoding
+        rot13.incrementalencoder = incrementalencoder
+    with raises(TypeError):
+        t.write(u'bar')
+        t.flush()
+
 def test_illegal_decoder():
     t = _io.TextIOWrapper(_io.BytesIO(b'aaaaaa'), newline='\n',
                          encoding='quopri_codec')
@@ -254,6 +277,19 @@ def test_uninitialized():
     raises(ValueError, t.read, 0)
     t.__init__(_io.BytesIO())
     assert t.read(0) == u''
+
+def test_issue25862():
+    # CPython issue #25862
+    # Assertion failures occurred in tell() after read() and write().
+    from _io import TextIOWrapper, BytesIO
+    t = TextIOWrapper(BytesIO(b'test'), encoding='ascii')
+    t.read(1)
+    t.read()
+    t.tell()
+    t = TextIOWrapper(BytesIO(b'test'), encoding='ascii')
+    t.read(1)
+    t.write(u'x')
+    t.tell()
 
 def test_newline_decoder():
     def check_newline_decoding_utf8(decoder):

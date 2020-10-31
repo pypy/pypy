@@ -3,6 +3,7 @@ from rpython.rlib.objectmodel import (instantiate, we_are_translated, specialize
     not_rpython)
 from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import r_uint, r_singlefloat
+from rpython.rlib.debug import make_sure_not_resized
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.rtyper.lltypesystem import lltype
 from pypy.tool.option import make_config
@@ -161,6 +162,7 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newtuple(self, list_w):
+        make_sure_not_resized(list_w)
         for w_x in list_w:
             is_root(w_x)
         return w_some_obj()
@@ -173,6 +175,9 @@ class FakeObjSpace(ObjSpace):
     newfrozenset = newset
 
     def newlist(self, list_w):
+        # make sure that the annotator thinks that the list is resized
+        list_w.append(W_Root())
+        #
         for w_x in list_w:
             is_root(w_x)
         return W_MyListObj()

@@ -294,6 +294,7 @@ class MockHTTPClass:
         self.req_headers = []
         self.data = None
         self.raise_on_endheaders = False
+        self.sock = None
         self._tunnel_headers = {}
 
     def __call__(self, host, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
@@ -1144,21 +1145,21 @@ class HandlerTests(unittest.TestCase):
     def test_basic_auth(self):
         realm = "realm2@example.com"
         realm2 = "realm2@example.com"
-        basic = 'Basic realm="%s"' % (realm,)
-        basic2 = 'Basic realm="%s"' % (realm2,)
+        basic = 'Basic realm="{realm}"'.format(realm=realm)
+        basic2 = 'Basic realm="{realm2}"'.format(realm2=realm2)
         other_no_realm = 'Otherscheme xxx'
-        digest = ('Digest realm="%s", '
+        digest = ('Digest realm="{realm2}", '
                   'qop="auth, auth-int", '
                   'nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093", '
-                  'opaque="5ccc069c403ebaf9f0171e9517f40e41"') % (
-                  (realm2,))
+                  'opaque="5ccc069c403ebaf9f0171e9517f40e41"'
+                  .format(realm2=realm2))
         for realm_str in (
             # test "quote" and 'quote'
-            'Basic realm="%s"' % (realm,),
-            "Basic realm='%s'" % (realm,),
+            'Basic realm="{realm}"'.format(realm=realm),
+            "Basic realm='{realm}'".format(realm=realm),
 
             # charset is ignored
-            'Basic realm="%s", charset="UTF-8"' % (realm,),
+            'Basic realm="{realm}", charset="UTF-8"'.format(realm=realm),
 
             # Multiple challenges per header
             ', '.join((basic, basic2)),
@@ -1167,13 +1168,15 @@ class HandlerTests(unittest.TestCase):
             ', '.join((basic, digest)),
             ', '.join((digest, basic)),
         ):
-            headers = ['WWW-Authenticate: %s' % (realm_str,)]
+            headers = ['WWW-Authenticate: {realm_str}'
+                       .format(realm_str=realm_str)]
             self.check_basic_auth(headers, realm)
 
         # no quote: expect a warning
         with test_support.check_warnings(("Basic Auth Realm was unquoted",
                                      UserWarning)):
-            headers = ['WWW-Authenticate: Basic realm=%s' % (realm,)]
+            headers = ['WWW-Authenticate: Basic realm={realm}'
+                       .format(realm=realm)]
             self.check_basic_auth(headers, realm)
 
         # Multiple headers: one challenge per header.
@@ -1183,7 +1186,8 @@ class HandlerTests(unittest.TestCase):
             [basic,  digest],
             [digest, basic],
         ):
-            headers = ['WWW-Authenticate: %s' % (challenge,)
+            headers = ['WWW-Authenticate: {challenge}'
+                       .format(challenge=challenge)
                        for challenge in challenges]
             self.check_basic_auth(headers, realm)
 

@@ -224,9 +224,10 @@ class W_BytearrayObject(W_Root):
             # unicode, got int object"
             w_source = encode_object(space, w_source, encoding, errors)
 
-        # Is it an int?
+        # Is it an integer?
+        # Note that we're calling space.getindex_w() instead of space.int_w().
         try:
-            count = space.int_w(w_source)
+            count = space.getindex_w(w_source, space.w_OverflowError)
         except OperationError as e:
             if not e.match(space, space.w_TypeError):
                 raise
