@@ -100,7 +100,7 @@ def setrlimit(resource, limits):
         else:
             raise OSError(ffi.errno, os.strerror(ffi.errno))
 
-if sys.platform.startswith("linux"):
+if sys.platform.startswith("linux") and hasattr(lib, '_prlimit'):
     @builtinify
     def prlimit(pid, resource, limits = None):
         if not (0 <= resource < lib.RLIM_NLIMITS):

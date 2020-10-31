@@ -1,4 +1,5 @@
 from cffi import FFI
+from ctypes import util, CDLL
 import sys
 
 ffi = FFI()
@@ -29,14 +30,13 @@ RUSAGE_BOTH
 rlimit_consts = ['#ifdef %s\n\t{"%s", %s},\n#endif\n' % (s, s, s)
                  for s in rlimit_consts]
 
-
-ffi.set_source("_resource_cffi", """
+src = """
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 #include <sys/wait.h>
 
-static const struct my_rlimit_def {
+const struct my_rlimit_def {
     const char *name;
     long long value;
 } my_rlimit_consts[] = {
@@ -73,31 +73,14 @@ static int my_setrlimit(int resource, long long cur, long long max)
     rl.rlim_max = max & RLIM_INFINITY;
     return setrlimit(resource, &rl);
 }
-
-#ifdef __linux__
-static int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
-{
-    struct rlimit new_rl, old_rl;
-    new_rl.rlim_cur = cur & RLIM_INFINITY;
-    new_rl.rlim_max = max & RLIM_INFINITY;
-
-    if(prlimit(pid, resource, (set ? &new_rl : NULL), &old_rl) == -1)
-        return -1;
-
-    result[0] = old_rl.rlim_cur;
-    result[1] = old_rl.rlim_max;
-    return 0;
-}
-#endif
-
-""".replace('$RLIMIT_CONSTS', ''.join(rlimit_consts)))
+""".replace('$RLIMIT_CONSTS', ''.join(rlimit_consts))
 
 
 ffi.cdef("""
 
 #define RLIM_NLIMITS ...
 
-const struct my_rlimit_def {
+extern const struct my_rlimit_def {
     const char *name;
     long long value;
 } my_rlimit_consts[];
@@ -131,10 +114,31 @@ int wait4(int pid, int *status, int options, struct rusage *rusage);
 """)
 
 
-if sys.platform.startswith("linux"):
-    ffi.cdef("""
+libname = util.find_library('c')
+if libname:
+    glibc = CDLL(libname)
+    if hasattr(glibc, 'prlimit'):
+        src += """
+
+static int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
+{
+    struct rlimit new_rl, old_rl;
+    new_rl.rlim_cur = cur & RLIM_INFINITY;
+    new_rl.rlim_max = max & RLIM_INFINITY;
+
+    if(prlimit(pid, resource, (set ? &new_rl : NULL), &old_rl) == -1)
+        return -1;
+
+    result[0] = old_rl.rlim_cur;
+    result[1] = old_rl.rlim_max;
+    return 0;
+}
+"""
+        ffi.cdef("""
 int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
 """)
+
+ffi.set_source("_resource_cffi", src)
 
 if __name__ == "__main__":
     ffi.compile()
