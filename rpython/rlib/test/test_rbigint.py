@@ -1030,8 +1030,7 @@ class TestInternalFunctions(object):
                     f1 = rbigint.fromlong(sx)
                     div, rem = f1.int_divmod(sy)
                     div1, rem1 = f1.divmod(rbigint.fromlong(sy))
-                    # use long(sy) due to CPython64/64 bug I can't be bothered to fix
-                    _div, _rem = divmod(sx, long(sy))
+                    _div, _rem = divmod(sx, sy)
                     print sx, sy, " | ", div.tolong(), rem.tolong()
                     assert div1.tolong() == _div
                     assert rem1.tolong() == _rem
@@ -1292,8 +1291,7 @@ class TestHypothesis(object):
     def test_int_divmod(self, x, iy):
         f1 = rbigint.fromlong(x)
         try:
-            # use long(iy) due to CPython64/64 bug I can't be bothered to fix
-            res = divmod(x, long(iy))
+            res = divmod(x, iy)
         except Exception as e:
             with pytest.raises(type(e)):
                 f1.int_divmod(iy)
