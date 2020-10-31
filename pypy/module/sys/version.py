@@ -6,14 +6,14 @@ from rpython.rlib import compilerinfo
 from pypy.interpreter import gateway
 
 #XXX # the release serial 42 is not in range(16)
-CPYTHON_VERSION            = (2, 7, 13, "final", 42)
+CPYTHON_VERSION            = (2, 7, 18, "final", 42)
 #XXX # sync CPYTHON_VERSION with patchlevel.h, package.py
 CPYTHON_API_VERSION        = 1013   #XXX # sync with include/modsupport.h
 
 # make sure to keep PYPY_VERSION in sync with:
 #    module/cpyext/include/patchlevel.h
 #    doc/conf.py
-PYPY_VERSION               = (7, 3, 2, "final", 0)
+PYPY_VERSION               = (7, 3, 3, "final", 0)
 
 
 import pypy
