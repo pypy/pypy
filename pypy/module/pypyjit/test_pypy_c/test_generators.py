@@ -21,7 +21,7 @@ class TestGenerators(BaseTestPyPyC):
         assert loop.match_by_id("generator", """
             cond_call(..., descr=...)
             i16 = force_token()
-            setfield_gc(p14, 1, descr=<FieldU pypy.interpreter.generator.GeneratorIterator.inst_running .*>)
+            setfield_gc(p14, 1, descr=<FieldU pypy.interpreter.generator.GeneratorOrCoroutine.inst_running .*>)
             setfield_gc(p22, p35, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref .*>)
             guard_not_invalidated(descr=...)
 
@@ -54,7 +54,7 @@ class TestGenerators(BaseTestPyPyC):
         assert loop.match_by_id("generator", """
             cond_call(..., descr=...)
             i16 = force_token()
-            setfield_gc(p14, 1, descr=<FieldU pypy.interpreter.generator.GeneratorIterator.inst_running .*>)
+            setfield_gc(p14, 1, descr=<FieldU pypy.interpreter.generator.GeneratorOrCoroutine.inst_running .*>)
             setfield_gc(p22, p35, descr=<FieldP pypy.interpreter.pyframe.PyFrame.inst_f_backref .*>)
             guard_not_invalidated(descr=...)
             p45 = new_with_vtable(descr=<.*>)

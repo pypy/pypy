@@ -13,11 +13,8 @@ from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
 USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
-# py3k os.open uses subprocess, requiring the following per platform
 if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
-else:
-    USEMODULES += ['_rawffi', 'thread', '_cffi_backend']
+    USEMODULES += ['_socket']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -227,6 +224,9 @@ class AppTestPosix:
                 fn("nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
+            with raises(OSError) as exc:
+                fn("")
+            assert exc.value.errno == errno.ENOENT
 
         with raises(TypeError) as excinfo:
             self.posix.stat(None)
@@ -364,15 +364,10 @@ class AppTestPosix:
     def test_listdir_default(self):
         import sys
         posix = self.posix
-        if sys.platform == 'win32':
-            defaults = ['.', '', None]
-            assert posix.listdir(b'.') == posix.listdir(b'')
-        else:
-            defaults = ['.', None]
-            for v in ['', b'']:
-                with raises(FileNotFoundError):
-                    posix.listdir(v)
-        for v in defaults:
+        for v in ['', b'']:
+            with raises(FileNotFoundError):
+                posix.listdir(v)
+        for v in ['.', None]:
             assert posix.listdir() == posix.listdir(v)
 
     def test_listdir_bytes(self):
@@ -529,107 +524,6 @@ class AppTestPosix:
             os.write(master_fd, b'abc\n')
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
-
-    if hasattr(__import__(os.name), "execv"):
-        def test_execv(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            pid = os.fork()
-            if pid == 0:
-                os.execv("/usr/bin/env", ["env", "python", "-c", "open('onefile', 'w').write('1')"])
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "1"
-            os.unlink("onefile")
-
-        def test_execv_raising(self):
-            os = self.posix
-            with raises(OSError):
-                os.execv("saddsadsadsadsa", ["saddsadsasaddsa"])
-
-        def test_execv_no_args(self):
-            os = self.posix
-            with raises(ValueError):
-                os.execv("notepad", [])
-
-        def test_execv_raising2(self):
-            os = self.posix
-            for n in 3, [3, "a"]:
-                with raises(TypeError) as excinfo:
-                    os.execv("xxx", n)
-
-        def test_execv_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execv()")
-            try:
-                output = "caf\xe9 \u1234\n".encode(sys.getfilesystemencoding())
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execv("/bin/sh", ["sh", "-c",
-                                     "echo caf\xe9 \u1234 > onefile"])
-            os.waitpid(pid, 0)
-            with open("onefile", "rb") as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-
-        def test_execve(self):
-            os = self.posix
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            pid = os.fork()
-            if pid == 0:
-                os.execve("/usr/bin/env", ["env", "python", "-c", "import os; open('onefile', 'w').write(os.environ['ddd'])"], {'ddd':'xxx'})
-            os.waitpid(pid, 0)
-            assert open("onefile").read() == "xxx"
-            os.unlink("onefile")
-
-        def test_execve_unicode(self):
-            os = self.posix
-            import sys
-            if not hasattr(os, "fork"):
-                skip("Need fork() to test execve()")
-            output = "caf\xe9 \u1234"
-            t = ' abc\uDCFF'
-            output += t
-            try:
-                output.encode(sys.getfilesystemencoding(), errors='surrogateescape')
-            except UnicodeEncodeError:
-                skip("encoding not good enough")
-            pid = os.fork()
-            if pid == 0:
-                os.execve("/bin/sh", ["sh", "-c",
-                                        "echo -n caf\xe9 \u1234 $t > onefile"],
-                            {'ddd': 'xxx', 't': t})
-            os.waitpid(pid, 0)
-            with open("onefile", errors='surrogateescape') as fid:
-                assert fid.read() == output
-            os.unlink("onefile")
-        pass # <- please, inspect.getsource(), don't crash
-
-    if hasattr(__import__(os.name), "spawnv"):
-        def test_spawnv(self):
-            os = self.posix
-            P_WAIT = 0
-            import sys
-            print(self.python)
-            ret = os.spawnv(P_WAIT, self.python,
-                            ['python', '-c', 'raise(SystemExit(42))'])
-            assert ret == 42
-
-    if hasattr(__import__(os.name), "spawnve"):
-        def test_spawnve(self):
-            os = self.posix
-            P_WAIT = 0
-            env = {'PATH':self.env_path, 'FOOBAR': '42'}
-            ret = os.spawnve(P_WAIT, self.python,
-                             ['python', '-c',
-                              "raise(SystemExit(int(__import__('os').environ['FOOBAR'])))"],
-                             env)
-            assert ret == 42
 
     if hasattr(__import__(os.name), '_getfullpathname'):
         def test__getfullpathname(self):
@@ -1082,6 +976,12 @@ class AppTestPosix:
             os = self.posix
             #Always suceeds on Linux
             os.sched_yield()
+
+    if hasattr(rposix, 'sched_getparam'):
+        def test_sched_param_kwargs(self):
+            os = self.posix
+            sp = os.sched_param(sched_priority=1)
+            assert sp.sched_priority == 1
 
     def test_write_buffer(self):
         os = self.posix
@@ -1756,10 +1656,18 @@ class AppTestPosix:
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
 
+    def test_execv_no_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", [])
+        # PyPy needs at least one arg, CPython 2.7 is fine without
+        with raises(ValueError):
+            posix.execve("notepad", [], {})
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
-    spaceconfig = {'usemodules': ['posix', '_socket']}
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
@@ -1779,14 +1687,20 @@ class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
+        import sys
         environ = self.posix.environ
         if not environ:
             skip('environ not filled in for untranslated tests')
+        if sys.platform == 'win32':
+            rawenv = str
+        else:
+            rawenv = bytes
         for k, v in environ.items():
-            assert type(k) is bytes
-            assert type(v) is bytes
+            assert type(k) is rawenv
+            assert type(v) is rawenv
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
@@ -1824,7 +1738,9 @@ class AppTestEnvironment(object):
         os.environ["ABCABC"] = "1"
         assert os.environ["ABCABC"] == "1"
         os.unsetenv("ABCABC")
-        cmd = '''python -c "import os, sys; sys.exit(int('ABCABC' in os.environ))" '''
+        cmd = ('%s -c "import os, sys; '
+               'sys.exit(int(\'ABCABC\' in os.environ))" '
+               % self.python)
         res = os.system(cmd)
         assert res == 0
 
@@ -1842,6 +1758,7 @@ def check_fsencoding(space, pytestconfig):
 
 @py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_posix = space.appexec([], GET_POSIX)
 
@@ -1927,5 +1844,3 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
-
-

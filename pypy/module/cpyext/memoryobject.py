@@ -1,6 +1,6 @@
 from pypy.interpreter.error import oefmt
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
+    cpython_api, CANNOT_FAIL, Py_MAX_NDIMS, build_type_checkers,
     Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function,
     PyBUF_READ, PyBUF_WRITE)
 from pypy.module.cpyext.pyobject import (
@@ -19,6 +19,7 @@ PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
+FORMAT_ALLOCATED = 0x04
 
 @bootstrap_function
 def init_memoryobject(space):
@@ -88,9 +89,13 @@ def memory_realize(space, obj):
 @slot_function([PyObject], lltype.Void)
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
-    if mem_obj.c_view.c_obj:
-        decref(space, mem_obj.c_view.c_obj)
-    mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
+    view = mem_obj.c_view
+    if view.c_obj:
+        decref(space, view.c_obj)
+    view.c_obj = rffi.cast(PyObject, 0)
+    flags = widen(view.c_flags)
+    if flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
+        lltype.free(view.c_format, flavor='raw')
     _dealloc(space, py_obj)
 
 def fill_Py_buffer(space, buf, view):
@@ -99,19 +104,13 @@ def fill_Py_buffer(space, buf, view):
     view.c_len = buf.getlength()
     view.c_itemsize = buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
-    view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
     fmt = buf.getformat()
-    n = Py_MAX_FMT - 1 # NULL terminated buffer
-    if len(fmt) > n:
-        w_message = space.newbytes("PyPy specific Py_MAX_FMT is %d which is too "
-                           "small for buffer format, %d needed" % (
-                           Py_MAX_FMT, len(fmt)))
-        w_stacklevel = space.newint(1)
-        w_module = PyImport_Import(space, space.newbytes("warnings"))
-        w_warn = space.getattr(w_module, space.newbytes("warn"))
-        space.call_function(w_warn, w_message, space.w_None, w_stacklevel)
-    else:
-        n = len(fmt)
+    n = len(fmt)
+    view.c_format = lltype.malloc(rffi.CCHARP.TO, n + 1, flavor='raw',
+                                  add_memory_pressure=True)
+    flags = widen(view.c_flags)
+    flags |= FORMAT_ALLOCATED
+    view.c_flags = rffi.cast(rffi.INT_real, flags)
     for i in range(n):
         view.c_format[i] = fmt[i]
     view.c_format[n] = '\x00'

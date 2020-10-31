@@ -89,6 +89,7 @@ _pypy_check_force_ascii(void)
     };
 #endif
 
+    setlocale(LC_CTYPE, "");
     loc = setlocale(LC_CTYPE, NULL);
     if (loc == NULL)
         goto error;

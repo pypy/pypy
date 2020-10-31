@@ -1,10 +1,11 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rbigint import rbigint, InvalidSignednessError
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import wcharpsize2utf8
-from rpython.rlib.rbigint import rbigint, InvalidSignednessError
+from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 
 PyLong_Check, PyLong_CheckExact = build_type_checkers_flags("Long")
 
@@ -105,10 +106,14 @@ def PyLong_AsUnsignedLongLong(space, w_long):
     Return a C unsigned long representation of the contents of pylong.
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
+    if not w_long:
+        return PyErr_BadInternalCall(space)
     try:
         return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
+            if not w_long:
+                raise
             e.w_type = space.w_OverflowError
         raise
 

@@ -239,7 +239,7 @@ crctab_hqx = [
 
 @unwrap_spec(data='bufferstr')
 def crc_hqx(space, data, w_oldcrc):
-    "Compute hqx CRC incrementally."
+    "Compute CRC-CCIT incrementally."
 
     # CPython converts the oldcrc argument to unsigned long, without overflow
     # checking. we do the mask with wrapped objects, to deal with huge

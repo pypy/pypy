@@ -561,8 +561,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 otherwise = end
             if_.test.accept_jump_if(self, False, otherwise)
             self.visit_sequence(if_.body)
-            self.emit_jump(ops.JUMP_FORWARD, end)
             if if_.orelse:
+                self.emit_jump(ops.JUMP_FORWARD, end)
                 self.use_next_block(otherwise)
                 self.visit_sequence(if_.orelse)
         self.use_next_block(end)
@@ -657,28 +657,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.DUP_TOP)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
         self.emit_op_arg(ops.COMPARE_OP, 10)
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
-
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
-        # Manually remove the 'aiter' object from the valuestack.
-        # This POP_TOP is not needed from the point of view of
-        # pyopcode.py, which will pop anything to match the stack
-        # depth of the SETUP_LOOP, but it is needed to make
-        # PythonCodeMaker._stacksize() compute an exact result and not
-        # crash with StackDepthComputationError.
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_after_loop_else, True)
-
-        self.use_next_block(b_try_cleanup)
+        self.emit_jump(ops.POP_JUMP_IF_TRUE, b_try_cleanup, True)
         self.emit_op(ops.END_FINALLY)
 
         self.use_next_block(b_after_try)
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+
+        self.use_next_block(b_try_cleanup)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
+        self.emit_op(ops.POP_TOP)
 
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.pop_frame_block(F_BLOCK_LOOP, b_try)
@@ -1579,9 +1570,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_after_try = self.new_block()
         b_try_cleanup = self.new_block()
         b_except = self.new_block()
-        b_skip = self.new_block()
         b_if_cleanup = self.new_block()
-        b_anchor = self.new_block()
         gen = generators[gen_index]
         assert isinstance(gen, ast.comprehension)
         if gen_index > 0:
@@ -1605,15 +1594,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.DUP_TOP)
         self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
         self.emit_op_arg(ops.COMPARE_OP, 10)
-        self.emit_jump(ops.POP_JUMP_IF_FALSE, b_try_cleanup, True)
-
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_anchor, True)
-
-        self.use_next_block(b_try_cleanup)
+        self.emit_jump(ops.POP_JUMP_IF_TRUE, b_try_cleanup, True)
         self.emit_op(ops.END_FINALLY)
 
         self.use_next_block(b_after_try)
@@ -1630,7 +1611,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             node.accept_comp_iteration(self, gen_index)
         self.use_next_block(b_if_cleanup)
         self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
-        self.use_next_block(b_anchor)
+        self.use_next_block(b_try_cleanup)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_TOP)
+        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
         self.emit_op(ops.POP_TOP)
 
     def _compile_comprehension(self, node, name, sub_scope):

@@ -39,6 +39,8 @@ extern "C" {
 **#define PyUnicode_CheckExact(op) ((op)->ob_type == &PyUnicode_Type)
 */
 
+
+
 /* Fast access macros */
 #ifndef Py_LIMITED_API
 

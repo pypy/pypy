@@ -807,6 +807,12 @@ def _check_new_args(space, w_name, w_bases, w_dict):
 
 
 def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
+    if hasattr(space, 'is_fake_objspace'):
+        # this is for the various test_ztranslation around: if we are using
+        # the fake objspace, we don't want to annotate all the code which is
+        # specific to StdObjSpace. We just return a "random" W_Root.
+        return space.newlong(42)
+
     # this is in its own function because we want the special case 'type(x)'
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)
@@ -896,7 +902,8 @@ def _precheck_for_new(space, w_type):
     return w_type
 
 def _set_names(space, w_type):
-    for key, w_value in w_type.dict_w.iteritems():
+
+    for key, w_value in w_type.dict_w.items():
         w_meth = space.lookup(w_value, '__set_name__')
         if w_meth is not None:
             try:
