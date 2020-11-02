@@ -29,8 +29,10 @@ ctx_Module_Create(HPyContext ctx, HPyModuleDef *hpydef)
     def->m_doc = hpydef->m_doc;
     def->m_size = hpydef->m_size;
     def->m_methods = create_method_defs(hpydef->defines, hpydef->legacy_methods);
-    if (def->m_methods == NULL)
+    if (def->m_methods == NULL) {
+        PyMem_Free(def);
         return HPy_NULL;
+    }
     PyObject *result = PyModule_Create(def);
     return _py2h(result);
 }

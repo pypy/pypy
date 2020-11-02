@@ -36,7 +36,7 @@ class TestBasic(HPyTest):
 
     def test_noop_function(self):
         mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS, .doc="hello world")
             static HPy f_impl(HPyContext ctx, HPy self)
             {
                 return HPy_Dup(ctx, ctx->h_None);
@@ -46,6 +46,7 @@ class TestBasic(HPyTest):
             @INIT
         """)
         assert mod.f() is None
+        assert mod.f.__doc__ == 'hello world'
 
     def test_self_is_module(self):
         mod = self.make_module("""

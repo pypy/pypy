@@ -55,15 +55,26 @@ def member_get(w_descr, space, w_obj):
         value = rffi.cast(rffi.CArrayPtr(rffi.DOUBLE), addr)[0]
         return space.newfloat(value)
     elif kind == Enum.HPyMember_BOOL:
-        raise NotImplementedError
-        # the following code raises the following rpython error, we need an
-        # alternative way to fix it:
-        # TyperError: arithmetic not supported on <UCHAR>, its size is too small
-        #   v3551 = bool(value_104)
         value = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)[0]
-        w_result = space.newbool(bool(value))
+        value = rffi.cast(lltype.Signed, value)
+        return space.newbool(bool(value))
+    elif kind == Enum.HPyMember_CHAR:
+        value = rffi.cast(rffi.CCHARP, addr)[0]
+        return space.newtext(value)
+    elif kind == Enum.HPyMember_STRING:
+        cstr_p = rffi.cast(rffi.CCHARPP, addr)
+        if cstr_p[0]:
+            value = rffi.charp2str(cstr_p[0])
+            return space.newtext(value)
+        else:
+            return space.w_None
+    elif kind == Enum.HPyMember_STRING_INPLACE:
+        value = rffi.charp2str(rffi.cast(rffi.CCHARP, addr))
+        return space.newtext(value)
+    elif kind == Enum.HPyMember_NONE:
+        return space.w_None
     else:
-        # missing: STRING, STRING_INPLACE, OBJECT, OBJECT_EX, NONE
+        # missing: OBJECT, OBJECT_EX
         raise oefmt(space.w_NotImplementedError, '...')
 
 
@@ -92,15 +103,25 @@ def member_set(w_descr, space, w_obj, w_value):
         ptr[0] = value
         return
     elif kind == Enum.HPyMember_BOOL:
-        if space.is_w(w_obj, space.w_False):
+        if space.is_w(w_value, space.w_False):
             value = False
-        elif space.is_w(w_obj, space.w_True):
+        elif space.is_w(w_value, space.w_True):
             value = True
         else:
             raise oefmt(space.w_TypeError, "attribute value type must be bool")
         ptr = rffi.cast(rffi.CArrayPtr(rffi.UCHAR), addr)
         ptr[0] = rffi.cast(rffi.UCHAR, value)
         return
+    elif kind == Enum.HPyMember_CHAR:
+        str_value = space.text_w(w_value)
+        if len(str_value) != 1:
+            raise oefmt(space.w_TypeError, "string of length 1 expected")
+        ptr = rffi.cast(rffi.CCHARP, addr)
+        ptr[0] = str_value[0]
+    elif kind in (Enum.HPyMember_STRING,
+                  Enum.HPyMember_STRING_INPLACE,
+                  Enum.HPyMember_NONE):
+        raise oefmt(space.w_TypeError, 'readonly attribute')
     else:
         raise oefmt(space.w_NotImplementedError, '...')
 
@@ -111,18 +132,23 @@ def member_del(w_descr, space, w_obj):
 
 
 class W_HPyMemberDescriptor(GetSetProperty):
-    def __init__(self, w_type, kind, name, doc, offset):
+    def __init__(self, w_type, kind, name, doc, offset, is_readonly):
         self.kind = kind
         self.name = name
         self.w_type = w_type
         self.offset = offset
-        setter = member_set
+        self.is_readonly = is_readonly
+        if is_readonly:
+            setter = None
+            deleter = None
+        else:
+            setter = member_set
+            deleter = member_del
         GetSetProperty.__init__(
-            self, member_get, setter, member_del, doc,
+            self, member_get, setter, deleter, doc,
             cls=None, use_closure=True, tag="hpy_member")
 
     def readonly_attribute(self, space):   # overwritten
-        # XXX write a test
         raise oefmt(space.w_AttributeError,
             "attribute '%s' of '%N' objects is not writable",
             self.name, self.w_type)
@@ -143,10 +169,11 @@ assert not W_HPyMemberDescriptor.typedef.acceptable_as_base_class  # no __new__
 
 def add_member(space, w_type, hpymember):
     name = rffi.constcharp2str(hpymember.c_name)
-    doc = rffi.constcharp2str(hpymember.c_doc) if hpymember.c_doc else None
-    offset = rffi.cast(lltype.Signed, hpymember.c_offset)
     kind = rffi.cast(lltype.Signed, hpymember.c_type)
-    w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
+    offset = rffi.cast(lltype.Signed, hpymember.c_offset)
+    readonly = rffi.cast(lltype.Signed, hpymember.c_readonly)
+    doc = rffi.constcharp2str(hpymember.c_doc) if hpymember.c_doc else None
+    w_descr = W_HPyMemberDescriptor(w_type, kind, name, doc, offset, readonly)
     w_type.setdictvalue(space, name, w_descr)
 
 
