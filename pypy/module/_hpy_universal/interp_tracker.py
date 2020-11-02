@@ -9,6 +9,12 @@ class W_Tracker(W_Root):
     def __init__(self, size):
         self.handles = newlist_hint(size)
 
+    def add(self, h):
+        self.handles.append(h)
+
+    def remove_all(self):
+        self.handles = []
+
     def free(self, space):
         for h in self.handles:
             handles.close(space, h)
@@ -20,11 +26,16 @@ def HPyTracker_New(space, ctx, size):
 
 @API.func("int HPyTracker_Add(HPyContext ctx, HPyTracker ht, HPy h)")
 def HPyTracker_Add(space, ctx, ht, h):
-    import pdb;pdb.set_trace()
+    w_tracker = handles.deref(space, ht)
+    assert isinstance(w_tracker, W_Tracker)
+    w_tracker.add(h)
+    return API.int(0)
 
 @API.func("void HPyTracker_RemoveAll(HPyContext ctx, HPyTracker ht)")
 def HPyTracker_RemoveAll(space, ctx, ht):
-    import pdb;pdb.set_trace()
+    w_tracker = handles.deref(space, ht)
+    assert isinstance(w_tracker, W_Tracker)
+    w_tracker.remove_all()
 
 @API.func("void HPyTracker_Free(HPyContext ctx, HPyTracker ht)")
 def HPyTracker_Free(space, ctx, ht):
