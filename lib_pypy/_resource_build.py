@@ -1,4 +1,5 @@
 from cffi import FFI
+from ctypes.util import find_library
 import sys
 
 ffi = FFI()
@@ -28,6 +29,35 @@ RUSAGE_BOTH
 
 rlimit_consts = ['#ifdef %s\n\t{"%s", %s},\n#endif\n' % (s, s, s)
                  for s in rlimit_consts]
+
+ffi.cdef("""
+int prlimit(int pid, int resource, const void *new_limit, void *old_limit);
+""")
+
+lib = ffi.dlopen(find_library("c"))
+
+if hasattr(lib, "prlimit"):
+    ffi.cdef("""
+int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
+""")
+
+    prlimit_def = """
+static int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
+{
+   struct rlimit new_rl, old_rl;
+   new_rl.rlim_cur = cur & RLIM_INFINITY;
+   new_rl.rlim_max = max & RLIM_INFINITY;
+
+   if(prlimit(pid, resource, (set ? &new_rl : NULL), &old_rl) == -1)
+       return -1;
+
+   result[0] = old_rl.rlim_cur;
+   result[1] = old_rl.rlim_max;
+   return 0;
+}
+"""
+else:
+    prlimit_def = ""
 
 
 ffi.set_source("_resource_cffi", """
@@ -74,23 +104,8 @@ static int my_setrlimit(int resource, long long cur, long long max)
     return setrlimit(resource, &rl);
 }
 
-#ifdef __linux__
-static int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
-{
-    struct rlimit new_rl, old_rl;
-    new_rl.rlim_cur = cur & RLIM_INFINITY;
-    new_rl.rlim_max = max & RLIM_INFINITY;
-
-    if(prlimit(pid, resource, (set ? &new_rl : NULL), &old_rl) == -1)
-        return -1;
-
-    result[0] = old_rl.rlim_cur;
-    result[1] = old_rl.rlim_max;
-    return 0;
-}
-#endif
-
-""".replace('$RLIMIT_CONSTS', ''.join(rlimit_consts)))
+$PRLIMIT_DEF
+""".replace('$RLIMIT_CONSTS', ''.join(rlimit_consts)).replace('$PRLIMIT_DEF', prlimit_def))
 
 
 ffi.cdef("""
@@ -130,11 +145,6 @@ int wait3(int *status, int options, struct rusage *rusage);
 int wait4(int pid, int *status, int options, struct rusage *rusage);
 """)
 
-
-if sys.platform.startswith("linux"):
-    ffi.cdef("""
-int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
-""")
 
 if __name__ == "__main__":
     ffi.compile()
