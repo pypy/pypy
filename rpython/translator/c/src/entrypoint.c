@@ -35,12 +35,19 @@ RPY_EXPORTED
 void rpython_startup_code(void)
 {
 #ifdef RPY_WITH_GIL
+    printf("rpython_startup_code 38\n"); fflush(stdout);
     RPython_ThreadLocals_ProgramInit();
+    printf("rpython_startup_code 40\n"); fflush(stdout);
     RPyGilAcquire();
+    printf("rpython_startup_code 42\n"); fflush(stdout);
 #endif
+    printf("rpython_startup_code 44\n"); fflush(stdout);
     RPython_StartupCode();
+    printf("rpython_startup_code 46\n"); fflush(stdout);
 #ifdef RPY_WITH_GIL
+    printf("rpython_startup_code 48\n"); fflush(stdout);
     RPyGilRelease();
+    printf("rpython_startup_code 50\n"); fflush(stdout);
 #endif
 }
 

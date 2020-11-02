@@ -14,7 +14,11 @@ static sem_t done;
 static void *start_routine(void *arg)
 {
     int x, status;
+    printf("calling add1\n");
+    fflush(stdout);
     x = add1(40, 2);
+    printf("done add1\n");
+    fflush(stdout);
     assert(x == 42);
 
     status = sem_post(&done);

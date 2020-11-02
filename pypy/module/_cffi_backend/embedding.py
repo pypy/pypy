@@ -107,14 +107,20 @@ static void _cffi_init_once(void)
     static LONG volatile lock = 0;
     static int _init_called = 0;
 
+    printf("_cffi_init_once 110\n"); fflush(stdout);
     while (InterlockedCompareExchange(&lock, 1, 0) != 0) {
          SwitchToThread();        /* spin loop */
     }
+    printf("_cffi_init_once 113\n"); fflush(stdout);
     if (!_init_called) {
+        printf("_cffi_init_once 115\n"); fflush(stdout);
         _cffi_init();
+        printf("_cffi_init_once 118\n"); fflush(stdout);
         _init_called = 1;
     }
+    printf("_cffi_init_once 121\n"); fflush(stdout);
     InterlockedCompareExchange(&lock, 0, 1);
+    printf("_cffi_init_once 123\n"); fflush(stdout);
 }
 """
 
@@ -148,13 +154,18 @@ static void _cffi_init_error(const char *msg, const char *extra)
 
 static void _cffi_init(void)
 {
+    printf("_cffi_init 151\n"); fflush(stdout);
     rpython_startup_code();
+    printf("_cffi_init 153\n"); fflush(stdout);
     RPyGilAllocate();
+    printf("_cffi_init 155\n"); fflush(stdout);
 
     if (pypy_setup_home(NULL, 1) != 0) {
+        printf("_cffi_init 158\n"); fflush(stdout);
         _cffi_init_error("pypy_setup_home() failed", "");
         return;
     }
+    printf("_cffi_init 162\n"); fflush(stdout);
     _cffi_ready = 1;
 }
 
@@ -166,9 +177,12 @@ int pypy_carefully_make_gil(const char *name)
        It assumes that we don't hold the GIL before (if it exists), and we
        don't hold it afterwards.
     */
+    printf("pypy_carefully_make_gil 176\n"); fflush(stdout);
     _cffi_module_name = name;    /* not really thread-safe, but better than
                                     nothing */
+    printf("pypy_carefully_make_gil 179\n"); fflush(stdout);
     _cffi_init_once();
+    printf("pypy_carefully_make_gil 181\n"); fflush(stdout);
     return (int)_cffi_ready - 1;
 }
 """

@@ -381,7 +381,9 @@ extern int pypy_init_embedded_cffi_module(int, struct _cffi_pypy_init_s *);
 
 static int _cffi_carefully_make_gil(void)
 {
+    printf("calling pypy_carefully_make_gil\n");
     return pypy_carefully_make_gil(_CFFI_MODULE_NAME);
+    printf("done pypy_carefully_make_gil\n");
 }
 
 static int _cffi_initialize_python(void)
