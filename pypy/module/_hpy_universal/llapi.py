@@ -58,6 +58,11 @@ typedef struct _HPyTupleBuilder_s {
 } _struct_HPyTupleBuilder_s;
 typedef HPy_ssize_t HPyTupleBuilder;
 
+typedef struct _HPyTracker_s {
+    HPy_ssize_t _i;
+} _struct_HPyTracker_s;
+typedef HPy_ssize_t HPyTracker;
+
 typedef struct _HPyContext_s {
     int ctx_version;
     struct _HPy_s h_None;
