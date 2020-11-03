@@ -1,5 +1,5 @@
 
-all: pypy-c cffi_imports
+all: pypy3-c cffi_imports
 
 PYPY_EXECUTABLE := $(shell which pypy)
 
@@ -15,7 +15,7 @@ JOBS=$(subst -j,--make-jobs ,$(filter -j%, $(MAKEFLAGS)))
 
 .PHONY: pypy-c cffi_imports
 
-pypy-c:
+pypy3-c:
 	@echo
 	@echo "===================================================================="
 ifeq ($(PYPY_EXECUTABLE),)

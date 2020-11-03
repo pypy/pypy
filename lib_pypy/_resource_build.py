@@ -115,10 +115,9 @@ int wait4(int pid, int *status, int options, struct rusage *rusage);
 
 
 libname = util.find_library('c')
-if libname:
-    glibc = CDLL(libname)
-    if hasattr(glibc, 'prlimit'):
-        src += """
+glibc = CDLL(util.find_library('c'))
+if hasattr(glibc, 'prlimit'):
+    src += """
 
 static int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2])
 {
@@ -134,7 +133,7 @@ static int _prlimit(int pid, int resource, int set, long long cur, long long max
     return 0;
 }
 """
-        ffi.cdef("""
+    ffi.cdef("""
 int _prlimit(int pid, int resource, int set, long long cur, long long max, long long result[2]);
 """)
 

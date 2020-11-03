@@ -58,3 +58,6 @@ git -C "$HPY" --no-pager diff --stat
 echo
 echo "HG status of pypy"
 hg st $DIR
+echo
+echo "HPy version"
+cat _vendored/hpy/devel/version.py

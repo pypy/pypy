@@ -60,6 +60,7 @@ class TestDict(HPyTest):
                 if (HPy_IsNull(key))
                     return HPy_NULL;
                 HPy val = HPyDict_GetItem(ctx, arg, key);
+                HPy_Close(ctx, key);
                 if (HPy_IsNull(val))
                     return HPy_Dup(ctx, ctx->h_None);
                 return val;

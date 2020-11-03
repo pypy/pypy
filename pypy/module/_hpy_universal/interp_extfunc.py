@@ -2,7 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
-from pypy.interpreter.typedef import TypeDef, interp2app
+from pypy.interpreter.typedef import TypeDef, interp2app, interp_attrproperty
 from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi, handles
@@ -19,13 +19,14 @@ class W_ExtensionFunction(W_Root):
     # XXX: should we have separate classes for each sig?
     _immutable_fields_ = ["sig", "name"]
 
-    def __init__(self, space, name, sig, cfuncptr, w_self):
+    def __init__(self, space, name, sig, doc, cfuncptr, w_self):
         self.w_self = w_self
         self.name = name
         self.sig = sig
         if self.sig not in SUPPORTED_SIGNATURES:
             raise oefmt(space.w_ValueError, "Unsupported HPyMeth signature")
             #raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
+        self.doc = doc
         self.cfuncptr = cfuncptr
 
     def call_noargs(self, space, h_self):
@@ -135,13 +136,15 @@ class W_ExtensionFunction(W_Root):
 W_ExtensionFunction.typedef = TypeDef(
     'extension_function',
     __call__ = interp2app(W_ExtensionFunction.descr_call),
+    __doc__ = interp_attrproperty('doc', cls=W_ExtensionFunction,
+                                  wrapfn="newtext_or_none"),
     )
 W_ExtensionFunction.typedef.acceptable_as_base_class = False
 
 
 class W_ExtensionMethod(W_ExtensionFunction):
-    def __init__(self, space, name, sig, impl, w_objclass):
-        W_ExtensionFunction.__init__(self, space, name, sig, impl, space.w_None)
+    def __init__(self, space, name, sig, doc, cfuncptr, w_objclass):
+        W_ExtensionFunction.__init__(self, space, name, sig, doc, cfuncptr, space.w_None)
         self.w_objclass = w_objclass
 
     def descr_call(self, space, __args__):
@@ -168,5 +171,7 @@ W_ExtensionMethod.typedef = TypeDef(
     'method_descriptor_',
     __get__ = interp2app(descr_function_get),
     __call__ = interp2app(W_ExtensionMethod.descr_call),
+    __doc__ = interp_attrproperty('doc', cls=W_ExtensionMethod,
+                                  wrapfn="newtext_or_none"),
     )
 W_ExtensionMethod.typedef.acceptable_as_base_class = False

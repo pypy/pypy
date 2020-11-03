@@ -7,6 +7,7 @@ from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles, llapi
+from .interp_module import get_doc
 from .interp_extfunc import W_ExtensionMethod
 from .interp_slot import fill_slot
 from .interp_descr import add_member, add_getset
@@ -135,7 +136,9 @@ def add_slot_defs(space, ctx, w_result, c_defines):
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
-            w_extfunc = W_ExtensionMethod(space, name, sig, hpymeth.c_impl, w_result)
+            doc = get_doc(hpymeth.c_doc)
+            w_extfunc = W_ExtensionMethod(space, name, sig, doc, hpymeth.c_impl,
+                                          w_result)
             w_result.setdictvalue(
                 space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
         elif kind == HPyDef_Kind.HPyDef_Kind_Member:
