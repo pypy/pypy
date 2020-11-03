@@ -126,7 +126,7 @@ typedef struct {
     };
 
 
-#define HPyDef_METH(SYM, NAME, IMPL, SIG)                               \
+#define HPyDef_METH(SYM, NAME, IMPL, SIG, ...)                          \
     HPyFunc_DECLARE(IMPL, SIG);                                         \
     HPyFunc_TRAMPOLINE(SYM##_trampoline, IMPL, SIG);                    \
     HPyDef SYM = {                                                      \
@@ -135,7 +135,8 @@ typedef struct {
             .name = NAME,                                               \
             .impl = IMPL,                                               \
             .cpy_trampoline = SYM##_trampoline,                         \
-            .signature = SIG                                            \
+            .signature = SIG,                                           \
+            __VA_ARGS__                                                 \
         }                                                               \
     };
 

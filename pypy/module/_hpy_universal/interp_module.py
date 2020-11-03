@@ -33,8 +33,15 @@ def HPyModule_Create(space, ctx, hpydef):
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
+            doc = get_doc(hpymeth.c_doc)
             w_extfunc = interp_extfunc.W_ExtensionFunction(
-                space, name, sig, hpymeth.c_impl, w_mod)
+                space, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     return handles.new(space, w_mod)
+
+
+def get_doc(c_doc):
+    if not c_doc:
+        return None
+    return rffi.constcharp2str(c_doc)

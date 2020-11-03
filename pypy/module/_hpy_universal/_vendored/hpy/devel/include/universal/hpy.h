@@ -35,6 +35,7 @@ typedef intptr_t HPy_hash_t;
 typedef struct _HPy_s { HPy_ssize_t _i; } HPy;
 typedef struct { HPy_ssize_t _lst; } HPyListBuilder;
 typedef struct { HPy_ssize_t _tup; } HPyTupleBuilder;
+typedef struct { HPy_ssize_t _i; } HPyTracker;
 
 typedef struct _HPyContext_s *HPyContext;
 

@@ -1,5 +1,5 @@
 
-all: pypy-c cffi_imports
+all: pypy3-c cffi_imports
 
 PYPY_EXECUTABLE := $(shell which pypy)
 
@@ -15,7 +15,7 @@ JOBS=$(subst -j,--make-jobs ,$(filter -j%, $(MAKEFLAGS)))
 
 .PHONY: pypy-c cffi_imports
 
-pypy-c:
+pypy3-c:
 	@echo
 	@echo "===================================================================="
 ifeq ($(PYPY_EXECUTABLE),)
@@ -38,4 +38,4 @@ endif
 	cd pypy/goal && $(RUNINTERP) ../../rpython/bin/rpython $(JOBS) -Ojit targetpypystandalone.py
 
 cffi_imports: pypy-c
-	cd lib_pypy && ../pypy/goal/pypy-c pypy_tools/build_cffi_imports.py || /bin/true
+	cd lib_pypy && ../pypy/goal/pypy3-c pypy_tools/build_cffi_imports.py || /bin/true
