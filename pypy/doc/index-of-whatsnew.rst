@@ -47,6 +47,7 @@ CPython 3.6 compatible versions
 
 .. toctree::
     whatsnew-pypy3-head.rst
+    whatsnew-pypy3-7.3.3.rst
     whatsnew-pypy3-7.3.2.rst
     whatsnew-pypy3-7.3.1.rst
     whatsnew-pypy3-7.3.0.rst
