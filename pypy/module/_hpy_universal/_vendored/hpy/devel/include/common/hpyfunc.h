@@ -34,6 +34,7 @@ typedef enum {
     HPyFunc_INITPROC,
     HPyFunc_GETTER,
     HPyFunc_SETTER,
+    HPyFunc_OBJOBJPROC,
 
 } HPyFunc_Signature;
 

@@ -58,14 +58,20 @@ typedef struct _HPyTupleBuilder_s {
 } _struct_HPyTupleBuilder_s;
 typedef HPy_ssize_t HPyTupleBuilder;
 
+typedef struct _HPyTracker_s {
+    HPy_ssize_t _i;
+} _struct_HPyTracker_s;
+typedef HPy_ssize_t HPyTracker;
 
 typedef struct _HPyContext_s {
     int ctx_version;
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
+    struct _HPy_s h_Exception;
     struct _HPy_s h_ValueError;
     struct _HPy_s h_TypeError;
+    struct _HPy_s h_IndexError;
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
     struct _HPy_s h_LongType;
@@ -177,6 +183,10 @@ typedef struct _HPyContext_s {
     void * ctx_TupleBuilder_Set;
     void * ctx_TupleBuilder_Build;
     void * ctx_TupleBuilder_Cancel;
+    void * ctx_Tracker_New;
+    void * ctx_Tracker_Add;
+    void * ctx_Tracker_RemoveAll;
+    void * ctx_Tracker_Free;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
@@ -372,6 +382,7 @@ typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
 typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
 typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
+typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 

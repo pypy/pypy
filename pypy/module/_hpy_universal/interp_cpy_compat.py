@@ -72,9 +72,8 @@ def attach_legacy_members(space, pymembers, w_type):
         # XXX: write tests about the other flags? I think that READ_RESTRICTED
         # and WRITE_RESTRICTED are not used nowadays?
         flags = rffi.cast(lltype.Signed, pymember.c_flags)
-        readonly = flags & structmemberdefs.READONLY # XXX currently ignored, write a test
-        #
-        w_member = W_HPyMemberDescriptor(w_type, kind, name, doc, offset)
+        is_readonly = flags & structmemberdefs.READONLY
+        w_member = W_HPyMemberDescriptor(w_type, kind, name, doc, offset, is_readonly)
         w_type.setdictvalue(space, name, w_member)
 
 # ~~~ legacy_getset ~~~

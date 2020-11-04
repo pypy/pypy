@@ -31,9 +31,10 @@ class State:
 
     @jit.dont_look_inside
     def setup(self):
-        if self.ctx:
-            return
-        self.setup_ctx()
+        if not self.ctx:
+            self.setup_ctx()
+        # bridge functions are stored in a global but they need to match the
+        # current space, so we reinitialize them every time.
         self.setup_bridge()
 
     def setup_ctx(self):

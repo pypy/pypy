@@ -56,7 +56,7 @@ def test_setrlimit():
     if int(xf) == x and int(yf) == y:
         resource.setrlimit(resource.RLIMIT_CPU, (x, y))  # truncated to ints
 
-if sys.platform.startswith("linux"):
+if sys.platform.startswith("linux") and hasattr(resource, 'prlimit'):
     def test_prlimit():
         old_limits = resource.getrlimit(resource.RLIMIT_STACK)
         assert resource.prlimit(0, resource.RLIMIT_STACK) == old_limits

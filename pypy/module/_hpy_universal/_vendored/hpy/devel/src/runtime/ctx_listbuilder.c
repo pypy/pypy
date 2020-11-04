@@ -47,6 +47,12 @@ _HPy_HIDDEN void
 ctx_ListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)
 {
     PyObject *lst = (PyObject *)builder._lst;
+    if (lst == NULL) {
+        // we don't report the memory error here: the builder
+        // is being cancelled (so the result of the builder is not being used)
+        // and likely it's being cancelled during the handling of another error
+        return;
+    }
     builder._lst = 0;
     Py_XDECREF(lst);
 }
