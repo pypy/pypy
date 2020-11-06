@@ -41,8 +41,9 @@ class TestParseItem(HPyTest):
         mod = self.make_parse_item("d", "double", "HPyFloat_FromDouble")
         assert mod.f(1.) == 1.
         assert mod.f(-2) == -2.
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError) as err:
             mod.f("x")
+        assert str(err.value) == "must be real number, not str"
 
     def test_O(self):
         mod = self.make_parse_item("O", "HPy", "HPy_Dup")
@@ -112,24 +113,24 @@ class TestArgParse(HPyTest):
 
     def test_unsupported_fmt(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="ZZ")
-        with pytest.raises(ValueError) as exc:
+        mod = self.make_two_arg_add(fmt="ZZ:two_add")
+        with pytest.raises(SystemError) as exc:
             mod.f("a")
-        assert str(exc.value) == "XXX: Unknown arg format code"
+        assert str(exc.value) == "two_add() unknown arg format code"
 
     def test_too_few_args(self):
         import pytest
-        mod = self.make_two_arg_add()
+        mod = self.make_two_arg_add("OO:two_add")
         with pytest.raises(TypeError) as exc:
             mod.f()
-        assert str(exc.value) == "XXX: required positional argument missing"
+        assert str(exc.value) == "two_add() required positional argument missing"
 
     def test_too_many_args(self):
         import pytest
-        mod = self.make_two_arg_add()
+        mod = self.make_two_arg_add("OO:two_add")
         with pytest.raises(TypeError) as exc:
             mod.f(1, 2, 3)
-        assert str(exc.value) == "XXX: mismatched args (too many arguments for fmt)"
+        assert str(exc.value) == "two_add() mismatched args (too many arguments for fmt)"
 
     def test_optional_args(self):
         mod = self.make_two_arg_add(fmt="O|O")
@@ -138,14 +139,35 @@ class TestArgParse(HPyTest):
 
     def test_keyword_only_args_fails(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="O$O")
-        with pytest.raises(ValueError) as exc:
+        mod = self.make_two_arg_add(fmt="O$O:two_add")
+        with pytest.raises(SystemError) as exc:
             mod.f(1, 2)
-        assert str(exc.value) == "XXX: Unknown arg format code"
+        assert str(exc.value) == "two_add() unknown arg format code"
+
+    def test_error_default_message(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="OOO")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "function required positional argument missing"
+
+    def test_error_with_function_name(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="OOO:my_func")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "my_func() required positional argument missing"
+
+    def test_error_with_overridden_message(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="OOO;my-error-message")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "my-error-message"
 
 
 class TestArgParseKeywords(HPyTest):
-    def make_two_arg_add(self, fmt="OO"):
+    def make_two_arg_add(self, fmt="O+O+"):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_KEYWORDS)
             static HPy f_impl(HPyContext ctx, HPy self,
@@ -164,7 +186,7 @@ class TestArgParseKeywords(HPyTest):
         return mod
 
     def test_handle_two_arguments(self):
-        mod = self.make_two_arg_add("OO")
+        mod = self.make_two_arg_add("O+O+")
         assert mod.f("x", b="y") == "xy"
 
     def test_handle_reordered_arguments(self):
@@ -175,7 +197,7 @@ class TestArgParseKeywords(HPyTest):
             {
                 HPy a, b;
                 static const char *kwlist[] = { "a", "b", NULL };
-                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "OO", kwlist, &a, &b))
+                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "O+O+", kwlist, &a, &b))
                     return HPy_NULL;
                 return HPy_Add(ctx, a, b);
             }
@@ -194,14 +216,13 @@ class TestArgParseKeywords(HPyTest):
                 HPy b = HPy_NULL;
                 HPy res;
                 static const char *kwlist[] = { "a", "b", NULL };
-                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "O|O", kwlist, &a, &b))
+                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "O+|O+", kwlist, &a, &b))
                     return HPy_NULL;
                 if (HPy_IsNull(b)) {{
                     b = HPyLong_FromLong(ctx, 5);
-                }} else {{
-                    b = HPy_Dup(ctx, b);
                 }}
                 res = HPy_Add(ctx, a, b);
+                HPy_Close(ctx, a);
                 HPy_Close(ctx, b);
                 return res;
             }
@@ -215,31 +236,31 @@ class TestArgParseKeywords(HPyTest):
 
     def test_unsupported_fmt(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="ZZ")
-        with pytest.raises(ValueError) as exc:
+        mod = self.make_two_arg_add(fmt="ZZ:two_add")
+        with pytest.raises(SystemError) as exc:
             mod.f("a")
-        assert str(exc.value) == "XXX: Unknown arg format code"
+        assert str(exc.value) == "two_add() unknown arg format code"
 
     def test_missing_required_argument(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="OO")
+        mod = self.make_two_arg_add(fmt="O+O+:add_two")
         with pytest.raises(TypeError) as exc:
             mod.f(1)
-        assert str(exc.value) == "XXX: no value for required argument"
+        assert str(exc.value) == "add_two() no value for required argument"
 
     def test_mismatched_args_too_few_keywords(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="OOO")
+        mod = self.make_two_arg_add(fmt="O+O+O+:add_two")
         with pytest.raises(TypeError) as exc:
             mod.f(1, 2)
-        assert str(exc.value) == "XXX: mismatched args (too few keywords for fmt)"
+        assert str(exc.value) == "add_two() mismatched args (too few keywords for fmt)"
 
     def test_mismatched_args_too_many_keywords(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="O")
+        mod = self.make_two_arg_add(fmt="O+:add_two")
         with pytest.raises(TypeError) as exc:
             mod.f(1, 2)
-        assert str(exc.value) == "XXX: mismatched args (too many keywords for fmt)"
+        assert str(exc.value) == "add_two() mismatched args (too many keywords for fmt)"
 
     def test_blank_keyword_argument_exception(self):
         import pytest
@@ -250,7 +271,7 @@ class TestArgParseKeywords(HPyTest):
             {
                 HPy a, b, c;
                 static const char *kwlist[] = { "", "b", "", NULL };
-                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "OOO", kwlist,
+                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "NNN", kwlist,
                                           &a, &b, &c))
                     return HPy_NULL;
                 return HPy_Dup(ctx, ctx->h_None);
@@ -258,9 +279,9 @@ class TestArgParseKeywords(HPyTest):
             @EXPORT(f)
             @INIT
         """)
-        with pytest.raises(TypeError) as exc:
+        with pytest.raises(SystemError) as exc:
             mod.f()
-        assert str(exc.value) == "XXX: Empty keyword parameter name"
+        assert str(exc.value) == "function empty keyword parameter name"
 
     def test_positional_only_argument(self):
         import pytest
@@ -273,7 +294,7 @@ class TestArgParseKeywords(HPyTest):
                 HPy b = HPy_NULL;
                 HPy res;
                 static const char *kwlist[] = { "", "b", NULL };
-                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "O|O", kwlist, &a, &b))
+                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "O+|O+", kwlist, &a, &b))
                     return HPy_NULL;
                 if (HPy_IsNull(b)) {
                     b = HPyLong_FromLong(ctx, 5);
@@ -292,14 +313,35 @@ class TestArgParseKeywords(HPyTest):
         assert mod.f(1) == 6
         with pytest.raises(TypeError) as exc:
             mod.f(a=1, b=2)
-        assert str(exc.value) == "XXX: no value for required argument"
+        assert str(exc.value) == "function no value for required argument"
 
     def test_keyword_only_argument(self):
         import pytest
-        mod = self.make_two_arg_add(fmt="O$O")
+        mod = self.make_two_arg_add(fmt="O+$O+")
         assert mod.f(1, b=2) == 3
         assert mod.f(a=1, b=2) == 3
         with pytest.raises(TypeError) as exc:
             mod.f(1, 2)
         assert str(exc.value) == (
-            "XXX: keyword only argument passed as positional argument")
+            "function keyword only argument passed as positional argument")
+
+    def test_error_default_message(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="O+O+O+")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "function mismatched args (too few keywords for fmt)"
+
+    def test_error_with_function_name(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="O+O+O+:my_func")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "my_func() mismatched args (too few keywords for fmt)"
+
+    def test_error_with_overridden_message(self):
+        import pytest
+        mod = self.make_two_arg_add(fmt="O+O+O+;my-error-message")
+        with pytest.raises(TypeError) as exc:
+            mod.f(1, 2)
+        assert str(exc.value) == "my-error-message"

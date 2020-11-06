@@ -33,7 +33,7 @@ class TestDict(HPyTest):
         """)
         assert mod.f() == {}
 
-    def test_SetItem(self):
+    def test_set_item(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
@@ -42,7 +42,7 @@ class TestDict(HPyTest):
                 if (HPy_IsNull(dict))
                     return HPy_NULL;
                 HPy val = HPyLong_FromLong(ctx, 1234);
-                if (HPyDict_SetItem(ctx, dict, arg, val) == -1)
+                if (HPy_SetItem(ctx, dict, arg, val) == -1)
                     return HPy_NULL;
                 return dict;
             }
@@ -51,7 +51,7 @@ class TestDict(HPyTest):
         """)
         assert mod.f('hello') == {'hello': 1234}
 
-    def test_GetItem(self):
+    def test_get_item(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
@@ -59,10 +59,12 @@ class TestDict(HPyTest):
                 HPy key = HPyUnicode_FromString(ctx, "hello");
                 if (HPy_IsNull(key))
                     return HPy_NULL;
-                HPy val = HPyDict_GetItem(ctx, arg, key);
+                HPy val = HPy_GetItem(ctx, arg, key);
                 HPy_Close(ctx, key);
-                if (HPy_IsNull(val))
+                if (HPy_IsNull(val)) {
+                    HPyErr_Clear(ctx);
                     return HPy_Dup(ctx, ctx->h_None);
+                }
                 return val;
             }
             @EXPORT(f)
