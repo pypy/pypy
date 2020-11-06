@@ -9,6 +9,7 @@
 #include <stdint.h>
 #endif
 
+void *pypy_find_codemap_at_addr(long addr, long *start_addr);
 long pypy_yield_codemap_at_addr(void *codemap_raw, long addr,
                                 long *current_pos_addr);
 

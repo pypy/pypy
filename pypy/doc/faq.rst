@@ -379,7 +379,7 @@ interpreter; preliminary versions of a `JavaScript interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
-.. _Topaz: https://docs.topazruby.com/en/latest/
+.. _Topaz: https://github.com/topazproject/topaz
 .. _Hippy: https://morepypy.blogspot.ch/2012/07/hello-everyone.html
 .. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
