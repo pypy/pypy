@@ -68,6 +68,7 @@ class State:
 
         self.ctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
         self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
+        self.ctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
 
     def setup_bridge(self):
         if self.space.config.translating:

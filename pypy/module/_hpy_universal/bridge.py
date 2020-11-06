@@ -33,6 +33,7 @@ from pypy.module._hpy_universal.apiset import APISet
 llapi.cts.parse_source("""
 typedef struct {
     void * hpy_err_Occurred_rpy;
+    void * hpy_err_Clear;
     void * _hpy_err_SetString;
 } _HPyBridge;
 """)

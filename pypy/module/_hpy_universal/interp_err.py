@@ -9,6 +9,7 @@ from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 
 ## HPy exceptions in PyPy
+## ======================
 ##
 ## HPy exceptions are implemented using normal RPython exceptions, which means
 ## that e.g. HPyErr_SetString simply raises an OperationError: see
@@ -25,6 +26,16 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 ##     - HPyErr_Clear()
 ##
 ## We need to enforce this in debug mode.
+##
+## ~~~ Implementation ~~~
+##
+## HPyErr_SetString, HPyErr_Occurred and HPyErr_Clear are implemented in C. See also:
+##    - src/hpyerr.c for the source code
+##    - state.py:setup.ctx which explicitly stores the C functions in the ctx
+
+
+## ~~~ @BRIDGE Functions ~~~
+## These functions are called from hpyerr.c, and are used only in tests
 
 @BRIDGE.func("void _hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
 def _hpy_err_SetString(space, ctx, h_exc_type, utf8):
@@ -52,6 +63,16 @@ def hpy_err_Occurred_rpy(space):
     res = ll2ctypes._callback_exc_info is not None
     return API.int(res)
 
+@BRIDGE.func("void hpy_err_Clear(void)")
+def hpy_err_Clear(space):
+    assert not we_are_translated()
+    ll2ctypes._callback_exc_info = None
+
+
+## ~~~ API Functions ~~~~
+## The following are normal @API functions, so they contain the "real"
+## implementation.
+
 @API.func("HPy HPyErr_NoMemory(HPyContext ctx)")
 def HPyErr_NoMemory(space, ctx):
     # hack to convince the annotator that this function returns an HPy (i.e.,
@@ -59,3 +80,5 @@ def HPyErr_NoMemory(space, ctx):
     if NonConstant(False):
         return -42
     raise OperationError(space.w_MemoryError, space.w_None)
+
+

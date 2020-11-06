@@ -34,3 +34,14 @@ void pypy_HPyErr_SetString(HPyContext ctx, HPy type, const char *message)
 #endif
     hpy_err_SetString(ctx, type, message);
 }
+
+void pypy_HPyErr_Clear(HPyContext ctx)
+{
+#ifdef RPYTHON_LL2CTYPES
+    /* before translation */
+    hpy_err_Clear();
+#else
+    /* after translation */
+    RPyClearException();
+#endif
+}

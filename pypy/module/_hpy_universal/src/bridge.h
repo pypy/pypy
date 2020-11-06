@@ -25,10 +25,12 @@
  */
 
 #define hpy_err_Occurred_rpy() (hpy_get_bridge()->hpy_err_Occurred_rpy())
+#define hpy_err_Clear() (hpy_get_bridge()->hpy_err_Clear())
 #define hpy_err_SetString(a, b, c) (hpy_get_bridge()->_hpy_err_SetString(a, b, c))
 
 typedef struct {
     int (*hpy_err_Occurred_rpy)(void);
+    void (*hpy_err_Clear)(void);
     void (*_hpy_err_SetString)(HPyContext ctx, HPy type, const char* message);
 } _HPyBridge;
 
@@ -46,6 +48,8 @@ RPY_EXTERN _HPyBridge *hpy_get_bridge(void);
 #define hpy_err_SetString(ctx, type, message) (_hpy_err_SetString(ctx, type._i, message))
 
 int hpy_err_Occurred_rpy(void);
+void hpy_err_Clear(void);
 void _hpy_err_SetString(HPyContext ctx, HPy_ssize_t type, const char *message);
+
 
 #endif /* RPYTHON_LL2CTYPES */
