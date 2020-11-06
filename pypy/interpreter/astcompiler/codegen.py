@@ -630,10 +630,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         b_end = self.new_block()
         b_after_try = self.new_block()
         b_try_cleanup = self.new_block()
-        b_after_loop = self.new_block()
         b_after_loop_else = self.new_block()
 
-        self.emit_jump(ops.SETUP_LOOP, b_after_loop)
+        self.emit_jump(ops.SETUP_LOOP, b_end)
         self.push_frame_block(F_BLOCK_LOOP, b_try)
 
         fr.iter.walkabout(self)
@@ -675,9 +674,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
         self.pop_frame_block(F_BLOCK_LOOP, b_try)
-
-        self.use_next_block(b_after_loop)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_end, True)
 
         self.use_next_block(b_after_loop_else)
         self.visit_sequence(fr.orelse)
