@@ -11,6 +11,7 @@ CONSTANTS = [
     ('ValueError', lambda space: space.w_ValueError),
     ('TypeError', lambda space: space.w_TypeError),
     ('IndexError', lambda space: space.w_IndexError),
+    ('SystemError', lambda space: space.w_SystemError),
     ('BaseObjectType', lambda space: space.w_object),
     ('TypeType', lambda space: space.w_type),
     ('LongType', lambda space: space.w_int),

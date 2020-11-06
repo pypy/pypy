@@ -72,6 +72,7 @@ typedef struct _HPyContext_s {
     struct _HPy_s h_ValueError;
     struct _HPy_s h_TypeError;
     struct _HPy_s h_IndexError;
+    struct _HPy_s h_SystemError;
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
     struct _HPy_s h_LongType;
@@ -129,6 +130,7 @@ typedef struct _HPyContext_s {
     void * ctx_Err_SetString;
     void * ctx_Err_Occurred;
     void * ctx_Err_NoMemory;
+    void * ctx_Err_Clear;
     void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
     void * ctx_Type_GenericNew;
@@ -167,8 +169,6 @@ typedef struct _HPyContext_s {
     void * ctx_List_Append;
     void * ctx_Dict_Check;
     void * ctx_Dict_New;
-    void * ctx_Dict_SetItem;
-    void * ctx_Dict_GetItem;
     void * ctx_FatalError;
     void * ctx_Tuple_FromArray;
     void * ctx_FromPyObject;
@@ -185,8 +185,8 @@ typedef struct _HPyContext_s {
     void * ctx_TupleBuilder_Cancel;
     void * ctx_Tracker_New;
     void * ctx_Tracker_Add;
-    void * ctx_Tracker_RemoveAll;
-    void * ctx_Tracker_Free;
+    void * ctx_Tracker_ForgetAll;
+    void * ctx_Tracker_Close;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
