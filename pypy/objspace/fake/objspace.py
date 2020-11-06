@@ -256,6 +256,9 @@ class FakeObjSpace(ObjSpace):
     def newutf8(self, x, l):
         return w_some_obj()
 
+    def eq_w(self, obj1, obj2):
+        return NonConstant(True)
+
     @specialize.argtype(1)
     def newtext(self, x, lgt=-1):
         return W_UnicodeOjbect()
