@@ -30,7 +30,7 @@ ROOT = py.path.local(__file__).dirpath()
 TEST_SRC = py.path.local(pypydir).join('module', '_hpy_universal', 'test', '_vendored')
 TEST_DST = ROOT.join('_vendored')
 
-def pytest_sessionstart(session):
+def pytest_configure(config):
     if TEST_DST.check(exists=True):
         TEST_DST.remove()
     TEST_SRC.copy(TEST_DST)
