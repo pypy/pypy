@@ -50,7 +50,7 @@ class TestSignature(object):
         assert sig.find_argname("kwonly") == 3
 
     def test_posonly(self):
-        sig = Signature(["a", "b", "c"], posonlyargnames=["x", "y", "z"])
+        sig = Signature(["x", "y", "z", "a", "b", "c"], posonlyargcount=3)
         # posonly come first
         assert sig.find_argname("x") == 0
         assert sig.find_argname("y") == 1
@@ -599,7 +599,7 @@ class TestArgumentsNormal(object):
 
     def test_posonly(self):
         space = DummySpace()
-        sig = Signature(["a", "b", "c"], posonlyargnames=["x", "y", "z"])
+        sig = Signature(["x", "y", "z", "a", "b", "c"], posonlyargcount=3)
 
         args = Arguments(space, [1, 2, 3, 4, 5, 6])
         l = [None] * 6
@@ -805,7 +805,7 @@ class TestErrorHandling(object):
 
     def test_posonly_error(self):
         space = DummySpace()
-        sig = Signature([], posonlyargnames=["x", "y", "z"])
+        sig = Signature(["x", "y", "z"], posonlyargcount=3)
 
         with pytest.raises(ArgErrPosonlyAsKwds) as info:
             args = Arguments(space, [1, 2, 3, 4, 5], ["x"], [6])
