@@ -40,11 +40,6 @@ def pytest_configure(config):
         from _hpy_universal. Look at conftest.py for more details
     """)
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--compiler-v", action="store_true",
-        help="Print to stdout the commands used to invoke the compiler")
-
 @pytest.fixture(scope='session')
 def hpy_devel(request):
     from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
