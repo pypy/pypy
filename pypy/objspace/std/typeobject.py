@@ -224,16 +224,6 @@ class W_TypeObject(W_Root):
         else:
             layout = setup_user_defined_type(self, force_new_layout)
         self.layout = layout
-        self.qualname = self.getname(space)
-        if self.flag_heaptype:
-            w_qualname = self.dict_w.pop('__qualname__', None)
-            if w_qualname is not None:
-                if space.isinstance_w(w_qualname, space.w_unicode):
-                    self.qualname = space.utf8_w(w_qualname)
-                elif not self.flag_cpytype:
-                    raise oefmt(space.w_TypeError,
-                                "type __qualname__ must be a str, not %T",
-                                w_qualname)
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
