@@ -41,7 +41,7 @@ working_modules.update([
     "binascii", "_multiprocessing", '_warnings', "_collections",
     "_multibytecodec", "_continuation", "_cffi_backend",
     "_csv", "_pypyjson", "_posixsubprocess", "_cppyy", # "micronumpy",
-    "_jitlog", "_hpy_universal"
+    "_jitlog", # "_hpy_universal"
     # "_hashlib", "crypt"
 ])
 
