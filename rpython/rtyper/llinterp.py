@@ -15,6 +15,7 @@ from rpython.rlib.rarithmetic import (ovfcheck, is_valid_int, intmask,
 from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
 from rpython.tool.ansi_print import AnsiLogger
+from rpython.tool import twothree
 
 
 # by default this logger's output is disabled.
@@ -460,12 +461,12 @@ class LLFrame(object):
                                 TypeError, NameError,
                                 KeyboardInterrupt, SystemExit,
                                 ImportError, SyntaxError)):
-                raise original[0], original[1], original[2]     # re-raise it
+                twothree.reraise(original[0], original[1], original[2])     # re-raise it
             # for testing the JIT (see ContinueRunningNormally) we need
             # to let some exceptions introduced by the JIT go through
             # the llinterpreter uncaught
             if getattr(exc, '_go_through_llinterp_uncaught_', False):
-                raise original[0], original[1], original[2]     # re-raise it
+                twothree.reraise(original[0], original[1], original[2])     # re-raise it
             extraargs = (original,)
         else:
             extraargs = ()
