@@ -5,7 +5,7 @@ Frequently Asked Questions
 
 See also: `Frequently ask questions about RPython.`__
 
-.. __: http://rpython.readthedocs.org/en/latest/faq.html
+.. __: https://rpython.readthedocs.org/en/latest/faq.html
 
 ---------------------------
 
@@ -112,14 +112,10 @@ version; this is usually easily done by changing some line in ``setup.py``.
 We fully support ctypes-based extensions. But for best performance, we
 recommend that you use the cffi_ module to interface with C code.
 
-For information on which third party extensions work (or do not work)
-with PyPy see the `compatibility wiki`_.
-
 For more information about how we manage refcounting semamtics see 
 rawrefcount_
 
-.. _compatibility wiki: https://bitbucket.org/pypy/compatibility/wiki/Home
-.. _cffi: http://cffi.readthedocs.org/
+.. _cffi: https://cffi.readthedocs.org/
 .. _rawrefcount: discussion/rawrefcount.html   
 
 
@@ -131,7 +127,10 @@ PyPy currently supports:
   * **x86** machines on most common operating systems
     (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
   
-  * newer **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux,
+  * 64-bit **AArch**, also known as ARM64,
+
+  * **ARM** hardware (ARMv6 or ARMv7, with VFPv3) running Linux
+    (we no longer provide prebuilt binaries for these),
   
   * big- and little-endian variants of **PPC64** running Linux,
 
@@ -151,9 +150,12 @@ Linux and ARM Linux (see :ref:`here <rpython:arm>`).
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
 
-PyPy currently aims to be fully compatible with Python 2.7. That means that
-it contains the standard library of Python 2.7 and that it supports 2.7
-features (such as set comprehensions).
+PyPy comes in two versions:
+
+* one is fully compatible with Python 2.7;
+
+* the other is fully compatible with one 3.x version.  At the time of
+  this writing, this is 3.6.
 
 
 .. _threading:
@@ -215,11 +217,11 @@ binary wheels`_ to save compilation time.
 
 The upstream ``numpy`` is written in C, and runs under the cpyext
 compatibility layer.  Nowadays, cpyext is mature enough that you can simply
-use the upstream ``numpy``, since it passes 99.9% of the test suite. At the
+use the upstream ``numpy``, since it passes the test suite. At the
 moment of writing (October 2017) the main drawback of ``numpy`` is that cpyext
 is infamously slow, and thus it has worse performance compared to
 ``numpypy``. However, we are actively working on improving it, as we expect to
-reach the same speed, eventually.
+reach the same speed when HPy_ can be used.
 
 On the other hand, ``numpypy`` is more JIT-friendly and very fast to call,
 since it is written in RPython: but it is a reimplementation, and it's hard to
@@ -232,7 +234,7 @@ progressing fast, we have discontinued support for ``numpypy``.
 .. _`started to reimplement`: https://morepypy.blogspot.co.il/2011/05/numpy-in-pypy-status-and-roadmap.html
 .. _fork: https://bitbucket.org/pypy/numpy
 .. _`PyPy binary wheels`: https://github.com/antocuni/pypy-wheels
-
+.. _HPy: https://morepypy.blogspot.com/2019/12/hpy-kick-off-sprint-report.html
 
 Is PyPy more clever than CPython about Tail Calls?
 --------------------------------------------------
@@ -242,8 +244,8 @@ debugger features.  This prevents tail calls, as summarized by Guido
 van Rossum in two__ blog__ posts.  Moreover, neither the JIT nor
 Stackless__ change anything to that.
 
-.. __: http://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html
-.. __: http://neopythonic.blogspot.com/2009/04/final-words-on-tail-calls.html
+.. __: https://neopythonic.blogspot.com/2009/04/tail-recursion-elimination.html
+.. __: https://neopythonic.blogspot.com/2009/04/final-words-on-tail-calls.html
 .. __: stackless.html
 
 
@@ -272,9 +274,25 @@ timings with CPython, even relatively simple programs need to run *at
 least* one second, preferrably at least a few seconds.  Large,
 complicated programs need even more time to warm-up the JIT.
 
-.. _benchmarking site: http://speed.pypy.org
+.. _benchmarking site: https://speed.pypy.org
 
-.. _your tests are not a benchmark: http://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
+.. _your tests are not a benchmark: https://alexgaynor.net/2013/jul/15/your-tests-are-not-benchmark/
+
+I wrote a 3-lines benchmark and it's not faster than CPython.  Why?
+-------------------------------------------------------------------
+
+Three-lines benchmarks are benchmarks that either do absolutely nothing (in
+which case PyPy is probably a lot faster than CPython), or more likely, they
+are benchmarks that spend most of their time doing things in C.
+
+For example, a loop that repeatedly issues one complex SQL operation will only
+measure how performant the SQL database is.  Similarly, computing many elements
+from the Fibonacci series builds very large integers, so it only measures how
+performant the long integer library is.  This library is written in C for
+CPython, and in RPython for PyPy, but that boils down to the same thing.
+
+PyPy speeds up the code written *in Python*.
+
 
 Couldn't the JIT dump and reload already-compiled machine code?
 ---------------------------------------------------------------
@@ -299,7 +317,7 @@ Would type annotations help PyPy's performance?
 Two examples of type annotations that are being proposed for improved
 performance are `Cython types`__ and `PEP 484 - Type Hints`__.
 
-.. __: http://docs.cython.org/src/reference/language_basics.html#declaring-data-types
+.. __: https://docs.cython.org/src/reference/language_basics.html#declaring-data-types
 .. __: https://www.python.org/dev/peps/pep-0484/
 
 **Cython types** are, by construction, similar to C declarations.  For
@@ -361,11 +379,11 @@ interpreter; preliminary versions of a `JavaScript interpreter`_
 (produced during a sprint).  On the `PyPy bitbucket page`_ there is also a
 Scheme and an Io implementation; both of these are unfinished at the moment.
 
-.. _Topaz: http://docs.topazruby.com/en/latest/
-.. _Hippy: http://morepypy.blogspot.ch/2012/07/hello-everyone.html
+.. _Topaz: https://github.com/topazproject/topaz
+.. _Hippy: https://morepypy.blogspot.ch/2012/07/hello-everyone.html
 .. _JavaScript interpreter: https://bitbucket.org/pypy/lang-js/
 .. _Prolog interpreter: https://bitbucket.org/cfbolz/pyrolog/
-.. _SmallTalk interpreter: http://dx.doi.org/10.1007/978-3-540-89275-5_7
+.. _SmallTalk interpreter: https://dx.doi.org/10.1007/978-3-540-89275-5_7
 .. _PyPy bitbucket page: https://bitbucket.org/pypy/
 
 
@@ -384,7 +402,7 @@ the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
 
-.. _mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
 
 OSError: ... cannot restore segment prot after reloc... Help?
@@ -413,7 +431,7 @@ Missing features or incompatibilities with CPython are considered
 bugs, and they are welcome.  (See also our list of `known
 incompatibilities`__.)
 
-.. __: http://pypy.org/compat.html
+.. __: https://pypy.org/compat.html
 
 For bugs of the kind "I'm getting a PyPy crash or a strange
 exception", please note that: **We can't do anything without

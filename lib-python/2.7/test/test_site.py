@@ -7,7 +7,9 @@ executing have not been removed.
 import unittest
 from test.test_support import run_unittest, TESTFN, EnvironmentVarGuard
 from test.test_support import captured_output
+from test import support
 import __builtin__
+import errno
 import os
 import sys
 import re
@@ -24,14 +26,30 @@ if "site" in sys.modules:
 else:
     raise unittest.SkipTest("importation of site.py suppressed")
 
-if site.ENABLE_USER_SITE and not os.path.isdir(site.USER_SITE):
-    # need to add user site directory for tests
-    try:
-        os.makedirs(site.USER_SITE)
-        site.addsitedir(site.USER_SITE)
-    except OSError as exc:
-        raise unittest.SkipTest('unable to create user site directory (%r): %s'
-                                % (site.USER_SITE, exc))
+
+OLD_SYS_PATH = None
+
+
+def setUpModule():
+    global OLD_SYS_PATH
+    OLD_SYS_PATH = sys.path[:]
+
+    if site.ENABLE_USER_SITE and not os.path.isdir(site.USER_SITE):
+        # need to add user site directory for tests
+        try:
+            os.makedirs(site.USER_SITE)
+            # modify sys.path: will be restored by tearDownModule()
+            site.addsitedir(site.USER_SITE)
+        except OSError as exc:
+            if exc.errno in (errno.EACCES, errno.EPERM):
+                raise unittest.SkipTest('unable to create user site directory (%r): %s'
+                                        % (site.USER_SITE, exc))
+            else:
+                raise
+
+
+def tearDownModule():
+    sys.path[:] = OLD_SYS_PATH
 
 
 class HelperFunctionsTests(unittest.TestCase):
@@ -224,6 +242,7 @@ class HelperFunctionsTests(unittest.TestCase):
         # the call sets USER_BASE *and* USER_SITE
         self.assertEqual(site.USER_SITE, user_site)
         self.assertTrue(user_site.startswith(site.USER_BASE), user_site)
+        self.assertEqual(site.USER_BASE, site.getuserbase())
 
     def test_getsitepackages(self):
         site.PREFIXES = ['xoxo']
@@ -251,6 +270,48 @@ class HelperFunctionsTests(unittest.TestCase):
             self.assertEqual(dirs[0], 'xoxo')
             wanted = os.path.join('xoxo', 'lib', 'site-packages')
             self.assertEqual(dirs[1], wanted)
+
+    def test_no_home_directory(self):
+        # bpo-10496: getuserbase() and getusersitepackages() must not fail if
+        # the current user has no home directory (if expanduser() returns the
+        # path unchanged).
+        site.USER_SITE = None
+        site.USER_BASE = None
+        sysconfig._CONFIG_VARS = None
+
+        with EnvironmentVarGuard() as environ, \
+             support.swap_attr(os.path, 'expanduser', lambda path: path):
+
+            del environ['PYTHONUSERBASE']
+            del environ['APPDATA']
+
+            user_base = site.getuserbase()
+            self.assertTrue(user_base.startswith('~' + os.sep),
+                            user_base)
+
+            user_site = site.getusersitepackages()
+            self.assertTrue(user_site.startswith(user_base), user_site)
+
+        def fake_isdir(path):
+            fake_isdir.arg = path
+            return False
+        fake_isdir.arg = None
+
+        def must_not_be_called(*args):
+            raise AssertionError
+
+        with support.swap_attr(os.path, 'isdir', fake_isdir), \
+             support.swap_attr(site, 'addsitedir', must_not_be_called), \
+             support.swap_attr(site, 'ENABLE_USER_SITE', True):
+
+            # addusersitepackages() must not add user_site to sys.path
+            # if it is not an existing directory
+            known_paths = set()
+            site.addusersitepackages(known_paths)
+
+            self.assertEqual(fake_isdir.arg, user_site)
+            self.assertFalse(known_paths)
+
 
 class PthFile(object):
     """Helper class for handling testing of .pth files"""

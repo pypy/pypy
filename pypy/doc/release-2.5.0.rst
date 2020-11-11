@@ -7,7 +7,7 @@ enhancements and bug fixes.
 
 You can download the PyPy 2.5.0 release here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project, and for those who donate to our three sub-projects, as well as our
@@ -26,9 +26,9 @@ so we can finish those projects! The three sub-projects are:
 * `NumPy`_ which requires installation of our fork of upstream numpy,
   available `on bitbucket`_
 
-.. _`Py3k`: http://pypy.org/py3donate.html
-.. _`STM`: http://pypy.org/tmdonate2.html
-.. _`NumPy`: http://pypy.org/numpydonate.html
+.. _`Py3k`: https://pypy.org/py3donate.html
+.. _`STM`: https://pypy.org/tmdonate2.html
+.. _`NumPy`: https://pypy.org/numpydonate.html
 .. _`on bitbucket`: https://www.bitbucket.org/pypy/numpy
 
 What is PyPy?
@@ -46,8 +46,8 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`pypy and cpython 2.7.x`: http://speed.pypy.org
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`pypy and cpython 2.7.x`: https://speed.pypy.org
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 Highlights
 ==========
@@ -87,10 +87,10 @@ Highlights
   our issue tracker at https://bitbucket.org/pypy/pypy/issues or on IRC at
   #pypy.
 
-.. _`PyPy documentation`: http://doc.pypy.org
-.. _`RPython documentation`: http://rpython.readthedocs.org
-.. _`blog post`: http://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
-.. _resolved: http://doc.pypy.org/en/latest/whatsnew-2.5.0.html
+.. _`PyPy documentation`: https://doc.pypy.org
+.. _`RPython documentation`: https://rpython.readthedocs.org
+.. _`blog post`: https://morepypy.blogspot.com/2015/01/faster-more-memory-efficient-and-more.html
+.. _resolved: https://doc.pypy.org/en/latest/whatsnew-2.5.0.html
 
 We have further improvements on the way: rpython file handling,
 finishing numpy linalg compatibility, numpy object dtypes, a better profiler,

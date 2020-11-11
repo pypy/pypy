@@ -20,15 +20,6 @@ def PyBuffer_FillContiguousStrides(space, ndim, shape, strides, itemsize, fortra
     given shape with the given number of bytes per element."""
     raise NotImplementedError
 
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise copy is made and the memoryview points to a
-    new bytes object."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyCell_Check(space, ob):
     """Return true if ob is a cell object; ob must not be NULL."""
@@ -1238,16 +1229,6 @@ def PyModule_AddIntMacro(space, module, macro):
 @cpython_api([PyObject, rffi.CCHARP], rffi.INT_real, error=-1)
 def PyModule_AddStringMacro(space, module, macro):
     """Add a string constant to module.
-    """
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real], PyObject)
-def PyNumber_ToBase(space, n, base):
-    """Returns the integer n converted to base as a string with a base
-    marker of '0b', '0o', or '0x' if applicable.  When
-    base is not 2, 8, 10, or 16, the format is 'x#num' where x is the
-    base. If n is not an int object, it is converted with
-    PyNumber_Index() first.
     """
     raise NotImplementedError
 

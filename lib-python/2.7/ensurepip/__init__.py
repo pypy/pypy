@@ -4,6 +4,7 @@ from __future__ import print_function
 import os
 import os.path
 import pkgutil
+import runpy
 import shutil
 import sys
 import tempfile
@@ -28,14 +29,18 @@ def _run_pip(args, additional_paths=None):
     if additional_paths is not None:
         sys.path = additional_paths + sys.path
 
-    # Install the bundled pip, filtering the PipDeprecationWarning
-    import pip._internal.cli.main
-    from pip._internal.utils.deprecation import PipDeprecationWarning
-    with warnings.catch_warnings():
-        warnings.filterwarnings('ignore', category=PipDeprecationWarning)
-        return pip._internal.cli.main.main(args)
-
-
+    # Invoke pip as if it's the main module, and catch the exit.
+    backup_argv = sys.argv[:]
+    sys.argv[1:] = args
+    try:
+        runpy.run_module("pip", run_name="__main__", alter_sys=True)
+    except SystemExit as e:
+        return e.code
+    finally:
+        sys.argv[:] = backup_argv
+ 
+    raise SystemError("pip have not exited, that should never happen")
+ 
 def version():
     """
     Returns a string specifying the bundled version of pip.
@@ -181,8 +186,8 @@ def _main(argv=None):
         "--altinstall",
         action="store_true",
         default=False,
-        help=("Make an alternate install, installing only the X.Y versioned"
-              "scripts (Default: pipX, pipX.Y, easy_install-X.Y)"),
+        help=("Make an alternate install, installing only the X.Y versioned "
+              "scripts (Default: pipX, pipX.Y, easy_install-X.Y)."),
     )
     parser.add_argument(
         "--default-pip",

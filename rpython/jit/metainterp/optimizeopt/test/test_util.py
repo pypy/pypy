@@ -316,6 +316,10 @@ class LLtypeMixin(object):
              EffectInfo([], [arraydescr], [], [], [arraydescr], [],
                         EffectInfo.EF_CANNOT_RAISE,
                         oopspecindex=EffectInfo.OS_ARRAYCOPY))
+    arraymovedescr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+             EffectInfo([], [arraydescr], [], [], [arraydescr], [],
+                        EffectInfo.EF_CANNOT_RAISE,
+                        oopspecindex=EffectInfo.OS_ARRAYMOVE))
 
     raw_malloc_descr = cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
              EffectInfo([], [], [], [], [], [],

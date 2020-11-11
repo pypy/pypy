@@ -445,7 +445,7 @@ def test_enforceargs_decorator():
         return a, b, c
     f.foo = 'foo'
     assert f._annenforceargs_ == (int, str, None)
-    assert f.func_name == 'f'
+    assert f.__name__ == 'f'
     assert f.foo == 'foo'
     assert f(1, 'hello', 42) == (1, 'hello', 42)
     exc = py.test.raises(TypeError, "f(1, 2, 3)")
@@ -803,10 +803,10 @@ def test_import_from_mixin():
     assert B().foo == 42
 
     d = dict(__name__='foo')
-    exec """class M(object):
+    exec("""class M(object):
                 @staticmethod
                 def f(): pass
-    """ in d
+    """, d)
     M = d['M']
     class A(object):
         import_from_mixin(M)

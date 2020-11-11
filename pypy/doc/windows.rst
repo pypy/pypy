@@ -18,7 +18,7 @@ on your architecture, between two and three times as long. So head to
 Microsoft Visual Studio is preferred as a compiler, but there are reports
 of success with the mingw32 port of gcc.
 
-.. _our downloads: http://pypy.org/download.html
+.. _our downloads: https://www.pypy.org/download.html
 
 
 What Compiler to use and How to find it?
@@ -73,31 +73,22 @@ and build them.
 
 Please see the :doc:`non-windows instructions <build>` for more information, especially note
 that translation is RAM-hungry. A standard translation requires around 4GB, so
-special preparations are necessary, or you may want to use the method in the
-notes of the `build instructions`_ to reduce memory usage at the price of a
-slower translation::
+special preparations are necessary, or you may want to use the following method
+to reduce memory usage at the price of a slower translation::
 
     set PYPY_GC_MAX_DELTA=200MB
     pypy --jit loop_longevity=300 ../../rpython/bin/rpython -Ojit targetpypystandalone
     set PYPY_GC_MAX_DELTA=
     # This is done as part of translation
-    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/tools/build_cffi_imports.py
-
-.. _build instructions: http://pypy.org/download.html#building-from-source
+    PYTHONPATH=../.. ./pypy-c ../../lib_pypy/pypy_tools/build_cffi_imports.py
 
 Preparing Windows for the large build
 -------------------------------------
 
 Normally 32bit programs are limited to 2GB of memory on Windows. It is
-possible to raise this limit, to 3GB on Windows 32bit, and almost 4GB
-on Windows 64bit.
+possible to raise this limit to almost 4GB on Windows 64bit.
 
-On Windows 32bit, it is necessary to modify the system: follow
-http://usa.autodesk.com/adsk/servlet/ps/dl/item?siteID=123112&id=9583842&linkID=9240617
-to enable the "3GB" feature, and reboot. This step is not necessary on
-Windows 64bit.
-
-Then you need to execute::
+You need to execute::
 
     <path-to-visual>\vc\vcvars.bat
     editbin /largeaddressaware translator.exe
@@ -117,7 +108,7 @@ file on how to replicate, and a branch for each supported platform. You may run
 the `get_externals.py` utility to checkout the proper branch for your platform
 and PyPy version.
 
-.. _subrepository:  https://bitbucket.org/pypy/externals
+.. _subrepository: https://foss.heptapod.net/pypy/externals
 
 Using the mingw compiler
 ------------------------
@@ -175,10 +166,10 @@ the mingw compiler when hacking (as opposed to translating). As of
 March 2012, --cc is not a valid option for pytest.py. However if you set an
 environment variable CC to the compiler exe, testing will use it.
 
-.. _mingw32 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
-.. _mingw64 build: http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
-.. _msys for mingw: http://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20%28Win64%20hosted%29/MSYS%20%2832-bit%29
-.. _libffi source files: http://sourceware.org/libffi/
+.. _mingw32 build: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Automated%20Builds
+.. _mingw64 build: https://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win64/Automated%20Builds
+.. _msys for mingw: https://sourceforge.net/projects/mingw-w64/files/External%20binary%20packages%20(Win64%20hosted)/MSYS%20(32-bit)/
+.. _libffi source files: https://sourceware.org/libffi/
 
 
 What is missing for a full 64-bit translation

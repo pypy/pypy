@@ -20,7 +20,7 @@ def _get_openssl_libraries(platform):
         windows_link_legacy_openssl = os.environ.get(
             "CRYPTOGRAPHY_WINDOWS_LINK_LEGACY_OPENSSL", None
         )
-        if 0 and windows_link_legacy_openssl is None:
+        if windows_link_legacy_openssl is None:
             # Link against the 1.1.0 names
             libs = ["libssl", "libcrypto"]
         else:

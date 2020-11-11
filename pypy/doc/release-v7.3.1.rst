@@ -1,6 +1,6 @@
-===================================================
-WIP: PyPy v7.3.1: release of 2.7, 3.6, and 3.7alpha
-===================================================
+===================================
+PyPy v7.3.1: release of 2.7 and 3.6
+===================================
 
 The PyPy team is proud to release the version 7.3.1 of PyPy, which includes
 two different interpreters:
@@ -14,6 +14,12 @@ two different interpreters:
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, no APIs have changed since the 7.3.0 release
 in December, but read on to find out what is new.
+
+Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
+is being built out. After this release, many more c-extension-based
+packages can be successfully built and uploaded. This is the result of a lot of
+hard work and good will on the part of the Conda Forge team.  A big shout out
+to them for taking this on.
 
 We have worked with the python packaging group to support tooling around
 building third party packages for python, so this release updates the pip and
@@ -37,12 +43,6 @@ experimentally for win32, try it out and let use know how it works.
 Enabling ``cppyy`` requires a more modern C compiler, so win32 is now built
 with MSVC160 (Visual Studio 2019). This is true for PyPy 3.6 as well as for 2.7.
 
-Conda Forge now `supports PyPy`_ as a python interpreter. The support right now
-is only partial. After this release, many more c-extension-based
-packages can be successfully built and uploaded. This is the result of alot of
-hard work and good will on the part of the Conda Forge team.  A big shout out
-to them for taking this on.
-
 We have improved warmup time by up to 20%, performance of ``io.StringIO`` to
 match if not be faster than CPython, and improved JIT code generation for
 generators (and generator expressions in particular) when passing them to
@@ -55,7 +55,7 @@ as they crop up.
 
 You can find links to download the v7.3.1 releases here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
@@ -65,7 +65,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on pypy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from 3 new contributors,
+previous release, we have accepted contributions from 13 new contributors,
 thanks for pitching in.
 
 If you are a python library maintainer and use c-extensions, please consider
@@ -76,7 +76,7 @@ building wheels for PyPy wheels.
 .. _`PyPy`: index.html
 .. _`RPython`: https://rpython.readthedocs.org
 .. _`help`: project-ideas.html
-.. _`CFFI`: http://cffi.readthedocs.io
+.. _`CFFI`: https://cffi.readthedocs.io
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`available as wheels`: https://github.com/antocuni/pypy-wheels
 .. _`portable-pypy`: https://github.com/squeaky-pl/portable-pypy
@@ -114,8 +114,8 @@ Unfortunately at the moment of writing our ARM32 buildbots are out of service,
 so for now we are **not** releasing any binaries for that architecture,
 although PyPy does support ARM 32 bit processors. 
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 
 Changelog
@@ -125,7 +125,7 @@ Changes shared across versions
 ------------------------------
 - We now package and ship the script to rebuild all the stdlib helper modules
   that on CPython are written as c-extensions and in PyPy use CFFI. These are
-  located in ``lib_pypy``, and the build script in ``lib_pypy/tools``.
+  located in ``lib_pypy``, and the build script in ``lib_pypy/pypy_tools``.
 - Implement CPython 16055_: Fixes incorrect error text for
   ``int('1', base=1000)``.
 - Handle NaN correctly in ``array.array``.
@@ -173,12 +173,17 @@ Changes shared across versions
   (for debugging)
 - Update ``pip`` and ``setuptools`` in ``ensurepip`` to 20.0.2 and 44.0.0
   respectively
+- Fix potential segfault in the zipimporter
+- Fixes in the JIT backend for PowerPC 
+- Update the statically-linked openssl to 1.1.1f on macOS.
+- Fix `re` grouprefs which were broken for unicode
 
 C-API (cpyext) and c-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - Fix more of `issue 3141`_ : use ``Py_TYPE(op)`` instead of ``(ob)->ob_type``
   in our header files
 - Partially resync ``pyport.h`` with CPython and add many missing constants
+- Check for ``ferror`` when reading from a file in ``PyRun_File``
 
 Python 3.6 only
 ---------------

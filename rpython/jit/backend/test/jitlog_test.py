@@ -30,7 +30,7 @@ class LoggerTest(LLJitMixin):
 
     def test_env(self, monkeypatch, tmpdir):
         file = tmpdir.join('jitlog')
-        monkeypatch.setenv("JITLOG", file.strpath)
+        monkeypatch.setenv(rjitlog.test_jitlog_name, file.strpath)
         f = self.run_sample_loop(None)
         self.meta_interp(f, [10, 0])
         assert os.path.exists(file.strpath)
@@ -42,7 +42,7 @@ class LoggerTest(LLJitMixin):
     def test_version(self, monkeypatch, tmpdir):
         file = tmpdir.join('jitlog')
         monkeypatch.setattr(jl, 'JITLOG_VERSION_16BIT_LE', '\xff\xfe')
-        monkeypatch.setenv("JITLOG", file.strpath)
+        monkeypatch.setenv(rjitlog.test_jitlog_name, file.strpath)
         f = self.run_sample_loop(None)
         self.meta_interp(f, [10, 0])
         assert os.path.exists(file.strpath)

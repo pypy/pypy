@@ -8,7 +8,7 @@ Windows 32bit and OS X 64bit. This version fully implements Python 2.7.1 and
 has beta level support for loading CPython C extensions.  You can download it
 here:
 
-    http://pypy.org/download.html
+    https://pypy.org/download.html
 
 What is PyPy?
 =============
@@ -30,7 +30,7 @@ layers which compose PyPy.  In particular, we improved: the Garbage Collector,
 the JIT warmup time, the optimizations performed by the JIT, the quality of
 the generated machine code and the implementation of our Python interpreter.
 
-.. _`pypy 1.5 and cpython 2.6.2`: http://speed.pypy.org
+.. _`pypy 1.5 and cpython 2.6.2`: https://speed.pypy.org
 
 
 Highlights
@@ -66,8 +66,7 @@ Highlights
   already been release and works well with PyPy 1.6.
 
 * The CPython extension module API has been improved and now supports many
-  more extensions. For information on which one are supported, please refer to
-  our `compatibility wiki`_.
+  more extensions.
 
 * Multibyte encoding support: this was of of the last areas in which we were
   still behind CPython, but now we fully support them.
@@ -89,7 +88,6 @@ Hakan Ardo, Carl Friedrich Bolz, Laura Creighton, Antonio Cuni,
 Maciej Fijalkowski, Amaury Forgeot d'Arc, Alex Gaynor,
 Armin Rigo and the PyPy team
 
-.. _`jitviewer`: http://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
+.. _`jitviewer`: https://morepypy.blogspot.com/2011/08/visualization-of-jitted-code.html
 .. _`bug tracker`: https://bugs.pypy.org
-.. _`compatibility wiki`: https://bitbucket.org/pypy/compatibility/wiki/Home
 

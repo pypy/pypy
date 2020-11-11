@@ -715,17 +715,33 @@ class OptRewrite(Optimization):
         oopspecindex = effectinfo.oopspecindex
         if oopspecindex == EffectInfo.OS_ARRAYCOPY:
             return self._optimize_CALL_ARRAYCOPY(op)
+        if oopspecindex == EffectInfo.OS_ARRAYMOVE:
+            return self._optimize_CALL_ARRAYMOVE(op)
         return self.emit(op)
 
     def _optimize_CALL_ARRAYCOPY(self, op):
-        length = self.get_constant_box(op.getarg(5))
-        if length and length.getint() == 0:
-            return None  # 0-length arraycopy
+        if self._optimize_call_arrayop(op, op.getarg(1), op.getarg(2),
+                             op.getarg(3), op.getarg(4), op.getarg(5)):
+            return None
+        return self.emit(op)
 
-        source_info = getptrinfo(op.getarg(1))
-        dest_info = getptrinfo(op.getarg(2))
-        source_start_box = self.get_constant_box(op.getarg(3))
-        dest_start_box = self.get_constant_box(op.getarg(4))
+    def _optimize_CALL_ARRAYMOVE(self, op):
+        array_box = op.getarg(1)
+        if self._optimize_call_arrayop(op, array_box, array_box,
+                             op.getarg(2), op.getarg(3), op.getarg(4)):
+            return None
+        return self.emit(op)
+
+    def _optimize_call_arrayop(self, op, source_box, dest_box,
+                               source_start_box, dest_start_box, length_box):
+        length = self.get_constant_box(length_box)
+        if length and length.getint() == 0:
+            return True  # 0-length arraycopy or arraymove
+
+        source_info = getptrinfo(source_box)
+        dest_info = getptrinfo(dest_box)
+        source_start_box = self.get_constant_box(source_start_box)
+        dest_start_box = self.get_constant_box(dest_start_box)
         extrainfo = op.getdescr().get_extra_info()
         if (source_start_box and dest_start_box
             and length and ((dest_info and dest_info.is_virtual()) or
@@ -736,16 +752,28 @@ class OptRewrite(Optimization):
             dest_start = dest_start_box.getint()
             arraydescr = extrainfo.single_write_descr_array
             if arraydescr.is_array_of_structs():
-                return self.emit(op)       # not supported right now
+                return False        # not supported right now
+
+            index_current = 0
+            index_delta = +1
+            index_stop = length.getint()
+            if (source_box is dest_box and        # ARRAYMOVE only
+                    source_start < dest_start):   # iterate in reverse order
+                index_current = index_stop - 1
+                index_delta = -1
+                index_stop = -1
 
             # XXX fish fish fish
-            for index in range(length.getint()):
+            while index_current != index_stop:
+                index = index_current
+                index_current += index_delta
+                assert index >= 0
                 if source_info and source_info.is_virtual():
                     val = source_info.getitem(arraydescr, index + source_start)
                 else:
                     opnum = OpHelpers.getarrayitem_for_descr(arraydescr)
                     newop = ResOperation(opnum,
-                                      [op.getarg(1),
+                                      [source_box,
                                        ConstInt(index + source_start)],
                                        descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
@@ -754,17 +782,17 @@ class OptRewrite(Optimization):
                     continue
                 if dest_info and dest_info.is_virtual():
                     dest_info.setitem(arraydescr, index + dest_start,
-                                      get_box_replacement(op.getarg(2)),
+                                      get_box_replacement(dest_box),
                                       val)
                 else:
                     newop = ResOperation(rop.SETARRAYITEM_GC,
-                                         [op.getarg(2),
+                                         [dest_box,
                                           ConstInt(index + dest_start),
                                           val],
                                          descr=arraydescr)
                     self.optimizer.send_extra_operation(newop)
-            return None
-        return self.emit(op)
+            return True
+        return False
 
     def optimize_CALL_PURE_I(self, op):
         # this removes a CALL_PURE with all constant arguments.

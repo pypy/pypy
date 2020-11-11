@@ -9,7 +9,9 @@ else
 RUNINTERP = $(PYPY_EXECUTABLE)
 endif
 
-URAM := $(shell $(RUNINTERP) -c "import sys; print 4.5 if sys.maxint>1<<32 else 2.5")
+URAM := $(shell $(RUNINTERP) -c "import sys; print(4.5 if sys.maxint>1<<32 else 2.5)")
+
+JOBS=$(subst -j,--make-jobs ,$(filter -j%, $(MAKEFLAGS)))
 
 .PHONY: pypy-c cffi_imports
 
@@ -33,12 +35,7 @@ endif
 	@echo "===================================================================="
 	@echo
 	@sleep 5
-	cd pypy/goal && $(RUNINTERP) ../../rpython/bin/rpython -Ojit targetpypystandalone.py
-
-# Note: the -jN option, or MAKEFLAGS=-jN, are not usable.  They are
-# replaced with an opaque --jobserver option by the time this Makefile
-# runs.  We cannot get their original value either:
-# http://lists.gnu.org/archive/html/help-make/2010-08/msg00106.html
+	cd pypy/goal && $(RUNINTERP) ../../rpython/bin/rpython $(JOBS) -Ojit targetpypystandalone.py
 
 cffi_imports: pypy-c
-	PYTHONPATH=. pypy/goal/pypy-c pypy/tool/build_cffi_imports.py || /bin/true
+	cd lib_pypy && ../pypy/goal/pypy-c pypy_tools/build_cffi_imports.py || /bin/true

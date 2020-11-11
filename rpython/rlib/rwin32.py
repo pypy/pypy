@@ -11,7 +11,7 @@ from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_longlong
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
@@ -31,7 +31,7 @@ class CConfig:
 
     if WIN32:
         DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
-        WORD = rffi_platform.SimpleType("WORD", rffi.UINT)
+        WORD = rffi_platform.SimpleType("WORD", rffi.USHORT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
         BYTE = rffi_platform.SimpleType("BYTE", rffi.UCHAR)
@@ -46,7 +46,9 @@ class CConfig:
         LPWSTR = rffi_platform.SimpleType("LPWSTR", rffi.CWCHARP)
         LPCWSTR = rffi_platform.SimpleType("LPCWSTR", rffi.CWCHARP)
         LPDWORD = rffi_platform.SimpleType("LPDWORD", rffi.UINTP)
+        LPWORD = rffi_platform.SimpleType("LPWORD", rffi.USHORTP)
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
+        LPBYTE = rffi_platform.SimpleType("LPBYTE", rffi.UCHARP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
         ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
 
@@ -113,7 +115,7 @@ class CConfig:
                        MB_ERR_INVALID_CHARS ERROR_NO_UNICODE_TRANSLATION
                        WC_NO_BEST_FIT_CHARS STD_INPUT_HANDLE STD_OUTPUT_HANDLE
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
-                       LOAD_WITH_ALTERED_SEARCH_PATH
+                       LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
                     """
         from rpython.translator.platform import host_factory
@@ -138,6 +140,13 @@ if WIN32:
     HMODULE = HANDLE
     NULL_HANDLE = rffi.cast(HANDLE, 0)
     INVALID_HANDLE_VALUE = rffi.cast(HANDLE, -1)
+    GENERIC_READ     = rffi.cast(DWORD, r_longlong(0x80000000))
+    GENERIC_WRITE    = rffi.cast(DWORD, r_longlong(0x40000000))
+    GENERIC_EXECUTE  = rffi.cast(DWORD, r_longlong(0x20000000))
+    GENERIC_ALL      = rffi.cast(DWORD, r_longlong(0x10000000))
+    FILE_SHARE_READ  = rffi.cast(DWORD, r_longlong(0x00000001))
+    FILE_SHARE_WRITE = rffi.cast(DWORD, r_longlong(0x00000002))
+
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
     _GetLastError = winexternal('GetLastError', [], DWORD,
@@ -242,6 +251,17 @@ if WIN32:
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
+
+    _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
+
+    def open_osfhandle(handle, flags):
+        from rpython.rlib.rposix import FdValidator
+        fd = _open_osfhandle(handle, flags)
+        with FdValidator(fd):
+            return fd
+    
+    wcsncpy_s = rffi.llexternal('wcsncpy_s', 
+                    [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, rffi.SIZE_T], rffi.INT)
 
     def build_winerror_to_errno():
         """Build a dictionary mapping windows error numbers to POSIX errno.
@@ -554,3 +574,34 @@ if WIN32:
                 os.close(fd2)
                 raise
         return res
+    
+    GetConsoleMode = winexternal(
+        'GetConsoleMode', [HANDLE, LPDWORD], BOOL)
+        
+    GetNumberOfConsoleInputEvents = winexternal(
+        'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
+
+    ERROR_INSUFFICIENT_BUFFER = 122
+    ERROR_OPERATION_ABORTED   = 995
+    CP_UTF8 = 65001 
+    
+    ReadConsoleW = winexternal(
+        'ReadConsoleW', [HANDLE, LPWSTR, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+        
+    WriteConsoleW = winexternal(
+        'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    GetStringTypeW = winexternal(
+        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    _SetEnvironmentVariableW = winexternal(
+        'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def SetEnvironmentVariableW(name, value):
+        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
+            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf) 

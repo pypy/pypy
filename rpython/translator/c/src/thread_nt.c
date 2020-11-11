@@ -26,6 +26,12 @@ typedef struct {
 
 static long _pypythread_stacksize = 0;
 
+static void gil_fatal(const char *msg, DWORD dw) {
+    fprintf(stderr, "Fatal error in the GIL or with locks: %s [%x,%x]\n",
+                    msg, (int)dw, (int)GetLastError());
+    abort();
+}
+
 static void
 bootstrap(void *call)
 {
@@ -35,7 +41,8 @@ bootstrap(void *call)
 	void *arg = obj->arg;
 
 	obj->id = GetCurrentThreadId();
-	ReleaseSemaphore(obj->done, 1, NULL);
+	if (!ReleaseSemaphore(obj->done, 1, NULL))
+        gil_fatal("bootstrap ReleaseSemaphore", 0);
 	func(arg);
 }
 
@@ -67,8 +74,11 @@ long RPyThreadStartEx(void (*func)(void *), void *arg)
 	}
 	else {
 		/* wait for thread to initialize, so we can get its id */
-		WaitForSingleObject(obj.done, INFINITE);
-		assert(obj.id != -1);
+        DWORD res = WaitForSingleObject(obj.done, INFINITE);
+        if (res != WAIT_OBJECT_0)
+            gil_fatal("WaitForSingleObject(obj.done) failed", res);
+        if (obj.id == -1)
+            gil_fatal("obj.id == -1", 0);
 	}
 	CloseHandle((HANDLE)obj.done);
 	return obj.id;
@@ -123,16 +133,26 @@ DWORD EnterNonRecursiveMutex(PNRMUTEX mutex, RPY_TIMEOUT_T milliseconds)
 {
     DWORD res;
 
-    if (milliseconds < 0)
-        return WaitForSingleObject(mutex->sem, INFINITE);
+    if (milliseconds < 0) {
+        res = WaitForSingleObject(mutex->sem, INFINITE);
+        if (res != WAIT_OBJECT_0)
+            gil_fatal("EnterNonRecursiveMutex(INFINITE)", res);
+        return res;
+    }
 
     while (milliseconds >= (RPY_TIMEOUT_T)INFINITE) {
         res = WaitForSingleObject(mutex->sem, INFINITE - 1);
-        if (res != WAIT_TIMEOUT)
+        if (res != WAIT_TIMEOUT) {
+            if (res != WAIT_OBJECT_0)
+                gil_fatal("EnterNonRecursiveMutex(INFINITE - 1)", res);
             return res;
+        }
         milliseconds -= (RPY_TIMEOUT_T)(INFINITE - 1);
     }
-    return WaitForSingleObject(mutex->sem, (DWORD)milliseconds);
+    res = WaitForSingleObject(mutex->sem, (DWORD)milliseconds);
+    if (res != WAIT_TIMEOUT && res != WAIT_OBJECT_0)
+        gil_fatal("EnterNonRecursiveMutex(ms)", res);
+    return res;
 }
 
 static
@@ -171,7 +191,7 @@ RPyThreadAcquireLockTimed(struct RPyOpaque_ThreadLock *lock,
     /* Fow now, intr_flag does nothing on Windows, and lock acquires are
      * uninterruptible.  */
     RPyLockStatus success;
-    RPY_TIMEOUT_T milliseconds;
+    RPY_TIMEOUT_T milliseconds = -1;
 
     if (microseconds >= 0) {
         milliseconds = microseconds / 1000;
@@ -208,23 +228,21 @@ long RPyThreadReleaseLock(struct RPyOpaque_ThreadLock *lock)
 
 typedef HANDLE mutex2_t;   /* a semaphore, on Windows */
 
-static void gil_fatal(const char *msg) {
-    fprintf(stderr, "Fatal error in the GIL: %s\n", msg);
-    abort();
-}
-
 static INLINE void mutex2_init(mutex2_t *mutex) {
     *mutex = CreateSemaphore(NULL, 1, 1, NULL);
     if (*mutex == NULL)
-        gil_fatal("CreateSemaphore failed");
+        gil_fatal("CreateSemaphore failed", 0);
 }
 
 static INLINE void mutex2_lock(mutex2_t *mutex) {
-    WaitForSingleObject(*mutex, INFINITE);
+    DWORD res = WaitForSingleObject(*mutex, INFINITE);
+    if (res != WAIT_OBJECT_0)
+        gil_fatal("mutex2_lock", res);
 }
 
 static INLINE void mutex2_unlock(mutex2_t *mutex) {
-    ReleaseSemaphore(*mutex, 1, NULL);
+    if (!ReleaseSemaphore(*mutex, 1, NULL))
+        gil_fatal("mutex2_unlock", 0);
 }
 
 static INLINE void mutex2_init_locked(mutex2_t *mutex) {
@@ -238,6 +256,8 @@ static INLINE void mutex2_loop_stop(mutex2_t *mutex) { }
 static INLINE int mutex2_lock_timeout(mutex2_t *mutex, double delay)
 {
     DWORD result = WaitForSingleObject(*mutex, (DWORD)(delay * 1000.0 + 0.999));
+    if (result != WAIT_TIMEOUT && result != WAIT_OBJECT_0)
+        gil_fatal("mutex2_lock_timeout", result);
     return (result != WAIT_TIMEOUT);
 }
 

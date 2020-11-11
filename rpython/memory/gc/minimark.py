@@ -1236,6 +1236,18 @@ class MiniMarkGC(MovingGCBase):
                 self.prebuilt_root_objects.append(dest_addr)
         return True
 
+    def writebarrier_before_move(self, array_addr):
+        """If 'array_addr' uses cards, then this has the same effect as
+        a call to the generic writebarrier, effectively generalizing the
+        cards to "any item may be young".
+        """
+        if self.card_page_indices <= 0:     # check constant-folded
+            return     # no cards, nothing to do
+        #
+        array_hdr = self.header(array_addr)
+        if array_hdr.tid & GCFLAG_CARDS_SET != 0:
+            self.write_barrier(array_addr)
+
     def manually_copy_card_bits(self, source_addr, dest_addr, length):
         # manually copy the individual card marks from source to dest
         assert self.card_page_indices > 0

@@ -43,7 +43,21 @@ if not on_rtd:  # only import and set the theme if we're building docs locally
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.extlinks', 'sphinx.ext.intersphinx', 'sphinx.ext.graphviz']
+extensions = ['sphinx.ext.extlinks',
+              'sphinx.ext.intersphinx',
+              'sphinx.ext.graphviz',
+              'sphinx_affiliates',
+             ]
+
+# Canonical URL (including the '/') so searching from pypy docs finds these
+affiliate_options = {
+    'canonical_url': "https://rpython.readthedocs.io/en/latest"
+}
+
+# Other sites to add to the search of this site
+sphinx_affiliates = [
+    'https://doc.pypy.org/en/latest/affiliate_searchindex.js',
+]
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -263,4 +277,4 @@ texinfo_documents = [
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
 
-extlinks = {'source': ('https://bitbucket.org/pypy/pypy/src/default/%s', '')}
+extlinks = {'source': ('https://foss.heptapod.net/pypy/pypy/blob/branch/default/%s', '')}

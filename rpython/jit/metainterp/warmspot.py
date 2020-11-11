@@ -473,7 +473,7 @@ class WarmRunnerDesc(object):
         auto_inline_graphs(self.translator, graphs, 0.01)
 
     def build_cpu(self, CPUClass, translate_support_code=False,
-                  no_stats=False, supports_floats=True,
+                  no_stats=False, no_stats_history=False, supports_floats=True,
                   supports_longlong=True, supports_singlefloats=True,
                   **kwds):
         assert CPUClass is not None
@@ -482,6 +482,10 @@ class WarmRunnerDesc(object):
             stats = history.NoStats()
         else:
             stats = history.Stats(None)
+            if no_stats_history:
+                stats.set_history = lambda history: None
+                # ^^^ for test_jitiface.test_memmgr_release_all.  otherwise,
+                # stats.history attribute keeps the most recent loop alive
         self.stats = stats
         if translate_support_code:
             self.annhelper = MixLevelHelperAnnotator(self.translator.rtyper)
@@ -850,19 +854,19 @@ class WarmRunnerDesc(object):
         # make sure we make a copy of function so it no longer belongs
         # to extregistry
         func = op.args[1].value
-        if func.func_name.startswith('stats_'):
+        if func.__name__.startswith('stats_'):
             # get special treatment since we rewrite it to a call that accepts
             # jit driver
             assert len(op.args) >= 3, ("%r must have a first argument "
                                        "(which is None)" % (func,))
-            func = func_with_new_name(func, func.func_name + '_compiled')
+            func = func_with_new_name(func, func.__name__ + '_compiled')
 
             def new_func(ignored, *args):
                 return func(self, *args)
             ARGS = [lltype.Void] + [arg.concretetype for arg in op.args[3:]]
         else:
             ARGS = [arg.concretetype for arg in op.args[2:]]
-            new_func = func_with_new_name(func, func.func_name + '_compiled')
+            new_func = func_with_new_name(func, func.__name__ + '_compiled')
         RESULT = op.result.concretetype
         FUNCPTR = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
         ptr = self.helper_func(FUNCPTR, new_func)

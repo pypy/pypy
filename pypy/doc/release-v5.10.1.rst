@@ -29,7 +29,7 @@ Thanks to those who reported the issues.
 
 .. _2718: https://bitbucket.org/pypy/pypy/issues/2718
 .. _2717: https://bitbucket.org/pypy/pypy/issues/2717
-.. _Homebrew: http://brewformulas.org/Pypy
+.. _Homebrew: https://brewformulas.org/Pypy
 
 What is PyPy?
 =============
@@ -52,8 +52,8 @@ This PyPy 3.5 release supports:
 
   * **s390x** running Linux
 
-.. _`PyPy and CPython 2.7.x`: http://speed.pypy.org
-.. _`dynamic languages`: http://rpython.readthedocs.io/en/latest/examples.html
+.. _`PyPy and CPython 2.7.x`: https://speed.pypy.org
+.. _`dynamic languages`: https://rpython.readthedocs.io/en/latest/examples.html
 
 Please update, and continue to help us make PyPy better.
 

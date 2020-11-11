@@ -1169,6 +1169,8 @@ if ctypes:
         rtld_default_lib = ctypes.CDLL("ld-elf.so.1", handle=RTLD_DEFAULT, **load_library_kwargs)
     # XXX is this always correct???
     standard_c_lib = ctypes.CDLL(libc_name, **load_library_kwargs)
+else:
+    libc_name = 'no ctypes'
 
 # ____________________________________________
 
@@ -1181,7 +1183,7 @@ if sys.platform == 'darwin':
         expr = r'[^\(\)\s]*lib%s\.[^\(\)\s]*' % re.escape(name)
         fdout, ccout = tempfile.mkstemp()
         os.close(fdout)
-        cmd = 'if type gcc >/dev/null 2>&1; then CC=gcc; else CC=cc; fi;' \
+        cmd = 'if type gcc >/dev/null 2>&1; then : ${CC:=gcc}; else : ${CC:=cc}; fi;' \
               '$CC -Wl,-t -o ' + ccout + ' 2>&1 -l' + name
         try:
             f = os.popen(cmd)

@@ -1,11 +1,13 @@
 from pypy.module.cpyext.api import (
-    cpython_api, CANNOT_FAIL, Py_MAX_FMT, Py_MAX_NDIMS, build_type_checkers,
-    Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function)
+    cpython_api, CANNOT_FAIL, Py_MAX_NDIMS, build_type_checkers,
+    Py_ssize_tP, cts, parse_dir, bootstrap_function, Py_bufferP, slot_function,
+    PyBUF_READ, PyBUF_WRITE)
 from pypy.module.cpyext.pyobject import (
     PyObject, make_ref, decref, from_ref, make_typedescr,
     get_typedescr, track_reference)
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
+from pypy.interpreter.error import oefmt
 from pypy.objspace.std.memoryobject import W_MemoryView
 from pypy.module.cpyext.object import _dealloc
 from pypy.module.cpyext.import_ import PyImport_Import
@@ -16,6 +18,7 @@ PyMemoryViewObject = cts.gettype('PyMemoryViewObject*')
 
 PyMemoryView_Check, PyMemoryView_CheckExact = build_type_checkers("MemoryView")
 
+FORMAT_ALLOCATED = 0x04
 
 @bootstrap_function
 def init_memoryobject(space):
@@ -44,7 +47,8 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
         # not used in PyPy to keep something alive,
         # but some c-extensions check the type without checking for NULL
         view.c_obj = make_ref(space, space.w_None)
-        rffi.setintfield(view, 'c_readonly', w_obj.view.readonly)
+        rffi.setintfield(view, 'c_readonly',
+                         rffi.cast(rffi.INT_real, w_obj.view.readonly))
     except ValueError:
         w_s = w_obj.descr_tobytes(space)
         view.c_obj = make_ref(space, w_s)
@@ -84,9 +88,13 @@ def memory_realize(space, obj):
 @slot_function([PyObject], lltype.Void)
 def memory_dealloc(space, py_obj):
     mem_obj = rffi.cast(PyMemoryViewObject, py_obj)
-    if mem_obj.c_view.c_obj:
-        decref(space, mem_obj.c_view.c_obj)
-    mem_obj.c_view.c_obj = rffi.cast(PyObject, 0)
+    view = mem_obj.c_view
+    if view.c_obj:
+        decref(space, view.c_obj)
+    view.c_obj = rffi.cast(PyObject, 0)
+    flags = widen(view.c_flags)
+    if flags & FORMAT_ALLOCATED == FORMAT_ALLOCATED:
+        lltype.free(view.c_format, flavor='raw')
     _dealloc(space, py_obj)
 
 def fill_Py_buffer(space, buf, view):
@@ -95,19 +103,13 @@ def fill_Py_buffer(space, buf, view):
     view.c_len = buf.getlength()
     view.c_itemsize = buf.getitemsize()
     rffi.setintfield(view, 'c_ndim', ndim)
-    view.c_format = rffi.cast(rffi.CCHARP, view.c__format)
     fmt = buf.getformat()
-    n = Py_MAX_FMT - 1 # NULL terminated buffer
-    if len(fmt) > n:
-        w_message = space.newbytes("PyPy specific Py_MAX_FMT is %d which is too "
-                           "small for buffer format, %d needed" % (
-                           Py_MAX_FMT, len(fmt)))
-        w_stacklevel = space.newint(1)
-        w_module = PyImport_Import(space, space.newbytes("warnings"))
-        w_warn = space.getattr(w_module, space.newbytes("warn"))
-        space.call_function(w_warn, w_message, space.w_None, w_stacklevel)
-    else:
-        n = len(fmt)
+    n = len(fmt)
+    view.c_format = lltype.malloc(rffi.CCHARP.TO, n + 1, flavor='raw',
+                                  add_memory_pressure=True)
+    flags = widen(view.c_flags)
+    flags |= FORMAT_ALLOCATED
+    view.c_flags = rffi.cast(rffi.INT_real, flags)
     for i in range(n):
         view.c_format[i] = fmt[i]
     view.c_format[n] = '\x00'
@@ -219,3 +221,68 @@ def PyMemoryView_FromBuffer(space, view):
         py_mem.c_view.c_shape = view.c_shape
     # XXX ignore suboffsets?
     return py_obj
+
+def memory_from_contiguous_copy(space, src, order):
+    """
+    Return a memoryview that is based on a contiguous copy of src.
+    Assumptions: src has PyBUF_FULL_RO information, src->ndim > 0.
+ 
+    Ownership rules:
+      1) As usual, the returned memoryview has a private copy
+         of src->shape, src->strides and src->suboffsets.
+      2) src->format is copied to the master buffer and released
+         in mbuf_dealloc(). The releasebufferproc of the bytes
+         object is NULL, so it does not matter that mbuf_release()
+         passes the altered format pointer to PyBuffer_Release().
+    """
+    raise oefmt(space.w_NotImplementedError,
+                "creating contiguous readonly buffer from non-contiguous "
+                "not implemented yet") 
+
+
+@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
+def PyMemoryView_GetContiguous(space, w_obj, buffertype, order):
+    """
+    Return a new memoryview object based on a contiguous exporter with
+    buffertype={PyBUF_READ, PyBUF_WRITE} and order={'C', 'F'ortran, or 'A'ny}.
+    The logical structure of the input and output buffers is the same
+    (i.e. tolist(input) == tolist(output)), but the physical layout in
+    memory can be explicitly chosen.
+
+    As usual, if buffertype=PyBUF_WRITE, the exporter's buffer must be writable,
+    otherwise it may be writable or read-only.
+
+    If the exporter is already contiguous with the desired target order,
+    the memoryview will be directly based on the exporter.
+
+    Otherwise, if the buffertype is PyBUF_READ, the memoryview will be
+    based on a new bytes object. If order={'C', 'A'ny}, use 'C' order,
+    'F'ortran order otherwise.
+    """
+
+    buffertype = widen(buffertype)
+    if buffertype != PyBUF_READ and buffertype != PyBUF_WRITE:
+        raise oefmt(space.w_ValueError,
+                    "buffertype must be PyBUF_READ or PyBUF_WRITE")
+
+    if order != 'C' and order != 'F' and order != 'A':
+        raise oefmt(space.w_ValueError,
+                    "order must be in ('C', 'F', 'A')")
+
+    w_mv = space.call_method(space.builtin, "memoryview", w_obj)
+    mv = make_ref(space, w_mv)
+    mv = rffi.cast(PyMemoryViewObject, mv)
+    view = mv.c_view
+    if buffertype == PyBUF_WRITE and widen(view.c_readonly):
+        raise oefmt(space.w_BufferError,
+                    "underlying buffer is not writable")
+
+    if PyBuffer_IsContiguous(space, view, order):
+        return w_mv
+
+    if buffertype == PyBUF_WRITE:
+        raise oefmt(space.w_BufferError,
+                    "writable contiguous buffer requested "
+                    "for a non-contiguous object.")
+
+    return memory_from_contiguous_copy(space, view, order)

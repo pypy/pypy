@@ -426,9 +426,15 @@ def test_field_arraylen_descr():
     #
     fielddescr = get_field_arraylen_descr(c0, rstr.STR)
     ofs = fielddescr.offset
-    assert repr(ofs) == ("< <FieldOffset <GcStruct rpy_string { hash, chars }>"
-                         " 'chars'> + < ArrayLengthOffset"
-                         " <Array of Char > > >")
+    # order of attributes can change
+    assert repr(ofs) in (
+        "< <FieldOffset <GcStruct rpy_string { hash, chars }> 'chars'> "
+        "+ < ArrayLengthOffset <Array of Char "
+        "{'extra_item_after_alloc': 1, 'immutable': True} > > >",
+
+        "< <FieldOffset <GcStruct rpy_string { hash, chars }> 'chars'> "
+        "+ < ArrayLengthOffset <Array of Char "
+        "{'immutable': True, 'extra_item_after_alloc': 1} > > >")
     # caching:
     assert fielddescr is get_field_arraylen_descr(c0, rstr.STR)
 

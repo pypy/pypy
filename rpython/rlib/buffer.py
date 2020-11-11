@@ -3,7 +3,7 @@ Buffer protocol support.
 """
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
 from rpython.rtyper.lltypesystem.lloperation import llop
-from rpython.rtyper.lltypesystem.rstr import STR
+from rpython.rtyper.lltypesystem.rstr import STR, copy_string_to_raw
 from rpython.rtyper.lltypesystem.rlist import LIST_OF
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rlib.objectmodel import specialize, we_are_translated
@@ -101,7 +101,7 @@ class Buffer(object):
     @jit.look_inside_iff(lambda self, index, count:
                          jit.isconstant(count) and count <= 8)
     def setzeros(self, index, count):
-        for i in range(index, index+count):
+        for i in range(index, index + count):
             self.setitem(i, '\x00')
 
     @specialize.ll_and_arg(1)
@@ -157,6 +157,36 @@ class RawBuffer(Buffer):
         ptr = self.get_raw_address()
         value = lltype.cast_primitive(TP, value)
         return llop.raw_store(lltype.Void, ptr, byte_offset, value)
+
+
+class LLBuffer(RawBuffer):
+    _immutable_ = True
+
+    def __init__(self, raw_cdata, size):
+        self.raw_cdata = raw_cdata
+        self.size = size
+        self.readonly = False
+
+    def getlength(self):
+        return self.size
+
+    def getitem(self, index):
+        return self.raw_cdata[index]
+
+    def setitem(self, index, char):
+        self.raw_cdata[index] = char
+
+    def get_raw_address(self):
+        return self.raw_cdata
+
+    def getslice(self, start, step, size):
+        if step == 1:
+            return rffi.charpsize2str(rffi.ptradd(self.raw_cdata, start), size)
+        return RawBuffer.getslice(self, start, step, size)
+
+    def setslice(self, start, string):
+        raw_cdata = rffi.ptradd(self.raw_cdata, start)
+        copy_string_to_raw(llstr(string), raw_cdata, 0, len(string))
 
 
 class RawByteBuffer(RawBuffer):
@@ -290,7 +320,7 @@ class ByteBuffer(GCBuffer):
             assert size >= 0
             if start == 0 and size == len(self.data):
                 return "".join(self.data)
-            return "".join(self.data[start:start+size])
+            return "".join(self.data[start:start + size])
         return Buffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
@@ -310,7 +340,7 @@ class StringBuffer(GCBuffer):
     _immutable_ = True
 
     def __init__(self, value):
-        assert value  is not None
+        assert value is not None
         self.value = value
         self.readonly = 1
 
@@ -331,7 +361,7 @@ class StringBuffer(GCBuffer):
             assert size >= 0
             if start == 0 and size == len(self.value):
                 return self.value
-            return self.value[start:start+size]
+            return self.value[start:start + size]
         return Buffer.getslice(self, start, step, size)
 
     def get_raw_address(self):
@@ -387,8 +417,8 @@ class SubBuffer(Buffer):
 
     def getslice(self, start, step, size):
         if size == 0:
-            return ''     # otherwise, adding self.offset might make them
-                          # out of bounds
+            # otherwise, adding self.offset might make them out of bounds
+            return ''
         return self.buffer.getslice(self.offset + start, step, size)
 
     def setitem(self, index, char):
@@ -396,8 +426,8 @@ class SubBuffer(Buffer):
 
     def setslice(self, start, string):
         if len(string) == 0:
-            return        # otherwise, adding self.offset might make 'start'
-                          # out of bounds
+            # otherwise, adding self.offset might make 'start' out of bounds
+            return
         self.buffer.setslice(self.offset + start, string)
 
     def get_raw_address(self):

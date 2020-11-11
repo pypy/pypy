@@ -160,7 +160,7 @@ class CCompiler:
             self.set_executable(key, args[key])
 
     def set_executable(self, key, value):
-        if isinstance(value, str):
+        if isinstance(value, basestring):
             setattr(self, key, split_quoted(value))
         else:
             setattr(self, key, value)
@@ -748,8 +748,9 @@ class CCompiler:
             for incl in includes:
                 f.write("""#include "%s"\n""" % incl)
             f.write("""\
-main (int argc, char **argv) {
+int main (int argc, char **argv) {
     %s();
+    return 0;
 }
 """ % funcname)
         finally:

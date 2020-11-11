@@ -166,6 +166,8 @@ def parse_options_and_load_target():
                 existing_config=config,
                 translating=True)
 
+    config.translation.rpython_translate = True
+
     # show the target-specific help if --help was given
     show_help(translateconfig, opt_parser, targetspec_dic, config)
 

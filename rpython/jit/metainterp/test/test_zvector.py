@@ -641,7 +641,7 @@ class VectorizeTests(object):
           'op': op,
         }
         formatted = _source.format(**env)
-        exec py.code.Source(formatted).compile()
+        exec(py.code.Source(formatted).compile())
 
     def test_binary_operations_aa(self):
         myjitdriver = JitDriver(greens = [], reds = 'auto')

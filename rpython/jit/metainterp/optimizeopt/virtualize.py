@@ -1,6 +1,7 @@
 from rpython.jit.codewriter.effectinfo import EffectInfo
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.history import CONST_NULL
+from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.optimizeopt import info, optimizer
 from rpython.jit.metainterp.optimizeopt.optimizer import REMOVED
 from rpython.jit.metainterp.optimizeopt.util import (
@@ -24,6 +25,8 @@ class OptVirtualize(optimizer.Optimization):
         return opinfo
 
     def make_varray(self, arraydescr, size, source_op, clear=False):
+        if not info.reasonable_array_index(size):
+            return False
         if arraydescr.is_array_of_structs():
             assert clear
             opinfo = info.ArrayStructInfo(arraydescr, size, is_virtual=True)
@@ -37,7 +40,7 @@ class OptVirtualize(optimizer.Optimization):
         newop = self.replace_op_with(source_op, source_op.getopnum(),
                                      args=[ConstInt(size)])
         newop.set_forwarded(opinfo)
-        return opinfo
+        return True
 
     def make_vstruct(self, structdescr, source_op):
         opinfo = info.StructPtrInfo(structdescr, is_virtual=True)
@@ -210,17 +213,17 @@ class OptVirtualize(optimizer.Optimization):
 
     def optimize_NEW_ARRAY(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
-        if sizebox is not None:
-            self.make_varray(op.getdescr(), sizebox.getint(), op)
-        else:
-            return self.emit(op)
+        if (sizebox is not None and
+            self.make_varray(op.getdescr(), sizebox.getint(), op)):
+            return
+        return self.emit(op)
 
     def optimize_NEW_ARRAY_CLEAR(self, op):
         sizebox = self.get_constant_box(op.getarg(0))
-        if sizebox is not None:
-            self.make_varray(op.getdescr(), sizebox.getint(), op, clear=True)
-        else:
-            return self.emit(op)
+        if (sizebox is not None and
+            self.make_varray(op.getdescr(), sizebox.getint(), op, clear=True)):
+            return
+        return self.emit(op)
 
     def optimize_CALL_N(self, op):
         effectinfo = op.getdescr().get_extra_info()
@@ -279,8 +282,8 @@ class OptVirtualize(optimizer.Optimization):
             if indexbox is not None:
                 item = opinfo.getitem(op.getdescr(), indexbox.getint())
                 if item is None:   # reading uninitialized array items?
-                    assert False, "can't read uninitialized items"
-                    itemvalue = value.constvalue     # bah, just return 0
+                    raise InvalidLoop("reading uninitialized virtual "
+                                      "array items")
                 self.make_equal_to(op, item)
                 return
         self.make_nonnull(op.getarg(0))
@@ -391,9 +394,8 @@ class OptVirtualize(optimizer.Optimization):
                 descr = op.getdescr()
                 fld = opinfo.getinteriorfield_virtual(indexbox.getint(), descr)
                 if fld is None:
-                    raise Exception("I think this is illegal")
-                    xxx
-                    fieldvalue = self.optimizer.new_const(descr)
+                    raise InvalidLoop("reading uninitialized virtual interior "
+                                      "array items")
                 self.make_equal_to(op, fld)
                 return
         self.make_nonnull(op.getarg(0))

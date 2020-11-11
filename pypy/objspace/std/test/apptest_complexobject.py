@@ -551,3 +551,11 @@ def test_complex_two_arguments():
 def test_hash_minus_one():
     assert hash(-1.0 + 0j) == -2
     assert (-1.0 + 0j).__hash__() == -2
+
+def test_int_override():
+    class MyComplex(complex):
+        def __int__(self):
+            return 42
+
+    c = MyComplex(0.j)
+    assert int(c) == 42

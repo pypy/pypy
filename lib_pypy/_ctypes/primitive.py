@@ -5,13 +5,11 @@ import sys
 
 SIMPLE_TYPE_CHARS = "cbBhHiIlLdfguzZqQPXOv?"
 
-from _ctypes.basics import _CData, _CDataMeta, cdata_from_address,\
-     CArgObject
+from _ctypes.basics import (
+    _CData, _CDataMeta, cdata_from_address, CArgObject, sizeof)
 from _ctypes.builtin import ConvMode
-from _ctypes.array import Array
+from _ctypes.array import Array, byteorder
 from _ctypes.pointer import _Pointer, as_ffi_pointer
-#from _ctypes.function import CFuncPtr # this import is moved at the bottom
-                                       # because else it's circular
 
 class NULL(object):
     pass
@@ -131,6 +129,7 @@ def from_param_char_p(cls, value):
 
 def from_param_void_p(cls, value):
     "used by c_void_p subclasses"
+    from _ctypes.function import CFuncPtr
     res = generic_xxx_p_from_param(cls, value)
     if res is not None:
         return res
@@ -147,6 +146,14 @@ FROM_PARAM_BY_TYPE = {
     'P': from_param_void_p,
     }
 
+CTYPES_TO_PEP3118_TABLE = {
+    'i': {2: 'h', 4: 'i', 8: 'q'},
+    'I': {2: 'H', 4: 'I', 8: 'Q'},
+    'l': {4: 'l', 8: 'q'},
+    'L': {4: 'L', 8: 'Q'},
+    '?': {1: '?', 2: 'h', 4: 'l', 8: 'q'},
+}
+
 class SimpleType(_CDataMeta):
     def __new__(self, name, bases, dct):
         try:
@@ -158,6 +165,8 @@ class SimpleType(_CDataMeta):
                     break
             else:
                 raise AttributeError("cannot find _type_ attribute")
+        if tp == 'abstract':
+            tp = 'i'
         if (not isinstance(tp, str) or
             not len(tp) == 1 or
             tp not in SIMPLE_TYPE_CHARS):
@@ -169,6 +178,11 @@ class SimpleType(_CDataMeta):
         result._ffishape_ = tp
         result._fficompositesize_ = None
         result._ffiarray = ffiarray
+        if tp in CTYPES_TO_PEP3118_TABLE:
+            pep_code = CTYPES_TO_PEP3118_TABLE[tp][_rawffi.sizeof(tp)]
+        else:
+            pep_code = tp
+        result._format = byteorder[sys.byteorder] + pep_code
         if tp == 'z':
             # c_char_p
             def _getvalue(self):
@@ -321,14 +335,14 @@ class SimpleType(_CDataMeta):
             result._as_ffi_pointer_ = _as_ffi_pointer_
         if name[-2:] != '_p' and name[-3:] not in ('_le', '_be') \
                 and name not in ('c_wchar', '_SimpleCData', 'c_longdouble', 'c_bool', 'py_object'):
-            from sys import byteorder
-            if byteorder == 'big':
+            if sys.byteorder == 'big':
                 name += '_le'
                 swapped = self.__new__(self, name, bases, dct)
                 result.__ctype_le__ = swapped
                 result.__ctype_be__ = result
                 swapped.__ctype_be__ = result
                 swapped.__ctype_le__ = swapped
+                swapped._format = '<' + pep_code
             else:
                 name += '_be'
                 swapped = self.__new__(self, name, bases, dct)
@@ -336,6 +350,7 @@ class SimpleType(_CDataMeta):
                 result.__ctype_le__ = result
                 swapped.__ctype_le__ = result
                 swapped.__ctype_be__ = swapped
+                swapped._format = '>' + pep_code
             from _ctypes import sizeof
             def _getval(self):
                 return swap_bytes(self._buffer[0], sizeof(self), name, 'get')
@@ -352,7 +367,8 @@ class SimpleType(_CDataMeta):
     def from_param(self, value):
         if isinstance(value, self):
             return value
-
+        if self._type_ == 'abstract':
+            raise TypeError('abstract class')
         from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
         if from_param_f:
             res = from_param_f(self, value)
@@ -381,9 +397,12 @@ class SimpleType(_CDataMeta):
     def _is_pointer_like(self):
         return self._type_ in "sPzUZXO"
 
+    def _getformat(self):
+        return self._format
+
 class _SimpleCData(_CData):
     __metaclass__ = SimpleType
-    _type_ = 'i'
+    _type_ = 'abstract'
 
     def __init__(self, value=DEFAULT_VALUE):
         if not hasattr(self, '_buffer'):
@@ -423,5 +442,3 @@ class _SimpleCData(_CData):
 
     def __nonzero__(self):
         return self._buffer[0] not in (0, '\x00')
-
-from _ctypes.function import CFuncPtr

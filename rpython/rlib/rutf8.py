@@ -324,7 +324,8 @@ def utf8_in_chars(value, pos, chars):
 
 
 def _invalid_cont_byte(ordch):
-    return ordch>>6 != 0x2    # 0b10
+    signedchar = rffi.cast(rffi.SIGNEDCHAR, ordch)
+    return rffi.cast(lltype.Signed, signedchar) >= -0x40
 
 _invalid_byte_2_of_2 = _invalid_cont_byte
 _invalid_byte_3_of_3 = _invalid_cont_byte
@@ -336,13 +337,13 @@ def _surrogate_bytes(ch1, ch2):
 
 @enforceargs(allow_surrogates=bool)
 def _invalid_byte_2_of_3(ordch1, ordch2, allow_surrogates):
-    return (ordch2>>6 != 0x2 or    # 0b10
+    return (_invalid_cont_byte(ordch2) or
             (ordch1 == 0xe0 and ordch2 < 0xa0)
             # surrogates shouldn't be valid UTF-8!
             or (ordch1 == 0xed and ordch2 > 0x9f and not allow_surrogates))
 
 def _invalid_byte_2_of_4(ordch1, ordch2):
-    return (ordch2>>6 != 0x2 or    # 0b10
+    return (_invalid_cont_byte(ordch2) or
             (ordch1 == 0xf0 and ordch2 < 0x90) or
             (ordch1 == 0xf4 and ordch2 > 0x8f))
 

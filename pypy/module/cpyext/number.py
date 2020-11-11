@@ -2,8 +2,10 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL, Py_ssize_t
 from pypy.module.cpyext.pyobject import PyObject, PyObjectP, from_ref, make_ref
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_with_new_name
 from pypy.module.cpyext.state import State
+from pypy.objspace.std import newformat
 
 @cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
 def PyIndex_Check(space, w_obj):
@@ -58,6 +60,28 @@ def PyNumber_Index(space, w_obj):
     TypeError exception raised on failure.
     """
     return space.index(w_obj)
+
+@cpython_api([PyObject, rffi.INT_real], PyObject)
+def PyNumber_ToBase(space, w_obj, base):
+    """Returns the integer n converted to base as a string with a base
+    marker of '0b', '0o', or '0x' if applicable.  When
+    base is not 2, 8, 10, or 16, the format is 'x#num' where x is the
+    base. If n is not an int object, it is converted with
+    PyNumber_Index() first.
+    """
+    base = widen(base)
+    if not (base == 2 or base == 8 or base == 10 or base ==16):
+        # In Python3.7 this becomes a SystemError. Before that, CPython would
+        # assert in debug or segfault in release. bpo 38643
+        raise oefmt(space.w_ValueError,
+                    "PyNumber_ToBase: base must be 2, 8, 10 or 16")
+    w_index = space.index(w_obj)
+    # A slight hack to call the internal _int_to_base method, which
+    # accepts an int base rather than a str spec
+    formatter = newformat.str_formatter(space, '')
+    value = space.int_w(w_index)
+    return space.newtext(formatter._int_to_base(base, value))
+    
 
 @cpython_api([PyObjectP, PyObjectP], rffi.INT_real, error=CANNOT_FAIL)
 def PyNumber_CoerceEx(space, pp1, pp2):

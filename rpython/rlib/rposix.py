@@ -268,6 +268,8 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 
 if os.name == 'nt':
+    # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
+    # we can replace FdValidator with SuppressIPH
     is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
         rffi.INT, compilation_info=errno_eci,
         ))
@@ -275,6 +277,12 @@ if os.name == 'nt':
                                   [], rffi.VOIDP, compilation_info=errno_eci))
     c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void,
+                                  compilation_info=errno_eci))
+    c_enter_suppress_iph_del = jit.dont_look_inside(external("enter_suppress_iph",
+                                  [], rffi.VOIDP, compilation_info=errno_eci,
+                                  releasegil=False))
+    c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
+                                  [rffi.VOIDP], lltype.Void, releasegil=False,
                                   compilation_info=errno_eci))
 
     @enforceargs(int)
@@ -287,6 +295,30 @@ if os.name == 'nt':
 
         def __init__(self, fd):
             _validate_fd(fd)
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph(self.invalid_param_hndlr)
+
+    class SuppressIPH_del(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            self.invalid_param_hndlr = c_enter_suppress_iph_del()
+            return self
+
+        def __exit__(self, *args):
+            c_exit_suppress_iph_del(self.invalid_param_hndlr)
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
 
         def __enter__(self):
             self.invalid_param_hndlr = c_enter_suppress_iph()
@@ -317,6 +349,19 @@ else:
 
         def __exit__(self, *args):
             pass
+
+    class SuppressIPH(object):
+
+        def __init__(self):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    SuppressIPH_del = SuppressIPH
 
     def _bound_for_write(fd, count):
         return count
@@ -620,14 +665,17 @@ if not _WIN32:
     def lockf(fd, cmd, length):
         return handle_posix_error('lockf', c_lockf(fd, cmd, length))
 
-c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
-                       macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 c_fsync = external('fsync' if not _WIN32 else '_commit', [rffi.INT], rffi.INT,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_fdatasync = external('fdatasync', [rffi.INT], rffi.INT,
                        save_err=rffi.RFFI_SAVE_ERRNO)
-if not _WIN32:
+if _WIN32:
+    c_ftruncate = external('_chsize_s', [rffi.INT, rffi.LONGLONG], rffi.INT,
+                       save_err=rffi.RFFI_SAVE_ERRNO)
+else:
     c_sync = external('sync', [], lltype.Void)
+    c_ftruncate = external('ftruncate', [rffi.INT, rffi.LONGLONG], rffi.INT,
+                       macro=_MACRO_ON_POSIX, save_err=rffi.RFFI_SAVE_ERRNO)
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
@@ -874,6 +922,11 @@ def listdir(path):
             raise OSError(get_saved_errno(), "opendir failed")
         return _listdir(dirp)
     else:  # _WIN32 case
+        if not path:
+            traits = _preferred_traits('')
+            win32traits = make_win32_traits(traits)
+            raise OSError(win32traits.ERROR_FILE_NOT_FOUND,
+                         "listdir called with invalid path")
         traits = _preferred_traits(path)
         win32traits = make_win32_traits(traits)
         path = traits.as_str0(path)
@@ -1974,6 +2027,8 @@ if not _WIN32:
             lltype.free(ngroups_p, flavor='raw')
             if groups_p:
                 lltype.free(groups_p, flavor='raw')
+
+
 #___________________________________________________________________
 
 c_chroot = external('chroot', [rffi.CCHARP], rffi.INT,
@@ -2120,7 +2175,7 @@ class CConfig:
             fdopendir fpathconf fstat fstatat fstatvfs ftruncate
             futimens futimes futimesat linkat chflags lchflags lchmod lchown
             lstat lutimes mkdirat mkfifoat mknodat openat readlinkat renameat
-            symlinkat unlinkat utimensat""".split():
+            symlinkat unlinkat utimensat sched_getparam""".split():
         locals()['HAVE_%s' % _name.upper()] = rffi_platform.Has(_name)
 cConfig = rffi_platform.configure(CConfig)
 globals().update(cConfig)
@@ -2129,8 +2184,9 @@ if not _WIN32:
     class CConfig:
         _compilation_info_ = ExternalCompilationInfo(
             includes=['sys/stat.h',
-                    'unistd.h',
-                    'fcntl.h'],
+                      'unistd.h',
+                      'fcntl.h',
+                     ],
         )
         AT_FDCWD = rffi_platform.DefinedConstantInteger('AT_FDCWD')
         AT_SYMLINK_NOFOLLOW = rffi_platform.DefinedConstantInteger('AT_SYMLINK_NOFOLLOW')
@@ -2145,7 +2201,62 @@ if not _WIN32:
 
     cConfig = rffi_platform.configure(CConfig)
     globals().update(cConfig)
+
     TIMESPEC2P = rffi.CArrayPtr(TIMESPEC)
+
+if HAVE_SCHED_GETPARAM:
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/stat.h',
+                      'unistd.h',
+                      'sched.h',
+                     ],
+        )
+        SCHED_PARAM = rffi_platform.Struct('struct sched_param', [
+            ('sched_priority', rffi.INT)])
+
+    cConfig = rffi_platform.configure(CConfig)
+    globals().update(cConfig)
+
+    SCHED_PARAM2P = rffi.CArrayPtr(SCHED_PARAM)
+
+    c_sched_rr_get_interval = external('sched_rr_get_interval',
+                              [rffi.PID_T, TIMESPEC2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getscheduler = external('sched_getscheduler', [rffi.PID_T],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setscheduler = external('sched_setscheduler',
+                              [rffi.PID_T, rffi.INT, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_getparam = external('sched_getparam', [rffi.PID_T, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+    c_sched_setparam = external('sched_setparam', [rffi.PID_T, SCHED_PARAM2P],
+                              rffi.INT, save_err=rffi.RFFI_FULL_ERRNO_ZERO)
+
+    def sched_rr_get_interval(pid):
+        with lltype.scoped_alloc(TIMESPEC2P.TO, 1) as interval:
+            handle_posix_error('sched_rr_get_interval', c_sched_rr_get_interval(pid, interval))
+            return interval[0].c_tv_sec + 1e-9 * interval[0].c_tv_nsec
+
+    def sched_getscheduler(pid):
+        return handle_posix_error('sched_getscheduler', c_sched_getscheduler(pid))
+
+    def sched_setscheduler(pid, policy, priority):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
+            return handle_posix_error('sched_setscheduler', c_sched_setscheduler(pid, policy, param))
+
+
+    def sched_getparam(pid):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            handle_posix_error('sched_getparam', c_sched_getparam(pid, param))
+            return param[0].c_sched_priority
+
+    def sched_setparam(pid, priority):
+        with lltype.scoped_alloc(SCHED_PARAM2P.TO, 1) as param:
+            param[0].c_sched_priority = rffi.cast(rffi.INT, priority)
+            return handle_posix_error('sched_setparam', c_sched_setparam(pid, param))
+
 
 if HAVE_FACCESSAT:
     c_faccessat = external('faccessat',
@@ -2653,7 +2764,7 @@ if not _WIN32:
         res = c_set_status_flags(fd, flags)
         handle_posix_error('set_status_flags', res)
 
-if not _WIN32:
+if sys.platform.startswith('linux'):
     sendfile_eci = ExternalCompilationInfo(includes=["sys/sendfile.h"])
     _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
     c_sendfile = rffi.llexternal('sendfile',
@@ -2671,6 +2782,30 @@ if not _WIN32:
         """Passes offset==NULL; not support on all OSes"""
         res = c_sendfile(out_fd, in_fd, lltype.nullptr(_OFF_PTR_T.TO), count)
         return handle_posix_error('sendfile', res)
+
+elif not _WIN32:
+    # Neither on Windows nor on Linux, so probably a BSD derivative of
+    # some sort. Please note that the implementation below is partial;
+    # the VOIDP is an iovec for sending headers and trailers which
+    # CPython uses for the headers and trailers argument, and it also
+    # has a flags argument. None of these are currently supported.
+    sendfile_eci = ExternalCompilationInfo(includes=["sys/socket.h"])
+    _OFF_PTR_T = rffi.CArrayPtr(OFF_T)
+    # NB: the VOIDP is an struct sf_hdtr for sending headers and trailers
+    c_sendfile = rffi.llexternal('sendfile',
+            [rffi.INT, rffi.INT, OFF_T, _OFF_PTR_T, rffi.VOIDP, rffi.INT],
+            rffi.SSIZE_T, save_err=rffi.RFFI_SAVE_ERRNO,
+            compilation_info=sendfile_eci)
+
+    def sendfile(out_fd, in_fd, offset, count):
+        with lltype.scoped_alloc(_OFF_PTR_T.TO, 1) as p_len:
+            p_len[0] = rffi.cast(OFF_T, count)
+            res = c_sendfile(in_fd, out_fd, offset, p_len, lltype.nullptr(rffi.VOIDP.TO), 0)
+            if res != 0:
+                return handle_posix_error('sendfile', res)
+            res = p_len[0]
+        return res
+
 
 # ____________________________________________________________
 # Support for *xattr functions

@@ -40,6 +40,8 @@ else:
     from select import poll, POLLIN, POLLOUT
     HAVE_POLL = True
 
+_MAX_INT = 2147483647
+
 OPENSSL_VERSION = ffi.string(lib.OPENSSL_VERSION_TEXT)
 OPENSSL_VERSION_NUMBER = lib.OPENSSL_VERSION_NUMBER
 ver = OPENSSL_VERSION_NUMBER
@@ -420,8 +422,8 @@ class _SSLSocket(object):
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
 
-        if len(b) > sys.maxsize:
-            raise OverflowError("string longer than %d bytes" % sys.maxsize)
+        if len(b) > _MAX_INT:
+            raise OverflowError("string longer than %d bytes" % _MAX_INT)
 
         timeout = _socket_timeout(sock)
         if sock:
@@ -481,7 +483,7 @@ class _SSLSocket(object):
             mem = ffi.from_buffer(buffer_into)
             if length <= 0 or length > len(buffer_into):
                 length = len(buffer_into)
-                if length > sys.maxsize:
+                if length > _MAX_INT:
                     raise OverflowError("maximum length can't fit in a C 'int'")
                 if len(buffer_into) == 0:
                     return 0
@@ -742,7 +744,7 @@ def _fs_decode(name):
     return name.decode(sys.getfilesystemencoding())
 def _fs_converter(name):
     """ name must not be None """
-    if isinstance(name, str):
+    if isinstance(name, unicode):
         return name.encode(sys.getfilesystemencoding())
     return bytes(name)
 
@@ -906,7 +908,7 @@ class _SSLContext(object):
         # Minimal security flags for server and client side context.
         # Client sockets ignore server-side parameters.
         options |= lib.SSL_OP_NO_COMPRESSION
-        # options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
+        options |= lib.SSL_OP_CIPHER_SERVER_PREFERENCE
         options |= lib.SSL_OP_SINGLE_DH_USE
         options |= lib.SSL_OP_SINGLE_ECDH_USE
         lib.SSL_CTX_set_options(self.ctx, options)

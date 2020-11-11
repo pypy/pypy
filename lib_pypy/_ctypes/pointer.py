@@ -7,7 +7,7 @@ from _ctypes.basics import sizeof, byref, as_ffi_pointer
 from _ctypes.array import Array, array_get_slice_params, array_slice_getitem,\
      array_slice_setitem
 
-from __pypy__ import builtinify, newmemoryview
+from __pypy__ import builtinify
 
 # This cache maps types to pointers to them.
 _pointer_type_cache = {}
@@ -40,14 +40,17 @@ class PointerType(_CDataMeta):
     def from_param(self, value):
         if value is None:
             return self(None)
-        # If we expect POINTER(<type>), but receive a <type> instance, accept
-        # it by calling byref(<type>).
-        if isinstance(value, self._type_):
-            return byref(value)
-        # Array instances are also pointers when the item types are the same.
-        if isinstance(value, (_Pointer, Array)):
-            if issubclass(type(value)._type_, self._type_):
-                return value
+        if isinstance(value, self):
+            return value
+        if hasattr(self, '_type_'):
+            # If we expect POINTER(<type>), but receive a <type> instance, accept
+            # it by calling byref(<type>).
+            if isinstance(value, self._type_):
+                return byref(value)
+            # Array instances are also pointers when the item types are the same.
+            if isinstance(value, (_Pointer, Array)):
+                if issubclass(type(value)._type_, self._type_):
+                    return value
         return _CDataMeta.from_param(self, value)
 
     def _sizeofinstances(self):
@@ -60,6 +63,8 @@ class PointerType(_CDataMeta):
         return True
 
     def set_type(self, TP):
+        if self._is_abstract():
+            raise TypeError('abstract class')
         ffiarray = _rawffi.Array('P')
         def __init__(self, value=None):
             if not hasattr(self, '_buffer'):
@@ -80,6 +85,9 @@ class PointerType(_CDataMeta):
         return self._type_.get_ffi_argtype()
 
     from_address = cdata_from_address
+
+    def _getformat(self):
+        return '&' + self._type_._getformat()
 
 class _Pointer(_CData):
     __metaclass__ = PointerType
@@ -134,10 +142,6 @@ class _Pointer(_CData):
     def _as_ffi_pointer_(self, ffitype):
         return as_ffi_pointer(self, ffitype)
 
-    def __buffer__(self, flags):
-        mv = memoryview(self.getcontents())
-        return newmemoryview(mv, mv.itemsize, '&' + mv.format, mv.shape)
-
 def _cast_addr(obj, _, tp):
     if not (isinstance(tp, _CDataMeta) and tp._is_pointer_like()):
         raise TypeError("cast() argument 2 must be a pointer type, not %s"
@@ -180,6 +184,7 @@ def POINTER(cls):
         klass = type(_Pointer)("LP_%s" % cls,
                                (_Pointer,),
                                {})
+        klass._type_ = 'P'
         _pointer_type_cache[id(klass)] = klass
         return klass
     else:

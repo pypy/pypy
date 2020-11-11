@@ -46,8 +46,8 @@ EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
 
 Further Reading: :ref:`Contact <contact>`
 
-.. _the blog: http://morepypy.blogspot.com
-.. _pypy-dev mailing list: http://mail.python.org/mailman/listinfo/pypy-dev
+.. _the blog: https://morepypy.blogspot.com
+.. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 
 
 Your first contribution
@@ -70,7 +70,7 @@ Some ideas for first contributions are:
 * Test failures - find a failing test in the `nightly builds`_, and fix it
 * Missing language features - these are listed in our `issue tracker`_
 
-.. _nightly builds: http://buildbot.pypy.org/nightly/
+.. _nightly builds: https://buildbot.pypy.org/nightly/
 .. _issue tracker: https://foss.heptapod.net/pypy/pypy/issues
 
 Source Control
@@ -96,13 +96,13 @@ Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
      </a>
    </h1>
 
-If you are new with Mercurial and Heptapod, you can read this short tutorial:
+If you are new with Mercurial and Heptapod, you can read this `short tutorial`_
 
-.. toctree::
-   :maxdepth: 1
+.. _`short tutorial`: https://heptapod.net/pages/quick-start-guide.html
 
-   mercurial_heptapod
-
+However, we recommend at this time you **not** use topic branches. We prefer
+the usual mercurial named branch model, as pointed out in the :ref:`FAQ
+<github>` about why we didn't move to git.
 
 Get Access
 ----------
@@ -128,7 +128,7 @@ Clone
 * Clone the PyPy repo to your local machine with the command
   ``hg clone https://foss.heptapod.net/pypy/pypy``.  It takes a minute or two
   operation but only ever needs to be done once.  See also
-  http://pypy.org/download.html#building-from-source .
+  https://pypy.org/download.html#building-from-source .
   If you already cloned the repo before, even if some time ago,
   then you can reuse the same clone by editing the file ``.hg/hgrc`` in
   your clone to contain the line ``default =
@@ -277,7 +277,7 @@ not one of those. You may consider familiarizing yourself with `pytest`_,
 since this is a tool we use for tests.
 This leads to the next issue:
 
-.. _pytest: http://pytest.org/
+.. _pytest: https://pytest.org/
 
 py.test and the py lib
 ----------------------
@@ -290,14 +290,14 @@ writing, logging and some other support  functionality.
 You don't necessarily need to install these two libraries because
 we also ship them inlined in the PyPy source tree.
 
-.. _py library: http://pylib.readthedocs.org/
+.. _py library: https://pylib.readthedocs.org/
 
 Running PyPy's unit tests
 -------------------------
 
 PyPy development always was and is still thoroughly test-driven.
 We use the flexible `py.test testing tool`_ which you can `install independently
-<http://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
+<https://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
@@ -340,8 +340,8 @@ a hack that doesn't work in all cases and it is usually extremely slow:
 extract a minimal failing test of at most a few lines, and put it into one of
 our own tests in ``pypy/*/test/``.
 
-.. _py.test testing tool: http://pytest.org
-.. _py.test usage and invocations: http://pytest.org/latest/usage.html#usage
+.. _py.test testing tool: https://pytest.org
+.. _py.test usage and invocations: https://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
 
 Testing After Translation
@@ -496,7 +496,7 @@ graphviz & pygame for flow graph viewing (highly recommended)
 graphviz and pygame are both necessary if you want to look at generated flow
 graphs:
 
-    graphviz: http://www.graphviz.org/Download.php
+    graphviz: https://www.graphviz.org/Download.php
 
-    pygame: http://www.pygame.org/download.shtml
+    pygame: https://www.pygame.org/download.shtml
 

@@ -95,7 +95,7 @@ if _MS_WINDOWS:
     LL_TYPEMAP['v'] = rffi.SHORT
 
 def letter2tp(space, key):
-    from pypy.module._rawffi.array import PRIMITIVE_ARRAY_TYPES
+    from pypy.module._rawffi.interp_array import PRIMITIVE_ARRAY_TYPES
     try:
         return PRIMITIVE_ARRAY_TYPES[key]
     except KeyError:
@@ -126,7 +126,7 @@ def unpack_shape_with_length(space, w_shape):
         try:
             result = shape._array_shapes[length]
         except KeyError:
-            from pypy.module._rawffi.array import W_Array
+            from pypy.module._rawffi.interp_array import W_Array
             if isinstance(shape, W_Array) and length == 1:
                 result = shape
             else:
@@ -360,7 +360,7 @@ class W_DataInstance(W_Root):
         self.ll_buffer = rffi.ptradd(self.ll_buffer, n)
 
     def byptr(self, space):
-        from pypy.module._rawffi.array import ARRAY_OF_PTRS
+        from pypy.module._rawffi.interp_array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
         array.setitem(space, 0, self)
         return array
@@ -485,7 +485,7 @@ class W_FuncPtr(W_Root):
         return space.newint(rffi.cast(lltype.Unsigned, self.ptr.funcsym))
 
     def byptr(self, space):
-        from pypy.module._rawffi.array import ARRAY_OF_PTRS
+        from pypy.module._rawffi.interp_array import ARRAY_OF_PTRS
         array = ARRAY_OF_PTRS.allocate(space, 1)
         array.setitem(space, 0, self.getbuffer(space))
         if tracker.DO_TRACING:
@@ -495,7 +495,7 @@ class W_FuncPtr(W_Root):
         return array
 
     def call(self, space, args_w):
-        from pypy.module._rawffi.array import W_ArrayInstance
+        from pypy.module._rawffi.interp_array import W_ArrayInstance
         from pypy.module._rawffi.structure import W_StructureInstance
         from pypy.module._rawffi.structure import W_Structure
         argnum = len(args_w)
@@ -661,7 +661,7 @@ def set_errno(space, w_errno):
 
 if sys.platform == 'win32':
     # see also
-    # https://bitbucket.org/pypy/pypy/issue/1944/ctypes-on-windows-getlasterror
+    # issue #1944 ctypes-on-windows-getlasterror
     def get_last_error(space):
         return space.newint(rwin32.GetLastError_alt_saved())
     @unwrap_spec(error=int)
@@ -669,7 +669,7 @@ if sys.platform == 'win32':
         rwin32.SetLastError_alt_saved(error)
 else:
     # always have at least a dummy version of these functions
-    # (https://bugs.pypy.org/issue1242)
+    # issue 1242
     def get_last_error(space):
         return space.newint(0)
     @unwrap_spec(error=int)

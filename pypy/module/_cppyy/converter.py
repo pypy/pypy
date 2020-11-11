@@ -5,7 +5,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import r_singlefloat, r_longfloat
 from rpython.rlib import rfloat, rawrefcount
 from pypy.module._rawffi.interp_rawffi import letter2tp
-from pypy.module._rawffi.array import W_ArrayInstance
+from pypy.module._rawffi.interp_array import W_ArrayInstance
 from pypy.module._cppyy import helper, capi, ffitypes, lowlevelviews
 
 # Converter objects are used to translate between RPython and C++. They are
@@ -1134,7 +1134,7 @@ def _add_aliased_converters():
 
         ("PyObject*",                       "_object*"),
     )
- 
+
     for c_type, alias in aliases:
         _converters[alias] = _converters[c_type]
 _add_aliased_converters()

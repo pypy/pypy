@@ -10,7 +10,7 @@ for supporting the work that went into this.
 
 You can download the PyPy3 2.3.1 release here:
 
-    http://pypy.org/download.html#pypy3-2-3-1
+    https://pypy.org/download.html#pypy3-2-3-1
 
 Highlights
 ==========
@@ -33,7 +33,7 @@ Highlights
  - Resolved handling of Python 3's exception __context__ unnecessarily forcing
    frame object overhead
 
-.. _`PEP 414`: http://legacy.python.org/dev/peps/pep-0414/
+.. _`PEP 414`: https://legacy.python.org/dev/peps/pep-0414/
 
 What is PyPy?
 ==============
@@ -49,7 +49,7 @@ While we support 32 bit python on Windows, work on the native Windows 64
 bit python is still stalling, we would welcome a volunteer
 to `handle that`_.
 
-.. _`handle that`: http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
+.. _`handle that`: https://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
 
 How to use PyPy?
 =================
@@ -58,11 +58,11 @@ We suggest using PyPy from a `virtualenv`_. Once you have a virtualenv
 installed, you can follow instructions from `pypy documentation`_ on how
 to proceed. This document also covers other `installation schemes`_.
 
-.. _donated: http://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
-.. _`py3k proposal`: http://pypy.org/py3donate.html
-.. _`pypy documentation`: http://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
-.. _`virtualenv`: http://www.virtualenv.org/en/latest/
-.. _`installation schemes`: http://doc.pypy.org/en/latest/getting-started.html#installing-pypy
+.. _donated: https://morepypy.blogspot.com/2012/01/py3k-and-numpy-first-stage-thanks-to.html
+.. _`py3k proposal`: https://pypy.org/py3donate.html
+.. _`pypy documentation`: https://doc.pypy.org/en/latest/getting-started.html#installing-using-virtualenv
+.. _`virtualenv`: https://www.virtualenv.org/en/latest/
+.. _`installation schemes`: https://doc.pypy.org/en/latest/getting-started.html#installing-pypy
 
 
 Cheers,

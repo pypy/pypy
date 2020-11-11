@@ -233,7 +233,7 @@ class BlackholeInterpBuilder(object):
         verbose = self.verbose
         argtypes = unrolling_iterable(unboundmethod.argtypes)
         resulttype = unboundmethod.resulttype
-        handler.func_name = 'handler_' + name
+        handler.__name__ = 'handler_' + name
         return handler
 
     def acquire_interp(self):

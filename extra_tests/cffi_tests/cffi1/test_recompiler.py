@@ -890,8 +890,8 @@ def test_unpack_args():
     e7 = py.test.raises(TypeError, lib.foo2, 45, 46, 47)
     def st1(s):
         s = str(s)
-        if s.startswith("_CFFI_test_unpack_args.CompiledLib."):
-            s = s[len("_CFFI_test_unpack_args.CompiledLib."):]
+        if s.startswith("_CFFI_test_unpack_args.Lib."):
+            s = s[len("_CFFI_test_unpack_args.Lib."):]
         return s
     assert st1(e1.value) == "foo0() takes no arguments (1 given)"
     assert st1(e2.value) == "foo0() takes no arguments (2 given)"
@@ -2122,6 +2122,40 @@ def test_typedef_array_dotdotdot():
     py.test.raises(ffi.error, ffi.sizeof, "vmat_t")
     p = ffi.new("vmat_t", 4)
     assert ffi.sizeof(p[3]) == 8 * ffi.sizeof("int")
+
+def test_typedef_array_dotdotdot_usage():
+    ffi = FFI()
+    ffi.cdef("""
+        typedef int foo_t[...];
+        typedef int mat_t[...][...];
+        struct s { foo_t a; foo_t *b; foo_t **c; };
+        int myfunc(foo_t a, foo_t *b, foo_t **c);
+        struct sm { mat_t a; mat_t *b; mat_t **c; };
+        int myfuncm(mat_t a, mat_t *b, mat_t **c);
+        """)
+    lib = verify(ffi, "test_typedef_array_dotdotdot_usage", """
+        typedef int foo_t[50];
+        typedef int mat_t[6][7];
+        struct s { foo_t a; foo_t *b; foo_t **c; };
+        static int myfunc(foo_t a, foo_t *b, foo_t **c) { return (**c)[49]; }
+        struct sm { mat_t a; mat_t *b; mat_t **c; };
+        static int myfuncm(mat_t a, mat_t *b, mat_t **c) { return (**c)[5][6]; }
+    """)
+    assert ffi.sizeof("foo_t") == 50 * ffi.sizeof("int")
+    p = ffi.new("struct s *")
+    assert ffi.sizeof(p[0]) == 50 * ffi.sizeof("int") + 2 * ffi.sizeof("void *")
+    p.a[49] = 321
+    p.b = ffi.addressof(p, 'a')
+    p.c = ffi.addressof(p, 'b')
+    assert lib.myfunc(ffi.NULL, ffi.NULL, p.c) == 321
+    #
+    assert ffi.sizeof("mat_t") == 42 * ffi.sizeof("int")
+    p = ffi.new("struct sm *")
+    assert ffi.sizeof(p[0]) == 42 * ffi.sizeof("int") + 2 * ffi.sizeof("void *")
+    p.a[5][6] = -321
+    p.b = ffi.addressof(p, 'a')
+    p.c = ffi.addressof(p, 'b')
+    assert lib.myfuncm(ffi.NULL, ffi.NULL, p.c) == -321
 
 def test_call_with_custom_field_pos():
     ffi = FFI()

@@ -665,6 +665,9 @@ class r_singlefloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self._bytes)
+
     def __repr__(self):
         return 'r_singlefloat(%s)' % (float(self),)
 
@@ -692,6 +695,9 @@ class r_longfloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self.value)
+
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
     _type_ = r_singlefloat
@@ -714,6 +720,13 @@ class For_r_singlefloat_type_Entry(extregistry.ExtRegistryEntry):
         # we use cast_primitive to go between Float and SingleFloat.
         return hop.genop('cast_primitive', [v],
                          resulttype = lltype.SingleFloat)
+
+class For_r_longfloat_values_Entry(extregistry.ExtRegistryEntry):
+    _type_ = r_longfloat
+
+    def compute_annotation(self):
+        from rpython.annotator import model as annmodel
+        return annmodel.SomeLongFloat()
 
 
 def int_between(n, m, p):

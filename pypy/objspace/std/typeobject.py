@@ -636,7 +636,7 @@ class W_TypeObject(W_Root):
                 w_newtype, w_newdescr = self.hack_which_new_to_call(
                     w_newtype, w_newdescr)
             #
-            w_newfunc = space.get(w_newdescr, self)
+            w_newfunc = space.get(w_newdescr, space.w_None, w_type=self)
             if (space.config.objspace.std.newshortcut and
                 not we_are_jitted() and space._side_effects_ok() and
                 isinstance(w_newtype, W_TypeObject)):
@@ -774,21 +774,7 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
     _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
 
-    w_winner = w_typetype
-    for base in bases_w:
-        w_typ = space.type(base)
-        if space.is_w(w_typ, space.w_classobj):
-            continue # special-case old-style classes
-        if space.issubtype_w(w_winner, w_typ):
-            continue
-        if space.issubtype_w(w_typ, w_winner):
-            w_winner = w_typ
-            continue
-        raise oefmt(space.w_TypeError,
-                    "metaclass conflict: the metaclass of a derived class must"
-                    " be a (non-strict) subclass of the metaclasses of all its"
-                    " bases")
-
+    w_winner = _calculate_metaclass(space, w_typetype, bases_w)
     if not space.is_w(w_winner, w_typetype):
         newfunc = space.getattr(w_winner, space.newtext('__new__'))
         if not space.is_w(newfunc, space.getattr(space.w_type, space.newtext('__new__'))):
@@ -809,6 +795,23 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict):
                           dict_w, is_heaptype=True)
     w_type.ready()
     return w_type
+
+def _calculate_metaclass(space, w_metaclass, bases_w):
+    """Determine the most derived metatype"""
+    w_winner = w_metaclass
+    for base in bases_w:
+        w_typ = space.type(base)
+        if space.is_w(w_typ, space.w_classobj):
+            continue # special-case old-style classes
+        if space.issubtype_w(w_winner, w_typ):
+            continue
+        if space.issubtype_w(w_typ, w_winner):
+            w_winner = w_typ
+            continue
+        msg = ("metaclass conflict: the metaclass of a derived class must be "
+               "a (non-strict) subclass of the metaclasses of all its bases")
+        raise oefmt(space.w_TypeError, msg)
+    return w_winner
 
 def _precheck_for_new(space, w_type):
     if not isinstance(w_type, W_TypeObject):

@@ -54,7 +54,7 @@ class W_GlobSupport(W_Root):
         w_ctypeptr = newtype.new_pointer_type(self.space, self.w_ctype)
         return W_CData(self.space, self.fetch_global_var_addr(), w_ctypeptr)
 
-W_GlobSupport.typedef = TypeDef("FFIGlobSupport")
+W_GlobSupport.typedef = TypeDef("_cffi_backend.__FFIGlobSupport")
 W_GlobSupport.typedef.acceptable_as_base_class = False
 
 
