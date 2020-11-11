@@ -530,6 +530,9 @@ class fakeaddress(object):
     def __ge__(self, other):
         return not (self < other)
 
+    def __hash__(self):
+        return hash(self.ptr)
+
     def ref(self):
         if not self:
             raise NullAddressError

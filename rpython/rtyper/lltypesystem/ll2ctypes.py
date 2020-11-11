@@ -1353,9 +1353,10 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
         cres = callme(cargs)
         _save_c_errno()
         if _callback_exc_info:
+            from rpython.tool.twothree import reraise
             etype, evalue, etb = _callback_exc_info
             _callback_exc_info = None
-            raise etype, evalue, etb
+            reraise(etype, evalue, etb)
         return ctypes2lltype(RESULT, cres)
     return invoke_via_ctypes
 
