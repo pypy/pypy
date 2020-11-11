@@ -685,7 +685,7 @@ def _fq_patch_class(Cls):
 _fq_patched_classes = set()
 
 class FqTagEntry(ExtRegistryEntry):
-    _about_ = FinalizerQueue._get_tag.im_func
+    _about_ = getattr(FinalizerQueue._get_tag, 'im_func', FinalizerQueue._get_tag)
 
     def compute_result_annotation(self, s_fq):
         assert s_fq.is_constant()
@@ -702,8 +702,9 @@ class FqTagEntry(ExtRegistryEntry):
     def specialize_call(self, hop):
         from rpython.rtyper.rclass import InstanceRepr
         translator = hop.rtyper.annotator.translator
-        fq = hop.args_s[0].const
-        graph = translator._graphof(fq.finalizer_trigger.im_func)
+        trigger = hop.args_s[0].const.finalizer_trigger
+        
+        graph = translator._graphof(getattr(trigger, 'im_func', trigger))
         InstanceRepr.check_graph_of_del_does_not_call_too_much(hop.rtyper,
                                                                graph)
         hop.exception_cannot_occur()
