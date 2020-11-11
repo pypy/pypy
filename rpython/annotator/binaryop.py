@@ -106,9 +106,9 @@ class __extend__(pairtype(SomeObject, SomeObject)):
     def inplace_or(args):       return pair(*args).or_()
     def inplace_xor(args):      return pair(*args).xor()
 
-    for name, func in locals().items():
+    for name, func in locals().copy().items():
         if name.startswith('inplace_'):
-            func.can_only_throw = []
+            locals()[name].can_only_throw = []
 
     inplace_div.can_only_throw = [ZeroDivisionError]
     inplace_truediv.can_only_throw = [ZeroDivisionError]
