@@ -633,13 +633,13 @@ LL_OPERATIONS = {
 # Post-processing
 
 # Stick the opnames into the LLOp instances
-for opname, opdesc in LL_OPERATIONS.iteritems():
+for opname, opdesc in LL_OPERATIONS.items():
     opdesc.opname = opname
 del opname, opdesc
 
 # Also export all operations in an attribute-based namespace.
 # Example usage from LL helpers:  z = llop.int_add(Signed, x, y)
 
-for opname, opdesc in LL_OPERATIONS.iteritems():
+for opname, opdesc in LL_OPERATIONS.items():
     setattr(llop, opname, opdesc)
 del opname, opdesc
