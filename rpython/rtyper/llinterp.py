@@ -1,4 +1,7 @@
-import cStringIO
+try:
+    import cStringIO as io
+except ImportError:
+    import io
 import os
 import sys
 import traceback
@@ -34,7 +37,7 @@ class LLException(Exception):
         etype = self.args[0]
         #evalue = self.args[1]
         if len(self.args) > 2:
-            f = cStringIO.StringIO()
+            f = io.StringIO()
             original_type, original_value, original_tb = self.args[2]
             traceback.print_exception(original_type, original_value, original_tb,
                                       file=f)
