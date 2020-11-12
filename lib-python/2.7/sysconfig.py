@@ -36,6 +36,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },
+    'pypy_nt': {
+        'stdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'platstdlib': '{base}/lib-{implementation_lower}/{py_version_short}',
+        'purelib': '{base}/site-packages',
+        'platlib': '{base}/site-packages',
+        'include': '{base}/include',
+        'platinclude': '{base}/include',
+        'scripts': '{base}/Scripts',
+        'data'   : '{base}',
+        },
     'nt': {
         'stdlib': '{base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -127,6 +137,11 @@ if os.name == "nt" and "pcbuild" in _PROJECT_BASE[-8:].lower():
 # PC/VS7.1
 if os.name == "nt" and "\\pc\\v" in _PROJECT_BASE[-10:].lower():
     _PROJECT_BASE = _safe_realpath(os.path.join(_PROJECT_BASE, pardir, pardir))
+# PC/VS9.0/amd64
+if (os.name == "nt"
+   and os.path.basename(os.path.dirname(os.path.dirname(_PROJECT_BASE))).lower() == "pc"
+   and os.path.basename(os.path.dirname(_PROJECT_BASE)).lower() == "vs9.0"):
+    _PROJECT_BASE = _safe_realpath(os.path.join(_PROJECT_BASE, pardir, pardir, pardir))
 # PC/AMD64
 if os.name == "nt" and "\\pcbuild\\amd64" in _PROJECT_BASE[-14:].lower():
     _PROJECT_BASE = _safe_realpath(os.path.join(_PROJECT_BASE, pardir, pardir))
@@ -177,11 +192,14 @@ def _expand_vars(scheme, vars):
     return res
 
 def _get_default_scheme():
-    if '__pypy__' in sys.builtin_module_names:
-        return 'pypy'
-    elif os.name == 'posix':
+    if os.name == 'posix':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'pypy'
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
+    if os.name == 'nt':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'pypy_nt'
     return os.name
 
 def _getuserbase():

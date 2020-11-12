@@ -1454,7 +1454,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
@@ -4499,5 +4499,5 @@ def test_unaligned_types():
         pbuf1 = cast(new_pointer_type(p), pbuf + 1)
         pbuf1[0] = num
         assert pbuf1[0] == num
-        assert buf[0] == '\x00'
-        assert buf[1 + size] == '\x00'
+        assert buf[0] == b'\x00'
+        assert buf[1 + size] == b'\x00'

@@ -23,7 +23,7 @@ from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
-POP_BLOCK END_FINALLY'''.split():
+POP_BLOCK END_FINALLY YIELD_VALUE WITH_CLEANUP'''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 HAVE_ARGUMENT = stdlib_opcode.HAVE_ARGUMENT
 
@@ -36,6 +36,7 @@ class FrameDebugData(object):
     instr_prev_plus_one      = 0
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
+    is_in_line_tracing       = False
     w_locals                 = None
 
     def __init__(self, pycode):
@@ -707,9 +708,25 @@ class PyFrame(W_Root):
         except OperationError:
             raise oefmt(space.w_ValueError, "lineno must be an integer")
 
+        # You can only do this from within a trace function, not via
+        # _getframe or similar hackery.
+        if space.int_w(self.fget_f_lasti(space)) == -1:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from the 'call' trace event of a new frame")
         if self.get_w_f_trace() is None:
             raise oefmt(space.w_ValueError,
                         "f_lineno can only be set by a trace function.")
+
+        code = self.pycode.co_code
+        if ord(code[self.last_instr]) == YIELD_VALUE:
+            raise oefmt(space.w_ValueError,
+                        "can't jump from a yield statement")
+
+        # Only allow jumps when we're tracing a line event.
+        d = self.getorcreatedebug()
+        if not d.is_in_line_tracing:
+            raise oefmt(space.w_ValueError,
+                        "can only jump from a 'line' trace event")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -734,7 +751,6 @@ class PyFrame(W_Root):
                         "line %d comes after the current code.", new_lineno)
 
         # Don't jump to a line with an except in it.
-        code = self.pycode.co_code
         if ord(code[new_lasti]) in (DUP_TOP, POP_TOP):
             raise oefmt(space.w_ValueError,
                         "can't jump to 'except' line as there's no exception")
@@ -821,12 +837,17 @@ class PyFrame(W_Root):
             raise oefmt(space.w_ValueError,
                         "can't jump into the middle of a block")
 
+        # Pop any blocks that we're jumping out of.
+        from pypy.interpreter.pyopcode import FinallyBlock
         while f_iblock > new_iblock:
             block = self.pop_block()
             block.cleanup(self)
             f_iblock -= 1
+            if (isinstance(block, FinallyBlock)
+                    and ord(code[block.handlerposition]) == WITH_CLEANUP):
+                self.popvalue()  # Pop the exit function.
 
-        self.getorcreatedebug().f_lineno = new_lineno
+        d.f_lineno = new_lineno
         self.last_instr = new_lasti
 
     def get_last_lineno(self):

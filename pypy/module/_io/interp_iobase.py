@@ -233,24 +233,23 @@ class W_IOBase(W_Root):
 
     def readlines_w(self, space, w_hint=None):
         hint = convert_size(space, w_hint)
-
         if hint <= 0:
             return space.newlist(space.unpackiterable(self))
 
-        lines_w = []
         length = 0
-        while True:
-            w_line = space.call_method(self, "readline")
-            line_length = space.len_w(w_line)
-            if line_length == 0: # done
+        lines_w = []
+        w_iterator = space.iter(self)
+        while 1:
+            try:
+                w_line = space.next(w_iterator)
+            except OperationError as e:
+                if not e.match(space, space.w_StopIteration):
+                    raise
                 break
-
             lines_w.append(w_line)
-
-            length += line_length
+            length += space.len_w(w_line)
             if length > hint:
                 break
-
         return space.newlist(lines_w)
 
     def writelines_w(self, space, w_lines):

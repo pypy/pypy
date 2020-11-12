@@ -4515,5 +4515,5 @@ def test_unaligned_types():
         pbuf1 = cast(new_pointer_type(p), pbuf + 1)
         pbuf1[0] = num
         assert pbuf1[0] == num
-        assert buf[0] == '\x00'
-        assert buf[1 + size] == '\x00'
+        assert buf[0] == b'\x00'
+        assert buf[1 + size] == b'\x00'

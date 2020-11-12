@@ -355,14 +355,15 @@ class AppTestFfi:
         A = _rawffi.Array('u')
         a = A(6, u'\u1234')
         assert a[0] == u'\u1234'
-        a[0] = u'\U00012345'
-        assert a[0] == u'\U00012345'
         a[0] = u'\ud800'
         assert a[0] == u'\ud800'
-        B = _rawffi.Array('i')
-        b = B.fromaddress(a.itemaddress(0), 1)
-        b[0] = 0xffffffff
-        raises(ValueError, "a[0]")
+        if _rawffi.sizeof('u') == 4:
+            a[0] = u'\U00012345'
+            assert a[0] == u'\U00012345'
+            B = _rawffi.Array('i')
+            b = B.fromaddress(a.itemaddress(0), 1)
+            b[0] = 0xffffffff
+            raises(ValueError, "a[0]")
         a.free()
 
     def test_returning_unicode(self):
@@ -911,7 +912,7 @@ class AppTestFfi:
         a[2] = u'z'
         assert a[0] == u'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
-        if sys.maxunicode > 65535:
+        if _rawffi.sizeof('u') == 4:
             # UCS4 build
             if sys.byteorder == 'big':
                 assert b[0:8] == b'\x00\x00\x00x\x00\x00\x00y'
@@ -919,7 +920,8 @@ class AppTestFfi:
                 assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
-            assert b[0:2] == b'x\x00y'
+            print(b[0:4])
+            assert b[0:4] == b'x\x00y\x00'
         a.free()
 
     def test_truncate(self):
@@ -1240,11 +1242,12 @@ class AppTestFfi:
         u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
         assert u == u'\u1234'
         arg[0] = -1
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
-        arg[0] = 0x110000
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        if _rawffi.sizeof('u') == 4:
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+            arg[0] = 0x110000
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
         arg.free()
 
 

@@ -117,11 +117,15 @@ class Darwin(posix.BasePosix):
 
 class Darwin_PowerPC(Darwin):#xxx fixme, mwp
     name = "darwin_powerpc"
+    link_flags = Darwin.link_flags + ('-arch', 'ppc')
+    cflags = Darwin.cflags + ('-arch', 'ppc')
 
 class Darwin_i386(Darwin):
     name = "darwin_i386"
-    DEFAULT_CC = 'clang -arch i386'
+    link_flags = Darwin.link_flags + ('-arch', 'i386')
+    cflags = Darwin.cflags + ('-arch', 'i386')
 
 class Darwin_x86_64(Darwin):
     name = "darwin_x86_64"
-    DEFAULT_CC = 'clang -arch x86_64'
+    link_flags = Darwin.link_flags + ('-arch', 'x86_64')
+    cflags = Darwin.cflags + ('-arch', 'x86_64')

@@ -1898,6 +1898,16 @@ test_generators just happened to be the test that drew these out.
 
 """
 
+crash_test = """
+>>> def foo(): yield
+>>> gen = foo()
+>>> gen.next()
+>>> print gen.gi_frame.f_restricted  # This would segfault.
+False
+
+"""
+
+
 __test__ = {"tut":      tutorial_tests,
             "pep":      pep_tests,
             "email":    email_tests,
@@ -1907,6 +1917,7 @@ __test__ = {"tut":      tutorial_tests,
             "weakref":  weakref_tests,
             "coroutine":  coroutine_tests,
             "refleaks": refleaks_tests,
+            "crash": crash_test,
             }
 
 # Magic test name that regrtest.py invokes *after* importing this module.

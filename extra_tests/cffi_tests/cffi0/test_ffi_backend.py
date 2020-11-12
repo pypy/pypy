@@ -180,6 +180,7 @@ class TestBitfield:
         setters = ['case %d: s.%s = value; break;' % iname
                    for iname in enumerate(fnames)]
         lib = ffi1.verify("""
+            #include <string.h>
             struct s1 { %s };
             struct sa { char a; struct s1 b; };
             #define Gofs_y  offsetof(struct s1, y)
