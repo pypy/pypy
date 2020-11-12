@@ -599,7 +599,8 @@ class __extend__(annmodel.SomeUnicodeCodePoint):
 
 
 class __extend__(pairtype(AbstractStringRepr, Repr)):
-    def rtype_mod((r_str, _), hop):
+    def rtype_mod(args, hop):
+        r_str, _ = args
         # for the case where the 2nd argument is a tuple, see the
         # overriding rtype_mod() below
         return r_str.ll.do_stringformat(hop, [(hop.args_v[1], hop.args_r[1])])
@@ -612,7 +613,8 @@ class __extend__(pairtype(AbstractStringRepr, FloatRepr)):
 
 
 class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
-    def rtype_getitem((r_str, r_int), hop, checkidx=False):
+    def rtype_getitem(args, hop, checkidx=False):
+        r_str, r_int = args
         string_repr = r_str.repr
         v_str, v_index = hop.inputargs(string_repr, Signed)
         if checkidx:
@@ -631,17 +633,20 @@ class __extend__(pairtype(AbstractStringRepr, IntegerRepr)):
             hop.exception_cannot_occur()
         return hop.gendirectcall(llfn, v_str, v_index)
 
-    def rtype_getitem_idx((r_str, r_int), hop):
+    def rtype_getitem_idx(args, hop):
+        r_str, r_int = args
         return pair(r_str, r_int).rtype_getitem(hop, checkidx=True)
 
-    def rtype_mul((r_str, r_int), hop):
+    def rtype_mul(args, hop):
+        r_str, r_int = args
         str_repr = r_str.repr
         v_str, v_int = hop.inputargs(str_repr, Signed)
         return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
     rtype_inplace_mul = rtype_mul
 
 class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
-    def rtype_mul((r_int, r_str), hop):
+    def rtype_mul(args, hop):
+        r_int, r_str = args
         str_repr = r_str.repr
         v_int, v_str = hop.inputargs(Signed, str_repr)
         return hop.gendirectcall(r_str.ll.ll_str_mul, v_str, v_int)
@@ -649,7 +654,8 @@ class __extend__(pairtype(IntegerRepr, AbstractStringRepr)):
 
 
 class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
-    def rtype_add((r_str1, r_str2), hop):
+    def rtype_add(args, hop):
+        r_str1, r_str2 = args
         str1_repr = r_str1.repr
         str2_repr = r_str2.repr
         if hop.s_result.is_constant():
@@ -658,40 +664,47 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
         return hop.gendirectcall(r_str1.ll.ll_strconcat, v_str1, v_str2)
     rtype_inplace_add = rtype_add
 
-    def rtype_eq((r_str1, r_str2), hop):
+    def rtype_eq(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         return hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
 
-    def rtype_ne((r_str1, r_str2), hop):
+    def rtype_ne(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_streq, v_str1, v_str2)
         return hop.genop('bool_not', [vres], resulttype=Bool)
 
-    def rtype_lt((r_str1, r_str2), hop):
+    def rtype_lt(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_lt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
-    def rtype_le((r_str1, r_str2), hop):
+    def rtype_le(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_le', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
-    def rtype_ge((r_str1, r_str2), hop):
+    def rtype_ge(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_ge', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
-    def rtype_gt((r_str1, r_str2), hop):
+    def rtype_gt(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         vres = hop.gendirectcall(r_str1.ll.ll_strcmp, v_str1, v_str2)
         return hop.genop('int_gt', [vres, hop.inputconst(Signed, 0)],
                          resulttype=Bool)
 
-    def rtype_contains((r_str1, r_str2), hop):
+    def rtype_contains(args, hop):
+        r_str1, r_str2 = args
         v_str1, v_str2 = hop.inputargs(r_str1.repr, r_str2.repr)
         v_end = hop.gendirectcall(r_str1.ll.ll_strlen, v_str1)
         vres = hop.gendirectcall(r_str1.ll.ll_find, v_str1, v_str2,
@@ -703,7 +716,8 @@ class __extend__(pairtype(AbstractStringRepr, AbstractStringRepr)):
 
 class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
                  pairtype(AbstractUnicodeRepr, AbstractUniCharRepr)):
-    def rtype_contains((r_str, r_chr), hop):
+    def rtype_contains(args, hop):
+        r_str, r_chr = args
         string_repr = r_str.repr
         char_repr = r_chr.char_repr
         v_str, v_chr = hop.inputargs(string_repr, char_repr)
@@ -714,7 +728,8 @@ class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr),
 class __extend__(pairtype(AbstractCharRepr, IntegerRepr),
                  pairtype(AbstractUniCharRepr, IntegerRepr)):
 
-    def rtype_mul((r_chr, r_int), hop):
+    def rtype_mul(args, hop):
+        r_chr, r_int = args
         char_repr = r_chr.char_repr
         v_char, v_int = hop.inputargs(char_repr, Signed)
         return hop.gendirectcall(r_chr.ll.ll_char_mul, v_char, v_int)
@@ -722,7 +737,8 @@ class __extend__(pairtype(AbstractCharRepr, IntegerRepr),
 
 class __extend__(pairtype(IntegerRepr, AbstractCharRepr),
                  pairtype(IntegerRepr, AbstractUniCharRepr)):
-    def rtype_mul((r_int, r_chr), hop):
+    def rtype_mul(args, hop):
+        r_int, r_chr = args
         char_repr = r_chr.char_repr
         v_int, v_char = hop.inputargs(Signed, char_repr)
         return hop.gendirectcall(r_chr.ll.ll_char_mul, v_char, v_int)
@@ -795,7 +811,8 @@ def _rtype_unchr_compare_template_ord(hop, func):
 
 class __extend__(pairtype(AbstractCharRepr, AbstractStringRepr),
                  pairtype(AbstractUniCharRepr, AbstractUnicodeRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         from rpython.rtyper.lltypesystem.rstr import (
             string_repr, unicode_repr, char_repr, unichar_repr)
         if (r_from == char_repr and r_to == string_repr) or\
@@ -804,7 +821,8 @@ class __extend__(pairtype(AbstractCharRepr, AbstractStringRepr),
         return NotImplemented
 
 class __extend__(pairtype(AbstractStringRepr, AbstractCharRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         from rpython.rtyper.lltypesystem.rstr import string_repr, char_repr
         if r_from == string_repr and r_to == char_repr:
             c_zero = inputconst(Signed, 0)

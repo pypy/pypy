@@ -1033,7 +1033,8 @@ class InstanceRepr(Repr):
 
 
 class __extend__(pairtype(InstanceRepr, InstanceRepr)):
-    def convert_from_to((r_ins1, r_ins2), v, llops):
+    def convert_from_to(args, v, llops):
+        r_ins1, r_ins2 = args
         # which is a subclass of which?
         if r_ins1.classdef is None or r_ins2.classdef is None:
             basedef = None
@@ -1054,7 +1055,8 @@ class __extend__(pairtype(InstanceRepr, InstanceRepr)):
         else:
             return NotImplemented
 
-    def rtype_is_((r_ins1, r_ins2), hop):
+    def rtype_is_(args, hop):
+        r_ins1, r_ins2 = args
         if r_ins1.gcflavor != r_ins2.gcflavor:
             # obscure logic, the is can be true only if both are None
             v_ins1, v_ins2 = hop.inputargs(
@@ -1105,7 +1107,8 @@ def fishllattr(inst, name, default=_missing):
                              (lltype.typeOf(widest), name))
     return default
 
-def attr_reverse_size((_, T)):
+def attr_reverse_size(args):
+    _, T = args
     # This is used to sort the instance or class attributes by decreasing
     # "likely size", as reported by rffi.sizeof(), to minimize padding
     # holes in C.  Fields should first be sorted by name, just to minimize

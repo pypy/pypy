@@ -118,14 +118,16 @@ class PtrRepr(Repr):
 
 
 class __extend__(pairtype(PtrRepr, PtrRepr)):
-    def convert_from_to((r_ptr1, r_ptr2), v, llop):
+    def convert_from_to(args, v, llop):
+        r_ptr1, r_ptr2 = args
         if r_ptr1.lowleveltype == r_ptr2.lowleveltype:
             return v
         return NotImplemented
 
 class __extend__(pairtype(PtrRepr, IntegerRepr)):
 
-    def rtype_getitem((r_ptr, r_int), hop):
+    def rtype_getitem(args, hop):
+        r_ptr, r_int = args
         ARRAY = r_ptr.lowleveltype.TO
         ITEM_TYPE = ARRAY.OF
         if isinstance(ITEM_TYPE, lltype.ContainerType):
@@ -150,7 +152,8 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
         return hop.genop(newopname, vlist,
                          resulttype = hop.r_result.lowleveltype)
 
-    def rtype_setitem((r_ptr, r_int), hop):
+    def rtype_setitem(args, hop):
+        r_ptr, r_int = args
         ARRAY = r_ptr.lowleveltype.TO
         ITEM_TYPE = ARRAY.OF
         assert not isinstance(ITEM_TYPE, lltype.ContainerType)
@@ -164,22 +167,26 @@ class __extend__(pairtype(PtrRepr, IntegerRepr)):
 
 class __extend__(pairtype(PtrRepr, Repr)):
 
-    def rtype_eq((r_ptr, r_any), hop):
+    def rtype_eq(args, hop):
+        r_ptr, r_any = args
         vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_eq', vlist, resulttype=lltype.Bool)
 
-    def rtype_ne((r_ptr, r_any), hop):
+    def rtype_ne(args, hop):
+        r_ptr, r_any = args
         vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_ne', vlist, resulttype=lltype.Bool)
 
 
 class __extend__(pairtype(Repr, PtrRepr)):
 
-    def rtype_eq((r_any, r_ptr), hop):
+    def rtype_eq(args, hop):
+        r_any, r_ptr = args
         vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_eq', vlist, resulttype=lltype.Bool)
 
-    def rtype_ne((r_any, r_ptr), hop):
+    def rtype_ne(args, hop):
+        r_any, r_ptr = args
         vlist = hop.inputargs(r_ptr, r_ptr)
         return hop.genop('ptr_ne', vlist, resulttype=lltype.Bool)
 
@@ -212,7 +219,8 @@ class LLADTMethRepr(Repr):
 
 class __extend__(pairtype(PtrRepr, LLADTMethRepr)):
 
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.lowleveltype == r_to.lowleveltype:
             return v
         return NotImplemented
@@ -299,7 +307,8 @@ class InteriorPtrRepr(Repr):
 
 
 class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
-    def rtype_getitem((r_ptr, r_item), hop):
+    def rtype_getitem(args, hop):
+        r_ptr, r_item = args
         ARRAY = r_ptr.resulttype.TO
         ITEM_TYPE = ARRAY.OF
         if isinstance(ITEM_TYPE, lltype.ContainerType):
@@ -320,7 +329,8 @@ class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
             return hop.genop('getinteriorfield', vlist,
                              resulttype=ITEM_TYPE)
 
-    def rtype_setitem((r_ptr, r_index), hop):
+    def rtype_setitem(args, hop):
+        r_ptr, r_index = args
         ARRAY = r_ptr.resulttype.TO
         ITEM_TYPE = ARRAY.OF
         assert not isinstance(ITEM_TYPE, lltype.ContainerType)
@@ -330,14 +340,16 @@ class __extend__(pairtype(InteriorPtrRepr, IntegerRepr)):
 
 class __extend__(pairtype(InteriorPtrRepr, LLADTMethRepr)):
 
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.lowleveltype == r_to.lowleveltype:
             return v
         return NotImplemented
 
 class __extend__(pairtype(InteriorPtrRepr, InteriorPtrRepr)):
 
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.__dict__ == r_to.__dict__:
             return v
         return NotImplemented

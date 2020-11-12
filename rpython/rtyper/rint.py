@@ -192,7 +192,8 @@ unsignedlonglonglong_repr = getintegerrepr(UnsignedLongLongLong, 'ulllong_')
 
 class __extend__(pairtype(IntegerRepr, IntegerRepr)):
 
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.lowleveltype == Signed and r_to.lowleveltype == Unsigned:
             log.debug('explicit cast_int_to_uint')
             return llops.genop('cast_int_to_uint', [v], resulttype=Unsigned)
@@ -636,7 +637,8 @@ def ll_check_unichr(n):
 # _________________________ Conversions _________________________
 
 class __extend__(pairtype(IntegerRepr, FloatRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.lowleveltype == Unsigned and r_to.lowleveltype == Float:
             log.debug('explicit cast_uint_to_float')
             return llops.genop('cast_uint_to_float', [v], resulttype=Float)
@@ -652,7 +654,8 @@ class __extend__(pairtype(IntegerRepr, FloatRepr)):
         return NotImplemented
 
 class __extend__(pairtype(FloatRepr, IntegerRepr)):
-    def convert_from_to((r_from, r_to), v, llops):
+    def convert_from_to(args, v, llops):
+        r_from, r_to = args
         if r_from.lowleveltype == Float and r_to.lowleveltype == Unsigned:
             log.debug('explicit cast_float_to_uint')
             return llops.genop('cast_float_to_uint', [v], resulttype=Unsigned)
