@@ -58,14 +58,16 @@ def _get_hg_version(hgexe, root):
         return default_retval
 
     p = Popen([str(hgexe), 'id', '-i', root],
-              stdout=PIPE, stderr=PIPE, env=env)
+              stdout=PIPE, stderr=PIPE, env=env,
+              universal_newlines=True)
     hgid = p.stdout.read().strip()
     if p.wait() != 0:
         maywarn(p.stderr.read())
         hgid = '?'
 
     p = Popen([str(hgexe), 'id', '-t', root],
-              stdout=PIPE, stderr=PIPE, env=env)
+              stdout=PIPE, stderr=PIPE, env=env,
+              universal_newlines=True)
     hgtags = [t for t in p.stdout.read().strip().split() if t != 'tip']
     if p.wait() != 0:
         maywarn(p.stderr.read())
@@ -76,7 +78,8 @@ def _get_hg_version(hgexe, root):
     else:
         # use the branch instead
         p = Popen([str(hgexe), 'id', '-b', root],
-                  stdout=PIPE, stderr=PIPE, env=env)
+                  stdout=PIPE, stderr=PIPE, env=env,
+                  universal_newlines=True)
         hgbranch = p.stdout.read().strip()
         if p.wait() != 0:
             maywarn(p.stderr.read())
@@ -106,7 +109,8 @@ def _get_git_version(root):
     try:
         p = Popen(
             [str(gitexe), 'rev-parse', 'HEAD'],
-            stdout=PIPE, stderr=PIPE, cwd=root
+            stdout=PIPE, stderr=PIPE, cwd=root,
+            universal_newlines=True,
             )
     except OSError as e:
         maywarn(e, 'Git')
@@ -117,12 +121,13 @@ def _get_git_version(root):
     revision_id = p.stdout.read().strip()[:12]
     p = Popen(
         [str(gitexe), 'describe', '--tags', '--exact-match'],
-        stdout=PIPE, stderr=PIPE, cwd=root
+        stdout=PIPE, stderr=PIPE, cwd=root,
+        universal_newlines=True,
         )
     if p.wait() != 0:
         p = Popen(
             [str(gitexe), 'branch'], stdout=PIPE, stderr=PIPE,
-            cwd=root
+            cwd=root, universal_newlines=True,
             )
         if p.wait() != 0:
             maywarn(p.stderr.read(), 'Git')
