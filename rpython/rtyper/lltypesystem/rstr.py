@@ -19,6 +19,11 @@ from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
     AbstractUnicodeRepr)
 from rpython.tool.sourcetools import func_with_new_name
 
+import sys
+
+if sys.version_info > (3, 0):
+    basestring = str
+
 # ____________________________________________________________
 #
 #  Concrete implementation of RPython strings:

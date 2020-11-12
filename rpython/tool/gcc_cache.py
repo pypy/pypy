@@ -10,7 +10,7 @@ def cache_file_path(c_files, eci, cachename):
     cache_dir = cache_root.join(cachename).ensure(dir=1)
     filecontents = [c_file.read() for c_file in c_files]
     key = repr((filecontents, eci, platform.key()))
-    hash = md5(key).hexdigest()
+    hash = md5(key.encode()).hexdigest()
     return cache_dir.join(hash)
 
 def build_executable_cache(c_files, eci, ignore_errors=False):
