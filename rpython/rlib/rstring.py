@@ -12,6 +12,8 @@ from rpython.rlib.unicodedata import unicodedb_5_2_0 as unicodedb
 from rpython.rtyper.extregistry import ExtRegistryEntry
 from rpython.tool.pairtype import pairtype
 
+if sys.version_info >= (3, 0):
+    unicode = str
 
 # -------------- public API for string functions -----------------------
 

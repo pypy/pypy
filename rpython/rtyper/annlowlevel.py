@@ -15,6 +15,10 @@ from rpython.flowspace.model import Constant
 from rpython.rlib.objectmodel import specialize
 from rpython.rtyper import extregistry
 from rpython.rtyper.rmodel import warning
+import sys
+
+if sys.version_info > (3, 0):
+    unicode = str
 
 
 class KeyComp(object):

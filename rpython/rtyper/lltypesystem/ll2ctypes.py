@@ -14,6 +14,9 @@ if sys.version_info >= (2, 6):
 else:
     load_library_kwargs = {}
 
+if sys.version_info >= (3, 0):
+    long = int
+
 import os, platform as host_platform
 from rpython.rtyper.lltypesystem import lltype, llmemory
 from rpython.rtyper.extfunc import ExtRegistryEntry

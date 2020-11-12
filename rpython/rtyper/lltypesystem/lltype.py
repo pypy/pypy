@@ -16,6 +16,10 @@ from rpython.tool.identity_dict import identity_dict
 
 if sys.version_info >= (3, 0):
     unichr = chr
+    int_types = (int,)
+    unicode = str
+else:
+    int_types = (int, long)
 
 class State(object):
     pass
@@ -817,9 +821,7 @@ def typeOf(val):
             raise UninitializedMemoryAccess("typeOf uninitialized value")
         if tp is type(None):
             return Void   # maybe
-        if tp is int:
-            return Signed
-        if tp is long:
+        if type(tp) in int_types:
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
