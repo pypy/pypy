@@ -129,7 +129,7 @@ class Platform(object):
         for varname in self.relevant_environ:
             bits.append('%s=%r' % (varname, os.environ.get(varname)))
         # adding sys.maxint to disambiguate windows
-        bits.append('%s=%r' % ('sys.maxint', sys.maxint))
+        bits.append('%s=%r' % ('sys.maxint', sys.maxsize))
         return ' '.join(bits)
 
     # some helpers which seem to be cross-platform enough
