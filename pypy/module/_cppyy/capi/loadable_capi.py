@@ -16,6 +16,7 @@ from pypy.module._rawffi.interp_array import W_ArrayInstance
 from pypy.module._cffi_backend import ctypefunc, cdataobj, misc
 from pypy.module._cffi_backend import newtype
 from pypy.module._cppyy import ffitypes
+from pypy.module.sys.version import PYPY_VERSION
 
 from pypy.module._cppyy.capi.capi_types import C_SCOPE, C_TYPE, C_OBJECT,\
    C_METHOD, C_INDEX, C_INDEX_ARRAY, C_FUNC_PTR
@@ -388,8 +389,8 @@ def load_backend(space):
                     fullname = backend_library+backend_ext
                 state.backend = W_Library(space, space.newtext(fullname), dldflags)
             except Exception as e:
-                # TODO: where to find the value '.pypy-41'? Note that this only matters for testing.
-                state.backend = W_Library(space, space.newtext(backend_library+'.pypy-41'+backend_ext), dldflags)
+                soabi = 'pypy-%d%d' % PYPY_VERSION[:2]
+                state.backend = W_Library(space, space.newtext(backend_library+soabi+backend_ext), dldflags)
 
         if state.backend:
             # fix constants
