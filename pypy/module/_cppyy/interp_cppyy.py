@@ -1395,7 +1395,7 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             ftype = ftype_tmp[pyname]
             CPPMethodSort(methods).sort()
             if ftype & FUNCTION_IS_CONSTRUCTOR:
-                if capi.c_is_abstract(self.space, self.handle):
+                if capi.c_is_abstract(self.space, self):
                     overload = W_CPPAbstractCtorOverload(self.space, self, methods[:])
                 else:
                     overload = W_CPPConstructorOverload(self.space, self, methods[:])
@@ -1597,7 +1597,7 @@ class W_CPPInstance(W_Root):
             return self._rawobject
         elif self.smartdecl and self.deref:
             args = capi.c_allocate_function_args(self.space, 0)
-            rawptr = capi.c_call_l(self.space, self.deref, self._rawobject, 0, args)
+            rawptr = capi.c_call_r(self.space, self.deref, self._rawobject, 0, args)
             capi.c_deallocate_function_args(self.space, args)
             return rffi.cast(capi.C_OBJECT, rawptr)
         else:
@@ -1635,7 +1635,7 @@ class W_CPPInstance(W_Root):
                 nss = scope_byname(self.space, name)
                 meth_idx = capi.c_get_global_operator(
                     self.space, nss, self.clsdecl, other.clsdecl, "operator==")
-                if meth_idx != -1:
+                if meth_idx != rffi.cast(capi.C_INDEX, -1):
                     funcs = []
                     cppmeth = capi.c_get_method(self.space, nss, meth_idx)
                     nss._make_cppfunction("operator==", cppmeth, funcs)
