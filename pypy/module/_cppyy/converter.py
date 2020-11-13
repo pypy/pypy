@@ -607,7 +607,7 @@ class InstancePtrConverter(InstanceRefConverter):
     def from_memory(self, space, w_obj, offset):
         address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
         from pypy.module._cppyy import interp_cppyy
-        return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
+        return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False, is_ref=True)
 
 class InstancePtrPtrConverter(InstancePtrConverter):
     typecode = 'o'
