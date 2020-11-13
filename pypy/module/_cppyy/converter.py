@@ -653,7 +653,7 @@ class InstancePtrPtrConverter(InstancePtrConverter):
             memory_regulator.register(cppinstance)
         else:
             raise oefmt(space.w_TypeError,
-                "cannot pass %T instance as %s", w_value, self.clsdecl.name)
+                        "cannot pass %T instance as %s", w_value, self.clsdecl.name)
 
     def finalize_call(self, space, w_obj):
         if self.ref_buffer:
@@ -1001,8 +1001,8 @@ _converters["void*"]                    = VoidPtrConverter
 _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
-# special cases (note: 'string' aliases added below)
-_converters["std::string"]                       = StdStringConverter
+# special cases (note: 'std::string' aliases added below)
+_converters["std::basic_string<char>"]           = StdStringConverter
 _converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
 _converters["std::basic_string<char>&"]          = StdStringRefConverter
 _converters["std::basic_string<char>&&"]         = StdStringMoveConverter
@@ -1126,11 +1126,10 @@ def _add_aliased_converters():
     aliases = (
         ("const char*",                     "char*"),
 
-        ("std::string",                     "string"),
-        ("std::string",                     "std::basic_string<char>"),
-        ("const std::basic_string<char>&",  "const string&"),
-        ("std::basic_string<char>&",        "string&"),
-        ("std::basic_string<char>&&",       "string&&"),
+        ("std::basic_string<char>",         "std::string"),
+        ("const std::basic_string<char>&",  "const std::string&"),
+        ("std::basic_string<char>&",        "std::string&"),
+        ("std::basic_string<char>&&",       "std::string&&"),
 
         ("PyObject*",                       "_object*"),
     )
