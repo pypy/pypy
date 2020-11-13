@@ -162,37 +162,28 @@ class LongDoubleRefExecutor(ffitypes.typeid(rffi.LONGDOUBLE), LongDoubleRefExecu
 
 class CStringExecutor(Executor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        ccpresult = rffi.cast(rffi.CCHARP, lresult)
-        if ccpresult == rffi.cast(rffi.CCHARP, 0):
+        vptr = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        ccp = rffi.cast(rffi.CCHARP, vptr)
+        if ccp == rffi.cast(rffi.CCHARP, 0):
             return space.newbytes("")
-        result = rffi.charp2str(ccpresult)   # TODO: make it a choice to free
+        result = rffi.charp2str(ccp)   # TODO: make it a choice to free
         return space.newbytes(result)
 
-class WCharExecutor(Executor):
-    def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = rffi.cast(rffi.WCHAR_T, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
-        u = rffi.cast(lltype.UniChar, result)
-        return W_UnicodeObject(u.encode('utf8'), 1)
-
-    def execute_libffi(self, space, cif_descr, funcaddr, buf):
-        jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
-        result = rffi.ptradd(buf, cif_descr.exchange_result)
-        u = rffi.cast(lltype.UniChar, rffi.cast(rffi.CWCHARP, result)[0])
-        return W_UnicodeObject(u.encode('utf8'), 1)
 
 class CharNExecutor(object):
     _mixin_ = True
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        result = rffi.cast(self.c_type, capi.c_call_l(space, cppmethod, cppthis, num_args, args))
-        u = rffi.cast(lltype.UniChar, result)
-        return W_UnicodeObject(u.encode('utf8'), 1)
+        lres = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
+        return self._wrap_object(space, lres)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
-        result = rffi.ptradd(buf, cif_descr.exchange_result)
-        u = rffi.cast(lltype.UniChar, rffi.cast(self.c_ptrtype, result)[0])
-        return W_UnicodeObject(u.encode('utf8'), 1)
+        vptr = rffi.ptradd(buf, cif_descr.exchange_result)
+        lres = rffi.cast(rffi.LONG, rffi.cast(rffi.LONGP, vptr)[0])
+        return self._wrap_object(space, lres)
+
+class WCharExecutor(ffitypes.typeid(lltype.UniChar), CharNExecutor, Executor):
+    pass
 
 class Char16Executor(ffitypes.typeid(ffitypes.CHAR16_T), CharNExecutor, Executor):
     pass
@@ -239,8 +230,8 @@ class InstancePtrExecutor(InstanceExecutor):
         return interp_cppyy.wrap_cppinstance(space, obj, self.clsdecl)
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
-        lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, lresult))
+        vptr = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, vptr))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
@@ -253,8 +244,8 @@ class InstancePtrPtrExecutor(InstancePtrExecutor):
 
     def execute(self, space, cppmethod, cppthis, num_args, args):
         presult = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
-        ref = rffi.cast(rffi.VOIDPP, presult)
-        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, ref[0]))
+        vref = rffi.cast(rffi.VOIDPP, presult)
+        return self._wrap_result(space, rffi.cast(capi.C_OBJECT, vref[0]))
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         from pypy.module._cppyy.interp_cppyy import FastCallNotPossible
@@ -324,15 +315,15 @@ class PyObjectExecutor(PtrTypeExecutor):
     def execute(self, space, cppmethod, cppthis, num_args, args):
         if hasattr(space, "fake"):
             raise NotImplementedError
-        lresult = capi.c_call_l(space, cppmethod, cppthis, num_args, args)
-        return self.wrap_result(space, lresult)
+        vptr = capi.c_call_r(space, cppmethod, cppthis, num_args, args)
+        return self.wrap_result(space, vptr)
 
     def execute_libffi(self, space, cif_descr, funcaddr, buf):
         if hasattr(space, "fake"):
             raise NotImplementedError
         jit_libffi.jit_ffi_call(cif_descr, funcaddr, buf)
         result = rffi.ptradd(buf, cif_descr.exchange_result)
-        return self.wrap_result(space, rffi.cast(rffi.LONGP, result)[0])
+        return self.wrap_result(space, rffi.cast(rffi.VOIDPP, result)[0])
 
 
 class SmartPointerExecutor(InstanceExecutor):
