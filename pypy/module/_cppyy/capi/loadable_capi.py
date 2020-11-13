@@ -389,7 +389,7 @@ def load_backend(space):
                     fullname = backend_library+backend_ext
                 state.backend = W_Library(space, space.newtext(fullname), dldflags)
             except Exception as e:
-                soabi = 'pypy-%d%d' % PYPY_VERSION[:2]
+                soabi = '.pypy-%d%d' % PYPY_VERSION[:2]
                 state.backend = W_Library(space, space.newtext(backend_library+soabi+backend_ext), dldflags)
 
         if state.backend:
@@ -741,7 +741,7 @@ def c_datamember_name(space, cppscope, datamember_index):
     return charp2str_free(space, call_capi(space, 'datamember_name', args))
 def c_datamember_type(space, cppscope, datamember_index):
     args = [_ArgC(cppscope), _ArgI(datamember_index)]
-    return  charp2str_free(space, call_capi(space, 'datamember_type', args))
+    return charp2str_free(space, call_capi(space, 'datamember_type', args))
 def c_datamember_offset(space, cppscope, datamember_index):
     args = [_ArgC(cppscope), _ArgI(datamember_index)]
     return _cdata_to_intptr_t(space, call_capi(space, 'datamember_offset', args))
