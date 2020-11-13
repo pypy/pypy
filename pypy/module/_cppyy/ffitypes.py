@@ -160,7 +160,9 @@ class WCharTypeMixin(object):
     c_ptrtype   = rffi.CWCHARP
 
     def _wrap_object(self, space, obj):
-        return W_UnicodeObject(obj.encode('utf8'), 1)
+        result = rffi.cast(self.c_type, obj)
+        u = rffi.cast(lltype.UniChar, result)
+        return W_UnicodeObject(u.encode('utf8'), 1)
 
     def _unwrap_object(self, space, w_value):
         utf8, length = space.utf8_len_w(space.unicode_from_object(w_value))
