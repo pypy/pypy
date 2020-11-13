@@ -562,6 +562,8 @@ complex_t            CppyyTestData::s_complex  = {909., -909.};
 icomplex_t           CppyyTestData::s_icomplex = {979, -979};
 CppyyTestData::EWhat CppyyTestData::s_enum     = CppyyTestData::kNothing;
 void*                CppyyTestData::s_voidp    = (void*)0;
+std::string          CppyyTestData::s_strv     = "Hello";
+std::string*         CppyyTestData::s_strp     = nullptr;
 
 //- strings -----------------------------------------------------------------
 const char*     CppyyTestData::get_valid_string(const char* in) { return in; }
@@ -780,3 +782,20 @@ void StoreCallable_sf::set_callable(const std::function<double(double, double)>&
 double StoreCallable_sf::operator()(double d1, double d2) {
     return fF(d1, d2);
 }
+
+
+//= array of C strings passing ==============================================
+std::vector<std::string> ArrayOfCStrings::takes_array_of_cstrings(const char* args[], int len)
+{
+    std::vector<std::string> v;
+    v.reserve(len);
+    for (int i = 0; i < len; ++i)
+        v.emplace_back(args[i]);
+
+    return v;
+}
+
+
+//= aggregate testing ======================================================
+int AggregateTest::Aggregate1::sInt = 17;
+int AggregateTest::Aggregate2::sInt = 27;

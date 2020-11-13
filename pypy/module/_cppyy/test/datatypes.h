@@ -1,17 +1,12 @@
 #ifndef CPPYY_TEST_DATATYPES_H
 #define CPPYY_TEST_DATATYPES_H
 
-#ifndef CPPYY_DUMMY_BACKEND
-#include "RtypesCore.h"
+#ifdef _WIN32
+typedef __int64          Long64_t;
+typedef unsigned __int64 ULong64_t;
 #else
-// copied from RtypesCore.h ...
-#if defined(R__WIN32) && !defined(__CINT__)
-typedef __int64          Long64_t;  //Portable signed long integer 8 bytes
-typedef unsigned __int64 ULong64_t; //Portable unsigned long integer 8 bytes
-#else
-typedef long long          Long64_t; //Portable signed long integer 8 bytes
-typedef unsigned long long ULong64_t;//Portable unsigned long integer 8 bytes
-#endif
+typedef long long          Long64_t;
+typedef unsigned long long ULong64_t;
 #endif
 #include <cstddef>
 #include <cstdint>
@@ -543,6 +538,8 @@ public:
     static icomplex_t              s_icomplex;
     static EWhat                   s_enum;
     static void*                   s_voidp;
+    static std::string             s_strv;
+    static std::string*            s_strp;
 
 private:
     bool m_owns_arrays;
@@ -703,6 +700,7 @@ public:
     double operator()(double, double);
 };
 
+
 //= array of struct variants ================================================
 namespace ArrayOfStruct {
 
@@ -726,5 +724,26 @@ struct Bar2 {
 };
 
 } // namespace ArrayOfStruct
+
+
+//= array of C strings passing ==============================================
+namespace ArrayOfCStrings {
+    std::vector<std::string> takes_array_of_cstrings(const char* args[], int len);
+}
+
+
+//= aggregate testing ======================================================
+namespace AggregateTest {
+
+struct Aggregate1 {
+   static int sInt;
+};
+
+struct Aggregate2 {
+   static int sInt;
+   int fInt = 42;
+};
+
+}
 
 #endif // !CPPYY_TEST_DATATYPES_H
