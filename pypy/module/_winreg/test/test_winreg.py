@@ -58,8 +58,6 @@ class AppTestFfi:
         try:
             _winreg.DeleteKey(cls.root_key, cls.test_key_name)
         except WindowsError as e:
-            print('could not delete key')
-            print(str(e))
             pass
 
     def test_constants(self):

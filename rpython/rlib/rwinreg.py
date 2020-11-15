@@ -49,71 +49,75 @@ PHKEY = rffi.CArrayPtr(HKEY)
 REGSAM = rwin32.DWORD
 
 def get_traits(suffix):
+    if suffix == 'A':
+        strp = rffi.CCHARP
+    else:
+        strp = rffi.CWCHARP
     RegSetValue = external(
         'RegSetValue' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
+        [HKEY, strp, rwin32.DWORD, strp, rwin32.DWORD],
         rffi.LONG)
 
     RegSetValueEx = external(
         'RegSetValueEx' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.DWORD,
-         rwin32.DWORD, rffi.CCHARP, rwin32.DWORD],
+        [HKEY, strp, rwin32.DWORD,
+         rwin32.DWORD, strp, rwin32.DWORD],
         rffi.LONG)
 
     RegQueryValue = external(
         'RegQueryValue' + suffix,
-        [HKEY, rffi.CCHARP, rffi.CCHARP, rwin32.PLONG],
+        [HKEY, strp, strp, rwin32.PLONG],
         rffi.LONG)
 
     RegQueryValueEx = external(
         'RegQueryValueEx' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
-         rffi.CCHARP, rwin32.LPDWORD],
+        [HKEY, strp, rwin32.LPDWORD, rwin32.LPDWORD,
+         strp, rwin32.LPDWORD],
         rffi.LONG)
 
     RegCreateKey = external(
         'RegCreateKey' + suffix,
-        [HKEY, rffi.CCHARP, PHKEY],
+        [HKEY, strp, PHKEY],
         rffi.LONG)
 
     RegCreateKeyEx = external(
         'RegCreateKeyEx' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.DWORD, rffi.CCHARP, rwin32.DWORD,
+        [HKEY, strp, rwin32.DWORD, strp, rwin32.DWORD,
          REGSAM, rffi.VOIDP, PHKEY, rwin32.LPDWORD],
         rffi.LONG)
 
     RegDeleteValue = external(
         'RegDeleteValue' + suffix,
-        [HKEY, rffi.CCHARP],
+        [HKEY, strp],
         rffi.LONG)
 
     RegDeleteKey = external(
         'RegDeleteKey' + suffix,
-        [HKEY, rffi.CCHARP],
+        [HKEY, strp],
         rffi.LONG)
 
     RegOpenKeyEx = external(
         'RegOpenKeyEx' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.DWORD, REGSAM, PHKEY],
+        [HKEY, strp, rwin32.DWORD, REGSAM, PHKEY],
         rffi.LONG)
 
     RegEnumValue = external(
         'RegEnumValue' + suffix,
-        [HKEY, rwin32.DWORD, rffi.CCHARP,
+        [HKEY, rwin32.DWORD, strp,
          rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
          rffi.CCHARP, rwin32.LPDWORD],
         rffi.LONG)
 
     RegEnumKeyEx = external(
         'RegEnumKeyEx' + suffix,
-        [HKEY, rwin32.DWORD, rffi.CCHARP,
+        [HKEY, rwin32.DWORD, strp,
          rwin32.LPDWORD, rwin32.LPDWORD,
-         rffi.CCHARP, rwin32.LPDWORD, rwin32.PFILETIME],
+         strp, rwin32.LPDWORD, rwin32.PFILETIME],
         rffi.LONG)
 
     RegQueryInfoKey = external(
         'RegQueryInfoKey' + suffix,
-        [HKEY, rffi.CCHARP, rwin32.LPDWORD, rwin32.LPDWORD,
+        [HKEY, strp, rwin32.LPDWORD, rwin32.LPDWORD,
          rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
          rwin32.LPDWORD, rwin32.LPDWORD, rwin32.LPDWORD,
          rwin32.LPDWORD, rwin32.PFILETIME],
@@ -121,17 +125,17 @@ def get_traits(suffix):
 
     RegLoadKey = external(
         'RegLoadKey' + suffix,
-        [HKEY, rffi.CCHARP, rffi.CCHARP],
+        [HKEY, strp, strp],
         rffi.LONG)
 
     RegSaveKey = external(
         'RegSaveKey' + suffix,
-        [HKEY, rffi.CCHARP, rffi.VOIDP],
+        [HKEY, strp, rffi.VOIDP],
         rffi.LONG)
 
     RegConnectRegistry = external(
         'RegConnectRegistry' + suffix,
-        [rffi.CCHARP, HKEY, PHKEY],
+        [strp, HKEY, PHKEY],
         rffi.LONG)
 
     return (RegSetValue, RegSetValueEx, RegQueryValue, RegQueryValueEx,
