@@ -185,19 +185,18 @@ class State(object):
 
         # TODO: the following need to match up with the globally defined C_XYZ low-level
         # types (see capi/__init__.py), but by using strings here, that isn't guaranteed
-        c_opaque_ptr = state.c_uintptr_t    # not size_t (which is signed)
+        c_voidp      = state.c_voidp
         c_size_t     = state.c_size_t
         c_ptrdiff_t  = state.c_ptrdiff_t
         c_intptr_t   = state.c_intptr_t
-        c_uintptr_t  = state.c_uintptr_t
 
-        c_scope       = c_opaque_ptr
+        c_scope       = c_size_t
         c_type        = c_scope
-        c_enum        = c_opaque_ptr        # not voidp (to stick with one handle type)
-        c_object      = c_opaque_ptr        # id.
-        c_method      = c_uintptr_t         # not intptr_t (which is signed)
+        c_enum        = c_voidp
+        c_object      = c_voidp
+        c_method      = c_intptr_t
         c_index       = c_size_t
-        c_index_array = state.c_voidp
+        c_index_array = c_voidp
 
         c_void    = state.c_void
         c_char    = state.c_char
@@ -211,8 +210,7 @@ class State(object):
         c_double  = state.c_double
         c_ldouble = state.c_ldouble
 
-        c_ccharp = state.c_ccharp
-        c_voidp  = state.c_voidp
+        c_ccharp  = state.c_ccharp
 
         self.capi_call_ifaces = {
             # direct interpreter access
@@ -319,7 +317,7 @@ class State(object):
             'is_templated_constructor' : ([c_scope, c_index],         c_int),
             'exists_method_template'   : ([c_scope, c_ccharp],        c_int),
             'method_is_template'       : ([c_scope, c_index],         c_int),
-            'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],        c_method),
+            'get_method_template'      : ([c_scope, c_ccharp, c_ccharp],           c_method),
 
             'get_global_operator'      : ([c_scope, c_scope, c_scope, c_ccharp],   c_index),
 
@@ -426,8 +424,16 @@ def call_capi(space, name, args):
     with c_call as ptr:
         return c_call.ctype.rcall(ptr, args)
 
+def _cdata_to_ptr(space, w_cdata):
+    w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
+    with w_cdata as ptr:
+        return rffi.cast(rffi.VOIDP, ptr)   # escapes (is okay)
+
 def _cdata_to_cobject(space, w_cdata):
-    return rffi.cast(C_OBJECT, space.uint_w(w_cdata))
+    ptr = _cdata_to_ptr(space, w_cdata)
+    return rffi.cast(C_OBJECT, ptr)
+
+_cdata_to_cenum = _cdata_to_cobject
 
 def _cdata_to_size_t(space, w_cdata):
     return rffi.cast(rffi.SIZE_T, space.uint_w(w_cdata))
@@ -438,13 +444,8 @@ def _cdata_to_ptrdiff_t(space, w_cdata):
 def _cdata_to_intptr_t(space, w_cdata):
     return rffi.cast(rffi.INTPTR_T, space.int_w(w_cdata))
 
-def _cdata_to_ptr(space, w_cdata): # TODO: this is both a hack and dreadfully slow
-    w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
-    ptr = w_cdata.unsafe_escaping_ptr()
-    return rffi.cast(rffi.VOIDP, ptr)
-
 def _cdata_to_ccharp(space, w_cdata):
-    ptr = _cdata_to_ptr(space, w_cdata)      # see above ... something better?
+    ptr = _cdata_to_ptr(space, w_cdata)
     return rffi.cast(rffi.CCHARP, ptr)
 
 # direct interpreter access
@@ -773,7 +774,7 @@ def c_get_dimension_size(space, cppscope, datamember_index, dim_idx):
 # enum properties ------------------------------------------------------------
 def c_get_enum(space, cppscope, name):
     args = [_ArgC(cppscope), _ArgS(name)]
-    return space.int_w(call_capi(space, 'get_enum', args))
+    return _cdata_to_cenum(call_capi(space, 'get_enum', args))
 def c_num_enum_data(space, cppenum):
     return space.int_w(call_capi(space, 'num_enum_data', [_ArgE(cppenum)]))
 def c_get_enum_data_name(space, cppenum, idata):
