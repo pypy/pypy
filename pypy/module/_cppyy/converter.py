@@ -419,9 +419,9 @@ class ConstLongDoubleRefConverter(ConstRefNumericTypeConverterMixin, LongDoubleC
 
 class CStringConverter(TypeConverter):
     def convert_argument(self, space, w_obj, address):
-        x = rffi.cast(rffi.LONGP, address)
+        x = rffi.cast(rffi.VOIDPP, address)
         arg = space.text_w(w_obj)
-        x[0] = rffi.cast(rffi.LONG, rffi.str2charp(arg))
+        x[0] = rffi.cast(rffi.VOIDP, rffi.str2charp(arg))
         ba = rffi.cast(rffi.CCHARP, address)
         ba[capi.c_function_arg_typeoffset(space)] = 'p'
 
@@ -590,7 +590,10 @@ class InstanceConverter(InstanceRefConverter):
         return interp_cppyy.wrap_cppinstance(space, address, self.clsdecl, do_cast=False)
 
     def to_memory(self, space, w_obj, w_value, offset):
-        self._is_abstract(space)
+        address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
+        assign = self.clsdecl.get_overload("__assign__")
+        from pypy.module._cppyy import interp_cppyy
+        assign.call_impl(address, [w_value])
 
 class InstancePtrConverter(InstanceRefConverter):
     typecode = 'o'
@@ -698,15 +701,6 @@ class STLStringConverter(InstanceConverter):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
         return capi.c_charp2stdstring(space, space.text_w(w_obj), space.len_w(w_obj))
-
-    def to_memory(self, space, w_obj, w_value, offset):
-        try:
-            address = rffi.cast(capi.C_OBJECT, self._get_raw_address(space, w_obj, offset))
-            assign = self.clsdecl.get_overload("__assign__")
-            from pypy.module._cppyy import interp_cppyy
-            assign.call_impl(address, [w_value])
-        except Exception:
-            InstanceConverter.to_memory(self, space, w_obj, w_value, offset)
 
     def free_argument(self, space, arg):
         capi.c_destruct(space, self.clsdecl, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
