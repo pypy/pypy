@@ -686,7 +686,7 @@ class InstanceArrayConverter(InstancePtrConverter):
         self._is_abstract(space)
 
 
-class StdStringConverter(InstanceConverter):
+class STLStringConverter(InstanceConverter):
     def __init__(self, space, extra):
         from pypy.module._cppyy import interp_cppyy
         cppclass = interp_cppyy.scope_byname(space, capi.std_string_name)
@@ -697,8 +697,7 @@ class StdStringConverter(InstanceConverter):
         if isinstance(w_obj, W_CPPInstance):
             arg = InstanceConverter._unwrap_object(self, space, w_obj)
             return capi.c_stdstring2stdstring(space, arg)
-        else:
-            return capi.c_charp2stdstring(space, space.text_w(w_obj), space.len_w(w_obj))
+        return capi.c_charp2stdstring(space, space.text_w(w_obj), space.len_w(w_obj))
 
     def to_memory(self, space, w_obj, w_value, offset):
         try:
@@ -712,7 +711,7 @@ class StdStringConverter(InstanceConverter):
     def free_argument(self, space, arg):
         capi.c_destruct(space, self.clsdecl, rffi.cast(capi.C_OBJECT, rffi.cast(rffi.VOIDPP, arg)[0]))
 
-class StdStringMoveConverter(StdStringConverter):
+class STLStringMoveConverter(STLStringConverter):
     def _unwrap_object(self, space, w_obj):
         # moving is same as by-ref, but have to check that move is allowed
         moveit_reason = 3
@@ -729,7 +728,7 @@ class StdStringMoveConverter(StdStringConverter):
 
         if moveit_reason:
             try:
-                return StdStringConverter._unwrap_object(self, space, w_obj)
+                return STLStringConverter._unwrap_object(self, space, w_obj)
             except Exception:
                  if moveit_reason == 1:
                     # TODO: if the method fails on some other converter, then the next
@@ -740,7 +739,7 @@ class StdStringMoveConverter(StdStringConverter):
 
         raise oefmt(space.w_ValueError, "object is not an rvalue")
 
-class StdStringRefConverter(InstancePtrConverter):
+class STLStringRefConverter(InstancePtrConverter):
     _immutable_fields_ = ['cppclass', 'typecode']
     typecode    = 'V'
 
@@ -1005,10 +1004,10 @@ _converters["void**"]                   = VoidPtrPtrConverter
 _converters["void*&"]                   = VoidPtrRefConverter
 
 # special cases (note: 'std::string' aliases added below)
-_converters["std::basic_string<char>"]           = StdStringConverter
-_converters["const std::basic_string<char>&"]    = StdStringConverter     # TODO: shouldn't copy
-_converters["std::basic_string<char>&"]          = StdStringRefConverter
-_converters["std::basic_string<char>&&"]         = StdStringMoveConverter
+_converters["std::basic_string<char>"]           = STLStringConverter
+_converters["const std::basic_string<char>&"]    = STLStringConverter     # TODO: shouldn't copy
+_converters["std::basic_string<char>&"]          = STLStringRefConverter
+_converters["std::basic_string<char>&&"]         = STLStringMoveConverter
 
 _converters["PyObject*"]                         = PyObjectConverter
 
