@@ -146,7 +146,7 @@ def register_class(space, w_pycppclass):
     # class allows simple aliasing of methods)
     capi.pythonize(space, w_pycppclass, cppclass.name)
     state = space.fromcache(State)
-    state.cppclass_registry[rffi.cast(rffi.LONG, cppclass.handle)] = w_pycppclass
+    state.cppclass_registry[cppclass.handle] = w_pycppclass
 
 
 class W_CPPLibrary(W_Root):
@@ -270,8 +270,8 @@ class CPPMethod(object):
             if cppthis:
                 # this pointer
                 data = rffi.ptradd(buffer, cif_descr.exchange_args[0])
-                x = rffi.cast(rffi.LONGP, data)       # LONGP needed for test_zjit.py
-                x[0] = rffi.cast(rffi.LONG, cppthis)
+                x = rffi.cast(rffi.VOIDPP, data)
+                x[0] = rffi.cast(rffi.VOIDP, cppthis)
                 thisoff = 1
 
             # actual provided arguments
@@ -1081,7 +1081,7 @@ class W_CPPDataMember(W_Root):
         self.space = space
         self.scope = decl_scope
         self.converter = converter.get_converter(self.space, type_name, dimensions)
-        self.offset = rffi.cast(rffi.LONG, offset)
+        self.offset = rffi.cast(rffi.INTPTR_T, offset)
 
     def _get_offset(self, cppinstance):
         if cppinstance:
@@ -1688,7 +1688,7 @@ class W_CPPInstance(W_Root):
         if w_as_builtin is not None:
             return self.space.repr(w_as_builtin)
         return self.space.newtext("<%s object at 0x%x>" %
-                               (self.clsdecl.name, rffi.cast(rffi.ULONG, self.get_rawobject())))
+                               (self.clsdecl.name, rffi.cast(rffi.UINTPTR_T, self.get_rawobject())))
 
     def smartptr(self):
         if self._rawobject and self.smartdecl:
@@ -1736,7 +1736,7 @@ class MemoryRegulator:
     def register(obj):
         if not obj._rawobject:
             return
-        addr_as_int = int(rffi.cast(rffi.LONG, obj.get_rawobject()))
+        addr_as_int = int(rffi.cast(rffi.INTPTR_T, obj.get_rawobject()))
         clsdecl = obj.clsdecl
         assert isinstance(clsdecl, W_CPPClassDecl)
         clsdecl.cppobjects.set(addr_as_int, obj)
@@ -1745,7 +1745,7 @@ class MemoryRegulator:
     def unregister(obj):
         if not obj._rawobject:
             return
-        addr_as_int = int(rffi.cast(rffi.LONG, obj.get_rawobject()))
+        addr_as_int = int(rffi.cast(rffi.INTPTR_T, obj.get_rawobject()))
         clsdecl = obj.clsdecl
         assert isinstance(clsdecl, W_CPPClassDecl)
         clsdecl.cppobjects.set(addr_as_int, None) # actually deletes (pops)
@@ -1754,7 +1754,7 @@ class MemoryRegulator:
     def retrieve(clsdecl, address):
         if not address:
             return None
-        addr_as_int = int(rffi.cast(rffi.LONG, address))
+        addr_as_int = int(rffi.cast(rffi.INTPTR_T, address))
         assert isinstance(clsdecl, W_CPPClassDecl)
         return clsdecl.cppobjects.get(addr_as_int)
 
@@ -1764,7 +1764,7 @@ memory_regulator = MemoryRegulator()
 def get_pythonized_cppclass(space, handle):
     state = space.fromcache(State)
     try:
-        w_pycppclass = state.cppclass_registry[rffi.cast(rffi.LONG, handle)]
+        w_pycppclass = state.cppclass_registry[handle]
     except KeyError:
         final_name = capi.c_scoped_final_name(space, handle)
         # the callback will cache the class by calling register_class
