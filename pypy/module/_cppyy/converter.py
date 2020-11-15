@@ -973,9 +973,10 @@ def get_converter(space, _name, default):
             return InstanceArrayConverter(space, clsdecl, array_size, dims)
         elif cpd == "":
             return InstanceConverter(space, clsdecl)
-    elif "(anonymous)" in name:
+
+    if "(anonymous)" in name:
         # special case: enum w/o a type name
-        return _converters["internal_enum_type_t"](space, default)
+        return _converters["internal_enum_type_t"+cpd](space, default)
     elif "(*)" in name or "::*)" in name:
         # function pointer
         pos = name.find("*)")
@@ -1132,6 +1133,8 @@ def _add_aliased_converters():
         ("const std::basic_string<char>&",  "const std::string&"),
         ("std::basic_string<char>&",        "std::string&"),
         ("std::basic_string<char>&&",       "std::string&&"),
+
+        ("const internal_enum_type_t&",     "internal_enum_type_t&"),
 
         ("PyObject*",                       "_object*"),
     )
