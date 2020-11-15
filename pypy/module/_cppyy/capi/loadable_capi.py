@@ -428,6 +428,7 @@ def _cdata_to_ptr(space, w_cdata):
     w_cdata = space.interp_w(cdataobj.W_CData, w_cdata, can_be_None=False)
     with w_cdata as ptr:
         return rffi.cast(rffi.VOIDP, ptr)   # escapes (is okay)
+    return rffi.cast(rffi.VOIDP, 0)
 
 def _cdata_to_cobject(space, w_cdata):
     ptr = _cdata_to_ptr(space, w_cdata)
