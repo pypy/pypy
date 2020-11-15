@@ -191,9 +191,9 @@ The docs imply key must be in the HKEY_USER or HKEY_LOCAL_MACHINE tree"""
     # XXX should filename use space.fsencode_w?
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with rffi.scoped_unicode2wcharp(filename) as wide_filename:
-            c_filename = rffi.cast(rffi.CCHARP, wide_filename)
+            c_filename = rffi.cast(rffi.CWCHARP, wide_filename)
             ret = rwinreg.RegLoadKeyW(hkey, c_subkey, c_filename)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegLoadKey')
@@ -217,7 +217,7 @@ The caller of this method must possess the SeBackupPrivilege security
 privilege. This function passes NULL for security_attributes to the API."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(filename) as wide_filename:
-        c_filename = rffi.cast(rffi.CCHARP, wide_filename)
+        c_filename = rffi.cast(rffi.CWCHARP, wide_filename)
         ret = rwinreg.RegSaveKeyW(hkey, c_filename, None)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegSaveKey')
@@ -256,9 +256,9 @@ KEY_SET_VALUE access."""
 
     # Add an offset to remove the BOM from the native utf16 wstr
     with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
-        subkeyP = rffi.ptradd(subkeyP0, 2)
+        subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
         with rffi.scoped_nonmovingbuffer(valueW) as valueP0:
-            valueP = rffi.ptradd(valueP0, 2)
+            valueP = rffi.cast(rffi.CWCHARP, rffi.ptradd(valueP0, 2))
             ret = rwinreg.RegSetValueW(hkey, subkeyP, rwinreg.REG_SZ,
                                        valueP, valueL)
             if ret != 0:
@@ -283,7 +283,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
     else:
         subkey = space.utf8_w(w_subkey).decode('utf8')
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
             bufsize_p[0] = 0
             ret = rwinreg.RegQueryValueW(hkey, c_subkey, None, bufsize_p)
@@ -293,7 +293,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
                 raiseWindowsError(space, ret, 'RegQueryValue')
             # Add extra space for a NULL ending
             buf = ByteBuffer(intmask(bufsize_p[0]) * 2 + 2)
-            bufP = rffi.cast(rwin32.LPSTR, buf.get_raw_address())
+            bufP = rffi.cast(rwin32.LPWSTR, buf.get_raw_address())
             ret = rwinreg.RegQueryValueW(hkey, c_subkey, bufP, bufsize_p)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryValue')
@@ -382,7 +382,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = rffi.str2charp(value)
 
     if buf is not None:
-        return rffi.cast(rffi.CCHARP, buf), buflen
+        return rffi.cast(rffi.CWCHARP, buf), buflen
 
     raise oefmt(space.w_ValueError,
                 "Could not convert the data to the specified type")
@@ -482,7 +482,7 @@ the configuration registry.  This helps the registry perform efficiently."""
     buf, buflen = convert_to_regdata(space, w_value, typ)
     try:
         with rffi.scoped_unicode2wcharp(value_name) as wide_vn:
-            c_vn = rffi.cast(rffi.CCHARP, wide_vn)
+            c_vn = rffi.cast(rffi.CWCHARP, wide_vn)
             ret = rwinreg.RegSetValueExW(hkey, c_vn, 0, typ, buf, buflen)
     finally:
         lltype.free(buf, flavor='raw')
@@ -504,7 +504,7 @@ value_name is a string indicating the value to query"""
         subkey = space.utf8_w(w_subkey).decode('utf8')
     null_dword = lltype.nullptr(rwin32.LPDWORD.TO)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as dataSize:
             ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword,
                                            null_dword, None, dataSize)
@@ -513,7 +513,7 @@ value_name is a string indicating the value to query"""
             bufSize = intmask(dataSize[0])
             while True:
                 dataBuf = ByteBuffer(bufSize)
-                dataBufP = rffi.cast(rffi.CCHARP, dataBuf.get_raw_address())
+                dataBufP = rffi.cast(rffi.CWCHARP, dataBuf.get_raw_address())
                 with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retType:
 
                     ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword,
@@ -548,7 +548,7 @@ The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegCreateKeyW(hkey, c_subkey, rethkey)
             if ret != 0:
@@ -571,7 +571,7 @@ The return value is the handle of the opened key.
 If the function fails, an exception is raised."""
     hkey = hkey_w(w_key, space)
     with rffi.scoped_unicode2wcharp(sub_key) as wide_sub_key:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_sub_key)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_sub_key)
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegCreateKeyExW(hkey, c_subkey, reserved, None, 0,
                                           access, None, rethkey,
@@ -596,7 +596,7 @@ If the method succeeds, the entire key, including all of its values,
 is removed.  If the method fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         ret = rwinreg.RegDeleteKeyW(hkey, c_subkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDeleteKey')
@@ -610,7 +610,7 @@ key is an already open key, or any one of the predefined HKEY_* constants.
 value is a string that identifies the value to remove."""
     hkey = hkey_w(w_hkey, space)
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
-        c_subkey = rffi.cast(rffi.CCHARP, wide_subkey)
+        c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         ret = rwinreg.RegDeleteValueW(hkey, c_subkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDeleteValue')
@@ -635,7 +635,7 @@ If the function fails, an EnvironmentError exception is raised."""
     errh = state.encode_error_handler
     subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
     with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
-        subkeyP = rffi.ptradd(subkeyP0, 2)
+        subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
             ret = rwinreg.RegOpenKeyExW(hkey, subkeyP, reserved, access,
                                         rethkey)
@@ -678,7 +678,7 @@ data_type is an integer that identifies the type of the value data."""
             bufValueSize = intmask(valueSize[0] * 2)
 
             valueBuf = ByteBuffer(bufValueSize)
-            valueBufP = rffi.cast(rffi.CCHARP, valueBuf.get_raw_address())
+            valueBufP = rffi.cast(rffi.CWCHARP, valueBuf.get_raw_address())
             while True:
                 dataBuf = ByteBuffer(bufDataSize)
                 dataBufP = rffi.cast(rffi.CCHARP, dataBuf.get_raw_address())
@@ -732,7 +732,7 @@ raised, indicating no more values are available."""
     # nul.  RegEnumKeyEx requires a 257 character buffer to
     # retrieve such a key name.
     buf = ByteBuffer(257 * 2)
-    bufP = rffi.cast(rwin32.LPSTR, buf.get_raw_address())
+    bufP = rffi.cast(rwin32.LPWSTR, buf.get_raw_address())
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as valueSize:
         valueSize[0] = r_uint(257)  # includes NULL terminator
         ret = rwinreg.RegEnumKeyExW(hkey, index, bufP, valueSize,
@@ -786,13 +786,25 @@ key is the predefined handle to connect to.
 
 The return value is the handle of the opened key.
 If the function fails, an EnvironmentError exception is raised."""
-    machine = space.text_or_none_w(w_machine)
     hkey = hkey_w(w_hkey, space)
-    with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
-        ret = rwinreg.RegConnectRegistryW(machine, hkey, rethkey)
-        if ret != 0:
-            raiseWindowsError(space, ret, 'RegConnectRegistry')
-        return W_HKEY(space, rethkey[0])
+    if space.is_none(w_machine):
+        with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
+            ret = rwinreg.RegConnectRegistryW(None, hkey, rethkey)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegConnectRegistry')
+            return W_HKEY(space, rethkey[0])
+    else:
+        utf8 = space.utf8_w(w_machine)
+        state = space.fromcache(CodecState)
+        errh = state.encode_error_handler
+        machineW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
+        with rffi.scoped_nonmovingbuffer(machineW) as machineP0:
+            machineP = rffi.cast(rwin32.LPWSTR, rffi.ptradd(machineP0, 2))
+            with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
+                ret = rwinreg.RegConnectRegistryW(machineP, hkey, rethkey)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegConnectRegistry')
+            return W_HKEY(space, rethkey[0])
 
 
 def ExpandEnvironmentStrings(space, w_source):
