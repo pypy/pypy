@@ -246,7 +246,7 @@ class AppTestFfi:
     def test_dynamic_key(self):
         from winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
         if not self.runappdirect:
-            skip('crashes untranslated')
+            skip('very slow untranslated')
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)
         except WindowsError as e:
