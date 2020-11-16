@@ -508,9 +508,11 @@ value_name is a string indicating the value to query"""
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as dataSize:
             ret = rwinreg.RegQueryValueExW(hkey, c_subkey, null_dword,
                                            null_dword, None, dataSize)
-            if ret != 0 and ret != rwinreg.ERROR_MORE_DATA:
+            if ret == rwinreg.ERROR_MORE_DATA:
+                # Copy CPython behaviour, otherwise bufSize can be 0
+                bufSize = 256
+            elif ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryValue')
-            bufSize = intmask(dataSize[0])
             while True:
                 dataBuf = ByteBuffer(bufSize)
                 dataBufP = rffi.cast(rffi.CWCHARP, dataBuf.get_raw_address())
