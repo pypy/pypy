@@ -513,6 +513,8 @@ value_name is a string indicating the value to query"""
                 bufSize = 256
             elif ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryValue')
+            else:
+                bufSize = intmask(dataSize[0])
             while True:
                 dataBuf = ByteBuffer(bufSize)
                 dataBufP = rffi.cast(rffi.CWCHARP, dataBuf.get_raw_address())
