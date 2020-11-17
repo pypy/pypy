@@ -823,21 +823,20 @@ dir_fd may not be implemented on your platform.
     except OSError as e:
         raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
 
-def _getfullpathname(space, w_path):
-    """helper for ntpath.abspath """
-    try:
-        if space.isinstance_w(w_path, space.w_unicode):
-            path = FileEncoder(space, w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = u2utf8(space, fullpath)
-        else:
-            path = space.bytesbuf0_w(w_path)
-            fullpath = rposix.getfullpathname(path)
-            w_fullpath = space.newbytes(fullpath)
-    except OSError as e:
-        raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-    else:
-        return w_fullpath
+if _WIN32:
+    @unwrap_spec(path=path_or_fd(allow_fd=False, nullable=False))
+    def _getfullpathname(space, path):
+        """helper for ntpath.abspath """
+        try:
+            if path.as_unicode is not None:
+                result = rposix.getfullpathname(path.as_unicode)
+                return u2utf8(space, result)
+            else:
+                result = rposix.getfullpathname(path.as_bytes)
+                return space.newbytes(result)
+        except OSError as e:
+            raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
+
 
 def getcwdb(space):
     """Return the current working directory."""
