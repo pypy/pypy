@@ -803,7 +803,7 @@ class TemplateOverloadMixin(object):
             elif space.isinstance_w(w_tp, space.w_type):
                 try:
                     # cppyy bound types
-                    s = space.text_w(space.getattr(w_tp, space.newtext('__cppname__')))
+                    s = space.text_w(space.getattr(w_tp, space.newtext('__cpp_name__')))
                     if args_w:
                         # try to specialize the type match for the given object
                         cppinstance = self.space.interp_w(W_CPPInstance, args_w[i])
@@ -1339,7 +1339,7 @@ W_CPPNamespaceDecl.typedef = TypeDef(
     get_datamember = interp2app(W_CPPNamespaceDecl.get_datamember),
     is_namespace = interp2app(W_CPPNamespaceDecl.is_namespace),
     has_enum = interp2app(W_CPPNamespaceDecl.has_enum),
-    __cppname__ = interp_attrproperty('name', W_CPPNamespaceDecl, wrapfn="newtext"),
+    __cpp_name__ = interp_attrproperty('name', W_CPPNamespaceDecl, wrapfn="newtext"),
     __dispatch__ = interp2app(W_CPPNamespaceDecl.scope__dispatch__),
     __dir__ = interp2app(W_CPPNamespaceDecl.ns__dir__),
 )
@@ -1504,7 +1504,7 @@ W_CPPClassDecl.typedef = TypeDef(
     get_datamember = interp2app(W_CPPClassDecl.get_datamember),
     is_namespace = interp2app(W_CPPClassDecl.is_namespace),
     has_enum = interp2app(W_CPPClassDecl.has_enum),
-    __cppname__ = interp_attrproperty('name', W_CPPClassDecl, wrapfn="newtext"),
+    __cpp_name__ = interp_attrproperty('name', W_CPPClassDecl, wrapfn="newtext"),
     __dispatch__ = interp2app(W_CPPClassDecl.scope__dispatch__)
 )
 W_CPPClassDecl.typedef.acceptable_as_base_class = False
@@ -1532,7 +1532,7 @@ W_CPPComplexClassDecl.typedef = TypeDef(
     get_datamember_names = interp2app(W_CPPComplexClassDecl.get_datamember_names),
     get_datamember = interp2app(W_CPPComplexClassDecl.get_datamember),
     is_namespace = interp2app(W_CPPComplexClassDecl.is_namespace),
-    __cppname__ = interp_attrproperty('name', W_CPPComplexClassDecl, wrapfn="newtext"),
+    __cpp_name__ = interp_attrproperty('name', W_CPPComplexClassDecl, wrapfn="newtext"),
     __dispatch__ = interp2app(W_CPPComplexClassDecl.scope__dispatch__)
 )
 W_CPPComplexClassDecl.typedef.acceptable_as_base_class = False

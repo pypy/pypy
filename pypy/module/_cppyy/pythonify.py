@@ -83,7 +83,7 @@ def with_metaclass(meta, *bases):
 # C++ namespace base class (the C++ class base class defined in _post_import_startup)
 class CPPNamespace(with_metaclass(CPPNamespaceMeta, object)):
     def __init__(self):
-        raise TypeError("cannot instantiate namespace '%s'", self.__cppname__)
+        raise TypeError("cannot instantiate namespace '%s'", self.__cpp_name__)
 
 
 # TODO: this can be moved to the interp level (and share template argument
@@ -100,8 +100,8 @@ class CPPTemplate(object):
       # arguments are strings representing types, types, or builtins
         if type(arg) == str:
             return arg                       # string describing type
-        elif hasattr(arg, '__cppname__'):
-            return arg.__cppname__           # C++ bound type
+        elif hasattr(arg, '__cpp_name__'):
+            return arg.__cpp_name__          # C++ bound type
         elif arg == str:
             import _cppyy
             return _cppyy._std_string_name() # special case pystr -> C++ string
@@ -187,9 +187,9 @@ def make_cppnamespace(scope, name, decl):
     ns_meta = type(CPPNamespace)(name+'_meta', (CPPNamespaceMeta,), {})
 
     # create the python-side C++ namespace representation, cache in scope if given
-    d = {"__cppdecl__" : decl,
-         "__module__" : make_module_name(scope),
-         "__cppname__" : decl.__cppname__ }
+    d = {"__cppdecl__"  : decl,
+         "__module__"   : make_module_name(scope),
+         "__cpp_name__" : decl.__cpp_name__ }
     pyns = ns_meta(name, (CPPNamespace,), d)
     if scope:
         setattr(scope, name, pyns)
@@ -242,11 +242,10 @@ def make_cppclass(scope, cl_name, decl):
         cppol = decl.__dispatch__(m_name, signature)
         return MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
-         "__new__"      : make_new(decl),
-         "__module__"   : make_module_name(scope),
-         "__cppname__"  : decl.__cppname__,
-         "__dispatch__" : dispatch,
-         }
+               "__new__"       : make_new(decl),
+               "__module__"    : make_module_name(scope),
+               "__cpp_name__"  : decl.__cpp_name__,
+               "__dispatch__"  : dispatch,}
 
     # insert (static) methods into the class dictionary
     for m_name in decl.get_method_names():
@@ -275,7 +274,7 @@ def make_cppclass(scope, cl_name, decl):
     # needs to run first, so that the generic pythonizations can use them
     import _cppyy
     _cppyy._register_class(pycls)
-    _pythonize(pycls, pycls.__cppname__)
+    _pythonize(pycls, pycls.__cpp_name__)
     return pycls
 
 def make_cpptemplatetype(scope, template_name):
@@ -287,7 +286,7 @@ def get_scoped_pycppitem(scope, name, type_only=False):
 
     # resolve typedefs/aliases: these may cross namespaces, in which case
     # the lookup must trigger the creation of all necessary scopes
-    scoped_name = (scope == gbl) and name or (scope.__cppname__+'::'+name)
+    scoped_name = (scope == gbl) and name or (scope.__cpp_name__+'::'+name)
     final_scoped_name = _cppyy._resolve_name(scoped_name)
     if final_scoped_name != scoped_name:
         pycppitem = get_pycppitem(final_scoped_name)
