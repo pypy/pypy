@@ -1282,7 +1282,7 @@ class W_CPPNamespaceDecl(W_CPPScopeDecl):
         if capi.c_is_enum_data(self.space, self, dm_idx):
             type_name = capi.c_resolve_enum(self.space, type_name)
         offset = capi.c_datamember_offset(self.space, self, dm_idx)
-        if offset == -1:
+        if offset == rffi.cast(rffi.INTPTR_T, -1):
             raise self.missing_attribute_error(dm_name)
         dims = self._encode_dm_dimensions(dm_idx)
         if capi.c_is_const_data(self.space, self, dm_idx):
@@ -1448,7 +1448,7 @@ class W_CPPClassDecl(W_CPPScopeDecl):
             datamember_name = capi.c_datamember_name(self.space, self, i)
             type_name = capi.c_datamember_type(self.space, self, i)
             offset = capi.c_datamember_offset(self.space, self, i)
-            if offset == -1:
+            if offset == rffi.cast(rffi.INTPTR_T, -1):
                 continue      # dictionary problem; raises AttributeError on use
             is_static = bool(capi.c_is_staticdata(self.space, self, i))
             is_const  = bool(capi.c_is_const_data(self.space, self, i))
