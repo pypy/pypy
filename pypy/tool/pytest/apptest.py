@@ -31,6 +31,9 @@ RENAMED_USEMODULES = {
     'signal': '_signal',
     'imp': '_imp'}
 
+if sys.platform == 'win32':
+    RENAMED_USEMODULES['posix'] = 'nt'
+
 class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo
