@@ -161,16 +161,21 @@ Python 3.6+
 - bpo-17288_: Prevent jump from a yield statement
 - bpo-11471_: avoid generating a ``JUMP_FORWARD`` instruction at the end of an
   ``if``-block if there is no ``else``-clause
-- Fix ``os.listdir('')`` and ``os.stat('')`` on windows (issue 3331)
+- Fix ``os.listdir('')`` and ``os.stat('')`` on windows (issue 3331_)
 - Fix many unicode encoding/decoding errors on windows
-- Fix pickling of time subclasses (issue 3324, bpo 41966)
-- Add support for ``sqlite3_load_extension`` (issue 3334)
+- Fix pickling of time subclasses (issue 3324_, bpo-41966_)
+- Add support for ``sqlite3_load_extension`` (issue 3334_)
 - Change default file encoding from mbcs to utf-8 on windows
 - Change default file encoding from ascii to utf-8 on linux
 - Add ``resource.prlimit()``
+- Accept PathLike in ``nt._getfullpathname`` (issue 3343_)
+- Fix some problems with ``winreg``
+
 
 Python 3.6 C-API
 ~~~~~~~~~~~~~~~~
+
+- Export ``PyStructSequence_NewType`` (issue 3346_)
 
 .. _3312: https://foss.heptapod.net/pypy/pypy/-/issues/3312
 .. _3315: https://foss.heptapod.net/pypy/pypy/-/issues/3315
@@ -180,6 +185,8 @@ Python 3.6 C-API
 .. _3324: https://foss.heptapod.net/pypy/pypy/-/issues/3324
 .. _3334: https://foss.heptapod.net/pypy/pypy/-/issues/3334
 .. _3307: https://foss.heptapod.net/pypy/pypy/-/issues/3307
+.. _3343: https://foss.heptapod.net/pypy/pypy/-/issues/3343
+.. _3346: https://foss.heptapod.net/pypy/pypy/-/issues/3346
 
 .. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
 
