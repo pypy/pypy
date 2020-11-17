@@ -324,7 +324,7 @@ class AppTestDATATYPES:
         """Test read access to class public data and verify values"""
 
         import sys
-        import _cppyy as cppyy, sys
+        import _cppyy as cppyy
 
         if sys.hexversion >= 0x3000000:
             pylong = int
