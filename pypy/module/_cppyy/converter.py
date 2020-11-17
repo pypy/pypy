@@ -976,7 +976,7 @@ def get_converter(space, _name, default):
         if pos > 0:
             return FunctionPointerConverter(space, name[pos+2:])
 
-    # void* or void converter (which fails on use)
+    # void*|**|*& or void converter (which fails on use)
     if 0 <= cpd.find('*'):
         return VoidPtrConverter(space, default)  # "user knows best"
 
