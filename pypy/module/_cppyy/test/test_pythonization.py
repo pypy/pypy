@@ -172,9 +172,9 @@ class AppTestPYTHONIZATION:
         import _cppyy as cppyy
 
         def root_pythonizor(klass, name):
-            if name == 'TString':
+            if name == 'CppyyLegacy::TString':
                 klass.__len__ = klass.Length
 
         cppyy.py.add_pythonization(root_pythonizor)
 
-        assert len(cppyy.gbl.TString("aap")) == 3
+        assert len(cppyy.gbl.CppyyLegacy.TString("aap")) == 3
