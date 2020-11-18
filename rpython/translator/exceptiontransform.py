@@ -33,15 +33,19 @@ for TYPE in rffi.NUMBER_TYPES:
     PrimitiveErrorValue[TYPE] = lltype.cast_primitive(TYPE, -1)
 del TYPE
 
-def error_value(T):
+def error_value(graph):
+    assert isinstance(graph, FunctionGraph)
+    T = graph.returnblock.inputargs[0].concretetype
     if isinstance(T, lltype.Primitive):
         return PrimitiveErrorValue[T]
     elif isinstance(T, lltype.Ptr):
         return lltype.nullptr(T.TO)
     assert 0, "not implemented yet"
 
-def error_constant(T):
-    return Constant(error_value(T), T)
+def error_constant(graph):
+    assert isinstance(graph, FunctionGraph)
+    T = graph.returnblock.inputargs[0].concretetype
+    return Constant(error_value(graph), T)
 
 def constant_value(llvalue):
     return Constant(llvalue, lltype.typeOf(llvalue))
@@ -264,7 +268,7 @@ class ExceptionTransformer(object):
             if lastblock is block:
                 lastblock = afterblock
 
-            self.gen_exc_check(block, graph.returnblock, afterblock)
+            self.gen_exc_check(graph, block, graph.returnblock, afterblock)
             n_gen_exc_checks += 1
         if need_exc_matching:
             assert lastblock.canraise
@@ -321,8 +325,7 @@ class ExceptionTransformer(object):
                                varoftype(lltype.Void)),
                 ]
         link.target = block
-        RETTYPE = graph.returnblock.inputargs[0].concretetype
-        l = Link([error_constant(RETTYPE)], graph.returnblock)
+        l = Link([error_constant(graph)], graph.returnblock)
         block.recloseblock(l)
 
     def insert_matching(self, block, graph):
@@ -365,7 +368,7 @@ class ExceptionTransformer(object):
         newgraph = FunctionGraph("dummy_exc1", startblock)
         startblock.closeblock(Link([result], newgraph.returnblock))
         newgraph.returnblock.inputargs[0].concretetype = op.result.concretetype
-        self.gen_exc_check(startblock, newgraph.returnblock)
+        self.gen_exc_check(newgraph, startblock, newgraph.returnblock)
         excblock = Block([])
 
         llops = rtyper.LowLevelOpList(None)
@@ -387,7 +390,7 @@ class ExceptionTransformer(object):
         fptr = self.constant_func("dummy_exc1", ARGTYPES, op.result.concretetype, newgraph)
         return newgraph, SpaceOperation("direct_call", [fptr] + callargs, op.result)
 
-    def gen_exc_check(self, block, returnblock, normalafterblock=None):
+    def gen_exc_check(self, graph, block, returnblock, normalafterblock=None):
         llops = rtyper.LowLevelOpList(None)
 
         spaceop = block.operations[-1]
@@ -410,7 +413,7 @@ class ExceptionTransformer(object):
         b = Block([])
         b.operations = [SpaceOperation('debug_record_traceback', [],
                                        varoftype(lltype.Void))]
-        l = Link([error_constant(returnblock.inputargs[0].concretetype)], returnblock)
+        l = Link([error_constant(graph)], returnblock)
         b.closeblock(l)
         l = Link([], b)
         l.exitcase = l.llexitcase = False
