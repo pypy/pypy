@@ -16,7 +16,6 @@ from rpython.rtyper.lltypesystem import lltype, llmemory, lloperation, llheap
 from rpython.rtyper import rclass
 from rpython.tool.ansi_print import AnsiLogger
 
-
 # by default this logger's output is disabled.
 # e.g. tests can then switch on logging to get more help
 # for failing tests
@@ -442,12 +441,19 @@ class LLFrame(object):
                 exc_data = self.llinterpreter.get_transformed_exc_data(
                     self.graph)
                 if exc_data:
-                    assert e.error_value is not LLException.UNDEFINED_ERROR_VALUE
                     etype = e.args[0]
                     evalue = e.args[1]
                     exc_data.exc_type = etype
                     exc_data.exc_value = evalue
                     retval = e.error_value
+                    if retval is LLException.UNDEFINED_ERROR_VALUE:
+                        from rpython.translator import exceptiontransform
+                        # if we are here it means that the exception was
+                        # caused by a builtin op such as int_add_ovf (i.e.,
+                        # NOT a call): in this case, we just use the default
+                        # error_value
+                        T = operation.result.concretetype
+                        retval = exceptiontransform.default_error_value(T)
                 else:
                     raise
         self.setvar(operation.result, retval)
