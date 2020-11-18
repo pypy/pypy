@@ -3,6 +3,7 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.simplify import join_blocks
 from rpython.translator import exceptiontransform
 from rpython.flowspace.model import summary
+from rpython.rtyper.llinterp import LLException
 from rpython.rtyper.test.test_llinterp import get_interpreter
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.conftest import option
@@ -289,3 +290,31 @@ class TestExceptionTransform:
         assert res == 13
         res = compiled_h(39, 0)
         assert res == -39
+
+    def test_default_error_value(self):
+        def foo(x):
+            if x == 42:
+                raise ValueError
+            return 123
+
+        result = interpret(foo, [1])
+        assert result == 123
+        with py.test.raises(LLException) as exc:
+            interpret(foo, [42])
+        assert exc.value.error_value == -1
+        assert 'ValueError' in str(exc.value)
+
+    @py.test.mark.xfail(reason='goal of the branch')
+    def test_custom_error_value(self):
+        def foo(x):
+            if x == 42:
+                raise ValueError
+            return x
+        foo._error_value_ = -456
+
+        result = interpret(foo, [123])
+        assert result == 123
+        with py.test.raises(LLException) as exc:
+            interpret(foo, [42])
+        assert exc.value.error_value == -456
+        assert 'ValueError' in str(exc.value)

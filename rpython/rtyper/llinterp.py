@@ -25,9 +25,18 @@ log.output_disabled = True
 
 
 class LLException(Exception):
-    def __init__(self, *args):
+
+    # .error_value is used only by tests: in particular,
+    # test_exceptiontransform uses it check that in case of exception the
+    # function returns the expected value
+    UNDEFINED_ERROR_VALUE = object() # sentinel for self.error_value
+    
+    def __init__(self, *args, **kwargs):
         "NOT_RPYTHON"
         Exception.__init__(self, *args)
+        self.error_value = kwargs.pop('error_value', self.UNDEFINED_ERROR_VALUE)
+        if kwargs:
+            raise TypeError('unexpected keyword arguments: %s' % kwargs.keys())
 
     def __str__(self):
         etype = self.args[0]
@@ -348,13 +357,12 @@ class LLFrame(object):
                         tracer.dump('raise')
                     exc_data.exc_type = lltype.typeOf(etype)._defl()
                     exc_data.exc_value = lltype.typeOf(evalue)._defl()
-                    from rpython.translator import exceptiontransform
-                    T = resultvar.concretetype
-                    errvalue = exceptiontransform.error_value(T)
                     # check that the exc-transformed graph returns the error
                     # value when it returns with an exception set
+                    from rpython.translator import exceptiontransform
+                    errvalue = exceptiontransform.error_value(self.graph)
                     assert result == errvalue
-                    raise LLException(etype, evalue)
+                    raise LLException(etype, evalue, error_value=errvalue)
             if tracer:
                 tracer.dump('return')
             return None, result
@@ -434,13 +442,12 @@ class LLFrame(object):
                 exc_data = self.llinterpreter.get_transformed_exc_data(
                     self.graph)
                 if exc_data:
+                    assert e.error_value is not LLException.UNDEFINED_ERROR_VALUE
                     etype = e.args[0]
                     evalue = e.args[1]
                     exc_data.exc_type = etype
                     exc_data.exc_value = evalue
-                    from rpython.translator import exceptiontransform
-                    retval = exceptiontransform.error_value(
-                        operation.result.concretetype)
+                    retval = e.error_value
                 else:
                     raise
         self.setvar(operation.result, retval)
