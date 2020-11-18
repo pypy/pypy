@@ -234,6 +234,17 @@ def llhelper_can_raise(func):
     func._llhelper_can_raise_ = True
     return func
 
+def ll_error_value(llval):
+    """
+    Specify the error value returned by the function when it raises an
+    exception
+    """
+    # this is tested by test_exceptiontransform.test_custom_error_value
+    def decorate(func):
+        func._ll_error_value_ = llval
+        return func
+    return decorate
+
 # ____________________________________________________________
 
 class Symbolic(object):

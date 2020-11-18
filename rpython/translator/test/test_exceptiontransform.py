@@ -28,9 +28,9 @@ def interpret(func, values):
     return interp.eval_graph(graph, values)
 
 class TestExceptionTransform:
-    def compile(self, fn, inputargs):
+    def compile(self, fn, inputargs, **kwargs):
         from rpython.translator.c.test.test_genc import compile
-        return compile(fn, inputargs)
+        return compile(fn, inputargs, **kwargs)
 
     def transform_func(self, fn, inputtypes, backendopt=False):
         t = TranslationContext()
@@ -304,13 +304,13 @@ class TestExceptionTransform:
         assert exc.value.error_value == -1
         assert 'ValueError' in str(exc.value)
 
-    @py.test.mark.xfail(reason='goal of the branch')
     def test_custom_error_value(self):
+        from rpython.rlib.objectmodel import ll_error_value
+        @ll_error_value(-456)
         def foo(x):
             if x == 42:
                 raise ValueError
             return x
-        foo._error_value_ = -456
 
         result = interpret(foo, [123])
         assert result == 123
@@ -318,3 +318,48 @@ class TestExceptionTransform:
             interpret(foo, [42])
         assert exc.value.error_value == -456
         assert 'ValueError' in str(exc.value)
+        #
+        compiled_foo = self.compile(foo, [int], backendopt=False)
+        assert compiled_foo(123) == 123
+        compiled_foo(42, expected_exception_name='ValueError')
+
+    def test_custom_error_value_propagate(self):
+        from rpython.rlib.objectmodel import ll_error_value
+        @ll_error_value(-456)
+        def foo(x):
+            if x == 42:
+                raise ValueError
+            return x
+
+        def bar(x):
+            try:
+                return foo(x)
+            except ValueError:
+                return 123
+
+        result = interpret(bar, [10])
+        assert result == 10
+        result = interpret(bar, [42])
+        assert result == 123
+        #
+        compiled_bar = self.compile(bar, [int], backendopt=False)
+        assert compiled_bar(10) == 10
+        assert compiled_bar(42) == 123
+
+    def test_custom_error_value_reraise(self):
+        from rpython.rlib.objectmodel import ll_error_value
+        @ll_error_value(-456)
+        def foo(x):
+            if x == 42:
+                raise ValueError
+            return x
+
+        def bar(x):
+            try:
+                return foo(x)
+            except ValueError:
+                raise
+
+        with py.test.raises(LLException) as exc:
+            interpret(bar, [42])
+        assert exc.value.error_value == -1

@@ -33,14 +33,25 @@ for TYPE in rffi.NUMBER_TYPES:
     PrimitiveErrorValue[TYPE] = lltype.cast_primitive(TYPE, -1)
 del TYPE
 
-def error_value(graph):
-    assert isinstance(graph, FunctionGraph)
-    T = graph.returnblock.inputargs[0].concretetype
+def default_error_value(T):
     if isinstance(T, lltype.Primitive):
         return PrimitiveErrorValue[T]
     elif isinstance(T, lltype.Ptr):
         return lltype.nullptr(T.TO)
     assert 0, "not implemented yet"
+
+def error_value(graph):
+    assert isinstance(graph, FunctionGraph)
+    T = graph.returnblock.inputargs[0].concretetype
+    if hasattr(graph, 'func') and hasattr(graph.func, '_ll_error_value_'):
+        # custom case
+        errval = graph.func._ll_error_value_
+        if lltype.typeOf(errval) != T:
+            raise TypeError('Wrong type for @error_value: expected %s but got %s' %
+                            (T, lltype.typeOf(errval)))
+        return errval
+    # default case
+    return default_error_value(T)
 
 def error_constant(graph):
     assert isinstance(graph, FunctionGraph)
