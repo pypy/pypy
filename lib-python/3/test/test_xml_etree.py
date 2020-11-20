@@ -97,6 +97,20 @@ EXTERNAL_ENTITY_XML = """\
 <document>&entity;</document>
 """
 
+#backported from https://github.com/python/cpython/pull/22987
+ATTLIST_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Foo [
+<!ELEMENT foo (bar*)>
+<!ELEMENT bar (#PCDATA)*>
+<!ATTLIST bar xml:lang CDATA "eng">
+<!ENTITY qux "quux">
+]>
+<foo>
+<bar>&qux;</bar>
+</foo>
+"""
+
 class ModuleTest(unittest.TestCase):
     def test_sanity(self):
         # Import sanity.
@@ -1028,6 +1042,13 @@ class ElementTreeTest(unittest.TestCase):
                 serialized = serialize(ET.XML('<%s></%s>' % (elem,elem)),
                                        method='html')
                 self.assertEqual(serialized, expected)
+
+    # backported from https://github.com/python/cpython/pull/22987
+    def test_attlist_default(self):
+        # Test default attribute values; See BPO 42151.
+        root = ET.fromstring(ATTLIST_XML)
+        self.assertEqual(root[0].attrib,
+                         {'{http://www.w3.org/XML/1998/namespace}lang': 'eng'})
 
 
 class XMLPullParserTest(unittest.TestCase):
