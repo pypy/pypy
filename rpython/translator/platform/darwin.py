@@ -120,6 +120,11 @@ class Darwin_PowerPC(Darwin):#xxx fixme, mwp
     link_flags = Darwin.link_flags + ('-arch', 'ppc')
     cflags = Darwin.cflags + ('-arch', 'ppc')
 
+class Darwin_arm64(Darwin):
+    name = "darwin_i386"
+    link_flags = Darwin.link_flags + ('-arch', 'arm64')
+    cflags = Darwin.cflags + ('-arch', 'arm64')
+
 class Darwin_i386(Darwin):
     name = "darwin_i386"
     link_flags = Darwin.link_flags + ('-arch', 'i386')

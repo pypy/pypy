@@ -270,12 +270,15 @@ if sys.platform.startswith('linux'):
     else:
         host_factory = Linux
 elif sys.platform == 'darwin':
-    from rpython.translator.platform.darwin import Darwin_i386, Darwin_x86_64, Darwin_PowerPC
+    from rpython.translator.platform.darwin import Darwin_arm64, Darwin_i386, Darwin_x86_64, Darwin_PowerPC
     import platform
-    assert platform.machine() in ('Power Macintosh', 'i386', 'x86_64')
+    machine = platform.machine()
+    assert machine in ('Power Macintosh', 'i386', 'x86_64', 'arm64')
 
-    if  platform.machine() == 'Power Macintosh':
+    if machine == 'Power Macintosh':
         host_factory = Darwin_PowerPC
+    elif machine == 'arm64':
+        host_factory = Darwin_arm64
     elif sys.maxint <= 2147483647:
         host_factory = Darwin_i386
     else:

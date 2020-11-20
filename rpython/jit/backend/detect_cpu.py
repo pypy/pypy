@@ -74,6 +74,7 @@ def detect_model_from_host_platform():
             'armv7l': MODEL_ARM,
             'armv6l': MODEL_ARM,
             'arm': MODEL_ARM,      # freebsd
+            'arm64': MODEL_ARM64,  # Apple ARM
             's390x': MODEL_S390_64
             }.get(mach)
 
