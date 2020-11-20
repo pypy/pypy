@@ -480,7 +480,7 @@ class TestLL2Ctypes(object):
         assert res == 42
         assert not ALLOCATED     # detects memory leaks in the test
 
-    def test_funcptr_can_raise(self, monkeypatch):
+    def test_llhelper_can_raise(self, monkeypatch):
         class FooError(Exception):
             pass
         def dummy(n):
