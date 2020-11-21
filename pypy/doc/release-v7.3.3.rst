@@ -2,12 +2,6 @@
 PyPy v7.3.3: release of 2.7, 3.6, and 3.7 beta
 ==============================================
 
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `morepypy blog`_
-
-.. _`morepypy blog`: https://morepypy.blogspot.com
-
 -The PyPy team is proud to release the version 7.3.3 of PyPy, which includes
 three different interpreters:
 
@@ -39,9 +33,9 @@ releases, but read on to find out what is new.
   interpreters like GraalPython_ (written on top of the Java virtual machine),
   RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
 
-Several issues were exposed in the 7.3.2 release. Many of them came from the
-great work ongoing to ship PyPy packages in `conda-forge`_.  A big shout out
-to them for taking this on.
+Several issues exposed in the 7.3.2 release were fixed. Many of them came from the
+great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
+A big shout out to them for taking this on.
 
 Development of PyPy has moved to https://foss.heptapod.net/pypy/pypy.
 This was covered more extensively in this `blog post`_. We have seen an
@@ -52,7 +46,7 @@ The `CFFI`_ backend has been updated to version 1.14.3. We recommend using CFFI
 rather than c-extensions to interact with C, and using cppyy_ for performant
 wrapping of C++ code for Python.
 
-A new contributor took us up on the challenge to get `windows 64-bit`` support.
+A new contributor took us up on the challenge to get `windows 64-bit`_ support.
 The work is proceeding on the ``win64`` branch, more help in coding or
 sponsorship is welcome. In anticipation of merging this large change, we fixed
 many test failures on windows.
