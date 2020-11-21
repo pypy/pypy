@@ -268,29 +268,6 @@ class TestExceptionTransform:
         res = f()
         assert res == 42
 
-    def test_llhelper_can_raise(self):
-        from rpython.rtyper.lltypesystem import lltype
-        from rpython.rtyper.annlowlevel import llhelper
-
-        def fn(a, b):
-            if b == 0:
-                raise ZeroDivisionError
-            return a/b
-
-        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
-        def h(a, b):
-            fnptr = llhelper(FN, fn)
-            try:
-                return fnptr(a, b)
-            except ZeroDivisionError:
-                return -a
-
-        compiled_h = self.compile(h, [int, int])
-        res = compiled_h(39, 3)
-        assert res == 13
-        res = compiled_h(39, 0)
-        assert res == -39
-
     def test_default_error_value(self):
         def foo(x):
             if x == 42:
@@ -363,3 +340,89 @@ class TestExceptionTransform:
         with py.test.raises(LLException) as exc:
             interpret(bar, [42])
         assert exc.value.error_value == -1
+
+    def test_raise_from_llhelper(self):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.annlowlevel import llhelper
+
+        def fn(a, b):
+            if b == 0:
+                raise ZeroDivisionError
+            return a/b
+
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        def h(a, b):
+            fnptr = llhelper(FN, fn)
+            try:
+                return fnptr(a, b)
+            except ZeroDivisionError:
+                return -a
+
+        compiled_h = self.compile(h, [int, int])
+        res = compiled_h(39, 3)
+        assert res == 13
+        res = compiled_h(39, 0)
+        assert res == -39
+
+    def test_propagate_from_llhelper(self):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.annlowlevel import llhelper
+
+        def fn(a, b):
+            if b == 0:
+                raise ZeroDivisionError
+            return a/b
+
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        def h(a, b):
+            fnptr = llhelper(FN, fn)
+            try:
+                return fnptr(a, b)
+            except ZeroDivisionError:
+                return -a
+
+        compiled_h = self.compile(h, [int, int])
+        res = compiled_h(39, 3)
+        assert res == 13
+        res = compiled_h(39, 0)
+        assert res == -39
+
+    def test_llhelper_can_raise_custome_error_value(self):
+        from rpython.rtyper.lltypesystem import lltype
+        from rpython.rtyper.annlowlevel import llhelper
+        from rpython.rlib.objectmodel import llhelper_can_raise
+
+        @llhelper_can_raise(error_value=-123)
+        def fn(a, b):
+            if b == 0:
+                raise ZeroDivisionError
+            return a/b
+
+        # check that if we call it directly, it returns -123
+        with py.test.raises(LLException) as exc:
+            interpret(fn, [3, 0])
+        assert exc.value.error_value == -123
+
+
+        # ==============
+        # XXX this test is BROKEN at the moment, DO NOT MERGE THIS BRANCH
+        #
+        # The problem is that the return types of h and fnptr are both Signed:
+        # so, exceptiontransform creates a graph which directly return the
+        # value of fnptr, EVEN IN CASE OF EXCEPTION. But in this case, h
+        # should return -1, not -123.
+        #
+        # If you do "return float(fntptr(a, b))" the test passes, because in
+        # this case exceptiontransform have to put an explit
+        # "has-an-rpy-exc-occurred" check after the indirect call
+        # ==============
+
+        # check that we can call it as a llhelper
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        def h(a, b):
+            fnptr = llhelper(FN, fn)
+            return fnptr(a, b)
+
+        with py.test.raises(LLException) as exc:
+            interpret(h, [3, 0])
+        assert exc.value.error_value == -1 # the return value of h, not of fn!
