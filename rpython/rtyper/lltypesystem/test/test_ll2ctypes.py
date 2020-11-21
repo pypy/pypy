@@ -481,11 +481,12 @@ class TestLL2Ctypes(object):
         assert not ALLOCATED     # detects memory leaks in the test
 
     def test_llhelper_can_raise(self, monkeypatch):
+        from rpython.rlib.objectmodel import llhelper_can_raise
         class FooError(Exception):
             pass
+        @llhelper_can_raise(error_value=-7)
         def dummy(n):
             raise FooError(n + 2)
-        dummy._llhelper_can_raise_ = True
 
         FUNCTYPE = lltype.FuncType([lltype.Signed], lltype.Signed)
         cdummy = lltype2ctypes(llhelper(lltype.Ptr(FUNCTYPE), dummy))
@@ -499,6 +500,7 @@ class TestLL2Ctypes(object):
         with pytest.raises(FooError) as exc:
             lldummy(41)
         assert exc.value.args == (41 + 2,)
+        assert exc.value._ll2ctypes_c_result == -7
         assert not seen
         assert not ALLOCATED     # detects memory leaks in the test
 

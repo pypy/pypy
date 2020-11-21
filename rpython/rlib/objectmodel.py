@@ -226,13 +226,20 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
-def llhelper_can_raise(func):
+def llhelper_can_raise(error_value):
     """
-    Instruct ll2ctypes that this llhelper can raise RPython exceptions, which
-    should be propagated.
+    Instruct ll2ctypes that this llhelper can raise RPython exceptions:
+
+      - when called from RPython, the function will be propagated
+
+      - when called from C, the function will set the exc_data and return error_value.
+
+    This decorator also implies @ll_error_value.
     """
-    func._llhelper_can_raise_ = True
-    return func
+    def decorate(func):
+        func._llhelper_can_raise_ = True
+        return ll_error_value(error_value)(func)
+    return decorate
 
 def ll_error_value(llval):
     """
