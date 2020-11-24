@@ -25,6 +25,7 @@ def set_unicode_db(newunicodedb):
         for i in range(128):
             assert newunicodedb.tolower(i) == getlower_ascii(i)
             assert newunicodedb.toupper(i) == getupper_ascii(i)
+            assert newunicodedb.toupper_full(i) == [getupper_ascii(i)]
     global unicodedb
     unicodedb = newunicodedb
 
@@ -88,8 +89,13 @@ def getupper_locale(char_ord):
 def getupper_unicode(char_ord):
     if char_ord < 128: # shortcut for ascii
         return getupper_ascii(char_ord)
+    # Note: this is like CPython's sre_upper_unicode(), including for a few
+    # arguments like 0xfb05, whose uppercase is *several letters* in unicode.
+    # We return the first of these letters.  That's rather random but no
+    # caller expects a sane result in this case, I think: iscased_unicode()
+    # is fine as long as it returns anything != char_ord in this case.
     assert unicodedb is not None
-    return unicodedb.toupper(char_ord)
+    return unicodedb.toupper_full(char_ord)[0]
 
 def getupper(char_ord, flags):
     if flags & consts.SRE_FLAG_LOCALE:
