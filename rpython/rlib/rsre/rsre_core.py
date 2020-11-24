@@ -51,7 +51,7 @@ class EndOfString(Exception):
     pass
 
 class CompiledPattern(object):
-    _immutable_fields_ = ['pattern[*]', '_getlower', '_getupper']
+    _immutable_fields_ = ['pattern[*]', 'flags']
 
     def __init__(self, pattern, flags):
         self.pattern = pattern
@@ -1161,7 +1161,7 @@ unroll_char_checker = [
     (consts.OPCODE37_NOT_LITERAL_LOC_IGNORE,  match_NOT_LITERAL_LOC_IGNORE),
     ]
 unroll_char_checker = [(_op, _fn) for (_op, _fn) in unroll_char_checker
-                       if _op is not None]
+                       if _op is not None]   # possibly removes the OPCODE37_*
 unroll_fre_checker = [(_op, _make_fre(_fn))
                       for (_op, _fn) in unroll_char_checker]
 
