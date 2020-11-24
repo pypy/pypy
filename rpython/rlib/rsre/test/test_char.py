@@ -212,7 +212,7 @@ def test_iscased():
     assert rsre_char.iscased_ascii(126) is False
     assert rsre_char.iscased_ascii(1260) is False
     assert rsre_char.iscased_ascii(12600) is False
-    for i in range(65, 10000, 33):
+    for i in range(65536):
         assert rsre_char.iscased_unicode(i) == (
             rsre_char.getlower_unicode(i) != i or
             rsre_char.getupper_unicode(i) != i)
