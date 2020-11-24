@@ -373,6 +373,11 @@ class AppTestSreMatch:
         m = re.search("ab+c", "xabbbcd")
         assert repr(m) == "<re.Match object; span=(1, 6), match='abbbc'>"
 
+    def test_unicode_iscased(self):
+        import _sre
+        assert _sre.unicode_iscased(64261)
+        assert not _sre.unicode_iscased(32)
+
     def test_group_bugs(self):
         import re
         r = re.compile(r"""
