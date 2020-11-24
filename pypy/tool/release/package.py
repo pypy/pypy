@@ -251,6 +251,9 @@ def create_package(basedir, options, _fake=False):
         try:
             os.symlink(POSIX_EXE, 'pypy')
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'python')
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver[1]))
         finally:
             os.chdir(old_dir)
     fix_permissions(pypydir)
