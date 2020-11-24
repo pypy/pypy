@@ -41,11 +41,11 @@ class AppTestSrePattern:
     spaceconfig = {'usemodules': ['itertools']}
 
     def test_copy(self):
-        # copy support is disabled by default in _sre.c
+        # new in 3.7
         import re
         p = re.compile("b")
-        raises(TypeError, p.__copy__)        # p.__copy__() should raise
-        raises(TypeError, p.__deepcopy__)    # p.__deepcopy__() should raise
+        assert p.__copy__() is p
+        assert p.__deepcopy__("whatever") is p
 
     def test_creation_attributes(self):
         import re
@@ -184,10 +184,10 @@ class AppTestSreMatch:
 
     def test_copy(self):
         import re
-        # copy support is disabled by default in _sre.c
+        # new in 3.7
         m = re.match("bla", "bla")
-        raises(TypeError, m.__copy__)
-        raises(TypeError, m.__deepcopy__)
+        assert m.__copy__() is m
+        assert m.__deepcopy__("whatever") is m
 
     def test_match_attributes(self):
         import re
@@ -371,7 +371,7 @@ class AppTestSreMatch:
     def test_match_repr(self):
         import re
         m = re.search("ab+c", "xabbbcd")
-        assert repr(m) == "<_sre.SRE_Match object; span=(1, 6), match='abbbc'>"
+        assert repr(m) == "<re.Match object; span=(1, 6), match='abbbc'>"
 
     def test_group_bugs(self):
         import re

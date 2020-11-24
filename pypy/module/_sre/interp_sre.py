@@ -127,9 +127,8 @@ FLAG_NAMES = ["re.TEMPLATE", "re.IGNORECASE", "re.LOCALE", "re.MULTILINE",
 class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this pattern object")
+    def copy_identity_w(self, args_w):
+        return self
 
     def repr_w(self):
         space = self.space
@@ -567,8 +566,8 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
 W_SRE_Pattern.typedef = TypeDef(
     're.Pattern',
     __new__      = interp2app(SRE_Pattern__new__),
-    __copy__     = interp2app(W_SRE_Pattern.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
+    __copy__     = interp2app(W_SRE_Pattern.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Pattern.copy_identity_w),
     __repr__     = interp2app(W_SRE_Pattern.repr_w),
     __weakref__  = make_weakref_descr(W_SRE_Pattern),
     __eq__       = interp2app(W_SRE_Pattern.descr_eq),
@@ -617,12 +616,11 @@ class W_SRE_Match(W_Root):
         u = space.utf8_w(w_s)
         start = self.bytepos_to_charindex(start)
         end = self.bytepos_to_charindex(end)
-        return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        return space.newtext('<re.Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this match object")
+    def copy_identity_w(self, args_w):
+        return self
 
     def descr_getitem(self, space, w_index):
         start, end = self.do_span(w_index)
@@ -800,8 +798,8 @@ class W_SRE_Match(W_Root):
 
 W_SRE_Match.typedef = TypeDef(
     're.Match',
-    __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
+    __copy__     = interp2app(W_SRE_Match.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Match.copy_identity_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),
     __getitem__  = interp2app(W_SRE_Match.descr_getitem),
     #
