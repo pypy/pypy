@@ -94,35 +94,17 @@ CATEGORY_UNI_NOT_WORD = "category_uni_not_word"
 CATEGORY_UNI_LINEBREAK = "category_uni_linebreak"
 CATEGORY_UNI_NOT_LINEBREAK = "category_uni_not_linebreak"
 
-OPCODES = [
-
-    # failure=0 success=1 (just because it looks better that way :-)
-    FAILURE, SUCCESS,
-
-    ANY, ANY_ALL,
-    ASSERT, ASSERT_NOT,
-    AT,
-    BRANCH,
-    CALL,
-    CATEGORY,
-    CHARSET, BIGCHARSET,
-    GROUPREF, GROUPREF_EXISTS, GROUPREF_IGNORE,
-    IN, IN_IGNORE,
-    INFO,
-    JUMP,
-    LITERAL, LITERAL_IGNORE,
-    MARK,
-    MAX_UNTIL,
-    MIN_UNTIL,
-    NOT_LITERAL, NOT_LITERAL_IGNORE,
-    NEGATE,
-    RANGE,
-    REPEAT,
-    REPEAT_ONE,
-    SUBPATTERN,
-    MIN_REPEAT_ONE,
-    RANGE_IGNORE,
-]
+def _rpython_opcodes():
+    from rpython.rlib.rsre import rsre_constants as consts
+    mapping = {}
+    for name, value in consts.__dict__.items():
+        if name.startswith('OPCODE') and isinstance(value, int) and value < 70:
+            name = name[6:].lstrip('012346789_').lower()
+            mapping[value] = name
+    # check that there are no holes
+    assert sorted(mapping.keys()) == range(len(mapping))
+    return [name for value, name in sorted(mapping.items())]
+OPCODES = _rpython_opcodes()
 
 ATCODES = [
     AT_BEGINNING, AT_BEGINNING_LINE, AT_BEGINNING_STRING, AT_BOUNDARY,

@@ -204,3 +204,15 @@ def test_general_category():
     assert check_charset(pat, 0, 99)    # Lcheck_charset(pat, 0, 453)   # Lt
     assert not check_charset(pat, 0, 688)    # Lm
     assert not check_charset(pat, 0, 5870)   # Nl
+
+def test_iscased():
+    assert rsre_char.iscased_ascii(65)
+    assert rsre_char.iscased_ascii(100)
+    assert rsre_char.iscased_ascii(64) is False
+    assert rsre_char.iscased_ascii(126) is False
+    assert rsre_char.iscased_ascii(1260) is False
+    assert rsre_char.iscased_ascii(12600) is False
+    for i in range(65, 10000, 33):
+        assert rsre_char.iscased_unicode(i) == (
+            rsre_char.getlower_unicode(i) != i or
+            rsre_char.getupper_unicode(i) != i)

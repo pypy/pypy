@@ -22,6 +22,9 @@ def get_code(regexp, flags=0, allargs=False):
     """NOT_RPYTHON: you can't compile new regexps in an RPython program,
     you can only use precompiled ones"""
     from . import sre_compile
+    if rsre_constants.V37:
+        import pytest
+        pytest.skip("This test cannot run in a 3.7 branch of pypy")
     try:
         sre_compile.compile(regexp, flags)
     except GotIt as e:

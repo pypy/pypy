@@ -283,7 +283,7 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        ctx.fullmatch_only = True
+        ctx.match_mode = rsre_core.MODE_FULL
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)

@@ -1,12 +1,12 @@
 #! /bin/bash
 
 # Edit these appropriately before running this script
-pmaj=2  # python main version: 2 or 3
-pmin=7  # python minor version
+pmaj=3  # python main version: 2 or 3
+pmin=6  # python minor version
 maj=7
 min=3
-rev=2
-# rc=rc3  # set to blank for actual release
+rev=3
+#rc=rc2  # set to blank for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
