@@ -33,11 +33,12 @@ class AppTestFfi:
         import _winreg as winreg
         space = cls.space
         cls.root_key = winreg.HKEY_CURRENT_USER
-        cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
+        cls.test_key_name = "SOFTWARE\\Pypy Test Key - Delete Me [%d]" % os.getpid()
         cls.w_root_key = space.wrap(cls.root_key)
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         test_data = [
             ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
@@ -56,7 +57,7 @@ class AppTestFfi:
         import _winreg
         try:
             _winreg.DeleteKey(cls.root_key, cls.test_key_name)
-        except WindowsError:
+        except WindowsError as e:
             pass
 
     def test_constants(self):
@@ -244,6 +245,8 @@ class AppTestFfi:
 
     def test_dynamic_key(self):
         from winreg import EnumValue, QueryValueEx, HKEY_PERFORMANCE_DATA
+        if not self.runappdirect:
+            skip('very slow untranslated')
         try:
             EnumValue(HKEY_PERFORMANCE_DATA, 0)
         except WindowsError as e:
@@ -253,20 +256,6 @@ class AppTestFfi:
                      "(are you running in a non-interactive session?)")
             raise
         QueryValueEx(HKEY_PERFORMANCE_DATA, 'Global')
-
-    def test_reflection_unsupported(self):
-        import sys
-        if sys.getwindowsversion() >= (5, 2):
-            skip("Requires Windows XP")
-        from winreg import (
-            CreateKey, DisableReflectionKey, EnableReflectionKey,
-            QueryReflectionKey, DeleteKeyEx)
-        with CreateKey(self.root_key, self.test_key_name) as key:
-            raises(NotImplementedError, DisableReflectionKey, key)
-            raises(NotImplementedError, EnableReflectionKey, key)
-            raises(NotImplementedError, QueryReflectionKey, key)
-            raises(NotImplementedError, DeleteKeyEx, self.root_key,
-                   self.test_key_name)
 
     def test_named_arguments(self):
         from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, OpenKeyEx

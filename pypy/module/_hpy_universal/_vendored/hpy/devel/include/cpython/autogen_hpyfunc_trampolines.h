@@ -128,3 +128,8 @@
     { \
         return (IMPL(_HPyGetContext(), _py2h(arg0), _py2h(arg1), arg2)); \
     }
+#define _HPyFunc_TRAMPOLINE_HPyFunc_OBJOBJPROC(SYM, IMPL) \
+    static int SYM(cpy_PyObject *arg0, cpy_PyObject *arg1) \
+    { \
+        return (IMPL(_HPyGetContext(), _py2h(arg0), _py2h(arg1))); \
+    }

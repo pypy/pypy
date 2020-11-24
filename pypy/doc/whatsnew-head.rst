@@ -1,19 +1,18 @@
 ============================
-What's new in PyPy2.7 7.3.2+
+What's new in PyPy2.7 7.3.3+
 ============================
 
-.. this is a revision shortly after release-pypy-7.3.2
-.. startrev: c136fdb316e4
+.. this is a revision shortly after release-pypy-7.3.3
+.. startrev: de512cf13506
 
+.. branch: new-ci-image
 
-.. branch: cross_compilation_fixes
+CI: Add a Dockerfile for CI to prevent hitting pull limits on docker hub
 
-Respect PKG_CONFIG and CC in more places to allow cross-compilation
+.. branch: issue-3333
 
-.. branch: darwin-sendfile-2.7
+Fix xml.etree.ElementTree assigning default attribute values: issue 3333
 
-Add posix.sendfile to darwin for python3.6+
+.. branch: rpython-rsre-for-37
 
-.. branch: app_main
-
-avoid using ``import os`` until after ``import site`` in ``app_main``
+Support for the new format of regular expressions in Python 3.7

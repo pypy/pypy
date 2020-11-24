@@ -121,12 +121,17 @@ class AppTestArrayModule(AppTestCpythonExtensionBase):
 
     def test_string_buf(self):
         module = self.import_module(name='array')
+        import sys
         arr = module.array('u', '123')
         view = memoryview(arr)
-        assert view.itemsize == 4
-        assert module.write_buffer_len(arr) == 12
-        assert len(module.readbuffer_as_string(arr)) == 12
-        assert len(module.readbuffer_as_string(view)) == 12
+        isize = view.itemsize
+        if sys.platform == 'win32':
+            assert isize == 2
+        else:
+            assert isize == 4
+        assert module.write_buffer_len(arr) == isize * 3
+        assert len(module.readbuffer_as_string(arr)) == isize * 3
+        assert len(module.readbuffer_as_string(view)) == isize * 3
 
     def test_subclass(self):
         import struct

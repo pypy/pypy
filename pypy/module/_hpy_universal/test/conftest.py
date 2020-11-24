@@ -29,6 +29,8 @@ class extra_AppTestCPythonCompatibility:
         # to pass this test, we need to implement HPy_AsPyObject in a way that
         # it's compatible with HPy_CAST, as described in
         # https://mail.python.org/archives/list/hpy-dev@python.org/thread/3TQ3AAY6AOUXZRAKWY42C77VL4AF54YC/
+        # and the proposed solution here:
+        # https://github.com/hpyproject/hpy/issues/83
         import pytest
         pytest.skip('implement me!')
 

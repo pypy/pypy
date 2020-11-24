@@ -93,10 +93,11 @@ def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint,
               fullmatch=False):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
-    from rpython.rlib.rsre.rsre_core import match_context
+    from rpython.rlib.rsre.rsre_core import match_context, MODE_FULL
 
     ctx = make_utf8_ctx(utf8string, bytestart, byteend)
-    ctx.fullmatch_only = fullmatch
+    if fullmatch:
+        ctx.match_mode = MODE_FULL
     if match_context(ctx, pattern):
         return ctx
     else:

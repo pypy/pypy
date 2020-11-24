@@ -96,6 +96,10 @@ Other steps
     create a fresh whatsnew_head.rst after the release
     and add the new file to  pypy/doc/index-of-whatsnew.rst
 
+  * rename pypy/doc/whatsnew-pypy3-HEAD.rst to whatsnew-pypy3-VERSION.rst
+    create a fresh whatsnew-pypy3_HEAD.rst after the release
+    and add the new file to  pypy/doc/index-of-whatsnew.rst
+
   * write release announcement pypy/doc/release-VERSION.rst
     The release announcement should contain a direct link to the download page
 
@@ -125,7 +129,8 @@ Other steps
 
     Also repackage and upload source "-src.tar.bz2"
 
-  * Upload binaries to https://buildbot.pypy.org/mirror
+  * Upload binaries to https://buildbot.pypy.org/mirror. It takes an hour for
+    https://downloads.python.org/pypy/ to sync
 
 * Send out a mailing list message asking for last-minute comments and testing
 
@@ -142,5 +147,4 @@ Other steps
 
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
-  * tag the final release(s) with appropriate tags
 

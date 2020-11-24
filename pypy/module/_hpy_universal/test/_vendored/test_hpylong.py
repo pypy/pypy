@@ -59,6 +59,8 @@ class TestLong(HPyTest):
 
     def test_Long_FromSsize_t(self):
         mod = self.make_module("""
+            // include ssize_t type:
+            #include <sys/types.h>
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
             {

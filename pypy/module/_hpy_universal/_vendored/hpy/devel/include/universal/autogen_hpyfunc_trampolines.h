@@ -371,3 +371,18 @@ typedef struct {
         return a.result; \
     }
 
+typedef struct {
+    cpy_PyObject *arg0;
+    cpy_PyObject *arg1;
+    int result;
+} _HPyFunc_args_OBJOBJPROC;
+
+#define _HPyFunc_TRAMPOLINE_HPyFunc_OBJOBJPROC(SYM, IMPL) \
+    static int SYM(cpy_PyObject *arg0, cpy_PyObject *arg1) \
+    { \
+        _HPyFunc_args_OBJOBJPROC a = { arg0, arg1 }; \
+        _HPy_CallRealFunctionFromTrampoline( \
+           _ctx_for_trampolines, HPyFunc_OBJOBJPROC, IMPL, &a); \
+        return a.result; \
+    }
+

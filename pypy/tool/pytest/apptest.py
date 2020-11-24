@@ -33,6 +33,9 @@ RENAMED_USEMODULES = {
 if sys.platform == 'win32':
     RENAMED_USEMODULES['posix'] = 'nt'
 
+if sys.platform == 'win32':
+    RENAMED_USEMODULES['posix'] = 'nt'
+
 class AppError(Exception):
     def __init__(self, excinfo):
         self.excinfo = excinfo

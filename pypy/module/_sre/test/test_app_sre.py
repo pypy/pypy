@@ -95,7 +95,7 @@ class AppTestSrePattern:
         assert ["a", "u"] == re.findall("b(.)", "abalbus")
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
-        assert ['', '', 'X', '', ''] == re.findall("X??", "1X4")
+        assert ['', '', 'X', '', ''] == re.findall("X??", "1X4")  # new in 3.7
 
     def test_findall_unicode(self):
         import re
@@ -343,6 +343,10 @@ class AppTestSreMatch:
     def test_sub_bug(self):
         import re
         assert re.sub('=\w{2}', 'x', '=CA') == 'x'
+
+    def test_sub_emptymatch(self):
+        import re
+        assert re.sub(r"b*", "*", "abc") == "*a*c*"   # changes in 3.7
 
     def test_sub_bytearray(self):
         import re

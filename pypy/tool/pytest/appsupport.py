@@ -299,9 +299,12 @@ def pypyraises(space, w_ExpectedException, w_expr=None, __args__=None):
 
 app_raises = gateway.interp2app(pypyraises)
 
-def pypyskip(space, w_message):
+def pypyskip(space, w_message=None):
     """skip a test at app-level. """
-    msg = space.unwrap(w_message)
+    if w_message is None:
+        msg = ''
+    else:
+        msg = space.unwrap(w_message)
     py.test.skip(msg)
 
 app_skip = gateway.interp2app(pypyskip)
