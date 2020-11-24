@@ -44,6 +44,8 @@ def test_no_pypy_import_in_rpython():
         if os.path.isfile(path):
             if not path.lower().endswith('.py'):
                 return
+            if path.lower().endswith('rsre_constants.py'):
+                return   # exception in this file
             with file(path) as f:
                 for line in f:
                     if "import" not in line:
