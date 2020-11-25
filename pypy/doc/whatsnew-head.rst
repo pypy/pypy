@@ -16,3 +16,7 @@ Fix xml.etree.ElementTree assigning default attribute values: issue 3333
 .. branch: rpython-rsre-for-37
 
 Support for the new format of regular expressions in Python 3.7
+
+.. branch: rpy-cparser
+
+Upstream internal cparser tool from pypy/ to rpython/

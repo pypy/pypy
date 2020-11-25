@@ -188,18 +188,6 @@ typedef struct {
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
-/* from descrobject.h */
-typedef PyObject *(*getter)(PyObject *, void *);
-typedef int (*setter)(PyObject *, PyObject *, void *);
-
-typedef struct PyGetSetDef {
-	char *name;
-	getter get;
-	setter set;
-	char *doc;
-	void *closure;
-} PyGetSetDef;
-
 /* from methodobject.h */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
 typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,

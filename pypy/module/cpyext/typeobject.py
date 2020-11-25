@@ -42,8 +42,6 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-cts.parse_header(parse_dir / "cpyext_descrobject.h")
-
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
