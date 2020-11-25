@@ -959,6 +959,11 @@ class AppTestPartialEvaluation:
         uval, lgt = _codecs.utf_8_decode(utf8, 'replace')
         assert lgt == 3
         assert [ord(x) for x in uval] == [65533, 65533, 65533]
+
+        # issue 3348
+        utf8 = b'abcdef \xc4'
+        uval, lgt = _codecs.utf_8_decode(utf8, 'ignore', False)
+        assert lgt == 5
         
 
     def test_escape_decode_escaped_newline(self):
