@@ -44,14 +44,12 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
-cts.parse_header(parse_dir / "cpyext_descrobject.h")
 cts.parse_header(parse_dir / "typeslots.h")
 
 
