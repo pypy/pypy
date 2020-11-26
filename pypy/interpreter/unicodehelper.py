@@ -373,10 +373,6 @@ if _WIN32:
         res, size = win32.str_decode_mbcs(s, errors, errorhandler, final=final)
         return res, size, size
 
-    def str_decode_utf8(s, errors, final, errorhandler):
-        res, size = win32.str_decode_utf8(s, errors, errorhandler, final=final)
-        return res, size, size
-
     def utf8_encode_oem(s, errors, errorhandler, allow_surrogates=False):
         res = win32.utf8_encode_oem(s, errors, errorhandler)
         return res
@@ -405,7 +401,11 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
 def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
     """ Same as checking for the valid utf8, but we know the utf8 is not
     valid so we're trying to either raise or pack stuff with error handler.
-    The key difference is that this is call_may_force
+    The key difference is that this is call_may_force.
+
+    In CPython this is done in unicode_decode_utf8, which has no
+    allow_surrogates. That argument is used in at least decode_utf8sp, in
+    interpreter.error._compute_value.
     """
     if errors is None:
         errors = 'strict'
@@ -425,7 +425,7 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
             if not (final or errors in ('replace', 'ignore', 'surrogateescape')):
                 # These error handlers operate on a character-by-character basis
                 # so they disable "final=False" (they are special cased in
-                # PyUnicode_DecodeUTF8Stateful)
+                # cpython's unicode_decode_utf8)
                 break
             # argh, this obscure block of code is mostly a copy of
             # what follows :-(
