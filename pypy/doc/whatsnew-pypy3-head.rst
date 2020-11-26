@@ -7,3 +7,10 @@ What's new in PyPy3 7.3.3+
 
 .. branch: py3.6-resync
 
+.. branch: fix-crypt-py3-import
+
+Fix bad merge of crypt cffi module
+
+.. branch: issue3348
+
+Fix utf_8_decode for final=False, error=ignore

@@ -952,14 +952,20 @@ class AppTestPartialEvaluation:
             part2 = d.encode(u[i:], True)
             assert s == part1 + part2
 
-    def test_utf_8_decode(self):
+    def test_utf_8_decode1(self):
         import _codecs
-        utf8 = 'åäö'.encode('iso-8859-1')
-        assert utf8 == b'\xe5\xe4\xf6'
+        # 'åäö'.encode('iso-8859-1')
+        utf8 = b'\xe5\xe4\xf6'
         uval, lgt = _codecs.utf_8_decode(utf8, 'replace')
         assert lgt == 3
         assert [ord(x) for x in uval] == [65533, 65533, 65533]
-        
+
+    def test_utf_8_decode2(self):
+        import _codecs
+        # issue 3348
+        utf8 = b'abcdef \xc4'
+        uval, lgt = _codecs.utf_8_decode(utf8, 'ignore', False)
+        assert lgt == 7
 
     def test_escape_decode_escaped_newline(self):
         import _codecs
