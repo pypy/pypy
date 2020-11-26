@@ -422,7 +422,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
 
         n = ord(runicode._utf8_code_length[ordch1 - 0x80])
         if pos + n > len(s):
-            if not (final or errors in ('replace', 'ignore', 'surrogateescape')):
+            special_errors = errors in ('replace', 'ignore', 'surrogateescape')
+            if not final and not special_errors:
                 # These error handlers operate on a character-by-character basis
                 # so they disable "final=False" (they are special cased in
                 # cpython's unicode_decode_utf8)
@@ -435,6 +436,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
             # in case we need to continue running this loop
             if not charsleft:
                 # there's only the start byte and nothing else
+                if not final:
+                    break
                 r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+1)
@@ -452,6 +455,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
                     continue
                 else:
                     # second byte valid, but third byte missing
+                    if not final:
+                        break
                     r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+2)
@@ -475,6 +480,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
                     continue
                 else:
                     # there's only 1 or 2 valid cb, but the others are missing
+                    if not final:
+                        break
                     r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+charsleft+1)
@@ -724,7 +731,7 @@ def wcharpsize2utf8(space, wcharp, size):
     """
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
-        # wcharp is actually utf16 
+        # wcharp is actually utf16
         return win32._unibuf_to_utf8(wcharp, size)
     else:
         try:
