@@ -20,3 +20,9 @@ What's new in PyPy3 7.3.3+
 .. branch: incremental_decoder
 
 Fix utf_8_decode for final=False 
+
+
+.. branch: refactor-posonly
+
+Refactor how positional-only arguments are represented in signature objects,
+which brings it more in line with Python 3.8, and simplifies the code.
