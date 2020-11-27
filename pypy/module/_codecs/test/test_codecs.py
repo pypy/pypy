@@ -955,6 +955,24 @@ class AppTestPartialEvaluation:
             dec = _codecs.lookup("utf-8").incrementaldecoder()
             raises(UnicodeDecodeError, dec.decode, data)
 
+    def test_incremental_surrogatepass(self):
+        # Test incremental decoder for surrogatepass handler:
+        # see bpo #24214
+        # High surrogate
+        import codecs
+        data = u'\uD901'.encode('utf-8', 'surrogatepass')
+        for i in range(1, len(data)):
+            dec = codecs.getincrementaldecoder('utf-8')('surrogatepass')
+            assert dec.decode(data[:i]) == ''
+            assert dec.decode(data[i:], True) == '\uD901'
+        # Low surrogate
+        data = '\uDC02'.encode('utf-8', 'surrogatepass')
+        for i in range(1, len(data)):
+            dec = codecs.getincrementaldecoder('utf-8')('surrogatepass')
+            assert dec.decode(data[:i]) == ''
+            assert dec.decode(data[i:], False) == '\uDC02'
+
+
     def test_decoder_state(self):
         import codecs
         encoding = 'utf16'
