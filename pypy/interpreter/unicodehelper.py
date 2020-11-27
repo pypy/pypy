@@ -422,12 +422,6 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
 
         n = ord(runicode._utf8_code_length[ordch1 - 0x80])
         if pos + n > len(s):
-            special_errors = errors in ('replace', 'ignore', 'surrogateescape')
-            if not final and not special_errors:
-                # These error handlers operate on a character-by-character basis
-                # so they disable "final=False" (they are special cased in
-                # cpython's unicode_decode_utf8)
-                break
             # argh, this obscure block of code is mostly a copy of
             # what follows :-(
             charsleft = len(s) - pos - 1 # either 0, 1, 2
