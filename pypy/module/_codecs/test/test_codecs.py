@@ -938,6 +938,42 @@ class AppTestPartialEvaluation:
         s = "spam"
         assert d.decode(s.encode("utf-8-sig")) == s
 
+    def test_incremental_errors(self):
+        # Test that the incremental decoder can fail with final=False.
+        # See bpo #24214
+        import _codecs
+        for encoding in ('utf-8', 'utf-16'):
+            cases = [b'\x80', b'\xBF', b'\xC0', b'\xC1', b'\xF5', b'\xF6', b'\xFF']
+            for prefix in (b'\xC2', b'\xDF', b'\xE0', b'\xE0\xA0', b'\xEF',
+                           b'\xEF\xBF', b'\xF0', b'\xF0\x90', b'\xF0\x90\x80',
+                           b'\xF4', b'\xF4\x8F', b'\xF4\x8F\xBF'):
+                for suffix in b'\x7F', b'\xC0':
+                    cases.append(prefix + suffix)
+            cases.extend((b'\xE0\x80', b'\xE0\x9F', b'\xED\xA0\x80',
+                          b'\xED\xBF\xBF', b'\xF0\x80', b'\xF0\x8F', b'\xF4\x90'))
+
+            for data in cases:
+                dec = _codecs.lookup("utf-8").incrementaldecoder()
+                raises(UnicodeDecodeError, dec.decode, data)
+
+    def test_incremental_surrogatepass(self):
+        # Test incremental decoder for surrogatepass handler:
+        # see bpo #24214
+        # High surrogate
+        import codecs
+        for encoding in ('utf-8', 'utf-16'):
+            data = u'\uD901'.encode(encoding, 'surrogatepass')
+            for i in range(1, len(data)):
+                dec = codecs.getincrementaldecoder(encoding)('surrogatepass')
+                assert dec.decode(data[:i]) == ''
+                assert dec.decode(data[i:], True) == '\uD901'
+            # Low surrogate
+            data = '\uDC02'.encode(encoding, 'surrogatepass')
+            for i in range(1, len(data)):
+                dec = codecs.getincrementaldecoder(encoding)('surrogatepass')
+                assert dec.decode(data[:i]) == ''
+                assert dec.decode(data[i:], False) == '\uDC02'
+
     def test_decoder_state(self):
         import codecs
         encoding = 'utf16'
@@ -952,14 +988,20 @@ class AppTestPartialEvaluation:
             part2 = d.encode(u[i:], True)
             assert s == part1 + part2
 
-    def test_utf_8_decode(self):
+    def test_utf_8_decode1(self):
         import _codecs
-        utf8 = 'åäö'.encode('iso-8859-1')
-        assert utf8 == b'\xe5\xe4\xf6'
+        # 'åäö'.encode('iso-8859-1')
+        utf8 = b'\xe5\xe4\xf6'
         uval, lgt = _codecs.utf_8_decode(utf8, 'replace')
         assert lgt == 3
         assert [ord(x) for x in uval] == [65533, 65533, 65533]
-        
+
+    def test_utf_8_decode2(self):
+        import _codecs
+        # issue 3348
+        utf8 = b'abcdef \xc4'
+        uval, lgt = _codecs.utf_8_decode(utf8, 'ignore', False)
+        assert lgt == 7
 
     def test_escape_decode_escaped_newline(self):
         import _codecs
