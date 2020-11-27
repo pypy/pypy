@@ -986,6 +986,7 @@ def strftime(space, format, w_tup=None):
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
     i = 1024
+    passthrough = False
     if _WIN:
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
@@ -1014,7 +1015,11 @@ def strftime(space, format, w_tup=None):
         # wcharp with track_allocation=True
         format_for_call = rffi.utf82wcharp(format, len(format))
     else:
-        format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+        try:
+            format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+        except UnicodeEncodeError:
+            format_for_call = format
+            passthrough = True
     try:
         while True:
             if _WIN:
@@ -1033,8 +1038,13 @@ def strftime(space, format, w_tup=None):
                     if _WIN:
                         decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     else:
+                        from rpython.rlib.rutf8 import codepoints_in_utf8
                         result = rffi.charp2strn(outbuf, intmask(buflen))
-                        decoded, size = str_decode_locale_surrogateescape(result)
+                        if passthrough:
+                            decoded = result
+                            size = codepoints_in_utf8(result)
+                        else:
+                            decoded, size = str_decode_locale_surrogateescape(result)
                     return space.newutf8(decoded, size)
                 if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
                     raise oefmt(space.w_ValueError, "invalid format string")

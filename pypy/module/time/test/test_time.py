@@ -510,6 +510,18 @@ class AppTestTime:
         finally:
             _locale.setlocale(_locale.LC_TIME, prev_loc)
 
+    def test_strftime_surrogate(self):
+        import time
+        # maybe raises, maybe doesn't, but should not crash
+        try:
+            res = time.strftime(u'%y\ud800%m', time.localtime(192039127))
+        except UnicodeEncodeError:
+            pass
+        else:
+            expected = u'76\ud80002'
+            print(len(res), len(expected))
+            assert res == u'76\ud80002' 
+
     def test_strptime(self):
         import time
 
