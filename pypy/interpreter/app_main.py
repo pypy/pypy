@@ -573,8 +573,7 @@ def parse_command_line(argv):
 
     if not options["ignore_environment"]:
         parse_env('PYTHONDEBUG', "debug", options)
-        if getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = 1
+        parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
         if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if getenv('PYTHONUNBUFFERED'):
