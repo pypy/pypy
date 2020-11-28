@@ -83,7 +83,8 @@ def PyMember_GetOne(space, obj, w_member):
         if obj_ptr[0]:
             w_result = from_ref(space, obj_ptr[0])
         else:
-            w_name = space.newtext(rffi.charp2str(w_member.c_name))
+            s = rffi.constcharp2str(w_member.c_name)
+            w_name = space.newtext(s)
             raise OperationError(space.w_AttributeError, w_name)
     else:
         raise oefmt(space.w_SystemError, "bad memberdescr type")
@@ -104,7 +105,8 @@ def PyMember_SetOne(space, obj, w_member, w_value):
     elif w_value is None:
         if member_type == T_OBJECT_EX:
             if not rffi.cast(PyObjectP, addr)[0]:
-                w_name = space.newtext(rffi.charp2str(w_member.c_name))
+                s = rffi.constcharp2str(w_member.c_name)
+                w_name = space.newtext(s)
                 raise OperationError(space.w_AttributeError, w_name)
         elif member_type != T_OBJECT:
             raise oefmt(space.w_TypeError,
