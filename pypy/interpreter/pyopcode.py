@@ -1353,18 +1353,20 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
-        w_tup_varnames = self.popvalue()
-        keywords_w = self.space.fixedview(w_tup_varnames)
-        n_keywords = len(keywords_w)
-        n_arguments -= n_keywords
-        keywords = [self.space.text_w(w_keyword) for w_keyword in keywords_w]
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+        space = self.space
+        # like in BUILD_CONST_KEY_MAP we can't use space.fixedview because then
+        # the immutability of the tuple is lost
+        w_tup_varnames = space.interp_w(W_AbstractTupleObject, self.popvalue())
+        n_keywords = space.len_w(w_tup_varnames)
+        keywords = [None] * n_keywords
         keywords_w = [None] * n_keywords
-        while True:
-            n_keywords -= 1
-            if n_keywords < 0:
-                break
-            w_value = self.popvalue()
-            keywords_w[n_keywords] = w_value
+        for i in range(n_keywords):
+            keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+            w_value = self.peekvalue(n_keywords - 1 - i)
+            keywords_w[i] = w_value
+        self.dropvalues(n_keywords)
+        n_arguments -= n_keywords
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
         args = self.argument_factory(arguments, keywords, keywords_w, None, None,
