@@ -189,11 +189,11 @@ typedef struct {
 /* from structmember.h */
 typedef struct PyMemberDef {
     /* Current version, use this */
-    const char *name;
+    char *name;
     int type;
     Py_ssize_t offset;
     int flags;
-    const char *doc;
+    char *doc;
 } PyMemberDef;
 
 
