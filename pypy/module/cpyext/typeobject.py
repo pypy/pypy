@@ -60,7 +60,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         doc = fset = fget = fdel = None
         if doc:
             # XXX dead code?
-            doc = rffi.charp2str(getset.c_doc)
+            doc = rffi.constcharp2str(getset.c_doc)
         if getset.c_get:
             fget = GettersAndSetters.getter.im_func
         if getset.c_set:
@@ -69,7 +69,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
                                 tag="cpyext_1")
-        self.name = rffi.charp2str(getset.c_name)
+        self.name = rffi.constcharp2str(getset.c_name)
 
     def readonly_attribute(self, space):   # overwritten
         raise oefmt(space.w_AttributeError,
@@ -84,10 +84,11 @@ def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
     doc = getsetprop.doc
     if doc:
-        py_getsetdef.c_doc = rffi.str2charp(doc)
+        py_getsetdef.c_doc = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(doc))
     else:
-        py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
-    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
+        py_getsetdef.c_doc = rffi.cast(rffi.CONST_CCHARP, 0)
+    py_getsetdef.c_name = rffi.cast(rffi.CONST_CCHARP,
+                                    rffi.str2charp(getsetprop.getname(space)))
     # XXX FIXME - actually assign these !!!
     py_getsetdef.c_get = cts.cast('getter', 0)
     py_getsetdef.c_set = cts.cast('setter', 0)
@@ -99,12 +100,12 @@ class W_MemberDescr(GetSetProperty):
     name = 'member_descriptor'
     def __init__(self, member, w_type):
         self.member = member
-        self.name = rffi.charp2str(member.c_name)
+        self.name = rffi.constcharp2str(member.c_name)
         self.w_type = w_type
         flags = rffi.cast(lltype.Signed, member.c_flags)
         doc = set = None
         if member.c_doc:
-            doc = rffi.charp2str(member.c_doc)
+            doc = rffi.constcharp2str(member.c_doc)
         get = GettersAndSetters.member_getter.im_func
         del_ = GettersAndSetters.member_delete.im_func
         if not (flags & structmemberdefs.READONLY):
@@ -244,7 +245,7 @@ def convert_getset_defs(space, dict_w, getsets, w_type):
             name = getset.c_name
             if not name:
                 break
-            name = rffi.charp2str(name)
+            name = rffi.constcharp2str(name)
             w_descr = PyDescr_NewGetSet(space, getset, w_type)
             dict_w[name] = w_descr
 
@@ -257,7 +258,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             name = member.c_name
             if not name:
                 break
-            name = rffi.charp2str(name)
+            name = rffi.constcharp2str(name)
             w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
@@ -382,7 +383,7 @@ def add_operators(space, w_type, dict_w, pto, name):
                               offset=offset[:])
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
-        raw_doc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+        raw_doc = rffi.constcharp2str(pto.c_tp_doc)
         dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
@@ -536,7 +537,7 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+        name = rffi.constcharp2str(pto.c_tp_name)
         add_operators(space, self, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -566,7 +567,7 @@ class W_PyCTypeObject(W_TypeObject):
         elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            rawdoc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+            rawdoc = rffi.constcharp2str(pto.c_tp_doc)
             self.w_doc = space.newtext_or_none(extract_doc(rawdoc, name))
             self.text_signature = extract_txtsig(rawdoc, name)
 
@@ -926,7 +927,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     typ = res.c_ht_type
     typ.c_tp_flags = rffi.cast(lltype.Unsigned, spec.c_flags)
     typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
-    specname = rffi.charp2str(cts.cast('char*', spec.c_name))
+    specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
     if dotpos < 0:
         name = specname

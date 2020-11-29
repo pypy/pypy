@@ -26,3 +26,8 @@ Fix utf_8_decode for final=False
 
 Refactor how positional-only arguments are represented in signature objects,
 which brings it more in line with Python 3.8, and simplifies the code.
+
+.. branch: const
+
+Change `char *`` to ``const char *`` in ``PyStructSequence_Field``,
+``PyStructSequence_Desc``, ``PyGetSetDef``, ``wrapperbase``
