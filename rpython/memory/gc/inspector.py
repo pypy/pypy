@@ -212,7 +212,7 @@ class HeapDumper(BaseWalker):
     @jit.dont_look_inside
     def flush(self):
         if self.buf_count > 0:
-            bytes = self.buf_count * rffi.sizeof(rffi.LONG)
+            bytes = self.buf_count * rffi.sizeof(rffi.SIGNED)
             count = raw_os_write(self.fd,
                                  rffi.cast(llmemory.Address, self.writebuffer),
                                  rffi.cast(rffi.SIZE_T, bytes))

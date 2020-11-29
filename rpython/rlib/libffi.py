@@ -46,6 +46,7 @@ class types(object):
         cls.slonglong = clibffi.cast_type_to_ffitype(rffi.LONGLONG)
         cls.ulonglong = clibffi.cast_type_to_ffitype(rffi.ULONGLONG)
         cls.signed = clibffi.cast_type_to_ffitype(rffi.SIGNED)
+        cls.unsigned = clibffi.cast_type_to_ffitype(rffi.UNSIGNED)
         cls.wchar_t = clibffi.cast_type_to_ffitype(lltype.UniChar)
         # XXX long double support: clibffi.ffi_type_longdouble, but then
         # XXX fix the whole rest of this file to add a case for long double
@@ -77,6 +78,9 @@ class types(object):
         elif ffi_type is types.uint16:  return 'u'
         elif ffi_type is types.sint32:  return 'i'
         elif ffi_type is types.uint32:  return 'u'
+        #
+        elif ffi_type is types.signed:  return 'i'
+        elif ffi_type is types.unsigned:return 'u'
         ## (note that on 64-bit platforms, types.sint64 is types.slong and the
         ## case is caught above)
         elif ffi_type is types.sint64:  return 'I'
@@ -111,6 +115,7 @@ def _fits_into_signed(TYPE):
 # ======================================================================
 
 IS_32_BIT = (r_uint.BITS == 32)
+IS_WIN64 = os.name == 'nt' and (r_uint.BITS == 64)
 
 @specialize.memo()
 def _check_type(TYPE):

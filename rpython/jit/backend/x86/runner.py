@@ -8,6 +8,7 @@ from rpython.jit.backend.x86.profagent import ProfileAgent
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.x86 import regloc
 from rpython.jit.backend.x86.vector_ext import X86VectorExt
+from rpython.jit.backend.x86.arch import WIN64
 
 import sys
 
@@ -148,10 +149,17 @@ class CPU386_NO_SSE2(CPU386):
     supports_longlong = False
 
 class CPU_X86_64(AbstractX86CPU):
-    vector_ext = X86VectorExt()
+    if not WIN64:
+        vector_ext = X86VectorExt()
     backend_name = 'x86_64'
     NUM_REGS = 16
-    CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14, regloc.r15]
+    if not WIN64:
+        CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.r12, regloc.r13, regloc.r14,
+                                 regloc.r15]
+    else:
+        CALLEE_SAVE_REGISTERS = [regloc.ebx, regloc.esi, regloc.edi, regloc.r12,
+                                 regloc.r14, regloc.r15]
+        HAS_CODEMAP = False
 
     IS_64_BIT = True
 

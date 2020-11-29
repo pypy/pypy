@@ -182,7 +182,10 @@ class TestStandalone(StandaloneTests):
         f.close()
 
         import struct
-        counters = struct.unpack("LLL", counters_data)
+        fmt = "LLL"
+        if sys.platform == 'win32' and sys.maxint > 2**31:
+            fmt = "QQQ"
+        counters = struct.unpack(fmt, counters_data)
 
         assert counters == (0,3,2)
 
@@ -1169,8 +1172,12 @@ class TestStandalone(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point)
-        out1 = cbuilder.cmdexec(args=['i', '>', '64'])
-        out2 = cbuilder.cmdexec(args=['f', '>', '64'])
+        arg2 = '>'
+        if sys.platform == 'win32':
+            # windows interprets > as redirection, escape with ^
+            arg2 = '^>'
+        out1 = cbuilder.cmdexec(args=['i', arg2, '64'])
+        out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
         assert out1 != out2
 
 

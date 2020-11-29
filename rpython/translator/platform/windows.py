@@ -32,8 +32,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None, ver0=None):
-    raise Exception("Win64 is not supported.  You must either build for Win32"
-                    " or contribute the missing support in PyPy.")
+    #raise Exception("Win64 is not supported.  You must either build for Win32"
+    #                " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
 def _find_vcvarsall(version, x64flag):
@@ -203,7 +203,7 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe', [],
+        returncode, stdout, stderr = _run_subprocess('ml.exe' if not x64 else 'ml64.exe', [],
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):

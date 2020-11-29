@@ -57,8 +57,7 @@ handle is already detached, this will return zero.
 After calling this function, the handle is effectively invalidated,
 but the handle is not closed.  You would call this function when you
 need the underlying win32 handle to exist beyond the lifetime of the
-handle object.
-On 64 bit windows, the result of this function is a long integer"""
+handle object."""
         key = self.as_int()
         self.hkey = rwin32.NULL_HANDLE
         return space.newint(key)
@@ -253,13 +252,13 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
                     bufSize *= 2
-                    bufsize_p[0] = bufSize
+                    bufsize_p[0] = rffi.cast(rwin32.LONG, bufSize)
                     continue
 
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
-                length = intmask(bufsize_p[0] - 1)
-                return space.newtext(rffi.charp2strn(buf, length))
+                length = intmask(bufsize_p[0])
+                return space.newtext(rffi.charp2strn(buf, length - 1))
 
 def convert_to_regdata(space, w_value, typ):
     buf = None
@@ -274,7 +273,7 @@ def convert_to_regdata(space, w_value, typ):
                 value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = value
+            buf1[0] = rffi.cast(rffi.UINT, value)
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -463,10 +462,11 @@ value_name is a string indicating the value to query"""
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(retDataSize[0])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(intmask(ret_type)),
                         ])
 
 @unwrap_spec(subkey="text")
@@ -489,7 +489,7 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -539,7 +539,7 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=r_uint)
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
@@ -586,10 +586,10 @@ data_type is an integer that identifies the type of the value data."""
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryInfoKey')
             # include null terminators
-            retValueSize[0] += 1
-            retDataSize[0] += 1
-            bufDataSize = intmask(retDataSize[0])
-            bufValueSize = intmask(retValueSize[0])
+            bufDataSize = intmask(retDataSize[0]) + 1
+            bufValueSize = intmask(retValueSize[0]) + 1
+            retValueSize[0] = rffi.cast(rwin32.DWORD, bufValueSize)
+            retDataSize[0] = rffi.cast(rwin32.DWORD, bufDataSize)
 
             with lltype.scoped_alloc(rffi.CCHARP.TO,
                                      intmask(retValueSize[0])) as valuebuf:
@@ -614,11 +614,12 @@ data_type is an integer that identifies the type of the value data."""
                                 raiseWindowsError(space, ret, 'RegEnumValue')
 
                             length = intmask(retDataSize[0])
+                            ret_type = intmask(retType[0])
                             return space.newtuple([
                                 space.newtext(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
-                                                     length, retType[0]),
-                                space.newint(intmask(retType[0])),
+                                                     length, ret_type),
+                                space.newint(ret_type),
                                 ])
 
 @unwrap_spec(index=int)
@@ -642,7 +643,7 @@ raised, indicating no more values are available."""
     # retrieve such a key name.
     with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
-            retValueSize[0] = r_uint(257) # includes NULL terminator
+            retValueSize[0] = rffi.r_uint(257) # includes NULL terminator
             ret = rwinreg.RegEnumKeyExA(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
