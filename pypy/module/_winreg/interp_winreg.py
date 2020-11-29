@@ -559,7 +559,7 @@ If the function fails, an exception is raised."""
             return W_HKEY(space, rethkey[0])
 
 
-@unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
+@unwrap_spec(sub_key="unicode", reserved=int, access=r_uint)
 def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -619,7 +619,7 @@ value is a string that identifies the value to remove."""
             raiseWindowsError(space, ret, 'RegDeleteValue')
 
 
-@unwrap_spec(reserved=int, access=rffi.r_uint)
+@unwrap_spec(reserved=int, access=r_uint)
 def OpenKey(space, w_key, w_sub_key, reserved=0, access=rwinreg.KEY_READ):
     """
 key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
@@ -848,7 +848,7 @@ def QueryReflectionKey(space, w_key):
                 "not implemented on this platform")
 
 
-@unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
+@unwrap_spec(sub_key="unicode", reserved=int, access=r_uint)
 def DeleteKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WOW64_64KEY):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 

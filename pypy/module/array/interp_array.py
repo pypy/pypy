@@ -886,7 +886,7 @@ if rffi.sizeof(rffi.ULONG) == rffi.sizeof(lltype.Unsigned):
     # Overflow handled by rbigint.touint() which
     # corresponds to lltype.Unsigned
     _ULONGTypeCode = \
-         TypeCode(rffi.ULONG,         'bigint_w', errorname="integer")
+         TypeCode(rffi.ULONG,         'bigint_w.touint', errorname="integer")
 else:
     # 64 bit Windows special case: ULONG is same as UINT
     _ULONGTypeCode = \
