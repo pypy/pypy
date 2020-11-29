@@ -100,7 +100,7 @@ def test_whatsnew():
     print '\n'.join(not_merged)
     print
     assert not not_documented
-    if branch == 'py3.6':
+    if branch == 'py3.7':
         assert not not_merged
     else:
         assert branch in documented, 'Please document this branch before merging: %s' % branch

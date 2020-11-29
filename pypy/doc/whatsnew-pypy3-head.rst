@@ -17,6 +17,10 @@ What's new in PyPy3 7.3.3+
 
     Fix utf_8_decode for final=False, error=ignore
 
+.. branch: py3.7-rsre
+
+Fix rsre module for python 3.7
+
 .. branch: incremental_decoder
 
 Fix utf_8_decode for final=False 
