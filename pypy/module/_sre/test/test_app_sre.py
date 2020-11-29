@@ -510,21 +510,6 @@ class AppTestGetlower:
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, UPPER_AE),
             ("\u00c4", "\u00c4"), ("\u4444", "\u4444")], 0)
 
-    def test_getlower_locale(self):
-        s = self.s
-        import locale, sre_constants
-        UPPER_AE = "\xc4"
-        LOWER_AE = "\xe4"
-        UPPER_PI = "\u03a0"
-        try:
-            locale.setlocale(locale.LC_ALL, "de_DE")
-            s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-                ("\u00c4", "\u00e4"), (UPPER_PI, UPPER_PI)],
-                sre_constants.SRE_FLAG_LOCALE)
-        except locale.Error:
-            # skip test
-            skip("unsupported locale de_DE")
-
     def test_getlower_unicode(self):
         s = self.s
         import sre_constants

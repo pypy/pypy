@@ -40,6 +40,6 @@ def assert_lower_equal(tests, flags):
     elif flags == SRE_FLAG_UNICODE:
         checkerfn = _sre.unicode_tolower
     else:
-        assert False # XXX
+        assert False # SRE_FLAG_LOCALE: not supported, and not needed, since 3.7
     for arg, expected in tests:
         assert ord(expected) == checkerfn(ord(arg))
