@@ -2,7 +2,7 @@ import sys, errno
 from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.buffer import RawByteBuffer
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
     RSocketError, SOMAXCONN, HAS_SO_PROTOCOL,
@@ -123,6 +123,7 @@ def idna_converter(space, w_host):
 
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
+    family = widen(family)
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
         host = idna_converter(space, w_host)

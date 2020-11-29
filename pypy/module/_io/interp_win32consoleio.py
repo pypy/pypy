@@ -30,6 +30,11 @@ SMALLBUF = 4
 BUFMAX = (32*1024*1024)
 BUFSIZ = 512
 
+GENERIC_READ     = 0x80000000
+GENERIC_WRITE    = 0x40000000
+FILE_SHARE_READ  = 0x00000001
+FILE_SHARE_WRITE = 0x00000002
+
 def err_closed(space):
     return oefmt(space.w_ValueError,
                 "I/O operation on closed file")
@@ -269,13 +274,13 @@ class W_WinConsoleIO(W_RawIOBase):
             self.handle = rwin32.get_osfhandle(self.fd)
             self.closehandle = False
         else:
-            access = rwin32.GENERIC_READ
+            access = GENERIC_READ
             self.closehandle = True
             if not closefd:
                 raise oefmt(space.w_ValueError,
                         "Cannot use closefd=False with a file name")
             if self.writable:
-                access = rwin32.GENERIC_WRITE
+                access = GENERIC_WRITE
         
             traits = _preferred_traits(space.realunicode_w(w_path))
             if not (traits.str is unicode):
@@ -286,14 +291,14 @@ class W_WinConsoleIO(W_RawIOBase):
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
             self.handle = win32traits.CreateFile(name, 
-                rwin32.GENERIC_READ | rwin32.GENERIC_WRITE,
-                rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                GENERIC_READ | GENERIC_WRITE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE,
                 rffi.NULL, win32traits.OPEN_EXISTING,
                 0, rffi.cast(rwin32.HANDLE, 0))
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 self.handle = win32traits.CreateFile(name, 
                     access,
-                    rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                    FILE_SHARE_READ | FILE_SHARE_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
             lltype.free(name, flavor='raw')

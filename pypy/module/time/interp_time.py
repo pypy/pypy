@@ -281,7 +281,7 @@ if _WIN:
                                              is_time_adjustment_disabled)
 
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
-                             time_increment[0] * 1e-7, False, True)
+                             intmask(time_increment[0]) * 1e-7, False, True)
             if return_ns:
                 return space.newint(r_int64(microseconds) * 10**3)
             else:
@@ -1087,7 +1087,7 @@ if HAS_MONOTONIC:
                         # Is this right? Cargo culting...
                         raise wrap_oserror(space,
                             rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
-                    resolution = resolution * time_increment[0]
+                    resolution = resolution * intmask(time_increment[0])
                 _setinfo(space, w_info, implementation, resolution, True, False)
 
             if return_ns:
