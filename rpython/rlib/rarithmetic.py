@@ -665,6 +665,9 @@ class r_singlefloat(object):
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __hash__(self):
+        return hash(self._bytes)
+
     def __repr__(self):
         return 'r_singlefloat(%s)' % (float(self),)
 
@@ -691,6 +694,9 @@ class r_longfloat(object):
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.value)
 
 
 class For_r_singlefloat_values_Entry(extregistry.ExtRegistryEntry):
