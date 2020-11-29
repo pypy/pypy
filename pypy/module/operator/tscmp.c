@@ -7,16 +7,16 @@
 #include "tscmp.h"
 
 int
-pypy_tscmp(const char *a, const char *b, long len_a, long len_b)
+pypy_tscmp(const char *a, const char *b, Signed len_a, Signed len_b)
 {
     /* The volatile type declarations make sure that the compiler has no
      * chance to optimize and fold the code in any way that may change
      * the timing.
      */
-    volatile long length;
+    volatile Signed length;
     volatile const char *left;
     volatile const char *right;
-    long i;
+    Signed i;
     char result;
 
     /* loop count depends on length of b */

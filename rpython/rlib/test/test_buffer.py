@@ -1,7 +1,7 @@
 import pytest
 import struct
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import r_singlefloat
+from rpython.rlib.rarithmetic import r_singlefloat, long_typecode
 from rpython.rlib.buffer import (
     StringBuffer, SubBuffer, Buffer, RawBuffer,
     LLBuffer, RawByteBuffer, ByteBuffer)
@@ -86,8 +86,8 @@ def test_setzeros():
 class BaseTypedReadTest:
 
     def test_signed(self):
-        buf = struct.pack('@ll', 42, 43)
-        size = struct.calcsize('@l')
+        buf = struct.pack('@%s%s' % (long_typecode, long_typecode), 42, 43)
+        size = struct.calcsize('@%s' % long_typecode)
         assert self.read(lltype.Signed, buf, 0) == 42
         assert self.read(lltype.Signed, buf, size) == 43
 
