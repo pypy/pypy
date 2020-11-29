@@ -121,7 +121,6 @@ class AppTestTEMPLATES:
         std = cppyy.gbl.std
 
         s = std.ostringstream('(', std.ios_base.ate)
-        s.seekp(1, s.cur)
         # Fails; wrong overload on PyPy, none on CPython
         #s << "("
         cppyy.gbl.SomeNS.tuplify(s, 1, 4., "aap")
@@ -177,9 +176,8 @@ class AppTestTEMPLATES:
         assert select_template_arg[1, Obj1, Obj2].argument == Obj2
         raises(TypeError, select_template_arg.__getitem__, 2, Obj1, Obj2)
 
-        # TODO, this doesn't work for builtin types as the 'argument'
-        # typedef will not resolve to a class
-        #assert select_template_arg[1, int, float].argument == float
+        # TODO: the following only results in a Cling compilation error
+       #assert select_template_arg[1, int, float].argument == float
 
     def test08_using_of_static_data(self):
         """Derived class using static data of base"""
@@ -207,9 +205,7 @@ class AppTestTEMPLATES:
             T m_value;
         };""")
 
-
-      # TODO: the ref_value property is inaccessible (offset == -1)
-      # assert cppyy.gbl.BaseClassWithStatic["size_t"].ref_value == 42
+        assert cppyy.gbl.BaseClassWithStatic["size_t"].ref_value == 42
 
         b1 = cppyy.gbl.DerivedClassUsingStatic["size_t"](  0)
         b2 = cppyy.gbl.DerivedClassUsingStatic["size_t"](100)
