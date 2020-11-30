@@ -675,10 +675,10 @@ data_type is an integer that identifies the type of the value data."""
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryInfoKey')
             # include null terminators
-            valueSize[0] += 1
-            dataSize[0] += 1
+            valueSize[0] = rffi.cast(rwin32.DWORD, intmask(valueSize[0]) + 1)
+            dataSize[0] = rffi.cast(rwin32.DWORD, intmask(dataSize[0]) + 1)
             bufDataSize = intmask(dataSize[0])
-            bufValueSize = intmask(valueSize[0] * 2)
+            bufValueSize = intmask(valueSize[0]) * 2
 
             valueBuf = ByteBuffer(bufValueSize)
             valueBufP = rffi.cast(rffi.CWCHARP, valueBuf.get_raw_address())

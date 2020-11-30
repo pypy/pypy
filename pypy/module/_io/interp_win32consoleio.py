@@ -286,14 +286,13 @@ class W_WinConsoleIO(W_RawIOBase):
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
             self.handle = win32traits.CreateFile(name, 
-                rwin32.GENERIC_READ | rwin32.GENERIC_WRITE,
-                rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                rwin32.ALL_READ_WRITE,
                 rffi.NULL, win32traits.OPEN_EXISTING,
                 0, rffi.cast(rwin32.HANDLE, 0))
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 self.handle = win32traits.CreateFile(name, 
                     access,
-                    rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                    rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
             lltype.free(name, flavor='raw')

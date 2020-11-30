@@ -4,6 +4,7 @@ from rpython.rlib.runicode import (BOOLP, WideCharToMultiByte,
 from rpython.rlib.rutf8 import (Utf8StringIterator, next_codepoint_pos,
                                 StringBuilder, codepoints_in_utf8, check_utf8)
 from rpython.rlib import rwin32
+from rpython.rlib.rarithmetic import intmask
 
 def Py_UNICODE_HIGH_SURROGATE(ch):
    return rffi.cast(lltype.UniChar, 0xD800 - (0x10000 >> 10) + ((ch) >> 10))
@@ -178,7 +179,7 @@ def utf8_encode_code_page(cp, s, errors, errorhandler):
                                               buf.raw, 4, None, used_default_p)
             
                 if outsize > 0:
-                    if not (used_default_p and used_default_p[0]):
+                    if not (used_default_p and intmask(used_default_p[0])):
                         r = buf.str(outsize)
                         assert r is not None
                         res.append(r)
