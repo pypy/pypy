@@ -53,10 +53,13 @@ def default_error_value(T):
         return lltype.nullptr(T.TO)
     assert 0, "not implemented yet"
 
+def has_llhelper_error_value(graph):
+    return hasattr(graph, 'func') and hasattr(graph.func, '_llhelper_error_value_')
+
 def error_value(graph):
     assert isinstance(graph, FunctionGraph)
     T = graph.returnblock.inputargs[0].concretetype
-    if hasattr(graph, 'func') and hasattr(graph.func, '_llhelper_error_value_'):
+    if has_llhelper_error_value(graph):
         # custom case
         errval = graph.func._llhelper_error_value_
         if lltype.typeOf(errval) != T:
@@ -274,12 +277,13 @@ class ExceptionTransformer(object):
         if block.canraise:
             need_exc_matching = True
             last_operation -= 1
-        elif (False and len(block.exits) == 1 and # XXX
+        elif (len(block.exits) == 1 and
               block.exits[0].target is graph.returnblock and
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
                block.exits[0].args[0] is block.operations[-1].result) and
-              block.operations[-1].opname not in ('malloc', 'malloc_varsize')):     # special cases
+              block.operations[-1].opname not in ('malloc', 'malloc_varsize') and
+              not has_llhelper_error_value(graph)):  # special cases
             last_operation -= 1
         lastblock = block
         for i in range(last_operation, -1, -1):
