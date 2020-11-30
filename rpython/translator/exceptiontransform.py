@@ -274,7 +274,7 @@ class ExceptionTransformer(object):
         if block.canraise:
             need_exc_matching = True
             last_operation -= 1
-        elif (len(block.exits) == 1 and
+        elif (False and len(block.exits) == 1 and # XXX
               block.exits[0].target is graph.returnblock and
               len(block.operations) and
               (block.exits[0].args[0].concretetype is lltype.Void or
