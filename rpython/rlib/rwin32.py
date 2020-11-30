@@ -146,6 +146,8 @@ if WIN32:
     GENERIC_ALL      = rffi.cast(DWORD, r_longlong(0x10000000))
     FILE_SHARE_READ  = rffi.cast(DWORD, r_longlong(0x00000001))
     FILE_SHARE_WRITE = rffi.cast(DWORD, r_longlong(0x00000002))
+    ALL_READ_WRITE   = rffi.cast(DWORD, r_longlong(0xC0000003))
+    SHARE_READ_WRITE = rffi.cast(DWORD, r_longlong(0x00000003))
 
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
