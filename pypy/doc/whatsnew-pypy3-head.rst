@@ -35,3 +35,7 @@ which brings it more in line with Python 3.8, and simplifies the code.
 
 Change `char *`` to ``const char *`` in ``PyStructSequence_Field``,
 ``PyStructSequence_Desc``, ``PyGetSetDef``, ``wrapperbase``
+
+.. branch: win64-py3.7
+
+Merge win64 into this branch
