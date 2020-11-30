@@ -284,7 +284,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
-            bufsize_p[0] = 0
+            bufsize_p[0] = rffi.cast(rwin32.LONG, 0)
             ret = rwinreg.RegQueryValueW(hkey, c_subkey, None, bufsize_p)
             if ret == 0 and intmask(bufsize_p[0]) == 0:
                 return space.newtext('', 0)
@@ -707,11 +707,12 @@ data_type is an integer that identifies the type of the value data."""
                     length = intmask(dataSize[0])
                     vlen = (intmask(valueSize[0]) + 1) * 2
                     utf8v, lenv = wbuf_to_utf8(space, valueBuf[0:vlen])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         space.newtext(utf8v, lenv),
                         convert_from_regdata(space, dataBuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(ret_type),
                         ])
 
 
@@ -737,7 +738,7 @@ raised, indicating no more values are available."""
     buf = ByteBuffer(257 * 2)
     bufP = rffi.cast(rwin32.LPWSTR, buf.get_raw_address())
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as valueSize:
-        valueSize[0] = r_uint(257)  # includes NULL terminator
+        valueSize[0] = rffi.cast(rwin32.DWORD, 257)  # includes NULL terminator
         ret = rwinreg.RegEnumKeyExW(hkey, index, bufP, valueSize,
                                     null_dword, None, null_dword,
                                     lltype.nullptr(rwin32.PFILETIME.TO))
