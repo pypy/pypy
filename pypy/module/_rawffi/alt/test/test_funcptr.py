@@ -304,16 +304,13 @@ class AppTestFFI(BaseAppTestFFI):
         """
         import sys
         from _rawffi.alt import CDLL, types
-        maxlong = sys.maxint
-        if sys.platform == 'win32':
-            maxlong = 2147483647
         libfoo = CDLL(self.libfoo_name)
         sum_xy = libfoo.getfunc('sum_xy_ul', [types.ulong, types.ulong],
                                 types.ulong)
-        assert sum_xy(maxlong, 12) == maxlong+12
-        assert sum_xy(maxlong+1, 12) == maxlong+13
+        assert sum_xy(sys.maxsize, 12) == sys.maxsize+12
+        assert sum_xy(sys.maxsize+1, 12) == sys.maxsize+13
         #
-        res = sum_xy(maxlong*2+3, 0)
+        res = sum_xy(sys.maxsize*2+3, 0)
         assert res == 1
 
     def test_unsigned_short_args(self):
@@ -573,7 +570,7 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi.alt import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(AttributeError, "libfoo.getfunc('I_do_not_exist', [], types.void)")
-        if self.iswin32:
+        if self.iswin32 or self.iswin64:
             skip("unix specific")
         libnone = CDLL(None)
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")
