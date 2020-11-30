@@ -400,3 +400,4 @@ class AppTestMath:
         assert math.isnan(math.remainder(math.nan, 3))
         raises(ValueError, math.remainder, 3, 0)
         raises(ValueError, math.remainder, math.inf, 3)
+        raises(TypeError, math.remainder, "abc", 1)
