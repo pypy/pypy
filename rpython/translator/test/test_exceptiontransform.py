@@ -307,7 +307,6 @@ class TestExceptionTransform:
         assert compiled_foo(123) == 123
         compiled_foo(42, expected_exception_name='ValueError')
 
-    @pytest.mark.xfail('WIP')
     def test_enforce_llhelper_error_value_in_case_of_nested_exception(self):
         @dont_inline
         def my_divide(a, b):
@@ -332,6 +331,6 @@ class TestExceptionTransform:
         assert exc.value.error_value == -456
         assert 'ZeroDivisionError' in str(exc.value)
         #
-        compiled_foo = self.compile(bar, [int], backendopt=False)
-        assert compiled_foo(123) == 123
-        compiled_foo(42, expected_exception_name='ValueError')
+        compiled_foo = self.compile(bar, [int, int], backendopt=False)
+        assert compiled_foo(21, 3) == 7
+        compiled_foo(21, 0, expected_exception_name='ZeroDivisionError')
