@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from pypy.interpreter.error import OperationError
 from pypy.module.cpyext.api import cpython_api, CANNOT_FAIL
 from pypy.module.cpyext.state import State
 
@@ -46,3 +47,9 @@ def Py_AtExit(space, func_ptr):
     except ValueError:
         return -1
     return 0
+
+@cpython_api([rffi.INT_real], lltype.Void)
+def Py_Exit(space, status):
+    """Exit the current process.  This calls Py_Finalize() and then calls the
+    standard C library function exit(status)."""
+    raise OperationError(space.w_SystemExit, space.newint(status))

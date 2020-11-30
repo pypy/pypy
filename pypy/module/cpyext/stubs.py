@@ -1344,12 +1344,6 @@ def PySys_SetPath(space, path):
     (: on Unix, ; on Windows)."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real], lltype.Void)
-def Py_Exit(space, status):
-    """Exit the current process.  This calls Py_Finalize() and then calls the
-    standard C library function exit(status)."""
-    raise NotImplementedError
-
 @cpython_api([], rffi.INT_real, error=CANNOT_FAIL)
 def PyTuple_ClearFreeList(space):
     """Clear the free list. Return the total number of freed items.

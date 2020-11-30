@@ -937,3 +937,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              ),
         ])
+
+    def test_call_py_exit(self):
+        exc = raises(SystemExit, self.import_module, name="foo", init="Py_Exit(42);")
+        assert exc.value.code == 42
