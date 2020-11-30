@@ -16,6 +16,19 @@ from rpython.rtyper.llannotation import lltype_to_annotation
 from rpython.rtyper.annlowlevel import MixLevelHelperAnnotator
 from rpython.tool.sourcetools import func_with_new_name
 
+# ~~~ NOTE ~~~
+# The exact value returned by a function is NOT DEFINED. The returned value is
+# IGNORED EVERYWHERE in RPython and the question "was_an_exception_raised()"
+# is implemented by checking the content of the global exc_data.
+#
+# The only case in which the returned error value is significant is for
+# llhelpers which can be called by 3rd-party C functions, such as e.g. the HPy
+# API. In that case, the error value is specified by @llhelper_error_value.
+#
+# The following table defines the default error values to return, but in
+# general the returned value is not guaranteed. The only case in which it is
+# guaranteed is for functions decorated with @llhelper_error_value
+
 PrimitiveErrorValue = {lltype.Signed: -1,
                        lltype.Unsigned: r_uint(-1),
                        lltype.SignedLongLong: r_longlong(-1),
@@ -43,12 +56,12 @@ def default_error_value(T):
 def error_value(graph):
     assert isinstance(graph, FunctionGraph)
     T = graph.returnblock.inputargs[0].concretetype
-    if hasattr(graph, 'func') and hasattr(graph.func, '_ll_error_value_'):
+    if hasattr(graph, 'func') and hasattr(graph.func, '_llhelper_error_value_'):
         # custom case
-        errval = graph.func._ll_error_value_
+        errval = graph.func._llhelper_error_value_
         if lltype.typeOf(errval) != T:
-            raise TypeError('Wrong type for @error_value: expected %s but got %s' %
-                            (T, lltype.typeOf(errval)))
+            raise TypeError('Wrong type for @llhelper_error_value: expected %s '
+                            'but got %s' % (T, lltype.typeOf(errval)))
         return errval
     # default case
     return default_error_value(T)
