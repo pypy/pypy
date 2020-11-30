@@ -895,9 +895,9 @@ def lltype2ctypes(llobj, normalize=True):
                         global _callback_exc_info
                         _callback_exc_info = sys.exc_info()
                         _callable = getattr(container, '_callable', None)
-                        if hasattr(_callable, '_llhelper_can_raise_'):
-                            # see rlib.objectmodel.llhelper_can_raise
-                            llres = _callable._ll_error_value_
+                        if hasattr(_callable, '_llhelper_error_value_'):
+                            # see rlib.objectmodel.llhelper_error_value
+                            llres = _callable._llhelper_error_value_
                             assert lltype.typeOf(llres) == T.TO.RESULT
                             return ctypes_return_value(llres)
                         else:
@@ -1358,7 +1358,7 @@ def get_ctypes_trampoline(FUNCTYPE, cfunc):
             etype, evalue, etb = _callback_exc_info
             # cres is the actual C result returned by the function. Stick it
             # into the exception so that we can check it inside tests (see
-            # e.g. test_llhelper_can_raise)
+            # e.g. test_llhelper_error_value)
             evalue._ll2ctypes_c_result = cres
             _callback_exc_info = None
             raise etype, evalue, etb

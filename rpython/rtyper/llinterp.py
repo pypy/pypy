@@ -26,10 +26,10 @@ log.output_disabled = True
 class LLException(Exception):
 
     # .error_value is used only by tests: in particular,
-    # test_exceptiontransform uses it check that in case of exception the
-    # function returns the expected value
+    # test_exceptiontransform uses it to check what is the return value of the
+    # function in case of exception
     UNDEFINED_ERROR_VALUE = object() # sentinel for self.error_value
-    
+
     def __init__(self, *args, **kwargs):
         "NOT_RPYTHON"
         Exception.__init__(self, *args)
@@ -356,12 +356,7 @@ class LLFrame(object):
                         tracer.dump('raise')
                     exc_data.exc_type = lltype.typeOf(etype)._defl()
                     exc_data.exc_value = lltype.typeOf(evalue)._defl()
-                    # check that the exc-transformed graph returns the error
-                    # value when it returns with an exception set
-                    from rpython.translator import exceptiontransform
-                    errvalue = exceptiontransform.error_value(self.graph)
-                    assert result == errvalue
-                    raise LLException(etype, evalue, error_value=errvalue)
+                    raise LLException(etype, evalue, error_value=result)
             if tracer:
                 tracer.dump('return')
             return None, result
