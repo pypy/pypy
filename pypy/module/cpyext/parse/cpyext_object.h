@@ -3,8 +3,10 @@
 /* CPython defines Py_ssize_t in pyport.h as intptr_t */
 #ifdef _WIN64
 typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
 #else
 typedef long Py_ssize_t;
+typedef long Py_hash_t;
 #endif
 
 #define PyObject_HEAD  \
@@ -34,7 +36,7 @@ typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
 typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
 typedef int (*cmpfunc)(PyObject *, PyObject *);
 typedef PyObject *(*reprfunc)(PyObject *);
-typedef long (*hashfunc)(PyObject *);
+typedef Py_hash_t (*hashfunc)(PyObject *);
 typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
 typedef PyObject *(*getiterfunc) (PyObject *);
 typedef PyObject *(*iternextfunc) (PyObject *);

@@ -550,7 +550,7 @@ class W_PyCTypeObject(W_TypeObject):
                 key = space.text_w(w_key)
                 dict_w[key] = space.getitem(w_dict, w_key)
 
-        flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+        flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
         else:
@@ -925,7 +925,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res = state.ccall("PyType_GenericAlloc", p_type, 0)
     res = cts.cast('PyHeapTypeObject *', res)
     typ = res.c_ht_type
-    typ.c_tp_flags = rffi.cast(lltype.Unsigned, spec.c_flags)
+    typ.c_tp_flags = rffi.cast(rffi.ULONG, spec.c_flags)
     typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
