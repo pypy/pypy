@@ -339,8 +339,8 @@ class W_ImportError(W_Exception):
                 if keyword in kw_w:
                     raise oefmt(
                         space.w_TypeError,
-                        "'%s' is an invalid keyword argument for this function",
-                        keyword)
+                        "'%s' is an invalid keyword argument for %T()",
+                        keyword, self)
         if len(args_w) == 1:
             self.w_msg = args_w[0]
         else:
