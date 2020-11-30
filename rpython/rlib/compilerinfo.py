@@ -18,8 +18,11 @@ def get_compiler_info():
 
 
 if platform.name == 'msvc':
-    # XXX hard-code the bit name
-    _C_COMPILER_INFO = '"MSC v." Py_STR(_MSC_VER) " 32 bit"'
+    if platform.x64:
+        # XXX hard-code the CPU name
+        _C_COMPILER_INFO = '"MSC v." Py_STR(_MSC_VER) " 64 bit (AMD64)"'
+    else:
+        _C_COMPILER_INFO = '"MSC v." Py_STR(_MSC_VER) " 32 bit"'
 else:
     _C_COMPILER_INFO = '("GCC " __VERSION__)'
 

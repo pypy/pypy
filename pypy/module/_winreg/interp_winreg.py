@@ -68,8 +68,7 @@ handle is already detached, this will return zero.
 After calling this function, the handle is effectively invalidated,
 but the handle is not closed.  You would call this function when you
 need the underlying win32 handle to exist beyond the lifetime of the
-handle object.
-On 64 bit windows, the result of this function is a long integer"""
+handle object."""
         key = self.as_int()
         self.hkey = rwin32.NULL_HANDLE
         return space.newint(key)
@@ -285,7 +284,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
     with rffi.scoped_unicode2wcharp(subkey) as wide_subkey:
         c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
-            bufsize_p[0] = 0
+            bufsize_p[0] = rffi.cast(rwin32.LONG, 0)
             ret = rwinreg.RegQueryValueW(hkey, c_subkey, None, bufsize_p)
             if ret == 0 and intmask(bufsize_p[0]) == 0:
                 return space.newtext('', 0)
@@ -313,7 +312,7 @@ def convert_to_regdata(space, w_value, typ):
                 value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = value
+            buf1[0] = rffi.cast(rffi.UINT, value)
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -529,10 +528,11 @@ value_name is a string indicating the value to query"""
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(dataSize[0])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         convert_from_regdata(space, dataBuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(intmask(ret_type)),
                     ])
 
 
@@ -559,7 +559,7 @@ If the function fails, an exception is raised."""
             return W_HKEY(space, rethkey[0])
 
 
-@unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
+@unwrap_spec(sub_key="unicode", reserved=int, access=r_uint)
 def CreateKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -619,7 +619,7 @@ value is a string that identifies the value to remove."""
             raiseWindowsError(space, ret, 'RegDeleteValue')
 
 
-@unwrap_spec(reserved=int, access=rffi.r_uint)
+@unwrap_spec(reserved=int, access=r_uint)
 def OpenKey(space, w_key, w_sub_key, reserved=0, access=rwinreg.KEY_READ):
     """
 key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
@@ -707,11 +707,12 @@ data_type is an integer that identifies the type of the value data."""
                     length = intmask(dataSize[0])
                     vlen = (intmask(valueSize[0]) + 1) * 2
                     utf8v, lenv = wbuf_to_utf8(space, valueBuf[0:vlen])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         space.newtext(utf8v, lenv),
                         convert_from_regdata(space, dataBuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(ret_type),
                         ])
 
 
@@ -737,7 +738,7 @@ raised, indicating no more values are available."""
     buf = ByteBuffer(257 * 2)
     bufP = rffi.cast(rwin32.LPWSTR, buf.get_raw_address())
     with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as valueSize:
-        valueSize[0] = r_uint(257)  # includes NULL terminator
+        valueSize[0] = rffi.cast(rwin32.DWORD, 257)  # includes NULL terminator
         ret = rwinreg.RegEnumKeyExW(hkey, index, bufP, valueSize,
                                     null_dword, None, null_dword,
                                     lltype.nullptr(rwin32.PFILETIME.TO))
@@ -848,7 +849,7 @@ def QueryReflectionKey(space, w_key):
                 "not implemented on this platform")
 
 
-@unwrap_spec(sub_key="unicode", reserved=int, access=rffi.r_uint)
+@unwrap_spec(sub_key="unicode", reserved=int, access=r_uint)
 def DeleteKeyEx(space, w_key, sub_key, reserved=0, access=rwinreg.KEY_WOW64_64KEY):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 

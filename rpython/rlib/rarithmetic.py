@@ -64,23 +64,23 @@ all typecodes.
 def _get_bitsize(typecode):
     return len(struct.pack(typecode, 1)) * 8
 
-_long_typecode = 'l'
+long_typecode = 'l'
 if _get_bitsize('P') > _get_bitsize('l'):
-    _long_typecode = 'P'
+    long_typecode = 'P'
 
 def _get_long_bit():
     # whatever size a long has, make it big enough for a pointer.
-    return _get_bitsize(_long_typecode)
+    return _get_bitsize(long_typecode)
 
 # exported for now for testing array values.
 # might go into its own module.
 def get_long_pattern(x):
     """get the bit pattern for a long, adjusted to pointer size"""
-    return struct.pack(_long_typecode, x)
+    return struct.pack(long_typecode, x)
 
 # used in tests for ctypes and for genc and friends
 # to handle the win64 special case:
-is_emulated_long = _long_typecode != 'l'
+is_emulated_long = long_typecode != 'l'
 
 LONG_BIT = _get_long_bit()
 LONG_MASK = (2**LONG_BIT)-1
@@ -876,8 +876,8 @@ def mulmod(a, b, c):
         return intmask((a * b) % c)
     else:
         from rpython.rlib.rbigint import rbigint
-        a = rbigint.fromlong(a)
-        b = rbigint.fromlong(b)
+        a = rbigint.fromint(a)
+        b = rbigint.fromint(b)
         return a.mul(b).int_mod(c).toint()
 
 

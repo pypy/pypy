@@ -129,7 +129,7 @@ class W_FuncPtr(W_Root):
         """
         Return the physical address in memory of the function
         """
-        return space.newint(rffi.cast(rffi.LONG, self.func.funcsym))
+        return space.newint(rffi.cast(rffi.SIGNED, self.func.funcsym))
 
 
 class PushArgumentConverter(FromAppLevelConverter):
@@ -164,13 +164,13 @@ class PushArgumentConverter(FromAppLevelConverter):
     def handle_char_p(self, w_ffitype, w_obj, strval):
         buf = rffi.str2charp(strval)
         self.w_func.to_free.append(rffi.cast(rffi.VOIDP, buf))
-        addr = rffi.cast(rffi.ULONG, buf)
+        addr = rffi.cast(lltype.Unsigned, buf)
         self.argchain.arg(addr)
 
     def handle_unichar_p(self, w_ffitype, w_obj, utf8val, utf8len):
         buf = rffi.utf82wcharp(utf8val, utf8len)
         self.w_func.to_free.append(rffi.cast(rffi.VOIDP, buf))
-        addr = rffi.cast(rffi.ULONG, buf)
+        addr = rffi.cast(lltype.Unsigned, buf)
         self.argchain.arg(addr)
 
     def handle_float(self, w_ffitype, w_obj, floatval):
@@ -212,39 +212,48 @@ class CallFunctionConverter(ToAppLevelConverter):
         # the result buffer may contains garbage in its higher bits.  To get
         # the correct value, and to be sure to handle the signed/unsigned case
         # correctly, we need to cast the result to the correct type.  After
-        # that, we cast it back to LONG, because this is what we want to pass
+        # that, we cast it back to SIGNED, because this is what we want to pass
         # to space.newint in order to get a nice applevel <int>.
         #
         restype = w_ffitype.get_ffitype()
         call = self.func.call
         if restype is libffi.types.slong:
-            x = call(self.argchain, rffi.LONG)
+            # cast required for 64-bit Windows
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.LONG))
+        elif restype is libffi.types.slonglong:
+            assert libffi.IS_WIN64
+            # for 64-bit Windows, handled with slong above on other systems
+            x = call(self.argchain, rffi.LONGLONG)
         elif restype is libffi.types.sint:
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.INT))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.INT))
         elif restype is libffi.types.sshort:
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SHORT))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.SHORT))
         elif restype is libffi.types.schar:
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.SIGNEDCHAR))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.SIGNEDCHAR))
         else:
             raise self.error(w_ffitype)
         return x
 
     def get_unsigned(self, w_ffitype):
-        return self.func.call(self.argchain, rffi.ULONG)
+        return self.func.call(self.argchain, lltype.Unsigned)
 
     def get_unsigned_which_fits_into_a_signed(self, w_ffitype):
         # the same comment as get_signed apply
         restype = w_ffitype.get_ffitype()
         call = self.func.call
-        if restype is libffi.types.uint:
+        if restype is libffi.types.ulong:
+            assert libffi.IS_WIN64
+            # on win64 this is the same as uint on 32-bit below
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.ULONG))
+        elif restype is libffi.types.uint:
             assert not libffi.IS_32_BIT
             # on 32bit machines, we should never get here, because it's a case
             # which has already been handled by get_unsigned above.
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UINT))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.UINT))
         elif restype is libffi.types.ushort:
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.USHORT))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.USHORT))
         elif restype is libffi.types.uchar:
-            x = rffi.cast(rffi.LONG, call(self.argchain, rffi.UCHAR))
+            x = rffi.cast(rffi.SIGNED, call(self.argchain, rffi.UCHAR))
         else:
             raise self.error(w_ffitype)
         return x
@@ -252,7 +261,7 @@ class CallFunctionConverter(ToAppLevelConverter):
 
     def get_pointer(self, w_ffitype):
         ptrres = self.func.call(self.argchain, rffi.VOIDP)
-        return rffi.cast(rffi.ULONG, ptrres)
+        return rffi.cast(lltype.Unsigned, ptrres)
 
     def get_char(self, w_ffitype):
         return self.func.call(self.argchain, rffi.UCHAR)
@@ -267,11 +276,11 @@ class CallFunctionConverter(ToAppLevelConverter):
         return self.func.call(self.argchain, rffi.FLOAT)
 
     def get_struct(self, w_ffitype, w_structdescr):
-        addr = self.func.call(self.argchain, rffi.LONG, is_struct=True)
+        addr = self.func.call(self.argchain, rffi.SIGNED, is_struct=True)
         return w_structdescr.fromaddress(self.space, addr)
 
     def get_struct_rawffi(self, w_ffitype, w_structdescr):
-        uintval = self.func.call(self.argchain, rffi.ULONG, is_struct=True)
+        uintval = self.func.call(self.argchain, lltype.Unsigned, is_struct=True)
         return w_structdescr.fromaddress(self.space, uintval)
 
     def get_void(self, w_ffitype):

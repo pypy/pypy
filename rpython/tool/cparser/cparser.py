@@ -1,4 +1,7 @@
 from collections import OrderedDict
+import re
+import sys
+import weakref
 from . import model
 from .commontypes import COMMON_TYPES, resolve_common_type
 from .error import FFIError, CDefError
@@ -6,7 +9,6 @@ try:
     from cffi import _pycparser as pycparser
 except ImportError:
     import pycparser
-import weakref, re
 
 def _workaround_for_static_import_finders():
     # Issue #392: packaging tools like cx_Freeze can not find these
@@ -18,9 +20,16 @@ def _workaround_for_static_import_finders():
 CDEF_SOURCE_STRING = "<cdef source string>"
 _r_comment = re.compile(r"/\*.*?\*/|//([^\n\\]|\\.)*?$",
                         re.DOTALL | re.MULTILINE)
-_r_define  = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
+_r_define = re.compile(r"^\s*#\s*define\s+([A-Za-z_][A-Za-z_0-9]*)"
                         r"\b((?:[^\n\\]|\\.)*?)$",
                         re.DOTALL | re.MULTILINE)
+_r_ifdef_win64 = re.compile(r"^\s*#\s*ifdef\s+_WIN64\s*\n"
+                            r"((?:[^\\#]|\\.)*?\n)?"
+                            r"^\s*#\s*else\s*\n"
+                            r"((?:[^\\#]|\\.)*?\n)?"
+                            r"^\s*#\s*endif\s*$",
+                            re.DOTALL | re.MULTILINE)
+
 _r_line_directive = re.compile(r"^[ \t]*#[ \t]*(?:line|\d+)\b.*$", re.MULTILINE)
 _r_partial_enum = re.compile(r"=\s*\.\.\.\s*[,}]|\.\.\.\s*\}")
 _r_enum_dotdotdot = re.compile(r"__dotdotdot\d+__$")
@@ -193,6 +202,12 @@ def _preprocess(csource, macros):
         macrovalue = macrovalue.replace('\\\n', '').strip()
         macros[macroname] = macrovalue
     csource = _r_define.sub('', csource)
+    # Process "#ifdef _WIN64 ... #else ... #endif" blocks.
+    # This is used in cpyext_object.h to define Py_ssize_t
+    if sys.platform == "win32" and sys.maxint > 2**32:
+        csource = _r_ifdef_win64.sub(r"\1", csource)
+    else:
+        csource = _r_ifdef_win64.sub(r"\2", csource)
     #
     if pycparser.__version__ < '2.14':
         csource = _workaround_for_old_pycparser(csource)

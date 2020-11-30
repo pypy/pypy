@@ -257,7 +257,7 @@ for name, default in constants_w_defaults:
 
 # types
 if _MSVC:
-    socketfd_type = rffi.UINT
+    socketfd_type = lltype.Unsigned
 else:
     socketfd_type = rffi.INT
 
