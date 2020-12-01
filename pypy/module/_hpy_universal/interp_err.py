@@ -44,7 +44,7 @@ def _hpy_err_SetString(space, ctx, h_exc_type, utf8):
     raise OperationError(w_exc_type, w_obj)
 
 
-@BRIDGE.func("int hpy_err_Occurred_rpy(void)")
+@BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
 def hpy_err_Occurred_rpy(space):
     if we_are_translated():
         # this function should never been called after translation. We can't

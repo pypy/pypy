@@ -36,7 +36,7 @@ def HPyLong_FromSsize_t(space, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(space, w_obj)
 
-@API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)")
+@API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)", error_value=-1)
 def HPyLong_AsLong(space, ctx, h):
     w_obj = handles.deref(space, h)
     #w_obj = space.int(w_obj)     --- XXX write a test for this
