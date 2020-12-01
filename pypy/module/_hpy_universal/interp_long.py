@@ -38,10 +38,59 @@ def HPyLong_FromSsize_t(space, ctx, v):
 
 @API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)")
 def HPyLong_AsLong(space, ctx, h):
-    w_obj = handles.deref(space, h)
-    #w_obj = space.int(w_obj)     --- XXX write a test for this
-    value = space.int_w(w_obj)
-    result = rffi.cast(rffi.LONG, value)
-    #if rffi.cast(lltype.Signed, result) != value: --- XXX on Windows 64
-    #    ...
-    return result
+    w_long = handles.deref(space, h)
+    return space.int_w(space.int(w_long))
+
+@API.func("unsigned long HPyLong_AsUnsignedLong(HPyContext ctx, HPy h)")
+def HPyLong_AsUnsignedLong(space, ctx, h):
+    w_long = handles.deref(space, h)
+    try:
+        return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
+
+@API.func("unsigned long HPyLong_AsUnsignedLongMask(HPyContext ctx, HPy h)")
+def HPyLong_AsUnsignedLongMask(space, ctx, h):
+    w_long = handles.deref(space, h)
+    num = space.bigint_w(w_long)
+    return num.uintmask()
+
+@API.func("long long HPyLong_AsLongLong(HPyContext ctx, HPy h)")
+def HPyLong_AsLongLong(space, ctx, h):
+    w_long = handles.deref(space, h)
+    return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
+
+@API.func("unsigned long long HPyLong_AsUnsignedLongLong(HPyContext ctx, HPy h)")
+def HPyLong_AsUnsignedLongLong(space, ctx, h):
+    w_long = handles.deref(space, h)
+    try:
+        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
+
+@API.func("unsigned long long HPyLong_AsUnsignedLongLongMask(HPyContext ctx, HPy h)")
+def HPyLong_AsUnsignedLongLongMask(space, ctx, h):
+    w_long = handles.deref(space, h)
+    num = space.bigint_w(w_long)
+    return num.ulonglongmask()
+
+@API.func("size_t HPyLong_AsSize_t(HPyContext ctx, HPy h)")
+def HPyLong_AsSize_t(space, ctx, h):
+    w_long = handles.deref(space, h)
+    # XXX: cpyext doesn't turn the ValueError into an OverflowError as it
+    #      should. I should also fix cpyext.
+    try:
+        return space.uint_w(w_long)
+    except OperationError as e:
+        if e.match(space, space.w_ValueError):
+            e.w_type = space.w_OverflowError
+        raise
+
+@API.func("HPy_ssize_t HPyLong_AsSsize_t(HPyContext ctx, HPy h)")
+def HPyLong_AsSsize_t(space, ctx, h):
+    w_long = handles.deref(space, h)
+    return space.int_w(w_long)
