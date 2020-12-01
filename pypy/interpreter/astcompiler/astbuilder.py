@@ -125,6 +125,26 @@ class ASTBuilder(object):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
                           filename=self.compile_info.filename)
 
+    def deprecation_warn(self, msg, n):
+        from pypy.module._warnings.interp_warnings import warn_explicit
+        space = self.space
+        try:
+            warn_explicit(
+                space, space.newtext(msg),
+                space.w_DeprecationWarning,
+                space.newtext(self.compile_info.filename),
+                n.get_lineno(),
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                )
+        except error.OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                self.error(msg, n)
+            else:
+                raise
+
     def check_forbidden_name(self, name, node):
         try:
             misc.check_forbidden_name(self.space, name)

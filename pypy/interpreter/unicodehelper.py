@@ -123,25 +123,6 @@ def encode(space, w_data, encoding=None, errors='strict'):
 
 
 # These functions take and return unwrapped rpython strings
-def decode_unicode_escape(space, string):
-    from pypy.module._codecs import interp_codecs
-    state = space.fromcache(interp_codecs.CodecState)
-    unicodedata_handler = state.get_unicodedata_handler(space)
-    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
-        string, "strict",
-        final=True,
-        errorhandler=state.decode_error_handler,
-        ud_handler=unicodedata_handler)
-    if first_escape_error_char is not None:
-        msg = "invalid escape sequence '%s'"
-        try:
-            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
-        except OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
-            else:
-                raise
-    return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(

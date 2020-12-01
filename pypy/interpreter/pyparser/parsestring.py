@@ -15,7 +15,10 @@ class W_FString(W_Root):
         self.stnode = stnode
 
 
-def parsestr(space, encoding, s, stnode=None):
+
+# this function belongs to astbuilder.fstring somehow...
+
+def parsestr(space, encoding, s, stnode=None, astbuilder=None):
     """Parses a string or unicode literal, and return usually
     a wrapped value.  If we get an f-string, then instead return
     an unparsed but unquoted W_FString instance.
@@ -99,7 +102,7 @@ def parsestr(space, encoding, s, stnode=None):
             else:
                 unicodehelper.check_utf8_or_raise(space, s, ps, q)
                 substr = decode_unicode_utf8(space, s, ps, q)
-            r = unicodehelper.decode_unicode_escape(space, substr)
+            r = decode_unicode_escape(space, substr, astbuilder, stnode)
             v, length, pos = r
             return space.newutf8(v, length)
 
@@ -117,13 +120,8 @@ def parsestr(space, encoding, s, stnode=None):
         space, substr, 'strict', encoding)
     if first_escape_error_char != '':
         msg = "invalid escape sequence '%s'"
-        try:
-            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
-        except OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
-            else:
-                raise
+        if astbuilder:
+            astbuilder.deprecation_warn(msg % first_escape_error_char, stnode)
 
     return space.newbytes(v)
 
@@ -263,6 +261,21 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
         space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
     return buf, first_escape_error_char
 
+
+def decode_unicode_escape(space, string, astbuilder, stnode):
+    from pypy.interpreter.unicodehelper import str_decode_unicode_escape
+    from pypy.module._codecs import interp_codecs
+    state = space.fromcache(interp_codecs.CodecState)
+    unicodedata_handler = state.get_unicodedata_handler(space)
+    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
+        string, "strict",
+        final=True,
+        errorhandler=state.decode_error_handler,
+        ud_handler=unicodedata_handler)
+    if first_escape_error_char is not None and astbuilder is not None:
+        msg = "invalid escape sequence '%s'"
+        astbuilder.deprecation_warn(msg % first_escape_error_char, stnode)
+    return s, ulen, blen
 
 def isxdigit(ch):
     return (ch >= '0' and ch <= '9' or
