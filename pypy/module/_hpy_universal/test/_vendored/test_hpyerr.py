@@ -33,7 +33,7 @@ class TestErr(HPyTest):
         # Calling mod.f() gives a fatal error, ending in abort().
         # How to check that?  For now we just check that the above compiles
 
-    def test_errorval_returned_by_api_functions(self):
+    def test_errorval_returned_by_api_functions_hpy(self):
         import pytest
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
@@ -61,3 +61,22 @@ class TestErr(HPyTest):
         """)
         assert mod.f(21, 3) == 7
         assert mod.f(21, 0) == -42
+
+    def test_errorval_returned_by_api_functions_int(self):
+        import pytest
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                int length = HPy_Length(ctx, arg);
+                if (length == -1) {
+                    HPyErr_Clear(ctx);
+                    return HPyLong_FromLong(ctx, -42);
+                }
+                return HPyLong_FromLong(ctx, length);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f([100, 200, 300]) == 3
+        assert mod.f(None) == -42
