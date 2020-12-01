@@ -65,20 +65,84 @@ typedef HPy_ssize_t HPyTracker;
 
 typedef struct _HPyContext_s {
     int ctx_version;
+    // Constants
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
+    // Exceptions
+    struct _HPy_s h_BaseException;
     struct _HPy_s h_Exception;
-    struct _HPy_s h_ValueError;
-    struct _HPy_s h_TypeError;
+    struct _HPy_s h_StopAsyncIteration;
+    struct _HPy_s h_StopIteration;
+    struct _HPy_s h_GeneratorExit;
+    struct _HPy_s h_ArithmeticError;
+    struct _HPy_s h_LookupError;
+    struct _HPy_s h_AssertionError;
+    struct _HPy_s h_AttributeError;
+    struct _HPy_s h_BufferError;
+    struct _HPy_s h_EOFError;
+    struct _HPy_s h_FloatingPointError;
+    struct _HPy_s h_OSError;
+    struct _HPy_s h_ImportError;
+    struct _HPy_s h_ModuleNotFoundError;
     struct _HPy_s h_IndexError;
+    struct _HPy_s h_KeyError;
+    struct _HPy_s h_KeyboardInterrupt;
+    struct _HPy_s h_MemoryError;
+    struct _HPy_s h_NameError;
+    struct _HPy_s h_OverflowError;
+    struct _HPy_s h_RuntimeError;
+    struct _HPy_s h_RecursionError;
+    struct _HPy_s h_NotImplementedError;
+    struct _HPy_s h_SyntaxError;
+    struct _HPy_s h_IndentationError;
+    struct _HPy_s h_TabError;
+    struct _HPy_s h_ReferenceError;
     struct _HPy_s h_SystemError;
+    struct _HPy_s h_SystemExit;
+    struct _HPy_s h_TypeError;
+    struct _HPy_s h_UnboundLocalError;
+    struct _HPy_s h_UnicodeError;
+    struct _HPy_s h_UnicodeEncodeError;
+    struct _HPy_s h_UnicodeDecodeError;
+    struct _HPy_s h_UnicodeTranslateError;
+    struct _HPy_s h_ValueError;
+    struct _HPy_s h_ZeroDivisionError;
+    struct _HPy_s h_BlockingIOError;
+    struct _HPy_s h_BrokenPipeError;
+    struct _HPy_s h_ChildProcessError;
+    struct _HPy_s h_ConnectionError;
+    struct _HPy_s h_ConnectionAbortedError;
+    struct _HPy_s h_ConnectionRefusedError;
+    struct _HPy_s h_ConnectionResetError;
+    struct _HPy_s h_FileExistsError;
+    struct _HPy_s h_FileNotFoundError;
+    struct _HPy_s h_InterruptedError;
+    struct _HPy_s h_IsADirectoryError;
+    struct _HPy_s h_NotADirectoryError;
+    struct _HPy_s h_PermissionError;
+    struct _HPy_s h_ProcessLookupError;
+    struct _HPy_s h_TimeoutError;
+    // Warnings
+    struct _HPy_s h_Warning;
+    struct _HPy_s h_UserWarning;
+    struct _HPy_s h_DeprecationWarning;
+    struct _HPy_s h_PendingDeprecationWarning;
+    struct _HPy_s h_SyntaxWarning;
+    struct _HPy_s h_RuntimeWarning;
+    struct _HPy_s h_FutureWarning;
+    struct _HPy_s h_ImportWarning;
+    struct _HPy_s h_UnicodeWarning;
+    struct _HPy_s h_BytesWarning;
+    struct _HPy_s h_ResourceWarning;
+    // Types
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
     struct _HPy_s h_LongType;
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
+    // Context
     void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
@@ -89,6 +153,13 @@ typedef struct _HPyContext_s {
     void * ctx_Long_FromSize_t;
     void * ctx_Long_FromSsize_t;
     void * ctx_Long_AsLong;
+    void * ctx_Long_AsUnsignedLong;
+    void * ctx_Long_AsUnsignedLongMask;
+    void * ctx_Long_AsLongLong;
+    void * ctx_Long_AsUnsignedLongLong;
+    void * ctx_Long_AsUnsignedLongLongMask;
+    void * ctx_Long_AsSize_t;
+    void * ctx_Long_AsSsize_t;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
     void * ctx_Length;
@@ -128,6 +199,7 @@ typedef struct _HPyContext_s {
     void * ctx_InPlaceXor;
     void * ctx_InPlaceOr;
     void * ctx_Err_SetString;
+    void * ctx_Err_SetObject;
     void * ctx_Err_Occurred;
     void * ctx_Err_NoMemory;
     void * ctx_Err_Clear;
@@ -160,6 +232,8 @@ typedef struct _HPyContext_s {
     void * ctx_Bytes_GET_SIZE;
     void * ctx_Bytes_AsString;
     void * ctx_Bytes_AS_STRING;
+    void * ctx_Bytes_FromString;
+    void * ctx_Bytes_FromStringAndSize;
     void * ctx_Unicode_FromString;
     void * ctx_Unicode_Check;
     void * ctx_Unicode_AsUTF8String;
@@ -436,6 +510,11 @@ pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
 
 pypy_HPyErr_SetString = rffi.llexternal('pypy_HPyErr_SetString',
                                         [HPyContext, HPy, rffi.CCHARP],
+                                        lltype.Void,
+                                        compilation_info=eci, _nowrapper=True)
+
+pypy_HPyErr_SetObject = rffi.llexternal('pypy_HPyErr_SetObject',
+                                        [HPyContext, HPy, HPy],
                                         lltype.Void,
                                         compilation_info=eci, _nowrapper=True)
 
