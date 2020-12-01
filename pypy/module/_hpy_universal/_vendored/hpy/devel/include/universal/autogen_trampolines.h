@@ -48,6 +48,34 @@ static inline long HPyLong_AsLong(HPyContext ctx, HPy h) {
      return ctx->ctx_Long_AsLong ( ctx, h ); 
 }
 
+static inline unsigned long HPyLong_AsUnsignedLong(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsUnsignedLong ( ctx, h ); 
+}
+
+static inline unsigned long HPyLong_AsUnsignedLongMask(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsUnsignedLongMask ( ctx, h ); 
+}
+
+static inline long long HPyLong_AsLongLong(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsLongLong ( ctx, h ); 
+}
+
+static inline unsigned long long HPyLong_AsUnsignedLongLong(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsUnsignedLongLong ( ctx, h ); 
+}
+
+static inline unsigned long long HPyLong_AsUnsignedLongLongMask(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsUnsignedLongLongMask ( ctx, h ); 
+}
+
+static inline size_t HPyLong_AsSize_t(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsSize_t ( ctx, h ); 
+}
+
+static inline HPy_ssize_t HPyLong_AsSsize_t(HPyContext ctx, HPy h) {
+     return ctx->ctx_Long_AsSsize_t ( ctx, h ); 
+}
+
 static inline HPy HPyFloat_FromDouble(HPyContext ctx, double v) {
      return ctx->ctx_Float_FromDouble ( ctx, v ); 
 }
@@ -204,6 +232,10 @@ static inline void HPyErr_SetString(HPyContext ctx, HPy h_type, const char *mess
      ctx->ctx_Err_SetString ( ctx, h_type, message ); 
 }
 
+static inline void HPyErr_SetObject(HPyContext ctx, HPy h_type, HPy h_value) {
+     ctx->ctx_Err_SetObject ( ctx, h_type, h_value ); 
+}
+
 static inline int HPyErr_Occurred(HPyContext ctx) {
      return ctx->ctx_Err_Occurred ( ctx ); 
 }
@@ -326,6 +358,14 @@ static inline char *HPyBytes_AsString(HPyContext ctx, HPy h) {
 
 static inline char *HPyBytes_AS_STRING(HPyContext ctx, HPy h) {
      return ctx->ctx_Bytes_AS_STRING ( ctx, h ); 
+}
+
+static inline HPy HPyBytes_FromString(HPyContext ctx, const char *v) {
+     return ctx->ctx_Bytes_FromString ( ctx, v ); 
+}
+
+static inline HPy HPyBytes_FromStringAndSize(HPyContext ctx, const char *v, HPy_ssize_t len) {
+     return ctx->ctx_Bytes_FromStringAndSize ( ctx, v, len ); 
 }
 
 static inline HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8) {

@@ -43,6 +43,41 @@ HPyAPI_STORAGE long _HPy_IMPL_NAME(Long_AsLong)(HPyContext ctx, HPy h)
     return PyLong_AsLong(_h2py(h));
 }
 
+HPyAPI_STORAGE unsigned long _HPy_IMPL_NAME(Long_AsUnsignedLong)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsUnsignedLong(_h2py(h));
+}
+
+HPyAPI_STORAGE unsigned long _HPy_IMPL_NAME(Long_AsUnsignedLongMask)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsUnsignedLongMask(_h2py(h));
+}
+
+HPyAPI_STORAGE long long _HPy_IMPL_NAME(Long_AsLongLong)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsLongLong(_h2py(h));
+}
+
+HPyAPI_STORAGE unsigned long long _HPy_IMPL_NAME(Long_AsUnsignedLongLong)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsUnsignedLongLong(_h2py(h));
+}
+
+HPyAPI_STORAGE unsigned long long _HPy_IMPL_NAME(Long_AsUnsignedLongLongMask)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsUnsignedLongLongMask(_h2py(h));
+}
+
+HPyAPI_STORAGE size_t _HPy_IMPL_NAME(Long_AsSize_t)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsSize_t(_h2py(h));
+}
+
+HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME(Long_AsSsize_t)(HPyContext ctx, HPy h)
+{
+    return PyLong_AsSsize_t(_h2py(h));
+}
+
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Float_FromDouble)(HPyContext ctx, double v)
 {
     return _py2h(PyFloat_FromDouble(v));
@@ -238,6 +273,11 @@ HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetString)(HPyContext ctx, HPy h_type, co
     PyErr_SetString(_h2py(h_type), message);
 }
 
+HPyAPI_STORAGE void _HPy_IMPL_NAME(Err_SetObject)(HPyContext ctx, HPy h_type, HPy h_value)
+{
+    PyErr_SetObject(_h2py(h_type), _h2py(h_value));
+}
+
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Err_NoMemory)(HPyContext ctx)
 {
     return _py2h(PyErr_NoMemory());
@@ -351,6 +391,16 @@ HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AsString)(HPyContext ctx, HPy h)
 HPyAPI_STORAGE char *_HPy_IMPL_NAME(Bytes_AS_STRING)(HPyContext ctx, HPy h)
 {
     return PyBytes_AS_STRING(_h2py(h));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Bytes_FromString)(HPyContext ctx, const char *v)
+{
+    return _py2h(PyBytes_FromString(v));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Bytes_FromStringAndSize)(HPyContext ctx, const char *v, HPy_ssize_t len)
+{
+    return _py2h(PyBytes_FromStringAndSize(v, len));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Unicode_FromString)(HPyContext ctx, const char *utf8)
