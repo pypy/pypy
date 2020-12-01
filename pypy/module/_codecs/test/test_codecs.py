@@ -148,6 +148,15 @@ class AppTestCodecs:
         assert decode(br"[\x0]\x0", "ignore") == (b"[]", 8)
         assert decode(br"[\x0]\x0", "replace") == (b"[?]?", 8)
 
+    def test_unicode_escape_warning(self):
+        from _codecs import escape_decode
+        import warnings
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("error")
+            with raises(DeprecationWarning):
+                escape_decode("a\\zb")
+
+
     def test_unicode_escape(self):
         from _codecs import unicode_escape_encode, unicode_escape_decode
         assert unicode_escape_encode('abc') == ('abc'.encode('unicode_escape'), 3)

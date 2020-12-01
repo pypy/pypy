@@ -113,8 +113,17 @@ def parsestr(space, encoding, s, stnode=None):
     if rawmode or '\\' not in substr:
         return space.newbytes(substr)
 
-    v, first_escape_error_char = PyString_DecodeEscape(
+    v, first_escape_error_char = _PyString_DecodeEscape(
         space, substr, 'strict', encoding)
+    if first_escape_error_char != '':
+        msg = "invalid escape sequence '%s'"
+        try:
+            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
+        except OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
+            else:
+                raise
 
     return space.newbytes(v)
 
@@ -149,7 +158,7 @@ def decode_unicode_utf8(space, s, ps, q):
             ps += 1
     return ''.join(lis)
 
-def PyString_DecodeEscape(space, s, errors, recode_encoding):
+def _PyString_DecodeEscape(space, s, errors, recode_encoding):
     """
     Unescape a backslash-escaped string. If recode_encoding is non-zero,
     the string is UTF-8 encoded and should be re-encoded in the
@@ -244,17 +253,14 @@ def PyString_DecodeEscape(space, s, errors, recode_encoding):
             # an arbitry number of unescaped UTF-8 bytes may follow.
 
     buf = builder.build()
+    return buf, first_escape_error_char
 
+
+def PyString_DecodeEscape(space, s, errors, recode_encoding):
+    buf, first_escape_error_char = _PyString_DecodeEscape(space, s, errors, recode_encoding)
     if first_escape_error_char != '':
         msg = "invalid escape sequence '%s'"
-        try:
-            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
-        except OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
-            else:
-                raise
-
+        space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
     return buf, first_escape_error_char
 
 
