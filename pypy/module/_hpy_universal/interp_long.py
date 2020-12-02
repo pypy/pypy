@@ -81,8 +81,6 @@ def HPyLong_AsUnsignedLongLongMask(space, ctx, h):
 @API.func("size_t HPyLong_AsSize_t(HPyContext ctx, HPy h)")
 def HPyLong_AsSize_t(space, ctx, h):
     w_long = handles.deref(space, h)
-    # XXX: cpyext doesn't turn the ValueError into an OverflowError as it
-    #      should. I should also fix cpyext.
     try:
         return space.uint_w(w_long)
     except OperationError as e:
