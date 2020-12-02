@@ -1,6 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.structmemberdefs import *
 from pypy.module.cpyext.api import PyObjectP, cpython_api, CONST_STRING
 from pypy.module.cpyext.longobject import PyLong_AsLong, PyLong_AsUnsignedLong
@@ -20,15 +21,23 @@ def convert_bool(space, w_obj):
         return True
     raise oefmt(space.w_TypeError, "attribute value type must be bool")
 
-integer_converters = unrolling_iterable([                     # range checking
-    (T_SHORT,  rffi.SHORT,  PyLong_AsLong,                    True),
-    (T_INT,    rffi.INT,    PyLong_AsLong,                    True),
-    (T_LONG,   rffi.LONG,   PyLong_AsLong,                    False),
-    (T_USHORT, rffi.USHORT, PyLong_AsUnsignedLong,            True),
-    (T_UINT,   rffi.UINT,   PyLong_AsUnsignedLong,            True),
-    (T_ULONG,  rffi.ULONG,  PyLong_AsUnsignedLong,            False),
-    (T_BYTE,   rffi.SIGNEDCHAR, PyLong_AsLong,                True),
-    (T_UBYTE,  rffi.UCHAR,  PyLong_AsUnsignedLong,            True),
+def convert_long(space, w_obj):
+    val = PyLong_AsLong(space, w_obj)
+    return widen(val)
+
+def convert_ulong(space, w_obj):
+    val = PyLong_AsUnsignedLong(space, w_obj)
+    return widen(val)
+
+integer_converters = unrolling_iterable([             # range checking
+    (T_SHORT,  rffi.SHORT,  convert_long,             True),
+    (T_INT,    rffi.INT,    convert_long,             True),
+    (T_LONG,   rffi.LONG,   convert_long,             False),
+    (T_USHORT, rffi.USHORT, convert_ulong,            True),
+    (T_UINT,   rffi.UINT,   convert_ulong,            True),
+    (T_ULONG,  rffi.ULONG,  convert_ulong,            False),
+    (T_BYTE,   rffi.SIGNEDCHAR, convert_long,         True),
+    (T_UBYTE,  rffi.UCHAR,  convert_ulong,            True),
     (T_BOOL,   rffi.UCHAR,  convert_bool,                     False),
     (T_FLOAT,  rffi.FLOAT,  PyFloat_AsDouble,                 False),
     (T_DOUBLE, rffi.DOUBLE, PyFloat_AsDouble,                 False),
@@ -95,8 +104,8 @@ def PyMember_GetOne(space, obj, w_member):
              error=-1, header=_HEADER)
 def PyMember_SetOne(space, obj, w_member, w_value):
     addr = rffi.ptradd(obj, w_member.c_offset)
-    member_type = rffi.cast(lltype.Signed, w_member.c_type)
-    flags = rffi.cast(lltype.Signed, w_member.c_flags)
+    member_type = widen(w_member.c_type)
+    flags = widen(w_member.c_flags)
 
     if flags & READONLY:
         raise oefmt(space.w_AttributeError, "readonly attribute")
@@ -119,6 +128,7 @@ def PyMember_SetOne(space, obj, w_member, w_value):
             array = rffi.cast(rffi.CArrayPtr(lltyp), addr)
             casted = rffi.cast(lltyp, value)
             if range_checking:
+                value = widen(value)
                 if rffi.cast(lltype.typeOf(value), casted) != value:
                     space.warn(space.newtext("structmember: truncation of value"),
                                space.w_RuntimeWarning)
