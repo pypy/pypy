@@ -6,8 +6,11 @@ What's new in PyPy2.7 7.3.2+
 .. startrev: c136fdb316e4
 
 .. branch: rpython-error_value
+.. branch: hpy-error-value
+   
+Introduce @rlib.objectmodel.llhelper_error_value, will is used by HPy
 
-Introduce @rlib.objectmodel.llhelper_error_value, will be used by HPy
+
 
 .. branch: cross_compilation_fixes
 
