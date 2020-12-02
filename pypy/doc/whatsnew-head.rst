@@ -25,3 +25,8 @@ Upstream internal cparser tool from pypy/ to rpython/
 .. branch: win64
 
 Change rpython and pypy to enable translating 64-bit windows
+
+
+.. branch: rpython-error_value
+
+Introduce @rlib.objectmodel.llhelper_error_value, will be used by HPy
