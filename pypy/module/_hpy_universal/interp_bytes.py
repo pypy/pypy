@@ -36,7 +36,7 @@ def HPyBytes_AS_STRING(space, ctx, h):
 
 @API.func("HPy HPyBytes_FromString(HPyContext ctx, const char *v)")
 def HPyBytes_FromString(space, ctx, char_p):
-    s = rffi.charp2str(char_p)
+    s = rffi.constcharp2str(char_p)
     w_bytes = space.newbytes(s)
     return handles.new(space, w_bytes)
 
@@ -47,6 +47,6 @@ def HPyBytes_FromStringAndSize(space, ctx, char_p, length):
             space.w_ValueError,
             "NULL char * passed to HPyBytes_FromStringAndSize"
         )
-    s = rffi.charpsize2str(char_p, length)
+    s = rffi.constcharpsize2str(char_p, length)
     w_bytes = space.newbytes(s)
     return handles.new(space, w_bytes)
