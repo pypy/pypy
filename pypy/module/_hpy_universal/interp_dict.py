@@ -10,7 +10,7 @@ def HPyDict_New(space, ctx):
     w_dict = space.newdict()
     return handles.new(space, w_dict)
 
-@API.func("int HPyDict_Check(HPyContext ctx, HPy h)")
+@API.func("int HPyDict_Check(HPyContext ctx, HPy h)", error_value='CANNOT_FAIL')
 def HPyDict_Check(space, ctx, h):
     w_obj = handles.deref(space, h)
     w_obj_type = space.type(w_obj)

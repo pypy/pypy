@@ -19,12 +19,13 @@ class W_Tracker(W_Root):
         for h in self.handles:
             handles.close(space, h)
 
-@API.func("HPyTracker HPyTracker_New(HPyContext ctx, HPy_ssize_t size)")
+@API.func("HPyTracker HPyTracker_New(HPyContext ctx, HPy_ssize_t size)", error_value=0)
 def HPyTracker_New(space, ctx, size):
     w_tracker = W_Tracker(size)
     return handles.new(space, w_tracker)
 
-@API.func("int HPyTracker_Add(HPyContext ctx, HPyTracker ht, HPy h)")
+@API.func("int HPyTracker_Add(HPyContext ctx, HPyTracker ht, HPy h)",
+          error_value=API.int(-1))
 def HPyTracker_Add(space, ctx, ht, h):
     w_tracker = handles.deref(space, ht)
     assert isinstance(w_tracker, W_Tracker)
