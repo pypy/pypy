@@ -1,4 +1,4 @@
-import py
+import pytest
 
 import sys
 
@@ -35,7 +35,7 @@ class AppTestLocaleTrivia:
                 _locale.setlocale(_locale.LC_ALL,
                                   cls.space.utf8_w(cls.w_language_pl))
             except _locale.Error:
-                py.test.skip("necessary locales not installed")
+                pytest.skip("necessary locales not installed")
 
             # Windows forbids the UTF-8 character set since Windows XP.
             try:
@@ -310,6 +310,9 @@ class AppTestLocaleTrivia:
         assert encoding.startswith('cp')
 
     def test_lc_numeric_basic(self):
+        import _locale
+        if sys.platform == 'win32':
+            skip("No nl_langinfo to test")
         from _locale import (setlocale, nl_langinfo, Error, LC_NUMERIC,
                              LC_CTYPE, RADIXCHAR, THOUSEP, localeconv)
         # Test nl_langinfo against localeconv

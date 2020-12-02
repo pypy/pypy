@@ -602,6 +602,10 @@ def PyUnicode_FromUnicode(space, wchar_p, length):
         length = 0
     if wchar_p:
         s = wcharpsize2utf8(space, wchar_p, length)
+        # XXX this is for windows, since wchar_p is in utf16 so length may not
+        # be codepoints. This could be pushed into the windows branch of
+        # wcharpsize2utf8
+        length = rutf8.codepoints_in_utf8(s)
         return make_ref(space, space.newutf8(s, length))
     else:
         return new_empty_unicode(space, length)

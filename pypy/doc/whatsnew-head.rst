@@ -1,15 +1,27 @@
 ============================
-What's new in PyPy2.7 7.3.2+
+What's new in PyPy2.7 7.3.3+
 ============================
 
-.. this is a revision shortly after release-pypy-7.3.2
-.. startrev: c136fdb316e4
+.. this is a revision shortly after release-pypy-7.3.3
+.. startrev: de512cf13506
 
+.. branch: rpython-error_value
+.. branch: hpy-error-value
+   
+Introduce @rlib.objectmodel.llhelper_error_value, will is used by HPy
 
-.. branch: cross_compilation_fixes
+.. branch: new-ci-image
 
-Respect PKG_CONFIG and CC in more places to allow cross-compilation
+CI: Add a Dockerfile for CI to prevent hitting pull limits on docker hub
 
-.. branch: darwin-sendfile-2.7
+.. branch: issue-3333
 
-Add posix.sendfile to darwin for python3.6+
+Fix xml.etree.ElementTree assigning default attribute values: issue 3333
+
+.. branch: rpython-rsre-for-37
+
+Support for the new format of regular expressions in Python 3.7
+
+.. branch: rpy-cparser
+
+Upstream internal cparser tool from pypy/ to rpython/

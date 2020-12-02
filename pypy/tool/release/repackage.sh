@@ -1,12 +1,12 @@
 #! /bin/bash
 
 # Edit these appropriately before running this script
-pmaj=2  # python main version: 2 or 3
-pmin=7  # python minor version
+pmaj=3  # python main version: 2 or 3
+pmin=6  # python minor version
 maj=7
 min=3
-rev=2
-# rc=rc3  # set to blank for actual release
+rev=3
+#rc=rc2  # set to blank for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -106,32 +106,10 @@ function repackage_builds {
     fi
 }
 
-function create_archival {
-    if [ -e $1 ]; then
-        return 0;
-    fi
-    echo repo: 45eff22199974f85fd96138d25510f4660aba5a1 > $1
-    hg log -r $tagname -T 'node: {node}\n' >> $1
-    echo branch: $branchname >> $1
-    echo tag: $tagname >> $1
-}
-
 function repackage_source {
-    # Download source and repackage
-    # Requires a valid $tagname, note the untarred directory is pypy-pypy-<hash>
-    # so make sure there is not another one
-    if wget https://foss.heptapod.net/pypy/pypy/repository/$tagname/archive.tar.gz
-    then
-        tar -xf archive.tar.gz
-        rm archive.tar.gz
-        mv pypy-release-* $rel-src
-        create_archival  $rel-src/.hg_archival.txt
-        tar --owner=root --group=root --numeric-owner -cjf $rel-src.tar.bz2 $rel-src
-        zip -rq $rel-src.zip $rel-src
-        rm -rf $rel-src
-    else
-        echo source tarfile for $tagname not found on bitbucket, did you push the tag commit?
-    fi
+    # Requires a valid $tagname
+    hg archive -r $tagname $rel-src.tar.bz2
+    hg archive -r $tagname $rel-src.zip
 }
 
 function print_sha256 {

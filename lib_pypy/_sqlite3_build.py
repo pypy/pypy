@@ -258,6 +258,8 @@ def _has_load_extension():
 
 if _has_load_extension():
     _ffi.cdef("int sqlite3_enable_load_extension(sqlite3 *db, int onoff);")
+    _ffi.cdef("int sqlite3_load_extension(sqlite3 *db, const char *, "
+                                                 "const char *, char **);")
 
 if sys.platform.startswith('freebsd'):
     _localbase = os.environ.get('LOCALBASE', '/usr/local')

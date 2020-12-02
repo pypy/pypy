@@ -719,6 +719,15 @@ class Connection(object):
             if rc != _lib.SQLITE_OK:
                 raise OperationalError("Error enabling load extension")
 
+        @_check_thread_wrap
+        @_check_closed_wrap
+        def load_extension(self, ext_name):
+            errmsg = _ffi.new('char **')
+            ext_name_b = ext_name.encode()
+            null = _ffi.cast('char *', 0)
+            rc = _lib.sqlite3_load_extension(self._db, ext_name_b, null, errmsg)
+            if rc != 0:
+                raise OperationalError(_ffi.string(errmsg[0]).decode())
 
 class Cursor(object):
     __initialized = False

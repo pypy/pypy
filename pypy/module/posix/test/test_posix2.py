@@ -12,12 +12,7 @@ from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
-USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
-# py3k os.open uses subprocess, requiring the following per platform
-if os.name != 'nt':
-    USEMODULES += ['fcntl', 'select', '_posixsubprocess', '_socket']
-else:
-    USEMODULES += ['_rawffi', 'thread', '_cffi_backend']
+USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -227,6 +222,9 @@ class AppTestPosix:
                 fn("nonexistentdir/nonexistentfile")
             assert exc.value.errno == errno.ENOENT
             assert exc.value.filename == "nonexistentdir/nonexistentfile"
+            with raises(OSError) as exc:
+                fn("")
+            assert exc.value.errno == errno.ENOENT
 
         with raises(TypeError) as excinfo:
             self.posix.stat(None)
@@ -364,15 +362,10 @@ class AppTestPosix:
     def test_listdir_default(self):
         import sys
         posix = self.posix
-        if sys.platform == 'win32':
-            defaults = ['.', '', None]
-            assert posix.listdir(b'.') == posix.listdir(b'')
-        else:
-            defaults = ['.', None]
-            for v in ['', b'']:
-                with raises(FileNotFoundError):
-                    posix.listdir(v)
-        for v in defaults:
+        for v in ['', b'']:
+            with raises(FileNotFoundError):
+                posix.listdir(v)
+        for v in ['.', None]:
             assert posix.listdir() == posix.listdir(v)
 
     def test_listdir_bytes(self):
@@ -529,16 +522,6 @@ class AppTestPosix:
             os.write(master_fd, b'abc\n')
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
-
-    if hasattr(__import__(os.name), '_getfullpathname'):
-        def test__getfullpathname(self):
-            # nt specific
-            posix = self.posix
-            sysdrv = posix.environ.get("SystemDrive", "C:")
-            # just see if it does anything
-            path = sysdrv + 'hubber'
-            assert '\\' in posix._getfullpathname(path)
-            assert type(posix._getfullpathname(b'C:')) is bytes
 
     def test_utime(self):
         os = self.posix
@@ -981,6 +964,12 @@ class AppTestPosix:
             os = self.posix
             #Always suceeds on Linux
             os.sched_yield()
+
+    if hasattr(rposix, 'sched_getparam'):
+        def test_sched_param_kwargs(self):
+            os = self.posix
+            sp = os.sched_param(sched_priority=1)
+            assert sp.sched_priority == 1
 
     def test_write_buffer(self):
         os = self.posix
@@ -1655,13 +1644,30 @@ class AppTestPosix:
             with raises(OverflowError):
                 posix.sched_setparam(0, param)
 
+    def test_execv_no_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", [])
+        # PyPy needs at least one arg, CPython 2.7 is fine without
+        with raises(ValueError):
+            posix.execve("notepad", [], {})
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
-    spaceconfig = {'usemodules': ['posix', '_socket']}
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_Path = space.appexec([], """():
+            class Path:
+                def __init__(self, _path):
+                    self._path =_path
+                def __fspath__(self):
+                    return self._path
+            return Path
+            """)
+
 
     def test_handle_inheritable(self):
         import _socket
@@ -1673,6 +1679,32 @@ class AppTestNt(object):
             posix.set_handle_inheritable(s.fileno(), True)
             assert posix.get_handle_inheritable(s.fileno())
 
+    def test__getfullpathname(self):
+        # issue 3343
+        nt = self.posix
+        path = nt._getfullpathname(self.path)
+        assert self.path in path
+        path = nt._getfullpathname(self.Path(self.path))
+        assert self.path in path
+
+        # now as bytes
+        bpath = self.path.encode()
+        path = nt._getfullpathname(bpath)
+        assert bpath in path
+        path = nt._getfullpathname(self.Path(bpath))
+        assert bpath in path
+
+        with raises(TypeError):
+            nt._getfullpathname(None)
+
+        with raises(TypeError):
+            nt._getfullpathname(1)
+
+        sysdrv = nt.environ.get("SystemDrive", "C:")
+        # just see if it does anything
+        path = sysdrv + 'hubber'
+        assert '\\' in nt._getfullpathname(path)
+        assert type(nt._getfullpathname(b'C:')) is bytes
 
 class AppTestEnvironment(object):
     def setup_class(cls):
@@ -1681,12 +1713,17 @@ class AppTestEnvironment(object):
         cls.w_python = space.wrap(sys.executable)
 
     def test_environ(self):
+        import sys
         environ = self.posix.environ
         if not environ:
             skip('environ not filled in for untranslated tests')
+        if sys.platform == 'win32':
+            rawenv = str
+        else:
+            rawenv = bytes
         for k, v in environ.items():
-            assert type(k) is bytes
-            assert type(v) is bytes
+            assert type(k) is rawenv
+            assert type(v) is rawenv
         name = next(iter(environ))
         assert environ[name] is not None
         del environ[name]
@@ -1744,6 +1781,7 @@ def check_fsencoding(space, pytestconfig):
 
 @py.test.mark.usefixtures('check_fsencoding')
 class AppTestPosixUnicode:
+    spaceconfig = {'usemodules': USEMODULES}
     def setup_class(cls):
         cls.w_posix = space.appexec([], GET_POSIX)
 
@@ -1829,5 +1867,3 @@ class AppTestPep475Retry:
 
         assert signalled != []
         assert got.startswith(b'h')
-
-

@@ -180,11 +180,9 @@ corresponding Unix manual entries for more information on calls."""
                  'getresuid', 'getresgid', 'setresuid', 'setresgid']:
         if hasattr(os, name):
             interpleveldefs[name] = 'interp_posix.%s' % (name,)
-    # not visible via os, inconsistency in nt:
-    if hasattr(posix, '_getfullpathname'):
-        interpleveldefs['_getfullpathname'] = 'interp_posix._getfullpathname'
     if os.name == 'nt':
         interpleveldefs.update({
+                '_getfullpathname': 'interp_posix._getfullpathname',
                 '_getfileinformation': 'interp_posix._getfileinformation',
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',

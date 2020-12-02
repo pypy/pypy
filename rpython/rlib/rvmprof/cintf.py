@@ -60,7 +60,7 @@ def make_eci():
     else:
         # Guessing a BSD-like Unix platform
         compile_extra += ['-DVMPROF_UNIX']
-        compile_extra += ['-DVMPROF_MAC']
+        compile_extra += ['-DVMPROF_APPLE']
         if sys.platform.startswith('freebsd'):
             _libs = ['unwind']
         else:

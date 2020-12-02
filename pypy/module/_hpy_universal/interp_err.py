@@ -49,7 +49,7 @@ def _hpy_err_SetObject(space, ctx, h_exc_type, h_exc_value):
     w_obj = handles.deref(space, h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
-@BRIDGE.func("int hpy_err_Occurred_rpy(void)")
+@BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
 def hpy_err_Occurred_rpy(space):
     if we_are_translated():
         # this function should never been called after translation. We can't

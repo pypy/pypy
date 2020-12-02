@@ -1,9 +1,10 @@
 import re
+from rpython.translator import exceptiontransform
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize, llhelper_can_raise
+from rpython.rlib.objectmodel import specialize, llhelper_error_value
 from pypy.module._hpy_universal import llapi
 
 class APISet(object):
@@ -20,14 +21,42 @@ class APISet(object):
         self.frozen = True
         return True
 
-    def parse_signature(self, cdecl):
+    def parse_signature(self, cdecl, error_value):
         d = self.cts.parse_func(cdecl)
-        argtypes = d.get_llargs(self.cts)
-        restype = d.get_llresult(self.cts)
-        ll_functype = lltype.Ptr(lltype.FuncType(argtypes, restype))
-        return d.name, ll_functype
+        ARGS = d.get_llargs(self.cts)
+        RESULT = d.get_llresult(self.cts)
+        FUNC = lltype.Ptr(lltype.FuncType(ARGS, RESULT))
+        return d.name, FUNC, self.get_ll_errval(d, FUNC, error_value)
 
-    def func(self, cdecl, cpyext=False, func_name=None):
+    def get_ll_errval(self, d, FUNC, error_value):
+        c_result_t = d.tp.result.get_c_name() # a string such as "HPy" or "void"
+        if error_value is None:
+            # automatically determine the error value from the return type
+            if c_result_t == 'HPy':
+                return 0
+            elif c_result_t == 'void':
+                return None
+            elif isinstance(FUNC.TO.RESULT, lltype.Ptr):
+                return lltype.nullptr(FUNC.TO.RESULT.TO)
+            else:
+                raise Exception(
+                    "API function %s: you must explicitly specify an error_value "
+                    "for functions returning %s" % (d.name, c_result_t))
+        elif error_value == 'CANNOT_FAIL':
+            # we need to specify an error_value anyway, let's just use the
+            # exceptiontransform default
+            return exceptiontransform.default_error_value(FUNC.TO.RESULT)
+        else:
+            assert c_result_t != 'HPy' # sanity check
+            if lltype.typeOf(error_value) != FUNC.TO.RESULT:
+                raise Exception(
+                    "API function %s: the specified error_value has the "
+                    "wrong lltype: expected %s, got %s" % (d.name, FUNC.TO.RESULT,
+                                                           lltype.typeOf(error_value)))
+            return error_value
+
+
+    def func(self, cdecl, cpyext=False, func_name=None, error_value=None):
         """
         Declare an HPy API function.
 
@@ -38,6 +67,27 @@ class APISet(object):
         If func_name is given, the decorated function will be automatically
         renamed. Useful for automatically generated code, for example in
         interp_number.py
+
+        error_value specifies the C value to return in case the function
+        raises an RPython exception. The default behavior tries to be smart
+        enough to work in the most common and standardized cases, but without
+        guessing in case of doubts.  In particular, there is no default
+        error_value for "int" functions, because CPython's behavior is not
+        consistent.
+
+        error_value can be:
+
+            - None (the default): automatically determine the error value. It
+              works only for the following return types:
+                  * HPy: 0
+                  * void: None
+                  * pointers: NULL
+
+            - 'CANNOT_FAIL': special string to specify that this function is
+              not supposed to fail.
+
+            - a specific value: in this case, the lltype must exactly match
+              what is specified for the function type.
         """
         if self.frozen:
             raise RuntimeError(
@@ -46,7 +96,7 @@ class APISet(object):
                 'you might solve this by making sure that the module is imported '
                 'earlier')
         def decorate(fn):
-            name, ll_functype = self.parse_signature(cdecl)
+            name, ll_functype, ll_errval = self.parse_signature(cdecl, error_value)
             if name != fn.__name__:
                 raise ValueError(
                     'The name of the function and the signature do not match: '
@@ -61,7 +111,7 @@ class APISet(object):
             # get_llhelper
             @specialize.memo()
             def make_wrapper(space):
-                @llhelper_can_raise
+                @llhelper_error_value(ll_errval)
                 def wrapper(*args):
                     return fn(space, *args)
                 wrapper.__name__ = 'ctx_%s' % fn.__name__

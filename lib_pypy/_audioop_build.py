@@ -339,11 +339,18 @@ static const int minvals[] = {0, -0x80, -0x8000, -0x800000, -0x7FFFFFFF-1};
 static int
 fbound(double val, double minval, double maxval)
 {
-    if (val > maxval)
+    if (val > maxval) {
         val = maxval;
-    else if (val < minval + 1)
+    }
+    else if (val < minval + 1.0) {
         val = minval;
-    return val;
+    }
+
+    /* Round towards minus infinity (-inf) */
+    val = floor(val);
+
+    /* Cast double to integer: round towards zero */
+    return (int)val;
 }
 
 static int
@@ -440,11 +447,11 @@ void tostereo(char* rv, char* cp, size_t len, int size,
         else if ( size == 3 ) val = (int)GETINT24(cp, i);
         else if ( size == 4 ) val = (int)*LONGP(cp, i);
 
-        fval = (double)val*fac1;
-        val1 = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val * fac1;
+        val1 = fbound(fval, minval, maxval);
 
-        fval = (double)val*fac2;
-        val2 = (int)floor(fbound(fval, minval, maxval));
+        fval = (double)val * fac2;
+        val2 = fbound(fval, minval, maxval);
 
         if ( size == 1 )      *CHARP(ncp, i*2) = (signed char)val1;
         else if ( size == 2 ) *SHORTP(ncp, i*2) = (short)val1;
@@ -489,7 +496,7 @@ void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
         else {
             double fval = (double)val1 + (double)val2;
             /* truncate in case of overflow */
-            newval = (int)floor(fbound(fval, minval, maxval));
+            newval = fbound(fval, minval, maxval);
         }
 
         if ( size == 1 )      *CHARP(ncp, i) = (signed char)newval;
