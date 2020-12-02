@@ -169,7 +169,7 @@ W_CPPLibrary.typedef.acceptable_as_base_class = True
 #
 #  W_CPPOverload:                 instance methods (base class)
 #  W_CPPConstructorOverload:      constructors
-#  W_CPPAbstractCtorOverload:     to provent instantiation of abstract classes
+#  W_CPPAbstractCtorOverload:     to prevent instantiation of abstract classes
 #  W_CPPStaticOverload:           free and static functions
 #  W_CPPTemplateOverload:         templated methods
 #  W_CPPTemplateStaticOverload:   templated free and static functions
@@ -826,13 +826,14 @@ class TemplateOverloadMixin(object):
             tmpl_args += s
         return tmpl_args
 
-    def find_method_template(self, name, proto = ''):
-        # find/instantiate new callable function
+    def instantiate_method_template(self, name, proto = ''):
+        # instantiate/find new callable function
         space = self.space
         cppmeth = capi.c_get_method_template(space, self.scope, name, proto)
         if not cppmeth:
             raise oefmt(self.space.w_AttributeError,
-                "scope '%s' has no function %s", self.scope.name, name)
+                "failed to instantiate %s::%s for arguments '%s'",
+                self.scope.name, name, proto)
 
         funcs = []
         ftype = self.scope._make_cppfunction(name, cppmeth, funcs)
@@ -842,53 +843,46 @@ class TemplateOverloadMixin(object):
             cppol = W_CPPOverload(space, self.scope, funcs[:], self.flags)
         return cppol
 
-    def instantiate_and_call(self, name, args_w):
+    def _call_method(self, method, args_w):
+        if not self.space.is_w(self.w_this, self.space.w_None):
+             return self.space.call_obj_args(method, self.w_this, Arguments(self.space, args_w))
+        return self.space.call_args(method, Arguments(self.space, args_w))
+
+    def template_call(self, name, tmpl_args, args_w):
         method = None
+
+        fullname = name
+        if tmpl_args is not None:
+            fullname = fullname+'<'+tmpl_args+'>'
+
         try:
             # existing cached instantiations
-            if name[-1] == '>':   # only accept full templated name, to ensure explicit
-                method = self.master.overloads[name]
-            else:
-            # try to match with run-time instantiations
-                # TODO: logically, this could be used, but in practice, it's proving too
-                #  greedy ... maybe as a last resort?
-                #for cppol in self.master.overloads.values():
-                #    try:
-                #        if not self.space.is_w(self.w_this, self.space.w_None):
-                #            return self.space.call_obj_args(cppol, self.w_this, Arguments(self.space, args_w))
-                #        return self.space.call_args(cppol, Arguments(self.space, args_w))
-                #    except Exception:
-                #        pass    # completely ignore for now; have to see whether errors become confusing
-                raise TypeError("pre-existing overloads failed")
-        except (KeyError, TypeError):
-            # if not known, try to deduce from argument types
-            w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
-            proto = self.construct_template_args(w_types, args_w)
-            method = self.find_method_template(name, proto)
+            method = self.master.overloads[fullname]
+            return self._call_method(method, args_w)
+        except Exception:
+            pass
 
-            # only cache result if the name retains the full template
-            # TODO: the problem is in part that c_method_full_name returns incorrect names,
-            # e.g. when default template arguments are involved, so for now use 'name' if it
-            # has the full templated name
-            if name[-1] == '>':
-                fullname = name
-            else:
-                fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
-            try:
-                existing = self.master.overloads[fullname]
-                allf = existing.functions + method.functions
-                if isinstance(existing, W_CPPStaticOverload):
-                    cppol = W_CPPStaticOverload(self.space, self.scope, allf, self.flags)
-                else:
-                    cppol = W_CPPOverload(self.space, self.scope, allf, self.flags)
-                self.master.overloads[fullname] = cppol
-            except KeyError:
-                self.master.overloads[fullname] = method
+        # if not known, or failed, try instantiation
+        w_types = self.space.newtuple([self.space.type(obj_w) for obj_w in args_w])
+        proto = self.construct_template_args(w_types, args_w)
+        method = self.instantiate_method_template(fullname, proto)     # may raise
 
-        if method is not None:
-            if not self.space.is_w(self.w_this, self.space.w_None):
-                return self.space.call_obj_args(method, self.w_this, Arguments(self.space, args_w))
-            return self.space.call_args(method, Arguments(self.space, args_w))
+        # cache result as the full templated name only
+        if fullname[-1] != '>':
+            fullname = capi.c_method_full_name(self.space, method.functions[0].cppmethod)
+        try:
+            existing = self.master.overloads[fullname]
+            allf = existing.functions + method.functions
+            if isinstance(existing, W_CPPStaticOverload):
+                cppol = W_CPPStaticOverload(self.space, self.scope, allf, self.flags)
+            else:
+                cppol = W_CPPOverload(self.space, self.scope, allf, self.flags)
+            self.master.overloads[fullname] = cppol
+        except KeyError:
+            self.master.overloads[fullname] = method
+
+        # perform actual call (which may still fail)
+        return self._call_method(method, args_w)
 
     def getitem_impl(self, name, args_w):
         space = self.space
@@ -899,14 +893,7 @@ class TemplateOverloadMixin(object):
             w_args = space.newtuple(args_w)
 
         tmpl_args = self.construct_template_args(w_args)
-        fullname = name+'<'+tmpl_args+'>'
-        try:
-            method = self.master.overloads[fullname]
-        except KeyError as e:
-            # defer instantiation until arguments are known
-            return self.clone(tmpl_args)
-
-        return method.descr_get(self.w_this, None)
+        return self.clone(tmpl_args)   # defer instantiation until arguments are known
 
 
 class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
@@ -944,19 +931,11 @@ class W_CPPTemplateOverload(W_CPPOverload, TemplateOverloadMixin):
     def call_args(self, args_w):
         # direct call: either pick non-templated overload or attempt to deduce
         # the template instantiation from the argument types
-
-        # do explicit lookup with tmpl_args if given
         try:
-            fullname = self.name
-            if self.tmpl_args is not None:
-                fullname = fullname+'<'+self.tmpl_args+'>'
-            return self.instantiate_and_call(fullname, args_w)
+            return W_CPPOverload.call_args(self, [self.w_this]+args_w)
         except Exception:
             pass
-
-        # otherwise, try existing overloads or compile-time instantiations
-        # TODO: consolidate errors
-        return W_CPPOverload.call_args(self, [self.w_this]+args_w)
+        return self.template_call(self.name, self.tmpl_args, args_w)
 
     @unwrap_spec(args_w='args_w')
     def getitem(self, args_w):
@@ -1019,20 +998,11 @@ class W_CPPTemplateStaticOverload(W_CPPStaticOverload, TemplateOverloadMixin):
     def call_args(self, args_w):
         # direct call: either pick non-templated overload or attempt to deduce
         # the template instantiation from the argument types
-        # TODO: refactor with W_CPPTemplateOverload
-
-        # do explicit lookup with tmpl_args if given
         try:
-            fullname = self.name
-            if self.tmpl_args is not None:
-                fullname = fullname+'<'+self.tmpl_args+'>'
-            return self.instantiate_and_call(fullname, args_w)
+            return W_CPPStaticOverload.call_args(self, [self.w_this]+args_w)
         except Exception:
             pass
-
-        # otherwise, try existing overloads or compile-time instantiations
-        # TODO: consolidate errors
-        return W_CPPStaticOverload.call_args(self, args_w)
+        return self.template_call(self.name, self.tmpl_args, args_w)
 
     @unwrap_spec(args_w='args_w')
     def getitem(self, args_w):
