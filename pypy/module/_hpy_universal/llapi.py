@@ -2,8 +2,8 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
+from rpython.tool.cparser import CTypeSpace
 from pypy import pypydir
-from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
 SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
