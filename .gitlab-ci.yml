@@ -1,7 +1,8 @@
 check_rpython_annotations:
-    image: octobus/ci-for-pypy
-    script:
-      - (cd pypy/goal; python2 ../../rpython/bin/rpython --batch -O2 --annotate targetpypystandalone)
+    image: registry.heptapod.net/pypy/pypy/ci:v1
+    script: |
+      cd pypy/goal
+      python2 ../../rpython/bin/rpython --batch -O2 --annotate targetpypystandalone
 
 # these tests are meant to be run only in the hpy branch, remove it once it
 # has been merged

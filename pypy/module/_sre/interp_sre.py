@@ -283,7 +283,7 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(pos=int, endpos=int)
     def fullmatch_w(self, w_string, pos=0, endpos=sys.maxint):
         ctx = self.make_ctx(w_string, pos, endpos)
-        ctx.fullmatch_only = True
+        ctx.match_mode = rsre_core.MODE_FULL
         return self.getmatch(ctx, matchcontext(self.space, ctx, self.code))
 
     @unwrap_spec(pos=int, endpos=int)
@@ -893,11 +893,7 @@ class W_SRE_Scanner(W_Root):
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:
-            # obscure corner case
-            if ctx.match_start == ctx.end:
-                self.ctx = None
-            else:
-                ctx.match_start = ctx.next_indirect(ctx.match_start)
+            self.ctx = None
             return None
 
 W_SRE_Scanner.typedef = TypeDef(

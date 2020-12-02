@@ -4,7 +4,8 @@ import sys
 @py.test.mark.skipif('sys.platform != "win32"')
 class AppTestWin32:
     spaceconfig = dict(usemodules=('_multiprocessing', '_cffi_backend',
-                                   'signal', '_rawffi', 'binascii'))
+                                   'signal', '_rawffi', 'binascii',
+                                   '_socket', 'select'))
 
     def setup_class(cls):
         # import here since importing _multiprocessing imports multiprocessing
