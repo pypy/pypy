@@ -61,6 +61,16 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/Scripts',
         'data': '{base}',
         },
+    'pypy_nt': {
+        'stdlib': '{installed_base}/lib-{implementation_lower}',
+        'platstdlib': '{base}/lib-{implementation_lower}',
+        'purelib': '{base}/site-packages',
+        'platlib': '{base}/site-packages',
+        'include': '{installed_base}/include',
+        'platinclude': '{installed_base}/include',
+        'scripts': '{base}/Scripts',
+        'data'   : '{base}',
+        },
     'nt_user': {
         'stdlib': '{userbase}/{implementation}{py_version_nodot}',
         'platstdlib': '{userbase}/{implementation}{py_version_nodot}',
@@ -186,11 +196,14 @@ def _expand_vars(scheme, vars):
 
 
 def _get_default_scheme():
-    if '__pypy__' in sys.builtin_module_names:
-        return 'pypy'
-    elif os.name == 'posix':
+    if os.name == 'posix':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'pypy'
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
+    if os.name == 'nt':
+        if '__pypy__' in sys.builtin_module_names:
+            return 'pypy_nt'
     return os.name
 
 

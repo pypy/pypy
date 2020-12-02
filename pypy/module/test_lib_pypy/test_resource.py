@@ -55,3 +55,25 @@ def test_setrlimit():
     yf = y + (0.3 if y >= 0 else -0.3)
     if int(xf) == x and int(yf) == y:
         resource.setrlimit(resource.RLIMIT_CPU, (x, y))  # truncated to ints
+
+if sys.platform.startswith("linux") and hasattr(resource, 'prlimit'):
+    def test_prlimit():
+        old_limits = resource.getrlimit(resource.RLIMIT_STACK)
+        assert resource.prlimit(0, resource.RLIMIT_STACK) == old_limits
+        assert resource.prlimit(os.getpid(), resource.RLIMIT_STACK) == old_limits
+
+        # Unchanged
+        assert resource.getrlimit(resource.RLIMIT_STACK) == old_limits
+
+        # Raise the soft limit to match the hard limit
+        new_limits = (old_limits[1], old_limits[1])
+        assert resource.prlimit(os.getpid(), resource.RLIMIT_STACK, new_limits) == old_limits
+        # And make sure it was raised
+        assert resource.prlimit(0, resource.RLIMIT_STACK, new_limits) == new_limits
+        assert resource.getrlimit(resource.RLIMIT_STACK) == new_limits
+
+        # Change it back
+        assert resource.prlimit(0, resource.RLIMIT_STACK, old_limits) == new_limits
+        # And make sure it was changed back
+        assert resource.prlimit(os.getpid(), resource.RLIMIT_STACK, old_limits) == old_limits
+        assert resource.getrlimit(resource.RLIMIT_STACK) == old_limits

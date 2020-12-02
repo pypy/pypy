@@ -28,7 +28,7 @@ class TestGetFrame(BaseTestPyPyC):
         def main():
             import sys
             import time
-            import thread
+            import _thread as thread
 
             lst = [0.0] * 1000
             lst[-33] = 3.0

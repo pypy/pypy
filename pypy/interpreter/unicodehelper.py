@@ -67,7 +67,7 @@ def fsdecode(space, w_string):
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
         slen = len(utf8)
-        utf8, _, lgt = str_decode_mbcs(utf8, 'strict', True, errorhandler)
+        utf8, _, lgt = str_decode_utf8(utf8, 'surrogateescape', True, errorhandler)
     elif 0 and  _MACOSX:
         utf8, lgt, pos  = str_decode_utf8(utf8, 'surrogateescape', True,
                                     errorhandler, allow_surrogates=False)
@@ -92,7 +92,7 @@ def fsencode(space, w_uni):
     if _WIN32:
         errorhandler=state.encode_error_handler
         utf8 = space.utf8_w(w_uni)
-        bytes = utf8_encode_mbcs(utf8, 'strict', errorhandler)
+        bytes = utf8_encode_utf_8(utf8, 'surrogateescape', errorhandler)
     elif 0 and _MACOSX:
         utf8 = space.utf8_w(w_uni)
         errorhandler=state.encode_error_handler,
@@ -364,12 +364,18 @@ def utf8_encode_ascii(s, errors, errorhandler, allow_surrogates=False):
 if _WIN32:
     import pypy.interpreter.unicodehelper_win32 as win32
     def utf8_encode_mbcs(s, errors, errorhandler, allow_surrogates=False):
-        res = win32.utf8_encode_mbcs(s, errors, errorhandler)
-        return res
+        return win32.utf8_encode_mbcs(s, errors, errorhandler)
+
+    def utf8_encode_utf8(s, errors, errorhandler, allow_surrogates=False):
+        return win32.utf8_encode_utf8(s, errors, errorhandler)
 
     def str_decode_mbcs(s, errors, final, errorhandler):
         res, size = win32.str_decode_mbcs(s, errors, errorhandler, final=final)
-        return res, len(res), size
+        return res, size, size
+
+    def str_decode_utf8(s, errors, final, errorhandler):
+        res, size = win32.str_decode_utf8(s, errors, errorhandler, final=final)
+        return res, size, size
 
     def utf8_encode_oem(s, errors, errorhandler, allow_surrogates=False):
         res = win32.utf8_encode_oem(s, errors, errorhandler)
@@ -377,7 +383,7 @@ if _WIN32:
 
     def str_decode_oem(s, errors, final, errorhandler):
         res, size = win32.str_decode_oem(s, errors, errorhandler, final)
-        return res, len(res), size
+        return res, size, size
 
     def utf8_encode_code_page(cp, s, errors, errorhandler, allow_surrogates=False):
         res = win32.utf8_encode_code_page(cp, s, errors, errorhandler)
@@ -385,7 +391,7 @@ if _WIN32:
 
     def str_decode_code_page(cp, s, errors, final, errorhandler):
         res, size = win32.str_decode_code_page(cp, s, errors, errorhandler, final)
-        return res, len(res), size
+        return res, size, size
 
 
 def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
@@ -716,10 +722,15 @@ def wcharpsize2utf8(space, wcharp, size):
     Raises app-level ValueError if any wchar value is outside the valid
     codepoint range.
     """
-    try:
-        return rffi.wcharpsize2utf8(wcharp, size)
-    except rutf8.OutOfRange as e:
-        raise wrap_unicode_out_of_range_error(space, e)
+    if _WIN32:
+        import pypy.interpreter.unicodehelper_win32 as win32
+        # wcharp is actually utf16 
+        return win32._unibuf_to_utf8(wcharp, size)
+    else:
+        try:
+            return rffi.wcharpsize2utf8(wcharp, size)
+        except rutf8.OutOfRange as e:
+            raise wrap_unicode_out_of_range_error(space, e)
 
 def wrap_unicode_out_of_range_error(space, e):
     raise oefmt(space.w_ValueError,

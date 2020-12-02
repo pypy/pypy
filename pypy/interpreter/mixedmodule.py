@@ -163,6 +163,11 @@ class MixedModule(Module):
                     space.delitem(self.w_initialdict, w_key)
         del self.lazy_initial_values_w
 
+    def reset_lazy_initial_values(self):
+        # Reset so all current attributes will persist across reloads
+        if self.lazy:
+            self.lazy_initial_values_w = {}
+
     def _cleanup_(self):
         self.getdict(self.space)
         self.w_initialdict = None

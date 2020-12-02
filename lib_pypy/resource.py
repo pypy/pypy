@@ -2,7 +2,7 @@
 
 from _resource_cffi import ffi, lib
 from errno import EINVAL, EPERM
-import _structseq, os
+import _structseq, os, sys
 
 try:
     from __pypy__ import builtinify
@@ -10,8 +10,7 @@ except ImportError:
     builtinify = lambda f: f
 
 
-class error(Exception):
-    pass
+error = OSError
 
 class struct_rusage(metaclass=_structseq.structseqtype):
     """struct_rusage: Result from getrusage.
@@ -67,7 +66,7 @@ def getrusage(who):
     if lib.getrusage(who, ru) == -1:
         if ffi.errno == EINVAL:
             raise ValueError("invalid who parameter")
-        raise error(ffi.errno)
+        raise OSError(ffi.errno, os.strerror(ffi.errno))
     return _make_struct_rusage(ru)
 
 @builtinify
@@ -77,7 +76,7 @@ def getrlimit(resource):
 
     result = ffi.new("long long[2]")
     if lib.my_getrlimit(resource, result) == -1:
-        raise error(ffi.errno)
+        raise OSError(ffi.errno, os.strerror(ffi.errno))
     return (result[0], result[1])
 
 @builtinify
@@ -99,7 +98,35 @@ def setrlimit(resource, limits):
         elif ffi.errno == EPERM:
             raise ValueError("not allowed to raise maximum limit")
         else:
-            raise error(ffi.errno)
+            raise OSError(ffi.errno, os.strerror(ffi.errno))
+
+if sys.platform.startswith("linux") and hasattr(lib, '_prlimit'):
+    @builtinify
+    def prlimit(pid, resource, limits = None):
+        if not (0 <= resource < lib.RLIM_NLIMITS):
+            return ValueError("invalid resource specified")
+
+        if limits is not None:
+            limits = tuple(limits)
+            if len(limits) != 2:
+                raise ValueError("expected a tuple of 2 integers")
+
+            # accept and round down floats, like CPython does
+            limit0 = int(limits[0])
+            limit1 = int(limits[1])
+        else:
+            limit0 = 0
+            limit1 = 0
+
+        result = ffi.new("long long[2]")
+
+        if lib._prlimit(pid, resource, limits is not None, limit0, limit1, result) == -1:
+            if ffi.errno == EINVAL:
+                raise ValueError("current limit exceeds maximum limit")
+            else:
+                raise OSError(ffi.errno, os.strerror(ffi.errno))
+
+        return (result[0], result[1])
 
 
 @builtinify
