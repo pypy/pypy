@@ -467,10 +467,8 @@ class FakeObjSpace(ObjSpace):
         from pypy.module.exceptions import interp_exceptions
         obj_space_exceptions = []
         for name, exc in interp_exceptions.__dict__.items():
-            if (
-                    isinstance(exc, type) and
-                    issubclass(exc, interp_exceptions.W_BaseException)
-            ):
+            if (isinstance(exc, type) and
+                issubclass(exc, interp_exceptions.W_BaseException)):
                 obj_space_exceptions.append(name.replace("W_", ""))
 
         for name in (ObjSpace.ConstantTable +
