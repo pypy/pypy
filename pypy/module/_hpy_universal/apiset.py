@@ -140,12 +140,13 @@ class APISet(object):
         return rffi.cast(rffi.INT_real, x)
 
     @staticmethod
-    def cast(rffi_type, x):
+    def cast(typename, x):
         """
         Helper method to convert an RPython value into the correct C return
         type.
         """
-        return rffi.cast(getattr(rffi, rffi_type), x)
+        lltype = llapi.cts.gettype(typename)
+        return rffi.cast(lltype, x)
 
     @staticmethod
     def ccharp2text(space, ptr):

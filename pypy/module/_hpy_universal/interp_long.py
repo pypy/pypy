@@ -37,13 +37,13 @@ def HPyLong_FromSsize_t(space, ctx, v):
     return handles.new(space, w_obj)
 
 @API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)",
-          error_value=API.cast("LONG", -1))
+          error_value=API.cast("long", -1))
 def HPyLong_AsLong(space, ctx, h):
     w_long = handles.deref(space, h)
     return space.int_w(space.int(w_long))
 
 @API.func("unsigned long HPyLong_AsUnsignedLong(HPyContext ctx, HPy h)",
-          error_value=API.cast("ULONG", -1))
+          error_value=API.cast("unsigned long", -1))
 def HPyLong_AsUnsignedLong(space, ctx, h):
     w_long = handles.deref(space, h)
     try:
@@ -54,20 +54,20 @@ def HPyLong_AsUnsignedLong(space, ctx, h):
         raise
 
 @API.func("unsigned long HPyLong_AsUnsignedLongMask(HPyContext ctx, HPy h)",
-          error_value=API.cast("ULONG", -1))
+          error_value=API.cast("unsigned long", -1))
 def HPyLong_AsUnsignedLongMask(space, ctx, h):
     w_long = handles.deref(space, h)
     num = space.bigint_w(w_long)
     return num.uintmask()
 
 @API.func("long long HPyLong_AsLongLong(HPyContext ctx, HPy h)",
-          error_value=API.cast("LONGLONG", -1))
+          error_value=API.cast("long long", -1))
 def HPyLong_AsLongLong(space, ctx, h):
     w_long = handles.deref(space, h)
     return rffi.cast(rffi.LONGLONG, space.r_longlong_w(w_long))
 
 @API.func("unsigned long long HPyLong_AsUnsignedLongLong(HPyContext ctx, HPy h)",
-          error_value=API.cast("ULONGLONG", -1))
+          error_value=API.cast("unsigned long long", -1))
 def HPyLong_AsUnsignedLongLong(space, ctx, h):
     w_long = handles.deref(space, h)
     try:
@@ -78,14 +78,14 @@ def HPyLong_AsUnsignedLongLong(space, ctx, h):
         raise
 
 @API.func("unsigned long long HPyLong_AsUnsignedLongLongMask(HPyContext ctx, HPy h)",
-          error_value=API.cast("ULONGLONG", -1))
+          error_value=API.cast("unsigned long long", -1))
 def HPyLong_AsUnsignedLongLongMask(space, ctx, h):
     w_long = handles.deref(space, h)
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 
 @API.func("size_t HPyLong_AsSize_t(HPyContext ctx, HPy h)",
-          error_value=API.cast("SIZE_T", -1))
+          error_value=API.cast("size_t", -1))
 def HPyLong_AsSize_t(space, ctx, h):
     w_long = handles.deref(space, h)
     try:
@@ -96,7 +96,7 @@ def HPyLong_AsSize_t(space, ctx, h):
         raise
 
 @API.func("HPy_ssize_t HPyLong_AsSsize_t(HPyContext ctx, HPy h)",
-          error_value=API.cast("SSIZE_T", -1))
+          error_value=API.cast("ssize_t", -1))
 def HPyLong_AsSsize_t(space, ctx, h):
     w_long = handles.deref(space, h)
     return space.int_w(w_long)
