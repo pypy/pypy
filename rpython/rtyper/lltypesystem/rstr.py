@@ -12,6 +12,7 @@ from rpython.rtyper.lltypesystem import ll_str, llmemory
 from rpython.rtyper.lltypesystem.lltype import (GcStruct, Signed, Array, Char,
     UniChar, Ptr, malloc, Bool, Void, GcArray, nullptr, cast_primitive,
     typeOf, staticAdtMethod, GcForwardReference)
+from rpython.rtyper.rbool import BoolRepr
 from rpython.rtyper.rmodel import inputconst, Repr
 from rpython.rtyper.rint import IntegerRepr
 from rpython.rtyper.rstr import (AbstractStringRepr, AbstractCharRepr,
@@ -1231,6 +1232,8 @@ class LLHelpers(AbstractLLHelpers):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'd':
                     assert isinstance(r_arg, IntegerRepr)
+                    # fail early for ints too small, not when specializing target
+                    assert isinstance(r_arg, BoolRepr) or r_arg.opprefix is not None
                     #vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                     vchunk = hop.gendirectcall(ll_str.ll_int2dec, vitem)
                 elif code == 'f':
@@ -1238,10 +1241,14 @@ class LLHelpers(AbstractLLHelpers):
                     vchunk = hop.gendirectcall(r_arg.ll_str, vitem)
                 elif code == 'x':
                     assert isinstance(r_arg, IntegerRepr)
+                    # fail early for ints too small, not when specializing target
+                    assert isinstance(r_arg, BoolRepr) or r_arg.opprefix is not None
                     vchunk = hop.gendirectcall(ll_str.ll_int2hex, vitem,
                                                inputconst(Bool, False))
                 elif code == 'o':
                     assert isinstance(r_arg, IntegerRepr)
+                    # fail early for ints too small, not when specializing target
+                    assert isinstance(r_arg, BoolRepr) or r_arg.opprefix is not None
                     vchunk = hop.gendirectcall(ll_str.ll_int2oct, vitem,
                                                inputconst(Bool, False))
                 else:

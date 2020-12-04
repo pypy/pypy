@@ -799,6 +799,11 @@ class TestRffiInternals:
             lltype.Unsigned: ctypes.c_ulong,
             lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
+        }
+        if sys.platform == 'win32' and sys.maxint > 2**32:
+            cache[lltype.Signed] = ctypes.c_longlong
+            cache[lltype.Unsigned] = ctypes.c_ulonglong
+        cache2 = {
             DOUBLE:     ctypes.c_double,
             FLOAT:      ctypes.c_float,
             SIGNEDCHAR: ctypes.c_byte,
@@ -812,9 +817,12 @@ class TestRffiInternals:
             LONGLONG:   ctypes.c_longlong,
             ULONGLONG:  ctypes.c_ulonglong,
             SIZE_T:     ctypes.c_size_t,
-            }
+        }
 
         for ll, ctp in cache.items():
+            assert sizeof(ll) == ctypes.sizeof(ctp)
+            assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
+        for ll, ctp in cache2.items():
             assert sizeof(ll) == ctypes.sizeof(ctp)
             assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]

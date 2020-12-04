@@ -525,7 +525,7 @@ if os.name != 'nt':
           'int_fast64_t', 'uint_fast64_t',
           'intmax_t', 'uintmax_t'])
 else:
-    MODE_T = lltype.Signed
+    # MODE_T is set later
     PID_T = lltype.Signed
     SSIZE_T = lltype.Signed
     PTRDIFF_T = lltype.Signed
@@ -593,6 +593,9 @@ NUMBER_TYPES.append(INT_real)
 # rarithmetic.r_int, etc!  rffi.INT/r_int correspond to the C-level
 # 'int' type, whereas rarithmetic.r_int corresponds to the
 # Python-level int type (which is a C long).  Fun.
+
+if os.name == 'nt':
+    MODE_T = INT
 
 def CStruct(name, *fields, **kwds):
     """ A small helper to create external C structure, not the
@@ -758,6 +761,10 @@ LONGDOUBLEP = lltype.Ptr(lltype.Array(LONGDOUBLE, hints={'nolength': True}))
 SIGNED = lltype.Signed
 SIGNEDP = lltype.Ptr(lltype.Array(lltype.Signed, hints={'nolength': True}))
 SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
+
+# Unsigned, Unsigned *
+UNSIGNED = lltype.Unsigned
+UNSIGNEDP = lltype.Ptr(lltype.Array(lltype.Unsigned, hints={'nolength': True}))
 
 
 # various type mapping
@@ -1156,7 +1163,7 @@ def size_and_sign(tp):
     except AttributeError:
         if not isinstance(tp, lltype.Primitive):
             unsigned = False
-        elif tp in (lltype.Signed, FLOAT, DOUBLE, llmemory.Address):
+        elif tp in (lltype.Signed, FLOAT, DOUBLE, LONGDOUBLE, llmemory.Address):
             unsigned = False
         elif tp in (lltype.Char, lltype.UniChar, lltype.Bool):
             unsigned = True
@@ -1178,7 +1185,7 @@ def sizeof(tp):
         if size is None:
             size = llmemory.sizeof(tp)    # a symbolic result in this case
         return size
-    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr) 
+    if (tp is lltype.Signed or isinstance(tp, lltype.Ptr)
                             or tp is llmemory.Address):
         return LONG_BIT/8
     if tp is lltype.Char or tp is lltype.Bool:

@@ -859,11 +859,17 @@ class FunctionCodeGenerator(object):
                     free_line = "RPyString_FreeCache();"
                 continue
             elif T == Signed:
-                format.append('%ld')
+                if sys.platform == 'win32':
+                    format.append('%Id')
+                else:
+                    format.append('%ld')
             elif T == INT:
                 format.append('%d')
             elif T == Unsigned:
-                format.append('%lu')
+                if sys.platform == 'win32':
+                    format.append('%Iu')
+                else:
+                    format.append('%lu')
             elif T == Float:
                 format.append('%f')
             elif isinstance(T, Ptr) or T == Address:
@@ -955,7 +961,7 @@ class FunctionCodeGenerator(object):
 
     def OP_DEBUG_NONNULL_POINTER(self, op):
         expr = self.expr(op.args[0])
-        return 'if ((-8192 <= (long)%s) && (((long)%s) < 8192)) abort();' % (
+        return 'if ((-8192 <= (Signed)%s) && (((Signed)%s) < 8192)) abort();' % (
             expr, expr)
 
     def OP_INSTRUMENT_COUNT(self, op):

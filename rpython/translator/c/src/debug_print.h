@@ -48,10 +48,10 @@ RPY_EXTERN void rpy_reverse_db_teardown(void);
 
 /* prototypes (internal use only) */
 RPY_EXTERN void pypy_debug_ensure_opened(void);
-RPY_EXTERN long long pypy_debug_start(const char *category, long timestamp);
-RPY_EXTERN long long pypy_debug_stop(const char *category, long timestamp);
+RPY_EXTERN long long pypy_debug_start(const char *category, Signed timestamp);
+RPY_EXTERN long long pypy_debug_stop(const char *category, Signed timestamp);
 RPY_EXTERN long pypy_debug_offset(void);
-RPY_EXTERN void pypy_debug_forked(long original_offset);
+RPY_EXTERN void pypy_debug_forked(Signed original_offset);
 RPY_EXTERN long pypy_have_debug_prints_for(const char *category_prefix);
 
 RPY_EXTERN long pypy_have_debug_prints;
