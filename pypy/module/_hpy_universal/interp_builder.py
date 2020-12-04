@@ -16,7 +16,8 @@ class W_ListBuilder(W_Root):
     def __init__(self, initial_size):
         self.items_w = [None] * initial_size
 
-@API.func("HPyListBuilder HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)")
+@API.func("HPyListBuilder HPyListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)",
+          error_value=0)
 def HPyListBuilder_New(space, ctx, initial_size):
     w_builder = W_ListBuilder(initial_size)
     h = handles.new(space, w_builder)
@@ -53,7 +54,8 @@ class W_TupleBuilder(W_Root):
         self.items_w = [None] * initial_size
         make_sure_not_resized(self.items_w)
 
-@API.func("HPyTupleBuilder HPyTupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)")
+@API.func("HPyTupleBuilder HPyTupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)",
+          error_value=0)
 def HPyTupleBuilder_New(space, ctx, initial_size):
     w_builder = W_TupleBuilder(initial_size)
     h = handles.new(space, w_builder)
