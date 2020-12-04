@@ -169,6 +169,23 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 3
 
+    def test_constcharpsize2str(self):
+        def f():
+            l_buf = lltype.malloc(CCHARP.TO, 5, flavor='raw')
+            l_buf[0] = 'A'
+            l_buf[1] = 'B'
+            l_buf[2] = 'C'
+            l_buf[3] = '\x00'
+            l_buf[4] = 'E'
+            l_constbuf = cast(CONST_CCHARP, l_buf)
+            res = constcharpsize2str(l_constbuf, 5)
+            lltype.free(l_buf, flavor='raw')
+            return res
+
+        assert f() == "ABC\x00E"
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == "ABC\x00E"
+
     def test_stringstar(self):
         c_source = """
         #include <string.h>

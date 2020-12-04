@@ -4,8 +4,8 @@ CFFI based implementation of the _crypt module
 
 import sys
 import cffi
-import thread
-_lock = thread.allocate_lock()
+import _thread
+_lock = _thread.allocate_lock()
 
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
