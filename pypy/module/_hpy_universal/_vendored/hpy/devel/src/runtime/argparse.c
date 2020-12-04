@@ -9,59 +9,106 @@
  * and handles. More complex types (e.g. buffers) should be retrieved as
  * handles and then processed further as needed.
  *
- * Supported formatting strings:
+ * Supported Formatting Strings
+ * ----------------------------
  *
  * Numbers
- * -------
+ * ~~~~~~~
  *
- * i (int) [int]
+ * ``b (int) [unsigned char]``
+ *     Convert a nonnegative Python integer to an unsigned tiny int, stored in a C unsigned char.
+ *
+ * ``B (int) [unsigned char]``
+ *     Convert a Python integer to a tiny int without overflow checking, stored in a C unsigned char.
+ *
+ * ``h (int) [short int]``
+ *     Convert a Python integer to a C short int.
+ *
+ * ``H (int) [unsigned short int]``
+ *     Convert a Python integer to a C unsigned short int, without overflow checking.
+ *
+ * ``i (int) [int]``
  *     Convert a Python integer to a plain C int.
  *
- * l (int) [long int]
+ * ``I (int) [unsigned int]``
+ *     Convert a Python integer to a C unsigned int, without overflow checking.
+ *
+ * ``l (int) [long int]``
  *     Convert a Python integer to a C long int.
  *
- * d (float) [double]
+ * ``k (int) [unsigned long]``
+ *     Convert a Python integer to a C unsigned long without overflow checking.
+ *
+ * ``L (int) [long long]``
+ *     Convert a Python integer to a C long long.
+ *
+ * ``K (int) [unsigned long long]``
+ *     Convert a Python integer to a C unsigned long long without overflow checking.
+ *
+ * ``n (int) [HPy_ssize_t]``
+ *     Convert a Python integer to a C HPy_ssize_t.
+ *
+ * ``f (float) [float]``
+ *     Convert a Python floating point number to a C float.
+ *
+ * ``d (float) [double]``
  *     Convert a Python floating point number to a C double.
  *
- * Handles
- * -------
+ * Handles (Python Objects)
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
  *
- * O (object) [HPy *]
- *     Returns an existing handle. Not supported by HPyArg_ParseKeywords as
- *     retrieving an item from the keywords dictionary would require creating
- *     a new handled. Use O+ instead for this case.
+ * ``O (object) [HPy]``
+ *     Store a handle pointing to a generic Python object.
  *
- * O+ (object) [HPy *]
- *     Returns a new handle. The new handle must be closed if the argument
- *     parsing returns successfully.
+ *     When using O with HPyArg_ParseKeywords, an HPyTracker is created and
+ *     returned via the parameter `ht`. If HPyArg_ParseKeywords returns
+ *     successfully, you must call HPyTracker_Close on `ht` once the
+ *     returned handles are no longer needed. This will close all the handles
+ *     created during argument parsing. There is no need to call
+ *     `HPyTracker_Close` on failure -- the argument parser does this for you.
+ *
+ * Miscellaneous
+ * ~~~~~~~~~~~~~
+ *
+ * ``p (bool) [int]``
+ *     Tests the value passed in for truth (a boolean predicate) and converts
+ *     the result to its equivalent C true/false integer value. Sets the int to
+ *     1 if the expression was true and 0 if it was false. This accepts any
+ *     valid Python value. See
+ *     `Truth Value Testing <https://docs.python.org/3/library/stdtypes.html#truth>`_
+ *     for more information about how Python tests values for truth.
  *
  * Options
- * -------
+ * ~~~~~~~
  *
- * |
+ * ``|``
  *     Indicates that the remaining arguments in the argument list are optional.
  *     The C variables corresponding to optional arguments should be initialized
  *     to their default value — when an optional argument is not specified, the
  *     contents of the corresponding C variable is not modified.
  *
- * $
+ * ``$``
  *     HPyArg_ParseKeywords() only: Indicates that the remaining arguments in
  *     the argument list are keyword-only. Currently, all keyword-only arguments
  *     must also be optional arguments, so | must always be specified before $
  *     in the format string.
  *
- * :
+ * ``:``
  *     The list of format units ends here; the string after the colon is used as
  *     the function name in error messages. : and ; are mutually exclusive and
  *     whichever occurs first takes precedence.
  *
- * ;
+ * ``;``
  *     The list of format units ends here; the string after the semicolon is
  *     used as the error message instead of the default error message. : and ;
  *     are mutually exclusive and whichever occurs first takes precedence.
  *
+ * API
+ * ---
+ *
  */
 
+#include <limits.h>
 #include <stdio.h>
 #include "hpy.h"
 
@@ -94,25 +141,110 @@ set_error(HPyContext ctx, HPy exc, const char *err_fmt, const char *msg) {
         snprintf(err_buf, _ERR_STRING_MAX_LENGTH, "%.200s() %.256s", err_fmt + 1, msg);
     }
     else {
-          snprintf(err_buf, _ERR_STRING_MAX_LENGTH, "%s", err_fmt + 1);
+        snprintf(err_buf, _ERR_STRING_MAX_LENGTH, "%s", err_fmt + 1);
     }
     HPyErr_SetString(ctx, exc, err_buf);
 }
 
 
 static int
-parse_item(HPyContext ctx, HPy current_arg, const char **fmt, va_list *vl, const char *err_fmt)
+parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp, const char **fmt, va_list *vl, const char *err_fmt)
 {
     switch (*(*fmt)++) {
-    case 'i': {
+
+    case 'b': { /* unsigned byte -- very short int */
+        char *output = va_arg(*vl, char *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        long value = HPyLong_AsLong(ctx, current_arg);
+        if (value == -1 && HPyErr_Occurred(ctx))
+            return 0;
+        if (value < 0) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "unsigned byte integer is less than minimum");
+            return 0;
+        }
+        if (value > UCHAR_MAX) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "unsigned byte integer is greater than maximum");
+            return 0;
+        }
+        *output = (char) value;
+        break;
+    }
+
+    case 'B': { /* byte sized bitfield - both signed and unsigned
+                   values allowed */
+        char *output = va_arg(*vl, char *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        unsigned long value = HPyLong_AsUnsignedLongMask(ctx, current_arg);
+        if (value == (unsigned long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = (unsigned char) value;
+        break;
+    }
+
+    case 'h': { /* signed short int */
+        short *output = va_arg(*vl, short *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        long value = HPyLong_AsLong(ctx, current_arg);
+        if (value == -1 && HPyErr_Occurred(ctx))
+            return 0;
+        if (value < SHRT_MIN) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "signed short integer is less than minimum");
+            return 0;
+        }
+        if (value > SHRT_MAX) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "signed short integer is greater than maximum");
+            return 0;
+        }
+        *output = (short) value;
+        break;
+    }
+
+    case 'H': { /* short int sized bitfield, both signed and
+                   unsigned allowed */
+        unsigned short *output = va_arg(*vl, unsigned short *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        unsigned long value = HPyLong_AsUnsignedLongMask(ctx, current_arg);
+        if (value == (unsigned long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = (unsigned short) value;
+        break;
+    }
+
+    case 'i': { /* signed int */
         int *output = va_arg(*vl, int *);
         _BREAK_IF_OPTIONAL(current_arg);
         long value = HPyLong_AsLong(ctx, current_arg);
         if (value == -1 && HPyErr_Occurred(ctx))
             return 0;
+        if (value > INT_MAX) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "signed integer is greater than maximum");
+            return 0;
+        }
+        if (value < INT_MIN) {
+            set_error(ctx, ctx->h_OverflowError, err_fmt,
+                "signed integer is less than minimum");
+            return 0;
+        }
         *output = (int)value;
         break;
     }
+
+    case 'I': { /* int sized bitfield, both signed and
+                   unsigned allowed */
+        unsigned int *output = va_arg(*vl, unsigned int *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        unsigned long value = HPyLong_AsUnsignedLongMask(ctx, current_arg);
+        if (value == (unsigned long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = (unsigned int) value;
+        break;
+    }
+
     case 'l': {
         long *output = va_arg(*vl, long *);
         _BREAK_IF_OPTIONAL(current_arg);
@@ -122,7 +254,58 @@ parse_item(HPyContext ctx, HPy current_arg, const char **fmt, va_list *vl, const
         *output = value;
         break;
     }
-    case 'd': {
+
+    case 'k': { /* long sized bitfield */
+        unsigned long *output = va_arg(*vl, unsigned long *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        unsigned long value = HPyLong_AsUnsignedLongMask(ctx, current_arg);
+        if (value == (unsigned long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+
+    case 'L': { /* long long */
+        long long *output = va_arg(*vl, long long *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        long long value = HPyLong_AsLongLong(ctx, current_arg);
+        if (value == (long long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+
+    case 'K': { /* long long sized bitfield */
+        unsigned long long *output = va_arg(*vl, unsigned long long *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        unsigned long long value = HPyLong_AsUnsignedLongLongMask(ctx, current_arg);
+        if (value == (unsigned long long)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+
+    case 'n': { /* HPy_ssize_t */
+        HPy_ssize_t *output = va_arg(*vl, HPy_ssize_t *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        HPy_ssize_t value = HPyLong_AsSsize_t(ctx, current_arg);
+        if (value == (HPy_ssize_t)-1 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = value;
+        break;
+    }
+
+    case 'f': { /* float */
+        float *output = va_arg(*vl, float *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        double value = HPyFloat_AsDouble(ctx, current_arg);
+        if (value == -1.0 && HPyErr_Occurred(ctx))
+            return 0;
+        *output = (float) value;
+        break;
+    }
+
+    case 'd': { /* double */
         double* output = va_arg(*vl, double *);
         _BREAK_IF_OPTIONAL(current_arg);
         double value = HPyFloat_AsDouble(ctx, current_arg);
@@ -131,33 +314,99 @@ parse_item(HPyContext ctx, HPy current_arg, const char **fmt, va_list *vl, const
         *output = value;
         break;
     }
+
     case 'O': {
-        if (**fmt == '+') {
-            (*fmt)++;
-            HPy *output = va_arg(*vl, HPy *);
-            _BREAK_IF_OPTIONAL(current_arg);
+        HPy *output = va_arg(*vl, HPy *);
+        _BREAK_IF_OPTIONAL(current_arg);
+        if (current_arg_tmp) {
             *output = HPy_Dup(ctx, current_arg);
-            if (HPy_IsNull(*output))
-                return 0;
-            break;
+            HPyTracker_Add(ctx, *ht, *output);
         }
         else {
-            HPy *output = va_arg(*vl, HPy *);
-            _BREAK_IF_OPTIONAL(current_arg);
             *output = current_arg;
         }
         break;
     }
+
+    case 'p': { /* boolean *p*redicate */
+        int *output = va_arg(*vl, int *);
+        int value = HPy_IsTrue(ctx, current_arg);
+        if (value < 0)
+            return 0;
+        *output = (value > 0) ? 1 : 0;
+        break;
+    }
+
     default:
         set_error(ctx, ctx->h_SystemError, err_fmt, "unknown arg format code");
         return 0;
     }
+
     return 1;
 }
 
 
+/**
+ * Parse positional arguments.
+ *
+ * :param ctx:
+ *     The execution context.
+ * :param ht:
+ *     An optional pointer to an HPyTracker. If the format string never
+ *     results in new handles being created, `ht` may be `NULL`. Currently
+ *     no formatting options to this function require an HPyTracker.
+ * :param args:
+ *     The array of positional arguments to parse.
+ * :param nargs:
+ *     The number of elements in args.
+ * :param fmt:
+ *     The format string to use to parse the arguments.
+ * :param ...:
+ *     A va_list of references to variables in which to store the parsed
+ *     arguments. The number and types of the arguments should match the
+ *     the format strint, `fmt`.
+ *
+ * :returns: 0 on failure, 1 on success.
+ *
+ * If a `NULL` pointer is passed to `ht` and an `HPyTracker` is required by
+ * the format string, an exception will be raised.
+ *
+ * If a pointer is provided to `ht`, the `HPyTracker` will always be created
+ * and must be closed with `HPyTracker_Close` if parsing succeeds (after all
+ * handles returned are no longer needed). If parsing fails, this function
+ * will close the `HPyTracker` automatically.
+ *
+ * Examples:
+ *
+ * Using `HPyArg_Parse` without an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     long a, b;
+ *     if (!HPyArg_Parse(ctx, NULL, args, nargs, "ll", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *
+ * Using `HPyArg_Parse` with an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     long a, b;
+ *     HPyTracker ht;
+ *     if (!HPyArg_Parse(ctx, &ht, args, nargs, "ll", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *     HPyTracker_Close(ctx, ht);
+ *     ...
+ *
+ * .. note::
+ *
+ *    Currently `HPyArg_Parse` never requires the use of an `HPyTracker`.
+ *    The option exists only to support releasing temporary storage used by
+ *    future format string codes (e.g. for character strings).
+ */
 HPyAPI_RUNTIME_FUNC(int)
-HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
+HPyArg_Parse(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
 {
     const char *fmt1 = fmt;
     const char *err_fmt = NULL;
@@ -168,6 +417,13 @@ HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
     HPy current_arg;
 
     fmt_end = parse_err_fmt(fmt, &err_fmt);
+
+    if (ht != NULL) {
+        *ht = HPyTracker_New(ctx, 0);
+        if (HPy_IsNull(*ht)) {
+            return 0;
+        }
+    }
 
     va_list vl;
     va_start(vl, fmt);
@@ -183,33 +439,103 @@ HPyArg_Parse(HPyContext ctx, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
             current_arg = args[i];
         }
         if (!HPy_IsNull(current_arg) || optional) {
-            if (!parse_item(ctx, current_arg, &fmt1, &vl, err_fmt)) {
-                va_end(vl);
-                return 0;
+            if (!parse_item(ctx, ht, current_arg, 0, &fmt1, &vl, err_fmt)) {
+                goto error;
             }
         }
         else {
             set_error(ctx, ctx->h_TypeError, err_fmt,
                 "required positional argument missing");
-            va_end(vl);
-            return 0;
+            goto error;
         }
         i++;
     }
     if (i < nargs) {
         set_error(ctx, ctx->h_TypeError, err_fmt,
             "mismatched args (too many arguments for fmt)");
-        va_end(vl);
-        return 0;
+        goto error;
     }
 
     va_end(vl);
     return 1;
+
+    error:
+        va_end(vl);
+        if (ht != NULL) {
+            HPyTracker_Close(ctx, *ht);
+        }
+        return 0;
 }
 
 
+/**
+ * Parse positional and keyword arguments.
+ *
+ * :param ctx:
+ *     The execution context.
+ * :param ht:
+ *     An optional pointer to an HPyTracker. If the format string never
+ *     results in new handles being created, `ht` may be `NULL`. Currently
+ *     only the `O` formatting option to this function requires an HPyTracker.
+ * :param args:
+ *     The array of positional arguments to parse.
+ * :param nargs:
+ *     The number of elements in args.
+ * :param kw:
+ *     A handle to the dictionary of keyword arguments.
+ * :param fmt:
+ *     The format string to use to parse the arguments.
+ * :param keywords:
+ *     An `NULL` terminated array of argument names. The number of names
+ *     should match the format string provided. Positional only arguments
+ *     should have the name `""` (i.e. the null-terminated empty string).
+ *     Positional only arguments must preceded all other arguments.
+ * :param ...:
+ *     A va_list of references to variables in which to store the parsed
+ *     arguments. The number and types of the arguments should match the
+ *     the format strint, `fmt`.
+ *
+ * :returns: 0 on failure, 1 on success.
+ *
+ * If a `NULL` pointer is passed to `ht` and an `HPyTracker` is required by
+ * the format string, an exception will be raised.
+ *
+ * If a pointer is provided to `ht`, the `HPyTracker` will always be created
+ * and must be closed with `HPyTracker_Close` if parsing succeeds (after all
+ * handles returned are no longer needed). If parsing fails, this function
+ * will close the `HPyTracker` automatically.
+ *
+ * Examples:
+ *
+ * Using `HPyArg_ParseKeywords` without an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     long a, b;
+ *     if (!HPyArg_ParseKeywords(ctx, NULL, args, nargs, kw, "ll", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *
+ * Using `HPyArg_ParseKeywords` with an `HPyTracker`:
+ *
+ * .. code-block:: c
+ *
+ *     HPy a, b;
+ *     HPyTracker ht;
+ *     if (!HPyArg_ParseKeywords(ctx, &ht, args, nargs, kw, "OO", &a, &b))
+ *         return HPy_NULL;
+ *     ...
+ *     HPyTracker_Close(ctx, ht);
+ *     ...
+ *
+ * .. note::
+ *
+ *     Currently `HPyArg_ParseKeywords` only requires the use of an `HPyTracker`
+ *     when the `O` format is used. In future other new format string codes
+ *     (e.g. for character strings) may also require it.
+ */
 HPyAPI_RUNTIME_FUNC(int)
-HPyArg_ParseKeywords(HPyContext ctx, HPy *args, HPy_ssize_t nargs, HPy kw,
+HPyArg_ParseKeywords(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
                      const char *fmt, const char *keywords[], ...)
 {
     const char *fmt1 = fmt;
@@ -221,6 +547,7 @@ HPyArg_ParseKeywords(HPyContext ctx, HPy *args, HPy_ssize_t nargs, HPy kw,
     HPy_ssize_t i = 0;
     HPy_ssize_t nkw = 0;
     HPy current_arg;
+    int current_arg_needs_closing = 0;
 
     fmt_end = parse_err_fmt(fmt, &err_fmt);
 
@@ -238,6 +565,13 @@ HPyArg_ParseKeywords(HPyContext ctx, HPy *args, HPy_ssize_t nargs, HPy kw,
         nkw++;
     }
 
+    if (ht != NULL) {
+        *ht = HPyTracker_New(ctx, 0);
+        if (HPy_IsNull(*ht)) {
+            return 0;
+        }
+    }
+
     va_list vl;
     va_start(vl, keywords);
 
@@ -253,59 +587,71 @@ HPyArg_ParseKeywords(HPyContext ctx, HPy *args, HPy_ssize_t nargs, HPy kw,
             fmt1++;
             continue;
         }
-        if (*fmt1 == 'O' && *(fmt1 + 1) != '+') {
+        if (*fmt1 == 'O' && ht == NULL) {
             set_error(ctx, ctx->h_SystemError, err_fmt,
-                "HPyArg_ParseKeywords cannot use the format character 'O'."
-                " Use 'O+' instead and close the the returned handle if the call"
-                " returns successfully");
-            va_end(vl);
-            return 0;
+                "HPyArg_ParseKeywords cannot use the format character 'O' unless"
+                " an HPyTracker is provided. Please supply an HPyTracker.");
+            goto error;
         }
         if (i >= nkw) {
             set_error(ctx, ctx->h_TypeError, err_fmt,
                 "mismatched args (too few keywords for fmt)");
-            va_end(vl);
-            return 0;
+            goto error;
         }
         current_arg = HPy_NULL;
         if (i < nargs) {
             if (keyword_only) {
                 set_error(ctx, ctx->h_TypeError, err_fmt,
                     "keyword only argument passed as positional argument");
-                va_end(vl);
-                return 0;
+                goto error;
             }
             current_arg = args[i];
         }
         else if (!HPy_IsNull(kw) && *keywords[i]) {
             current_arg = HPy_GetItem_s(ctx, kw, keywords[i]);
-            // Clear any KeyError that was raised. If an error was raised
-            // current_arg will be HPy_NULL and will be handled appropriately
-            // below depending on whether the current argument is optional or
-            // not
-            HPyErr_Clear(ctx);
+            // Track the handle or lear any KeyError that was raised. If an
+            // error was raised current_arg will be HPy_NULL and will be
+            // handled appropriately below depending on whether the current
+            // argument is optional or not
+            if (!HPy_IsNull(current_arg)) {
+                current_arg_needs_closing = 1;
+            }
+            else {
+                HPyErr_Clear(ctx);
+            }
         }
         if (!HPy_IsNull(current_arg) || optional) {
-            if (!parse_item(ctx, current_arg, &fmt1, &vl, err_fmt)) {
-                va_end(vl);
-                return 0;
+            if (!parse_item(ctx, ht, current_arg, 1, &fmt1, &vl, err_fmt)) {
+                goto error;
             }
         }
         else {
             set_error(ctx, ctx->h_TypeError, err_fmt,
                 "no value for required argument");
-            va_end(vl);
-            return 0;
+            goto error;
+        }
+        if (current_arg_needs_closing) {
+            HPy_Close(ctx, current_arg);
+            current_arg_needs_closing = 0;
         }
         i++;
     }
     if (i != nkw) {
         set_error(ctx, ctx->h_TypeError, err_fmt,
             "mismatched args (too many keywords for fmt)");
-        va_end(vl);
-        return 0;
+        goto error;
     }
 
     va_end(vl);
     return 1;
+
+    error:
+        va_end(vl);
+        if (ht != NULL) {
+            HPyTracker_Close(ctx, *ht);
+        }
+        if (current_arg_needs_closing) {
+            HPy_Close(ctx, current_arg);
+        }
+        return 0;
 }

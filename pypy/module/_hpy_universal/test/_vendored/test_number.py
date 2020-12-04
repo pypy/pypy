@@ -56,7 +56,7 @@ class TestNumber(HPyTest):
                                   HPy *args, HPy_ssize_t nargs)
                 {
                     HPy a, b;
-                    if (!HPyArg_Parse(ctx, args, nargs, "OO", &a, &b))
+                    if (!HPyArg_Parse(ctx, NULL, args, nargs, "OO", &a, &b))
                         return HPy_NULL;
                     return HPy_%s(ctx, a, b);
                 }
@@ -73,7 +73,7 @@ class TestNumber(HPyTest):
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b, c;
-                if (!HPyArg_Parse(ctx, args, nargs, "OOO", &a, &b, &c))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OOO", &a, &b, &c))
                     return HPy_NULL;
                 return HPy_Power(ctx, a, b, c);
             }
@@ -95,7 +95,7 @@ class TestNumber(HPyTest):
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b;
-                if (!HPyArg_Parse(ctx, args, nargs, "OO", &a, &b))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OO", &a, &b))
                     return HPy_NULL;
                 return HPy_MatrixMultiply(ctx, a, b);
             }
@@ -125,7 +125,7 @@ class TestNumber(HPyTest):
                                   HPy *args, HPy_ssize_t nargs)
                 {
                     HPy a, b;
-                    if (!HPyArg_Parse(ctx, args, nargs, "OO", &a, &b))
+                    if (!HPyArg_Parse(ctx, NULL, args, nargs, "OO", &a, &b))
                         return HPy_NULL;
                     return HPy_InPlace%s(ctx, a, b);
                 }
@@ -145,7 +145,7 @@ class TestNumber(HPyTest):
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b, c;
-                if (!HPyArg_Parse(ctx, args, nargs, "OOO", &a, &b, &c))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OOO", &a, &b, &c))
                     return HPy_NULL;
                 return HPy_InPlacePower(ctx, a, b, c);
             }
@@ -174,7 +174,7 @@ class TestNumber(HPyTest):
                               HPy *args, HPy_ssize_t nargs)
             {
                 HPy a, b;
-                if (!HPyArg_Parse(ctx, args, nargs, "OO", &a, &b))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OO", &a, &b))
                     return HPy_NULL;
                 return HPy_InPlaceMatrixMultiply(ctx, a, b);
             }

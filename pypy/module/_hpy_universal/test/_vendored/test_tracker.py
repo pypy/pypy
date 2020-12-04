@@ -10,7 +10,7 @@ from .support import HPyTest
 
 
 class TestHPyTracker(HPyTest):
-    def hpytracker_module(self, ops, new="HPyTracker_New(ctx, 0)"):
+    def hpytracker_module(self, ops, size=0):
         return self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
             static HPy f_impl(HPyContext ctx, HPy self,
@@ -18,7 +18,7 @@ class TestHPyTracker(HPyTest):
             {{
                 HPyTracker ht;
                 HPy result = HPy_NULL;
-                ht = {new};
+                ht = HPyTracker_New(ctx, {size});
                 if HPy_IsNull(ht) {{
                     return HPy_NULL;
                 }}
@@ -30,15 +30,14 @@ class TestHPyTracker(HPyTest):
             }}
             @EXPORT(f)
             @INIT
-        """.format(ops=ops, new=new))
+        """.format(ops=ops, size=size))
 
     def test_new_and_free(self):
         mod = self.hpytracker_module(ops="")
         mod.f()
 
     def test_new_with_size_and_free(self):
-        mod = self.hpytracker_module(
-            ops="", new="HPyTracker_New(ctx, 10)")
+        mod = self.hpytracker_module(ops="", size=10)
         mod.f()
 
     def test_add_and_free(self):
@@ -73,7 +72,7 @@ class TestHPyTracker(HPyTest):
                 HPy key, value;
                 HPyTracker ht;
 
-                if (!HPyArg_Parse(ctx, args, nargs, "l|l", &n, &n_err))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "l|l", &n, &n_err))
                     return HPy_NULL;
 
                 ht = HPyTracker_New(ctx, 0);  // track key-value pairs

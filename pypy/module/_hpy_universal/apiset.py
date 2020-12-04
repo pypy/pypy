@@ -140,6 +140,15 @@ class APISet(object):
         return rffi.cast(rffi.INT_real, x)
 
     @staticmethod
+    def cast(typename, x):
+        """
+        Helper method to convert an RPython value into the correct C return
+        type.
+        """
+        lltype = llapi.cts.gettype(typename)
+        return rffi.cast(lltype, x)
+
+    @staticmethod
     def ccharp2text(space, ptr):
         """
         Convert a C const char* into a W_UnicodeObject

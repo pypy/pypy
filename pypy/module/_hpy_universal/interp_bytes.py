@@ -30,7 +30,23 @@ def HPyBytes_AsString(space, ctx, h):
     handles.attach_release_callback(space, h, cb)
     return llbuf
 
-
 @API.func("char *HPyBytes_AS_STRING(HPyContext ctx, HPy h)")
 def HPyBytes_AS_STRING(space, ctx, h):
     return HPyBytes_AsString(space, ctx, h)
+
+@API.func("HPy HPyBytes_FromString(HPyContext ctx, const char *v)")
+def HPyBytes_FromString(space, ctx, char_p):
+    s = rffi.constcharp2str(char_p)
+    w_bytes = space.newbytes(s)
+    return handles.new(space, w_bytes)
+
+@API.func("HPy HPyBytes_FromStringAndSize(HPyContext ctx, const char *v, HPy_ssize_t len)")
+def HPyBytes_FromStringAndSize(space, ctx, char_p, length):
+    if not char_p:
+        raise oefmt(
+            space.w_ValueError,
+            "NULL char * passed to HPyBytes_FromStringAndSize"
+        )
+    s = rffi.constcharpsize2str(char_p, length)
+    w_bytes = space.newbytes(s)
+    return handles.new(space, w_bytes)

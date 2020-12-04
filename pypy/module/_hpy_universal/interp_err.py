@@ -43,6 +43,11 @@ def _hpy_err_SetString(space, ctx, h_exc_type, utf8):
     w_exc_type = handles.deref(space, h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
+@BRIDGE.func("void _hpy_err_SetObject(HPyContext ctx, HPy type, HPy value)")
+def _hpy_err_SetObject(space, ctx, h_exc_type, h_exc_value):
+    w_exc_type = handles.deref(space, h_exc_type)
+    w_obj = handles.deref(space, h_exc_value)
+    raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
 def hpy_err_Occurred_rpy(space):
@@ -80,5 +85,3 @@ def HPyErr_NoMemory(space, ctx):
     if NonConstant(False):
         return -42
     raise OperationError(space.w_MemoryError, space.w_None)
-
-
