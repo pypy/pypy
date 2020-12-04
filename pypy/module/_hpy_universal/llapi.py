@@ -2,8 +2,8 @@ import py
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator import cdir
+from rpython.tool.cparser import CTypeSpace
 from pypy import pypydir
-from pypy.module.cpyext.cparser import CTypeSpace
 
 PYPYDIR = py.path.local(pypydir)
 SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
@@ -22,13 +22,6 @@ eci = ExternalCompilationInfo(
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
     ],
-    post_include_bits=["""
-        // these are workarounds for a CTypeSpace limitation, since it can't properly
-        // handle struct types which are not typedefs
-        typedef struct _HPyContext_s _struct_HPyContext_s;
-        typedef struct _HPy_s _struct_HPy_s;
-        typedef struct _HPyObject_head_s _struct_HPyObject_head_s;
-    """],
 )
 
 cts = CTypeSpace()
@@ -42,10 +35,10 @@ cts.parse_source("""
 typedef intptr_t HPy_ssize_t;
 typedef intptr_t HPy_hash_t;
 
-// see below for more info about HPy vs _struct_HPy_s
-typedef struct _HPy_s {
+// see below for more info about HPy vs struct _HPy_s
+struct _HPy_s {
     HPy_ssize_t _i;
-} _struct_HPy_s;
+};
 typedef HPy_ssize_t HPy;
 
 typedef struct _HPyListBuilder_s {
@@ -63,7 +56,7 @@ typedef struct _HPyTracker_s {
 } _struct_HPyTracker_s;
 typedef HPy_ssize_t HPyTracker;
 
-typedef struct _HPyContext_s {
+struct _HPyContext_s {
     int ctx_version;
     // Constants
     struct _HPy_s h_None;
@@ -383,10 +376,10 @@ typedef struct {
 
 /* hpytype.h */
 
-typedef struct _HPyObject_head_s {
+struct _HPyObject_head_s {
     HPy_ssize_t _reserved0;
     void *_reserved1;
-} _struct_HPyObject_head_s;
+};
 
 typedef struct {
     const char* name;
@@ -471,7 +464,7 @@ HPy_ssize_t = cts.gettype('HPy_ssize_t')
 # for practical reason, we use a primitive type to represent HPy almost
 # everywhere in RPython: for example, rffi cannot handle functions returning
 # structs. HOWEVER, the "real" HPy C type is a struct, which is available as
-# "_struct_HPy_s"
+# "struct _HPy_s"
 HPy = cts.gettype('HPy')
 HPy_NULL = rffi.cast(HPy, 0)
 
