@@ -24,7 +24,7 @@ from pypy.module.cpyext.api import (
     Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig,
