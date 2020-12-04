@@ -261,16 +261,17 @@ if _has_load_extension():
     _ffi.cdef("int sqlite3_load_extension(sqlite3 *db, const char *, "
                                                  "const char *, char **);")
 
+libraries=['sqlite3']
 if sys.platform.startswith('freebsd'):
     _localbase = os.environ.get('LOCALBASE', '/usr/local')
     extra_args = dict(
-        libraries=['sqlite3'],
+        libraries=libraries,
         include_dirs=[os.path.join(_localbase, 'include')],
         library_dirs=[os.path.join(_localbase, 'lib')]
     )
 else:
     extra_args = dict(
-        libraries=['sqlite3']
+        libraries=libraries,
     )
 
 SOURCE = """
@@ -292,3 +293,22 @@ _ffi.set_source("_sqlite3_cffi", SOURCE, **extra_args)
 
 if __name__ == "__main__":
     _ffi.compile()
+    if sys.platform == 'win32':
+        # copy dlls from externals to the pwd
+        # maybe we should link to libraries instead of the dlls
+        # to avoid this mess
+        import os, glob, shutil
+        path_parts = os.environ['PATH'].split(';')
+        candidates = [x for x in path_parts if 'externals' in x]
+
+        def copy_from_path(dll):
+            for c in candidates:
+                files = glob.glob(os.path.join(c, dll + '*.dll'))
+                if files:
+                    for fname in files:
+                        print('copying', fname)
+                        shutil.copy(fname, '.')
+
+        if candidates:
+            for lib in libraries:
+                copy_from_path(lib)

@@ -32,7 +32,7 @@ add_inttypes()
 CNAME_TO_LLTYPE['int'] = rffi.INT_real
 CNAME_TO_LLTYPE['wchar_t'] = lltype.UniChar
 if 'ssize_t' not in CNAME_TO_LLTYPE:  # on Windows
-    CNAME_TO_LLTYPE['ssize_t'] = CNAME_TO_LLTYPE['long']
+    CNAME_TO_LLTYPE['ssize_t'] = rffi.SIGNED
 
 def cname_to_lltype(name):
     return CNAME_TO_LLTYPE[name]
@@ -153,7 +153,10 @@ class CTypeSpace(object):
                 if hdr not in all_headers:
                     all_headers.append(hdr)
         if sys.platform == 'win32':
-            compile_extra = ['-Dssize_t=long']
+            if sys.maxint > 2**32:
+                compile_extra = ['-Dssize_t=__int64']
+            else:
+                compile_extra = ['-Dssize_t=long']
         else:
             compile_extra = []
         return ExternalCompilationInfo(

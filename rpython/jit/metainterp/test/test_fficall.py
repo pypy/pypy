@@ -81,11 +81,12 @@ class FfiCallTests(object):
                 TYPE = rffi.CArray(lltype.typeOf(avalue))
                 data = rffi.ptradd(exchange_buffer, ofs)
                 got = rffi.cast(lltype.Ptr(TYPE), data)[0]
-                if lltype.typeOf(avalue) is lltype.SingleFloat:
+                tp = lltype.typeOf(avalue)
+                if tp is lltype.SingleFloat:
                     got = float(got)
                     avalue = float(avalue)
-                elif (lltype.typeOf(avalue) is rffi.SIGNEDCHAR or
-                      lltype.typeOf(avalue) is rffi.UCHAR):
+                elif (isinstance(tp, lltype.Number) and
+                      rffi.sizeof(tp) < rffi.sizeof(lltype.Signed)):
                     got = intmask(got)
                     avalue = intmask(avalue)
                 assert got == avalue

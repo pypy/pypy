@@ -26,7 +26,7 @@ def llexternal(*args, **kwargs):
 
 pypy_tscmp = llexternal(
     'pypy_tscmp',
-    [rffi.CCHARP, rffi.CCHARP, rffi.LONG, rffi.LONG],
+    [rffi.CCHARP, rffi.CCHARP, rffi.SIGNED, rffi.SIGNED],
     rffi.INT)
 
 

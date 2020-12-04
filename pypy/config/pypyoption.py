@@ -83,6 +83,15 @@ if sys.platform == "win32":
     # The _locale module is needed by site.py on Windows
     default_modules.add("_locale")
 
+    # needed to invoke MSVC
+    translation_modules.update(["thread", "_winreg", "_cffi_backend"])
+
+    # not ported yet
+    if IS_64_BITS:
+        for name in ["cpyext", "_cppyy", "micronumpy"]:
+            if name in working_modules:
+                working_modules.remove(name)
+
 if sys.platform == "sunos5":
     working_modules.remove('fcntl')  # LOCK_NB not defined
     working_modules.remove("_minimal_curses")

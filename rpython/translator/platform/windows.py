@@ -32,8 +32,8 @@ def Windows(cc=None):
     return _get_compiler_type(cc, False)
 
 def Windows_x64(cc=None, ver0=None):
-    raise Exception("Win64 is not supported.  You must either build for Win32"
-                    " or contribute the missing support in PyPy.")
+    #raise Exception("Win64 is not supported.  You must either build for Win32"
+    #                " or contribute the missing support in PyPy.")
     return _get_compiler_type(cc, True)
 
 def _find_vcvarsall(version, x64flag):
@@ -203,7 +203,7 @@ class MsvcPlatform(Platform):
             self.cc = cc
 
         # Try to find a masm assembler
-        returncode, stdout, stderr = _run_subprocess('ml.exe', [],
+        returncode, stdout, stderr = _run_subprocess('ml.exe' if not x64 else 'ml64.exe', [],
                                                      env=self.c_environ)
         r = re.search('Macro Assembler', stderr)
         if r is None and os.path.exists('c:/masm32/bin/ml.exe'):
@@ -505,19 +505,19 @@ class MsvcPlatform(Platform):
                 deps.append('icon.res')
                 wdeps.append('icon.res')
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /STACK:3145728 %s ' % (' '.join(deps),) + \
                     '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /SUBSYSTEM:WINDOWS %s ' % (
+                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /STACK:3145728 /SUBSYSTEM:WINDOWS %s ' % (
                     ' '.join(wdeps),) + '$(SHARED_IMPORT_LIB) /out:$@ ' + \
                     '/MANIFEST /MANIFESTFILE:$*.manifest',
                     'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
-                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE %s ' % (' '.join(deps),) + \
+                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE /STACK:3145728 %s ' % (' '.join(deps),) + \
                     'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
                     ])
 

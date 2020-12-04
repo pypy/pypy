@@ -830,8 +830,10 @@ class TestLowLevelType(object):
                 char c2;        /* followed by 3 bytes of padding */
                 int i2;
                 char c3;        /* followed by 3 or 7 bytes of padding */
-                long l3;
-                char c4;
+                Signed l3;
+                char c4;        /* followed by 3 or 7 bytes of padding */
+                long l4;
+                char c5;
             } foobar_t;
         """)
         class CConfig:
@@ -839,7 +841,8 @@ class TestLowLevelType(object):
             STRUCT = rffi_platform.Struct("foobar_t",
                                           [("c1", Signed),
                                            ("s1", Signed),
-                                           ("l3", Signed)])
+                                           ("l3", Signed),
+                                           ("l4", Signed)])
         S = rffi_platform.configure(CConfig)['STRUCT']
         assert 'get_padding_drop' in S._hints
         assert 'eci' in S._hints
@@ -847,10 +850,12 @@ class TestLowLevelType(object):
         s1.c_c1 = rffi.cast(S.c_c1, -12)
         s1.c_s1 = rffi.cast(S.c_s1, -7843)
         s1.c_l3 = -98765432
+        s1.c_l4 = rffi.cast(S.c_l4, -91234567)
         s2 = malloc(S, immortal=True)
         s2.c_c1 = rffi.cast(S.c_c1, -123)
         s2.c_s1 = rffi.cast(S.c_s1, -789)
         s2.c_l3 = -9999999
+        s2.c_l4 = rffi.cast(S.c_l4, -9111111)
         #
         def f(n):
             if n > 5:

@@ -27,7 +27,7 @@ def string_to_word(s):
     assert len(s) == WORD_SIZE
     ll_chars, llobj, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
     try:
-        wordarray = rffi.cast(rffi.ULONGP, ll_chars)
+        wordarray = rffi.cast(rffi.UNSIGNEDP, ll_chars)
         return wordarray[0]
     finally:
         rffi.free_nonmovingbuffer_ll(ll_chars, llobj, flag)
