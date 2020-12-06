@@ -808,9 +808,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return self._visit_try_except(tr)
 
     def _import_as(self, alias):
+        # in CPython this is roughly compile_import_as
+        # The IMPORT_NAME opcode was already generated.  This function
+        # merely needs to bind the result to a name.
+
+        # If there is a dot in name, we need to split it and emit a
+        # IMPORT_FROM for each name.
         source_name = alias.name
         dot = source_name.find(".")
         if dot > 0:
+            # Consume the base module name to get the first attribute
             while True:
                 start = dot + 1
                 dot = source_name.find(".", start)
@@ -819,9 +826,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 else:
                     end = dot
                 attr = source_name[start:end]
-                self.emit_op_name(ops.LOAD_ATTR, self.names, attr)
+                self.emit_op_name(ops.IMPORT_FROM, self.names, attr)
                 if dot < 0:
                     break
+                self.emit_op(ops.ROT_TWO)
+                self.emit_op(ops.POP_TOP)
+            self.name_op(alias.asname, ast.Store)
+            self.emit_op(ops.POP_TOP)
+            return
         self.name_op(alias.asname, ast.Store)
 
     def visit_Import(self, imp):
