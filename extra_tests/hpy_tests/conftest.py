@@ -26,6 +26,16 @@ import py
 import pytest
 from pypy import pypydir
 
+disable = False
+
+if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+    # skip all tests on linux32
+    disable = True
+
+def pytest_ignore_collect(path, config):
+    if disable:
+        return True
+
 ROOT = py.path.local(__file__).dirpath()
 TEST_SRC = py.path.local(pypydir).join('module', '_hpy_universal', 'test', '_vendored')
 TEST_DST = ROOT.join('_vendored')
