@@ -1276,6 +1276,17 @@ class TestCompiler(BaseTestCompiler):
             x = [y for (x, y) in dis.findlinestarts(co)]
         """, 'x', [4]
 
+    def test_bug_crash_annotations(self):
+        yield self.simple_test, """\
+            def func():
+                bar = None
+
+                class Foo:
+                    bar: int = 0  # removing type annotation make the error disappear
+
+                    def get_bar(self):
+                        return bar
+        """, '1', 1
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
