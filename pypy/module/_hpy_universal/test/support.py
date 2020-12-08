@@ -55,8 +55,9 @@ class HPyAppTest(object):
             else:
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
-            so_filename = compiler.compile_module(ExtensionTemplate,
+            py_filename = compiler.compile_module(ExtensionTemplate,
                                                   source_template, name, extra_sources)
+            so_filename = py_filename.replace(".py", ".so")
             w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
                 """(path, modname):
                     import _hpy_universal
