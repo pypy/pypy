@@ -175,10 +175,15 @@ typedef struct PyGetSetDef {
 	void *closure;
 } PyGetSetDef;
 
-/* from methodobject.h */
+/* from methodobject.h (the `PyObject **` are `PyObject *const *` in CPython) */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+typedef PyObject *(*_PyCFunctionFast) (PyObject *, PyObject **, Py_ssize_t);
 typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
                                              PyObject *);
+typedef PyObject *(*_PyCFunctionFastWithKeywords) (PyObject *,
+                                                   PyObject **, Py_ssize_t,
+                                                   PyObject *);
+
 typedef PyObject *(*PyNoArgsFunction)(PyObject *);
 
 struct PyMethodDef {

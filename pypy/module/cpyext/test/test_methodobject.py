@@ -73,6 +73,36 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         #
         raises(TypeError, mod.getarg_VARARGS, k=1)
 
+    def test_call_METH_VARARGS_FASTCALL(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_VA_FASTCALL', 'METH_VARARGS | METH_FASTCALL',
+             '''
+             PyObject *arg_tuple = PyTuple_New(len_args);
+             for (Py_ssize_t i =0 ; i < len_args; i++) {
+                Py_INCREF(args[i]);
+                PyTuple_SetItem(arg_tuple, i, args[i]);
+             }
+             return arg_tuple;
+             '''
+             ),
+            ])
+        # check that we pass the expected tuple of arguments AND that the
+        # recnt is 1. In particular, on PyPy refcnt==1 means that we created
+        # the PyObject tuple directly, without passing from a w_tuple; as
+        # such, the tuple will be immediately freed after the call, without
+        # having to wait until the GC runs.
+        #
+        tup = mod.getarg_VA_FASTCALL()
+        assert tup == ()
+
+        tup = mod.getarg_VA_FASTCALL(1)
+        assert tup == (1,)
+
+        tup = mod.getarg_VA_FASTCALL(1, 2, 3)
+        assert tup == (1, 2, 3)
+
+        raises(TypeError, mod.getarg_VA_FASTCALL, k=1)
+
     def test_call_METH_KEYWORDS(self):
         mod = self.import_extension('MyModule', [
             ('getarg_KW', 'METH_VARARGS | METH_KEYWORDS',
@@ -88,6 +118,33 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         assert mod.getarg_KW(1, 2, a=3, b=4) == ((1, 2), {'a': 3, 'b': 4})
         assert mod.getarg_KW.__name__ == "getarg_KW"
         assert mod.getarg_KW(*(), **{}) == ((), {})
+
+    def test_call_METH_KEYWORDS_FASTCALL(self):
+        mod = self.import_extension('MyModule', [
+            ('getarg_KW_FASTCALL', 'METH_FASTCALL | METH_KEYWORDS',
+             '''
+             Py_ssize_t len_all_args = len_args;
+             if (!kwnames) {
+                 kwnames = Py_None;
+             }
+             else {
+                 len_all_args += PyTuple_Size(kwnames);
+             }
+             PyObject *arg_tuple = PyTuple_New(len_all_args);
+             for (Py_ssize_t i = 0 ; i < len_all_args; i++) {
+                Py_INCREF(args[i]);
+                PyTuple_SetItem(arg_tuple, i, args[i]);
+             }
+             return Py_BuildValue("NO", arg_tuple, kwnames);
+             '''
+             ),
+            ])
+        assert mod.getarg_KW_FASTCALL(1) == ((1,), None)
+        assert mod.getarg_KW_FASTCALL(1, 2) == ((1, 2), None)
+        assert mod.getarg_KW_FASTCALL(a=3, b=4) == ((3, 4), ('a', 'b'))
+        assert mod.getarg_KW_FASTCALL(1, 2, a=3, b=4) == ((1, 2, 3, 4), ('a', 'b'))
+        assert mod.getarg_KW_FASTCALL.__name__ == "getarg_KW_FASTCALL"
+        assert mod.getarg_KW_FASTCALL(*(), **{}) == ((), None)
 
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [

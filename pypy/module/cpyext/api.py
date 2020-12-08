@@ -133,7 +133,7 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
 Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED PyBUF_READ
@@ -776,6 +776,7 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
+PyObjectConstP = rffi.CArrayPtr(PyObject)
 
 # int *
 INTP_real = rffi.CArrayPtr(rffi.INT_real)
@@ -1789,6 +1790,11 @@ def invoke_pyos_inputhook(space):
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
+    FT = lltype.typeOf(func).TO
+    return make_generic_cpy_call(FT, False, True)(space, func, *args)
+
+@specialize.ll()
+def generic_cpy_fastcall(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, True)(space, func, *args)
 
