@@ -405,6 +405,24 @@ class AppTestBufferedReader:
         f.close()
         self.posix.close(fdout)
 
+    def test_read_nonblocking_crash(self):
+        import _io as io
+        try:
+            import fcntl
+        except ImportError:
+            skip('fcntl missing')
+        fdin, fdout = self.posix.pipe()
+        f = io.open(fdin, "rb")
+        fl = fcntl.fcntl(f, fcntl.F_GETFL)
+        fcntl.fcntl(f, fcntl.F_SETFL, fl | self.posix.O_NONBLOCK)
+        s = f.read(12)
+        assert s == None
+        self.posix.close(fdout)
+
+        s = f.read(12)
+        assert s == b''
+        f.close()
+
 
 class AppTestBufferedReaderWithThreads(AppTestBufferedReader):
     spaceconfig = dict(usemodules=['_io', 'thread', 'time'])
