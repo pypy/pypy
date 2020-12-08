@@ -1028,6 +1028,8 @@ def make_wrapper_second_level(space, argtypesw, restype,
             except OperationError as e:
                 failed = True
                 state.set_exception(e)
+                if e.match(space, space.w_SystemExit):
+                    raise e
             except BaseException as e:
                 failed = True
                 if not we_are_translated():
@@ -1068,6 +1070,10 @@ def make_wrapper_second_level(space, argtypesw, restype,
             elif restype is not lltype.Void:
                 retval = rffi.cast(restype, result)
 
+        except OperationError as e:
+            _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)
+            raise e
+            return fatal_value            
         except Exception as e:
             unexpected_exception(pname, e, tb)
             _restore_gil_state(pygilstate_release, gilstate, gil_release, _gil_auto)

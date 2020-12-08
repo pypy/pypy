@@ -48,7 +48,7 @@ def Py_AtExit(space, func_ptr):
         return -1
     return 0
 
-@cpython_api([rffi.INT_real], lltype.Void)
+@cpython_api([rffi.INT_real], lltype.Void, error=-1)
 def Py_Exit(space, status):
     """Exit the current process.  This calls Py_Finalize() and then calls the
     standard C library function exit(status)."""

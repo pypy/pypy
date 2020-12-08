@@ -939,5 +939,20 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         ])
 
     def test_call_py_exit(self):
-        exc = raises(SystemExit, self.import_module, name="foo", init="Py_Exit(42);")
-        assert exc.value.code == 42
+        try:
+            import posix
+        except ImportError:
+            skip("requires posix.fork() to test")
+        mod = self.import_extension('foo', [
+            ('exit', 'METH_NOARGS',
+             '''
+                Py_Exit(42);
+             ''')])
+        # run the function in a thread
+        pid = posix.fork()
+        if pid == 0:
+            mod.exit()
+        pid, status = posix.waitpid(pid, 0)
+        print pid, status
+        assert posix.WIFEXITED(status)
+        assert posix.WEXITSTATUS(status) == 42
