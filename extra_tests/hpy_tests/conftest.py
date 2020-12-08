@@ -24,6 +24,7 @@ remove the original conftest and provide all the required fixtures here. In part
 import os.path
 import py
 import pytest
+import sys
 from pypy import pypydir
 
 disable = False
