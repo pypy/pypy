@@ -215,10 +215,14 @@ class ExtensionCompiler:
             raise ValueError(
                 "Test module {!r} already present in sys.modules".format(name))
         importlib.invalidate_caches()
+        mod_dir = os.path.dirname(mod_filename)
         try:
-            sys.path.insert(0, os.path.dirname(mod_filename))
+            sys.path.insert(0, mod_dir)
             module = importlib.import_module(name)
         finally:
+            # assert that the module import didn't change the sys.path entry
+            # that was added above, then remove the entry.
+            assert sys.path[0] == mod_dir
             del sys.path[0]
             if name in sys.modules:
                 del sys.modules[name]
