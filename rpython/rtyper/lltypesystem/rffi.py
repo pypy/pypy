@@ -541,6 +541,8 @@ def populate_inttypes():
         elif (name == 'size_t' or name.startswith('uint')
                                or name.startswith('__uint')):
             signed = False
+        elif name == 'wchar_t' and sys.platform == 'win32':
+            signed = False
         else:
             signed = True
         name = name.replace(' ', '')
