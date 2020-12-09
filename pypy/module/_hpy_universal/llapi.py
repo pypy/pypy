@@ -497,6 +497,11 @@ HPy_GE = 5
 SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
 
 # HPy API functions which are implemented directly in C
+pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
+                                      [HPyContext, rffi.CCHARP],
+                                      lltype.Void,
+                                      compilation_info=eci, _nowrapper=True)
+
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
                                        rffi.INT_real,
                                        compilation_info=eci, _nowrapper=True)

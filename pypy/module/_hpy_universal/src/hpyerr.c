@@ -6,11 +6,17 @@
 #  include "src/exception.h"
 #endif
 
+#include <stdio.h>
 #include "universal/hpy.h"
 #include "hpyerr.h"
 #include "bridge.h"
 
 
+void pypy_HPy_FatalError(HPyContext ctx, const char *message)
+{
+    fprintf(stderr, "Fatal Python error: %s\n", message);
+    abort();
+}
 
 int pypy_HPyErr_Occurred(HPyContext ctx)
 {
