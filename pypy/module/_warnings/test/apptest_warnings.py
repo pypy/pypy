@@ -15,6 +15,11 @@ def test_defaults():
                 ('ignore', None, PendingDeprecationWarning, None, 0),
                 ('ignore', None, ImportWarning, None, 0),
                 ('ignore', None, ResourceWarning, None, 0)]
+    try:
+        import pkg_resources
+        expected.append(('ignore', None, pkg_resources.PEP440Warning, None, 0))
+    except:
+        pass
     assert expected == _warnings.filters
 
 def test_warn():
