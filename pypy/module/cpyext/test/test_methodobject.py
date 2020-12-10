@@ -86,12 +86,7 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
              '''
              ),
             ])
-        # check that we pass the expected tuple of arguments AND that the
-        # recnt is 1. In particular, on PyPy refcnt==1 means that we created
-        # the PyObject tuple directly, without passing from a w_tuple; as
-        # such, the tuple will be immediately freed after the call, without
-        # having to wait until the GC runs.
-        #
+
         tup = mod.getarg_VA_FASTCALL()
         assert tup == ()
 
