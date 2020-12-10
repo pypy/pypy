@@ -41,12 +41,12 @@ class TestErr(HPyTest):
             return
         # subprocess is not importable in pypy app-level tests
         import subprocess
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.dirname(mod.__file__)
         result = subprocess.run([
             sys.executable,
             "-c", "import {} as mod; mod.f()".format(mod.__name__)
-        ], env={
-            "PYTHONPATH": os.path.dirname(mod.__file__),
-        }, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert result.returncode == -6
         assert result.stdout == b""
         assert result.stderr.startswith(b"Fatal Python error: boom!\n")

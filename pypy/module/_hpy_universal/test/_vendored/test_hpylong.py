@@ -3,6 +3,33 @@ from .support import HPyTest
 
 class TestLong(HPyTest):
 
+    def magic_int(self, v):
+        """ Return an instance of a class that implements __int__
+            and returns value v.
+        """
+        class MagicInt(object):
+            def __int__(self):
+                return v
+        return MagicInt()
+
+    def magic_index(self, v):
+        """ Return an instance of a class that implements __index__
+            and returns value v.
+        """
+        class MagicIndex(object):
+            def __index__(self):
+                return v
+        return MagicIndex()
+
+    def python_supports_magic_index(self):
+        """ Return True if the Python version is 3.8 or later and thus
+            should support calling __index__ in the various HPyLong_As...
+            methods.
+        """
+        import sys
+        vi = sys.version_info
+        return (vi.major > 3 or (vi.major == 3 and vi.minor >= 8))
+
     def test_Long_FromLong(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
@@ -33,6 +60,9 @@ class TestLong(HPyTest):
         assert mod.f(45) == 90
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        assert mod.f(self.magic_int(2)) == 4
+        if self.python_supports_magic_index():
+            assert mod.f(self.magic_index(2)) == 4
 
     def test_Long_FromUnsignedLong(self):
         mod = self.make_module("""
@@ -66,6 +96,10 @@ class TestLong(HPyTest):
             mod.f(-91)
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        with pytest.raises(TypeError):
+            mod.f(self.magic_int(2))
+        with pytest.raises(TypeError):
+            mod.f(self.magic_index(2))
 
     def test_Long_AsUnsignedLongMask(self):
         import pytest
@@ -85,6 +119,9 @@ class TestLong(HPyTest):
         assert mod.f(-1) == 2**64 - 1
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        assert mod.f(self.magic_int(2)) == 2
+        if self.python_supports_magic_index():
+            assert mod.f(self.magic_index(2)) == 2
 
     def test_Long_FromLongLong(self):
         mod = self.make_module("""
@@ -118,6 +155,9 @@ class TestLong(HPyTest):
         assert mod.f(-2147483648) == -2147483648
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        assert mod.f(self.magic_int(2)) == 2
+        if self.python_supports_magic_index():
+            assert mod.f(self.magic_index(2)) == 2
 
     def test_Long_FromUnsignedLongLong(self):
         mod = self.make_module("""
@@ -152,6 +192,10 @@ class TestLong(HPyTest):
             mod.f(-4294967296)
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        with pytest.raises(TypeError):
+            mod.f(self.magic_int(2))
+        with pytest.raises(TypeError):
+            mod.f(self.magic_index(2))
 
     def test_Long_AsUnsignedLongLongMask(self):
         import pytest
@@ -171,6 +215,9 @@ class TestLong(HPyTest):
         assert mod.f(-1) == 2**64 - 1
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        assert mod.f(self.magic_int(2)) == 2
+        if self.python_supports_magic_index():
+            assert mod.f(self.magic_index(2)) == 2
 
     def test_Long_FromSize_t(self):
         mod = self.make_module("""
@@ -205,6 +252,10 @@ class TestLong(HPyTest):
             mod.f(-2147483648)
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        with pytest.raises(TypeError):
+            mod.f(self.magic_int(2))
+        with pytest.raises(TypeError):
+            mod.f(self.magic_index(2))
 
     def test_Long_FromSsize_t(self):
         mod = self.make_module("""
@@ -241,3 +292,7 @@ class TestLong(HPyTest):
         assert mod.f(-41) == -41
         with pytest.raises(TypeError):
             mod.f("this is not a number")
+        with pytest.raises(TypeError):
+            mod.f(self.magic_int(2))
+        with pytest.raises(TypeError):
+            mod.f(self.magic_index(2))
