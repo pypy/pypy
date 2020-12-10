@@ -134,6 +134,10 @@ class HPyExtensionName(str):
         result = str.split(self, *args, **kw)
         return [self.__class__(s) for s in result]
 
+    def translate(self, *args, **kw):
+        result = str.translate(self, *args, **kw)
+        return self.__class__(result)
+
 
 def is_hpy_extension(ext_name):
     """ Return True if the extension name is for an HPy extension. """
