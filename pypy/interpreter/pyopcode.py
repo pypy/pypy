@@ -1514,6 +1514,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
             space.call_method(w_set, "update", w_item)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     @jit.unroll_safe
