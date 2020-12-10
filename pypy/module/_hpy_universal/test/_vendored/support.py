@@ -198,33 +198,34 @@ class ExtensionCompiler:
 
     def make_module(self, ExtensionTemplate, main_src, name, extra_sources):
         """
-        Compile&load a modulo into memory. This is NOT a proper import: e.g. the module
-        is not put into sys.modules
+        Compile & load a module. This is NOT a proper import: e.g.
+        the module is not put into sys.modules
         """
-        so_filename = self.compile_module(ExtensionTemplate, main_src, name,
-                                          extra_sources)
-        if self.hpy_abi == 'universal':
-            return self.load_universal_module(name, so_filename)
-        else:
-            return self.load_cython_module(name, so_filename)
+        mod_filename = self.compile_module(
+            ExtensionTemplate, main_src, name, extra_sources)
+        return self.load_module(name, mod_filename)
 
-    def load_universal_module(self, name, so_filename):
-        assert self.hpy_abi == 'universal'
-        import hpy.universal
-        spec = Spec(name, so_filename)
-        return hpy.universal.load_from_spec(spec)
-
-    def load_cython_module(self, name, so_filename):
-        assert self.hpy_abi == 'cpython'
-        # we've got a normal CPython module compiled with the CPython API/ABI,
-        # let's load it normally. It is important to do the imports only here,
-        # because this file will be imported also by PyPy tests which runs on
-        # Python2
-        import importlib.util
-        from importlib.machinery import ExtensionFileLoader
-        spec = importlib.util.spec_from_file_location(name, so_filename)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+    def load_module(self, name, mod_filename):
+        # It is important to do the imports only here, because this file will
+        # be imported also by PyPy tests which runs on Python2
+        import importlib
+        import sys
+        import os
+        if name in sys.modules:
+            raise ValueError(
+                "Test module {!r} already present in sys.modules".format(name))
+        importlib.invalidate_caches()
+        mod_dir = os.path.dirname(mod_filename)
+        try:
+            sys.path.insert(0, mod_dir)
+            module = importlib.import_module(name)
+        finally:
+            # assert that the module import didn't change the sys.path entry
+            # that was added above, then remove the entry.
+            assert sys.path[0] == mod_dir
+            del sys.path[0]
+            if name in sys.modules:
+                del sys.modules[name]
         return module
 
 
@@ -263,10 +264,12 @@ def c_compile(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
                 os.environ[key] = value
     return outputfilename
 
+
 def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     # XXX compact but horrible :-(
     from distutils.core import Distribution
-    import distutils.errors, distutils.log
+    import distutils.errors
+    import distutils.log
     #
     dist = Distribution()
     dist.parse_config_files()
@@ -277,18 +280,23 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     options['force'] = ('ffiplatform', True)
     options['build_lib'] = ('ffiplatform', tmpdir)
     options['build_temp'] = ('ffiplatform', tmpdir)
-    #
+
     # this is the equivalent of passing --hpy-abi from setup.py's command line
     dist.hpy_abi = hpy_abi
-    hpy_devel.fix_distribution(dist, hpy_ext_modules=[ext])
-    #
+    dist.hpy_ext_modules = [ext]
+    hpy_devel.fix_distribution(dist)
+
     old_level = distutils.log.set_threshold(0) or 0
     try:
         distutils.log.set_verbosity(compiler_verbose)
         dist.run_command('build_ext')
         cmd_obj = dist.get_command_obj('build_ext')
-        [soname] = cmd_obj.get_outputs()
+        outputs = cmd_obj.get_outputs()
+        if hpy_abi == "cpython":
+            [mod_filename] = [x for x in outputs if not x.endswith(".py")]
+        else:
+            [mod_filename] = [x for x in outputs if x.endswith(".py")]
     finally:
         distutils.log.set_threshold(old_level)
-    #
-    return soname
+
+    return mod_filename
