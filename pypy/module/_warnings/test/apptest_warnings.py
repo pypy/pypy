@@ -68,21 +68,23 @@ def test_filename_none():
     globals()['__file__'] = None
     _warnings.warn('test', UserWarning)
 
-@pytest.skip("fails when run nightly??")
 def test_warn_unicode():
     if '__pypy__' not in sys.builtin_module_names:
         # see bc4acc4caa28
         pytest.skip("this checks that non-ascii warnings are not silently "
                     "swallowed, like they are with CPython 2.7 (buggily?)")
-    old = sys.stderr
+    old = sys.stderr, warnings.showwarning
     try:
         class Grab:
             def write(self, u):
                 self.data.append(u)
         sys.stderr = Grab()
         sys.stderr.data = data = []
+        warnings.showwarning = warnings._show_warning
+        # ^^^ disables any catch_warnings() issued by the test runner
         _warnings.warn_explicit("9238exbexn8", Warning,
                                 "<string>", 1421, module_globals=globals())
+        assert data   # the warning was not swallowed
         assert isinstance(''.join(data), str)
         _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
                                 "<str2>", 831, module_globals=globals())
@@ -90,7 +92,7 @@ def test_warn_unicode():
         assert ''.join(data).endswith(
                          u'<str2>:831: UserWarning: \u1234\u5678\n')
     finally:
-        sys.stderr = old
+        sys.stderr, warnings.showwarning = old
 
 def test_issue31285():
     def get_bad_loader(splitlines_ret_val):
