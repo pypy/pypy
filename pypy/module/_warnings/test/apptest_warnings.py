@@ -68,8 +68,12 @@ def test_filename_none():
     globals()['__file__'] = None
     _warnings.warn('test', UserWarning)
 
-@pytest.skip("fails when run nightly, and on CPython")
+@pytest.skip("fails when run nightly??")
 def test_warn_unicode():
+    if '__pypy__' not in sys.builtin_module_names:
+        # see bc4acc4caa28
+        pytest.skip("this checks that non-ascii warnings are not silently "
+                    "swallowed, like they are with CPython 2.7 (buggily?)")
     old = sys.stderr
     try:
         class Grab:
