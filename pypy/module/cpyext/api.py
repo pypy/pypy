@@ -144,6 +144,10 @@ for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'BYTES'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
 
+#pystrtod.h flags
+for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
+    constant_names.append('Py_DTSF_%s' % name)
+
 # PyPy-specific flags
 for name in ('FLOAT',):
     constant_names.append('Py_TPPYPYFLAGS_%s_SUBCLASS' % name)

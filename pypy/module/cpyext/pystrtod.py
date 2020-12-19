@@ -10,6 +10,7 @@ from rpython.rtyper.lltypesystem import lltype
 from rpython.rtyper.lltypesystem import rffi
 
 
+# from pystrtod.h
 # PyOS_double_to_string's "type", if non-NULL, will be set to one of:
 Py_DTST_FINITE = 0
 Py_DTST_INFINITE = 1

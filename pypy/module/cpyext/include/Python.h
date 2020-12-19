@@ -160,4 +160,6 @@ extern "C" {
 #define PyFPE_START_PROTECT(err_string, leave_stmt)
 #define PyFPE_END_PROTECT(v)
 
+#include "pystrtod.h"
+
 #endif
