@@ -104,7 +104,7 @@ def HPy_InPlacePower(space, ctx, h1, h2, h3):
         w_res = space.inplace_pow(w_o1, w_o2)
     return handles.new(space, w_res)
 
-@API.func("int HPyNumber_Check(HPyContext ctx, HPy h)")
+@API.func("int HPyNumber_Check(HPyContext ctx, HPy h)", error_value='CANNOT_FAIL')
 def HPyNumber_Check(space, ctx, h):
     # XXX: write proper tests
     w_obj = handles.deref(space, h)

@@ -4,10 +4,13 @@ PyPy's sandboxing features
 ==========================
 
 .. warning:: This describes the old, unmaintained version.  A new version
-   is in progress and should be merged back to trunk at some point soon.
+   is in progress in the ``sandbox-2`` and ``py3.6-sandbox-2`` branches and in
+   the sandboxlib_ repo.
    Please see its description here:
    https://mail.python.org/pipermail/pypy-dev/2019-August/015797.html
 
+   Also note that python 3.7+ requires the _thread module, which may be
+   a consideration in escaping the sandbox.
 
 Introduction
 ------------
@@ -30,6 +33,7 @@ attacker is allowed to run (why? read about pysandbox_).
 
 .. _SECCOMP: https://code.google.com/p/seccompsandbox/wiki/overview
 .. _pysandbox: https://mail.python.org/pipermail/python-dev/2013-November/130132.html
+.. _sandbloxlib: https://foss.heptapod.net/pypy/sandboxlib
 
 Another point of comparison: if we were instead to try to plug CPython
 into a special virtualizing C library, we would get a result

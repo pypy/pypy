@@ -17,7 +17,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.3", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.4", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1470,7 +1470,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):

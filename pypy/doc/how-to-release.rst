@@ -125,11 +125,15 @@ Other steps
     (it is important to mark this as a candidate since usually at least two
     tries are needed to complete the process) and download and repackage source
     from the buildbot. You may find it convenient to use the ``repackage.sh``
-    script in pypy/tool/release to do this. 
+    script in ``pypy/tool/release`` to do this. 
 
     Also repackage and upload source "-src.tar.bz2"
 
-  * Upload binaries to https://buildbot.pypy.org/mirror. It takes an hour for
+  * Upload binaries to https://buildbot.pypy.org/mirror. Add the files to
+    the ``versions.json`` in ``pypy/tools/release``, upload it, and run the
+    ``check_versions.py`` file in that directory. This file is used by various
+    downstream tools like "github actions" to find valid pypy downloads. It
+    takes an hour for
     https://downloads.python.org/pypy/ to sync
 
 * Send out a mailing list message asking for last-minute comments and testing

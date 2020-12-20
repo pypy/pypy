@@ -16,7 +16,7 @@ class TestSlots(HPyTest):
                                        HPy_ssize_t nargs, HPy kw)
             {
                 long x, y;
-                if (!HPyArg_Parse(ctx, args, nargs, "ll", &x, &y))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "ll", &x, &y))
                     return -1;
 
                 PointObject *p = HPy_CAST(ctx, PointObject, self);

@@ -1,4 +1,5 @@
-import pytest
+import pytest as pytest_collecting
+
 from .support import HPyTest
 
 # this function should probably goes somewhere into hpy.universal and/or and
@@ -16,7 +17,7 @@ def import_module_properly(mod):
 
 class TestImporting(HPyTest):
 
-    @pytest.mark.xfail
+    @pytest_collecting.mark.xfail
     def test_importing_attributes(self):
         import sys
         modname = 'mytest'

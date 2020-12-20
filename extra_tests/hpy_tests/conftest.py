@@ -30,7 +30,7 @@ ROOT = py.path.local(__file__).dirpath()
 TEST_SRC = py.path.local(pypydir).join('module', '_hpy_universal', 'test', '_vendored')
 TEST_DST = ROOT.join('_vendored')
 
-def pytest_sessionstart(session):
+def pytest_configure(config):
     if TEST_DST.check(exists=True):
         TEST_DST.remove()
     TEST_SRC.copy(TEST_DST)
@@ -40,23 +40,18 @@ def pytest_sessionstart(session):
         from _hpy_universal. Look at conftest.py for more details
     """)
 
-def pytest_addoption(parser):
-    parser.addoption(
-        "--compiler-v", action="store_true",
-        help="Print to stdout the commands used to invoke the compiler")
-
 @pytest.fixture(scope='session')
-def hpy_base_dir(request):
-    from pypy.module._hpy_universal._vendored.hpy.devel import get_base_dir
-    return str(get_base_dir())
+def hpy_devel(request):
+    from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
+    return HPyDevel()
 
 @pytest.fixture
-def abimode():
+def hpy_abi():
     return 'universal'
 
 @pytest.fixture
-def compiler(request, tmpdir, abimode, hpy_base_dir):
+def compiler(request, tmpdir, hpy_devel, hpy_abi):
     from extra_tests.hpy_tests._vendored.support import ExtensionCompiler
     compiler_verbose = request.config.getoption('--compiler-v')
-    return ExtensionCompiler(tmpdir, abimode, hpy_base_dir,
+    return ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                              compiler_verbose=compiler_verbose)

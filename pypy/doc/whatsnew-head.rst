@@ -5,6 +5,11 @@ What's new in PyPy2.7 7.3.3+
 .. this is a revision shortly after release-pypy-7.3.3
 .. startrev: de512cf13506
 
+.. branch: rpython-error_value
+.. branch: hpy-error-value
+   
+Introduce @rlib.objectmodel.llhelper_error_value, will is used by HPy
+
 .. branch: new-ci-image
 
 CI: Add a Dockerfile for CI to prevent hitting pull limits on docker hub
@@ -25,3 +30,8 @@ Upstream internal cparser tool from pypy/ to rpython/
 .. branch: win64
 
 Change rpython and pypy to enable translating 64-bit windows
+
+
+.. branch: rpython-error_value
+
+Introduce @rlib.objectmodel.llhelper_error_value, will be used by HPy
