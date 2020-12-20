@@ -15,7 +15,11 @@ from cffi import FFI
 
 ffi = FFI()
 
-ffi.set_source("_pypy_winbase_cffi", None)
+if ffi.sizeof('HANDLE') == 8:
+    # 64 bit windows
+    ffi.set_source("_pypy_winbase_cffi64", None)
+else:
+    ffi.set_source("_pypy_winbase_cffi", None)
 
 # ---------- MSVCRT ----------
 

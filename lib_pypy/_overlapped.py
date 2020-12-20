@@ -10,7 +10,10 @@ if sys.platform != 'win32':
 
 # Declare external Win32 functions
 
-from _pypy_winbase_cffi import ffi as _ffi
+if sys.maxsize > 2 ** 31:
+    from _pypy_winbase_cffi64 import ffi as _ffi
+else:
+    from _pypy_winbase_cffi import ffi as _ffi
 _kernel32 = _ffi.dlopen('kernel32')
 
 _winsock2 = _ffi.dlopen('Ws2_32')
