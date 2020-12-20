@@ -147,8 +147,12 @@ Other steps
   * send announcements to twitter.com, pypy-dev, python-list,
     python-announce, python-dev ...
 
-* If all is OK, document the released version
+* If all is OK, document the released version and suggest popular tools update
+  to support it. Github actions will pick up the versions.json.
 
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
+  * suggest updates to multibuild_ and cibuildwheel_
 
+.. _multibuild: https://github.com/matthew-brett/multibuild
+.. _cibuildwheel: https://github.com/joerick/cibuildwheel
