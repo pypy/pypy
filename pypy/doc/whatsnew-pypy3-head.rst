@@ -39,3 +39,7 @@ Change `char *`` to ``const char *`` in ``PyStructSequence_Field``,
 .. branch: win64-py3.7
 
 Merge win64 into this branch
+
+.. branch: win64-cpyext
+
+Fix the cpyext module for win64
