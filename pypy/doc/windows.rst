@@ -64,8 +64,7 @@ If you wish to override this detection method to use a different compiler
 * set the `CC` environment variable to compiler exe to be used,
   for a different version of MSVC `SET CC=cl.exe`.
 
-**Note:** The RPython translator does currently not support 64 bit Python, and
-translation will fail in this case.
+**Note:** The RPython translator requires a special 64 bit Python, see below
 
 Python and a C compiler are all you need to build pypy, but it will miss some
 modules that relies on third-party libraries.  See below how to get
@@ -175,76 +174,80 @@ environment variable CC to the compiler exe, testing will use it.
 What is missing for a full 64-bit translation
 ---------------------------------------------
 
-The main blocker is that we assume that the integer type of RPython is
+This is a placeholder for links to this topic. We have solved most of the
+64-bit translation problems and there are nightly builds using the techniques
+below.
+
+How 64-bit translation works
+----------------------------
+
+We assume that the integer type of RPython is
 large enough to (occasionally) contain a pointer value cast to an
-integer.  The simplest fix is to make sure that it is so, but it will
-give the following incompatibility between CPython and PyPy on Win64:
+integer.  The simplest fix is to make sure that it is so, It results in a
+python2 with the following incompatibility between CPython and PyPy on Win64:
 
 CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
 
 PyPy: ``sys.maxint == sys.maxsize == 2**63-1``
 
-...and, correspondingly, PyPy supports ints up to the larger value of
-sys.maxint before they are converted to ``long``.  The first decision
-that someone needs to make is if this incompatibility is reasonable.
+...and, correspondingly, PyPy2 supports ints up to the larger value of
+sys.maxint before they are converted to ``long``.
 
-Assuming that it is, the first thing to do is probably to hack *CPython*
+The first thing done was to do hack a *CPython2*
 until it fits this model: replace the field in PyIntObject with a ``long
-long`` field, and change the value of ``sys.maxint``.  This might just
-work, even if half-brokenly: I'm sure you can crash it because of the
-precision loss that undoubtedly occurs everywhere, but try not to. :-)
+long`` field, and change the value of ``sys.maxint``.  This is available in
+`nulano's branch of cpython`_ (again: this is **python2**).
 
-Such a hacked CPython is what you'll use in the next steps.  We'll call
-it CPython64/64.
+This hacked pyton was used in the next steps.  We'll call it CPython64/64.
 
-It is probably not too much work if the goal is only to get a translated
-PyPy executable, and to run all tests before translation.  But you need
-to start somewhere, and you should start with some tests in
+First the tests in
 ``rpython/translator/c/test/``, like ``test_standalone.py`` and
-``test_newgc.py``: try to have them pass on top of CPython64/64.
+``test_newgc.py`` were made to pass on top of CPython64/64.
 
-Keep in mind that this runs small translations, and some details may go
-wrong.  The most obvious one is to check that it produces C files that
-use the integer type ``Signed`` --- but what is ``Signed`` defined to?
-It should be equal to ``long`` on every other platform, but on Win64 it
+This runs small translations, and some details were
+wrong.  The most obvious one is to make 
+the integer type ``Signed`` 
+equal to ``long`` on every other platform, but on Win64 it
 should be something like ``long long``.
 
-What is more generally needed is to review all the C files in
-``rpython/translator/c/src`` for the word ``long``, because this means a
-32-bit integer even on Win64.  Replace it with ``Signed`` most of the
-times.  You can replace one with the other without breaking anything on
-any other platform, so feel free to.
+Then a more generally review of all the C files in
+``rpython/translator/c/src`` for the word ``long``, which means a
+32-bit integer even on Win64, replaced it with ``Signed``.
 
 Then, these two C types have corresponding RPython types: ``rffi.LONG``
 and ``lltype.Signed`` respectively.  The first should really correspond
-to the C ``long``.  Add tests that check that integers cast to one
+to the C ``long``.  Tests were added that check that integers cast to one
 type or the other really have 32 and 64 bits respectively, on Win64.
 
-Once these basic tests work, you need to review ``rpython/rlib/`` for
-uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal would be to
+Once these basic tests worked, we reviewed ``rpython/rlib/`` for
+uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal was to
 fix some more ``LONG-versus-Signed`` issues, by fixing the tests --- as
 always run on top of CPython64/64.  Note that there was some early work
 done in ``rpython/rlib/rarithmetic`` with the goal of running all the
 tests on Win64 on the regular CPython, but I think by now that it's a
 bad idea.  Look only at CPython64/64.
 
-The major intermediate goal is to get a translation of PyPy with ``-O2``
+This was enough to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
-you need to use CPython64/64 to run this translation too.  Check
-carefully the warnings of the C compiler at the end. By default, MSVC
+using CPython64/64 to run this translation too.  Careful checking
+the warnings of the C compiler at the end revealed more places that needed
+work. By default, MSVC
 reports a lot of mismatches of integer sizes as warnings instead of
 errors.
 
-Then you need to review ``pypy/module/*/`` for ``LONG-versus-Signed``
-issues.  At some time during this review, we get a working translated
+Then we reviewed ``pypy/module/*/`` for ``LONG-versus-Signed``
+issues.  This got us a working translated
 PyPy on Windows 64 that includes all ``--translationmodules``, i.e.
-everything needed to run translations.  Once we have that, the hacked
+everything needed to run translations.  Once we had that, the hacked
 CPython64/64 becomes much less important, because we can run future
-translations on top of this translated PyPy.  As soon as we get there,
-please *distribute* the translated PyPy.  It's an essential component
+translations on top of this translated PyPy.  This made it to the nightly
+builds on the default branch, and was an essential component
 for anyone else that wants to work on Win64!  We end up with a strange
 kind of dependency --- we need a translated PyPy in order to translate a
 PyPy ---, but I believe it's ok here, as Windows executables are
 supposed to never be broken by newer versions of Windows.
 
 Happy hacking :-)
+
+.. _`nulano's branch of cpython`: https://github.com/nulano/cpython
+.. 
