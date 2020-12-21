@@ -14,7 +14,10 @@ if sys.platform != 'win32':
     raise ImportError("The 'msvcrt' module is only available on Windows")
 
 import _rawffi
-from _pypy_winbase_cffi import ffi as _ffi
+if sys.maxsize > 2 ** 31:
+    from _pypy_winbase_cffi64 import ffi as _ffi
+else:
+    from _pypy_winbase_cffi import ffi as _ffi
 _lib = _ffi.dlopen(_rawffi.get_libc().name)
 _kernel32 = _ffi.dlopen('kernel32')
 

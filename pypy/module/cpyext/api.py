@@ -15,6 +15,7 @@ from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.rlib import jit, rutf8
+from rpython.rlib.rarithmetic import widen
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -854,7 +855,7 @@ def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
         from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
         "Implements the Py_Xxx_Check function"
         if is_pyobj(pto):
-            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+            return (widen(pto.c_ob_type.c_tp_flags) & tp_flag) == tp_flag
         w_obj_type = space.type(pto)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or

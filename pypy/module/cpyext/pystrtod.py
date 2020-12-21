@@ -61,8 +61,8 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
             endptr = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
             user_endptr = False
         result = rdtoa.dg_strtod(s, endptr)
-        endpos = (rffi.cast(rffi.LONG, endptr[0]) -
-                  rffi.cast(rffi.LONG, s))
+        endpos = (rffi.cast(lltype.Signed, endptr[0]) -
+                  rffi.cast(lltype.Signed, s))
         if endpos == 0 or (not user_endptr and not endptr[0][0] == '\0'):
             raise oefmt(space.w_ValueError,
                         "invalid input at position %d", endpos)
