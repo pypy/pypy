@@ -753,7 +753,7 @@ def PyUnicode_FSDecoder(space, w_obj, result):
     return Py_CLEANUP_SUPPORTED
 
 
-@cpython_api([rffi.CCHARP, Py_ssize_t], PyObject)
+@cpython_api([CONST_STRING, Py_ssize_t], PyObject)
 def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
     """Decode a string using Py_FileSystemDefaultEncoding and the
     'surrogateescape' error handler, or 'strict' on Windows.
@@ -766,7 +766,7 @@ def PyUnicode_DecodeFSDefaultAndSize(space, s, size):
     return space.fsdecode(w_bytes)
 
 
-@cpython_api([rffi.CCHARP], PyObject)
+@cpython_api([CONST_STRING], PyObject)
 def PyUnicode_DecodeFSDefault(space, s):
     """Decode a null-terminated string using Py_FileSystemDefaultEncoding
     and the 'surrogateescape' error handler, or 'strict' on Windows.
