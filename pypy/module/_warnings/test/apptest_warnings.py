@@ -1,4 +1,5 @@
 # spaceconfig = {"usemodules": ["_warnings"]}
+import pytest
 
 import warnings
 import _warnings
@@ -102,12 +103,37 @@ def test_filename_none():
     globals()['__file__'] = None
     _warnings.warn('test', UserWarning)
 
+def test_warn_unicode():
+    if '__pypy__' not in sys.builtin_module_names:
+        # see bc4acc4caa28
+        pytest.skip("this checks that non-ascii warnings are not silently "
+                    "swallowed, like they are with CPython 2.7 (buggily?)")
+    old = sys.stderr, warnings.showwarning
+    try:
+        class Grab:
+            def write(self, u):
+                self.data.append(u)
+        sys.stderr = Grab()
+        sys.stderr.data = data = []
+        warnings.showwarning = warnings._show_warning
+        # ^^^ disables any catch_warnings() issued by the test runner
+        _warnings.warn_explicit("9238exbexn8", Warning,
+                                "<string>", 1421, module_globals=globals())
+        assert data   # the warning was not swallowed
+        assert isinstance(''.join(data), str)
+        _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
+                                "<str2>", 831, module_globals=globals())
+        assert isinstance(''.join(data), unicode)
+        assert ''.join(data).endswith(
+                         u'<str2>:831: UserWarning: \u1234\u5678\n')
+    finally:
+        sys.stderr, warnings.showwarning = old
+
 def test_bad_category():
     raises(TypeError, _warnings.warn, "text", 123)
     class Foo:
         pass
     raises(TypeError, _warnings.warn, "text", Foo)
-
 def test_surrogate_in_filename():
     for filename in ("nonascii\xe9\u20ac", "surrogate\udc80"):
         try:
@@ -115,7 +141,6 @@ def test_surrogate_in_filename():
         except UnicodeEncodeError:
             continue
         _warnings.warn_explicit("text", UserWarning, filename, 1)
-
 def test_issue31285():
     def get_bad_loader(splitlines_ret_val):
         class BadLoader:
