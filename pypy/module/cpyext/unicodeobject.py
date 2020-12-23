@@ -493,7 +493,7 @@ def PyUnicode_AsUnicode(space, ref):
 
 @cts.decl("char * PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize)")
 def PyUnicode_AsUTF8AndSize(space, ref, psize):
-    if not PyUnicode_Check(space, ref):
+    if not PyUnicode_Check(ref):
         PyErr_BadArgument(space)
     if not get_ready(ref):
         res = _PyUnicode_Ready(space, ref)
@@ -1315,7 +1315,7 @@ def PyUnicode_New(space, size, maxchar):
 @cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
           Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
 def PyUnicode_FindChar(space, ref, ch, start, end, direction):
-    if not PyUnicode_Check(space, ref):
+    if not PyUnicode_Check(ref):
         PyErr_BadArgument(space)
     w_str = from_ref(space, ref)
     ch = widen(ch)
@@ -1332,7 +1332,7 @@ def PyUnicode_FindChar(space, ref, ch, start, end, direction):
 
 @cts.decl("Py_UCS4 PyUnicode_ReadChar(PyObject *unicode, Py_ssize_t index)", error=-1)
 def PyUnicode_ReadChar(space, ref, index):
-    if not PyUnicode_Check(space, ref):
+    if not PyUnicode_Check(ref):
         PyErr_BadArgument(space)
     if not get_ready(ref):
         PyErr_BadArgument(space)
@@ -1350,7 +1350,7 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     - ref must not have a RPython object
     - ref must not have been processed by _PyUnicode_Ready
     """
-    if not PyUnicode_Check(space, ref):
+    if not PyUnicode_Check(ref):
         PyErr_BadArgument(space)
     if index < 0 or index > get_len(ref):
         raise oefmt(space.w_IndexError, "string index out of range")
