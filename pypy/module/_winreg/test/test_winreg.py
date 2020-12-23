@@ -38,7 +38,6 @@ class AppTestFfi:
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
-        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         test_data = [
             ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
@@ -268,6 +267,20 @@ class AppTestFfi:
                      "(are you running in a non-interactive session?)")
             raise
         QueryValueEx(HKEY_PERFORMANCE_DATA, 'Global')
+
+    def test_reflection_unsupported(self):
+        import sys
+        if sys.getwindowsversion() >= (5, 2):
+            skip("Requires Windows XP")
+        from winreg import (
+            CreateKey, DisableReflectionKey, EnableReflectionKey,
+            QueryReflectionKey, DeleteKeyEx)
+        with CreateKey(self.root_key, self.test_key_name) as key:
+            raises(NotImplementedError, DisableReflectionKey, key)
+            raises(NotImplementedError, EnableReflectionKey, key)
+            raises(NotImplementedError, QueryReflectionKey, key)
+            raises(NotImplementedError, DeleteKeyEx, self.root_key,
+                   self.test_key_name)
 
     def test_named_arguments(self):
         from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, OpenKeyEx

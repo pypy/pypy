@@ -286,18 +286,26 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
         with lltype.scoped_alloc(rwin32.PLONG.TO, 1) as bufsize_p:
             bufsize_p[0] = rffi.cast(rwin32.LONG, 0)
             ret = rwinreg.RegQueryValueW(hkey, c_subkey, None, bufsize_p)
-            if ret == 0 and intmask(bufsize_p[0]) == 0:
-                return space.newtext('', 0)
-            elif ret != 0 and ret != rwinreg.ERROR_MORE_DATA:
+            bufSize = intmask(bufsize_p[0])
+            if ret == rwinreg.ERROR_MORE_DATA:
+                bufSize = 256
+            elif ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryValue')
-            # Add extra space for a NULL ending
-            buf = ByteBuffer(intmask(bufsize_p[0]) * 2 + 2)
-            bufP = rffi.cast(rwin32.LPWSTR, buf.get_raw_address())
-            ret = rwinreg.RegQueryValueW(hkey, c_subkey, bufP, bufsize_p)
-            if ret != 0:
-                raiseWindowsError(space, ret, 'RegQueryValue')
-            utf8, lgt = wbuf_to_utf8(space, buf[0:intmask(bufsize_p[0])])
-            return space.newtext(utf8, lgt)
+
+            while True:
+                buf = ByteBuffer(bufSize)
+                bufP = rffi.cast(rffi.CCHARP, buf.get_raw_address())
+                ret = rwinreg.RegQueryValueW(hkey, c_subkey, bufP, bufsize_p)
+                if ret == rwinreg.ERROR_MORE_DATA:
+                    # Resize and retry
+                    bufSize *= 2
+                    bufsize_p[0] = rffi.cast(rwin32.LONG, bufSize)
+                    continue
+
+                if ret != 0:
+                    raiseWindowsError(space, ret, 'RegQueryValue')
+                utf8, lgt = wbuf_to_utf8(space, buf[0:intmask(bufsize_p[0])])
+                return space.newtext(utf8, lgt)
 
 
 def convert_to_regdata(space, w_value, typ):
