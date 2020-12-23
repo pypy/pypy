@@ -183,6 +183,16 @@ class AppTestFfi:
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
 
+    def test_qword(self):
+        # REG_QWORD is added in Python 3.6, can't set in setup_class
+        from winreg import CreateKey, SetValueEx, QueryValueEx, REG_QWORD
+        key = CreateKey(self.root_key, self.test_key_name)
+        sub_key = CreateKey(key, u"sub_key")
+        name = 'Long Value'
+        value = 0xFEDCBA9876543210
+        SetValueEx(sub_key, name, 0, REG_QWORD, value)
+        assert QueryValueEx(sub_key, name) == (value, REG_QWORD)
+
     def test_delete(self):
         # must be run after test_SetValueEx
         from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
@@ -193,6 +203,8 @@ class AppTestFfi:
             DeleteValue(sub_key, name)
         # cannot wrap a memoryview in setup_class for test_data
         DeleteValue(sub_key, 'test_name')
+        # REG_QWORD is added in Python 3.6, can't set in setup_class
+        DeleteValue(sub_key, 'Long Value')
 
         DeleteKey(key, "sub_key")
 

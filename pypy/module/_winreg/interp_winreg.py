@@ -1,6 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
-from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.buffer import ByteBuffer
 
 from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
@@ -315,6 +315,17 @@ def convert_to_regdata(space, w_value, typ):
             buf1[0] = rffi.cast(rffi.UINT, value)
             buf = rffi.cast(rffi.CCHARP, buf1)
 
+    elif typ == rwinreg.REG_QWORD:
+        if space.is_none(w_value) or space.isinstance_w(w_value, space.w_int):
+            if space.is_none(w_value):
+                value = r_ulonglong(0)
+            else:
+                value = space.r_ulonglong_w(w_value)
+            buflen = rffi.sizeof(rffi.ULONGLONG)
+            buf1 = lltype.malloc(rffi.CArray(rffi.ULONGLONG), 1, flavor='raw')
+            buf1[0] = rffi.cast(rffi.ULONGLONG, value)
+            buf = rffi.cast(rffi.CCHARP, buf1)
+
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if space.is_w(w_value, space.w_None):
             buflen = 1
@@ -408,6 +419,12 @@ def convert_from_regdata(space, buf, buflen, typ):
         d = rffi.cast(rwin32.LPDWORD, buf.get_raw_address())[0]
         return space.newint(d)
 
+    elif typ == rwinreg.REG_QWORD:
+        if not buflen:
+            return space.newint(0)
+        d = rffi.cast(rffi.ULONGLONGP, buf.get_raw_address())[0]
+        return space.newint(d)
+
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
         if not buflen:
             return space.newtext('', 0)
@@ -456,6 +473,8 @@ type is an integer that specifies the type of the data.  This should be one of:
   REG_DWORD -- A 32-bit number.
   REG_DWORD_LITTLE_ENDIAN -- A 32-bit number in little-endian format.
   REG_DWORD_BIG_ENDIAN -- A 32-bit number in big-endian format.
+  REG_QWORD -- A 64-bit number.
+  REG_QWORD_LITTLE_ENDIAN -- A 64-bit number in little-endian format.
   REG_EXPAND_SZ -- A null-terminated string that contains unexpanded references
                    to environment variables (for example, %PATH%).
   REG_LINK -- A Unicode symbolic link.
