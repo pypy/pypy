@@ -1,4 +1,4 @@
-# spaceconfig = dict(usemodules=('_warnings',))
+# spaceconfig = {"usemodules": ["_warnings"]}
 import pytest
 
 import warnings
@@ -62,11 +62,13 @@ def test_show_source_line():
     finally:
         warnings.showwarning = saved
 
+
 def test_filename_none():
     globals()['__file__'] = 'test.pyc'
     _warnings.warn('test', UserWarning)
     globals()['__file__'] = None
     _warnings.warn('test', UserWarning)
+
 
 def test_warn_unicode():
     if '__pypy__' not in sys.builtin_module_names:
@@ -80,7 +82,16 @@ def test_warn_unicode():
                 self.data.append(u)
         sys.stderr = Grab()
         sys.stderr.data = data = []
-        warnings.showwarning = warnings._show_warning
+        if sys.version_info > (3, 0, 0):
+            # Copy from lib-python/3/warnings.py
+            def orig_showwarning(message, category, filename, lineno, file=None, line=None):
+                msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+                warnings._showwarnmsg_impl(msg)
+            warnings.showwarning = orig_showwarning
+            _unicode = str
+        else:
+            warnings.showwarning = warnings._show_warning
+            _unicode = unicode
         # ^^^ disables any catch_warnings() issued by the test runner
         _warnings.warn_explicit("9238exbexn8", Warning,
                                 "<string>", 1421, module_globals=globals())
@@ -88,11 +99,17 @@ def test_warn_unicode():
         assert isinstance(''.join(data), str)
         _warnings.warn_explicit(u"\u1234\u5678", UserWarning,
                                 "<str2>", 831, module_globals=globals())
-        assert isinstance(''.join(data), unicode)
+        assert isinstance(''.join(data), _unicode)
         assert ''.join(data).endswith(
                          u'<str2>:831: UserWarning: \u1234\u5678\n')
     finally:
         sys.stderr, warnings.showwarning = old
+
+
+
+
+
+
 
 def test_issue31285():
     def get_bad_loader(splitlines_ret_val):
