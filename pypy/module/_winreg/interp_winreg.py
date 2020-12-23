@@ -311,6 +311,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
 def convert_to_regdata(space, w_value, typ):
     '''returns CCHARP, int'''
     buf = None
+    allocated = True
 
     if typ == rwinreg.REG_DWORD:
         if space.is_none(w_value) or space.isinstance_w(w_value, space.w_int):
@@ -385,8 +386,8 @@ def convert_to_regdata(space, w_value, typ):
     else:  # REG_BINARY and ALL unknown data types.
         if space.is_w(w_value, space.w_None):
             buflen = 0
-            buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-            buf[0] = '\0'
+            buf = lltype.nullptr(rffi.CCHARP.TO)
+            allocated = False
         else:
             try:
                 value = w_value.buffer_w(space, space.BUF_SIMPLE)
@@ -400,7 +401,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = rffi.str2charp(value)
 
     if buf is not None:
-        return rffi.cast(rffi.CWCHARP, buf), buflen
+        return rffi.cast(rffi.CWCHARP, buf), buflen, allocated
 
     raise oefmt(space.w_ValueError,
                 "Could not convert the data to the specified type")
@@ -465,7 +466,10 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(ret)
 
     else:  # REG_BINARY and all other types
-        return space.newbytes(buf[0:buflen])
+        if buflen == 0:
+            return space.w_None
+        else:
+            return space.newbytes(buf[0:buflen])
 
 
 @unwrap_spec(value_name="unicode", typ=int)
@@ -505,13 +509,14 @@ Value lengths are limited by available memory. Long values (more than
 2048 bytes) should be stored as files with the filenames stored in
 the configuration registry.  This helps the registry perform efficiently."""
     hkey = hkey_w(w_hkey, space)
-    buf, buflen = convert_to_regdata(space, w_value, typ)
+    buf, buflen, allocated = convert_to_regdata(space, w_value, typ)
     try:
         with rffi.scoped_unicode2wcharp(value_name) as wide_vn:
             c_vn = rffi.cast(rffi.CWCHARP, wide_vn)
             ret = rwinreg.RegSetValueExW(hkey, c_vn, 0, typ, buf, buflen)
     finally:
-        lltype.free(buf, flavor='raw')
+        if allocated:
+            lltype.free(buf, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSetValueEx')
 
