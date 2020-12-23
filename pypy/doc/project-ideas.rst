@@ -156,6 +156,7 @@ Convert RPython to Python3
 The world is moving on, we should too. Work in this direction has begun on the
 ``rpython3`` branch, mainly to enable building documentation with Python3. Some
 things that are known to need careful refactoring:
+
 - a single character in python3 is an int, not a byte
 - we use ``str``/``unicode`` to distiguish between different modes of
   operation for windows in ``make_win32_traits``.
