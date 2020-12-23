@@ -141,6 +141,7 @@ def test_warn_unicode():
         sys.stderr, warnings.showwarning = old
 
 
+
 def test_bad_category():
     raises(TypeError, _warnings.warn, "text", 123)
 
