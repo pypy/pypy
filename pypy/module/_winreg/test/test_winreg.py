@@ -38,6 +38,7 @@ class AppTestFfi:
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
+        cls.w_runappdirect = space.wrap(cls.runappdirect)
 
         test_data = [
             ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),

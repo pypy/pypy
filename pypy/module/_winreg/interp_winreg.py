@@ -294,7 +294,7 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
 
             while True:
                 buf = ByteBuffer(bufSize)
-                bufP = rffi.cast(rffi.CCHARP, buf.get_raw_address())
+                bufP = rffi.cast(rffi.CWCHARP, buf.get_raw_address())
                 ret = rwinreg.RegQueryValueW(hkey, c_subkey, bufP, bufsize_p)
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
