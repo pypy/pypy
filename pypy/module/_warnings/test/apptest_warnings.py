@@ -106,11 +106,6 @@ def test_warn_unicode():
         sys.stderr, warnings.showwarning = old
 
 
-
-
-
-
-
 def test_issue31285():
     def get_bad_loader(splitlines_ret_val):
         class BadLoader:
