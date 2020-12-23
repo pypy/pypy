@@ -183,7 +183,7 @@ How 64-bit translation works
 
 We assume that the integer type of RPython is
 large enough to (occasionally) contain a pointer value cast to an
-integer.  The simplest fix is to make sure that it is so, It results in a
+integer.  The simplest fix is to make sure that it is so, which results in a
 python2 with the following incompatibility between CPython and PyPy on Win64:
 
 CPython: ``sys.maxint == 2**31-1, sys.maxsize == 2**63-1``
@@ -216,8 +216,8 @@ Then a more generally review of all the C files in
 
 Then, these two C types have corresponding RPython types: ``rffi.LONG``
 and ``lltype.Signed`` respectively.  The first should really correspond
-to the C ``long``.  Tests were added that check that integers cast to one
-type or the other really have 32 and 64 bits respectively, on Win64.
+to the C ``long``, as verified by the ``test_rffi_sizeof`` test. The
+size of the latter is verified in ``rarithmatic``.
 
 Once these basic tests worked, we reviewed ``rpython/rlib/`` for
 uses of ``rffi.LONG`` versus ``lltype.Signed``.  The goal was to
@@ -229,7 +229,7 @@ bad idea.  Look only at CPython64/64.
 
 This was enough to get a translation of PyPy with ``-O2``
 with a minimal set of modules, starting with ``--no-allworkingmodules``;
-using CPython64/64 to run this translation too.  Careful checking
+using CPython64/64 to run this translation too.  Careful checking of
 the warnings of the C compiler at the end revealed more places that needed
 work. By default, MSVC
 reports a lot of mismatches of integer sizes as warnings instead of
@@ -241,10 +241,10 @@ PyPy on Windows 64 that includes all ``--translationmodules``, i.e.
 everything needed to run translations.  Once we had that, the hacked
 CPython64/64 becomes much less important, because we can run future
 translations on top of this translated PyPy.  This made it to the nightly
-builds on the default branch, and was an essential component
-for anyone else that wants to work on Win64!  We end up with a strange
-kind of dependency --- we need a translated PyPy in order to translate a
-PyPy ---, but I believe it's ok here, as Windows executables are
+builds on the default branch, and needs to be used by anyone else who wants to
+continue working on Win64! The whole process
+ends up with a strange kind of dependency --- we need a translated PyPy in
+order to translate a PyPy ---, but that's ok here, as Windows executables are
 supposed to never be broken by newer versions of Windows.
 
 Happy hacking :-)
