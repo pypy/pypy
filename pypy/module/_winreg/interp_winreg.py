@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.buffer import ByteBuffer
+from rpython.rlib.rutf8 import check_utf8
 
 from pypy.interpreter.baseobjspace import W_Root, BufferInterfaceNotFound
 from pypy.interpreter.gateway import interp2app, unwrap_spec
@@ -439,13 +440,15 @@ def convert_from_regdata(space, buf, buflen, typ):
             return space.newtext('', 0)
         even = (buflen // 2) * 2
         utf8, lgt = wbuf_to_utf8(space, buf[0:even])
-        # may have a trailing NULL in the buffer.
+        # bpo-25778, truncate at first NULL to match reg.exe behaviour.
+        i = 0
         utf8len = len(utf8)
-        if utf8len > 2 and lgt > 0 and utf8[utf8len - 2] == '\x00':
-            lgt -= 1
-            newlen = len(utf8) - 1
-            assert newlen > 0
-            utf8 = utf8[0:newlen]
+        while i < utf8len:
+            if utf8[i] == '\x00':
+                utf8 = utf8[0:i]
+                lgt = check_utf8(utf8, True)
+                break
+            i += 1
         w_s = space.newtext(utf8, lgt)
         return w_s
 

@@ -209,6 +209,19 @@ class AppTestFfi:
 
         DeleteKey(key, "sub_key")
 
+    def test_truncate_null(self):
+        # bpo-25778: REG_SZ should not contain null characters
+        from winreg import CreateKey, SetValueEx, QueryValueEx, DeleteValue
+        from winreg import REG_SZ, HKEY_CURRENT_USER
+        key = CreateKey(self.root_key, self.test_key_name)
+
+        test_name = "test_truncate"
+        test_val = "A string\x00 with a null"
+        expected_val = "A string"
+        SetValueEx(key, test_name, 0, REG_SZ, test_val)
+        assert QueryValueEx(key, test_name) == (expected_val, REG_SZ)
+        DeleteValue(key, test_name)
+
     def test_connect(self):
         from winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
         h = ConnectRegistry(None, HKEY_LOCAL_MACHINE)
