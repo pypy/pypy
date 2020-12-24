@@ -5,12 +5,8 @@ RPython is supported on Windows platforms, starting with Windows 2000.
 The following text gives some hints about how to translate a interpreter
 written in RPython, using PyPy as an example.
 
-PyPy supports only being translated as a 32bit program, even on
-64bit Windows.  See at the end of this page for what is missing
-for a full 64bit translation.
-
 To build pypy-c you need a working python environment, and a C compiler.
-It is possible to translate with a CPython 2.6 or later, but this is not
+It is possible to translate with a CPython 2.6 or 2.7, but this is not
 the preferred way, because it will take a lot longer to run – depending
 on your architecture, between two and three times as long. So head to
 `our downloads`_ and get the latest stable version.
@@ -41,13 +37,15 @@ PyPy has a chicken and egg problem: in order to compile something we need
 ``msvc.py`` in ``rpython/tools/setuptools_msvc.py``.
 
 PyPy will prefer to compile with the latest MSVC compiler it can find, which is
-a departure from CPython's desire to compile with Visual Studio 9.
+a departure from CPython's desire to compile with the compiler used to compile
+the exe in use.
 
 Translating PyPy with Visual Studio
 -----------------------------------
 
 We routinely test translation of PyPy using Visual Studio 2019, MSVC160.
-Other configurations may work as well.
+Other configurations may work as well. You must use at least Visual Studio
+2012.
 
 The translation scripts will set up the appropriate environment variables
 for the compiler, so you do not need to run vcvars before translation.
@@ -158,7 +156,7 @@ If you wish to experiment with win64, you must run configure with flags::
 or such, depending on your mingw64 download.
 
 
-hacking on PyPy with the mingw compiler
+Hacking on PyPy with the mingw compiler
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 Since hacking on PyPy means running tests, you will need a way to specify
 the mingw compiler when hacking (as opposed to translating). As of
@@ -176,5 +174,4 @@ What is missing for a full 64-bit translation
 
 This is a placeholder for old links to this topic. We have :ref:`solved the
 64-bit translation problems <windows64>` and there are nightly builds of 64-bit windows.
-
 
