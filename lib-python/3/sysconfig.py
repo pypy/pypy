@@ -373,7 +373,7 @@ def get_makefile_filename():
 
 
 def _get_sysconfigdata_name():
-    # FIXME: temporary hack for PyPy
+    # FIXME: hack for PyPy
     return '_sysconfigdata'
     return os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
         '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
@@ -617,9 +617,6 @@ def get_config_vars(*args):
         if sys.platform == 'darwin':
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
-
-        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
-                                                 'include')
 
     if args:
         vals = []
