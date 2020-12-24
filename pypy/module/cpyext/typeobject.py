@@ -73,7 +73,8 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
-def PyDescr_NewGetSet(space, getset, w_type):
+def PyDescr_NewGetSet(space, w_type, getset):
+    # Note the arguments are reversed
     return W_GetSetPropertyEx(getset, w_type)
 
 def make_GetSet(space, getsetprop):
@@ -241,7 +242,7 @@ def convert_getset_defs(space, dict_w, getsets, w_type):
             if not name:
                 break
             name = rffi.charp2str(name)
-            w_descr = PyDescr_NewGetSet(space, getset, w_type)
+            w_descr = PyDescr_NewGetSet(space, w_type, getset)
             dict_w[name] = w_descr
 
 def convert_member_defs(space, dict_w, members, w_type):
