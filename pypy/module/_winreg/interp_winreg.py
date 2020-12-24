@@ -366,7 +366,6 @@ But the underlying API call doesn't return the type: Lame, DONT USE THIS!!!"""
 def convert_to_regdata(space, w_value, typ):
     '''returns CCHARP, int'''
     buf = None
-    allocated = True
 
     if typ == rwinreg.REG_DWORD:
         if space.is_none(w_value) or space.isinstance_w(w_value, space.w_int):
@@ -442,7 +441,6 @@ def convert_to_regdata(space, w_value, typ):
         if space.is_w(w_value, space.w_None):
             buflen = 0
             buf = lltype.nullptr(rffi.CCHARP.TO)
-            allocated = False
         else:
             try:
                 value = w_value.buffer_w(space, space.BUF_SIMPLE)
@@ -456,7 +454,7 @@ def convert_to_regdata(space, w_value, typ):
             buf = rffi.str2charp(value)
 
     if buf is not None:
-        return rffi.cast(rffi.CWCHARP, buf), buflen, allocated
+        return rffi.cast(rffi.CWCHARP, buf), buflen
 
     raise oefmt(space.w_ValueError,
                 "Could not convert the data to the specified type")
@@ -567,13 +565,13 @@ Value lengths are limited by available memory. Long values (more than
 2048 bytes) should be stored as files with the filenames stored in
 the configuration registry.  This helps the registry perform efficiently."""
     hkey = hkey_w(w_hkey, space)
-    buf, buflen, allocated = convert_to_regdata(space, w_value, typ)
+    buf, buflen = convert_to_regdata(space, w_value, typ)
     try:
         with rffi.scoped_unicode2wcharp(value_name) as wide_vn:
             c_vn = rffi.cast(rffi.CWCHARP, wide_vn)
             ret = rwinreg.RegSetValueExW(hkey, c_vn, 0, typ, buf, buflen)
     finally:
-        if allocated:
+        if buf != lltype.nullptr(rffi.CWCHARP.TO):
             lltype.free(buf, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSetValueEx')
