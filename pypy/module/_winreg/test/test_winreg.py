@@ -46,6 +46,7 @@ class AppTestFfi:
             ("Unicode Value", "A unicode Value", winreg.REG_SZ),
             ("Str Expand", "The path is %path%", winreg.REG_EXPAND_SZ),
             ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
+            ("Multi Str Empty", ["", "", ""], winreg.REG_MULTI_SZ),
             ("Raw None", None, winreg.REG_BINARY),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)

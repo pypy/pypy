@@ -1,5 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rlib import rwinreg, rwin32
+from rpython.rlib import rwinreg, rwin32, rstring
 from rpython.rlib.rarithmetic import r_uint, r_ulonglong, intmask
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rutf8 import check_utf8
@@ -455,17 +455,18 @@ def convert_from_regdata(space, buf, buflen, typ):
     elif typ == rwinreg.REG_MULTI_SZ:
         if not buflen:
             return space.newlist([])
-        i = 0
+        even = (buflen // 2) * 2
+        utf8, lgt = wbuf_to_utf8(space, buf[0:even])
+        parts = rstring.split(utf8, '\0')
+        partslen = len(parts)
+        if partslen > 0 and parts[partslen-1] == '':
+            partslen -= 1
         ret = []
-        while i < buflen and buf[i]:
-            start = i
-            while i < buflen and buf[i] != '\0':
-                i += 2
-            if start == i:
-                break
-            utf8, lgt = wbuf_to_utf8(space, buf[start:i])
-            ret.append(space.newtext(utf8, lgt))
-            i += 2
+        i = 0
+        while i < partslen:
+            lgt = check_utf8(parts[i], True)
+            ret.append(space.newtext(parts[i], lgt))
+            i += 1
         return space.newlist(ret)
 
     else:  # REG_BINARY and all other types
