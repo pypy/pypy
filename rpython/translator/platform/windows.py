@@ -176,7 +176,8 @@ class MsvcPlatform(Platform):
 
     cflags = ('/MD', '/O2', '/FS', '/Zi')
     # allow >2GB address space, set stack to 3MB (1MB is too small)
-    link_flags = ('/debug','/LARGEADDRESSAWARE', '/STACK:3145728')
+    link_flags = ('/nologo', '/debug','/LARGEADDRESSAWARE',
+                  '/STACK:3145728', '/MANIFEST:EMBED')
     standalone_only = ()
     shared_only = ()
     environ = None
@@ -280,21 +281,11 @@ class MsvcPlatform(Platform):
         if not standalone:
             args = self._args_for_shared(args)
 
-        # Tell the linker to generate a manifest file
-        temp_manifest = exe_name.dirpath().join(
-            exe_name.purebasename + '.manifest')
-        args += ["/MANIFEST", "/MANIFESTFILE:%s" % (temp_manifest,)]
+        # Tell the linker to embed a manifest with the default
+        # UAC level asInvoker (Visual Studio 2008 +)
+        args += ["/MANIFEST:EMBED"]
 
         self._execute_c_compiler(self.link, args, exe_name)
-
-        # Now, embed the manifest into the program
-        if standalone:
-            mfid = 1
-        else:
-            mfid = 2
-        out_arg = '-outputresource:%s;%s' % (exe_name, mfid)
-        args = ['-nologo', '-manifest', str(temp_manifest), out_arg]
-        self._execute_c_compiler('mt.exe', args, exe_name)
 
         return exe_name
 
@@ -391,8 +382,16 @@ class MsvcPlatform(Platform):
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
-        rules = [
-            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
+        if shared and self.make == 'jom.exe':
+            # Add `.SYNC` for jom.exe and get it to create
+            # main.c, wmain.c in a separate step before trying to compile them
+            rules = [('all',
+                      'main.c wmain.c .SYNC $(DEFAULT_TARGET) .SYNC $(WTARGET)',
+                      []),
+                    ]
+        else:
+            rules = [('all', '$(DEFAULT_TARGET) $(WTARGET)', []),]
+        rules += [
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -437,14 +436,23 @@ class MsvcPlatform(Platform):
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
-
+            if shared:
+                rules.append(('main.obj', 'main.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c main.c $(INCLUDEDIRS)'))
+                rules.append(('wmain.obj', 'wmain.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c wmain.c $(INCLUDEDIRS)'))
 
         icon = config.translation.icon if config else None
+        manifest = config.translation.manifest if config else None
         if icon:
             shutil.copyfile(icon, str(path.join('icon.ico')))
             rc_file = path.join('icon.rc')
             rc_file.write('IDI_ICON1 ICON DISCARDABLE "icon.ico"')
             rules.append(('icon.res', 'icon.rc', 'rc icon.rc'))
+        if manifest:
+            shutil.copyfile(manifest, str(path.join('pypy.manifest')))
 
 
         for args in definitions:
@@ -468,15 +476,17 @@ class MsvcPlatform(Platform):
         if icon and not shared:
             extra_deps.append('icon.res')
             linkobjs = 'icon.res ' + linkobjs
+        if manifest and not shared:
+            linkflags.append('/MANIFESTINPUT:pypy.manifest')
         m.rule('$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                [ '$(CC_LINK) /nologo $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) /MANIFEST' + \
-                  ' /MANIFESTFILE:$*.manifest ' + linkobjs,
-                'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                [ '$(CC_LINK) $(LDFLAGS) $(LDFLAGSEXTRA)' + 
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + 
+                  linkobjs,
                 ])
         m.rule('debugmode_$(TARGET)', ['$(OBJECTS)'] + extra_deps,
-                [ '$(CC_LINK) /nologo /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + \
-                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + linkobjs,
+                [ '$(CC_LINK) /DEBUG $(LDFLAGS) $(LDFLAGSEXTRA)' + 
+                  ' $(LINKFILES) /out:$@ $(LIBDIRS) $(LIBS) ' + 
+                  linkobjs,
                 ])
 
         if shared:
@@ -489,36 +499,41 @@ class MsvcPlatform(Platform):
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
             m.rule('wmain.c', '',
-                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
-                   'echo #include "stdlib.h" >> $@',
-                   'echo #include "windows.h" >> $@',
-                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
-                   'echo int WINAPI WinMain( >> $@',
-                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
-                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
-                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
-                   'echo     int nCmdShow              /* show state of window */ >> $@',
-                   'echo ) >> $@',
-                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
+                   'echo #include "stdlib.h" >> $@.tmp',
+                   'echo #include "windows.h" >> $@.tmp',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
+                   'echo int WINAPI WinMain( >> $@.tmp',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
+                   'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
+                   'echo ) >> $@.tmp',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@.tmp',
+                   'move $@.tmp $@',
+                   ])
             wdeps = ['wmain.obj']
             if icon:
                 deps.append('icon.res')
                 wdeps.append('icon.res')
+            manifest_args = '/MANIFEST:EMBED'
+            if manifest:
+                manifest_args += ' /MANIFESTINPUT:pypy.manifest'
             m.rule('$(DEFAULT_TARGET)', ['$(TARGET)'] + deps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /STACK:3145728 %s ' % (' '.join(deps),) + \
-                    '$(SHARED_IMPORT_LIB) /out:$@ ' + \
-                    '/MANIFEST /MANIFESTFILE:$*.manifest',
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    ' '.join(deps) + ' $(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
             m.rule('$(WTARGET)', ['$(TARGET)'] + wdeps,
-                   ['$(CC_LINK) /nologo /debug /LARGEADDRESSAWARE /STACK:3145728 /SUBSYSTEM:WINDOWS %s ' % (
-                    ' '.join(wdeps),) + '$(SHARED_IMPORT_LIB) /out:$@ ' + \
-                    '/MANIFEST /MANIFESTFILE:$*.manifest',
-                    'mt.exe -nologo -manifest $*.manifest -outputresource:$@;1',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    '/SUBSYSTEM:WINDOWS '  +
+                    ' '.join(wdeps) + ' $(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
             m.rule('debugmode_$(DEFAULT_TARGET)', ['debugmode_$(TARGET)']+deps,
-                   ['$(CC_LINK) /nologo /DEBUG /LARGEADDRESSAWARE /STACK:3145728 %s ' % (' '.join(deps),) + \
-                    'debugmode_$(SHARED_IMPORT_LIB) /out:$@',
+                   ['$(CC_LINK) /DEBUG /LARGEADDRESSAWARE /STACK:3145728 ' +
+                    ' '.join(deps) + ' debugmode_$(SHARED_IMPORT_LIB) ' +
+                    manifest_args + ' /out:$@ '
                     ])
 
         return m

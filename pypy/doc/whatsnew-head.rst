@@ -39,3 +39,7 @@ Introduce @rlib.objectmodel.llhelper_error_value, will be used by HPy
 .. branch: add-rffi-constcharpsize2str
 
 Add ``rffi.constcharpsize2str``
+
+.. branch: document-win64
+
+Refactor documentation of win64 from future plans to what was executed

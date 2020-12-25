@@ -202,6 +202,8 @@ translation_optiondescription = OptionDescription(
                default=False, cmdline="--lto",
                requires=[("translation.gcrootfinder", "shadowstack")]),
     StrOption("icon", "Path to the (Windows) icon to use for the executable"),
+    StrOption("manifest",
+              "Path to the (Windows) manifest to embed in the executable"),
     StrOption("libname",
               "Windows: name and possibly location of the lib file to create"),
 
