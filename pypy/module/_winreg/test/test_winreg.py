@@ -255,3 +255,34 @@ class AppTestFfi:
             raises(NotImplementedError, DeleteKeyEx, self.root_key,
                    self.test_key_name)
 
+    def test_reflection(self):
+        import sys
+        from _winreg import DisableReflectionKey, EnableReflectionKey, \
+                           QueryReflectionKey, OpenKey, HKEY_LOCAL_MACHINE
+        # Adapted from lib-python test
+        if sys.getwindowsversion() < (5, 2) or sys.maxsize < 2**32:
+            skip("Requires 64-bit Windows")
+        # Test that we can call the query, enable, and disable functions
+        # on a key which isn't on the reflection list with no consequences.
+        with OpenKey(HKEY_LOCAL_MACHINE, "Software") as key:
+            # HKLM\Software is redirected but not reflected in all OSes
+            assert QueryReflectionKey(key)
+            assert EnableReflectionKey(key) is None
+            assert DisableReflectionKey(key) is None
+            assert QueryReflectionKey(key)
+
+    def test_named_arguments(self):
+        import sys
+        from _winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, DeleteKeyEx, OpenKeyEx
+        with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                         reserved=0, access=KEY_ALL_ACCESS) as ckey:
+            assert ckey.handle != 0
+        with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                       reserved=0, access=KEY_ALL_ACCESS) as okey:
+            assert okey.handle != 0
+        if sys.getwindowsversion() >= (5, 2) and sys.maxsize > 2**32:
+            DeleteKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                        access=KEY_ALL_ACCESS, reserved=0)
+        else:
+            DeleteKey(self.root_key, self.test_key_name)
+

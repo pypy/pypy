@@ -713,24 +713,45 @@ def DisableReflectionKey(space, w_key):
     a 32-bit Operating System.
     If the key is not on the reflection list, the function succeeds but has no effect.
     Disabling reflection for a key does not affect reflection of any subkeys."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not rwinreg.reflection_supported:
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        ret = rwinreg.RegDisableReflectionKey(hkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDisableReflectionKey')
 
 def EnableReflectionKey(space, w_key):
     """Restores registry reflection for the specified disabled key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System.
     Restoring reflection for a key does not affect reflection of any subkeys."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not rwinreg.reflection_supported:
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        ret = rwinreg.RegEnableReflectionKey(hkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegEnableReflectionKey')
 
 def QueryReflectionKey(space, w_key):
     """bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not rwinreg.reflection_supported:
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        with lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as isDisabled:
+            ret = rwinreg.RegQueryReflectionKey(hkey, isDisabled)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegQueryReflectionKey')
+            return space.newbool(intmask(isDisabled[0]) != 0)
 
-@unwrap_spec(subkey="text")
-def DeleteKeyEx(space, w_key, subkey):
+
+@unwrap_spec(sub_key="unicode", access=r_uint, reserved=int)
+def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=0):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
     key is an already open key, or any one of the predefined HKEY_* constants.
@@ -744,5 +765,13 @@ def DeleteKeyEx(space, w_key, subkey):
     If the method succeeds, the entire key, including all of its values,
     is removed.  If the method fails, a WindowsError exception is raised.
     On unsupported Windows versions, NotImplementedError is raised."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not rwinreg.reflection_supported:
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        with rffi.scoped_unicode2wcharp(sub_key) as wide_subkey:
+            c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
+            ret = rwinreg.RegDeleteKeyExW(hkey, c_subkey, access, reserved)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegDeleteKeyEx')
