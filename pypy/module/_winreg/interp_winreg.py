@@ -328,8 +328,7 @@ def convert_to_regdata(space, w_value, typ):
     else: # REG_BINARY and ALL unknown data types.
         if space.is_w(w_value, space.w_None):
             buflen = 0
-            buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-            buf[0] = '\0'
+            buf = lltype.nullptr(rffi.CCHARP.TO)
         else:
             try:
                 value = w_value.readbuf_w(space)
@@ -385,7 +384,10 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.newbytes(rffi.charpsize2str(buf, buflen))
+        if buflen == 0:
+            return space.w_None
+        else:
+            return space.newbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name="text", typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
@@ -424,7 +426,8 @@ the configuration registry.  This helps the registry perform efficiently."""
     try:
         ret = rwinreg.RegSetValueExA(hkey, value_name, 0, typ, buf, buflen)
     finally:
-        lltype.free(buf, flavor='raw')
+        if buf != lltype.nullptr(rffi.CCHARP.TO):
+            lltype.free(buf, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSetValueEx')
 
