@@ -99,6 +99,8 @@ class TestMakefile(object):
                                         config = Config(),
                                        )
         mk.write()
+        # Work around problem when using jom.exe instead of nmake.exe
+        self.platform.make = 'nmake.exe'
         self.platform.execute_makefile(mk)
 
         # Make sure compilation succeeded for the target, targetw,
