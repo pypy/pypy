@@ -43,3 +43,10 @@ Merge win64 into this branch
 .. branch: win64-cpyext
 
 Fix the cpyext module for win64
+
+.. branch: py3.7-winreg
+
+Fix various problems with ``winreg``: add ``REG_QWORD``, implement reflection
+on win64, (bpo-21151) preserve None passed as ``REG_BINARY``, (bpo-25778),
+truncate ``REG_SZ`` at first ``NULL``, use surrogatepass in ``UTF-16`` decoding
+(issue 3342).

@@ -31,6 +31,7 @@ class AppTestFfi:
 
     def setup_class(cls):
         import _winreg as winreg
+        from platform import machine
         space = cls.space
         cls.root_key = winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Test Key - Delete Me [%d]" % os.getpid()
@@ -39,6 +40,7 @@ class AppTestFfi:
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
         cls.w_runappdirect = space.wrap(cls.runappdirect)
+        cls.w_win64_machine = space.wrap(machine() == "AMD64")
 
         test_data = [
             ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
@@ -46,6 +48,11 @@ class AppTestFfi:
             ("Unicode Value", "A unicode Value", winreg.REG_SZ),
             ("Str Expand", "The path is %path%", winreg.REG_EXPAND_SZ),
             ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
+            ("Multi Str Empty", ["", "", ""], winreg.REG_MULTI_SZ),
+            ("Raw None", None, winreg.REG_BINARY),
+            # issue 3342, round-trip invalid UTF-16 strings
+            (u"Invalid \uDC00", u"\uDC00", winreg.REG_SZ),
+            (u"Invalid \uD800", u"\uD800", winreg.REG_SZ),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
         w_btest = space.newtuple([space.wrap("Raw data"),
@@ -183,6 +190,16 @@ class AppTestFfi:
         assert EnumKey(key, 0) == "sub_key"
         raises(EnvironmentError, EnumKey, key, 1)
 
+    def test_qword(self):
+        # REG_QWORD is added in Python 3.6, can't set in setup_class
+        from winreg import CreateKey, SetValueEx, QueryValueEx, REG_QWORD
+        key = CreateKey(self.root_key, self.test_key_name)
+        sub_key = CreateKey(key, u"sub_key")
+        name = 'Long Value'
+        value = 0xFEDCBA9876543210
+        SetValueEx(sub_key, name, 0, REG_QWORD, value)
+        assert QueryValueEx(sub_key, name) == (value, REG_QWORD)
+
     def test_delete(self):
         # must be run after test_SetValueEx
         from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
@@ -193,8 +210,23 @@ class AppTestFfi:
             DeleteValue(sub_key, name)
         # cannot wrap a memoryview in setup_class for test_data
         DeleteValue(sub_key, 'test_name')
+        # REG_QWORD is added in Python 3.6, can't set in setup_class
+        DeleteValue(sub_key, 'Long Value')
 
         DeleteKey(key, "sub_key")
+
+    def test_truncate_null(self):
+        # bpo-25778: REG_SZ should not contain null characters
+        from winreg import CreateKey, SetValueEx, QueryValueEx, DeleteValue
+        from winreg import REG_SZ, HKEY_CURRENT_USER
+        key = CreateKey(self.root_key, self.test_key_name)
+
+        test_name = "test_truncate"
+        test_val = "A string\x00 with a null"
+        expected_val = "A string"
+        SetValueEx(key, test_name, 0, REG_SZ, test_val)
+        assert QueryValueEx(key, test_name) == (expected_val, REG_SZ)
+        DeleteValue(key, test_name)
 
     def test_connect(self):
         from winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
@@ -257,12 +289,46 @@ class AppTestFfi:
             raise
         QueryValueEx(HKEY_PERFORMANCE_DATA, 'Global')
 
+    def test_reflection_unsupported(self):
+        import sys
+        if sys.getwindowsversion() >= (5, 2):
+            skip("Requires Windows XP")
+        from winreg import (
+            CreateKey, DisableReflectionKey, EnableReflectionKey,
+            QueryReflectionKey, DeleteKeyEx)
+        with CreateKey(self.root_key, self.test_key_name) as key:
+            raises(NotImplementedError, DisableReflectionKey, key)
+            raises(NotImplementedError, EnableReflectionKey, key)
+            raises(NotImplementedError, QueryReflectionKey, key)
+            raises(NotImplementedError, DeleteKeyEx, self.root_key,
+                   self.test_key_name)
+
+    def test_reflection(self):
+        import sys
+        from winreg import DisableReflectionKey, EnableReflectionKey, \
+                           QueryReflectionKey, OpenKey, HKEY_LOCAL_MACHINE
+        # Adapted from lib-python test
+        if not self.win64_machine:
+            skip("Requires 64-bit host")
+        # Test that we can call the query, enable, and disable functions
+        # on a key which isn't on the reflection list with no consequences.
+        with OpenKey(HKEY_LOCAL_MACHINE, "Software") as key:
+            # HKLM\Software is redirected but not reflected in all OSes
+            assert QueryReflectionKey(key)
+            assert EnableReflectionKey(key) is None
+            assert DisableReflectionKey(key) is None
+            assert QueryReflectionKey(key)
+
     def test_named_arguments(self):
-        from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, OpenKeyEx
+        from winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, DeleteKeyEx, OpenKeyEx
         with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
                          reserved=0, access=KEY_ALL_ACCESS) as ckey:
             assert ckey.handle != 0
         with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
                        reserved=0, access=KEY_ALL_ACCESS) as okey:
             assert okey.handle != 0
-        DeleteKey(self.root_key, self.test_key_name)
+        if self.win64_machine:
+            DeleteKeyEx(key=self.root_key, sub_key=self.test_key_name,
+                        access=KEY_ALL_ACCESS, reserved=0)
+        else:
+            DeleteKey(self.root_key, self.test_key_name)
