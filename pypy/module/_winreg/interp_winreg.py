@@ -6,6 +6,61 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_windowserror
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+
+# wrappers needed to call the reflection functions loaded at runtime
+# using WINAPI convention
+eci = ExternalCompilationInfo(
+    includes=['windows.h'],
+    post_include_bits=[
+        "RPY_EXTERN LONG\n"
+        "pypy_RegChangeReflectionKey(FARPROC address, HKEY key);\n"
+        "RPY_EXTERN LONG\n"
+        "pypy_RegQueryReflectionKey(FARPROC address, HKEY key, LPBOOL isDisabled);\n"
+        "RPY_EXTERN LONG\n"
+        "pypy_RegDeleteKeyExW(FARPROC address, HKEY key, LPCWSTR subkey,\n"
+        "                    REGSAM sam, DWORD reserved);\n"
+    ],
+    separate_module_sources=['''
+        LONG
+        pypy_RegChangeReflectionKey(FARPROC address, HKEY key) {
+            LONG (WINAPI *func)(HKEY);
+            *(FARPROC*)&func = address;
+            return func(key);
+        }
+
+        LONG
+        pypy_RegQueryReflectionKey(FARPROC address, HKEY key, LPBOOL isDisabled) {
+            LONG (WINAPI *func)(HKEY, LPBOOL);
+            *(FARPROC*)&func = address;
+            return func(key, isDisabled);
+        }
+
+        LONG
+        pypy_RegDeleteKeyExW(FARPROC address, HKEY key, LPCWSTR subkey,
+                            REGSAM sam, DWORD reserved) {
+            LONG (WINAPI *func)(HKEY, LPCWSTR, REGSAM, DWORD);
+            *(FARPROC*)&func = address;
+            return func(key, subkey, sam, reserved);
+        }
+    '''],
+)
+pypy_RegChangeReflectionKey = rffi.llexternal(
+    'pypy_RegChangeReflectionKey',
+    [rffi.VOIDP, rwinreg.HKEY],
+    rffi.LONG, compilation_info=eci)
+
+pypy_RegQueryReflectionKey = rffi.llexternal(
+    'pypy_RegQueryReflectionKey',
+    [rffi.VOIDP, rwinreg.HKEY, rwin32.LPBOOL],
+    rffi.LONG, compilation_info=eci)
+
+pypy_RegDeleteKeyExW = rffi.llexternal(
+    'pypy_RegDeleteKeyExW',
+    [rffi.VOIDP, rwinreg.HKEY, rffi.CWCHARP, rwinreg.REGSAM, rwin32.DWORD],
+    rffi.LONG, compilation_info=eci)
+
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
@@ -710,18 +765,51 @@ def ExpandEnvironmentStrings(space, w_source):
     except WindowsError as e:
         raise wrap_windowserror(space, e)
 
+
+class ReflectionFunction(object):
+    def __init__(self, name, stdcall_wrapper):
+        self.name = name
+        self.handle = lltype.nullptr(rffi.VOIDP.TO)
+        self.wrapper = stdcall_wrapper
+
+    def check(self):
+        if self.handle != lltype.nullptr(rffi.VOIDP.TO):
+            return True
+        from rpython.rlib.rdynload import GetModuleHandle, dlsym
+        lib = GetModuleHandle("advapi32.dll")
+        try:
+            handle = dlsym(lib, self.name)
+        except KeyError:
+            return False
+        self.handle = handle
+        return True
+
+    def call(self, *args):
+        assert self.handle != lltype.nullptr(rffi.VOIDP.TO)
+        return self.wrapper(self.handle, *args)
+
+
+_RegDisableReflectionKey = ReflectionFunction(
+    "RegDisableReflectionKey", pypy_RegChangeReflectionKey)
+_RegEnableReflectionKey = ReflectionFunction(
+    "RegEnableReflectionKey", pypy_RegChangeReflectionKey)
+_RegQueryReflectionKey = ReflectionFunction(
+    "RegQueryReflectionKey", pypy_RegQueryReflectionKey)
+_RegDeleteKeyExW = ReflectionFunction("RegDeleteKeyExW", pypy_RegDeleteKeyExW)
+
+
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit
     Operating System.  Will generally raise NotImplemented if executed on
     a 32-bit Operating System.
     If the key is not on the reflection list, the function succeeds but has no effect.
     Disabling reflection for a key does not affect reflection of any subkeys."""
-    if not rwinreg.reflection_supported:
+    if not _RegDisableReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
         hkey = hkey_w(w_key, space)
-        ret = rwinreg.RegDisableReflectionKey(hkey)
+        ret = _RegDisableReflectionKey.call(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegDisableReflectionKey')
 
@@ -729,25 +817,25 @@ def EnableReflectionKey(space, w_key):
     """Restores registry reflection for the specified disabled key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System.
     Restoring reflection for a key does not affect reflection of any subkeys."""
-    if not rwinreg.reflection_supported:
+    if not _RegEnableReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
         hkey = hkey_w(w_key, space)
-        ret = rwinreg.RegEnableReflectionKey(hkey)
+        ret = _RegEnableReflectionKey.call(hkey)
         if ret != 0:
             raiseWindowsError(space, ret, 'RegEnableReflectionKey')
 
 def QueryReflectionKey(space, w_key):
     """bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System."""
-    if not rwinreg.reflection_supported:
+    if not _RegQueryReflectionKey.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
         hkey = hkey_w(w_key, space)
         with lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as isDisabled:
-            ret = rwinreg.RegQueryReflectionKey(hkey, isDisabled)
+            ret = _RegQueryReflectionKey.call(hkey, isDisabled)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryReflectionKey')
             return space.newbool(intmask(isDisabled[0]) != 0)
@@ -768,13 +856,13 @@ def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=
     If the method succeeds, the entire key, including all of its values,
     is removed.  If the method fails, a WindowsError exception is raised.
     On unsupported Windows versions, NotImplementedError is raised."""
-    if not rwinreg.reflection_supported:
+    if not _RegDeleteKeyExW.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
         hkey = hkey_w(w_key, space)
         with rffi.scoped_unicode2wcharp(sub_key) as wide_subkey:
             c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
-            ret = rwinreg.RegDeleteKeyExW(hkey, c_subkey, access, reserved)
+            ret = _RegDeleteKeyExW.call(hkey, c_subkey, access, reserved)
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegDeleteKeyEx')

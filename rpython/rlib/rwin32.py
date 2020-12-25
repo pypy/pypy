@@ -11,13 +11,12 @@ from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask, r_longlong, widen, is_emulated_long
+from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
 # but most symbols are not usable...
 WIN32 = os.name == "nt"
-WIN64 = WIN32 and is_emulated_long
 
 if WIN32:
     eci = ExternalCompilationInfo(

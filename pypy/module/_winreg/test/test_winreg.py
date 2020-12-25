@@ -31,6 +31,7 @@ class AppTestFfi:
 
     def setup_class(cls):
         import _winreg
+        from platform import machine
         space = cls.space
         cls.root_key = _winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Registry Test Key - Delete Me"
@@ -38,6 +39,7 @@ class AppTestFfi:
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
+        cls.w_win64_machine = space.wrap(machine() == "AMD64")
 
         test_data = [
             ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
@@ -261,8 +263,8 @@ class AppTestFfi:
         from _winreg import DisableReflectionKey, EnableReflectionKey, \
                            QueryReflectionKey, OpenKey, HKEY_LOCAL_MACHINE
         # Adapted from lib-python test
-        if sys.getwindowsversion() < (5, 2) or sys.maxsize < 2**32:
-            skip("Requires 64-bit Windows")
+        if not self.win64_machine:
+            skip("Requires 64-bit host")
         # Test that we can call the query, enable, and disable functions
         # on a key which isn't on the reflection list with no consequences.
         with OpenKey(HKEY_LOCAL_MACHINE, "Software") as key:
@@ -273,7 +275,6 @@ class AppTestFfi:
             assert QueryReflectionKey(key)
 
     def test_named_arguments(self):
-        import sys
         from _winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, DeleteKeyEx, OpenKeyEx
         with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
                          reserved=0, access=KEY_ALL_ACCESS) as ckey:
@@ -281,7 +282,7 @@ class AppTestFfi:
         with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
                        reserved=0, access=KEY_ALL_ACCESS) as okey:
             assert okey.handle != 0
-        if sys.getwindowsversion() >= (5, 2) and sys.maxsize > 2**32:
+        if self.win64_machine:
             DeleteKeyEx(key=self.root_key, sub_key=self.test_key_name,
                         access=KEY_ALL_ACCESS, reserved=0)
         else:

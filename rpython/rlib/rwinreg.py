@@ -14,11 +14,6 @@ class CConfig:
     _compilation_info_ = eci
 
 
-# XXX MSDN suggests 32-bit Vista and later is also supported,
-#     but Python docs suggest only 64-bit is supported.
-#     32-bit CPython does have these functions on Windows 10.
-reflection_supported = rwin32.WIN64
-
 constant_names = '''
 KEY_QUERY_VALUE KEY_SET_VALUE KEY_CREATE_SUB_KEY KEY_ENUMERATE_SUB_KEYS
 KEY_NOTIFY KEY_CREATE_LINK KEY_READ KEY_WRITE KEY_EXECUTE KEY_ALL_ACCESS
@@ -144,30 +139,20 @@ def get_traits(suffix):
         [strp, HKEY, PHKEY],
         rffi.LONG)
 
-    if reflection_supported:
-        RegDeleteKeyEx = external(
-            'RegDeleteKeyEx' + suffix,
-            [HKEY, strp, REGSAM, rwin32.DWORD],
-            rffi.LONG)
-    else:
-        RegDeleteKeyEx = None
-
     return (RegSetValue, RegSetValueEx, RegQueryValue, RegQueryValueEx,
             RegCreateKey, RegCreateKeyEx, RegDeleteValue, RegDeleteKey,
             RegOpenKeyEx, RegEnumValue, RegEnumKeyEx, RegQueryInfoKey,
-            RegLoadKey, RegSaveKey, RegConnectRegistry, RegDeleteKeyEx)
+            RegLoadKey, RegSaveKey, RegConnectRegistry)
 
 RegSetValueW, RegSetValueExW, RegQueryValueW, RegQueryValueExW, \
     RegCreateKeyW, RegCreateKeyExW, RegDeleteValueW, RegDeleteKeyW, \
     RegOpenKeyExW, RegEnumValueW, RegEnumKeyExW, RegQueryInfoKeyW, \
-    RegLoadKeyW, RegSaveKeyW, RegConnectRegistryW, \
-    RegDeleteKeyExW = get_traits('W')
+    RegLoadKeyW, RegSaveKeyW, RegConnectRegistryW = get_traits('W')
 
 RegSetValueA, RegSetValueExA, RegQueryValueA, RegQueryValueExA, \
     RegCreateKeyA, RegCreateKeyExA, RegDeleteValueA, RegDeleteKeyA, \
     RegOpenKeyExA, RegEnumValueA, RegEnumKeyExA, RegQueryInfoKeyA, \
-    RegLoadKeyA, RegSaveKeyA, RegConnectRegistryA,\
-    RegDeleteKeyExA  = get_traits('A')
+    RegLoadKeyA, RegSaveKeyA, RegConnectRegistryA = get_traits('A')
 
 RegCloseKey = external(
     'RegCloseKey',
@@ -178,22 +163,6 @@ RegFlushKey = external(
     'RegFlushKey',
     [HKEY],
     rffi.LONG)
-
-if reflection_supported:
-    RegDisableReflectionKey = external(
-        'RegDisableReflectionKey',
-        [HKEY],
-        rffi.LONG)
-
-    RegEnableReflectionKey = external(
-        'RegEnableReflectionKey',
-        [HKEY],
-        rffi.LONG)
-
-    RegQueryReflectionKey = external(
-        'RegQueryReflectionKey',
-        [HKEY, rwin32.LPBOOL],
-        rffi.LONG)
 
 _ExpandEnvironmentStringsW = external(
     'ExpandEnvironmentStringsW',
