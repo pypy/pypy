@@ -178,14 +178,19 @@ class AppTestFfi:
 
     def test_delete(self):
         # must be run after test_SetValueEx
-        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
+        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey, DeleteKeyEx
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
 
         for name, value, type in self.test_data:
             DeleteValue(sub_key, name)
 
-        DeleteKey(key, "sub_key")
+        if self.win64_machine:
+            DeleteKeyEx(key, "sub_key", KEY_ALL_ACCESS, 0)
+        else:
+            DeleteKey(key, "sub_key")
+
+        raises(OSError, OpenKey, key, "sub_key")
 
     def test_connect(self):
         from _winreg import ConnectRegistry, HKEY_LOCAL_MACHINE
@@ -273,18 +278,3 @@ class AppTestFfi:
             assert EnableReflectionKey(key) is None
             assert DisableReflectionKey(key) is None
             assert QueryReflectionKey(key)
-
-    def test_named_arguments(self):
-        from _winreg import KEY_ALL_ACCESS, CreateKeyEx, DeleteKey, DeleteKeyEx, OpenKeyEx
-        with CreateKeyEx(key=self.root_key, sub_key=self.test_key_name,
-                         reserved=0, access=KEY_ALL_ACCESS) as ckey:
-            assert ckey.handle != 0
-        with OpenKeyEx(key=self.root_key, sub_key=self.test_key_name,
-                       reserved=0, access=KEY_ALL_ACCESS) as okey:
-            assert okey.handle != 0
-        if self.win64_machine:
-            DeleteKeyEx(key=self.root_key, sub_key=self.test_key_name,
-                        access=KEY_ALL_ACCESS, reserved=0)
-        else:
-            DeleteKey(self.root_key, self.test_key_name)
-

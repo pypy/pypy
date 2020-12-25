@@ -19,7 +19,7 @@ eci = ExternalCompilationInfo(
         "RPY_EXTERN LONG\n"
         "pypy_RegQueryReflectionKey(FARPROC address, HKEY key, LPBOOL isDisabled);\n"
         "RPY_EXTERN LONG\n"
-        "pypy_RegDeleteKeyExW(FARPROC address, HKEY key, LPCWSTR subkey,\n"
+        "pypy_RegDeleteKeyExA(FARPROC address, HKEY key, LPCSTR subkey,\n"
         "                    REGSAM sam, DWORD reserved);\n"
     ],
     separate_module_sources=['''
@@ -38,9 +38,9 @@ eci = ExternalCompilationInfo(
         }
 
         LONG
-        pypy_RegDeleteKeyExW(FARPROC address, HKEY key, LPCWSTR subkey,
+        pypy_RegDeleteKeyExA(FARPROC address, HKEY key, LPCSTR subkey,
                             REGSAM sam, DWORD reserved) {
-            LONG (WINAPI *func)(HKEY, LPCWSTR, REGSAM, DWORD);
+            LONG (WINAPI *func)(HKEY, LPCSTR, REGSAM, DWORD);
             *(FARPROC*)&func = address;
             return func(key, subkey, sam, reserved);
         }
@@ -56,9 +56,9 @@ pypy_RegQueryReflectionKey = rffi.llexternal(
     [rffi.VOIDP, rwinreg.HKEY, rwin32.LPBOOL],
     rffi.LONG, compilation_info=eci)
 
-pypy_RegDeleteKeyExW = rffi.llexternal(
-    'pypy_RegDeleteKeyExW',
-    [rffi.VOIDP, rwinreg.HKEY, rffi.CWCHARP, rwinreg.REGSAM, rwin32.DWORD],
+pypy_RegDeleteKeyExA = rffi.llexternal(
+    'pypy_RegDeleteKeyExA',
+    [rffi.VOIDP, rwinreg.HKEY, rffi.CCHARP, rwinreg.REGSAM, rwin32.DWORD],
     rffi.LONG, compilation_info=eci)
 
 
@@ -313,6 +313,8 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
                 length = intmask(bufsize_p[0])
+                if length == 0:
+                    return space.w_None
                 return space.newtext(rffi.charp2strn(buf, length - 1))
 
 def convert_to_regdata(space, w_value, typ):
@@ -795,7 +797,7 @@ _RegEnableReflectionKey = ReflectionFunction(
     "RegEnableReflectionKey", pypy_RegChangeReflectionKey)
 _RegQueryReflectionKey = ReflectionFunction(
     "RegQueryReflectionKey", pypy_RegQueryReflectionKey)
-_RegDeleteKeyExW = ReflectionFunction("RegDeleteKeyExW", pypy_RegDeleteKeyExW)
+_RegDeleteKeyExA = ReflectionFunction("RegDeleteKeyExA", pypy_RegDeleteKeyExA)
 
 
 def DisableReflectionKey(space, w_key):
@@ -841,7 +843,7 @@ def QueryReflectionKey(space, w_key):
             return space.newbool(intmask(isDisabled[0]) != 0)
 
 
-@unwrap_spec(sub_key="unicode", access=r_uint, reserved=int)
+@unwrap_spec(sub_key="text", access=r_uint, reserved=int)
 def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=0):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
@@ -856,13 +858,11 @@ def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=
     If the method succeeds, the entire key, including all of its values,
     is removed.  If the method fails, a WindowsError exception is raised.
     On unsupported Windows versions, NotImplementedError is raised."""
-    if not _RegDeleteKeyExW.check():
+    if not _RegDeleteKeyExA.check():
         raise oefmt(space.w_NotImplementedError,
                     "not implemented on this platform")
     else:
         hkey = hkey_w(w_key, space)
-        with rffi.scoped_unicode2wcharp(sub_key) as wide_subkey:
-            c_subkey = rffi.cast(rffi.CWCHARP, wide_subkey)
-            ret = _RegDeleteKeyExW.call(hkey, c_subkey, access, reserved)
-            if ret != 0:
-                raiseWindowsError(space, ret, 'RegDeleteKeyEx')
+        ret = _RegDeleteKeyExA.call(hkey, sub_key, access, reserved)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDeleteKeyEx')
