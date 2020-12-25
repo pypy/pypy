@@ -382,8 +382,16 @@ class MsvcPlatform(Platform):
         if self.x64:
             definitions.append(('_WIN64', '1'))
 
-        rules = [
-            ('all', '$(DEFAULT_TARGET) $(WTARGET)', []),
+        if shared and self.make == 'jom.exe':
+            # Add `.SYNC` for jom.exe and get it to create
+            # main.c, wmain.c in a separate step before trying to compile them
+            rules = [('all',
+                      'main.c wmain.c .SYNC $(DEFAULT_TARGET) .SYNC $(WTARGET)',
+                      []),
+                    ]
+        else:
+            rules = [('all', '$(DEFAULT_TARGET) $(WTARGET)', []),]
+        rules += [
             ('.asm.obj', '', '$(MASM) /nologo /Fo$@ /c $< $(INCLUDEDIRS)'),
             ]
 
@@ -428,7 +436,13 @@ class MsvcPlatform(Platform):
             rules.append(('.c.obj', '',
                           '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
                           '/Fo$@ /c $< $(INCLUDEDIRS)'))
-
+            if shared:
+                rules.append(('main.obj', 'main.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c main.c $(INCLUDEDIRS)'))
+                rules.append(('wmain.obj', 'wmain.c',
+                              '$(CC) /nologo $(CFLAGS) $(CFLAGSEXTRA) '
+                              '/Fo$@ /c wmain.c $(INCLUDEDIRS)'))
 
         icon = config.translation.icon if config else None
         manifest = config.translation.manifest if config else None
@@ -485,17 +499,19 @@ class MsvcPlatform(Platform):
                    '{ return $(PYPY_MAIN_FUNCTION)(argc, argv); } > $@')
             deps = ['main.obj']
             m.rule('wmain.c', '',
-                   ['echo #define WIN32_LEAN_AND_MEAN > $@',
-                   'echo #include "stdlib.h" >> $@',
-                   'echo #include "windows.h" >> $@',
-                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@',
-                   'echo int WINAPI WinMain( >> $@',
-                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@',
-                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@',
-                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@',
-                   'echo     int nCmdShow              /* show state of window */ >> $@',
-                   'echo ) >> $@',
-                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@'])
+                   ['echo #define WIN32_LEAN_AND_MEAN > $@.tmp',
+                   'echo #include "stdlib.h" >> $@.tmp',
+                   'echo #include "windows.h" >> $@.tmp',
+                   'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
+                   'echo int WINAPI WinMain( >> $@.tmp',
+                   'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
+                   'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',
+                   'echo     LPSTR lpCmdLine,          /* pointer to command line */ >> $@.tmp',
+                   'echo     int nCmdShow              /* show state of window */ >> $@.tmp',
+                   'echo ) >> $@.tmp',
+                   'echo    { return $(PYPY_MAIN_FUNCTION)(__argc, __argv); } >> $@.tmp',
+                   'move $@.tmp $@',
+                   ])
             wdeps = ['wmain.obj']
             if icon:
                 deps.append('icon.res')
