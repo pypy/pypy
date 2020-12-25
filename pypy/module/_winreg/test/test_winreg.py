@@ -50,6 +50,9 @@ class AppTestFfi:
             ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
             ("Multi Str Empty", ["", "", ""], winreg.REG_MULTI_SZ),
             ("Raw None", None, winreg.REG_BINARY),
+            # issue 3342, round-trip invalid UTF-16 strings
+            (u"Invalid \uDC00", u"\uDC00", winreg.REG_SZ),
+            (u"Invalid \uD800", u"\uD800", winreg.REG_SZ),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
         w_btest = space.newtuple([space.wrap("Raw data"),

@@ -463,7 +463,7 @@ def convert_to_regdata(space, w_value, typ):
 def wbuf_to_utf8(space, wbuf):
     state = space.fromcache(CodecState)
     errh = state.decode_error_handler
-    utf8, lgt, pos = str_decode_utf_16(wbuf, 'strict', final=True,
+    utf8, lgt, pos = str_decode_utf_16(wbuf, 'surrogatepass', final=True,
                                        errorhandler=errh)
     if len(utf8) > 1 and utf8[len(utf8) - 1] == '\x00':
         # trim off one trailing '\x00'
