@@ -395,6 +395,12 @@ class W_LongObject(W_AbstractLongObject):
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
 
+# In _hash_long we would like to shift intermediate results by SHIFT.
+# Since HASH_MODULUS is a Mersenne prime, the result is congruent
+# to shifting by (SHIFT % HASH_BITS).  A smaller shift amount lets
+# us apply extra optimizations to the hash function.
+_HASH_SHIFT = SHIFT % HASH_BITS
+
 def _hash_long(space, v):
     i = v.numdigits() - 1
     if i == -1:
@@ -403,14 +409,14 @@ def _hash_long(space, v):
     # compute v % HASH_MODULUS
     x = _load_unsigned_digit(0)
     while i >= 0:
-        # This computes (x << SHIFT) + v.udigit(i) modulo HASH_MODULUS
+        # This computes (x << _HASH_SHIFT) + v.udigit(i) modulo HASH_MODULUS
         # efficiently and without overflow, as HASH_MODULUS is a Mersenne
         # prime.  See detailed explanation in CPython function long_hash
         # in longobject.c.
-        # Basically, to compute (x << SHIFT) modulo HASH_MODULUS,
-        # we rotate it left by HASH_BITS.  Then, after adding v.udigit(i),
+        # Basically, to compute (x << _HASH_SHIFT) modulo HASH_MODULUS,
+        # we rotate it left by _HASH_SHIFT.  Then, after adding v.udigit(i),
         # the result is at most 2*HASH_MODULUS-1.
-        x = ((x << SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - SHIFT)
+        x = ((x << _HASH_SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - _HASH_SHIFT)
         x += v.udigit(i)
         if x >= HASH_MODULUS:
             x -= HASH_MODULUS
