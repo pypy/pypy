@@ -4,7 +4,7 @@ import functools
 
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rbigint import SHIFT, _widen_digit, rbigint
+from rpython.rlib.rbigint import SHIFT, _load_unsigned_digit, rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -401,13 +401,18 @@ def _hash_long(space, v):
         return 0
 
     # compute v % HASH_MODULUS
-    x = _widen_digit(0)
+    x = _load_unsigned_digit(0)
     while i >= 0:
-        x = (x << SHIFT) + v.widedigit(i)
-        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
-        # prime
-        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-        while x >= HASH_MODULUS:
+        # This computes (x << SHIFT) + v.udigit(i) modulo HASH_MODULUS
+        # efficiently and without overflow, as HASH_MODULUS is a Mersenne
+        # prime.  See detailed explanation in CPython function long_hash
+        # in longobject.c.
+        # Basically, to compute (x << SHIFT) modulo HASH_MODULUS,
+        # we rotate it left by HASH_BITS.  Then, after adding v.udigit(i),
+        # the result is at most 2*HASH_MODULUS-1.
+        x = ((x << SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - SHIFT)
+        x += v.udigit(i)
+        if x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
     h = intmask(intmask(x) * v.sign)
