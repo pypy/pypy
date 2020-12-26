@@ -903,7 +903,21 @@ if __name__ == '__main__':
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
-    import imp, runpy
+    try:
+        import imp, runpy
+    except ImportError:
+        if '-S' in sys.argv:
+            # testing inside a virtualenv and using -S. Add the path of the argv
+            # file, since the test pre-emptively copied runpy there
+            from os.path import dirname, exists
+            tmpdir = dirname(sys.argv[-1])
+            if not exists(tmpdir + '/runpy.py'):
+                tmpdir = dirname(tmpdir)
+            sys.path.insert(0, tmpdir)
+            import imp
+            import runpy
+        else:
+            raise
     def _run_compiled_module(modulename, filename, file, module):
         import os
         assert modulename == '__main__'
