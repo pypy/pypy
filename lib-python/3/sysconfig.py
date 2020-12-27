@@ -116,6 +116,8 @@ _CONFIG_VARS = None
 _USER_BASE = None
 
 
+# NOTE: site.py has copy of this function.
+# Sync it when modify this function.
 def _get_implementation():
     if '__pypy__' in sys.builtin_module_names:
         return 'PyPy'
@@ -226,7 +228,7 @@ def _getuserbase():
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        return joinuser(base, "Python")
+        return joinuser(base, _get_implementation())
 
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,
