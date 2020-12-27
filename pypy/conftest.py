@@ -1,10 +1,6 @@
 import py, pytest, sys, os, textwrap
 from inspect import isclass
 
-if hasattr(sys, 'setrecursionlimit'):
-    # some tests fail otherwise
-    sys.setrecursionlimit(2000)
-
 LOOK_FOR_PYTHON3 = 'python3.7'
 PYTHON3 = os.getenv('PYTHON3') or py.path.local.sysfind(LOOK_FOR_PYTHON3)
 if PYTHON3 is not None:
