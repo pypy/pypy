@@ -414,10 +414,12 @@ def _hash_long(space, v):
         # prime.  See detailed explanation in CPython function long_hash
         # in longobject.c.
         # Basically, to compute (x << _HASH_SHIFT) modulo HASH_MODULUS,
-        # we rotate it left by _HASH_SHIFT.  Then, after adding v.udigit(i),
-        # the result is at most 2*HASH_MODULUS-1.
+        # we rotate it left by _HASH_SHIFT.  Then, if SHIFT <= HASH_BITS,
+        # after adding v.udigit(i), the result is at most 2*HASH_MODULUS-1.
         x = ((x << _HASH_SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - _HASH_SHIFT)
         x += v.udigit(i)
+        if SHIFT > HASH_BITS:
+            x = (x & HASH_MODULUS) + (x >> HASH_BITS)
         if x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
