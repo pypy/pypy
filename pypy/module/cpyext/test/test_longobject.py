@@ -89,6 +89,9 @@ class TestLongObject(BaseApiTest):
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLongLong(space, space.newint(-1))
         assert excinfo.value.w_type is space.w_OverflowError
+        with pytest.raises(OperationError) as excinfo:
+            PyLong_AsUnsignedLongLongMask(space, None)
+        assert excinfo.value.w_type is space.w_SystemError
 
     def test_as_long_and_overflow(self, space, api):
         overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
