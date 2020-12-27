@@ -64,6 +64,10 @@ def pytest_configure(config):
     if not mode_A and not mode_D:  # 'own' tests
         from rpython.conftest import LeakFinder
         config.pluginmanager.register(LeakFinder())
+        if sys.platform != 'win32':
+            # pypy.interpreter.astcompiler and pypy.module._cppyy need this,
+            # as well as a few others
+            sys.setrecursionlimit(2000)
     if mode_A:
         from pypy.tool.pytest.apptest import PythonInterpreter
         config.applevel = PythonInterpreter(config.option.python)
