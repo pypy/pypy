@@ -425,7 +425,8 @@ Miscellaneous
   probably be ignored by an implementation of ``sys.getsizeof()``, but
   their overhead is important in some cases if they are many instances
   with unique maps.  Conversely, equal strings may share their internal
-  string data even if they are different objects---or empty containers
+  string data even if they are different objects---even a unicode string
+  and its utf8-encoded ``bytes`` version are shared---or empty containers
   may share parts of their internals as long as they are empty.  Even
   stranger, some lists create objects as you read them; if you try to
   estimate the size in memory of ``range(10**6)`` as the sum of all
