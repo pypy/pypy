@@ -40,6 +40,7 @@
 
 #define PYPYSIG_WITH_NUL_BYTE   0x01
 #define PYPYSIG_USE_SEND        0x02
+#define PYPYSIG_NO_WARN_FULL    0x04
 
 struct pypysig_long_struct pypysig_counter = {0};
 static long volatile pypysig_flags_bits[N_LONGSIG];
@@ -141,7 +142,8 @@ static void signal_setflag_handler(int signum)
             res = send(wakeup_fd, &byte, 1, 0);
         else
             res = write(wakeup_fd, &byte, 1);
-        if (res < 0) {
+        if (res < 0 && ((wakeup_send_flags & PYPYSIG_NO_WARN_FULL) == 0 ||
+                        errno != EAGAIN)) {
             unsigned int e = (unsigned int)errno;
             char c[27], *p;
             if (e == EINTR)

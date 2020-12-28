@@ -15,7 +15,7 @@ typedef struct {
 # error "explicit RPY_RDB_REPLAY: not really supported"
 #endif
     bool_t watch_enabled;
-    int lock;
+    Signed lock;
     char *buf_p;  /* NULL during recording if recording is actually disabled */
     char *buf_limit, *buf_readend;
     uint64_t stop_point_seen, stop_point_break;

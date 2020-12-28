@@ -229,9 +229,10 @@ class TestUnicode(BaseApiTest):
         encoded_obj = PyUnicode_AsEncodedObject(space, space.wrap(u'sp�m'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
+        one = space.newint(1)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(
-                space, space.newtuple([1, 2, 3]), None, None)
+                space, space.newtuple([one, one, one]), None, None)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(space, space.wrap(''), None, None)
         ascii = rffi.str2charp('ascii')

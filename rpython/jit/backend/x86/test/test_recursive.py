@@ -2,14 +2,16 @@
 from rpython.jit.metainterp.test.test_recursive import RecursiveTests
 from rpython.jit.backend.x86.test.test_basic import Jit386Mixin
 from rpython.jit.backend.llsupport.codemap import unpack_traceback
-from rpython.jit.backend.x86.arch import WORD
+from rpython.jit.backend.x86.arch import WORD, WIN64
 
 class TestRecursive(Jit386Mixin, RecursiveTests):
     # for the individual tests see
     # ====> ../../../metainterp/test/test_recursive.py
     def check_get_unique_id(self, codemaps):
         if WORD == 4:
-            return # this is 64 bit only check
+            import py; py.test.skip("this is 64 bit only check")
+        if WIN64 and len(codemaps) == 0:
+            import py; py.test.skip("Win64 doesn't produce codemaps")
 
         assert len(codemaps) == 3
         # we want to create a map of differences, so unpacking the tracebacks

@@ -177,10 +177,10 @@ class TestCLibffi(BaseFfiTest):
         assert snd == rffi.cast(rffi.VOIDP, a)
         
     def test_callback(self):
-        slong = cast_type_to_ffitype(rffi.LONG)
+        size_t = cast_type_to_ffitype(rffi.SIZE_T)
         libc = self.get_libc()
-        qsort = libc.getpointer('qsort', [ffi_type_pointer, slong,
-                                          slong, ffi_type_pointer],
+        qsort = libc.getpointer('qsort', [ffi_type_pointer, size_t,
+                                          size_t, ffi_type_pointer],
                                 ffi_type_void)
 
         def callback(ll_args, ll_res, stuff):
@@ -283,33 +283,33 @@ class TestCLibffi(BaseFfiTest):
         #include <stdio.h>
 
         struct x_y {
-            long x;
-            long y;
+            Signed x;
+            Signed y;
         };
 
         RPY_EXPORTED
-        long sum_x_y(struct x_y s) {
+        Signed sum_x_y(struct x_y s) {
             return s.x + s.y;
         }
 
-        long sum_x_y_p(struct x_y *p) {
+        Signed sum_x_y_p(struct x_y *p) {
             return p->x + p->y;
         }
         
         '''))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
+        lib_name = str(platform.compile([c_file], eci, 'x1', standalone=False))
 
         lib = CDLL(lib_name)
 
-        slong = cast_type_to_ffitype(rffi.LONG)
-        size = slong.c_size*2
-        alignment = slong.c_alignment
-        tpe = make_struct_ffitype_e(size, alignment, [slong, slong])
+        signed = cast_type_to_ffitype(rffi.SIGNED)
+        size = signed.c_size*2
+        alignment = signed.c_alignment
+        tpe = make_struct_ffitype_e(size, alignment, [signed, signed])
 
-        sum_x_y = lib.getrawpointer('sum_x_y', [tpe.ffistruct], slong)
+        sum_x_y = lib.getrawpointer('sum_x_y', [tpe.ffistruct], signed)
 
-        buffer = lltype.malloc(rffi.LONGP.TO, 3, flavor='raw')
+        buffer = lltype.malloc(rffi.SIGNEDP.TO, 3, flavor='raw')
         buffer[0] = 200
         buffer[1] = 220
         buffer[2] = 666
@@ -358,7 +358,7 @@ class TestCLibffi(BaseFfiTest):
         
         '''))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
+        lib_name = str(platform.compile([c_file], eci, 'x2', standalone=False))
 
         lib = CDLL(lib_name)
 
@@ -414,19 +414,19 @@ class TestCLibffi(BaseFfiTest):
         c_file.write(py.code.Source('''
         #include "src/precommondefs.h"
         RPY_EXPORTED
-        long fun(long i) {
+        Signed fun(Signed i) {
             return i + 42;
         }
         '''))
         eci = ExternalCompilationInfo(include_dirs=[cdir])
-        lib_name = str(platform.compile([c_file], eci, 'x', standalone=False))
+        lib_name = str(platform.compile([c_file], eci, 'x3', standalone=False))
 
         lib = CDLL(lib_name)
-        slong = cast_type_to_ffitype(rffi.LONG)
-        fun = lib.getrawpointer('fun', [slong], slong)
+        signed = cast_type_to_ffitype(rffi.SIGNED)
+        fun = lib.getrawpointer('fun', [signed], signed)
         del lib     # already delete here
 
-        buffer = lltype.malloc(rffi.LONGP.TO, 2, flavor='raw')
+        buffer = lltype.malloc(rffi.SIGNEDP.TO, 2, flavor='raw')
         buffer[0] = 200
         buffer[1] = -1
         fun.call([rffi.cast(rffi.VOIDP, buffer)],
