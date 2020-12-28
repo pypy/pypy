@@ -1617,6 +1617,7 @@ class AppTestPosix:
         retU = [x.name for x in self.posix.scandir(u'.')]
         retP = [x.name for x in self.posix.scandir(self.Path('.'))]
         assert retU == retP
+
     def test_execv_no_args(self):
         posix = self.posix
         with raises(ValueError):
@@ -1624,6 +1625,13 @@ class AppTestPosix:
         # PyPy needs at least one arg, CPython 2.7 is fine without
         with raises(ValueError):
             posix.execve("notepad", [], {})
+
+    def test_execv_bad_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", ('',))
+        with raises(OSError):
+            posix.execv("notepad", (' ',))
 
 
 @py.test.mark.skipif("sys.platform != 'win32'")

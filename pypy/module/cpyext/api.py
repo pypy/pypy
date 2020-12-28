@@ -1659,8 +1659,9 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    w_path = space.getattr(w_spec, space.newtext("origin"))
     name = space.text_w(w_name)
-    path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
+    path = space.text_w(w_path)
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -1675,7 +1676,6 @@ def create_extension_module(space, w_spec):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None

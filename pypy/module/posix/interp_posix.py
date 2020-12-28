@@ -1658,6 +1658,9 @@ Execute an executable path with arguments, replacing current process.
             raise
         raise oefmt(space.w_TypeError,
             "execv() arg 2 must be an iterable of strings")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "execv() arg 2 first element cannot be empty")
     try:
         os.execv(command, args)
     except OSError as e:
@@ -1694,6 +1697,9 @@ On some platforms, you may specify an open file descriptor for path;
     if len(args) < 1:
         raise oefmt(space.w_ValueError,
             "execve() arg 2 must not be empty")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "execve() arg 2 first element cannot be empty")
     env = _env2interp(space, w_env)
     try:
         path = space.fsencode_w(w_path)
@@ -1718,7 +1724,17 @@ On some platforms, you may specify an open file descriptor for path;
 
 @unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_argv):
+    if not (space.isinstance_w(w_argv, space.w_list)
+            or space.isinstance_w(w_argv, space.w_tuple)):
+        raise oefmt(space.w_TypeError,
+            "spawnv: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    if len(args) < 1:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 cannot be empty")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 first element cannot be empty")
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
@@ -1727,8 +1743,18 @@ def spawnv(space, mode, path, w_argv):
 
 @unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_argv, w_env):
+    if not (space.isinstance_w(w_argv, space.w_list)
+            or space.isinstance_w(w_argv, space.w_tuple)):
+        raise oefmt(space.w_TypeError,
+            "spawnve: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    if len(args) < 1:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 cannot be empty")
     env = _env2interp(space, w_env)
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "spawnve() arg 2 first element cannot be empty")
     try:
         ret = os.spawnve(mode, path, args, env)
     except OSError as e:
