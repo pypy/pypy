@@ -1,7 +1,12 @@
 # encoding: utf-8
+import pytest
+import sys
 
 class AppTestMagic:
     spaceconfig = dict(usemodules=['__pypy__'])
+
+    def setup_class(cls):
+        cls.w_file = cls.space.wrap(__file__)
 
     def test_new_code_hook(self):
         # workaround for running on top of old CPython 2.7 versions
@@ -98,6 +103,13 @@ def f():
         from __pypy__ import utf8content
         assert utf8content(u"a") == b"a"
         assert utf8content(u"\xe4") == b'\xc3\xa4'
+
+    @pytest.mark.skipif(sys.platform != 'win32', reason="win32 only")
+    def test_get_osfhandle(self):
+        from __pypy__ import get_osfhandle
+        with open(self.file) as fid:
+            f = get_osfhandle(fid.fileno())
+        raises(OSError, get_osfhandle, 2**30)
 
     def test_get_set_contextvar_context(self):
         from __pypy__ import get_contextvar_context, set_contextvar_context
