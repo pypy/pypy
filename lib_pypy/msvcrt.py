@@ -19,9 +19,7 @@ _lib = _ffi.dlopen(_rawffi.get_libc().name)
 
 import errno
 
-try: from __pypy__ import builtinify, validate_fd
-except ImportError: builtinify = validate_fd = lambda f: f
-
+from __pypy__ import builtinify, get_osfhandle as _get_osfhandle
 
 def _ioerr():
     e = _ffi.errno
@@ -47,11 +45,7 @@ def get_osfhandle(fd):
 
     Return the file handle for the file descriptor fd. Raises IOError if
     fd is not recognized."""
-    try:
-        validate_fd(fd)
-    except OSError as e:
-        raise IOError(*e.args)
-    result = _lib._get_osfhandle(fd)
+    result = _get_osfhandle(fd)
     if result == -1:
         _ioerr()
     return result
