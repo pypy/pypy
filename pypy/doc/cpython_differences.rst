@@ -365,14 +365,17 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
-* on CPython, ``[].__add__`` is a ``method-wrapper``, and
-  ``list.__add__`` is a ``slot wrapper``.  On PyPy these are normal
-  bound or unbound method objects.  This can occasionally confuse some
+* on CPython, ``[].__add__`` is a ``method-wrapper``,  ``list.__add__``
+  is a ``slot wrapper`` and ``list.extend``  is a (built-in) ``method``
+  object.  On PyPy these are all normal method or function objects (or
+  unbound method objects on PyPy2).  This can occasionally confuse some
   tools that inspect built-in types.  For example, the standard
   library ``inspect`` module has a function ``ismethod()`` that returns
   True on unbound method objects but False on method-wrappers or slot
-  wrappers.  On PyPy we can't tell the difference, so
-  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+  wrappers.  On PyPy we can't tell the difference.  So on PyPy2 we
+  have ``ismethod([].__add__) == ismethod(list.extend) == True``;
+  on PyPy3 we have ``isfunction(list.extend) == True``.  On CPython
+  all of these are False.
 
 * in CPython, the built-in types have attributes that can be
   implemented in various ways.  Depending on the way, if you try to
