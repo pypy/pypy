@@ -154,18 +154,11 @@ class AbstractAttribute(object):
             assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
             oldattr._size_estimate = size_est
 
-    def _add_attr_without_reordering(self, obj, name, index, w_value):
-        attr = self._get_new_attr(name, index)
-        attr._switch_map_and_write_storage(obj, w_value)
-
     @jit.unroll_safe
     def _switch_map_and_write_storage(self, obj, w_value):
         if self.length() > obj._mapdict_storage_length():
-            # note that self.size_estimate() is always at least self.length()
-            new_storage = [None] * self.size_estimate()
-            for i in range(obj._mapdict_storage_length()):
-                new_storage[i] = obj._mapdict_read_storage(i)
-            obj._set_mapdict_storage_and_map(new_storage, self)
+            obj._set_mapdict_increase_storage(self, w_value)
+            return
 
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
@@ -631,9 +624,20 @@ class MapdictStorageMixin(object):
         self.storage[storageindex] = value
 
     def _mapdict_storage_length(self):
+        """ return the size of the storage (which should be longer or equal in
+        size to self.map.length() due to overallocation). """
         return len(self.storage)
 
+    def _set_mapdict_increase_storage(self, map, w_value):
+        """ increase storage size, adding w_value """
+        len_storage = len(self.storage)
+        new_storage = self.storage + [None] * (map.size_estimate() - len_storage)
+        new_storage[len_storage] = w_value
+        self.map = map
+        self.storage = new_storage
+
     def _set_mapdict_storage_and_map(self, storage, map):
+        """ store a new complete storage list, and also a new map """
         self.storage = storage
         self.map = map
 
@@ -734,6 +738,23 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             else:
                 storage_list = storage[nmin1:]
                 erased = erase_list(storage_list)
+            setattr(self, "_value%s" % nmin1, erased)
+
+        def _set_mapdict_increase_storage(self, map, w_value):
+            len_storage = self.map.length()
+            if len_storage <= nmin1:
+                self._mapdict_write_storage(len_storage, w_value)
+                self.map = map
+                return
+            if len_storage == n:
+                erased = getattr(self, "_value%s" % nmin1)
+                new_storage = [unerase_item(erased), w_value]
+            else:
+                new_storage = [None] * (map.size_estimate() - self._mapdict_storage_length())
+                new_storage = self._mapdict_get_storage_list() + new_storage
+                new_storage[len_storage - nmin1] = w_value
+            self.map = map
+            erased = erase_list(new_storage)
             setattr(self, "_value%s" % nmin1, erased)
 
     subcls.__name__ = "Size%s" % n
