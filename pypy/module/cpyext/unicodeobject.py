@@ -63,7 +63,7 @@ kind_to_name = {
 def PyUnicode_Check(ref):
     if not ref:
         return False
-    return (ref.c_ob_type.c_tp_flags & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
+    return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
 
 def new_empty_unicode(space, length):
     """
