@@ -45,17 +45,13 @@ class AbstractAttribute(object):
         if attr is None:
             return self.terminator._read_terminator(obj, name, attrkind)
         if (
-            jit.isconstant(attr.storageindex) and
+            jit.isconstant(attr) and
             jit.isconstant(obj) and
             not attr.ever_mutated
         ):
-            return self._pure_mapdict_read_storage(obj, attr.storageindex)
+            return attr._pure_direct_read(obj)
         else:
-            return obj._mapdict_read_storage(attr.storageindex)
-
-    @jit.elidable
-    def _pure_mapdict_read_storage(self, obj, storageindex):
-        return obj._mapdict_read_storage(storageindex)
+            return attr._direct_read(obj)
 
     def write(self, obj, name, attrkind, w_value):
         attr = self.find_map_attr(name, attrkind)
@@ -63,7 +59,7 @@ class AbstractAttribute(object):
             return self.terminator._write_terminator(obj, name, attrkind, w_value)
         if not attr.ever_mutated:
             attr.ever_mutated = True
-        obj._mapdict_write_storage(attr.storageindex, w_value)
+        attr._direct_write(obj, w_value)
         return True
 
     def delete(self, obj, name, attrkind):
@@ -170,7 +166,7 @@ class AbstractAttribute(object):
         # the order is important here: first change the map, then the storage,
         # for the benefit of the special subclasses
         obj._set_mapdict_map(self)
-        obj._mapdict_write_storage(self.storageindex, w_value)
+        self._direct_write(obj, w_value)
 
 
     @jit.elidable
@@ -235,8 +231,7 @@ class AbstractAttribute(object):
                 current = self
                 for i in range(number_to_readd):
                     assert isinstance(current, PlainAttribute)
-                    w_self_value = obj._mapdict_read_storage(
-                            current.storageindex)
+                    w_self_value = current._direct_read(obj)
                     stack[stack_index] = erase_map(current)
                     stack[stack_index + 1] = erase_item(w_self_value)
                     stack_index += 2
@@ -390,6 +385,16 @@ class PlainAttribute(AbstractAttribute):
         w_value = self.read(obj, self.name, self.attrkind)
         new_obj._get_mapdict_map().add_attr(new_obj, self.name, self.attrkind, w_value)
 
+    def _direct_read(self, obj):
+        return obj._mapdict_read_storage(self.storageindex)
+
+    @jit.elidable
+    def _pure_direct_read(self, obj):
+        return self._direct_read(obj)
+
+    def _direct_write(self, obj, w_value):
+        obj._mapdict_write_storage(self.storageindex, w_value)
+
     def delete(self, obj, name, attrkind):
         if attrkind == self.attrkind and name == self.name:
             # ok, attribute is deleted
@@ -423,7 +428,7 @@ class PlainAttribute(AbstractAttribute):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.attrkind == DICT:
             w_attr = space.newtext(self.name)
-            dict_w[w_attr] = obj._mapdict_read_storage(self.storageindex)
+            dict_w[w_attr] = self._direct_read(obj)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -431,7 +436,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.attrkind == DICT:
-            str_dict[self.name] = obj._mapdict_read_storage(self.storageindex)
+            str_dict[self.name] = self._direct_read(obj)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -444,6 +449,7 @@ class PlainAttribute(AbstractAttribute):
 
     def __repr__(self):
         return "<PlainAttribute %s %s %s %r>" % (self.name, self.attrkind, self.storageindex, self.back)
+
 
 class MapAttrCache(object):
     def __init__(self, space):

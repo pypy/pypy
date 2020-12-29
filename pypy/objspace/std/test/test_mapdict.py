@@ -315,12 +315,11 @@ def test_attr_immutability(monkeypatch):
 
     indices = []
 
-    def _pure_mapdict_read_storage(obj, storageindex):
-        assert storageindex == 0
-        indices.append(storageindex)
-        return obj._mapdict_read_storage(storageindex)
+    def _pure_direct_read(obj):
+        indices.append(0)
+        return obj._mapdict_read_storage(0)
 
-    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    obj.map.back._pure_direct_read = _pure_direct_read
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
     assert obj.getdictvalue(space, "a") == 10
