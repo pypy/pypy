@@ -621,14 +621,14 @@ class MapdictStorageMixin(object):
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
-        self.storage = make_sure_not_resized([None] * map.size_estimate())
+        self.storage = make_sure_not_resized([erase_item(None)] * map.size_estimate())
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
-        return self.storage[storageindex]
+        return unerase_item(self.storage[storageindex])
 
     def _mapdict_write_storage(self, storageindex, value):
-        self.storage[storageindex] = value
+        self.storage[storageindex] = erase_item(value)
 
     def _mapdict_storage_length(self):
         """ return the size of the storage (which should be longer or equal in
@@ -638,8 +638,8 @@ class MapdictStorageMixin(object):
     def _set_mapdict_increase_storage(self, map, w_value):
         """ increase storage size, adding w_value """
         len_storage = len(self.storage)
-        new_storage = self.storage + [None] * (map.size_estimate() - len_storage)
-        new_storage[len_storage] = w_value
+        new_storage = self.storage + [erase_item(None)] * (map.size_estimate() - len_storage)
+        new_storage[len_storage] = erase_item(w_value)
         self.map = map
         self.storage = new_storage
 
@@ -679,9 +679,8 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
         def _set_mapdict_map(self, map):
             self.map = map
         def _mapdict_init_empty(self, map):
-            for i in rangenmin1:
-                setattr(self, "_value%s" % i, None)
-            setattr(self, valnmin1, erase_item(None))
+            for i in rangen:
+                setattr(self, "_value%s" % i, erase_item(None))
             self.map = map
 
         def _has_storage_list(self):
@@ -696,7 +695,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        return getattr(self, "_value%s" % i)
+                        return unerase_item(getattr(self, "_value%s" % i))
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
@@ -707,10 +706,10 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        setattr(self, "_value%s" % i, value)
+                        setattr(self, "_value%s" % i, erase_item(value))
                         return
             if self._has_storage_list():
-                self._mapdict_get_storage_list()[storageindex - nmin1] = value
+                self._mapdict_get_storage_list()[storageindex - nmin1] = erase_item(value)
                 return
             setattr(self, "_value%s" % nmin1, erase_item(value))
 
@@ -726,7 +725,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 if i < len_storage:
                     erased = storage[i]
                 else:
-                    erased = None
+                    erased = erase_item(None)
                 setattr(self, "_value%s" % i, erased)
             has_storage_list = self._has_storage_list()
             if len_storage < n:
@@ -734,7 +733,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 erased = erase_item(None)
             elif len_storage == n:
                 assert not has_storage_list
-                erased = erase_item(storage[nmin1])
+                erased = storage[nmin1]
             elif not has_storage_list:
                 # storage is longer than self.map.storage_needed() only due to
                 # overallocation
@@ -755,9 +754,9 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 return
             if len_storage == n:
                 erased = getattr(self, "_value%s" % nmin1)
-                new_storage = [unerase_item(erased), w_value]
+                new_storage = [erased, w_value]
             else:
-                new_storage = [None] * (map.size_estimate() - self._mapdict_storage_length())
+                new_storage = [erase_item(None)] * (map.size_estimate() - self._mapdict_storage_length())
                 new_storage = self._mapdict_get_storage_list() + new_storage
                 new_storage[len_storage - nmin1] = w_value
             self.map = map
