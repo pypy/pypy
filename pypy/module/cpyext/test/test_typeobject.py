@@ -529,6 +529,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
             assert module.HeapType.__text_signature__ is None
         assert module.HeapType.__doc__ == 'A type with a signature'
 
+    def test_heaptype_attributes(self):
+        module = self.import_module(name='docstrings')
+        htype = module.HeapType
+        assert htype.__module__ == 'docstrings'
+        assert htype.__name__ == 'HeapType'
+        assert htype.__qualname__ == 'HeapType'
+
 
 class TestTypes(BaseApiTest):
     def test_type_attributes(self, space, api):
