@@ -60,7 +60,7 @@ def test_plain_attribute():
     assert obj.storage == [50, 60]
     assert obj.getdictvalue(space, "b") == 60
 
-    assert aa.length() == 2
+    assert aa.storage_needed() == 2
 
     assert aa.get_terminator() is aa.back.back
 

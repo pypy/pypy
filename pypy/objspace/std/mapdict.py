@@ -117,8 +117,15 @@ class AbstractAttribute(object):
     def copy(self, obj):
         raise NotImplementedError("abstract base class")
 
-    def length(self):
+    def storage_needed(self):
+        """ number of storage slots needed to represent the content of an
+        instance that uses self as its map """
         raise NotImplementedError("abstract base class")
+
+    def num_attributes(self):
+        """ number of attributes represented by self (usually the same as
+        storage_needed). """
+        return self.storage_needed()
 
     def get_terminator(self):
         return self.terminator
@@ -151,12 +158,12 @@ class AbstractAttribute(object):
             attr = obj._get_mapdict_map()
             size_est = (oldattr._size_estimate + attr.size_estimate()
                                                - oldattr.size_estimate())
-            assert size_est >= (oldattr.length() * NUM_DIGITS_POW2)
+            assert size_est >= (oldattr.storage_needed() * NUM_DIGITS_POW2)
             oldattr._size_estimate = size_est
 
     @jit.unroll_safe
     def _switch_map_and_write_storage(self, obj, w_value):
-        if self.length() > obj._mapdict_storage_length():
+        if self.storage_needed() > obj._mapdict_storage_length():
             obj._set_mapdict_increase_storage(self, w_value)
             return
 
@@ -224,7 +231,7 @@ class AbstractAttribute(object):
             # previous values of the attributes we passed
             if number_to_readd:
                 if stack is None:
-                    stack = [erase_map(None)] * (self.length() * 2)
+                    stack = [erase_map(None)] * (self.num_attributes() * 2)
                 current = self
                 for i in range(number_to_readd):
                     assert isinstance(current, PlainAttribute)
@@ -272,7 +279,7 @@ class Terminator(AbstractAttribute):
 
     def _write_terminator(self, obj, name, attrkind, w_value):
         obj._get_mapdict_map().add_attr(obj, name, attrkind, w_value)
-        if attrkind == DICT and obj._get_mapdict_map().length() >= LIMIT_MAP_ATTRIBUTES:
+        if attrkind == DICT and obj._get_mapdict_map().num_attributes() >= LIMIT_MAP_ATTRIBUTES:
             space = self.space
             w_dict = obj.getdict(space)
             assert isinstance(w_dict, W_DictMultiObject)
@@ -287,7 +294,7 @@ class Terminator(AbstractAttribute):
         result._mapdict_init_empty(self)
         return result
 
-    def length(self):
+    def storage_needed(self):
         return 0
 
     def set_terminator(self, obj, terminator):
@@ -373,9 +380,9 @@ class PlainAttribute(AbstractAttribute):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.name = name
         self.attrkind = attrkind
-        self.storageindex = back.length()
+        self.storageindex = back.storage_needed()
         self.back = back
-        self._size_estimate = self.length() * NUM_DIGITS_POW2
+        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
         self.ever_mutated = False
         self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
@@ -399,7 +406,7 @@ class PlainAttribute(AbstractAttribute):
         self._copy_attr(obj, new_obj)
         return new_obj
 
-    def length(self):
+    def storage_needed(self):
         return self.storageindex + 1
 
     def set_terminator(self, obj, terminator):
@@ -625,7 +632,7 @@ class MapdictStorageMixin(object):
 
     def _mapdict_storage_length(self):
         """ return the size of the storage (which should be longer or equal in
-        size to self.map.length() due to overallocation). """
+        size to self.map.storage_needed() due to overallocation). """
         return len(self.storage)
 
     def _set_mapdict_increase_storage(self, map, w_value):
@@ -678,7 +685,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             self.map = map
 
         def _has_storage_list(self):
-            return self.map.length() > n
+            return self.map.storage_needed() > n
 
         def _mapdict_get_storage_list(self):
             erased = getattr(self, valnmin1)
@@ -729,7 +736,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 assert not has_storage_list
                 erased = erase_item(storage[nmin1])
             elif not has_storage_list:
-                # storage is longer than self.map.length() only due to
+                # storage is longer than self.map.storage_needed() only due to
                 # overallocation
                 erased = erase_item(storage[nmin1])
                 # in theory, we should be ultra-paranoid and check all entries,
@@ -741,7 +748,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             setattr(self, "_value%s" % nmin1, erased)
 
         def _set_mapdict_increase_storage(self, map, w_value):
-            len_storage = self.map.length()
+            len_storage = self.map.storage_needed()
             if len_storage <= nmin1:
                 self._mapdict_write_storage(len_storage, w_value)
                 self.map = map
