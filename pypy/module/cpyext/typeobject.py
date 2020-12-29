@@ -377,7 +377,7 @@ def add_operators(space, w_type, dict_w, pto, name):
             continue
 
         assert issubclass(wrapper_class, W_PyCWrapperObject)
-        
+
         w_obj = wrapper_class(space, w_type, method_name, doc, func_voidp,
                               offset=offset[:])
         dict_w[method_name] = w_obj
@@ -536,7 +536,12 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+        flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+        if flag_heaptype:
+            hto = cts.cast('PyHeapTypeObject*', pto)
+            name = space.text_w(from_ref(space, hto.c_ht_name))
+        else:
+            name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
         add_operators(space, self, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -549,7 +554,6 @@ class W_PyCTypeObject(W_TypeObject):
                 key = space.text_w(w_key)
                 dict_w[key] = space.getitem(w_dict, w_key)
 
-        flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
         else:
@@ -930,8 +934,10 @@ def PyType_FromSpecWithBases(space, spec, bases):
     dotpos = specname.rfind('.')
     if dotpos < 0:
         name = specname
+        modname = None
     else:
         name = specname[dotpos + 1:]
+        modname = specname[:dotpos]
     res.c_ht_name = make_ref(space, space.newtext(name))
     res.c_ht_qualname = res.c_ht_name
     incref(space, res.c_ht_qualname)
@@ -993,7 +999,11 @@ def PyType_FromSpecWithBases(space, spec, bases):
     if not typ.c_tp_dealloc:
         typ.c_tp_dealloc = state.C._PyPy_subtype_dealloc
     py_type_ready(space, typ)
-    return cts.cast('PyObject*', res)
+    res = cts.cast('PyObject*', res)
+    if modname is not None:
+        w_type = from_ref(space, res)
+        w_type.setdictvalue(space, '__module__', space.newtext(modname))
+    return res
 
 
 @cpython_api([PyTypeObjectPtr, rffi.INT], rffi.VOIDP)
