@@ -191,6 +191,11 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
                  return PyFloat_FromDouble(Py_NAN);
              """),
             ])
-        import struct
-        float_bits = struct.Struct('d').pack
-        assert float_bits(module.test()) == float_bits(float('nan'))
+        if sys.platform == 'win32':
+            # CPython does not enforce bit-compatibility between the NANs
+            import math
+            assert math.isnan(module.test())
+        else:
+            import struct
+            float_bits = struct.Struct('d').pack
+            assert float_bits(module.test()) == float_bits(float('nan'))
