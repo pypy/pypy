@@ -853,6 +853,14 @@ class ASTBuilder(object):
                     return self.handle_ifexp(expr_node)
                 else:
                     expr_node = first_child
+            elif expr_node_type == syms.namedexpr_test:
+                if expr_node.num_children() == 1:
+                    expr_node = expr_node.get_child(0)
+                    continue
+                target_expr = self.handle_expr(expr_node.get_child(0))
+                self.set_context(target_expr, ast.Store)
+                expr = self.handle_expr(expr_node.get_child(2))
+                return ast.NamedExpr(target_expr, expr, expr_node.get_lineno(), expr_node.get_column())
             elif expr_node_type == syms.or_test or \
                     expr_node_type == syms.and_test:
                 if expr_node.num_children() == 1:

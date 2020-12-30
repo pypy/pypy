@@ -1767,6 +1767,8 @@ class expr(AST):
             return None
         if space.isinstance_w(w_node, get(space).w_BoolOp):
             return BoolOp.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_NamedExpr):
+            return NamedExpr.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_BinOp):
             return BinOp.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_UnaryOp):
@@ -1880,6 +1882,52 @@ class BoolOp(expr):
         return BoolOp(_op, _values, _lineno, _col_offset)
 
 State.ast_type('BoolOp', 'expr', ['op', 'values'])
+
+
+class NamedExpr(expr):
+
+    def __init__(self, target, value, lineno, col_offset):
+        self.target = target
+        self.value = value
+        expr.__init__(self, lineno, col_offset)
+
+    def walkabout(self, visitor):
+        visitor.visit_NamedExpr(self)
+
+    def mutate_over(self, visitor):
+        self.target = self.target.mutate_over(visitor)
+        self.value = self.value.mutate_over(visitor)
+        return visitor.visit_NamedExpr(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_NamedExpr)
+        w_target = self.target.to_object(space)  # expr
+        space.setattr(w_node, space.newtext('target'), w_target)
+        w_value = self.value.to_object(space)  # expr
+        space.setattr(w_node, space.newtext('value'), w_value)
+        w_lineno = space.newint(self.lineno)  # int
+        space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_col_offset = space.newint(self.col_offset)  # int
+        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_target = get_field(space, w_node, 'target', False)
+        w_value = get_field(space, w_node, 'value', False)
+        w_lineno = get_field(space, w_node, 'lineno', False)
+        w_col_offset = get_field(space, w_node, 'col_offset', False)
+        _target = expr.from_object(space, w_target)
+        if _target is None:
+            raise_required_value(space, w_node, 'target')
+        _value = expr.from_object(space, w_value)
+        if _value is None:
+            raise_required_value(space, w_node, 'value')
+        _lineno = obj_to_int(space, w_lineno, False)
+        _col_offset = obj_to_int(space, w_col_offset, False)
+        return NamedExpr(_target, _value, _lineno, _col_offset)
+
+State.ast_type('NamedExpr', 'expr', ['target', 'value'])
 
 
 class BinOp(expr):
@@ -4208,6 +4256,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_BoolOp(self, node):
         return self.default_visitor(node)
+    def visit_NamedExpr(self, node):
+        return self.default_visitor(node)
     def visit_BinOp(self, node):
         return self.default_visitor(node)
     def visit_UnaryOp(self, node):
@@ -4450,6 +4500,11 @@ class GenericASTVisitor(ASTVisitor):
     def visit_BoolOp(self, node):
         self.visited(node)
         self.visit_sequence(node.values)
+
+    def visit_NamedExpr(self, node):
+        self.visited(node)
+        node.target.walkabout(self)
+        node.value.walkabout(self)
 
     def visit_BinOp(self, node):
         self.visited(node)
