@@ -241,6 +241,7 @@ class FunctionScope(Scope):
         self.optimized = True
         self.return_with_value = False
         self.import_star = None
+        self.is_comprehension = False
 
     def note_symbol(self, identifier, role):
         # Special-case super: it counts as a use of __class__
@@ -583,6 +584,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
         new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
+        new_scope.is_comprehension = True
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         new_scope.is_coroutine |= outer.is_async
@@ -695,3 +697,27 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
         self.visit_sequence(node.finalbody)
+
+    def visit_NamedExpr(self, node):
+        scope = self.scope
+        target = node.target
+        assert isinstance(target, ast.Name)
+        name = target.id
+        if isinstance(scope, FunctionScope) and scope.is_comprehension:
+            for i in range(len(self.stack) - 2, -1, -1):
+                parent = self.stack[i]
+                if isinstance(parent, FunctionScope):
+                    parent.note_symbol(name, SYM_ASSIGNED)
+                    if parent.lookup_role(name) & SYM_GLOBAL:
+                        flag = SYM_GLOBAL
+                    else:
+                        flag = SYM_NONLOCAL
+                    scope.note_symbol(name, flag)
+                    break
+                elif isinstance(parent, ModuleScope):
+                    xxx
+                elif isinstance(parent, ClassScope):
+                    xxx
+
+        node.target.walkabout(self)
+        node.value.walkabout(self)

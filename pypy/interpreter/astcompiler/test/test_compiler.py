@@ -1428,6 +1428,11 @@ x = f(*(%s))
     def test_walrus_operator(self):
         yield (self.simple_test, "(x := 1)", "x", 1)
         yield (self.simple_test, "y = (x := 1) + 5", "x+y", 7)
+        yield (self.simple_test, """\
+def foo():
+    [(y := x) for x in range(5)]
+    return y
+""", "foo()", 4)
 
         
 class TestCompilerRevDB(BaseTestCompiler):
