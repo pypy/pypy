@@ -1690,6 +1690,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             fmt.format_spec.walkabout(self)
         self.emit_op_arg(ops.FORMAT_VALUE, arg)
 
+    def visit_NamedExpr(self, namedexpr):
+        namedexpr.value.walkabout(self)
+        self.emit_op(ops.DUP_TOP)
+        namedexpr.target.walkabout(self)
+
     def _revdb_metavar(self, node):
         # moved in its own function for the import statement
         from pypy.interpreter.reverse_debugging import dbstate

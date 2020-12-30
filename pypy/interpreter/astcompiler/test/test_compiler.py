@@ -1425,6 +1425,10 @@ x = f(*(%s))
                         return bar
         """, '1', 1
 
+    def test_walrus_operator(self):
+        yield (self.simple_test, "(x := 1)", "x", 1)
+        yield (self.simple_test, "y = (x := 1) + 5", "x+y", 7)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
