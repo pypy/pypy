@@ -160,7 +160,7 @@ class AbstractAttribute(object):
     @jit.unroll_safe
     def _switch_map_and_write_storage(self, obj, w_value):
         if self.storage_needed() > obj._mapdict_storage_length():
-            obj._set_mapdict_increase_storage(self, w_value)
+            obj._set_mapdict_increase_storage(self, erase_item(w_value))
             return
 
         # the order is important here: first change the map, then the storage,
@@ -386,14 +386,14 @@ class PlainAttribute(AbstractAttribute):
         new_obj._get_mapdict_map().add_attr(new_obj, self.name, self.attrkind, w_value)
 
     def _direct_read(self, obj):
-        return obj._mapdict_read_storage(self.storageindex)
+        return unerase_item(obj._mapdict_read_storage(self.storageindex))
 
     @jit.elidable
     def _pure_direct_read(self, obj):
         return self._direct_read(obj)
 
     def _direct_write(self, obj, w_value):
-        obj._mapdict_write_storage(self.storageindex, w_value)
+        obj._mapdict_write_storage(self.storageindex, erase_item(w_value))
 
     def delete(self, obj, name, attrkind):
         if attrkind == self.attrkind and name == self.name:
@@ -631,21 +631,21 @@ class MapdictStorageMixin(object):
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
-        return unerase_item(self.storage[storageindex])
+        return self.storage[storageindex]
 
     def _mapdict_write_storage(self, storageindex, value):
-        self.storage[storageindex] = erase_item(value)
+        self.storage[storageindex] = value
 
     def _mapdict_storage_length(self):
         """ return the size of the storage (which should be longer or equal in
         size to self.map.storage_needed() due to overallocation). """
         return len(self.storage)
 
-    def _set_mapdict_increase_storage(self, map, w_value):
-        """ increase storage size, adding w_value """
+    def _set_mapdict_increase_storage(self, map, value):
+        """ increase storage size, adding value """
         len_storage = len(self.storage)
         new_storage = self.storage + [erase_item(None)] * (map.size_estimate() - len_storage)
-        new_storage[len_storage] = erase_item(w_value)
+        new_storage[len_storage] = value
         self.map = map
         self.storage = new_storage
 
@@ -701,23 +701,23 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        return unerase_item(getattr(self, "_value%s" % i))
+                        return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
             erased = getattr(self, "_value%s" % nmin1)
-            return unerase_item(erased)
+            return erased
 
         def _mapdict_write_storage(self, storageindex, value):
             assert storageindex >= 0
             if storageindex < nmin1:
                 for i in rangenmin1:
                     if storageindex == i:
-                        setattr(self, "_value%s" % i, erase_item(value))
+                        setattr(self, "_value%s" % i, value)
                         return
             if self._has_storage_list():
-                self._mapdict_get_storage_list()[storageindex - nmin1] = erase_item(value)
+                self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, erase_item(value))
+            setattr(self, "_value%s" % nmin1, value)
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -752,19 +752,19 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 erased = erase_list(storage_list)
             setattr(self, "_value%s" % nmin1, erased)
 
-        def _set_mapdict_increase_storage(self, map, w_value):
+        def _set_mapdict_increase_storage(self, map, value):
             len_storage = self.map.storage_needed()
             if len_storage <= nmin1:
-                self._mapdict_write_storage(len_storage, w_value)
+                self._mapdict_write_storage(len_storage, value)
                 self.map = map
                 return
             if len_storage == n:
                 erased = getattr(self, "_value%s" % nmin1)
-                new_storage = [erased, w_value]
+                new_storage = [erased, value]
             else:
                 new_storage = [erase_item(None)] * (map.size_estimate() - self._mapdict_storage_length())
                 new_storage = self._mapdict_get_storage_list() + new_storage
-                new_storage[len_storage - nmin1] = w_value
+                new_storage[len_storage - nmin1] = value
             self.map = map
             erased = erase_list(new_storage)
             setattr(self, "_value%s" % nmin1, erased)
@@ -1056,7 +1056,7 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
-        return w_obj._mapdict_read_storage(entry.storageindex)
+        return unerase_item(w_obj._mapdict_read_storage(entry.storageindex))
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -1103,7 +1103,7 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if attrkind==DICT.
                     _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
-                    return w_obj._mapdict_read_storage(attr.storageindex)
+                    return unerase_item(w_obj._mapdict_read_storage(attr.storageindex))
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)

@@ -317,7 +317,7 @@ def test_attr_immutability(monkeypatch):
 
     def _pure_direct_read(obj):
         indices.append(0)
-        return obj._mapdict_read_storage(0)
+        return unerase_item(obj._mapdict_read_storage(0))
 
     obj.map.back._pure_direct_read = _pure_direct_read
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
