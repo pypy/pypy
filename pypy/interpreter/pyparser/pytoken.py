@@ -64,6 +64,7 @@ _add_tok('AT', "@" )
 _add_tok('ATEQUAL', "@=" )
 _add_tok('RARROW', "->")
 _add_tok('ELLIPSIS', "...")
+_add_tok('COLONEQUAL', ':=')
 _add_tok('OP')
 _add_tok('ASYNC') # unused, just keywords now
 _add_tok('AWAIT') # unused, just keywords now

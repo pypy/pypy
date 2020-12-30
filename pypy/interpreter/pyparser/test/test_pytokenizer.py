@@ -65,3 +65,16 @@ class TestTokenizer(object):
 
     def test_eof_triple_quoted(self):
         check_token_error("'''", pos=1, line=1)
+
+    def test_walrus(self):
+        line = "a:=1"
+        tks = tokenize(line)
+        assert tks == [
+            Token(tokens.NAME, 'a', 1, 0, line),
+            Token(tokens.COLONEQUAL, ':=', 1, 1, line),
+            Token(tokens.NUMBER, '1', 1, 3, line),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.ENDMARKER, '', 2, 0, ''),
+            ]
+
