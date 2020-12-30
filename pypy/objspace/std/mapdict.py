@@ -2,6 +2,7 @@ import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
 from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.longlong2float import longlong2float, float2longlong
 
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.dictmultiobject import (
@@ -12,9 +13,11 @@ from pypy.objspace.std.dictmultiobject import (
 from pypy.objspace.std.typeobject import MutableCell
 
 
+
 erase_item, unerase_item = rerased.new_erasing_pair("mapdict storage item")
 erase_map,  unerase_map = rerased.new_erasing_pair("map")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
+erase_unboxed, unerase_unboxed = rerased.new_erasing_pair("mapdict unwrapped storage")
 
 
 # ____________________________________________________________
@@ -63,7 +66,7 @@ class AbstractAttribute(object):
         return True
 
     def delete(self, obj, name, attrkind):
-        pass
+        return None
 
     @jit.elidable
     def find_map_attr(self, name, attrkind):
@@ -137,18 +140,29 @@ class AbstractAttribute(object):
         return None
 
     @jit.elidable
-    def _get_new_attr(self, name, attrkind):
+    def _get_new_attr(self, name, attrkind, unbox_type):
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
-        attr = cache.get((name, attrkind), None)
+        key = (name, attrkind, unbox_type)
+        attr = cache.get(key, None)
         if attr is None:
-            attr = PlainAttribute(name, attrkind, self)
-            cache[name, attrkind] = attr
+            if unbox_type is None:
+                attr = PlainAttribute(name, attrkind, self)
+            else:
+                attr = UnboxedPlainAttribute(name, attrkind, self, unbox_type)
+            cache[key] = attr
         return attr
 
     def add_attr(self, obj, name, attrkind, w_value):
-        self._reorder_and_add(obj, name, attrkind, w_value)
+        space = self.space
+        unbox_type = None
+        if self.terminator.allow_unboxing:
+            if type(w_value) is space.IntObjectCls:
+                unbox_type = space.IntObjectCls
+            elif type(w_value) is space.FloatObjectCls:
+                unbox_type = space.FloatObjectCls
+        self._reorder_and_add(obj, name, attrkind, w_value, unbox_type)
         if not jit.we_are_jitted():
             oldattr = self
             attr = obj._get_mapdict_map()
@@ -157,26 +171,15 @@ class AbstractAttribute(object):
             assert size_est >= (oldattr.storage_needed() * NUM_DIGITS_POW2)
             oldattr._size_estimate = size_est
 
-    @jit.unroll_safe
-    def _switch_map_and_write_storage(self, obj, w_value):
-        if self.storage_needed() > obj._mapdict_storage_length():
-            obj._set_mapdict_increase_storage(self, erase_item(w_value))
-            return
-
-        # the order is important here: first change the map, then the storage,
-        # for the benefit of the special subclasses
-        obj._set_mapdict_map(self)
-        self._direct_write(obj, w_value)
-
 
     @jit.elidable
-    def _find_branch_to_move_into(self, name, attrkind):
+    def _find_branch_to_move_into(self, name, attrkind, unbox_type):
         # walk up the map chain to find an ancestor with lower order that
         # already has the current name as a child inserted
         current_order = sys.maxint
         number_to_readd = 0
         current = self
-        key = (name, attrkind)
+        key = (name, attrkind, unbox_type)
         while True:
             attr = None
             if current.cache_attrs is not None:
@@ -185,7 +188,7 @@ class AbstractAttribute(object):
                 # we reached the top, so we didn't find it anywhere,
                 # just add it to the top attribute
                 if not isinstance(current, PlainAttribute):
-                    return 0, self._get_new_attr(name, attrkind)
+                    return 0, self._get_new_attr(name, attrkind, unbox_type)
 
             else:
                 return number_to_readd, attr
@@ -194,11 +197,11 @@ class AbstractAttribute(object):
             current_order = current.order
             current = current.back
 
-    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
+    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value, unbox_type:
             jit.isconstant(self) and
             jit.isconstant(name) and
             jit.isconstant(attrkind))
-    def _reorder_and_add(self, obj, name, attrkind, w_value):
+    def _reorder_and_add(self, obj, name, attrkind, w_value, unbox_type):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
         # must not contain the name of the attribute of any earlier inserted
@@ -222,7 +225,7 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
-            number_to_readd, attr = self._find_branch_to_move_into(name, attrkind)
+            number_to_readd, attr = self._find_branch_to_move_into(name, attrkind, unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
@@ -263,11 +266,12 @@ class AbstractAttribute(object):
 
 
 class Terminator(AbstractAttribute):
-    _immutable_fields_ = ['w_cls']
+    _immutable_fields_ = ['w_cls', 'allow_unboxing?']
 
     def __init__(self, space, w_cls):
         AbstractAttribute.__init__(self, space, self)
         self.w_cls = w_cls
+        self.allow_unboxing = True
 
     def _read_terminator(self, obj, name, attrkind):
         return None
@@ -395,6 +399,16 @@ class PlainAttribute(AbstractAttribute):
     def _direct_write(self, obj, w_value):
         obj._mapdict_write_storage(self.storageindex, erase_item(w_value))
 
+    def _switch_map_and_write_storage(self, obj, w_value):
+        if self.storage_needed() > obj._mapdict_storage_length():
+            obj._set_mapdict_increase_storage(self, erase_item(w_value))
+            return
+
+        # the order is important here: first change the map, then the storage,
+        # for the benefit of the special subclasses
+        obj._set_mapdict_map(self)
+        self._direct_write(obj, w_value)
+
     def delete(self, obj, name, attrkind):
         if attrkind == self.attrkind and name == self.name:
             # ok, attribute is deleted
@@ -449,6 +463,80 @@ class PlainAttribute(AbstractAttribute):
 
     def __repr__(self):
         return "<PlainAttribute %s %s %s %r>" % (self.name, self.attrkind, self.storageindex, self.back)
+
+
+class UnboxedPlainAttribute(PlainAttribute):
+    _immutable_fields_ = ["listindex", "firstunwrapped"]
+    def __init__(self, name, attrkind, back, typ):
+        PlainAttribute.__init__(self, name, attrkind, back)
+        # here, storageindex is where the list of floats is stored
+        # and listindex is where in the list the actual value goes
+        self.firstunwrapped = False
+        self._compute_storageindex_listindex()
+        self.typ = typ
+
+    def _compute_storageindex_listindex(self):
+        attr = self.back
+        storageindex = -1
+        while isinstance(attr, PlainAttribute):
+            if isinstance(attr, UnboxedPlainAttribute):
+                storageindex = attr.storageindex
+                listindex = attr.listindex + 1
+                break
+            attr = attr.back
+        else:
+            storageindex = self.back.storage_needed()
+            listindex = 0
+            self.firstunwrapped = True
+        self.storageindex = storageindex
+        self.listindex = listindex
+
+    def _unbox(self, w_value):
+        space = self.space
+        assert type(w_value) is self.typ
+        if type(w_value) is space.IntObjectCls:
+            return longlong2float(space.int_w(w_value))
+        else:
+            return space.float_w(w_value)
+
+    def _box(self, val):
+        space = self.space
+        if self.typ is space.IntObjectCls:
+            return space.newint(float2longlong(val))
+        else:
+            return space.newfloat(val)
+
+    def _direct_read(self, obj):
+        return self._box(unerase_unboxed(obj._mapdict_read_storage(self.storageindex))[self.listindex])
+
+    def _pure_direct_read(self, obj):
+        XXX # difficult!
+        return self._direct_read(obj)
+
+    def _direct_write(self, obj, w_value):
+        val = self._unbox(w_value)
+        unboxed = erase_unboxed(obj._mapdict_read_storage(self.storageindex))
+        unboxed[self.listindex] = val
+
+    def _switch_map_and_write_storage(self, obj, w_value):
+        from rpython.rlib.debug import make_sure_not_resized
+        val = self._unbox(w_value)
+        if self.firstunwrapped:
+            unboxed = erase_unboxed(make_sure_not_resized([val]))
+            if self.storage_needed() > obj._mapdict_storage_length():
+                obj._set_mapdict_increase_storage(self, unboxed)
+                return
+
+            obj._set_mapdict_map(self)
+            self._direct_write(obj, unboxed)
+        else:
+            unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
+            unboxed = unboxed + [val]
+            obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
+            obj._set_mapdict_map(self)
+
+    def __repr__(self):
+        return "<UnboxedPlainAttribute %s %s %s %s %r>" % (self.name, self.attrkind, self.storageindex, self.listindex, self.back)
 
 
 class MapAttrCache(object):
@@ -1013,6 +1101,7 @@ class CacheEntry(object):
 
     @jit.dont_look_inside
     def is_valid_for_map(self, map):
+        return False # XXX fix later
         # note that 'map' can be None here
         mymap = self.map_wref()
         if mymap is not None and mymap is map:

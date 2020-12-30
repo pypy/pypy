@@ -547,6 +547,64 @@ def test_size_prediction():
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
 
 # ___________________________________________________________
+# unwrapped tests
+
+def test_unboxed_compute_indices():
+    w_cls = "class"
+    aa = UnboxedPlainAttribute("b", DICT,
+                        PlainAttribute("a", DICT,
+                                       Terminator(space, w_cls)),
+                        int)
+    assert aa.storageindex == 1
+    assert aa.firstunwrapped
+    assert aa.listindex == 0
+    
+    c = UnboxedPlainAttribute("c", DICT, aa, int)
+    assert c.storageindex == 1
+    assert c.listindex == 1
+    assert not c.firstunwrapped
+
+def test_unboxed_write_int():
+    cls = Class()
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", 15)
+    w_obj.getdictvalue(space, "a") == 15
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+
+    w_obj.setdictvalue(space, "b", 20)
+    w_obj.getdictvalue(space, "b") == 20
+    w_obj.getdictvalue(space, "a") == 15
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+    assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
+    assert unerase_unboxed(w_obj.storage[0]) == [longlong2float(15), longlong2float(20)]
+
+def test_unboxed_write_float():
+    cls = Class()
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", 15.0)
+    w_obj.getdictvalue(space, "a") == 15.0
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+
+    w_obj.setdictvalue(space, "b", 20.0)
+    w_obj.getdictvalue(space, "b") == 20.0
+    w_obj.getdictvalue(space, "a") == 15.0
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+    assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
+    assert unerase_unboxed(w_obj.storage[0]) == [15.0, 20.0]
+
+def test_unboxed_write_mixed():
+    cls = Class()
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", None)
+    w_obj.setdictvalue(space, "b", 15)
+    w_obj.setdictvalue(space, "c", 20.1)
+    w_obj.setdictvalue(space, "d", None)
+    w_obj.getdictvalue(space, "a") is None
+    w_obj.getdictvalue(space, "b") == 15
+    w_obj.getdictvalue(space, "c") == 20.1
+    w_obj.setdictvalue(space, "d", None)
+
+# ___________________________________________________________
 # dict tests
 
 from pypy.objspace.std.test.test_dictmultiobject import BaseTestRDictImplementation, BaseTestDevolvedDictImplementation
