@@ -17,9 +17,7 @@ import os
 import subprocess
 import contextlib
 import warnings
-import unittest.mock
-with contextlib.suppress(ImportError):
-    import _winreg as winreg
+import _winreg as winreg
 
 from distutils.errors import DistutilsExecError, DistutilsPlatformError, \
                              CompileError, LibError, LinkError
@@ -79,7 +77,7 @@ def _find_vc2017():
             "-requires", "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
             "-property", "installationPath",
             "-products", "*",
-        ], encoding="mbcs", errors="strict").strip()
+        ]).strip()
     except (subprocess.CalledProcessError, OSError, UnicodeDecodeError):
         return None, None
 
@@ -129,7 +127,7 @@ def _get_vc_env(plat_spec):
         out = subprocess.check_output(
             'cmd /u /c "{}" {} && set'.format(vcvarsall, plat_spec),
             stderr=subprocess.STDOUT,
-        ).decode('utf-16le', errors='replace')
+        ).decode('utf-16le', errors='replace').encode('utf-8')
     except subprocess.CalledProcessError as exc:
         log.error(exc.output)
         raise DistutilsPlatformError("Error executing {}"
@@ -263,12 +261,12 @@ class MSVCCompiler(CCompiler) :
             '/nologo', '/INCREMENTAL:NO', '/LTCG', '/DEBUG:FULL'
         ]
 
-        self.ldflags_exe = [*ldflags, '/MANIFEST:EMBED,ID=1']
-        self.ldflags_exe_debug = [*ldflags_debug, '/MANIFEST:EMBED,ID=1']
-        self.ldflags_shared = [*ldflags, '/DLL', '/MANIFEST:EMBED,ID=2', '/MANIFESTUAC:NO']
-        self.ldflags_shared_debug = [*ldflags_debug, '/DLL', '/MANIFEST:EMBED,ID=2', '/MANIFESTUAC:NO']
-        self.ldflags_static = [*ldflags]
-        self.ldflags_static_debug = [*ldflags_debug]
+        self.ldflags_exe = ldflags + ['/MANIFEST:EMBED,ID=1']
+        self.ldflags_exe_debug = ldflags_debug + ['/MANIFEST:EMBED,ID=1']
+        self.ldflags_shared = ldflags + ['/DLL', '/MANIFEST:EMBED,ID=2', '/MANIFESTUAC:NO']
+        self.ldflags_shared_debug = ldflags_debug + ['/DLL', '/MANIFEST:EMBED,ID=2', '/MANIFESTUAC:NO']
+        self.ldflags_static = ldflags[:]
+        self.ldflags_static_debug = ldflags_debug[:]
 
         self._ldflags = {
             (CCompiler.EXECUTABLE, None): self.ldflags_exe,
@@ -290,11 +288,8 @@ class MSVCCompiler(CCompiler) :
                          source_filenames,
                          strip_dir=0,
                          output_dir=''):
-        ext_map = {
-            **{ext: self.obj_extension for ext in self.src_extensions},
-            **{ext: self.res_extension for ext in self._rc_extensions + self._mc_extensions},
-        }
-
+        ext_map = {ext: self.obj_extension for ext in self.src_extensions}
+        ext_map.update({ext: self.res_extension for ext in self._rc_extensions + self._mc_extensions})
         output_dir = output_dir or ''
 
         def make_out_path(p):
@@ -506,29 +501,7 @@ class MSVCCompiler(CCompiler) :
 
     def spawn(self, cmd):
         env = dict(os.environ, PATH=self._paths)
-        with self._fallback_spawn(cmd, env) as fallback:
-            return super().spawn(cmd, env=env)
-        return fallback.value
-
-    @contextlib.contextmanager
-    def _fallback_spawn(self, cmd, env):
-        """
-        Discovered in pypa/distutils#15, some tools monkeypatch the compiler,
-        so the 'env' kwarg causes a TypeError. Detect this condition and
-        restore the legacy, unsafe behavior.
-        """
-        bag = type('Bag', (), {})()
-        try:
-            yield bag
-        except TypeError as exc:
-            if "unexpected keyword argument 'env'" not in str(exc):
-                raise
-        else:
-            return
-        warnings.warn(
-            "Fallback spawn triggered. Please update distutils monkeypatch.")
-        with unittest.mock.patch('os.environ', env):
-            bag.value = super().spawn(cmd)
+        return CCompiler.spawn(self, cmd, env=env)
 
     # -- Miscellaneous methods -----------------------------------------
     # These are all used by the 'gen_lib_options() function, in
