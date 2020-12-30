@@ -50,3 +50,8 @@ Fix various problems with ``winreg``: add ``REG_QWORD``, implement reflection
 on win64, (bpo-21151) preserve None passed as ``REG_BINARY``, (bpo-25778),
 truncate ``REG_SZ`` at first ``NULL``, use surrogatepass in ``UTF-16`` decoding
 (issue 3342).
+
+.. branch: py3.7-win64-hash
+
+Prevent overflow in ``_hash_long`` on win64 using method from CPython, and
+speed it up.
