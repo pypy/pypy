@@ -234,7 +234,7 @@ class AbstractAttribute(object):
                 current = self
                 for i in range(number_to_readd):
                     assert isinstance(current, PlainAttribute)
-                    w_self_value = current._direct_read(obj)
+                    w_self_value = current._prim_direct_read(obj)
                     stack[stack_index] = erase_map(current)
                     stack[stack_index + 1] = erase_item(w_self_value)
                     stack_index += 2
@@ -386,11 +386,13 @@ class PlainAttribute(AbstractAttribute):
         self.order = len(back.cache_attrs) if back.cache_attrs else 0
 
     def _copy_attr(self, obj, new_obj):
-        w_value = self.read(obj, self.name, self.attrkind)
+        w_value = self._prim_direct_read(obj)
         new_obj._get_mapdict_map().add_attr(new_obj, self.name, self.attrkind, w_value)
 
     def _direct_read(self, obj):
         return unerase_item(obj._mapdict_read_storage(self.storageindex))
+
+    _prim_direct_read = _direct_read
 
     @jit.elidable
     def _pure_direct_read(self, obj):
@@ -442,7 +444,7 @@ class PlainAttribute(AbstractAttribute):
         new_obj = self.back.materialize_r_dict(space, obj, dict_w)
         if self.attrkind == DICT:
             w_attr = space.newtext(self.name)
-            dict_w[w_attr] = self._direct_read(obj)
+            dict_w[w_attr] = self._prim_direct_read(obj)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -450,7 +452,7 @@ class PlainAttribute(AbstractAttribute):
     def materialize_str_dict(self, space, obj, str_dict):
         new_obj = self.back.materialize_str_dict(space, obj, str_dict)
         if self.attrkind == DICT:
-            str_dict[self.name] = self._direct_read(obj)
+            str_dict[self.name] = self._prim_direct_read(obj)
         else:
             self._copy_attr(obj, new_obj)
         return new_obj
@@ -506,7 +508,21 @@ class UnboxedPlainAttribute(PlainAttribute):
         else:
             return space.newfloat(val)
 
+    def _convert_to_boxed(self, obj):
+        new_obj = obj._get_mapdict_map().copy(obj)
+        map = new_obj.map
+        obj._set_mapdict_storage_and_map(new_obj.storage, map)
+        return map
+
     def _direct_read(self, obj):
+        w_res = self._prim_direct_read(obj)
+        if self.terminator.allow_unboxing == False:
+            # oops, some other object using the same class isn't type stable!
+            # stop using boxing altogether to not get too many variants of maps
+            self._convert_to_boxed(obj)
+        return w_res
+
+    def _prim_direct_read(self, obj):
         return self._box(unerase_unboxed(obj._mapdict_read_storage(self.storageindex))[self.listindex])
 
     def _pure_direct_read(self, obj):
@@ -514,9 +530,19 @@ class UnboxedPlainAttribute(PlainAttribute):
         return self._direct_read(obj)
 
     def _direct_write(self, obj, w_value):
-        val = self._unbox(w_value)
-        unboxed = erase_unboxed(obj._mapdict_read_storage(self.storageindex))
-        unboxed[self.listindex] = val
+        if type(w_value) is self.typ:
+            val = self._unbox(w_value)
+            unboxed = erase_unboxed(obj._mapdict_read_storage(self.storageindex))
+            unboxed[self.listindex] = val
+            return
+        # type change not supposed to happen. according to the principle
+        # of type freezing, we just give up, and will never unbox anything
+        # from that class again
+        self.terminator.allow_unboxing = False
+        map = self._convert_to_boxed(obj)
+        # now obj won't have any UnboxedPlainAttribute in its chain any
+        # more, because allow_unboxing is False
+        map.write(obj, self.name, self.attrkind, w_value)
 
     def _switch_map_and_write_storage(self, obj, w_value):
         from rpython.rlib.debug import make_sure_not_resized

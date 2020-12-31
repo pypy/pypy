@@ -549,7 +549,7 @@ def test_size_prediction():
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
 
 # ___________________________________________________________
-# unwrapped tests
+# unboxed tests
 
 def test_unboxed_compute_indices():
     w_cls = "class"
@@ -605,6 +605,41 @@ def test_unboxed_write_mixed():
     w_obj.getdictvalue(space, "b") == 15
     w_obj.getdictvalue(space, "c") == 20.1
     w_obj.setdictvalue(space, "d", None)
+
+def test_unboxed_type_change():
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "b", 15)
+    w_obj.setdictvalue(space, "b", 15.5)
+    assert w_obj.getdictvalue(space, "b") == 15.5
+    assert type(w_obj.map) is PlainAttribute
+    assert w_obj.map.terminator.allow_unboxing == False
+
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "b", 15)
+    # next time we won't unbox
+    assert type(w_obj.map) is PlainAttribute
+
+def test_unboxed_type_change_other_object():
+    cls = Class(allow_unboxing=True)
+    w_obj1 = cls.instantiate(space)
+    w_obj1.setdictvalue(space, "b", 15)
+    w_obj2 = cls.instantiate(space)
+    w_obj2.setdictvalue(space, "b", 16)
+    assert w_obj1.map is w_obj2.map
+    assert type(w_obj1.map) is UnboxedPlainAttribute
+
+    # type change
+    w_obj1.setdictvalue(space, "b", 15.5)
+    assert w_obj1.getdictvalue(space, "b") == 15.5
+    assert type(w_obj1.map) is PlainAttribute
+    assert w_obj1.map.terminator.allow_unboxing == False
+
+    # w_obj2 is unaffected so far
+    assert type(w_obj2.map) is UnboxedPlainAttribute
+    assert w_obj2.getdictvalue(space, "b") == 16
+    # now it's switched
+    assert type(w_obj2.map) is PlainAttribute
 
 # ___________________________________________________________
 # dict tests
