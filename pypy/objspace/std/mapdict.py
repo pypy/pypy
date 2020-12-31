@@ -526,13 +526,20 @@ class UnboxedPlainAttribute(PlainAttribute):
         return self._box(unerase_unboxed(obj._mapdict_read_storage(self.storageindex))[self.listindex])
 
     def _pure_direct_read(self, obj):
-        XXX # difficult!
-        return self._direct_read(obj)
+        # somewhat tricky! note that _direct_read isn't really elidable (it has
+        # potential side effects, and the boxes aren't always the same)
+        # but _pure_unboxed_read is elidable, and we can let the jit see the
+        # boxing
+        return self._box(self._pure_unboxed_read(obj))
+
+    @jit.elidable
+    def _pure_unboxed_read(self, obj):
+        return unerase_unboxed(obj._mapdict_read_storage(self.storageindex))[self.listindex]
 
     def _direct_write(self, obj, w_value):
         if type(w_value) is self.typ:
             val = self._unbox(w_value)
-            unboxed = erase_unboxed(obj._mapdict_read_storage(self.storageindex))
+            unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
             unboxed[self.listindex] = val
             return
         # type change not supposed to happen. according to the principle

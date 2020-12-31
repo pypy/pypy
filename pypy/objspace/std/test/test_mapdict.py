@@ -641,6 +641,41 @@ def test_unboxed_type_change_other_object():
     # now it's switched
     assert type(w_obj2.map) is PlainAttribute
 
+def test_unboxed_attr_immutability(monkeypatch):
+    cls = Class(allow_unboxing=True)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "b", 30)
+    assert obj.map.ever_mutated == True
+    assert obj.map.back.ever_mutated == False
+
+    indices = []
+
+    def _pure_unboxed_read(obj):
+        indices.append(0)
+        return longlong2float(10)
+
+    obj.map.back._pure_unboxed_read = _pure_unboxed_read
+    monkeypatch.setattr(jit, "isconstant", lambda c: True)
+
+    assert obj.getdictvalue(space, "a") == 10
+    assert obj.getdictvalue(space, "b") == 30
+    assert obj.getdictvalue(space, "a") == 10
+    assert indices == [0, 0]
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "a", 15)
+    obj2.setdictvalue(space, "b", 25)
+    assert obj2.map is obj.map
+    assert obj2.map.ever_mutated == True
+    assert obj2.map.back.ever_mutated == False
+
+    # mutating obj2 changes the map
+    obj2.setdictvalue(space, "a", 50)
+    assert obj2.map.back.ever_mutated == True
+    assert obj2.map is obj.map
+
 # ___________________________________________________________
 # dict tests
 
