@@ -125,9 +125,6 @@ def _get_console_type(handle):
 
 def _pyio_get_console_type(space, w_path_or_fd):
 
-    # XXX 2020-07-22 Disable WinConsoleIO since it is flaky
-    return '\0'
-
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
         handle = rwin32.get_osfhandle(fd)
