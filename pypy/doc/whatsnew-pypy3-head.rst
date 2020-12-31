@@ -55,3 +55,8 @@ truncate ``REG_SZ`` at first ``NULL``, use surrogatepass in ``UTF-16`` decoding
 
 Prevent overflow in ``_hash_long`` on win64 using method from CPython, and
 speed it up.
+
+.. branch: issue-3371
+
+Allow compiler to inherit flags from ``__future__.annotations``. Fixes
+``>>> x : X``
