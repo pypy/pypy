@@ -1336,6 +1336,9 @@ def f():
 
         yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
 
+    def test_fstring_debugging(self):
+        yield self.st, """x = 1;z = f'T: {x = }'""", 'z', 'T: x = 1'
+
     def test_fstring_error(self):
         py.test.raises(SyntaxError, self.run, "f'{}'")
         py.test.raises(SyntaxError, self.run, "f'{   \t   }'")

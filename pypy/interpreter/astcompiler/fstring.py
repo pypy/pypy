@@ -101,6 +101,8 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # format_spec expression.
     conversion = -1      # the conversion char.  -1 if not specified.
     format_spec = None
+    expr_text = None     # Stores the text represenation of the expression part
+                         # in order to be used for f-string debugging (f'{x = }')
 
     # 0 if we're not in a string, else the quote char we're trying to
     # match (single or double quote).
@@ -181,13 +183,12 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
             # or not.
             astbuilder.error("f-string expression part cannot include '#'",
                              atom_node)
-        elif nested_depth == 0 and ch in "!:}":
-            # First, test for the special case of "!=". Since '=' is
-            # not an allowed conversion character, nothing is lost in
-            # this test.
-            if ch == '!' and i + 1 < len(s) and s[i+1] == '=':
-                # This isn't a conversion character, just continue.
-                i += 1
+        elif nested_depth == 0 and ch in ":}!=<>":
+            # First, test for the special case of comparison operators
+            # that also contains equal sign ("!="/">="/"=="/"<=").
+            if ch in '!=<>' and i + 1 < len(s) and s[i+1] == '=':
+                # This is an operator, just skip it.
+                i += 2
                 continue
             # Normal way out of this loop.
             break
@@ -213,6 +214,17 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # conversion or format_spec.
     expr = f_string_compile(astbuilder, s[expr_start:i], atom_node, fstr)
     assert isinstance(expr, ast.Expression)
+
+    # Check for the equal sign (debugging expr)
+    if s[i] == '=':
+        i += 1
+
+        # The whitespace after the equal sign (f'{x=    }') can be
+        # safely ignored (since it will be preserved in expr_text).
+        while s[i].isspace():
+            i += 1
+
+        expr_text = s[expr_start:i]
 
     # Check for a conversion char, if present.
     if s[i] == '!':
@@ -242,6 +254,14 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     if i >= len(s) or s[i] != '}':
         unexpected_end_of_string(astbuilder, atom_node)
 
+    if expr_text is not None:
+        # If there are no format spec and conversion, debugging exprs will
+        # default to using !r for their conversion.
+        if format_spec is None and conversion == -1:
+            conversion = ord('r')
+
+        expr_text = astbuilder.space.newtext(expr_text)
+
     # We're at a right brace. Consume it.
     i += 1
     fstr.current_index = i
@@ -250,7 +270,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # entire expression with the conversion and format spec.
     return ast.FormattedValue(expr.body, conversion, format_spec,
                               atom_node.get_lineno(),
-                              atom_node.get_column())
+                              atom_node.get_column()), expr_text
 
 
 def fstring_find_literal(astbuilder, fstr, atom_node, rec):
@@ -334,12 +354,12 @@ def fstring_find_literal_and_expr(astbuilder, fstr, atom_node, rec):
     if i >= len(s) or s[i] == '}':
         # We're at the end of the string or the end of a nested
         # f-string: no expression.
-        expr = None
+        expr, expr_text = None, None
     else:
         # We must now be the start of an expression, on a '{'.
         assert s[i] == '{'
-        expr = fstring_find_expr(astbuilder, fstr, atom_node, rec)
-    return w_u, expr
+        expr, expr_text = fstring_find_expr(astbuilder, fstr, atom_node, rec)
+    return w_u, expr, expr_text
 
 
 def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
@@ -348,13 +368,15 @@ def parse_f_string(astbuilder, joined_pieces, fstr, atom_node, rec=0):
     # done this way to follow CPython's source code more closely.
     space = astbuilder.space
     while True:
-        w_u, expr = fstring_find_literal_and_expr(astbuilder, fstr,
-                                                      atom_node, rec)
+        w_u, expr, expr_text  = fstring_find_literal_and_expr(astbuilder, fstr,
+                                                              atom_node, rec)
 
         # add the literal part
         f_constant_string(astbuilder, joined_pieces, w_u, atom_node)
         if expr is None:
             break         # We're done with this f-string.
+        if expr_text is not None:
+            f_constant_string(astbuilder, joined_pieces, expr_text, atom_node)
         joined_pieces.append(expr)
 
     # If recurse_lvl is zero, then we must be at the end of the
