@@ -11,12 +11,14 @@ space = FakeSpace()
 space.config = Config
 
 class Class(object):
-    def __init__(self, hasdict=True):
+    def __init__(self, hasdict=True, allow_unboxing=False):
         self.hasdict = hasdict
         if hasdict:
             self.terminator = DictTerminator(space, self)
+            self.terminator.devolved_dict_terminator.allow_unboxing = allow_unboxing
         else:
             self.terminator = NoDictTerminator(space, self)
+        self.terminator.allow_unboxing = allow_unboxing
 
     def instantiate(self, sp=None):
         if sp is None:
@@ -565,7 +567,7 @@ def test_unboxed_compute_indices():
     assert not c.firstunwrapped
 
 def test_unboxed_write_int():
-    cls = Class()
+    cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "a", 15)
     w_obj.getdictvalue(space, "a") == 15
@@ -579,7 +581,7 @@ def test_unboxed_write_int():
     assert unerase_unboxed(w_obj.storage[0]) == [longlong2float(15), longlong2float(20)]
 
 def test_unboxed_write_float():
-    cls = Class()
+    cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "a", 15.0)
     w_obj.getdictvalue(space, "a") == 15.0
@@ -593,7 +595,7 @@ def test_unboxed_write_float():
     assert unerase_unboxed(w_obj.storage[0]) == [15.0, 20.0]
 
 def test_unboxed_write_mixed():
-    cls = Class()
+    cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "a", None)
     w_obj.setdictvalue(space, "b", 15)

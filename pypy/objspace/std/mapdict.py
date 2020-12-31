@@ -528,7 +528,7 @@ class UnboxedPlainAttribute(PlainAttribute):
                 return
 
             obj._set_mapdict_map(self)
-            self._direct_write(obj, unboxed)
+            obj._mapdict_write_storage(self.storageindex, unboxed)
         else:
             unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
             unboxed = unboxed + [val]
@@ -1090,7 +1090,6 @@ class MapDictIteratorItems(BaseItemIterator):
 
 class CacheEntry(object):
     version_tag = None
-    storageindex = 0
     w_method = None # for callmethod
     success_counter = 0
     failure_counter = 0
@@ -1101,7 +1100,6 @@ class CacheEntry(object):
 
     @jit.dont_look_inside
     def is_valid_for_map(self, map):
-        return False # XXX fix later
         # note that 'map' can be None here
         mymap = self.map_wref()
         if mymap is not None and mymap is map:
@@ -1124,7 +1122,7 @@ def init_mapdict_cache(pycode):
     pycode._mapdict_caches = [INVALID_CACHE_ENTRY] * num_entries
 
 @jit.dont_look_inside
-def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None):
+def _fill_cache(pycode, nameindex, map, version_tag, attr, w_method=None):
     if not pycode.space._side_effects_ok():
         return
     entry = pycode._mapdict_caches[nameindex]
@@ -1132,8 +1130,11 @@ def _fill_cache(pycode, nameindex, map, version_tag, storageindex, w_method=None
         entry = CacheEntry()
         pycode._mapdict_caches[nameindex] = entry
     entry.map_wref = weakref.ref(map)
+    if attr:
+        entry.attr_wref = weakref.ref(attr)
+    else:
+        entry.attr_wref = None
     entry.version_tag = version_tag
-    entry.storageindex = storageindex
     entry.w_method = w_method
     if pycode.space.config.objspace.std.withmethodcachecounter:
         entry.failure_counter += 1
@@ -1145,7 +1146,9 @@ def LOAD_ATTR_caching(pycode, w_obj, nameindex):
     map = w_obj._get_mapdict_map()
     if entry.is_valid_for_map(map) and entry.w_method is None:
         # everything matches, it's incredibly fast
-        return unerase_item(w_obj._mapdict_read_storage(entry.storageindex))
+        attr = entry.attr_wref()
+        if attr is not None:
+            return attr._direct_read(w_obj)
     return LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map)
 LOAD_ATTR_caching._always_inline_ = True
 
@@ -1191,8 +1194,8 @@ def LOAD_ATTR_slowpath(pycode, w_obj, nameindex, map):
                     # Note that if map.terminator is a DevolvedDictTerminator
                     # or the class provides its own dict, not using mapdict, then:
                     # map.find_map_attr will always return None if attrkind==DICT.
-                    _fill_cache(pycode, nameindex, map, version_tag, attr.storageindex)
-                    return unerase_item(w_obj._mapdict_read_storage(attr.storageindex))
+                    _fill_cache(pycode, nameindex, map, version_tag, attr)
+                    return attr._direct_read(w_obj)
     if space.config.objspace.std.withmethodcachecounter:
         INVALID_CACHE_ENTRY.failure_counter += 1
     return space.getattr(w_obj, w_name)
@@ -1225,7 +1228,7 @@ def LOOKUP_METHOD_mapdict_fill_cache_method(space, pycode, name, nameindex,
     map = w_obj._get_mapdict_map()
     if map is None or isinstance(map.terminator, DevolvedDictTerminator):
         return
-    _fill_cache(pycode, nameindex, map, version_tag, -1, w_method)
+    _fill_cache(pycode, nameindex, map, version_tag, None, w_method)
 
 # XXX fix me: if a function contains a loop with both LOAD_ATTR and
 # XXX LOOKUP_METHOD on the same attribute name, it keeps trashing and
