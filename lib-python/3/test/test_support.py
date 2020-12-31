@@ -91,14 +91,12 @@ class TestSupport(unittest.TestCase):
             support.rmtree('__pycache__')
 
     def test_HOST(self):
-        s = socket.socket()
-        s.bind((support.HOST, 0))
+        s = socket.create_server((support.HOST, 0))
         s.close()
 
     def test_find_unused_port(self):
         port = support.find_unused_port()
-        s = socket.socket()
-        s.bind((support.HOST, port))
+        s = socket.create_server((support.HOST, port))
         s.close()
 
     def test_bind_port(self):
@@ -286,7 +284,7 @@ class TestSupport(unittest.TestCase):
         self.assertEqual(cm.exception.errno, errno.EBADF)
 
     def test_check_syntax_error(self):
-        support.check_syntax_error(self, "def class", lineno=1, offset=9)
+        support.check_syntax_error(self, "def class", lineno=1, offset=5)
         with self.assertRaises(AssertionError):
             support.check_syntax_error(self, "x=1")
 
@@ -405,7 +403,7 @@ class TestSupport(unittest.TestCase):
                              ("unittest.result", "unittest.case",
                               "unittest.suite", "unittest.loader",
                               "unittest.main", "unittest.runner",
-                              "unittest.signals"),
+                              "unittest.signals", "unittest.async_case"),
                              extra=extra,
                              blacklist=blacklist)
 
@@ -435,8 +433,12 @@ class TestSupport(unittest.TestCase):
                 if time.monotonic() > deadline:
                     self.fail("timeout")
 
-                with contextlib.redirect_stderr(stderr):
+                old_stderr = sys.__stderr__
+                try:
+                    sys.__stderr__ = stderr
                     support.reap_children()
+                finally:
+                    sys.__stderr__ = old_stderr
 
                 # Use environment_altered to check if reap_children() found
                 # the child process
@@ -634,6 +636,24 @@ class TestSupport(unittest.TestCase):
         finally:
             os.close(fd)
         self.assertEqual(more - start, 1)
+
+    def check_print_warning(self, msg, expected):
+        stderr = io.StringIO()
+
+        old_stderr = sys.__stderr__
+        try:
+            sys.__stderr__ = stderr
+            support.print_warning(msg)
+        finally:
+            sys.__stderr__ = old_stderr
+
+        self.assertEqual(stderr.getvalue(), expected)
+
+    def test_print_warning(self):
+        self.check_print_warning("msg",
+                                 "Warning -- msg\n")
+        self.check_print_warning("a\nb",
+                                 'Warning -- a\nWarning -- b\n')
 
     # XXX -follows a list of untested API
     # make_legacy_pyc

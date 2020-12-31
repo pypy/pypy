@@ -230,10 +230,27 @@ class BinASCIITest(unittest.TestCase):
         self.assertEqual(s, u)
         self.assertRaises(binascii.Error, binascii.a2b_hex, t[:-1])
         self.assertRaises(binascii.Error, binascii.a2b_hex, t[:-1] + b'q')
+        self.assertRaises(binascii.Error, binascii.a2b_hex, bytes([255, 255]))
+        self.assertRaises(binascii.Error, binascii.a2b_hex, b'0G')
+        self.assertRaises(binascii.Error, binascii.a2b_hex, b'0g')
+        self.assertRaises(binascii.Error, binascii.a2b_hex, b'G0')
+        self.assertRaises(binascii.Error, binascii.a2b_hex, b'g0')
 
         # Confirm that b2a_hex == hexlify and a2b_hex == unhexlify
         self.assertEqual(binascii.hexlify(self.type2test(s)), t)
         self.assertEqual(binascii.unhexlify(self.type2test(t)), u)
+
+    def test_hex_separator(self):
+        """Test that hexlify and b2a_hex are binary versions of bytes.hex."""
+        # Logic of separators is tested in test_bytes.py.  This checks that
+        # arg parsing works and exercises the direct to bytes object code
+        # path within pystrhex.c.
+        s = b'{s\005\000\000\000worldi\002\000\000\000s\005\000\000\000helloi\001\000\000\0000'
+        self.assertEqual(binascii.hexlify(self.type2test(s)), s.hex().encode('ascii'))
+        expected8 = s.hex('.', 8).encode('ascii')
+        self.assertEqual(binascii.hexlify(self.type2test(s), '.', 8), expected8)
+        expected1 = s.hex(':').encode('ascii')
+        self.assertEqual(binascii.b2a_hex(self.type2test(s), ':'), expected1)
 
     def test_qp(self):
         type2test = self.type2test

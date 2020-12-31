@@ -112,7 +112,7 @@ class TracebackCases(unittest.TestCase):
         # Test that tracebacks are correctly printed for encoded source files:
         # - correct line number (Issue2384)
         # - respect file encoding (Issue3975)
-        import tempfile, sys, subprocess, os
+        import sys, subprocess
 
         # The spawned subprocess has its stdout redirected to a PIPE, and its
         # encoding may be different from the current interpreter, on Windows
@@ -872,6 +872,7 @@ class MiscTracebackCases(unittest.TestCase):
             (__file__, lineno+2, 'test_extract_stack', 'result = extract()'),
             (__file__, lineno+1, 'extract', 'return traceback.extract_stack()'),
             ])
+        self.assertEqual(len(result[0]), 4)
 
 
 class TestFrame(unittest.TestCase):
@@ -903,6 +904,10 @@ class TestFrame(unittest.TestCase):
     def test_explicit_line(self):
         f = traceback.FrameSummary("f", 1, "dummy", line="line")
         self.assertEqual("line", f.line)
+
+    def test_len(self):
+        f = traceback.FrameSummary("f", 1, "dummy", line="line")
+        self.assertEqual(len(f), 4)
 
 
 class TestStack(unittest.TestCase):
@@ -994,11 +999,11 @@ class TestStack(unittest.TestCase):
         s = some_inner(3, 4)
         self.assertEqual(
             ['  File "%s", line %d, in some_inner\n'
-             '    traceback.walk_stack(None), capture_locals=True, limit=1)\n'
+             '    return traceback.StackSummary.extract(\n'
              '    a = 1\n'
              '    b = 2\n'
              '    k = 3\n'
-             '    v = 4\n' % (__file__, some_inner.__code__.co_firstlineno + 4)
+             '    v = 4\n' % (__file__, some_inner.__code__.co_firstlineno + 3)
             ], s.format())
 
 class TestTracebackException(unittest.TestCase):
@@ -1082,6 +1087,78 @@ class TestTracebackException(unittest.TestCase):
         self.assertEqual(exc_info[0], exc.exc_type)
         self.assertEqual(str(exc_info[1]), str(exc))
 
+    def test_no_refs_to_exception_and_traceback_objects(self):
+        try:
+            1/0
+        except Exception:
+            exc_info = sys.exc_info()
+
+        refcnt1 = sys.getrefcount(exc_info[1])
+        refcnt2 = sys.getrefcount(exc_info[2])
+        exc = traceback.TracebackException(*exc_info)
+        self.assertEqual(sys.getrefcount(exc_info[1]), refcnt1)
+        self.assertEqual(sys.getrefcount(exc_info[2]), refcnt2)
+
+    def test_comparison_basic(self):
+        try:
+            1/0
+        except Exception:
+            exc_info = sys.exc_info()
+            exc = traceback.TracebackException(*exc_info)
+            exc2 = traceback.TracebackException(*exc_info)
+        self.assertIsNot(exc, exc2)
+        self.assertEqual(exc, exc2)
+        class MyObject:
+            pass
+        self.assertNotEqual(exc, MyObject())
+
+    def test_comparison_params_variations(self):
+        def raise_exc():
+            try:
+                raise ValueError('bad value')
+            except:
+                raise
+
+        def raise_with_locals():
+            x, y = 1, 2
+            raise_exc()
+
+        try:
+            raise_with_locals()
+        except Exception:
+            exc_info = sys.exc_info()
+
+        exc = traceback.TracebackException(*exc_info)
+        exc1 = traceback.TracebackException(*exc_info, limit=10)
+        exc2 = traceback.TracebackException(*exc_info, limit=2)
+
+        self.assertEqual(exc, exc1)      # limit=10 gets all frames
+        self.assertNotEqual(exc, exc2)   # limit=2 truncates the output
+
+        # locals change the output
+        exc3 = traceback.TracebackException(*exc_info, capture_locals=True)
+        self.assertNotEqual(exc, exc3)
+
+        # there are no locals in the innermost frame
+        exc4 = traceback.TracebackException(*exc_info, limit=-1)
+        exc5 = traceback.TracebackException(*exc_info, limit=-1, capture_locals=True)
+        self.assertEqual(exc4, exc5)
+
+        # there are locals in the next-to-innermost frame
+        exc6 = traceback.TracebackException(*exc_info, limit=-2)
+        exc7 = traceback.TracebackException(*exc_info, limit=-2, capture_locals=True)
+        self.assertNotEqual(exc6, exc7)
+
+    def test_comparison_equivalent_exceptions_are_equal(self):
+        excs = []
+        for _ in range(2):
+            try:
+                1/0
+            except:
+                excs.append(traceback.TracebackException(*sys.exc_info()))
+        self.assertEqual(excs[0], excs[1])
+        self.assertEqual(list(excs[0].format()), list(excs[1].format()))
+
     def test_unhashable(self):
         class UnhashableException(Exception):
             def __eq__(self, other):
@@ -1123,7 +1200,7 @@ class TestTracebackException(unittest.TestCase):
         f = test_frame(c, None, None)
         tb = test_tb(f, 6, None)
         exc = traceback.TracebackException(Exception, e, tb, lookup_lines=False)
-        self.assertEqual({}, linecache.cache)
+        self.assertEqual(linecache.cache, {})
         linecache.updatecache('/foo.py', globals())
         self.assertEqual(exc.stack[0].line, "import sys")
 

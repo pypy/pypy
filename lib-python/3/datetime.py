@@ -382,19 +382,34 @@ def _check_utc_offset(name, offset):
 def _check_int_field(value):
     if isinstance(value, int):
         return value
-    if not isinstance(value, float):
-        try:
-            value = value.__int__()
-        except AttributeError:
-            pass
-        else:
-            if isinstance(value, int):
-                return value
+    if isinstance(value, float):
+        raise TypeError('integer argument expected, got float')
+    try:
+        value = value.__index__()
+    except AttributeError:
+        pass
+    else:
+        if not isinstance(value, int):
+            raise TypeError('__index__ returned non-int (type %s)' %
+                            type(value).__name__)
+        return value
+    orig = value
+    try:
+        value = value.__int__()
+    except AttributeError:
+        pass
+    else:
+        if not isinstance(value, int):
             raise TypeError('__int__ returned non-int (type %s)' %
                             type(value).__name__)
-        raise TypeError('an integer is required (got type %s)' %
-                        type(value).__name__)
-    raise TypeError('integer argument expected, got float')
+        import warnings
+        warnings.warn("an integer is required (got type %s)"  %
+                      type(orig).__name__,
+                      DeprecationWarning,
+                      stacklevel=2)
+        return value
+    raise TypeError('an integer is required (got type %s)' %
+                    type(value).__name__)
 
 def _check_date_fields(year, month, day):
     year = _check_int_field(year)
@@ -875,6 +890,40 @@ class date(dateinterop):
         except Exception:
             raise ValueError(f'Invalid isoformat string: {date_string!r}')
 
+    @classmethod
+    def fromisocalendar(cls, year, week, day):
+        """Construct a date from the ISO year, week number and weekday.
+
+        This is the inverse of the date.isocalendar() function"""
+        # Year is bounded this way because 9999-12-31 is (9999, 52, 5)
+        if not MINYEAR <= year <= MAXYEAR:
+            raise ValueError(f"Year is out of range: {year}")
+
+        if not 0 < week < 53:
+            out_of_range = True
+
+            if week == 53:
+                # ISO years have 53 weeks in them on years starting with a
+                # Thursday and leap years starting on a Wednesday
+                first_weekday = _ymd2ord(year, 1, 1) % 7
+                if (first_weekday == 4 or (first_weekday == 3 and
+                                           _is_leap(year))):
+                    out_of_range = False
+
+            if out_of_range:
+                raise ValueError(f"Invalid week: {week}")
+
+        if not 0 < day < 8:
+            raise ValueError(f"Invalid weekday: {day} (range is [1, 7])")
+
+        # Now compute the offset from (Y, 1, 1) in days:
+        day_offset = (week - 1) * 7 + (day - 1)
+
+        # Calculate the ordinal day for monday, week 1
+        day_1 = _isoweek1monday(year)
+        ord_day = day_1 + day_offset
+
+        return cls(*_ord2ymd(ord_day))
 
     # Conversions to string
 
@@ -908,15 +957,15 @@ class date(dateinterop):
             _MONTHNAMES[self._month],
             self._day, self._year)
 
-    def strftime(self, format):
+    def strftime(self, fmt):
         "Format using strftime()."
-        return _wrap_strftime(self, format, self.timetuple())
+        return _wrap_strftime(self, fmt, self.timetuple())
 
-    def __format__(self, format):
-        if not isinstance(format, str):
-            raise TypeError("must be str, not %s" % type(format).__name__)
-        if len(format) != 0:
-            return self.strftime(format)
+    def __format__(self, fmt):
+        if not isinstance(fmt, str):
+            raise TypeError("must be str, not %s" % type(fmt).__name__)
+        if len(fmt) != 0:
+            return self.strftime(fmt)
         return str(self)
 
     def isoformat(self):
@@ -1020,7 +1069,7 @@ class date(dateinterop):
         if isinstance(other, timedelta):
             o = self.toordinal() + other.days
             if 0 < o <= _MAXORDINAL:
-                return date.fromordinal(o)
+                return type(self).fromordinal(o)
             raise OverflowError("result out of range")
         return NotImplemented
 
@@ -1380,7 +1429,8 @@ class time(timeinterop):
         part is omitted if self.microsecond == 0.
 
         The optional argument timespec specifies the number of additional
-        terms of the time to include.
+        terms of the time to include. Valid options are 'auto', 'hours',
+        'minutes', 'seconds', 'milliseconds' and 'microseconds'.
         """
         s = _format_time(self._hour, self._minute, self._second,
                           self._microsecond, timespec)
@@ -1403,7 +1453,7 @@ class time(timeinterop):
             raise ValueError(f'Invalid isoformat string: {time_string!r}')
 
 
-    def strftime(self, format):
+    def strftime(self, fmt):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
@@ -1412,13 +1462,13 @@ class time(timeinterop):
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
                      0, 1, -1)
-        return _wrap_strftime(self, format, timetuple)
+        return _wrap_strftime(self, fmt, timetuple)
 
-    def __format__(self, format):
-        if not isinstance(format, str):
-            raise TypeError("must be str, not %s" % type(format).__name__)
-        if len(format) != 0:
-            return self.strftime(format)
+    def __format__(self, fmt):
+        if not isinstance(fmt, str):
+            raise TypeError("must be str, not %s" % type(fmt).__name__)
+        if len(fmt) != 0:
+            return self.strftime(fmt)
         return str(self)
 
     # Timezone functions
@@ -1815,17 +1865,10 @@ class datetime(date):
             ts = (self - _EPOCH) // timedelta(seconds=1)
         localtm = _time.localtime(ts)
         local = datetime(*localtm[:6])
-        try:
-            # Extract TZ data if available
-            gmtoff = localtm.tm_gmtoff
-            zone = localtm.tm_zone
-        except AttributeError:
-            delta = local - datetime(*_time.gmtime(ts)[:6])
-            zone = _time.strftime('%Z', localtm)
-            tz = timezone(delta, zone)
-        else:
-            tz = timezone(timedelta(seconds=gmtoff), zone)
-        return tz
+        # Extract TZ data
+        gmtoff = localtm.tm_gmtoff
+        zone = localtm.tm_zone
+        return timezone(timedelta(seconds=gmtoff), zone)
 
     def astimezone(self, tz=None):
         if tz is None:
@@ -1877,7 +1920,8 @@ class datetime(date):
         time, default 'T'.
 
         The optional argument timespec specifies the number of additional
-        terms of the time to include.
+        terms of the time to include. Valid options are 'auto', 'hours',
+        'minutes', 'seconds', 'milliseconds' and 'microseconds'.
         """
         s = ("%04d-%02d-%02d%c" % (self._year, self._month, self._day, sep) +
              _format_time(self._hour, self._minute, self._second,
@@ -2216,6 +2260,7 @@ def _isoweek1monday(year):
     if firstweekday > THURSDAY:
         week1monday += 7
     return week1monday
+
 
 class timezone(tzinfo):
     __slots__ = '_offset', '_name'

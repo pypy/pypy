@@ -126,15 +126,14 @@ class HelperFunctionsTests(unittest.TestCase):
         pth_dir = os.path.abspath(pth_dir)
         pth_basename = pth_name + '.pth'
         pth_fn = os.path.join(pth_dir, pth_basename)
-        pth_file = open(pth_fn, 'w', encoding='utf-8')
-        self.addCleanup(lambda: os.remove(pth_fn))
-        pth_file.write(contents)
-        pth_file.close()
+        with open(pth_fn, 'w', encoding='utf-8') as pth_file:
+            self.addCleanup(lambda: os.remove(pth_fn))
+            pth_file.write(contents)
         return pth_dir, pth_basename
 
     def test_addpackage_import_bad_syntax(self):
         # Issue 10642
-        pth_dir, pth_fn = self.make_pth("import bad)syntax\n")
+        pth_dir, pth_fn = self.make_pth("import bad-syntax\n")
         with captured_stderr() as err_out:
             site.addpackage(pth_dir, pth_fn, set())
         self.assertRegex(err_out.getvalue(), "line 1")
@@ -144,7 +143,7 @@ class HelperFunctionsTests(unittest.TestCase):
         # order doesn't matter.  The next three could be a single check
         # but my regex foo isn't good enough to write it.
         self.assertRegex(err_out.getvalue(), 'Traceback')
-        self.assertRegex(err_out.getvalue(), r'import bad\)syntax')
+        self.assertRegex(err_out.getvalue(), r'import bad-syntax')
         self.assertRegex(err_out.getvalue(), 'SyntaxError')
 
     def test_addpackage_import_bad_exec(self):
@@ -163,13 +162,11 @@ class HelperFunctionsTests(unittest.TestCase):
         # Issue 5258
         pth_dir, pth_fn = self.make_pth("abc\x00def\n")
         with captured_stderr() as err_out:
-            site.addpackage(pth_dir, pth_fn, set())
-        self.assertRegex(err_out.getvalue(), "line 1")
-        self.assertRegex(err_out.getvalue(),
-            re.escape(os.path.join(pth_dir, pth_fn)))
-        # XXX: ditto previous XXX comment.
-        self.assertRegex(err_out.getvalue(), 'Traceback')
-        self.assertRegex(err_out.getvalue(), 'ValueError')
+            self.assertFalse(site.addpackage(pth_dir, pth_fn, set()))
+        self.assertEqual(err_out.getvalue(), "")
+        for path in sys.path:
+            if isinstance(path, str):
+                self.assertNotIn("abc\x00def", path)
 
     def test_addsitedir(self):
         # Same tests for test_addpackage since addsitedir() essentially just
@@ -437,6 +434,17 @@ class ImportSideEffectTests(unittest.TestCase):
                             "expected absolute path, got {}"
                             .format(os__cached__.decode('ascii')))
 
+    def test_abs_paths_cached_None(self):
+        """Test for __cached__ is None.
+
+        Regarding to PEP 3147, __cached__ can be None.
+
+        See also: https://bugs.python.org/issue30167
+        """
+        sys.modules['test'].__cached__ = None
+        site.abs_paths()
+        self.assertIsNone(sys.modules['test'].__cached__)
+
     def test_no_duplicate_paths(self):
         # No duplicate paths should exist in sys.path
         # Handled by removeduppaths()
@@ -490,8 +498,6 @@ class ImportSideEffectTests(unittest.TestCase):
 
     @test.support.requires_resource('network')
     @test.support.system_must_validate_cert
-    @unittest.skipUnless(sys.version_info[3] == 'final',
-                         'only for released versions')
     @unittest.skipUnless(hasattr(urllib.request, "HTTPSHandler"),
                          'need SSL support to download license')
     def test_license_exists_at_url(self):
@@ -499,6 +505,8 @@ class ImportSideEffectTests(unittest.TestCase):
         # string displayed by license in the absence of a LICENSE file.
         url = license._Printer__data.split()[1]
         req = urllib.request.Request(url, method='HEAD')
+        # Reset global urllib.request._opener
+        self.addCleanup(urllib.request.urlcleanup)
         try:
             with test.support.transient_internet(url):
                 with urllib.request.urlopen(req) as data:
@@ -524,7 +532,7 @@ class StartupImportTests(unittest.TestCase):
         # found in sys.path (see site.addpackage()). Skip the test if at least
         # one .pth file is found.
         for path in isolated_paths:
-            pth_files = glob.glob(os.path.join(path, "*.pth"))
+            pth_files = glob.glob(os.path.join(glob.escape(path), "*.pth"))
             if pth_files:
                 self.skipTest(f"found {len(pth_files)} .pth files in: {path}")
 

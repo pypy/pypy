@@ -112,6 +112,9 @@ class Profile(_lsprof.Profiler):
         elif 'func' in kw:
             func = kw.pop('func')
             self, *args = args
+            import warnings
+            warnings.warn("Passing 'func' as keyword argument is deprecated",
+                          DeprecationWarning, stacklevel=2)
         else:
             raise TypeError('runcall expected at least 1 positional argument, '
                             'got %d' % (len(args)-1))
@@ -121,6 +124,14 @@ class Profile(_lsprof.Profiler):
             return func(*args, **kw)
         finally:
             self.disable()
+    runcall.__text_signature__ = '($self, func, /, *args, **kw)'
+
+    def __enter__(self):
+        self.enable()
+        return self
+
+    def __exit__(self, *exc_info):
+        self.disable()
 
 # ____________________________________________________________
 
@@ -156,6 +167,11 @@ def main():
 
     (options, args) = parser.parse_args()
     sys.argv[:] = args
+
+    # The script that we're profiling may chdir, so capture the absolute path
+    # to the output file at startup.
+    if options.outfile is not None:
+        options.outfile = os.path.abspath(options.outfile)
 
     if len(args) > 0:
         if options.module:

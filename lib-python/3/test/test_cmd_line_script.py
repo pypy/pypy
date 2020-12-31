@@ -143,7 +143,7 @@ class CmdLineTest(unittest.TestCase):
             *run_args, __isolated=False, __cwd=cwd, **env_vars
         )
         if verbose > 1:
-            print('Output from test script %r:' % script_exec_args)
+            print(f'Output from test script {script_exec_args!r:}')
             print(repr(err))
             print('Expected output: %r' % expected_msg)
         self.assertIn(expected_msg.encode('utf-8'), err)
@@ -169,10 +169,10 @@ class CmdLineTest(unittest.TestCase):
     @contextlib.contextmanager
     def interactive_python(self, separate_stderr=False):
         if separate_stderr:
-            p = spawn_python('-i', bufsize=1, stderr=subprocess.PIPE)
+            p = spawn_python('-i', stderr=subprocess.PIPE)
             stderr = p.stderr
         else:
-            p = spawn_python('-i', bufsize=1, stderr=subprocess.STDOUT)
+            p = spawn_python('-i', stderr=subprocess.STDOUT)
             stderr = p.stdout
         try:
             # Drain stderr until prompt
@@ -269,10 +269,32 @@ class CmdLineTest(unittest.TestCase):
             self._check_script(zip_name, run_name, zip_name, zip_name, '',
                                zipimport.zipimporter)
 
-    def test_zipfile_compiled(self):
+    def test_zipfile_compiled_timestamp(self):
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, '__main__')
-            compiled_name = py_compile.compile(script_name, doraise=True)
+            compiled_name = py_compile.compile(
+                script_name, doraise=True,
+                invalidation_mode=py_compile.PycInvalidationMode.TIMESTAMP)
+            zip_name, run_name = make_zip_script(script_dir, 'test_zip', compiled_name)
+            self._check_script(zip_name, run_name, zip_name, zip_name, '',
+                               zipimport.zipimporter)
+
+    def test_zipfile_compiled_checked_hash(self):
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, '__main__')
+            compiled_name = py_compile.compile(
+                script_name, doraise=True,
+                invalidation_mode=py_compile.PycInvalidationMode.CHECKED_HASH)
+            zip_name, run_name = make_zip_script(script_dir, 'test_zip', compiled_name)
+            self._check_script(zip_name, run_name, zip_name, zip_name, '',
+                               zipimport.zipimporter)
+
+    def test_zipfile_compiled_unchecked_hash(self):
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, '__main__')
+            compiled_name = py_compile.compile(
+                script_name, doraise=True,
+                invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH)
             zip_name, run_name = make_zip_script(script_dir, 'test_zip', compiled_name)
             self._check_script(zip_name, run_name, zip_name, zip_name, '',
                                zipimport.zipimporter)
@@ -450,7 +472,7 @@ class CmdLineTest(unittest.TestCase):
             ('os.path', br'loader.*cannot handle'),
             ('importlib', br'No module named.*'
                 br'is a package and cannot be directly executed'),
-            ('importlib.nonexistant', br'No module named'),
+            ('importlib.nonexistent', br'No module named'),
             ('.unittest', br'Relative module names not supported'),
         )
         for name, regex in tests:
@@ -588,6 +610,36 @@ class CmdLineTest(unittest.TestCase):
             text = io.TextIOWrapper(io.BytesIO(stderr), "ascii").read()
             self.assertNotIn("\f", text)
             self.assertIn("\n    1 + 1 = 2\n    ^", text)
+
+    def test_syntaxerror_multi_line_fstring(self):
+        script = 'foo = f"""{}\nfoo"""\n'
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(script_name)
+            self.assertEqual(
+                stderr.splitlines()[-3:],
+                [
+                    b'    foo = f"""{}',
+                    b'          ^',
+                    b'SyntaxError: f-string: empty expression not allowed',
+                ],
+            )
+
+    def test_syntaxerror_invalid_escape_sequence_multi_line(self):
+        script = 'foo = """\\q\n"""\n'
+        with support.temp_dir() as script_dir:
+            script_name = _make_test_script(script_dir, 'script', script)
+            exitcode, stdout, stderr = assert_python_failure(
+                '-Werror', script_name,
+            )
+            self.assertEqual(
+                stderr.splitlines()[-3:],
+                [
+                    b'    foo = """\\q',
+                    b'          ^',
+                    b'SyntaxError: invalid escape sequence \\q',
+                ],
+            )
 
     def test_consistent_sys_path_for_direct_execution(self):
         # This test case ensures that the following all give the same

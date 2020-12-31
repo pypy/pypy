@@ -717,7 +717,7 @@ class TestCase(unittest.TestCase):
             y: int
         self.assertNotEqual(Point(1, 3), C(1, 3))
 
-    def test_not_tuple(self):
+    def test_not_other_dataclass(self):
         # Test that some of the problems with namedtuple don't happen
         #  here.
         @dataclass
@@ -1117,6 +1117,14 @@ class TestCase(unittest.TestCase):
         c = C(init_param=10)
         self.assertEqual(c.x, 20)
 
+    def test_init_var_preserve_type(self):
+        self.assertEqual(InitVar[int].type, int)
+
+        # Make sure the repr is correct.
+        self.assertEqual(repr(InitVar[int]), 'dataclasses.InitVar[int]')
+        self.assertEqual(repr(InitVar[List[int]]),
+                         'dataclasses.InitVar[typing.List[int]]')
+
     def test_init_var_inheritance(self):
         # Note that this deliberately tests that a dataclass need not
         #  have a __post_init__ function if it has an InitVar field.
@@ -1449,7 +1457,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(asdict(gd), {'id': 0, 'users': {'first': {'name': 'Alice', 'id': 1},
                                                          'second': {'name': 'Bob', 'id': 2}}})
 
-    def test_helper_asdict_builtin_containers(self):
+    def test_helper_asdict_builtin_object_containers(self):
         @dataclass
         class Child:
             d: object
@@ -1622,7 +1630,7 @@ class TestCase(unittest.TestCase):
         self.assertEqual(astuple(gt), (0, (('Alice', 1), ('Bob', 2))))
         self.assertEqual(astuple(gd), (0, {'first': ('Alice', 1), 'second': ('Bob', 2)}))
 
-    def test_helper_astuple_builtin_containers(self):
+    def test_helper_astuple_builtin_object_containers(self):
         @dataclass
         class Child:
             d: object
@@ -3126,6 +3134,13 @@ class TestReplace(unittest.TestCase):
         self.assertEqual(c1.x, 3)
         self.assertEqual(c1.y, 2)
 
+        self.assertRaises(TypeError, replace)
+        self.assertRaises(TypeError, replace, c, c)
+        with self.assertWarns(DeprecationWarning):
+            c1 = replace(obj=c, x=3)
+        self.assertEqual(c1.x, 3)
+        self.assertEqual(c1.y, 2)
+
     def test_frozen(self):
         @dataclass(frozen=True)
         class C:
@@ -3298,18 +3313,6 @@ class TestReplace(unittest.TestCase):
                                   ".<locals>.C(f=TestReplace.test_recursive_repr_indirection_two"
                                   ".<locals>.D(f=TestReplace.test_recursive_repr_indirection_two"
                                   ".<locals>.E(f=...)))")
-
-    def test_recursive_repr_two_attrs(self):
-        @dataclass
-        class C:
-            f: "C"
-            g: "C"
-
-        c = C(None, None)
-        c.f = c
-        c.g = c
-        self.assertEqual(repr(c), "TestReplace.test_recursive_repr_two_attrs"
-                                  ".<locals>.C(f=..., g=...)")
 
     def test_recursive_repr_misc_attrs(self):
         @dataclass

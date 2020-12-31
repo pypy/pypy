@@ -105,22 +105,7 @@ class EnvBuilder:
         prompt = self.prompt if self.prompt is not None else context.env_name
         context.prompt = '(%s) ' % prompt
         create_if_needed(env_dir)
-        env = os.environ
-        executable = getattr(sys, '_base_executable', sys.executable)
-        #
-        # PyPy extension: resolve 'executable' if it is a symlink
-        # XXX as of PyPy 5.10, win32 does not have readlink
-        #     note it is highly unlikely that symlinks were used on win32
-        #     since it requires admin priveleges
-        if hasattr(os, 'readlink'):
-            try:
-                for i in range(10):
-                    executable = os.path.abspath(executable)
-                    executable = os.path.join(os.path.dirname(executable),
-                                              os.readlink(executable))
-            except OSError:
-                pass
-        #
+        executable = sys._base_executable
         dirname, exename = os.path.split(os.path.abspath(executable))
         context.executable = executable
         context.python_dir = dirname
@@ -168,6 +153,8 @@ class EnvBuilder:
                 incl = 'false'
             f.write('include-system-site-packages = %s\n' % incl)
             f.write('version = %d.%d.%d\n' % sys.version_info[:3])
+            if self.prompt is not None:
+                f.write(f'prompt = {self.prompt!r}\n')
 
     if os.name != 'nt':
         def symlink_or_copy(self, src, dst, relative_symlinks_ok=False):

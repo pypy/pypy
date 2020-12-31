@@ -3,7 +3,6 @@ import gc
 import pickle
 import sys
 import unittest
-import warnings
 import weakref
 import inspect
 
@@ -131,8 +130,8 @@ class GeneratorTest(unittest.TestCase):
         # generator names must be a string and cannot be deleted
         self.assertRaises(TypeError, setattr, gen, '__name__', 123)
         self.assertRaises(TypeError, setattr, gen, '__qualname__', 123)
-        self.assertRaises((TypeError, AttributeError), delattr, gen, '__name__')
-        self.assertRaises((TypeError, AttributeError), delattr, gen, '__qualname__')
+        self.assertRaises(TypeError, delattr, gen, '__name__')
+        self.assertRaises(TypeError, delattr, gen, '__qualname__')
 
         # modify names of the function creating the generator
         func.__qualname__ = "func_qualname"
@@ -1871,12 +1870,12 @@ SyntaxError: assignment to yield expression not possible
 >>> def f(): (yield bar) = y
 Traceback (most recent call last):
   ...
-SyntaxError: can't assign to yield expression
+SyntaxError: cannot assign to yield expression
 
 >>> def f(): (yield bar) += y
 Traceback (most recent call last):
   ...
-SyntaxError: can't assign to yield expression
+SyntaxError: cannot assign to yield expression
 
 
 Now check some throw() conditions:
@@ -1919,17 +1918,17 @@ TypeError: throw() third argument must be a traceback object
 >>> g.throw("abc")
 Traceback (most recent call last):
   ...
-TypeError: exceptions must derive from BaseException, not str
+TypeError: exceptions must be classes or instances deriving from BaseException, not str
 
 >>> g.throw(0)
 Traceback (most recent call last):
   ...
-TypeError: exceptions must derive from BaseException, not int
+TypeError: exceptions must be classes or instances deriving from BaseException, not int
 
 >>> g.throw(list)
 Traceback (most recent call last):
   ...
-TypeError: exceptions must derive from BaseException, not type
+TypeError: exceptions must be classes or instances deriving from BaseException, not type
 
 >>> def throw(g,exc):
 ...     try:
@@ -2057,16 +2056,17 @@ RuntimeError: generator ignored GeneratorExit
 
 Our ill-behaved code should be invoked during GC:
 
->>> import sys, io
->>> old, sys.stderr = sys.stderr, io.StringIO()
->>> g = f()
->>> next(g)
->>> del g
->>> gc_collect()
->>> "RuntimeError: generator ignored GeneratorExit" in sys.stderr.getvalue()
+>>> with support.catch_unraisable_exception() as cm:
+...     g = f()
+...     next(g)
+...     del g
+...
+...     cm.unraisable.exc_type == RuntimeError
+...     "generator ignored GeneratorExit" in str(cm.unraisable.exc_value)
+...     cm.unraisable.exc_traceback is not None
 True
->>> sys.stderr = old
-
+True
+True
 
 And errors thrown during closing should propagate:
 
@@ -2165,26 +2165,21 @@ explicitly, without generators. We do have to redirect stderr to avoid
 printing warnings and to doublecheck that we actually tested what we wanted
 to test.
 
->>> import sys, io
->>> old = sys.stderr
->>> try:
-...     sys.stderr = io.StringIO()
-...     class Leaker:
-...         def __del__(self):
-...             def invoke(message):
-...                 raise RuntimeError(message)
-...             invoke("test")
+>>> from test import support
+>>> class Leaker:
+...     def __del__(self):
+...         def invoke(message):
+...             raise RuntimeError(message)
+...         invoke("del failed")
 ...
+>>> with support.catch_unraisable_exception() as cm:
 ...     l = Leaker()
 ...     del l
-...     gc_collect()
-...     err = sys.stderr.getvalue().strip()
-...     "Exception ignored in" in err
-...     "RuntimeError: test" in err
-...     "Traceback" in err
-...     "in invoke" in err
-... finally:
-...     sys.stderr = old
+...
+...     cm.unraisable.object == Leaker.__del__
+...     cm.unraisable.exc_type == RuntimeError
+...     str(cm.unraisable.exc_value) == "del failed"
+...     cm.unraisable.exc_traceback is not None
 True
 True
 True
