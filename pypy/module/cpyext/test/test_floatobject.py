@@ -185,6 +185,7 @@ class AppTestFloatMacros(AppTestCpythonExtensionBase):
         assert module.test() == float('inf')
 
     def test_Py_NAN(self):
+        import sys
         module = self.import_extension('foo', [
             ("test", "METH_NOARGS",
              """
