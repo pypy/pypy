@@ -3,7 +3,7 @@ import test.support
 # Skip tests if _multiprocessing wasn't built.
 test.support.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
-test.support.import_module('multiprocessing.synchronize')
+test.support.skip_if_broken_multiprocessing_synchronize()
 
 from test.support.script_helper import assert_python_ok
 
@@ -26,6 +26,8 @@ from concurrent.futures._base import (
     BrokenExecutor)
 from concurrent.futures.process import BrokenProcessPool
 from multiprocessing import get_context
+
+import multiprocessing.process
 import multiprocessing.util
 
 
@@ -346,10 +348,15 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
         pass
 
     def test_threads_terminate(self):
-        self.executor.submit(mul, 21, 2)
-        self.executor.submit(mul, 6, 7)
-        self.executor.submit(mul, 3, 14)
+        def acquire_lock(lock):
+            lock.acquire()
+
+        sem = threading.Semaphore(0)
+        for i in range(3):
+            self.executor.submit(acquire_lock, sem)
         self.assertEqual(len(self.executor._threads), 3)
+        for i in range(3):
+            sem.release()
         self.executor.shutdown()
         for t in self.executor._threads:
             t.join()
@@ -663,7 +670,8 @@ class ExecutorTest:
         self.assertEqual(16, future.result())
         future = self.executor.submit(capture, 1, self=2, fn=3)
         self.assertEqual(future.result(), ((1,), {'self': 2, 'fn': 3}))
-        future = self.executor.submit(fn=capture, arg=1)
+        with self.assertWarns(DeprecationWarning):
+            future = self.executor.submit(fn=capture, arg=1)
         self.assertEqual(future.result(), ((), {'arg': 1}))
         with self.assertRaises(TypeError):
             self.executor.submit(arg=1)
@@ -749,8 +757,29 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
 
     def test_default_workers(self):
         executor = self.executor_type()
-        self.assertEqual(executor._max_workers,
-                         (os.cpu_count() or 1) * 5)
+        expected = min(32, (os.cpu_count() or 1) + 4)
+        self.assertEqual(executor._max_workers, expected)
+
+    def test_saturation(self):
+        executor = self.executor_type(4)
+        def acquire_lock(lock):
+            lock.acquire()
+
+        sem = threading.Semaphore(0)
+        for i in range(15 * executor._max_workers):
+            executor.submit(acquire_lock, sem)
+        self.assertEqual(len(executor._threads), executor._max_workers)
+        for i in range(15 * executor._max_workers):
+            sem.release()
+        executor.shutdown(wait=True)
+
+    def test_idle_thread_reuse(self):
+        executor = self.executor_type()
+        executor.submit(mul, 21, 2).result()
+        executor.submit(mul, 6, 7).result()
+        executor.submit(mul, 3, 14).result()
+        self.assertEqual(len(executor._threads), 1)
+        executor.shutdown(wait=True)
 
 
 class ProcessPoolExecutorTest(ExecutorTest):
@@ -1247,14 +1276,46 @@ class FutureTests(BaseTestCase):
         self.assertTrue(isinstance(f1.exception(timeout=5), OSError))
         t.join()
 
+    def test_multiple_set_result(self):
+        f = create_future(state=PENDING)
+        f.set_result(1)
 
-@test.support.reap_threads
-def test_main():
-    try:
-        test.support.run_unittest(__name__)
-    finally:
-        test.support.reap_children()
-        multiprocessing.util._cleanup_tests()
+        with self.assertRaisesRegex(
+                futures.InvalidStateError,
+                'FINISHED: <Future at 0x[0-9a-f]+ '
+                'state=finished returned int>'
+        ):
+            f.set_result(2)
+
+        self.assertTrue(f.done())
+        self.assertEqual(f.result(), 1)
+
+    def test_multiple_set_exception(self):
+        f = create_future(state=PENDING)
+        e = ValueError()
+        f.set_exception(e)
+
+        with self.assertRaisesRegex(
+                futures.InvalidStateError,
+                'FINISHED: <Future at 0x[0-9a-f]+ '
+                'state=finished raised ValueError>'
+        ):
+            f.set_exception(Exception())
+
+        self.assertEqual(f.exception(), e)
+
+
+_threads_key = None
+
+def setUpModule():
+    global _threads_key
+    _threads_key = test.support.threading_setup()
+
+
+def tearDownModule():
+    test.support.threading_cleanup(*_threads_key)
+    multiprocessing.util._cleanup_tests()
+
 
 if __name__ == "__main__":
-    test_main()
+    unittest.main()

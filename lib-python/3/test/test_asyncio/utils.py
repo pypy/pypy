@@ -1,5 +1,6 @@
 """Utilities shared by tests."""
 
+import asyncio
 import collections
 import contextlib
 import io
@@ -113,7 +114,7 @@ def run_until(loop, pred, timeout=30):
             timeout = deadline - time.monotonic()
             if timeout <= 0:
                 raise futures.TimeoutError()
-        loop.run_until_complete(tasks.sleep(0.001, loop=loop))
+        loop.run_until_complete(tasks.sleep(0.001))
 
 
 def run_once(loop):
@@ -174,11 +175,21 @@ class SSLWSGIServer(SSLWSGIServerMixin, SilentWSGIServer):
 
 def _run_test_server(*, address, use_ssl=False, server_cls, server_ssl_cls):
 
+    def loop(environ):
+        size = int(environ['CONTENT_LENGTH'])
+        while size:
+            data = environ['wsgi.input'].read(min(size, 0x10000))
+            yield data
+            size -= len(data)
+
     def app(environ, start_response):
         status = '200 OK'
         headers = [('Content-type', 'text/plain')]
         start_response(status, headers)
-        return [b'Test message']
+        if environ['PATH_INFO'] == '/loop':
+            return loop(environ)
+        else:
+            return [b'Test message']
 
     # Run the test WSGI server in a separate thread in order not to
     # interfere with event handling in the main thread
@@ -502,6 +513,18 @@ class TestCase(unittest.TestCase):
         if executor is not None:
             executor.shutdown(wait=True)
         loop.close()
+        policy = support.maybe_get_event_loop_policy()
+        if policy is not None:
+            try:
+                watcher = policy.get_child_watcher()
+            except NotImplementedError:
+                # watcher is not implemented by EventLoopPolicy, e.g. Windows
+                pass
+            else:
+                if isinstance(watcher, asyncio.ThreadedChildWatcher):
+                    threads = list(watcher._threads.values())
+                    for thread in threads:
+                        thread.join()
 
     def set_event_loop(self, loop, *, cleanup=True):
         assert loop is not None

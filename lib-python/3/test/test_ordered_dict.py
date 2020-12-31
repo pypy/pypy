@@ -459,7 +459,9 @@ class OrderedDictTests:
         self.assertEqual(list(MyOD(items).items()), items)
 
     def test_highly_nested(self):
-        # Issue 25395: crashes during garbage collection
+        # Issues 25395 and 35983: test that the trashcan mechanism works
+        # correctly for OrderedDict: deleting a highly nested OrderDict
+        # should not crash Python.
         OrderedDict = self.OrderedDict
         obj = None
         for _ in range(1000):
@@ -468,7 +470,9 @@ class OrderedDictTests:
         support.gc_collect()
 
     def test_highly_nested_subclass(self):
-        # Issue 25395: crashes during garbage collection
+        # Issues 25395 and 35983: test that the trashcan mechanism works
+        # correctly for OrderedDict: deleting a highly nested OrderDict
+        # should not crash Python.
         OrderedDict = self.OrderedDict
         deleted = []
         class MyOD(OrderedDict):
@@ -650,6 +654,17 @@ class OrderedDictTests:
         support.check_free_after_iterating(self, lambda d: iter(d.values()), self.OrderedDict)
         support.check_free_after_iterating(self, lambda d: iter(d.items()), self.OrderedDict)
 
+    @support.cpython_only
+    def test_ordered_dict_items_result_gc(self):
+        # bpo-42536: OrderedDict.items's tuple-reuse speed trick breaks the GC's
+        # assumptions about what can be untracked. Make sure we re-track result
+        # tuples whenever we reuse them.
+        it = iter(self.OrderedDict({None: []}).items())
+        gc.collect()
+        # That GC collection probably untracked the recycled internal result
+        # tuple, which is initialized to (None, None). Make sure it's re-tracked
+        # when it's mutated and returned from __next__:
+        self.assertTrue(gc.is_tracked(next(it)))
 
 class PurePythonOrderedDictTests(OrderedDictTests, unittest.TestCase):
 

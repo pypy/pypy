@@ -694,6 +694,42 @@ class ReTests(unittest.TestCase):
             with self.subTest(c):
                 self.assertRaises(re.error, re.compile, '[\\%c]' % c)
 
+    def test_named_unicode_escapes(self):
+        # test individual Unicode named escapes
+        self.assertTrue(re.match(r'\N{LESS-THAN SIGN}', '<'))
+        self.assertTrue(re.match(r'\N{less-than sign}', '<'))
+        self.assertIsNone(re.match(r'\N{LESS-THAN SIGN}', '>'))
+        self.assertTrue(re.match(r'\N{SNAKE}', '\U0001f40d'))
+        self.assertTrue(re.match(r'\N{ARABIC LIGATURE UIGHUR KIRGHIZ YEH WITH '
+                                 r'HAMZA ABOVE WITH ALEF MAKSURA ISOLATED FORM}',
+                                 '\ufbf9'))
+        self.assertTrue(re.match(r'[\N{LESS-THAN SIGN}-\N{GREATER-THAN SIGN}]',
+                                 '='))
+        self.assertIsNone(re.match(r'[\N{LESS-THAN SIGN}-\N{GREATER-THAN SIGN}]',
+                                   ';'))
+
+        # test errors in \N{name} handling - only valid names should pass
+        self.checkPatternError(r'\N', 'missing {', 2)
+        self.checkPatternError(r'[\N]', 'missing {', 3)
+        self.checkPatternError(r'\N{', 'missing character name', 3)
+        self.checkPatternError(r'[\N{', 'missing character name', 4)
+        self.checkPatternError(r'\N{}', 'missing character name', 3)
+        self.checkPatternError(r'[\N{}]', 'missing character name', 4)
+        self.checkPatternError(r'\NSNAKE}', 'missing {', 2)
+        self.checkPatternError(r'[\NSNAKE}]', 'missing {', 3)
+        self.checkPatternError(r'\N{SNAKE',
+                               'missing }, unterminated name', 3)
+        self.checkPatternError(r'[\N{SNAKE]',
+                               'missing }, unterminated name', 4)
+        self.checkPatternError(r'[\N{SNAKE]}',
+                               "undefined character name 'SNAKE]'", 1)
+        self.checkPatternError(r'\N{SPAM}',
+                               "undefined character name 'SPAM'", 0)
+        self.checkPatternError(r'[\N{SPAM}]',
+                               "undefined character name 'SPAM'", 1)
+        self.checkPatternError(br'\N{LESS-THAN SIGN}', r'bad escape \N', 0)
+        self.checkPatternError(br'[\N{LESS-THAN SIGN}]', r'bad escape \N', 1)
+
     def test_string_boundaries(self):
         # See http://bugs.python.org/issue10713
         self.assertEqual(re.search(r"\b(abc)\b", "abc").group(1),
@@ -1516,18 +1552,7 @@ class ReTests(unittest.TestCase):
         self.assertRaises(re.error, re.compile, r'(?au)\w')
 
     def test_locale_flag(self):
-        # On Windows, Python 3.7 doesn't call setlocale(LC_CTYPE, "") at
-        # startup and so the LC_CTYPE locale uses Latin1 encoding by default,
-        # whereas getpreferredencoding() returns the ANSI code page. Set
-        # temporarily the LC_CTYPE locale to the user preferred encoding to
-        # ensure that it uses the ANSI code page.
-        oldloc = locale.setlocale(locale.LC_CTYPE, None)
-        locale.setlocale(locale.LC_CTYPE, "")
-        self.addCleanup(locale.setlocale, locale.LC_CTYPE, oldloc)
-
-        # Get the current locale encoding
-        enc = locale.getpreferredencoding(False)
-
+        enc = locale.getpreferredencoding()
         # Search non-ASCII letter
         for i in range(128, 256):
             try:
@@ -2144,6 +2169,18 @@ class PatternReprTests(unittest.TestCase):
         self.assertLess(len(r), 300)
         self.assertEqual(r[:30], "re.compile('Very long long lon")
         self.assertEqual(r[-16:], ", re.IGNORECASE)")
+
+    def test_flags_repr(self):
+        self.assertEqual(repr(re.I), "re.IGNORECASE")
+        self.assertEqual(repr(re.I|re.S|re.X),
+                         "re.IGNORECASE|re.DOTALL|re.VERBOSE")
+        self.assertEqual(repr(re.I|re.S|re.X|(1<<20)),
+                         "re.IGNORECASE|re.DOTALL|re.VERBOSE|0x100000")
+        self.assertEqual(repr(~re.I), "~re.IGNORECASE")
+        self.assertEqual(repr(~(re.I|re.S|re.X)),
+                         "~(re.IGNORECASE|re.DOTALL|re.VERBOSE)")
+        self.assertEqual(repr(~(re.I|re.S|re.X|(1<<20))),
+                         "~(re.IGNORECASE|re.DOTALL|re.VERBOSE|0x100000)")
 
 
 class ImplementationTest(unittest.TestCase):

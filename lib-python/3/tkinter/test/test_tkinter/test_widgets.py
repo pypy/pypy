@@ -6,7 +6,8 @@ import sys
 from test.support import requires
 
 from tkinter.test.support import (tcl_version, requires_tcl,
-                                  get_tk_patchlevel, widget_eq)
+                                  get_tk_patchlevel, widget_eq,
+                                  AbstractDefaultRootTest)
 from tkinter.test.widget_tests import (
     add_standard_options, noconv, pixels_round,
     AbstractWidgetTest, StandardOptionsTests, IntegerSizeTests, PixelSizeTests,
@@ -307,6 +308,10 @@ class OptionMenuTest(MenubuttonTest, unittest.TestCase):
     def create(self, default='b', values=('a', 'b', 'c'), **kwargs):
         return tkinter.OptionMenu(self.root, None, default, *values, **kwargs)
 
+    def test_bad_kwarg(self):
+        with self.assertRaisesRegex(TclError, r"^unknown option -image$"):
+            tkinter.OptionMenu(self.root, None, 'b', image='')
+
 
 @add_standard_options(IntegerSizeTests, StandardOptionsTests)
 class EntryTest(AbstractWidgetTest, unittest.TestCase):
@@ -376,6 +381,31 @@ class EntryTest(AbstractWidgetTest, unittest.TestCase):
         widget = self.create()
         self.checkCommandParam(widget, 'validatecommand')
         self.checkCommandParam(widget, 'vcmd')
+
+    def test_selection_methods(self):
+        widget = self.create()
+        widget.insert(0, '12345')
+        self.assertFalse(widget.selection_present())
+        widget.selection_range(0, 'end')
+        self.assertEqual(widget.selection_get(), '12345')
+        self.assertTrue(widget.selection_present())
+        widget.selection_from(1)
+        widget.selection_to(2)
+        self.assertEqual(widget.selection_get(), '2')
+        widget.selection_range(3, 4)
+        self.assertEqual(widget.selection_get(), '4')
+        widget.selection_clear()
+        self.assertFalse(widget.selection_present())
+        widget.selection_range(0, 'end')
+        widget.selection_adjust(4)
+        self.assertEqual(widget.selection_get(), '1234')
+        widget.selection_adjust(1)
+        self.assertEqual(widget.selection_get(), '234')
+        widget.selection_adjust(5)
+        self.assertEqual(widget.selection_get(), '2345')
+        widget.selection_adjust(0)
+        self.assertEqual(widget.selection_get(), '12345')
+        widget.selection_adjust(0)
 
 
 @add_standard_options(StandardOptionsTests)
@@ -473,6 +503,30 @@ class SpinboxTest(EntryTest, unittest.TestCase):
         self.assertRaises(tkinter.TclError, widget.bbox, None)
         self.assertRaises(TypeError, widget.bbox)
         self.assertRaises(TypeError, widget.bbox, 0, 1)
+
+    def test_selection_methods(self):
+        widget = self.create()
+        widget.insert(0, '12345')
+        self.assertFalse(widget.selection_present())
+        widget.selection_range(0, 'end')
+        self.assertEqual(widget.selection_get(), '12345')
+        self.assertTrue(widget.selection_present())
+        widget.selection_from(1)
+        widget.selection_to(2)
+        self.assertEqual(widget.selection_get(), '2')
+        widget.selection_range(3, 4)
+        self.assertEqual(widget.selection_get(), '4')
+        widget.selection_clear()
+        self.assertFalse(widget.selection_present())
+        widget.selection_range(0, 'end')
+        widget.selection_adjust(4)
+        self.assertEqual(widget.selection_get(), '1234')
+        widget.selection_adjust(1)
+        self.assertEqual(widget.selection_get(), '234')
+        widget.selection_adjust(5)
+        self.assertEqual(widget.selection_get(), '2345')
+        widget.selection_adjust(0)
+        self.assertEqual(widget.selection_get(), '12345')
 
     def test_selection_element(self):
         widget = self.create()
@@ -703,6 +757,29 @@ class CanvasTest(AbstractWidgetTest, unittest.TestCase):
         self.checkPixelsParam(widget, 'yscrollincrement',
                               10, 0, 11.2, 13.6, -10, '0.1i')
 
+    @requires_tcl(8, 6)
+    def test_moveto(self):
+        widget = self.create()
+        i1 = widget.create_rectangle(1, 1, 20, 20, tags='group')
+        i2 = widget.create_rectangle(30, 30, 50, 70, tags='group')
+        x1, y1, _, _ = widget.bbox(i1)
+        x2, y2, _, _ = widget.bbox(i2)
+        widget.moveto('group', 200, 100)
+        x1_2, y1_2, _, _ = widget.bbox(i1)
+        x2_2, y2_2, _, _ = widget.bbox(i2)
+        self.assertEqual(x1_2, 200)
+        self.assertEqual(y1_2, 100)
+        self.assertEqual(x2 - x1, x2_2 - x1_2)
+        self.assertEqual(y2 - y1, y2_2 - y1_2)
+        widget.tag_lower(i2, i1)
+        widget.moveto('group', y=50)
+        x1_3, y1_3, _, _ = widget.bbox(i1)
+        x2_3, y2_3, _, _ = widget.bbox(i2)
+        self.assertEqual(y2_3, 50)
+        self.assertEqual(x2_3, x2_2)
+        self.assertEqual(x2_2 - x1_2, x2_3 - x1_3)
+        self.assertEqual(y2_2 - y1_2, y2_3 - y1_3)
+
 
 @add_standard_options(IntegerSizeTests, StandardOptionsTests)
 class ListboxTest(AbstractWidgetTest, unittest.TestCase):
@@ -864,7 +941,8 @@ class ScaleTest(AbstractWidgetTest, unittest.TestCase):
 
     def test_from(self):
         widget = self.create()
-        self.checkFloatParam(widget, 'from', 100, 14.9, 15.1, conv=float_round)
+        conv = False if get_tk_patchlevel() >= (8, 6, 10) else float_round
+        self.checkFloatParam(widget, 'from', 100, 14.9, 15.1, conv=conv)
 
     def test_label(self):
         widget = self.create()
@@ -1221,12 +1299,21 @@ class MessageTest(AbstractWidgetTest, unittest.TestCase):
         self.checkIntegerParam(widget, 'aspect', 250, 0, -300)
 
 
+class DefaultRootTest(AbstractDefaultRootTest, unittest.TestCase):
+
+    def test_frame(self):
+        self._test_widget(tkinter.Frame)
+
+    def test_label(self):
+        self._test_widget(tkinter.Label)
+
+
 tests_gui = (
         ButtonTest, CanvasTest, CheckbuttonTest, EntryTest,
         FrameTest, LabelFrameTest,LabelTest, ListboxTest,
         MenubuttonTest, MenuTest, MessageTest, OptionMenuTest,
         PanedWindowTest, RadiobuttonTest, ScaleTest, ScrollbarTest,
-        SpinboxTest, TextTest, ToplevelTest,
+        SpinboxTest, TextTest, ToplevelTest, DefaultRootTest,
 )
 
 if __name__ == '__main__':

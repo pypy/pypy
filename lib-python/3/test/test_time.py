@@ -9,12 +9,12 @@ import sysconfig
 import time
 import threading
 import unittest
-import warnings
 try:
     import _testcapi
 except ImportError:
     _testcapi = None
 
+from test.support import skip_if_buggy_ucrt_strfptime
 
 # Max year is only limited by the size of C int.
 SIZEOF_INT = sysconfig.get_config_var('SIZEOF_INT') or 4
@@ -89,15 +89,6 @@ class TimeTestCase(unittest.TestCase):
             check_ns(time.clock_gettime(time.CLOCK_REALTIME),
                      time.clock_gettime_ns(time.CLOCK_REALTIME))
 
-    def test_clock(self):
-        with self.assertWarns(DeprecationWarning):
-            time.clock()
-
-        with self.assertWarns(DeprecationWarning):
-            info = time.get_clock_info('clock')
-        self.assertTrue(info.monotonic)
-        self.assertFalse(info.adjustable)
-
     @unittest.skipUnless(hasattr(time, 'clock_gettime'),
                          'need time.clock_gettime()')
     def test_clock_realtime(self):
@@ -120,7 +111,13 @@ class TimeTestCase(unittest.TestCase):
     def test_pthread_getcpuclockid(self):
         clk_id = time.pthread_getcpuclockid(threading.get_ident())
         self.assertTrue(type(clk_id) is int)
-        self.assertNotEqual(clk_id, time.CLOCK_THREAD_CPUTIME_ID)
+        # when in 32-bit mode AIX only returns the predefined constant
+        if not platform.system() == "AIX":
+            self.assertNotEqual(clk_id, time.CLOCK_THREAD_CPUTIME_ID)
+        elif (sys.maxsize.bit_length() > 32):
+            self.assertNotEqual(clk_id, time.CLOCK_THREAD_CPUTIME_ID)
+        else:
+            self.assertEqual(clk_id, time.CLOCK_THREAD_CPUTIME_ID)
         t1 = time.clock_gettime(clk_id)
         t2 = time.clock_gettime(clk_id)
         self.assertLessEqual(t1, t2)
@@ -254,6 +251,7 @@ class TimeTestCase(unittest.TestCase):
             result = time.strftime("%Y %m %d %H %M %S %w %j", (2000,)+(0,)*8)
         self.assertEqual(expected, result)
 
+    @skip_if_buggy_ucrt_strfptime
     def test_strptime(self):
         # Should be able to go round-trip from strftime to strptime without
         # raising an exception.
@@ -425,13 +423,6 @@ class TimeTestCase(unittest.TestCase):
     def test_mktime(self):
         # Issue #1726687
         for t in (-2, -1, 0, 1):
-            if sys.platform.startswith('aix') and t == -1:
-                # Issue #11188, #19748: mktime() returns -1 on error. On Linux,
-                # the tm_wday field is used as a sentinel () to detect if -1 is
-                # really an error or a valid timestamp. On AIX, tm_wday is
-                # unchanged even on success and so cannot be used as a
-                # sentinel.
-                continue
             try:
                 tt = time.localtime(t)
             except (OverflowError, OSError):
@@ -552,14 +543,10 @@ class TimeTestCase(unittest.TestCase):
         self.assertRaises(ValueError, time.ctime, float("nan"))
 
     def test_get_clock_info(self):
-        clocks = ['clock', 'monotonic', 'perf_counter', 'process_time', 'time']
+        clocks = ['monotonic', 'perf_counter', 'process_time', 'time']
 
         for name in clocks:
-            if name == 'clock':
-                with self.assertWarns(DeprecationWarning):
-                    info = time.get_clock_info('clock')
-            else:
-                info = time.get_clock_info(name)
+            info = time.get_clock_info(name)
 
             #self.assertIsInstance(info, dict)
             self.assertIsInstance(info.implementation, str)
@@ -687,6 +674,7 @@ class TestStrftime4dyear(_TestStrftimeYear, _Test4dYear, unittest.TestCase):
 
 
 class TestPytime(unittest.TestCase):
+    @skip_if_buggy_ucrt_strfptime
     @unittest.skipUnless(time._STRUCT_TM_ITEMS == 11, "needs tm_zone support")
     def test_localtime_timezone(self):
 

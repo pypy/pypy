@@ -630,7 +630,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
         self.addTypeEqualityFunc(SadSnake, AllSnakesCreatedEqual)
         self.assertEqual(s1, s2)
         # No this doesn't clean up and remove the SadSnake equality func
-        # from this TestCase instance but since its a local nothing else
+        # from this TestCase instance but since it's local nothing else
         # will ever notice that.
 
     def testAssertIs(self):
@@ -1246,7 +1246,7 @@ test case
         with self.assertRaises(self.failureException):
             self.assertRaises(ExceptionMock, lambda: 0)
         # Failure when the function is None
-        with self.assertWarns(DeprecationWarning):
+        with self.assertRaises(TypeError):
             self.assertRaises(ExceptionMock, None)
         # Failure when another exception is raised
         with self.assertRaises(ExceptionMock):
@@ -1277,8 +1277,7 @@ test case
             with self.assertRaises(ExceptionMock, msg='foobar'):
                 pass
         # Invalid keyword argument
-        with self.assertWarnsRegex(DeprecationWarning, 'foobar'), \
-             self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(TypeError, 'foobar'):
             with self.assertRaises(ExceptionMock, foobar=42):
                 pass
         # Failure when another exception is raised
@@ -1319,7 +1318,7 @@ test case
 
         self.assertRaisesRegex(ExceptionMock, re.compile('expect$'), Stub)
         self.assertRaisesRegex(ExceptionMock, 'expect$', Stub)
-        with self.assertWarns(DeprecationWarning):
+        with self.assertRaises(TypeError):
             self.assertRaisesRegex(ExceptionMock, 'expect$', None)
 
     def testAssertNotRaisesRegex(self):
@@ -1336,8 +1335,7 @@ test case
             with self.assertRaisesRegex(Exception, 'expect', msg='foobar'):
                 pass
         # Invalid keyword argument
-        with self.assertWarnsRegex(DeprecationWarning, 'foobar'), \
-             self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(TypeError, 'foobar'):
             with self.assertRaisesRegex(Exception, 'expect', foobar=42):
                 pass
 
@@ -1426,7 +1424,7 @@ test case
         with self.assertRaises(self.failureException):
             self.assertWarns(RuntimeWarning, lambda: 0)
         # Failure when the function is None
-        with self.assertWarns(DeprecationWarning):
+        with self.assertRaises(TypeError):
             self.assertWarns(RuntimeWarning, None)
         # Failure when another warning is triggered
         with warnings.catch_warnings():
@@ -1471,8 +1469,7 @@ test case
             with self.assertWarns(RuntimeWarning, msg='foobar'):
                 pass
         # Invalid keyword argument
-        with self.assertWarnsRegex(DeprecationWarning, 'foobar'), \
-             self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(TypeError, 'foobar'):
             with self.assertWarns(RuntimeWarning, foobar=42):
                 pass
         # Failure when another warning is triggered
@@ -1513,7 +1510,7 @@ test case
             self.assertWarnsRegex(RuntimeWarning, "o+",
                                   lambda: 0)
         # Failure when the function is None
-        with self.assertWarns(DeprecationWarning):
+        with self.assertRaises(TypeError):
             self.assertWarnsRegex(RuntimeWarning, "o+", None)
         # Failure when another warning is triggered
         with warnings.catch_warnings():
@@ -1556,8 +1553,7 @@ test case
             with self.assertWarnsRegex(RuntimeWarning, 'o+', msg='foobar'):
                 pass
         # Invalid keyword argument
-        with self.assertWarnsRegex(DeprecationWarning, 'foobar'), \
-             self.assertRaises(AssertionError):
+        with self.assertRaisesRegex(TypeError, 'foobar'):
             with self.assertWarnsRegex(RuntimeWarning, 'o+', foobar=42):
                 pass
         # Failure when another warning is triggered

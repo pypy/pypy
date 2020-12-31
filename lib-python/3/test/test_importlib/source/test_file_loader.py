@@ -325,7 +325,7 @@ class SimpleTest(abc.LoaderTests):
             )
 
     @util.writes_bytecode_files
-    def test_overiden_unchecked_hash_based_pyc(self):
+    def test_overridden_unchecked_hash_based_pyc(self):
         with util.create_modules('_temp') as mapping, \
              unittest.mock.patch('_imp.check_hash_based_pycs', 'always'):
             source = mapping['_temp']
@@ -644,7 +644,7 @@ class SourceLoaderBadBytecodeTest:
                 bytecode_file.write(zeros)
             self.import_(mapping['_temp'], '_temp')
             source_mtime = os.path.getmtime(mapping['_temp'])
-            source_timestamp = self.importlib._w_long(source_mtime)
+            source_timestamp = self.importlib._pack_uint32(source_mtime)
             with open(bytecode_path, 'rb') as bytecode_file:
                 bytecode_file.seek(8)
                 self.assertEqual(bytecode_file.read(4), source_timestamp)

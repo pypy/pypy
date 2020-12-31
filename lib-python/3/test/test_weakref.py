@@ -285,6 +285,21 @@ class ReferencesTestCase(TestBase):
         p //= 5
         self.assertEqual(p, 21)
 
+    def test_proxy_matmul(self):
+        class C:
+            def __matmul__(self, other):
+                return 1729
+            def __rmatmul__(self, other):
+                return -163
+            def __imatmul__(self, other):
+                return 561
+        o = C()
+        p = weakref.proxy(o)
+        self.assertEqual(p @ 5, 1729)
+        self.assertEqual(5 @ p, -163)
+        p @= 5
+        self.assertEqual(p, 561)
+
     # The PyWeakref_* C API is documented as allowing either NULL or
     # None as the value for the callback, where either means "no
     # callback".  The "no callback" ref and proxy objects are supposed
@@ -1877,13 +1892,15 @@ class FinalizeTestCase(unittest.TestCase):
         self.assertEqual(res, [((1, 2), {'func': 3, 'obj': 4})])
 
         res = []
-        f = weakref.finalize(a, func=fin, arg=1)
+        with self.assertWarns(DeprecationWarning):
+            f = weakref.finalize(a, func=fin, arg=1)
         self.assertEqual(f.peek(), (a, fin, (), {'arg': 1}))
         f()
         self.assertEqual(res, [((), {'arg': 1})])
 
         res = []
-        f = weakref.finalize(obj=a, func=fin, arg=1)
+        with self.assertWarns(DeprecationWarning):
+            f = weakref.finalize(obj=a, func=fin, arg=1)
         self.assertEqual(f.peek(), (a, fin, (), {'arg': 1}))
         f()
         self.assertEqual(res, [((), {'arg': 1})])

@@ -258,6 +258,7 @@ class Vec2D(tuple):
     def __rmul__(self, other):
         if isinstance(other, int) or isinstance(other, float):
             return Vec2D(self[0]*other, self[1]*other)
+        return NotImplemented
     def __sub__(self, other):
         return Vec2D(self[0]-other[0], self[1]-other[1])
     def __neg__(self):
@@ -833,7 +834,7 @@ class TurtleScreenBase(object):
         Arguments: title is the title of the dialog window,
         prompt is a text mostly describing what numerical information to input.
         default: default value
-        minval: minimum value for imput
+        minval: minimum value for input
         maxval: maximum value for input
 
         The number input must be in the range minval .. maxval if these are

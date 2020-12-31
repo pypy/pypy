@@ -1,6 +1,5 @@
 """Unit tests for contextlib.py, and other context managers."""
 
-import asyncio
 import io
 import sys
 import tempfile
@@ -604,7 +603,8 @@ class TestBaseExitStack:
                 stack.callback(arg=1)
             with self.assertRaises(TypeError):
                 self.exit_stack.callback(arg=2)
-            stack.callback(callback=_exit, arg=3)
+            with self.assertWarns(DeprecationWarning):
+                stack.callback(callback=_exit, arg=3)
         self.assertEqual(result, [((), {'arg': 3})])
 
     def test_push(self):

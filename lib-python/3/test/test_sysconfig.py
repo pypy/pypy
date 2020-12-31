@@ -6,7 +6,8 @@ import shutil
 from copy import copy
 
 from test.support import (import_module, TESTFN, unlink, check_warnings,
-                          captured_stdout, skip_unless_symlink, change_cwd)
+                          captured_stdout, skip_unless_symlink, change_cwd,
+                          PythonSymlink)
 
 import sysconfig
 from sysconfig import (get_paths, get_platform, get_config_vars,
@@ -232,46 +233,10 @@ class TestSysConfig(unittest.TestCase):
         self.assertEqual(get_scheme_names(), wanted)
 
     @skip_unless_symlink
-    def test_symlink(self):
-        if sys.platform == "win32" and not os.path.exists(sys.executable):
-            # App symlink appears to not exist, but we want the
-            # real executable here anyway
-            import _winapi
-            real = _winapi.GetModuleFileName(0)
-        else:
-            real = os.path.realpath(sys.executable)
-        link = os.path.abspath(TESTFN)
-        os.symlink(real, link)
-
-        # On Windows, the EXE needs to know where pythonXY.dll is at so we have
-        # to add the directory to the path.
-        env = None
-        if sys.platform == "win32":
-            env = {k.upper(): os.environ[k] for k in os.environ}
-            env["PATH"] = "{};{}".format(
-                os.path.dirname(real), env.get("PATH", ""))
-            # Requires PYTHONHOME as well since we locate stdlib from the
-            # EXE path and not the DLL path (which should be fixed)
-            env["PYTHONHOME"] = os.path.dirname(real)
-            if sysconfig.is_python_build(True):
-                env["PYTHONPATH"] = os.path.dirname(os.__file__)
-
-        # Issue 7880
-        def get(python, env=None):
-            cmd = [python, '-c',
-                   'import sysconfig; print(sysconfig.get_platform())']
-            p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
-                                 stderr=subprocess.PIPE, env=env)
-            out, err = p.communicate()
-            if p.returncode:
-                print((out, err))
-                self.fail('Non-zero return code {0} (0x{0:08X})'
-                            .format(p.returncode))
-            return out, err
-        try:
-            self.assertEqual(get(real), get(link, env))
-        finally:
-            unlink(link)
+    def test_symlink(self): # Issue 7880
+        with PythonSymlink() as py:
+            cmd = "-c", "import sysconfig; print(sysconfig.get_platform())"
+            self.assertEqual(py.call_real(*cmd), py.call_link(*cmd))
 
     def test_user_similar(self):
         # Issue #8759: make sure the posix scheme for the users
@@ -393,10 +358,12 @@ class TestSysConfig(unittest.TestCase):
 
     @unittest.skipIf(sysconfig.get_config_var('EXT_SUFFIX') is None,
                      'EXT_SUFFIX required for this test')
-    def test_SO_in_vars(self):
+    def test_EXT_SUFFIX_in_vars(self):
+        import _imp
         vars = sysconfig.get_config_vars()
         self.assertIsNotNone(vars['SO'])
         self.assertEqual(vars['SO'], vars['EXT_SUFFIX'])
+        self.assertEqual(vars['EXT_SUFFIX'], _imp.extension_suffixes()[0])
 
     @unittest.skipUnless(sys.platform == 'linux' and
                          hasattr(sys.implementation, '_multiarch'),

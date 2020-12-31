@@ -2308,7 +2308,7 @@ class DocTestCase(unittest.TestCase):
         name = self._dt_test.name.split('.')
         return "%s (%s)" % (name[-1], '.'.join(name[:-1]))
 
-    __str__ = __repr__
+    __str__ = object.__str__
 
     def shortDescription(self):
         return "Doctest: " + self._dt_test.name
@@ -2407,7 +2407,6 @@ class DocFileCase(DocTestCase):
 
     def __repr__(self):
         return self._dt_test.filename
-    __str__ = __repr__
 
     def format_failure(self, err):
         return ('Failed doctest test for %s\n  File "%s", line 0\n\n%s'

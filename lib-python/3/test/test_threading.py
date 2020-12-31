@@ -105,6 +105,11 @@ class ThreadTests(BaseTestCase):
             self.assertRegex(repr(t), r'^<TestThread\(.*, initial\)>$')
             t.start()
 
+        if hasattr(threading, 'get_native_id'):
+            native_ids = set(t.native_id for t in threads) | {threading.get_native_id()}
+            self.assertNotIn(None, native_ids)
+            self.assertEqual(len(native_ids), NUMTASKS + 1)
+
         if verbose:
             print('waiting for all tasks to complete')
         for t in threads:
@@ -416,7 +421,7 @@ class ThreadTests(BaseTestCase):
         t.setDaemon(True)
         t.getName()
         t.setName("name")
-        with self.assertWarnsRegex(PendingDeprecationWarning, 'use is_alive()'):
+        with self.assertWarnsRegex(DeprecationWarning, 'use is_alive()'):
             t.isAlive()
         e = threading.Event()
         e.isSet()
@@ -848,13 +853,11 @@ class ThreadJoinOnShutdown(BaseTestCase):
             def random_io():
                 '''Loop for a while sleeping random tiny amounts and doing some I/O.'''
                 while True:
-                    in_f = open(os.__file__, 'rb')
-                    stuff = in_f.read(200)
-                    null_f = open(os.devnull, 'wb')
-                    null_f.write(stuff)
-                    time.sleep(random.random() / 1995)
-                    null_f.close()
-                    in_f.close()
+                    with open(os.__file__, 'rb') as in_f:
+                        stuff = in_f.read(200)
+                        with open(os.devnull, 'wb') as null_f:
+                            null_f.write(stuff)
+                            time.sleep(random.random() / 1995)
                     thread_has_run.add(threading.current_thread())
 
             def main():
@@ -1046,8 +1049,6 @@ class ThreadingExceptionTests(BaseTestCase):
         lock = threading.Lock()
         self.assertRaises(RuntimeError, lock.release)
 
-    @unittest.skipUnless(sys.platform == 'darwin' and test.support.python_is_optimized(),
-                         'test macosx problem')
     def test_recursion_limit(self):
         # Issue 9670
         # test that excessive recursion within a non-main thread causes
@@ -1181,6 +1182,102 @@ class ThreadingExceptionTests(BaseTestCase):
         self.assertIsInstance(thread.exc, RuntimeError)
         # explicitly break the reference cycle to not leak a dangling thread
         thread.exc = None
+
+
+class ThreadRunFail(threading.Thread):
+    def run(self):
+        raise ValueError("run failed")
+
+
+class ExceptHookTests(BaseTestCase):
+    def test_excepthook(self):
+        with support.captured_output("stderr") as stderr:
+            thread = ThreadRunFail(name="excepthook thread")
+            thread.start()
+            thread.join()
+
+        stderr = stderr.getvalue().strip()
+        self.assertIn(f'Exception in thread {thread.name}:\n', stderr)
+        self.assertIn('Traceback (most recent call last):\n', stderr)
+        self.assertIn('  raise ValueError("run failed")', stderr)
+        self.assertIn('ValueError: run failed', stderr)
+
+    @support.cpython_only
+    def test_excepthook_thread_None(self):
+        # threading.excepthook called with thread=None: log the thread
+        # identifier in this case.
+        with support.captured_output("stderr") as stderr:
+            try:
+                raise ValueError("bug")
+            except Exception as exc:
+                args = threading.ExceptHookArgs([*sys.exc_info(), None])
+                try:
+                    threading.excepthook(args)
+                finally:
+                    # Explicitly break a reference cycle
+                    args = None
+
+        stderr = stderr.getvalue().strip()
+        self.assertIn(f'Exception in thread {threading.get_ident()}:\n', stderr)
+        self.assertIn('Traceback (most recent call last):\n', stderr)
+        self.assertIn('  raise ValueError("bug")', stderr)
+        self.assertIn('ValueError: bug', stderr)
+
+    def test_system_exit(self):
+        class ThreadExit(threading.Thread):
+            def run(self):
+                sys.exit(1)
+
+        # threading.excepthook() silently ignores SystemExit
+        with support.captured_output("stderr") as stderr:
+            thread = ThreadExit()
+            thread.start()
+            thread.join()
+
+        self.assertEqual(stderr.getvalue(), '')
+
+    def test_custom_excepthook(self):
+        args = None
+
+        def hook(hook_args):
+            nonlocal args
+            args = hook_args
+
+        try:
+            with support.swap_attr(threading, 'excepthook', hook):
+                thread = ThreadRunFail()
+                thread.start()
+                thread.join()
+
+            self.assertEqual(args.exc_type, ValueError)
+            self.assertEqual(str(args.exc_value), 'run failed')
+            self.assertEqual(args.exc_traceback, args.exc_value.__traceback__)
+            self.assertIs(args.thread, thread)
+        finally:
+            # Break reference cycle
+            args = None
+
+    def test_custom_excepthook_fail(self):
+        def threading_hook(args):
+            raise ValueError("threading_hook failed")
+
+        err_str = None
+
+        def sys_hook(exc_type, exc_value, exc_traceback):
+            nonlocal err_str
+            err_str = str(exc_value)
+
+        with support.swap_attr(threading, 'excepthook', threading_hook), \
+             support.swap_attr(sys, 'excepthook', sys_hook), \
+             support.captured_output('stderr') as stderr:
+            thread = ThreadRunFail()
+            thread.start()
+            thread.join()
+
+        self.assertEqual(stderr.getvalue(),
+                         'Exception in threading.excepthook:\n')
+        self.assertEqual(err_str, 'threading_hook failed')
+
 
 class TimerTests(BaseTestCase):
 

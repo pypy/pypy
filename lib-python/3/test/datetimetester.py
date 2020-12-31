@@ -879,6 +879,44 @@ class TestTimeDelta(HarmlessMixedComparison, unittest.TestCase):
         self.assertEqual(str(t3), str(t4))
         self.assertEqual(t4.as_hours(), -1)
 
+    def test_subclass_date(self):
+        class DateSubclass(date):
+            pass
+
+        d1 = DateSubclass(2018, 1, 5)
+        td = timedelta(days=1)
+
+        tests = [
+            ('add', lambda d, t: d + t, DateSubclass(2018, 1, 6)),
+            ('radd', lambda d, t: t + d, DateSubclass(2018, 1, 6)),
+            ('sub', lambda d, t: d - t, DateSubclass(2018, 1, 4)),
+        ]
+
+        for name, func, expected in tests:
+            with self.subTest(name):
+                act = func(d1, td)
+                self.assertEqual(act, expected)
+                self.assertIsInstance(act, DateSubclass)
+
+    def test_subclass_datetime(self):
+        class DateTimeSubclass(datetime):
+            pass
+
+        d1 = DateTimeSubclass(2018, 1, 5, 12, 30)
+        td = timedelta(days=1, minutes=30)
+
+        tests = [
+            ('add', lambda d, t: d + t, DateTimeSubclass(2018, 1, 6, 13)),
+            ('radd', lambda d, t: t + d, DateTimeSubclass(2018, 1, 6, 13)),
+            ('sub', lambda d, t: d - t, DateTimeSubclass(2018, 1, 4, 12)),
+        ]
+
+        for name, func, expected in tests:
+            with self.subTest(name):
+                act = func(d1, td)
+                self.assertEqual(act, expected)
+                self.assertIsInstance(act, DateTimeSubclass)
+
     def test_division(self):
         t = timedelta(hours=1, minutes=24, seconds=19)
         second = timedelta(seconds=1)
@@ -1712,6 +1750,7 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
             green = pickler.dumps(orig, proto)
             derived = unpickler.loads(green)
             self.assertEqual(orig, derived)
+            self.assertTrue(isinstance(derived, SubclassDate))
 
     def test_backdoor_resistance(self):
         # For fast unpickling, the constructor accepts a pickle byte string.
@@ -1797,6 +1836,82 @@ class TestDate(HarmlessMixedComparison, unittest.TestCase):
         for bad_type in bad_types:
             with self.assertRaises(TypeError):
                 self.theclass.fromisoformat(bad_type)
+
+    def test_fromisocalendar(self):
+        # For each test case, assert that fromisocalendar is the
+        # inverse of the isocalendar function
+        dates = [
+            (2016, 4, 3),
+            (2005, 1, 2),       # (2004, 53, 7)
+            (2008, 12, 30),     # (2009, 1, 2)
+            (2010, 1, 2),       # (2009, 53, 6)
+            (2009, 12, 31),     # (2009, 53, 4)
+            (1900, 1, 1),       # Unusual non-leap year (year % 100 == 0)
+            (1900, 12, 31),
+            (2000, 1, 1),       # Unusual leap year (year % 400 == 0)
+            (2000, 12, 31),
+            (2004, 1, 1),       # Leap year
+            (2004, 12, 31),
+            (1, 1, 1),
+            (9999, 12, 31),
+            (MINYEAR, 1, 1),
+            (MAXYEAR, 12, 31),
+        ]
+
+        for datecomps in dates:
+            with self.subTest(datecomps=datecomps):
+                dobj = self.theclass(*datecomps)
+                isocal = dobj.isocalendar()
+
+                d_roundtrip = self.theclass.fromisocalendar(*isocal)
+
+                self.assertEqual(dobj, d_roundtrip)
+
+    def test_fromisocalendar_value_errors(self):
+        isocals = [
+            (2019, 0, 1),
+            (2019, -1, 1),
+            (2019, 54, 1),
+            (2019, 1, 0),
+            (2019, 1, -1),
+            (2019, 1, 8),
+            (2019, 53, 1),
+            (10000, 1, 1),
+            (0, 1, 1),
+            (9999999, 1, 1),
+            (2<<32, 1, 1),
+            (2019, 2<<32, 1),
+            (2019, 1, 2<<32),
+        ]
+
+        for isocal in isocals:
+            with self.subTest(isocal=isocal):
+                with self.assertRaises(ValueError):
+                    self.theclass.fromisocalendar(*isocal)
+
+    def test_fromisocalendar_type_errors(self):
+        err_txformers = [
+            str,
+            float,
+            lambda x: None,
+        ]
+
+        # Take a valid base tuple and transform it to contain one argument
+        # with the wrong type. Repeat this for each argument, e.g.
+        # [("2019", 1, 1), (2019, "1", 1), (2019, 1, "1"), ...]
+        isocals = []
+        base = (2019, 1, 1)
+        for i in range(3):
+            for txformer in err_txformers:
+                err_val = list(base)
+                err_val[i] = txformer(err_val[i])
+                isocals.append(tuple(err_val))
+
+        for isocal in isocals:
+            with self.subTest(isocal=isocal):
+                with self.assertRaises(TypeError):
+                    self.theclass.fromisocalendar(*isocal)
+
 
 #############################################################################
 # datetime tests
@@ -2163,6 +2278,7 @@ class TestDateTime(TestDate):
             green = pickler.dumps(orig, proto)
             derived = unpickler.loads(green)
             self.assertEqual(orig, derived)
+            self.assertTrue(isinstance(derived, SubclassDatetime))
 
     def test_compat_unpickle(self):
         tests = [
@@ -2680,32 +2796,57 @@ class TestDateTime(TestDate):
         ts = base_d.timestamp()
 
         test_cases = [
-            ('fromtimestamp', (ts,)),
+            ('fromtimestamp', (ts,), base_d),
             # See https://bugs.python.org/issue32417
-            # ('fromtimestamp', (ts, timezone.utc)),
-            ('utcfromtimestamp', (utc_ts,)),
-            ('fromisoformat', (d_isoformat,)),
-            ('strptime', (d_isoformat, '%Y-%m-%dT%H:%M:%S.%f')),
-            ('combine', (date(*args[0:3]), time(*args[3:]))),
+            ('fromtimestamp', (ts, timezone.utc),
+                               base_d.astimezone(timezone.utc)),
+            ('utcfromtimestamp', (utc_ts,), base_d),
+            ('fromisoformat', (d_isoformat,), base_d),
+            ('strptime', (d_isoformat, '%Y-%m-%dT%H:%M:%S.%f'), base_d),
+            ('combine', (date(*args[0:3]), time(*args[3:])), base_d),
         ]
 
-        for constr_name, constr_args in test_cases:
+        for constr_name, constr_args, expected in test_cases:
             for base_obj in (DateTimeSubclass, base_d):
                 # Test both the classmethod and method
                 with self.subTest(base_obj_type=type(base_obj),
                                   constr_name=constr_name):
-                    constr = getattr(base_obj, constr_name)
+                    constructor = getattr(base_obj, constr_name)
 
-                    dt = constr(*constr_args)
+                    dt = constructor(*constr_args)
 
                     # Test that it creates the right subclass
                     self.assertIsInstance(dt, DateTimeSubclass)
 
                     # Test that it's equal to the base object
-                    self.assertEqual(dt, base_d.replace(tzinfo=None))
+                    self.assertEqual(dt, expected)
 
                     # Test that it called the constructor
                     self.assertEqual(dt.extra, 7)
+
+    def test_subclass_now(self):
+        # Test that alternate constructors call the constructor
+        class DateTimeSubclass(self.theclass):
+            def __new__(cls, *args, **kwargs):
+                result = self.theclass.__new__(cls, *args, **kwargs)
+                result.extra = 7
+
+                return result
+
+        test_cases = [
+            ('now', 'now', {}),
+            ('utcnow', 'utcnow', {}),
+            ('now_utc', 'now', {'tz': timezone.utc}),
+            ('now_fixed', 'now', {'tz': timezone(timedelta(hours=-5), "EST")}),
+        ]
+
+        for name, meth_name, kwargs in test_cases:
+            with self.subTest(name):
+                constr = getattr(DateTimeSubclass, meth_name)
+                dt = constr(**kwargs)
+
+                self.assertIsInstance(dt, DateTimeSubclass)
+                self.assertEqual(dt.extra, 7)
 
     def test_fromisoformat_datetime(self):
         # Test that isoformat() is reversible
@@ -3187,6 +3328,7 @@ class TestTime(HarmlessMixedComparison, unittest.TestCase):
             green = pickler.dumps(orig, proto)
             derived = unpickler.loads(green)
             self.assertEqual(orig, derived)
+            self.assertTrue(isinstance(derived, SubclassTime))
 
     def test_compat_unpickle(self):
         tests = [
@@ -4940,8 +5082,9 @@ class Oddballs(unittest.TestCase):
         for xx in [decimal.Decimal(10),
                    decimal.Decimal('10.9'),
                    Number(10)]:
-            self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
-                             datetime(xx, xx, xx, xx, xx, xx, xx))
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(datetime(10, 10, 10, 10, 10, 10, 10),
+                                 datetime(xx, xx, xx, xx, xx, xx, xx))
 
         with self.assertRaisesRegex(TypeError, '^an integer is required '
                                               r'\(got type str\)$'):
@@ -4949,7 +5092,7 @@ class Oddballs(unittest.TestCase):
 
         f10 = Number(10.9)
         with self.assertRaisesRegex(TypeError, '^__int__ returned non-int '
-                                              r'\(type float\)$'):
+                                               r'\(type float\)$'):
             datetime(10, 10, f10)
 
         class Float(float):
@@ -5962,6 +6105,132 @@ class CapiTest(unittest.TestCase):
             for exact in (True, False):
                 with self.subTest(arg=arg, exact=exact):
                     self.assertFalse(is_tzinfo(arg, exact))
+
+    def test_date_from_date(self):
+        exp_date = date(1993, 8, 26)
+
+        for macro in [0, 1]:
+            with self.subTest(macro=macro):
+                c_api_date = _testcapi.get_date_fromdate(
+                    macro,
+                    exp_date.year,
+                    exp_date.month,
+                    exp_date.day)
+
+                self.assertEqual(c_api_date, exp_date)
+
+    def test_datetime_from_dateandtime(self):
+        exp_date = datetime(1993, 8, 26, 22, 12, 55, 99999)
+
+        for macro in [0, 1]:
+            with self.subTest(macro=macro):
+                c_api_date = _testcapi.get_datetime_fromdateandtime(
+                    macro,
+                    exp_date.year,
+                    exp_date.month,
+                    exp_date.day,
+                    exp_date.hour,
+                    exp_date.minute,
+                    exp_date.second,
+                    exp_date.microsecond)
+
+                self.assertEqual(c_api_date, exp_date)
+
+    def test_datetime_from_dateandtimeandfold(self):
+        exp_date = datetime(1993, 8, 26, 22, 12, 55, 99999)
+
+        for fold in [0, 1]:
+            for macro in [0, 1]:
+                with self.subTest(macro=macro, fold=fold):
+                    c_api_date = _testcapi.get_datetime_fromdateandtimeandfold(
+                        macro,
+                        exp_date.year,
+                        exp_date.month,
+                        exp_date.day,
+                        exp_date.hour,
+                        exp_date.minute,
+                        exp_date.second,
+                        exp_date.microsecond,
+                        exp_date.fold)
+
+                    self.assertEqual(c_api_date, exp_date)
+                    self.assertEqual(c_api_date.fold, exp_date.fold)
+
+    def test_time_from_time(self):
+        exp_time = time(22, 12, 55, 99999)
+
+        for macro in [0, 1]:
+            with self.subTest(macro=macro):
+                c_api_time = _testcapi.get_time_fromtime(
+                    macro,
+                    exp_time.hour,
+                    exp_time.minute,
+                    exp_time.second,
+                    exp_time.microsecond)
+
+                self.assertEqual(c_api_time, exp_time)
+
+    def test_time_from_timeandfold(self):
+        exp_time = time(22, 12, 55, 99999)
+
+        for fold in [0, 1]:
+            for macro in [0, 1]:
+                with self.subTest(macro=macro, fold=fold):
+                    c_api_time = _testcapi.get_time_fromtimeandfold(
+                        macro,
+                        exp_time.hour,
+                        exp_time.minute,
+                        exp_time.second,
+                        exp_time.microsecond,
+                        exp_time.fold)
+
+                    self.assertEqual(c_api_time, exp_time)
+                    self.assertEqual(c_api_time.fold, exp_time.fold)
+
+    def test_delta_from_dsu(self):
+        exp_delta = timedelta(26, 55, 99999)
+
+        for macro in [0, 1]:
+            with self.subTest(macro=macro):
+                c_api_delta = _testcapi.get_delta_fromdsu(
+                    macro,
+                    exp_delta.days,
+                    exp_delta.seconds,
+                    exp_delta.microseconds)
+
+                self.assertEqual(c_api_delta, exp_delta)
+
+    def test_date_from_timestamp(self):
+        ts = datetime(1995, 4, 12).timestamp()
+
+        for macro in [0, 1]:
+            with self.subTest(macro=macro):
+                d = _testcapi.get_date_fromtimestamp(int(ts), macro)
+
+                self.assertEqual(d, date(1995, 4, 12))
+
+    def test_datetime_from_timestamp(self):
+        cases = [
+            ((1995, 4, 12), None, False),
+            ((1995, 4, 12), None, True),
+            ((1995, 4, 12), timezone(timedelta(hours=1)), True),
+            ((1995, 4, 12, 14, 30), None, False),
+            ((1995, 4, 12, 14, 30), None, True),
+            ((1995, 4, 12, 14, 30), timezone(timedelta(hours=1)), True),
+        ]
+
+        from_timestamp = _testcapi.get_datetime_fromtimestamp
+        for case in cases:
+            for macro in [0, 1]:
+                with self.subTest(case=case, macro=macro):
+                    dtup, tzinfo, usetz = case
+                    dt_orig = datetime(*dtup, tzinfo=tzinfo)
+                    ts = int(dt_orig.timestamp())
+
+                    dt_rt = from_timestamp(ts, tzinfo, usetz, macro)
+
+                    self.assertEqual(dt_orig, dt_rt)
+
 
 def load_tests(loader, standard_tests, pattern):
     standard_tests.addTest(ZoneInfoCompleteTest())

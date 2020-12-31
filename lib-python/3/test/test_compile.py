@@ -615,6 +615,14 @@ if 1:
         self.check_constant(f1, Ellipsis)
         self.assertEqual(repr(f1()), repr(Ellipsis))
 
+        # Merge constants in tuple or frozenset
+        f1, f2 = lambda: "not a name", lambda: ("not a name",)
+        f3 = lambda x: x in {("not a name",)}
+        self.assertIs(f1.__code__.co_consts[1],
+                      f2.__code__.co_consts[1][0])
+        self.assertIs(next(iter(f3.__code__.co_consts[1])),
+                      f2.__code__.co_consts[1])
+
         # {0} is converted to a constant frozenset({0}) by the peephole
         # optimizer
         f1, f2 = lambda x: x in {0}, lambda x: x in {0}
@@ -689,6 +697,58 @@ if 1:
         # complex statements.
         compile("if a: b\n" * 200000, "<dummy>", "exec")
 
+    # Multiple users rely on the fact that CPython does not generate
+    # bytecode for dead code blocks. See bpo-37500 for more context.
+    @support.cpython_only
+    def test_dead_blocks_do_not_generate_bytecode(self):
+        def unused_block_if():
+            if 0:
+                return 42
+
+        def unused_block_while():
+            while 0:
+                return 42
+
+        def unused_block_if_else():
+            if 1:
+                return None
+            else:
+                return 42
+
+        def unused_block_while_else():
+            while 1:
+                return None
+            else:
+                return 42
+
+        funcs = [unused_block_if, unused_block_while,
+                 unused_block_if_else, unused_block_while_else]
+
+        for func in funcs:
+            opcodes = list(dis.get_instructions(func))
+            self.assertEqual(2, len(opcodes))
+            self.assertEqual('LOAD_CONST', opcodes[0].opname)
+            self.assertEqual(None, opcodes[0].argval)
+            self.assertEqual('RETURN_VALUE', opcodes[1].opname)
+
+    def test_false_while_loop(self):
+        def break_in_while():
+            while False:
+                break
+
+        def continue_in_while():
+            while False:
+                continue
+
+        funcs = [break_in_while, continue_in_while]
+
+        # Check that we did not raise but we also don't generate bytecode
+        for func in funcs:
+            opcodes = list(dis.get_instructions(func))
+            self.assertEqual(2, len(opcodes))
+            self.assertEqual('LOAD_CONST', opcodes[0].opname)
+            self.assertEqual(None, opcodes[0].argval)
+            self.assertEqual('RETURN_VALUE', opcodes[1].opname)
 
 class TestExpressionStackSize(unittest.TestCase):
     # These tests check that the computed stack size for a code object
@@ -875,7 +935,7 @@ class TestStackSizeStability(unittest.TestCase):
             """
         self.check_stack_size(snippet)
 
-    def test_for_break_inside_finally_block(self):
+    def test_for_break_continue_inside_finally_block(self):
         snippet = """
             for x in y:
                 try:
@@ -883,6 +943,8 @@ class TestStackSizeStability(unittest.TestCase):
                 finally:
                     if z:
                         break
+                    elif u:
+                        continue
                     else:
                         a
             else:

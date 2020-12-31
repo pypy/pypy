@@ -1,5 +1,5 @@
 import errno
-from http import client
+from http import client, HTTPStatus
 import io
 import itertools
 import os
@@ -7,6 +7,7 @@ import array
 import re
 import socket
 import threading
+import warnings
 
 import unittest
 TestCase = unittest.TestCase
@@ -514,6 +515,10 @@ class TransferEncodingTest(TestCase):
 
 
 class BasicTest(TestCase):
+    def test_dir_with_added_behavior_on_status(self):
+        # see issue40084
+        self.assertTrue({'description', 'name', 'phrase', 'value'} <= set(dir(HTTPStatus(404))))
+
     def test_status_lines(self):
         # Test HTTP status lines
 
@@ -1141,11 +1146,8 @@ class BasicTest(TestCase):
 
     def test_response_fileno(self):
         # Make sure fd returned by fileno is valid.
-        serv = socket.socket(
-            socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP)
+        serv = socket.create_server((HOST, 0))
         self.addCleanup(serv.close)
-        serv.bind((HOST, 0))
-        serv.listen()
 
         result = None
         def run_server():
@@ -1465,6 +1467,7 @@ class OfflineTest(TestCase):
             'PRECONDITION_REQUIRED',
             'TOO_MANY_REQUESTS',
             'REQUEST_HEADER_FIELDS_TOO_LARGE',
+            'UNAVAILABLE_FOR_LEGAL_REASONS',
             'INTERNAL_SERVER_ERROR',
             'NOT_IMPLEMENTED',
             'BAD_GATEWAY',
@@ -1824,8 +1827,11 @@ class HTTPSTest(TestCase):
         self.assertIs(h._context, context)
         self.assertFalse(h._context.post_handshake_auth)
 
-        h = client.HTTPSConnection('localhost', 443, context=context,
-                                   cert_file=CERT_localhost)
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', 'key_file, cert_file and check_hostname are deprecated',
+                                    DeprecationWarning)
+            h = client.HTTPSConnection('localhost', 443, context=context,
+                                       cert_file=CERT_localhost)
         self.assertTrue(h._context.post_handshake_auth)
 
 

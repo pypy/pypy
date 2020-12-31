@@ -133,24 +133,6 @@ class AsyncGenTest(unittest.TestCase):
                     break
             return res
 
-        def async_iterate(g):
-            res = []
-            while True:
-                try:
-                    g.__anext__().__next__()
-                except StopAsyncIteration:
-                    res.append('STOP')
-                    break
-                except StopIteration as ex:
-                    if ex.args:
-                        res.append(ex.args[0])
-                    else:
-                        res.append('EMPTY StopIteration')
-                        break
-                except Exception as ex:
-                    res.append(str(type(ex)))
-            return res
-
         sync_gen_result = sync_iterate(sync_gen)
         async_gen_result = async_iterate(async_gen)
         self.assertEqual(sync_gen_result, async_gen_result)
@@ -176,19 +158,22 @@ class AsyncGenTest(unittest.TestCase):
 
         g = gen()
         ai = g.__aiter__()
-        self.assertEqual(ai.__anext__().__next__(), ('result',))
+
+        an = ai.__anext__()
+        self.assertEqual(an.__next__(), ('result',))
 
         try:
-            ai.__anext__().__next__()
+            an.__next__()
         except StopIteration as ex:
             self.assertEqual(ex.args[0], 123)
         else:
             self.fail('StopIteration was not raised')
 
-        self.assertEqual(ai.__anext__().__next__(), ('result',))
+        an = ai.__anext__()
+        self.assertEqual(an.__next__(), ('result',))
 
         try:
-            ai.__anext__().__next__()
+            an.__next__()
         except StopAsyncIteration as ex:
             self.assertFalse(ex.args)
         else:
@@ -212,10 +197,11 @@ class AsyncGenTest(unittest.TestCase):
 
         g = gen()
         ai = g.__aiter__()
-        self.assertEqual(ai.__anext__().__next__(), ('result',))
+        an = ai.__anext__()
+        self.assertEqual(an.__next__(), ('result',))
 
         try:
-            ai.__anext__().__next__()
+            an.__next__()
         except StopIteration as ex:
             self.assertEqual(ex.args[0], 123)
         else:
@@ -384,6 +370,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
     def tearDown(self):
         self.loop.close()
         self.loop = None
+        asyncio.set_event_loop_policy(None)
 
     async def to_list(self, gen):
         res = []
@@ -394,9 +381,9 @@ class AsyncGenAsyncioTest(unittest.TestCase):
     def test_async_gen_asyncio_01(self):
         async def gen():
             yield 1
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             yield 2
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             return
             yield 3
 
@@ -406,7 +393,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
     def test_async_gen_asyncio_02(self):
         async def gen():
             yield 1
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             yield 2
             1 / 0
             yield 3
@@ -420,7 +407,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         class Gen:
             async def __aiter__(self):
                 yield 1
-                await asyncio.sleep(0.01, loop=loop)
+                await asyncio.sleep(0.01)
                 yield 2
 
         res = loop.run_until_complete(self.to_list(Gen()))
@@ -429,13 +416,13 @@ class AsyncGenAsyncioTest(unittest.TestCase):
     def test_async_gen_asyncio_anext_04(self):
         async def foo():
             yield 1
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             try:
                 yield 2
                 yield 3
             except ZeroDivisionError:
                 yield 1000
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             yield 4
 
         async def run1():
@@ -586,7 +573,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
                 yield 1
                 1 / 0
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 yield 12
 
         async def run():
@@ -609,8 +596,8 @@ class AsyncGenAsyncioTest(unittest.TestCase):
                 yield 1
                 1 / 0
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE += 1
             DONE += 1000
 
@@ -636,8 +623,8 @@ class AsyncGenAsyncioTest(unittest.TestCase):
                 DONE += 1000
                 yield 2
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE += 1
             DONE += 1000
 
@@ -645,18 +632,14 @@ class AsyncGenAsyncioTest(unittest.TestCase):
             gen = foo()
             it = gen.__aiter__()
             self.assertEqual(await it.__anext__(), 1)
-            t = self.loop.create_task(it.__anext__())
-            await asyncio.sleep(0.01, loop=self.loop)
             await gen.aclose()
-            return t
 
-        t = self.loop.run_until_complete(run())
+        self.loop.run_until_complete(run())
         self.assertEqual(DONE, 1)
 
         # Silence ResourceWarnings
         fut.cancel()
-        t.cancel()
-        self.loop.run_until_complete(asyncio.sleep(0.01, loop=self.loop))
+        self.loop.run_until_complete(asyncio.sleep(0.01))
 
     def test_async_gen_asyncio_gc_aclose_09(self):
         DONE = 0
@@ -667,8 +650,8 @@ class AsyncGenAsyncioTest(unittest.TestCase):
                 while True:
                     yield 1
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -677,7 +660,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
             await g.__anext__()
             del g
 
-            await asyncio.sleep(0.1, loop=self.loop)
+            await asyncio.sleep(0.1)
 
         self.loop.run_until_complete(run())
         self.assertEqual(DONE, 1)
@@ -795,15 +778,15 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         async def gen():
             nonlocal DONE
             try:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 v = yield 1
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 yield v * 2
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 return
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -825,20 +808,20 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         DONE = 0
 
         async def sleep_n_crash(delay):
-            await asyncio.sleep(delay, loop=self.loop)
+            await asyncio.sleep(delay)
             1 / 0
 
         async def gen():
             nonlocal DONE
             try:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 v = yield 1
                 await sleep_n_crash(0.01)
                 DONE += 1000
                 yield v * 2
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -857,7 +840,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         DONE = 0
 
         async def sleep_n_crash(delay):
-            fut = asyncio.ensure_future(asyncio.sleep(delay, loop=self.loop),
+            fut = asyncio.ensure_future(asyncio.sleep(delay),
                                         loop=self.loop)
             self.loop.call_later(delay / 2, lambda: fut.cancel())
             return await fut
@@ -865,14 +848,14 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         async def gen():
             nonlocal DONE
             try:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 v = yield 1
                 await sleep_n_crash(0.01)
                 DONE += 1000
                 yield v * 2
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -911,18 +894,18 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         async def gen():
             nonlocal DONE
             try:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 try:
                     v = yield 1
                 except FooEr:
                     v = 1000
-                    await asyncio.sleep(0.01, loop=self.loop)
+                    await asyncio.sleep(0.01)
                 yield v * 2
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 # return
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -947,7 +930,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
             pass
 
         async def sleep_n_crash(delay):
-            fut = asyncio.ensure_future(asyncio.sleep(delay, loop=self.loop),
+            fut = asyncio.ensure_future(asyncio.sleep(delay),
                                         loop=self.loop)
             self.loop.call_later(delay / 2, lambda: fut.cancel())
             return await fut
@@ -955,17 +938,17 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         async def gen():
             nonlocal DONE
             try:
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 try:
                     v = yield 1
                 except FooEr:
                     await sleep_n_crash(0.01)
                 yield v * 2
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 # return
             finally:
-                await asyncio.sleep(0.01, loop=self.loop)
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
+                await asyncio.sleep(0.01)
                 DONE = 1
 
         async def run():
@@ -1064,10 +1047,10 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         async def waiter(timeout):
             nonlocal finalized
             try:
-                await asyncio.sleep(timeout, loop=self.loop)
+                await asyncio.sleep(timeout)
                 yield 1
             finally:
-                await asyncio.sleep(0, loop=self.loop)
+                await asyncio.sleep(0)
                 finalized += 1
 
         async def wait():
@@ -1077,53 +1060,25 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         t1 = self.loop.create_task(wait())
         t2 = self.loop.create_task(wait())
 
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
-
-        self.loop.run_until_complete(self.loop.shutdown_asyncgens())
-        self.assertEqual(finalized, 2)
+        self.loop.run_until_complete(asyncio.sleep(0.1))
 
         # Silence warnings
         t1.cancel()
         t2.cancel()
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
 
-    def test_async_gen_asyncio_shutdown_02(self):
-        logged = 0
+        with self.assertRaises(asyncio.CancelledError):
+            self.loop.run_until_complete(t1)
+        with self.assertRaises(asyncio.CancelledError):
+            self.loop.run_until_complete(t2)
 
-        def logger(loop, context):
-            nonlocal logged
-            self.assertIn('asyncgen', context)
-            expected = 'an error occurred during closing of asynchronous'
-            if expected in context['message']:
-                logged += 1
-
-        async def waiter(timeout):
-            try:
-                await asyncio.sleep(timeout, loop=self.loop)
-                yield 1
-            finally:
-                1 / 0
-
-        async def wait():
-            async for _ in waiter(1):
-                pass
-
-        t = self.loop.create_task(wait())
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
-
-        self.loop.set_exception_handler(logger)
         self.loop.run_until_complete(self.loop.shutdown_asyncgens())
 
-        self.assertEqual(logged, 1)
-
-        # Silence warnings
-        t.cancel()
-        self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+        self.assertEqual(finalized, 2)
 
     def test_async_gen_expression_01(self):
         async def arange(n):
             for i in range(n):
-                await asyncio.sleep(0.01, loop=self.loop)
+                await asyncio.sleep(0.01)
                 yield i
 
         def make_arange(n):
@@ -1138,7 +1093,7 @@ class AsyncGenAsyncioTest(unittest.TestCase):
 
     def test_async_gen_expression_02(self):
         async def wrap(n):
-            await asyncio.sleep(0.01, loop=self.loop)
+            await asyncio.sleep(0.01)
             return n
 
         def make_arange(n):
@@ -1235,6 +1190,21 @@ class AsyncGenAsyncioTest(unittest.TestCase):
             await it.aclose()
 
         self.loop.run_until_complete(run())
+
+    def test_async_gen_aclose_compatible_with_get_stack(self):
+        async def async_generator():
+            yield object()
+
+        async def run():
+            ag = async_generator()
+            asyncio.create_task(ag.aclose())
+            tasks = asyncio.all_tasks()
+            for task in tasks:
+                # No AttributeError raised
+                task.get_stack()
+
+        self.loop.run_until_complete(run())
+
 
 if __name__ == "__main__":
     unittest.main()

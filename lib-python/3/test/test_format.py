@@ -48,7 +48,7 @@ def testformat(formatstr, args, output=None, limit=None, overflowok=False):
 
 def testcommon(formatstr, args, output=None, limit=None, overflowok=False):
     # if formatstr is a str, test str, bytes, and bytearray;
-    # otherwise, test bytes and bytearry
+    # otherwise, test bytes and bytearray
     if isinstance(formatstr, str):
         testformat(formatstr, args, output, limit, overflowok)
         b_format = formatstr.encode('ascii')
@@ -427,13 +427,16 @@ class FormatTest(unittest.TestCase):
             localeconv = locale.localeconv()
             sep = localeconv['thousands_sep']
             point = localeconv['decimal_point']
+            grouping = localeconv['grouping']
 
             text = format(123456789, "n")
-            self.assertIn(sep, text)
+            if grouping:
+                self.assertIn(sep, text)
             self.assertEqual(text.replace(sep, ''), '123456789')
 
             text = format(1234.5, "n")
-            self.assertIn(sep, text)
+            if grouping:
+                self.assertIn(sep, text)
             self.assertIn(point, text)
             self.assertEqual(text.replace(sep, ''), '1234' + point + '5')
         finally:
