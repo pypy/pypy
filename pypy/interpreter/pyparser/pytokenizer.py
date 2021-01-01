@@ -13,6 +13,8 @@ NUMCHARS = '0123456789'
 ALNUMCHARS = NAMECHARS + NUMCHARS
 EXTENDED_ALNUMCHARS = ALNUMCHARS + '-.'
 WHITESPACES = ' \t\n\r\v\f'
+TYPE_COMMENT_PREFIX = 'type'
+TYPE_IGNORE = 'ignore'
 
 def match_encoding_declaration(comment):
     """returns the declared encoding or None
@@ -243,7 +245,24 @@ def generate_tokens(lines, flags):
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
                                        line, lnum, start, token_list, flags)
-                    last_comment = token
+
+                    type_comment, column, type_decl = token.partition(":")
+                    if flags & consts.PyCF_TYPE_COMMENTS and type_comment[1:].strip() == TYPE_COMMENT_PREFIX:
+                        # Leading whitespace is ignored
+                        type_decl = type_decl.lstrip()
+                        if type_decl == TYPE_IGNORE:
+                            tok_type = tokens.TYPE_IGNORE
+                        else:
+                            tok_type = tokens.TYPE_COMMENT
+
+                        # The start should point to the start of type declaration
+                        # not the comment
+                        start += token.find(type_decl, token.find(column)) - 1
+                        tok = Token(tok_type, type_decl, lnum, start, line)
+                        token_list.append(tok)
+                        last_comment = ''
+                    else:
+                        last_comment = token
                 elif token in triple_quoted:
                     endDFA = endDFAs[token]
                     endmatch = endDFA.recognize(line, pos)

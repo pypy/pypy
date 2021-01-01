@@ -65,6 +65,8 @@ _add_tok('ATEQUAL', "@=" )
 _add_tok('RARROW', "->")
 _add_tok('ELLIPSIS', "...")
 _add_tok('OP')
+_add_tok('TYPE_IGNORE')
+_add_tok('TYPE_COMMENT')
 _add_tok('ASYNC') # unused, just keywords now
 _add_tok('AWAIT') # unused, just keywords now
 _add_tok('ERRORTOKEN')
