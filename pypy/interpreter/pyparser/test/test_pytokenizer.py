@@ -79,3 +79,16 @@ class TestTokenizer(object):
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.ENDMARKER, '', 2, 0, ''),
         ]
+
+    def test_type_ignore(self):
+        line = "a = 5 # type: ignore"
+        tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
+        assert tks  == [
+            Token(tokens.NAME, 'a', 1, 0, line),
+            Token(tokens.EQUAL, '=', 1, 2, line),
+            Token(tokens.NUMBER, '5', 1, 4, line),
+            Token(tokens.TYPE_IGNORE, 'ignore', 1, 13, line),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.ENDMARKER, '', 2, 0, ''),
+        ]
