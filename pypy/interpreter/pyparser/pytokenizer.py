@@ -55,21 +55,16 @@ def handle_type_comment(token, flags, lnum, start, line):
         and len(sub_tokens) == 2
         and sub_tokens[0][1:].strip() == TYPE_COMMENT_PREFIX
     ):
-        return None, start
+        return None
 
     # Leading whitespace is ignored
     type_decl = sub_tokens[1].lstrip()
-    # The start should point to the start of type declaration
-    # not the comment
-    new_start = start + token.find(type_decl, token.find(":"))
-    new_start -= 1
-
     if type_decl.startswith(TYPE_IGNORE):
         tok_type = tokens.TYPE_IGNORE
         type_decl = type_decl[len(TYPE_IGNORE):]
     else:
         tok_type = tokens.TYPE_COMMENT
-    return Token(tok_type, type_decl, lnum, new_start, line), new_start
+    return Token(tok_type, type_decl, lnum, start, line)
 
 
 def verify_utf8(token):
@@ -207,8 +202,8 @@ def generate_tokens(lines, flags):
                 if not verify_utf8(line):
                     raise bad_utf8("comment",
                                    line, lnum, pos, token_list, flags)
-                type_comment_tok, _ = handle_type_comment(line.lstrip(),
-                                                          flags, lnum, pos, line)
+                type_comment_tok = handle_type_comment(line.lstrip(),
+                                                      flags, lnum, pos, line)
                 if type_comment_tok is None:
                     continue
                 else:
@@ -283,7 +278,7 @@ def generate_tokens(lines, flags):
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
                                        line, lnum, start, token_list, flags)
-                    type_comment_tok, new_start = handle_type_comment(token, flags, lnum, start, line)
+                    type_comment_tok = handle_type_comment(token, flags, lnum, start, line)
                     if type_comment_tok is not None:
                         switch_indents += 1
                         token_list.append(type_comment_tok)
