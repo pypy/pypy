@@ -304,7 +304,8 @@ class ASTBuilder(object):
             msg = self.handle_expr(assert_node.get_child(3))
         return ast.Assert(expr, msg, assert_node.get_lineno(), assert_node.get_column())
 
-    def handle_suite(self, suite_node):
+    def handle_typed_suite(self, suite_node):
+        type_comment = None
         first_child = suite_node.get_child(0)
         if first_child.type == syms.simple_stmt:
             end = first_child.num_children() - 1
@@ -314,7 +315,12 @@ class ASTBuilder(object):
                      for i in range(0, end, 2)]
         else:
             stmts = []
-            for i in range(2, suite_node.num_children() - 1):
+            start = 1
+            type_comment, has_type_comment = self.handle_type_comment(suite_node.get_child(start))
+            if has_type_comment:
+                start += 2
+
+            for i in range(start+1, suite_node.num_children() - 1):
                 stmt = suite_node.get_child(i)
                 stmt_count = self.number_of_statements(stmt)
                 if stmt_count == 1:
@@ -326,6 +332,11 @@ class ASTBuilder(object):
                         if not stmt.num_children():
                             break
                         stmts.append(self.handle_stmt(stmt))
+        return stmts, type_comment
+
+    def handle_suite(self, suite_node):
+        stmts, type_comment = self.handle_typed_suite(suite_node)
+        assert type_comment is None
         return stmts
 
     def handle_if_stmt(self, if_node):
@@ -518,7 +529,9 @@ class ASTBuilder(object):
             suite += 2
         type_comment, has_type_comment = self.handle_type_comment(funcdef_node.get_child(suite))
         suite += has_type_comment
-        body = self.handle_suite(funcdef_node.get_child(suite))
+        body, possible_type_comment = self.handle_typed_suite(funcdef_node.get_child(suite))
+        if possible_type_comment is not None:
+            type_comment = possible_type_comment
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns, type_comment,
                                         posnode.get_lineno(), posnode.get_column())

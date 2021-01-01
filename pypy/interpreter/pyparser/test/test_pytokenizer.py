@@ -70,7 +70,7 @@ class TestTokenizer(object):
     def test_type_comments(self):
         line = "a = 5 # type: int"
         tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
-        assert tks  == [
+        assert tks == [
             Token(tokens.NAME, 'a', 1, 0, line),
             Token(tokens.EQUAL, '=', 1, 2, line),
             Token(tokens.NUMBER, '5', 1, 4, line),
@@ -83,7 +83,7 @@ class TestTokenizer(object):
     def test_type_ignore(self):
         line = "a = 5 # type: ignore"
         tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
-        assert tks  == [
+        assert tks == [
             Token(tokens.NAME, 'a', 1, 0, line),
             Token(tokens.EQUAL, '=', 1, 2, line),
             Token(tokens.NUMBER, '5', 1, 4, line),

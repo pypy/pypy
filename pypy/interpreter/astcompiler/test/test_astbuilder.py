@@ -4,6 +4,7 @@ import string
 import sys
 import pytest
 import functools
+import textwrap
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -1525,9 +1526,11 @@ class TestAstBuilder:
         asyncdef = mod.body[0]
         assert asyncdef.col_offset == 0
 
+    def get_first_typed_stmt(self, source):
+        return self.get_first_stmt(source, flags=consts.PyCF_TYPE_COMMENTS)
+
     def test_type_comments(self):
-        get_typed_stmt = functools.partial(self.get_first_stmt, flags=consts.PyCF_TYPE_COMMENTS)
-        assign = get_typed_stmt("a = 5 # type: int")
+        assign = self.get_first_typed_stmt("a = 5 # type: int")
         assert assign.type_comment == 'int'
         lines = (
             "def func(\n"
@@ -1536,8 +1539,32 @@ class TestAstBuilder:
             "  c = None\n"
             "): pass"
         )
-        func = get_typed_stmt(lines)
+        func = self.get_first_typed_stmt(lines)
         args = func.args
         assert args.args[0].type_comment == "List[int]"
         assert args.args[1].type_comment == "int"
         assert args.args[2].type_comment is None
+
+    def test_type_comments_func_body(self):
+        source = textwrap.dedent("""\
+        def foo():
+            # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert func.type_comment == "() -> int"
+
+        source = textwrap.dedent("""\
+        def foo(): # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert func.type_comment == "() -> int"
+
+        source = textwrap.dedent("""\
+        def foo(): # type: () -> str
+            # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert func.type_comment == "() -> int"

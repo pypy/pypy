@@ -48,6 +48,29 @@ def match_encoding_declaration(comment):
     return None
 
 
+def handle_type_comment(token, flags, lnum, start, line):
+    type_comment, column, type_decl = token.partition(":")
+    if not (
+        flags & consts.PyCF_TYPE_COMMENTS
+        and type_comment[1:].strip() == TYPE_COMMENT_PREFIX
+        and column
+    ):
+        return None, start
+
+    # Leading whitespace is ignored
+    type_decl = type_decl.lstrip()
+    if type_decl == TYPE_IGNORE:
+        tok_type = tokens.TYPE_IGNORE
+    else:
+        tok_type = tokens.TYPE_COMMENT
+
+    # The start should point to the start of type declaration
+    # not the comment
+    new_start = start + token.find(type_decl, token.find(column))
+    new_start -= 1
+    return Token(tok_type, type_decl, lnum, new_start, line), new_start
+
+
 def verify_utf8(token):
     try:
         rutf8.check_utf8(token, False)
@@ -103,6 +126,7 @@ def generate_tokens(lines, flags):
         and the line on which the token was found. The line passed is the
         logical line; continuation lines are included.
     """
+
     token_list = []
     lnum = continued = 0
     namechars = NAMECHARS
@@ -125,6 +149,7 @@ def generate_tokens(lines, flags):
         lnum = lnum + 1
         line = universal_newline(line)
         pos, max = 0, len(line)
+        switch_indents = 0
 
         if contstr:
             if not line:
@@ -177,11 +202,16 @@ def generate_tokens(lines, flags):
                 # skip blank lines
                 continue
             if line[pos] == '#':
-                # skip full-line comment, but still check that it is valid utf-8
+                # check integrity of comment
                 if not verify_utf8(line):
                     raise bad_utf8("comment",
                                    line, lnum, pos, token_list, flags)
-                continue
+                type_comment_tok, _ = handle_type_comment(line.lstrip(),
+                                                          flags, lnum, pos, line)
+                if type_comment_tok is None:
+                    continue
+                else:
+                    switch_indents += 1
 
             if column == indents[-1]:
                 if altcolumn != altindents[-1]:
@@ -239,28 +269,23 @@ def generate_tokens(lines, flags):
                     if not parenstack:
                         tok = Token(tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
+
+                        # Shift the indent token to the next line
+                        # when it is followed by a type_comment.
+                        if switch_indents == 2:
+                            indent = token_list.pop(-3)
+                            token_list.append(indent)
+                        switch_indents = 0
                     last_comment = ''
                 elif initial == '#':
-                    # skip comment, but still check that it is valid utf-8
+                    # check integrity of comment
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
                                        line, lnum, start, token_list, flags)
-
-                    type_comment, column, type_decl = token.partition(":")
-                    if flags & consts.PyCF_TYPE_COMMENTS and type_comment[1:].strip() == TYPE_COMMENT_PREFIX:
-                        # Leading whitespace is ignored
-                        type_decl = type_decl.lstrip()
-                        if type_decl == TYPE_IGNORE:
-                            tok_type = tokens.TYPE_IGNORE
-                        else:
-                            tok_type = tokens.TYPE_COMMENT
-
-                        # The start should point to the start of type declaration
-                        # not the comment
-                        start += token.find(type_decl, token.find(column)) - 1
-                        tok = Token(tok_type, type_decl, lnum, start, line)
-                        token_list.append(tok)
-                        last_comment = ''
+                    type_comment_tok, new_start = handle_type_comment(token, flags, lnum, start, line)
+                    if type_comment_tok is not None:
+                        switch_indents += 1
+                        token_list.append(type_comment_tok)
                     else:
                         last_comment = token
                 elif token in triple_quoted:
