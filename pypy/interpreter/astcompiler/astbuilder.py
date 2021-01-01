@@ -310,7 +310,7 @@ class ASTBuilder(object):
         return ast.Assert(expr, msg, assert_node.get_lineno(), assert_node.get_column())
 
     def handle_typed_suite(self, suite_node):
-        type_comment = self.space.w_None
+        type_comment = None
         first_child = suite_node.get_child(0)
         if first_child.type == syms.simple_stmt:
             end = first_child.num_children() - 1
