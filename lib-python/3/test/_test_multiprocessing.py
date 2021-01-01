@@ -1117,6 +1117,21 @@ class _TestQueue(BaseTestCase):
         # Assert that the serialization and the hook have been called correctly
         self.assertTrue(not_serializable_obj.reduce_was_called)
         self.assertTrue(not_serializable_obj.on_queue_feeder_error_was_called)
+
+    def test_closed_queue_closes_both(self):
+        q = multiprocessing.Queue()
+        q.put(1)
+        q.get()
+        q.close()
+        q.join_thread()
+        self.assertTrue(q._reader.closed)
+        self.assertTrue(q._writer.closed)
+
+        q = multiprocessing.Queue()
+        q.close()
+        q.join_thread()
+        self.assertTrue(q._reader.closed)
+        self.assertTrue(q._writer.closed)
 #
 #
 #
