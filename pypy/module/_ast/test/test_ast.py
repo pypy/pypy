@@ -10,9 +10,9 @@ class AppTestAST:
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
-    def w_get_ast(self, source, mode="exec"):
+    def w_get_ast(self, source, mode="exec", flags=0):
         ast = self.ast
-        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
+        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST | flags)
         assert isinstance(mod, ast.mod)
         return mod
 
@@ -73,7 +73,7 @@ class AppTestAST:
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
-        exc = raises(TypeError, com, ast.Module([ast.Expr(expr), []])).value
+        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)], [])).value
         assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
                 str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
 
@@ -158,7 +158,7 @@ class AppTestAST:
                                      lineno=0, col_offset=0)
         name = ast.Name("apple", ast.Store(),
                         lineno=0, col_offset=0)
-        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0),
+        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0), None,
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
@@ -196,7 +196,7 @@ class AppTestAST:
         target = ast.Name("hi", ast.Store())
         expr = ast.Name("apples", ast.Load())
         otherwise = []
-        fr = ast.For(target, expr, body, otherwise, lineno=0, col_offset=1)
+        fr = ast.For(target, expr, body, otherwise, None, lineno=0, col_offset=1)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
@@ -204,7 +204,7 @@ class AppTestAST:
         assert fr.lineno == 0
         assert fr.col_offset == 1
         fr = ast.For(body=body, target=target, iter=expr, col_offset=1,
-                     lineno=0, orelse=otherwise)
+                     type_comment = None, lineno=0, orelse=otherwise)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
@@ -497,3 +497,11 @@ from __future__ import generators""")
     def test_dict_unpacking(self):
         self.get_ast("{**{1:2}, 2:3}")
 
+    def test_type_comments(self):
+        mod = self.get_ast("a = 5 # type: int", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert mod.body[0].type_comment == "int"
+
+        mod = self.get_ast("a = 5 # type: ignore", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert len(mod.type_ignores) == 1
+        assert mod.type_ignores[0].tag == ""
+        assert mod.type_ignores[0].lineno == 1

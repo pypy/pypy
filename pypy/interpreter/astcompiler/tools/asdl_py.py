@@ -131,13 +131,13 @@ class ASTNodeVisitor(ASDLVisitor):
         if field.type in self.data.simple_types:
             return "%s_to_class[%s - 1]().to_object(space)" % (field.type, value)
         elif field.type in ("object", "singleton", "constant",
-                            "string", "bytes"):
+                            "bytes"):
             return value
         elif field.type == "bool":
             return "space.newbool(%s)" % (value,)
         elif field.type == "int":
             return "space.newint(%s)" % (value,)
-        elif field.type == "identifier":
+        elif field.type in ("string", "identifier"):
             if field.opt:
                 return "space.newtext_or_none(%s)" % (value,)
             return "space.newtext(%s)" % (value,)

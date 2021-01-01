@@ -446,7 +446,7 @@ class FunctionDef(stmt):
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
         w_returns = self.returns.to_object(space) if self.returns is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('returns'), w_returns)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -531,7 +531,7 @@ class AsyncFunctionDef(stmt):
         space.setattr(w_node, space.newtext('decorator_list'), w_decorator_list)
         w_returns = self.returns.to_object(space) if self.returns is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('returns'), w_returns)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -771,7 +771,7 @@ class Assign(stmt):
         space.setattr(w_node, space.newtext('targets'), w_targets)
         w_value = self.value.to_object(space)  # expr
         space.setattr(w_node, space.newtext('value'), w_value)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -954,7 +954,7 @@ class For(stmt):
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -1033,7 +1033,7 @@ class AsyncFor(stmt):
             orelse_w = [node.to_object(space) for node in self.orelse] # stmt
         w_orelse = space.newlist(orelse_w)
         space.setattr(w_node, space.newtext('orelse'), w_orelse)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -1236,7 +1236,7 @@ class With(stmt):
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.newtext('body'), w_body)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -1299,7 +1299,7 @@ class AsyncWith(stmt):
             body_w = [node.to_object(space) for node in self.body] # stmt
         w_body = space.newlist(body_w)
         space.setattr(w_node, space.newtext('body'), w_body)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -2742,7 +2742,7 @@ class Str(expr):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_Str)
-        w_s = self.s  # string
+        w_s = space.newtext(self.s)  # string
         space.setattr(w_node, space.newtext('s'), w_s)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -4062,7 +4062,7 @@ class arg(AST):
         space.setattr(w_node, space.newtext('arg'), w_arg)
         w_annotation = self.annotation.to_object(space) if self.annotation is not None else space.w_None  # expr
         space.setattr(w_node, space.newtext('annotation'), w_annotation)
-        w_type_comment = self.type_comment  # string
+        w_type_comment = space.newtext_or_none(self.type_comment)  # string
         space.setattr(w_node, space.newtext('type_comment'), w_type_comment)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
@@ -4215,7 +4215,7 @@ class TypeIgnore(type_ignore):
         w_node = space.call_function(get(space).w_TypeIgnore)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_tag = self.tag  # string
+        w_tag = space.newtext(self.tag)  # string
         space.setattr(w_node, space.newtext('tag'), w_tag)
         return w_node
 

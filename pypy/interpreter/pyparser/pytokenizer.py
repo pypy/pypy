@@ -49,19 +49,19 @@ def match_encoding_declaration(comment):
 
 
 def handle_type_comment(token, flags, lnum, start, line):
-    type_comment, column, type_decl = token.partition(":")
+    sub_tokens = token.split(":", 1)
     if not (
         flags & consts.PyCF_TYPE_COMMENTS
-        and type_comment[1:].strip() == TYPE_COMMENT_PREFIX
-        and column
+        and len(sub_tokens) == 2
+        and sub_tokens[0][1:].strip() == TYPE_COMMENT_PREFIX
     ):
         return None, start
 
     # Leading whitespace is ignored
-    type_decl = type_decl.lstrip()
+    type_decl = sub_tokens[1].lstrip()
     # The start should point to the start of type declaration
     # not the comment
-    new_start = start + token.find(type_decl, token.find(column))
+    new_start = start + token.find(type_decl, token.find(":"))
     new_start -= 1
 
     if type_decl.startswith(TYPE_IGNORE):
