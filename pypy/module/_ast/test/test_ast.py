@@ -73,7 +73,7 @@ class AppTestAST:
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
-        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)])).value
+        exc = raises(TypeError, com, ast.Module([ast.Expr(expr), []])).value
         assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
                 str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
 
@@ -88,7 +88,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level=None,
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         compile(mod, 'test', 'exec')
 
     def test_bad_int(self):
@@ -97,7 +97,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level='A',
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         exc = raises(ValueError, compile, mod, 'test', 'exec')
         assert str(exc.value) == "invalid integer value: 'A'"
 
@@ -149,7 +149,7 @@ class AppTestAST:
 
     def test_list_syncing(self):
         ast = self.ast
-        mod = ast.Module([ast.Lt()])
+        mod = ast.Module([ast.Lt()], [])
         raises(TypeError, compile, mod, "<string>", "exec")
         mod = self.get_ast("x = y = 3")
         assign = mod.body[0]
@@ -168,7 +168,7 @@ class AppTestAST:
         assert ns["apple"] == 4
 
     def test_empty_module(self):
-        compile(self.ast.Module([]), "<test>", "exec")
+        compile(self.ast.Module([], []), "<test>", "exec")
 
     def test_ast_types(self):
         ast = self.ast
@@ -191,7 +191,7 @@ class AppTestAST:
     def test_constructor(self):
         ast = self.ast
         body = []
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         assert mod.body is body
         target = ast.Name("hi", ast.Store())
         expr = ast.Name("apples", ast.Load())
@@ -381,30 +381,30 @@ from __future__ import generators""")
                                    None, [ast.Pass(lineno=4, col_offset=0)],
                                    lineno=4, col_offset=0)],
                 [], [], lineno=1, col_offset=0)
-        ])
+        ], [])
         exec(compile(body, '<string>', 'exec'))
 
     def test_empty_set(self):
         import ast
-        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))], type_ignores=[])
         ast.fix_missing_locations(m)
         compile(m, "<test>", "exec")
 
     def test_invalid_sum(self):
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
-        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)], [])
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_identitifer(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))])
+        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))], [])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_string(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Str(43))])
+        m = ast.Module([ast.Expr(ast.Str(43))], [])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
@@ -482,7 +482,7 @@ from __future__ import generators""")
             if msg is not None:
                 assert msg in str(exc.value)
         def _expr(node, msg=None, exc=ValueError):
-            mod = ast.Module([ast.Expr(node)])
+            mod = ast.Module([ast.Expr(node)], [])
             _mod(mod, msg, exc=exc)
         left = ast.Name("x", ast.Load())
         comp = ast.Compare(left, [ast.In()], [])

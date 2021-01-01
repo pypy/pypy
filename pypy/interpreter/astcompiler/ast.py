@@ -12,7 +12,10 @@ def raise_required_value(space, w_obj, name):
     raise oefmt(space.w_ValueError,
                 "field %s is required for %T", name, w_obj)
 
-def check_string(space, w_obj):
+def check_string(space, w_obj, allow_none=False):
+    if allow_none and space.is_w(w_obj, space.w_None):
+        return w_obj
+
     if not (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
@@ -472,7 +475,7 @@ class FunctionDef(stmt):
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return FunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _lineno, _col_offset)
@@ -557,7 +560,7 @@ class AsyncFunctionDef(stmt):
         decorator_list_w = space.unpackiterable(w_decorator_list)
         _decorator_list = [expr.from_object(space, w_item) for w_item in decorator_list_w]
         _returns = expr.from_object(space, w_returns)
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncFunctionDef(_name, _args, _body, _decorator_list, _returns, _type_comment, _lineno, _col_offset)
@@ -788,7 +791,7 @@ class Assign(stmt):
         _value = expr.from_object(space, w_value)
         if _value is None:
             raise_required_value(space, w_node, 'value')
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return Assign(_targets, _value, _type_comment, _lineno, _col_offset)
@@ -978,7 +981,7 @@ class For(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return For(_target, _iter, _body, _orelse, _type_comment, _lineno, _col_offset)
@@ -1057,7 +1060,7 @@ class AsyncFor(stmt):
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
         orelse_w = space.unpackiterable(w_orelse)
         _orelse = [stmt.from_object(space, w_item) for w_item in orelse_w]
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncFor(_target, _iter, _body, _orelse, _type_comment, _lineno, _col_offset)
@@ -1252,7 +1255,7 @@ class With(stmt):
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return With(_items, _body, _type_comment, _lineno, _col_offset)
@@ -1315,7 +1318,7 @@ class AsyncWith(stmt):
         _items = [withitem.from_object(space, w_item) for w_item in items_w]
         body_w = space.unpackiterable(w_body)
         _body = [stmt.from_object(space, w_item) for w_item in body_w]
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return AsyncWith(_items, _body, _type_comment, _lineno, _col_offset)
@@ -2752,7 +2755,7 @@ class Str(expr):
         w_s = get_field(space, w_node, 's', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = check_string(space, w_s)
+        _s = check_string(space, w_s, 0)
         if _s is None:
             raise_required_value(space, w_node, 's')
         _lineno = obj_to_int(space, w_lineno, False)
@@ -2918,7 +2921,7 @@ class Bytes(expr):
         w_s = get_field(space, w_node, 's', False)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = check_string(space, w_s)
+        _s = check_string(space, w_s, 0)
         if _s is None:
             raise_required_value(space, w_node, 's')
         _lineno = obj_to_int(space, w_lineno, False)
@@ -4078,7 +4081,7 @@ class arg(AST):
         if _arg is None:
             raise_required_value(space, w_node, 'arg')
         _annotation = expr.from_object(space, w_annotation)
-        _type_comment = check_string(space, w_type_comment)
+        _type_comment = check_string(space, w_type_comment, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
         return arg(_arg, _annotation, _type_comment, _lineno, _col_offset)
@@ -4221,7 +4224,7 @@ class TypeIgnore(type_ignore):
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_tag = get_field(space, w_node, 'tag', False)
         _lineno = obj_to_int(space, w_lineno, False)
-        _tag = check_string(space, w_tag)
+        _tag = check_string(space, w_tag, 0)
         if _tag is None:
             raise_required_value(space, w_node, 'tag')
         return TypeIgnore(_lineno, _tag)

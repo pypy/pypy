@@ -158,8 +158,8 @@ class ASTNodeVisitor(ASDLVisitor):
             return "%s.from_object(space, %s)" % (field.type, value)
         elif field.type in ("object", "singleton", "constant"):
             return value
-        elif field.type in ("string","bytes"):
-            return "check_string(space, %s)" % (value,)
+        elif field.type in ("string", "bytes"):
+            return "check_string(space, %s, %d)" % (value, field.opt)
         elif field.type in ("identifier",):
             if field.opt:
                 return "space.text_or_none_w(%s)" % (value,)
@@ -445,7 +445,10 @@ def raise_required_value(space, w_obj, name):
     raise oefmt(space.w_ValueError,
                 "field %s is required for %T", name, w_obj)
 
-def check_string(space, w_obj):
+def check_string(space, w_obj, allow_none=False):
+    if allow_none and space.is_w(w_obj, space.w_None):
+        return w_obj
+
     if not (space.isinstance_w(w_obj, space.w_bytes) or
             space.isinstance_w(w_obj, space.w_unicode)):
         raise oefmt(space.w_TypeError,
