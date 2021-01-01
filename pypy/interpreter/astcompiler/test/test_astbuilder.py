@@ -3,6 +3,7 @@ import random
 import string
 import sys
 import pytest
+import functools
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -32,8 +33,8 @@ class TestAstBuilder:
         assert isinstance(expr, ast.Expr)
         return expr.value
 
-    def get_first_stmt(self, source):
-        mod = self.get_ast(source)
+    def get_first_stmt(self, source, p_mode=None, flags=None):
+        mod = self.get_ast(source, p_mode, flags)
         assert len(mod.body) == 1
         return mod.body[0]
 
@@ -1524,3 +1525,19 @@ class TestAstBuilder:
         asyncdef = mod.body[0]
         assert asyncdef.col_offset == 0
 
+    def test_type_comments(self):
+        get_typed_stmt = functools.partial(self.get_first_stmt, flags=consts.PyCF_TYPE_COMMENTS)
+        assign = get_typed_stmt("a = 5 # type: int")
+        assert assign.type_comment == 'int'
+        lines = (
+            "def func(\n"
+            "  a, # type: List[int]\n"
+            "  b = 5, # type: int\n"
+            "  c = None\n"
+            "): pass"
+        )
+        func = get_typed_stmt(lines)
+        args = func.args
+        assert args.args[0].type_comment == "List[int]"
+        assert args.args[1].type_comment == "int"
+        assert args.args[2].type_comment is None
