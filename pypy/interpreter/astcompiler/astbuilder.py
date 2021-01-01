@@ -674,7 +674,9 @@ class ASTBuilder(object):
                                                      kwdefaults)
                 else:
                     vararg = last_arg = self.handle_arg(name_node)
-                    i += 3
+                    i += 2
+                    if i < child_count:
+                        i += arguments_node.get_child(i).type == tokens.COMMA
                     if i < child_count:
                         next_arg_type = arguments_node.get_child(i).type
                         if (next_arg_type == syms.tfpdef or
@@ -684,7 +686,9 @@ class ASTBuilder(object):
             elif arg_type == tokens.DOUBLESTAR:
                 name_node = arguments_node.get_child(i + 1)
                 kwarg = last_arg = self.handle_arg(name_node)
-                i += 3
+                i += 2
+                if i < child_count:
+                    i += arguments_node.get_child(i).type == tokens.COMMA
             elif arg_type == tokens.TYPE_COMMENT:
                 last_arg.type_comment, _ = self.handle_type_comment(arg)
                 i += 1

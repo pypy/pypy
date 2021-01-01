@@ -1568,3 +1568,147 @@ class TestAstBuilder:
         """)
         func = self.get_first_typed_stmt(source)
         assert func.type_comment == "() -> int"
+
+    def test_type_comments_statements(self):
+        asyncdef = textwrap.dedent("""\
+        async def foo():
+            # type: () -> int
+            return await bar()
+        """)
+        node = self.get_first_typed_stmt(asyncdef)
+        assert node.type_comment == "() -> int"
+
+        nonasciidef = textwrap.dedent("""\
+        def foo():
+            # type: () -> àçčéñt
+            pass
+        """)
+        node = self.get_first_typed_stmt(nonasciidef)
+        assert node.type_comment == "() -> àçčéñt"
+
+        forstmt = textwrap.dedent("""\
+        for a in []:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(forstmt)
+        assert node.type_comment == "int"
+
+        withstmt = textwrap.dedent("""\
+        with context() as a:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(withstmt)
+        assert node.type_comment == "int"
+
+        vardecl = textwrap.dedent("""\
+        a = 0  # type: int
+        """)
+        node = self.get_first_typed_stmt(vardecl)
+        assert node.type_comment == "int"
+
+    def test_type_comments_function_args(self):
+        module = self.get_ast(textwrap.dedent("""\
+        def fa(
+            a = 1,  # type: 1
+        ):
+            pass
+
+        def fa(
+            a = 1  # type: 1
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b,  # type: 2
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b  # type: 2
+        ):
+            pass
+
+        def fv(
+            *v,  # type: 1
+        ):
+            pass
+
+        def fv(
+            *v # type: 1
+        ):
+            pass
+
+        def fk(
+            **k,  # type: 1
+        ):
+            pass
+
+        def fk(
+            **k  # type: 1
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v,  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k,  # type: 3
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k  # type: 3
+        ):
+            pass
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+
+        for function in module.body:
+            args = function.args
+            all_args = []
+            all_args.extend(args.args)
+            all_args.extend(args.kwonlyargs or [])
+            if args.vararg:
+                all_args.append(args.vararg)
+            if args.kwarg:
+                all_args.append(args.kwarg)
+            print(function.name, function.lineno)
+            assert [arg.type_comment for arg in all_args] == list(map(str, range(1, len(all_args) + 1)))
