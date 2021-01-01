@@ -58,7 +58,7 @@ class ASTBuilder(object):
         self.space = space
         self.compile_info = compile_info
         self.root_node = n
-        # used in f-strings
+        # used in f-strings and type_ignores
         self.recursive_parser = recursive_parser
 
     def build_ast(self):
@@ -78,7 +78,12 @@ class ASTBuilder(object):
                     for j in range(sub_stmts_count):
                         small_stmt = stmt.get_child(j * 2)
                         stmts.append(self.handle_stmt(small_stmt))
-            return ast.Module(stmts, [])
+            type_ignores = []
+            if self.recursive_parser is not None:
+                for type_ignore in self.recursive_parser.type_ignores:
+                    tag = self.space.text_w(self.space.newtext(type_ignore.value))
+                    type_ignores.append(ast.TypeIgnore(type_ignore.lineno, tag))
+            return ast.Module(stmts, type_ignores)
         elif n.type == syms.eval_input:
             body = self.handle_testlist(n.get_child(0))
             return ast.Expression(body)

@@ -1606,6 +1606,29 @@ class TestAstBuilder:
         node = self.get_first_typed_stmt(vardecl)
         assert node.type_comment == "int"
 
+    def test_type_ignore(self):
+        module = self.get_ast(textwrap.dedent("""\
+        import x # type: ignore
+        # type: ignore@abc
+        test = 1 # type: ignore
+        if test: # type: ignore
+            ...
+            ...
+            ...
+            with x() as y: # type: ignore@def
+                ...
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+        assert [
+            (type_ignore.lineno, type_ignore.tag)
+            for type_ignore in module.type_ignores
+        ] == [
+            (1, ''),
+            (2, '@abc'),
+            (3, ''),
+            (4, ''),
+            (8, '@def')
+        ]
+
     def test_type_comments_function_args(self):
         module = self.get_ast(textwrap.dedent("""\
         def fa(

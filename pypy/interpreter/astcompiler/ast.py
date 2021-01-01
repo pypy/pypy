@@ -4198,8 +4198,9 @@ State.ast_type('type_ignore', 'AST', None, [])
 
 class TypeIgnore(type_ignore):
 
-    def __init__(self, lineno):
+    def __init__(self, lineno, tag):
         self.lineno = lineno
+        self.tag = tag
 
     def walkabout(self, visitor):
         visitor.visit_TypeIgnore(self)
@@ -4211,15 +4212,21 @@ class TypeIgnore(type_ignore):
         w_node = space.call_function(get(space).w_TypeIgnore)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
+        w_tag = self.tag  # string
+        space.setattr(w_node, space.newtext('tag'), w_tag)
         return w_node
 
     @staticmethod
     def from_object(space, w_node):
         w_lineno = get_field(space, w_node, 'lineno', False)
+        w_tag = get_field(space, w_node, 'tag', False)
         _lineno = obj_to_int(space, w_lineno, False)
-        return TypeIgnore(_lineno)
+        _tag = check_string(space, w_tag)
+        if _tag is None:
+            raise_required_value(space, w_node, 'tag')
+        return TypeIgnore(_lineno, _tag)
 
-State.ast_type('TypeIgnore', 'type_ignore', ['lineno'])
+State.ast_type('TypeIgnore', 'type_ignore', ['lineno', 'tag'])
 
 
 class ASTVisitor(object):

@@ -100,6 +100,7 @@ class PythonParser(parser.Parser):
         parser.Parser.__init__(self, grammar)
         self.space = space
         self.future_flags = future_flags
+        self.type_ignores = []
 
     def parse_source(self, bytessrc, compile_info):
         """Main entry point for parsing Python source.
@@ -191,7 +192,10 @@ class PythonParser(parser.Parser):
 
                 for token in tokens_stream:
                     next_token_seen = token
-                    if self.add_token(token):
+                    # Special handling for TYPE_IGNOREs
+                    if token.token_type == pygram.tokens.TYPE_IGNORE:
+                        self.type_ignores.append(token)
+                    elif self.add_token(token):
                         break
                     last_token_seen = token
                 last_token_seen = None

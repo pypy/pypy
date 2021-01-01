@@ -59,15 +59,16 @@ def handle_type_comment(token, flags, lnum, start, line):
 
     # Leading whitespace is ignored
     type_decl = type_decl.lstrip()
-    if type_decl == TYPE_IGNORE:
-        tok_type = tokens.TYPE_IGNORE
-    else:
-        tok_type = tokens.TYPE_COMMENT
-
     # The start should point to the start of type declaration
     # not the comment
     new_start = start + token.find(type_decl, token.find(column))
     new_start -= 1
+
+    if type_decl.startswith(TYPE_IGNORE):
+        tok_type = tokens.TYPE_IGNORE
+        type_decl = type_decl[len(TYPE_IGNORE):]
+    else:
+        tok_type = tokens.TYPE_COMMENT
     return Token(tok_type, type_decl, lnum, new_start, line), new_start
 
 
