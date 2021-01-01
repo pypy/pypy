@@ -1699,6 +1699,13 @@ class TestAstBuilder:
             **k  # type: 3
         ):
             pass
+
+        def fkwo(
+            a, # type: 1
+            *,
+            b  # type: 2
+        ):
+            pass
         """), flags=consts.PyCF_TYPE_COMMENTS)
 
         for function in module.body:
@@ -1710,5 +1717,4 @@ class TestAstBuilder:
                 all_args.append(args.vararg)
             if args.kwarg:
                 all_args.append(args.kwarg)
-            print(function.name, function.lineno)
             assert [arg.type_comment for arg in all_args] == list(map(str, range(1, len(all_args) + 1)))

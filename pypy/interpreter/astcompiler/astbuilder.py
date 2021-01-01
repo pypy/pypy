@@ -723,9 +723,14 @@ class ASTBuilder(object):
                 type_comment = None
                 kwonly.append(ast.arg(argname, ann, type_comment, arg.get_lineno(),
                                                     arg.get_column()))
-                i += 2
+                i += 1
+                if i < child_count:
+                    i += arguments_node.get_child(i).type == tokens.COMMA
             elif arg_type == tokens.DOUBLESTAR:
                 return i
+            elif arg_type == tokens.TYPE_COMMENT:
+                kwonly[-1].type_comment, _ = self.handle_type_comment(arg)
+                i += 1
         return i
 
     def handle_arg(self, arg_node):
