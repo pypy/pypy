@@ -1,10 +1,10 @@
 # encoding: utf-8
-import __future__
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.tool import stdlib___future__ as __future__
 
 class TestPythonAstCompiler:
     def setup_method(self, method):
@@ -80,10 +80,11 @@ class TestPythonAstCompiler:
             ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
-        code = self.compiler.compile('from __future__ import division\n',
+        code = self.compiler.compile('from __future__ import division, annotations\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
         assert flags & __future__.division.compiler_flag == 0
+        assert flags & __future__.annotations.compiler_flag
         # check that we don't get more flags than the compiler can accept back
         code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
