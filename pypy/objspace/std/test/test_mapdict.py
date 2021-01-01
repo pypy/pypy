@@ -826,10 +826,45 @@ def test_specialized_class():
         assert obj2.getdictvalue(space, "b") is w6
         assert obj2.map is abmap
 
+
+def test_specialized_class_overflow():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
+    w1 = W_Root()
+    w2 = W_Root()
+    w3 = W_Root()
+    w4 = W_Root()
+    w5 = W_Root()
+    w6 = W_Root()
+    objs = [w1, w2, 4, w3, w4, w5, w6, 6, 12.6]
+    class objectcls(W_ObjectObject):
+        objectmodel.import_from_mixin(BaseUserClassMapdict)
+        objectmodel.import_from_mixin(MapdictDictSupport)
+        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+    cls = Class()
+    obj = objectcls()
+    obj.user_setup(space, cls)
+    for i in range(20):
+        obj.setdictvalue(space, str(i), objs[i % len(objs)])
+    for i in range(20):
+        assert obj.getdictvalue(space, str(i)) is objs[i % len(objs)]
+    for i in range(20):
+        obj.setdictvalue(space, str(i), objs[(i + 1) % len(objs)])
+    for i in range(20):
+        assert obj.getdictvalue(space, str(i)) is objs[(i + 1) % len(objs)]
+    assert obj._has_storage_list()
+    for i in range(20):
+        assert obj.deldictvalue(space, str(i))
+        for j in range(i + 1):
+            assert obj.getdictvalue(space, str(j)) is None
+        for j in range(i + 1, 20):
+            assert obj.getdictvalue(space, str(j)) is objs[(j + 1) % len(objs)]
+
+ 
 # ___________________________________________________________
 # integration tests
 
-# XXX write more
 
 class AppTestWithMapDict(object):
 

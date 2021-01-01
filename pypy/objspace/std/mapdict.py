@@ -396,7 +396,7 @@ class PlainAttribute(AbstractAttribute):
 
     @jit.elidable
     def _pure_direct_read(self, obj):
-        return self._direct_read(obj)
+        return unerase_item(obj._mapdict_read_storage(self.storageindex))
 
     def _direct_write(self, obj, w_value):
         obj._mapdict_write_storage(self.storageindex, erase_item(w_value))
@@ -864,10 +864,10 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             elif not has_storage_list:
                 # storage is longer than self.map.storage_needed() only due to
                 # overallocation
-                erased = erase_item(storage[nmin1])
+                erased = storage[nmin1]
                 # in theory, we should be ultra-paranoid and check all entries,
                 # but checking just one should catch most problems anyway:
-                assert storage[n] is None
+                assert unerase_item(storage[n]) is None
             else:
                 storage_list = storage[nmin1:]
                 erased = erase_list(storage_list)
@@ -875,10 +875,6 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
 
         def _set_mapdict_increase_storage(self, map, value):
             len_storage = self.map.storage_needed()
-            if len_storage <= nmin1:
-                self._mapdict_write_storage(len_storage, value)
-                self.map = map
-                return
             if len_storage == n:
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
