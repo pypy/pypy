@@ -50,6 +50,7 @@ class Scope(object):
         self.contains_annotated = False
         self._in_try_body_depth = 0
         self.comp_iter_target = False
+        self.comp_iter_expr = 0
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -130,6 +131,10 @@ class Scope(object):
         """Note a new child scope."""
         child_scope.parent = self
         self.children.append(child_scope)
+        # like CPython, disallow *all* assignment expressions in the outermost
+        # iterator expression of a comprehension, even those inside a nested
+        # comprehension or a lambda expression.
+        child_scope.comp_iter_expr = self.comp_iter_expr
 
     def _finalize_name(self, name, flags, local, bound, free, globs):
         """Decide on the scope of a name."""
@@ -587,7 +592,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scope.comp_iter_target = True
         comp.target.walkabout(self)
         self.scope.comp_iter_target = False
+        self.scope.comp_iter_expr += 1
         comp.iter.walkabout(self)
+        self.scope.comp_iter_expr -= 1
         self.visit_sequence(comp.ifs)
         if comp.is_async:
             self.scope.note_await(comp)
@@ -596,7 +603,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
         from pypy.interpreter.error import OperationError
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
+        self.scope.comp_iter_expr += 1
         outer.iter.walkabout(self)
+        self.scope.comp_iter_expr -= 1
         new_scope = ComprehensionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
@@ -718,6 +727,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         target = node.target
         assert isinstance(target, ast.Name)
         name = target.id
+        if scope.comp_iter_expr > 0:
+            raise SyntaxError(
+                "assignment expression cannot be used in a comprehension iterable expression",
+                node.lineno, node.col_offset)
         if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]

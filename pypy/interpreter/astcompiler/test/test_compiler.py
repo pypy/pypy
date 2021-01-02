@@ -1457,6 +1457,8 @@ class A:
 
         yield (self.error_test, "[i for i in range(5) if (j := 0) for j in range(5)]", SyntaxError)
 
+        yield (self.error_test, "[i for i in (i := range(5))]", SyntaxError)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
