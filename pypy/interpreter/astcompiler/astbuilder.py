@@ -341,7 +341,7 @@ class ASTBuilder(object):
 
     def handle_suite(self, suite_node):
         stmts, type_comment = self.handle_typed_suite(suite_node)
-        #assert type_comment is None
+        assert self.space.is_none(type_comment)
         return stmts
 
     def handle_if_stmt(self, if_node):
@@ -535,7 +535,7 @@ class ASTBuilder(object):
         type_comment, has_type_comment = self.handle_type_comment(funcdef_node.get_child(suite))
         suite += has_type_comment
         body, possible_type_comment = self.handle_typed_suite(funcdef_node.get_child(suite))
-        if not self.space.is_w(possible_type_comment, self.space.w_None):
+        if not self.space.is_none(possible_type_comment):
             type_comment = possible_type_comment
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns, type_comment,
