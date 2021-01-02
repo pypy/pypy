@@ -1429,6 +1429,9 @@ x = f(*(%s))
         yield (self.simple_test, "(x := 1)", "x", 1)
         yield (self.simple_test, "y = (x := 1) + 5", "x+y", 7)
         yield (self.simple_test, "len(foobar := [])", "foobar", [])
+
+        yield (self.error_test, "(l[1] := 5)", SyntaxError)
+
         yield (self.simple_test, """\
 def foo():
     [(y := x) for x in range(5)]

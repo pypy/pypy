@@ -927,6 +927,8 @@ class ASTBuilder(object):
 
     def handle_namedexpr(self, expr_node):
         target_expr = self.handle_expr(expr_node.get_child(0))
+        if not isinstance(target_expr, ast.Name):
+            raise SyntaxError("cannot use named assignment with something that is not a name")
         self.set_context(target_expr, ast.Store)
         expr = self.handle_expr(expr_node.get_child(2))
         return ast.NamedExpr(target_expr, expr, expr_node.get_lineno(), expr_node.get_column())
