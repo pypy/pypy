@@ -78,6 +78,10 @@ class Scope(object):
                 raise SyntaxError(err, self.lineno, self.col_offset)
             new_role |= old_role
         if self.comp_iter_target:
+            if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
+                raise SyntaxError(
+                    "comprehension inner loop cannot rebind assignment expression target '%s'" % identifier,
+                    self.lineno, self.col_offset)
             new_role |= SYM_COMP_ITER
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
@@ -580,7 +584,11 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.pop_scope()
 
     def visit_comprehension(self, comp):
-        ast.GenericASTVisitor.visit_comprehension(self, comp)
+        self.scope.comp_iter_target = True
+        comp.target.walkabout(self)
+        self.scope.comp_iter_target = False
+        comp.iter.walkabout(self)
+        self.visit_sequence(comp.ifs)
         if comp.is_async:
             self.scope.note_await(comp)
 
