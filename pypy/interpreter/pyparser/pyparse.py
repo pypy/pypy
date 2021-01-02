@@ -153,6 +153,17 @@ class PythonParser(parser.Parser):
             compile_info.flags |= consts.PyCF_FOUND_ENCODING
         return self._parse(textsrc, compile_info)
 
+    def _get_possible_arcs(self, arcs):
+        # Handle func_body_suite separately for expecting an IndentationError
+        # instead of a normal SyntaxError when the indentation is not supplied.
+        if (
+            len(arcs) == 2
+            and self.grammar.labels[arcs[0][0]] == pygram.tokens.TYPE_COMMENT
+        ):
+            return [arcs[1]]
+        else:
+            return arcs
+
     def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
 
