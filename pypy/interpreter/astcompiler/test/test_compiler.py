@@ -1459,6 +1459,14 @@ class A:
 
         yield (self.error_test, "[i for i in (i := range(5))]", SyntaxError)
 
+    def test_walrus_operator_error_msg(self):
+        with raises(SyntaxError) as info:
+            self.simple_test("(() := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with ()"
+        with raises(SyntaxError) as info:
+            self.simple_test("((lambda : 1) := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with lambda"
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
