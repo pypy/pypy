@@ -1453,6 +1453,8 @@ def foo():
 class A:
     [(y := x) for y in range(5)]""", SyntaxError)
 
+        yield (self.error_test, "[(x := 5) for x in range(5)]", SyntaxError)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

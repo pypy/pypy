@@ -13,6 +13,7 @@ SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
 SYM_ANNOTATED = 2 << 4
+SYM_COMP_ITER = 2 << 5
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -48,6 +49,8 @@ class Scope(object):
         self.doc_removable = False
         self.contains_annotated = False
         self._in_try_body_depth = 0
+        self.comp_iter_target = False
+        self.is_comprehension = False
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -75,6 +78,8 @@ class Scope(object):
                     (identifier,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             new_role |= old_role
+        if self.comp_iter_target:
+            new_role |= SYM_COMP_ITER
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
             self.varnames.append(mangled)
@@ -241,7 +246,6 @@ class FunctionScope(Scope):
         self.optimized = True
         self.return_with_value = False
         self.import_star = None
-        self.is_comprehension = False
 
     def note_symbol(self, identifier, role):
         # Special-case super: it counts as a use of __class__
@@ -588,7 +592,9 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         new_scope.is_coroutine |= outer.is_async
+        new_scope.comp_iter_target = True
         outer.target.walkabout(self)
+        new_scope.comp_iter_target = False
         self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
         for item in list(consider):
@@ -704,8 +710,15 @@ class SymtableBuilder(ast.GenericASTVisitor):
         assert isinstance(target, ast.Name)
         name = target.id
         if isinstance(scope, FunctionScope) and scope.is_comprehension:
-            for i in range(len(self.stack) - 2, -1, -1):
+            for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
+                if parent.is_comprehension:
+                    if parent.lookup_role(name) & SYM_COMP_ITER:
+                        raise SyntaxError(
+                            "assignment expression cannot rebind comprehension iteration variable '%s'" % name,
+                            node.lineno, node.col_offset)
+                    continue
+
                 if isinstance(parent, FunctionScope):
                     parent.note_symbol(name, SYM_ASSIGNED)
                     if parent.lookup_role(name) & SYM_GLOBAL:
