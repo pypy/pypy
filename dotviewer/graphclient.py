@@ -1,7 +1,7 @@
 import os, sys, re
 import subprocess
-import msgstruct
-from strunicode import forcestr
+from dotviewer import msgstruct
+from dotviewer.strunicode import forcestr
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 GRAPHSERVER = os.path.join(this_dir, 'graphserver.py')
@@ -69,7 +69,7 @@ def display_page(page, wait=True, save_tmp_file=None):
                         reload(graph_id)
         except EOFError:
             pass
-        except Exception, e:
+        except Exception as e:
             send_error(io, e)
             raise
         io.close()
@@ -84,7 +84,7 @@ def send_graph_messages(io, messages):
     for msg in messages:
         try:
             io.sendmsg(*msg)
-        except IOError, ioerror:
+        except IOError as ioerror:
             break
     # wait for MSG_OK or MSG_ERROR
     try:
@@ -114,7 +114,7 @@ def spawn_handler():
     if not gsvar:
         try:
             return spawn_sshgraphserver_handler()
-        except Exception, e:
+        except Exception as e:
             return spawn_local_handler()
     else:
         try:

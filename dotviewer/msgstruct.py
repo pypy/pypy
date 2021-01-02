@@ -1,6 +1,6 @@
 import sys, os
 from struct import pack, unpack, calcsize
-from strunicode import tryencode
+from dotviewer.strunicode import tryencode
 
 MAGIC = -0x3b83728b
 
