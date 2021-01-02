@@ -764,9 +764,11 @@ SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 
 # conversions between str and char*
 # conversions between unicode and wchar_t*
-def make_string_mappings(strtype):
+def make_string_mappings(type_as_str):
 
-    if strtype is 'str':
+    PY3 = sys.version_info > (3, 0)
+
+    if type_as_str is 'str':
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
                                                       copy_string_to_raw,
                                                       copy_raw_to_string,
@@ -776,7 +778,11 @@ def make_string_mappings(strtype):
         from rpython.rtyper.annlowlevel import hlstr as hlstrtype
         TYPEP = CCHARP
         ll_char_type = lltype.Char
-        lastchar = '\x00'
+        lastchar = b'\x00'
+        if PY3:
+            strtype = bytes
+        else:
+            strtype = str
     else:
         from rpython.rtyper.lltypesystem.rstr import (
             UNICODE as STRTYPE,
@@ -789,6 +795,10 @@ def make_string_mappings(strtype):
         TYPEP = CWCHARP
         ll_char_type = lltype.UniChar
         lastchar = u'\x00'
+        if PY3:
+            strtype = str
+        else:
+            strtype = unicode
 
     # str -> char*
     def str2charp(s, track_allocation=True):

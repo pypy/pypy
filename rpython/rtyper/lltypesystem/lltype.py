@@ -821,7 +821,7 @@ def typeOf(val):
             raise UninitializedMemoryAccess("typeOf uninitialized value")
         if tp is type(None):
             return Void   # maybe
-        if type(tp) in int_types:
+        if tp in int_types:
             if -maxint-1 <= val <= maxint:
                 return Signed
             elif longlongmask(val) == val:
