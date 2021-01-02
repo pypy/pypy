@@ -695,6 +695,7 @@ class ASTBuilder(object):
                 if i < child_count:
                     i += arguments_node.get_child(i).type == tokens.COMMA
             elif arg_type == tokens.TYPE_COMMENT:
+                assert last_arg is not None
                 last_arg.type_comment, _ = self.handle_type_comment(arg)
                 i += 1
             else:
@@ -707,6 +708,7 @@ class ASTBuilder(object):
             self.error("named arguments must follows bare *",
                        arguments_node.get_child(i))
         child_count = arguments_node.num_children()
+        last_arg = None
         while i < child_count:
             arg = arguments_node.get_child(i)
             arg_type = arg.type
@@ -726,15 +728,17 @@ class ASTBuilder(object):
                 argname = self.new_identifier(argname)
                 self.check_forbidden_name(argname, name_node)
                 type_comment = None
-                kwonly.append(ast.arg(argname, ann, type_comment, arg.get_lineno(),
-                                                    arg.get_column()))
+                last_arg = ast.arg(argname, ann, type_comment, arg.get_lineno(),
+                                   arg.get_column())
+                kwonly.append(last_arg)
                 i += 1
                 if i < child_count:
                     i += arguments_node.get_child(i).type == tokens.COMMA
             elif arg_type == tokens.DOUBLESTAR:
                 return i
             elif arg_type == tokens.TYPE_COMMENT:
-                kwonly[-1].type_comment, _ = self.handle_type_comment(arg)
+                assert last_arg is not None
+                last_arg.type_comment, _ = self.handle_type_comment(arg)
                 i += 1
         return i
 
