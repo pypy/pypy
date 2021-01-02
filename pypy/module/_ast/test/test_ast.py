@@ -211,9 +211,9 @@ class AppTestAST:
         assert fr.body is body
         assert fr.lineno == 0
         assert fr.col_offset == 1
-        exc = raises(TypeError, ast.Module, 1, 2).value
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
         msg = str(exc)
-        assert msg == "Module constructor takes either 0 or 1 positional argument"
+        assert msg == "Module constructor takes either 0 or 2 positional arguments"
         ast.Module(nothing=23)
 
     def test_future(self):
@@ -505,3 +505,6 @@ from __future__ import generators""")
         assert len(mod.type_ignores) == 1
         assert mod.type_ignores[0].tag == ""
         assert mod.type_ignores[0].lineno == 1
+
+        mod = self.get_ast("a = 5")
+        assert mod.body[0].type_comment is None

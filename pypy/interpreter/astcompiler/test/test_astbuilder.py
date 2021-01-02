@@ -1530,8 +1530,9 @@ class TestAstBuilder:
         return self.get_first_stmt(source, flags=consts.PyCF_TYPE_COMMENTS)
 
     def test_type_comments(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
         assign = self.get_first_typed_stmt("a = 5 # type: int")
-        assert assign.type_comment == 'int'
+        assert eq_w(assign.type_comment, w('int'))
         lines = (
             "def func(\n"
             "  a, # type: List[int]\n"
@@ -1541,25 +1542,26 @@ class TestAstBuilder:
         )
         func = self.get_first_typed_stmt(lines)
         args = func.args
-        assert args.args[0].type_comment == "List[int]"
-        assert args.args[1].type_comment == "int"
+        assert eq_w(args.args[0].type_comment, w("List[int]"))
+        assert eq_w(args.args[1].type_comment, w("int"))
         assert args.args[2].type_comment is None
 
     def test_type_comments_func_body(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
         source = textwrap.dedent("""\
         def foo():
             # type: () -> int
             pass
         """)
         func = self.get_first_typed_stmt(source)
-        assert func.type_comment == "() -> int"
+        assert eq_w(func.type_comment, w("() -> int"))
 
         source = textwrap.dedent("""\
         def foo(): # type: () -> int
             pass
         """)
         func = self.get_first_typed_stmt(source)
-        assert func.type_comment == "() -> int"
+        assert eq_w(func.type_comment, w("() -> int"))
 
         source = textwrap.dedent("""\
         def foo(): # type: () -> str
@@ -1567,16 +1569,17 @@ class TestAstBuilder:
             pass
         """)
         func = self.get_first_typed_stmt(source)
-        assert func.type_comment == "() -> int"
+        assert eq_w(func.type_comment, w("() -> int"))
 
     def test_type_comments_statements(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
         asyncdef = textwrap.dedent("""\
         async def foo():
             # type: () -> int
             return await bar()
         """)
         node = self.get_first_typed_stmt(asyncdef)
-        assert node.type_comment == "() -> int"
+        assert eq_w(node.type_comment, w("() -> int"))
 
         nonasciidef = textwrap.dedent("""\
         def foo():
@@ -1584,29 +1587,30 @@ class TestAstBuilder:
             pass
         """)
         node = self.get_first_typed_stmt(nonasciidef)
-        assert node.type_comment == "() -> àçčéñt"
+        assert eq_w(node.type_comment, w("() -> àçčéñt"))
 
         forstmt = textwrap.dedent("""\
         for a in []:  # type: int
             pass
         """)
         node = self.get_first_typed_stmt(forstmt)
-        assert node.type_comment == "int"
+        assert eq_w(node.type_comment, w("int"))
 
         withstmt = textwrap.dedent("""\
         with context() as a:  # type: int
             pass
         """)
         node = self.get_first_typed_stmt(withstmt)
-        assert node.type_comment == "int"
+        assert eq_w(node.type_comment, w("int"))
 
         vardecl = textwrap.dedent("""\
         a = 0  # type: int
         """)
         node = self.get_first_typed_stmt(vardecl)
-        assert node.type_comment == "int"
+        assert eq_w(node.type_comment, w("int"))
 
     def test_type_ignore(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
         module = self.get_ast(textwrap.dedent("""\
         import x # type: ignore
         # type: ignore@abc
@@ -1618,10 +1622,8 @@ class TestAstBuilder:
             with x() as y: # type: ignore@def
                 ...
         """), flags=consts.PyCF_TYPE_COMMENTS)
-        assert [
-            (type_ignore.lineno, type_ignore.tag)
-            for type_ignore in module.type_ignores
-        ] == [
+
+        expecteds = [
             (1, ''),
             (2, '@abc'),
             (3, ''),
@@ -1629,7 +1631,14 @@ class TestAstBuilder:
             (8, '@def')
         ]
 
+        assert all([
+            eq_w(type_ignore.tag, w(expected[1]))
+            and type_ignore.lineno == expected[0]
+            for type_ignore, expected in zip(module.type_ignores, expecteds)
+        ])
+
     def test_type_comments_function_args(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
         module = self.get_ast(textwrap.dedent("""\
         def fa(
             a = 1,  # type: 1
@@ -1740,4 +1749,7 @@ class TestAstBuilder:
                 all_args.append(args.vararg)
             if args.kwarg:
                 all_args.append(args.kwarg)
-            assert [arg.type_comment for arg in all_args] == list(map(str, range(1, len(all_args) + 1)))
+            assert all([
+                eq_w(arg.type_comment, w(str(i)))
+                for i, arg in enumerate(all_args, 1)
+            ])

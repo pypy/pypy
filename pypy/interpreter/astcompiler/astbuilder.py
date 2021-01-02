@@ -81,7 +81,7 @@ class ASTBuilder(object):
             type_ignores = []
             if self.recursive_parser is not None:
                 for type_ignore in self.recursive_parser.type_ignores:
-                    tag = self.space.text_w(self.space.newtext(type_ignore.value))
+                    tag = self.space.newtext(type_ignore.value)
                     type_ignores.append(ast.TypeIgnore(type_ignore.lineno, tag))
             return ast.Module(stmts, type_ignores)
         elif n.type == syms.eval_input:
@@ -341,7 +341,7 @@ class ASTBuilder(object):
 
     def handle_suite(self, suite_node):
         stmts, type_comment = self.handle_typed_suite(suite_node)
-        assert type_comment is None
+        #assert type_comment is None
         return stmts
 
     def handle_if_stmt(self, if_node):
@@ -405,10 +405,10 @@ class ASTBuilder(object):
 
     def handle_type_comment(self, comment):
         if comment.type == tokens.TYPE_COMMENT:
-            value = self.space.text_w(self.space.newtext(comment.get_value()))
+            value = self.space.newtext(comment.get_value())
             return value, True
         else:
-            return None, False
+            return self.space.w_None, False
 
     def handle_for_stmt(self, for_node, is_async):
         target_node = for_node.get_child(1)
@@ -535,7 +535,7 @@ class ASTBuilder(object):
         type_comment, has_type_comment = self.handle_type_comment(funcdef_node.get_child(suite))
         suite += has_type_comment
         body, possible_type_comment = self.handle_typed_suite(funcdef_node.get_child(suite))
-        if possible_type_comment is not None:
+        if not self.space.is_w(possible_type_comment, self.space.w_None):
             type_comment = possible_type_comment
         if is_async:
             return ast.AsyncFunctionDef(name, args, body, decorators, returns, type_comment,
