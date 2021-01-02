@@ -1435,6 +1435,21 @@ def foo():
     return y
 """, "foo()", 4)
 
+        yield (self.simple_test, """\
+def foo():
+    global y
+    [(y := x) for x in range(5)]
+    return y
+""", "foo() + y", 8)
+
+        yield (self.simple_test, """\
+[(y := x) for x in range(5)]
+""", "y", 4)
+
+        yield (self.error_test, """\
+class A:
+    [(y := x) for y in range(5)]""", SyntaxError)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

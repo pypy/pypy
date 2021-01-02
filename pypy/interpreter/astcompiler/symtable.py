@@ -715,9 +715,12 @@ class SymtableBuilder(ast.GenericASTVisitor):
                     scope.note_symbol(name, flag)
                     break
                 elif isinstance(parent, ModuleScope):
-                    xxx
+                    parent.note_symbol(name, SYM_GLOBAL)
+                    scope.note_symbol(name, SYM_GLOBAL)
                 elif isinstance(parent, ClassScope):
-                    xxx
+                    raise SyntaxError(
+                        "assignment expression within a comprehension cannot be used in a class body",
+                        node.lineno, node.col_offset)
 
         node.target.walkabout(self)
         node.value.walkabout(self)
