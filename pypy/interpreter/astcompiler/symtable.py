@@ -50,7 +50,6 @@ class Scope(object):
         self.contains_annotated = False
         self._in_try_body_depth = 0
         self.comp_iter_target = False
-        self.is_comprehension = False
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -313,6 +312,9 @@ class AsyncFunctionScope(FunctionScope):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
 
+
+class ComprehensionScope(FunctionScope):
+    pass
 
 class ClassScope(Scope):
 
@@ -587,8 +589,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
         outer.iter.walkabout(self)
-        new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
-        new_scope.is_comprehension = True
+        new_scope = ComprehensionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         new_scope.is_coroutine |= outer.is_async
@@ -709,10 +710,10 @@ class SymtableBuilder(ast.GenericASTVisitor):
         target = node.target
         assert isinstance(target, ast.Name)
         name = target.id
-        if isinstance(scope, FunctionScope) and scope.is_comprehension:
+        if isinstance(scope, ComprehensionScope):
             for i in range(len(self.stack) - 1, -1, -1):
                 parent = self.stack[i]
-                if parent.is_comprehension:
+                if isinstance(parent, ComprehensionScope):
                     if parent.lookup_role(name) & SYM_COMP_ITER:
                         raise SyntaxError(
                             "assignment expression cannot rebind comprehension iteration variable '%s'" % name,
