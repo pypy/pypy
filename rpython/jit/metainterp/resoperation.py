@@ -1,3 +1,4 @@
+from __future__ import print_function
 import weakref, os
 from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rtyper.lltypesystem.lloperation import llop
@@ -1625,7 +1626,7 @@ def setup(debug_print=False):
                 opwithdescr.append(withdescr)
                 optypes.append(r)
                 if debug_print:
-                    print '%30s = %d' % (cls_name, i)
+                    print('%30s = %d' % (cls_name, i))
                 i += 1
         else:
             setattr(rop, name, i)
@@ -1634,7 +1635,7 @@ def setup(debug_print=False):
             opwithdescr.append(False)
             optypes.append(' ')
             if debug_print:
-                print '%30s = %d' % (name, i)
+                print('%30s = %d' % (name, i))
             i += 1
     # for optimizeopt/pure.py's getrecentops()
     assert (rop.INT_ADD_OVF - rop._OVF_FIRST ==

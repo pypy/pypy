@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 """
 Viewer for the output of compiled programs generating code.
 Use on the log files created with 'PYPYLOG=jit-backend-dump:log'.
@@ -8,13 +9,13 @@ Try:
     ./viewcode.py log               # also includes a pygame viewer
 """
 
-import new
 import operator
 import os
 import py
 import re
 import sys
 import subprocess
+import types
 from bisect import bisect_left
 
 # ____________________________________________________________
@@ -111,7 +112,7 @@ def load_symbols(filename):
     symbollister = 'nm %s'
     re_symbolentry = re.compile(r'([0-9a-fA-F]+)\s\w\s(.*)')
     #
-    print 'loading symbols from %s...' % (filename,)
+    print('loading symbols from %s...' % (filename,))
     symbols = {}
     p = subprocess.Popen(symbollister % filename, shell=True,
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -126,7 +127,7 @@ def load_symbols(filename):
             if name.startswith('pypy_g_'):
                 name = '\xb7' + name[7:]
             symbols[addr] = name
-    print '%d symbols found' % (len(symbols),)
+    print('%d symbols found' % (len(symbols),))
     return symbols
 
 re_addr = re.compile(r'[\s,$]0x([0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]+)')
@@ -281,7 +282,7 @@ class World(object):
                     try:
                         self.symbols.update(load_symbols(filename))
                     except Exception as e:
-                        print e
+                        print(e)
                     self.executable_name = filename
 
     def find_cross_references(self):
@@ -299,12 +300,12 @@ class World(object):
         sys.stderr.write("100%")
         # split blocks at labeltargets
         t = self.labeltargets
-        #print t
+        #print(t)
         for r in self.ranges:
-            #print r.addr, r.addr + len(r.data)
+            #print(r.addr, r.addr + len(r.data))
             for i in range(r.addr + 1, r.addr + len(r.data)):
                 if i in t:
-                    #print i
+                    #print(i)
                     ofs = i - r.addr
                     self.ranges.append(CodeRange(self, i, r.data[ofs:]))
                     r.data = r.data[:ofs]
@@ -324,7 +325,7 @@ class World(object):
         for r in self.ranges:
             disassembled = r.disassemble()
             if showtext:
-                print disassembled
+                print(disassembled)
             if showgraph:
                 text, width = tab2columns(disassembled)
                 text = '0x%x\n\n%s' % (r.addr, text)
@@ -345,7 +346,7 @@ class World(object):
         self.ranges.sort()
         for r in self.ranges:
             disassembled = r.disassemble()
-            print disassembled
+            print(disassembled)
             del r.text
 
 
@@ -445,7 +446,7 @@ if __name__ == '__main__':
 
     # hack hack
     import rpython.tool
-    mod = new.module('rpython.tool.udir')
+    mod = types.ModuleType('rpython.tool.udir')
     mod.udir = udir
     sys.modules['rpython.tool.udir'] = mod
     rpython.tool.udir = mod
@@ -456,7 +457,7 @@ if __name__ == '__main__':
     else:
         showgraph = True
     if len(sys.argv) != 2:
-        print >> sys.stderr, __doc__
+        print(__doc__, file=sys.stderr)
         sys.exit(2)
     #
     import cStringIO

@@ -119,7 +119,7 @@ def decode_int32_from_longlong_nan(value):
 def is_int32_from_longlong_nan(value):
     return intmask(value >> 32) == nan_high_word_int32
 
-CAN_ALWAYS_ENCODE_INT32 = (sys.maxint == 2147483647)
+CAN_ALWAYS_ENCODE_INT32 = (sys.maxsize == 2147483647)
 
 def can_encode_int32(value):
     if CAN_ALWAYS_ENCODE_INT32:

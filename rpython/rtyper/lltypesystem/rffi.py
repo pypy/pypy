@@ -766,7 +766,7 @@ SIGNEDPP = lltype.Ptr(lltype.Array(SIGNEDP, hints={'nolength': True}))
 # conversions between unicode and wchar_t*
 def make_string_mappings(strtype):
 
-    if strtype is str:
+    if strtype is 'str':
         from rpython.rtyper.lltypesystem.rstr import (STR as STRTYPE,
                                                       copy_string_to_raw,
                                                       copy_raw_to_string,
@@ -1014,13 +1014,13 @@ def make_string_mappings(strtype):
  get_nonmovingbuffer_ll_final_null,
  alloc_buffer, str_from_buffer, keep_buffer_alive_until_here,
  charp2strn, charpsize2str, str2chararray, str2rawmem,
- ) = make_string_mappings(str)
+ ) = make_string_mappings('str')
 
 (unicode2wcharp, free_wcharp, wcharp2unicode,
  get_nonmoving_unicodebuffer_ll, free_nonmoving_unicodebuffer_ll, __not_usable,
  alloc_unicodebuffer, unicode_from_buffer, keep_unicodebuffer_alive_until_here,
  wcharp2unicoden, wcharpsize2unicode, unicode2wchararray, unicode2rawmem,
- ) = make_string_mappings(unicode)
+ ) = make_string_mappings('unicode')
 
 
 def constcharp2str(cp):
@@ -1170,11 +1170,11 @@ def sizeof(tp):
         return size
     if (tp is lltype.Signed or isinstance(tp, lltype.Ptr) 
                             or tp is llmemory.Address):
-        return LONG_BIT/8
+        return LONG_BIT//8
     if tp is lltype.Char or tp is lltype.Bool:
         return 1
     if tp is lltype.UniChar:
-        return r_wchar_t.BITS/8
+        return r_wchar_t.BITS//8
     if tp is lltype.Float:
         return 8
     if tp is lltype.SingleFloat:
@@ -1183,7 +1183,7 @@ def sizeof(tp):
         # :-/
         return sizeof_c_type("long double")
     assert isinstance(tp, lltype.Number)
-    return tp._type.BITS/8
+    return tp._type.BITS//8
 sizeof._annspecialcase_ = 'specialize:memo'
 
 def offsetof(STRUCT, fieldname):

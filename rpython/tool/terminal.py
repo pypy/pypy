@@ -1,5 +1,6 @@
 # Copyright: 2009 Nadia Alramli
 # License: BSD
+from __future__ import print_function
 
 """Terminal controller module
 Example of usage:
@@ -79,5 +80,5 @@ try:
     setup()
 except Exception as e:
     # There is a failure; set all attributes to default
-    print 'Warning: %s' % e
+    print('Warning: %s' % e)
     default()

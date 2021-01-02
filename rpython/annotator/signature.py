@@ -68,7 +68,7 @@ def _compute_annotation(t, bookkeeper=None):
         return SomeDict(
                 DictDef(bookkeeper,
                         annotation(t.keys()[0]), annotation(t.values()[0])))
-    elif type(t) is types.NoneType:
+    elif t is None:
         return s_None
     elif extregistry.is_registered(t):
         entry = extregistry.lookup(t)

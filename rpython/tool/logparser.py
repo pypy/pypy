@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from __future__ import print_function
 """
 Syntax:
     python logparser.py <action> <logfilename> <output> <options...>
@@ -12,11 +13,11 @@ from rpython.rlib.debug import DebugLog
 from rpython.tool import progressbar
 
 def parse_log_file(filename, verbose=True):
-    f = open(filename, 'r')
+    f = open(filename, 'rb')
     if f.read(2) == 'BZ':
         f.close()
         import bz2
-        f = bz2.BZ2File(filename, 'r')
+        f = bz2.BZ2File(filename, 'rb')
     else:
         f.seek(0)
     lines = f.readlines()
@@ -25,9 +26,9 @@ def parse_log_file(filename, verbose=True):
     return parse_log(lines, verbose=verbose)
 
 def parse_log(lines, verbose=False):
-    color = "(?:\x1b.*?m)?"
-    r_start = re.compile(color + r"\[([0-9a-fA-F]+)\] \{([\w-]+)" + color + "$")
-    r_stop  = re.compile(color + r"\[([0-9a-fA-F]+)\] ([\w-]+)\}" + color + "$")
+    color = b"(?:\x1b.*?m)?"
+    r_start = re.compile(color + b"\\[([0-9a-fA-F]+)\\] \\{([\\w-]+)" + color + b"$")
+    r_stop  = re.compile(color + b"\\[([0-9a-fA-F]+)\\] ([\\w-]+)\\}" + color + b"$")
     lasttime = 0
     log = DebugLog()
     time_decrase = False
@@ -73,12 +74,12 @@ def parse_log(lines, verbose=False):
         try:
             record(match.group(2), time=int(match.group(1), 16))
         except:
-            print "Line", i
+            print("Line", i)
             raise
     if verbose:
         sys.stderr.write('loaded\n')
     if performance_log and time_decrase:
-        print ("The time decreases!  The log file may have been"
+        print("The time decreases!  The log file may have been"
                " produced on a multi-CPU machine and the process"
                " moved between CPUs.")
     return log
@@ -102,12 +103,12 @@ def extract_category(log, catprefix='', toplevel=False):
 def print_log(log):
     for entry in log:
         if entry[0] == 'debug_print':
-            print entry[1]
+            print(entry[1])
         else:
-            print "{%s" % entry[0]
+            print("{%s" % entry[0])
             if len(entry)>3:
                 print_log(entry[3])
-            print "%s}" % entry[0]
+            print("%s}" % entry[0])
 
 def kill_category(log, catprefix=''):
     newlog = []
@@ -191,10 +192,12 @@ def getcolor(category):
         category = category[:-1]
     return COLORS[category]
 
-def getlightercolor((r, g, b)):
+def getlightercolor(args):
+    (r, g, b) = args
     return ((r*2+255)//3, (g*2+255)//3, (b*2+255)//3)
 
-def getdarkercolor((r, g, b)):
+def getdarkercolor(args):
+    (r, g, b) = args
     return (r*2//3, g*2//3, b*2//3)
 
 def getlabel(text, _cache={}):
@@ -216,7 +219,8 @@ def getlabel(text, _cache={}):
     _cache[text] = sx, sy, texthoriz, textvert
     return _cache[text]
 
-def bevelrect(draw, (x1, y1, x2, y2), color):
+def bevelrect(draw, rect, color):
+    (x1, y1, x2, y2) = rect
     if x2 <= x1:
         x2 = x1 + 1   # minimal width
     elif x2 >= x1 + 4:
@@ -412,7 +416,7 @@ def print_summary(log, out):
         if a is None:
             a = 'normal-execution'
         s = " " * (50 - len(a))
-        print >>outfile, a, s, str(b*100/total) + "%"
+        print(a, s, str(b*100/total) + "%", file=outfile)
     if out != '-':
         outfile.close()
 
@@ -430,13 +434,13 @@ ACTIONS = {
 if __name__ == '__main__':
     import getopt
     if len(sys.argv) < 3:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
     action = sys.argv[1]
     func, longopts = ACTIONS[action]
     options, args = getopt.gnu_getopt(sys.argv[2:], '', longopts)
     if len(args) != 2:
-        print __doc__
+        print(__doc__)
         sys.exit(2)
 
     kwds = {}
