@@ -1430,8 +1430,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self._optimize_method_call(call):
             return
         call.func.walkabout(self)
-        #if getattr(call.func, "id", None) == "f":
-        #    import pdb; pdb.set_trace()
         self._make_call(0, call.args, call.keywords)
 
     def _call_has_no_star_args(self, call):
@@ -1763,19 +1761,25 @@ class AbstractFunctionCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_NOFREE
         return PythonCodeGenerator._get_code_flags(self) | flags
 
+    def _init_argcounts(self, args):
+        if args.posonlyargs:
+            self.argcount += len(args.posonlyargs)
+            self.posonlyargcount = len(args.posonlyargs)
+        if args.args:
+            self.argcount += len(args.args)
+        if args.kwonlyargs:
+            self.kwonlyargcount = len(args.kwonlyargs)
+
 
 class FunctionCodeGenerator(AbstractFunctionCodeGenerator):
 
     def _compile(self, func):
         assert isinstance(func, ast.FunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
-        start = 1 if has_docstring else 0
         args = func.args
         assert isinstance(args, ast.arguments)
-        if args.args:
-            self.argcount = len(args.args)
-        if args.kwonlyargs:
-            self.kwonlyargcount = len(args.kwonlyargs)
+        self._init_argcounts(args)
+        start = 1 if has_docstring else 0
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
@@ -1785,13 +1789,10 @@ class AsyncFunctionCodeGenerator(AbstractFunctionCodeGenerator):
     def _compile(self, func):
         assert isinstance(func, ast.AsyncFunctionDef)
         has_docstring = self.ensure_docstring_constant(func.body)
-        start = 1 if has_docstring else 0
         args = func.args
         assert isinstance(args, ast.arguments)
-        if args.args:
-            self.argcount = len(args.args)
-        if args.kwonlyargs:
-            self.kwonlyargcount = len(args.kwonlyargs)
+        self._init_argcounts(args)
+        start = 1 if has_docstring else 0
         if func.body:
             for i in range(start, len(func.body)):
                 func.body[i].walkabout(self)
@@ -1805,10 +1806,7 @@ class LambdaCodeGenerator(AbstractFunctionCodeGenerator):
         assert isinstance(lam, ast.Lambda)
         args = lam.args
         assert isinstance(args, ast.arguments)
-        if args.args:
-            self.argcount = len(args.args)
-        if args.kwonlyargs:
-            self.kwonlyargcount = len(args.kwonlyargs)
+        self._init_argcounts(args)
         # Prevent a string from being the first constant and thus a docstring.
         self.add_const(self.space.w_None)
         lam.body.walkabout(self)

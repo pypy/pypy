@@ -7,7 +7,7 @@ class TestCode:
     def test_code_eq_corner_cases(self):
         space = self.space
         def make_code_with_const(w_obj):
-            return PyCode(space, 0, 0, 0, 1, 0, '', [w_obj], [], [], '', '', 0, '', [], [], False)
+            return PyCode(space, 0, 0, 0, 0, 1, 0, '', [w_obj], [], [], '', '', 0, '', [], [], False)
         def cmp_code_consts(w_obj1, w_obj2):
             w_code1 = make_code_with_const(w_obj1)
             w_code2 = make_code_with_const(w_obj2)
@@ -77,6 +77,7 @@ class AppTestCodeIntrospection:
                            'co_names': (),
                            'co_varnames': (),
                            'co_argcount': 0,
+                           'co_posonlyargcount': 0,
                            'co_kwonlyargcount': 0,
                            'co_consts': (None,)
                            }),
@@ -84,6 +85,7 @@ class AppTestCodeIntrospection:
                            'co_names': (),
                            'co_varnames': ('x', 'y', 'z'),
                            'co_argcount': 1,
+                           'co_posonlyargcount': 0,
                            'co_kwonlyargcount': 0,
                            'co_consts': ("docstring", None),
                            }),
@@ -95,6 +97,7 @@ class AppTestCodeIntrospection:
                 (abs.__code__, {'co_name': 'abs',
                                  'co_varnames': ('val',),
                                  'co_argcount': 1,
+                           'co_posonlyargcount': 0,
                                  'co_kwonlyargcount': 0,
                                  'co_flags': 0,
                                  'co_consts': ("abs(number) -> number\n\nReturn the absolute value of the argument.",),
@@ -103,6 +106,7 @@ class AppTestCodeIntrospection:
                                 {#'co_name': '__init__',   XXX getting descr__init__
                                  'co_varnames': ('obj', 'args', 'keywords'),
                                  'co_argcount': 1,
+                                 'co_posonlyargcount': 0,
                                  'co_kwonlyargcount': 0,
                                  'co_flags': 0x000C,  # VARARGS|VARKEYWORDS
                                  }),
@@ -115,6 +119,15 @@ class AppTestCodeIntrospection:
             assert not hasattr(code,'__dict__')
             for key, value in expected.items():
                 assert getattr(code, key) == value
+
+
+    def test_posonlyargcount(self):
+        """
+        def f(a, b, /, c): pass
+        assert f.__code__.co_argcount == 3
+        assert f.__code__.co_posonlyargcount == 2
+        """
+
 
     def test_kwonlyargcount(self):
         """
@@ -252,6 +265,6 @@ class AppTestCodeIntrospection:
 
     def test_issue1844(self):
         import types
-        args = (1, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
+        args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
         # previously raised a MemoryError when translated
         types.CodeType(*args)

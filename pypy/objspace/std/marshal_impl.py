@@ -384,6 +384,7 @@ def marshal_pycode(space, w_pycode, m):
     # see pypy.interpreter.pycode for the layout
     x = space.interp_w(PyCode, w_pycode)
     m.put_int(x.co_argcount)
+    m.put_int(x.co_posonlyargcount)
     m.put_int(x.co_kwonlyargcount)
     m.put_int(x.co_nlocals)
     m.put_int(x.co_stacksize)
@@ -423,6 +424,7 @@ def unmarshal_pycode(space, u, tc):
     w_codeobj = objectmodel.instantiate(PyCode)
     u.save_ref(tc, w_codeobj)
     argcount    = u.get_int()
+    posonlyargcount = u.get_int()
     kwonlyargcount = u.get_int()
     nlocals     = u.get_int()
     stacksize   = u.get_int()
@@ -439,7 +441,7 @@ def unmarshal_pycode(space, u, tc):
     lnotab      = space.bytes_w(u.load_w_obj())
     filename = assert_str0(filename)
     PyCode.__init__(w_codeobj,
-                  space, argcount, kwonlyargcount, nlocals, stacksize, flags,
+                  space, argcount, posonlyargcount, kwonlyargcount, nlocals, stacksize, flags,
                   code, consts_w[:], names, varnames, filename,
                   name, firstlineno, lnotab, freevars, cellvars)
     return w_codeobj

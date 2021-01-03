@@ -129,6 +129,7 @@ def PyCode_New(space, argcount, kwonlyargcount, nlocals, stacksize, flags,
     version since the definition of the bytecode changes often."""
     return PyCode(space,
                   argcount=rffi.cast(lltype.Signed, argcount),
+                  posonlyargcount=0,
                   kwonlyargcount = rffi.cast(lltype.Signed, kwonlyargcount),
                   nlocals=rffi.cast(lltype.Signed, nlocals),
                   stacksize=rffi.cast(lltype.Signed, stacksize),
@@ -149,6 +150,7 @@ def PyCode_NewEmpty(space, filename, funcname, firstlineno):
     """Creates a new empty code object with the specified source location."""
     return PyCode(space,
                   argcount=0,
+                  posonlyargcount=0,
                   kwonlyargcount=0,
                   nlocals=0,
                   stacksize=0,

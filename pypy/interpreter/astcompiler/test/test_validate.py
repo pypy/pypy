@@ -49,7 +49,7 @@ class TestASTValidator:
                 defaults = []
             if kw_defaults is None:
                 kw_defaults = []
-            args = ast.arguments(args, vararg, kwonlyargs,
+            args = ast.arguments(None, args, vararg, kwonlyargs,
                                  kw_defaults, kwarg, defaults)
             return fac(args)
         args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0), None, 0, 0)]
@@ -69,7 +69,7 @@ class TestASTValidator:
                           "must have Load context")
 
     def test_funcdef(self):
-        a = ast.arguments([], None, [], [], None, [])
+        a = ast.arguments(None, [], None, [], [], None, [])
         f = ast.FunctionDef("x", a, [], [], None, None, 0, 0)
         self.stmt(f, "empty body on FunctionDef")
         f = ast.FunctionDef("x", a, [ast.Pass(0, 0)], [ast.Name("x", ast.Store, 0, 0)],
@@ -237,7 +237,7 @@ class TestASTValidator:
         self.expr(u, "must have Load context")
 
     def test_lambda(self):
-        a = ast.arguments([], None, [], [], None, [])
+        a = ast.arguments(None, [], None, [], [], None, [])
         self.expr(ast.Lambda(a, ast.Name("x", ast.Store, 0, 0), 0, 0),
                   "must have Load context")
         def fac(args):

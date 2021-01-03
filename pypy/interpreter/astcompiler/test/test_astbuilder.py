@@ -568,6 +568,14 @@ class TestAstBuilder:
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "named arguments must follows bare *"
 
+    def test_posonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.posonlyargs) == 3
+        assert len(fn.args.args) == 1
+        assert isinstance(fn.args.args[0], ast.arg)
+        assert fn.args.args[0].arg == "arg"
+
     def test_function_annotation(self):
         func = self.get_first_stmt("def f() -> X: pass")
         assert isinstance(func.returns, ast.Name)

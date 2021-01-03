@@ -397,6 +397,9 @@ stuff = "nothing"
         info = py.test.raises(SyntaxError, self.parse, "def f:\n print 1")
         assert "(expected '(')" in info.value.msg
 
+    def test_positional_only_args(self):
+        self.parse("def f(a, /): pass")
+
     def test_error_print_without_parens(self):
         info = py.test.raises(SyntaxError, self.parse, "print 1")
         assert "Missing parentheses in call to 'print'" in info.value.msg

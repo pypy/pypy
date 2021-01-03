@@ -607,14 +607,16 @@ class ASTBuilder(object):
         # and varargslist (lambda definition).
         if arguments_node.type == syms.parameters:
             if arguments_node.num_children() == 2:
-                return ast.arguments(None, None, None, None, None, None)
+                return ast.arguments(None, None, None, None, None, None, None)
             arguments_node = arguments_node.get_child(1)
         i = 0
         child_count = arguments_node.num_children()
+        n_posonly = 0
         n_pos = 0
         n_pos_def = 0
         n_kwdonly = 0
         # scan args
+
         while i < child_count:
             arg_type = arguments_node.get_child(i).type
             if arg_type == tokens.STAR:
@@ -629,8 +631,12 @@ class ASTBuilder(object):
                 break
             if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
                 n_pos += 1
-            if arg_type == tokens.EQUAL:
+            elif arg_type == tokens.EQUAL:
                 n_pos_def += 1
+            elif arg_type == tokens.SLASH:
+                # all positional args seen so far are positional only
+                n_posonly = n_pos
+                n_pos = 0
             i += 1
         while i < child_count:
             arg_type = arguments_node.get_child(i).type
@@ -639,6 +645,7 @@ class ASTBuilder(object):
             if arg_type == syms.vfpdef or arg_type == syms.tfpdef:
                 n_kwdonly += 1
             i += 1
+        posonly = None
         pos = []
         posdefaults = []
         kwonly = [] if n_kwdonly else None
@@ -698,9 +705,14 @@ class ASTBuilder(object):
                 assert last_arg is not None
                 last_arg.type_comment, _ = self.handle_type_comment(arg)
                 i += 1
+            elif arg_type == tokens.SLASH:
+                posonly = pos
+                pos = []
+                i += 2
             else:
                 raise AssertionError("unknown node in argument list")
-        return ast.arguments(pos, vararg, kwonly, kwdefaults, kwarg,
+        assert n_posonly == 0 or len(posonly) == n_posonly
+        return ast.arguments(posonly, pos, vararg, kwonly, kwdefaults, kwarg,
                              posdefaults)
 
     def handle_keywordonly_args(self, arguments_node, i, kwonly, kwdefaults):
@@ -1000,7 +1012,7 @@ class ASTBuilder(object):
     def handle_lambdef(self, lambdef_node):
         expr = self.handle_expr(lambdef_node.get_child(-1))
         if lambdef_node.num_children() == 3:
-            args = ast.arguments(None, None, None, None, None, None)
+            args = ast.arguments(None, None, None, None, None, None, None)
         else:
             args = self.handle_arguments(lambdef_node.get_child(1))
         return ast.Lambda(args, expr, lambdef_node.get_lineno(), lambdef_node.get_column())

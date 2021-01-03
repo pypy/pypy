@@ -549,6 +549,9 @@ def fget_co_varnames(space, code): # unwrapping through unwrap_spec
 def fget_co_argcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_argnames())
 
+def fget_co_posonlyargcount(space, code): # unwrapping through unwrap_spec
+    return space.newint(code.signature().num_posonlyargnames())
+
 def fget_co_kwonlyargcount(space, code): # unwrapping through unwrap_spec
     return space.newint(code.signature().num_kwonlyargnames())
 
@@ -600,6 +603,7 @@ Code.typedef = TypeDef('internal-code',
     co_name = interp_attrproperty('co_name', cls=Code, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=Code),
     co_argcount = GetSetProperty(fget_co_argcount, cls=Code),
+    co_posonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_kwonlyargcount = GetSetProperty(fget_zero, cls=Code),
     co_flags = GetSetProperty(fget_co_flags, cls=Code),
     co_consts = GetSetProperty(fget_co_consts, cls=Code),
@@ -611,6 +615,7 @@ BuiltinCode.typedef = TypeDef('builtin-code',
     co_name = interp_attrproperty('co_name', cls=BuiltinCode, wrapfn="newtext_or_none"),
     co_varnames = GetSetProperty(fget_co_varnames, cls=BuiltinCode),
     co_argcount = GetSetProperty(fget_co_argcount, cls=BuiltinCode),
+    co_posonlyargcount = GetSetProperty(fget_co_posonlyargcount, cls=BuiltinCode),
     co_kwonlyargcount = GetSetProperty(fget_co_kwonlyargcount, cls=BuiltinCode),
     co_flags = GetSetProperty(fget_co_flags, cls=BuiltinCode),
     co_consts = GetSetProperty(fget_co_consts, cls=BuiltinCode),
@@ -626,6 +631,7 @@ PyCode.typedef = TypeDef('code',
     __reduce__ = interp2app(PyCode.descr__reduce__),
     __repr__ = interp2app(PyCode.repr),
     co_argcount = interp_attrproperty('co_argcount', cls=PyCode, wrapfn="newint"),
+    co_posonlyargcount = interp_attrproperty('co_posonlyargcount', cls=PyCode, wrapfn="newint"),
     co_kwonlyargcount = interp_attrproperty('co_kwonlyargcount', cls=PyCode, wrapfn="newint"),
     co_nlocals = interp_attrproperty('co_nlocals', cls=PyCode, wrapfn="newint"),
     co_stacksize = interp_attrproperty('co_stacksize', cls=PyCode, wrapfn="newint"),

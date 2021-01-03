@@ -3999,7 +3999,8 @@ State.ast_type('ExceptHandler', 'excepthandler', ['type', 'name', 'body'])
 
 class arguments(AST):
 
-    def __init__(self, args, vararg, kwonlyargs, kw_defaults, kwarg, defaults):
+    def __init__(self, posonlyargs, args, vararg, kwonlyargs, kw_defaults, kwarg, defaults):
+        self.posonlyargs = posonlyargs
         self.args = args
         self.vararg = vararg
         self.kwonlyargs = kwonlyargs
@@ -4008,6 +4009,10 @@ class arguments(AST):
         self.defaults = defaults
 
     def mutate_over(self, visitor):
+        if self.posonlyargs:
+            for i in range(len(self.posonlyargs)):
+                if self.posonlyargs[i] is not None:
+                    self.posonlyargs[i] = self.posonlyargs[i].mutate_over(visitor)
         if self.args:
             for i in range(len(self.args)):
                 if self.args[i] is not None:
@@ -4035,6 +4040,12 @@ class arguments(AST):
 
     def to_object(self, space):
         w_node = space.call_function(get(space).w_arguments)
+        if self.posonlyargs is None:
+            posonlyargs_w = []
+        else:
+            posonlyargs_w = [node.to_object(space) for node in self.posonlyargs] # arg
+        w_posonlyargs = space.newlist(posonlyargs_w)
+        space.setattr(w_node, space.newtext('posonlyargs'), w_posonlyargs)
         if self.args is None:
             args_w = []
         else:
@@ -4067,12 +4078,15 @@ class arguments(AST):
 
     @staticmethod
     def from_object(space, w_node):
+        w_posonlyargs = get_field(space, w_node, 'posonlyargs', False)
         w_args = get_field(space, w_node, 'args', False)
         w_vararg = get_field(space, w_node, 'vararg', True)
         w_kwonlyargs = get_field(space, w_node, 'kwonlyargs', False)
         w_kw_defaults = get_field(space, w_node, 'kw_defaults', False)
         w_kwarg = get_field(space, w_node, 'kwarg', True)
         w_defaults = get_field(space, w_node, 'defaults', False)
+        posonlyargs_w = space.unpackiterable(w_posonlyargs)
+        _posonlyargs = [arg.from_object(space, w_item) for w_item in posonlyargs_w]
         args_w = space.unpackiterable(w_args)
         _args = [arg.from_object(space, w_item) for w_item in args_w]
         _vararg = arg.from_object(space, w_vararg) if not space.is_w(w_vararg, space.w_None) else None
@@ -4083,9 +4097,9 @@ class arguments(AST):
         _kwarg = arg.from_object(space, w_kwarg) if not space.is_w(w_kwarg, space.w_None) else None
         defaults_w = space.unpackiterable(w_defaults)
         _defaults = [expr.from_object(space, w_item) for w_item in defaults_w]
-        return arguments(_args, _vararg, _kwonlyargs, _kw_defaults, _kwarg, _defaults)
+        return arguments(_posonlyargs, _args, _vararg, _kwonlyargs, _kw_defaults, _kwarg, _defaults)
 
-State.ast_type('arguments', 'AST', ['args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'])
+State.ast_type('arguments', 'AST', ['posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults', 'kwarg', 'defaults'])
 
 class arg(AST):
 
@@ -4778,6 +4792,7 @@ class GenericASTVisitor(ASTVisitor):
 
     def visit_arguments(self, node):
         self.visited(node)
+        self.visit_sequence(node.posonlyargs)
         self.visit_sequence(node.args)
         if node.vararg:
             node.vararg.walkabout(self)

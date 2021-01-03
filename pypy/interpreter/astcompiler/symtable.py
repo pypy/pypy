@@ -667,6 +667,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_arguments(self, arguments):
         scope = self.scope
         assert isinstance(scope, FunctionScope)  # Annotator hint.
+        if arguments.posonlyargs:
+            self._handle_params(arguments.posonlyargs, True)
         if arguments.args:
             self._handle_params(arguments.args, True)
         if arguments.kwonlyargs:

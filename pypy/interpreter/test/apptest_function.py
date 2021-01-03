@@ -661,3 +661,11 @@ def test_method_identity():
     assert id(x) != id(A.n)
     assert x is B.m
     assert id(x) == id(B.m)
+
+def test_posonly():
+    def posonlyfunc(a, b, c, /, d):
+        return (a, b, c, d)
+
+    assert posonlyfunc(1, 2, 3, 4) == (1, 2, 3, 4)
+    with raises(TypeError):
+        posonlyfunc(a=1, b=2, c=3, d=4)

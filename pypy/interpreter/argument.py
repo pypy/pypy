@@ -633,5 +633,5 @@ class ArgErrPosonlyAsKwds(ArgErr):
         # this message will have to be different in 3.8, where positional only
         # arguments are a "real" concept, not just for built-in functions
         # for now let's be consistent with ArgErrUnknownKwds
-        msg = ("got an unexpected keyword argument '%s'" % self.posonly_kwd)
+        msg = ("got a positional-only argument passed as keyword argument: '%s'" % self.posonly_kwd)
         return msg
