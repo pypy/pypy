@@ -156,13 +156,14 @@ class PythonParser(parser.Parser):
     def _get_possible_arcs(self, arcs):
         # Handle func_body_suite separately for expecting an IndentationError
         # instead of a normal SyntaxError when the indentation is not supplied.
-        if (
-            len(arcs) == 2
-            and self.grammar.labels[arcs[0][0]] == pygram.tokens.TYPE_COMMENT
-        ):
-            return [arcs[1]]
-        else:
-            return arcs
+        if len(arcs) == 2:
+            for n, arc in enumerate(arcs):
+                if self.grammar.labels[arc[0]] == pygram.tokens.TYPE_COMMENT:
+                    break
+            else:
+                return arcs
+            arcs.pop(n)
+        return arcs
 
     def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
