@@ -60,3 +60,7 @@ speed it up.
 
 Allow compiler to inherit flags from ``__future__.annotations``. Fixes
 ``>>> x : X``
+
+.. branch: win32consoleio2
+
+Re-enable ``_io.win32console`` on windows
