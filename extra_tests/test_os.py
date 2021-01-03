@@ -90,7 +90,7 @@ if hasattr(os, "spawnv"):
                         [python, '-c', 'raise(SystemExit(42))'])
         assert ret == 42
 
-if hasattr(os, "spawnve"):
+if hasattr(os, "spawnve") and os.path.exists('/bin/sh'):
     def test_spawnve():
         env = {'FOOBAR': '42'}
         cmd = "exit $FOOBAR"
