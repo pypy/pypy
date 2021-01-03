@@ -50,14 +50,3 @@ Backport msvc detection from python3, which probably breaks using Visual Studio
 2008 (MSVC9, or the version that used to be used to build CPython2.7 on
 Windows)
 
-
-
-.. 3.8 branches:
-
-.. branch: fstring-debugging
-
-Add support for the debugging sigil ``=`` in f-strings.
-
-.. branch: some-other-38-features
-
-Implement ``typed_ast`` features in the ``ast``-module.
