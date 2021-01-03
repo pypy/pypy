@@ -86,6 +86,25 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
         lltype.free(endp, flavor='raw')
 
+    def test_endptr_inf(self, space):
+        endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+        for test in ('inf', '+infinity', 'INF'):
+            s = rffi.str2charp(test)
+            r = PyOS_string_to_double(space, s, endp, None)
+            assert r == float('inf')
+            endp_addr = rffi.cast(rffi.LONG, endp[0])
+            s_addr = rffi.cast(rffi.LONG, s)
+            assert endp_addr == s_addr + len(test)
+            rffi.free_charp(s)
+        s = rffi.str2charp('inf aaa')
+        r = PyOS_string_to_double(space, s, endp, None)
+        assert r == float('inf')
+        endp_addr = rffi.cast(rffi.LONG, endp[0])
+        s_addr = rffi.cast(rffi.LONG, s)
+        # CPython returns 3
+        assert endp_addr == s_addr + 3
+        rffi.free_charp(s)
+        lltype.free(endp, flavor='raw')
 
 class TestPyOS_double_to_string(BaseApiTest):
 
