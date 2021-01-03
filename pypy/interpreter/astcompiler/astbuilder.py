@@ -909,6 +909,11 @@ class ASTBuilder(object):
                     return self.handle_ifexp(expr_node)
                 else:
                     expr_node = first_child
+            elif expr_node_type == syms.namedexpr_test:
+                if expr_node.num_children() == 1:
+                    expr_node = expr_node.get_child(0)
+                    continue
+                return self.handle_namedexpr(expr_node)
             elif expr_node_type == syms.or_test or \
                     expr_node_type == syms.and_test:
                 if expr_node.num_children() == 1:
@@ -975,6 +980,17 @@ class ASTBuilder(object):
                 return self.handle_power(expr_node)
             else:
                 raise AssertionError("unknown expr")
+
+    def handle_namedexpr(self, expr_node):
+        target_expr = self.handle_expr(expr_node.get_child(0))
+        if not isinstance(target_expr, ast.Name):
+            assert isinstance(target_expr, ast.expr)
+            raise SyntaxError(
+                "cannot use assignment expressions with %s" % target_expr._description,
+                target_expr.lineno, target_expr.col_offset)
+        self.set_context(target_expr, ast.Store)
+        expr = self.handle_expr(expr_node.get_child(2))
+        return ast.NamedExpr(target_expr, expr, expr_node.get_lineno(), expr_node.get_column())
 
     def handle_star_expr(self, star_expr_node):
         expr = self.handle_expr(star_expr_node.get_child(1))
@@ -1201,7 +1217,9 @@ class ASTBuilder(object):
             argument = args_node.get_child(i)
             if argument.type == syms.argument:
                 expr_node = argument.get_child(0)
-                if argument.num_children() == 1:
+                if argument.num_children() == 1 or (
+                        argument.num_children() == 3 and
+                        argument.get_child(1).type == tokens.COLONEQUAL):
                     # a positional argument
                     if keywords:
                         if doublestars_count:
@@ -1212,7 +1230,11 @@ class ASTBuilder(object):
                             self.error("positional argument follows "
                                        "keyword argument",
                                        expr_node)
-                    args.append(self.handle_expr(expr_node))
+                    if argument.num_children() == 1:
+                        arg = self.handle_expr(expr_node)
+                    else:
+                        arg = self.handle_namedexpr(argument)
+                    args.append(arg)
                 elif expr_node.type == tokens.STAR:
                     # an iterable argument unpacking
                     if doublestars_count:

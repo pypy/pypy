@@ -1428,6 +1428,48 @@ x = f(*(%s))
                         return bar
         """, '1', 1
 
+    def test_walrus_operator(self):
+        yield (self.simple_test, "(x := 1)", "x", 1)
+        yield (self.simple_test, "y = (x := 1) + 5", "x+y", 7)
+        yield (self.simple_test, "len(foobar := [])", "foobar", [])
+
+        yield (self.error_test, "(l[1] := 5)", SyntaxError)
+
+        yield (self.simple_test, """\
+def foo():
+    [(y := x) for x in range(5)]
+    return y
+""", "foo()", 4)
+
+        yield (self.simple_test, """\
+def foo():
+    global y
+    [(y := x) for x in range(5)]
+    return y
+""", "foo() + y", 8)
+
+        yield (self.simple_test, """\
+[(y := x) for x in range(5)]
+""", "y", 4)
+
+        yield (self.error_test, """\
+class A:
+    [(y := x) for y in range(5)]""", SyntaxError)
+
+        yield (self.error_test, "[(x := 5) for x in range(5)]", SyntaxError)
+
+        yield (self.error_test, "[i for i in range(5) if (j := 0) for j in range(5)]", SyntaxError)
+
+        yield (self.error_test, "[i for i in (i := range(5))]", SyntaxError)
+
+    def test_walrus_operator_error_msg(self):
+        with raises(SyntaxError) as info:
+            self.simple_test("(() := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with ()"
+        with raises(SyntaxError) as info:
+            self.simple_test("((lambda : 1) := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with lambda"
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

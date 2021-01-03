@@ -1753,3 +1753,11 @@ class TestAstBuilder:
                 eq_w(arg.type_comment, w(str(i)))
                 for i, arg in enumerate(all_args, 1)
             ])
+
+    def test_walrus(self):
+        mod = self.get_ast("(a := 1)")
+        expr = mod.body[0].value
+        assert isinstance(expr, ast.NamedExpr)
+        assert expr.target.id == 'a'
+        assert expr.target.ctx == ast.Store
+        assert isinstance(expr.value, ast.Num)
