@@ -1,11 +1,12 @@
 import pytest
+from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.pyparser import pytokenizer
 from pypy.interpreter.pyparser.parser import Token
 from pypy.interpreter.pyparser.pygram import tokens
 from pypy.interpreter.pyparser.error import TokenError
 
-def tokenize(s):
-    return pytokenizer.generate_tokens(s.splitlines(True) + ["\n"], 0)
+def tokenize(s, flags=0):
+    return pytokenizer.generate_tokens(s.splitlines(True) + ["\n"], flags)
 
 def check_token_error(s, msg=None, pos=-1, line=-1):
     error = pytest.raises(TokenError, tokenize, s)
@@ -65,3 +66,29 @@ class TestTokenizer(object):
 
     def test_eof_triple_quoted(self):
         check_token_error("'''", pos=1, line=1)
+
+    def test_type_comments(self):
+        line = "a = 5 # type: int"
+        tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
+        assert tks == [
+            Token(tokens.NAME, 'a', 1, 0, line),
+            Token(tokens.EQUAL, '=', 1, 2, line),
+            Token(tokens.NUMBER, '5', 1, 4, line),
+            Token(tokens.TYPE_COMMENT, 'int', 1, 6, line),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.ENDMARKER, '', 2, 0, ''),
+        ]
+
+    def test_type_ignore(self):
+        line = "a = 5 # type: ignore@teyit"
+        tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
+        assert tks == [
+            Token(tokens.NAME, 'a', 1, 0, line),
+            Token(tokens.EQUAL, '=', 1, 2, line),
+            Token(tokens.NUMBER, '5', 1, 4, line),
+            Token(tokens.TYPE_IGNORE, '@teyit', 1, 6, line),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.NEWLINE, '', 2, 0, '\n'),
+            Token(tokens.ENDMARKER, '', 2, 0, ''),
+        ]

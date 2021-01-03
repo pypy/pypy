@@ -6,6 +6,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         "PyCF_ONLY_AST" : "space.wrap(%s)" % consts.PyCF_ONLY_AST,
+        "PyCF_TYPE_COMMENTS" : "space.wrap(%s)" % consts.PyCF_TYPE_COMMENTS,
         "PyCF_ACCEPT_NULL_BYTES":
                           "space.wrap(%s)" % consts.PyCF_ACCEPT_NULL_BYTES,
         "__version__"   : "space.wrap('82160')",  # from CPython's svn.

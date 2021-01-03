@@ -30,7 +30,7 @@ in addition to any features explicitly specified.
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
-                 consts.PyCF_ACCEPT_NULL_BYTES):
+                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS):
         raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
     if not dont_inherit:
