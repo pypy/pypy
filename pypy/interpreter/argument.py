@@ -457,8 +457,14 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
             continue
         j = signature.find_argname(name)
         if 0 <= j < co_posonlyargcount:
-            raise ArgErrPosonlyAsKwds(signature.argnames[j])
-        elif j < input_argcount:
+            # we complain about a forbidden positional only keyword argument
+            # only if there is no **kwargs. otherwise, the keyword goes into
+            # the kwargs dict.
+            if signature.has_kwarg():
+                j = -1
+            else:
+                raise ArgErrPosonlyAsKwds(signature.argnames[j])
+        if j < input_argcount:
             # if j == -1 nothing happens, because j < input_argcount and
             # blindargs > j
 

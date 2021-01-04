@@ -188,7 +188,7 @@ class AstValidator(ast.ASTVisitor):
         # XXX py3.5 missing     if not node.kwarg:
         # XXX py3.5 missing         raise ValidationError("kwargannotation but no kwarg on arguments")
         # XXX py3.5 missing     self._validate_expr(node.kwargannotation)
-        if self._len(node.defaults) > self._len(node.args):
+        if self._len(node.defaults) > self._len(node.args) + self._len(node.posonlyargs):
             raise ValidationError("more positional defaults than args on arguments")
         if self._len(node.kw_defaults) != self._len(node.kwonlyargs):
             raise ValidationError("length of kwonlyargs is not the same as "

@@ -669,3 +669,10 @@ def test_posonly():
     assert posonlyfunc(1, 2, 3, 4) == (1, 2, 3, 4)
     with raises(TypeError):
         posonlyfunc(a=1, b=2, c=3, d=4)
+
+def test_posonly_default():
+    def posonlyfunc(a, b=(), /, **kwds):
+        return a, b, kwds
+    assert posonlyfunc(1) == (1, (), {})
+    assert posonlyfunc(1, 2) == (1, 2, {})
+    assert posonlyfunc(1, 2, a=4, b=5) == (1, 2, {'a': 4, 'b': 5})
