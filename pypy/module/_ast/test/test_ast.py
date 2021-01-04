@@ -10,9 +10,9 @@ class AppTestAST:
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
-    def w_get_ast(self, source, mode="exec"):
+    def w_get_ast(self, source, mode="exec", flags=0):
         ast = self.ast
-        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST)
+        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST | flags)
         assert isinstance(mod, ast.mod)
         return mod
 
@@ -73,7 +73,7 @@ class AppTestAST:
         expr.id = "hi"
         expr.ctx = ast.Load()
         expr.lineno = 4
-        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)])).value
+        exc = raises(TypeError, com, ast.Module([ast.Expr(expr)], [])).value
         assert (str(exc) == "required field \"lineno\" missing from stmt" or # cpython
                 str(exc) == "required field \"lineno\" missing from Expr")   # pypy, better
 
@@ -88,7 +88,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level=None,
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         compile(mod, 'test', 'exec')
 
     def test_bad_int(self):
@@ -97,7 +97,7 @@ class AppTestAST:
                                names=[ast.alias(name='sleep')],
                                level='A',
                                lineno=1, col_offset=2)]
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         exc = raises(ValueError, compile, mod, 'test', 'exec')
         assert str(exc.value) == "invalid integer value: 'A'"
 
@@ -149,7 +149,7 @@ class AppTestAST:
 
     def test_list_syncing(self):
         ast = self.ast
-        mod = ast.Module([ast.Lt()])
+        mod = ast.Module([ast.Lt()], [])
         raises(TypeError, compile, mod, "<string>", "exec")
         mod = self.get_ast("x = y = 3")
         assign = mod.body[0]
@@ -158,7 +158,7 @@ class AppTestAST:
                                      lineno=0, col_offset=0)
         name = ast.Name("apple", ast.Store(),
                         lineno=0, col_offset=0)
-        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0),
+        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0), None,
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
@@ -168,7 +168,7 @@ class AppTestAST:
         assert ns["apple"] == 4
 
     def test_empty_module(self):
-        compile(self.ast.Module([]), "<test>", "exec")
+        compile(self.ast.Module([], []), "<test>", "exec")
 
     def test_ast_types(self):
         ast = self.ast
@@ -191,12 +191,12 @@ class AppTestAST:
     def test_constructor(self):
         ast = self.ast
         body = []
-        mod = ast.Module(body)
+        mod = ast.Module(body, [])
         assert mod.body is body
         target = ast.Name("hi", ast.Store())
         expr = ast.Name("apples", ast.Load())
         otherwise = []
-        fr = ast.For(target, expr, body, otherwise, lineno=0, col_offset=1)
+        fr = ast.For(target, expr, body, otherwise, None, lineno=0, col_offset=1)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
@@ -204,16 +204,16 @@ class AppTestAST:
         assert fr.lineno == 0
         assert fr.col_offset == 1
         fr = ast.For(body=body, target=target, iter=expr, col_offset=1,
-                     lineno=0, orelse=otherwise)
+                     type_comment = None, lineno=0, orelse=otherwise)
         assert fr.target is target
         assert fr.iter is expr
         assert fr.orelse is otherwise
         assert fr.body is body
         assert fr.lineno == 0
         assert fr.col_offset == 1
-        exc = raises(TypeError, ast.Module, 1, 2).value
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
         msg = str(exc)
-        assert msg == "Module constructor takes either 0 or 1 positional argument"
+        assert msg == "Module constructor takes either 0 or 2 positional arguments"
         ast.Module(nothing=23)
 
     def test_future(self):
@@ -381,30 +381,30 @@ from __future__ import generators""")
                                    None, [ast.Pass(lineno=4, col_offset=0)],
                                    lineno=4, col_offset=0)],
                 [], [], lineno=1, col_offset=0)
-        ])
+        ], [])
         exec(compile(body, '<string>', 'exec'))
 
     def test_empty_set(self):
         import ast
-        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))])
+        m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))], type_ignores=[])
         ast.fix_missing_locations(m)
         compile(m, "<test>", "exec")
 
     def test_invalid_sum(self):
         import _ast as ast
         pos = dict(lineno=2, col_offset=3)
-        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)])
+        m = ast.Module([ast.Expr(ast.expr(**pos), **pos)], [])
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_identitifer(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))])
+        m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))], [])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_string(self):
         import ast
-        m = ast.Module([ast.Expr(ast.Str(43))])
+        m = ast.Module([ast.Expr(ast.Str(43))], [])
         ast.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
@@ -482,7 +482,7 @@ from __future__ import generators""")
             if msg is not None:
                 assert msg in str(exc.value)
         def _expr(node, msg=None, exc=ValueError):
-            mod = ast.Module([ast.Expr(node)])
+            mod = ast.Module([ast.Expr(node)], [])
             _mod(mod, msg, exc=exc)
         left = ast.Name("x", ast.Load())
         comp = ast.Compare(left, [ast.In()], [])
@@ -497,3 +497,14 @@ from __future__ import generators""")
     def test_dict_unpacking(self):
         self.get_ast("{**{1:2}, 2:3}")
 
+    def test_type_comments(self):
+        mod = self.get_ast("a = 5 # type: int", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert mod.body[0].type_comment == "int"
+
+        mod = self.get_ast("a = 5 # type: ignore", flags=self.ast.PyCF_TYPE_COMMENTS)
+        assert len(mod.type_ignores) == 1
+        assert mod.type_ignores[0].tag == ""
+        assert mod.type_ignores[0].lineno == 1
+
+        mod = self.get_ast("a = 5")
+        assert mod.body[0].type_comment is None

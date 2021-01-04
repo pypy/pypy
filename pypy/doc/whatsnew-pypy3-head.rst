@@ -60,3 +60,18 @@ speed it up.
 
 Allow compiler to inherit flags from ``__future__.annotations``. Fixes
 ``>>> x : X``
+
+
+.. 3.8 branches:
+
+.. branch: fstring-debugging
+
+Add support for the debugging sigil ``=`` in f-strings.
+
+.. branch: some-other-38-features
+
+Implement ``typed_ast`` features in the ``ast``-module.
+
+.. branch: some-3.8-features
+
+Implement named expression (the walrus operator ``:=``).

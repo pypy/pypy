@@ -25,11 +25,11 @@ class TestASTValidator:
             assert msg in exc_msg
 
     def expr(self, node, msg=None, exc=validate.ValidationError):
-        mod = ast.Module([ast.Expr(node, 0, 0)])
+        mod = ast.Module([ast.Expr(node, 0, 0)], [])
         self.mod(mod, msg, exc=exc)
 
     def stmt(self, stmt, msg=None):
-        mod = ast.Module([stmt])
+        mod = ast.Module([stmt], [])
         self.mod(mod, msg)
 
     def test_module(self):
@@ -49,37 +49,37 @@ class TestASTValidator:
                 defaults = []
             if kw_defaults is None:
                 kw_defaults = []
-            args = ast.arguments(args, vararg, kwonlyargs,
+            args = ast.arguments(None, args, vararg, kwonlyargs,
                                  kw_defaults, kwarg, defaults)
             return fac(args)
-        args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0), 0, 0)]
+        args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0), None, 0, 0)]
         check(arguments(args=args), "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
         check(arguments(defaults=[ast.Num(self.space.wrap(3), 0, 0)]),
                        "more positional defaults than args")
         check(arguments(kw_defaults=[ast.Num(self.space.wrap(4), 0, 0)]),
                        "length of kwonlyargs is not the same as kw_defaults")
-        args = [ast.arg("x", ast.Name("x", ast.Load, 0, 0), 0, 0)]
+        args = [ast.arg("x", ast.Name("x", ast.Load, 0, 0), None, 0, 0)]
         check(arguments(args=args, defaults=[ast.Name("x", ast.Store, 0, 0)]),
                        "must have Load context")
-        args = [ast.arg("a", ast.Name("x", ast.Load, 0, 0), 0, 0),
-                ast.arg("b", ast.Name("y", ast.Load, 0, 0), 0, 0)]
+        args = [ast.arg("a", ast.Name("x", ast.Load, 0, 0), None, 0, 0),
+                ast.arg("b", ast.Name("y", ast.Load, 0, 0), None, 0, 0)]
         check(arguments(kwonlyargs=args,
                           kw_defaults=[None, ast.Name("x", ast.Store, 0, 0)]),
                           "must have Load context")
 
     def test_funcdef(self):
-        a = ast.arguments([], None, [], [], None, [])
-        f = ast.FunctionDef("x", a, [], [], None, 0, 0)
+        a = ast.arguments(None, [], None, [], [], None, [])
+        f = ast.FunctionDef("x", a, [], [], None, None, 0, 0)
         self.stmt(f, "empty body on FunctionDef")
         f = ast.FunctionDef("x", a, [ast.Pass(0, 0)], [ast.Name("x", ast.Store, 0, 0)],
-                            None, 0, 0)
+                            None, None, 0, 0)
         self.stmt(f, "must have Load context")
         f = ast.FunctionDef("x", a, [ast.Pass(0, 0)], [],
-                            ast.Name("x", ast.Store, 0, 0), 0, 0)
+                            ast.Name("x", ast.Store, 0, 0), None, 0, 0)
         self.stmt(f, "must have Load context")
         def fac(args):
-            return ast.FunctionDef("x", args, [ast.Pass(0, 0)], [], None, 0, 0)
+            return ast.FunctionDef("x", args, [ast.Pass(0, 0)], [], None, None, 0, 0)
         self._check_arguments(fac, self.stmt)
 
     def test_classdef(self):
@@ -110,12 +110,12 @@ class TestASTValidator:
                   "must have Del context")
 
     def test_assign(self):
-        self.stmt(ast.Assign([], ast.Num(self.space.wrap(3), 0, 0), 0, 0), "empty targets on Assign")
-        self.stmt(ast.Assign([None], ast.Num(self.space.wrap(3), 0, 0), 0, 0), "None disallowed")
-        self.stmt(ast.Assign([ast.Name("x", ast.Load, 0, 0)], ast.Num(self.space.wrap(3), 0, 0), 0, 0),
+        self.stmt(ast.Assign([], ast.Num(self.space.wrap(3), 0, 0), None, 0, 0), "empty targets on Assign")
+        self.stmt(ast.Assign([None], ast.Num(self.space.wrap(3), 0, 0), None, 0, 0), "None disallowed")
+        self.stmt(ast.Assign([ast.Name("x", ast.Load, 0, 0)], ast.Num(self.space.wrap(3), 0, 0), None, 0, 0),
                   "must have Store context")
         self.stmt(ast.Assign([ast.Name("x", ast.Store, 0, 0)],
-                                ast.Name("y", ast.Store, 0, 0), 0, 0),
+                                ast.Name("y", ast.Store, 0, 0), None, 0, 0),
                   "must have Load context")
 
     def test_augassign(self):
@@ -130,14 +130,14 @@ class TestASTValidator:
         x = ast.Name("x", ast.Store, 0, 0)
         y = ast.Name("y", ast.Load, 0, 0)
         p = ast.Pass(0, 0)
-        self.stmt(ast.For(x, y, [], [], 0, 0), "empty body on For")
-        self.stmt(ast.For(ast.Name("x", ast.Load, 0, 0), y, [p], [], 0, 0),
+        self.stmt(ast.For(x, y, [], [], None, 0, 0), "empty body on For")
+        self.stmt(ast.For(ast.Name("x", ast.Load, 0, 0), y, [p], [], None, 0, 0),
                   "must have Store context")
-        self.stmt(ast.For(x, ast.Name("y", ast.Store, 0, 0), [p], [], 0, 0),
+        self.stmt(ast.For(x, ast.Name("y", ast.Store, 0, 0), [p], [], None, 0, 0),
                   "must have Load context")
         e = ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)
-        self.stmt(ast.For(x, y, [e], [], 0, 0), "must have Load context")
-        self.stmt(ast.For(x, y, [p], [e], 0, 0), "must have Load context")
+        self.stmt(ast.For(x, y, [e], [], None, 0, 0), "must have Load context")
+        self.stmt(ast.For(x, y, [p], [e], None, 0, 0), "must have Load context")
 
     def test_while(self):
         self.stmt(ast.While(ast.Num(self.space.wrap(3), 0, 0), [], [], 0, 0), "empty body on While")
@@ -159,13 +159,13 @@ class TestASTValidator:
 
     def test_with(self):
         p = ast.Pass(0, 0)
-        self.stmt(ast.With([], [p], 0, 0), "empty items on With")
+        self.stmt(ast.With([], [p], None, 0, 0), "empty items on With")
         i = ast.withitem(ast.Num(self.space.wrap(3), 0, 0), None)
-        self.stmt(ast.With([i], [], 0, 0), "empty body on With")
+        self.stmt(ast.With([i], [], None, 0, 0), "empty body on With")
         i = ast.withitem(ast.Name("x", ast.Store, 0, 0), None)
-        self.stmt(ast.With([i], [p], 0, 0), "must have Load context")
+        self.stmt(ast.With([i], [p], None, 0, 0), "must have Load context")
         i = ast.withitem(ast.Num(self.space.wrap(3), 0, 0), ast.Name("x", ast.Load, 0, 0))
-        self.stmt(ast.With([i], [p], 0, 0), "must have Store context")
+        self.stmt(ast.With([i], [p], None, 0, 0), "must have Store context")
 
     def test_raise(self):
         r = ast.Raise(None, ast.Num(self.space.wrap(3), 0, 0), 0, 0)
@@ -237,7 +237,7 @@ class TestASTValidator:
         self.expr(u, "must have Load context")
 
     def test_lambda(self):
-        a = ast.arguments([], None, [], [], None, [])
+        a = ast.arguments(None, [], None, [], [], None, [])
         self.expr(ast.Lambda(a, ast.Name("x", ast.Store, 0, 0), 0, 0),
                   "must have Load context")
         def fac(args):
@@ -378,7 +378,7 @@ class TestASTValidator:
     def test_starred(self):
         left = ast.List([ast.Starred(ast.Name("x", ast.Load, 0, 0), ast.Store, 0, 0)],
                         ast.Store, 0, 0)
-        assign = ast.Assign([left], ast.Num(self.space.wrap(4), 0, 0), 0, 0)
+        assign = ast.Assign([left], ast.Num(self.space.wrap(4), 0, 0), None, 0, 0)
         self.stmt(assign, "must have Store context")
 
     def _sequence(self, fac):

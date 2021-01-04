@@ -100,6 +100,7 @@ class PythonParser(parser.Parser):
         parser.Parser.__init__(self, grammar)
         self.space = space
         self.future_flags = future_flags
+        self.type_ignores = []
 
     def parse_source(self, bytessrc, compile_info):
         """Main entry point for parsing Python source.
@@ -152,6 +153,18 @@ class PythonParser(parser.Parser):
             compile_info.flags |= consts.PyCF_FOUND_ENCODING
         return self._parse(textsrc, compile_info)
 
+    def _get_possible_arcs(self, arcs):
+        # Handle func_body_suite separately for expecting an IndentationError
+        # instead of a normal SyntaxError when the indentation is not supplied.
+        if len(arcs) == 2:
+            for n, arc in enumerate(arcs):
+                if self.grammar.labels[arc[0]] == pygram.tokens.TYPE_COMMENT:
+                    break
+            else:
+                return arcs
+            arcs.pop(n)
+        return arcs
+
     def _parse(self, textsrc, compile_info):
         flags = compile_info.flags
 
@@ -191,7 +204,10 @@ class PythonParser(parser.Parser):
 
                 for token in tokens_stream:
                     next_token_seen = token
-                    if self.add_token(token):
+                    # Special handling for TYPE_IGNOREs
+                    if token.token_type == pygram.tokens.TYPE_IGNORE:
+                        self.type_ignores.append(token)
+                    elif self.add_token(token):
                         break
                     last_token_seen = token
                 last_token_seen = None

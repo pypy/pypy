@@ -457,8 +457,14 @@ def _match_keywords(signature, blindargs, co_posonlyargcount,
             continue
         j = signature.find_argname(name)
         if 0 <= j < co_posonlyargcount:
-            raise ArgErrPosonlyAsKwds(signature.argnames[j])
-        elif j < input_argcount:
+            # we complain about a forbidden positional only keyword argument
+            # only if there is no **kwargs. otherwise, the keyword goes into
+            # the kwargs dict.
+            if signature.has_kwarg():
+                j = -1
+            else:
+                raise ArgErrPosonlyAsKwds(signature.argnames[j])
+        if j < input_argcount:
             # if j == -1 nothing happens, because j < input_argcount and
             # blindargs > j
 
@@ -633,5 +639,5 @@ class ArgErrPosonlyAsKwds(ArgErr):
         # this message will have to be different in 3.8, where positional only
         # arguments are a "real" concept, not just for built-in functions
         # for now let's be consistent with ArgErrUnknownKwds
-        msg = ("got an unexpected keyword argument '%s'" % self.posonly_kwd)
+        msg = ("got a positional-only argument passed as keyword argument: '%s'" % self.posonly_kwd)
         return msg

@@ -49,3 +49,4 @@ Refactor documentation of win64 from future plans to what was executed
 Backport msvc detection from python3, which probably breaks using Visual Studio
 2008 (MSVC9, or the version that used to be used to build CPython2.7 on
 Windows)
+

@@ -1090,7 +1090,7 @@ class AppTestCompiler(object):
         delete = _ast.Delete([])
         delete.lineno = 0
         delete.col_offset = 0
-        mod = _ast.Module([delete])
+        mod = _ast.Module([delete], [])
         exc = raises(ValueError, compile, mod, 'filename', 'exec')
         assert str(exc.value) == "empty targets on Delete"
 

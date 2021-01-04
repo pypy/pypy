@@ -41,11 +41,11 @@ class TestAstToObject:
         w_fields = space.getattr(ast.get(space).w_FunctionDef,
                                  space.wrap("_fields"))
         assert space.eq_w(w_fields, space.wrap(
-            ('name', 'args', 'body', 'decorator_list', 'returns')))
+            ('name', 'args', 'body', 'decorator_list', 'returns', 'type_comment')))
         w_fields = space.getattr(ast.get(space).w_arguments,
                                  space.wrap("_fields"))
         assert space.eq_w(w_fields, space.wrap(
-            ('args', 'vararg', 'kwonlyargs', 'kw_defaults',
+            ('posonlyargs', 'args', 'vararg', 'kwonlyargs', 'kw_defaults',
              'kwarg', 'defaults')))
         
     def test_attributes(self, space):

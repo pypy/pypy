@@ -13,6 +13,7 @@ SYM_PARAM = 2 << 1
 SYM_NONLOCAL = 2 << 2
 SYM_USED = 2 << 3
 SYM_ANNOTATED = 2 << 4
+SYM_COMP_ITER = 2 << 5
 SYM_BOUND = (SYM_PARAM | SYM_ASSIGNED)
 
 # codegen.py actually deals with these:
@@ -48,6 +49,8 @@ class Scope(object):
         self.doc_removable = False
         self.contains_annotated = False
         self._in_try_body_depth = 0
+        self.comp_iter_target = False
+        self.comp_iter_expr = 0
 
     def lookup(self, name):
         """Find the scope of identifier 'name'."""
@@ -75,6 +78,12 @@ class Scope(object):
                     (identifier,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             new_role |= old_role
+        if self.comp_iter_target:
+            if new_role & (SYM_GLOBAL | SYM_NONLOCAL):
+                raise SyntaxError(
+                    "comprehension inner loop cannot rebind assignment expression target '%s'" % identifier,
+                    self.lineno, self.col_offset)
+            new_role |= SYM_COMP_ITER
         self.roles[mangled] = new_role
         if role & SYM_PARAM:
             self.varnames.append(mangled)
@@ -122,6 +131,10 @@ class Scope(object):
         """Note a new child scope."""
         child_scope.parent = self
         self.children.append(child_scope)
+        # like CPython, disallow *all* assignment expressions in the outermost
+        # iterator expression of a comprehension, even those inside a nested
+        # comprehension or a lambda expression.
+        child_scope.comp_iter_expr = self.comp_iter_expr
 
     def _finalize_name(self, name, flags, local, bound, free, globs):
         """Decide on the scope of a name."""
@@ -308,6 +321,9 @@ class AsyncFunctionScope(FunctionScope):
         raise SyntaxError("'yield from' inside async function", yield_node.lineno,
                           yield_node.col_offset)
 
+
+class ComprehensionScope(FunctionScope):
+    pass
 
 class ClassScope(Scope):
 
@@ -573,7 +589,13 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.pop_scope()
 
     def visit_comprehension(self, comp):
-        ast.GenericASTVisitor.visit_comprehension(self, comp)
+        self.scope.comp_iter_target = True
+        comp.target.walkabout(self)
+        self.scope.comp_iter_target = False
+        self.scope.comp_iter_expr += 1
+        comp.iter.walkabout(self)
+        self.scope.comp_iter_expr -= 1
+        self.visit_sequence(comp.ifs)
         if comp.is_async:
             self.scope.note_await(comp)
 
@@ -581,12 +603,16 @@ class SymtableBuilder(ast.GenericASTVisitor):
         from pypy.interpreter.error import OperationError
         outer = comps[0]
         assert isinstance(outer, ast.comprehension)
+        self.scope.comp_iter_expr += 1
         outer.iter.walkabout(self)
-        new_scope = FunctionScope("<genexpr>", node.lineno, node.col_offset)
+        self.scope.comp_iter_expr -= 1
+        new_scope = ComprehensionScope("<genexpr>", node.lineno, node.col_offset)
         self.push_scope(new_scope, node)
         self.implicit_arg(0)
         new_scope.is_coroutine |= outer.is_async
+        new_scope.comp_iter_target = True
         outer.target.walkabout(self)
+        new_scope.comp_iter_target = False
         self.visit_sequence(outer.ifs)
         self.visit_sequence(comps[1:])
         for item in list(consider):
@@ -641,6 +667,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def visit_arguments(self, arguments):
         scope = self.scope
         assert isinstance(scope, FunctionScope)  # Annotator hint.
+        if arguments.posonlyargs:
+            self._handle_params(arguments.posonlyargs, True)
         if arguments.args:
             self._handle_params(arguments.args, True)
         if arguments.kwonlyargs:
@@ -695,3 +723,41 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.visit_sequence(node.handlers)
         self.visit_sequence(node.orelse)
         self.visit_sequence(node.finalbody)
+
+    def visit_NamedExpr(self, node):
+        scope = self.scope
+        target = node.target
+        assert isinstance(target, ast.Name)
+        name = target.id
+        if scope.comp_iter_expr > 0:
+            raise SyntaxError(
+                "assignment expression cannot be used in a comprehension iterable expression",
+                node.lineno, node.col_offset)
+        if isinstance(scope, ComprehensionScope):
+            for i in range(len(self.stack) - 1, -1, -1):
+                parent = self.stack[i]
+                if isinstance(parent, ComprehensionScope):
+                    if parent.lookup_role(name) & SYM_COMP_ITER:
+                        raise SyntaxError(
+                            "assignment expression cannot rebind comprehension iteration variable '%s'" % name,
+                            node.lineno, node.col_offset)
+                    continue
+
+                if isinstance(parent, FunctionScope):
+                    parent.note_symbol(name, SYM_ASSIGNED)
+                    if parent.lookup_role(name) & SYM_GLOBAL:
+                        flag = SYM_GLOBAL
+                    else:
+                        flag = SYM_NONLOCAL
+                    scope.note_symbol(name, flag)
+                    break
+                elif isinstance(parent, ModuleScope):
+                    parent.note_symbol(name, SYM_GLOBAL)
+                    scope.note_symbol(name, SYM_GLOBAL)
+                elif isinstance(parent, ClassScope):
+                    raise SyntaxError(
+                        "assignment expression within a comprehension cannot be used in a class body",
+                        node.lineno, node.col_offset)
+
+        node.target.walkabout(self)
+        node.value.walkabout(self)

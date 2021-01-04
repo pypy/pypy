@@ -1336,6 +1336,9 @@ def f():
 
         yield self.st, """z=f'{f"{0}"*3}'""", 'z', '000'
 
+    def test_fstring_debugging(self):
+        yield self.st, """x = 1;z = f'T: {x = }'""", 'z', 'T: x = 1'
+
     def test_fstring_error(self):
         py.test.raises(SyntaxError, self.run, "f'{}'")
         py.test.raises(SyntaxError, self.run, "f'{   \t   }'")
@@ -1375,6 +1378,9 @@ def f():
         yield self.st, src, 'z', 0xd8
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
+
+    def test_fstring_bug(self):
+        yield self.st, "count=5; x = f'time{\"s\" if count > 1 else \"\"}'", "x", "times"
 
     def test_func_defaults_lineno(self):
         # like CPython 3.6.9 (at least), check that '''def f(
@@ -1424,6 +1430,48 @@ x = f(*(%s))
                     def get_bar(self):
                         return bar
         """, '1', 1
+
+    def test_walrus_operator(self):
+        yield (self.simple_test, "(x := 1)", "x", 1)
+        yield (self.simple_test, "y = (x := 1) + 5", "x+y", 7)
+        yield (self.simple_test, "len(foobar := [])", "foobar", [])
+
+        yield (self.error_test, "(l[1] := 5)", SyntaxError)
+
+        yield (self.simple_test, """\
+def foo():
+    [(y := x) for x in range(5)]
+    return y
+""", "foo()", 4)
+
+        yield (self.simple_test, """\
+def foo():
+    global y
+    [(y := x) for x in range(5)]
+    return y
+""", "foo() + y", 8)
+
+        yield (self.simple_test, """\
+[(y := x) for x in range(5)]
+""", "y", 4)
+
+        yield (self.error_test, """\
+class A:
+    [(y := x) for y in range(5)]""", SyntaxError)
+
+        yield (self.error_test, "[(x := 5) for x in range(5)]", SyntaxError)
+
+        yield (self.error_test, "[i for i in range(5) if (j := 0) for j in range(5)]", SyntaxError)
+
+        yield (self.error_test, "[i for i in (i := range(5))]", SyntaxError)
+
+    def test_walrus_operator_error_msg(self):
+        with raises(SyntaxError) as info:
+            self.simple_test("(() := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with ()"
+        with raises(SyntaxError) as info:
+            self.simple_test("((lambda : 1) := 1)", None, None)
+        assert info.value.msg == "cannot use assignment expressions with lambda"
 
         
 class TestCompilerRevDB(BaseTestCompiler):

@@ -3,6 +3,8 @@ import random
 import string
 import sys
 import pytest
+import functools
+import textwrap
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -32,8 +34,8 @@ class TestAstBuilder:
         assert isinstance(expr, ast.Expr)
         return expr.value
 
-    def get_first_stmt(self, source):
-        mod = self.get_ast(source)
+    def get_first_stmt(self, source, p_mode=None, flags=None):
+        mod = self.get_ast(source, p_mode, flags)
         assert len(mod.body) == 1
         return mod.body[0]
 
@@ -565,6 +567,14 @@ class TestAstBuilder:
         input = "def f(p1, *, **k1):  pass"
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "named arguments must follows bare *"
+
+    def test_posonly_arguments(self):
+        fn = self.get_first_stmt("def f(a, b, c, /, arg): pass")
+        assert isinstance(fn, ast.FunctionDef)
+        assert len(fn.args.posonlyargs) == 3
+        assert len(fn.args.args) == 1
+        assert isinstance(fn.args.args[0], ast.arg)
+        assert fn.args.args[0].arg == "arg"
 
     def test_function_annotation(self):
         func = self.get_first_stmt("def f() -> X: pass")
@@ -1524,3 +1534,238 @@ class TestAstBuilder:
         asyncdef = mod.body[0]
         assert asyncdef.col_offset == 0
 
+    def get_first_typed_stmt(self, source):
+        return self.get_first_stmt(source, flags=consts.PyCF_TYPE_COMMENTS)
+
+    def test_type_comments(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        assign = self.get_first_typed_stmt("a = 5 # type: int")
+        assert eq_w(assign.type_comment, w('int'))
+        lines = (
+            "def func(\n"
+            "  a, # type: List[int]\n"
+            "  b = 5, # type: int\n"
+            "  c = None\n"
+            "): pass"
+        )
+        func = self.get_first_typed_stmt(lines)
+        args = func.args
+        assert eq_w(args.args[0].type_comment, w("List[int]"))
+        assert eq_w(args.args[1].type_comment, w("int"))
+        assert args.args[2].type_comment is None
+
+    def test_type_comments_func_body(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        source = textwrap.dedent("""\
+        def foo():
+            # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert eq_w(func.type_comment, w("() -> int"))
+
+        source = textwrap.dedent("""\
+        def foo(): # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert eq_w(func.type_comment, w("() -> int"))
+
+        source = textwrap.dedent("""\
+        def foo(): # type: () -> str
+            # type: () -> int
+            pass
+        """)
+        func = self.get_first_typed_stmt(source)
+        assert eq_w(func.type_comment, w("() -> int"))
+
+    def test_type_comments_statements(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        asyncdef = textwrap.dedent("""\
+        async def foo():
+            # type: () -> int
+            return await bar()
+        """)
+        node = self.get_first_typed_stmt(asyncdef)
+        assert eq_w(node.type_comment, w("() -> int"))
+
+        nonasciidef = textwrap.dedent("""\
+        def foo():
+            # type: () -> àçčéñt
+            pass
+        """)
+        node = self.get_first_typed_stmt(nonasciidef)
+        assert eq_w(node.type_comment, w("() -> àçčéñt"))
+
+        forstmt = textwrap.dedent("""\
+        for a in []:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(forstmt)
+        assert eq_w(node.type_comment, w("int"))
+
+        withstmt = textwrap.dedent("""\
+        with context() as a:  # type: int
+            pass
+        """)
+        node = self.get_first_typed_stmt(withstmt)
+        assert eq_w(node.type_comment, w("int"))
+
+        vardecl = textwrap.dedent("""\
+        a = 0  # type: int
+        """)
+        node = self.get_first_typed_stmt(vardecl)
+        assert eq_w(node.type_comment, w("int"))
+
+    def test_type_ignore(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        module = self.get_ast(textwrap.dedent("""\
+        import x # type: ignore
+        # type: ignore@abc
+        test = 1 # type: ignore
+        if test: # type: ignore
+            ...
+            ...
+            ...
+            with x() as y: # type: ignore@def
+                ...
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+
+        expecteds = [
+            (1, ''),
+            (2, '@abc'),
+            (3, ''),
+            (4, ''),
+            (8, '@def')
+        ]
+
+        assert all([
+            eq_w(type_ignore.tag, w(expected[1]))
+            and type_ignore.lineno == expected[0]
+            for type_ignore, expected in zip(module.type_ignores, expecteds)
+        ])
+
+    def test_type_comments_function_args(self):
+        eq_w, w = self.space.eq_w, self.space.wrap
+        module = self.get_ast(textwrap.dedent("""\
+        def fa(
+            a = 1,  # type: 1
+        ):
+            pass
+
+        def fa(
+            a = 1  # type: 1
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b,  # type: 2
+        ):
+            pass
+
+        def fab(
+            a,  # type: 1
+            b  # type: 2
+        ):
+            pass
+
+        def fv(
+            *v,  # type: 1
+        ):
+            pass
+
+        def fv(
+            *v # type: 1
+        ):
+            pass
+
+        def fk(
+            **k,  # type: 1
+        ):
+            pass
+
+        def fk(
+            **k  # type: 1
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fvk(
+            *v,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v,  # type: 2
+        ):
+            pass
+
+        def fav(
+            a,  # type: 1
+            *v  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k,  # type: 2
+        ):
+            pass
+
+        def fak(
+            a,  # type: 1
+            **k  # type: 2
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k,  # type: 3
+        ):
+            pass
+
+        def favk(
+            a,  # type: 1
+            *v,  # type: 2
+            **k  # type: 3
+        ):
+            pass
+
+        def fkwo(
+            a, # type: 1
+            *,
+            b  # type: 2
+        ):
+            pass
+        """), flags=consts.PyCF_TYPE_COMMENTS)
+
+        for function in module.body:
+            args = function.args
+            all_args = []
+            all_args.extend(args.args)
+            all_args.extend(args.kwonlyargs or [])
+            if args.vararg:
+                all_args.append(args.vararg)
+            if args.kwarg:
+                all_args.append(args.kwarg)
+            assert all([
+                eq_w(arg.type_comment, w(str(i)))
+                for i, arg in enumerate(all_args, 1)
+            ])
+
+    def test_walrus(self):
+        mod = self.get_ast("(a := 1)")
+        expr = mod.body[0].value
+        assert isinstance(expr, ast.NamedExpr)
+        assert expr.target.id == 'a'
+        assert expr.target.ctx == ast.Store
+        assert isinstance(expr.value, ast.Num)

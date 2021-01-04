@@ -196,6 +196,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.w_consts = space.newdict()
         self.consts_w = []
         self.argcount = 0
+        self.posonlyargcount = 0
         self.kwonlyargcount = 0
         self.lineno_set = False
         self.lineno = 0
@@ -501,6 +502,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         bytecode = ''.join([block.get_code() for block in blocks])
         return PyCode(self.space,
                       self.argcount,
+                      self.posonlyargcount,
                       self.kwonlyargcount,
                       len(self.var_names),
                       stack_depth,

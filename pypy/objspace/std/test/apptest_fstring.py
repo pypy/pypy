@@ -40,6 +40,16 @@ def test_ast_mutiline_lineno_and_col_offset():
     assert z_ast.lineno == 6
     assert z_ast.col_offset == 0
 
+def test_lookeahed_cases():
+    a = 2 + 2
+    b = 4
+
+    assert f'{a==b}' == 'True'
+    assert f'{a>=b}' == 'True'
+    assert f'{a<=b!r}' == 'True'
+    assert f'{a!=b:}' == 'False'
+    assert f'{a!=b!s}' == 'False'
+
 def test_double_braces():
     assert f'{{' == '{'
     assert f'a{{' == 'a{'
@@ -130,3 +140,72 @@ def test_backslashes_in_string_part():
     assert f'\\N{AMPERSAND}' == '\\Nspam'
     assert fr'\N{AMPERSAND}' == '\\Nspam'
     assert f'\\\N{AMPERSAND}' == '\\&'
+
+def test_debug_conversion():
+    x = 'A string'
+    assert f'{x=}' == 'x=' + repr(x)
+    assert f'{x =}' == 'x =' + repr(x)
+    assert f'{x=!s}'== 'x=' + str(x)
+    assert f'{x=!r}' == 'x=' + repr(x)
+    assert f'{x=!a}' == 'x=' + ascii(x)
+
+    # conversions
+    x = 2.71828
+    assert f'{x=:.2f}' =='x=' + format(x, '.2f')
+    assert f'{x=:}' == 'x=' + format(x, '')
+    assert f'{x=!r:^20}' == 'x=' + format(repr(x), '^20')
+    assert f'{x=!s:^20}' == 'x=' + format(str(x), '^20')
+    assert f'{x=!a:^20}' == 'x=' + format(ascii(x), '^20')
+
+    # complex expr
+    x = 9
+    assert f'{3*x+15=}' == '3*x+15=42'
+
+    # unicode
+    tenπ = 31.4
+    assert f'{tenπ=:.2f}' == 'tenπ=31.40'
+    assert f'{"Σ"=}' == '"Σ"=\'Σ\''
+    assert f'{f"{3.1415=:.1f}":*^20}' == '*****3.1415=3.1*****'
+
+    # whitespace offset
+    x = 'foo'
+    pi = 'π'
+    assert f'alpha α {pi=} ω omega' == "alpha α pi='π' ω omega"
+    assert f'X{x=}Y' == 'Xx='+repr(x)+'Y'
+    assert f'X{x  =}Y' == 'Xx  ='+repr(x)+'Y'
+    assert f'X{x=  }Y' == 'Xx=  '+repr(x)+'Y'
+    assert f'X{x  =  }Y' == 'Xx  =  '+repr(x)+'Y'
+
+    # multi-line expressions.
+    assert f'''{
+3
+=}''' =='\n3\n=3'
+
+    # keyword arguments
+    def f(a):
+        nonlocal x
+        oldx = x
+        x = a
+        return oldx
+    x = 0
+    assert f'{f(a="3=")}' == '0'
+    assert x, '3='
+    assert f'{f(a=4)}' == '3='
+    assert x, 4
+
+    # __format__
+    class C:
+        def __format__(self, s):
+            return f'FORMAT-{s}'
+        def __repr__(self):
+            return 'REPR'
+
+    assert f'{C()=}' == 'C()=REPR'
+    assert f'{C()=!r}' == 'C()=REPR'
+    assert f'{C()=:}' == 'C()=FORMAT-'
+    assert f'{C()=: }' == 'C()=FORMAT- '
+    assert f'{C()=:x}' == 'C()=FORMAT-x'
+    assert f'{C()=!r:*^20}' == 'C()=********REPR********'
+
+
+

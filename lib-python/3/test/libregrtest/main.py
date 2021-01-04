@@ -680,6 +680,10 @@ class Regrtest:
             from test.libregrtest.win_utils import WindowsLoadTracker
 
             try:
+                # issue 3374: try to debug who is calling this in the PyPy
+                # lib-python tests. The background process sometimes hangs,
+                # which makes tests exit via a kill rather than cleanly
+                raise FileNotFoundError('issue 3374: who is calling this?')
                 self.win_load_tracker = WindowsLoadTracker()
             except FileNotFoundError as error:
                 # Windows IoT Core and Windows Nano Server do not provide

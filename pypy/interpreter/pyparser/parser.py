@@ -339,15 +339,22 @@ class Parser(object):
                 else:
                     # If only one possible input would satisfy, attach it to the
                     # error.
-                    if len(arcs) == 1:
-                        expected = sym_id
+                    possible_arcs = self._get_possible_arcs(arcs)
+                    if len(possible_arcs) == 1:
+                        possible_arc = possible_arcs[0]
+                        expected = self.grammar.labels[possible_arc[0]]
                         expected_str = self.grammar.token_to_error_string.get(
-                                arcs[0][0], None)
+                                possible_arc[0], None)
                     else:
                         expected = -1
                         expected_str = None
                     raise ParseError("bad input", token, expected, expected_str)
 
+    def _get_possible_arcs(self, arcs):
+        """Filter out pseudo tokens from the possible paths to be taken
+        in the grammar, in order to determine most precise token type
+        for syntax errors."""
+        return arcs
 
     def shift(self, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
