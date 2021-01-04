@@ -101,6 +101,8 @@ class Module(MixedModule):
 
         'is_finalizing'         : 'vm.is_finalizing',
 
+        'pycache_prefix'        : 'space.w_None',
+
         'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',
         'set_coroutine_origin_tracking_depth': 'vm.set_coroutine_origin_tracking_depth',
         }

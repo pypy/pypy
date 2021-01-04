@@ -26,6 +26,7 @@ class Module(MixedModule):
         'TextIOWrapper': 'interp_textio.W_TextIOWrapper',
 
         'open': 'interp_io.open',
+        'open_code': 'interp_io.open_code',
         'IncrementalNewlineDecoder': 'interp_textio.W_IncrementalNewlineDecoder',
     }
     if sys.platform == 'win32':

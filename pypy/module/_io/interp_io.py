@@ -155,3 +155,6 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
             except OperationError as e2:
                 e.chain_exceptions(space, e2)
         raise
+
+def open_code(space, w_file):
+    return open(space, w_file, "rb")
