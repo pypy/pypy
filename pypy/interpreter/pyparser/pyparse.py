@@ -95,7 +95,7 @@ _targets = {
 
 class PythonParser(parser.Parser):
 
-    def __init__(self, space, future_flags=future.futureFlags_3_5,
+    def __init__(self, space, future_flags=future.futureFlags_3_8,
                  grammar=pygram.python_grammar):
         parser.Parser.__init__(self, grammar)
         self.space = space
