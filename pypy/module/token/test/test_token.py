@@ -23,3 +23,6 @@ class AppTestToken:
 
     def test_encoding_exists(self):
         self.token.ISTERMINAL(self.token.ENCODING)
+
+    def test_exact_token_types(self):
+        assert self.token.EXACT_TOKEN_TYPES[":="] == self.token.COLONEQUAL
