@@ -349,15 +349,25 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return PyLong_FromLong(n);
-             """)])
+             """),
+            ("long_max", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(LONG_MAX);
+             """
+            ),
+            ("long_min", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(LONG_MIN);
+             """
+            ),
+            ])
         assert module.as_long(123) == 123
         assert module.as_long(-1) == -1
         assert module.as_long(1.23) == 1
-        LONG_MAX = struct.unpack_from('>l', b'\x7f' + b'\xff' * 7)[0]
-        LONG_MIN = struct.unpack_from('>l', b'\x80' + b'\x00' * 7)[0]
-        print(LONG_MAX, LONG_MIN)
+        LONG_MAX = module.long_max()
+        LONG_MIN = module.long_min()
         assert module.as_long(LONG_MAX) == LONG_MAX
-        raises(OverflowError, module.as_long, 2 * LONG_MAX+ 1)
+        raises(OverflowError, module.as_long, LONG_MAX+ 1)
         assert module.as_long(LONG_MIN) == LONG_MIN
         raises(OverflowError, module.as_long, LONG_MIN - 1)
 

@@ -90,6 +90,7 @@ def test_whatsnew():
     merged, branch = get_merged_branches(ROOT, startrev, '')
     merged.discard('default')
     merged.discard('py3.7')
+    merged.discard('py3.6')
     merged.discard('')
     not_documented = merged.difference(documented)
     not_merged = documented.difference(merged)
