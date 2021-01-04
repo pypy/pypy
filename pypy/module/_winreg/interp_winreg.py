@@ -721,7 +721,6 @@ sam is an integer that specifies an access mask that describes the desired
 The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_key, space)
-    import pdb;pdb.set_trace()
     utf8 = space.utf8_w(w_sub_key)
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
