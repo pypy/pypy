@@ -425,3 +425,8 @@ def set_coroutine_origin_tracking_depth(space, depth):
                 "depth must be >= 0")
     ec = space.getexecutioncontext()
     ec.coroutine_origin_tracking_depth = depth
+
+@unwrap_spec(event="text")
+def audit(space, event, args_w):
+    pass
+

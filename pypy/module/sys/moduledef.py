@@ -101,6 +101,8 @@ class Module(MixedModule):
 
         'is_finalizing'         : 'vm.is_finalizing',
 
+        'audit'                 : 'vm.audit',
+
         'pycache_prefix'        : 'space.w_None',
 
         'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',

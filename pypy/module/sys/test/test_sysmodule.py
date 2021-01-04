@@ -213,6 +213,9 @@ class AppTestAppSysTests:
         import sys
         assert type(sys.flags.dev_mode) is bool
 
+    def test_audit(self):
+        import sys
+        sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
