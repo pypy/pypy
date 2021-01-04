@@ -303,9 +303,9 @@ KEY_SET_VALUE access."""
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
     utf8 = space.utf8_w(w_subkey)
-    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
+    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     utf8 = space.utf8_w(w_value)
-    valueW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
+    valueW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     valueL = space.len_w(w_value)
 
     # Add an offset to remove the BOM from the native utf16 wstr
@@ -721,10 +721,11 @@ sam is an integer that specifies an access mask that describes the desired
 The result is a new handle to the specified key
 If the function fails, an EnvironmentError exception is raised."""
     hkey = hkey_w(w_key, space)
+    import pdb;pdb.set_trace()
     utf8 = space.utf8_w(w_sub_key)
     state = space.fromcache(CodecState)
     errh = state.encode_error_handler
-    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
+    subkeyW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
     with rffi.scoped_nonmovingbuffer(subkeyW) as subkeyP0:
         subkeyP = rffi.cast(rffi.CWCHARP, rffi.ptradd(subkeyP0, 2))
         with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
@@ -889,7 +890,7 @@ If the function fails, an EnvironmentError exception is raised."""
         utf8 = space.utf8_w(w_machine)
         state = space.fromcache(CodecState)
         errh = state.encode_error_handler
-        machineW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=False)
+        machineW = utf8_encode_utf_16(utf8 + '\x00', 'strict', errh, allow_surrogates=True)
         with rffi.scoped_nonmovingbuffer(machineW) as machineP0:
             machineP = rffi.cast(rwin32.LPWSTR, rffi.ptradd(machineP0, 2))
             with lltype.scoped_alloc(rwinreg.PHKEY.TO, 1) as rethkey:
