@@ -186,10 +186,17 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
         elif nested_depth == 0 and ch in ":}!=<>":
             # First, test for the special case of comparison operators
             # that also contains equal sign ("!="/">="/"=="/"<=").
-            if ch in '!=<>' and i + 1 < len(s) and s[i+1] == '=':
-                # This is an operator, just skip it.
-                i += 2
-                continue
+            if i + 1 < len(s):
+                nextch = s[i + 1]
+                if ch in '!=<>' and nextch == '=':
+                    # This is an operator, just skip it.
+                    i += 2
+                    continue
+                # don't get out of the loop for just < or > if they are single
+                # chars (ie not part of a two-char token).
+                if ch in "<>":
+                    i += 1
+                    continue
             # Normal way out of this loop.
             break
         #else:

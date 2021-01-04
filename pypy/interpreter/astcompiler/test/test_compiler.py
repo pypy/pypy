@@ -1379,6 +1379,9 @@ def f():
         src = """# -*- coding: utf-8 -*-\nz=ord(fr'\xc3\x98')\n"""
         yield self.st, src, 'z', 0xd8
 
+    def test_fstring_bug(self):
+        yield self.st, "count=5; x = f'time{\"s\" if count > 1 else \"\"}'", "x", "times"
+
     def test_func_defaults_lineno(self):
         # like CPython 3.6.9 (at least), check that '''def f(
         #            x = 5,
