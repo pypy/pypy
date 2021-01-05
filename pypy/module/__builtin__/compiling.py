@@ -11,9 +11,9 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.function import Function
 
 @unwrap_spec(filename='fsencode', mode='text', flags=int, dont_inherit=int,
-             optimize=int)
+             optimize=int, _feature_version=int)
 def compile(space, w_source, filename, mode, flags=0, dont_inherit=0,
-            optimize=-1):
+            optimize=-1, _feature_version=-1):
     """Compile the source string (a Python module, statement or expression)
 into a code object that can be executed by the exec statement or eval().
 The filename will be used for run-time error messages.
@@ -27,6 +27,12 @@ compile; if absent or zero these statements do influence the compilation,
 in addition to any features explicitly specified.
 """
     from pypy.interpreter.pyopcode import source_as_str
+    # only allow default value of _feature_version for now
+    # we need to support the keyword argument, the ast module passes it (set to
+    # -1, usually)
+    if _feature_version != -1:
+        raise oefmt(space.w_ValueError, "_feature_version only accepts -1 for now")
+
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |

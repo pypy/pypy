@@ -196,3 +196,14 @@ def test_build_class():
     assert str(excinfo.value) == (
         r"BadMeta.__prepare__() must return a mapping, not NoneType"
     )
+
+def test_compile_feature_version():
+    """ check the undocumented _feature_version argument to compile. for now,
+    only allow -1. """
+
+    co = compile('1+2', '?', 'eval', _feature_version=-1)
+    assert eval(co) == 3
+    with raises(ValueError):
+        compile('1+2', '?', 'eval', _feature_version=6)
+
+
