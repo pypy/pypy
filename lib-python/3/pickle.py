@@ -863,10 +863,6 @@ class _Pickler:
                 return
 
     def save_dict(self, obj):
-        modict_saver = self._pickle_maybe_moduledict(obj)
-        if modict_saver is not None:
-            return self.save_reduce(*modict_saver)
-
         if self.bin:
             self.write(EMPTY_DICT)
         else:   # proto 0 -- can't use EMPTY_DICT
@@ -909,22 +905,6 @@ class _Pickler:
             # else tmp is empty, and we're done
             if n < self._BATCHSIZE:
                 return
-
-    def _pickle_maybe_moduledict(self, obj):
-        # save module dictionary as "getattr(module, '__dict__')"
-        from types import ModuleType
-        try:
-            name = obj['__name__']
-            if type(name) is not str:
-                return None
-            themodule = sys.modules[name]
-            if type(themodule) is not ModuleType:
-                return None
-            if themodule.__dict__ is not obj:
-                return None
-        except (AttributeError, KeyError, TypeError):
-            return None
-        return getattr, (themodule, '__dict__')
 
     def save_set(self, obj):
         save = self.save
