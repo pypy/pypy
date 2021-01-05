@@ -11,7 +11,7 @@ still useful routines.
 
 import sys
 if sys.platform != 'win32':
-    raise ImportError("The 'msvcrt' module is only available on Windows")
+    raise ModuleNotFoundError("The 'msvcrt' module is only available on Windows")
 
 import _rawffi
 if sys.maxsize > 2 ** 31:
