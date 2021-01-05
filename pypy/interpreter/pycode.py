@@ -9,7 +9,7 @@ import imp, struct, types, sys, os
 from pypy.interpreter import eval
 from pypy.interpreter.signature import Signature
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import unwrap_spec
+from pypy.interpreter.gateway import unwrap_spec, applevel
 from pypy.interpreter.astcompiler.consts import (
     CO_OPTIMIZED, CO_NEWLOCALS, CO_VARARGS, CO_VARKEYWORDS, CO_NESTED,
     CO_GENERATOR, CO_COROUTINE, CO_KILL_DOCSTRING, CO_YIELD_INSIDE_TRY,
@@ -81,6 +81,25 @@ def cpython_code_signature(code):
 class CodeHookCache(object):
     def __init__(self, space):
         self._code_hook = None
+
+app = applevel("""
+def replace(self, kwds):
+    args = []
+    for attr in ("co_argcount", "co_posonlyargcount", "co_kwonlyargcount",
+                 "co_nlocals", "co_stacksize", "co_flags", "co_code",
+                 "co_consts", "co_names", "co_varnames", "co_filename",
+                 "co_name", "co_firstlineno", "co_lnotab", "co_freevars",
+                 "co_cellvars"):
+        if attr not in kwds:
+            args.append(getattr(self, attr))
+        else:
+            args.append(kwds.pop(attr))
+    if kwds:
+        raise TypeError(f"{kwds.popitem()[0]!r} is an invalid keyword argument for replace()")
+    return type(self)(*args)
+""", filename=__file__)
+
+codereplace = app.interphook("replace")
 
 class PyCode(eval.Code):
     "CPython-style code objects."
@@ -446,6 +465,15 @@ class PyCode(eval.Code):
             space.newint(self.magic),
         ]
         return space.newtuple([new_inst, space.newtuple(tup)])
+
+    def descr_replace(self, space, __args__):
+        """ replace(self, /, *, co_argcount=-1, co_posonlyargcount=-1, co_kwonlyargcount=-1, co_nlocals=-1, co_stacksize=-1, co_flags=-1, co_firstlineno=-1, co_code=None, co_consts=None, co_names=None, co_varnames=None, co_freevars=None, co_cellvars=None, co_filename=None, co_name=None, co_lnotab=None)
+ |      Return a new code object with new specified fields.
+        """
+        w_args, w_kwds = __args__.topacked()
+        if space.is_true(w_args):
+            raise oefmt(space.w_TypeError, "replace() takes no positional arguments")
+        return codereplace(space, self, w_kwds)
 
     def get_repr(self):
         # This is called by the default get_printable_location so it

@@ -268,3 +268,14 @@ class AppTestCodeIntrospection:
         args = (1, 0, 0, 1, 0, 0, b'', (), (), (), '', 'operator', 0, b'')
         # previously raised a MemoryError when translated
         types.CodeType(*args)
+
+    def test_replace(self):
+        co = compile("x = x + 1", 'baz', 'exec')
+        co2 = co.replace(co_flags=co.co_flags | 0x100)
+        assert co2.co_name == co.co_name # in theory need to check them all
+        assert co2.co_flags == co.co_flags | 0x100
+
+        with raises(TypeError):
+            co.replace(1)
+        with raises(TypeError):
+            co.replace(abc=123)
