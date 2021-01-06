@@ -1483,6 +1483,13 @@ def foo(*args):
     yield 1, *args
 """, "next(foo(2, 3))", (1, 2, 3))
 
+    def test_extended_unpacking_on_flow_statements_invalid(self):
+        with raises(SyntaxError) as info:
+            self.simple_test("""\
+def foo(*args):
+    yield from 1, *args
+""", None, None)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
