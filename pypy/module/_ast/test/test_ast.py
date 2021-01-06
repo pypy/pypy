@@ -186,7 +186,7 @@ class AppTestAST:
             pass
         Y()
         exc = raises(TypeError, ast.AST, 2)
-        assert exc.value.args[0] == "_ast.AST constructor takes 0 positional arguments"
+        assert exc.value.args[0] == "_ast.AST constructor takes at most 0 positional argument"
 
     def test_constructor(self):
         ast = self.ast
@@ -213,7 +213,7 @@ class AppTestAST:
         assert fr.col_offset == 1
         exc = raises(TypeError, ast.Module, 1, 2, 3).value
         msg = str(exc)
-        assert msg == "Module constructor takes either 0 or 2 positional arguments"
+        assert msg == "Module constructor takes at most 2 positional argument"
         ast.Module(nothing=23)
 
     def test_future(self):
@@ -251,7 +251,7 @@ from __future__ import generators""")
         assert ns["x"] == 4
 
     def test_classattrs(self):
-        import ast
+        import _ast as ast
         x = ast.Num()
         assert x._fields == ('n',)
         exc = raises(AttributeError, getattr, x, 'n')
@@ -347,16 +347,17 @@ from __future__ import generators""")
         assert x.right == n3
 
     def test_functiondef(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         fAst = ast.FunctionDef(
             name="foo",
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
-                kwonlyargs=[], kw_defaults=[]),
+                kwonlyargs=[], kw_defaults=[], posonlyargs=[]),
             body=[ast.Expr(ast.Str('docstring'))],
             decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
-        ast.fix_missing_locations(exprAst)
+        ast_utils.fix_missing_locations(exprAst)
         compiled = compile(exprAst, "<foo>", "single")
         #
         d = {}
@@ -385,9 +386,10 @@ from __future__ import generators""")
         exec(compile(body, '<string>', 'exec'))
 
     def test_empty_set(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         m = ast.Module(body=[ast.Expr(value=ast.Set(elts=[]))], type_ignores=[])
-        ast.fix_missing_locations(m)
+        ast_utils.fix_missing_locations(m)
         compile(m, "<test>", "exec")
 
     def test_invalid_sum(self):
@@ -397,15 +399,17 @@ from __future__ import generators""")
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_identitifer(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         m = ast.Module([ast.Expr(ast.Name(b"x", ast.Load()))], [])
-        ast.fix_missing_locations(m)
+        ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_invalid_string(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         m = ast.Module([ast.Expr(ast.Str(43))], [])
-        ast.fix_missing_locations(m)
+        ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
     def test_hacked_lineno(self):
@@ -425,13 +429,13 @@ from __future__ import generators""")
         code = compile(mod, "<test>", "exec")
 
     def test_dict_astNode(self):
-        import ast
+        import _ast as ast
         num_node = ast.Num(n=2, lineno=2, col_offset=3)
         dict_res = num_node.__dict__
         assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Num_notfullinit(self):
-        import ast
+        import _ast as ast
         import copy
         num_node = ast.Num(n=2,lineno=2)
         assert num_node.n == 2
@@ -439,7 +443,7 @@ from __future__ import generators""")
         num_node2 = copy.deepcopy(num_node)
 
     def test_issue1673_Num_fullinit(self):
-        import ast
+        import _ast as ast
         import copy
         num_node = ast.Num(n=2,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
@@ -450,7 +454,7 @@ from __future__ import generators""")
         assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Str(self):
-        import ast
+        import _ast as ast
         import copy
         str_node = ast.Str(n=2,lineno=2)
         assert str_node.n == 2
@@ -460,7 +464,7 @@ from __future__ import generators""")
         assert dict_res == {'n':2, 'lineno':2}
 
     def test_bug_null_in_objspace_type(self):
-        import ast
+        import _ast as ast
         code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
         compile(code, '<template>', 'eval')
 
@@ -473,11 +477,12 @@ from __future__ import generators""")
         assert "field value is required" in str(exc.value)
 
     def test_compare(self):
-        import ast
+        import ast as ast_utils
+        import _ast as ast
         
         def _mod(mod, msg=None, mode="exec", exc=ValueError):
             mod.lineno = mod.col_offset = 0
-            ast.fix_missing_locations(mod)
+            ast_utils.fix_missing_locations(mod)
             exc = raises(exc, compile, mod, "<test>", mode)
             if msg is not None:
                 assert msg in str(exc.value)
@@ -508,3 +513,23 @@ from __future__ import generators""")
 
         mod = self.get_ast("a = 5")
         assert mod.body[0].type_comment is None
+
+    def test_ast_initalization(self):
+        import _ast as ast
+
+        zero = ast.Module()
+        assert not hasattr(zero, "body")
+        assert not hasattr(zero, "type_ignores")
+
+        one = ast.Module(1)
+        assert one.body == 1
+        assert not hasattr(one, "type_ignores")
+
+        full = ast.Module(1, 2)
+        assert full.body == 1
+        assert full.type_ignores == 2
+
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
+        msg = str(exc)
+        assert msg == "Module constructor takes at most 2 positional argument"
+
