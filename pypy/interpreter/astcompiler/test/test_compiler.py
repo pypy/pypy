@@ -1473,6 +1473,21 @@ class A:
             self.simple_test("((lambda : 1) := 1)", None, None)
         assert info.value.msg == "cannot use assignment expressions with lambda"
 
+    def test_extended_unpacking_on_flow_statements(self):
+        yield (self.simple_test, """\
+def foo(*args):
+    return 1, *args
+""", "foo(2, 3)", (1, 2, 3))
+        yield (self.simple_test, """\
+def foo(*args):
+    yield 1, *args
+""", "next(foo(2, 3))", (1, 2, 3))
+        with raises(SyntaxError) as info:
+            self.simple_test("""\
+def foo(*args):
+    yield from 1, *args
+""", None, None)
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
