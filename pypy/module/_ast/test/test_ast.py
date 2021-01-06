@@ -513,3 +513,23 @@ from __future__ import generators""")
 
         mod = self.get_ast("a = 5")
         assert mod.body[0].type_comment is None
+
+    def test_ast_initalization(self):
+        import _ast as ast
+
+        zero = ast.Module()
+        assert not hasattr(zero, "body")
+        assert not hasattr(zero, "type_ignores")
+
+        one = ast.Module(1)
+        assert one.body == 1
+        assert not hasattr(one, "type_ignores")
+
+        full = ast.Module(1, 2)
+        assert full.body == 1
+        assert full.type_ignores == 2
+
+        exc = raises(TypeError, ast.Module, 1, 2, 3).value
+        msg = str(exc)
+        assert msg == "Module constructor takes at most 2 positional argument"
+

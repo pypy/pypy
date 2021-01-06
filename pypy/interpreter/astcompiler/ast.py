@@ -117,8 +117,8 @@ def W_AST_init(space, w_self, __args__):
             "%T constructor takes at most %d positional argument%s", w_self,
             num_fields, suffix)
     if args_w:
-        for i, w_field in enumerate(fields_w):
-            space.setattr(w_self, w_field, args_w[i])
+        for w_field, w_arg in zip(fields_w, args_w):
+            space.setattr(w_self, w_field, w_arg)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.newtext(field), w_value)
 
