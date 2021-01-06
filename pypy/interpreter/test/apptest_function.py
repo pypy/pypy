@@ -676,3 +676,9 @@ def test_posonly_default():
     assert posonlyfunc(1) == (1, (), {})
     assert posonlyfunc(1, 2) == (1, 2, {})
     assert posonlyfunc(1, 2, a=4, b=5) == (1, 2, {'a': 4, 'b': 5})
+
+def test_posonly_annotations():
+    def posonlyfunc(x: int, /):
+        pass
+    print(posonlyfunc.__annotations__)
+    assert posonlyfunc.__annotations__ == {"x": int}

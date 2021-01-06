@@ -4,7 +4,7 @@ import dis
 import pickle
 import unittest
 
-from test.support import check_syntax_error
+from test.support import check_syntax_error, cpython_only
 
 
 def global_pos_only_f(a, b, /):
@@ -420,6 +420,7 @@ class PositionalOnlyTestCase(unittest.TestCase):
     def test_annotations(self):
         assert global_inner_has_pos_only().__annotations__ == {'x': int}
 
+    @cpython_only
     def test_annotations_constant_fold(self):
         def g():
             def f(x: not (int is int), /): ...

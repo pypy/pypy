@@ -23,7 +23,7 @@ FORMAT_VALUE_CONVERTERS = (
     (None, ''),
     (str, 'str'),
     (repr, 'repr'),
-    (ascii, 'ascii'),
+    ('ascii', 'ascii'),
 )
 MAKE_FUNCTION = opmap['MAKE_FUNCTION']
 MAKE_FUNCTION_FLAGS = ('defaults', 'kwdefaults', 'annotations', 'closure')

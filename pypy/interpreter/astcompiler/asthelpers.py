@@ -74,7 +74,7 @@ class __extend__(ast.Name):
 
 class __extend__(ast.Tuple):
 
-    _description = "()"
+    _description = "tuple"
 
     def as_node_list(self, space):
         return self.elts

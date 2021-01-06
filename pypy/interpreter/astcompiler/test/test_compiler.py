@@ -1468,7 +1468,7 @@ class A:
     def test_walrus_operator_error_msg(self):
         with raises(SyntaxError) as info:
             self.simple_test("(() := 1)", None, None)
-        assert info.value.msg == "cannot use assignment expressions with ()"
+        assert info.value.msg == "cannot use assignment expressions with tuple"
         with raises(SyntaxError) as info:
             self.simple_test("((lambda : 1) := 1)", None, None)
         assert info.value.msg == "cannot use assignment expressions with lambda"
