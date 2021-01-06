@@ -1482,11 +1482,6 @@ def foo(*args):
 def foo(*args):
     yield 1, *args
 """, "next(foo(2, 3))", (1, 2, 3))
-        with raises(SyntaxError) as info:
-            self.simple_test("""\
-def foo(*args):
-    yield from 1, *args
-""", None, None)
 
         
 class TestCompilerRevDB(BaseTestCompiler):
