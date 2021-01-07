@@ -479,8 +479,11 @@ class timedelta(deltainterop):
 
     @classmethod
     def _from_microseconds(cls, us):
-        s, us = divmod(us, _US_PER_SECOND)
-        d, s = divmod(s, _SECONDS_PER_DAY)
+        try:
+            s, us = divmod(us, _US_PER_SECOND)
+            d, s = divmod(s, _SECONDS_PER_DAY)
+        except ValueError:
+            raise TypeError('__divmod__ must return a tuple of 2 numbers')
         return cls._create(d, s, us, False)
 
     @classmethod

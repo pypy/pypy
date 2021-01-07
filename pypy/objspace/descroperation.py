@@ -439,7 +439,7 @@ class DescrOperation(object):
             return default_identity_hash(space, w_obj)
         if space.is_w(w_hash, space.w_None):
             raise oefmt(space.w_TypeError,
-                        "'%T' objects are unhashable", w_obj)
+                        "unhashable type: '%T'", w_obj)
         w_result = space.get_and_call_function(w_hash, w_obj)
 
         # issue 2346 : returns now -2 for hashing -1 like cpython

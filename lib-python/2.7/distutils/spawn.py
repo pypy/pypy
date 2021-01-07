@@ -15,7 +15,7 @@ from distutils.errors import DistutilsPlatformError, DistutilsExecError
 from distutils.debug import DEBUG
 from distutils import log
 
-def spawn(cmd, search_path=1, verbose=0, dry_run=0):
+def spawn(cmd, search_path=1, verbose=0, dry_run=0, **kwargs):
     """Run another program, specified as a command list 'cmd', in a new process.
 
     'cmd' is just the argument list for the new process, ie.
@@ -37,7 +37,7 @@ def spawn(cmd, search_path=1, verbose=0, dry_run=0):
     if os.name == 'posix':
         _spawn_posix(cmd, search_path, dry_run=dry_run)
     elif os.name == 'nt':
-        _spawn_nt(cmd, search_path, dry_run=dry_run)
+        _spawn_nt(cmd, search_path, dry_run=dry_run, **kwargs)
     elif os.name == 'os2':
         _spawn_os2(cmd, search_path, dry_run=dry_run)
     else:
@@ -60,7 +60,7 @@ def _nt_quote_args(args):
             args[i] = '"%s"' % arg
     return args
 
-def _spawn_nt(cmd, search_path=1, verbose=0, dry_run=0):
+def _spawn_nt(cmd, search_path=1, verbose=0, dry_run=0, **kwargs):
     executable = cmd[0]
     if search_path:
         # either we find one or it stays the same
@@ -70,7 +70,7 @@ def _spawn_nt(cmd, search_path=1, verbose=0, dry_run=0):
         # spawn for NT requires a full path to the .exe
         try:
             import subprocess
-            rc = subprocess.call(cmd)
+            rc = subprocess.call(cmd, **kwargs)
         except OSError, exc:
             # this seems to happen when the command isn't found
             if not DEBUG:
@@ -208,7 +208,8 @@ def find_executable(executable, path=None):
     os.environ['PATH'].  Returns the complete filename or None if not found.
     """
     if path is None:
-        path = os.environ['PATH']
+        path = os.environ.get('PATH', os.defpath)
+
     paths = path.split(os.pathsep)
     base, ext = os.path.splitext(executable)
 

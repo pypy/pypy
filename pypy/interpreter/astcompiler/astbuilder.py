@@ -347,22 +347,24 @@ class ASTBuilder(object):
                 has_else = False
             elif_count /= 4
             if has_else:
+                last_elif_node = if_node.get_child(-7)
                 last_elif = if_node.get_child(-6)
                 last_elif_test = self.handle_expr(last_elif)
                 elif_body = self.handle_suite(if_node.get_child(-4))
                 else_body = self.handle_suite(if_node.get_child(-1))
                 otherwise = [ast.If(last_elif_test, elif_body, else_body,
-                                    last_elif.get_lineno(), last_elif.get_column())]
+                                    last_elif_node.get_lineno(), last_elif_node.get_column())]
                 elif_count -= 1
             else:
                 otherwise = None
             for i in range(elif_count):
                 offset = 5 + (elif_count - i - 1) * 4
+                elif_node = if_node.get_child(offset - 1)
                 elif_test_node = if_node.get_child(offset)
                 elif_test = self.handle_expr(elif_test_node)
                 elif_body = self.handle_suite(if_node.get_child(offset + 2))
                 new_if = ast.If(elif_test, elif_body, otherwise,
-                                elif_test_node.get_lineno(), elif_test_node.get_column())
+                                elif_node.get_lineno(), elif_node.get_column())
                 otherwise = [new_if]
             expr = self.handle_expr(if_node.get_child(1))
             body = self.handle_suite(if_node.get_child(3))
@@ -516,7 +518,7 @@ class ASTBuilder(object):
             dec = dec_name
         elif decorator_node.num_children() == 5:
             dec = ast.Call(dec_name, None, None, None, None,
-                           decorator_node.get_lineno(), decorator_node.get_column())
+                           dec_name.lineno, dec_name.col_offset)
         else:
             dec = self.handle_call(decorator_node.get_child(3), dec_name)
         return dec

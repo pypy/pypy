@@ -130,8 +130,11 @@ def _build_dependency(name, patches=[]):
     print('unpacking archive', archive, file=sys.stderr)
     _unpack_tarfile(archive, deps_destdir)
 
-    sources = os.path.join(deps_destdir, os.path.basename(archive)[:-7])
-    
+    sources = os.path.join(
+        deps_destdir,
+        os.path.basename(archive).rsplit('.', 2)[0],
+    )
+
     # apply any patches
     if patches:
         for patch in patches:

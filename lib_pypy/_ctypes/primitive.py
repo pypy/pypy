@@ -146,6 +146,14 @@ FROM_PARAM_BY_TYPE = {
     'P': from_param_void_p,
     }
 
+CTYPES_TO_PEP3118_TABLE = {
+    'i': {2: 'h', 4: 'i', 8: 'q'},
+    'I': {2: 'H', 4: 'I', 8: 'Q'},
+    'l': {4: 'l', 8: 'q'},
+    'L': {4: 'L', 8: 'Q'},
+    '?': {1: '?', 2: 'h', 4: 'l', 8: 'q'},
+}
+
 class SimpleType(_CDataMeta):
     def __new__(self, name, bases, dct):
         try:
@@ -157,6 +165,8 @@ class SimpleType(_CDataMeta):
                     break
             else:
                 raise AttributeError("cannot find _type_ attribute")
+        if tp == 'abstract':
+            tp = 'i'
         if (not isinstance(tp, str) or
             not len(tp) == 1 or
             tp not in SIMPLE_TYPE_CHARS):
@@ -168,7 +178,11 @@ class SimpleType(_CDataMeta):
         result._ffishape_ = tp
         result._fficompositesize_ = None
         result._ffiarray = ffiarray
-        result._format = byteorder[sys.byteorder] + tp
+        if tp in CTYPES_TO_PEP3118_TABLE:
+            pep_code = CTYPES_TO_PEP3118_TABLE[tp][_rawffi.sizeof(tp)]
+        else:
+            pep_code = tp
+        result._format = byteorder[sys.byteorder] + pep_code
         if tp == 'z':
             # c_char_p
             def _getvalue(self):
@@ -272,9 +286,19 @@ class SimpleType(_CDataMeta):
             # other code may set their own restypes. We need out own
             # restype here.
             oleaut32 = WinDLL("oleaut32")
+            import ctypes
             SysAllocStringLen = oleaut32.SysAllocStringLen
             SysStringLen = oleaut32.SysStringLen
             SysFreeString = oleaut32.SysFreeString
+            if ctypes.sizeof(ctypes.c_void_p) == 4:
+                ptype = ctypes.c_int
+            else:
+                ptype = ctypes.c_longlong
+            SysAllocStringLen.argtypes=[ptype, ctypes.c_uint]
+            SysAllocStringLen.restype = ptype
+            SysStringLen.argtypes=[ptype]
+            SysStringLen.restype = ctypes.c_uint
+            SysFreeString.argtypes=[ptype]
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
@@ -328,7 +352,7 @@ class SimpleType(_CDataMeta):
                 result.__ctype_be__ = result
                 swapped.__ctype_be__ = result
                 swapped.__ctype_le__ = swapped
-                swapped._format = '<' + tp
+                swapped._format = '<' + pep_code
             else:
                 name += '_be'
                 swapped = self.__new__(self, name, bases, dct)
@@ -336,7 +360,7 @@ class SimpleType(_CDataMeta):
                 result.__ctype_le__ = result
                 swapped.__ctype_le__ = result
                 swapped.__ctype_be__ = swapped
-                swapped._format = '>' + tp
+                swapped._format = '>' + pep_code
             from _ctypes import sizeof
             def _getval(self):
                 return swap_bytes(self._buffer[0], sizeof(self), name, 'get')
@@ -353,7 +377,8 @@ class SimpleType(_CDataMeta):
     def from_param(self, value):
         if isinstance(value, self):
             return value
-
+        if self._type_ == 'abstract':
+            raise TypeError('abstract class')
         from_param_f = FROM_PARAM_BY_TYPE.get(self._type_)
         if from_param_f:
             res = from_param_f(self, value)
@@ -387,7 +412,7 @@ class SimpleType(_CDataMeta):
 
 class _SimpleCData(_CData):
     __metaclass__ = SimpleType
-    _type_ = 'i'
+    _type_ = 'abstract'
 
     def __init__(self, value=DEFAULT_VALUE):
         if not hasattr(self, '_buffer'):

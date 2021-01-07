@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rstring
+from rpython.rlib.rarithmetic import widen
 from rpython.tool.sourcetools import func_renamer
 
 from pypy.interpreter.error import OperationError, oefmt
@@ -8,7 +9,7 @@ from pypy.interpreter.unicodehelper import (
     unicode_encode_decimal)
 from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, build_type_checkers_flags, cpython_api,
+    CANNOT_FAIL, Py_ssize_t, Py_TPFLAGS_UNICODE_SUBCLASS, cpython_api,
     bootstrap_function, CONST_STRING, INTP_real,
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
@@ -40,8 +41,11 @@ DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
 
-PyUnicode_Check, PyUnicode_CheckExact = build_type_checkers_flags("Unicode")
 
+def PyUnicode_Check(ref):
+    if not ref:
+        return False
+    return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
 
 def new_empty_unicode(space, length):
     """
@@ -228,9 +232,7 @@ def PyUnicode_AS_UNICODE(space, ref):
 def PyUnicode_AsUnicode(space, ref):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
-    # Don't use PyUnicode_Check, it will realize the object :-(
-    w_type = from_ref(space, rffi.cast(PyObject, ref.c_ob_type))
-    if not space.issubtype_w(w_type, space.w_unicode):
+    if not PyUnicode_Check(ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
@@ -292,14 +294,8 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     default_encoding[0] = '\x00'
     return 0
 
-@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
-    """Encode a Unicode object and return the result as Python object.
-    encoding and errors have the same meaning as the parameters of the same name
-    in the Unicode encode() method. The codec to be used is looked up using
-    the Python codec registry. Return NULL if an exception was raised by the
-    codec."""
-    if not PyUnicode_Check(space, w_unicode):
+def _unicode_as_encoded_object(space, pyobj, llencoding, llerrors):
+    if not PyUnicode_Check(pyobj):
         PyErr_BadArgument(space)
 
     encoding = errors = None
@@ -307,29 +303,40 @@ def PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors):
         encoding = rffi.charp2str(llencoding)
     if llerrors:
         errors = rffi.charp2str(llerrors)
+    w_unicode = from_ref(space, pyobj)
     return unicodeobject.encode_object(space, w_unicode, encoding, errors)
 
 @cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
-def PyUnicode_AsEncodedString(space, w_unicode, llencoding, llerrors):
+def PyUnicode_AsEncodedObject(space, pyobj, llencoding, llerrors):
+    """Encode a Unicode object and return the result as Python object.
+    encoding and errors have the same meaning as the parameters of the same name
+    in the Unicode encode() method. The codec to be used is looked up using
+    the Python codec registry. Return NULL if an exception was raised by the
+    codec."""
+    return _unicode_as_encoded_object(space, pyobj, llencoding, llerrors)
+
+@cpython_api([PyObject, CONST_STRING, CONST_STRING], PyObject)
+def PyUnicode_AsEncodedString(space, pyref, llencoding, llerrors):
     """Encode a Unicode object and return the result as Python string object.
     encoding and errors have the same meaning as the parameters of the same name
     in the Unicode encode() method. The codec to be used is looked up using
     the Python codec registry. Return NULL if an exception was raised by the
     codec."""
-    w_str = PyUnicode_AsEncodedObject(space, w_unicode, llencoding, llerrors)
+    w_str = _unicode_as_encoded_object(space, pyref, llencoding, llerrors)
     if not PyString_Check(space, w_str):
         raise oefmt(space.w_TypeError,
                     "encoder did not return a string object")
     return w_str
 
 @cpython_api([PyObject], PyObject)
-def PyUnicode_AsUnicodeEscapeString(space, w_unicode):
+def PyUnicode_AsUnicodeEscapeString(space, pyobj):
     """Encode a Unicode object using Unicode-Escape and return the result as Python
     string object.  Error handling is "strict". Return NULL if an exception was
     raised by the codec."""
-    if not PyUnicode_Check(space, w_unicode):
+    if not PyUnicode_Check(pyobj):
         PyErr_BadArgument(space)
 
+    w_unicode = from_ref(space, pyobj)
     return unicodeobject.encode_object(space, w_unicode, 'unicode-escape', 'strict')
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True)
@@ -470,12 +477,13 @@ def PyUnicode_Resize(space, ref, newsize):
 def make_conversion_functions(suffix, encoding, only_for_asstring=False):
     @cpython_api([PyObject], PyObject)
     @func_renamer('PyUnicode_As%sString' % suffix)
-    def PyUnicode_AsXXXString(space, w_unicode):
+    def PyUnicode_AsXXXString(space, pyobj):
         """Encode a Unicode object and return the result as Python
         string object.  Error handling is "strict".  Return NULL if an
         exception was raised by the codec."""
-        if not PyUnicode_Check(space, w_unicode):
+        if not PyUnicode_Check(pyobj):
             PyErr_BadArgument(space)
+        w_unicode = from_ref(space, pyobj)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
     globals()['PyUnicode_As%sString' % suffix] = PyUnicode_AsXXXString
 

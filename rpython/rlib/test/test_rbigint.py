@@ -8,7 +8,7 @@ from random import random, randint, sample
 import pytest
 
 from rpython.rlib import rbigint as lobj
-from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
     gcd_lehmer, lehmer_xgcd, gcd_binary)
@@ -245,6 +245,16 @@ class TestRLong(object):
                     r4 = pow(op1, op2, op3)
                     print op1, op2, op3
                     assert r3.tolong() == r4
+
+    def test_int_pow_big(self):
+        if sys.maxint < 2**32:
+            pytest.skip("64-bit only")
+        for op1 in gen_signs(int_vals):
+            rl_op1 = rbigint.fromint(op1)
+            for op2 in [2**31, 2**32-1, 2**32]:
+                r1 = rl_op1.int_pow(op2, rbigint.fromint(sys.maxint))
+                r2 = pow(op1, op2, sys.maxint)
+                assert r1.tolong() == r2
 
     def test_pow_raises(self):
         r1 = rbigint.fromint(2)
@@ -1091,6 +1101,16 @@ class TestInternalFunctions(object):
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
 
+    def test_fits_int(self):
+        assert rbigint.fromlong(0).fits_int()
+        assert rbigint.fromlong(42).fits_int()
+        assert rbigint.fromlong(-42).fits_int()
+        assert rbigint.fromlong(sys.maxint).fits_int()
+        assert not rbigint.fromlong(sys.maxint + 1).fits_int()
+        assert rbigint.fromlong(-sys.maxint - 1).fits_int()
+        assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
+        assert not rbigint.fromlong(-73786976294838206459).fits_int()
+
     def test_parse_digit_string(self):
         from rpython.rlib.rbigint import parse_digit_string
         class Parser:
@@ -1221,7 +1241,11 @@ class TestTranslated(StandaloneTests):
 
         t, cbuilder = self.compile(entry_point)
         data = cbuilder.cmdexec('hi there')
-        assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        if SHIFT == LONG_BIT-1:
+            assert data == '[%d]\n[0, 1]\n' % sys.maxint
+        else:
+            # assume 64-bit without native 128-bit type
+            assert data == '[%d, %d, 1]\n[0, 0, 2]\n' % (2**31-1, 2**31-1)
 
 class TestHypothesis(object):
     @given(longs, longs, longs)

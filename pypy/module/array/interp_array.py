@@ -816,14 +816,23 @@ class TypeCode(object):
         # hint for the annotator: track individual constant instances
         return True
 
-if rffi.sizeof(rffi.UINT) == rffi.sizeof(rffi.ULONG):
-    # 32 bits: UINT can't safely overflow into a C long (rpython int)
+if rffi.sizeof(rffi.UINT) == rffi.sizeof(lltype.Unsigned):
+    # 32 bits: UINT can't safely overflow into a lltype.Unsigned (rpython int)
     # via int_w, handle it like ULONG below
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'bigint_w')
 else:
     _UINTTypeCode = \
          TypeCode(rffi.UINT,          'int_w', True)
+if rffi.sizeof(rffi.ULONG) == rffi.sizeof(lltype.Unsigned):
+    # Overflow handled by rbigint.touint() which
+    # corresponds to lltype.Unsigned
+    _ULONGTypeCode = \
+         TypeCode(rffi.ULONG,         'bigint_w', errorname="integer")
+else:
+    # 64 bit Windows special case: ULONG is same as UINT
+    _ULONGTypeCode = \
+         TypeCode(rffi.ULONG,         'int_w', True, errorname="integer")
 types = {
     'c': TypeCode(lltype.Char,        'bytes_w', method=''),
     'u': TypeCode(lltype.UniChar,     'utf8_len_w', method=''),
@@ -834,10 +843,7 @@ types = {
     'i': TypeCode(rffi.INT,           'int_w', True, True),
     'I': _UINTTypeCode,
     'l': TypeCode(rffi.LONG,          'int_w', True, True),
-    'L': TypeCode(rffi.ULONG,         'bigint_w',   # Overflow handled by
-                  errorname="integer"),             # rbigint.touint() which
-                                                    # corresponds to the
-                                                    # C-type unsigned long
+    'L': _ULONGTypeCode,
     'f': TypeCode(lltype.SingleFloat, 'float_w', method='__float__'),
     'd': TypeCode(lltype.Float,       'float_w', method='__float__'),
     }

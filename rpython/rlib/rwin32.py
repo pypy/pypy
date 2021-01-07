@@ -11,7 +11,7 @@ from rpython.tool.udir import udir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import intmask, r_longlong
+from rpython.rlib.rarithmetic import intmask, r_longlong, widen
 from rpython.rlib import jit
 
 # This module can be imported on any platform,
@@ -30,7 +30,7 @@ class CConfig:
     _compilation_info_ = eci
 
     if WIN32:
-        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.LONG)
+        DWORD_PTR = rffi_platform.SimpleType("DWORD_PTR", rffi.UNSIGNED)
         WORD = rffi_platform.SimpleType("WORD", rffi.USHORT)
         DWORD = rffi_platform.SimpleType("DWORD", rffi.UINT)
         BOOL = rffi_platform.SimpleType("BOOL", rffi.LONG)
@@ -50,7 +50,7 @@ class CConfig:
         LPBOOL = rffi_platform.SimpleType("LPBOOL", rffi.LONGP)
         LPBYTE = rffi_platform.SimpleType("LPBYTE", rffi.UCHARP)
         SIZE_T = rffi_platform.SimpleType("SIZE_T", rffi.SIZE_T)
-        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.ULONG)
+        ULONG_PTR = rffi_platform.SimpleType("ULONG_PTR", rffi.UNSIGNED)
 
         HRESULT = rffi_platform.SimpleType("HRESULT", rffi.LONG)
         HLOCAL = rffi_platform.SimpleType("HLOCAL", rffi.VOIDP)
@@ -146,6 +146,8 @@ if WIN32:
     GENERIC_ALL      = rffi.cast(DWORD, r_longlong(0x10000000))
     FILE_SHARE_READ  = rffi.cast(DWORD, r_longlong(0x00000001))
     FILE_SHARE_WRITE = rffi.cast(DWORD, r_longlong(0x00000002))
+    ALL_READ_WRITE   = rffi.cast(DWORD, r_longlong(0xC0000003))
+    SHARE_READ_WRITE = rffi.cast(DWORD, r_longlong(0x00000003))
 
     PFILETIME = rffi.CArrayPtr(FILETIME)
 
@@ -165,7 +167,9 @@ if WIN32:
         (into the same "saved LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_rpy_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_rpy_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_saved(err):
         """Set the value of the saved LastError.  This value will be used in
@@ -188,7 +192,9 @@ if WIN32:
         (into the same "saved alt LastError" variable).
         """
         from rpython.rlib import rthread
-        return rffi.cast(lltype.Signed, rthread.tlfield_alt_lasterror.getraw())
+        # extra cast to LONG to match CPython behaviour
+        lasterror = rffi.cast(rffi.LONG, rthread.tlfield_alt_lasterror.getraw())
+        return rffi.cast(lltype.Signed, lasterror)
 
     def SetLastError_alt_saved(err):
         """Set the value of the saved alt LastError.  This value will be used in
@@ -363,7 +369,10 @@ if WIN32:
         return WindowsError(code, context)
 
     def FAILED(hr):
-        return rffi.cast(HRESULT, hr) < 0
+        # XXX convert to int before checking result
+        #     because 32-bit arithmetic is unimplemented on win64
+        #     this is fine since HRESULT is defined as (signed) LONG
+        return int(rffi.cast(HRESULT, hr)) < 0
 
     _GetModuleFileName = winexternal('GetModuleFileNameA',
                                      [HMODULE, rffi.CCHARP, DWORD],
@@ -542,7 +551,7 @@ if WIN32:
         try:
             if not _GetHandleInformation(handle, pflags):
                 raise lastSavedWindowsError("GetHandleInformation")
-            flags = pflags[0]
+            flags = widen(pflags[0])
         finally:
             lltype.free(pflags, flavor='raw')
         return (flags & HANDLE_FLAG_INHERIT) != 0
@@ -596,3 +605,12 @@ if WIN32:
     GetStringTypeW = winexternal(
         'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
         save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    _SetEnvironmentVariableW = winexternal(
+        'SetEnvironmentVariableW', [LPWSTR, LPWSTR], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def SetEnvironmentVariableW(name, value):
+        with rffi.scoped_unicode2wcharp(name) as nameWbuf:
+            with rffi.scoped_unicode2wcharp(value) as valueWbuf:
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf) 

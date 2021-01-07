@@ -245,6 +245,7 @@ class AppTestFfi:
         cls.w_sizes_and_alignments = space.wrap(dict(
             [(k, (v.c_size, v.c_alignment)) for k,v in TYPEMAP.iteritems()]))
         cls.w_float_typemap = space.wrap(TYPEMAP_FLOAT_LETTERS)
+        cls.w_is64bit = space.wrap(sys.maxint > 2147483647)
 
     def test_libload(self):
         import _rawffi
@@ -355,14 +356,15 @@ class AppTestFfi:
         A = _rawffi.Array('u')
         a = A(6, u'\u1234')
         assert a[0] == u'\u1234'
-        a[0] = u'\U00012345'
-        assert a[0] == u'\U00012345'
         a[0] = u'\ud800'
         assert a[0] == u'\ud800'
-        B = _rawffi.Array('i')
-        b = B.fromaddress(a.itemaddress(0), 1)
-        b[0] = 0xffffffff
-        raises(ValueError, "a[0]")
+        if _rawffi.sizeof('u') == 4:
+            a[0] = u'\U00012345'
+            assert a[0] == u'\U00012345'
+            B = _rawffi.Array('i')
+            b = B.fromaddress(a.itemaddress(0), 1)
+            b[0] = 0xffffffff
+            raises(ValueError, "a[0]")
         a.free()
 
     def test_returning_unicode(self):
@@ -718,7 +720,7 @@ class AppTestFfi:
         ll_to_sort = _rawffi.Array('i')(4)
         for i in range(4):
             ll_to_sort[i] = 4-i
-        qsort = libc.ptr('qsort', ['P', 'l', 'l', 'P'], None)
+        qsort = libc.ptr('qsort', ['P', 'Z', 'Z', 'P'], None)
         bogus_args = []
         def compare(a, b):
             a1 = _rawffi.Array('i').fromaddress(_rawffi.Array('P').fromaddress(a, 1)[0], 1)
@@ -729,11 +731,11 @@ class AppTestFfi:
                 return 1
             return -1
         a1 = ll_to_sort.byptr()
-        a2 = _rawffi.Array('l')(1)
+        a2 = _rawffi.Array('Z')(1)
         a2[0] = len(ll_to_sort)
-        a3 = _rawffi.Array('l')(1)
+        a3 = _rawffi.Array('Z')(1)
         a3[0] = struct.calcsize('i')
-        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'l')
+        cb = _rawffi.CallbackPtr(compare, ['P', 'P'], 'i')
         a4 = cb.byptr()
         qsort(a1, a2, a3, a4)
         res = [ll_to_sort[i] for i in range(len(ll_to_sort))]
@@ -911,7 +913,7 @@ class AppTestFfi:
         a[2] = u'z'
         assert a[0] == u'x'
         b = _rawffi.Array('c').fromaddress(a.buffer, 38)
-        if sys.maxunicode > 65535:
+        if _rawffi.sizeof('u') == 4:
             # UCS4 build
             if sys.byteorder == 'big':
                 assert b[0:8] == b'\x00\x00\x00x\x00\x00\x00y'
@@ -919,7 +921,8 @@ class AppTestFfi:
                 assert b[0:5] == b'x\x00\x00\x00y'
         else:
             # UCS2 build
-            assert b[0:2] == b'x\x00y'
+            print(b[0:4])
+            assert b[0:4] == b'x\x00y\x00'
         a.free()
 
     def test_truncate(self):
@@ -1020,8 +1023,8 @@ class AppTestFfi:
         raises(_rawffi.SegfaultException, a.__setitem__, 3, 3)
 
     def test_stackcheck(self):
-        if self.platform != "msvc":
-            skip("win32 msvc specific")
+        if self.platform != "msvc" or self.is64bit:
+            skip("32-bit win32 msvc specific")
 
         # Even if the call corresponds to the specified signature,
         # the STDCALL calling convention may detect some errors
@@ -1240,11 +1243,12 @@ class AppTestFfi:
         u = _rawffi.wcharp2rawunicode(arg.itemaddress(0), 1)
         assert u == u'\u1234'
         arg[0] = -1
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
-        arg[0] = 0x110000
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
-        raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+        if _rawffi.sizeof('u') == 4:
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
+            arg[0] = 0x110000
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0))
+            raises(ValueError, _rawffi.wcharp2rawunicode, arg.itemaddress(0), 1)
         arg.free()
 
 

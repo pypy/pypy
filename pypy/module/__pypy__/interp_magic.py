@@ -10,6 +10,7 @@ from pypy.objspace.std.setobject import W_BaseSetObject
 from pypy.objspace.std.typeobject import MethodCache
 from pypy.objspace.std.mapdict import MapAttrCache
 from rpython.rlib import rposix, rgc, rstack
+from rpython.rtyper.lltypesystem import rffi
 
 
 def internal_repr(space, w_object):
@@ -117,6 +118,19 @@ def get_console_cp(space):
         space.newtext('cp%d' % rwin32.GetConsoleCP()),
         space.newtext('cp%d' % rwin32.GetConsoleOutputCP()),
         ])
+
+@unwrap_spec(fd=int)
+def get_osfhandle(space, fd):
+    """get_osfhandle()
+
+    Return the handle corresponding to the file descriptor (windows only)
+    """
+    from rpython.rlib import rwin32    # Windows only
+    try:
+        ret = rwin32.get_osfhandle(fd)
+        return space.newint(rffi.cast(rffi.INT, ret))
+    except OSError as e:
+        raise wrap_oserror(space, e)
 
 @unwrap_spec(sizehint=int)
 def resizelist_hint(space, w_list, sizehint):

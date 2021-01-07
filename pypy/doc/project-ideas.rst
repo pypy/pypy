@@ -150,26 +150,19 @@ knowledge of the internals. Head over to `vmprof-python`_, `vmprof-server`_ and
 .. _vmprof-server: https://github.com/vmprof/vmprof-server
 .. _vmprof-integration: https://github.com/vmprof/vmprof-integration
 
-Optimized Unicode Representation
---------------------------------
-
-CPython 3.3 will use an optimized unicode representation (see :pep:`0393`) which switches between
-different ways to represent a unicode string, depending on whether the string
-fits into ASCII, has only two-byte characters or needs four-byte characters.
-
-The actual details would be rather different in PyPy, but we would like to have
-the same optimization implemented.
-
-Or maybe not.  We can also play around with the idea of using a single
-representation: as a byte string in utf-8.  (This idea needs some extra logic
-for efficient indexing, like a cache.) Work has begun on the ``unicode-utf``
-and ``unicode-utf8-py3`` branches. More is needed, for instance there are
-SIMD optimizations that are not yet used.
-
 Convert RPython to Python3
 --------------------------
 
-The world is moving on, we should too.
+The world is moving on, we should too. Work in this direction has begun on the
+``rpython3`` branch, mainly to enable building documentation with Python3. Some
+things that are known to need careful refactoring:
+
+- a single character in python3 is an int, not a byte
+- we use ``str``/``unicode`` to distiguish between different modes of
+  operation for windows in ``make_win32_traits``.
+
+There are probably more. The branch currently does not pass rpython tests so
+work is needed to back out some of the changes and redo them properly
 
 Improve performance
 -------------------
@@ -273,7 +266,10 @@ and it is hard to imagine NumPy abandoning the C-API. Here are a few ideas:
 Support more platforms
 ----------------------
 
-We have a plan for a `Windows 64`_ port.
+We have a plan for a `Windows 64`_ port. There is progress on the ``win64``
+branch. Help is needed to continue the work. Stage I is complete: we now have
+a 64-bit PyPy2.7 on windows. But it is missing cpyext and other tidbits to
+enable releasing it.
 
 .. _`Windows 64`: windows.html#what-is-missing-for-a-full-64-bit-translation
 
@@ -322,3 +318,6 @@ good work that needs to be finished:
 
     TODO: see the end of the blog post
 
+Work has begun on HPy_ to enable a faster C-API.
+
+.. _HPy: https://hpy.readthedocs.io/en/latest/

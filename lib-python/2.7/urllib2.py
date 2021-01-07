@@ -1237,6 +1237,12 @@ class AbstractHTTPHandler(BaseHandler):
                 r = h.getresponse(buffering=True)
             except TypeError: # buffering kw not supported
                 r = h.getresponse()
+            # If the server does not send us a 'Connection: close' header,
+            # HTTPConnection assumes the socket should be left open. Manually
+            # mark the socket to be closed when this response object goes away.
+            if h.sock:
+                h.sock.close()
+                h.sock = None
 
         # Pick apart the HTTPResponse object to get the addinfourl
         # object initialized properly.
@@ -1250,6 +1256,8 @@ class AbstractHTTPHandler(BaseHandler):
         # out of socket._fileobject() and into a base class.
 
         r.recv = r.read
+        r._reuse = lambda: None
+        r._drop = lambda: None
         fp = socket._fileobject(r, close=True)
 
         resp = addinfourl(fp, r.msg, req.get_full_url())

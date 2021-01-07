@@ -40,14 +40,16 @@ details of which can be found in our :ref:`contact <contact>` section. The folks
 there are very friendly, and can point you in the right direction.
 
 We give out commit rights usually fairly liberally, so if you want to do something
-with PyPy, you can become a committer. We also run frequent coding sprints which
-are separately announced and often happen around Python conferences such as
-EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
+with PyPy, you can become a "developer" by logging into https://foss.heptapod.net
+and clicking the "Request Access" link on the `PyPy group page`. We also run
+coding sprints which are separately announced and are usually announced on `the
+blog`_.
 
 Further Reading: :ref:`Contact <contact>`
 
 .. _the blog: https://morepypy.blogspot.com
 .. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
+.. _`PyPy group page`: https://foss.heptapod.net/pypy
 
 
 Your first contribution
@@ -96,27 +98,19 @@ Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
      </a>
    </h1>
 
-If you are new with Mercurial and Heptapod, you can read this `short tutorial`_
-
-.. _`short tutorial`: https://heptapod.net/pages/quick-start-guide.html
-
 Get Access
 ----------
 
-The important take-away from that tutorial for experienced developers is that
-since the free hosting on foss.heptapod.net does not allow personal forks, you
+As stated above, you need to request access to the repo.
+Since the free hosting on foss.heptapod.net does not allow personal forks, you
 need permissions to push your changes directly to our repo. Once you sign in to
 https://foss.heptapod.net using either a new login or your GitHub or Atlassian
 logins, you can get developer status for pushing directly to
 the project (just ask by clicking the link at foss.heptapod.net/pypy just under
 the logo, and you'll get it, basically).  Once you have it you can rewrite your
 file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
-Your changes will then be pushed directly to the official repo, but (if you
-follow these rules) they are still on a branch, and we can still review the
-branches you want to merge.  With developer status, you can push topic
-branches. If you wish to push long-lived branches, you will need to ask for
-higher permissions.
-
+Your changes will then be pushed directly to a branch on the official repo, and
+we will review the branches you want to merge.
 
 Clone
 -----
@@ -134,8 +128,7 @@ Clone
   then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
 
 * Now you have a complete copy of the PyPy repo.  Make a long-lived branch
-  with a command like ``hg branch name_of_your_branch``, or make a short-
-  lived branch for a simple fix with a command like ``hg topic issueXXXX``.
+  with a command like ``hg branch name_of_your_branch``.
 
 Edit
 ----

@@ -1,7 +1,7 @@
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.3", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.4", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1454,7 +1454,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
@@ -3958,6 +3958,20 @@ def test_from_buffer_types():
     with pytest.raises(ValueError):
         release(pv[0])
 
+def test_issue483():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = list(range(25))
+    bytestring = bytearray(buffer(newp(BIntA, lst))[:] + b'XYZ')
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert len(buffer(p1)) == 25 * size_of_int()
+    assert sizeof(p1) == 25 * size_of_int()
+    #
+    p2 = from_buffer(BIntP, bytestring)
+    assert sizeof(p2) == size_of_ptr()
+    assert len(buffer(p2)) == size_of_int()  # first element only, by default
+
 def test_memmove():
     Short = new_primitive_type("short")
     ShortA = new_array_type(new_pointer_type(Short), None)
@@ -4499,5 +4513,5 @@ def test_unaligned_types():
         pbuf1 = cast(new_pointer_type(p), pbuf + 1)
         pbuf1[0] = num
         assert pbuf1[0] == num
-        assert buf[0] == '\x00'
-        assert buf[1 + size] == '\x00'
+        assert buf[0] == b'\x00'
+        assert buf[1 + size] == b'\x00'

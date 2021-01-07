@@ -32,6 +32,8 @@ def mallocbuf(buffersize):
 constants = _c.constants
 locals().update(constants)  # Define constants from _c
 
+HAS_SO_PROTOCOL = hasattr(_c, 'SO_PROTOCOL')
+
 if _c.WIN32:
     from rpython.rlib import rwin32
 
@@ -1702,7 +1704,7 @@ else:
         size = sizeof(_c.in_addr)
         buf = mallocbuf(size)
         try:
-            rffi.cast(rffi.UINTP, buf)[0] = packed_addr
+            rffi.cast(rffi.UINTP, buf)[0] = rffi.cast(rffi.UINT, packed_addr)
             return ''.join([buf[i] for i in range(size)])
         finally:
             lltype.free(buf, flavor='raw')

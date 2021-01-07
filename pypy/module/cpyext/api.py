@@ -42,7 +42,7 @@ from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
@@ -131,7 +131,7 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING Py_TPFLAGS_HAVE_GETCHARBUFFER
-METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE Py_MAX_FMT
+METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
 METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
@@ -724,11 +724,13 @@ class CpyextTypeSpace(CTypeSpace):
 
 CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
 cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
-cts.parse_header(parse_dir / 'cpyext_object.h')
+cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
+cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
+cts.configure_types()
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -1369,21 +1371,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',
