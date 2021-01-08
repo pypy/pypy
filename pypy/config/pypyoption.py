@@ -70,8 +70,6 @@ if sys.platform == "win32":
         if name in translation_modules:
             translation_modules.remove(name)
 
-    if "faulthandler" in working_modules:
-        working_modules.remove("faulthandler")  # missing details
     if "_vmprof" in working_modules:
         working_modules.remove("_vmprof")  # FIXME: missing details
 
