@@ -998,7 +998,7 @@ class ASTBuilder(object):
         if not isinstance(target_expr, ast.Name):
             assert isinstance(target_expr, ast.expr)
             raise SyntaxError(
-                "cannot use assignment expressions with %s" % target_expr._description,
+                "cannot use assignment expressions with %s" % target_expr._get_descr(self.space),
                 target_expr.lineno, target_expr.col_offset)
         self.set_context(target_expr, ast.Store)
         expr = self.handle_expr(expr_node.get_child(2))

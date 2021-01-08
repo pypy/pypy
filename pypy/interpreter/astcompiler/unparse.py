@@ -83,12 +83,17 @@ class UnparseVisitor(Utf8BuilderVisitor):
                     self.space.newtext("expression type not supported yet" + str(node)))
 
     def visit_Constant(self, node):
-        if self.space.isinstance_w(node.value, self.space.bytes_w) or self.space.isinstance_w(node.value, self.space.bytes_w):
-            gen = self.space.repr
-        else:
-            gen = self.space.str
+        if self.space.is_w(node.value, self.space.w_Ellipsis):
+            return self.append_ascii("...")
 
-        self.append_w_str(gen(node.value))
+        if (
+            self.space.isinstance_w(node.value, self.space.w_bytes)
+            or self.space.isinstance_w(node.value, self.space.w_unicode)
+        ):
+            res = self.space.repr(node.value)
+        else:
+            res = self.space.str(node.value)
+        self.append_w_str(res)
 
     def visit_Name(self, node):
         self.builder.append(node.id)

@@ -24,11 +24,14 @@ class __extend__(ast.expr):
     constant = False
     _description = None
 
+    def _get_descr(self, space):
+        return self._description
+
     def as_node_list(self, space):
         return None
 
     def set_context(self, space, ctx):
-        d = self._description
+        d = self._get_descr(space)
         if d is None:
             d = "%r" % (self,)
         if ctx == ast.Del:
@@ -125,7 +128,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Constant, ast.Set):
+class __extend__(ast.Dict, ast.Set):
 
     _description = "literal"
 
@@ -150,6 +153,7 @@ class __extend__(ast.IfExp):
 class __extend__(ast.Constant):
 
     constant = True
+    _description = 'literal'
 
     def as_node_list(self, space):
         try:
@@ -160,4 +164,14 @@ class __extend__(ast.Constant):
         column = self.col_offset
         return [ast.Constant(w_obj, line, column) for w_obj in values_w]
 
-    
+    def _get_descr(self, space):
+        for singleton, name in [
+            (space.w_True, 'True'),
+            (space.w_False, 'False'),
+            (space.w_None, 'None'),
+            (space.w_Ellipsis, 'Ellipsis')
+        ]:
+            if space.is_w(self.value, singleton):
+                return name
+        return self._description
+

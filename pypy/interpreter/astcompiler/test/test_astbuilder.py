@@ -776,7 +776,7 @@ class TestAstBuilder:
         seq = self.get_first_expr("[1, 2, 3, 4, 5]")
         assert len(seq.elts) == 5
         nums = range(1, 6)
-        assert [self.space.int_w(n.n) for n in seq.elts] == nums
+        assert [self.space.int_w(n.value) for n in seq.elts] == nums
 
     def test_dict(self):
         d = self.get_first_expr("{}")
