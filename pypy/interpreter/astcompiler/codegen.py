@@ -262,7 +262,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def possible_docstring(self, node):
         if isinstance(node, ast.Expr) and self.compile_info.optimize < 2:
             expr_value = node.value
-            if isinstance(expr_value, ast.Str):
+            if isinstance(expr_value, ast.Constant) and self.space.isinstance_w(expr_value.value, self.space.w_unicode):
                 return expr_value
         return None
 
@@ -273,7 +273,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             doc_expr = None
         if doc_expr is not None:
-            self.add_const(doc_expr.s)
+            self.add_const(doc_expr.value)
             self.scope.doc_removable = True
             return True
         else:
@@ -1104,8 +1104,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.interactive:
             expr.value.walkabout(self)
             self.emit_op(ops.PRINT_EXPR)
-        elif not (isinstance(expr.value, ast.Num) or
-                  isinstance(expr.value, ast.Str)):
+        elif not isinstance(expr, ast.Constant):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
 
@@ -1133,24 +1132,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
 
-    def visit_Num(self, num):
-        self.update_position(num.lineno)
-        self.load_const(num.n)
-
-    def visit_Str(self, string):
-        self.update_position(string.lineno)
-        self.load_const(string.s)
-
-    def visit_Bytes(self, b):
-        self.update_position(b.lineno)
-        self.load_const(b.s)
-
     def visit_Constant(self, const):
         self.update_position(const.lineno)
         self.load_const(const.value)
-
-    def visit_Ellipsis(self, e):
-        self.load_const(self.space.w_Ellipsis)
 
     def visit_UnaryOp(self, op):
         self.update_position(op.lineno)
@@ -1408,10 +1392,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Name(self, name):
         self.update_position(name.lineno)
         self.name_op(name.id, name.ctx)
-
-    def visit_NameConstant(self, node):
-        self.update_position(node.lineno)
-        self.load_const(node.value)
 
     def visit_keyword(self, keyword):
         if keyword.arg is not None:

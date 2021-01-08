@@ -26,7 +26,7 @@ def syntax_warning(space, msg, fn, lineno, offset):
     _emit_syntax_warning(space, w_msg, w_filename, w_lineno, w_offset)
 
 
-def parse_future(tree, feature_flags):
+def parse_future(space, tree, feature_flags):
     from pypy.interpreter.astcompiler import ast
     future_lineno = 0
     future_column = 0
@@ -40,7 +40,11 @@ def parse_future(tree, feature_flags):
     if body is None:
         return 0, 0, 0
     for stmt in body:
-        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Str):
+        if (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Constant)
+            and space.isinstance_w(stmt.value.value, space.w_unicode)
+        ):
             if have_docstring:
                 break
             else:

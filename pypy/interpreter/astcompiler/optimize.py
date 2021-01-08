@@ -45,29 +45,6 @@ class __extend__(ast.expr):
             gen.emit_jump(ops.POP_JUMP_IF_FALSE, target, True)
 
 
-class __extend__(ast.Num):
-
-    def as_constant(self, space, compile_info):
-        return self.n
-
-
-class __extend__(ast.Str):
-
-    def as_constant(self, space, compile_info):
-        return self.s
-
-
-class __extend__(ast.Bytes):
-
-    def as_constant(self, space, compile_info):
-        return self.s
-
-
-class __extend__(ast.Ellipsis):
-    def as_constant(self, space, compile_info):
-        return space.w_Ellipsis
-
-
 class __extend__(ast.Constant):
 
     def as_constant(self, space, compile_info):
@@ -80,10 +57,6 @@ class __extend__(ast.Name):
         else:
             return None
 
-
-class __extend__(ast.NameConstant):
-    def as_constant(self, space, compile_info):
-        return self.value
 
 class __extend__(ast.Index):
     def as_constant(self, space, compile_info):
@@ -292,7 +265,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if name.id == '__debug__':
             w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
-            return ast.NameConstant(w_const, name.lineno, name.col_offset)
+            return ast.Constant(w_const, name.lineno, name.col_offset)
         return name
 
     def visit_Tuple(self, tup):

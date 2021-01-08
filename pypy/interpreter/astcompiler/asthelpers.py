@@ -125,7 +125,7 @@ class __extend__(ast.DictComp):
     _description = "dict comprehension"
 
 
-class __extend__(ast.Dict, ast.Set, ast.Str, ast.Bytes, ast.Num, ast.Constant):
+class __extend__(ast.Dict, ast.Constant, ast.Set):
 
     _description = "literal"
 
@@ -160,24 +160,4 @@ class __extend__(ast.Constant):
         column = self.col_offset
         return [ast.Constant(w_obj, line, column) for w_obj in values_w]
 
-
-class __extend__(ast.Str):
-
-    constant = True
-
-
-class __extend__(ast.Num):
-
-    constant = True
-
-
-class __extend__(ast.Ellipsis):
-
-    _description = "Ellipsis"
-    constant = True
-
-
-class __extend__(ast.NameConstant):
-
-    _description = "name constant"
-    constant = True
+    

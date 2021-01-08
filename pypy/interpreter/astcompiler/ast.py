@@ -1851,22 +1851,12 @@ class expr(AST):
             return Compare.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Call):
             return Call.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Num):
-            return Num.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Str):
-            return Str.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_RevDBMetaVar):
             return RevDBMetaVar.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_FormattedValue):
             return FormattedValue.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_JoinedStr):
             return JoinedStr.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Bytes):
-            return Bytes.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_NameConstant):
-            return NameConstant.from_object(space, w_node)
-        if space.isinstance_w(w_node, get(space).w_Ellipsis):
-            return Ellipsis.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Constant):
             return Constant.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Attribute):
@@ -2739,80 +2729,6 @@ class Call(expr):
 State.ast_type('Call', 'expr', ['func', 'args', 'keywords'])
 
 
-class Num(expr):
-
-    def __init__(self, n, lineno, col_offset):
-        self.n = n
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_Num(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Num(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Num)
-        w_n = self.n  # object
-        space.setattr(w_node, space.newtext('n'), w_n)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_n = get_field(space, w_node, 'n', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _n = w_n
-        if _n is None:
-            raise_required_value(space, w_node, 'n')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        return Num(_n, _lineno, _col_offset)
-
-State.ast_type('Num', 'expr', ['n'])
-
-
-class Str(expr):
-
-    def __init__(self, s, lineno, col_offset):
-        self.s = s
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_Str(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Str(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Str)
-        w_s = self.s  # string
-        space.setattr(w_node, space.newtext('s'), w_s)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_s = get_field(space, w_node, 's', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = check_string(space, w_s, 0)
-        if _s is None:
-            raise_required_value(space, w_node, 's')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        return Str(_s, _lineno, _col_offset)
-
-State.ast_type('Str', 'expr', ['s'])
-
-
 class RevDBMetaVar(expr):
 
     def __init__(self, metavar, lineno, col_offset):
@@ -2940,110 +2856,6 @@ class JoinedStr(expr):
         return JoinedStr(_values, _lineno, _col_offset)
 
 State.ast_type('JoinedStr', 'expr', ['values'])
-
-
-class Bytes(expr):
-
-    def __init__(self, s, lineno, col_offset):
-        self.s = s
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_Bytes(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Bytes(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Bytes)
-        w_s = self.s  # bytes
-        space.setattr(w_node, space.newtext('s'), w_s)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_s = get_field(space, w_node, 's', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _s = check_string(space, w_s, 0)
-        if _s is None:
-            raise_required_value(space, w_node, 's')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        return Bytes(_s, _lineno, _col_offset)
-
-State.ast_type('Bytes', 'expr', ['s'])
-
-
-class NameConstant(expr):
-
-    def __init__(self, value, lineno, col_offset):
-        self.value = value
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_NameConstant(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_NameConstant(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_NameConstant)
-        w_value = self.value  # singleton
-        space.setattr(w_node, space.newtext('value'), w_value)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_value = get_field(space, w_node, 'value', False)
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _value = w_value
-        if _value is None:
-            raise_required_value(space, w_node, 'value')
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        return NameConstant(_value, _lineno, _col_offset)
-
-State.ast_type('NameConstant', 'expr', ['value'])
-
-
-class Ellipsis(expr):
-
-    def __init__(self, lineno, col_offset):
-        expr.__init__(self, lineno, col_offset)
-
-    def walkabout(self, visitor):
-        visitor.visit_Ellipsis(self)
-
-    def mutate_over(self, visitor):
-        return visitor.visit_Ellipsis(self)
-
-    def to_object(self, space):
-        w_node = space.call_function(get(space).w_Ellipsis)
-        w_lineno = space.newint(self.lineno)  # int
-        space.setattr(w_node, space.newtext('lineno'), w_lineno)
-        w_col_offset = space.newint(self.col_offset)  # int
-        space.setattr(w_node, space.newtext('col_offset'), w_col_offset)
-        return w_node
-
-    @staticmethod
-    def from_object(space, w_node):
-        w_lineno = get_field(space, w_node, 'lineno', False)
-        w_col_offset = get_field(space, w_node, 'col_offset', False)
-        _lineno = obj_to_int(space, w_lineno, False)
-        _col_offset = obj_to_int(space, w_col_offset, False)
-        return Ellipsis(_lineno, _col_offset)
-
-State.ast_type('Ellipsis', 'expr', [])
 
 
 class Constant(expr):
@@ -4403,21 +4215,11 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Call(self, node):
         return self.default_visitor(node)
-    def visit_Num(self, node):
-        return self.default_visitor(node)
-    def visit_Str(self, node):
-        return self.default_visitor(node)
     def visit_RevDBMetaVar(self, node):
         return self.default_visitor(node)
     def visit_FormattedValue(self, node):
         return self.default_visitor(node)
     def visit_JoinedStr(self, node):
-        return self.default_visitor(node)
-    def visit_Bytes(self, node):
-        return self.default_visitor(node)
-    def visit_NameConstant(self, node):
-        return self.default_visitor(node)
-    def visit_Ellipsis(self, node):
         return self.default_visitor(node)
     def visit_Constant(self, node):
         return self.default_visitor(node)
@@ -4698,14 +4500,6 @@ class GenericASTVisitor(ASTVisitor):
         self.visit_sequence(node.args)
         self.visit_sequence(node.keywords)
 
-    def visit_Num(self, node):
-        self.visited(node)
-        pass
-
-    def visit_Str(self, node):
-        self.visited(node)
-        pass
-
     def visit_RevDBMetaVar(self, node):
         self.visited(node)
         pass
@@ -4719,18 +4513,6 @@ class GenericASTVisitor(ASTVisitor):
     def visit_JoinedStr(self, node):
         self.visited(node)
         self.visit_sequence(node.values)
-
-    def visit_Bytes(self, node):
-        self.visited(node)
-        pass
-
-    def visit_NameConstant(self, node):
-        self.visited(node)
-        pass
-
-    def visit_Ellipsis(self, node):
-        self.visited(node)
-        pass
 
     def visit_Constant(self, node):
         self.visited(node)
