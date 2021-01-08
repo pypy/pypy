@@ -1468,10 +1468,27 @@ class A:
     def test_walrus_operator_error_msg(self):
         with raises(SyntaxError) as info:
             self.simple_test("(() := 1)", None, None)
-        assert info.value.msg == "cannot use assignment expressions with ()"
+        assert info.value.msg == "cannot use assignment expressions with tuple"
         with raises(SyntaxError) as info:
             self.simple_test("((lambda : 1) := 1)", None, None)
         assert info.value.msg == "cannot use assignment expressions with lambda"
+
+    def test_extended_unpacking_on_flow_statements(self):
+        yield (self.simple_test, """\
+def foo(*args):
+    return 1, *args
+""", "foo(2, 3)", (1, 2, 3))
+        yield (self.simple_test, """\
+def foo(*args):
+    yield 1, *args
+""", "next(foo(2, 3))", (1, 2, 3))
+
+    def test_extended_unpacking_on_flow_statements_invalid(self):
+        with raises(SyntaxError) as info:
+            self.simple_test("""\
+def foo(*args):
+    yield from 1, *args
+""", None, None)
 
         
 class TestCompilerRevDB(BaseTestCompiler):

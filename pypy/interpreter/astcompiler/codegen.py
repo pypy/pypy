@@ -372,6 +372,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def _visit_annotations(self, func, args, returns):
         space = self.space
         names = []
+        self._visit_arg_annotations(args.posonlyargs, names)
         self._visit_arg_annotations(args.args, names)
         vararg = args.vararg
         if vararg:

@@ -544,19 +544,14 @@ def W_AST_init(space, w_self, __args__):
     fields_w = space.fixedview(space.getattr(space.type(w_self),
                                space.newtext("_fields")))
     num_fields = len(fields_w) if fields_w else 0
-    if args_w and len(args_w) != num_fields:
-        if num_fields == 0:
-            raise oefmt(space.w_TypeError,
-                "%T constructor takes 0 positional arguments", w_self)
-        elif num_fields == 1:
-            raise oefmt(space.w_TypeError,
-                "%T constructor takes either 0 or %d positional argument", w_self, num_fields)
-        else:
-            raise oefmt(space.w_TypeError,
-                "%T constructor takes either 0 or %d positional arguments", w_self, num_fields)
+    if args_w and len(args_w) > num_fields:
+        suffix = 's' if num_fields == 1 else ''
+        raise oefmt(space.w_TypeError,
+            "%T constructor takes at most %d positional argument%s", w_self,
+            num_fields, suffix)
     if args_w:
-        for i, w_field in enumerate(fields_w):
-            space.setattr(w_self, w_field, args_w[i])
+        for w_field, w_arg in zip(fields_w, args_w):
+            space.setattr(w_self, w_field, w_arg)
     for field, w_value in kwargs_w.iteritems():
         space.setattr(w_self, space.newtext(field), w_value)
 
