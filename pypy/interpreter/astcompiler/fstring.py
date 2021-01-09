@@ -17,8 +17,8 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node,
             if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
                 w_string = space.add(prev.value, w_string)
                 del joined_pieces[-1]                
-    joined_pieces.append(ast.Constant(w_string, space.wrap(kind), atom_node.get_lineno(),
-                                                                  atom_node.get_column()))
+    joined_pieces.append(ast.Constant(w_string, space.newtext_or_none(kind), atom_node.get_lineno(),
+                                                                             atom_node.get_column()))
 
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
