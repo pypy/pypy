@@ -40,15 +40,13 @@ def parse_future(space, tree, feature_flags):
     if body is None:
         return 0, 0, 0
     for stmt in body:
-        if (
-            isinstance(stmt, ast.Expr)
-            and isinstance(stmt.value, ast.Constant)
-            and space.isinstance_w(stmt.value.value, space.w_unicode)
-        ):
-            if have_docstring:
-                break
-            else:
-                have_docstring = True
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+            assert isinstance(stmt.value, ast.Constant)
+            if space.isinstance_w(stmt.value.value, space.w_unicode):
+                if have_docstring:
+                    break
+                else:
+                    have_docstring = True
         elif isinstance(stmt, ast.ImportFrom):
             if stmt.module == "__future__":
                 future_lineno = stmt.lineno
