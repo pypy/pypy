@@ -41,8 +41,9 @@ def parse_future(space, tree, feature_flags):
         return 0, 0, 0
     for stmt in body:
         if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
-            assert isinstance(stmt.value, ast.Constant)
-            if space.isinstance_w(stmt.value.value, space.w_unicode):
+            constant = stmt.value
+            assert isinstance(constant, ast.Constant)
+            if space.isinstance_w(constant.value, space.w_unicode):
                 if have_docstring:
                     break
                 else:
