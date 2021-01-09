@@ -1105,7 +1105,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.interactive:
             expr.value.walkabout(self)
             self.emit_op(ops.PRINT_EXPR)
-        elif not isinstance(expr, ast.Constant):
+        elif not isinstance(expr.value, ast.Constant):
             expr.value.walkabout(self)
             self.emit_op(ops.POP_TOP)
 
