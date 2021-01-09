@@ -9,18 +9,20 @@ from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp_attrproperty_w)
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module.cpyext.api import (
-    CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_NOARGS, METH_O,
-    METH_STATIC, METH_VARARGS, PyObject, bootstrap_function,
-    cpython_api, generic_cpy_call, CANNOT_FAIL, slot_function, cts,
-    build_type_checkers)
+    CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
+    METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS,
+    PyObject, bootstrap_function, cpython_api, generic_cpy_call,
+    CANNOT_FAIL, slot_function, cts, build_type_checkers)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
-from pypy.module.cpyext.tupleobject import tuple_from_args_w
+from pypy.module.cpyext.tupleobject import tuple_from_args_w, PyTupleObject
 
 PyMethodDef = cts.gettype('PyMethodDef')
 PyCFunction = cts.gettype('PyCFunction')
+PyCFunctionFast = cts.gettype('_PyCFunctionFast')
 PyCFunctionKwArgs = cts.gettype('PyCFunctionWithKeywords')
+PyCFunctionKwArgsFast = cts.gettype('_PyCFunctionFastWithKeywords')
 PyCFunctionObject = cts.gettype('PyCFunctionObject*')
 
 @bootstrap_function
@@ -56,6 +58,21 @@ def w_kwargs_from_args(space, __args__):
         w_obj = __args__.keywords_w[i]
         space.setitem(w_kwargs, space.newtext(key), w_obj)
     return w_kwargs
+
+def w_fastcall_args_from_args(space, __args__):
+    # Similar to the above, but pack keys into a tuple and positional and
+    # keyword arguments into a single tuple object (to be passed raw)
+    state = space.fromcache(State)
+
+    if __args__.keywords is not None and len(__args__.keywords) > 0:
+        py_args = tuple_from_args_w(space, __args__.arguments_w + __args__.keywords_w)
+        w_kwnames = space.newtuple([space.newtext(k) for k in __args__.keywords])
+    else:
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
+        w_kwnames = None
+
+    py_args = rffi.cast(PyTupleObject, py_args)
+    return py_args, len(__args__.arguments_w), w_kwnames
 
 def undotted_name(name):
     """Return the last component of a dotted name"""
@@ -109,7 +126,11 @@ class W_PyCFunctionObject(W_Root):
         if not flags & METH_KEYWORDS and __args__.keywords:
             raise oefmt(space.w_TypeError,
                         "%s() takes no keyword arguments", self.name)
-        if flags & METH_KEYWORDS:
+        elif flags & METH_FASTCALL:
+            if flags & METH_KEYWORDS:
+                return self.call_keywords_fastcall(space, w_self, __args__)
+            return self.call_varargs_fastcall(space, w_self, __args__)
+        elif flags & METH_KEYWORDS:
             return self.call_keywords(space, w_self, __args__)
         elif flags & METH_NOARGS:
             if length == 0:
@@ -145,12 +166,30 @@ class W_PyCFunctionObject(W_Root):
         finally:
             decref(space, py_args)
 
+    def call_varargs_fastcall(self, space, w_self, __args__):
+        func = rffi.cast(PyCFunctionFast, self.ml.c_ml_meth)
+        py_args, len_args, _ = w_fastcall_args_from_args(space, __args__)
+        try:
+            return generic_cpy_call(space, func, w_self,
+                                    py_args.c_ob_item, len_args)
+        finally:
+            decref(space, py_args)
+
     def call_keywords(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgs, self.ml.c_ml_meth)
         py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwargs = w_kwargs_from_args(space, __args__)
         try:
             return generic_cpy_call(space, func, w_self, py_args, w_kwargs)
+        finally:
+            decref(space, py_args)
+
+    def call_keywords_fastcall(self, space, w_self, __args__):
+        func = rffi.cast(PyCFunctionKwArgsFast, self.ml.c_ml_meth)
+        py_args, len_args, w_kwnames = w_fastcall_args_from_args(space, __args__)
+        try:
+            return generic_cpy_call(space, func, w_self,
+                                    py_args.c_ob_item, len_args, w_kwnames)
         finally:
             decref(space, py_args)
 

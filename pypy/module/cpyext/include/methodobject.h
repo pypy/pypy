@@ -27,6 +27,10 @@ extern "C" {
 
 #define METH_COEXIST   0x0040
 
+#if !defined(Py_LIMITED_API) || Py_LIMITED_API+0 >= 0x03100000
+#define METH_FASTCALL  0x0080
+#endif
+
 #define PyCFunction_New(ml, self) PyCFunction_NewEx((ml), (self), NULL)
 
 /* Macros for direct access to these values. Type checks are *not*
