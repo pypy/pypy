@@ -1,8 +1,9 @@
+import pytest
 from rpython.flowspace.model import const
 from rpython.flowspace.objspace import build_flow
 from rpython.translator.simplify import simplify_graph
 from rpython.rtyper.lltypesystem import rffi, lltype
-from pypy.module.cpyext.cparser import parse_source, CTypeSpace
+from rpython.tool.cparser import parse_source, CTypeSpace
 
 def test_configure():
     decl = """
@@ -25,6 +26,17 @@ def test_simple():
     decl = "typedef ssize_t Py_ssize_t;"
     cts = parse_source(decl)
     assert cts.definitions == {'Py_ssize_t': rffi.SSIZE_T}
+
+def test_win64():
+    decl = """
+    #ifdef _WIN64
+    typedef long long Py_ssize_t;
+    #else
+    typedef long Py_ssize_t;
+    #endif
+    """
+    cts = parse_source(decl)
+    assert cts.definitions == {'Py_ssize_t': rffi.SIGNED}
 
 def test_macro():
     decl = """
@@ -114,15 +126,15 @@ def test_incomplete():
     } Buffer;
 
     """
-    cts = parse_source(cdef)
-    Object = cts.gettype('Object')
-    assert isinstance(Object, lltype.Struct)
+    cts = CTypeSpace()
+    cts.parse_source(cdef, configure=False)
+    with pytest.raises(ValueError):
+        cts.configure_types()
 
 def test_incomplete_struct():
     cdef = """
     typedef struct s *ptr;
     struct s {void* x;};
-    typedef struct s __s;  // HACK!
     """
     cts = parse_source(cdef)
     PTR = cts.gettype("ptr")
@@ -166,6 +178,17 @@ def test_nested_struct():
     bar = cts.gettype('bar')
     assert isinstance(bar, lltype.Struct)
     hash(bar)  # bar is hashable
+
+def test_named_struct():
+    cdef = """
+    struct foo {
+        int x;
+    };
+    """
+    cts = parse_source(cdef)
+    foo = cts.gettype('struct foo')
+    assert isinstance(foo, lltype.Struct)
+    hash(foo)
 
 def test_const():
     cdef = """
@@ -255,23 +278,6 @@ def test_struct_in_func_args():
     FUNCPTR = cts.gettype('func')
     assert FUNCPTR.TO.ARGS == (OBJ,)
 
-def test_write_func():
-    from ..api import ApiFunction
-    from rpython.translator.c.database import LowLevelDatabase
-    db = LowLevelDatabase()
-    cdef = """
-    typedef ssize_t Py_ssize_t;
-    """
-    cts = parse_source(cdef)
-    cdecl = "Py_ssize_t * some_func(Py_ssize_t*)"
-    decl = cts.parse_func(cdecl)
-    api_function = ApiFunction(
-        decl.get_llargs(cts), decl.get_llresult(cts), lambda space, x: None,
-        cdecl=decl)
-    assert (api_function.get_api_decl('some_func', db) ==
-            "PyAPI_FUNC(Py_ssize_t *) some_func(Py_ssize_t * arg0);")
-
-
 def test_wchar_t():
     cdef = """
     typedef struct { wchar_t* x; } test;
@@ -279,7 +285,7 @@ def test_wchar_t():
     cts = parse_source(cdef, headers=['stddef.h'])
     obj = lltype.malloc(cts.gettype('test'), flavor='raw')
     obj.c_x = cts.cast('wchar_t*', 0)
-    obj.c_x =  lltype.nullptr(rffi.CWCHARP.TO)
+    obj.c_x = lltype.nullptr(rffi.CWCHARP.TO)
     lltype.free(obj, flavor='raw')
 
 def test_translate_cast():

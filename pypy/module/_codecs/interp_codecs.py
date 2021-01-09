@@ -792,8 +792,12 @@ def utf_8_decode(space, string, errors="strict", w_final=None):
         errors = 'strict'
     final = space.is_true(w_final)
     state = space.fromcache(CodecState)
+    if errors == 'surrogatepass':
+        allow_surrogates = True
+    else:
+        allow_surrogates = False
     res, lgt, pos = unicodehelper.str_decode_utf8(string,
-        errors, final, state.decode_error_handler)
+        errors, final, state.decode_error_handler, allow_surrogates=allow_surrogates)
     return space.newtuple([space.newutf8(res, lgt),
                            space.newint(pos)])
 

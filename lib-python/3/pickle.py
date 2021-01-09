@@ -35,7 +35,19 @@ import re
 import io
 import codecs
 import _compat_pickle
-
+try:
+    from __pypy__.builders import BytesBuilder
+except ImportError:
+    class BytesBuilder():
+        def __init__(self):
+            self.builder = io.BytesIO()
+        def __len__(self):
+            return self.builder.tell()
+        def build(self):
+            return self.builder.getbuffer()
+        def append(self, data):
+            self.builder.write(data)
+ 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
@@ -191,18 +203,18 @@ class _Framer:
         self.current_frame = None
 
     def start_framing(self):
-        self.current_frame = io.BytesIO()
+        self.current_frame = BytesBuilder()
 
     def end_framing(self):
-        if self.current_frame and self.current_frame.tell() > 0:
+        if self.current_frame and len(self.current_frame) > 0:
             self.commit_frame(force=True)
             self.current_frame = None
 
     def commit_frame(self, force=False):
-        if self.current_frame:
+        if self.current_frame is not None:
             f = self.current_frame
-            if f.tell() >= self._FRAME_SIZE_TARGET or force:
-                data = f.getbuffer()
+            if len(f) >= self._FRAME_SIZE_TARGET or force:
+                data = f.build()
                 write = self.file_write
                 if len(data) >= self._FRAME_SIZE_MIN:
                     # Issue a single call to the write method of the underlying
@@ -216,15 +228,16 @@ class _Framer:
                 # memory copy.
                 write(data)
 
-                # Start the new frame with a new io.BytesIO instance so that
+                # Start the new frame with a new BytesBuilder instance so that
                 # the file object can have delayed access to the previous frame
                 # contents via an unreleased memoryview of the previous
-                # io.BytesIO instance.
-                self.current_frame = io.BytesIO()
+                # BytesBuilder instance.
+                self.current_frame = BytesBuilder()
 
     def write(self, data):
-        if self.current_frame:
-            return self.current_frame.write(data)
+        if self.current_frame is not None:
+            self.current_frame.append(data)
+            return len(data)
         else:
             return self.file_write(data)
 
@@ -850,10 +863,6 @@ class _Pickler:
                 return
 
     def save_dict(self, obj):
-        modict_saver = self._pickle_maybe_moduledict(obj)
-        if modict_saver is not None:
-            return self.save_reduce(*modict_saver)
-
         if self.bin:
             self.write(EMPTY_DICT)
         else:   # proto 0 -- can't use EMPTY_DICT
@@ -896,22 +905,6 @@ class _Pickler:
             # else tmp is empty, and we're done
             if n < self._BATCHSIZE:
                 return
-
-    def _pickle_maybe_moduledict(self, obj):
-        # save module dictionary as "getattr(module, '__dict__')"
-        from types import ModuleType
-        try:
-            name = obj['__name__']
-            if type(name) is not str:
-                return None
-            themodule = sys.modules[name]
-            if type(themodule) is not ModuleType:
-                return None
-            if themodule.__dict__ is not obj:
-                return None
-        except (AttributeError, KeyError, TypeError):
-            return None
-        return getattr, (themodule, '__dict__')
 
     def save_set(self, obj):
         save = self.save

@@ -72,7 +72,7 @@ def utf8_encode_locale_surrogateescape(utf8, ulen):
     """Encode unicode via the locale codecs (POSIX wcstombs) with the
     surrogateescape handler.
 
-    The errorhandler is never called
+    The errorhandler raises a UnicodeEncodeError
     """
     errorhandler = default_unicode_error_encode
 

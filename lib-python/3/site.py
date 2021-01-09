@@ -243,6 +243,13 @@ def check_enableusersite():
 #
 # See https://bugs.python.org/issue29585
 
+# Copy of sysconfig._get_implementation()
+def _get_implementation():
+    if '__pypy__' in sys.builtin_module_names:
+        return 'PyPy'
+    return 'Python'
+
+
 # Copy of sysconfig._getuserbase()
 def _getuserbase():
     env_base = os.environ.get("PYTHONUSERBASE", None)
@@ -254,7 +261,7 @@ def _getuserbase():
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        return joinuser(base, "Python")
+        return joinuser(base, _get_implementation())
 
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,

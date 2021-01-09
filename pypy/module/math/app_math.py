@@ -57,7 +57,10 @@ def remainder(x, y):
 
     from math import copysign, fabs, fmod, isfinite, isinf, isnan, nan
 
-    x = float(x)
+    try:
+        x = float(x)
+    except ValueError:
+        raise TypeError("must be real number, not %s" % (type(x).__name__, ))
     y = float(y)
 
     # Deal with most common case first.
@@ -128,4 +131,4 @@ def remainder(x, y):
         raise ValueError("math domain error")
     assert isinf(y)
     return x
- 
+

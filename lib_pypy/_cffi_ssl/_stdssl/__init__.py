@@ -1456,8 +1456,8 @@ class _SSLContext(object):
         if not callable(cb):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
-        self.scb = ServernameCallback(cb, self)
-        sni_cb = ffi.new_handle(self.scb)
+        self._sni_cb = ServernameCallback(cb, self)
+        sni_cb = ffi.new_handle(self._sni_cb)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
         lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
 

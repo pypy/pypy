@@ -890,6 +890,18 @@ a = A()
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
+    def test_bare_except_not_last(self):
+        source = """if 1:
+        try:
+           pass
+        except:
+            pass
+        except ValueError:
+            pass
+        """
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, None, None)
+
     def test_unpack_singletuple(self):
         source = """if 1:
         l = []
@@ -1403,7 +1415,17 @@ x = f(*(%s))
         yield self.simple_test, source1, 'x', sum(range(300))
         yield self.simple_test, source2, 'x', sum(range(300))
 
+    def test_bug_crash_annotations(self):
+        yield self.simple_test, """\
+            def func():
+                bar = None
+                class Foo:
+                    bar: int = 0  # removing type annotation make the error disappear
+                    def get_bar(self):
+                        return bar
+        """, '1', 1
 
+        
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 

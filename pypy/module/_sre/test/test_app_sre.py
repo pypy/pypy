@@ -29,6 +29,8 @@ class AppTestSrePy:
     def test_codesize(self):
         import _sre
         assert _sre.getcodesize() == _sre.CODESIZE
+        # in py3.7, it should always be 4
+        assert _sre.CODESIZE == 4
 
 
 class AppTestSrePattern:
@@ -39,11 +41,11 @@ class AppTestSrePattern:
     spaceconfig = {'usemodules': ['itertools']}
 
     def test_copy(self):
-        # copy support is disabled by default in _sre.c
+        # new in 3.7
         import re
         p = re.compile("b")
-        raises(TypeError, p.__copy__)        # p.__copy__() should raise
-        raises(TypeError, p.__deepcopy__)    # p.__deepcopy__() should raise
+        assert p.__copy__() is p
+        assert p.__deepcopy__("whatever") is p
 
     def test_creation_attributes(self):
         import re
@@ -93,7 +95,7 @@ class AppTestSrePattern:
         assert ["a", "u"] == re.findall("b(.)", "abalbus")
         assert [("a", "l"), ("u", "s")] == re.findall("b(.)(.)", "abalbus")
         assert [("a", ""), ("s", "s")] == re.findall("b(a|(s))", "babs")
-        assert ['', '', '', ''] == re.findall("X??", "1X4")   # changes in 3.7
+        assert ['', '', 'X', '', ''] == re.findall("X??", "1X4")  # new in 3.7
 
     def test_findall_unicode(self):
         import re
@@ -182,10 +184,10 @@ class AppTestSreMatch:
 
     def test_copy(self):
         import re
-        # copy support is disabled by default in _sre.c
+        # new in 3.7
         m = re.match("bla", "bla")
-        raises(TypeError, m.__copy__)
-        raises(TypeError, m.__deepcopy__)
+        assert m.__copy__() is m
+        assert m.__deepcopy__("whatever") is m
 
     def test_match_attributes(self):
         import re
@@ -351,6 +353,11 @@ class AppTestSreMatch:
         assert re.sub(b'a', bytearray(b'A'), b'axa') == b'AxA'
         # this fails on CPython 3.5:
         assert re.sub(b'a', bytearray(b'\\n'), b'axa') == b'\nx\n'
+
+    def test_sub_emptymatch(self):
+        import re
+        assert re.sub(r"b*", "*", "abc") == "*a**c*"
+
     def test_match_array(self):
         import re, array
         a = array.array('b', b'hello')
@@ -364,7 +371,12 @@ class AppTestSreMatch:
     def test_match_repr(self):
         import re
         m = re.search("ab+c", "xabbbcd")
-        assert repr(m) == "<_sre.SRE_Match object; span=(1, 6), match='abbbc'>"
+        assert repr(m) == "<re.Match object; span=(1, 6), match='abbbc'>"
+
+    def test_unicode_iscased(self):
+        import _sre
+        assert _sre.unicode_iscased(64261)
+        assert not _sre.unicode_iscased(32)
 
     def test_group_bugs(self):
         import re
@@ -465,8 +477,9 @@ class AppTestSreScanner:
     def test_scanner_empty_match(self):
         import re, sys
         p = re.compile("a??").scanner("bac")
-        assert ("", "", "", "") == (p.search().group(0), p.search().group(0),
-                                    p.search().group(0), p.search().group(0))
+        assert ("", "", "a", "", "") == (
+            p.search().group(0), p.search().group(0), p.search().group(0),
+            p.search().group(0), p.search().group(0))
         assert None == p.search()
 
     def test_no_pattern(self):
@@ -496,21 +509,6 @@ class AppTestGetlower:
         UPPER_AE = "\xc4"
         s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, UPPER_AE),
             ("\u00c4", "\u00c4"), ("\u4444", "\u4444")], 0)
-
-    def test_getlower_locale(self):
-        s = self.s
-        import locale, sre_constants
-        UPPER_AE = "\xc4"
-        LOWER_AE = "\xe4"
-        UPPER_PI = "\u03a0"
-        try:
-            locale.setlocale(locale.LC_ALL, "de_DE")
-            s.assert_lower_equal([("a", "a"), ("A", "a"), (UPPER_AE, LOWER_AE),
-                ("\u00c4", "\u00e4"), (UPPER_PI, UPPER_PI)],
-                sre_constants.SRE_FLAG_LOCALE)
-        except locale.Error:
-            # skip test
-            skip("unsupported locale de_DE")
 
     def test_getlower_unicode(self):
         s = self.s
@@ -1117,10 +1115,14 @@ class AppTestOptimizations:
         assert re.search(".+ab", "wowowowawoabwowo")
         assert None == re.search(".+ab", "wowowaowowo")
 
-    def test_split_nonempty(self):
+    def test_split_empty(self):
         import re
-        raises(ValueError, re.split, '', '')
-        re.split("a*", '')    # -> warning
+        assert re.split('', '') == ['', '']
+        assert re.split('', 'ab') == ['', 'a', 'b', '']
+        assert re.split('a*', '') == ['', '']
+        assert re.split('a*', 'a') == ['', '', '']
+        assert re.split('a*', 'aa') == ['', '', '']
+        assert re.split('a*', 'baaac') == ['', 'b', '', 'c', '']
 
     def test_type_names(self):
         import re

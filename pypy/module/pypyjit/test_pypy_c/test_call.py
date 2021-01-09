@@ -573,7 +573,7 @@ class TestCall(BaseTestPyPyC):
         calls = [op for op in allops if op.name.startswith('call')]
         assert OpMatcher(calls).match('''
         p93 = call_r(ConstClass(view_as_kwargs), p35, p12, descr=<.*>)
-        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, 0, p94, p98, 0, descr=<.*>)
         ''')
         assert len([op for op in allops if op.name.startswith('new')]) == 1
         # 1 alloc

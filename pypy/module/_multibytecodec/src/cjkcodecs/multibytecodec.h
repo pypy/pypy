@@ -9,7 +9,7 @@
 #include <assert.h>
 
 #ifdef _WIN64
-typedef __int64 pypymbc_ssize_t
+typedef __int64 pypymbc_ssize_t;
 #elif defined(_WIN32)
 typedef int pypymbc_ssize_t;
 #else

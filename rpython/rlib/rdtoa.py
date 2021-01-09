@@ -39,7 +39,7 @@ eci = ExternalCompilationInfo(
 _INT_LIMIT = 0x7ffff000
 
 dg_strtod = rffi.llexternal(
-    '_PyPy_dg_strtod', [rffi.CCHARP, rffi.CCHARPP], rffi.DOUBLE,
+    '_PyPy_dg_strtod', [rffi.CONST_CCHARP, rffi.CCHARPP], rffi.DOUBLE,
     compilation_info=eci, sandboxsafe=True)
 
 dg_dtoa = rffi.llexternal(
@@ -62,7 +62,7 @@ def strtod(input):
         # break some tests because this function is used by the GC
         ll_input, llobj, flag = rffi.get_nonmovingbuffer_ll_final_null(input)
         try:
-            result = dg_strtod(ll_input, end_ptr)
+            result = dg_strtod(rffi.cast(rffi.CONST_CCHARP, ll_input), end_ptr)
 
             endpos = (rffi.cast(lltype.Signed, end_ptr[0]) -
                       rffi.cast(lltype.Signed, ll_input))

@@ -123,25 +123,6 @@ def encode(space, w_data, encoding=None, errors='strict'):
 
 
 # These functions take and return unwrapped rpython strings
-def decode_unicode_escape(space, string):
-    from pypy.module._codecs import interp_codecs
-    state = space.fromcache(interp_codecs.CodecState)
-    unicodedata_handler = state.get_unicodedata_handler(space)
-    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
-        string, "strict",
-        final=True,
-        errorhandler=state.decode_error_handler,
-        ud_handler=unicodedata_handler)
-    if first_escape_error_char is not None:
-        msg = "invalid escape sequence '%s'"
-        try:
-            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
-        except OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
-            else:
-                raise
-    return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(
@@ -373,10 +354,6 @@ if _WIN32:
         res, size = win32.str_decode_mbcs(s, errors, errorhandler, final=final)
         return res, size, size
 
-    def str_decode_utf8(s, errors, final, errorhandler):
-        res, size = win32.str_decode_utf8(s, errors, errorhandler, final=final)
-        return res, size, size
-
     def utf8_encode_oem(s, errors, errorhandler, allow_surrogates=False):
         res = win32.utf8_encode_oem(s, errors, errorhandler)
         return res
@@ -405,7 +382,11 @@ def str_decode_utf8(s, errors, final, errorhandler, allow_surrogates=False):
 def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
     """ Same as checking for the valid utf8, but we know the utf8 is not
     valid so we're trying to either raise or pack stuff with error handler.
-    The key difference is that this is call_may_force
+    The key difference is that this is call_may_force.
+
+    In CPython this is done in unicode_decode_utf8, which has no
+    allow_surrogates. That argument is used in at least decode_utf8sp, in
+    interpreter.error._compute_value.
     """
     if errors is None:
         errors = 'strict'
@@ -422,11 +403,6 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
 
         n = ord(runicode._utf8_code_length[ordch1 - 0x80])
         if pos + n > len(s):
-            if not (final or errors in ('replace', 'ignore', 'surrogateescape')):
-                # These error handlers operate on a character-by-character basis
-                # so they disable "final=False" (they are special cased in
-                # PyUnicode_DecodeUTF8Stateful)
-                break
             # argh, this obscure block of code is mostly a copy of
             # what follows :-(
             charsleft = len(s) - pos - 1 # either 0, 1, 2
@@ -435,6 +411,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
             # in case we need to continue running this loop
             if not charsleft:
                 # there's only the start byte and nothing else
+                if not final:
+                    break
                 r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+1)
@@ -452,6 +430,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
                     continue
                 else:
                     # second byte valid, but third byte missing
+                    if not final:
+                        break
                     r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+2)
@@ -475,6 +455,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
                     continue
                 else:
                     # there's only 1 or 2 valid cb, but the others are missing
+                    if not final:
+                        break
                     r, pos, rettype, s = errorhandler(errors, 'utf-8',
                                       'unexpected end of data',
                                       s, pos, pos+charsleft+1)
@@ -724,7 +706,7 @@ def wcharpsize2utf8(space, wcharp, size):
     """
     if _WIN32:
         import pypy.interpreter.unicodehelper_win32 as win32
-        # wcharp is actually utf16 
+        # wcharp is actually utf16
         return win32._unibuf_to_utf8(wcharp, size)
     else:
         try:

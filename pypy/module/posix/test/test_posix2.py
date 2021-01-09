@@ -12,9 +12,7 @@ from pypy.interpreter.gateway import interp2app
 from rpython.translator.c.test.test_extfunc import need_sparse_files
 from rpython.rlib import rposix
 
-USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time']
-if os.name != 'nt':
-    USEMODULES += ['_socket']
+USEMODULES = ['binascii', 'posix', 'signal', 'struct', 'time', '_socket']
 
 def setup_module(mod):
     mod.space = gettestobjspace(usemodules=USEMODULES)
@@ -524,16 +522,6 @@ class AppTestPosix:
             os.write(master_fd, b'abc\n')
             _, status = os.waitpid(childpid, 0)
             assert status >> 8 == 42
-
-    if hasattr(__import__(os.name), '_getfullpathname'):
-        def test__getfullpathname(self):
-            # nt specific
-            posix = self.posix
-            sysdrv = posix.environ.get("SystemDrive", "C:")
-            # just see if it does anything
-            path = sysdrv + 'hubber'
-            assert '\\' in posix._getfullpathname(path)
-            assert type(posix._getfullpathname(b'C:')) is bytes
 
     def test_utime(self):
         os = self.posix
@@ -1629,6 +1617,7 @@ class AppTestPosix:
         retU = [x.name for x in self.posix.scandir(u'.')]
         retP = [x.name for x in self.posix.scandir(self.Path('.'))]
         assert retU == retP
+
     def test_execv_no_args(self):
         posix = self.posix
         with raises(ValueError):
@@ -1637,6 +1626,13 @@ class AppTestPosix:
         with raises(ValueError):
             posix.execve("notepad", [], {})
 
+    def test_execv_bad_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", ('',))
+        with raises(OSError):
+            posix.execv("notepad", (' ',))
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):
@@ -1644,6 +1640,15 @@ class AppTestNt(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))
         cls.w_posix = space.appexec([], GET_POSIX)
+        cls.w_Path = space.appexec([], """():
+            class Path:
+                def __init__(self, _path):
+                    self._path =_path
+                def __fspath__(self):
+                    return self._path
+            return Path
+            """)
+
 
     def test_handle_inheritable(self):
         import _socket
@@ -1655,6 +1660,32 @@ class AppTestNt(object):
             posix.set_handle_inheritable(s.fileno(), True)
             assert posix.get_handle_inheritable(s.fileno())
 
+    def test__getfullpathname(self):
+        # issue 3343
+        nt = self.posix
+        path = nt._getfullpathname(self.path)
+        assert self.path in path
+        path = nt._getfullpathname(self.Path(self.path))
+        assert self.path in path
+
+        # now as bytes
+        bpath = self.path.encode()
+        path = nt._getfullpathname(bpath)
+        assert bpath in path
+        path = nt._getfullpathname(self.Path(bpath))
+        assert bpath in path
+
+        with raises(TypeError):
+            nt._getfullpathname(None)
+
+        with raises(TypeError):
+            nt._getfullpathname(1)
+
+        sysdrv = nt.environ.get("SystemDrive", "C:")
+        # just see if it does anything
+        path = sysdrv + 'hubber'
+        assert '\\' in nt._getfullpathname(path)
+        assert type(nt._getfullpathname(b'C:')) is bytes
 
 class AppTestEnvironment(object):
     def setup_class(cls):

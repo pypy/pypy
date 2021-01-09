@@ -242,8 +242,8 @@ def signal(space, signum, w_handler):
 
 
 @jit.dont_look_inside
-@unwrap_spec(fd="c_int")
-def set_wakeup_fd(space, fd):
+@unwrap_spec(fd="c_int", warn_on_full_buffer=bool)
+def set_wakeup_fd(space, fd, __kwonly__, warn_on_full_buffer=True):
     """Sets the fd to be written to (with the signal number) when a signal
     comes in.  Returns the old fd.  A library can use this to
     wakeup select or poll.  The previous fd is returned.
@@ -272,7 +272,10 @@ def set_wakeup_fd(space, fd):
             raise oefmt(space.w_ValueError,
                         "the fd %d must be in non-blocking mode", fd)
 
-    old_fd = pypysig_set_wakeup_fd(fd, False)
+    flags = 0
+    if not warn_on_full_buffer:
+        flags |= PYPYSIG_NO_WARN_FULL
+    old_fd = pypysig_set_wakeup_fd(fd, flags)
     return space.newint(intmask(old_fd))
 
 

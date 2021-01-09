@@ -4,7 +4,7 @@ import functools
 
 from rpython.rlib.objectmodel import specialize
 from rpython.rlib.rarithmetic import intmask
-from rpython.rlib.rbigint import SHIFT, _widen_digit, rbigint
+from rpython.rlib.rbigint import SHIFT, _load_unsigned_digit, rbigint
 from rpython.tool.sourcetools import func_renamer, func_with_new_name
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -395,19 +395,32 @@ class W_LongObject(W_AbstractLongObject):
     descr_divmod, descr_rdivmod = _make_descr_binop(_divmod, _int_divmod)
 
 
+# In _hash_long we would like to shift intermediate results by SHIFT.
+# Since HASH_MODULUS is a Mersenne prime, the result is congruent
+# to shifting by (SHIFT % HASH_BITS).  A smaller shift amount lets
+# us apply extra optimizations to the hash function.
+_HASH_SHIFT = SHIFT % HASH_BITS
+
 def _hash_long(space, v):
     i = v.numdigits() - 1
     if i == -1:
         return 0
 
     # compute v % HASH_MODULUS
-    x = _widen_digit(0)
+    x = _load_unsigned_digit(0)
     while i >= 0:
-        x = (x << SHIFT) + v.widedigit(i)
-        # efficient x % HASH_MODULUS: as HASH_MODULUS is a Mersenne
-        # prime
-        x = (x & HASH_MODULUS) + (x >> HASH_BITS)
-        while x >= HASH_MODULUS:
+        # This computes (x << _HASH_SHIFT) + v.udigit(i) modulo HASH_MODULUS
+        # efficiently and without overflow, as HASH_MODULUS is a Mersenne
+        # prime.  See detailed explanation in CPython function long_hash
+        # in longobject.c.
+        # Basically, to compute (x << _HASH_SHIFT) modulo HASH_MODULUS,
+        # we rotate it left by _HASH_SHIFT.  Then, if SHIFT <= HASH_BITS,
+        # after adding v.udigit(i), the result is at most 2*HASH_MODULUS-1.
+        x = ((x << _HASH_SHIFT) & HASH_MODULUS) + (x >> HASH_BITS - _HASH_SHIFT)
+        x += v.udigit(i)
+        if SHIFT > HASH_BITS:
+            x = (x & HASH_MODULUS) + (x >> HASH_BITS)
+        if x >= HASH_MODULUS:
             x -= HASH_MODULUS
         i -= 1
     h = intmask(intmask(x) * v.sign)

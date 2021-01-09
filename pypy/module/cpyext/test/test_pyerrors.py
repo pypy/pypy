@@ -85,7 +85,8 @@ class TestExceptions(BaseApiTest):
         api.PyErr_WriteUnraisable(w_where)
         space.call_method(space.sys.get('stderr'), "flush")
         out, err = capfd.readouterr()
-        assert "Exception ignored in: 'location'\nValueError: message" == err.strip()
+        msg = err.strip().replace('\r', '')
+        assert msg == "Exception ignored in: 'location'\nValueError: message"
 
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
@@ -237,6 +238,7 @@ class AppTestFetch(AppTestCpythonExtensionBase):
         try:
             module.set_from_errno()
         except OSError as e:
+            print(e.errno, errno.EBADF)
             assert e.errno == errno.EBADF
             assert e.strerror == os.strerror(errno.EBADF)
             assert e.filename is None

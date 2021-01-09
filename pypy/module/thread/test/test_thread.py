@@ -95,6 +95,9 @@ class AppTestThread(GenericTestThread):
 
     def test_thread_exit(self):
         import _thread, sys, io
+        # preemptively import trackback to speed up the call to fn3,
+        # which relies on the space.appexec in error.py:write_unraisable
+        import traceback
         def fn1():
             _thread.exit()
         def fn2():

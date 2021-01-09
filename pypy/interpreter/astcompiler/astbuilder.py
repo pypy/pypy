@@ -125,6 +125,26 @@ class ASTBuilder(object):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
                           filename=self.compile_info.filename)
 
+    def deprecation_warn(self, msg, n):
+        from pypy.module._warnings.interp_warnings import warn_explicit
+        space = self.space
+        try:
+            warn_explicit(
+                space, space.newtext(msg),
+                space.w_DeprecationWarning,
+                space.newtext(self.compile_info.filename),
+                n.get_lineno(),
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                space.w_None,
+                )
+        except error.OperationError as e:
+            if e.match(space, space.w_DeprecationWarning):
+                self.error(msg, n)
+            else:
+                raise
+
     def check_forbidden_name(self, name, node):
         try:
             misc.check_forbidden_name(self.space, name)
@@ -332,22 +352,24 @@ class ASTBuilder(object):
                 has_else = False
             elif_count /= 4
             if has_else:
+                last_elif_node = if_node.get_child(-7)
                 last_elif = if_node.get_child(-6)
                 last_elif_test = self.handle_expr(last_elif)
                 elif_body = self.handle_suite(if_node.get_child(-4))
                 else_body = self.handle_suite(if_node.get_child(-1))
                 otherwise = [ast.If(last_elif_test, elif_body, else_body,
-                                    last_elif.get_lineno(), last_elif.get_column())]
+                                    last_elif_node.get_lineno(), last_elif_node.get_column())]
                 elif_count -= 1
             else:
                 otherwise = None
             for i in range(elif_count):
                 offset = 5 + (elif_count - i - 1) * 4
+                elif_node = if_node.get_child(offset - 1)
                 elif_test_node = if_node.get_child(offset)
                 elif_test = self.handle_expr(elif_test_node)
                 elif_body = self.handle_suite(if_node.get_child(offset + 2))
                 new_if = ast.If(elif_test, elif_body, otherwise,
-                                elif_test_node.get_lineno(), elif_test_node.get_column())
+                                elif_node.get_lineno(), elif_node.get_column())
                 otherwise = [new_if]
             expr = self.handle_expr(if_node.get_child(1))
             body = self.handle_suite(if_node.get_child(3))

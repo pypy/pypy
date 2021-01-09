@@ -677,11 +677,15 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_cache_from_source(self):
         import imp, sys
+        if sys.platform == 'win32':
+            sep = '\\'
+        else:
+            sep = '/'
         tag = sys.implementation.cache_tag
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile == 'a/b/__pycache__/c.%s.pyc' % tag
+        assert pycfile == sep.join(('a/b', '__pycache__', 'c.%s.pyc' % tag))
         assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
-                                     ) == 'a/b/c.py'
+                                     ) == sep.join(('a/b', 'c.py'))
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
     @pytest.mark.skip("sys.version_info > (3, 6)")

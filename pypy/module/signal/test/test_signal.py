@@ -30,6 +30,7 @@ class TestCheckSignals:
         assert not space.is_true(w_received)
         #
         # calling ec.checksignals() should call it
+        print(space.getexecutioncontext().checksignals)
         space.getexecutioncontext().checksignals()
         assert space.is_true(w_received)
 
@@ -208,7 +209,7 @@ class AppTestSignal:
         flags = flags | posix.O_NONBLOCK
         fcntl.fcntl(fd_read, fcntl.F_SETFL, flags)
         #
-        old_wakeup = signal.set_wakeup_fd(fd_write)
+        old_wakeup = signal.set_wakeup_fd(fd_write, warn_on_full_buffer=False)
         try:
             cannot_read()
             posix.kill(posix.getpid(), signal.SIGINT)

@@ -24,7 +24,7 @@ from pypy.module.cpyext.api import (
     Py_TPPYPYFLAGS_FLOAT_SUBCLASS,
     )
 
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 from pypy.module.cpyext.methodobject import (W_PyCClassMethodObject,
     PyCFunction_NewEx, PyCFunction, PyMethodDef,
     W_PyCMethodObject, W_PyCFunctionObject, extract_doc, extract_txtsig,
@@ -44,14 +44,12 @@ from pypy.module.cpyext.typeobjectdefs import (
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 
 
-
 #WARN_ABOUT_MISSING_SLOT_FUNCTIONS = False
 
 PyType_Check, PyType_CheckExact = build_type_checkers_flags("Type")
 
 PyHeapTypeObject = cts.gettype('PyHeapTypeObject *')
 
-cts.parse_header(parse_dir / "cpyext_descrobject.h")
 cts.parse_header(parse_dir / "typeslots.h")
 
 
@@ -62,7 +60,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         doc = fset = fget = fdel = None
         if doc:
             # XXX dead code?
-            doc = rffi.charp2str(getset.c_doc)
+            doc = rffi.constcharp2str(getset.c_doc)
         if getset.c_get:
             fget = GettersAndSetters.getter.im_func
         if getset.c_set:
@@ -71,7 +69,7 @@ class W_GetSetPropertyEx(GetSetProperty):
         GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
                                 tag="cpyext_1")
-        self.name = rffi.charp2str(getset.c_name)
+        self.name = rffi.constcharp2str(getset.c_name)
 
     def readonly_attribute(self, space):   # overwritten
         raise oefmt(space.w_AttributeError,
@@ -79,17 +77,19 @@ class W_GetSetPropertyEx(GetSetProperty):
             self.name, self.w_type)
 
 
-def PyDescr_NewGetSet(space, getset, w_type):
+def PyDescr_NewGetSet(space, w_type, getset):
+    # Note the arguments are reversed
     return W_GetSetPropertyEx(getset, w_type)
 
 def make_GetSet(space, getsetprop):
     py_getsetdef = lltype.malloc(PyGetSetDef, flavor='raw')
     doc = getsetprop.doc
     if doc:
-        py_getsetdef.c_doc = rffi.str2charp(doc)
+        py_getsetdef.c_doc = rffi.cast(rffi.CONST_CCHARP, rffi.str2charp(doc))
     else:
-        py_getsetdef.c_doc = rffi.cast(rffi.CCHARP, 0)
-    py_getsetdef.c_name = rffi.str2charp(getsetprop.getname(space))
+        py_getsetdef.c_doc = rffi.cast(rffi.CONST_CCHARP, 0)
+    py_getsetdef.c_name = rffi.cast(rffi.CONST_CCHARP,
+                                    rffi.str2charp(getsetprop.getname(space)))
     # XXX FIXME - actually assign these !!!
     py_getsetdef.c_get = cts.cast('getter', 0)
     py_getsetdef.c_set = cts.cast('setter', 0)
@@ -101,12 +101,12 @@ class W_MemberDescr(GetSetProperty):
     name = 'member_descriptor'
     def __init__(self, member, w_type):
         self.member = member
-        self.name = rffi.charp2str(member.c_name)
+        self.name = rffi.constcharp2str(member.c_name)
         self.w_type = w_type
         flags = rffi.cast(lltype.Signed, member.c_flags)
         doc = set = None
         if member.c_doc:
-            doc = rffi.charp2str(member.c_doc)
+            doc = rffi.constcharp2str(member.c_doc)
         get = GettersAndSetters.member_getter.im_func
         del_ = GettersAndSetters.member_delete.im_func
         if not (flags & structmemberdefs.READONLY):
@@ -246,8 +246,8 @@ def convert_getset_defs(space, dict_w, getsets, w_type):
             name = getset.c_name
             if not name:
                 break
-            name = rffi.charp2str(name)
-            w_descr = PyDescr_NewGetSet(space, getset, w_type)
+            name = rffi.constcharp2str(name)
+            w_descr = PyDescr_NewGetSet(space, w_type, getset)
             dict_w[name] = w_descr
 
 def convert_member_defs(space, dict_w, members, w_type):
@@ -259,7 +259,7 @@ def convert_member_defs(space, dict_w, members, w_type):
             name = member.c_name
             if not name:
                 break
-            name = rffi.charp2str(name)
+            name = rffi.constcharp2str(name)
             w_descr = W_MemberDescr(member, w_type)
             dict_w[name] = w_descr
             i += 1
@@ -330,7 +330,7 @@ def fill_slot(space, pto, w_type, slot_names, slot_func_helper):
         struct = getattr(pto, slot_names[0])
         if not struct:
             #assert not space.config.translating
-            assert not pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+            assert not widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
             if slot_names[0] == 'c_tp_as_number':
                 STRUCT_TYPE = PyNumberMethods
             elif slot_names[0] == 'c_tp_as_sequence':
@@ -384,7 +384,7 @@ def add_operators(space, w_type, dict_w, pto, name):
                               offset=offset[:])
         dict_w[method_name] = w_obj
     if pto.c_tp_doc:
-        raw_doc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+        raw_doc = rffi.constcharp2str(pto.c_tp_doc)
         dict_w['__doc__'] = space.newtext_or_none(extract_doc(raw_doc, name))
     if pto.c_tp_new:
         add_tp_new_wrapper(space, dict_w, pto)
@@ -450,25 +450,27 @@ def inherit_special(space, pto, w_obj, base_pto):
         pto.c_tp_itemsize = base_pto.c_tp_itemsize
 
     #/* Setup fast subclass flags */
+    flags = widen(pto.c_tp_flags)
     if space.issubtype_w(w_obj, space.w_BaseException):
-        pto.c_tp_flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
+        flags |= Py_TPFLAGS_BASE_EXC_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_type):
-        pto.c_tp_flags |= Py_TPFLAGS_TYPE_SUBCLASS
+        flags |= Py_TPFLAGS_TYPE_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_int):
-        pto.c_tp_flags |= Py_TPFLAGS_LONG_SUBCLASS
+        flags |= Py_TPFLAGS_LONG_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_bytes):
-        pto.c_tp_flags |= Py_TPFLAGS_BYTES_SUBCLASS
+        flags |= Py_TPFLAGS_BYTES_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_unicode):
-        pto.c_tp_flags |= Py_TPFLAGS_UNICODE_SUBCLASS
+        flags |= Py_TPFLAGS_UNICODE_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_tuple):
-        pto.c_tp_flags |= Py_TPFLAGS_TUPLE_SUBCLASS
+        flags |= Py_TPFLAGS_TUPLE_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_list):
-        pto.c_tp_flags |= Py_TPFLAGS_LIST_SUBCLASS
+        flags |= Py_TPFLAGS_LIST_SUBCLASS
     elif space.issubtype_w(w_obj, space.w_dict):
-        pto.c_tp_flags |= Py_TPFLAGS_DICT_SUBCLASS
+        flags |= Py_TPFLAGS_DICT_SUBCLASS
     # the following types are a pypy-specific extensions, using tp_pypy_flags
     elif space.issubtype_w(w_obj, space.w_float):
-        pto.c_tp_pypy_flags |= Py_TPPYPYFLAGS_FLOAT_SUBCLASS
+        pto.c_tp_pypy_flags = rffi.cast(rffi.LONG, widen(pto.c_tp_pypy_flags) | Py_TPPYPYFLAGS_FLOAT_SUBCLASS)
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, flags)
 
 def check_descr(space, w_self, w_type):
     if not space.isinstance_w(w_self, w_type):
@@ -538,7 +540,7 @@ class W_PyCTypeObject(W_TypeObject):
         bases_w = space.fixedview(from_ref(space, pto.c_tp_bases))
         dict_w = {}
 
-        name = rffi.charp2str(cts.cast('char*', pto.c_tp_name))
+        name = rffi.constcharp2str(pto.c_tp_name)
         add_operators(space, self, dict_w, pto, name)
         convert_method_defs(space, dict_w, pto.c_tp_methods, self)
         convert_getset_defs(space, dict_w, pto.c_tp_getset, self)
@@ -551,7 +553,7 @@ class W_PyCTypeObject(W_TypeObject):
                 key = space.text_w(w_key)
                 dict_w[key] = space.getitem(w_dict, w_key)
 
-        flag_heaptype = pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE
+        flag_heaptype = widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE
         if flag_heaptype:
             minsize = rffi.sizeof(PyHeapTypeObject.TO)
         else:
@@ -568,7 +570,7 @@ class W_PyCTypeObject(W_TypeObject):
         elif pto.c_tp_as_mapping and pto.c_tp_as_mapping.c_mp_subscript:
             self.flag_map_or_seq = 'M'
         if pto.c_tp_doc:
-            rawdoc = rffi.charp2str(cts.cast('char*', pto.c_tp_doc))
+            rawdoc = rffi.constcharp2str(pto.c_tp_doc)
             self.w_doc = space.newtext_or_none(extract_doc(rawdoc, name))
             self.text_signature = extract_txtsig(rawdoc, name)
 
@@ -594,7 +596,7 @@ def type_dealloc(space, obj):
     decref(space, obj_pto.c_tp_mro)
     decref(space, obj_pto.c_tp_cache) # let's do it like cpython
     decref(space, obj_pto.c_tp_dict)
-    if obj_pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    if widen(obj_pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
         heaptype = rffi.cast(PyHeapTypeObject, obj)
         decref(space, heaptype.c_ht_name)
         decref(space, heaptype.c_ht_qualname)
@@ -607,7 +609,7 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
     metatype = rffi.cast(PyTypeObjectPtr, make_ref(space, w_metatype))
     # Don't increase refcount for non-heaptypes
     if metatype:
-        flags = rffi.cast(lltype.Signed, metatype.c_tp_flags)
+        flags = widen(metatype.c_tp_flags)
         if not flags & Py_TPFLAGS_HEAPTYPE:
             decref(space, metatype)
 
@@ -618,7 +620,7 @@ def type_alloc(typedescr, space, w_metatype, itemsize=0):
     pto.c_ob_refcnt = 1
     pto.c_ob_pypy_link = 0
     pto.c_ob_type = metatype
-    pto.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_HEAPTYPE)
     pto.c_tp_as_async = heaptype.c_as_async
     pto.c_tp_as_number = heaptype.c_as_number
     pto.c_tp_as_sequence = heaptype.c_as_sequence
@@ -648,7 +650,7 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     pto.c_tp_free = state.C.PyObject_Free
     pto.c_tp_alloc = state.C.PyType_GenericAlloc
     builder = state.builder
-    if ((pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE) != 0
+    if ((widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE) != 0
             and builder.cpyext_type_init is None):
             # this ^^^ is not None only during startup of cpyext.  At that
             # point we might get into troubles by doing make_ref() when
@@ -705,15 +707,15 @@ def type_attach(space, py_obj, w_type, w_userdata=None):
     if not pto.c_tp_new:
         base_object_pyo = make_ref(space, space.w_object)
         base_object_pto = rffi.cast(PyTypeObjectPtr, base_object_pyo)
-        flags = rffi.cast(lltype.Signed, pto.c_tp_flags)
+        flags = widen(pto.c_tp_flags)
         if pto.c_tp_base != base_object_pto or flags & Py_TPFLAGS_HEAPTYPE:
                 pto.c_tp_new = pto.c_tp_base.c_tp_new
         decref(space, base_object_pyo)
-    pto.c_tp_flags |= Py_TPFLAGS_READY
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return pto
 
 def py_type_ready(space, pto):
-    if pto.c_tp_flags & Py_TPFLAGS_READY:
+    if widen(pto.c_tp_flags) & Py_TPFLAGS_READY:
         return
     type_realize(space, rffi.cast(PyObject, pto))
 
@@ -724,14 +726,14 @@ def PyType_Ready(space, pto):
 
 def type_realize(space, py_obj):
     pto = rffi.cast(PyTypeObjectPtr, py_obj)
-    assert pto.c_tp_flags & Py_TPFLAGS_READY == 0
-    assert pto.c_tp_flags & Py_TPFLAGS_READYING == 0
-    pto.c_tp_flags |= Py_TPFLAGS_READYING
+    assert widen(pto.c_tp_flags) & Py_TPFLAGS_READY == 0
+    assert widen(pto.c_tp_flags) & Py_TPFLAGS_READYING == 0
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READYING)
     try:
         w_obj = _type_realize(space, py_obj)
     finally:
-        pto.c_tp_flags &= ~Py_TPFLAGS_READYING
-    pto.c_tp_flags |= Py_TPFLAGS_READY
+        pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) & ~Py_TPFLAGS_READYING)
+    pto.c_tp_flags = rffi.cast(rffi.ULONG, widen(pto.c_tp_flags) | Py_TPFLAGS_READY)
     return w_obj
 
 def solid_base(space, w_type):
@@ -825,7 +827,7 @@ def finish_type_1(space, pto, bases_w=None):
     """
     base = pto.c_tp_base
     base_pyo = rffi.cast(PyObject, base)
-    if base and not base.c_tp_flags & Py_TPFLAGS_READY:
+    if base and not widen(base.c_tp_flags) & Py_TPFLAGS_READY:
         type_realize(space, base_pyo)
     if base and not pto.c_ob_type: # will be filled later
         pto.c_ob_type = base.c_ob_type
@@ -835,7 +837,7 @@ def finish_type_1(space, pto, bases_w=None):
                 bases_w = []
             else:
                 bases_w = [from_ref(space, base_pyo)]
-        is_heaptype = bool(pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE)
+        is_heaptype = bool(widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE)
         pto.c_tp_bases = make_ref(space, space.newtuple(bases_w),
                                   immortal=not is_heaptype)
 
@@ -926,9 +928,8 @@ def PyType_FromSpecWithBases(space, spec, bases):
     res = state.ccall("PyType_GenericAlloc", p_type, 0)
     res = cts.cast('PyHeapTypeObject *', res)
     typ = res.c_ht_type
-    typ.c_tp_flags = rffi.cast(lltype.Unsigned, spec.c_flags)
-    typ.c_tp_flags |= Py_TPFLAGS_HEAPTYPE
-    specname = rffi.charp2str(cts.cast('char*', spec.c_name))
+    typ.c_tp_flags = rffi.cast(rffi.ULONG, widen(spec.c_flags) | Py_TPFLAGS_HEAPTYPE)
+    specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
     if dotpos < 0:
         name = specname
@@ -960,7 +961,7 @@ def PyType_FromSpecWithBases(space, spec, bases):
         bases_w = space.fixedview(from_ref(space, bases))
     w_base = best_base(space, bases_w)
     base = cts.cast('PyTypeObject*', make_ref(space, w_base))
-    if False:  # not base.c_tp_flags & Py_TPFLAGS_BASETYPE:
+    if False:  # not widen(base.c_tp_flags) & Py_TPFLAGS_BASETYPE:
         raise oefmt(space.w_TypeError,
             "type '%s' is not an acceptable base type",
             rffi.charp2str(base.c_tp_name))
@@ -1003,7 +1004,7 @@ def PyType_GetSlot(space, typ, slot):
     """ Use the Py_tp* macros in typeslots.h to return a slot function
     """
     slot = widen(slot)
-    if slot < 0 or not typ.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    if slot < 0 or not widen(typ.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
         raise oefmt(space.w_SystemError, "Bad internal call!")
     heapobj = rffi.cast(PyHeapTypeObject, typ)
     return get_ht_slot(heapobj, slot)

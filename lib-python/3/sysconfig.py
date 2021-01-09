@@ -116,6 +116,8 @@ _CONFIG_VARS = None
 _USER_BASE = None
 
 
+# NOTE: site.py has copy of this function.
+# Sync it when modify this function.
 def _get_implementation():
     if '__pypy__' in sys.builtin_module_names:
         return 'PyPy'
@@ -226,7 +228,7 @@ def _getuserbase():
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        return joinuser(base, "Python")
+        return joinuser(base, _get_implementation())
 
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,
@@ -373,7 +375,7 @@ def get_makefile_filename():
 
 
 def _get_sysconfigdata_name():
-    # FIXME: temporary hack for PyPy
+    # FIXME: hack for PyPy
     return '_sysconfigdata'
     return os.environ.get('_PYTHON_SYSCONFIGDATA_NAME',
         '_sysconfigdata_{abi}_{platform}_{multiarch}'.format(
@@ -617,9 +619,6 @@ def get_config_vars(*args):
         if sys.platform == 'darwin':
             import _osx_support
             _osx_support.customize_config_vars(_CONFIG_VARS)
-
-        _CONFIG_VARS['INCLUDEPY'] = os.path.join(_CONFIG_VARS['prefix'],
-                                                 'include')
 
     if args:
         vals = []

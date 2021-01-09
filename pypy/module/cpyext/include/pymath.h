@@ -63,7 +63,7 @@ functions and constants
 
 /* Py_IS_FINITE(X)
  * Return 1 if float or double arg is neither infinite nor NAN, else 0.
- * Some compilers (e.g. VisualStudio) have intrisics for this, so a special
+ * Some compilers (e.g. VisualStudio) have intrinsics for this, so a special
  * macro for this particular test is useful
  */
 #ifndef Py_IS_FINITE

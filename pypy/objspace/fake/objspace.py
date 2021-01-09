@@ -15,6 +15,7 @@ from pypy.tool.option import make_config
 from pypy.interpreter import argument, gateway
 from pypy.interpreter.baseobjspace import W_Root, ObjSpace, SpaceCache
 from pypy.interpreter.buffer import StringBuffer, SimpleView
+from pypy.interpreter.mixedmodule import MixedModule
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.objspace.std.sliceobject import W_SliceObject
 
@@ -74,8 +75,10 @@ class W_MyListObj(W_MyObject):
 class W_UnicodeOjbect(W_MyObject):
     _length = 21
     _utf8 = 'foobar'
+
     def _index_to_byte(self, at):
         return NonConstant(42)
+
     def _len(self):
         return self._length
 
@@ -256,6 +259,9 @@ class FakeObjSpace(ObjSpace):
     def newutf8(self, x, l):
         return w_some_obj()
 
+    def eq_w(self, obj1, obj2):
+        return NonConstant(True)
+
     @specialize.argtype(1)
     def newtext(self, x, lgt=-1):
         return W_UnicodeOjbect()
@@ -336,6 +342,15 @@ class FakeObjSpace(ObjSpace):
     def gettypeobject(self, typedef):
         assert typedef is not None
         see_typedef(self, typedef)
+        return w_some_type()
+
+    def getitem(self, w_obj, w_name):
+        is_root(w_obj)
+        is_root(w_name)
+        if isinstance(w_obj, FakeModules):
+            # For reset_lazy_initial_values,
+            # need to pretend we return a MixedModule object
+            return FakeMixedModule()
         return w_some_type()
 
     def type(self, w_obj):
@@ -461,8 +476,18 @@ class FakeObjSpace(ObjSpace):
 
 
     def setup(space):
+        from pypy.module.exceptions import interp_exceptions
+        obj_space_exceptions = ObjSpace.ExceptionTable
+        # Add subclasses of the ExceptionTable errors
+        for name, exc in interp_exceptions.__dict__.items():
+            if (isinstance(exc, type) and
+                issubclass(exc, interp_exceptions.W_BaseException)):
+                name = name.replace("W_", "")
+                if name not in obj_space_exceptions:
+                    obj_space_exceptions.append(name)
+
         for name in (ObjSpace.ConstantTable +
-                     ObjSpace.ExceptionTable +
+                     obj_space_exceptions +
                      BUILTIN_TYPES):
             if name != "str":
                 setattr(space, 'w_' + name, w_some_obj())
@@ -471,7 +496,7 @@ class FakeObjSpace(ObjSpace):
         space.w_type = w_some_type()
         #
         for (name, _, arity, _) in ObjSpace.MethodTable:
-            if name == 'type':
+            if name in ('type', 'getitem'):
                 continue
             args = ['w_%d' % i for i in range(arity)]
             params = args[:]
@@ -512,13 +537,19 @@ class FakePyCode(W_Root):
     def exec_code(self, space, w_globals, w_locals):
         return W_Root()
 
+class FakeMixedModule(MixedModule):
+    def __init__(self):
+        pass
+
+class FakeModules(W_Root):
+    pass
 
 class FakeModule(W_Root):
     def __init__(self):
         self.w_dict = w_some_obj()
     def get(self, name):
         name + "xx"   # check that it's a string
-        return w_some_obj()
+        return FakeModules()
     def setmodule(self, w_mod):
         is_root(w_mod)
 FakeObjSpace.sys = FakeModule()

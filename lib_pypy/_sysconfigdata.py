@@ -5,6 +5,7 @@ from distutils.spawn import find_executable
 
 so_ext = _imp.extension_suffixes()[0]
 
+mybase = os.path.dirname(os.path.dirname(__file__))
 
 build_time_vars = {
     # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
@@ -25,7 +26,8 @@ build_time_vars = {
     'AR': "ar",
     'ARFLAGS': "rc",
     'EXE': "",
-    'LIBDIR': os.path.join(sys.prefix, 'bin'),
+    'LIBDIR': os.path.join(mybase, 'lib'),
+    'INCLUDEPY': os.path.join(mybase, 'include'),
 }
 
 if find_executable("gcc"):

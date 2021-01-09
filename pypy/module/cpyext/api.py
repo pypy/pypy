@@ -15,6 +15,7 @@ from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.rlib import jit, rutf8
+from rpython.rlib.rarithmetic import widen
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -43,7 +44,7 @@ from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
@@ -143,6 +144,10 @@ PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'BYTES'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
+#pystrtod.h flags
+for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
+    constant_names.append('Py_DTSF_%s' % name)
 
 # PyPy-specific flags
 for name in ('FLOAT',):
@@ -622,6 +627,7 @@ SYMBOLS_C = [
 
     'PyStructSequence_InitType', 'PyStructSequence_InitType2',
     'PyStructSequence_New', 'PyStructSequence_UnnamedField',
+    'PyStructSequence_NewType',
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
@@ -740,11 +746,13 @@ class CpyextTypeSpace(CTypeSpace):
 
 CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
 cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
-cts.parse_header(parse_dir / 'cpyext_object.h')
+cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
+cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
+cts.configure_types()
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -847,7 +855,7 @@ def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
         from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
         "Implements the Py_Xxx_Check function"
         if is_pyobj(pto):
-            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+            return (widen(pto.c_ob_type.c_tp_flags) & tp_flag) == tp_flag
         w_obj_type = space.type(pto)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
@@ -1380,21 +1388,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',
@@ -1656,8 +1659,9 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    w_path = space.getattr(w_spec, space.newtext("origin"))
     name = space.text_w(w_name)
-    path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
+    path = space.text_w(w_path)
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -1672,7 +1676,6 @@ def create_extension_module(space, w_spec):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None

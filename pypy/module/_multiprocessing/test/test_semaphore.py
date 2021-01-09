@@ -90,6 +90,31 @@ class AppTestSemaphore:
         sem.release()
         sem.release()
 
+    def test_semaphore_maxvalue(self):
+        from _multiprocessing import SemLock
+        import sys
+        kind = self.SEMAPHORE
+        value = SemLock.SEM_VALUE_MAX
+        maxvalue = SemLock.SEM_VALUE_MAX
+        sem = SemLock(kind, value, maxvalue, "3.0", unlink=True)
+
+        for i in range(10):
+            res = sem.acquire()
+            assert res == True
+            assert sem._count() == i+1
+            if sys.platform != 'darwin':
+                assert sem._get_value() == maxvalue - (i+1)
+
+        value = 0
+        maxvalue = SemLock.SEM_VALUE_MAX
+        sem = SemLock(kind, value, maxvalue, "3.1", unlink=True)
+
+        for i in range(10):
+            sem.release()
+            assert sem._count() == -(i+1)
+            if sys.platform != 'darwin':
+                assert sem._get_value() == i+1
+
     def test_semaphore_wait(self):
         from _multiprocessing import SemLock
         kind = self.SEMAPHORE

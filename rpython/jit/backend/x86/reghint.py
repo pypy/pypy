@@ -8,7 +8,7 @@ from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     ebp, r8, r9, r10, r11, r12, r13, r14, r15, xmm0, xmm1, xmm2, xmm3, xmm4,
     xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14,
     X86_64_SCRATCH_REG, X86_64_XMM_SCRATCH_REG,)
-from rpython.jit.backend.x86 import rx86
+from rpython.jit.backend.x86 import rx86, callbuilder
 
 from rpython.jit.backend.llsupport.regalloc import (SAVE_DEFAULT_REGS,
      SAVE_GCREF_REGS, SAVE_ALL_REGS)
@@ -199,8 +199,8 @@ class CallHints32(object):
 
 
 class CallHints64(CallHints32):
-    ARGUMENTS_GPR = [edi, esi, edx, ecx, r8, r9]
-    ARGUMENTS_XMM = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7]
+    ARGUMENTS_GPR = callbuilder.CallBuilder64.ARGUMENTS_GPR
+    ARGUMENTS_XMM = callbuilder.CallBuilder64.ARGUMENTS_XMM
 
     RegisterManager = X86_64_RegisterManager
     XMMRegisterManager = X86_64_XMMRegisterManager

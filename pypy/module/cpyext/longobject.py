@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rbigint import rbigint, InvalidSignednessError
+from rpython.rlib.rarithmetic import maxint
 from pypy.module.cpyext.api import (
     cpython_api, PyObject, build_type_checkers_flags, Py_ssize_t,
     CONST_STRING, ADDR, CANNOT_FAIL, INTP_real)
@@ -46,6 +47,11 @@ def PyLong_FromUnsignedLongLong(space, val):
     or NULL on failure."""
     return space.newlong_from_rarith_int(val)
 
+ULONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
+LONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG) - 1) -1)
+LONG_MIN = (-2 ** (8 * rffi.sizeof(rffi.ULONG) - 1))
+need_to_check = maxint > ULONG_MAX
+
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLong(space, w_long):
     """
@@ -53,11 +59,17 @@ def PyLong_AsUnsignedLong(space, w_long):
     If pylong is greater than ULONG_MAX, an OverflowError is
     raised."""
     try:
-        return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+        val = space.uint_w(w_long)
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
+    if need_to_check and val > ULONG_MAX:
+        # On win64 space.uint_w will succeed for 8-byte ints
+        # but long is 4 bytes. So we must check manually
+        raise oefmt(space.w_OverflowError,
+                    "int too large to convert to C unsigned long")
+    return rffi.cast(rffi.ULONG, val)
 
 @cpython_api([PyObject], rffi.ULONG, error=-1)
 def PyLong_AsUnsignedLongMask(space, w_long):
@@ -73,7 +85,13 @@ def PyLong_AsLong(space, w_long):
     Get a C long int from an int object or any object that has an __int__
     method.  Return -1 and set an error if overflow occurs.
     """
-    return space.int_w(space.int(w_long))
+    val = space.int_w(space.int(w_long))
+    if need_to_check and val > LONG_MAX or val < LONG_MIN:
+        # On win64 space.uint_w will succeed for 8-byte ints
+        # but long is 4 bytes. So we must check manually
+        raise oefmt(space.w_OverflowError,
+                    "int too large to convert to C long")
+    return val
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
 def PyLong_AsSsize_t(space, w_long):
@@ -123,6 +141,8 @@ def PyLong_AsUnsignedLongLongMask(space, w_long):
     PyLongObject, if it is not already one, and then return its value as
     unsigned long long, without checking for overflow.
     """
+    if not w_long:
+        return PyErr_BadInternalCall(space)
     num = space.bigint_w(w_long)
     return num.ulonglongmask()
 

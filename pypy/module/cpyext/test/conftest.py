@@ -1,9 +1,9 @@
 import os
 import pytest
+import sys
 
 def pytest_configure(config):
     if config.getoption('runappdirect') or config.getoption('direct_apptest'):
-        import sys
         import py
         from pypy import pypydir
         sys.path.append(str(py.path.local(pypydir) / 'tool' / 'cpyext'))

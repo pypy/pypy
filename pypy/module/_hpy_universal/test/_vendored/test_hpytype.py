@@ -32,7 +32,7 @@ class PointTemplate(DefaultExtensionTemplate):
                                       HPy_ssize_t nargs, HPy kw)
             {
                 long x, y;
-                if (!HPyArg_Parse(ctx, args, nargs, "ll", &x, &y))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "ll", &x, &y))
                     return HPy_NULL;
                 PointObject *point;
                 HPy h_point = HPy_New(ctx, cls, &point);

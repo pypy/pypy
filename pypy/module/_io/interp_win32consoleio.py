@@ -125,9 +125,6 @@ def _get_console_type(handle):
 
 def _pyio_get_console_type(space, w_path_or_fd):
 
-    # XXX 2020-07-22 Disable WinConsoleIO since it is flaky
-    return '\0'
-
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
         handle = rwin32.get_osfhandle(fd)
@@ -286,14 +283,13 @@ class W_WinConsoleIO(W_RawIOBase):
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
             self.handle = win32traits.CreateFile(name, 
-                rwin32.GENERIC_READ | rwin32.GENERIC_WRITE,
-                rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
                 rffi.NULL, win32traits.OPEN_EXISTING,
                 0, rffi.cast(rwin32.HANDLE, 0))
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 self.handle = win32traits.CreateFile(name, 
                     access,
-                    rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                    rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
             lltype.free(name, flavor='raw')
