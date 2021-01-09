@@ -104,6 +104,19 @@ class ASTBuilder(object):
                             break
                         stmts.append(self.handle_stmt(stmt))
                 return ast.Interactive(stmts)
+        elif n.type == syms.func_type_input:
+            func = n.get_child(0)
+            argtypes = []
+
+            if func.get_child(1).type == syms.typelist:
+                type_list = func.get_child(1)
+                for i in range(type_list.num_children()):
+                    current = type_list.get_child(i)
+                    if current.type == syms.test:
+                        argtypes.append(self.handle_expr(current))
+
+            returns = self.handle_expr(func.get_child(-1))
+            return ast.FunctionType(argtypes, returns)
         else:
             raise AssertionError("unknown root node")
 

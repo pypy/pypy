@@ -471,3 +471,7 @@ class AstValidator(ast.ASTVisitor):
     def visit_NamedExpr(self, node):
         self._validate_expr(node.target, ast.Store)
         self._validate_expr(node.value)
+
+    def visit_FunctionType(self, node):
+        self._validate_exprs(node.argtypes)
+        self._validate_expr(node.returns)

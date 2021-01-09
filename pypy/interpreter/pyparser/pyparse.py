@@ -91,7 +91,7 @@ _targets = {
 'eval' : pygram.syms.eval_input,
 'single' : pygram.syms.single_input,
 'exec' : pygram.syms.file_input,
-'func_type' : pygrams.syms.func_type_input,
+'func_type' : pygram.syms.func_type_input,
 }
 
 class PythonParser(parser.Parser):
