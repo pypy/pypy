@@ -36,7 +36,7 @@ class TestAstUnparser:
 
     def test_constant(self):
         w_one = self.space.newint(1)
-        node = ast.Constant(w_one, 0, 0)
+        node = ast.Constant(w_one, self.space.w_None, 0, 0)
         assert unparse(self.space, node) == "1"
 
     def test_num(self):

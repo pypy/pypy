@@ -6,13 +6,13 @@ class TestAstToObject:
                                   
     def test_constant_num(self, space):
         value = space.wrap(42)
-        node = ast.Constant(value, lineno=1, col_offset=1)
+        node = ast.Constant(value, space.w_None, lineno=1, col_offset=1)
         w_node = node.to_object(space)
         assert space.getattr(w_node, space.wrap("value")) is value
 
     def test_expr(self, space):
         value = space.wrap(42)
-        node = ast.Constant(value, lineno=1, col_offset=1)
+        node = ast.Constant(value, space.w_None, lineno=1, col_offset=1)
         expr = ast.Expr(node, lineno=1, col_offset=1)
         w_node = expr.to_object(space)
         # node.value.n
@@ -20,8 +20,8 @@ class TestAstToObject:
                              space.wrap("value")) is value
 
     def test_operation(self, space):
-        val1 = ast.Constant(space.wrap(1), lineno=1, col_offset=1)
-        val2 = ast.Constant(space.wrap(2), lineno=1, col_offset=1)
+        val1 = ast.Constant(space.wrap(1), space.w_None, lineno=1, col_offset=1)
+        val2 = ast.Constant(space.wrap(2), space.w_None, lineno=1, col_offset=1)
         node = ast.BinOp(left=val1, right=val2, op=ast.Add,
                          lineno=1, col_offset=1)
         w_node = node.to_object(space)
@@ -32,6 +32,7 @@ class TestAstToObject:
         value = space.wrap(42)
         w_node = space.call_function(ast.get(space).w_Constant)
         space.setattr(w_node, space.wrap('value'), value)
+        space.setattr(w_node, space.wrap('kind'), space.w_None)
         space.setattr(w_node, space.wrap('lineno'), space.wrap(1))
         space.setattr(w_node, space.wrap('col_offset'), space.wrap(1))
         node = ast.Constant.from_object(space, w_node)

@@ -203,7 +203,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     else:
                         if self.space.int_w(w_len) > 20:
                             return binop
-                    return ast.Constant(w_const, binop.lineno, binop.col_offset)
+                    return self.new_constant(w_const, binop.lineno, binop.col_offset)
         return binop
 
     def visit_UnaryOp(self, unary):
@@ -224,7 +224,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             except OperationError:
                 pass
             else:
-                return ast.Constant(w_const, unary.lineno, unary.col_offset)
+                return self.new_constant(w_const, unary.lineno, unary.col_offset)
         elif op == ast.Not:
             compare = unary.operand
             if isinstance(compare, ast.Compare) and len(compare.ops) == 1:
@@ -265,7 +265,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if name.id == '__debug__':
             w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
-            return ast.Constant(w_const, name.lineno, name.col_offset)
+            return self.new_constant(w_const, name.lineno, name.col_offset)
         return name
 
     def visit_Tuple(self, tup):
@@ -292,11 +292,11 @@ class OptimizingVisitor(ast.ASTVisitor):
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
-        return ast.Constant(w_consts, tup.lineno, tup.col_offset)
+        return self.new_constant(w_consts, tup.lineno, tup.col_offset)
 
     def _make_starred_tuple_const(self, consts_w, firstelt):
         w_consts = self.space.newtuple(consts_w[:])
-        return ast.Starred(ast.Constant(
+        return ast.Starred(self.new_constant(
                     w_consts, firstelt.lineno, firstelt.col_offset),
                 ast.Load, firstelt.lineno, firstelt.col_offset)
 
@@ -385,6 +385,9 @@ class OptimizingVisitor(ast.ASTVisitor):
                         # See test_const_fold_unicode_subscr
                         return subs
 
-                    return ast.Constant(w_const, subs.lineno, subs.col_offset)
+                    return self.new_constant(w_const, subs.lineno, subs.col_offset)
 
         return subs
+
+    def new_constant(self, const, lineno, col_offset):
+        return ast.Constant(const, self.space.w_None, lineno, col_offset)

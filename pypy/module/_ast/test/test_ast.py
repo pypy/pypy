@@ -131,8 +131,9 @@ class AppTestAST:
 
     def test_object(self):
         ast = self.ast
-        const = ast.Constant(4)
+        const = ast.Constant(4, None)
         assert const.value == 4
+        assert const.kind is None
         const.value = 5
         assert const.value == 5
 
@@ -156,7 +157,7 @@ class AppTestAST:
                                      lineno=0, col_offset=0)
         name = ast.Name("apple", ast.Store(),
                         lineno=0, col_offset=0)
-        mod.body.append(ast.Assign([name], ast.Constant(4, lineno=0, col_offset=0), None,
+        mod.body.append(ast.Assign([name], ast.Constant(4, None, lineno=0, col_offset=0), None,
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
@@ -251,7 +252,7 @@ from __future__ import generators""")
     def test_classattrs(self):
         import _ast as ast
         x = ast.Constant()
-        assert x._fields == ('value',)
+        assert x._fields == ('value', 'kind')
         exc = raises(AttributeError, getattr, x, 'value')
         assert str(exc.value) == "'Constant' object has no attribute 'value'"
 
@@ -270,13 +271,14 @@ from __future__ import generators""")
         x = ast.Constant(lineno=2)
         assert x.lineno == 2
 
-        x = ast.Constant(42, lineno=0)
+        x = ast.Constant(42, None, lineno=0)
         assert x.lineno == 0
-        assert x._fields == ('value',)
+        assert x._fields == ('value', 'kind')
         assert x.value == 42
+        assert x.kind is None
 
-        raises(TypeError, ast.Constant, 1, 2)
-        raises(TypeError, ast.Constant, 1, 2, lineno=0)
+        raises(TypeError, ast.Constant, 1, 2, 3)
+        raises(TypeError, ast.Constant, 1, 2, 3, lineno=0)
 
     def test_issue1680_nonseq(self):
         # Test deleting an attribute manually
@@ -336,8 +338,8 @@ from __future__ import generators""")
 
     def test_node_identity(self):
         import _ast as ast
-        n1 = ast.Constant(1)
-        n3 = ast.Constant(3)
+        n1 = ast.Constant(1, None)
+        n3 = ast.Constant(3, None)
         addop = ast.Add()
         x = ast.BinOp(n1, addop, n3)
         assert x.left == n1
@@ -352,7 +354,7 @@ from __future__ import generators""")
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
                 kwonlyargs=[], kw_defaults=[], posonlyargs=[]),
-            body=[ast.Expr(ast.Constant('docstring'))],
+            body=[ast.Expr(ast.Constant('docstring', None))],
             decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
         ast_utils.fix_missing_locations(exprAst)
@@ -406,7 +408,7 @@ from __future__ import generators""")
     def test_invalid_constant(self):
         import ast as ast_utils
         import _ast as ast
-        m = ast.Module([ast.Expr(ast.Constant(ast.List([], ast.Load())))], [])
+        m = ast.Module([ast.Expr(ast.Constant(ast.List([], ast.Load()), None))], [])
         ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
@@ -428,38 +430,40 @@ from __future__ import generators""")
 
     def test_dict_astNode(self):
         import _ast as ast
-        num_node = ast.Constant(n=2, lineno=2, col_offset=3)
+        num_node = ast.Constant(value=2, kind=None, lineno=2, col_offset=3)
         dict_res = num_node.__dict__
-        assert dict_res == {'value':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'kind': None, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Num_notfullinit(self):
         import _ast as ast
         import copy
-        num_node = ast.Constant(n=2,lineno=2)
-        assert num_node.n == 2
-        assert num_node.lineno == 2
+        num_node = ast.Constant(value=2,lineno=2)
         num_node2 = copy.deepcopy(num_node)
+        assert num_node2.value == 2
+        assert num_node2.lineno == 2
 
     def test_issue1673_Num_fullinit(self):
         import _ast as ast
         import copy
-        num_node = ast.Constant(n=2,lineno=2,col_offset=3)
+        num_node = ast.Constant(value=2,kind=None,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
-        assert num_node.value == num_node2.n
+        assert num_node.value == num_node2.value
+        assert num_node.kind is num_node2.kind
         assert num_node.lineno == num_node2.lineno
         assert num_node.col_offset == num_node2.col_offset
         dict_res = num_node2.__dict__
-        assert dict_res == {'value':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'kind': None, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Str(self):
         import _ast as ast
         import copy
-        str_node = ast.Constant(n=2,lineno=2)
+        str_node = ast.Constant(value=2,kind=None,lineno=2)
         assert str_node.value == 2
         assert str_node.lineno == 2
         str_node2 = copy.deepcopy(str_node)
+        str_node2.kind = 'u'
         dict_res = str_node2.__dict__
-        assert dict_res == {'value':2, 'lineno':2}
+        assert dict_res == {'value':2, 'kind': 'u', 'lineno':2}
 
     def test_bug_null_in_objspace_type(self):
         import _ast as ast
@@ -490,7 +494,7 @@ from __future__ import generators""")
         left = ast.Name("x", ast.Load())
         comp = ast.Compare(left, [ast.In()], [])
         _expr(comp, "no comparators")
-        comp = ast.Compare(left, [ast.In()], [ast.Constant(4), ast.Constant(5)])
+        comp = ast.Compare(left, [ast.In()], [ast.Constant(4, None), ast.Constant(5, None)])
         _expr(comp, "different number of comparators and operands")
 
     def test_dict_unpacking(self):

@@ -1374,18 +1374,19 @@ class ASTBuilder(object):
                 name = self.new_identifier(name)
                 return ast.Name(name, ast.Load, first_child.get_lineno(),
                                 first_child.get_column())
-            return ast.Constant(w_singleton, first_child.get_lineno(),
-                                             first_child.get_column())
+            return ast.Constant(w_singleton, self.space.w_None, first_child.get_lineno(),
+                                                                first_child.get_column())
         #
         elif first_child_type == tokens.STRING:
             return fstring.string_parse_literal(self, atom_node)
         #
         elif first_child_type == tokens.NUMBER:
             num_value = self.parse_number(first_child.get_value())
-            return ast.Constant(num_value, atom_node.get_lineno(), atom_node.get_column())
+            return ast.Constant(num_value, self.space.w_None, atom_node.get_lineno(),
+                                                              atom_node.get_column())
         elif first_child_type == tokens.ELLIPSIS:
-            return ast.Constant(self.space.w_Ellipsis, atom_node.get_lineno(),
-                                                  atom_node.get_column())
+            return ast.Constant(self.space.w_Ellipsis, self.space.w_None, atom_node.get_lineno(),
+                                                                          atom_node.get_column())
         elif first_child_type == tokens.LPAR:
             second_child = atom_node.get_child(1)
             if second_child.type == tokens.RPAR:
