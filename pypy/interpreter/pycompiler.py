@@ -120,7 +120,7 @@ class PythonAstCompiler(PyCodeCompiler):
         if optimize == -1:
             optimize = self.space.sys.get_optimize()
 
-        fut = misc.parse_future(node, self.future_flags.compiler_features)
+        fut = misc.parse_future(self.space, node, self.future_flags.compiler_features)
         f_flags, f_lineno, f_col = fut
         future_pos = f_lineno, f_col
         flags |= f_flags

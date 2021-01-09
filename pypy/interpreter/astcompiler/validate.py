@@ -348,9 +348,6 @@ class AstValidator(ast.ASTVisitor):
     def visit_Name(self, node):
         pass
 
-    def visit_Ellipsis(self, node):
-        pass
-
     def visit_Constant(self, node):
         validate_constant(self.space, node.value)
 
@@ -436,24 +433,6 @@ class AstValidator(ast.ASTVisitor):
         # XXX py3.5 missing if node.kwargs:
         # XXX py3.5 missing     self._validate_expr(node.kwargs)
 
-    def visit_Num(self, node):
-        space = self.space
-        w_type = space.type(node.n)
-        if w_type not in [space.w_int, space.w_float, space.w_complex]:
-            raise oefmt(space.w_TypeError, "non-numeric type in Num")
-
-    def visit_Str(self, node):
-        space = self.space
-        w_type = space.type(node.s)
-        if w_type != space.w_unicode:
-            raise oefmt(space.w_TypeError, "non-string type in Str")
-
-    def visit_Bytes(self, node):
-        space = self.space
-        w_type = space.type(node.s)
-        if w_type != space.w_bytes:
-            raise oefmt(space.w_TypeError, "non-bytes type in Bytes")
-
     def visit_Attribute(self, node):
         self._validate_expr(node.value)
 
@@ -480,13 +459,6 @@ class AstValidator(ast.ASTVisitor):
 
     def visit_Index(self, node):
         self._validate_expr(node.value)
-
-    def visit_NameConstant(self, node):
-        space = self.space
-        if (node.value is not space.w_None and
-            node.value is not space.w_True and
-            node.value is not space.w_False):
-            raise ValidationError("singleton must be True, False, or None")
 
     def visit_JoinedStr(self, node):
         self._validate_exprs(node.values)

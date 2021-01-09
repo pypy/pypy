@@ -55,11 +55,9 @@ class AppTestAST:
     def test_string(self):
         mod = self.get_ast("'hi'", "eval")
         s = mod.body
-        assert s.s == "hi"
-        s.s = "pypy"
+        assert s.value == "hi"
+        s.value = "pypy"
         assert eval(compile(mod, "<test>", "eval")) == "pypy"
-        s.s = 43
-        raises(TypeError, compile, mod, "<test>", "eval")
 
     def test_empty_initialization(self):
         ast = self.ast
@@ -142,7 +140,7 @@ class AppTestAST:
         mod = self.get_ast("x(32)", "eval")
         call = mod.body
         assert len(call.args) == 1
-        assert call.args[0].n == 32
+        assert call.args[0].value == 32
         co = compile(mod, "<test>", "eval")
         ns = {"x" : lambda x: x}
         assert eval(co, ns) == 32
@@ -158,7 +156,7 @@ class AppTestAST:
                                      lineno=0, col_offset=0)
         name = ast.Name("apple", ast.Store(),
                         lineno=0, col_offset=0)
-        mod.body.append(ast.Assign([name], ast.Num(4, lineno=0, col_offset=0), None,
+        mod.body.append(ast.Assign([name], ast.Constant(4, lineno=0, col_offset=0), None,
                                    lineno=0, col_offset=0))
         co = compile(mod, "<test>", "exec")
         ns = {}
@@ -233,7 +231,7 @@ from __future__ import generators""")
 
     def test_field_attr_writable(self):
         import _ast as ast
-        x = ast.Num()
+        x = ast.Constant()
         # We can assign to _fields
         x._fields = 666
         assert x._fields == 666
@@ -252,33 +250,33 @@ from __future__ import generators""")
 
     def test_classattrs(self):
         import _ast as ast
-        x = ast.Num()
-        assert x._fields == ('n',)
-        exc = raises(AttributeError, getattr, x, 'n')
-        assert str(exc.value) == "'Num' object has no attribute 'n'"
+        x = ast.Constant()
+        assert x._fields == ('value',)
+        exc = raises(AttributeError, getattr, x, 'value')
+        assert str(exc.value) == "'Constant' object has no attribute 'value'"
 
-        x = ast.Num(42)
-        assert x.n == 42
+        x = ast.Constant(42)
+        assert x.value == 42
         exc = raises(AttributeError, getattr, x, 'lineno')
-        assert str(exc.value) == "'Num' object has no attribute 'lineno'"
+        assert str(exc.value) == "'Constant' object has no attribute 'lineno'"
 
-        y = ast.Num()
+        y = ast.Constant()
         x.lineno = y
         assert x.lineno == y
 
         exc = raises(AttributeError, getattr, x, 'foobar')
-        assert str(exc.value) == "'Num' object has no attribute 'foobar'"
+        assert str(exc.value) == "'Constant' object has no attribute 'foobar'"
 
-        x = ast.Num(lineno=2)
+        x = ast.Constant(lineno=2)
         assert x.lineno == 2
 
-        x = ast.Num(42, lineno=0)
+        x = ast.Constant(42, lineno=0)
         assert x.lineno == 0
-        assert x._fields == ('n',)
-        assert x.n == 42
+        assert x._fields == ('value',)
+        assert x.value == 42
 
-        raises(TypeError, ast.Num, 1, 2)
-        raises(TypeError, ast.Num, 1, 2, lineno=0)
+        raises(TypeError, ast.Constant, 1, 2)
+        raises(TypeError, ast.Constant, 1, 2, lineno=0)
 
     def test_issue1680_nonseq(self):
         # Test deleting an attribute manually
@@ -338,8 +336,8 @@ from __future__ import generators""")
 
     def test_node_identity(self):
         import _ast as ast
-        n1 = ast.Num(1)
-        n3 = ast.Num(3)
+        n1 = ast.Constant(1)
+        n3 = ast.Constant(3)
         addop = ast.Add()
         x = ast.BinOp(n1, addop, n3)
         assert x.left == n1
@@ -354,7 +352,7 @@ from __future__ import generators""")
             args=ast.arguments(
                 args=[], vararg=None, kwarg=None, defaults=[],
                 kwonlyargs=[], kw_defaults=[], posonlyargs=[]),
-            body=[ast.Expr(ast.Str('docstring'))],
+            body=[ast.Expr(ast.Constant('docstring'))],
             decorator_list=[], lineno=5, col_offset=0)
         exprAst = ast.Interactive(body=[fAst])
         ast_utils.fix_missing_locations(exprAst)
@@ -405,10 +403,10 @@ from __future__ import generators""")
         ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
-    def test_invalid_string(self):
+    def test_invalid_constant(self):
         import ast as ast_utils
         import _ast as ast
-        m = ast.Module([ast.Expr(ast.Str(43))], [])
+        m = ast.Module([ast.Expr(ast.Constant(ast.List([], ast.Load())))], [])
         ast_utils.fix_missing_locations(m)
         exc = raises(TypeError, compile, m, "<test>", "exec")
 
@@ -430,14 +428,14 @@ from __future__ import generators""")
 
     def test_dict_astNode(self):
         import _ast as ast
-        num_node = ast.Num(n=2, lineno=2, col_offset=3)
+        num_node = ast.Constant(n=2, lineno=2, col_offset=3)
         dict_res = num_node.__dict__
-        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Num_notfullinit(self):
         import _ast as ast
         import copy
-        num_node = ast.Num(n=2,lineno=2)
+        num_node = ast.Constant(n=2,lineno=2)
         assert num_node.n == 2
         assert num_node.lineno == 2
         num_node2 = copy.deepcopy(num_node)
@@ -445,27 +443,27 @@ from __future__ import generators""")
     def test_issue1673_Num_fullinit(self):
         import _ast as ast
         import copy
-        num_node = ast.Num(n=2,lineno=2,col_offset=3)
+        num_node = ast.Constant(n=2,lineno=2,col_offset=3)
         num_node2 = copy.deepcopy(num_node)
-        assert num_node.n == num_node2.n
+        assert num_node.value == num_node2.n
         assert num_node.lineno == num_node2.lineno
         assert num_node.col_offset == num_node2.col_offset
         dict_res = num_node2.__dict__
-        assert dict_res == {'n':2, 'lineno':2, 'col_offset':3}
+        assert dict_res == {'value':2, 'lineno':2, 'col_offset':3}
 
     def test_issue1673_Str(self):
         import _ast as ast
         import copy
-        str_node = ast.Str(n=2,lineno=2)
-        assert str_node.n == 2
+        str_node = ast.Constant(n=2,lineno=2)
+        assert str_node.value == 2
         assert str_node.lineno == 2
         str_node2 = copy.deepcopy(str_node)
         dict_res = str_node2.__dict__
-        assert dict_res == {'n':2, 'lineno':2}
+        assert dict_res == {'value':2, 'lineno':2}
 
     def test_bug_null_in_objspace_type(self):
         import _ast as ast
-        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Num(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
+        code = ast.Expression(lineno=1, col_offset=1, body=ast.ListComp(lineno=1, col_offset=1, elt=ast.Call(lineno=1, col_offset=1, func=ast.Name(lineno=1, col_offset=1, id='str', ctx=ast.Load(lineno=1, col_offset=1)), args=[ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Load(lineno=1, col_offset=1))], keywords=[]), generators=[ast.comprehension(lineno=1, col_offset=1, target=ast.Name(lineno=1, col_offset=1, id='x', ctx=ast.Store(lineno=1, col_offset=1)), iter=ast.List(lineno=1, col_offset=1, elts=[ast.Constant(lineno=1, col_offset=1, n=23)], ctx=ast.Load(lineno=1, col_offset=1, )), ifs=[], is_async=False)]))
         compile(code, '<template>', 'eval')
 
     def test_empty_yield_from(self):
@@ -492,12 +490,8 @@ from __future__ import generators""")
         left = ast.Name("x", ast.Load())
         comp = ast.Compare(left, [ast.In()], [])
         _expr(comp, "no comparators")
-        comp = ast.Compare(left, [ast.In()], [ast.Num(4), ast.Num(5)])
+        comp = ast.Compare(left, [ast.In()], [ast.Constant(4), ast.Constant(5)])
         _expr(comp, "different number of comparators and operands")
-        comp = ast.Compare(ast.Num("blah"), [ast.In()], [left])
-        _expr(comp, "non-numeric", exc=TypeError)
-        comp = ast.Compare(left, [ast.In()], [ast.Num("blah")])
-        _expr(comp, "non-numeric", exc=TypeError)
 
     def test_dict_unpacking(self):
         self.get_ast("{**{1:2}, 2:3}")

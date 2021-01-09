@@ -12,15 +12,12 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
     # Implement implicit string concatenation.
     if joined_pieces:
         prev = joined_pieces[-1]
-        if is_unicode and isinstance(prev, ast.Str):
-            w_string = space.add(prev.s, w_string)
-            del joined_pieces[-1]
-        elif not is_unicode and isinstance(prev, ast.Bytes):
-            w_string = space.add(prev.s, w_string)
-            del joined_pieces[-1]
-    node = ast.Str if is_unicode else ast.Bytes
-    joined_pieces.append(node(w_string, atom_node.get_lineno(),
-                                        atom_node.get_column()))
+        if isinstance(prev, ast.Constant):
+            if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
+                w_string = space.add(prev.value, w_string)
+                del joined_pieces[-1]                
+    joined_pieces.append(ast.Constant(w_string, atom_node.get_lineno(),
+                                                atom_node.get_column()))
 
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
@@ -404,8 +401,8 @@ def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
     # and avoid calling "BUILD_STRING 1" in this case.
     space = astbuilder.space
     values = [node for node in joined_pieces
-                   if not isinstance(node, ast.Str)
-                      or space.is_true(node.s)]
+                   if not isinstance(node, ast.Constant)
+                      or space.is_true(node.value)]
     return ast.JoinedStr(values, atom_node.get_lineno(),
                                  atom_node.get_column())
 
@@ -444,13 +441,13 @@ def string_parse_literal(astbuilder, atom_node):
             raise astbuilder.error('%s%s' % (kind, errmsg), child)
 
     if not fmode and len(joined_pieces) == 1:   # <= the common path
-        return joined_pieces[0]   # ast.Str, Bytes or FormattedValue
+        return joined_pieces[0]   # ast.Constant or FormattedValue
 
-    # with more than one piece, it is a combination of Str and
-    # FormattedValue pieces---if there is a Bytes, then we got
+    # with more than one piece, it is a combination of ast.Constant[str]
+    # and FormattedValue pieces --- if there is a bytes value, then we got
     # an invalid mixture of bytes and unicode literals
     for node in joined_pieces:
-        if isinstance(node, ast.Bytes):
+        if isinstance(node, ast.Constant) and space.isinstance_w(node.value, space.w_bytes):
             astbuilder.error("cannot mix bytes and nonbytes literals",
                              atom_node)
     assert fmode

@@ -82,28 +82,18 @@ class UnparseVisitor(Utf8BuilderVisitor):
         raise OperationError(self.space.w_SystemError,
                     self.space.newtext("expression type not supported yet" + str(node)))
 
-    def visit_Ellipsis(self, node):
-        self.append_ascii('...')
-
     def visit_Constant(self, node):
-        w_str = self.space.str(node.value)
-        self.append_w_str(w_str)
+        if self.space.is_w(node.value, self.space.w_Ellipsis):
+            return self.append_ascii("...")
 
-    def visit_NameConstant(self, node):
-        w_str = self.space.str(node.value)
-        self.append_w_str(w_str)
-
-    def visit_Num(self, node):
-        w_str = self.space.str(node.n)
-        self.append_w_str(w_str)
-
-    def visit_Str(self, node):
-        w_str = self.space.repr(node.s)
-        self.append_w_str(w_str)
-
-    def visit_Bytes(self, node):
-        w_str = self.space.repr(node.s)
-        self.append_w_str(w_str)
+        if (
+            self.space.isinstance_w(node.value, self.space.w_bytes)
+            or self.space.isinstance_w(node.value, self.space.w_unicode)
+        ):
+            res = self.space.repr(node.value)
+        else:
+            res = self.space.str(node.value)
+        self.append_w_str(res)
 
     def visit_Name(self, node):
         self.builder.append(node.id)
@@ -352,8 +342,8 @@ class UnparseVisitor(Utf8BuilderVisitor):
     def visit_Attribute(self, node):
         value = node.value
         self.append_expr(value, PRIORITY_ATOM)
-        if isinstance(value, ast.Num) and \
-                self.space.isinstance_w(value.n, self.space.w_int):
+        if isinstance(value, ast.Constant) and \
+                self.space.isinstance_w(value.value, self.space.w_int):
             period = ' .'
         else:
             period = '.'
@@ -456,7 +446,7 @@ class UnparseVisitor(Utf8BuilderVisitor):
         need_f = False
         subvisitor = FstringVisitor(self.space)
         for i, elt in enumerate(node.values):
-            if not isinstance(elt, ast.Str):
+            if not isinstance(elt, ast.Constant):
                 need_f = True
             elt.walkabout(subvisitor)
         s = subvisitor.builder.build()
@@ -477,9 +467,9 @@ class FstringVisitor(Utf8BuilderVisitor):
         raise OperationError(self.space.w_SystemError,
                 self.space.newtext("expression type not supported yet:" + str(node)))
 
-    def visit_Str(self, node):
+    def visit_Constant(self, node):
         from rpython.rlib import rstring
-        s, l = self.space.utf8_len_w(node.s)
+        s, l = self.space.utf8_len_w(node.value)
         s = rstring.replace(s, "{", "{{")
         s = rstring.replace(s, "}", "}}")
         self.append_utf8(s)
