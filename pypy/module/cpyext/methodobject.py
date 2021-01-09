@@ -61,31 +61,19 @@ def w_kwargs_from_args(space, __args__):
 
 def w_fastcall_args_from_args(space, __args__):
     # Similar to the above, but pack keys into a tuple and positional and
-    # keyword arguments a single tuple object.
+    # keyword arguments into a single tuple object (to be passed raw)
     state = space.fromcache(State)
 
-    n_pos = len(__args__.arguments_w)
-    n_all = n_pos
     if __args__.keywords is not None and len(__args__.keywords) > 0:
         n_kwds = len(__args__.keywords)
-        py_kwnames = space.newtuple([space.newtext(k) for k in __args__.keywords])
+        py_args = tuple_from_args_w(__args__.arguments_w + __args__.keywords_w)
+        w_kwnames = space.newtuple([space.newtext(k) for k in __args__.keywords])
     else:
-        py_kwnames = None
+        py_args = tuple_from_args_w(__args__.arguments_w)
+        w_kwnames = None
 
-    py_args = state.ccall("PyTuple_New", n_all)
-    if not py_args:
-        state.check_and_raise_exception(always=True)
-    py_args = rffi.cast(PyTupleObject, py_args)
-    for i, w_obj in enumerate(__args__.arguments_w):
-        py_args.c_ob_item[i] = make_ref(space, w_obj)
+    return py_args, len(__args__.arguments_w), w_kwnames
 
-    if py_kwnames is None:
-        return py_args, n_pos, None
-
-    for i, w_obj in enumerate(__args__.keywords_w):
-        py_args.c_ob_item[i + n_pos] = make_ref(space, w_obj)
-
-    return py_args, n_pos, py_kwnames
 
 def undotted_name(name):
     """Return the last component of a dotted name"""
@@ -199,10 +187,10 @@ class W_PyCFunctionObject(W_Root):
 
     def call_keywords_fastcall(self, space, w_self, __args__):
         func = rffi.cast(PyCFunctionKwArgsFast, self.ml.c_ml_meth)
-        py_args, len_args, py_kwnames = w_fastcall_args_from_args(space, __args__)
+        py_args, len_args, w_kwnames = w_fastcall_args_from_args(space, __args__)
         try:
             return generic_cpy_call(space, func, w_self,
-                                    py_args.c_ob_item, len_args, py_kwnames)
+                                    py_args.c_ob_item, len_args, w_kwnames)
         finally:
             decref(space, py_args)
 
