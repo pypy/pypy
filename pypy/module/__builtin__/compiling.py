@@ -47,11 +47,12 @@ in addition to any features explicitly specified.
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
     if mode not in ('exec', 'eval', 'single', 'func_type'):
-        if flags & consts.PyCF_ONLY_AST:
-            msg = "compile() mode must be 'exec', 'eval', 'single' or 'func_type'"
+        if only_ast:
+            raise oefmt(space.w_ValueError,
+                        "compile() mode must be 'exec', 'eval', 'single' or 'func_type'")
         else:
-            msg = "compile() arg 3 must be 'exec', 'eval' or 'single'"
-        raise oefmt(space.w_ValueError, msg)
+            raise oefmt(space.w_ValueError,
+                        "compile() arg 3 must be 'exec', 'eval' or 'single'")
 
     if mode == "func_type" and not only_ast:
         raise oefmt(space.w_ValueError,
