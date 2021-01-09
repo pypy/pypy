@@ -1453,8 +1453,8 @@ class __extend__(pyframe.PyFrame):
         self.space.call_method(w_set, 'add', w_value)
 
     def MAP_ADD(self, oparg, next_instr):
-        w_key = self.popvalue()
         w_value = self.popvalue()
+        w_key = self.popvalue()
         w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 

@@ -171,8 +171,8 @@ class __extend__(ast.DictComp):
         return self.generators
 
     def accept_comp_iteration(self, codegen, index):
-        self.value.walkabout(codegen)
         self.key.walkabout(codegen)
+        self.value.walkabout(codegen)
         codegen.emit_op_arg(ops.MAP_ADD, index + 1)
 
 
@@ -1333,10 +1333,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # do it in a small amount of stack
                 self.emit_op_arg(ops.BUILD_MAP, 0)
                 for i in range(len(d.values)):
-                    d.values[i].walkabout(self)
                     key = d.keys[i]
                     assert key is not None
                     key.walkabout(self)
+                    d.values[i].walkabout(self)
                     self.emit_op_arg(ops.MAP_ADD, 1)
                 return
             if len(d.keys) < 0xffff:

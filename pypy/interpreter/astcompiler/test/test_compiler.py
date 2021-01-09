@@ -1490,6 +1490,13 @@ def foo(*args):
     yield from 1, *args
 """, None, None)
 
+    def test_dict_comprehension_evaluation_order(self):
+        yield (self.simple_test, """\
+def f():
+    l = [1, 2, 3, 4, 5, 6]
+    return {l.pop() : l.pop() for i in range(3)}
+        """, "f()", {6: 5, 4: 3, 2: 1})
+
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
