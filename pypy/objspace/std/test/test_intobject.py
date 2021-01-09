@@ -813,6 +813,24 @@ class AppTestInt(object):
             int(x=1)
         assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
 
+    def test_int_as_integer_ratio(self):
+        assert 4 .as_integer_ratio() == (4, 1)
+        assert (-1).as_integer_ratio() == (-1, 1)
+        assert (2 ** 100).as_integer_ratio() == (2 ** 100).as_integer_ratio()
+
+        d, n = True.as_integer_ratio()
+        assert (d, n) == (1, 1)
+        assert type(d) is int
+        d, n = False.as_integer_ratio()
+        assert (d, n) == (0, 1)
+        assert type(d) is int
+
+        class X(int): pass
+        a = X(5)
+        n, d = a.as_integer_ratio()
+        assert n == 5 and d == 1
+        assert type(n) is int
+
 
 
 class AppTestIntShortcut(AppTestInt):

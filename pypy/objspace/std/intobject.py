@@ -287,6 +287,22 @@ class W_AbstractIntObject(W_Root):
     descr_mod, descr_rmod = _abstract_binop('mod')
     descr_divmod, descr_rdivmod = _abstract_binop('divmod')
 
+    def descr_as_integer_ratio(self, space):
+        """
+        Return integer ratio.
+
+        Return a pair of integers, whose ratio is exactly equal to the original int
+        and with a positive denominator.
+
+        >>> (10).as_integer_ratio()
+        (10, 1)
+        >>> (-10).as_integer_ratio()
+        (-10, 1)
+        >>> (0).as_integer_ratio()
+        (0, 1)
+        """
+        return space.newtuple([self.int(space), space.newint(1)])
+
 
 def _floordiv(space, x, y):
     try:
@@ -1007,6 +1023,8 @@ Base 0 means to interpret the base from the string as an integer literal.
     imag = typedef.GetSetProperty(
         W_AbstractIntObject.descr_get_imag,
         doc="the imaginary part of a complex number"),
+
+    as_integer_ratio = interp2app(W_AbstractIntObject.descr_as_integer_ratio),
 
     from_bytes = interp2app(W_AbstractIntObject.descr_from_bytes,
                             as_classmethod=True),
