@@ -401,3 +401,20 @@ class AppTestMath:
         raises(ValueError, math.remainder, 3, 0)
         raises(ValueError, math.remainder, math.inf, 3)
         raises(TypeError, math.remainder, "abc", 1)
+
+    def test_isqrt(self):
+        import math
+        x = math.isqrt(9)
+        assert x == 3
+        assert type(x) is int
+
+        test_values = list(range(10)) + [1 << 100 - 1]
+
+        for value in test_values:
+            s = math.isqrt(value)
+            assert type(s) is int
+            assert s*s <= value
+            assert value < (s+1)*(s+1)
+
+        with raises(ValueError):
+            math.isqrt(-1)

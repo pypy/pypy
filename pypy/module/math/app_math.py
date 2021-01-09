@@ -132,3 +132,26 @@ def remainder(x, y):
     assert isinf(y)
     return x
 
+
+def isqrt(n):
+    """
+    Return the integer part of the square root of the input.
+    """
+    import operator
+    n = operator.index(n)
+
+    if n < 0:
+        raise ValueError("isqrt() argument must be nonnegative")
+    if n == 0:
+        return 0
+
+    c = (n.bit_length() - 1) // 2
+    a = 1
+    d = 0
+    for s in reversed(range(c.bit_length())):
+        # Loop invariant: (a-1)**2 < (n >> 2*(c - d)) < (a+1)**2
+        e = d
+        d = c >> s
+        a = (a << d - e - 1) + (n >> 2*c - e - d + 1) // a
+
+    return a - (a*a > n)

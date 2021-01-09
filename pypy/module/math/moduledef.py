@@ -6,6 +6,7 @@ class Module(MixedModule):
     appleveldefs = {
        'factorial' : 'app_math.factorial',
        'remainder' : 'app_math.remainder',
+       'isqrt'     : 'app_math.isqrt',
     }
 
     interpleveldefs = {
