@@ -12,6 +12,7 @@ module Python
 
         -- not really an actual node but useful in Jython's typesystem.
         | Suite(stmt* body)
+        | FunctionType(expr* argtypes, expr returns)
 
     stmt = FunctionDef(identifier name, arguments args,
                        stmt* body, expr* decorator_list, expr? returns,

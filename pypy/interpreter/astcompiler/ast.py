@@ -177,6 +177,8 @@ class mod(AST):
             return Expression.from_object(space, w_node)
         if space.isinstance_w(w_node, get(space).w_Suite):
             return Suite.from_object(space, w_node)
+        if space.isinstance_w(w_node, get(space).w_FunctionType):
+            return FunctionType.from_object(space, w_node)
         raise oefmt(space.w_TypeError,
                 "Expected mod node, got %T", w_node)
 State.ast_type('mod', 'AST', None, [])
@@ -327,6 +329,49 @@ class Suite(mod):
         return Suite(_body)
 
 State.ast_type('Suite', 'mod', ['body'])
+
+
+class FunctionType(mod):
+
+    def __init__(self, argtypes, returns):
+        self.argtypes = argtypes
+        self.returns = returns
+
+    def walkabout(self, visitor):
+        visitor.visit_FunctionType(self)
+
+    def mutate_over(self, visitor):
+        if self.argtypes:
+            for i in range(len(self.argtypes)):
+                if self.argtypes[i] is not None:
+                    self.argtypes[i] = self.argtypes[i].mutate_over(visitor)
+        self.returns = self.returns.mutate_over(visitor)
+        return visitor.visit_FunctionType(self)
+
+    def to_object(self, space):
+        w_node = space.call_function(get(space).w_FunctionType)
+        if self.argtypes is None:
+            argtypes_w = []
+        else:
+            argtypes_w = [node.to_object(space) for node in self.argtypes] # expr
+        w_argtypes = space.newlist(argtypes_w)
+        space.setattr(w_node, space.newtext('argtypes'), w_argtypes)
+        w_returns = self.returns.to_object(space)  # expr
+        space.setattr(w_node, space.newtext('returns'), w_returns)
+        return w_node
+
+    @staticmethod
+    def from_object(space, w_node):
+        w_argtypes = get_field(space, w_node, 'argtypes', False)
+        w_returns = get_field(space, w_node, 'returns', False)
+        argtypes_w = space.unpackiterable(w_argtypes)
+        _argtypes = [expr.from_object(space, w_item) for w_item in argtypes_w]
+        _returns = expr.from_object(space, w_returns)
+        if _returns is None:
+            raise_required_value(space, w_node, 'returns')
+        return FunctionType(_argtypes, _returns)
+
+State.ast_type('FunctionType', 'mod', ['argtypes', 'returns'])
 
 
 class stmt(AST):
@@ -4126,6 +4171,8 @@ class ASTVisitor(object):
         return self.default_visitor(node)
     def visit_Suite(self, node):
         return self.default_visitor(node)
+    def visit_FunctionType(self, node):
+        return self.default_visitor(node)
     def visit_FunctionDef(self, node):
         return self.default_visitor(node)
     def visit_AsyncFunctionDef(self, node):
@@ -4274,6 +4321,11 @@ class GenericASTVisitor(ASTVisitor):
     def visit_Suite(self, node):
         self.visited(node)
         self.visit_sequence(node.body)
+
+    def visit_FunctionType(self, node):
+        self.visited(node)
+        self.visit_sequence(node.argtypes)
+        node.returns.walkabout(self)
 
     def visit_FunctionDef(self, node):
         self.visited(node)
