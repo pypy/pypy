@@ -144,12 +144,13 @@ class AppTestMethodObject(AppTestCpythonExtensionBase):
         res = mod.getarg_KW_FASTCALL(1, 2, a=5, b=6, *[3, 4], **{'c': 7})
         assert res[0][:4] == (1, 2, 3, 4)  # positional
         # keyword arguments may be ordered differently so compare as dict:
-        assert dict(zip(res[0][4:], res[1])) == {'a': 5, 'b': 6, 'c': 7}
+        assert dict(zip(res[1], res[0][4:])) == {'a': 5, 'b': 6, 'c': 7}
 
-        args = list(range(100))
+        args = tuple(range(50))
         kwargs = {str(i): i for i in range(100)}
         res = mod.getarg_KW_FASTCALL(*args, **kwargs)
-        assert res == (args + args, kwargs.keys())
+        assert res[0][:len(args)] == args
+        assert dict(zip(res[1], res[0][len(args):])) == kwargs
 
     def test_func_attributes(self):
         mod = self.import_extension('MyModule', [

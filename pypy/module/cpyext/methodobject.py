@@ -66,14 +66,14 @@ def w_fastcall_args_from_args(space, __args__):
 
     if __args__.keywords is not None and len(__args__.keywords) > 0:
         n_kwds = len(__args__.keywords)
-        py_args = tuple_from_args_w(__args__.arguments_w + __args__.keywords_w)
+        py_args = tuple_from_args_w(space, __args__.arguments_w + __args__.keywords_w)
         w_kwnames = space.newtuple([space.newtext(k) for k in __args__.keywords])
     else:
-        py_args = tuple_from_args_w(__args__.arguments_w)
+        py_args = tuple_from_args_w(space, __args__.arguments_w)
         w_kwnames = None
 
+    py_args = rffi.cast(PyTupleObject, py_args)
     return py_args, len(__args__.arguments_w), w_kwnames
-
 
 def undotted_name(name):
     """Return the last component of a dotted name"""

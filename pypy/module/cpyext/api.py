@@ -776,7 +776,6 @@ def is_PyObject(TYPE):
 
 # a pointer to PyObject
 PyObjectP = rffi.CArrayPtr(PyObject)
-PyObjectConstP = rffi.CArrayPtr(PyObject)
 
 # int *
 INTP_real = rffi.CArrayPtr(rffi.INT_real)
@@ -1790,11 +1789,6 @@ def invoke_pyos_inputhook(space):
 
 @specialize.ll()
 def generic_cpy_call(space, func, *args):
-    FT = lltype.typeOf(func).TO
-    return make_generic_cpy_call(FT, False, True)(space, func, *args)
-
-@specialize.ll()
-def generic_cpy_fastcall(space, func, *args):
     FT = lltype.typeOf(func).TO
     return make_generic_cpy_call(FT, False, True)(space, func, *args)
 
