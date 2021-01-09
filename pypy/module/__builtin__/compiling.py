@@ -39,21 +39,30 @@ in addition to any features explicitly specified.
                  consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS):
         raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
+    only_ast = flags & consts.PyCF_ONLY_AST
+
     if not dont_inherit:
         caller = ec.gettopframe_nohidden()
         if caller:
             flags |= ec.compiler.getcodeflags(caller.getcode())
 
-    if mode not in ('exec', 'eval', 'single'):
+    if mode not in ('exec', 'eval', 'single', 'func_type'):
+        if flags & consts.PyCF_ONLY_AST:
+            msg = "compile() mode must be 'exec', 'eval', 'single' or 'func_type'"
+        else:
+            msg = "compile() arg 3 must be 'exec', 'eval' or 'single'"
+        raise oefmt(space.w_ValueError, msg)
+
+    if mode == "func_type" and not only_ast:
         raise oefmt(space.w_ValueError,
-                    "compile() arg 3 must be 'exec', 'eval' or 'single'")
+                    "compile() mode 'func_type' requires flag PyCF_ONLY_AST")
 
     if optimize < -1 or optimize > 2:
         raise oefmt(space.w_ValueError,
             "compile(): invalid optimize value")
 
     if space.isinstance_w(w_source, space.gettypeobject(ast.W_AST.typedef)):
-        if flags & consts.PyCF_ONLY_AST:
+        if only_ast:
             return w_source
         ast_node = ast.mod.from_object(space, w_source)
         ec.compiler.validate_ast(ast_node)
@@ -64,7 +73,7 @@ in addition to any features explicitly specified.
     source, flags = source_as_str(space, w_source, 'compile',
                                   "string, bytes or AST", flags)
 
-    if flags & consts.PyCF_ONLY_AST:
+    if only_ast:
         node = ec.compiler.compile_to_ast(source, filename, mode, flags)
         return node.to_object(space)
     else:

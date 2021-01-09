@@ -113,6 +113,8 @@ class PythonAstCompiler(PyCodeCompiler):
             check = isinstance(node, ast.Module)
         elif mode == 'input':
             check = isinstance(node, ast.Interactive)
+        elif mode == 'func_type':
+            raise oefmt(self.space.w_ValueError, "can't compile func_type input")
         else:
             check = True
         if not check:

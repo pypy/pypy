@@ -61,7 +61,7 @@ class CompileInfo(object):
     """Stores information about the source being compiled.
 
     * filename: The filename of the source.
-    * mode: The parse mode to use. ('exec', 'eval', or 'single')
+    * mode: The parse mode to use. ('exec', 'eval', 'single' or 'func_type')
     * flags: Parser and compiler flags.
     * encoding: The source encoding.
     * last_future_import: The line number and offset of the last __future__
@@ -91,6 +91,7 @@ _targets = {
 'eval' : pygram.syms.eval_input,
 'single' : pygram.syms.single_input,
 'exec' : pygram.syms.file_input,
+'func_type' : pygrams.syms.func_type_input,
 }
 
 class PythonParser(parser.Parser):
