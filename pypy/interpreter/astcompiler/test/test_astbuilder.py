@@ -1772,3 +1772,14 @@ class TestAstBuilder:
         assert expr.target.id == 'a'
         assert expr.target.ctx == ast.Store
         assert isinstance(expr.value, ast.Constant)
+
+    def test_func_type(self):
+        func = self.get_ast("() -> int", p_mode="func_type")
+        assert len(func.argtypes) == 0
+        assert isinstance(func.returns, ast.Name)
+        assert func.returns.id == 'int'
+
+        func = self.get_ast("(str, int) -> str", p_mode="func_type")
+        assert len(func.argtypes) == 2
+        assert [arg_type.id for arg_type in func.argtypes] == ['str', 'int']
+        assert isinstance(func.returns, ast.Name)
