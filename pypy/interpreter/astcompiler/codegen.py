@@ -1348,10 +1348,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # do it in a small amount of stack
                 self.emit_op_arg(ops.BUILD_MAP, 0)
                 for i in range(len(d.values)):
-                    d.values[i].walkabout(self)
                     key = d.keys[i]
                     assert key is not None
                     key.walkabout(self)
+                    d.values[i].walkabout(self)
+                    self.emit_op(ops.ROT_TWO) # fixed in 3.8, where the ROT_TWO is not necessary
                     self.emit_op_arg(ops.MAP_ADD, 1)
                 return
             if len(d.keys) < 0xffff:
