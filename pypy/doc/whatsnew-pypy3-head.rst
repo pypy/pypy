@@ -61,6 +61,13 @@ speed it up.
 Allow compiler to inherit flags from ``__future__.annotations``. Fixes
 ``>>> x : X``
 
+.. branch: win32consoleio2
+
+Re-enable ``_io.win32console`` on windows
+
+.. branch: meth-fastcall
+
+Implement METH_FASTCALL
 
 .. 3.8 branches:
 

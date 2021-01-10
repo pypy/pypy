@@ -1942,6 +1942,18 @@ class TestHugeStackDepths:
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(range(200))
 
+    def test_dict_bug(self):
+        source = s = "1\ndef f(): l = list(range(400)); return {%s}\na = f()" % (
+            ", ".join(["l.pop(): l.pop()"] * 200))
+        w_res = self.run_and_check_stacksize(source)
+        l = list(range(400))
+        d = {}
+        while l:
+            key = l.pop()
+            value = l.pop()
+            d[key] = value
+        assert self.space.unwrap(w_res) == d
+
     def test_callargs(self):
         source = "(lambda *args: args)(" + ", ".join([str(i) for i in range(200)]) + ")\n"
         w_res = self.run_and_check_stacksize(source)

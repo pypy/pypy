@@ -1,5 +1,6 @@
-import sys
 import pytest
+import struct
+import sys
 from pypy.interpreter.error import OperationError
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.rarithmetic import maxint
@@ -16,25 +17,27 @@ class TestLongObject(BaseApiTest):
         assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == 3
 
-        w_value = api.PyLong_FromLong(sys.maxint)
+        w_value = api.PyLong_FromLong(sys.maxsize)
         assert isinstance(w_value, W_LongObject)
-        assert space.unwrap(w_value) == sys.maxint
+        assert space.unwrap(w_value) == sys.maxsize
 
     def test_aslong(self, space):
-        w_value = PyLong_FromLong(space, (sys.maxint - 1) / 2)
+        import struct
+        LONG_MAX = struct.unpack_from('>l', b'\x7f' + b'\xff' * 7)[0]
+        w_value = PyLong_FromLong(space, (LONG_MAX - 1) // 2)
         assert isinstance(w_value, W_LongObject)
 
         w_value = space.mul(w_value, space.wrap(2))
         assert isinstance(w_value, W_LongObject)
         value = PyLong_AsLong(space, w_value)
-        assert value == (sys.maxint - 1)
+        assert value == (LONG_MAX - 1)
 
         w_value = space.mul(w_value, space.wrap(2))
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLong(space, w_value)
         assert excinfo.value.w_type is space.w_OverflowError
         value = PyLong_AsUnsignedLong(space, w_value)
-        assert value == (sys.maxint - 1) * 2
+        assert value == (LONG_MAX - 1) * 2
 
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLong(space, space.newint(-1))
@@ -172,9 +175,12 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return NULL;
                  }
                  return obj;
-             """)])
+             """),
+            ])
         import sys
-        assert module.from_unsignedlong() == 2 * sys.maxsize + 1
+        import struct
+        max_ul =  struct.unpack_from('L', b'\xff'*8)[0]
+        assert module.from_unsignedlong() == max_ul
 
     def test_fromlonglong(self):
         module = self.import_extension('foo', [
@@ -334,6 +340,7 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 == (1234, 4660))
 
     def test_aslong(self):
+        import struct
         module = self.import_extension('foo', [
             ("as_long", "METH_O",
              """
@@ -342,10 +349,27 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return PyLong_FromLong(n);
-             """)])
+             """),
+            ("long_max", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(LONG_MAX);
+             """
+            ),
+            ("long_min", "METH_NOARGS",
+             """
+                return  PyLong_FromLong(LONG_MIN);
+             """
+            ),
+            ])
         assert module.as_long(123) == 123
         assert module.as_long(-1) == -1
         assert module.as_long(1.23) == 1
+        LONG_MAX = module.long_max()
+        LONG_MIN = module.long_min()
+        assert module.as_long(LONG_MAX) == LONG_MAX
+        raises(OverflowError, module.as_long, LONG_MAX+ 1)
+        assert module.as_long(LONG_MIN) == LONG_MIN
+        raises(OverflowError, module.as_long, LONG_MIN - 1)
 
     def test_strtol(self):
         module = self.import_extension('foo', [

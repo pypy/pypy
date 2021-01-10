@@ -246,10 +246,7 @@ class AppTestTime:
             assert time.mktime(time.localtime(-1)) == -1
 
         res = time.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
-        if os.name == 'nt':
-            assert time.ctime(res) == 'Sat Jan 01 00:00:00 2000'
-        else:
-            assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
+        assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
     def test_mktime_overflow(self):
         import time

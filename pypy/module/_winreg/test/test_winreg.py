@@ -332,3 +332,14 @@ class AppTestFfi:
                         access=KEY_ALL_ACCESS, reserved=0)
         else:
             DeleteKey(self.root_key, self.test_key_name)
+
+    def test_open_with_surrogate(self):
+        import winreg
+        s = '\uac55\ud8ab\u2d00\u8800PVL'
+        try:
+            # issue 3345: fails to interpret subkey, raises UnicodeEncodeError
+            with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, s) as key:
+                pass
+        except OSError:
+            pass
+        
