@@ -1783,3 +1783,13 @@ class TestAstBuilder:
         assert len(func.argtypes) == 2
         assert [arg_type.id for arg_type in func.argtypes] == ['str', 'int']
         assert isinstance(func.returns, ast.Name)
+
+    def test_constant_kind(self):
+        expr = self.get_first_expr("'bruh'")
+        assert isinstance(expr, ast.Constant)
+        assert self.space.is_none(expr.kind)
+
+        expr = self.get_first_expr("u'bruh'")
+        assert isinstance(expr, ast.Constant)
+        assert self.space.eq_w(expr.kind, self.space.wrap("u"))
+

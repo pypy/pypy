@@ -525,6 +525,7 @@ class UnparseAnnotationsVisitor(ast.ASTVisitor):
     def unparse(self, node):
         return ast.Constant(
                     w_unparse(self.space, node),
+                    self.space.w_None,
                     node.lineno,
                     node.col_offset)
 

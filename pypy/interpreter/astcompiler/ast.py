@@ -2900,8 +2900,9 @@ State.ast_type('JoinedStr', 'expr', ['values'])
 
 class Constant(expr):
 
-    def __init__(self, value, lineno, col_offset):
+    def __init__(self, value, kind, lineno, col_offset):
         self.value = value
+        self.kind = kind
         expr.__init__(self, lineno, col_offset)
 
     def walkabout(self, visitor):
@@ -2914,6 +2915,8 @@ class Constant(expr):
         w_node = space.call_function(get(space).w_Constant)
         w_value = self.value  # constant
         space.setattr(w_node, space.newtext('value'), w_value)
+        w_kind = self.kind  # string
+        space.setattr(w_node, space.newtext('kind'), w_kind)
         w_lineno = space.newint(self.lineno)  # int
         space.setattr(w_node, space.newtext('lineno'), w_lineno)
         w_col_offset = space.newint(self.col_offset)  # int
@@ -2923,16 +2926,18 @@ class Constant(expr):
     @staticmethod
     def from_object(space, w_node):
         w_value = get_field(space, w_node, 'value', False)
+        w_kind = get_field(space, w_node, 'kind', True)
         w_lineno = get_field(space, w_node, 'lineno', False)
         w_col_offset = get_field(space, w_node, 'col_offset', False)
         _value = w_value
         if _value is None:
             raise_required_value(space, w_node, 'value')
+        _kind = check_string(space, w_kind, 1)
         _lineno = obj_to_int(space, w_lineno, False)
         _col_offset = obj_to_int(space, w_col_offset, False)
-        return Constant(_value, _lineno, _col_offset)
+        return Constant(_value, _kind, _lineno, _col_offset)
 
-State.ast_type('Constant', 'expr', ['value'])
+State.ast_type('Constant', 'expr', ['value', 'kind'])
 
 
 class Attribute(expr):

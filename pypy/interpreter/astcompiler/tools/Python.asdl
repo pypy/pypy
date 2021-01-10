@@ -81,7 +81,7 @@ module Python
          | RevDBMetaVar(int metavar)
          | FormattedValue(expr value, int? conversion, expr? format_spec)
          | JoinedStr(expr* values)
-         | Constant(constant value)
+         | Constant(constant value, string? kind)
 
          -- the following expression can appear in assignment context
          | Attribute(expr value, identifier attr, expr_context ctx)

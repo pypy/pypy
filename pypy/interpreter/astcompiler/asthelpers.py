@@ -162,7 +162,7 @@ class __extend__(ast.Constant):
             return None
         line = self.lineno
         column = self.col_offset
-        return [ast.Constant(w_obj, line, column) for w_obj in values_w]
+        return [ast.Constant(w_obj, space.w_None, line, column) for w_obj in values_w]
 
     def _get_descr(self, space):
         for singleton, name in [

@@ -6,7 +6,8 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import codepoints_in_utf8
 
 
-def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
+def add_constant_string(astbuilder, joined_pieces, w_string, atom_node,
+                        kind=None):
     space = astbuilder.space
     is_unicode = space.isinstance_w(w_string, space.w_unicode)
     # Implement implicit string concatenation.
@@ -16,8 +17,8 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node):
             if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
                 w_string = space.add(prev.value, w_string)
                 del joined_pieces[-1]                
-    joined_pieces.append(ast.Constant(w_string, atom_node.get_lineno(),
-                                                atom_node.get_column()))
+    joined_pieces.append(ast.Constant(w_string, space.newtext_or_none(kind), atom_node.get_lineno(),
+                                                                             atom_node.get_column()))
 
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
@@ -415,12 +416,17 @@ def string_parse_literal(astbuilder, atom_node):
     for i in range(atom_node.num_children()):
         child = atom_node.get_child(i)
         try:
+            child_str = child.get_value()
             w_next = parsestring.parsestr(
-                    space, encoding, child.get_value(), child,
+                    space, encoding, child_str, child,
                     astbuilder)
             if not isinstance(w_next, parsestring.W_FString):
-                add_constant_string(astbuilder, joined_pieces, w_next,
-                                    atom_node)
+                # u'' prefix can not be combined with
+                # any other specifier, so it's safe to
+                # check the initial letter for determining.
+                kind = "u" if child_str[0] == "u" else None
+                add_constant_string(astbuilder, joined_pieces,
+                                    w_next, atom_node, kind)
             else:
                 parse_f_string(astbuilder, joined_pieces, w_next, atom_node)
                 fmode = True

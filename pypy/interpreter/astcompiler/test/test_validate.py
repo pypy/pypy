@@ -55,9 +55,9 @@ class TestASTValidator:
         args = [ast.arg("x", ast.Name("x", ast.Store, 0, 0), None, 0, 0)]
         check(arguments(args=args), "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
-        check(arguments(defaults=[ast.Constant(self.space.wrap(3), 0, 0)]),
+        check(arguments(defaults=[ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0)]),
                        "more positional defaults than args")
-        check(arguments(kw_defaults=[ast.Constant(self.space.wrap(4), 0, 0)]),
+        check(arguments(kw_defaults=[ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0)]),
                        "length of kwonlyargs is not the same as kw_defaults")
         args = [ast.arg("x", ast.Name("x", ast.Load, 0, 0), None, 0, 0)]
         check(arguments(args=args, defaults=[ast.Name("x", ast.Store, 0, 0)]),
@@ -110,9 +110,9 @@ class TestASTValidator:
                   "must have Del context")
 
     def test_assign(self):
-        self.stmt(ast.Assign([], ast.Constant(self.space.wrap(3), 0, 0), None, 0, 0), "empty targets on Assign")
-        self.stmt(ast.Assign([None], ast.Constant(self.space.wrap(3), 0, 0), None, 0, 0), "None disallowed")
-        self.stmt(ast.Assign([ast.Name("x", ast.Load, 0, 0)], ast.Constant(self.space.wrap(3), 0, 0), None, 0, 0),
+        self.stmt(ast.Assign([], ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), None, 0, 0), "empty targets on Assign")
+        self.stmt(ast.Assign([None], ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), None, 0, 0), "None disallowed")
+        self.stmt(ast.Assign([ast.Name("x", ast.Load, 0, 0)], ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), None, 0, 0),
                   "must have Store context")
         self.stmt(ast.Assign([ast.Name("x", ast.Store, 0, 0)],
                                 ast.Name("y", ast.Store, 0, 0), None, 0, 0),
@@ -140,39 +140,39 @@ class TestASTValidator:
         self.stmt(ast.For(x, y, [p], [e], None, 0, 0), "must have Load context")
 
     def test_while(self):
-        self.stmt(ast.While(ast.Constant(self.space.wrap(3), 0, 0), [], [], 0, 0), "empty body on While")
+        self.stmt(ast.While(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), [], [], 0, 0), "empty body on While")
         self.stmt(ast.While(ast.Name("x", ast.Store, 0, 0), [ast.Pass(0, 0)], [], 0, 0),
                   "must have Load context")
-        self.stmt(ast.While(ast.Constant(self.space.wrap(3), 0, 0), [ast.Pass(0, 0)],
+        self.stmt(ast.While(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), [ast.Pass(0, 0)],
                              [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], 0, 0),
                              "must have Load context")
 
     def test_if(self):
-        self.stmt(ast.If(ast.Constant(self.space.wrap(3), 0, 0), [], [], 0, 0), "empty body on If")
+        self.stmt(ast.If(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), [], [], 0, 0), "empty body on If")
         i = ast.If(ast.Name("x", ast.Store, 0, 0), [ast.Pass(0, 0)], [], 0, 0)
         self.stmt(i, "must have Load context")
-        i = ast.If(ast.Constant(self.space.wrap(3), 0, 0), [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [], 0, 0)
+        i = ast.If(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], [], 0, 0)
         self.stmt(i, "must have Load context")
-        i = ast.If(ast.Constant(self.space.wrap(3), 0, 0), [ast.Pass(0, 0)],
+        i = ast.If(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), [ast.Pass(0, 0)],
                    [ast.Expr(ast.Name("x", ast.Store, 0, 0), 0, 0)], 0, 0)
         self.stmt(i, "must have Load context")
 
     def test_with(self):
         p = ast.Pass(0, 0)
         self.stmt(ast.With([], [p], None, 0, 0), "empty items on With")
-        i = ast.withitem(ast.Constant(self.space.wrap(3), 0, 0), None)
+        i = ast.withitem(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), None)
         self.stmt(ast.With([i], [], None, 0, 0), "empty body on With")
         i = ast.withitem(ast.Name("x", ast.Store, 0, 0), None)
         self.stmt(ast.With([i], [p], None, 0, 0), "must have Load context")
-        i = ast.withitem(ast.Constant(self.space.wrap(3), 0, 0), ast.Name("x", ast.Load, 0, 0))
+        i = ast.withitem(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), ast.Name("x", ast.Load, 0, 0))
         self.stmt(ast.With([i], [p], None, 0, 0), "must have Store context")
 
     def test_raise(self):
-        r = ast.Raise(None, ast.Constant(self.space.wrap(3), 0, 0), 0, 0)
+        r = ast.Raise(None, ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0), 0, 0)
         self.stmt(r, "Raise with cause but no exception")
         r = ast.Raise(ast.Name("x", ast.Store, 0, 0), None, 0, 0)
         self.stmt(r, "must have Load context")
-        r = ast.Raise(ast.Constant(self.space.wrap(4), 0, 0), ast.Name("x", ast.Store, 0, 0), 0, 0)
+        r = ast.Raise(ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0), ast.Name("x", ast.Store, 0, 0), 0, 0)
         self.stmt(r, "must have Load context")
 
     def test_try(self):
@@ -225,11 +225,11 @@ class TestASTValidator:
         self.expr(b, "less than 2 values")
         b = ast.BoolOp(ast.And, None, 0, 0)
         self.expr(b, "less than 2 values")
-        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(3), 0, 0)], 0, 0)
+        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0)], 0, 0)
         self.expr(b, "less than 2 values")
-        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(4), 0, 0), None], 0, 0)
+        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0), None], 0, 0)
         self.expr(b, "None disallowed")
-        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(4), 0, 0), ast.Name("x", ast.Store, 0, 0)], 0, 0)
+        b = ast.BoolOp(ast.And, [ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0), ast.Name("x", ast.Store, 0, 0)], 0, 0)
         self.expr(b, "must have Load context")
 
     def test_unaryop(self):
@@ -320,7 +320,7 @@ class TestASTValidator:
         left = ast.Name("x", ast.Load, 0, 0)
         comp = ast.Compare(left, [ast.In], [], 0, 0)
         self.expr(comp, "no comparators")
-        comp = ast.Compare(left, [ast.In], [ast.Constant(self.space.wrap(4), 0, 0), ast.Constant(self.space.wrap(5), 0, 0)], 0, 0)
+        comp = ast.Compare(left, [ast.In], [ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0), ast.Constant(self.space.wrap(5), self.space.w_None, 0, 0)], 0, 0)
         self.expr(comp, "different number of comparators and operands")
 
     def test_call(self):
@@ -340,7 +340,7 @@ class TestASTValidator:
         self.expr(attr, "must have Load context")
 
     def test_subscript(self):
-        sub = ast.Subscript(ast.Name("x", ast.Store, 0, 0), ast.Index(ast.Constant(self.space.wrap(3), 0, 0)),
+        sub = ast.Subscript(ast.Name("x", ast.Store, 0, 0), ast.Index(ast.Constant(self.space.wrap(3), self.space.w_None, 0, 0)),
                             ast.Load, 0, 0)
         self.expr(sub, "must have Load context")
         x = ast.Name("x", ast.Load, 0, 0)
@@ -360,7 +360,7 @@ class TestASTValidator:
     def test_starred(self):
         left = ast.List([ast.Starred(ast.Name("x", ast.Load, 0, 0), ast.Store, 0, 0)],
                         ast.Store, 0, 0)
-        assign = ast.Assign([left], ast.Constant(self.space.wrap(4), 0, 0), None, 0, 0)
+        assign = ast.Assign([left], ast.Constant(self.space.wrap(4), self.space.w_None, 0, 0), None, 0, 0)
         self.stmt(assign, "must have Store context")
 
     def _sequence(self, fac):
@@ -375,7 +375,7 @@ class TestASTValidator:
         self._sequence(ast.Tuple)
 
     def test_constant(self):
-        node = ast.Constant(self.space.newlist([1]), 0, 0)
+        node = ast.Constant(self.space.newlist([1]), self.space.w_None, 0, 0)
         self.expr(node, "got an invalid type in Constant: list",
                   exc=validate.ValidationTypeError)
 
@@ -391,7 +391,7 @@ class TestASTValidator:
         return (subint(), subfloat(), subcomplex())
         """)
         for w_obj in space.unpackiterable(w_objs):
-            self.expr(ast.Constant(w_obj, 0, 0), "got an invalid type in Constant")
+            self.expr(ast.Constant(w_obj, self.space.w_None, 0, 0), "got an invalid type in Constant")
 
     def test_stdlib_validates(self):
         stdlib = os.path.join(os.path.dirname(ast.__file__), '../../../lib-python/3')
