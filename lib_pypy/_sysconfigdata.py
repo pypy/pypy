@@ -28,6 +28,7 @@ build_time_vars = {
     'EXE': "",
     'LIBDIR': os.path.join(mybase, 'lib'),
     'INCLUDEPY': os.path.join(mybase, 'include'),
+    'LDLIBRARY': 'libpypy3-c.so'
 }
 
 if find_executable("gcc"):
