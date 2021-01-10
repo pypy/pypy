@@ -19,6 +19,7 @@ from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rposix import getfullpathname
 
 # SMALLBUF determines how many utf-8 characters will be
 # buffered within the stream, in order to support reads
@@ -153,8 +154,19 @@ def _pyio_get_console_type(space, w_path_or_fd):
         m = 'w'
     elif dlower == 'con':
         m = 'x'
+    if m != '\0':
+        return m
 
-    # TODO: call GetFullPathNameW to deal with C:\Program Files\CONOUT$
+    # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
+    dlower = getfullpathname(decoded).lower()
+    if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
+        dlower = dlower[4:]
+    if  dlower == 'conin$':
+        m = 'r'
+    elif dlower == 'conout$':
+        m = 'w'
+    elif dlower == 'con':
+        m = 'x'
     return m
 
 
