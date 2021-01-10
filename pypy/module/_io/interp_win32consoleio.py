@@ -19,6 +19,7 @@ from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rposix import getfullpathname
 
 # SMALLBUF determines how many utf-8 characters will be
 # buffered within the stream, in order to support reads
@@ -125,6 +126,16 @@ def _get_console_type(handle):
 
 def _pyio_get_console_type(space, w_path_or_fd):
 
+    # XXX 2021-01-10 Disable WinConsoleIO (again) it is flaky. Some interaction
+    # with pytest in running numpy's tests makes the handle invalid.
+    # TODO: refactor the w_path_or_fd handling to be more like interp_posix
+    #       and use the path_or_fd() unwrap_spec all through the _io module
+    #       Then this will recieve a already-processed Path object
+    # Another alternative to this whole mess would be to adapt the ctypes-based
+    # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
+
+    return '\0'
+
     if space.isinstance_w(w_path_or_fd, space.w_int):
         fd = space.int_w(w_path_or_fd)
         handle = rwin32.get_osfhandle(fd)
@@ -153,8 +164,19 @@ def _pyio_get_console_type(space, w_path_or_fd):
         m = 'w'
     elif dlower == 'con':
         m = 'x'
+    if m != '\0':
+        return m
 
-    # TODO: call GetFullPathNameW to deal with C:\Program Files\CONOUT$
+    # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
+    dlower = getfullpathname(decoded).lower()
+    if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
+        dlower = dlower[4:]
+    if  dlower == 'conin$':
+        m = 'r'
+    elif dlower == 'conout$':
+        m = 'w'
+    elif dlower == 'con':
+        m = 'x'
     return m
 
 
