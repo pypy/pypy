@@ -223,11 +223,15 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Check for the equal sign (debugging expr)
     if s[i] == '=':
         i += 1
+        if i >= len(s):
+            unexpected_end_of_string(astbuilder, atom_node)
 
         # The whitespace after the equal sign (f'{x=    }') can be
         # safely ignored (since it will be preserved in expr_text).
         while s[i].isspace():
             i += 1
+            if i >= len(s):
+                unexpected_end_of_string(astbuilder, atom_node)
 
         expr_text = s[expr_start:i]
 

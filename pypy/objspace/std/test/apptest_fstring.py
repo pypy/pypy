@@ -209,3 +209,8 @@ def test_debug_conversion():
 
 
 
+def test_crash_debugging():
+    with raises(SyntaxError):
+        eval('f"{pow(x, k, j)="')
+    with raises(SyntaxError):
+        eval('f"{pow(x, k, j)=    "')
