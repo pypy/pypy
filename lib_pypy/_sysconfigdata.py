@@ -57,8 +57,8 @@ if sys.platform[:6] == "darwin":
     else:
         # just a guess
         arch = machine
-    build_time_vars['LDSHARED'] += ' -undefined dynamic_lookup'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
+    build_time_vars['LDSHARED'] = build_time_vars['CC'] + ' -shared -undefined dynamic_lookup'
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
     build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
