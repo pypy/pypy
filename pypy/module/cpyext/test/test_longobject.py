@@ -11,33 +11,33 @@ from pypy.module.cpyext.longobject import (PyLong_Check, PyLong_CheckExact,
     PyLong_FromLong, PyLong_AsLong, PyLong_AsUnsignedLong, PyLong_AsLongLong,
     PyLong_AsUnsignedLongLong, PyLong_AsUnsignedLongLongMask)
 
+maxlong = struct.unpack_from('>l', b'\x7f' + b'\xff' * 7)[0]
+
 class TestLongObject(BaseApiTest):
     def test_FromLong(self, space, api):
         w_value = api.PyLong_FromLong(3)
         assert isinstance(w_value, W_LongObject)
         assert space.unwrap(w_value) == 3
 
-        w_value = api.PyLong_FromLong(sys.maxsize)
+        w_value = api.PyLong_FromLong(maxlong)
         assert isinstance(w_value, W_LongObject)
-        assert space.unwrap(w_value) == sys.maxsize
+        assert space.unwrap(w_value) == maxlong
 
     def test_aslong(self, space):
-        import struct
-        LONG_MAX = struct.unpack_from('>l', b'\x7f' + b'\xff' * 7)[0]
-        w_value = PyLong_FromLong(space, (LONG_MAX - 1) // 2)
+        w_value = PyLong_FromLong(space, (maxlong - 1) // 2)
         assert isinstance(w_value, W_LongObject)
 
         w_value = space.mul(w_value, space.wrap(2))
         assert isinstance(w_value, W_LongObject)
         value = PyLong_AsLong(space, w_value)
-        assert value == (LONG_MAX - 1)
+        assert value == (maxlong - 1)
 
         w_value = space.mul(w_value, space.wrap(2))
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsLong(space, w_value)
         assert excinfo.value.w_type is space.w_OverflowError
         value = PyLong_AsUnsignedLong(space, w_value)
-        assert value == (LONG_MAX - 1) * 2
+        assert value == (maxlong - 1) * 2
 
         with pytest.raises(OperationError) as excinfo:
             PyLong_AsUnsignedLong(space, space.newint(-1))
@@ -98,10 +98,17 @@ class TestLongObject(BaseApiTest):
 
     def test_as_long_and_overflow(self, space, api):
         overflow = lltype.malloc(rffi.CArrayPtr(rffi.INT_real).TO, 1, flavor='raw')
+        overflow[0] = rffi.cast(rffi.INT_real, 123)
         assert api.PyLong_AsLongAndOverflow(
-            space.wrap(sys.maxint), overflow) == sys.maxint
+            space.wrap(maxlong), overflow) == maxlong
+        assert not api.PyErr_Occurred()
+        assert overflow[0] == 0
         assert api.PyLong_AsLongAndOverflow(
-            space.wrap(-sys.maxint - 2), overflow) == -1
+            space.wrap(maxlong + 1), overflow) == -1
+        assert not api.PyErr_Occurred()
+        assert overflow[0] == 1
+        assert api.PyLong_AsLongAndOverflow(
+            space.wrap(-maxlong - 2), overflow) == -1
         assert not api.PyErr_Occurred()
         assert overflow[0] == -1
         lltype.free(overflow, flavor='raw')
@@ -156,9 +163,9 @@ class TestLongObject(BaseApiTest):
 
     def test_as_ulongmask(self, space, api):
         assert api.PyLong_AsUnsignedLongMask(
-            space.wrap(sys.maxsize * 2 + 1)) == sys.maxsize * 2 + 1
+            space.wrap(maxlong * 2 + 1)) == maxlong * 2 + 1
         assert api.PyLong_AsUnsignedLongMask(
-            space.wrap(sys.maxsize * 2 + 2)) == 0
+            space.wrap(maxlong * 2 + 2)) == 0
 
 class AppTestLongObject(AppTestCpythonExtensionBase):
     def test_fromunsignedlong(self):
@@ -177,9 +184,8 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                  return obj;
              """),
             ])
-        import sys
         import struct
-        max_ul =  struct.unpack_from('L', b'\xff'*8)[0]
+        max_ul = struct.unpack_from('L', b'\xff'*8)[0]
         assert module.from_unsignedlong() == max_ul
 
     def test_fromlonglong(self):
@@ -340,7 +346,6 @@ class AppTestLongObject(AppTestCpythonExtensionBase):
                 == (1234, 4660))
 
     def test_aslong(self):
-        import struct
         module = self.import_extension('foo', [
             ("as_long", "METH_O",
              """
