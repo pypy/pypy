@@ -173,28 +173,34 @@ class W_LongObject(W_AbstractLongObject):
 
     @unwrap_spec(w_modulus=WrappedDefault(None))
     def descr_pow(self, space, w_exponent, w_modulus=None):
+        from pypy.objspace.std.intobject import invmod
         if isinstance(w_exponent, W_IntObject):
             w_exponent = w_exponent.as_w_long(space)
         elif not isinstance(w_exponent, W_AbstractLongObject):
             return space.w_NotImplemented
 
+        exponent = w_exponent.asbigint()
         if space.is_none(w_modulus):
-            if w_exponent.asbigint().sign < 0:
+            if exponent.sign < 0:
                 self = self.descr_float(space)
                 w_exponent = w_exponent.descr_float(space)
                 return space.pow(self, w_exponent, space.w_None)
-            return W_LongObject(self.num.pow(w_exponent.asbigint()))
+            return W_LongObject(self.num.pow(exponent))
         elif isinstance(w_modulus, W_IntObject):
             w_modulus = w_modulus.as_w_long(space)
         elif not isinstance(w_modulus, W_AbstractLongObject):
             return space.w_NotImplemented
 
-        if w_exponent.asbigint().sign < 0:
-            raise oefmt(space.w_ValueError,
-                        "pow() 2nd argument cannot be negative when 3rd "
-                        "argument specified")
+        base = self.num
+        if exponent.sign < 0:
+            w_base = invmod(space, self, space.abs(w_modulus))
+            if isinstance(w_base, W_IntObject):
+                w_base = w_base.as_w_long(space)
+            base = w_base.asbigint()
+
+            exponent = exponent.neg()
         try:
-            result = self.num.pow(w_exponent.asbigint(), w_modulus.asbigint())
+            result = base.pow(exponent, w_modulus.asbigint())
         except ValueError:
             raise oefmt(space.w_ValueError, "pow 3rd argument cannot be 0")
         return W_LongObject(result)

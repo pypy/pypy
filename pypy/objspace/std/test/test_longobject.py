@@ -226,7 +226,6 @@ class AppTestLong:
         assert pow(-self._long(1), -self._long(1)) == -1.0
         assert pow(2 ** 68, 0.5) == 2.0 ** 34
         assert pow(2 ** 68, 2) == 2 ** 136
-        raises(ValueError, pow, long(2), -1, 3)
         raises(ValueError, pow, long(2), 5, 0)
 
         # some rpow tests
@@ -517,3 +516,26 @@ class AppTestLong:
         b -= 1
         assert a is b
 
+    def test_pow_negative_exponent_modulo(self):
+        import math
+        mod = 2 ** 100
+        res = 519502503658624787456021964081
+        assert pow(3**100, -1, mod) == res
+        assert pow(3**100, -2, mod) == (519502503658624787456021964081 ** 2) % mod
+
+        for i in range(1, 7):
+            i = self._long(i)
+            for j in range(2, 7):
+                j = self._long(j)
+                for sign in [1, -1]:
+                    i = i * sign
+                    if math.gcd(i, j) != 1:
+                        with raises(ValueError):
+                            pow(i, -1, j)
+                        continue
+                    x = pow(i, -1, j)
+                    assert (x * i) % j == 1 % j
+
+                    for k in range(2, 4):
+                        y = pow(i, -k, j)
+                        assert y == pow(x, k, j)

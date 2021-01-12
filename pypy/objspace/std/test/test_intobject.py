@@ -177,7 +177,7 @@ class TestW_IntObject:
     else:
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
-           b=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
+           b=strategies.integers(min_value=0, max_value=sys.maxint),
            c=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint))
         @example(0, 0, -sys.maxint-1)
         @example(0, 1, -sys.maxint-1)
@@ -204,6 +204,18 @@ class TestW_IntObject:
             except OverflowError:
                 result = OverflowError
             assert result == expected
+
+            # check exponent -1
+            if isinstance(expected, int):
+                try:
+                    result = iobj._pow(self.space, a, -1, c)
+                except OperationError as e:
+                    pass
+                except OverflowError:
+                    pass
+                else:
+                    assert (a * result % c) == 1 % c
+
 
         @given(
            a=strategies.integers(min_value=-sys.maxint-1, max_value=sys.maxint),
@@ -831,6 +843,22 @@ class AppTestInt(object):
         assert n == 5 and d == 1
         assert type(n) is int
 
+    def test_pow_negative_exponent_mod(self):
+        import math
+        for i in range(1, 7):
+            for j in range(2, 7):
+                for sign in [1, -1]:
+                    i = i * sign
+                    if math.gcd(i, j) != 1:
+                        with raises(ValueError):
+                            pow(i, -1, j)
+                        continue
+                    x = pow(i, -1, j)
+                    assert (x * i) % j == 1 % j
+
+                    for k in range(2, 4):
+                        y = pow(i, -k, j)
+                        assert y == pow(x, k, j)
 
 
 class AppTestIntShortcut(AppTestInt):

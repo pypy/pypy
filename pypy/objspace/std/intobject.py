@@ -423,12 +423,8 @@ def _pow_nomod(iv, iw):
 def _pow_mod(space, iv, iw, iz):
     from rpython.rlib.rarithmetic import mulmod
 
-    if iw <= 0:
-        if iw == 0:
-            return 1 % iz   # != 1, for iz == 1 or iz < 0
-        raise oefmt(space.w_ValueError,
-                    "pow() 2nd argument cannot be negative when 3rd "
-                    "argument specified")
+    if iw == 0:
+        return 1 % iz   # != 1, for iz == 1 or iz < 0
     if iz < 0:
         try:
             iz = ovfcheck(-iz)
@@ -437,6 +433,14 @@ def _pow_mod(space, iv, iw, iz):
         iz_negative = True
     else:
         iz_negative = False
+    if iw <= 0:
+        w_iv = invmod(space, space.newint(iv), space.newint(iz))
+        assert isinstance(w_iv, W_IntObject)
+        iv = w_iv.intval
+        try:
+            iw = ovfcheck(-iw)
+        except OverflowError:
+            raise
 
     temp = iv
     ix = 1
@@ -857,6 +861,23 @@ divmod_near = applevel('''
                r -= b
            return q, r
 ''', filename=__file__).interphook('divmod_near')
+
+invmod = applevel('''
+def invmod(a, n):
+    if n == 1:
+        return 0
+    if a == 1:
+        return 1
+    assert n >= 0
+    b, c = 1, 0
+    while n:
+        q, r = divmod(a, n)
+        a, b, c, n = n, c, b - q*c, r
+    # at this point a is the gcd of the original inputs
+    if a == 1:
+        return b
+    raise ValueError("base is not invertible for the given modulus")
+''', filename=__file__).interphook("invmod")
 
 
 def _recover_with_smalllong(space):
