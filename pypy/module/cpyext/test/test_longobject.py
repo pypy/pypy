@@ -11,7 +11,7 @@ from pypy.module.cpyext.longobject import (PyLong_Check, PyLong_CheckExact,
     PyLong_FromLong, PyLong_AsLong, PyLong_AsUnsignedLong, PyLong_AsLongLong,
     PyLong_AsUnsignedLongLong, PyLong_AsUnsignedLongLongMask)
 
-maxlong = struct.unpack_from('>l', b'\x7f' + b'\xff' * 7)[0]
+maxlong = int(2 ** (struct.calcsize('l') * 8 - 1) - 1)
 
 class TestLongObject(BaseApiTest):
     def test_FromLong(self, space, api):
