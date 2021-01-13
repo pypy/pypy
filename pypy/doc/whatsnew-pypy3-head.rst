@@ -68,3 +68,7 @@ Re-enable ``_io.win32console`` on windows
 .. branch: meth-fastcall
 
 Implement METH_FASTCALL
+
+.. branch: py3.7-win64-cpyext-longobject 
+
+Fix ``cpyext.longobject`` for win64
