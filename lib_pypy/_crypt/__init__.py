@@ -22,12 +22,20 @@ except OSError:
 
 @builtinify
 def crypt(word, salt):
+    # Both arguments must be str on CPython, but are interpreted as
+    # utf-8 bytes.  The result is also a str.  For backward
+    # compatibility with previous versions of the logic here
+    # we also accept directly bytes (and then return bytes).
     with _lock:
-        if isinstance(word, str):
-            word = word.encode('ascii')
+        arg_is_str = isinstance(word, str)
+        if arg_is_str:
+            word = word.encode('utf-8')
         if isinstance(salt, str):
-            salt = salt.encode('ascii')
+            salt = salt.encode('utf-8')
         res = lib.crypt(word, salt)
         if not res:
             return None
-        return ffi.string(res)
+        res = ffi.string(res)
+        if arg_is_str:
+            res = res.decode('utf-8')
+        return res
