@@ -45,10 +45,10 @@ import sys as _sys
 if _sys.platform == 'darwin':
     try:
         from ._ctypes_cffi import lib as _lib
-        if hasattr(_lib, '_dyld_shared_cache_contains_path'):
+        if hasattr(_lib, 'dyld_shared_cache_contains_path'):
             @builtinify
             def _dyld_shared_cache_contains_path(path):
-                return _lib._dyld_shared_cache_contains_path(path.encode())
+                return _lib.dyld_shared_cache_contains_path(path.encode())
     except ImportError:
         pass
 
