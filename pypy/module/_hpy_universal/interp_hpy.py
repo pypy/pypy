@@ -43,6 +43,10 @@ def create_hpy_module(space, name, origin, lib, initfunc_ptr):
     state = space.fromcache(State)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     h_module = initfunc_ptr(state.ctx)
+    if not h_module:
+        raise oefmt(space.w_SystemError,
+            "initialization of %s failed without raising an exception",
+            name)
     return handles.consume(space, h_module)
 
 def descr_load_from_spec(space, w_spec):
