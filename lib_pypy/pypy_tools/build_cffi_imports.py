@@ -36,7 +36,7 @@ cffi_build_scripts = collections.OrderedDict([
     ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
     ("lzma", "_lzma_build.py"),
-    # "_decimal", "_decimal_build.py"),
+    # ("_decimal", "_decimal_build.py"),
     ("_sha3", "_sha3/_sha3_build.py"),
     ("xx", None),    # for testing: 'None' should be completely ignored
     ])
