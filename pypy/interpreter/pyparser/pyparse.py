@@ -75,7 +75,7 @@ class CompileInfo(object):
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False, optimize=0, feature_version=8):
+                 hidden_applevel=False, optimize=0):
         assert optimize >= 0
         rstring.check_str0(filename)
         self.filename = filename
@@ -85,7 +85,6 @@ class CompileInfo(object):
         self.optimize = optimize
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
-        self.feature_version = feature_version
 
 
 _targets = {

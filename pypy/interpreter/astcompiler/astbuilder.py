@@ -1107,7 +1107,8 @@ class ASTBuilder(object):
     def handle_atom_expr(self, atom_node):
         start = 0
         num_ch = atom_node.num_children()
-        if atom_node.get_child(0).type == tokens.AWAIT:
+        if atom_node.get_child(0).type == tokens.NAME:
+            # await
             start = 1
         atom_expr = self.handle_atom(atom_node.get_child(start))
         if num_ch == 1:
@@ -1450,7 +1451,7 @@ class ASTBuilder(object):
         current_for = comp_node
         while True:
             count += 1
-            is_async = current_for.get_child(0).type == tokens.ASYNC
+            is_async = current_for.get_child(0).type == tokens.NAME
             current_for = current_for.get_child(int(is_async))
             assert current_for.type == syms.sync_comp_for
             if current_for.num_children() == 5:
@@ -1486,7 +1487,7 @@ class ASTBuilder(object):
         fors_count = self.count_comp_fors(comp_node)
         comps = []
         for i in range(fors_count):
-            is_async = comp_node.get_child(0).type == tokens.ASYNC
+            is_async = comp_node.get_child(0).type == tokens.NAME
             comp_node = comp_node.get_child(int(is_async))
             assert comp_node.type == syms.sync_comp_for
             for_node = comp_node.get_child(1)
