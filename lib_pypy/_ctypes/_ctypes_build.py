@@ -1,16 +1,11 @@
 import os
-import platform
+import sys
 
 from cffi import FFI
 ffi = FFI()
 
 def main():
-    if platform.system() != 'Darwin':
-        return
-
-    release, _, _ = platform.mac_ver()
-    release = tuple(map(int, release.split('.')))
-    if release < (10, 16):
+    if sys.platform != 'darwin':
         return
 
     ffi.cdef('bool dyld_shared_cache_contains_path(const char* path);')
