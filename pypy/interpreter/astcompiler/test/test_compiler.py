@@ -1497,6 +1497,19 @@ def f():
     return {l.pop() : l.pop() for i in range(3)}
         """, "f()", {6: 5, 4: 3, 2: 1})
 
+    def test_var_annot_rhs(self):
+        yield (self.simple_test, "x: tuple = 1, 2", "x", (1, 2))
+        yield (self.simple_test, """\
+def f():
+    x: int = yield 'hel'
+    yield x
+
+gen = f()
+""", "next(gen) + gen.send('lo')", "hello")
+        yield (self.simple_test, """\
+rest = 2, 3
+x: tuple = 1, *rest, 4
+""", "x", (1, 2, 3, 4))
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
