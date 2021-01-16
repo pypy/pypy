@@ -216,6 +216,11 @@ if 1:
 
     def test_async_await(self):
         self.parse("async def coro(): await func")
+        self.parse("""
+def make_arange(n):
+    # This syntax is legal starting with Python 3.7
+    return (i * 2 async for i in arange(n))
+""")
         self.parse("await x")
         #Test as var and func name
         with pytest.raises(SyntaxError):
