@@ -1,15 +1,10 @@
 import os
-import sys
 
 from cffi import FFI
+
 ffi = FFI()
-
-def main():
-    if sys.platform != 'darwin':
-        return
-
-    ffi.cdef('bool dyld_shared_cache_contains_path(const char* path);')
-    ffi.set_source('_ctypes_cffi', r'''
+ffi.cdef('bool dyld_shared_cache_contains_path(const char* path);')
+ffi.set_source('_ctypes_cffi', r'''
 #include <stdbool.h>
 #include <mach-o/dyld.h>
 
@@ -22,8 +17,6 @@ bool dyld_shared_cache_contains_path(const char* path) {
 }
 ''')
 
+if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__))
     ffi.compile()
-
-if __name__ == '__main__':
-    main()

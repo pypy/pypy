@@ -23,7 +23,8 @@ class MissingDependenciesError(Exception):
 
 
 cffi_build_scripts = collections.OrderedDict([
-    ("_ctypes._ctypes_cffi", "_ctypes/_ctypes_build.py"),
+    ("_ctypes._ctypes_cffi",
+     "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
     ("_blake2", "_blake2/_blake2_build.py"),
     ("_ssl", "_ssl_build.py"),
     ("sqlite3", "_sqlite3_build.py"),
