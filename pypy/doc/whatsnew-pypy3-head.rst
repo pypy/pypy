@@ -72,3 +72,9 @@ Implement METH_FASTCALL
 .. branch: py3.7-win64-cpyext-longobject 
 
 Fix ``cpyext.longobject`` for win64
+
+.. branch: py3.7-big-sur-dyld-cache
+
+Fix loading system libraries with ctypes on macOS Big Sur. (issue 3314)
+
+
