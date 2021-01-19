@@ -470,12 +470,19 @@ class PlainAttribute(AbstractAttribute):
 class UnboxedPlainAttribute(PlainAttribute):
     _immutable_fields_ = ["listindex", "firstunwrapped"]
     def __init__(self, name, attrkind, back, typ):
-        PlainAttribute.__init__(self, name, attrkind, back)
+        AbstractAttribute.__init__(self, back.space, back.terminator)
+        # don't call PlainAttribute.__init__, that runs into weird problems
+        self.name = name
+        self.attrkind = attrkind
+        self.back = back
+        self.ever_mutated = False
+        self.order = len(back.cache_attrs) if back.cache_attrs else 0
         # here, storageindex is where the list of floats is stored
         # and listindex is where in the list the actual value goes
         self.firstunwrapped = False
         self._compute_storageindex_listindex()
         self.typ = typ
+        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
 
     def _compute_storageindex_listindex(self):
         attr = self.back
@@ -492,6 +499,11 @@ class UnboxedPlainAttribute(PlainAttribute):
             self.firstunwrapped = True
         self.storageindex = storageindex
         self.listindex = listindex
+
+    def storage_needed(self):
+        if self.firstunwrapped:
+            return self.storageindex + 1
+        return self.back.storage_needed()
 
     def _unbox(self, w_value):
         space = self.space

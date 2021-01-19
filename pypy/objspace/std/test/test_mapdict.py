@@ -566,6 +566,20 @@ def test_unboxed_compute_indices():
     assert c.listindex == 1
     assert not c.firstunwrapped
 
+def test_unboxed_storage_needed():
+    w_cls = "class"
+    bb = UnboxedPlainAttribute("c", DICT,
+             Terminator(space, w_cls),
+         int)
+    assert bb.storage_needed() == 1
+    aa = UnboxedPlainAttribute("b", DICT,
+            PlainAttribute("a", DICT,
+               UnboxedPlainAttribute("c", DICT,
+                   Terminator(space, w_cls),
+               int)),
+         int)
+    assert aa.storage_needed() == 2
+
 def test_unboxed_write_int():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
@@ -675,6 +689,23 @@ def test_unboxed_attr_immutability(monkeypatch):
     obj2.setdictvalue(space, "a", 50)
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
+
+def test_unboxed_bug():
+
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "flags", 0)
+    w_obj.setdictvalue(space, "open", [])
+    w_obj.setdictvalue(space, "groups", 1)
+    w_obj.setdictvalue(space, "groupdict", {})
+    w_obj.setdictvalue(space, "lookbehind", 0)
+
+    assert w_obj.getdictvalue(space, "flags") == 0
+    assert w_obj.getdictvalue(space, "open") == []
+    assert w_obj.getdictvalue(space, "groups") == 1
+    assert w_obj.getdictvalue(space, "groupdict") == {}
+    assert w_obj.getdictvalue(space, "lookbehind") == 0
+
 
 # ___________________________________________________________
 # dict tests
