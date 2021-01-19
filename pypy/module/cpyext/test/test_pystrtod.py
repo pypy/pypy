@@ -10,28 +10,28 @@ from pypy.module.cpyext.pystrtod import PyOS_string_to_double, INTP_real
 class TestPyOS_string_to_double(BaseApiTest):
 
     def test_simple_float(self, space):
-        s = rffi.str2charp('0.4')
+        s = rffi.str2constcharp('0.4')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         r = PyOS_string_to_double(space, s, null, None)
         assert r == 0.4
         rffi.free_charp(s)
 
     def test_empty_string(self, space):
-        s = rffi.str2charp('')
+        s = rffi.str2constcharp('')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         with raises_w(space, ValueError):
             PyOS_string_to_double(space, s, null, None)
         rffi.free_charp(s)
 
     def test_bad_string(self, space):
-        s = rffi.str2charp(' 0.4')
+        s = rffi.str2constcharp(' 0.4')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         with raises_w(space, ValueError):
             PyOS_string_to_double(space, s, null, None)
         rffi.free_charp(s)
 
     def test_overflow_pos(self, space):
-        s = rffi.str2charp('1e500')
+        s = rffi.str2constcharp('1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         r = PyOS_string_to_double(space, s, null, None)
         assert math.isinf(r)
@@ -39,7 +39,7 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
 
     def test_overflow_neg(self, space):
-        s = rffi.str2charp('-1e500')
+        s = rffi.str2constcharp('-1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         r = PyOS_string_to_double(space, s, null, None)
         assert math.isinf(r)
@@ -47,14 +47,14 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
 
     def test_overflow_exc(self, space):
-        s = rffi.str2charp('1e500')
+        s = rffi.str2constcharp('1e500')
         null = lltype.nullptr(rffi.CCHARPP.TO)
         with raises_w(space, ValueError):
             PyOS_string_to_double(space, s, null, space.w_ValueError)
         rffi.free_charp(s)
 
     def test_endptr_number(self, space):
-        s = rffi.str2charp('0.4')
+        s = rffi.str2constcharp('0.4')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         r = PyOS_string_to_double(space, s, endp, None)
         assert r == 0.4
@@ -65,7 +65,7 @@ class TestPyOS_string_to_double(BaseApiTest):
         lltype.free(endp, flavor='raw')
 
     def test_endptr_tail(self, space):
-        s = rffi.str2charp('0.4 foo')
+        s = rffi.str2constcharp('0.4 foo')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         r = PyOS_string_to_double(space, s, endp, None)
         assert r == 0.4
@@ -76,7 +76,7 @@ class TestPyOS_string_to_double(BaseApiTest):
         lltype.free(endp, flavor='raw')
 
     def test_endptr_no_conversion(self, space):
-        s = rffi.str2charp('foo')
+        s = rffi.str2constcharp('foo')
         endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
         with raises_w(space, ValueError):
             PyOS_string_to_double(space, s, endp, None)
@@ -86,6 +86,25 @@ class TestPyOS_string_to_double(BaseApiTest):
         rffi.free_charp(s)
         lltype.free(endp, flavor='raw')
 
+    def test_endptr_inf(self, space):
+        endp = lltype.malloc(rffi.CCHARPP.TO, 1, flavor='raw')
+        for test in ('inf', '+infinity', 'INF'):
+            s = rffi.str2constcharp(test)
+            r = PyOS_string_to_double(space, s, endp, None)
+            assert r == float('inf')
+            endp_addr = rffi.cast(rffi.LONG, endp[0])
+            s_addr = rffi.cast(rffi.LONG, s)
+            assert endp_addr == s_addr + len(test)
+            rffi.free_charp(s)
+        s = rffi.str2constcharp('inf aaa')
+        r = PyOS_string_to_double(space, s, endp, None)
+        assert r == float('inf')
+        endp_addr = rffi.cast(rffi.LONG, endp[0])
+        s_addr = rffi.cast(rffi.LONG, s)
+        # CPython returns 3
+        assert endp_addr == s_addr + 3
+        rffi.free_charp(s)
+        lltype.free(endp, flavor='raw')
 
 class TestPyOS_double_to_string(BaseApiTest):
 

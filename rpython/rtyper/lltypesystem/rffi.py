@@ -1049,6 +1049,13 @@ def constcharpsize2str(cp, size):
     return charpsize2str(cp, size)
 constcharpsize2str._annenforceargs_ = [lltype.SomePtr(CONST_CCHARP), int]
 
+def str2constcharp(s):
+    """
+    Like str2charp, but returns a CONST_CCHARP instead
+    """
+    cp = str2charp(s)
+    return cast(CONST_CCHARP, cp)
+str2constcharp._annenforceargs_ = [str]
 
 @not_rpython
 def _deprecated_get_nonmovingbuffer(*args):
