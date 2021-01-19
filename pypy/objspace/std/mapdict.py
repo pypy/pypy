@@ -261,8 +261,11 @@ class AbstractAttribute(object):
     def remove_dict_entries(self, obj):
         raise NotImplementedError("abstract base class")
 
-    def __repr__(self):
+    def repr(self):
         return "<%s>" % (self.__class__.__name__,)
+
+    def __repr__(self):
+        return self.repr()
 
 
 class Terminator(AbstractAttribute):
@@ -305,7 +308,7 @@ class Terminator(AbstractAttribute):
     def remove_dict_entries(self, obj):
         return self.copy(obj)
 
-    def __repr__(self):
+    def repr(self):
         return "<%s w_cls=%s>" % (self.__class__.__name__, self.w_cls)
 
 class DictTerminator(Terminator):
@@ -463,8 +466,10 @@ class PlainAttribute(AbstractAttribute):
             self._copy_attr(obj, new_obj)
         return new_obj
 
-    def __repr__(self):
-        return "<PlainAttribute %s %s %s %r>" % (self.name, self.attrkind, self.storageindex, self.back)
+    def repr(self):
+        return "<PlainAttribute %s %s %s %s>" % (
+                self.name, attrkind_name(self.attrkind), self.storageindex,
+                self.back.repr())
 
 
 class UnboxedPlainAttribute(PlainAttribute):
@@ -580,8 +585,10 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
             obj._set_mapdict_map(self)
 
-    def __repr__(self):
-        return "<UnboxedPlainAttribute %s %s %s %s %r>" % (self.name, self.attrkind, self.storageindex, self.listindex, self.back)
+    def repr(self):
+        return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
+                self.name, attrkind_name(self.attrkind), self.storageindex,
+                self.listindex, self.back.repr())
 
 
 class MapAttrCache(object):
@@ -614,6 +621,15 @@ DICT = 0
 SPECIAL = 1
 INVALID = 2
 SLOTS_STARTING_FROM = 3
+
+def attrkind_name(attrkind):
+    if attrkind == DICT:
+        return "DICT"
+    if attrkind == SPECIAL:
+        return "SPECIAL"
+    if attrkind == INVALID:
+        return "INVALID"
+    return str(attrkind)
 
 # a little bit of a mess of mixin classes that implement various pieces of
 # objspace user object functionality in terms of mapdict
