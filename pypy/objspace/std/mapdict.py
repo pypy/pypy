@@ -122,9 +122,8 @@ class AbstractAttribute(object):
         raise NotImplementedError("abstract base class")
 
     def num_attributes(self):
-        """ number of attributes represented by self (usually the same as
-        storage_needed). """
-        return self.storage_needed()
+        """ number of attributes represented by self. """
+        raise NotImplementedError("abstract base class")
 
     def get_terminator(self):
         return self.terminator
@@ -299,6 +298,9 @@ class Terminator(AbstractAttribute):
     def storage_needed(self):
         return 0
 
+    def num_attributes(self):
+        return 0
+
     def set_terminator(self, obj, terminator):
         result = Object()
         result.space = self.space
@@ -376,13 +378,14 @@ class DevolvedDictTerminator(Terminator):
         return Terminator.set_terminator(self, obj, terminator)
 
 class PlainAttribute(AbstractAttribute):
-    _immutable_fields_ = ['name', 'attrkind', 'storageindex', 'back', 'ever_mutated?', 'order']
+    _immutable_fields_ = ['name', 'attrkind', 'storageindex', '_num_attributes', 'back', 'ever_mutated?', 'order']
 
     def __init__(self, name, attrkind, back):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.name = name
         self.attrkind = attrkind
         self.storageindex = back.storage_needed()
+        self._num_attributes = back.num_attributes() + 1
         self.back = back
         self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
         self.ever_mutated = False
@@ -432,6 +435,9 @@ class PlainAttribute(AbstractAttribute):
 
     def storage_needed(self):
         return self.storageindex + 1
+
+    def num_attributes(self):
+        return self._num_attributes
 
     def set_terminator(self, obj, terminator):
         new_obj = self.back.set_terminator(obj, terminator)
@@ -486,6 +492,7 @@ class UnboxedPlainAttribute(PlainAttribute):
         # and listindex is where in the list the actual value goes
         self.firstunwrapped = False
         self._compute_storageindex_listindex()
+        self._num_attributes = back.num_attributes() + 1
         self.typ = typ
         self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
 
@@ -509,6 +516,7 @@ class UnboxedPlainAttribute(PlainAttribute):
         if self.firstunwrapped:
             return self.storageindex + 1
         return self.back.storage_needed()
+
 
     def _unbox(self, w_value):
         space = self.space
