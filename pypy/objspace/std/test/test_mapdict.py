@@ -694,8 +694,8 @@ def test_unboxed_attr_immutability(monkeypatch):
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
-def test_unboxed_bug():
 
+def test_unboxed_bug():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "flags", 0)
@@ -710,6 +710,41 @@ def test_unboxed_bug():
     assert w_obj.getdictvalue(space, "groupdict") == {}
     assert w_obj.getdictvalue(space, "lookbehind") == 0
 
+
+def test_unboxed_reorder_add_bug():
+    cls = Class(allow_unboxing=True)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "c", 20)
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "b", 30)
+    obj2.setdictvalue(space, "c", 40)
+    obj2.setdictvalue(space, "a", 23)
+
+    assert obj.map is obj2.map
+
+
+def test_unboxed_insert_different_orders_perm():
+    from itertools import permutations
+    cls = Class()
+    seen_maps = {}
+    for preexisting in ['', 'x', 'xy']:
+        for i, attributes in enumerate(permutations("abcdef")):
+            obj = cls.instantiate()
+            for i, attr in enumerate(preexisting):
+                obj.setdictvalue(space, attr, str(i*1000))
+            key = preexisting
+            for j, attr in enumerate(attributes):
+                obj.setdictvalue(space, attr, i*10+j)
+                key = "".join(sorted(key+attr))
+                if key in seen_maps:
+                    assert obj.map is seen_maps[key]
+                else:
+                    seen_maps[key] = obj.map
+
+    print len(seen_maps)
 
 # ___________________________________________________________
 # dict tests
