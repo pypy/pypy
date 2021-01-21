@@ -14,12 +14,14 @@ space = FakeSpace()
 space.config = Config
 
 class Class(object):
-    def __init__(self, hasdict=True):
+    def __init__(self, hasdict=True, allow_unboxing=False):
         self.hasdict = hasdict
         if hasdict:
             self.terminator = DictTerminator(space, self)
+            self.terminator.devolved_dict_terminator.allow_unboxing = allow_unboxing
         else:
             self.terminator = NoDictTerminator(space, self)
+        self.terminator.allow_unboxing = allow_unboxing
 
     def instantiate(self, sp=None):
         if sp is None:
@@ -35,9 +37,27 @@ class ObjectWithoutDict(ObjectWithoutDict):
     class typedef:
         hasdict = False
 
+    @property
+    def checkstorage(self):
+        return [unerase_item(x) for x in self.storage]
+
+    @checkstorage.setter
+    def checkstorage(self, value):
+        self.storage = [erase_item(x) for x in value]
+
+
 class Object(Object):
     class typedef:
         hasdict = False
+
+    @property
+    def checkstorage(self):
+        return [unerase_item(x) for x in self.storage]
+
+    @checkstorage.setter
+    def checkstorage(self, value):
+        self.storage = [erase_item(x) for x in value]
+
 
 def test_plain_attribute():
     w_cls = "class"
@@ -49,21 +69,21 @@ def test_plain_attribute():
     assert aa.get_terminator() is aa.terminator
 
     obj = Object()
-    obj.map, obj.storage = aa, [10, 20]
+    obj.map, obj.checkstorage = aa, [10, 20]
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") == 20
     assert obj.getdictvalue(space, "c") is None
 
     obj = Object()
-    obj.map, obj.storage = aa, [30, 40]
+    obj.map, obj.checkstorage = aa, [30, 40]
     obj.setdictvalue(space, "a", 50)
-    assert obj.storage == [50, 40]
+    assert obj.checkstorage == [50, 40]
     assert obj.getdictvalue(space, "a") == 50
     obj.setdictvalue(space, "b", 60)
-    assert obj.storage == [50, 60]
+    assert obj.checkstorage == [50, 60]
     assert obj.getdictvalue(space, "b") == 60
 
-    assert aa.length() == 2
+    assert aa.storage_needed() == 2
 
     assert aa.get_terminator() is aa.back.back
 
@@ -88,7 +108,7 @@ def test_add_attribute():
     cls = Class()
     obj = cls.instantiate()
     obj.setdictvalue(space, "a", 10)
-    assert obj.storage == [10]
+    assert obj.checkstorage == [10]
     assert obj.getdictvalue(space, "a") == 10
     assert obj.getdictvalue(space, "b") is None
     assert obj.getdictvalue(space, "c") is None
@@ -98,7 +118,7 @@ def test_add_attribute():
     assert obj.getdictvalue(space, "c") is None
 
     obj.setdictvalue(space, "b", 30)
-    assert obj.storage == [20, 30]
+    assert obj.checkstorage == [20, 30]
     assert obj.getdictvalue(space, "a") == 20
     assert obj.getdictvalue(space, "b") == 30
     assert obj.getdictvalue(space, "c") is None
@@ -124,7 +144,7 @@ def test_add_attribute_limit():
         for i in range(1000):
             obj.setdictvalue(space, str(i), i)
         # moved to dict (which is the remaining non-slot item)
-        assert len(obj.storage) == 1 + numslots
+        assert len(obj.checkstorage) == 1 + numslots
         assert isinstance(obj.getdict(space).dstrategy, UnicodeDictStrategy)
 
         for i in range(1000):
@@ -137,7 +157,7 @@ def test_add_attribute_limit():
     obj = cls.instantiate()
     for i in range(1000):
         obj.setslotvalue(i, i)
-    assert len(obj.storage) == 1000
+    assert len(obj.checkstorage) == 1000
 
     for i in range(1000):
         assert obj.getslotvalue(i) == i
@@ -295,18 +315,17 @@ def test_attr_immutability(monkeypatch):
     obj.setdictvalue(space, "a", 10)
     obj.setdictvalue(space, "b", 20)
     obj.setdictvalue(space, "b", 30)
-    assert obj.storage == [10, 30]
+    assert obj.checkstorage == [10, 30]
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
 
     indices = []
 
-    def _pure_mapdict_read_storage(obj, storageindex):
-        assert storageindex == 0
-        indices.append(storageindex)
-        return obj._mapdict_read_storage(storageindex)
+    def _pure_direct_read(obj):
+        indices.append(0)
+        return unerase_item(obj._mapdict_read_storage(0))
 
-    obj.map._pure_mapdict_read_storage = _pure_mapdict_read_storage
+    obj.map.back._pure_direct_read = _pure_direct_read
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
     assert obj.getdictvalue(space, "a") == 10
@@ -343,12 +362,12 @@ def test_delete():
         obj.setdictvalue(space, "a", 50)
         obj.setdictvalue(space, "b", 60)
         obj.setdictvalue(space, "c", 70)
-        assert obj.storage == [50, 60, 70]
+        assert obj.checkstorage == [50, 60, 70]
         res = obj.deldictvalue(space, dattr)
         assert res
         s = [50, 60, 70]
         del s[i]
-        assert obj.storage == s
+        assert obj.checkstorage == s
 
     obj = c.instantiate()
     obj.setdictvalue(space, "a", 50)
@@ -371,7 +390,7 @@ def test_class():
     c2 = Class()
     obj.setclass(space, c2)
     assert obj.getclass(space) is c2
-    assert obj.storage == [50, 60, 70]
+    assert obj.checkstorage == [50, 60, 70]
 
 def test_special():
     from pypy.module._weakref.interp__weakref import WeakrefLifeline
@@ -387,7 +406,7 @@ def test_special():
     assert obj.getdictvalue(space, "a") == 50
     assert obj.getdictvalue(space, "b") == 60
     assert obj.getdictvalue(space, "c") == 70
-    assert obj.storage == [50, 60, 70, lifeline1]
+    assert obj.checkstorage == [50, 60, 70, lifeline1]
     assert obj.getweakref() is lifeline1
 
     obj2 = c.instantiate()
@@ -395,7 +414,7 @@ def test_special():
     obj2.setdictvalue(space, "b", 160)
     obj2.setdictvalue(space, "c", 170)
     obj2.setweakref(space, lifeline2)
-    assert obj2.storage == [150, 160, 170, lifeline2]
+    assert obj2.checkstorage == [150, 160, 170, lifeline2]
     assert obj2.getweakref() is lifeline2
 
     assert obj2.map is obj.map
@@ -425,7 +444,7 @@ def test_slots():
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
     assert obj.getslotvalue(c) == 70
-    assert obj.storage == [50, 60, 70]
+    assert obj.checkstorage == [50, 60, 70]
 
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
@@ -436,7 +455,7 @@ def test_slots():
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
     assert obj.getslotvalue(c) == 70
-    assert obj.storage == [50, 60, 70, 5, 6, 7]
+    assert obj.checkstorage == [50, 60, 70, 5, 6, 7]
 
     obj2 = cls.instantiate()
     obj2.setslotvalue(a, 501)
@@ -445,13 +464,13 @@ def test_slots():
     obj2.setdictvalue(space, "a", 51)
     obj2.setdictvalue(space, "b", 61)
     obj2.setdictvalue(space, "c", 71)
-    assert obj2.storage == [501, 601, 701, 51, 61, 71]
+    assert obj2.checkstorage == [501, 601, 701, 51, 61, 71]
     assert obj.map is obj2.map
 
     assert obj2.getslotvalue(b) == 601
     assert obj2.delslotvalue(b)
     assert obj2.getslotvalue(b) is None
-    assert obj2.storage == [501, 701, 51, 61, 71]
+    assert obj2.checkstorage == [501, 701, 51, 61, 71]
     assert not obj2.delslotvalue(b)
 
 
@@ -464,7 +483,7 @@ def test_slots_no_dict():
     obj.setslotvalue(b, 60)
     assert obj.getslotvalue(a) == 50
     assert obj.getslotvalue(b) == 60
-    assert obj.storage == [50, 60]
+    assert obj.checkstorage == [50, 60]
     assert not obj.setdictvalue(space, "a", 70)
     assert obj.getdict(space) is None
     assert obj.getdictvalue(space, "a") is None
@@ -492,7 +511,7 @@ def test_materialize_r_dict():
     obj.setdictvalue(space, "a", 5)
     obj.setdictvalue(space, "b", 6)
     obj.setdictvalue(space, "c", 7)
-    assert obj.storage == [50, 60, 70, 5, 6, 7]
+    assert obj.checkstorage == [50, 60, 70, 5, 6, 7]
 
     class FakeDict(W_DictObject):
         def __init__(self, d):
@@ -509,7 +528,7 @@ def test_materialize_r_dict():
     assert flag
     materialize_r_dict(space, obj, d)
     assert d == {"a": 5, "b": 6, "c": 7}
-    assert obj.storage == [50, 60, 70, w_d]
+    assert obj.checkstorage == [50, 60, 70, w_d]
 
 
 def test_size_prediction():
@@ -532,6 +551,165 @@ def test_size_prediction():
             for a in "klmnopqars":
                 obj.setdictvalue(space, a, 50)
         assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
+
+# ___________________________________________________________
+# unboxed tests
+
+def test_unboxed_compute_indices():
+    w_cls = "class"
+    aa = UnboxedPlainAttribute("b", DICT,
+                        PlainAttribute("a", DICT,
+                                       Terminator(space, w_cls)),
+                        int)
+    assert aa.storageindex == 1
+    assert aa.firstunwrapped
+    assert aa.listindex == 0
+    
+    c = UnboxedPlainAttribute("c", DICT, aa, int)
+    assert c.storageindex == 1
+    assert c.listindex == 1
+    assert not c.firstunwrapped
+
+def test_unboxed_storage_needed():
+    w_cls = "class"
+    bb = UnboxedPlainAttribute("c", DICT,
+             Terminator(space, w_cls),
+         int)
+    assert bb.storage_needed() == 1
+    aa = UnboxedPlainAttribute("b", DICT,
+            PlainAttribute("a", DICT,
+               UnboxedPlainAttribute("c", DICT,
+                   Terminator(space, w_cls),
+               int)),
+         int)
+    assert aa.storage_needed() == 2
+
+def test_unboxed_write_int():
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", 15)
+    w_obj.getdictvalue(space, "a") == 15
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+
+    w_obj.setdictvalue(space, "b", 20)
+    w_obj.getdictvalue(space, "b") == 20
+    w_obj.getdictvalue(space, "a") == 15
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+    assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
+    assert unerase_unboxed(w_obj.storage[0]) == [longlong2float(15), longlong2float(20)]
+
+def test_unboxed_write_float():
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", 15.0)
+    w_obj.getdictvalue(space, "a") == 15.0
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+
+    w_obj.setdictvalue(space, "b", 20.0)
+    w_obj.getdictvalue(space, "b") == 20.0
+    w_obj.getdictvalue(space, "a") == 15.0
+    assert isinstance(w_obj.map, UnboxedPlainAttribute)
+    assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
+    assert unerase_unboxed(w_obj.storage[0]) == [15.0, 20.0]
+
+def test_unboxed_write_mixed():
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", None)
+    w_obj.setdictvalue(space, "b", 15)
+    w_obj.setdictvalue(space, "c", 20.1)
+    w_obj.setdictvalue(space, "d", None)
+    w_obj.getdictvalue(space, "a") is None
+    w_obj.getdictvalue(space, "b") == 15
+    w_obj.getdictvalue(space, "c") == 20.1
+    w_obj.setdictvalue(space, "d", None)
+
+def test_unboxed_type_change():
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "b", 15)
+    w_obj.setdictvalue(space, "b", 15.5)
+    assert w_obj.getdictvalue(space, "b") == 15.5
+    assert type(w_obj.map) is PlainAttribute
+    assert w_obj.map.terminator.allow_unboxing == False
+
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "b", 15)
+    # next time we won't unbox
+    assert type(w_obj.map) is PlainAttribute
+
+def test_unboxed_type_change_other_object():
+    cls = Class(allow_unboxing=True)
+    w_obj1 = cls.instantiate(space)
+    w_obj1.setdictvalue(space, "b", 15)
+    w_obj2 = cls.instantiate(space)
+    w_obj2.setdictvalue(space, "b", 16)
+    assert w_obj1.map is w_obj2.map
+    assert type(w_obj1.map) is UnboxedPlainAttribute
+
+    # type change
+    w_obj1.setdictvalue(space, "b", 15.5)
+    assert w_obj1.getdictvalue(space, "b") == 15.5
+    assert type(w_obj1.map) is PlainAttribute
+    assert w_obj1.map.terminator.allow_unboxing == False
+
+    # w_obj2 is unaffected so far
+    assert type(w_obj2.map) is UnboxedPlainAttribute
+    assert w_obj2.getdictvalue(space, "b") == 16
+    # now it's switched
+    assert type(w_obj2.map) is PlainAttribute
+
+def test_unboxed_attr_immutability(monkeypatch):
+    cls = Class(allow_unboxing=True)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", 20)
+    obj.setdictvalue(space, "b", 30)
+    assert obj.map.ever_mutated == True
+    assert obj.map.back.ever_mutated == False
+
+    indices = []
+
+    def _pure_unboxed_read(obj):
+        indices.append(0)
+        return longlong2float(10)
+
+    obj.map.back._pure_unboxed_read = _pure_unboxed_read
+    monkeypatch.setattr(jit, "isconstant", lambda c: True)
+
+    assert obj.getdictvalue(space, "a") == 10
+    assert obj.getdictvalue(space, "b") == 30
+    assert obj.getdictvalue(space, "a") == 10
+    assert indices == [0, 0]
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "a", 15)
+    obj2.setdictvalue(space, "b", 25)
+    assert obj2.map is obj.map
+    assert obj2.map.ever_mutated == True
+    assert obj2.map.back.ever_mutated == False
+
+    # mutating obj2 changes the map
+    obj2.setdictvalue(space, "a", 50)
+    assert obj2.map.back.ever_mutated == True
+    assert obj2.map is obj.map
+
+def test_unboxed_bug():
+
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "flags", 0)
+    w_obj.setdictvalue(space, "open", [])
+    w_obj.setdictvalue(space, "groups", 1)
+    w_obj.setdictvalue(space, "groupdict", {})
+    w_obj.setdictvalue(space, "lookbehind", 0)
+
+    assert w_obj.getdictvalue(space, "flags") == 0
+    assert w_obj.getdictvalue(space, "open") == []
+    assert w_obj.getdictvalue(space, "groups") == 1
+    assert w_obj.getdictvalue(space, "groupdict") == {}
+    assert w_obj.getdictvalue(space, "lookbehind") == 0
+
 
 # ___________________________________________________________
 # dict tests
@@ -647,12 +825,12 @@ def test_specialized_class():
         obj = objectcls()
         obj.user_setup(space, cls)
         obj.setdictvalue(space, "a", w1)
-        assert obj._value0 is w1
+        assert unerase_item(obj._value0) is w1
         assert obj.getdictvalue(space, "a") is w1
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
         obj.setdictvalue(space, "a", w2)
-        assert obj._value0 is w2
+        assert unerase_item(obj._value0) is w2
         assert obj.getdictvalue(space, "a") == w2
         assert obj.getdictvalue(space, "b") is None
         assert obj.getdictvalue(space, "c") is None
@@ -670,7 +848,7 @@ def test_specialized_class():
 
         res = obj.deldictvalue(space, "a")
         assert res
-        assert obj._value0 is w4
+        assert unerase_item(obj._value0) is w4
         assert obj.getdictvalue(space, "a") is None
         assert obj.getdictvalue(space, "b") is w4
         assert obj.getdictvalue(space, "c") is None
@@ -683,10 +861,45 @@ def test_specialized_class():
         assert obj2.getdictvalue(space, "b") is w6
         assert obj2.map is abmap
 
+
+def test_specialized_class_overflow():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    classes = [_make_storage_mixin_size_n(i) for i in range(2, 10)]
+    w1 = W_Root()
+    w2 = W_Root()
+    w3 = W_Root()
+    w4 = W_Root()
+    w5 = W_Root()
+    w6 = W_Root()
+    objs = [w1, w2, 4, w3, w4, w5, w6, 6, 12.6]
+    class objectcls(W_ObjectObject):
+        objectmodel.import_from_mixin(BaseUserClassMapdict)
+        objectmodel.import_from_mixin(MapdictDictSupport)
+        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+    cls = Class()
+    obj = objectcls()
+    obj.user_setup(space, cls)
+    for i in range(20):
+        obj.setdictvalue(space, str(i), objs[i % len(objs)])
+    for i in range(20):
+        assert obj.getdictvalue(space, str(i)) is objs[i % len(objs)]
+    for i in range(20):
+        obj.setdictvalue(space, str(i), objs[(i + 1) % len(objs)])
+    for i in range(20):
+        assert obj.getdictvalue(space, str(i)) is objs[(i + 1) % len(objs)]
+    assert obj._has_storage_list()
+    for i in range(20):
+        assert obj.deldictvalue(space, str(i))
+        for j in range(i + 1):
+            assert obj.getdictvalue(space, str(j)) is None
+        for j in range(i + 1, 20):
+            assert obj.getdictvalue(space, str(j)) is objs[(j + 1) % len(objs)]
+
+ 
 # ___________________________________________________________
 # integration tests
 
-# XXX write more
 
 class AppTestWithMapDict(object):
 
