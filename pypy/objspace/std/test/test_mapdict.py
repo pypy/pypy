@@ -721,10 +721,23 @@ def test_unboxed_reorder_add_bug():
 
     assert obj.map is obj2.map
 
+def test_unboxed_reorder_add_bug2():
+    cls = Class(allow_unboxing=True)
+    obj = cls.instantiate()
+    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "b", "20")
+    obj.setdictvalue(space, "c", "20")
+
+    obj2 = cls.instantiate()
+    obj2.setdictvalue(space, "b", "30")
+    obj2.setdictvalue(space, "c", "40")
+    obj2.setdictvalue(space, "a", 23)
+
+    assert obj.map is obj2.map
 
 def test_unboxed_insert_different_orders_perm():
     from itertools import permutations
-    cls = Class()
+    cls = Class(allow_unboxing=True)
     seen_maps = {}
     for preexisting in ['', 'x', 'xy']:
         for i, attributes in enumerate(permutations("abcdef")):

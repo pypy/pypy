@@ -155,13 +155,7 @@ class AbstractAttribute(object):
 
     def add_attr(self, obj, name, attrkind, w_value):
         space = self.space
-        unbox_type = None
-        if self.terminator.allow_unboxing:
-            if type(w_value) is space.IntObjectCls:
-                unbox_type = space.IntObjectCls
-            elif type(w_value) is space.FloatObjectCls:
-                unbox_type = space.FloatObjectCls
-        self._reorder_and_add(obj, name, attrkind, w_value, unbox_type)
+        self._reorder_and_add(obj, name, attrkind, w_value)
         if not jit.we_are_jitted():
             oldattr = self
             attr = obj._get_mapdict_map()
@@ -196,11 +190,11 @@ class AbstractAttribute(object):
             current_order = current.order
             current = current.back
 
-    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value, unbox_type:
+    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
             jit.isconstant(self) and
             jit.isconstant(name) and
             jit.isconstant(attrkind))
-    def _reorder_and_add(self, obj, name, attrkind, w_value, unbox_type):
+    def _reorder_and_add(self, obj, name, attrkind, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
         # must not contain the name of the attribute of any earlier inserted
@@ -224,6 +218,12 @@ class AbstractAttribute(object):
         stack_index = 0
         while True:
             current = self
+            unbox_type = None
+            if self.terminator.allow_unboxing:
+                if type(w_value) is self.space.IntObjectCls:
+                    unbox_type = self.space.IntObjectCls
+                elif type(w_value) is self.space.FloatObjectCls:
+                    unbox_type = self.space.FloatObjectCls
             number_to_readd, attr = self._find_branch_to_move_into(name, attrkind, unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
