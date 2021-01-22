@@ -1701,8 +1701,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if (
             isinstance(sub, ast.Constant)
             and (
-                self.space.isinstance_w(sub.value, self.space.w_list)
-                or self.space.isinstance_w(sub.value, self.space.w_tuple)
+                self.space.isinstance_w(sub.value, self.space.w_tuple)
+                or self.space.isinstance_w(sub.value, self.space.w_unicode)
+                or self.space.isinstance_w(sub.value, self.space.w_bytes)
             )
         ):
             return None
