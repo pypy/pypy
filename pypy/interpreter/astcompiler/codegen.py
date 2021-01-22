@@ -1693,6 +1693,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Subscript(self, sub):
         self.update_position(sub.lineno)
         self._check_subscripter(sub.value)
+        self._check_index(sub, sub.value, sub.slice)
         if sub.ctx != ast.AugStore:
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
@@ -1720,6 +1721,42 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.compile_info.filename,
             sub.lineno,
             sub.col_offset
+        )
+
+    def _check_index(self, node, sub, index):
+        if not (isinstance(index, ast.Index) and isinstance(index.value, _LITERAL_TYPES)):
+            return None
+
+        index_value = index.value
+        if isinstance(index_value, ast.Constant) and self.space.isinstance_w(
+            index_value.value, self.space.w_int
+        ):
+            return None
+
+        if not (
+            isinstance(sub, ast.Constant)
+            and (
+                self.space.isinstance_w(sub.value, self.space.w_tuple)
+                or self.space.isinstance_w(sub.value, self.space.w_unicode)
+                or self.space.isinstance_w(sub.value, self.space.w_bytes)
+            )
+        ):
+            return None
+
+        if not isinstance(sub, (ast.Constant, ast.Tuple, ast.List, ast.ListComp, ast.JoinedStr, ast.FormattedValue)):
+            return None
+
+        # not repr()s, since that is how it is in the TypeErrors
+        misc.syntax_warning(
+            self.space,
+            "%s indices must be integers or slices, "
+            "not %s; perhaps you missed a comma?" % (
+                self._infer_type_name(sub),
+                self._infer_type_name(index_value)
+            ),
+            self.compile_info.filename,
+            node.lineno,
+            node.col_offset
         )
 
     def visit_JoinedStr(self, joinedstr):
