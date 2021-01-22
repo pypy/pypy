@@ -1631,11 +1631,21 @@ class AppTestCompiler:
             '[12.3j (3, 4)]',
             '[None (3, 4)]',
             '[True (3, 4)]',
-            '[... (3, 4)]'
+            '[... (3, 4)]',
+            '[{1, 2} [i, j]]',
+            '[{i for i in range(5)} [i, j]]',
+            '[(i for i in range(5)) [i, j]]',
+            '[(lambda x, y: x) [i, j]]',
+            '[123 [i, j]]',
+            '[12.3 [i, j]]',
+            '[12.3j [i, j]]',
+            '[None [i, j]]',
+            '[True [i, j]]',
+            '[... [i, j]]' 
         ]
         for case in cases:
             with warnings.catch_warnings(record=True) as w:
-                ns = {}
+                ns = {'i': 1, 'j': 1}
                 exec("def foo(): %s" % case, ns)
                 try:
                     ns['foo']()
@@ -1644,10 +1654,12 @@ class AppTestCompiler:
                 else:
                     exc_message = None
 
-                assert len(w) == 1
+                assert len(w) == 1, case
                 assert issubclass(w[-1].category, SyntaxWarning)
                 assert exc_message is not None
-                assert exc_message in w[-1].message.args[0]
+
+                initial_part, _, info_part = w[-1].message.args[0].partition("; ")
+                assert initial_part in exc_message
 
 
 

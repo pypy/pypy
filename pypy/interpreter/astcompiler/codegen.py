@@ -132,7 +132,8 @@ _LITERAL_NODE_TO_NAME = {
     ast.SetComp: "set",
     ast.GeneratorExp: "generator",
     ast.JoinedStr: "str",
-    ast.FormattedValue: "str"
+    ast.FormattedValue: "str",
+    ast.Lambda: "function",
 }
 
 class __extend__(ast.GeneratorExp):
@@ -1691,9 +1692,34 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Subscript(self, sub):
         self.update_position(sub.lineno)
+        self._check_subscripter(sub.value)
         if sub.ctx != ast.AugStore:
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
+
+    def _check_subscripter(self, sub):
+        if (
+            isinstance(sub, ast.Constant)
+            and (
+                self.space.isinstance_w(sub.value, self.space.w_list)
+                or self.space.isinstance_w(sub.value, self.space.w_tuple)
+            )
+        ):
+            return None
+        elif not isinstance(sub, (
+            ast.Constant, ast.Set, ast.SetComp,
+            ast.GeneratorExp, ast.Lambda
+        )):
+            return None
+
+        misc.syntax_warning(
+            self.space,
+            "%r object is not subscriptable; perhaps"
+            " you missed a comma?" % self._infer_type_name(sub),
+            self.compile_info.filename,
+            sub.lineno,
+            sub.col_offset
+        )
 
     def visit_JoinedStr(self, joinedstr):
         self.update_position(joinedstr.lineno)
