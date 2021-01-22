@@ -1641,7 +1641,7 @@ class AppTestCompiler:
             '[12.3j [i, j]]',
             '[None [i, j]]',
             '[True [i, j]]',
-            '[... [i, j]]' 
+            '[... [i, j]]'
         ]
         for case in cases:
             with warnings.catch_warnings(record=True) as w:
