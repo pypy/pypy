@@ -1611,6 +1611,44 @@ class AppTestCompiler:
                 exec("x = {(yield 42): blub for i in j}", d)
             assert str(info.value).startswith("'yield' inside dict comprehension")
 
+    def test_syntax_warning_missing_comma(self):
+        import warnings
+
+        cases = [
+            '[(1, 2) (3, 4)]',
+            '[[1, 2] (3, 4)]',
+            '[{1, 2} (3, 4)]',
+            '[{1: 2} (3, 4)]',
+            '[[i for i in range(5)] (3, 4)]',
+            '[{i for i in range(5)} (3, 4)]',
+            '[(i for i in range(5)) (3, 4)]',
+            '[{i: i for i in range(5)} (3, 4)]',
+            '[f"{1}" (3, 4)]',
+            '["abc" (3, 4)]',
+            '[b"abc" (3, 4)]',
+            '[123 (3, 4)]',
+            '[12.3 (3, 4)]',
+            '[12.3j (3, 4)]',
+            '[None (3, 4)]',
+            '[True (3, 4)]',
+            '[... (3, 4)]'
+        ]
+        for case in cases:
+            with warnings.catch_warnings(record=True) as w:
+                ns = {}
+                exec("def foo(): %s" % case, ns)
+                try:
+                    ns['foo']()
+                except TypeError as exc:
+                    exc_message = exc.args[0]
+                else:
+                    exc_message = None
+
+                assert len(w) == 1
+                assert issubclass(w[-1].category, SyntaxWarning)
+                assert exc_message is not None
+                assert exc_message in w[-1].message.args[0]
+
 
 
 class TestOptimizations:

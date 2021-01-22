@@ -108,6 +108,32 @@ subscr_operations = misc.dict_to_switch({
     ast.Del: ops.DELETE_SUBSCR
 })
 
+_LITERAL_TYPES = (
+    ast.Constant,
+    ast.Tuple,
+    ast.List,
+    ast.ListComp,
+    ast.Dict,
+    ast.DictComp,
+    ast.Set,
+    ast.SetComp,
+    ast.GeneratorExp,
+    ast.JoinedStr,
+    ast.FormattedValue
+)
+
+_LITERAL_NODE_TO_NAME = {
+    ast.Tuple: "tuple",
+    ast.List: "list",
+    ast.ListComp: "list",
+    ast.Dict: "dict",
+    ast.DictComp: "dict",
+    ast.Set: "set",
+    ast.SetComp: "set",
+    ast.GeneratorExp: "generator",
+    ast.JoinedStr: "str",
+    ast.FormattedValue: "str"
+}
 
 class __extend__(ast.GeneratorExp):
 
@@ -1410,8 +1436,26 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(call.lineno)
         if self._optimize_method_call(call):
             return
+        self._check_caller(call.func)
         call.func.walkabout(self)
         self._make_call(0, call.args, call.keywords)
+
+    def _check_caller(self, func):
+        if isinstance(func, _LITERAL_TYPES):
+            misc.syntax_warning(
+                self.space,
+                "%r object is not callable; perhaps you "
+                "missed a comma?" % self._infer_type_name(func),
+                self.compile_info.filename,
+                func.lineno,
+                func.col_offset
+            )
+
+    def _infer_type_name(self, node):
+        if isinstance(node, ast.Constant):
+            return self.space.type(node.value).name
+        else:
+            return _LITERAL_NODE_TO_NAME[type(node)]
 
     def _call_has_no_star_args(self, call):
         if call.args is not None:
