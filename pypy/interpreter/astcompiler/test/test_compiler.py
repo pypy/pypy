@@ -1660,7 +1660,7 @@ class AppTestCompiler:
                 assert exc_message is not None
                 initial_part, _, info_part = w[-1].message.args[0].partition("; ")
                 assert initial_part in exc_message
-    
+
     def test_syntax_warning_false_positives(self):
         import warnings
 
@@ -1671,7 +1671,7 @@ class AppTestCompiler:
             compile('[[1, 2] [0]]', '<testcase>', 'exec')
             compile('[[1, 2] [True]]', '<testcase>', 'exec')
             compile('[[1, 2] [1:2]]', '<testcase>', 'exec')
-            compile('[{(1, 2): 3} [i, j]]', '<testcase>', 'exec') 
+            compile('[{(1, 2): 3} [i, j]]', '<testcase>', 'exec')
 
 
 class TestOptimizations:
