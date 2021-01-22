@@ -527,9 +527,6 @@ class InstanceRepr(Repr):
             if hints is None:
                 hints = {}
             hints = self._check_for_immutable_hints(hints)
-            if self.classdef.classdesc.get_param('_rpython_never_allocate_'):
-                hints['never_allocate'] = True
-
             kwds = {}
             if self.gcflavor == 'gc':
                 kwds['rtti'] = True

@@ -1067,13 +1067,3 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
         target[key] = value
     if immutable_fields:
         target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields
-
-def never_allocate(cls):
-    """
-    Class decorator to ensure that a class is NEVER instantiated at runtime.
-
-    Useful e.g for context manager which are expected to be constant-folded
-    away.
-    """
-    cls._rpython_never_allocate_ = True
-    return cls

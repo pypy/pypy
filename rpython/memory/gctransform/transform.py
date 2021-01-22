@@ -19,8 +19,6 @@ from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.simplify import cleanup_graph
 from rpython.memory.gctransform.log import log
 
-class GCTransformError(Exception):
-    pass
 
 class GcHighLevelOp(object):
     def __init__(self, gct, op, index, llops):
@@ -238,12 +236,8 @@ class BaseGCTransformer(object):
             inserted_empty_startblock = True
         is_borrowed = self.compute_borrowed_vars(graph)
 
-        try:
-            for block in graph.iterblocks():
-                self.transform_block(block, is_borrowed)
-        except GCTransformError as e:
-            e.args = ('[function %s]: %s' % (graph.name, e.message),)
-            raise
+        for block in graph.iterblocks():
+            self.transform_block(block, is_borrowed)
 
         for link, livecounts in self.links_to_split.iteritems():
             llops = LowLevelOpList()
@@ -525,12 +519,6 @@ class GCTransformer(BaseGCTransformer):
 
     def gct_malloc(self, hop, add_flags=None):
         TYPE = hop.spaceop.result.concretetype.TO
-        if TYPE._hints.get('never_allocate'):
-            raise GCTransformError(
-                "struct %s was marked as @never_allocate but a call to malloc() "
-                "was found. This probably means that the corresponding class is "
-                "supposed to be constant-folded away, but for some reason it was not."
-                % TYPE._name)
         assert not TYPE._is_varsize()
         flags = hop.spaceop.args[1].value
         flavor = flags['flavor']
