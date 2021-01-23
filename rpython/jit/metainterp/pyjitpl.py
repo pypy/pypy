@@ -917,7 +917,7 @@ class MIFrame(object):
     def _nonstandard_virtualizable(self, pc, box, fielddescr):
         # returns True if 'box' is actually not the "standard" virtualizable
         # that is stored in metainterp.virtualizable_boxes[-1]
-        if self.metainterp.heapcache.is_nonstandard_virtualizable(box):
+        if self.metainterp.heapcache.is_known_nonstandard_virtualizable(box):
             self.metainterp.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
             return True
         if box is self.metainterp.forced_virtualizable:
@@ -1833,7 +1833,7 @@ class MIFrame(object):
         standard_box = self.metainterp.virtualizable_boxes[-1]
         if standard_box is vref_box:
             return vref_box
-        if self.metainterp.heapcache.is_nonstandard_virtualizable(vref_box):
+        if self.metainterp.heapcache.is_known_nonstandard_virtualizable(vref_box):
             self.metainterp.staticdata.profiler.count_ops(rop.PTR_EQ, Counters.HEAPCACHED_OPS)
             return None
         eqbox = self.metainterp.execute_and_record(rop.PTR_EQ, None, vref_box, standard_box)

@@ -64,7 +64,7 @@ def PyEval_GetFrame(space):
     caller = space.getexecutioncontext().gettopframe_nohidden()
     return caller    # borrowed ref, may be null
 
-@cpython_api([PyCodeObject, PyObject, PyObject], PyObject)
+@cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyEval_EvalCode(space, w_code, w_globals, w_locals):
     """This is a simplified interface to PyEval_EvalCodeEx(), with just
     the code object, and the dictionaries of global and local variables.
