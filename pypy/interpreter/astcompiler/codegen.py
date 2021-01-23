@@ -1708,10 +1708,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             )
         ):
             return None
-        elif not isinstance(sub, (
+        elif type(sub) not in (
             ast.Constant, ast.Set, ast.SetComp,
             ast.GeneratorExp, ast.Lambda
-        )):
+        ):
             return None
 
         misc.syntax_warning(
@@ -1743,7 +1743,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ):
             return None
 
-        if not isinstance(sub, (ast.Constant, ast.Tuple, ast.List, ast.ListComp, ast.JoinedStr, ast.FormattedValue)):
+        if type(sub) not in (
+            ast.Constant,
+            ast.Tuple,
+            ast.List,
+            ast.ListComp,
+            ast.JoinedStr,
+            ast.FormattedValue
+        ):
             return None
 
         # not repr()s, since that is how it is in the TypeErrors
