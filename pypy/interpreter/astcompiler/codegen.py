@@ -1442,7 +1442,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self._make_call(0, call.args, call.keywords)
 
     def _check_caller(self, func):
-        if isinstance(func, _LITERAL_TYPES):
+        if type(func) in _LITERAL_TYPES:
             misc.syntax_warning(
                 self.space,
                 "%r object is not callable; perhaps you "
@@ -1724,7 +1724,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         )
 
     def _check_index(self, node, sub, index):
-        if not (isinstance(index, ast.Index) and isinstance(index.value, _LITERAL_TYPES)):
+        if not (isinstance(index, ast.Index) and type(index.value) in _LITERAL_TYPES):
             return None
 
         index_value = index.value
