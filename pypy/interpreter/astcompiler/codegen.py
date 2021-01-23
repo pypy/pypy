@@ -1431,7 +1431,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if type(func) in _LITERAL_TYPES:
             misc.syntax_warning(
                 self.space,
-                "%r object is not callable; perhaps you "
+                "'%s' object is not callable; perhaps you "
                 "missed a comma?" % func._get_type_name(self.space),
                 self.compile_info.filename,
                 func.lineno,
@@ -1696,7 +1696,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         misc.syntax_warning(
             self.space,
-            "%r object is not subscriptable; perhaps"
+            "'%s' object is not subscriptable; perhaps"
             " you missed a comma?" % sub._get_type_name(self.space),
             self.compile_info.filename,
             sub.lineno,
@@ -1733,7 +1733,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ):
             return None
 
-        # not repr()s, since that is how it is in the TypeErrors
+        # not quotes (on purpose to comply with TypeErrors)
         misc.syntax_warning(
             self.space,
             "%s indices must be integers or slices, "
