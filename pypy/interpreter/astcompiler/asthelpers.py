@@ -98,6 +98,7 @@ class __extend__(ast.Lambda):
     _description = "lambda"
     _type_name = "function"
 
+
 class __extend__(ast.Call):
 
     _description = "function call"
@@ -113,6 +114,7 @@ class __extend__(ast.GeneratorExp):
     _description = "generator expression"
     _type_name = "generator"
 
+
 class __extend__(ast.Yield):
 
     _description = "yield expression"
@@ -123,31 +125,39 @@ class __extend__(ast.ListComp):
     _description = "list comprehension"
     _type_name = "list"
 
+
 class __extend__(ast.SetComp):
 
     _description = "set comprehension"
     _type_name = "set"
+
 
 class __extend__(ast.DictComp):
 
     _description = "dict comprehension"
     _type_name = "dict"
 
+
 class __extend__(ast.Dict, ast.Set):
 
     _description = "literal"
 
+
 class __extend__(ast.List):
     _type_name = "list"
+
 
 class __extend__(ast.Dict):
     _type_name = "dict"
 
+
 class __extend__(ast.Set):
     _type_name = "set"
 
+
 class __extend__(ast.JoinedStr, ast.FormattedValue):
     _type_name = "str"
+
 
 class __extend__(ast.Compare):
 
