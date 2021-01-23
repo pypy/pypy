@@ -1611,6 +1611,67 @@ class AppTestCompiler:
                 exec("x = {(yield 42): blub for i in j}", d)
             assert str(info.value).startswith("'yield' inside dict comprehension")
 
+    def test_syntax_warning_missing_comma(self):
+        import warnings
+
+        cases = [
+            '[(1, 2) (3, 4)]',
+            '[[1, 2] (3, 4)]',
+            '[{1, 2} (3, 4)]',
+            '[{1: 2} (3, 4)]',
+            '[[i for i in range(5)] (3, 4)]',
+            '[{i for i in range(5)} (3, 4)]',
+            '[(i for i in range(5)) (3, 4)]',
+            '[{i: i for i in range(5)} (3, 4)]',
+            '[f"{1}" (3, 4)]',
+            '["abc" (3, 4)]',
+            '[b"abc" (3, 4)]',
+            '[123 (3, 4)]',
+            '[12.3 (3, 4)]',
+            '[12.3j (3, 4)]',
+            '[None (3, 4)]',
+            '[True (3, 4)]',
+            '[... (3, 4)]',
+            '[{1, 2} [i, j]]',
+            '[{i for i in range(5)} [i, j]]',
+            '[(i for i in range(5)) [i, j]]',
+            '[(lambda x, y: x) [i, j]]',
+            '[123 [i, j]]',
+            '[12.3 [i, j]]',
+            '[12.3j [i, j]]',
+            '[None [i, j]]',
+            '[True [i, j]]',
+            '[... [i, j]]',
+            '(1,2,3)[...]'
+        ]
+        for case in cases:
+            with warnings.catch_warnings(record=True) as w:
+                ns = {'i': 1, 'j': 1}
+                exec("def foo(): %s" % case, ns)
+                try:
+                    ns['foo']()
+                except TypeError as exc:
+                    exc_message = exc.args[0]
+                else:
+                    exc_message = None
+
+                assert len(w) == 1, case
+                assert issubclass(w[-1].category, SyntaxWarning)
+                assert exc_message is not None
+                initial_part, _, info_part = w[-1].message.args[0].partition("; ")
+                assert initial_part in exc_message
+
+    def test_syntax_warning_false_positives(self):
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error', category=SyntaxWarning)
+            compile('[(lambda x, y: x) (3, 4)]', '<testcase>', 'exec')
+            compile('[[1, 2] [i]]', '<testcase>', 'exec')
+            compile('[[1, 2] [0]]', '<testcase>', 'exec')
+            compile('[[1, 2] [True]]', '<testcase>', 'exec')
+            compile('[[1, 2] [1:2]]', '<testcase>', 'exec')
+            compile('[{(1, 2): 3} [i, j]]', '<testcase>', 'exec')
 
 
 class TestOptimizations:

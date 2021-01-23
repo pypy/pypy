@@ -108,6 +108,19 @@ subscr_operations = misc.dict_to_switch({
     ast.Del: ops.DELETE_SUBSCR
 })
 
+_LITERAL_TYPES = (
+    ast.Constant,
+    ast.Tuple,
+    ast.List,
+    ast.ListComp,
+    ast.Dict,
+    ast.DictComp,
+    ast.Set,
+    ast.SetComp,
+    ast.GeneratorExp,
+    ast.JoinedStr,
+    ast.FormattedValue
+)
 
 class __extend__(ast.GeneratorExp):
 
@@ -1410,8 +1423,20 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(call.lineno)
         if self._optimize_method_call(call):
             return
+        self._check_caller(call.func)
         call.func.walkabout(self)
         self._make_call(0, call.args, call.keywords)
+
+    def _check_caller(self, func):
+        if type(func) in _LITERAL_TYPES:
+            misc.syntax_warning(
+                self.space,
+                "'%s' object is not callable; perhaps you "
+                "missed a comma?" % func._get_type_name(self.space),
+                self.compile_info.filename,
+                func.lineno,
+                func.col_offset
+            )
 
     def _call_has_no_star_args(self, call):
         if call.args is not None:
@@ -1647,9 +1672,79 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Subscript(self, sub):
         self.update_position(sub.lineno)
+        self._check_subscripter(sub.value)
+        self._check_index(sub, sub.value, sub.slice)
         if sub.ctx != ast.AugStore:
             sub.value.walkabout(self)
         self._compile_slice(sub.slice, sub.ctx)
+
+    def _check_subscripter(self, sub):
+        if (
+            isinstance(sub, ast.Constant)
+            and (
+                self.space.isinstance_w(sub.value, self.space.w_tuple)
+                or self.space.isinstance_w(sub.value, self.space.w_unicode)
+                or self.space.isinstance_w(sub.value, self.space.w_bytes)
+            )
+        ):
+            return None
+        elif type(sub) not in (
+            ast.Constant, ast.Set, ast.SetComp,
+            ast.GeneratorExp, ast.Lambda
+        ):
+            return None
+
+        misc.syntax_warning(
+            self.space,
+            "'%s' object is not subscriptable; perhaps"
+            " you missed a comma?" % sub._get_type_name(self.space),
+            self.compile_info.filename,
+            sub.lineno,
+            sub.col_offset
+        )
+
+    def _check_index(self, node, sub, index):
+        if not (isinstance(index, ast.Index) and type(index.value) in _LITERAL_TYPES):
+            return None
+
+        index_value = index.value
+        if isinstance(index_value, ast.Constant) and self.space.isinstance_w(
+            index_value.value, self.space.w_int
+        ):
+            return None
+
+        if not (
+            isinstance(sub, ast.Constant)
+            and (
+                self.space.isinstance_w(sub.value, self.space.w_tuple)
+                or self.space.isinstance_w(sub.value, self.space.w_unicode)
+                or self.space.isinstance_w(sub.value, self.space.w_bytes)
+            )
+        ):
+            return None
+
+        if type(sub) not in (
+            ast.Constant,
+            ast.Tuple,
+            ast.List,
+            ast.ListComp,
+            ast.JoinedStr,
+            ast.FormattedValue
+        ):
+            return None
+
+        # not quotes (on purpose to comply with TypeErrors)
+        misc.syntax_warning(
+            self.space,
+            "%s indices must be integers or slices, "
+            "not %s; perhaps you missed a comma?" % (
+                sub._get_type_name(self.space),
+                index_value._get_type_name(self.space)
+            ),
+            self.compile_info.filename,
+            node.lineno,
+            node.col_offset
+        )
 
     def visit_JoinedStr(self, joinedstr):
         self.update_position(joinedstr.lineno)
