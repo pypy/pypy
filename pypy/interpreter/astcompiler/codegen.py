@@ -122,20 +122,6 @@ _LITERAL_TYPES = (
     ast.FormattedValue
 )
 
-_LITERAL_NODE_TO_NAME = {
-    ast.Tuple: "tuple",
-    ast.List: "list",
-    ast.ListComp: "list",
-    ast.Dict: "dict",
-    ast.DictComp: "dict",
-    ast.Set: "set",
-    ast.SetComp: "set",
-    ast.GeneratorExp: "generator",
-    ast.JoinedStr: "str",
-    ast.FormattedValue: "str",
-    ast.Lambda: "function",
-}
-
 class __extend__(ast.GeneratorExp):
 
     def build_container_and_load_iter(self, codegen):
@@ -1446,17 +1432,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             misc.syntax_warning(
                 self.space,
                 "%r object is not callable; perhaps you "
-                "missed a comma?" % self._infer_type_name(func),
+                "missed a comma?" % func._get_type_name(self.space),
                 self.compile_info.filename,
                 func.lineno,
                 func.col_offset
             )
-
-    def _infer_type_name(self, node):
-        if isinstance(node, ast.Constant):
-            return self.space.type(node.value).name
-        else:
-            return _LITERAL_NODE_TO_NAME[type(node)]
 
     def _call_has_no_star_args(self, call):
         if call.args is not None:
@@ -1717,7 +1697,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         misc.syntax_warning(
             self.space,
             "%r object is not subscriptable; perhaps"
-            " you missed a comma?" % self._infer_type_name(sub),
+            " you missed a comma?" % sub._get_type_name(self.space),
             self.compile_info.filename,
             sub.lineno,
             sub.col_offset
@@ -1758,8 +1738,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.space,
             "%s indices must be integers or slices, "
             "not %s; perhaps you missed a comma?" % (
-                self._infer_type_name(sub),
-                self._infer_type_name(index_value)
+                sub._get_type_name(self.space),
+                index_value._get_type_name(self.space)
             ),
             self.compile_info.filename,
             node.lineno,

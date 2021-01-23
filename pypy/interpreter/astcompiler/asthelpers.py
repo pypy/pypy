@@ -23,9 +23,13 @@ class __extend__(ast.expr):
 
     constant = False
     _description = None
+    _type_name = None
 
     def _get_descr(self, space):
         return self._description
+
+    def _get_type_name(self, space):
+        return self._type_name
 
     def as_node_list(self, space):
         return None
@@ -78,6 +82,7 @@ class __extend__(ast.Name):
 class __extend__(ast.Tuple):
 
     _description = "tuple"
+    _type_name = "tuple"
 
     def as_node_list(self, space):
         return self.elts
@@ -91,7 +96,7 @@ class __extend__(ast.Tuple):
 class __extend__(ast.Lambda):
 
     _description = "lambda"
-
+    _type_name = "function"
 
 class __extend__(ast.Call):
 
@@ -106,7 +111,7 @@ class __extend__(ast.BoolOp, ast.BinOp, ast.UnaryOp):
 class __extend__(ast.GeneratorExp):
 
     _description = "generator expression"
-
+    _type_name = "generator"
 
 class __extend__(ast.Yield):
 
@@ -116,22 +121,33 @@ class __extend__(ast.Yield):
 class __extend__(ast.ListComp):
 
     _description = "list comprehension"
-
+    _type_name = "list"
 
 class __extend__(ast.SetComp):
 
     _description = "set comprehension"
-
+    _type_name = "set"
 
 class __extend__(ast.DictComp):
 
     _description = "dict comprehension"
-
+    _type_name = "dict"
 
 class __extend__(ast.Dict, ast.Set):
 
     _description = "literal"
 
+class __extend__(ast.List):
+    _type_name = "list"
+
+class __extend__(ast.Dict):
+    _type_name = "dict"
+
+class __extend__(ast.Set):
+    _type_name = "set"
+
+class __extend__(ast.JoinedStr, ast.FormattedValue):
+    _type_name = "str"
 
 class __extend__(ast.Compare):
 
@@ -174,4 +190,7 @@ class __extend__(ast.Constant):
             if space.is_w(self.value, singleton):
                 return name
         return self._description
+
+    def _get_type_name(self, space):
+        return space.type(self.value).name
 
