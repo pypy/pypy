@@ -114,6 +114,9 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
+            a = A(0)
+            a.a = "a" # stop type optimization
+
             i = 0
             a = A(1)
             while i < n:

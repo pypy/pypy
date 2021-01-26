@@ -31,6 +31,7 @@ class TestThread(BaseTestPyPyC):
         def main(n):
             import thread
             local = thread._local()
+            local.x = "abc" # prevent type unboxing
             local.x = 1
             i = 0
             while i < n:
