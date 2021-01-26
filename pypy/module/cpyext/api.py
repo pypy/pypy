@@ -789,7 +789,7 @@ def build_type_checkers(type_name, cls=None):
             return space.gettypeobject(cls.typedef)
     check_name = "Py" + type_name + "_Check"
 
-    @cts.decl("int %s(PyObject *obj)" % check_name, error=CANNOT_FAIL)
+    @cts.decl("int %s(void * obj)" % check_name, error=CANNOT_FAIL)
     def check(space, w_obj):
         "Implements the Py_Xxx_Check function"
         w_obj_type = space.type(w_obj)
@@ -797,7 +797,7 @@ def build_type_checkers(type_name, cls=None):
         return (space.is_w(w_obj_type, w_type) or
                 space.issubtype_w(w_obj_type, w_type))
 
-    @cts.decl("int %sExact(PyObject *obj)" % check_name, error=CANNOT_FAIL)
+    @cts.decl("int %sExact(void * obj)" % check_name, error=CANNOT_FAIL)
     def check_exact(space, w_obj):
         "Implements the Py_Xxx_CheckExact function"
         w_obj_type = space.type(w_obj)
