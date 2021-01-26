@@ -60,7 +60,7 @@ def test_plain_attribute():
     w_cls = "class"
     aa = PlainAttribute("b", DICT,
                         PlainAttribute("a", DICT,
-                                       Terminator(space, w_cls)))
+                                       Terminator(space, w_cls), 0), 0)
     assert aa.space is space
     assert aa.terminator.w_cls is w_cls
     assert aa.get_terminator() is aa.terminator
@@ -87,16 +87,16 @@ def test_plain_attribute():
 def test_huge_chain():
     current = Terminator(space, "cls")
     for i in range(20000):
-        current = PlainAttribute(str(i), DICT, current)
+        current = PlainAttribute(str(i), DICT, current, 0)
     assert current.find_map_attr("0", DICT).storageindex == 0
 
 
 def test_search():
-    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None)))
+    aa = PlainAttribute("b", DICT, PlainAttribute("a", DICT, Terminator(None, None), 0), 0)
     assert aa.search(DICT) is aa
     assert aa.search(SLOTS_STARTING_FROM) is None
     assert aa.search(SPECIAL) is None
-    bb = PlainAttribute("C", SPECIAL, PlainAttribute("A", SLOTS_STARTING_FROM, aa))
+    bb = PlainAttribute("C", SPECIAL, PlainAttribute("A", SLOTS_STARTING_FROM, aa, 0), 0)
     assert bb.search(DICT) is aa
     assert bb.search(SLOTS_STARTING_FROM) is bb.back
     assert bb.search(SPECIAL) is bb
@@ -555,13 +555,13 @@ def test_unboxed_compute_indices():
     w_cls = "class"
     aa = UnboxedPlainAttribute("b", DICT,
                         PlainAttribute("a", DICT,
-                                       Terminator(space, w_cls)),
+                                       Terminator(space, w_cls), 0), 0,
                         int)
     assert aa.storageindex == 1
     assert aa.firstunwrapped
     assert aa.listindex == 0
     
-    c = UnboxedPlainAttribute("c", DICT, aa, int)
+    c = UnboxedPlainAttribute("c", DICT, aa, 0, int)
     assert c.storageindex == 1
     assert c.listindex == 1
     assert not c.firstunwrapped
@@ -569,14 +569,14 @@ def test_unboxed_compute_indices():
 def test_unboxed_storage_needed():
     w_cls = "class"
     bb = UnboxedPlainAttribute("c", DICT,
-             Terminator(space, w_cls),
+             Terminator(space, w_cls), 0,
          int)
     assert bb.storage_needed() == 1
     aa = UnboxedPlainAttribute("b", DICT,
             PlainAttribute("a", DICT,
                UnboxedPlainAttribute("c", DICT,
-                   Terminator(space, w_cls),
-               int)),
+                   Terminator(space, w_cls), 0,
+               int), 0), 0,
          int)
     assert aa.storage_needed() == 2
 
@@ -620,6 +620,7 @@ def test_unboxed_write_mixed():
     w_obj.getdictvalue(space, "c") == 20.1
     w_obj.setdictvalue(space, "d", None)
 
+
 def test_unboxed_type_change():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
@@ -654,6 +655,16 @@ def test_unboxed_type_change_other_object():
     assert w_obj2.getdictvalue(space, "b") == 16
     # now it's switched
     assert type(w_obj2.map) is PlainAttribute
+
+def test_unboxed_mixed_two_different_instances():
+    cls = Class(allow_unboxing=True)
+    w_obj1 = cls.instantiate(space)
+    w_obj1.setdictvalue(space, "b", 15)
+
+    w_obj2 = cls.instantiate(space)
+    w_obj2.setdictvalue(space, "b", "abc")
+
+    assert w_obj2.map.terminator.allow_unboxing == False
 
 def test_unboxed_attr_immutability(monkeypatch):
     cls = Class(allow_unboxing=True)
@@ -717,6 +728,7 @@ def test_unboxed_reorder_add_bug():
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "b", 30)
     obj2.setdictvalue(space, "c", 40)
+    import pdb; pdb.set_trace()
     obj2.setdictvalue(space, "a", 23)
 
     assert obj.map is obj2.map

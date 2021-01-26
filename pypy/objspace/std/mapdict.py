@@ -143,15 +143,11 @@ class AbstractAttribute(object):
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
-        key = (name, attrkind, unbox_type)
-        attr = cache.get(key, None)
-        if attr is None:
-            if unbox_type is None:
-                attr = PlainAttribute(name, attrkind, self)
-            else:
-                attr = UnboxedPlainAttribute(name, attrkind, self, unbox_type)
-            cache[key] = attr
-        return attr
+        key = (name, attrkind)
+        holder = cache.get(key, None)
+        if holder is None:
+            holder = cache[key] = CachedAttributeHolder(name, attrkind, self, unbox_type)
+        return holder
 
     def add_attr(self, obj, name, attrkind, w_value):
         space = self.space
@@ -172,28 +168,28 @@ class AbstractAttribute(object):
         current_order = sys.maxint
         number_to_readd = 0
         current = self
-        key = (name, attrkind, unbox_type)
+        key = (name, attrkind)
         while True:
-            attr = None
+            holder = None
             if current.cache_attrs is not None:
-                attr = current.cache_attrs.get(key, None)
-            if attr is None or attr.order > current_order:
+                holder = current.cache_attrs.get(key, None)
+            if holder is None or holder.order > current_order:
                 # we reached the top, so we didn't find it anywhere,
                 # just add it to the top attribute
                 if not isinstance(current, PlainAttribute):
                     return 0, self._get_new_attr(name, attrkind, unbox_type)
 
             else:
-                return number_to_readd, attr
+                return number_to_readd, holder
             # if not found try parent
             number_to_readd += 1
             current_order = current.order
             current = current.back
 
-    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
-            jit.isconstant(self) and
-            jit.isconstant(name) and
-            jit.isconstant(attrkind))
+    #@jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
+    #        jit.isconstant(self) and
+    #        jit.isconstant(name) and
+    #        jit.isconstant(attrkind))
     def _reorder_and_add(self, obj, name, attrkind, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
@@ -224,7 +220,8 @@ class AbstractAttribute(object):
                     unbox_type = self.space.IntObjectCls
                 elif type(w_value) is self.space.FloatObjectCls:
                     unbox_type = self.space.FloatObjectCls
-            number_to_readd, attr = self._find_branch_to_move_into(name, attrkind, unbox_type)
+            number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
+            attr = holder.pick_attr(unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
@@ -380,7 +377,7 @@ class DevolvedDictTerminator(Terminator):
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['name', 'attrkind', 'storageindex', '_num_attributes', 'back', 'ever_mutated?', 'order']
 
-    def __init__(self, name, attrkind, back):
+    def __init__(self, name, attrkind, back, order):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.name = name
         self.attrkind = attrkind
@@ -389,7 +386,7 @@ class PlainAttribute(AbstractAttribute):
         self.back = back
         self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
         self.ever_mutated = False
-        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        self.order = order
 
     def _copy_attr(self, obj, new_obj):
         w_value = self._prim_direct_read(obj)
@@ -480,14 +477,14 @@ class PlainAttribute(AbstractAttribute):
 
 class UnboxedPlainAttribute(PlainAttribute):
     _immutable_fields_ = ["listindex", "firstunwrapped", "typ"]
-    def __init__(self, name, attrkind, back, typ):
+    def __init__(self, name, attrkind, back, order, typ):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         # don't call PlainAttribute.__init__, that runs into weird problems
         self.name = name
         self.attrkind = attrkind
         self.back = back
         self.ever_mutated = False
-        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        self.order = order
         # here, storageindex is where the list of floats is stored
         # and listindex is where in the list the actual value goes
         self.firstunwrapped = False
@@ -543,7 +540,7 @@ class UnboxedPlainAttribute(PlainAttribute):
         w_res = self._prim_direct_read(obj)
         if self.terminator.allow_unboxing == False:
             # oops, some other object using the same class isn't type stable!
-            # stop using boxing altogether to not get too many variants of maps
+            # stop using unboxing altogether to not get too many variants of maps
             self._convert_to_boxed(obj)
         return w_res
 
@@ -597,6 +594,32 @@ class UnboxedPlainAttribute(PlainAttribute):
         return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
                 self.listindex, self.back.repr())
+
+
+class CachedAttributeHolder(object):
+    _immutable_fields_ = ['attr?', 'typ?']
+
+    def __init__(self, name, attrkind, back, unbox_type):
+        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        if unbox_type is None:
+            attr = PlainAttribute(name, attrkind, back, self.order)
+        else:
+            attr = UnboxedPlainAttribute(name, attrkind, back, self.order, unbox_type)
+        self.attr = attr
+        self.typ = unbox_type
+
+    def pick_attr(self, unbox_type):
+        if self.typ is None or self.typ is unbox_type:
+            return self.attr
+        self.typ = None
+        # this will never be traced, because the previous assignment
+        # invalidates a quasi-immutable field
+        self.attr.terminator.allow_unboxing = False
+        name = self.attr.name
+        attrkind = self.attr.attrkind
+        back = self.attr.back
+        attr = self.attr = PlainAttribute(name, attrkind, back, self.order)
+        return attr
 
 
 class MapAttrCache(object):
