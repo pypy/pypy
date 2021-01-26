@@ -114,8 +114,7 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
-            a = A(0)
-            a.a = "a" # stop type optimization
+            a = A("a") # stop field unboxing
 
             i = 0
             a = A(1)

@@ -96,9 +96,8 @@ class TestMisc(BaseTestPyPyC):
             class A(object):
                 def __init__(self, val):
                     self.val1 = self.val2 = val
+            A("x") # prevent field unboxing
             a = A(1)
-            a.val1 = "blub" # prevent field unboxing
-            a.val1 = 1
             b = A(1)
             sa = 0
             while n:

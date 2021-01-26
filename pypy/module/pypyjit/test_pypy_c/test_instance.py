@@ -234,8 +234,8 @@ class TestInstance(BaseTestPyPyC):
                     self.x = x
 
             i = 0
-            b = B("abc") # prevent int optimization
-            b.x = 1
+            B("abc") # prevent field unboxing
+            b = B(1)
             while i < 100:
                 v = b.x # ID: loadattr1
                 v = b.x # ID: loadattr2

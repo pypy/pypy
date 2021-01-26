@@ -186,10 +186,10 @@ class AbstractAttribute(object):
             current_order = current.order
             current = current.back
 
-    #@jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
-    #        jit.isconstant(self) and
-    #        jit.isconstant(name) and
-    #        jit.isconstant(attrkind))
+    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(name) and
+            jit.isconstant(attrkind))
     def _reorder_and_add(self, obj, name, attrkind, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
