@@ -479,7 +479,7 @@ class PlainAttribute(AbstractAttribute):
 
 
 class UnboxedPlainAttribute(PlainAttribute):
-    _immutable_fields_ = ["listindex", "firstunwrapped"]
+    _immutable_fields_ = ["listindex", "firstunwrapped", "typ"]
     def __init__(self, name, attrkind, back, typ):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         # don't call PlainAttribute.__init__, that runs into weird problems
