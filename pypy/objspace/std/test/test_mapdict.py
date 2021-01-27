@@ -55,6 +55,14 @@ class Object(Object):
     def checkstorage(self, value):
         self.storage = [erase_item(x) for x in value]
 
+    def _check_unboxed_storage_consistency(self):
+        curr = self._get_mapdict_map()
+        while not isinstance(curr, UnboxedPlainAttribute):
+            if isinstance(curr, Terminator):
+                return
+            curr = curr.back
+        assert len(unerase_unboxed(self._mapdict_read_storage(curr.storageindex))) == curr.listindex + 1
+
 
 def test_plain_attribute():
     w_cls = "class"
@@ -728,7 +736,6 @@ def test_unboxed_reorder_add_bug():
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "b", 30)
     obj2.setdictvalue(space, "c", 40)
-    import pdb; pdb.set_trace()
     obj2.setdictvalue(space, "a", 23)
 
     assert obj.map is obj2.map
@@ -759,6 +766,7 @@ def test_unboxed_insert_different_orders_perm():
             key = preexisting
             for j, attr in enumerate(attributes):
                 obj.setdictvalue(space, attr, i*10+j)
+                obj._check_unboxed_storage_consistency()
                 key = "".join(sorted(key+attr))
                 if key in seen_maps:
                     assert obj.map is seen_maps[key]

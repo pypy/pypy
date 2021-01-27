@@ -586,7 +586,13 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._mapdict_write_storage(self.storageindex, unboxed)
         else:
             unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
-            unboxed = unboxed + [val]
+            if len(unboxed) <= self.listindex:
+                # size can only increase by 1
+                assert len(unboxed) == self.listindex
+                unboxed = unboxed + [val]
+            else:
+                # the box is already large enough, due to reordering
+                unboxed[self.listindex] = val
             obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
             obj._set_mapdict_map(self)
 
