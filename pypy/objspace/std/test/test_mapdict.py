@@ -754,6 +754,37 @@ def test_unboxed_reorder_add_bug2():
 
     assert obj.map is obj2.map
 
+def test_unbox_reorder_bug3():
+    from pypy.objspace.std.mapdict import _make_storage_mixin_size_n
+    from pypy.objspace.std.objectobject import W_ObjectObject
+    class objectcls(W_ObjectObject):
+        objectmodel.import_from_mixin(BaseUserClassMapdict)
+        objectmodel.import_from_mixin(MapdictDictSupport)
+        objectmodel.import_from_mixin(_make_storage_mixin_size_n(5))
+    cls = Class(allow_unboxing=True)
+    obj = objectcls()
+    obj.user_setup(space, cls)
+    obj.setdictvalue(space, "_frame", "frame")
+    obj.setdictvalue(space, "_is_started", 0)
+    obj.setdictvalue(space, "func", "func")
+    obj.setdictvalue(space, "alive", "alive")
+    obj.setdictvalue(space, "blocked", "blocked")
+    obj.setdictvalue(space, "_task_id", 1)
+    obj.setdictvalue(space, "label", "label")
+
+    obj2 = objectcls()
+    obj2.user_setup(space, cls)
+    obj2.setdictvalue(space, "_frame", "frame2")
+    obj2.setdictvalue(space, "_is_started", 5)
+    obj2.setdictvalue(space, "func", "func2")
+    obj2.setdictvalue(space, "alive", "alive2")
+    obj2.setdictvalue(space, "blocked", "blocked2")
+    obj2.setdictvalue(space, "label", "label2")
+    import pdb; pdb.set_trace()
+    obj2.setdictvalue(space, "_task_id", 6)
+    assert obj2.getdictvalue(space, "blocked") == "blocked2"
+
+
 def test_unboxed_insert_different_orders_perm():
     from itertools import permutations
     cls = Class(allow_unboxing=True)
