@@ -169,6 +169,23 @@ class BaseTestRffi:
         xf = self.compile(f, [], backendopt=False)
         assert xf() == 3
 
+    def test_constcharpsize2str(self):
+        def f():
+            l_buf = lltype.malloc(CCHARP.TO, 5, flavor='raw')
+            l_buf[0] = 'A'
+            l_buf[1] = 'B'
+            l_buf[2] = 'C'
+            l_buf[3] = '\x00'
+            l_buf[4] = 'E'
+            l_constbuf = cast(CONST_CCHARP, l_buf)
+            res = constcharpsize2str(l_constbuf, 5)
+            lltype.free(l_buf, flavor='raw')
+            return res
+
+        assert f() == "ABC\x00E"
+        xf = self.compile(f, [], backendopt=False)
+        assert xf() == "ABC\x00E"
+
     def test_stringstar(self):
         c_source = """
         #include <string.h>
@@ -782,6 +799,11 @@ class TestRffiInternals:
             lltype.Unsigned: ctypes.c_ulong,
             lltype.UniChar:  ctypes.c_wchar,
             lltype.Char:     ctypes.c_ubyte,
+        }
+        if sys.platform == 'win32' and sys.maxint > 2**32:
+            cache[lltype.Signed] = ctypes.c_longlong
+            cache[lltype.Unsigned] = ctypes.c_ulonglong
+        cache2 = {
             DOUBLE:     ctypes.c_double,
             FLOAT:      ctypes.c_float,
             SIGNEDCHAR: ctypes.c_byte,
@@ -795,9 +817,12 @@ class TestRffiInternals:
             LONGLONG:   ctypes.c_longlong,
             ULONGLONG:  ctypes.c_ulonglong,
             SIZE_T:     ctypes.c_size_t,
-            }
+        }
 
         for ll, ctp in cache.items():
+            assert sizeof(ll) == ctypes.sizeof(ctp)
+            assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
+        for ll, ctp in cache2.items():
             assert sizeof(ll) == ctypes.sizeof(ctp)
             assert sizeof(lltype.Typedef(ll, 'test')) == sizeof(ll)
         assert not size_and_sign(lltype.Signed)[1]

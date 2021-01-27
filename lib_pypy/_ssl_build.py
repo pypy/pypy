@@ -61,7 +61,7 @@ if __name__ == '__main__':
     ffi.compile(verbose=True)
     if sys.platform == 'win32':
         # copy dlls from externals to the pwd
-        # maybe we should link _ssl to libraries instead of the dlls
+        # maybe we should link to libraries instead of the dlls
         # to avoid this mess
         import os, glob, shutil
         path_parts = os.environ['PATH'].split(';')
@@ -77,4 +77,4 @@ if __name__ == '__main__':
 
         if candidates:
             for lib in libraries:
-                copy_from_path(lib)                
+                copy_from_path(lib)

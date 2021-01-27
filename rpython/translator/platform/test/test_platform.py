@@ -16,13 +16,13 @@ def test_compilationerror_repr():
 class TestPlatform(object):
     platform = host
     strict_on_stderr = True
-    
+
     def check_res(self, res, expected='42\n'):
         assert res.out == expected
         if self.strict_on_stderr:
             assert res.err == ''
-        assert res.returncode == 0        
-    
+        assert res.returncode == 0
+
     def test_simple_enough(self):
         cfile = udir.join('test_simple_enough.c')
         cfile.write('''
@@ -128,7 +128,7 @@ class TestPlatform(object):
     def test_key(self):
         class XPlatform(Platform):
             relevant_environ = ['CPATH']
-            
+
             def __init__(self):
                 self.cc = 'xcc'
         x = XPlatform()

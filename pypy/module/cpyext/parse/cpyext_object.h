@@ -1,6 +1,11 @@
 #pragma once
 
-typedef long Py_ssize_t;  /* CPython defines it in pyport.h */
+/* CPython defines Py_ssize_t in pyport.h as intptr_t */
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+#else
+typedef long Py_ssize_t;
+#endif
 
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \
@@ -70,7 +75,6 @@ typedef Py_ssize_t (*charbufferproc)(PyObject *, Py_ssize_t, char **);
 /* Py3k buffer interface, adapted for PyPy */
 /* XXX remove this constant, us a PyObject_VAR_HEAD instead */
 #define Py_MAX_NDIMS 36
-#define Py_MAX_FMT 128
 typedef struct bufferinfo {
     void *buf;
     PyObject *obj;        /* owned reference */
@@ -85,13 +89,14 @@ typedef struct bufferinfo {
     Py_ssize_t *shape;
     Py_ssize_t *strides;
     Py_ssize_t *suboffsets; /* alway NULL for app-level objects*/
-    unsigned char _format[Py_MAX_FMT];
+    void *internal; /* always NULL for app-level objects */
+    /* PyPy extensions */
+    int flags;
     Py_ssize_t _strides[Py_MAX_NDIMS];
     Py_ssize_t _shape[Py_MAX_NDIMS];
     /* static store for shape and strides of
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
-    void *internal; /* always NULL for app-level objects */
 } Py_buffer;
 
 
@@ -187,18 +192,6 @@ typedef struct {
 	getbufferproc bf_getbuffer;
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
-
-/* from descrobject.h */
-typedef PyObject *(*getter)(PyObject *, void *);
-typedef int (*setter)(PyObject *, PyObject *, void *);
-
-typedef struct PyGetSetDef {
-	char *name;
-	getter get;
-	setter set;
-	char *doc;
-	void *closure;
-} PyGetSetDef;
 
 /* from methodobject.h */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);

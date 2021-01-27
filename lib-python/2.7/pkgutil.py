@@ -4,7 +4,12 @@ import os
 import sys
 import imp
 import os.path
-from types import ModuleType
+# virtualenv when run with -S for instance does not have the types module. 
+# Instead, copy the code to create
+# the needed type to be checked.
+
+# from types import ModuleType
+ModuleType = type(sys)
 
 __all__ = [
     'get_importer', 'iter_importers', 'get_loader', 'find_loader',

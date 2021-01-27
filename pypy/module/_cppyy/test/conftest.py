@@ -38,10 +38,13 @@ def pytest_ignore_collect(path, config):
             return True
 
 disabled = None
+if sys.maxsize > 2**32 and sys.platform == 'win32':
+    # cppyy not yet supported on windows 64 bit
+    disabled = True
 
 def pytest_configure(config):
     global disabled
-    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
+    if disabled or config.getoption('runappdirect') or config.getoption('direct_apptest'):
         if py.path.local.sysfind('genreflex') is None:
             disabled = True  # can't run dummy tests in -A
         return

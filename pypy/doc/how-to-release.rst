@@ -96,6 +96,10 @@ Other steps
     create a fresh whatsnew_head.rst after the release
     and add the new file to  pypy/doc/index-of-whatsnew.rst
 
+  * rename pypy/doc/whatsnew-pypy3-HEAD.rst to whatsnew-pypy3-VERSION.rst
+    create a fresh whatsnew-pypy3_HEAD.rst after the release
+    and add the new file to  pypy/doc/index-of-whatsnew.rst
+
   * write release announcement pypy/doc/release-VERSION.rst
     The release announcement should contain a direct link to the download page
 
@@ -121,11 +125,16 @@ Other steps
     (it is important to mark this as a candidate since usually at least two
     tries are needed to complete the process) and download and repackage source
     from the buildbot. You may find it convenient to use the ``repackage.sh``
-    script in pypy/tool/release to do this. 
+    script in ``pypy/tool/release`` to do this. 
 
     Also repackage and upload source "-src.tar.bz2"
 
-  * Upload binaries to https://buildbot.pypy.org/mirror
+  * Upload binaries to https://buildbot.pypy.org/mirror. Add the files to
+    the ``versions.json`` in ``pypy/tools/release``, upload it, and run the
+    ``check_versions.py`` file in that directory. This file is used by various
+    downstream tools like "github actions" to find valid pypy downloads. It
+    takes an hour for
+    https://downloads.python.org/pypy/ to sync
 
 * Send out a mailing list message asking for last-minute comments and testing
 
@@ -138,9 +147,12 @@ Other steps
   * send announcements to twitter.com, pypy-dev, python-list,
     python-announce, python-dev ...
 
-* If all is OK, document the released version
+* If all is OK, document the released version and suggest popular tools update
+  to support it. Github actions will pick up the versions.json.
 
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
-  * tag the final release(s) with appropriate tags
+  * suggest updates to multibuild_ and cibuildwheel_
 
+.. _multibuild: https://github.com/matthew-brett/multibuild
+.. _cibuildwheel: https://github.com/joerick/cibuildwheel

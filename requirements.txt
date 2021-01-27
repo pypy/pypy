@@ -1,5 +1,6 @@
 --only-binary vmprof
-
+# because the win64 build worker get confused whether it is 32 or 64-bit
+--no-binary cffi
 cffi>=1.4.0
 
 # parse log files in rvmprof tests

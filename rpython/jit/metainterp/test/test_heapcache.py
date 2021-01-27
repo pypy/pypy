@@ -103,25 +103,33 @@ class TestHeapCache(object):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         box2 = RefFrontendOp(2)
-        assert not h.is_nonstandard_virtualizable(box1)
-        assert not h.is_nonstandard_virtualizable(box2)
+        assert not h.is_known_nonstandard_virtualizable(box1)
+        assert not h.is_known_nonstandard_virtualizable(box2)
         h.nonstandard_virtualizables_now_known(box1)
-        assert h.is_nonstandard_virtualizable(box1)
-        assert not h.is_nonstandard_virtualizable(box2)
+        assert h.is_known_nonstandard_virtualizable(box1)
+        assert not h.is_known_nonstandard_virtualizable(box2)
 
         h.reset()
-        assert not h.is_nonstandard_virtualizable(box1)
-        assert not h.is_nonstandard_virtualizable(box2)
+        assert not h.is_known_nonstandard_virtualizable(box1)
+        assert not h.is_known_nonstandard_virtualizable(box2)
+
+    def test_nonstandard_virtualizable_const(self):
+        h = HeapCache()
+        # rare but not impossible situation for some interpreters: we have a
+        # *constant* nonstandard virtualizable
+        c_box = ConstPtr(ConstPtr.value)
+        h.nonstandard_virtualizables_now_known(c_box) # should not crash
+        assert not h.is_known_nonstandard_virtualizable(c_box)
 
     def test_nonstandard_virtualizable_allocation(self):
         h = HeapCache()
         box1 = RefFrontendOp(1)
         h.new(box1)
         # we've seen the allocation, so it's not the virtualizable
-        assert h.is_nonstandard_virtualizable(box1)
+        assert h.is_known_nonstandard_virtualizable(box1)
 
         h.reset()
-        assert not h.is_nonstandard_virtualizable(box1)
+        assert not h.is_known_nonstandard_virtualizable(box1)
 
     def test_heapcache_fields(self):
         h = HeapCache()

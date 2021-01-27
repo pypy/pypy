@@ -9,11 +9,11 @@ except ImportError: builtinify = lambda f: f
 
 
 def new(name, string=b''):
-    h = Hash(name)
+    h = HASH(name)
     h.update(string)
     return h
 
-class Hash(object):
+class HASH(object):
 
     def __init__(self, name, copy_from=None):
         self.ctx = ffi.NULL
@@ -67,7 +67,7 @@ class Hash(object):
     def copy(self):
         """Return a copy of the hash object."""
         with self.lock:
-            return Hash(self.name, copy_from=self.ctx)
+            return HASH(self.name, copy_from=self.ctx)
 
     def digest(self):
         """Return the digest value as a string of binary data."""

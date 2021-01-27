@@ -46,3 +46,8 @@ of W_IntObjects caused the list to loose its int optimization (issue #3250).
 
 Add ``os.sched_rr_get_interval``, ``os.sched_getscheduler``,
 ``sched_setscheduler``, ``sched_getparam``
+
+.. branch: hpy
+
+Provide a backend for HPy, currently disabled in the release
+
