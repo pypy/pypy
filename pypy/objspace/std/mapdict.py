@@ -173,6 +173,10 @@ class AbstractAttribute(object):
             current_order = current.order
             current = current.back
 
+    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
+            jit.isconstant(self) and
+            jit.isconstant(name) and
+            jit.isconstant(attrkind))
     def _reorder_and_add(self, obj, name, attrkind, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
@@ -794,7 +798,7 @@ class MapdictStorageMixin(object):
 
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
-        self.map = map
+        self._set_mapdict_map(map)
         self.storage = make_sure_not_resized([])
 
     def _mapdict_read_storage(self, storageindex):
@@ -814,13 +818,13 @@ class MapdictStorageMixin(object):
         len_storage = len(self.storage)
         new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
         new_storage[len_storage] = value
-        self.map = map
+        self._set_mapdict_map(map)
         self.storage = new_storage
 
     def _set_mapdict_storage_and_map(self, storage, map):
         """ store a new complete storage list, and also a new map """
         self.storage = storage
-        self.map = map
+        self._set_mapdict_map(map)
 
 class ObjectWithoutDict(W_Root):
     # mainly for tests
@@ -857,9 +861,9 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                     setattr(self, valnmin1, self._mapdict_get_storage_list()[0])
             self.map = map
         def _mapdict_init_empty(self, map):
+            self.map = map
             for i in rangen:
                 setattr(self, "_value%s" % i, erase_item(None))
-            self.map = map
 
         def _has_storage_list(self):
             return self.map.storage_needed() > n
@@ -897,7 +901,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
-            self.map = map
+            self._set_mapdict_map(map)
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
@@ -933,7 +937,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                 new_storage = [erase_item(None)] * (storage_needed - self._mapdict_storage_length())
                 new_storage = self._mapdict_get_storage_list() + new_storage
                 new_storage[storage_needed - n] = value
-            self.map = map
+            self._set_mapdict_map(map)
             erased = erase_list(new_storage)
             setattr(self, "_value%s" % nmin1, erased)
 
