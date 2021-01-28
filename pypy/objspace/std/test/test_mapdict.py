@@ -535,27 +535,6 @@ def test_materialize_r_dict():
     assert obj.checkstorage == [50, 60, 70, w_d]
 
 
-def test_size_prediction():
-    for i in range(10):
-        c = Class()
-        assert c.terminator.size_estimate() == 0
-        for j in range(1000):
-            obj = c.instantiate()
-            for a in "abcdefghij"[:i]:
-                obj.setdictvalue(space, a, 50)
-        assert c.terminator.size_estimate() == i
-    for i in range(1, 10):
-        c = Class()
-        assert c.terminator.size_estimate() == 0
-        for j in range(1000):
-            obj = c.instantiate()
-            for a in "abcdefghij"[:i]:
-                obj.setdictvalue(space, a, 50)
-            obj = c.instantiate()
-            for a in "klmnopqars":
-                obj.setdictvalue(space, a, 50)
-        assert c.terminator.size_estimate() in [(i + 10) // 2, (i + 11) // 2]
-
 # ___________________________________________________________
 # unboxed tests
 

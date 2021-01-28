@@ -36,7 +36,6 @@ LIMIT_MAP_ATTRIBUTES = 80
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
     cache_attrs = None
-    _size_estimate = 0
 
     def __init__(self, space, terminator):
         self.space = space
@@ -131,10 +130,6 @@ class AbstractAttribute(object):
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
 
-    @jit.elidable
-    def size_estimate(self):
-        return self._size_estimate >> NUM_DIGITS
-
     def search(self, attrtype):
         return None
 
@@ -152,14 +147,6 @@ class AbstractAttribute(object):
     def add_attr(self, obj, name, attrkind, w_value):
         space = self.space
         self._reorder_and_add(obj, name, attrkind, w_value)
-        if not jit.we_are_jitted():
-            oldattr = self
-            attr = obj._get_mapdict_map()
-            size_est = (oldattr._size_estimate + attr.size_estimate()
-                                               - oldattr.size_estimate())
-            assert size_est >= (oldattr.storage_needed() * NUM_DIGITS_POW2)
-            oldattr._size_estimate = size_est
-
 
     @jit.elidable
     def _find_branch_to_move_into(self, name, attrkind, unbox_type):
@@ -186,10 +173,6 @@ class AbstractAttribute(object):
             current_order = current.order
             current = current.back
 
-    @jit.look_inside_iff(lambda self, obj, name, attrkind, w_value:
-            jit.isconstant(self) and
-            jit.isconstant(name) and
-            jit.isconstant(attrkind))
     def _reorder_and_add(self, obj, name, attrkind, w_value):
         # the idea is as follows: the subtrees of any map are ordered by
         # insertion.  the invariant is that subtrees that are inserted later
@@ -384,7 +367,6 @@ class PlainAttribute(AbstractAttribute):
         self.storageindex = back.storage_needed()
         self._num_attributes = back.num_attributes() + 1
         self.back = back
-        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
         self.ever_mutated = False
         self.order = order
 
@@ -491,7 +473,6 @@ class UnboxedPlainAttribute(PlainAttribute):
         self._compute_storageindex_listindex()
         self._num_attributes = back.num_attributes() + 1
         self.typ = typ
-        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
 
     def _compute_storageindex_listindex(self):
         attr = self.back
@@ -586,15 +567,16 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._mapdict_write_storage(self.storageindex, unboxed)
         else:
             unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
+
+            obj._set_mapdict_map(self)
             if len(unboxed) <= self.listindex:
                 # size can only increase by 1
                 assert len(unboxed) == self.listindex
                 unboxed = unboxed + [val]
+                obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
             else:
-                # the box is already large enough, due to reordering
+                # the unboxed list is already large enough, due to reordering
                 unboxed[self.listindex] = val
-            obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
-            obj._set_mapdict_map(self)
 
     def repr(self):
         return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
@@ -813,7 +795,7 @@ class MapdictStorageMixin(object):
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
         self.map = map
-        self.storage = make_sure_not_resized([erase_item(None)] * map.size_estimate())
+        self.storage = make_sure_not_resized([])
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
@@ -830,7 +812,7 @@ class MapdictStorageMixin(object):
     def _set_mapdict_increase_storage(self, map, value):
         """ increase storage size, adding value """
         len_storage = len(self.storage)
-        new_storage = self.storage + [erase_item(None)] * (map.size_estimate() - len_storage)
+        new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
         new_storage[len_storage] = value
         self.map = map
         self.storage = new_storage
@@ -869,6 +851,10 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
         def _get_mapdict_map(self):
             return jit.promote(self.map)
         def _set_mapdict_map(self, map):
+            if self._has_storage_list() and map.storage_needed() <= n:
+                # weird corner case interacting with unboxing, see test_unbox_reorder_bug3
+                if map.storage_needed() == n:
+                    setattr(self, valnmin1, self._mapdict_get_storage_list()[0])
             self.map = map
         def _mapdict_init_empty(self, map):
             for i in rangen:
@@ -890,7 +876,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                         return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
-            erased = getattr(self, "_value%s" % nmin1)
+            erased = getattr(self, valnmin1)
             return erased
 
         def _mapdict_write_storage(self, storageindex, value):
@@ -903,7 +889,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, value)
+            setattr(self, valnmin1, value)
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -939,14 +925,14 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             setattr(self, "_value%s" % nmin1, erased)
 
         def _set_mapdict_increase_storage(self, map, value):
-            len_storage = self.map.storage_needed()
-            if len_storage == n:
+            storage_needed = map.storage_needed()
+            if self.map.storage_needed() == n:
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
             else:
-                new_storage = [erase_item(None)] * (map.size_estimate() - self._mapdict_storage_length())
+                new_storage = [erase_item(None)] * (storage_needed - self._mapdict_storage_length())
                 new_storage = self._mapdict_get_storage_list() + new_storage
-                new_storage[len_storage - nmin1] = value
+                new_storage[storage_needed - n] = value
             self.map = map
             erased = erase_list(new_storage)
             setattr(self, "_value%s" % nmin1, erased)
