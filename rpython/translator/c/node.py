@@ -947,7 +947,7 @@ class ExtType_OpaqueNode(ContainerNode):
 def opaquenode_factory(db, T, obj):
     if T == RuntimeTypeInfo:
         return db.gcpolicy.rtti_node_factory()(db, T, obj)
-    if T.hints.get("render_structure", False):
+    if T._hints.get("render_structure", False):
         return ExtType_OpaqueNode(db, T, obj)
     raise Exception("don't know about %r" % (T,))
 
