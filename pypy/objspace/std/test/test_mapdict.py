@@ -764,24 +764,23 @@ def test_unbox_reorder_bug3():
     cls = Class(allow_unboxing=True)
     obj = objectcls()
     obj.user_setup(space, cls)
-    obj.setdictvalue(space, "_frame", "frame")
-    obj.setdictvalue(space, "_is_started", 0)
-    obj.setdictvalue(space, "func", "func")
-    obj.setdictvalue(space, "alive", "alive")
-    obj.setdictvalue(space, "blocked", "blocked")
-    obj.setdictvalue(space, "_task_id", 1)
-    obj.setdictvalue(space, "label", "label")
+    obj.setdictvalue(space, "_frame", "frame") # plain 0
+    obj.setdictvalue(space, "_is_started", 0) # unboxed 1 0
+    obj.setdictvalue(space, "func", "func") # plain 2
+    obj.setdictvalue(space, "alive", "alive") # plain 3
+    obj.setdictvalue(space, "blocked", "blocked") # plain 4
+    obj.setdictvalue(space, "_task_id", 1) # unboxed 1 1
+    obj.setdictvalue(space, "label", "label") # plain 5
 
     obj2 = objectcls()
     obj2.user_setup(space, cls)
-    obj2.setdictvalue(space, "_frame", "frame2")
-    obj2.setdictvalue(space, "_is_started", 5)
-    obj2.setdictvalue(space, "func", "func2")
-    obj2.setdictvalue(space, "alive", "alive2")
-    obj2.setdictvalue(space, "blocked", "blocked2")
-    obj2.setdictvalue(space, "label", "label2")
-    import pdb; pdb.set_trace()
-    obj2.setdictvalue(space, "_task_id", 6)
+    obj2.setdictvalue(space, "_frame", "frame2") # plain 0
+    obj2.setdictvalue(space, "_is_started", 5) # unboxed 1 0
+    obj2.setdictvalue(space, "func", "func2") # plain 2
+    obj2.setdictvalue(space, "alive", "alive2") # plain 3
+    obj2.setdictvalue(space, "blocked", "blocked2") # plain 4
+    obj2.setdictvalue(space, "label", "label2") # plain 5
+    obj2.setdictvalue(space, "_task_id", 6) # reorder
     assert obj2.getdictvalue(space, "blocked") == "blocked2"
 
 
