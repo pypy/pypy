@@ -1177,6 +1177,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def visit_Compare(self, comp):
+        self._check_compare(comp)
         self.update_position(comp.lineno)
         comp.left.walkabout(self)
         ops_count = len(comp.ops)
@@ -1203,6 +1204,40 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP)
             self.use_next_block(end)
+
+    def _is_literal(self, node):
+        # to-do(isidentical): maybe include list, dict, sets?
+        if not isinstance(node, ast.Constant):
+            return False
+
+        for singleton in (
+            self.space.w_None,
+            self.space.w_True,
+            self.space.w_False,
+            self.space.w_Ellipsis
+        ):
+            if self.space.is_w(node.value, singleton):
+                return False
+
+        return True
+
+    def _check_compare(self, node):
+        left = node.left
+        for op, right in zip(node.ops, node.comparators):
+            if op in (ast.Is, ast.IsNot) and (self._is_literal(left) or self._is_literal(right)):
+                if op is ast.Is:
+                    operator, replacement = "is", "=="
+                else:
+                    operator, replacement = "is not", "!="
+                misc.syntax_warning(
+                    self.space,
+                    '"%s" with a literal. Did you mean "%s"?'
+                    % (operator, replacement),
+                    self.compile_info.filename,
+                    node.lineno,
+                    node.col_offset
+                )
+            left = right
 
     def _optimize_comparator(self, op, node):
         """Fold lists/sets of constants in the context of "in"/"not in".
