@@ -528,6 +528,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if self.compile_info.optimize >= 1:
             return
         assert self.compile_info.optimize == 0
+        if isinstance(asrt.test, ast.Tuple) and len(asrt.test.elts) > 0:
+            misc.syntax_warning(
+                self.space,
+                "assertion is always true, perhaps remove parentheses?",
+                self.compile_info.filename,
+                asrt.lineno,
+                asrt.col_offset
+            )
         self.update_position(asrt.lineno)
         end = self.new_block()
         asrt.test.accept_jump_if(self, True, end)
