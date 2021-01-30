@@ -141,6 +141,20 @@ class AppTestModuleDict(object):
         name = next(__pypy__.reversed_dict(__pypy__.__dict__))
         assert isinstance(name, str)
 
+    def test_reversed_keys(self):
+        import __pypy__
+        d = type(__builtins__)("abc").__dict__
+        d['xyz'] = 123
+        d['def'] = 654
+        l = [key for key in reversed(d) if not key.startswith("__")]
+        print(l)
+        assert l == ['def', 'xyz']
+        l = [key for key in reversed(d.keys()) if not key.startswith("__")]
+        print(l)
+        assert l == ['def', 'xyz']
+        assert __pypy__.strategy(d) == "ModuleDictStrategy"
+
+
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
     StrategyClass = ModuleDictStrategy

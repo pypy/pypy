@@ -203,3 +203,13 @@ class AppTestKwargsDictStrategy(object):
         assert set(d) == set(['λ', o])
         assert "ObjectDictStrategy" in self.get_strategy(d)
         """
+
+    def test_reversed(self):
+        def f(**args):
+            return args
+
+        d = f(a=2, b=3, c=4)
+        assert list(reversed(d)) == ['c', 'b', 'a']
+        assert list(reversed(d.keys())) == ['c', 'b', 'a']
+        assert list(reversed(d.values())) == [4, 3, 2]
+        assert list(reversed(d.items())) == [('c', 4), ('b', 3), ('a', 2)]
