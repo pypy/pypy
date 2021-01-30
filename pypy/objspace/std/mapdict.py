@@ -1095,7 +1095,7 @@ class IteratorMixin(object):
     def _init(self, strategy, w_dict):
         w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
-        self.orig_map = curr_map = w_obj._get_mapdict_map()
+        curr_map = w_obj._get_mapdict_map()
         # We enumerate non-lazily the attributes, and store them in the
         # 'attrs' list.  We then walk that list in opposite order.  This
         # gives an ordering that is more natural (roughly corresponding
@@ -1122,8 +1122,6 @@ class MapDictIteratorKeys(BaseKeyIterator):
 
     def next_key_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
@@ -1141,8 +1139,6 @@ class MapDictIteratorValues(BaseValueIterator):
 
     def next_value_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
@@ -1159,8 +1155,6 @@ class MapDictIteratorItems(BaseItemIterator):
 
     def next_item_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None, None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()

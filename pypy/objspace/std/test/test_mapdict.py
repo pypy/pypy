@@ -1197,6 +1197,29 @@ class AppTestWithMapDict(object):
         for key in d:
             assert d[key] == int(key)
 
+    def test_bug_iter_checks_map_is_wrong(self):
+        # obvious in hindsight, but this test shows that checking that the map
+        # stays the same during a.__dict__ iterations is too strict now
+        class A(object):
+            pass
+
+        # an instance with unboxed storage
+        a = A()
+        a.x = "a"
+        a.y = 1
+        a.z = "b"
+
+        a1 = A()
+        a1.x = "a"
+        a1.y = 1
+        a1.z = "b"
+        a1.y = None # mark the terminator as allow_unboxing = False
+
+        d = a.__dict__
+        # reading a.y during iteration changes the map! now that the iterators
+        # store all the attrs anyway, just remove the check
+        res = list(d.iteritems())
+        assert res == [('x', 'a'), ('y', 1), ('z', 'b')]
 
 
 class AppTestWithMapDictAndCounters(object):
