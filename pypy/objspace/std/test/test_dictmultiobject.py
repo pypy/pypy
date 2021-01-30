@@ -311,6 +311,19 @@ class AppTest_DictObject:
             values.append(k)
         assert values == list(d.values())
 
+    def test_reverse_keys(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d)) == [3, 1]
+        assert list(reversed(d.keys())) == [3, 1]
+
+    def test_reverse_values(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.values())) == [4, 2]
+
+    def test_reverse_items(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.items())) == [(3, 4), (1, 2)]
+
     def test_reversed_dict(self):
         import __pypy__
         def kw(**d): return d

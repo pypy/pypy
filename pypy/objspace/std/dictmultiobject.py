@@ -228,8 +228,8 @@ class W_DictMultiObject(W_Root):
         """D.values() -> an object providing a view on D's values"""
         return W_DictViewValuesObject(space, self)
 
-    def nondescr_reversed_dict(self, space):
-        """Not exposed directly to app-level, but via __pypy__.reversed_dict().
+    def descr_reversed(self, space):
+        """Return a reverse iterator over the dict keys.
         """
         strategy = self.get_strategy()
         return strategy.iterreversed(self)
@@ -422,6 +422,7 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
 
     __len__ = interp2app(W_DictMultiObject.descr_len),
     __iter__ = interp2app(W_DictMultiObject.descr_iter),
+    __reversed__ = interp2app(W_DictMultiObject.descr_reversed),
     __contains__ = interp2app(W_DictMultiObject.descr_contains),
 
     __getitem__ = interp2app(W_DictMultiObject.descr_getitem),
@@ -1593,6 +1594,9 @@ class W_DictViewKeysObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterKeysObject(space, self.w_dict.iterkeys())
 
+    def descr_reversed(self, space):
+        return self.w_dict.descr_reversed(space)
+
     def descr_contains(self, space, w_key):
         return self.w_dict.descr_contains(space, w_key)
 
@@ -1639,6 +1643,7 @@ W_DictViewKeysObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewKeysObject.descr_repr),
     __len__ = interp2app(W_DictViewKeysObject.descr_len),
     __iter__ = interp2app(W_DictViewKeysObject.descr_iter),
+    __reversed__ = interp2app(W_DictViewKeysObject.descr_reversed),
     __contains__ = interp2app(W_DictViewKeysObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewKeysObject.descr_eq),
