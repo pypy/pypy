@@ -232,7 +232,7 @@ class W_DictMultiObject(W_Root):
         """Return a reverse iterator over the dict keys.
         """
         strategy = self.get_strategy()
-        return strategy.iterreversed(self)
+        return strategy.w_iterreversed(self)
 
     def nondescr_delitem_if_value_is(self, space, w_key, w_value):
         """Not exposed directly to app-level, but used by
@@ -344,7 +344,7 @@ def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
                     popitem delitem clear copy \
                     length w_keys values items \
-                    iterkeys itervalues iteritems \
+                    iterkeys itervalues iteritems iterreversed \
                     listview_bytes listview_ascii listview_int \
                     view_as_kwargs".split()
 
@@ -529,10 +529,6 @@ class DictStrategy(object):
     def getiteritems_with_hash(self, w_dict):
         raise NotImplementedError
 
-    has_iterreversed = False
-    has_pop = False
-    # ^^^ no default implementation available for these methods
-
     def rev_update1_dict_dict(self, w_dict, w_updatedict):
         iteritems = self.iteritems(w_dict)
         while True:
@@ -582,7 +578,7 @@ class DictStrategy(object):
             w_dict.internal_delitem(w_key)
             return w_item
 
-    def iterreversed(self, w_dict):
+    def w_iterreversed(self, w_dict):
         # fall-back if getiterreversed is not present
         w_keys = self.w_keys(w_dict)
         return self.space.call_method(w_keys, '__reversed__')
@@ -861,9 +857,13 @@ def create_iterator_classes(dictimpl,
 
     if hasattr(dictimpl, 'getiterreversed'):
         def iterreversed(self, w_dict):
+            return IterClassReversed(self.space, self, w_dict)
+
+        def w_iterreversed(self, w_dict):
             return W_DictMultiIterKeysObject(
                     self.space,
-                    IterClassReversed(self.space, self, w_dict))
+                    iterreversed(self, w_dict))
+        dictimpl.w_iterreversed = w_iterreversed
         dictimpl.iterreversed = iterreversed
 
     @jit.look_inside_iff(lambda self, w_dict, w_updatedict:
@@ -1417,6 +1417,24 @@ class W_DictMultiIterItemsObject(W_BaseDictMultiIterObject):
             return space.newtuple([w_key, w_value])
         raise OperationError(space.w_StopIteration, space.w_None)
 
+class W_DictMultiIterValuesReversedObject(W_BaseDictMultiIterObject):
+    def descr_next(self, space):
+        iteratorimplementation = self.iteratorimplementation
+        w_key = iteratorimplementation.next_key()
+        if w_key is not None:
+            return iteratorimplementation.w_dict.getitem(w_key)
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+class W_DictMultiIterItemsReversedObject(W_BaseDictMultiIterObject):
+    def descr_next(self, space):
+        iteratorimplementation = self.iteratorimplementation
+        w_key = iteratorimplementation.next_key()
+        if w_key is not None:
+            w_value = iteratorimplementation.w_dict.getitem(w_key)
+            return space.newtuple([w_key, w_value])
+        raise OperationError(space.w_StopIteration, space.w_None)
+
+
 W_DictMultiIterItemsObject.typedef = TypeDef(
     "dict_itemiterator",
     __iter__ = interp2app(W_DictMultiIterItemsObject.descr_iter),
@@ -1441,7 +1459,21 @@ W_DictMultiIterValuesObject.typedef = TypeDef(
     __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
     )
 
+W_DictMultiIterValuesReversedObject.typedef = TypeDef(
+    "dict_reversevalueiterator",
+    __iter__ = interp2app(W_DictMultiIterValuesReversedObject.descr_iter),
+    __next__ = interp2app(W_DictMultiIterValuesReversedObject.descr_next),
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
+    )
 
+W_DictMultiIterItemsReversedObject.typedef = TypeDef(
+    "dict_reverseitemiterator",
+    __iter__ = interp2app(W_DictMultiIterItemsReversedObject.descr_iter),
+    __next__ = interp2app(W_DictMultiIterItemsReversedObject.descr_next),
+    __length_hint__ = interp2app(W_BaseDictMultiIterObject.descr_length_hint),
+    __reduce__ = interp2app(W_BaseDictMultiIterObject.descr_reduce),
+    )
 # ____________________________________________________________
 # Views
 
@@ -1569,6 +1601,9 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
     def descr_iter(self, space):
         return W_DictMultiIterItemsObject(space, self.w_dict.iteritems())
 
+    def descr_reversed(self, space):
+        return W_DictMultiIterItemsReversedObject(space, self.w_dict.iterreversed())
+
     def descr_contains(self, space, w_item):
         if not space.isinstance_w(w_item, space.w_tuple):
             return space.w_False
@@ -1583,6 +1618,7 @@ class W_DictViewItemsObject(W_DictViewObject, SetLikeDictView):
         if w_found is None:
             return space.w_False
         return space.newbool(space.eq_w(w_value, w_found))
+
 
 def new_dict_keys(space, w_type, w_dict):
     w_dict = space.interp_w(W_DictMultiObject, w_dict)
@@ -1610,12 +1646,17 @@ class W_DictViewValuesObject(W_DictViewObject):
     def descr_iter(self, space):
         return W_DictMultiIterValuesObject(space, self.w_dict.itervalues())
 
+    def descr_reversed(self, space):
+        return W_DictMultiIterValuesReversedObject(space, self.w_dict.iterreversed())
+
+
 W_DictViewItemsObject.typedef = TypeDef(
     "dict_items",
     __new__ = interp2app(new_dict_items),
     __repr__ = interp2app(W_DictViewItemsObject.descr_repr),
     __len__ = interp2app(W_DictViewItemsObject.descr_len),
     __iter__ = interp2app(W_DictViewItemsObject.descr_iter),
+    __reversed__ = interp2app(W_DictViewItemsObject.descr_reversed),
     __contains__ = interp2app(W_DictViewItemsObject.descr_contains),
 
     __eq__ = interp2app(W_DictViewItemsObject.descr_eq),
@@ -1671,5 +1712,6 @@ W_DictViewValuesObject.typedef = TypeDef(
     __repr__ = interp2app(W_DictViewValuesObject.descr_repr),
     __len__ = interp2app(W_DictViewValuesObject.descr_len),
     __iter__ = interp2app(W_DictViewValuesObject.descr_iter),
+    __reversed__ = interp2app(W_DictViewValuesObject.descr_reversed),
     _dict = interp_attrproperty_w('w_dict', cls=W_DictViewValuesObject),
     )
