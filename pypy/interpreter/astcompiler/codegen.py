@@ -529,8 +529,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
         assert self.compile_info.optimize == 0
         if isinstance(asrt.test, ast.Tuple):
-            assert isinstance(asrt.test, ast.Tuple)
-            if len(asrt.test.elts) > 0:
+            test = asrt.test
+            assert isinstance(test, ast.Tuple)
+            if len(test.elts) > 0:
                 misc.syntax_warning(
                     self.space,
                     "assertion is always true, perhaps remove parentheses?",
