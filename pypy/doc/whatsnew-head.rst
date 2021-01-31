@@ -54,3 +54,8 @@ Windows)
 
 Backport fixes to winreg adding reflection and fix for passing None (bpo
 21151).
+
+.. branch: pymodule_new-const-charp
+
+Change parameter type of ``PyModule_New`` to ``const char*``, add
+``PyModule_Check`` and ``PyModule_CheckExact``
