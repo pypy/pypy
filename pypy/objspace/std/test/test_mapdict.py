@@ -1,5 +1,9 @@
+import pytest
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
+
+
+skip_if_no_int_unboxing = pytest.mark.skipif(not ALLOW_UNBOXING_INTS, reason="int unboxing disabled on 32bit")
 
 class Config:
     class objspace:
@@ -567,6 +571,7 @@ def test_unboxed_storage_needed():
          int)
     assert aa.storage_needed() == 2
 
+@skip_if_no_int_unboxing
 def test_unboxed_write_int():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
@@ -595,6 +600,7 @@ def test_unboxed_write_float():
     assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
     assert unerase_unboxed(w_obj.storage[0]) == [15.0, 20.0]
 
+@skip_if_no_int_unboxing
 def test_unboxed_write_mixed():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
@@ -607,46 +613,58 @@ def test_unboxed_write_mixed():
     w_obj.getdictvalue(space, "c") == 20.1
     w_obj.setdictvalue(space, "d", None)
 
+@skip_if_no_int_unboxing
+def test_no_int_unboxing(monkeypatch):
+    from pypy.objspace.std import mapdict
+    monkeypatch.setattr(mapdict, "ALLOW_UNBOXING_INTS", False)
+    cls = Class(allow_unboxing=True)
+    w_obj = cls.instantiate(space)
+    w_obj.setdictvalue(space, "a", 15)
+    assert type(w_obj.map) is PlainAttribute
+    w_obj.setdictvalue(space, "b", 15.0)
+    assert type(w_obj.map) is UnboxedPlainAttribute
 
 def test_unboxed_type_change():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
-    w_obj.setdictvalue(space, "b", 15)
-    w_obj.setdictvalue(space, "b", 15.5)
-    assert w_obj.getdictvalue(space, "b") == 15.5
+    w_obj.setdictvalue(space, "b", 15.12)
+    w_obj.setdictvalue(space, "b", "woopsie")
+    assert w_obj.getdictvalue(space, "b") == "woopsie"
     assert type(w_obj.map) is PlainAttribute
     assert w_obj.map.terminator.allow_unboxing == False
 
     w_obj = cls.instantiate(space)
-    w_obj.setdictvalue(space, "b", 15)
+    w_obj.setdictvalue(space, "b", 15.12)
     # next time we won't unbox
     assert type(w_obj.map) is PlainAttribute
 
 def test_unboxed_type_change_other_object():
     cls = Class(allow_unboxing=True)
     w_obj1 = cls.instantiate(space)
-    w_obj1.setdictvalue(space, "b", 15)
+    w_obj1.setdictvalue(space, "b", 15.12)
     w_obj2 = cls.instantiate(space)
-    w_obj2.setdictvalue(space, "b", 16)
+    w_obj2.setdictvalue(space, "b", 16.12)
     assert w_obj1.map is w_obj2.map
     assert type(w_obj1.map) is UnboxedPlainAttribute
 
     # type change
-    w_obj1.setdictvalue(space, "b", 15.5)
-    assert w_obj1.getdictvalue(space, "b") == 15.5
+    w_obj1.setdictvalue(space, "b", "woopsie")
+    assert w_obj1.getdictvalue(space, "b") == "woopsie"
     assert type(w_obj1.map) is PlainAttribute
     assert w_obj1.map.terminator.allow_unboxing == False
 
     # w_obj2 is unaffected so far
     assert type(w_obj2.map) is UnboxedPlainAttribute
-    assert w_obj2.getdictvalue(space, "b") == 16
+    assert w_obj2.getdictvalue(space, "b") == 16.12
     # now it's switched
     assert type(w_obj2.map) is PlainAttribute
+    # but the value stays of course
+    assert w_obj2.getdictvalue(space, "b") == 16.12
 
 def test_unboxed_mixed_two_different_instances():
     cls = Class(allow_unboxing=True)
     w_obj1 = cls.instantiate(space)
-    w_obj1.setdictvalue(space, "b", 15)
+    w_obj1.setdictvalue(space, "b", 15.12)
 
     w_obj2 = cls.instantiate(space)
     w_obj2.setdictvalue(space, "b", "abc")
@@ -656,9 +674,9 @@ def test_unboxed_mixed_two_different_instances():
 def test_unboxed_attr_immutability(monkeypatch):
     cls = Class(allow_unboxing=True)
     obj = cls.instantiate()
-    obj.setdictvalue(space, "a", 10)
-    obj.setdictvalue(space, "b", 20)
-    obj.setdictvalue(space, "b", 30)
+    obj.setdictvalue(space, "a", 10.12)
+    obj.setdictvalue(space, "b", 20.12)
+    obj.setdictvalue(space, "b", 30.12)
     assert obj.map.ever_mutated == True
     assert obj.map.back.ever_mutated == False
 
@@ -666,25 +684,25 @@ def test_unboxed_attr_immutability(monkeypatch):
 
     def _pure_unboxed_read(obj):
         indices.append(0)
-        return longlong2float(10)
+        return 10.12
 
     obj.map.back._pure_unboxed_read = _pure_unboxed_read
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
 
-    assert obj.getdictvalue(space, "a") == 10
-    assert obj.getdictvalue(space, "b") == 30
-    assert obj.getdictvalue(space, "a") == 10
+    assert obj.getdictvalue(space, "a") == 10.12
+    assert obj.getdictvalue(space, "b") == 30.12
+    assert obj.getdictvalue(space, "a") == 10.12
     assert indices == [0, 0]
 
     obj2 = cls.instantiate()
-    obj2.setdictvalue(space, "a", 15)
-    obj2.setdictvalue(space, "b", 25)
+    obj2.setdictvalue(space, "a", 15.12)
+    obj2.setdictvalue(space, "b", 25.12)
     assert obj2.map is obj.map
     assert obj2.map.ever_mutated == True
     assert obj2.map.back.ever_mutated == False
 
     # mutating obj2 changes the map
-    obj2.setdictvalue(space, "a", 50)
+    obj2.setdictvalue(space, "a", 50.12)
     assert obj2.map.back.ever_mutated == True
     assert obj2.map is obj.map
 
@@ -692,44 +710,44 @@ def test_unboxed_attr_immutability(monkeypatch):
 def test_unboxed_bug():
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
-    w_obj.setdictvalue(space, "flags", 0)
+    w_obj.setdictvalue(space, "flags", 0.0)
     w_obj.setdictvalue(space, "open", [])
-    w_obj.setdictvalue(space, "groups", 1)
+    w_obj.setdictvalue(space, "groups", 1.0)
     w_obj.setdictvalue(space, "groupdict", {})
-    w_obj.setdictvalue(space, "lookbehind", 0)
+    w_obj.setdictvalue(space, "lookbehind", 0.0)
 
-    assert w_obj.getdictvalue(space, "flags") == 0
+    assert w_obj.getdictvalue(space, "flags") == 0.0
     assert w_obj.getdictvalue(space, "open") == []
-    assert w_obj.getdictvalue(space, "groups") == 1
+    assert w_obj.getdictvalue(space, "groups") == 1.0
     assert w_obj.getdictvalue(space, "groupdict") == {}
-    assert w_obj.getdictvalue(space, "lookbehind") == 0
+    assert w_obj.getdictvalue(space, "lookbehind") == 0.0
 
 
 def test_unboxed_reorder_add_bug():
     cls = Class(allow_unboxing=True)
     obj = cls.instantiate()
-    obj.setdictvalue(space, "a", 10)
-    obj.setdictvalue(space, "b", 20)
-    obj.setdictvalue(space, "c", 20)
+    obj.setdictvalue(space, "a", 10.0)
+    obj.setdictvalue(space, "b", 20.0)
+    obj.setdictvalue(space, "c", 20.0)
 
     obj2 = cls.instantiate()
-    obj2.setdictvalue(space, "b", 30)
-    obj2.setdictvalue(space, "c", 40)
-    obj2.setdictvalue(space, "a", 23)
+    obj2.setdictvalue(space, "b", 30.0)
+    obj2.setdictvalue(space, "c", 40.0)
+    obj2.setdictvalue(space, "a", 23.0)
 
     assert obj.map is obj2.map
 
 def test_unboxed_reorder_add_bug2():
     cls = Class(allow_unboxing=True)
     obj = cls.instantiate()
-    obj.setdictvalue(space, "a", 10)
+    obj.setdictvalue(space, "a", 10.0)
     obj.setdictvalue(space, "b", "20")
     obj.setdictvalue(space, "c", "20")
 
     obj2 = cls.instantiate()
     obj2.setdictvalue(space, "b", "30")
     obj2.setdictvalue(space, "c", "40")
-    obj2.setdictvalue(space, "a", 23)
+    obj2.setdictvalue(space, "a", 23.0)
 
     assert obj.map is obj2.map
 
@@ -744,22 +762,22 @@ def test_unbox_reorder_bug3():
     obj = objectcls()
     obj.user_setup(space, cls)
     obj.setdictvalue(space, "_frame", "frame") # plain 0
-    obj.setdictvalue(space, "_is_started", 0) # unboxed 1 0
+    obj.setdictvalue(space, "_is_started", 0.0) # unboxed 1 0
     obj.setdictvalue(space, "func", "func") # plain 2
     obj.setdictvalue(space, "alive", "alive") # plain 3
     obj.setdictvalue(space, "blocked", "blocked") # plain 4
-    obj.setdictvalue(space, "_task_id", 1) # unboxed 1 1
+    obj.setdictvalue(space, "_task_id", 1.0) # unboxed 1 1
     obj.setdictvalue(space, "label", "label") # plain 5
 
     obj2 = objectcls()
     obj2.user_setup(space, cls)
     obj2.setdictvalue(space, "_frame", "frame2") # plain 0
-    obj2.setdictvalue(space, "_is_started", 5) # unboxed 1 0
+    obj2.setdictvalue(space, "_is_started", 5.0) # unboxed 1 0
     obj2.setdictvalue(space, "func", "func2") # plain 2
     obj2.setdictvalue(space, "alive", "alive2") # plain 3
     obj2.setdictvalue(space, "blocked", "blocked2") # plain 4
     obj2.setdictvalue(space, "label", "label2") # plain 5
-    obj2.setdictvalue(space, "_task_id", 6) # reorder
+    obj2.setdictvalue(space, "_task_id", 6.0) # reorder
     assert obj2.getdictvalue(space, "blocked") == "blocked2"
 
 
@@ -774,7 +792,7 @@ def test_unboxed_insert_different_orders_perm():
                 obj.setdictvalue(space, attr, str(i*1000))
             key = preexisting
             for j, attr in enumerate(attributes):
-                obj.setdictvalue(space, attr, i*10+j)
+                obj.setdictvalue(space, attr, i*10.0+j)
                 obj._check_unboxed_storage_consistency()
                 key = "".join(sorted(key+attr))
                 if key in seen_maps:

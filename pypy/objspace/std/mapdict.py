@@ -1,7 +1,7 @@
 import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -19,6 +19,7 @@ erase_map,  unerase_map = rerased.new_erasing_pair("map")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 erase_unboxed, unerase_unboxed = rerased.new_erasing_pair("mapdict unwrapped storage")
 
+ALLOW_UNBOXING_INTS = LONG_BIT == 64
 
 # ____________________________________________________________
 # attribute shapes
@@ -203,7 +204,7 @@ class AbstractAttribute(object):
             current = self
             unbox_type = None
             if self.terminator.allow_unboxing:
-                if type(w_value) is self.space.IntObjectCls:
+                if ALLOW_UNBOXING_INTS and type(w_value) is self.space.IntObjectCls:
                     unbox_type = self.space.IntObjectCls
                 elif type(w_value) is self.space.FloatObjectCls:
                     unbox_type = self.space.FloatObjectCls
