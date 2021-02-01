@@ -917,6 +917,14 @@ class OptRewrite(Optimization):
         self.optimizer.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
         return self.emit(op)
 
+    def optimize_CONVERT_FLOAT_BYTES_TO_LONGLONG(self, op):
+        self.optimizer.pure_from_args(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT, [op], op.getarg(0))
+        return self.emit(op)
+
+    def optimize_CONVERT_LONGLONG_BYTES_TO_FLOAT(self, op):
+        self.optimizer.pure_from_args(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG, [op], op.getarg(0))
+        return self.emit(op)
+
     def optimize_SAME_AS_I(self, op):
         self.make_equal_to(op, op.getarg(0))
     optimize_SAME_AS_R = optimize_SAME_AS_I

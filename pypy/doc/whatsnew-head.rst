@@ -49,3 +49,25 @@ Refactor documentation of win64 from future plans to what was executed
 Backport msvc detection from python3, which probably breaks using Visual Studio
 2008 (MSVC9, or the version that used to be used to build CPython2.7 on
 Windows)
+
+.. branch: py2.7-winreg
+
+Backport fixes to winreg adding reflection and fix for passing None (bpo
+21151).
+
+.. branch: pymodule_new-const-charp
+
+Change parameter type of ``PyModule_New`` to ``const char*``, add
+``PyModule_Check`` and ``PyModule_CheckExact``
+
+.. branch: rpython-never-allocate
+
+Introduce a ``@never_allocate`` class decorator, which ensure that a certain
+RPython class is never actually instantiated at runtime. Useful to ensure that
+e.g. it's always constant-folded away
+
+.. branch: map-improvements
+
+Optimize instances with integer or float fields to have more efficent field
+reads and writes. They also use less memory if they have at least two such
+fields.

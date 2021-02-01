@@ -941,6 +941,39 @@ _RegQueryReflectionKey = ReflectionFunction(
 _RegDeleteKeyExW = ReflectionFunction("RegDeleteKeyExW", pypy_RegDeleteKeyExW)
 
 
+
+class ReflectionFunction(object):
+    def __init__(self, name, stdcall_wrapper):
+        self.name = name
+        self.handle = lltype.nullptr(rffi.VOIDP.TO)
+        self.wrapper = stdcall_wrapper
+
+    def check(self):
+        if self.handle != lltype.nullptr(rffi.VOIDP.TO):
+            return True
+        from rpython.rlib.rdynload import GetModuleHandle, dlsym
+        lib = GetModuleHandle("advapi32.dll")
+        try:
+            handle = dlsym(lib, self.name)
+        except KeyError:
+            return False
+        self.handle = handle
+        return True
+
+    def call(self, *args):
+        assert self.handle != lltype.nullptr(rffi.VOIDP.TO)
+        return self.wrapper(self.handle, *args)
+
+
+_RegDisableReflectionKey = ReflectionFunction(
+    "RegDisableReflectionKey", pypy_RegChangeReflectionKey)
+_RegEnableReflectionKey = ReflectionFunction(
+    "RegEnableReflectionKey", pypy_RegChangeReflectionKey)
+_RegQueryReflectionKey = ReflectionFunction(
+    "RegQueryReflectionKey", pypy_RegQueryReflectionKey)
+_RegDeleteKeyExA = ReflectionFunction("RegDeleteKeyExA", pypy_RegDeleteKeyExA)
+
+
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit
     Operating System.  Will generally raise NotImplemented if executed on

@@ -32,6 +32,7 @@ class AppTestFfi:
     def setup_class(cls):
         import _winreg as winreg
         from platform import machine
+        from platform import machine
         space = cls.space
         cls.root_key = winreg.HKEY_CURRENT_USER
         cls.test_key_name = "SOFTWARE\\Pypy Test Key - Delete Me [%d]" % os.getpid()
@@ -39,20 +40,14 @@ class AppTestFfi:
         cls.w_test_key_name = space.wrap(cls.test_key_name)
         cls.w_canSaveKey = space.wrap(canSaveKey)
         cls.w_tmpfilename = space.wrap(str(udir.join('winreg-temp')))
-        cls.w_runappdirect = space.wrap(cls.runappdirect)
-        cls.w_win64_machine = space.wrap(machine() == "AMD64")
 
         test_data = [
-            ("Int Value", 0xFEDCBA98, winreg.REG_DWORD),
-            ("Str Value", b"A string Value", winreg.REG_SZ),
-            ("Unicode Value", "A unicode Value", winreg.REG_SZ),
-            ("Str Expand", "The path is %path%", winreg.REG_EXPAND_SZ),
-            ("Multi Str", [b"Several", u"string", u"values"], winreg.REG_MULTI_SZ),
-            ("Multi Str Empty", ["", "", ""], winreg.REG_MULTI_SZ),
-            ("Raw None", None, winreg.REG_BINARY),
-            # issue 3342, round-trip invalid UTF-16 strings
-            (u"Invalid \uDC00", u"\uDC00", winreg.REG_SZ),
-            (u"Invalid \uD800", u"\uD800", winreg.REG_SZ),
+            ("Int Value", 0xFEDCBA98, _winreg.REG_DWORD),
+            ("Str Value", "A string Value", _winreg.REG_SZ),
+            ("Unicode Value", u"A unicode Value", _winreg.REG_SZ),
+            ("Str Expand", "The path is %path%", _winreg.REG_EXPAND_SZ),
+            ("Multi Str", ["Several", "string", u"values"], _winreg.REG_MULTI_SZ),
+            ("Raw data", "binary"+chr(0)+"data", _winreg.REG_BINARY),
             ]
         cls.w_test_data = w_test_data = space.wrap(test_data)
         w_btest = space.newtuple([space.wrap("Raw data"),
@@ -202,7 +197,7 @@ class AppTestFfi:
 
     def test_delete(self):
         # must be run after test_SetValueEx
-        from winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
+        from _winreg import OpenKey, KEY_ALL_ACCESS, DeleteValue, DeleteKey
         key = OpenKey(self.root_key, self.test_key_name, 0, KEY_ALL_ACCESS)
         sub_key = OpenKey(key, "sub_key", 0, KEY_ALL_ACCESS)
 
@@ -213,7 +208,12 @@ class AppTestFfi:
         # REG_QWORD is added in Python 3.6, can't set in setup_class
         DeleteValue(sub_key, 'Long Value')
 
-        DeleteKey(key, "sub_key")
+        if self.win64_machine:
+            DeleteKeyEx(key, "sub_key", KEY_ALL_ACCESS, 0)
+        else:
+            DeleteKey(key, "sub_key")
+
+        raises(OSError, OpenKey, key, "sub_key")
 
     def test_truncate_null(self):
         # bpo-25778: REG_SZ should not contain null characters

@@ -1,7 +1,7 @@
 import weakref, sys
 
 from rpython.rlib import jit, objectmodel, debug, rerased
-from rpython.rlib.rarithmetic import intmask, r_uint
+from rpython.rlib.rarithmetic import intmask, r_uint, LONG_BIT
 from rpython.rlib.longlong2float import longlong2float, float2longlong
 
 from pypy.interpreter.baseobjspace import W_Root
@@ -20,6 +20,7 @@ erase_map,  unerase_map = rerased.new_erasing_pair("map")
 erase_list, unerase_list = rerased.new_erasing_pair("mapdict storage list")
 erase_unboxed, unerase_unboxed = rerased.new_erasing_pair("mapdict unwrapped storage")
 
+ALLOW_UNBOXING_INTS = LONG_BIT == 64
 
 # ____________________________________________________________
 # attribute shapes
@@ -37,7 +38,6 @@ LIMIT_MAP_ATTRIBUTES = 80
 class AbstractAttribute(object):
     _immutable_fields_ = ['terminator']
     cache_attrs = None
-    _size_estimate = 0
 
     def __init__(self, space, terminator):
         self.space = space
@@ -133,10 +133,6 @@ class AbstractAttribute(object):
     def set_terminator(self, obj, terminator):
         raise NotImplementedError("abstract base class")
 
-    @jit.elidable
-    def size_estimate(self):
-        return self._size_estimate >> NUM_DIGITS
-
     def search(self, attrtype):
         return None
 
@@ -145,27 +141,15 @@ class AbstractAttribute(object):
         cache = self.cache_attrs
         if cache is None:
             cache = self.cache_attrs = {}
-        key = (name, attrkind, unbox_type)
-        attr = cache.get(key, None)
-        if attr is None:
-            if unbox_type is None:
-                attr = PlainAttribute(name, attrkind, self)
-            else:
-                attr = UnboxedPlainAttribute(name, attrkind, self, unbox_type)
-            cache[key] = attr
-        return attr
+        key = (name, attrkind)
+        holder = cache.get(key, None)
+        if holder is None:
+            holder = cache[key] = CachedAttributeHolder(name, attrkind, self, unbox_type)
+        return holder
 
     def add_attr(self, obj, name, attrkind, w_value):
         space = self.space
         self._reorder_and_add(obj, name, attrkind, w_value)
-        if not jit.we_are_jitted():
-            oldattr = self
-            attr = obj._get_mapdict_map()
-            size_est = (oldattr._size_estimate + attr.size_estimate()
-                                               - oldattr.size_estimate())
-            assert size_est >= (oldattr.storage_needed() * NUM_DIGITS_POW2)
-            oldattr._size_estimate = size_est
-
 
     @jit.elidable
     def _find_branch_to_move_into(self, name, attrkind, unbox_type):
@@ -174,19 +158,19 @@ class AbstractAttribute(object):
         current_order = sys.maxint
         number_to_readd = 0
         current = self
-        key = (name, attrkind, unbox_type)
+        key = (name, attrkind)
         while True:
-            attr = None
+            holder = None
             if current.cache_attrs is not None:
-                attr = current.cache_attrs.get(key, None)
-            if attr is None or attr.order > current_order:
+                holder = current.cache_attrs.get(key, None)
+            if holder is None or holder.order > current_order:
                 # we reached the top, so we didn't find it anywhere,
                 # just add it to the top attribute
                 if not isinstance(current, PlainAttribute):
                     return 0, self._get_new_attr(name, attrkind, unbox_type)
 
             else:
-                return number_to_readd, attr
+                return number_to_readd, holder
             # if not found try parent
             number_to_readd += 1
             current_order = current.order
@@ -222,11 +206,12 @@ class AbstractAttribute(object):
             current = self
             unbox_type = None
             if self.terminator.allow_unboxing:
-                if type(w_value) is self.space.IntObjectCls:
+                if ALLOW_UNBOXING_INTS and type(w_value) is self.space.IntObjectCls:
                     unbox_type = self.space.IntObjectCls
                 elif type(w_value) is self.space.FloatObjectCls:
                     unbox_type = self.space.FloatObjectCls
-            number_to_readd, attr = self._find_branch_to_move_into(name, attrkind, unbox_type)
+            number_to_readd, holder = self._find_branch_to_move_into(name, attrkind, unbox_type)
+            attr = holder.pick_attr(unbox_type)
             # we found the attributes further up, need to save the
             # previous values of the attributes we passed
             if number_to_readd:
@@ -382,16 +367,15 @@ class DevolvedDictTerminator(Terminator):
 class PlainAttribute(AbstractAttribute):
     _immutable_fields_ = ['name', 'attrkind', 'storageindex', '_num_attributes', 'back', 'ever_mutated?', 'order']
 
-    def __init__(self, name, attrkind, back):
+    def __init__(self, name, attrkind, back, order):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         self.name = name
         self.attrkind = attrkind
         self.storageindex = back.storage_needed()
         self._num_attributes = back.num_attributes() + 1
         self.back = back
-        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
         self.ever_mutated = False
-        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        self.order = order
 
     def _copy_attr(self, obj, new_obj):
         w_value = self._prim_direct_read(obj)
@@ -482,22 +466,21 @@ class PlainAttribute(AbstractAttribute):
 
 
 class UnboxedPlainAttribute(PlainAttribute):
-    _immutable_fields_ = ["listindex", "firstunwrapped"]
-    def __init__(self, name, attrkind, back, typ):
+    _immutable_fields_ = ["listindex", "firstunwrapped", "typ"]
+    def __init__(self, name, attrkind, back, order, typ):
         AbstractAttribute.__init__(self, back.space, back.terminator)
         # don't call PlainAttribute.__init__, that runs into weird problems
         self.name = name
         self.attrkind = attrkind
         self.back = back
         self.ever_mutated = False
-        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        self.order = order
         # here, storageindex is where the list of floats is stored
         # and listindex is where in the list the actual value goes
         self.firstunwrapped = False
         self._compute_storageindex_listindex()
         self._num_attributes = back.num_attributes() + 1
         self.typ = typ
-        self._size_estimate = self.storage_needed() * NUM_DIGITS_POW2
 
     def _compute_storageindex_listindex(self):
         attr = self.back
@@ -546,7 +529,7 @@ class UnboxedPlainAttribute(PlainAttribute):
         w_res = self._prim_direct_read(obj)
         if self.terminator.allow_unboxing == False:
             # oops, some other object using the same class isn't type stable!
-            # stop using boxing altogether to not get too many variants of maps
+            # stop using unboxing altogether to not get too many variants of maps
             self._convert_to_boxed(obj)
         return w_res
 
@@ -592,14 +575,47 @@ class UnboxedPlainAttribute(PlainAttribute):
             obj._mapdict_write_storage(self.storageindex, unboxed)
         else:
             unboxed = unerase_unboxed(obj._mapdict_read_storage(self.storageindex))
-            unboxed = unboxed + [val]
-            obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
+
             obj._set_mapdict_map(self)
+            if len(unboxed) <= self.listindex:
+                # size can only increase by 1
+                assert len(unboxed) == self.listindex
+                unboxed = unboxed + [val]
+                obj._mapdict_write_storage(self.storageindex, erase_unboxed(unboxed))
+            else:
+                # the unboxed list is already large enough, due to reordering
+                unboxed[self.listindex] = val
 
     def repr(self):
         return "<UnboxedPlainAttribute %s %s %s %s %s>" % (
                 self.name, attrkind_name(self.attrkind), self.storageindex,
                 self.listindex, self.back.repr())
+
+
+class CachedAttributeHolder(object):
+    _immutable_fields_ = ['attr?', 'typ?']
+
+    def __init__(self, name, attrkind, back, unbox_type):
+        self.order = len(back.cache_attrs) if back.cache_attrs else 0
+        if unbox_type is None:
+            attr = PlainAttribute(name, attrkind, back, self.order)
+        else:
+            attr = UnboxedPlainAttribute(name, attrkind, back, self.order, unbox_type)
+        self.attr = attr
+        self.typ = unbox_type
+
+    def pick_attr(self, unbox_type):
+        if self.typ is None or self.typ is unbox_type:
+            return self.attr
+        self.typ = None
+        # this will never be traced, because the previous assignment
+        # invalidates a quasi-immutable field
+        self.attr.terminator.allow_unboxing = False
+        name = self.attr.name
+        attrkind = self.attr.attrkind
+        back = self.attr.back
+        attr = self.attr = PlainAttribute(name, attrkind, back, self.order)
+        return attr
 
 
 class MapAttrCache(object):
@@ -784,8 +800,8 @@ class MapdictStorageMixin(object):
 
     def _mapdict_init_empty(self, map):
         from rpython.rlib.debug import make_sure_not_resized
-        self.map = map
-        self.storage = make_sure_not_resized([erase_item(None)] * map.size_estimate())
+        self._set_mapdict_map(map)
+        self.storage = make_sure_not_resized([])
 
     def _mapdict_read_storage(self, storageindex):
         assert storageindex >= 0
@@ -802,15 +818,15 @@ class MapdictStorageMixin(object):
     def _set_mapdict_increase_storage(self, map, value):
         """ increase storage size, adding value """
         len_storage = len(self.storage)
-        new_storage = self.storage + [erase_item(None)] * (map.size_estimate() - len_storage)
+        new_storage = self.storage + [erase_item(None)] * (map.storage_needed() - len_storage)
         new_storage[len_storage] = value
-        self.map = map
+        self._set_mapdict_map(map)
         self.storage = new_storage
 
     def _set_mapdict_storage_and_map(self, storage, map):
         """ store a new complete storage list, and also a new map """
         self.storage = storage
-        self.map = map
+        self._set_mapdict_map(map)
 
 class ObjectWithoutDict(W_Root):
     # mainly for tests
@@ -841,11 +857,15 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
         def _get_mapdict_map(self):
             return jit.promote(self.map)
         def _set_mapdict_map(self, map):
+            if self._has_storage_list() and map.storage_needed() <= n:
+                # weird corner case interacting with unboxing, see test_unbox_reorder_bug3
+                if map.storage_needed() == n:
+                    setattr(self, valnmin1, self._mapdict_get_storage_list()[0])
             self.map = map
         def _mapdict_init_empty(self, map):
+            self.map = map
             for i in rangen:
                 setattr(self, "_value%s" % i, erase_item(None))
-            self.map = map
 
         def _has_storage_list(self):
             return self.map.storage_needed() > n
@@ -862,7 +882,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
                         return getattr(self, "_value%s" % i)
             if self._has_storage_list():
                 return self._mapdict_get_storage_list()[storageindex - nmin1]
-            erased = getattr(self, "_value%s" % nmin1)
+            erased = getattr(self, valnmin1)
             return erased
 
         def _mapdict_write_storage(self, storageindex, value):
@@ -875,7 +895,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             if self._has_storage_list():
                 self._mapdict_get_storage_list()[storageindex - nmin1] = value
                 return
-            setattr(self, "_value%s" % nmin1, value)
+            setattr(self, valnmin1, value)
 
         def _mapdict_storage_length(self):
             if self._has_storage_list():
@@ -883,7 +903,7 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             return n
 
         def _set_mapdict_storage_and_map(self, storage, map):
-            self.map = map
+            self._set_mapdict_map(map)
             len_storage = len(storage)
             for i in rangenmin1:
                 if i < len_storage:
@@ -911,15 +931,15 @@ def _make_storage_mixin_size_n(n=SUBCLASSES_NUM_FIELDS):
             setattr(self, "_value%s" % nmin1, erased)
 
         def _set_mapdict_increase_storage(self, map, value):
-            len_storage = self.map.storage_needed()
-            if len_storage == n:
+            storage_needed = map.storage_needed()
+            if self.map.storage_needed() == n:
                 erased = getattr(self, "_value%s" % nmin1)
                 new_storage = [erased, value]
             else:
-                new_storage = [erase_item(None)] * (map.size_estimate() - self._mapdict_storage_length())
+                new_storage = [erase_item(None)] * (storage_needed - self._mapdict_storage_length())
                 new_storage = self._mapdict_get_storage_list() + new_storage
-                new_storage[len_storage - nmin1] = value
-            self.map = map
+                new_storage[storage_needed - n] = value
+            self._set_mapdict_map(map)
             erased = erase_list(new_storage)
             setattr(self, "_value%s" % nmin1, erased)
 
@@ -1077,7 +1097,7 @@ class IteratorMixin(object):
     def _init(self, strategy, w_dict):
         w_obj = strategy.unerase(w_dict.dstorage)
         self.w_obj = w_obj
-        self.orig_map = curr_map = w_obj._get_mapdict_map()
+        curr_map = w_obj._get_mapdict_map()
         # We enumerate non-lazily the attributes, and store them in the
         # 'attrs' list.  We then walk that list in opposite order.  This
         # gives an ordering that is more natural (roughly corresponding
@@ -1104,8 +1124,6 @@ class MapDictIteratorKeys(BaseKeyIterator):
 
     def next_key_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
@@ -1123,8 +1141,6 @@ class MapDictIteratorValues(BaseValueIterator):
 
     def next_value_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
@@ -1141,8 +1157,6 @@ class MapDictIteratorItems(BaseItemIterator):
 
     def next_item_entry(self):
         assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
-        if self.orig_map is not self.w_obj._get_mapdict_map():
-            return None, None
         attrs = self.attrs
         if len(attrs) > 0:
             attr = attrs.pop()
