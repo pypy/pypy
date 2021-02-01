@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    METH_NOARGS, METH_O,
-    parse_dir, bootstrap_function, generic_cpy_call,
+    METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING,
+    METH_NOARGS, METH_O, METH_VARARGS, build_type_checkers,
+    parse_dir, bootstrap_function, generic_cpy_call, cts, cpython_api,
     generic_cpy_call_dont_convert_result, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
@@ -32,7 +32,6 @@ def module_dealloc(space, py_obj):
     _dealloc(space, py_obj)
 
 PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
-
 @cpython_api([CONST_STRING], PyObject)
 def PyModule_New(space, name):
     """
