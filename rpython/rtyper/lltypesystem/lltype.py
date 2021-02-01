@@ -584,7 +584,7 @@ class OpaqueType(ContainerType):
         """
         self.tag = tag
         self.__name__ = tag
-        self.hints = frozendict(hints)
+        self._hints = frozendict(hints)
 
     def __str__(self):
         return "%s (opaque)" % self.tag
