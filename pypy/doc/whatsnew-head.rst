@@ -59,3 +59,9 @@ Backport fixes to winreg adding reflection and fix for passing None (bpo
 
 Change parameter type of ``PyModule_New`` to ``const char*``, add
 ``PyModule_Check`` and ``PyModule_CheckExact``
+
+.. branch: rpython-never-allocate
+
+Introduce a ``@never_allocate`` class decorator, which ensure that a certain
+RPython class is never actually instantiated at runtime. Useful to ensure that
+e.g. it's always constant-folded away
