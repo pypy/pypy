@@ -92,7 +92,7 @@ def do_what_I_mean(space, w_crash=None):
 
 
 def strategy(space, w_obj):
-    """ strategy(dict or list or set)
+    """ strategy(dict or list or set or instance)
 
     Return the underlying strategy currently used by a dict, list or set object
     """
@@ -103,7 +103,11 @@ def strategy(space, w_obj):
     elif isinstance(w_obj, W_BaseSetObject):
         name = w_obj.strategy.__class__.__name__
     else:
-        raise oefmt(space.w_TypeError, "expecting dict or list or set object")
+        m = w_obj._get_mapdict_map()
+        if m is not None:
+            name = m.repr()
+        else:
+            raise oefmt(space.w_TypeError, "expecting dict or list or set object, or instance of some kind")
     return space.newtext(name)
 
 def get_console_cp(space):

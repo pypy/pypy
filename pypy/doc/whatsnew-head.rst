@@ -65,3 +65,9 @@ Change parameter type of ``PyModule_New`` to ``const char*``, add
 Introduce a ``@never_allocate`` class decorator, which ensure that a certain
 RPython class is never actually instantiated at runtime. Useful to ensure that
 e.g. it's always constant-folded away
+
+.. branch: map-improvements
+
+Optimize instances with integer or float fields to have more efficent field
+reads and writes. They also use less memory if they have at least two such
+fields.
