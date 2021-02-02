@@ -39,8 +39,8 @@ def Tcl_AppInit(app):
     from os.path import join, dirname, exists, sep
     if sys.platform == 'win32':
         lib_path = join(dirname(dirname(dirname(__file__))), 'tcl')
-        tcl_path = join(lib_path, 'tcl8.5')
-        tk_path = join(lib_path, 'tk8.5')
+        tcl_path = join(lib_path, 'tcl8.6')
+        tk_path = join(lib_path, 'tk8.6')
         tcl_path = tcl_path.replace(sep, '/')
         tk_path = tk_path.replace(sep, '/')
     else:
