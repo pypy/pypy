@@ -1100,7 +1100,7 @@ class TestAstBuilder:
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == "keyword can't be an expression"
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
-        assert exc.msg == "keyword argument repeated"
+        assert exc.msg == "keyword argument repeated: 'a'"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")

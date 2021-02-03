@@ -1187,7 +1187,7 @@ class ASTBuilder(object):
                                    expr_node)
                     keyword = keyword_expr.id
                     if keyword in used_keywords:
-                        self.error("keyword argument repeated", expr_node)
+                        self.error("keyword argument repeated: '%s'" % keyword, expr_node)
                     used_keywords[keyword] = None
                     self.check_forbidden_name(keyword, expr_node)
                     keyword_value = self.handle_expr(argument.get_child(2))
