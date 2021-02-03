@@ -134,6 +134,9 @@ def run_toplevel(f, *fargs, **fkwds):
             sys.setprofile(None)
     except SystemExit as e:
         handle_sys_exit(e)
+    except KeyboardInterrupt as e:
+        # handled a level up
+        raise
     except BaseException as e:
         display_exception(e)
         return False
@@ -869,6 +872,19 @@ def run_command_line(interactive,
         status = e.code
         if inspect_requested():
             display_exception(e)
+    except KeyboardInterrupt as e:
+        display_exception(e)
+        status = True
+        if not inspect_requested():
+            try:
+                import _signal
+                import os
+            except ImportError:
+                pass
+            else:
+                _signal.signal(_signal.SIGINT, _signal.SIG_DFL)
+                os.kill(os.getpid(), _signal.SIGINT);
+                assert 0, "should be unreachable"
     else:
         status = not success
 

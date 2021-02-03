@@ -1067,6 +1067,15 @@ class TestNonInteractive:
         assert status == 1
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
 
+    def test_keyboardinterrupt_exit_signal(self):
+        import subprocess, signal, os
+        p= subprocess.Popen([get_python3(), app_main, "-c", "raise KeyboardInterrupt"],
+                            stdout=subprocess.PIPE,
+                            stdin=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        assert p.returncode == -signal.SIGINT
+
 
 @py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:
