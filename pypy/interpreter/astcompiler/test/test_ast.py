@@ -8,7 +8,7 @@ class TestAstToObject:
         value = space.wrap(42)
         node = ast.Num(value, lineno=1, col_offset=1)
         w_node = node.to_object(space)
-        assert space.getattr(w_node, space.wrap("n")) is value
+        assert space.is_w(space.getattr(w_node, space.wrap("n")), value)
 
     def test_expr(self, space):
         value = space.wrap(42)
