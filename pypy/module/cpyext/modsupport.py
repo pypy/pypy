@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, cts,
-    METH_NOARGS, METH_O,
-    parse_dir, bootstrap_function, generic_cpy_call,
+    METH_STATIC, METH_CLASS, METH_COEXIST, CANNOT_FAIL, CONST_STRING,
+    METH_NOARGS, METH_O, METH_VARARGS, build_type_checkers,
+    parse_dir, bootstrap_function, generic_cpy_call, cts, cpython_api,
     generic_cpy_call_dont_convert_result, slot_function)
 from pypy.module.cpyext.pyobject import PyObject, as_pyobj, make_typedescr
 from pypy.interpreter.module import Module
@@ -31,7 +31,8 @@ def module_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
-@cpython_api([rffi.CCHARP], PyObject)
+PyModule_Check, PyModule_CheckExact = build_type_checkers("Module", Module)
+@cpython_api([CONST_STRING], PyObject)
 def PyModule_New(space, name):
     """
     Return a new module object with the __name__ attribute set to name.
@@ -201,13 +202,6 @@ def convert_method_defs(space, dict_w, methods, w_type, w_self=None, name=None):
 
             dict_w[methodname] = w_obj
 
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_Check(space, w_obj):
-    w_type = space.gettypeobject(Module.typedef)
-    w_obj_type = space.type(w_obj)
-    return int(space.is_w(w_type, w_obj_type) or
-               space.issubtype_w(w_obj_type, w_type))
 
 @cpython_api([PyObject], PyObject, result_borrowed=True)
 def PyModule_GetDict(space, w_mod):

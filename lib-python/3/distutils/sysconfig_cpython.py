@@ -193,8 +193,7 @@ def customize_compiler(compiler):
 
         if 'CC' in os.environ:
             newcc = os.environ['CC']
-            if (sys.platform == 'darwin'
-                    and 'LDSHARED' not in os.environ
+            if ('LDSHARED' not in os.environ
                     and ldshared.startswith(cc)):
                 # On OS X, if CC is overridden, use that as the default
                 #       command for LDSHARED as well

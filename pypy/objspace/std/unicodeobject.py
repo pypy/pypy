@@ -134,10 +134,14 @@ class W_UnicodeObject(W_Root):
 
     def listview_ascii(self):
         if self.is_ascii():
-            return [c for c in self._utf8]
+            return self._listview_is_ascii(self._utf8)
             # rpython note: can't use list() to return a list of strings
             # (only a list of chars is supported)
         return None
+
+    @staticmethod
+    def _listview_is_ascii(chars):
+        return [c for c in chars]
 
     def descr_iter(self, space):
         from pypy.objspace.std.iterobject import W_FastUnicodeIterObject

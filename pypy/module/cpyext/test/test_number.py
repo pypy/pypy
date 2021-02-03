@@ -132,7 +132,29 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
             # bpo 38643
             try:
                 mod.pynumber_tobase(123, 0)
-            except ValueError:
+            except SystemError:
                 pass
             else:
-                assert False, 'expected TypeError'
+                assert False, 'expected SystemError'
+
+    def test_index_check(self):
+        # issue 3383: CPython only checks for the presence of __index__,
+        # not that it is valid
+        mod = self.import_extension('foo', [
+            ("check_index", "METH_O",
+            """
+                int res = PyIndex_Check(args);
+                return PyLong_FromLong(res);
+            """)])
+
+        class Raises:
+            def __index__(self):
+                raise ValueError(42)
+
+        class Missing:
+            pass
+
+        m = Raises()
+        assert mod.check_index(m)
+        m = Missing()
+        assert not mod.check_index(m)

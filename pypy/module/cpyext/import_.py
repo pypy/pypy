@@ -5,6 +5,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module
 from pypy.interpreter.pycode import PyCode
 from pypy.module.imp import importing
+from pypy.objspace.std.dictmultiobject import W_DictMultiObject
 
 @cpython_api([PyObject], PyObject)
 def PyImport_Import(space, w_name):
@@ -106,6 +107,19 @@ def PyImport_GetModuleDict(space):
     sys.modules).  Note that this is a per-interpreter variable."""
     w_modulesDict = space.sys.get('modules')
     return w_modulesDict     # borrowed ref
+
+@cpython_api([PyObject], PyObject)
+def PyImport_GetModule(space, w_name):
+    """Return the already imported module with the given name. If the module
+    has not been imported yet then returns NULL but does not set an error.
+    Returns NULL and sets an error if the lookup failed."""
+    w_modulesDict = space.sys.get('modules')
+    try:
+        return space.getitem(w_modulesDict, w_name)
+    except OperationError as e:
+        if e.match(space, space.w_KeyError):
+            return None
+        raise e
 
 @cpython_api([rffi.CCHARP, PyObject], PyObject)
 def PyImport_ExecCodeModule(space, name, w_code):

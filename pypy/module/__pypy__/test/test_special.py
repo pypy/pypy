@@ -127,6 +127,15 @@ class AppTest(object):
         assert isinstance(e, TypeError)
         assert e.__traceback__ == tb
 
+    def test_instance_strategy(self):
+        from __pypy__ import strategy
+        class A(object):
+            pass
+        a = A()
+        a.x = 1
+        a.y = 2
+        assert strategy(a).startswith("<UnboxedPlainAttribute y DICT 0 1 <UnboxedPlainAttribute x DICT 0 0 <DictTerminator w_cls=<W_TypeObject 'A'")
+
 
 class AppTestJitFeatures(object):
     spaceconfig = {"translation.jit": True}

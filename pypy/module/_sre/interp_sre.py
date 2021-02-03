@@ -101,8 +101,7 @@ def allgroups_w(space, ctx, fmarks, num_groups, w_default):
 
 
 def import_re(space):
-    w_import = space.getattr(space.builtin, space.newtext("__import__"))
-    return space.call_function(w_import, space.newtext("re"))
+    return space.fromcache(AppReCache).get_re()
 
 def matchcontext(space, ctx, pattern):
     try:
@@ -123,6 +122,22 @@ def searchcontext(space, ctx, pattern):
 FLAG_NAMES = ["re.TEMPLATE", "re.IGNORECASE", "re.LOCALE", "re.MULTILINE",
               "re.DOTALL", "re.UNICODE", "re.VERBOSE", "re.DEBUG",
               "re.ASCII"]
+
+
+class AppReCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.w_re = None
+
+    def get_re(self):
+        if self.w_re is not None:
+            return self.w_re
+        space = self.space
+        w_import = space.getattr(space.builtin, space.newtext("__import__"))
+        w_re = space.call_function(w_import, space.newtext("re"))
+        self.w_re = w_re
+        return w_re
+
 
 class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]

@@ -17,8 +17,15 @@ What's new in PyPy3 7.3.3+
 
     Fix utf_8_decode for final=False, error=ignore
 
+.. 3.8 branches:
+.. branch: fstring-debugging
+Add support for the debugging sigil ``=`` in f-strings.
+.. branch: some-other-38-features
+Implement ``typed_ast`` features in the ``ast``-module.
+.. branch: some-3.8-features
+Implement named expression (the walrus operator ``:=``).
 .. branch: py3.7-rsre
-
+..-----------------------------------------
 Fix rsre module for python 3.7
 
 .. branch: incremental_decoder
@@ -69,16 +76,12 @@ Re-enable ``_io.win32console`` on windows
 
 Implement METH_FASTCALL
 
-.. 3.8 branches:
+.. branch: py3.7-win64-cpyext-longobject 
 
-.. branch: fstring-debugging
+Fix ``cpyext.longobject`` for win64
 
-Add support for the debugging sigil ``=`` in f-strings.
+.. branch: py3.7-big-sur-dyld-cache
 
-.. branch: some-other-38-features
+Fix loading system libraries with ctypes on macOS Big Sur. (issue 3314)
 
-Implement ``typed_ast`` features in the ``ast``-module.
 
-.. branch: some-3.8-features
-
-Implement named expression (the walrus operator ``:=``).

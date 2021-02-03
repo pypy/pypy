@@ -1167,12 +1167,6 @@ def PyMethod_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_CheckExact(space, p):
-    """Return true if p is a module object, but not a subtype of
-    PyModule_Type."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Similar to PyModule_GetFilenameObject() but return the filename
