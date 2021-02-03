@@ -66,3 +66,7 @@ e.g. it's always constant-folded away
 Optimize instances with integer or float fields to have more efficent field
 reads and writes. They also use less memory if they have at least two such
 fields.
+
+.. branch: win-tcl8.6
+
+Update the version of Tk/Tcl on windows to 8.6
