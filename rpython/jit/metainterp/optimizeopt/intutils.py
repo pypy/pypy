@@ -43,10 +43,6 @@ class IntBound(AbstractInfo):
     def make_le(self, other):
         if other.has_upper:
             return self.make_le_const(other.upper)
-            if not self.has_upper or other.upper < self.upper:
-                self.has_upper = True
-                self.upper = other.upper
-                return True
         return False
 
     def make_le_const(self, other):
