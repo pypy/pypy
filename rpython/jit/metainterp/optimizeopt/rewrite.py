@@ -859,7 +859,7 @@ class OptRewrite(Optimization):
             return True
         else:
             from rpython.jit.metainterp.optimizeopt import intdiv
-            known_nonneg = b1.known_ge(IntBound(0, 0))
+            known_nonneg = b1.known_nonnegative()
             operations = intdiv.division_operations(arg1, val, known_nonneg)
             newop = None
             for newop in operations:
@@ -899,7 +899,7 @@ class OptRewrite(Optimization):
             return True
         else:
             from rpython.jit.metainterp.optimizeopt import intdiv
-            known_nonneg = b1.known_ge(IntBound(0, 0))
+            known_nonneg = b1.known_nonnegative()
             operations = intdiv.modulo_operations(arg1, val, known_nonneg)
             newop = None
             for newop in operations:

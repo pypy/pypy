@@ -43,8 +43,8 @@ class OptIntBounds(Optimization):
         #        but the bounds produced by all instructions where box is
         #        an argument might also be tighten
         b = self.getintbound(box)
-        if b.has_lower and b.has_upper and b.lower == b.upper:
-            self.make_constant_int(box, b.lower)
+        if b.is_constant():
+            self.make_constant_int(box, b.getint())
 
         box1 = self.optimizer.as_operation(box)
         if box1 is not None:
@@ -214,7 +214,7 @@ class OptIntBounds(Optimization):
         # intbound.lshift_bound checks for an overflow and if the
         # lshift can be proven not to overflow sets b.has_upper and
         # b.has_lower
-        if b.has_lower and b.has_upper:
+        if b.bounded()
             # Synthesize the reverse op for optimize_default to reuse
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)

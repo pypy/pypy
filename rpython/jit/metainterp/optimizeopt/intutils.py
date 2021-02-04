@@ -109,14 +109,34 @@ class IntBound(AbstractInfo):
     def bounded(self):
         return self.has_lower and self.has_upper
 
+    def known_lt_const(self, other):
+        if self.has_upper:
+            return self.upper < other
+        return False
+
+    def known_le_const(self, other):
+        if self.has_upper:
+            return self.upper <= other
+        return False
+
+    def known_gt_const(self, other):
+        if self.has_lower:
+            return self.lower > other
+        return False
+
+    def known_ge_const(self, other):
+        if self.has_upper:
+            return self.upper >= other
+        return False
+
     def known_lt(self, other):
-        if self.has_upper and other.has_lower and self.upper < other.lower:
-            return True
+        if other.has_lower:
+            return self.known_lt_const(other.lower)
         return False
 
     def known_le(self, other):
-        if self.has_upper and other.has_lower and self.upper <= other.lower:
-            return True
+        if other.has_lower:
+            return self.known_le_const(other.lower)
         return False
 
     def known_gt(self, other):
@@ -240,10 +260,9 @@ class IntBound(AbstractInfo):
         return r
 
     def lshift_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower and \
+        if self.bounded() and other.bounded() and \
            other.known_nonnegative() and \
-           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+           other.known_lt_const(LONG_BIT):
             try:
                 vals = (ovfcheck(self.upper << other.upper),
                         ovfcheck(self.upper << other.lower),
@@ -256,10 +275,9 @@ class IntBound(AbstractInfo):
             return IntUnbounded()
 
     def rshift_bound(self, other):
-        if self.has_upper and self.has_lower and \
-           other.has_upper and other.has_lower and \
+        if self.bounded() and other.bounded() and \
            other.known_nonnegative() and \
-           other.known_lt(IntBound(LONG_BIT, LONG_BIT)):
+           other.known_lt_const(LONG_BIT):
             vals = (self.upper >> other.upper,
                     self.upper >> other.lower,
                     self.lower >> other.upper,
@@ -355,7 +373,7 @@ class IntBound(AbstractInfo):
 
     def is_bool(self):
         return (self.bounded() and self.known_nonnegative() and
-                self.known_le(ConstIntBound(1)))
+                self.known_le_const(1))
 
     def make_bool(self):
         self.intersect(IntBound(0, 1))
@@ -366,11 +384,11 @@ class IntBound(AbstractInfo):
         return ConstInt(self.getint())
 
     def getnullness(self):
-        if self.known_gt(IntBound(0, 0)) or \
-           self.known_lt(IntBound(0, 0)):
+        if self.known_gt_const(0) or \
+           self.known_lt_const(0):
             return INFO_NONNULL
         if self.known_nonnegative() and \
-           self.known_le(IntBound(0, 0)):
+           self.known_le_const(0):
             return INFO_NULL
         return INFO_UNKNOWN
 
