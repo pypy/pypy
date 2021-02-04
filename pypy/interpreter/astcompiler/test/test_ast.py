@@ -8,7 +8,7 @@ class TestAstToObject:
         value = space.wrap(42)
         node = ast.Constant(value, space.w_None, lineno=1, col_offset=1)
         w_node = node.to_object(space)
-        assert space.getattr(w_node, space.wrap("value")) is value
+        assert space.is_w(space.getattr(w_node, space.wrap("value")), value)
 
     def test_expr(self, space):
         value = space.wrap(42)
@@ -16,8 +16,8 @@ class TestAstToObject:
         expr = ast.Expr(node, lineno=1, col_offset=1)
         w_node = expr.to_object(space)
         # node.value.n
-        assert space.getattr(space.getattr(w_node, space.wrap("value")),
-                             space.wrap("value")) is value
+        assert space.is_w(space.getattr(space.getattr(w_node, space.wrap("value")),
+                             space.wrap("value")), value)
 
     def test_operation(self, space):
         val1 = ast.Constant(space.wrap(1), space.w_None, lineno=1, col_offset=1)
