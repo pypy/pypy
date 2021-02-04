@@ -233,11 +233,11 @@ class IntBound(AbstractInfo):
         if other.is_constant():
             val = other.getint()
             if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                r.make_ge(IntBound(0, 0))
-                r.make_lt(IntBound(val, val))
+                r.make_ge_const(0)
+                r.make_lt_const(val)
             else:               # with Python's modulo:  neg < (x % neg) <= 0
-                r.make_gt(IntBound(val, val))
-                r.make_le(IntBound(0, 0))
+                r.make_gt_const(val)
+                r.make_le_const(0)
         return r
 
     def lshift_bound(self, other):
@@ -274,7 +274,7 @@ class IntBound(AbstractInfo):
         pos2 = other.known_nonnegative()
         r = IntUnbounded()
         if pos1 or pos2:
-            r.make_ge(IntBound(0, 0))
+            r.make_ge_const(0)
         if pos1:
             r.make_le(self)
         if pos2:
@@ -289,7 +289,7 @@ class IntBound(AbstractInfo):
                 mostsignificant = self.upper | other.upper
                 r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
             else:
-                r.make_ge(IntBound(0, 0))
+                r.make_ge_const(0)
         return r
 
     def contains(self, val):
