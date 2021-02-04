@@ -70,3 +70,8 @@ fields.
 .. branch: win-tcl8.6
 
 Update the version of Tk/Tcl on windows to 8.6
+
+
+.. branch: intbound-improvements-3
+
+Refactor the intbound analysis in the JIT
