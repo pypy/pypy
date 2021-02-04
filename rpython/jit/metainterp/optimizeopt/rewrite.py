@@ -239,9 +239,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.is_constant() and b2.getint() == 0:
+        if b2.equal(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.is_constant() and b1.getint() == 0:
+        elif b1.equal(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -250,9 +250,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.is_constant() and b2.getint() == 0:
+        if b2.equal(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.is_constant() and b1.getint() == 0:
+        elif b1.equal(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -837,7 +837,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.is_constant() and b1.getint() == 0:
+        if b1.equal(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
@@ -873,7 +873,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.is_constant() and b1.getint() == 0:
+        if b1.equal(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True

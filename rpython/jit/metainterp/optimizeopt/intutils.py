@@ -130,19 +130,18 @@ class IntBound(AbstractInfo):
 
     def intersect(self, other):
         r = False
-
         if other.has_lower:
-            if other.lower > self.lower or not self.has_lower:
-                self.lower = other.lower
-                self.has_lower = True
+            if self.make_ge_const(other.lower):
                 r = True
-
         if other.has_upper:
-            if other.upper < self.upper or not self.has_upper:
-                self.upper = other.upper
-                self.has_upper = True
+            if self.make_le_const(other.upper):
                 r = True
+        return r
 
+    def intersect_const(self, lower, upper):
+        r = self.make_ge_const(lower)
+        if self.make_le_const(upper):
+            r = True
         return r
 
     def add(self, offset):
