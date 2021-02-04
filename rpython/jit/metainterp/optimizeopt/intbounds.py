@@ -1,8 +1,7 @@
 import sys
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import (IntBound,
-    IntLowerBound, IntUpperBound, ConstIntBound)
+from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (Optimization, CONST_1,
     CONST_0)
 from rpython.jit.metainterp.optimizeopt.util import (
@@ -214,7 +213,7 @@ class OptIntBounds(Optimization):
         # intbound.lshift_bound checks for an overflow and if the
         # lshift can be proven not to overflow sets b.has_upper and
         # b.has_lower
-        if b.bounded()
+        if b.bounded():
             # Synthesize the reverse op for optimize_default to reuse
             self.pure_from_args(rop.INT_RSHIFT,
                                 [op, arg1], arg0)
