@@ -77,4 +77,6 @@ Fix ``cpyext.longobject`` for win64
 
 Fix loading system libraries with ctypes on macOS Big Sur. (issue 3314)
 
+.. branch: map-improvements-3.7
 
+Port map-improvements to py3.7
