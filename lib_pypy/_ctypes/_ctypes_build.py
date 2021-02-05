@@ -20,4 +20,3 @@ bool dyld_shared_cache_contains_path(const char* path) {
 if __name__ == '__main__':
     os.chdir(os.path.dirname(__file__))
     ffi.compile()
-
