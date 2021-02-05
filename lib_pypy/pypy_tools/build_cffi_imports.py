@@ -25,16 +25,16 @@ class MissingDependenciesError(Exception):
 cffi_build_scripts = collections.OrderedDict({
     ("_ctypes._ctypes_cffi",
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
-    ("_ssl": "_ssl_build.py"),
-    ("sqlite3": "_sqlite3_build.py"),
-    ("audioop": "_audioop_build.py"),
-    ("_tkinter": "_tkinter/tklib_build.py"),
-    ("curses": "_curses_build.py" if sys.platform != "win32" else None),
-    ("syslog": "_syslog_build.py" if sys.platform != "win32" else None),
-    ("gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None),
-    ("grp": "_pwdgrp_build.py" if sys.platform != "win32" else None),
-    ("resource": "_resource_build.py" if sys.platform != "win32" else None),
-    ("xx": None),    # for testing: 'None' should be completely ignored
+    ("_ssl", "_ssl_build.py"),
+    ("sqlite3", "_sqlite3_build.py"),
+    ("audioop", "_audioop_build.py"),
+    ("_tkinter", "_tkinter/tklib_build.py"),
+    ("curses", "_curses_build.py" if sys.platform != "win32" else None),
+    ("syslog", "_syslog_build.py" if sys.platform != "win32" else None),
+    ("gdbm", "_gdbm_build.py"  if sys.platform != "win32" else None),
+    ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
+    ("resource", "_resource_build.py" if sys.platform != "win32" else None),
+    ("xx", None),    # for testing: 'None' should be completely ignored
     })
 
 # for distribution, we may want to fetch dependencies not provided by
