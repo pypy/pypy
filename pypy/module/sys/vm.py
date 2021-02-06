@@ -12,6 +12,16 @@ from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 # ____________________________________________________________
 
+app_hookargs = gateway.applevel("""
+from _structseq import structseqtype, structseqfield
+class UnraisableHookArgs(metaclass=structseqtype):
+    exc_type = structseqfield(0, "Exception type")
+    exc_value = structseqfield(1, "Exception value")
+    exc_traceback = structseqfield(2, "Exception traceback")
+    err_msg = structseqfield(3, "Error message")
+    object = structseqfield(4, "Object causing the exception")
+    extra_line = structseqfield(6, "Extra error lines that is PyPy specific")
+""")
 
 @unwrap_spec(depth=int)
 def _getframe(space, depth=0):
@@ -429,4 +439,14 @@ def set_coroutine_origin_tracking_depth(space, depth):
 @unwrap_spec(event="text")
 def audit(space, event, args_w):
     pass
+
+def unraisablehook(space, w_hookargs):
+    from pypy.interpreter.error import OperationError
+    w_type = space.getattr(w_hookargs, space.newtext("exc_type"))
+    w_value = space.getattr(w_hookargs, space.newtext("exc_value"))
+    w_tb = space.getattr(w_hookargs, space.newtext("exc_traceback"))
+    err_msg = space.text_w(space.getattr(w_hookargs, space.newtext("err_msg")))
+    w_object = space.getattr(w_hookargs, space.newtext("object"))
+    extra_line = space.text_w(space.getattr(w_hookargs, space.newtext("extra_line")))
+    OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)
 

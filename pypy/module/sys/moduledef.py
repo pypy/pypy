@@ -107,6 +107,9 @@ class Module(MixedModule):
 
         'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',
         'set_coroutine_origin_tracking_depth': 'vm.set_coroutine_origin_tracking_depth',
+
+        'unraisablehook'        : 'vm.unraisablehook',
+        '__unraisablehook__'    : 'vm.unraisablehook',
         }
 
     if sys.platform == 'win32':

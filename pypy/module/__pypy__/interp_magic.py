@@ -266,3 +266,8 @@ def set_contextvar_context(space, w_obj):
     ec.contextvar_context = w_obj
     return space.w_None
 
+
+@unwrap_spec(where='text')
+def write_unraisable(space, where, w_exc, w_obj):
+    OperationError(space.type(w_exc), w_exc).write_unraisable(space, where, w_obj)
+

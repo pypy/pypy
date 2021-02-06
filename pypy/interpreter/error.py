@@ -256,10 +256,62 @@ class OperationError(Exception):
 
     def write_unraisable(self, space, where, w_object=None,
                          with_traceback=False, extra_line=''):
-        # Note: since Python 3.5, unraisable exceptions are always
-        # printed with a traceback.  Setting 'with_traceback=False'
-        # only asks for a different format, starting with the message
-        # "Exception Xxx ignored".
+        from pypy.module.sys.vm import app_hookargs
+        try:
+            self.normalize_exception(space)
+        except OperationError:
+            pass
+        w_type = self.w_type
+        w_value = self.get_w_value(space)
+        w_tb = self.get_w_traceback(space)
+        if w_object is None:
+            w_object = space.w_None
+
+        if where:
+            # Note: since Python 3.5, unraisable exceptions are always
+            # printed with a traceback.  Setting 'with_traceback=False'
+            # only asks for a different format, starting with the message
+            # "Exception Xxx ignored".
+            if with_traceback:
+                first_line = 'From %s' % (where, )
+            else:
+                first_line = 'Exception ignored in: %s' % (
+                    where, )
+        else:
+            first_line = ''
+        info_w = [
+            self.w_type,
+            w_value,
+            w_tb,
+            space.newtext(first_line),
+            w_object,
+            space.newtext(extra_line),
+        ]
+        w_hook_class = app_hookargs.wget(space, "UnraisableHookArgs")
+        try:
+            w_hook_args = space.call_function(w_hook_class, space.newtuple(info_w))
+
+            w_hook = space.sys.getdictvalue(space, "unraisablehook")
+        except OperationError as e:
+            first_line = "Exception ignored on building sys.unraisablehook arguments"
+        else:
+            if not space.is_none(w_hook):
+                try:
+                    space.call_function(w_hook, w_hook_args)
+                    return
+                except OperationError as e:
+                    first_line = "Exception ignored in sys.unraisablehook"
+                    w_object = w_hook
+                    w_type = e.w_type
+                    w_value = e.get_w_value(space)
+                    w_tb = e.get_w_traceback(space)
+
+        self.write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
+                                      extra_line)
+
+    @staticmethod
+    def write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
+                                 extra_line):
         if w_object is None:
             objrepr = ''
         else:
@@ -267,31 +319,11 @@ class OperationError(Exception):
                 objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
-        #
+        first_line = "%s%s\n" % (first_line, objrepr)
         try:
-            try:
-                self.normalize_exception(space)
-            except OperationError:
-                pass
-            w_t = self.w_type
-            w_v = self.get_w_value(space)
-            w_tb = self.get_w_traceback(space)
-            if where or objrepr:
-                if with_traceback:
-                    first_line = 'From %s%s:\n' % (where, objrepr)
-                else:
-                    first_line = 'Exception ignored in: %s%s\n' % (
-                        where, objrepr)
-            else:
-                # Note that like CPython, we don't normalize the
-                # exception here.  So from `'foo'.index('bar')` you get
-                # "Exception ValueError: 'substring not found' in x ignored"
-                # but from `raise ValueError('foo')` you get
-                # "Exception ValueError: ValueError('foo',) in x ignored"
-                first_line = ''
             space.appexec([space.newtext(first_line),
                            space.newtext(extra_line),
-                           w_t, w_v, w_tb],
+                           w_type, w_value, w_tb],
             """(first_line, extra_line, t, v, tb):
                 import sys
                 sys.stderr.write(first_line)
