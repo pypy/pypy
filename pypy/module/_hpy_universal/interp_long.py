@@ -1,3 +1,5 @@
+from rpython.rlib.objectmodel import we_are_translated
+from rpython.rlib.rarithmetic import maxint
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
@@ -36,29 +38,54 @@ def HPyLong_FromSsize_t(space, ctx, v):
     w_obj = space.newlong_from_rarith_int(v)
     return handles.new(space, w_obj)
 
+ULONG_MASK = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
+ULONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG)) -1)
+LONG_MAX = (2 ** (8 * rffi.sizeof(rffi.ULONG) - 1) -1)
+LONG_MIN = (-2 ** (8 * rffi.sizeof(rffi.ULONG) - 1))
+need_to_check = maxint > ULONG_MAX
+
 @API.func("long HPyLong_AsLong(HPyContext ctx, HPy h)",
           error_value=API.cast("long", -1))
 def HPyLong_AsLong(space, ctx, h):
     w_long = handles.deref(space, h)
-    return space.int_w(space.int(w_long))
+    val = space.int_w(space.int(w_long))
+    if need_to_check and (val > LONG_MAX or val < LONG_MIN):
+        # On win64 space.int_w will succeed for 8-byte ints
+        # but long is 4 bytes. So we must check manually
+        raise oefmt(space.w_OverflowError,
+                    "int too large to convert to C long")
+    return rffi.cast(rffi.LONG, val)
 
 @API.func("unsigned long HPyLong_AsUnsignedLong(HPyContext ctx, HPy h)",
           error_value=API.cast("unsigned long", -1))
 def HPyLong_AsUnsignedLong(space, ctx, h):
     w_long = handles.deref(space, h)
     try:
-        return rffi.cast(rffi.ULONG, space.uint_w(w_long))
+        val = space.uint_w(w_long)
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
         raise
+    if need_to_check and val > ULONG_MAX:
+        # On win64 space.uint_w will succeed for 8-byte ints
+        # but long is 4 bytes. So we must check manually
+        raise oefmt(space.w_OverflowError,
+                    "int too large to convert to C unsigned long")
+    return rffi.cast(rffi.ULONG, val)
 
 @API.func("unsigned long HPyLong_AsUnsignedLongMask(HPyContext ctx, HPy h)",
           error_value=API.cast("unsigned long", -1))
 def HPyLong_AsUnsignedLongMask(space, ctx, h):
     w_long = handles.deref(space, h)
     num = space.bigint_w(w_long)
-    return num.uintmask()
+    val = num.uintmask()
+    if need_to_check and not we_are_translated():
+        # On win64 num.uintmask will succeed for 8-byte ints
+        # but unsigned long is 4 bytes.
+        # The cast below is sufficient when translated, but
+        # we need an extra check when running on CPython.
+        val &= ULONG_MASK
+    return rffi.cast(rffi.ULONG, val)
 
 @API.func("long long HPyLong_AsLongLong(HPyContext ctx, HPy h)",
           error_value=API.cast("long long", -1))
