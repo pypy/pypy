@@ -70,3 +70,7 @@ fields.
 .. branch: win-tcl8.6
 
 Update the version of Tk/Tcl on windows to 8.6
+
+.. branch: big-sur-dyld-cache
+
+Backport changes to ``_ctypes`` needed for maxos BigSur from py3.7
