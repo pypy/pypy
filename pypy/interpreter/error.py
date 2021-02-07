@@ -319,7 +319,7 @@ class OperationError(Exception):
                 objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
-        first_line = "%s%s\n" % (first_line, objrepr)
+        first_line = "%s %s\n" % (first_line, objrepr)
         try:
             space.appexec([space.newtext(first_line),
                            space.newtext(extra_line),
