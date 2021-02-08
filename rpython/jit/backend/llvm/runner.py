@@ -10,9 +10,9 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types = []
         args = []
         for arg in inputargs:
-            typ, ref = self.get_type(arg)
+            typ, ref = self.get_llvm_type(arg)
             arg_types.append(typ)
-            args.append(ref) #store associated LLVM types and LLVM value objects for each input argument
+            args.append(ref) #store associated LLVM types and LLVM value refs for each input argument
 
         signature = self.FunctionType(self.IntType(32), arg_types, len(arg_types), 0)
         trace = self.AddFunction(self.Module, "trace", signature)
@@ -32,9 +32,9 @@ class LLVM_CPU(AbstractLLCPU):
         self.SetModuleDataLayout #??
 
 
-    def get_type(self, val):
+    def get_llvm_type(self, val):
         if val.datatype == 'i':
-            int_type = self.IntType(32)
+            int_type = self.IntType(32) #TODO: make word size platform independant
             if val.signed == True:
                 return (int_type, self.ConstInt(int_type, val.getvalue(), 1))
             else:
