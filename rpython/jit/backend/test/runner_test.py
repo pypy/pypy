@@ -142,13 +142,15 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_float = None
         self.cpu.done_with_this_frame_descr_void = None
 
-    def test_compile_linear_loop(self):
+    def tes_compile_linear_loop(self):
         loop = parse("""
         [i0]
         i1 = int_add(i0, 1)
         finish(i1, descr=faildescr)
         """, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
+        print(loop.inputargs[0])
+        print(dir(loop.inputargs[0]))
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)
