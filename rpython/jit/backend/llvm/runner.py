@@ -15,8 +15,8 @@ class LLVM_CPU(AbstractLLCPU):
     def compile_loop(self, inputargs, operations, looptoken, jd_id =0, unique_id=0, log=True, name='', logger=None):
         arg_types = []
         args = []
-        print(inputargs[0])
-        print(dir(inputargs[0]))
+        print(operations)
+        print(dir(operations[0]))
         for arg in inputargs:
             typ, ref = self.get_llvm_type(arg)
             arg_types.append(typ)
