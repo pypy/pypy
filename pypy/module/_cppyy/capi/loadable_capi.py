@@ -387,7 +387,9 @@ def load_backend(space):
                     fullname = backend_library+backend_ext
                 state.backend = W_Library(space, space.newtext(fullname), dldflags)
             except Exception as e:
-                soabi = '.pypy-%d%d' % PYPY_VERSION[:2]
+                soabi = space.config.objspace.soabi
+                if soabi is None:
+                    soabi = '.pypy-%d%d' % PYPY_VERSION[:2]
                 state.backend = W_Library(space, space.newtext(backend_library+soabi+backend_ext), dldflags)
 
         if state.backend:
@@ -403,7 +405,7 @@ def verify_backend(space):
     except Exception:
         if objectmodel.we_are_translated():
             raise oefmt(space.w_ImportError,
-                        "missing reflection library %s", backend_library)
+                        "missing backend library %s", backend_library)
         return False
     return True
 
