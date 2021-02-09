@@ -171,7 +171,7 @@ def fill_sslerror(obj, errtype, ssl_errno, errstr, errcode):
         verify_code = lib.SSL_get_verify_result(obj.ssl)
         if lib.Cryptography_HAS_102_VERIFICATION_ERROR_CODES:
             if verify_code == lib.X509_V_ERR_HOSTNAME_MISMATCH:
-                verify_str = ("Host name mismatch, certificate is not "
+                verify_str = ("Hostname mismatch, certificate is not "
                               f"valid for '{obj.server_hostname}'.")
             elif verify_code == lib.X509_V_ERR_IP_ADDRESS_MISMATCH :
                 verify_str = ("IP address name mismatch, certificate is not "
