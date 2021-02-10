@@ -1004,8 +1004,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             # the annotation in __annotations__
             if assign.simple and not isinstance(self.scope, symtable.FunctionScope):
                 assign.annotation.walkabout(self)
+                self.emit_op_arg(ops.LOAD_NAME, self.add_name(self.names, '__annotations__'))
                 name = target.id
-                self.emit_op_arg(ops.STORE_ANNOTATION, self.add_name(self.names, name))
+                w_name = self.space.newtext(name)
+                self.load_const(misc.intern_if_common_string(self.space, w_name))
+                self.emit_op(ops.STORE_SUBSCR)
         elif isinstance(target, ast.Attribute):
             # the spec requires that `a.b: int` evaluates `a`
             # and in a non-function scope, also evaluates `int`

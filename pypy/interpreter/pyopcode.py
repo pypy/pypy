@@ -292,8 +292,6 @@ class __extend__(pyframe.PyFrame):
                 self.DELETE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_ANNOTATIONS.index:
                 self.SETUP_ANNOTATIONS(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_ANNOTATION.index:
-                self.STORE_ANNOTATION(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
@@ -948,19 +946,6 @@ class __extend__(pyframe.PyFrame):
         if not self.space.finditem_str(w_locals, '__annotations__'):
             w_annotations = self.space.newdict()
             self.space.setitem_str(w_locals, '__annotations__', w_annotations)
-
-    def STORE_ANNOTATION(self, varindex, next_instr):
-        space = self.space
-        varname = self.getname_u(varindex)
-        w_newvalue = self.popvalue()
-        w_locals = self.getorcreatedebug().w_locals
-        try:
-            w_annotations = space.getitem(w_locals, space.newtext('__annotations__'))
-        except OperationError as e:
-            if e.match(space, space.w_KeyError):
-                raise oefmt(space.w_NameError, CANNOT_CATCH_MSG)
-            raise
-        self.space.setitem_str(w_annotations, varname, w_newvalue)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
