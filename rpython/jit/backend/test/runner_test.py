@@ -149,8 +149,6 @@ class BaseBackendTest(Runner):
         finish(i1, descr=faildescr)
         """, namespace={"faildescr": BasicFinalDescr(1)})
         looptoken = JitCellToken()
-        print(loop.inputargs[0])
-        print(dir(loop.inputargs[0]))
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 2)
         fail = self.cpu.get_latest_descr(deadframe)

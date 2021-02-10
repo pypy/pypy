@@ -1,63 +1,80 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem.rffi import str2constcharp
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None, translate_support_code=False, gcdescr=None):
         AbstractLLCPU.__init__(self, rtyper, stats, opts, translate_support_code, gcdescr)
+
         self.define_types()
         self.initialise_api()
+
+        if not self.InitializeNativeTarget(None):
+            raise Exception #TODO: specify exception type
+        if not self.InitializeNativeAsmPrinter(None):
+            raise Exception
+
         self.Context = self.CreateContext(None)
-        module_name = rffi.str2constcharp("hot_code")
-        self.Module = self.CreateModule(module_name)
+        self.Module = self.CreateModule(str2constcharp("hot_code"))
         self.Builder = self.CreateBuilder(None)
+        data_layout = self.GetDataLayout(self.Module)
 
-    def compile_loop(self, inputargs, operations, looptoken, jd_id =0, unique_id=0, log=True, name='', logger=None):
-        arg_types = []
-        args = []
-        print(operations)
-        print(dir(operations[0]))
-        for arg in inputargs:
-            typ, ref = self.get_llvm_type(arg)
-            arg_types.append(typ)
-            args.append(ref) #store associated LLVM types and LLVM value refs for each input argument
+    def compile_loop(self, inputargs, operations, looptoken, jd_id=0, unique_id=0, log=True, name='', logger=None):
 
-        signature = self.FunctionType(self.IntType(32), arg_types, len(arg_types), 0)
-        trace = self.AddFunction(self.Module, "trace", signature)
-        entry = self.AppendBasicBlock(trace, "entry")
+        arg_types, args = self.convert_args(inputargs) #store associated LLVM types and LLVM value refs for each input argument
+
+        signature = self.FunctionType(self.IntType(32), arg_types, len(inputargs), 0)
+        trace = self.AddFunction(self.Module, str2constcharp("trace"), signature)
+        entry = self.AppendBasicBlock(trace, str2constcharp("entry"))
         self.PositionBuilderAtEnd(self.Builder, entry)
 
-        #for op in operations:
-
-        i1 = self.BuildAdd(self.Builder, args[0], self.ConstInt(self.IntType(32), 1, 1), "i1")
+        #this is where an opcode dispatch loop will go
+        i1 = self.BuildAdd(self.Builder, args[0], self.ConstInt(self.IntType(32), 1, 1), str2constcharp("i1"))
         self.BuildRet(self.Builder, i1)
 
-    #def compile_to_object(self):
-    #    if not self.InitializeNativeTarget():
-    #        raise Exception #TODO specify exception type
-    #    if not self.InitializeNativeAsmPrinter():
-    #        raise Exception
-    #    self.SetModuleDataLayout #??
+        looptoken.compiled_loop_token = self.compile_to_obj()
+        lltype.free(arg_types, flavor='raw') #TODO: check if safe if using LLVM's JIT
+
+    def compile_to_obj(self):
+        pass
 
     def setup_once(self):
         pass
 
+    def convert_args(self, inputargs):
+        arg_array = rffi.CArray(self.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
+        arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
+        arg_types = arg_types_ptr._getobj()
 
-    def get_llvm_type(self, val):
+        args = []
+        for c, arg in enumerate(inputargs):
+            typ, ref = self.get_input_llvm_type(arg)
+            arg_types.setitem(c, typ)
+            args.append(ref)
+        return (arg_types_ptr, args)
+
+    def get_input_llvm_type(self, val):
         if val.datatype == 'i':
-            int_type = self.IntType(32) #TODO: make word size platform independant
+            int_type = self.IntType(val.bytesize)
             if val.signed == True:
                 return (int_type, self.ConstInt(int_type, val.getvalue(), 1))
             else:
                 return (int_type, self.ConstInt(int_type, val.getvalue(), 0))
-        else:
-            return (0,0) #get the syntax checker to shut up
 
     def initialise_api(self):
-        llvm_c = ["llvm-c/"+i for i in ["Core","ExecutionEngine","Target","Analysis"]]
-        cflags = ["-I/usr/lib/llvm/11/include  -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"]
-        info = ExternalCompilationInfo(includes=llvm_c, libraries=["LLVM-11"], include_dirs=["/usr/lib/llvm/11/lib64"], compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
+        header_files = ["Core","ExecutionEngine","Target","Analysis","BitWriter","DataTypes","BitReader","Comdat","DebugInfo","Disassembler","DisassemblerTypes","Error","ErrorHandling","ExternC","IRReader","Initialization","LinkTimeOptimizer","Linker","Object","Orc","OrcBindings","Remarks","Support","TargetMachine","Types"]
+        llvm_c = ["llvm-c/"+f+".h" for f in header_files]
+        cflags = ["-I/usr/lib/llvm/11/include  -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS","-L/usr/lib/llvm/11/lib64"]
+        post_include_bits = ["LLVMBool InitializeNativeTarget(void);\n"]
+        separate_module_sources = ["""
+        LLVMBool InitializeNativeTarget(void)   {
+            return LLVMInitializeNativeTarget();
+        }
+        """] #rffi doesn't seem to like static defined functions, so creating a wrapper
+        info = ExternalCompilationInfo(includes=llvm_c, libraries=["LLVM-11"], include_dirs=["/usr/lib/llvm/11/lib64"], compile_extra=cflags, link_extra=cflags, post_include_bits=post_include_bits, separate_module_sources=separate_module_sources) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
 
+        self.GetGlobalPassRegistry = rffi.llexternal("LLVMGetGlobalPassRegistry", [self.Void], self.PassRegistryRef, compilation_info=info)
         self.CreateContext = rffi.llexternal("LLVMContextCreate", [self.Void], self.ContextRef, compilation_info=info)
         self.CreateModule = rffi.llexternal("LLVMModuleCreateWithName", [self.Str], self.ModuleRef, compilation_info=info)
         self.FunctionType = rffi.llexternal("LLVMFunctionType", [self.TypeRef, self.TypeRefPtr, lltype.Unsigned, self.Bool], self.TypeRef, compilation_info=info)
@@ -69,15 +86,15 @@ class LLVM_CPU(AbstractLLCPU):
         self.BuildFAdd = rffi.llexternal("LLVMBuildAdd", [self.BuilderRef, self.ValueRef, self.ValueRef, self.Str], self.ValueRef, compilation_info=info)
         self.BuildRet = rffi.llexternal("LLVMBuildRet", [self.BuilderRef, self.ValueRef], self.ValueRef, compilation_info=info)
         self.GetParam = rffi.llexternal("LLVMGetParam", [self.ValueRef, lltype.Signed], self.ValueRef, compilation_info=info)
-        self.Verify = rffi.llexternal("LLVMVerifyModule", [self.ModuleRef, self.VerifierFailureAction, rffi.CCHARPP], self.Bool, compilation_info=info)
+        self.Verify = rffi.llexternal("LLVMVerifyModule", [self.ModuleRef, self.VerifierFailureAction, rffi.CCHARPP], self.Bool, compilation_info=info) #FIXME: figure out how to pass a ptr to a null ptr as an object for the error message
         self.DisposeMessage = rffi.llexternal("LLVMDisposeMessage", [self.Str], self.Void, compilation_info=info)
         self.DisposeBuilder = rffi.llexternal("LLVMDisposeBuilder", [self.BuilderRef], self.Void, compilation_info=info)
         self.DiposeModule = rffi.llexternal("LLVMDisposeModule", [self.ModuleRef], self.Void, compilation_info=info)
         self.DisposeContext = rffi.llexternal("LLVMContextDispose", [self.ContextRef], self.Void, compilation_info=info)
         self.IntType = rffi.llexternal("LLVMIntType", [lltype.Unsigned], self.TypeRef, compilation_info=info)
         self.ConstInt = rffi.llexternal("LLVMConstInt", [self.TypeRef, lltype.UnsignedLongLong, self.Bool], self.ValueRef, compilation_info=info)
-        self.InitializeNativeTarget = rffi.llexternal("LLVMInitializeNativeTarget", [self.Void], self.Bool, compilation_info=info)
-        self.InitializeNativeAsmPrinter = rffi.llexternal("LLVMInitializeNativeTarget", [self.Void], self.Bool, compilation_info=info)
+        self.InitializeCore = rffi.llexternal("LLVMInitializeCore", [self.Void], self.Bool, compilation_info=info)
+        self.InitializeNativeAsmPrinter = rffi.llexternal("LLVMInitializeAsmPrinter", [self.Void], self.Bool, compilation_info=info)
         self.BuildPhi = rffi.llexternal("LLVMBuildPhi", [self.BuilderRef, self.TypeRef, self.Str], self.ValueRef, compilation_info=info)
         self.GetInsertBlock = rffi.llexternal("LLVMGetInsertBlock", [self.BuilderRef], self.BasicBlockRef, compilation_info=info)
         self.PositionBuilderAtEnd = rffi.llexternal("LLVMPositionBuilderAtEnd", [self.BuilderRef, self.BasicBlockRef], self.Void, compilation_info=info)
@@ -88,17 +105,20 @@ class LLVM_CPU(AbstractLLCPU):
         self.AddIncoming = rffi.llexternal("LLVMAddIncoming", [self.ValueRef, self.ValueRefPtr, self.BasicBlockRef, lltype.Unsigned], self.Void, compilation_info=info)
         self.BuildBr = rffi.llexternal("LLVMBuildBr", [self.BuilderRef, self.BasicBlockRef], self.ValueRef, compilation_info=info)
         self.BuildCondBr = rffi.llexternal("LLVMBuildCondBr", [self.BuilderRef, self.ValueRef, self.BasicBlockRef, self.BasicBlockRef], self.ValueRef, compilation_info=info)
+        self.GetDataLayout = rffi.llexternal("LLVMGetDataLayoutStr", [self.ModuleRef], self.Str, compilation_info=info)
+        self.InitializeNativeTarget = rffi.llexternal("InitializeNativeTarget", [self.Void], self.Bool, compilation_info=info)
 
 
     def define_types(self):
         """
-        LLVM uses polymorphic types which C can't represent, so LLVM-C doesn't define them with concrete/primitive types,
-        as such we have to refer to most of them with void pointers, but as the LLVM API also manages memory deallocation for us this is likely the simplest choice anyway.
+        LLVM uses polymorphic types which C can't represent, so LLVM-C doesn't define them with concrete/primitive types.
+        As such we have to refer to most of them with void pointers, but as the LLVM API also manages memory deallocation for us this is likely the simplest choice anyway.
         """
         self.Void = lltype.Void
         self.VoidPtr = rffi.VOIDP
         self.VoidPtrPtr = rffi.VOIDPP
         self.Enum = lltype.Unsigned
+        self.PassRegistryRef = self.VoidPtr
         self.ModuleRef = self.VoidPtr
         self.TypeRef = self.VoidPtr
         self.TypeRefPtr = self.VoidPtrPtr
@@ -108,6 +128,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.GenericValueRef = self.VoidPtr
         self.BasicBlockRef = self.VoidPtr
         self.BuilderRef = self.VoidPtr
+        self.TargetDataRef = self.VoidPtr
         self.Bool = lltype.Signed #LLVMBOOL is typedefed to int32
         self.Str = rffi.CONST_CCHARP
         self.VerifierFailureAction = self.Enum
