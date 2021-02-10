@@ -84,7 +84,7 @@ class LowLevelDatabase(object):
                     node = BareBoneArrayDefNode(self, T, varlength)
                 else:
                     node = ArrayDefNode(self, T, varlength)
-            elif isinstance(T, OpaqueType) and T.hints.get("render_structure", False):
+            elif isinstance(T, OpaqueType) and T._hints.get("render_structure", False):
                 node = ExtTypeOpaqueDefNode(self, T)
             elif T == WeakRef:
                 REALT = self.gcpolicy.get_real_weakref_type()
@@ -102,8 +102,8 @@ class LowLevelDatabase(object):
             return '%s @' % T.c_name
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
-                T.TO.hints.get('c_pointer_typedef') is not None):
-                return '%s @' % T.TO.hints['c_pointer_typedef']
+                T.TO._hints.get('c_pointer_typedef') is not None):
+                return '%s @' % T.TO._hints['c_pointer_typedef']
             try:
                 node = self.gettypedefnode(T.TO)
             except NoCorrespondingNode:
@@ -134,13 +134,13 @@ class LowLevelDatabase(object):
         elif isinstance(T, OpaqueType):
             if T == RuntimeTypeInfo:
                 return  self.gcpolicy.rtti_type()
-            elif T.hints.get("render_structure", False):
+            elif T._hints.get("render_structure", False):
                 node = self.gettypedefnode(T, varlength=varlength)
                 if who_asks is not None:
                     who_asks.dependencies.add(node)
                 return 'struct %s @' % node.name
-            elif T.hints.get('external', None) == 'C':
-                return '%s @' % T.hints['c_name']
+            elif T._hints.get('external', None) == 'C':
+                return '%s @' % T._hints['c_name']
             else:
                 #raise Exception("don't know about opaque type %r" % (T,))
                 return 'struct %s @' % (
@@ -182,7 +182,7 @@ class LowLevelDatabase(object):
             return PrimitiveName[T](obj, self)
         elif isinstance(T, Ptr):
             if (isinstance(T.TO, OpaqueType) and
-                T.TO.hints.get('c_pointer_typedef') is not None):
+                T.TO._hints.get('c_pointer_typedef') is not None):
                 if obj._obj is not None:
                     value = rffi.cast(rffi.SSIZE_T, obj)
                     return '((%s) %s)' % (cdecl(self.gettype(T), ''),

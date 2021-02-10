@@ -841,8 +841,6 @@ class OptRewrite(Optimization):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
-        # This is Python's integer division: 'x // (2**shift)' can always
-        # be replaced with 'x >> shift', even for negative values of x
         if not b2.is_constant():
             return False
         val = b2.getint()
@@ -915,6 +913,14 @@ class OptRewrite(Optimization):
 
     def optimize_CAST_INT_TO_PTR(self, op):
         self.optimizer.pure_from_args(rop.CAST_PTR_TO_INT, [op], op.getarg(0))
+        return self.emit(op)
+
+    def optimize_CONVERT_FLOAT_BYTES_TO_LONGLONG(self, op):
+        self.optimizer.pure_from_args(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT, [op], op.getarg(0))
+        return self.emit(op)
+
+    def optimize_CONVERT_LONGLONG_BYTES_TO_FLOAT(self, op):
+        self.optimizer.pure_from_args(rop.CONVERT_FLOAT_BYTES_TO_LONGLONG, [op], op.getarg(0))
         return self.emit(op)
 
     def optimize_SAME_AS_I(self, op):

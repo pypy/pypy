@@ -48,13 +48,6 @@ def build_bound_with_contained_number(a, b, c):
     assert r.contains(b)
     return r, b
 
-bound_with_contained_number = strategies.builds(
-    build_bound_with_contained_number,
-    ints_or_none,
-    ints_or_none,
-    ints
-)
-
 unbounded = strategies.builds(
     lambda x: (bound(None, None), int(x)),
     ints
@@ -377,6 +370,21 @@ def test_next_pow2_m1():
     assert next_pow2_m1(80) == 127
     assert next_pow2_m1((1 << 32) - 5) == (1 << 32) - 1
     assert next_pow2_m1((1 << 64) - 1) == (1 << 64) - 1
+
+
+@given(bound_with_contained_number, bound_with_contained_number)
+def test_make_random(t1, t2):
+    def d(b):
+        return b.has_lower, b.lower, b.has_upper, b.upper
+    b1, n1 = t1
+    b2, n2 = t2
+
+    for meth in [IntBound.make_le, IntBound.make_lt, IntBound.make_ge, IntBound.make_gt]:
+        b = b1.clone()
+        meth(b, b2)
+        data = d(b)
+        assert not meth(b, b2)
+        assert data == d(b) # idempotent
 
 
 @given(bound_with_contained_number, bound_with_contained_number)

@@ -6303,3 +6303,25 @@ class TestOptimizeBasic(BaseTestBasic):
         i57 = int_or(i51, i52)
         """
         self.optimize_loop(ops, expected)
+
+    def test_convert_float_bytes_to_longlong(self):
+        ops = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        f1 = convert_longlong_bytes_to_float(i1)
+        escape_f(f1)
+
+        f2 = convert_longlong_bytes_to_float(i0)
+        i2 = convert_float_bytes_to_longlong(f2)
+        escape_i(i2)
+        """
+
+        expected = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        escape_f(f0)
+
+        f2 = convert_longlong_bytes_to_float(i0)
+        escape_i(i0)
+        """
+        self.optimize_loop(ops, expected)
