@@ -1,5 +1,5 @@
 import py, os, sys
-from .support import setup_make
+from .support import setup_make, soext
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.rlib.objectmodel import specialize, instantiate
@@ -33,12 +33,11 @@ def get_tlobj(self):
         return self._tlobj
 llinterp.LLInterpreter.get_tlobj = get_tlobj
 
-
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("example01Dict.so"))
+test_dct = str(currpath.join("example01Dict"))+soext
 
 def setup_module(mod):
-    setup_make("example01Dict.so")
+    setup_make("example01")
 
 
 class FakeBase(W_Root):
@@ -57,8 +56,16 @@ class FakeFloat(FakeBase):
     typename = "float"
     def __init__(self, val):
         self.val = val
+class FakeComplex(FakeBase):
+    typename = "complex"
+    def __init__(self, rval, ival):
+        self.obj = (rval, ival)
 class FakeString(FakeBase):
     typename = "str"
+    def __init__(self, val):
+        self.val = val
+class FakeUnicode(FakeBase):
+    typename = "unicode"
     def __init__(self, val):
         self.val = val
 class FakeTuple(FakeBase):
@@ -133,8 +140,11 @@ class FakeSpace(object):
 
         self.w_AttributeError      = FakeException(self, "AttributeError")
         self.w_Exception           = FakeException(self, "Exception")
+        self.w_ImportError         = FakeException(self, "ImportError")
         self.w_KeyError            = FakeException(self, "KeyError")
+        self.w_LookupError         = FakeException(self, "LookupError")
         self.w_NotImplementedError = FakeException(self, "NotImplementedError")
+        self.w_OSError             = FakeException(self, "OSError")
         self.w_ReferenceError      = FakeException(self, "ReferenceError")
         self.w_RuntimeError        = FakeException(self, "RuntimeError")
         self.w_SystemError         = FakeException(self, "SystemError")
@@ -176,6 +186,10 @@ class FakeSpace(object):
         return FakeFloat(obj)
 
     @specialize.argtype(1)
+    def newcomplex(self, rval, ival):
+        return FakeComplex(rval, ival)
+
+    @specialize.argtype(1)
     def newbytes(self, obj):
         return FakeString(obj)
 
@@ -194,6 +208,18 @@ class FakeSpace(object):
         assert isinstance(w_obj, FakeFloat)
         return w_obj.val
 
+    def newutf8(self, obj, sz):
+        return FakeUnicode(obj)
+
+    def unicode_from_object(self, w_obj):
+        if isinstance (w_obj, FakeUnicode):
+            return w_obj
+        return FakeUnicode(w_obj.utf8_w(self))
+
+    def utf8_len_w(self, w_obj):
+        assert isinstance(w_obj, FakeUnicode)
+        return w_obj.val, len(w_obj.val)
+
     @specialize.arg(1)
     def interp_w(self, RequiredClass, w_obj, can_be_None=False):
         if can_be_None and w_obj is None:
@@ -208,6 +234,7 @@ class FakeSpace(object):
     def exception_match(self, typ, sub):
         return typ is sub
 
+    @specialize.argtype(1)
     def is_none(self, w_obj):
         return w_obj is None
 
