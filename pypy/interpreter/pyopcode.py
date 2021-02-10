@@ -841,7 +841,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             raise oefmt(self.space.w_NameError,
-                        "__annotations__ not found")
+                        "name %R is not defined", w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()

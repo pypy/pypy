@@ -112,10 +112,16 @@ def test_locals_arent_dicts():
     exec("a: int; assert __annotations__['a'] == int", {}, O())
 
 def test_NameError_if_annotations_are_gone():
-    with pytest.raises(NameError):
+    with pytest.raises(NameError) as excinfo:
         class A:
             del __annotations__
             a: int
+    assert "__annotations__" in str(excinfo.value)
+
+def test_del_global_not_found_regression():
+    with pytest.raises(NameError) as excinfo:
+        exec("del notthere", {}, {})
+    assert "notthere" in str(excinfo.value)
 
 def test_lineno():
     s = """
