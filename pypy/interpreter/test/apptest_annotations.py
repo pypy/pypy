@@ -111,11 +111,24 @@ def test_locals_arent_dicts():
     # don't crash if locals aren't just a normal dict
     exec("a: int; assert __annotations__['a'] == int", {}, O())
 
-def test_NameError_if_annotations_are_gone():
-    with pytest.raises(NameError):
+
+def test_annotations_leak_upwards():
+    # test weird corner case of the new 3.7 implementation of annotations:
+    # if we delete __annotations__ in a class, the annotation will end up in
+    # the module's __annotations__ see https://bugs.python.org/issue32550
+    d = {}
+    exec("""if 1:
+        b : int
         class A:
             del __annotations__
             a: int
+        assert __annotations__['a'] is int
+    """, d)
+
+def test_del_global_not_found_regression():
+    with pytest.raises(NameError) as excinfo:
+        exec("del notthere", {}, {})
+    assert "notthere" in str(excinfo.value)
 
 def test_lineno():
     s = """
