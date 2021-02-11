@@ -10,15 +10,17 @@ class LLVM_CPU(AbstractLLCPU):
         self.define_types()
         self.initialise_api()
 
-        if not self.InitializeNativeTarget(None):
+        if self.InitializeNativeTarget(None): #returns 0 on success
             raise Exception #TODO: specify exception type
-        if not self.InitializeNativeAsmPrinter(None):
+        if self.InitializeNativeAsmPrinter(None):
+            raise Exception
+        if self.InitializeNativeAsmParser(None):
             raise Exception
 
         self.Context = self.CreateContext(None)
         self.Module = self.CreateModule(str2constcharp("hot_code"))
         self.Builder = self.CreateBuilder(None)
-        data_layout = self.GetDataLayout(self.Module)
+
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0, unique_id=0, log=True, name='', logger=None):
 
@@ -65,14 +67,9 @@ class LLVM_CPU(AbstractLLCPU):
     def initialise_api(self):
         header_files = ["Core","ExecutionEngine","Target","Analysis","BitWriter","DataTypes","BitReader","Comdat","DebugInfo","Disassembler","DisassemblerTypes","Error","ErrorHandling","ExternC","IRReader","Initialization","LinkTimeOptimizer","Linker","Object","Orc","OrcBindings","Remarks","Support","TargetMachine","Types"]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
-        cflags = ["-I/usr/lib/llvm/11/include  -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS","-L/usr/lib/llvm/11/lib64"]
-        post_include_bits = ["LLVMBool InitializeNativeTarget(void);\n"]
-        separate_module_sources = ["""
-        LLVMBool InitializeNativeTarget(void)   {
-            return LLVMInitializeNativeTarget();
-        }
-        """] #rffi doesn't seem to like static defined functions, so creating a wrapper
-        info = ExternalCompilationInfo(includes=llvm_c, libraries=["LLVM-11"], include_dirs=["/usr/lib/llvm/11/lib64"], compile_extra=cflags, link_extra=cflags, post_include_bits=post_include_bits, separate_module_sources=separate_module_sources) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
+        cflags = ["-I/usr/lib/llvm/11/include -D_GNU_SOURCE -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS -D__STDC_LIMIT_MACROS"] #know this should be in the includes arg, but llvm is weird and only works this way (by my testing anyway)
+        path = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/llvm_wrapper/" #TODO: get real path
+        info = ExternalCompilationInfo(includes=llvm_c+[path+"wrapper.h"], libraries=["LLVM-11","wrapper"], include_dirs=["/usr/lib/llvm/11/lib64", "/usr/lib/llvm/11/include",path], library_dirs=["/usr/lib/llvm/11/lib64",path], compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
 
         self.GetGlobalPassRegistry = rffi.llexternal("LLVMGetGlobalPassRegistry", [self.Void], self.PassRegistryRef, compilation_info=info)
         self.CreateContext = rffi.llexternal("LLVMContextCreate", [self.Void], self.ContextRef, compilation_info=info)
@@ -94,7 +91,6 @@ class LLVM_CPU(AbstractLLCPU):
         self.IntType = rffi.llexternal("LLVMIntType", [lltype.Unsigned], self.TypeRef, compilation_info=info)
         self.ConstInt = rffi.llexternal("LLVMConstInt", [self.TypeRef, lltype.UnsignedLongLong, self.Bool], self.ValueRef, compilation_info=info)
         self.InitializeCore = rffi.llexternal("LLVMInitializeCore", [self.Void], self.Bool, compilation_info=info)
-        self.InitializeNativeAsmPrinter = rffi.llexternal("LLVMInitializeAsmPrinter", [self.Void], self.Bool, compilation_info=info)
         self.BuildPhi = rffi.llexternal("LLVMBuildPhi", [self.BuilderRef, self.TypeRef, self.Str], self.ValueRef, compilation_info=info)
         self.GetInsertBlock = rffi.llexternal("LLVMGetInsertBlock", [self.BuilderRef], self.BasicBlockRef, compilation_info=info)
         self.PositionBuilderAtEnd = rffi.llexternal("LLVMPositionBuilderAtEnd", [self.BuilderRef, self.BasicBlockRef], self.Void, compilation_info=info)
@@ -106,7 +102,9 @@ class LLVM_CPU(AbstractLLCPU):
         self.BuildBr = rffi.llexternal("LLVMBuildBr", [self.BuilderRef, self.BasicBlockRef], self.ValueRef, compilation_info=info)
         self.BuildCondBr = rffi.llexternal("LLVMBuildCondBr", [self.BuilderRef, self.ValueRef, self.BasicBlockRef, self.BasicBlockRef], self.ValueRef, compilation_info=info)
         self.GetDataLayout = rffi.llexternal("LLVMGetDataLayoutStr", [self.ModuleRef], self.Str, compilation_info=info)
-        self.InitializeNativeTarget = rffi.llexternal("InitializeNativeTarget", [self.Void], self.Bool, compilation_info=info)
+        self.InitializeNativeTarget = rffi.llexternal("InitializeNativeTarget", [self.Void], self.Bool, compilation_info=info) #following three functions are from our own libwrapper.so
+        self.InitializeNativeAsmPrinter = rffi.llexternal("InitializeNativeAsmPrinter", [self.Void], self.Bool, compilation_info=info)
+        self.InitializeNativeAsmParser = rffi.llexternal("InitializeNativeAsmParser", [self.Void], self.Bool, compilation_info=info)
 
 
     def define_types(self):
