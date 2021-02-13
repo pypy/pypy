@@ -1728,7 +1728,7 @@ class AppTestCompiler:
             """
             [x async for x in y]
             foo = await bar(x async for x in y)
-            baz = {x async for x in z} | {x: await y async for x, y in z.items()}.keys()
+            baz = {x async for x in z} | {x: y async for x, y in z.items()}.keys()
             """,
         ]
         for statement in statements:
