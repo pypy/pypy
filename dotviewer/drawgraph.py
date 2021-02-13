@@ -7,6 +7,7 @@ from __future__ import generators
 import re, os, math
 import pygame
 from pygame.locals import *
+
 from strunicode import forceunicode
 
 
@@ -702,6 +703,15 @@ def getcolor(name, default):
     else:
         return default
 
+def ensure_readable(fgcolor, bgcolor):
+    if bgcolor is None:
+        return fgcolor
+    r, g, b = bgcolor
+
+    l = 0.2627 * r + 0.6780 * g + 0.0593 * b
+    if l < 70:
+        return (255, 255, 255)
+    return fgcolor
 
 class GraphLayout:
     fixedfont = False
@@ -1285,6 +1295,7 @@ class GraphRenderer:
 class TextSnippet:
     
     def __init__(self, renderer, text, fgcolor, bgcolor=None, font=None):
+        fgcolor = ensure_readable(fgcolor, bgcolor)
         self.renderer = renderer
         self.imgs = []
         self.parts = []
