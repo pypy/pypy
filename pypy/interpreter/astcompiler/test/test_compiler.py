@@ -1709,7 +1709,6 @@ class AppTestCompiler:
         import _ast
         import inspect
         import textwrap
-        from types import AsyncGeneratorType
 
         statements = [
             """
@@ -1725,6 +1724,11 @@ class AppTestCompiler:
             """
             async with bar as baz:
                 print(await baz.show())
+            """,
+            """
+            [x async for x in y]
+            foo = await bar(x async for x in y)
+            baz = {x async for x in z} | {x: await y async for x, y in z.items()}.keys()
             """,
         ]
         for statement in statements:
