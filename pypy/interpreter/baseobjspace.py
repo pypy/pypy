@@ -1980,6 +1980,10 @@ class ObjSpace(object):
             assert self.issubtype_w(w_warningcls, self.w_Warning)
         do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
+    def audit(self, event, args_w):
+        from pypy.module.sys.vm import audit
+        audit(self, event, args_w)
+
     def iterator_greenkey(self, w_iterable):
         """ Return something that can be used as a green key in jit drivers
         that iterate over self. by default, it's just the type of self, but

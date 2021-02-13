@@ -271,3 +271,9 @@ def set_contextvar_context(space, w_obj):
 def write_unraisable(space, where, w_exc, w_obj):
     OperationError(space.type(w_exc), w_exc).write_unraisable(space, where, w_obj)
 
+def _testing_clear_audithooks(space):
+    if we_are_translated():
+        raise oefmt(space.w_RuntimeError, "can only use _testing_clear_audithooks before translation")
+    from pypy.module.sys.vm import AuditHolder
+    holder = space.fromcache(AuditHolder)
+    holder.hook_chain = None

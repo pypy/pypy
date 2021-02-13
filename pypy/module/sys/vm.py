@@ -4,9 +4,10 @@ Implementation of interpreter-level 'sys' routines.
 
 from rpython.rlib import jit
 from rpython.rlib.rutf8 import MAXUNICODE
+from rpython.rlib import debug
 
 from pypy.interpreter import gateway
-from pypy.interpreter.error import oefmt
+from pypy.interpreter.error import oefmt, OperationError
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 
 
@@ -436,12 +437,57 @@ def set_coroutine_origin_tracking_depth(space, depth):
     ec = space.getexecutioncontext()
     ec.coroutine_origin_tracking_depth = depth
 
+
+class AuditHolder(object):
+    def __init__(self, space):
+        self.hooks_w = None
+        self.space = space
+
+    def trigger_audit_events(self, space, event, args_w):
+        w_event = space.newtext(event)
+        w_args = space.newtuple(args_w)
+        hooks_w = self.hooks_w
+        assert hooks_w is not None
+        for w_hook in hooks_w:
+            space.call_function(w_hook, w_event, w_args)
+
+
 @unwrap_spec(event="text")
 def audit(space, event, args_w):
-    pass
+    """
+    audit(event, *args)
+    
+    Passes the event to any audit hooks that are attached.
+    """
+    holder = space.fromcache(AuditHolder)
+    if holder.hooks_w is None:
+        return
+    holder.trigger_audit_events(space, event, args_w)
+
+
+def addaudithook(space, w_hook):
+    """
+    addaudithook(hook)
+
+    Adds a new audit hook callback.
+    """
+    holder = space.fromcache(AuditHolder)
+    try:
+        audit(space, "sys.addaudithook", [])
+    except OperationError, e:
+        if not e.match(space, space.w_RuntimeError):
+            raise
+        # RuntimeError is ignored and we don't add the new hook
+        return
+    if holder.hooks_w is None:
+        holder.hooks_w = [w_hook]
+        debug.make_sure_not_resized(holder.hooks_w)
+    else:
+        holder.hooks_w = holder.hooks_w + [w_hook]
+
+
 
 def unraisablehook(space, w_hookargs):
-    from pypy.interpreter.error import OperationError
     w_type = space.getattr(w_hookargs, space.newtext("exc_type"))
     w_value = space.getattr(w_hookargs, space.newtext("exc_value"))
     w_tb = space.getattr(w_hookargs, space.newtext("exc_traceback"))
@@ -449,4 +495,6 @@ def unraisablehook(space, w_hookargs):
     w_object = space.getattr(w_hookargs, space.newtext("object"))
     extra_line = space.text_w(space.getattr(w_hookargs, space.newtext("extra_line")))
     OperationError.write_unraisable_default(space, w_type, w_value, w_tb, err_msg, w_object, extra_line)
+
+
 

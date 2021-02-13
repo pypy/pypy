@@ -169,3 +169,7 @@ class Module(MixedModule):
             self.extra_interpdef('revdb_stop', 'interp_magic.revdb_stop')
         else:
             self.extra_interpdef('revdb_stop', 'space.w_None')
+
+        if not self.space.config.translating:
+            self.extra_interpdef(
+                '_testing_clear_audithooks', 'interp_magic._testing_clear_audithooks')

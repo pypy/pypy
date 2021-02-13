@@ -102,6 +102,7 @@ class Module(MixedModule):
         'is_finalizing'         : 'vm.is_finalizing',
 
         'audit'                 : 'vm.audit',
+        'addaudithook'          : 'vm.addaudithook',
 
         'pycache_prefix'        : 'space.w_None',
 
