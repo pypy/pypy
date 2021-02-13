@@ -1836,6 +1836,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
     def __init__(self, space, tree, symbols, compile_info):
+        self.is_async_seen = False
+        self.allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         PythonCodeGenerator.__init__(self, space, "<module>", tree, -1,
                                      symbols, compile_info, qualname=None)
 
@@ -1855,7 +1857,14 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
             flags |= consts.CO_NOFREE
         if self.scope.doc_removable:
             flags |= consts.CO_KILL_DOCSTRING
+        if self.is_async_seen:
+            flags |= consts.CO_COROUTINE
         return flags
+
+    def _check_async_function(self):
+        if self.allow_top_level_await:
+            self.is_async_seen = True
+        return self.allow_top_level_await
 
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):
