@@ -898,11 +898,15 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
 
 class GraphRenderer:
     MARGIN = 0.6
-    SCALEMIN = 3
-    SCALEMAX = 100
     FONTCACHE = {}
     
-    def __init__(self, screen, graphlayout, scale=75):
+    def __init__(self, screen, graphlayout, scale=75, highdpi=False):
+        if highdpi:
+            self.SCALEMIN = 10
+            self.SCALEMAX = 200
+        else:
+            self.SCALEMIN = 3
+            self.SCALEMAX = 100
         self.graphlayout = graphlayout
         self.setscale(scale)
         self.setoffset(0, 0)
