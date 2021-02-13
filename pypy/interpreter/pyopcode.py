@@ -741,6 +741,7 @@ class __extend__(pyframe.PyFrame):
         flags = ec.compiler.getcodeflags(self.pycode)
 
         if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+            space.audit("exec", [w_prog])
             code = space.interp_w(PyCode, w_prog)
         else:
             from pypy.interpreter.astcompiler import consts

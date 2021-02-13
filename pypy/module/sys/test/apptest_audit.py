@@ -65,3 +65,20 @@ def test_id_hook():
     with TestHook() as hook:
         x = id(hook)
         assert hook.seen[0] == ("builtins.id", (x, ))
+
+def test_eval():
+    def ret1():
+        return 1
+
+    with TestHook() as hook:
+        res = eval(ret1.__code__)
+        assert res == 1
+    assert hook.seen == [("exec", (ret1.__code__, ))]
+
+def test_exec():
+    def ret1():
+        return 1
+
+    with TestHook() as hook:
+        exec(ret1.__code__)
+    assert hook.seen == [("exec", (ret1.__code__, ))]

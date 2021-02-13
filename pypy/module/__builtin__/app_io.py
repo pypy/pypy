@@ -28,6 +28,8 @@ Read a string from standard input.  The trailing newline is stripped.
 If the user hits EOF (Unix: Ctl-D, Windows: Ctl-Z+Return), raise EOFError.
 On Unix, GNU readline is used if enabled.  The prompt string, if given,
 is printed without a trailing newline before reading."""
+
+    sys.audit("builtins.input", prompt)
     try:
         stdin = sys.stdin
     except AttributeError:
@@ -46,15 +48,20 @@ is printed without a trailing newline before reading."""
     # hook for the readline module
     if hasattr(sys, '__raw_input__') and _is_std_tty(stdin, stdout):
         _write_prompt(stdout, '')
-        return sys.__raw_input__(str(prompt))
+        res = sys.__raw_input__(str(prompt))
+        sys.audit("builtins.input/result", res)
+        return res
 
     _write_prompt(stdout, prompt)
     line = stdin.readline()
     if not line:    # inputting an empty line gives line == '\n'
         raise EOFError
     if line[-1] == '\n':
-        return line[:-1]
-    return line
+        res = line[:-1]
+    else:
+        res = line
+    sys.audit("builtins.input/result", res)
+    return res
 
 def print_(*args, **kwargs):
     r"""print(value, ..., sep=' ', end='\n', file=sys.stdout, flush=False)
