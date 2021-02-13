@@ -783,7 +783,8 @@ class Edge:
                        for i in range(0, cnt*2, 2)]
         rest = rest[cnt*2:]
         if len(rest) > 2:
-            self.label, xl, yl = rest[:3]
+            label, xl, yl = rest[:3]
+            self.label = forceunicode(label)
             self.xl = float(xl)
             self.yl = float(yl)
             rest = rest[3:]
