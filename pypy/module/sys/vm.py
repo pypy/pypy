@@ -5,6 +5,7 @@ Implementation of interpreter-level 'sys' routines.
 from rpython.rlib import jit
 from rpython.rlib.rutf8 import MAXUNICODE
 from rpython.rlib import debug
+from rpython.rlib import objectmodel
 
 from pypy.interpreter import gateway
 from pypy.interpreter.error import oefmt, OperationError
@@ -439,10 +440,14 @@ def set_coroutine_origin_tracking_depth(space, depth):
 
 
 class AuditHolder(object):
+    _immutable_fields_ = ['hooks_w?[:]']
+
     def __init__(self, space):
         self.hooks_w = None
         self.space = space
 
+    @objectmodel.dont_inline
+    @jit.unroll_safe
     def trigger_audit_events(self, space, event, args_w):
         w_event = space.newtext(event)
         w_args = space.newtuple(args_w)
