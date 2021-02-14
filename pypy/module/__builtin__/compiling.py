@@ -36,7 +36,8 @@ in addition to any features explicitly specified.
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
-                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS):
+                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS |
+                 consts.PyCF_ALLOW_TOP_LEVEL_AWAIT):
         raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
     only_ast = flags & consts.PyCF_ONLY_AST

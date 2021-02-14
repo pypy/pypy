@@ -1705,6 +1705,76 @@ class AppTestCompiler:
             compile('assert a, b', '<testcase>', 'exec')
             compile('assert (), b', '<testcase>', 'exec')
 
+    def test_top_level_async(self):
+        import _ast
+        import inspect
+        import textwrap
+
+        statements = [
+            """
+            await x
+            """,
+            """
+            foo = bar(await x)
+            """,
+            """
+            async for x in y:
+                print(x)
+            """,
+            """
+            async with bar as baz:
+                print(await baz.show())
+            """,
+            """
+            [x async for x in y]
+            foo = await bar(x async for x in y)
+            baz = {x async for x in z} | {x: y async for x, y in z.items()}.keys()
+            """,
+        ]
+        for statement in statements:
+            code = compile(
+                textwrap.dedent(statement),
+                '<testcast>',
+                'exec',
+                flags=_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+            )
+            assert code.co_flags & inspect.CO_COROUTINE
+
+        for statement in statements:
+            try:
+                code = compile(
+                    textwrap.dedent(statement),
+                    '<testcast>',
+                    'exec'
+                )
+            except SyntaxError as exc:
+                pass
+            else:
+                assert False, "this case shouldn't compile: %s" % statement
+
+    def test_top_level_async_ensure_generator(self):
+        import _ast
+        import textwrap
+        from types import AsyncGeneratorType
+
+        source = textwrap.dedent("""
+            async def ticker():
+                for i in range(10):
+                    yield i
+                    await asyncio.sleep(0)
+        """)
+
+        code = compile(
+            source,
+            '<testcast>',
+            'exec',
+            flags=_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        )
+        namespace = {}
+        exec(code, namespace)
+        ticker = namespace['ticker']
+        assert isinstance(ticker(), AsyncGeneratorType)
+
 
 class TestOptimizations:
     def count_instructions(self, source):
