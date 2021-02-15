@@ -26,18 +26,6 @@ def next_pow2_m1(n):
     return n
 
 
-def upper_bound_or_xor(upper1, upper2):
-    pow2 = next_pow2_m1(upper1 | upper2)
-    try:
-        # addition gives an ok (but not tight) upper bound of | and ^ (for
-        # known non-negative numbers)
-        add = ovfcheck(upper1 + upper2)
-    except OverflowError:
-        return pow2
-    else:
-        return min(pow2, add)
-
-
 class IntBound(AbstractInfo):
     _attrs_ = ('has_upper', 'has_lower', 'upper', 'lower')
 
@@ -314,23 +302,11 @@ class IntBound(AbstractInfo):
         r = IntUnbounded()
         if self.known_nonnegative() and \
                 other.known_nonnegative():
-            r.make_ge_const(0)
             if self.has_upper and other.has_upper:
-                r.make_le_const(upper_bound_or_xor(self.upper, other.upper))
-            if self.has_lower and other.has_lower:
-                # max of the two lower bounds gives an ok (but not tight) lower
-                # bound of or
-                lower = max(self.lower, other.lower)
-                r.make_ge_const(lower)
-        return r
-
-    def xor_bound(self, other):
-        r = IntUnbounded()
-        if self.known_nonnegative() and \
-                other.known_nonnegative():
-            r.make_ge_const(0)
-            if self.has_upper and other.has_upper:
-                r.make_le_const(upper_bound_or_xor(self.upper, other.upper))
+                mostsignificant = self.upper | other.upper
+                r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
+            else:
+                r.make_ge_const(0)
         return r
 
     def invert_bound(self):
