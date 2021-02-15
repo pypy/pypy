@@ -123,6 +123,8 @@ class Module(MixedModule):
 
         'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
+
+        'ExecutionCounter'          : 'interp_execcount.W_ExecutionCounter',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
