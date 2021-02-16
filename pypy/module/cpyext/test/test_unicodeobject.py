@@ -695,6 +695,15 @@ class TestUnicode(BaseApiTest):
         assert PyUnicode_Find(space, w_str, space.wrap(u"c"), 0, 4, -1) == 2
         assert PyUnicode_Find(space, w_str, space.wrap(u"z"), 0, 4, -1) == -1
 
+    def test_contains(self, space):
+        w_str = space.wrap(u"abcabcd")
+        assert PyUnicode_Contains(space, w_str, space.wrap(u"a")) == 1
+        assert PyUnicode_Contains(space, w_str, space.wrap(u"e")) == 0
+        with raises_w(space, TypeError):
+            PyUnicode_Contains(space, w_str, space.wrap(1)) == -1
+        with raises_w(space, TypeError) as e:
+            PyUnicode_Contains(space, space.wrap(1), space.wrap(u"a")) == -1
+
     def test_split(self, space):
         w_str = space.wrap(u"a\nb\nc\nd")
         assert "[u'a', u'b', u'c', u'd']" == space.unwrap(space.repr(

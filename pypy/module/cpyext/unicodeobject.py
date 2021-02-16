@@ -744,6 +744,21 @@ def PyUnicode_Find(space, w_str, w_substr, start, end, direction):
                                   space.newint(start), space.newint(end))
     return space.int_w(w_pos)
 
+@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
+def PyUnicode_Contains(space, w_str, w_substr):
+    """Check whether element is contained in container and return true or false
+    accordingly.
+
+    element has to coerce to a one element Unicode string. -1 is returned if
+    there was an error."""
+    if not space.isinstance_w(w_substr, space.w_unicode):
+        raise oefmt(space.w_TypeError,
+                    "in <string> requires string as left operand, not %T",
+                     w_substr)
+    if not space.isinstance_w(w_str, space.w_unicode):
+        raise oefmt(space.w_TypeError, "must be str, not %T", w_str)
+    return space.int_w(space.call_method(w_str, '__contains__', w_substr))
+
 @cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)
 def PyUnicode_Split(space, w_str, w_sep, maxsplit):
     """Split a string giving a list of Unicode strings.  If sep is
