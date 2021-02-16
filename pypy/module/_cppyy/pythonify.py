@@ -83,7 +83,7 @@ def with_metaclass(meta, *bases):
 # C++ namespace base class (the C++ class base class defined in _post_import_startup)
 class CPPNamespace(with_metaclass(CPPNamespaceMeta, object)):
     def __init__(self):
-        raise TypeError("cannot instantiate namespace '%s'", self.__cppname__)
+        raise TypeError("cannot instantiate namespace '%s'", self.__cpp_name__)
 
 
 # TODO: this can be moved to the interp level (and share template argument
@@ -100,8 +100,8 @@ class CPPTemplate(object):
       # arguments are strings representing types, types, or builtins
         if type(arg) == str:
             return arg                       # string describing type
-        elif hasattr(arg, '__cppname__'):
-            return arg.__cppname__           # C++ bound type
+        elif hasattr(arg, '__cpp_name__'):
+            return arg.__cpp_name__          # C++ bound type
         elif arg == str:
             import _cppyy
             return _cppyy._std_string_name() # special case pystr -> C++ string
@@ -187,9 +187,9 @@ def make_cppnamespace(scope, name, decl):
     ns_meta = type(CPPNamespace)(name+'_meta', (CPPNamespaceMeta,), {})
 
     # create the python-side C++ namespace representation, cache in scope if given
-    d = {"__cppdecl__" : decl,
-         "__module__" : make_module_name(scope),
-         "__cppname__" : decl.__cppname__ }
+    d = {"__cppdecl__"  : decl,
+         "__module__"   : make_module_name(scope),
+         "__cpp_name__" : decl.__cpp_name__ }
     pyns = ns_meta(name, (CPPNamespace,), d)
     if scope:
         setattr(scope, name, pyns)
@@ -242,11 +242,10 @@ def make_cppclass(scope, cl_name, decl):
         cppol = decl.__dispatch__(m_name, signature)
         return MethodType(cppol, self, type(self))
     d_class = {"__cppdecl__"   : decl,
-         "__new__"      : make_new(decl),
-         "__module__"   : make_module_name(scope),
-         "__cppname__"  : decl.__cppname__,
-         "__dispatch__" : dispatch,
-         }
+               "__new__"       : make_new(decl),
+               "__module__"    : make_module_name(scope),
+               "__cpp_name__"  : decl.__cpp_name__,
+               "__dispatch__"  : dispatch,}
 
     # insert (static) methods into the class dictionary
     for m_name in decl.get_method_names():
@@ -275,7 +274,7 @@ def make_cppclass(scope, cl_name, decl):
     # needs to run first, so that the generic pythonizations can use them
     import _cppyy
     _cppyy._register_class(pycls)
-    _pythonize(pycls, pycls.__cppname__)
+    _pythonize(pycls, pycls.__cpp_name__)
     return pycls
 
 def make_cpptemplatetype(scope, template_name):
@@ -287,7 +286,7 @@ def get_scoped_pycppitem(scope, name, type_only=False):
 
     # resolve typedefs/aliases: these may cross namespaces, in which case
     # the lookup must trigger the creation of all necessary scopes
-    scoped_name = (scope == gbl) and name or (scope.__cppname__+'::'+name)
+    scoped_name = (scope == gbl) and name or (scope.__cpp_name__+'::'+name)
     final_scoped_name = _cppyy._resolve_name(scoped_name)
     if final_scoped_name != scoped_name:
         pycppitem = get_pycppitem(final_scoped_name)
@@ -434,11 +433,13 @@ def _pythonize(pyclass, name):
                 return self
         pyclass.__iadd__ = iadd
 
+    is_vector = name.find('std::vector', 0, 11) == 0
+
     # map begin()/end() protocol to iter protocol on STL(-like) classes, but
     # not on vector, which is pythonized in the capi (interp-level; there is
     # also the fallback on the indexed __getitem__, but that is slower)
     add_checked_item = False
-    if name.find('std::vector', 0, 11) != 0:
+    if not is_vector:
         if 'begin' in pyclass.__dict__ and 'end' in pyclass.__dict__:
             if _cppyy._scope_byname(name+'::iterator') or \
                     _cppyy._scope_byname(name+'::const_iterator'):
@@ -458,7 +459,7 @@ def _pythonize(pyclass, name):
                 add_checked_item = True
 
     # add python collection based initializer
-    if name.find('std::vector', 0, 11) == 0:
+    else:
         pyclass.__real_init__ = pyclass.__init__
         def vector_init(self, *args):
             if len(args) == 1 and isinstance(args[0], (tuple, list)):
@@ -482,7 +483,7 @@ def _pythonize(pyclass, name):
 
     # TODO: must be a simpler way to check (or at least hook these to a namespace
     # std specific pythonizor)
-    if add_checked_item or name.find('std::vector', 0, 11) == 0 or \
+    if add_checked_item or is_vector or \
             name.find('std::array', 0, 11) == 0 or name.find('std::deque', 0, 10) == 0:
         # combine __getitem__ and __len__ to make a pythonized __getitem__
         if '__getitem__' in pyclass.__dict__ and '__len__' in pyclass.__dict__:
@@ -503,7 +504,7 @@ def _pythonize(pyclass, name):
         pyclass.__str__ = pyclass.c_str
 
     # std::pair unpacking through iteration
-    if 'std::pair' == name[:9]:
+    elif name.find('std::pair', 0, 9) == 0:
         def getitem(self, idx):
             if idx == 0: return self.first
             if idx == 1: return self.second
@@ -512,6 +513,30 @@ def _pythonize(pyclass, name):
             return 2
         pyclass.__getitem__ = getitem
         pyclass.__len__     = return2
+
+    # std::complex integration with Python complex
+    elif name.find('std::complex', 0, 12) == 0:
+        def getreal(obj):
+            return obj.__cpp_real()
+        def setreal(obj, val):
+            obj.__cpp_real(val)
+        pyclass.__cpp_real = pyclass.real
+        pyclass.real = property(getreal, setreal)
+
+        def getimag(obj):
+            return obj.__cpp_imag()
+        def setimag(obj, val):
+            obj.__cpp_imag(val)
+        pyclass.__cpp_imag = pyclass.imag
+        pyclass.imag = property(getimag, setimag)
+
+        def cmplx(self):
+            return self.real+self.imag*1.j
+        pyclass.__complex__ = cmplx
+
+        def cmplx_repr(self):
+            return repr(self.__complex__())
+        pyclass.__repr__ = cmplx_repr
 
     # user provided, custom pythonizations
     try:

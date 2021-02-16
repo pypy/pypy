@@ -1,6 +1,4 @@
 import py, os, sys
-from .support import setup_make
-
 from pypy.module._cppyy import interp_cppyy, executor
 
 
