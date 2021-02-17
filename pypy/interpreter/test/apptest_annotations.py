@@ -178,3 +178,9 @@ def test_side_effects_2():
     exec("d[foo()]: int = 1")
     assert d[None] == 1
     assert calls == 1
+
+
+def test_class_mangling():
+    class C:
+        __mangled: int
+    assert C.__annotations__ == {"_C__mangled": int}

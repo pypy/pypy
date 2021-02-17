@@ -1006,7 +1006,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 assign.annotation.walkabout(self)
                 self.emit_op_arg(ops.LOAD_NAME, self.add_name(self.names, '__annotations__'))
                 name = target.id
-                w_name = self.space.newtext(name)
+                w_name = self.space.newtext(self.scope.mangle(name))
                 self.load_const(misc.intern_if_common_string(self.space, w_name))
                 self.emit_op(ops.STORE_SUBSCR)
         elif isinstance(target, ast.Attribute):
