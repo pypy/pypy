@@ -339,7 +339,6 @@ class LLVM_CPU(AbstractLLCPU):
         self.VoidPtr = rffi.VOIDP
         self.VoidPtrPtr = rffi.VOIDPP
         self.Enum = lltype.Unsigned
-        self.PassRegistryRef = self.VoidPtr
         self.ModuleRef = self.VoidPtr
         self.TypeRef = self.VoidPtr
         self.TypeRefPtr = self.VoidPtrPtr
@@ -365,12 +364,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.ErrorRef = self.VoidPtr
         self.ExecutionSessionRef = self.VoidPtr
         self.JITTargetAddress = self.VoidPtr
-        self.JITTargetAddressPtr = self.VoidPtrPtr
-        self.JITStackRef = self.VoidPtr
-        self.MoudleHandle = self.VoidPtr
-        self.MoudleHandlePtr = self.VoidPtrPtr
         self.PassManagerRef = self.VoidPtrPtr
         self.JITTargetMachineBuilderRef = self.VoidPtr
         self.TargetMachineRef = self.VoidPtr
         self.TargetRef = self.VoidPtr
-        self.TargetRefPtr = self.VoidPtrPtr

@@ -8,10 +8,6 @@ LLVMBool InitializeNativeAsmPrinter(void)	{
 	return LLVMInitializeNativeAsmPrinter();
 }
 
-LLVMBool InitializeNativeAsmParser(void)	{
-	return LLVMInitializeNativeAsmParser();
-}
-
 LLVMTargetRef GetTargetFromTriple(const char* triple){
 	char *error = NULL;
 	LLVMTargetRef target;
