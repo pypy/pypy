@@ -924,7 +924,7 @@ if HAVE_SENDMSG:
             These functions free memory that was allocated in C (sendmsg or recvmsg) was used in rsocket and now needs cleanup
         */
         RPY_EXTERN
-        int free_pointer_to_signedp(int** ptrtofree){
+        int free_pointer_to_signedp(long** ptrtofree){
             free(*ptrtofree);
             return 0;
         }
@@ -958,7 +958,7 @@ if HAVE_SENDMSG:
                          "RPY_EXTERN "
                          "int memcpy_from_CCHARP_at_offset_and_size(char* stringfrom, char** stringto, int offset, int size);\n"
                          "RPY_EXTERN "
-                         "int free_pointer_to_signedp(int** ptrtofree);\n"
+                         "int free_pointer_to_signedp(long** ptrtofree);\n"
                          "RPY_EXTERN "
                          "int free_ptr_to_charp(char** ptrtofree);\n"
                          ]

@@ -131,7 +131,8 @@ class W_RCTypeFunc(ctypefunc.W_CTypeFunc):
                 elif obj.tc == 'm':
                     misc.write_raw_signed_data(data, rffi.cast(rffi.INTPTR_T, obj._method), argtype.size)
                 elif obj.tc == 'o':
-                    misc.write_raw_signed_data(data, rffi.cast(rffi.VOIDP, obj._object), argtype.size)
+                    # additional cast of void* to intptr_t required for 32b (or intmask fails)
+                    misc.write_raw_signed_data(data, rffi.cast(rffi.INTPTR_T, rffi.cast(rffi.VOIDP, obj._object)), argtype.size)
                 elif obj.tc == 'u':
                     misc.write_raw_unsigned_data(data, rffi.cast(rffi.SIZE_T, obj._index), argtype.size)
                 elif obj.tc == 'i':
