@@ -42,28 +42,46 @@ class IntBound(AbstractInfo):
     # Returns True if the bound was updated
     def make_le(self, other):
         if other.has_upper:
-            if not self.has_upper or other.upper < self.upper:
-                self.has_upper = True
-                self.upper = other.upper
-                return True
+            return self.make_le_const(other.upper)
+        return False
+
+    def make_le_const(self, other):
+        if not self.has_upper or other < self.upper:
+            self.has_upper = True
+            self.upper = other
+            return True
         return False
 
     def make_lt(self, other):
-        return self.make_le(other.add(-1))
+        if other.has_upper:
+            return self.make_lt_const(other.upper)
+        return False
+
+    def make_lt_const(self, other):
+        try:
+            other = ovfcheck(other - 1)
+        except OverflowError:
+            return False
+        return self.make_le_const(other)
 
     def make_ge(self, other):
         if other.has_lower:
-            if not self.has_lower or other.lower > self.lower:
-                self.has_lower = True
-                self.lower = other.lower
-                return True
+            return self.make_ge_const(other.lower)
         return False
 
     def make_ge_const(self, other):
-        return self.make_ge(ConstIntBound(other))
+        if not self.has_lower or other > self.lower:
+            self.has_lower = True
+            self.lower = other
+            return True
+        return False
 
     def make_gt_const(self, other):
-        return self.make_gt(ConstIntBound(other))
+        try:
+            other = ovfcheck(other + 1)
+        except OverflowError:
+            return False
+        return self.make_ge_const(other)
 
     def make_eq_const(self, intval):
         self.has_upper = True
@@ -72,7 +90,9 @@ class IntBound(AbstractInfo):
         self.lower = intval
 
     def make_gt(self, other):
-        return self.make_ge(other.add(1))
+        if other.has_lower:
+            return self.make_gt_const(other.lower)
+        return False
 
     def is_constant(self):
         return self.has_upper and self.has_lower and self.lower == self.upper
@@ -213,11 +233,11 @@ class IntBound(AbstractInfo):
         if other.is_constant():
             val = other.getint()
             if val >= 0:        # with Python's modulo:  0 <= (x % pos) < pos
-                r.make_ge(IntBound(0, 0))
-                r.make_lt(IntBound(val, val))
+                r.make_ge_const(0)
+                r.make_lt_const(val)
             else:               # with Python's modulo:  neg < (x % neg) <= 0
-                r.make_gt(IntBound(val, val))
-                r.make_le(IntBound(0, 0))
+                r.make_gt_const(val)
+                r.make_le_const(0)
         return r
 
     def lshift_bound(self, other):
@@ -254,7 +274,7 @@ class IntBound(AbstractInfo):
         pos2 = other.known_nonnegative()
         r = IntUnbounded()
         if pos1 or pos2:
-            r.make_ge(IntBound(0, 0))
+            r.make_ge_const(0)
         if pos1:
             r.make_le(self)
         if pos2:
@@ -269,7 +289,7 @@ class IntBound(AbstractInfo):
                 mostsignificant = self.upper | other.upper
                 r.intersect(IntBound(0, next_pow2_m1(mostsignificant)))
             else:
-                r.make_ge(IntBound(0, 0))
+                r.make_ge_const(0)
         return r
 
     def contains(self, val):

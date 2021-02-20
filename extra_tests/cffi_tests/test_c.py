@@ -17,7 +17,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.4", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.5", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -3973,6 +3973,20 @@ def test_from_buffer_types():
     pv = from_buffer(BVarStructP, bytestring)    # make a fresh one
     with pytest.raises(ValueError):
         release(pv[0])
+
+def test_issue483():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = list(range(25))
+    bytestring = bytearray(buffer(newp(BIntA, lst))[:] + b'XYZ')
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert len(buffer(p1)) == 25 * size_of_int()
+    assert sizeof(p1) == 25 * size_of_int()
+    #
+    p2 = from_buffer(BIntP, bytestring)
+    assert sizeof(p2) == size_of_ptr()
+    assert len(buffer(p2)) == size_of_int()  # first element only, by default
 
 def test_memmove():
     Short = new_primitive_type("short")

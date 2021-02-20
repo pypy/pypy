@@ -75,3 +75,13 @@ fields.
 .. branch: win-tcl8.6
 
 Update the version of Tk/Tcl on windows to 8.6
+
+.. branch: big-sur-dyld-cache
+
+Backport changes to ``_ctypes`` needed for maxos BigSur from py3.7
+
+.. branch: cppyy-packaging
+
+Updated the API to the latest cppyy_backend (1.14.2), made all types used
+consistent to avoid void*/long casting problems on Win64, and added several
+new "builtin" types (wide chars, complex, etc.).

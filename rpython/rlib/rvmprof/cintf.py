@@ -229,8 +229,25 @@ def jit_rvmprof_code(leaving, unique_id):
         enter_code(unique_id)    # ignore the return value
     else:
         s = vmprof_tl_stack.getraw()
-        assert s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG
-        leave_code(s)
+        if s.c_value == unique_id and s.c_kind == VMPROF_CODE_TAG:
+            leave_code(s)
+        else:
+            # this is a HACK! in some strange situations related to stack
+            # overflows we end up in a situation where the stack is not
+            # properly popped somewhere, so we end up with an extra entry.
+            # instead of crashing with an assertion error (which was done
+            # previously) try to fix the situation by popping of the stack
+            # twice. if that also gives the wrong unique_id we still crash with
+            # an assert.
+
+            # the test that found this problem is test_recursive_pickle in
+            # python3 test_functools.py
+            assert (s.c_next and s.c_next.c_value == unique_id and
+                        s.c_next.c_kind == VMPROF_CODE_TAG)
+            s = vmprof_tl_stack.getraw()
+            leave_code(s)
+            s = vmprof_tl_stack.getraw()
+            leave_code(s)
 
 #
 # traceback support

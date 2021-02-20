@@ -1564,15 +1564,6 @@ def PyUnicode_RichCompare(space, left, right, op):
     Py_NE, Py_LT, and Py_LE."""
     raise NotImplementedError
 
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyUnicode_Contains(space, container, element):
-    """Check whether element is contained in container and return true or false
-    accordingly.
-
-    element has to coerce to a one element Unicode string. -1 is returned if
-    there was an error."""
-    raise NotImplementedError
-
 
 @cpython_api([rffi.INT_real, CWCHARPP], rffi.INT_real, error=1)
 def Py_Main(space, argc, argv):

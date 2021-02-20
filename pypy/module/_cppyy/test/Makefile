@@ -13,9 +13,14 @@ dicts = advancedcppDict.so \
 
 all : $(dicts)
 
-HASGENREFLEX:=$(shell command -v genreflex 2> /dev/null)
+cppflags=-O3 -fPIC -rdynamic
 
-cppflags=$(shell cling-config --cppflags) -O3 -fPIC -rdynamic
+HASCLINGCONFIG:=$(shell command -v cling-config 2> /dev/null)
+ifdef HASCLINGCONFIG
+  cppflags+=$(shell cling-config --cppflags)
+endif
+
+HASGENREFLEX:=$(shell command -v genreflex 2> /dev/null)
 ifdef HASGENREFLEX
   genreflex_flags:=$(shell genreflex --cppflags)
   cppflags+=$(genreflex_flags)
@@ -25,7 +30,7 @@ endif
 
 PLATFORM := $(shell uname -s)
 ifeq ($(PLATFORM),Darwin)
-  cppflags+=-dynamiclib -single_module -undefined dynamic_lookup
+  cppflags+=-dynamiclib -single_module -arch x86_64 -undefined dynamic_lookup -Wno-delete-non-virtual-dtor
 endif
 
 

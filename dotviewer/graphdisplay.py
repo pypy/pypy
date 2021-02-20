@@ -50,6 +50,10 @@ class Display(object):
         # initialize the modules by hand, to avoid initializing too much
         # (e.g. the sound system)
         pygame.display.init()
+        self.highdpi = pygame.display.Info().current_h > 1500
+        if self.highdpi:
+            w *= 2
+            h *= 2
         pygame.font.init()
         self.resize((w,h))
 
@@ -142,7 +146,11 @@ class GraphDisplay(Display):
 
     def __init__(self, layout):
         super(GraphDisplay, self).__init__()
-        self.font = pygame.font.Font(self.STATUSBARFONT, 16)
+        if self.highdpi:
+            fontsize = 32
+        else:
+            fontsize = 16
+        self.font = pygame.font.Font(self.STATUSBARFONT, fontsize)
         self.viewers_history = []
         self.forward_viewers_history = []
         self.highlight_word = None
@@ -352,7 +360,7 @@ class GraphDisplay(Display):
             self.viewers_history.append(self.viewer)
             del self.forward_viewers_history[:]
         self.layout = layout
-        self.viewer = GraphRenderer(self.screen, layout)
+        self.viewer = GraphRenderer(self.screen, layout, highdpi=self.highdpi)
         self.searchpos = 0
         self.searchresults = []
         self.zoom_to_fit()

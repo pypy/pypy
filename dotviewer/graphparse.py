@@ -58,25 +58,6 @@ def dot2plain_graphviz(content, contenttype, use_codespeak=False):
         raise PlainParseError("no result from running 'dot'")
     return plaincontent
 
-def dot2plain_codespeak(content, contenttype):
-    import urllib
-    request = urllib.urlencode({'dot': content})
-    url = 'http://codespeak.net/pypy/convertdot.cgi'
-    print >> sys.stderr, '* posting:', url
-    g = urllib.urlopen(url, data=request)
-    result = []
-    while True:
-        data = g.read(16384)
-        if not data:
-            break
-        result.append(data)
-    g.close()
-    plaincontent = ''.join(result)
-    # very simple-minded way to give a somewhat better error message
-    if plaincontent.startswith('<body'):
-        raise Exception("the dot on codespeak has very likely crashed")
-    return plaincontent
-
 def bkgndwrite(f, data):
     f.write(data)
     f.close()
@@ -154,7 +135,4 @@ def parse_dot(graph_id, content, links={}, fixedfont=False):
             plaincontent = dot2plain_graphviz(content, contenttype)
         except PlainParseError, e:
             raise
-            ##print e
-            ### failed, retry via codespeak
-            ##plaincontent = dot2plain_codespeak(content, contenttype)
     return list(parse_plain(graph_id, plaincontent, links, fixedfont))

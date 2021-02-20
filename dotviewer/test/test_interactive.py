@@ -48,9 +48,6 @@ SOURCE2=r'''digraph f {
 }'''
 
 
-
-
-
 def setup_module(mod):
     if not option.pygame:
         py.test.skip("--pygame not enabled")
@@ -184,4 +181,13 @@ def test_linewidth():
     from dotviewer import graphpage, graphclient
     dotfile = udir.join('graph2.dot')
     page = graphpage.DotFileGraphPage(str(dotfile))
+    graphclient.display_page(page)
+
+def test_ensure_readable():
+    from dotviewer import graphpage, graphclient
+    tmpname = udir.join("graph5.dot")
+    tmpname.write('''digraph f {
+        node1 [shape="box", label="readable???", color="black", fillcolor="black", style="filled"];
+    }''')
+    page = graphpage.DotFileGraphPage(str(tmpname))
     graphclient.display_page(page)
