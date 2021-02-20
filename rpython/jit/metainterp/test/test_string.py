@@ -994,12 +994,13 @@ class TestLLtypeUnicode(TestLLtype):
                 s = l[z]
                 res += startswith(s, "a")
                 res += startswith(s, "a", 1)
+                res += startswith(s, "a", 2, 2)
                 z += 1
             return 0
         res = self.meta_interp(f, [222, 3333])
         res2 = f(222, 3333)
         assert res == res2
-        self.check_simple_loop(call_i=0, int_gt=2, int_eq=2)
+        self.check_simple_loop(call_i=0, strgetitem=2, int_gt=3, int_eq=2)
 
     def test_string_hashing(self):
         def f(i):

@@ -309,6 +309,11 @@ def _normalize_start_end(length, start, end):
 
 @specialize.argtype(0, 1)
 def startswith(u_self, prefix, start=0, end=sys.maxint):
+    length = len(u_self)
+    start, end = _normalize_start_end(length, start, end)
+    stop = start + len(prefix)
+    if stop > end:
+        return False
     if (jit.isconstant(len(prefix)) and len(prefix) == 1):
         return len(u_self) > start and u_self[start] == prefix[0]
     return _startswith(u_self, prefix, start, end)
@@ -316,11 +321,6 @@ def startswith(u_self, prefix, start=0, end=sys.maxint):
 @jit.elidable
 @specialize.argtype(0, 1)
 def _startswith(u_self, prefix, start=0, end=sys.maxint):
-    length = len(u_self)
-    start, end = _normalize_start_end(length, start, end)
-    stop = start + len(prefix)
-    if stop > end:
-        return False
     for i in range(len(prefix)):
         if u_self[start+i] != prefix[i]:
             return False
