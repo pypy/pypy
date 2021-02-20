@@ -1230,7 +1230,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _check_compare(self, node):
         left = node.left
-        for op, right in zip(node.ops, node.comparators):
+        for i in range(min(len(node.ops), len(node.comparators))):
+            op = node.ops[i]
+            right = node.comparators[i]
             if op in (ast.Is, ast.IsNot) and (self._is_literal(left) or self._is_literal(right)):
                 if op is ast.Is:
                     operator, replacement = "is", "=="
