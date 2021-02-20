@@ -320,7 +320,7 @@ def startswith(u_self, prefix, start=0, end=sys.maxint):
 
 @jit.elidable
 @specialize.argtype(0, 1)
-def _startswith(u_self, prefix, start=0, end=sys.maxint):
+def _startswith(u_self, prefix, start, end):
     for i in range(len(prefix)):
         if u_self[start+i] != prefix[i]:
             return False
