@@ -1217,12 +1217,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not isinstance(node, ast.Constant):
             return False
 
-        for singleton in (
+        for singleton in [
             self.space.w_None,
             self.space.w_True,
             self.space.w_False,
             self.space.w_Ellipsis
-        ):
+        ]:
             if self.space.is_w(node.value, singleton):
                 return False
 
