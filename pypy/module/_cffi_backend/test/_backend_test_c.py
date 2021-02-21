@@ -1315,7 +1315,9 @@ def test_callback_exception():
     except ImportError:
         import io as cStringIO    # Python 3
     import linecache
-    def matches(istr, ipattern):
+    def matches(istr, ipattern, ipattern38):
+        if sys.version_info >= (3, 8):
+            ipattern = ipattern38
         str, pattern = istr, ipattern
         while '$' in pattern:
             i = pattern.index('$')
@@ -1359,6 +1361,14 @@ Traceback (most recent call last):
   File "$", line $, in check_value
     $
 ValueError: 42
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>:
+Traceback (most recent call last):
+  File "$", line $, in Zcb1
+    $
+  File "$", line $, in check_value
+    $
+ValueError: 42
 """)
         sys.stderr = cStringIO.StringIO()
         bigvalue = 20000
@@ -1366,6 +1376,12 @@ ValueError: 42
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
 OverflowError: integer 60000 does not fit 'short'
 """)
         sys.stderr = cStringIO.StringIO()
@@ -1404,6 +1420,17 @@ OverflowError: integer 60000 does not fit 'short'
 During the call to 'onerror', another exception occurred:
 
 TypeError: $integer$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+TypeError: $integer$
 """)
         #
         sys.stderr = cStringIO.StringIO()
@@ -1416,6 +1443,17 @@ OverflowError: integer 60000 does not fit 'short'
 
 During the call to 'onerror', another exception occurred:
 
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append'
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
 Traceback (most recent call last):
   File "$", line $, in oops
     $
