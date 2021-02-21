@@ -120,7 +120,10 @@ not implemented for a given type combination.
 #define Py_GE 5
 
 /* Py3k buffer interface, adapted for PyPy */
-    /* Flags for getting buffers */
+/* Maximum number of dimensions */
+#define PyBUF_MAX_NDIM 64
+
+/* Flags for getting buffers */
 #define PyBUF_SIMPLE 0
 #define PyBUF_WRITABLE 0x0001
 /*  we used to include an E, backwards compatible alias  */
@@ -148,7 +151,6 @@ not implemented for a given type combination.
 
 #define PyBUF_READ  0x100
 #define PyBUF_WRITE 0x200
-#define PyBUF_SHADOW 0x400
 /* end Py3k buffer interface */
 
 
