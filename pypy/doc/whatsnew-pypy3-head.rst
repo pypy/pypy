@@ -81,6 +81,6 @@ Fix loading system libraries with ctypes on macOS Big Sur. (issue 3314)
 
 Port map-improvements to py3.7
 
-.. branch win64-hpy
+.. branch: win64-hpy
 
 Enable _hpy_universal on win64
