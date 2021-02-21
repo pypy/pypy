@@ -377,6 +377,8 @@ class AppTestObject(AppTestCpythonExtensionBase):
             """)])
         a = module.empty_format('hello')
         assert isinstance(a, unicode)
+        a = module.empty_format(type('hello'))
+        assert isinstance(a, unicode)
 
     def test_add_memory_pressure(self):
         self.reset_memory_pressure()    # for the potential skip
