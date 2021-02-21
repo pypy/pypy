@@ -210,6 +210,10 @@ def PyObject_Repr(space, w_obj):
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.newtext('')
+    # issue 3404: handle PyObject_Format(type('a'), '')
+    if (space.isinstance_w(w_format_spec, space.w_unicode) and
+                space.len_w(w_format_spec) == 0):
+        return space.unicode_from_object(w_obj)
     w_ret = space.call_method(w_obj, '__format__', w_format_spec)
     if space.isinstance_w(w_format_spec, space.w_unicode):
         return space.unicode_from_object(w_ret)

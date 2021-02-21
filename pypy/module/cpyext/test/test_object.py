@@ -350,6 +350,8 @@ class AppTestObject(AppTestCpythonExtensionBase):
             """)])
         a = module.empty_format('hello')
         assert isinstance(a, str)
+        a = module.empty_format(type('hello'))
+        assert isinstance(a, str)
 
     def test_Bytes(self):
         class sub1(bytes):
