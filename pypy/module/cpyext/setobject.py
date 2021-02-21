@@ -1,7 +1,7 @@
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rtyper.lltypesystem import rffi, lltype
 from pypy.module.cpyext.api import (
-    cpython_api, Py_ssize_t, Py_ssize_tP, CANNOT_FAIL, build_type_checkers,
+    cpython_api, Py_ssize_t, Py_ssize_tP, CANNOT_FAIL, 
     PyObjectFields, cpython_struct, bootstrap_function, slot_function)
 from pypy.module.cpyext.pyobject import (PyObject, PyObjectP,
     make_ref, from_ref, as_pyobj, create_ref, make_typedescr, incref, decref)
@@ -41,23 +41,20 @@ def set_dealloc(space, py_obj):
     py_set.c__tmplist = lltype.nullptr(PyObject.TO)
     _dealloc(space, py_obj)
 
-PySet_Check, PySet_CheckExact = build_type_checkers("Set")
-PyFrozenSet_Check, PyFrozenSet_CheckExact = build_type_checkers("FrozenSet")
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_Check(space, w_obj):
-    """Return true if obj is a set object, a frozenset object, or an
-    instance of a subtype."""
-    return (space.isinstance_w(w_obj, space.gettypefor(W_SetObject)) or
-            space.isinstance_w(w_obj, space.gettypefor(W_FrozensetObject)))
-
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyAnySet_CheckExact(space, w_obj):
-    """Return true if obj is a set object or a frozenset object but
-    not an instance of a subtype."""
+# Used internally, the real PySet_Check is a C macro
+def Set_Check(space, w_obj):
     w_obj_type = space.type(w_obj)
-    return (space.is_w(w_obj_type, space.gettypefor(W_SetObject)) or
-            space.is_w(w_obj_type, space.gettypefor(W_FrozensetObject)))
+    return (space.is_w(w_obj_type, space.w_set) or
+                      space.issubtype_w(w_obj_type, space.w_set))
+
+# Used internally, the real PyAnySet_Check is a C macro
+def AnySet_Check(space, w_obj):
+    w_obj_type = space.type(w_obj)
+    return (space.is_w(w_obj_type, space.w_frozenset) or
+            space.is_w(w_obj_type, space.w_set) or
+            space.issubtype_w(w_obj_type, space.w_set) or
+            space.issubtype_w(w_obj_type, space.w_frozenset)
+            )
 
 @cpython_api([PyObject], PyObject)
 def PySet_New(space, w_iterable):
@@ -82,7 +79,7 @@ def PySet_Add(space, w_s, w_obj):
     Now works with instances of frozenset or its subtypes.
     Like PyTuple_SetItem() in that it can be used to fill-in the
     values of brand new frozensets before they are exposed to other code."""
-    if not PySet_Check(space, w_s):
+    if not Set_Check(space, w_s):
         if isinstance(w_s, W_FrozensetObject) and w_s.cpyext_add_frozen(w_obj):
             return 0
         PyErr_BadInternalCall(space)
@@ -97,7 +94,7 @@ def PySet_Discard(space, w_s, w_obj):
     method, this function does not automatically convert unhashable sets into
     temporary frozensets. Raise PyExc_SystemError if set is an not an
     instance of set or its subtype."""
-    if not PySet_Check(space, w_s):
+    if not Set_Check(space, w_s):
         PyErr_BadInternalCall(space)
     try:
         space.call_method(space.w_set, 'remove', w_s, w_obj)
@@ -128,13 +125,13 @@ def PySet_GET_SIZE(space, w_s):
     return space.int_w(space.len(w_s))
 
 @cpython_api([PyObject], Py_ssize_t, error=-1)
-def PySet_Size(space, ref):
+def PySet_Size(space, w_ref):
     """Return the length of a set or frozenset object. Equivalent to
     len(anyset).  Raises a PyExc_SystemError if anyset is not a set, frozenset,
     or an instance of a subtype."""
-    if not PyAnySet_Check(space, ref):
+    if not AnySet_Check(space, w_ref):
         raise oefmt(space.w_TypeError, "expected set object")
-    return PySet_GET_SIZE(space, ref)
+    return space.len_w(w_ref)
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
 def PySet_Contains(space, w_obj, w_key):
@@ -163,7 +160,7 @@ def PyFrozenSet_New(space, w_iterable):
 
 @cpython_api([PyObject, Py_ssize_tP, PyObjectP, Py_ssize_tP], rffi.INT_real, error=-1)
 def _PySet_NextEntry(space, w_set, ppos, pkey, phash):
-    if w_set is None or not PyAnySet_Check(space, w_set):
+    if w_set is None or not AnySet_Check(space, w_set):
         PyErr_BadInternalCall(space)
         return -1
     if not pkey:

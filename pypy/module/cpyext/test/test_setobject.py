@@ -2,8 +2,7 @@ from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module.cpyext.setobject import (
-    PySet_Check, PyFrozenSet_Check, PyFrozenSet_CheckExact,
-    PySet_Add, PySet_Size, PySet_GET_SIZE)
+    PySet_Check, PySet_Add, PySet_Size, PySet_GET_SIZE)
 from pypy.module.cpyext.api import Py_ssize_tP, PyObjectP
 from pypy.module.cpyext.pyobject import from_ref
 
@@ -11,11 +10,9 @@ from pypy.module.cpyext.pyobject import from_ref
 class TestTupleObject(BaseApiTest):
     def test_setobj(self, space):
         assert not PySet_Check(space, space.w_None)
-        assert not PyFrozenSet_Check(space, space.w_None)
         with raises_w(space, SystemError):
             PySet_Add(space, space.w_None, space.w_None)
         w_set = space.call_function(space.w_set)
-        assert not PyFrozenSet_CheckExact(space, w_set)
         space.call_method(w_set, 'update', space.wrap([1, 2, 3, 4]))
         assert PySet_Size(space, w_set) == 4
         assert PySet_GET_SIZE(space, w_set) == 4
@@ -60,20 +57,6 @@ class TestTupleObject(BaseApiTest):
         assert space.len_w(w_set) == 3
         api.PySet_Clear(w_set)
         assert space.len_w(w_set) == 0
-
-    def test_anyset_check(self, space, api):
-        w_set = api.PySet_New(space.wrap([1, 2, 3, 4]))
-        w_frozenset = space.newfrozenset([space.wrap(i) for i in [1, 2, 3, 4]])
-        assert api.PyAnySet_CheckExact(w_set)
-        assert api.PyAnySet_CheckExact(w_frozenset)
-        assert api.PyAnySet_Check(w_set)
-        assert api.PyAnySet_Check(w_frozenset)
-        w_instance = space.appexec([], """():
-            class MySet(set):
-                pass
-            return MySet()
-        """)
-        assert api.PyAnySet_Check(w_instance)
 
     def test_pyset_next(self, space, api):
         w_set = space.call_function(space.w_set, space.newtext("ab"))
@@ -124,5 +107,34 @@ class AppTestSetObject(AppTestCpythonExtensionBase):
              PySet_GET_SIZE(dumb_pointer);
 
              return o;
-             """)
+             """),
+            ("check_exact", "METH_O",
+             """
+                return PyBool_FromLong(PyFrozenSet_CheckExact(args));
+             """),
+            ("check", "METH_O",
+             """
+                return PyBool_FromLong(PyFrozenSet_Check(args));
+             """),
+            ("AnySet_Check", "METH_O",
+             """
+                return PyBool_FromLong(PyAnySet_Check(args));
+             """),
+            ("AnySet_CheckExact", "METH_O",
+             """
+                return PyBool_FromLong(PyAnySet_CheckExact(args));
+             """),
         ])
+        assert not module.check(None)
+        assert not module.check_exact({})
+        s = {1, 2, 3, 4}
+        fs = frozenset(s)
+        assert module.AnySet_Check(s)
+        assert module.AnySet_CheckExact(fs)
+        assert module.AnySet_Check(w_set)
+        assert module.AnySet_Check(w_frozenset)
+        class MySet(set):
+            pass
+        assert module.AnySet_Check(MySet())
+
+
