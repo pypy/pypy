@@ -1002,6 +1002,25 @@ class TestLLtypeUnicode(TestLLtype):
         assert res == res2
         self.check_simple_loop(call_i=0, strgetitem=2, int_gt=3, int_eq=2)
 
+    def test_endswith(self):
+        from rpython.rlib.rstring import endswith
+        jitdriver = JitDriver(greens=['x', 'y'], reds='auto')
+        l = ["abc", "def", "aaa"] * 10000
+        def f(x, y):
+            z = 0
+            res = 0
+            while z < 10:
+                jitdriver.jit_merge_point(x=x, y=y)
+                s = l[z]
+                res += endswith(s, "a")
+                res += endswith(s, "a", 1)
+                res += endswith(s, "a", 2, 2)
+                z += 1
+            return 0
+        res = self.meta_interp(f, [222, 3333])
+        res2 = f(222, 3333)
+        assert res == res2
+        self.check_simple_loop(call_i=0, strgetitem=1, int_gt=1, int_lt=4, int_eq=1)
     def test_string_hashing(self):
         def f(i):
             s = str(i)

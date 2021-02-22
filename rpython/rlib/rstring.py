@@ -315,29 +315,27 @@ def startswith(u_self, prefix, start=0, end=sys.maxint):
     if stop > end:
         return False
     if (jit.isconstant(len(prefix)) and len(prefix) == 1):
-        return len(u_self) > start and u_self[start] == prefix[0]
-    return _startswith(u_self, prefix, start, end)
+        return u_self[start] == prefix[0]
+    return _equal_at_position(u_self, prefix, start, end)
 
 @jit.elidable
 @specialize.argtype(0, 1)
-def _startswith(u_self, prefix, start, end):
-    for i in range(len(prefix)):
-        if u_self[start+i] != prefix[i]:
+def _equal_at_position(u_self, substring, start, end):
+    for i in range(len(substring)):
+        if u_self[start+i] != substring[i]:
             return False
     return True
 
 @specialize.argtype(0, 1)
-@jit.elidable
 def endswith(u_self, suffix, start=0, end=sys.maxint):
     length = len(u_self)
     start, end = _normalize_start_end(length, start, end)
     begin = end - len(suffix)
     if begin < start:
         return False
-    for i in range(len(suffix)):
-        if u_self[begin+i] != suffix[i]:
-            return False
-    return True
+    if (jit.isconstant(len(suffix)) and len(suffix) == 1):
+        return u_self[begin] == suffix[0]
+    return _equal_at_position(u_self, suffix, begin, end)
 
 @specialize.argtype(0, 1)
 def find(value, other, start, end):
