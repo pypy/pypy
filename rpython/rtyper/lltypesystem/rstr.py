@@ -794,7 +794,7 @@ class LLHelpers(AbstractLLHelpers):
             return -1
 
         mlast = m - 1
-        skip = mlast - 1
+        skip = mlast
         mask = 0
 
         if mode != FAST_RFIND:
@@ -807,7 +807,7 @@ class LLHelpers(AbstractLLHelpers):
             i = start - 1
             while i + 1 <= start + w:
                 i += 1
-                if s1.chars[i + m - 1] == s2.chars[m - 1]:
+                if s1.chars[i + mlast] == s2.chars[mlast]:
                     for j in range(mlast):
                         if s1.chars[i + j] != s2.chars[j]:
                             break

@@ -434,7 +434,7 @@ def _search(value, other, start, end, mode):
         return -1
 
     mlast = m - 1
-    skip = mlast - 1
+    skip = mlast
     mask = 0
 
     if mode != SEARCH_RFIND:
@@ -447,7 +447,7 @@ def _search(value, other, start, end, mode):
         i = start - 1
         while i + 1 <= start + w:
             i += 1
-            if value[i + m - 1] == other[m - 1]:
+            if value[i + mlast] == other[mlast]:
                 for j in range(mlast):
                     if value[i + j] != other[j]:
                         break

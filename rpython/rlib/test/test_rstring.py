@@ -251,6 +251,8 @@ def test_search():
     check_search(find, 'one two three', 'ne', 5, 13, res=-1)
     check_search(find, 'one two three', '', 0, 13, res=0)
 
+    check_search(find, '000000p00000000', 'ap', 0,  15, res=-1)
+
     check_search(rfind, 'one two three', 'e', 0, 13, res=12)
     check_search(rfind, 'one two three', 'e', 0, 1, res=-1)
     check_search(rfind, 'one two three', '', 0, 13, res=13)
