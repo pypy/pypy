@@ -2,9 +2,11 @@ import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith, replace_count
-from rpython.rlib.rstring import find, rfind, count
+from rpython.rlib.rstring import find, rfind, count, _search, SEARCH_COUNT, SEARCH_FIND
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
+
+from hypothesis import given, strategies as st
 
 def test_split():
     def check_split(value, sub, *args, **kwargs):
@@ -306,3 +308,21 @@ class TestTranslates(BaseRtypingTest):
             return res
         res = self.interpret(fn, [])
         assert res
+
+@given(u=st.text(), prefix=st.text(), suffix=st.text())
+def test_hypothesis_search(u, prefix, suffix):
+    prefix = prefix.encode("utf-8")
+    u = u.encode("utf-8")
+    suffix = suffix.encode("utf-8")
+    s = prefix + u + suffix
+
+    index = _search(s, u, 0, len(s), SEARCH_FIND)
+    assert index == s.find(u)
+    assert 0 <= index <= len(prefix)
+
+    index = _search(s, u, len(prefix), len(s) - len(suffix), SEARCH_FIND)
+    assert index == len(prefix)
+
+    count = _search(s, u, 0, len(s), SEARCH_COUNT)
+    assert count == s.count(u)
+    assert 1 <= count
