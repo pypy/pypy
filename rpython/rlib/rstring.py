@@ -250,6 +250,36 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
         builder.append(by)
         builder.append_slice(input, upper, len(input))
         replacements = upper + 1
+
+    elif isinstance(sub, str) and len(sub) == 1:
+        # a copy of the code that is specialized for single (ascii) characters
+        sub = sub[0]
+        cnt = count(input, sub, 0, len(input))
+        if cnt == 0:
+            return input, 0
+        if maxsplit > 0 and cnt > maxsplit:
+            cnt = maxsplit
+        diff_len = len(by) - 1
+        try:
+            result_size = ovfcheck(diff_len * cnt)
+            result_size = ovfcheck(result_size + len(input))
+        except OverflowError:
+            raise
+        replacements = cnt
+
+        builder = Builder(result_size)
+        start = 0
+        while maxsplit != 0:
+            next = find(input, sub, start, len(input))
+            if next < 0:
+                break
+            builder.append_slice(input, start, next)
+            builder.append(by)
+            start = next + 1
+            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+        builder.append_slice(input, start, len(input))
+
     else:
         # First compute the exact result size
         if sub:
