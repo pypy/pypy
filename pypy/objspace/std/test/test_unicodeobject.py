@@ -1303,3 +1303,7 @@ class AppTestUnicodeString:
 
     def test_newlist_utf8_non_ascii(self):
         'ä'.split("\n")[0] # does not crash
+
+    def test_replace_no_occurrence(self):
+        x = u"xyz"
+        assert x.replace(u"a", u"b") is x

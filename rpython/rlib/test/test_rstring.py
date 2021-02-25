@@ -27,6 +27,11 @@ def test_split():
     check_split('endcase test', 'test', res=['endcase ', ''])
     py.test.raises(ValueError, split, 'abc', '')
 
+def test_split_no_occurrence():
+    x = "abc"
+    assert x.split("d")[0] is x
+    assert x.rsplit("d")[0] is x
+
 def test_split_None():
     assert split("") == []
     assert split(' a\ta\na b') == ['a', 'a', 'a', 'b']
@@ -163,6 +168,12 @@ def test_unicode_replace_overflow():
         replace(s, u"a", s)
     with py.test.raises(OverflowError):
         replace(s, u"a", s, len(s) - 10)
+
+def test_replace_no_occurrence():
+    s = "xyz"
+    assert replace(s, "a", "b") is s
+    s = "xyz"
+    assert replace(s, "abc", "b") is s
 
 def test_startswith():
     def check_startswith(value, sub, *args, **kwargs):

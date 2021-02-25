@@ -880,6 +880,8 @@ class W_UnicodeObject(W_Root):
                                               count, isutf8=True)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
+        if type(self) is W_UnicodeObject and replacements == 0:
+            return self
 
         newlength = self._length + replacements * (w_by._length - w_sub._length)
         return W_UnicodeObject(res, newlength)

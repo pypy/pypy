@@ -101,9 +101,13 @@ def _split_by(value, by, maxsplit):
 
     start = 0
     if bylen == 1:
-        # fast path: uses str.rfind(character) and str.count(character)
+        # fast path: uses str.find(character) and str.count(character)
         by = by[0]    # annotator hack: string -> char
         cnt = count(value, by, 0, len(value))
+        if cnt == 0:
+            if isinstance(value, str):
+                return [value]
+            return [value[0:len(value)]]
         if 0 <= maxsplit < cnt:
             cnt = maxsplit
         res = newlist_hint(cnt + 1)
@@ -250,6 +254,8 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
         # First compute the exact result size
         if sub:
             cnt = count(input, sub, 0, len(input))
+            if isinstance(input, str) and cnt == 0:
+                return input, 0
         else:
             assert isutf8
             from rpython.rlib import rutf8
