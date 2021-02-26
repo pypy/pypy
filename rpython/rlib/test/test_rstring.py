@@ -6,7 +6,7 @@ from rpython.rlib.rstring import find, rfind, count, _search, SEARCH_COUNT, SEAR
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
 
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, assume
 
 def test_split():
     def check_split(value, sub, *args, **kwargs):
@@ -326,3 +326,17 @@ def test_hypothesis_search(u, prefix, suffix):
     count = _search(s, u, 0, len(s), SEARCH_COUNT)
     assert count == s.count(u)
     assert 1 <= count
+
+
+@given(st.text(), st.lists(st.text(), min_size=2), st.text(), st.integers(min_value=0, max_value=1000000))
+def test_hypothesis_search(needle, pieces, by, maxcount):
+    needle = needle.encode("utf-8")
+    pieces = [piece.encode("utf-8") for piece in pieces]
+    by = by.encode("utf-8")
+    input = needle.join(pieces)
+    assume(len(input) > 0)
+
+    if needle == '' and pieces == [] and by == '0' and maxcount == 1:
+        import pdb; pdb.set_trace()
+    res = replace(input, needle, by, maxcount)
+    assert res == input.replace(needle, by, maxcount)

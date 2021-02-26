@@ -251,34 +251,10 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
         builder.append_slice(input, upper, len(input))
         replacements = upper + 1
 
-    elif isinstance(sub, str) and len(sub) == 1:
-        # a copy of the code that is specialized for single (ascii) characters
-        sub = sub[0]
-        cnt = count(input, sub, 0, len(input))
-        if cnt == 0:
-            return input, 0
-        if maxsplit > 0 and cnt > maxsplit:
-            cnt = maxsplit
-        diff_len = len(by) - 1
-        try:
-            result_size = ovfcheck(diff_len * cnt)
-            result_size = ovfcheck(result_size + len(input))
-        except OverflowError:
-            raise
-        replacements = cnt
-
-        builder = Builder(result_size)
-        start = 0
-        while maxsplit != 0:
-            next = find(input, sub, start, len(input))
-            if next < 0:
-                break
-            builder.append_slice(input, start, next)
-            builder.append(by)
-            start = next + 1
-            maxsplit -= 1   # NB. if it's already < 0, it stays < 0
-
-        builder.append_slice(input, start, len(input))
+    elif isinstance(input, str) and len(sub) == 1:
+        if len(by) == 1:
+            return replace_count_str_chr_chr(input, sub[0], by[0], maxsplit)
+        return replace_count_str_chr_str(input, sub[0], by, maxsplit)
 
     else:
         # First compute the exact result size
@@ -286,6 +262,8 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
             cnt = count(input, sub, 0, len(input))
             if isinstance(input, str) and cnt == 0:
                 return input, 0
+            if isinstance(input, str):
+                return replace_count_str_str_str(input, sub, by, cnt, maxsplit)
         else:
             assert isutf8
             from rpython.rlib import rutf8
@@ -329,6 +307,102 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
         builder.append_slice(input, start, len(input))
 
     return builder.build(), replacements
+
+def replace_count_str_chr_chr(input, c1, c2, maxsplit):
+    from rpython.rtyper.annlowlevel import llstr, hlstr
+    s = llstr(input)
+    length = len(s.chars)
+    start = find(input, c1, 0, len(input))
+    if start < 0:
+        return input, 0
+    newstr = s.malloc(length)
+    src = s.chars
+    dst = newstr.chars
+    s.copy_contents(s, newstr, 0, 0, len(input))
+    dst[start] = c2
+    count = 1
+    start += 1
+    maxsplit -= 1
+    while maxsplit != 0:
+        next = find(input, c1, start, len(input))
+        if next < 0:
+            break
+        dst[next] = c2
+        start = next + 1
+        maxsplit -= 1
+        count += 1
+
+    return hlstr(newstr), count
+
+def replace_count_str_chr_str(input, sub, by, maxsplit):
+    from rpython.rtyper.annlowlevel import llstr, hlstr
+    cnt = count(input, sub, 0, len(input))
+    if cnt == 0:
+        return input, 0
+    if maxsplit > 0 and cnt > maxsplit:
+        cnt = maxsplit
+    diff_len = len(by) - 1
+    try:
+        result_size = ovfcheck(diff_len * cnt)
+        result_size = ovfcheck(result_size + len(input))
+    except OverflowError:
+        raise
+
+    s = llstr(input)
+    by_ll = llstr(by)
+
+    newstr = s.malloc(result_size)
+    dst = 0
+    start = 0
+    while maxsplit != 0:
+        next = find(input, sub, start, len(input))
+        if next < 0:
+            break
+        s.copy_contents(s, newstr, start, dst, next - start)
+        dst += next - start
+        s.copy_contents(by_ll, newstr, 0, dst, len(by))
+        dst += len(by)
+
+        start = next + 1
+        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+
+    s.copy_contents(s, newstr, start, dst, len(input) - start)
+    assert dst - start + len(input) == result_size
+    return hlstr(newstr), cnt
+
+def replace_count_str_str_str(input, sub, by, cnt, maxsplit):
+    from rpython.rtyper.annlowlevel import llstr, hlstr
+    if cnt > maxsplit and maxsplit > 0:
+        cnt = maxsplit
+    diff_len = len(by) - len(sub)
+    try:
+        result_size = ovfcheck(diff_len * cnt)
+        result_size = ovfcheck(result_size + len(input))
+    except OverflowError:
+        raise
+
+    s = llstr(input)
+    by_ll = llstr(by)
+    newstr = s.malloc(result_size)
+    sublen = len(sub)
+    bylen = len(by)
+    inputlen = len(input)
+    dst = 0
+    start = 0
+    while maxsplit != 0:
+        next = find(input, sub, start, inputlen)
+        if next < 0:
+            break
+        s.copy_contents(s, newstr, start, dst, next - start)
+        dst += next - start
+        s.copy_contents(by_ll, newstr, 0, dst, bylen)
+        dst += bylen
+        start = next + sublen
+        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+    s.copy_contents(s, newstr, start, dst, len(input) - start)
+    assert dst - start + len(input) == result_size
+    return hlstr(newstr), cnt
+
 
 def _normalize_start_end(length, start, end):
     if start < 0:
