@@ -12,12 +12,15 @@ LLVMTargetRef GetTargetFromTriple(const char* triple){
 	char *error = NULL;
 	LLVMTargetRef target;
 	LLVMBool success =  LLVMGetTargetFromTriple(triple, &target, &error);
-	if (success != 0){
+	if (success == 0){
 		return target;
 	}
 	else {
 		return NULL; //can add in a printf to display the error here for debugging if need be
 	}
+}
+LLVMErrorRef LLJITAddLLVMIRModule(LLVMOrcLLJITRef jit, LLVMOrcJITDylibRef dylib, LLVMOrcThreadSafeModuleRef module){
+	return LLVMOrcLLJITAddLLVMIRModule(jit, dylib, module);
 }
 
 LLVMOrcLLJITRef CreateLLJIT(LLVMOrcLLJITBuilderRef builder){
@@ -27,7 +30,7 @@ LLVMOrcLLJITRef CreateLLJIT(LLVMOrcLLJITBuilderRef builder){
 		return jit;
 	}
 	else{
-		return NULL
+		return NULL;
 	}
 }
 
@@ -38,11 +41,11 @@ LLVMOrcJITTargetAddress LLJITLookup(LLVMOrcLLJITRef jit, const char *name){
 		return addr;
 	}
 	else {
-		return NULL;
+		return 0; //JITTargetAddress is defined as uint64
 	}
 }
 
-LLVMBool VerifyModule(LLVMModuleRef module, LLVMVerifierFailureAction action){
+LLVMBool VerifyModule(LLVMModuleRef module){
 	char *error = NULL;
-	return LLVMVerifyModule(module, action, &error);
+	return LLVMVerifyModule(module, LLVMAbortProcessAction, &error);
 }

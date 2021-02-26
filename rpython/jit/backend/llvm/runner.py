@@ -1,8 +1,10 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.model import CompiledLoopToken
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+import os
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None,
@@ -14,12 +16,13 @@ class LLVM_CPU(AbstractLLCPU):
         self.initialise_api()
         self.initialise_jit()
 
-        self.Context = self.CreateThreadSafeContext(None)
+        self.ThreadSafeContext = self.CreateThreadSafeContext(None)
+        self.Context = self.GetContext(self.ThreadSafeContext)
         self.Module = self.CreateModule(str2constcharp("hot_code"))
         self.Builder = self.CreateBuilder(None)
-        #data_layout = self.CreateTargetData(str2constcharp(
-        #    "e-m:e-p270:32:32-p271:32:32-p272:64:64-i64:64-f80:128-n8:16:32:64-S128")) #TODO: make platform independant
-        #self.SetModuleDataLayout(self.Module, data_layout)
+
+    def setup_once(self):
+        pass
 
     def initialise_jit(self):
         if self.InitializeNativeTarget(None): #returns 0 on success
@@ -27,31 +30,38 @@ class LLVM_CPU(AbstractLLCPU):
         if self.InitializeNativeAsmPrinter(None):
             raise Exception("Native Asmebly Printer Failed To Initialise")
 
-        cpu_name = self.GetHostCPUName(None) #kept as C-string types
-        cpu_features = self.GetHostCPUFeatures(None)
-        triple = self.GetTargetTriple(None)
-        target = self.GetTarget(triple)
+        #cpu_name = self.GetHostCPUName(None) #kept as C-string types
+        #cpu_features = self.GetHostCPUFeatures(None)
+        #triple = self.GetTargetTriple(None)
+        #target = self.GetTarget(triple)
         #if target._obj._getitem(0) == 0: #pointer is NULL
         #    raise Exception("Get Target From Triple Failed")
-        opt_level = DefinedConstantInteger("LLVMCodeGenLevelNone") #TODO: are these the same as those offered by the pass manager?
-        reloc_mode = DefinedConstantInteger("LLVMRelocDefault")
-        code_model = DefinedConstantInteger("LLVMCodeModelJITDefault")
+        #opt_level = DefinedConstantInteger("LLVMCodeGenLevelAggressive")
+        #reloc_mode = DefinedConstantInteger("LLVMRelocDefault")
+        #code_model = DefinedConstantInteger("LLVMCodeModelJITDefault")
+        #target_machine = self.CreateTargetMachine(target, triple, cpu_name,
+        #                                          cpu_features, opt_level,
+        #                                          reloc_mode, code_model)
+        #jit_target_machine_builder = self.JITTargetMachineBuilderCreateFromTargetMachine(
+        #                                    target_machine)
 
-        data_layout = self.CreateTargetDataLayout(target)
-        self.SetModuleDataLayout(self.Module, data_layout)
 
-        target_machine = self.CreateTargetMachine(target, triple, cpu_name,
-                                                  cpu_features, opt_level,
-                                                  reloc_mode, code_model)
-        jit_target_machine_builder = self.JITTargetMachineBuilderCreateFromTargetMachine(
-                                            target_machine)
         jit_builder = self.CreateLLJITBuilder(None)
-        self.LLJITBuilderSetJITTargetMachineBuilder(jit_builder,
-                                                    jit_target_machine_builder)
+        #self.LLJITBuilderSetJITTargetMachineBuilder(jit_builder,
+        #                                            jit_target_machine_builder)
+
+        #data_layout = self.CreateTargetDataLayout(target_machine)
+        #self.SetModuleDataLayout(self.Module, data_layout)
 
         self.LLJIT = self.CreateLLJIT(jit_builder)
+        if self.LLJIT._cast_to_int() == 0:
+            raise Exception("Failed To Create JIT")
         self.DyLib = self.LLJITGetMainJITDylib(self.LLJIT)
 
+    def verify(self):
+        verified = self.VerifyModule(self.Module)
+        if verified: #returns 0 on success
+            raise Exception("Malformed IR")
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
@@ -73,22 +83,20 @@ class LLVM_CPU(AbstractLLCPU):
                            str2constcharp("i1"))
         self.BuildRet(self.Builder, i1)
 
-        verified = self.VerifyModule(self.Module,
-                                     DefinedConstantInteger("LLVMAbortProcessAction")) #for debugging
-        if verified != 1:
-            raise Exception("Malformed IR")
+        self.verify(); #for debugging
 
         looptoken.compiled_loop_token = self.compile_to_obj()
         lltype.free(arg_types, flavor='raw')
 
     def compile_to_obj(self):
         self.ThreadSafeModule = self.CreateThreadSafeModule(self.Module, self.Context)
-        success = self.LLJITAddModule(self.LLJIT, self.DyLib, self.ThreadSafeModule) #looking up a symbol in a module added to the LLVM Orc JIT invokes JIT compilation of the whole module
+        failure = self.LLJITAddModule(self.LLJIT, self.DyLib, self.ThreadSafeModule) #looking up a symbol in a module added to the LLVM Orc JIT invokes JIT compilation of the whole module
+        if failure._cast_to_int():
+            raise Exception("Failed To Add Module To JIT")
         addr = self.LLJITLookup(self.LLJIT, "trace")
+        if addr._cast_to_int() == 0:
+            raise Exception("trace function is null ptr")
         return addr
-
-    def setup_once(self):
-        pass
 
     def convert_args(self, inputargs):
         arg_array = rffi.CArray(self.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
@@ -162,8 +170,7 @@ class LLVM_CPU(AbstractLLCPU):
                                         [self.ValueRef, lltype.Signed],
                                         self.ValueRef, compilation_info=info)
         self.VerifyModule = rffi.llexternal("VerifyModule",
-                                        [self.ModuleRef,
-                                         self.VerifierFailureAction],
+                                            [self.ModuleRef],
                                         self.Bool,
                                         compilation_info=info)
         self.DisposeMessage = rffi.llexternal("LLVMDisposeMessage",
@@ -175,9 +182,6 @@ class LLVM_CPU(AbstractLLCPU):
         self.DiposeModule = rffi.llexternal("LLVMDisposeModule",
                                             [self.ModuleRef], self.Void,
                                             compilation_info=info)
-        self.DisposeContext = rffi.llexternal("LLVMContextDispose",
-                                              [self.ContextRef], self.Void,
-                                              compilation_info=info)
         self.IntType = rffi.llexternal("LLVMIntType",
                                        [lltype.Unsigned], self.TypeRef,
                                        compilation_info=info)
@@ -238,7 +242,7 @@ class LLVM_CPU(AbstractLLCPU):
                                                 compilation_info=info)
         self.InitializeNativeTarget = rffi.llexternal("InitializeNativeTarget",
                                                       [self.Void], self.Bool,
-                                                      compilation_info=info) #following three functions are from our own libwrapper.so for functions defined statically which rffi can't see
+                                                      compilation_info=info)
         self.InitializeNativeAsmPrinter = rffi.llexternal("InitializeNativeAsmPrinter",
                                                           [self.Void], self.Bool,
                                                           compilation_info=info)
@@ -247,16 +251,19 @@ class LLVM_CPU(AbstractLLCPU):
                                                           self.ThreadSafeContextRef],
                                                         self.ThreadSafeModuleRef,
                                                          compilation_info=info)
-
         self.CreateThreadSafeContext = rffi.llexternal("LLVMOrcCreateNewThreadSafeContext",
                                                          [self.Void],
                                                        self.ThreadSafeContextRef,
+                                                         compilation_info=info)
+        self.GetContext = rffi.llexternal("LLVMOrcThreadSafeContextGetContext",
+                                                         [self.ThreadSafeContextRef],
+                                                       self.ContextRef,
                                                          compilation_info=info)
         self.LLJITLookup = rffi.llexternal("LLJITLookup",
                                                          [self.LLJITRef,
                                                           self.Str], self.JITTargetAddress,
                                                          compilation_info=info)
-        self.LLJITAddModule = rffi.llexternal("LLVMOrcLLJITAddLLVMIRModule",
+        self.LLJITAddModule = rffi.llexternal("LLJITAddLLVMIRModule",
                                                          [self.LLJITRef,
                                                           self.JITDylibRef,
                                                           self.ThreadSafeModuleRef],
@@ -291,10 +298,9 @@ class LLVM_CPU(AbstractLLCPU):
                                                           self.JITTargetMachineBuilderRef],
                                                         self.Void,
                                                          compilation_info=info)
-        self.JITTargetMachineBuilderCreateFromTargetMachine = rffi.llexternal("LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine",
-                                                         [self.TargetMachineRef,
-                                                          self.JITTargetMachineBuilderRef],
-                                                        self.Void,
+        self.JITTargetMachineBuilderCreateFromTargetMachine = rffi.llexternal("JITTargetMachineBuilderCreateFromTargetMachine",
+                                                         [self.TargetMachineRef],
+                                                        self.JITTargetMachineBuilderRef,
                                                         compilation_info=info)
         self.GetHostCPUName = rffi.llexternal("LLVMGetHostCPUName",
                                                          [self.Void],
@@ -312,7 +318,7 @@ class LLVM_CPU(AbstractLLCPU):
                                                          [self.TargetRef,
                                                           self.Str, self.Str,
                                                           self.Str, self.Enum,
-                                                          self.Enum],
+                                                          self.Enum, self.Enum],
                                                         self.TargetMachineRef,
                                                         compilation_info=info)
         self.GetTarget = rffi.llexternal("GetTargetFromTriple",
