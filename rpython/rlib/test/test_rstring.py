@@ -336,7 +336,5 @@ def test_hypothesis_search(needle, pieces, by, maxcount):
     input = needle.join(pieces)
     assume(len(input) > 0)
 
-    if needle == '' and pieces == [] and by == '0' and maxcount == 1:
-        import pdb; pdb.set_trace()
     res = replace(input, needle, by, maxcount)
     assert res == input.replace(needle, by, maxcount)
