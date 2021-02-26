@@ -884,6 +884,7 @@ class W_UnicodeObject(W_Root):
             return self
 
         newlength = self._length + replacements * (w_by._length - w_sub._length)
+        assert res is not None
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
