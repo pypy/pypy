@@ -212,12 +212,12 @@ def _rsplit_by(value, by, maxsplit):
 
 @specialize.argtype(0, 1)
 @jit.elidable
-def replace(input, sub, by, maxsplit=-1):
-    return replace_count(input, sub, by, maxsplit)[0]
+def replace(input, sub, by, maxcount=-1):
+    return replace_count(input, sub, by, maxcount)[0]
 
 @specialize.ll_and_arg(4)
 @jit.elidable
-def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
+def replace_count(input, sub, by, maxcount=-1, isutf8=False):
     if isinstance(input, str):
         Builder = StringBuilder
     elif isinstance(input, unicode):
@@ -225,14 +225,14 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
     else:
         assert isinstance(input, list)
         Builder = ByteListBuilder
-    if maxsplit == 0:
+    if maxcount == 0:
         return input, 0
 
 
     if not sub and not isutf8:
         upper = len(input)
-        if maxsplit > 0 and maxsplit < upper + 2:
-            upper = maxsplit - 1
+        if maxcount > 0 and maxcount < upper + 2:
+            upper = maxcount - 1
             assert upper >= 0
 
         try:
@@ -253,8 +253,8 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
 
     elif isinstance(input, str) and len(sub) == 1:
         if len(by) == 1:
-            return replace_count_str_chr_chr(input, sub[0], by[0], maxsplit)
-        return replace_count_str_chr_str(input, sub[0], by, maxsplit)
+            return replace_count_str_chr_chr(input, sub[0], by[0], maxcount)
+        return replace_count_str_chr_str(input, sub[0], by, maxcount)
 
     else:
         # First compute the exact result size
@@ -263,14 +263,14 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
             if isinstance(input, str) and cnt == 0:
                 return input, 0
             if isinstance(input, str):
-                return replace_count_str_str_str(input, sub, by, cnt, maxsplit)
+                return replace_count_str_str_str(input, sub, by, cnt, maxcount)
         else:
             assert isutf8
             from rpython.rlib import rutf8
             cnt = rutf8.codepoints_in_utf8(input) + 1
 
-        if cnt > maxsplit and maxsplit > 0:
-            cnt = maxsplit
+        if cnt > maxcount and maxcount > 0:
+            cnt = maxcount
         diff_len = len(by) - len(sub)
         try:
             result_size = ovfcheck(diff_len * cnt)
@@ -288,27 +288,27 @@ def replace_count(input, sub, by, maxsplit=-1, isutf8=False):
             from rpython.rlib import rutf8
             while True:
                 builder.append(by)
-                maxsplit -= 1
-                if start == len(input) or maxsplit == 0:
+                maxcount -= 1
+                if start == len(input) or maxcount == 0:
                     break
                 next = rutf8.next_codepoint_pos(input, start)
                 builder.append_slice(input, start, next)
                 start = next
         else:
-            while maxsplit != 0:
+            while maxcount != 0:
                 next = find(input, sub, start, len(input))
                 if next < 0:
                     break
                 builder.append_slice(input, start, next)
                 builder.append(by)
                 start = next + sublen
-                maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+                maxcount -= 1   # NB. if it's already < 0, it stays < 0
 
         builder.append_slice(input, start, len(input))
 
     return builder.build(), replacements
 
-def replace_count_str_chr_chr(input, c1, c2, maxsplit):
+def replace_count_str_chr_chr(input, c1, c2, maxcount):
     from rpython.rtyper.annlowlevel import llstr, hlstr
     s = llstr(input)
     length = len(s.chars)
@@ -322,25 +322,25 @@ def replace_count_str_chr_chr(input, c1, c2, maxsplit):
     dst[start] = c2
     count = 1
     start += 1
-    maxsplit -= 1
-    while maxsplit != 0:
+    maxcount -= 1
+    while maxcount != 0:
         next = find(input, c1, start, len(input))
         if next < 0:
             break
         dst[next] = c2
         start = next + 1
-        maxsplit -= 1
+        maxcount -= 1
         count += 1
 
     return hlstr(newstr), count
 
-def replace_count_str_chr_str(input, sub, by, maxsplit):
+def replace_count_str_chr_str(input, sub, by, maxcount):
     from rpython.rtyper.annlowlevel import llstr, hlstr
     cnt = count(input, sub, 0, len(input))
     if cnt == 0:
         return input, 0
-    if maxsplit > 0 and cnt > maxsplit:
-        cnt = maxsplit
+    if maxcount > 0 and cnt > maxcount:
+        cnt = maxcount
     diff_len = len(by) - 1
     try:
         result_size = ovfcheck(diff_len * cnt)
@@ -354,7 +354,7 @@ def replace_count_str_chr_str(input, sub, by, maxsplit):
     newstr = s.malloc(result_size)
     dst = 0
     start = 0
-    while maxsplit != 0:
+    while maxcount != 0:
         next = find(input, sub, start, len(input))
         if next < 0:
             break
@@ -364,16 +364,16 @@ def replace_count_str_chr_str(input, sub, by, maxsplit):
         dst += len(by)
 
         start = next + 1
-        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        maxcount -= 1   # NB. if it's already < 0, it stays < 0
 
     s.copy_contents(s, newstr, start, dst, len(input) - start)
     assert dst - start + len(input) == result_size
     return hlstr(newstr), cnt
 
-def replace_count_str_str_str(input, sub, by, cnt, maxsplit):
+def replace_count_str_str_str(input, sub, by, cnt, maxcount):
     from rpython.rtyper.annlowlevel import llstr, hlstr
-    if cnt > maxsplit and maxsplit > 0:
-        cnt = maxsplit
+    if cnt > maxcount and maxcount > 0:
+        cnt = maxcount
     diff_len = len(by) - len(sub)
     try:
         result_size = ovfcheck(diff_len * cnt)
@@ -389,7 +389,7 @@ def replace_count_str_str_str(input, sub, by, cnt, maxsplit):
     inputlen = len(input)
     dst = 0
     start = 0
-    while maxsplit != 0:
+    while maxcount != 0:
         next = find(input, sub, start, inputlen)
         if next < 0:
             break
@@ -398,7 +398,7 @@ def replace_count_str_str_str(input, sub, by, cnt, maxsplit):
         s.copy_contents(by_ll, newstr, 0, dst, bylen)
         dst += bylen
         start = next + sublen
-        maxsplit -= 1   # NB. if it's already < 0, it stays < 0
+        maxcount -= 1   # NB. if it's already < 0, it stays < 0
     s.copy_contents(s, newstr, start, dst, len(input) - start)
     assert dst - start + len(input) == result_size
     return hlstr(newstr), cnt
