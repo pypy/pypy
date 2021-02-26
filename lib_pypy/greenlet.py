@@ -4,6 +4,13 @@ import _continuation
 __version__ = "0.4.13"
 
 # ____________________________________________________________
+# Constants from greenlet 1.0.0
+
+GREENLET_USE_GC = True
+GREENLET_USE_TRACING = True
+GREENLET_USE_CONTEXT_VARS = False
+
+# ____________________________________________________________
 # Exceptions
 
 class GreenletExit(BaseException):
