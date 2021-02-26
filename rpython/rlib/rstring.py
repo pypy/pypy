@@ -465,20 +465,26 @@ def count(value, other, start, end):
     return _search(value, other, start, end, SEARCH_COUNT)
 
 # -------------- substring searching helper ----------------
-# XXX a lot of code duplication with lltypesystem.rstr :-(
 
 SEARCH_COUNT = 0
 SEARCH_FIND = 1
 SEARCH_RFIND = 2
 
+@specialize.ll()
 def bloom_add(mask, c):
     return mask | (1 << (ord(c) & (BLOOM_WIDTH - 1)))
 
+@specialize.ll()
 def bloom(mask, c):
     return mask & (1 << (ord(c) & (BLOOM_WIDTH - 1)))
 
 @specialize.argtype(0, 1)
 def _search(value, other, start, end, mode):
+    assert value is not None
+    if isinstance(value, unicode):
+        NUL = u'\0'
+    else:
+        NUL = '\0'
     if start < 0:
         start = 0
     if end > len(value):
@@ -535,7 +541,7 @@ def _search(value, other, start, end, mode):
                 if i + m < len(value):
                     c = value[i + m]
                 else:
-                    c = '\0'
+                    c = NUL
                 if not bloom(mask, c):
                     i += m
                 else:
@@ -544,7 +550,7 @@ def _search(value, other, start, end, mode):
                 if i + m < len(value):
                     c = value[i + m]
                 else:
-                    c = '\0'
+                    c = NUL
                 if not bloom(mask, c):
                     i += m
     else:
