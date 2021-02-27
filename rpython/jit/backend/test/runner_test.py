@@ -142,7 +142,7 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_float = None
         self.cpu.done_with_this_frame_descr_void = None
 
-    def tes_compile_linear_loop(self):
+    def test_compile_linear_loop(self):
         loop = parse("""
         [i0]
         i1 = int_add(i0, 1)
