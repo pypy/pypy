@@ -25,10 +25,28 @@ class LLVM_CPU(AbstractLLCPU):
     def setup_once(self):
         pass
 
-    def dispatch_ops(self, args, ops):
-        ssa_vars = {}
-        descrs = {}
-        descr_cnt = 0
+    def dispatch_ops(self, func, inputargs, ops):
+        ssa_vars = {} #map ssa names to LLVM objects
+        self.descrs = [] #save descr objects from branches in order as they're seen
+        desc_cnt = 0
+
+        for c, arg in enumerate(inputargs):
+            name = repr(arg)
+            ssa_vars[name] = self.llvm.GetParam(func, c)
+
+        for op in ops:
+            if op.opnum == 2: #FINISH
+                self.descrs.append(op.getdescr())
+                self.llvm.BuildRet(self.Builder, ssa_vars[op._args[0]]) #TODO: return both arg as well as desc count
+
+            if op.opnum == 31: #INT_ADD
+                args = []
+                for arg in op.getargslist():
+                    args.append(arg.getvalue() if arg.is_constant() else ssa_vars[arg.name])
+                res_name = 'pass'
+                ssa_vars[res_name] = self.llvm.BuildAdd(self.Builder, args[0],
+                                                        args[1], 1, 1,
+                                                        str2constcharp(res_name))
 
     def verify(self):
         verified = self.llvm.VerifyModule(self.Module)
@@ -41,7 +59,9 @@ class LLVM_CPU(AbstractLLCPU):
 
         arg_types = [arg.datatype for arg in inputargs]
         ret_type = lltype.Signed #hard coding for now
-        llvm_arg_types, llvm_args = self.convert_args(inputargs) #need all types in eq LLVM form
+        llvm_arg_types = self.convert_args(inputargs)
+        print(dir(operations[1]))
+        print(operations[1]._args)
 
         signature = self.llvm.FunctionType(self.llvm.IntType(32),
                                       llvm_arg_types,
@@ -52,11 +72,7 @@ class LLVM_CPU(AbstractLLCPU):
         entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
         self.llvm.PositionBuilderAtEnd(self.Builder, entry)
 
-        #this is where an opcode dispatch loop will go
-        i1 = self.llvm.BuildAdd(self.Builder, llvm_args[0],
-                           self.llvm.ConstInt(self.llvm.IntType(32), 1, 1),
-                           str2constcharp("i1"))
-        self.llvm.BuildRet(self.Builder, i1)
+        self.dispatch_ops(trace, inputargs, operations)
 
         if self.debug:
             self.verify()
@@ -73,17 +89,11 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
         arg_types = arg_types_ptr._getobj()
 
-        args = []
         for c, arg in enumerate(inputargs):
-            typ, ref = self.get_input_llvm_type(arg)
+            typ = self.get_llvm_type(arg)
             arg_types.setitem(c, typ)
-            args.append(ref)
-        return (arg_types_ptr, args)
+        return arg_types_ptr
 
-    def get_input_llvm_type(self, val):
+    def get_llvm_type(self, val):
         if val.datatype == 'i':
-            int_type = self.llvm.IntType(val.bytesize)
-            if val.signed == True:
-                return (int_type, self.llvm.ConstInt(int_type, val.getvalue(), 1))
-            else:
-                return (int_type, self.llvm.ConstInt(int_type, val.getvalue(), 0))
+            return self.llvm.IntType(val.bytesize)

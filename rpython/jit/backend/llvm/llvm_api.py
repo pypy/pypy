@@ -263,7 +263,10 @@ class LLVM_API:
                                                         compilation_info=info)
         self.GetTargetTriple = rffi.llexternal("LLVMGetDefaultTargetTriple",
                                                          [self.Void],
-                                                        self.Str,
+                                                         self.Str,
+                                                        compilation_info=info)
+        self.GetParam =  rffi.llexternal("LLVMGetParam",[self.ValueRef, lltype.Signed],
+                                                        self.ValueRef,
                                                         compilation_info=info)
 
     def initialise_jit(self):
