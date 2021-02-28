@@ -342,6 +342,10 @@ class AppTestBytesObject:
         assert 'one'.replace(buffer('o'), buffer('n'), 1) == 'nne'
         assert 'one'.replace(buffer('o'), buffer('n')) == 'nne'
 
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
+
     def test_strip(self):
         s = " a b "
         assert s.strip() == "a b"

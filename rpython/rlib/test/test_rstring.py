@@ -2,9 +2,11 @@ import sys, py
 
 from rpython.rlib.rstring import StringBuilder, UnicodeBuilder, split, rsplit
 from rpython.rlib.rstring import replace, startswith, endswith, replace_count
-from rpython.rlib.rstring import find, rfind, count
+from rpython.rlib.rstring import find, rfind, count, _search, SEARCH_COUNT, SEARCH_FIND
 from rpython.rlib.buffer import StringBuffer
 from rpython.rtyper.test.tool import BaseRtypingTest
+
+from hypothesis import given, strategies as st, assume
 
 def test_split():
     def check_split(value, sub, *args, **kwargs):
@@ -26,6 +28,11 @@ def test_split():
     check_split('a//b//c//d', '//', 2, res=['a', 'b', 'c//d'])
     check_split('endcase test', 'test', res=['endcase ', ''])
     py.test.raises(ValueError, split, 'abc', '')
+
+def test_split_no_occurrence():
+    x = "abc"
+    assert x.split("d")[0] is x
+    assert x.rsplit("d")[0] is x
 
 def test_split_None():
     assert split("") == []
@@ -164,6 +171,12 @@ def test_unicode_replace_overflow():
     with py.test.raises(OverflowError):
         replace(s, u"a", s, len(s) - 10)
 
+def test_replace_no_occurrence():
+    s = "xyz"
+    assert replace(s, "a", "b") is s
+    s = "xyz"
+    assert replace(s, "abc", "b") is s
+
 def test_startswith():
     def check_startswith(value, sub, *args, **kwargs):
         result = kwargs['res']
@@ -240,6 +253,8 @@ def test_search():
     check_search(find, 'one two three', 'ne', 5, 13, res=-1)
     check_search(find, 'one two three', '', 0, 13, res=0)
 
+    check_search(find, '000000p00000000', 'ap', 0,  15, res=-1)
+
     check_search(rfind, 'one two three', 'e', 0, 13, res=12)
     check_search(rfind, 'one two three', 'e', 0, 1, res=-1)
     check_search(rfind, 'one two three', '', 0, 13, res=13)
@@ -293,3 +308,33 @@ class TestTranslates(BaseRtypingTest):
             return res
         res = self.interpret(fn, [])
         assert res
+
+@given(u=st.text(), prefix=st.text(), suffix=st.text())
+def test_hypothesis_search(u, prefix, suffix):
+    prefix = prefix.encode("utf-8")
+    u = u.encode("utf-8")
+    suffix = suffix.encode("utf-8")
+    s = prefix + u + suffix
+
+    index = _search(s, u, 0, len(s), SEARCH_FIND)
+    assert index == s.find(u)
+    assert 0 <= index <= len(prefix)
+
+    index = _search(s, u, len(prefix), len(s) - len(suffix), SEARCH_FIND)
+    assert index == len(prefix)
+
+    count = _search(s, u, 0, len(s), SEARCH_COUNT)
+    assert count == s.count(u)
+    assert 1 <= count
+
+
+@given(st.text(), st.lists(st.text(), min_size=2), st.text(), st.integers(min_value=0, max_value=1000000))
+def test_hypothesis_search(needle, pieces, by, maxcount):
+    needle = needle.encode("utf-8")
+    pieces = [piece.encode("utf-8") for piece in pieces]
+    by = by.encode("utf-8")
+    input = needle.join(pieces)
+    assume(len(input) > 0)
+
+    res = replace(input, needle, by, maxcount)
+    assert res == input.replace(needle, by, maxcount)
