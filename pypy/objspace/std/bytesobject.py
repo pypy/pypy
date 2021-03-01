@@ -651,6 +651,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_add(self, space, w_other):
         return self._StringMethods_descr_add(space, w_other)
 
+        from rpython.rlib.rstring import replace
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
         l = space.listview_bytes(w_list)

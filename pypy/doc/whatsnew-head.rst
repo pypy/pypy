@@ -94,3 +94,8 @@ Refactor the intbound analysis in the JIT
 .. branch: issue-3404
 
 Fix ``PyObject_Format`` for type objects
+
+
+.. branch: string-algorithmic-optimizations
+
+Faster str.replace and bytes.replace implementations.

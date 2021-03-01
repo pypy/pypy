@@ -45,11 +45,15 @@ and clicking the "Request Access" link on the `PyPy group page`. We also run
 coding sprints which are separately announced and are usually announced on `the
 blog`_.
 
+Like any Open Source project, issues should be filed on the `issue tracker`_,
+and `merge requests`_ to fix issues are welcome.
+
 Further Reading: :ref:`Contact <contact>`
 
 .. _the blog: https://morepypy.blogspot.com
 .. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 .. _`PyPy group page`: https://foss.heptapod.net/pypy
+.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
 
 
 Your first contribution

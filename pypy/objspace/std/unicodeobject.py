@@ -1146,8 +1146,11 @@ class W_UnicodeObject(W_Root):
                                               count, isutf8=True)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
+        if type(self) is W_UnicodeObject and replacements == 0:
+            return self
 
         newlength = self._length + replacements * (w_by._length - w_sub._length)
+        assert res is not None
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):

@@ -1329,3 +1329,6 @@ class AppTestUnicodeString:
     with open(os.path.join(os.path.dirname(__file__), 'startswith.py')) as f:
         exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
             f.read(),)
+    def test_replace_no_occurrence(self):
+        x = u"xyz"
+        assert x.replace(u"a", u"b") is x

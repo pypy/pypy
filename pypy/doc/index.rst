@@ -9,7 +9,7 @@ implementation of the Python_ language.
 
 * If you're interested in trying PyPy out, check out the :doc:`installation instructions <install>`.
 
-* If you want to help develop PyPy, please have a look at :doc:`contributing <contributing>`
+* If you want to help develop PyPy, please have a look at :doc:`contributing <contributing>` and at the repo on https://foss.heptapod.net/pypy/pypy
   and get in touch (:ref:`contact`)!
 
 All of the documentation and source code is available under the MIT license,
@@ -102,12 +102,17 @@ Meeting PyPy developers
     anyone interested in the project. Watch out for sprint announcements on
     the `development mailing list`_.
 
+Twitter handle `#pypyproject`_
+
+Watch us on twitch_
+
 .. _#pypy on irc.freenode.net: irc://irc.freenode.net/pypy
 .. _here: https://quodlibet.duckdns.org/irc/pypy/latest.log.html#irc-end
 .. _Development mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 .. _Commit mailing list: https://mail.python.org/mailman/listinfo/pypy-commit
 .. _Development bug/feature tracker: https://foss.heptapod.net/pypy/pypy/issues
-
+.. _`#pypyproject`: https://twitter.com/pypyproject
+.. _twitch: https://www.twitch.tv/pypyproject
 
 Indices and tables
 ==================
