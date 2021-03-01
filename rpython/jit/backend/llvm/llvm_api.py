@@ -98,6 +98,9 @@ class LLVM_API:
         self.BuildRet = rffi.llexternal("LLVMBuildRet",
                                         [self.BuilderRef, self.ValueRef],
                                         self.ValueRef, compilation_info=info)
+        self.GetInsertBlock = rffi.llexternal("LLVMGetInsertBlock",
+                                        [self.BuilderRef],
+                                        self.BasicBlockRef, compilation_info=info)
         self.GetParam = rffi.llexternal("LLVMGetParam",
                                         [self.ValueRef, lltype.Signed],
                                         self.ValueRef, compilation_info=info)
@@ -151,7 +154,7 @@ class LLVM_API:
         self.GetParent = rffi.llexternal("LLVMGetBasicBlockParent",
                                          [self.BasicBlockRef], self.ValueRef,
                                          compilation_info=info)
-        self.AddIncoming = rffi.llexternal("LLVMAddIncoming",
+        self.AddIncoming = rffi.llexternal("AddIncoming",
                                            [self.ValueRef, self.ValueRefPtr,
                                             self.BasicBlockRef,lltype.Unsigned],
                                            self.Void, compilation_info=info)

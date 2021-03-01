@@ -25,28 +25,81 @@ class LLVM_CPU(AbstractLLCPU):
     def setup_once(self):
         pass
 
-    def dispatch_ops(self, func, inputargs, ops):
-        ssa_vars = {} #map ssa names to LLVM objects
+    def dispatch_ops(self, func, entry, inputargs, ops):
+        #FIXME: opnames, enums, desc counts, parse args
+        #TODO: guards
+        self.ssa_vars = {} #map ssa names to LLVM objects
+        self.const_cnt = 0 #counter to help keep llvm's ssa names unique
         self.descrs = [] #save descr objects from branches in order as they're seen
+        descr_phis = {} #map label descrs to phi values
+        descr_blocks = {} #map label descrs to their blocks
         desc_cnt = 0
 
         for c, arg in enumerate(inputargs):
             name = repr(arg)
             ssa_vars[name] = self.llvm.GetParam(func, c)
 
-        for op in ops:
-            if op.opnum == 2: #FINISH
+        for op in ops: #hoping if we use the opcode numbers and else if's this'll optimise to a jump table
+            if op.opnum == 1: #JUMP
+                block = descr_blocks[op.getdescr()]
+                phis = descr_phis[op.getdescr()]
+                c = 0
+
+                for arg, typ, name in self.parse_args(op.getargslist(), ssa_vars):
+                    phi = phis[c]
+                    self.llvm.AddIncoming(phi, arg, block)
+                    c += 1
+
+                self.llvm.BuildBr(self.Builder, block)
+
+            elif op.opnum == 2: #FINISH
                 self.descrs.append(op.getdescr())
                 self.llvm.BuildRet(self.Builder, ssa_vars[op._args[0]]) #TODO: return both arg as well as desc count
 
-            if op.opnum == 31: #INT_ADD
+            elif op.opnum == 4: #LABEL
+                last_block = self.llvm.GetInsertBlock(self.Builder)
+                loop_header = self.llvm.LLVMAppendBasicBlock(func,
+                                                             str2constcharp("loop_header"))
+                br = self.llvm.BuildBr(self.Builder, loop_header) #llvm requires explicit branching even for fall through
+                self.llvm.PositionBuilderAtEnd(self.Builder, loop_header)
+
+                phis = []
+
+                for arg, typ, name in self.parse_args(op.getargslist(), ssa_vars):
+                    phi = self.llvm.BuildPhi(self.Builder, typ,
+                                             str2constcharp(name+"_phi"))
+                    self.llvm.AddIncoming(phi, arg, last_block)
+                    self.ssa_vars[name] = phi #this introduces divergence between our ssa values and llvm's, hope that's not too hacky
+                    phis.append(phi)
+
+                descr_phis[op.getdescr()] = phis
+
+            elif op.opnum == 31: #INT_ADD
                 args = []
                 for arg in op.getargslist():
                     args.append(arg.getvalue() if arg.is_constant() else ssa_vars[arg.name])
                 res_name = 'pass'
-                ssa_vars[res_name] = self.llvm.BuildAdd(self.Builder, args[0],
+                self.ssa_vars[res_name] = self.llvm.BuildAdd(self.Builder, args[0],
                                                         args[1], 1, 1,
                                                         str2constcharp(res_name))
+
+            elif op.opnum == 99: #INT_LE
+                args = []
+                for arg, typ, name in self.parseargs(args, ssa_vars):
+                    args.append(arg)
+                lhs = args[0]
+                rhs = args[1]
+                ssa_vars[op.name] = self.llvm.BuildICmp(self.Builder, enumop,
+                                                        lhs, rhs, str2constcharp(op.name))
+
+    def parse_args(self, args, ssa_vars): #convert opcode args into LLVM objects and types
+        llvm_args = []
+        for arg in args:
+            if arg.is_constant():
+                if arg.datatype == 'i':
+                    if arg.
+                    self.llvm.ConstInt(LLVMIntType(arg.bitsize), arg.getvalue(), )
+        return llvm_args
 
     def verify(self):
         verified = self.llvm.VerifyModule(self.Module)
@@ -69,10 +122,10 @@ class LLVM_CPU(AbstractLLCPU):
         trace = self.llvm.AddFunction(self.Module,
                                  str2constcharp("trace"),
                                  signature)
-        entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
-        self.llvm.PositionBuilderAtEnd(self.Builder, entry)
+        self.entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
+        self.llvm.PositionBuilderAtEnd(self.Builder, self.entry)
 
-        self.dispatch_ops(trace, inputargs, operations)
+        self.dispatch_ops(trace, entry, inputargs, operations)
 
         if self.debug:
             self.verify()

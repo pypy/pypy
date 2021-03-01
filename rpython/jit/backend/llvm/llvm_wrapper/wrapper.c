@@ -49,3 +49,7 @@ LLVMBool VerifyModule(LLVMModuleRef module){
 	char *error = NULL;
 	return LLVMVerifyModule(module, LLVMAbortProcessAction, &error);
 }
+
+void AddIncoming(LLVMValueRef phi, LLVMValueRef val, LLVMBasicBlockRef block){
+	LLVMAddIncoming(phi, &val, &block, 1);
+}
