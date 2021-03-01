@@ -37,7 +37,7 @@ Used in:  Py_SAFE_DOWNCAST
  * integral synonyms.  Only define the ones we actually need.
  */
 
-/* typedefs for some C9X-defined synonyms for integral types. */#ifdef HAVE_LONG_LONG
+/* typedefs for some C9X-defined synonyms for integral types. */
 #ifndef PY_LONG_LONG
 #define PY_LONG_LONG long long
 /* If LLONG_MAX is defined in limits.h, use that. */
