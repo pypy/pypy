@@ -16,12 +16,13 @@ class LLVM_CPU(AbstractLLCPU):
         self.tracker = CPUTotalTracker()
         self.debug = debug
         self.llvm = LLVM_API()
+        self.dispatcher = LLVM_Op_Dispatcher(self)
+        self.assembler = LLVM_Assembler(self)
+
         self.ThreadSafeContext = self.llvm.CreateThreadSafeContext(None)
         self.Context = self.llvm.GetContext(self.ThreadSafeContext)
         self.Module = self.llvm.CreateModule(str2constcharp("hot_code"))
         self.Builder = self.llvm.CreateBuilder(None)
-        self.dispatcher = LLVM_Op_Dispatcher(self)
-        self.assembler = LLVM_Assembler(self)
 
     def setup_once(self):
         pass
@@ -37,8 +38,6 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types = [arg.datatype for arg in inputargs]
         ret_type = lltype.Signed #hard coding for now
         llvm_arg_types = self.convert_args(inputargs)
-        print(dir(operations[1]))
-        print(operations[1]._args)
 
         signature = self.llvm.FunctionType(self.llvm.IntType(32),
                                       llvm_arg_types,

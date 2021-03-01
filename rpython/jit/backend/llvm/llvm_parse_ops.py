@@ -27,7 +27,7 @@ class LLVM_Op_Dispatcher:
             name = repr(arg)
             ssa_vars[name] = self.llvm.GetParam(func, c)
 
-        for op in ops: #hoping if we use the opcode numbers and else if's this'll optimise to a jump table
+        for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
             if op.opnum == 1:
                 self.parse_jump(op)
 
