@@ -44,6 +44,9 @@ class AssemblerARM64(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+                                                    self.mc.get_relative_pos())
 
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
@@ -124,7 +127,10 @@ class AssemblerARM64(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        #self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.inherit_code_from_position(
+                faildescr.adr_jump_offset)
+
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -1019,8 +1025,8 @@ class AssemblerARM64(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        #self.cpu.codemap.register_codemap(
-        #    self.codemap.get_final_bytecode(res, size))
+        self.cpu.codemap.register_codemap(
+            self.codemap_builder.get_final_bytecode(res, size))
         return res
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
@@ -1086,13 +1092,13 @@ class AssemblerARM64(ResOpAssembler):
             pmc.B_ofs_cond(self.mc.currpos() - pos, c.LS)
 
     def _call_header(self):
-        stack_size = (len(r.callee_saved_registers) + 4) * WORD
+        stack_size = (len(r.callee_saved_registers) + 8) * WORD
         self.mc.STP_rr_preindex(r.lr.value, r.fp.value, r.sp.value, -stack_size)
         for i in range(0, len(r.callee_saved_registers), 2):
             self.mc.STP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 4) * WORD)
+                            (i + 8) * WORD)
 
         if self.cpu.translate_support_code:
             self._call_header_vmprof()
@@ -1118,14 +1124,16 @@ class AssemblerARM64(ResOpAssembler):
         offset = cintf.vmprof_tl_stack.getoffset()
         self.mc.LDR_ri(r.ip0.value, tloc.value, offset)
         # stack->next = old
-        self.mc.STR_ri(r.ip0.value, r.sp.value, 0)
+        self.mc.STR_ri(r.ip0.value, r.sp.value, 4 * WORD)
         # stack->value = my sp
-        self.mc.STR_ri(r.sp.value, r.sp.value, WORD)
+        self.mc.ADD_ri(r.ip1.value, r.sp.value, 0)
+        self.mc.STR_ri(r.ip1.value, r.sp.value, (4 + 1) * WORD)
         # stack->kind = VMPROF_JITTED_TAG
         self.mc.gen_load_int(r.ip0.value, VMPROF_JITTED_TAG)
-        self.mc.STR_ri(r.ip0.value, r.sp.value, WORD * 2)
+        self.mc.STR_ri(r.ip0.value, r.sp.value, (4 + 2) * WORD)
         # save in vmprof_tl_stack the new eax
-        self.mc.STR_ri(r.sp.value, tloc.value, offset)
+        self.mc.ADD_ri(r.ip0.value, r.sp.value, 4 * WORD)
+        self.mc.STR_ri(r.ip0.value, tloc.value, offset)
 
 
     def _assemble(self, regalloc, inputargs, operations):
@@ -1367,13 +1375,13 @@ class AssemblerARM64(ResOpAssembler):
             self._call_footer_vmprof(mc)
         # pop all callee saved registers
 
-        stack_size = (len(r.callee_saved_registers) + 4) * WORD
+        stack_size = (len(r.callee_saved_registers) + 8) * WORD
 
         for i in range(0, len(r.callee_saved_registers), 2):
             mc.LDP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 4) * WORD)
+                            (i + 8) * WORD)
         mc.LDP_rr_postindex(r.lr.value, r.fp.value, r.sp.value, stack_size)
 
 
@@ -1384,7 +1392,7 @@ class AssemblerARM64(ResOpAssembler):
         # ip0 = address of pypy_threadlocal_s
         mc.LDR_ri(r.ip0.value, r.sp.value, 3 * WORD)
         # ip1 = (our local vmprof_tl_stack).next
-        mc.LDR_ri(r.ip1.value, r.sp.value, 0)
+        mc.LDR_ri(r.ip1.value, r.sp.value, 4 * WORD)
         # save in vmprof_tl_stack the value eax
         offset = cintf.vmprof_tl_stack.getoffset()
         mc.STR_ri(r.ip1.value, r.ip0.value, offset)
