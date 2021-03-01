@@ -1122,7 +1122,7 @@ class AssemblerARM64(ResOpAssembler):
         # stack->value = my sp
         self.mc.STR_ri(r.sp.value, r.sp.value, WORD)
         # stack->kind = VMPROF_JITTED_TAG
-        self.mc.MOV_ri(r.ip0.value, VMPROF_JITTED_TAG)
+        self.mc.gen_load_int(r.ip0.value, VMPROF_JITTED_TAG)
         self.mc.STR_ri(r.ip0.value, r.sp.value, WORD * 2)
         # save in vmprof_tl_stack the new eax
         self.mc.STR_ri(r.sp.value, tloc.value, offset)
