@@ -44,6 +44,9 @@ class AssemblerARM64(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(looptoken)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.enter_portal_frame(jd_id, unique_id,
+                                                    self.mc.get_relative_pos())
 
         frame_info = self.datablockwrapper.malloc_aligned(
             jitframe.JITFRAMEINFO_SIZE, alignment=WORD)
@@ -124,7 +127,10 @@ class AssemblerARM64(ResOpAssembler):
             assert len(set(inputargs)) == len(inputargs)
 
         self.setup(original_loop_token)
-        #self.codemap.inherit_code_from_position(faildescr.adr_jump_offset)
+        if self.cpu.HAS_CODEMAP:
+            self.codemap_builder.inherit_code_from_position(
+                faildescr.adr_jump_offset)
+
         descr_number = compute_unique_id(faildescr)
         if log:
             operations = self._inject_debugging_code(faildescr, operations,
@@ -1019,8 +1025,8 @@ class AssemblerARM64(ResOpAssembler):
         size = self.mc.get_relative_pos() 
         res = self.mc.materialize(self.cpu, allblocks,
                                    self.cpu.gc_ll_descr.gcrootmap)
-        #self.cpu.codemap.register_codemap(
-        #    self.codemap.get_final_bytecode(res, size))
+        self.cpu.codemap.register_codemap(
+            self.codemap_builder.get_final_bytecode(res, size))
         return res
 
     def patch_trace(self, faildescr, looptoken, bridge_addr, regalloc):
@@ -1086,13 +1092,16 @@ class AssemblerARM64(ResOpAssembler):
             pmc.B_ofs_cond(self.mc.currpos() - pos, c.LS)
 
     def _call_header(self):
-        stack_size = (len(r.callee_saved_registers) + 4) * WORD
+        stack_size = (len(r.callee_saved_registers) + 8) * WORD
         self.mc.STP_rr_preindex(r.lr.value, r.fp.value, r.sp.value, -stack_size)
         for i in range(0, len(r.callee_saved_registers), 2):
             self.mc.STP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 4) * WORD)
+                            (i + 8) * WORD)
+
+        if self.cpu.translate_support_code:
+            self._call_header_vmprof()
         
         self.saved_threadlocal_addr = 3 * WORD   # at offset 3 from location 'sp'
         self.mc.STR_ri(r.x1.value, r.sp.value, 3 * WORD)
@@ -1100,9 +1109,32 @@ class AssemblerARM64(ResOpAssembler):
         # set fp to point to the JITFRAME, passed in argument 'x0'
         self.mc.MOV_rr(r.fp.value, r.x0.value)
         #
+
         gcrootmap = self.cpu.gc_ll_descr.gcrootmap
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_shadowstack_header(gcrootmap)
+
+    def _call_header_vmprof(self):
+        # this uses values 0, 1 and 2 on stack as vmprof next
+        from rpython.rlib.rvmprof.rvmprof import cintf, VMPROF_JITTED_TAG
+
+        # tloc = address of pypy_threadlocal_s
+        tloc = r.x1
+        # ip0 = current value of vmprof_tl_stack
+        offset = cintf.vmprof_tl_stack.getoffset()
+        self.mc.LDR_ri(r.ip0.value, tloc.value, offset)
+        # stack->next = old
+        self.mc.STR_ri(r.ip0.value, r.sp.value, 4 * WORD)
+        # stack->value = my sp
+        self.mc.ADD_ri(r.ip1.value, r.sp.value, 0)
+        self.mc.STR_ri(r.ip1.value, r.sp.value, (4 + 1) * WORD)
+        # stack->kind = VMPROF_JITTED_TAG
+        self.mc.gen_load_int(r.ip0.value, VMPROF_JITTED_TAG)
+        self.mc.STR_ri(r.ip0.value, r.sp.value, (4 + 2) * WORD)
+        # save in vmprof_tl_stack the new eax
+        self.mc.ADD_ri(r.ip0.value, r.sp.value, 4 * WORD)
+        self.mc.STR_ri(r.ip0.value, tloc.value, offset)
+
 
     def _assemble(self, regalloc, inputargs, operations):
         #self.guard_success_cc = c.cond_none
@@ -1339,19 +1371,31 @@ class AssemblerARM64(ResOpAssembler):
         if gcrootmap and gcrootmap.is_shadow_stack:
             self.gen_footer_shadowstack(gcrootmap, mc)
 
+        if self.cpu.translate_support_code:
+            self._call_footer_vmprof(mc)
         # pop all callee saved registers
 
-        stack_size = (len(r.callee_saved_registers) + 4) * WORD
+        stack_size = (len(r.callee_saved_registers) + 8) * WORD
 
         for i in range(0, len(r.callee_saved_registers), 2):
             mc.LDP_rri(r.callee_saved_registers[i].value,
                             r.callee_saved_registers[i + 1].value,
                             r.sp.value,
-                            (i + 4) * WORD)
+                            (i + 8) * WORD)
         mc.LDP_rr_postindex(r.lr.value, r.fp.value, r.sp.value, stack_size)
 
 
         mc.RET_r(r.lr.value)
+
+    def _call_footer_vmprof(self, mc):
+        from rpython.rlib.rvmprof.rvmprof import cintf
+        # ip0 = address of pypy_threadlocal_s
+        mc.LDR_ri(r.ip0.value, r.sp.value, 3 * WORD)
+        # ip1 = (our local vmprof_tl_stack).next
+        mc.LDR_ri(r.ip1.value, r.sp.value, 4 * WORD)
+        # save in vmprof_tl_stack the value eax
+        offset = cintf.vmprof_tl_stack.getoffset()
+        mc.STR_ri(r.ip1.value, r.ip0.value, offset)
 
     def gen_shadowstack_header(self, gcrootmap):
         # we push two words, like the x86 backend does:
