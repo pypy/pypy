@@ -1364,7 +1364,7 @@ class AssemblerARM64(ResOpAssembler):
             self.gen_footer_shadowstack(gcrootmap, mc)
 
         if self.cpu.translate_support_code:
-            self._call_footer_vmprof()
+            self._call_footer_vmprof(mc)
         # pop all callee saved registers
 
         stack_size = (len(r.callee_saved_registers) + 4) * WORD
@@ -1379,15 +1379,15 @@ class AssemblerARM64(ResOpAssembler):
 
         mc.RET_r(r.lr.value)
 
-    def _call_footer_vmprof(self):
+    def _call_footer_vmprof(self, mc):
         from rpython.rlib.rvmprof.rvmprof import cintf
         # ip0 = address of pypy_threadlocal_s
-        self.mc.LDR_ri(r.ip0.value, r.sp.value, 3 * WORD)
+        mc.LDR_ri(r.ip0.value, r.sp.value, 3 * WORD)
         # ip1 = (our local vmprof_tl_stack).next
-        self.mc.LDR_ri(r.ip1.value, r.sp.value, 0)
+        mc.LDR_ri(r.ip1.value, r.sp.value, 0)
         # save in vmprof_tl_stack the value eax
         offset = cintf.vmprof_tl_stack.getoffset()
-        self.mc.STR_ri(r.ip1.value, r.ip0.value, offset)
+        mc.STR_ri(r.ip1.value, r.ip0.value, offset)
 
     def gen_shadowstack_header(self, gcrootmap):
         # we push two words, like the x86 backend does:
