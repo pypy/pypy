@@ -99,3 +99,7 @@ Fix ``PyObject_Format`` for type objects
 .. branch: string-algorithmic-optimizations
 
 Faster str.replace and bytes.replace implementations.
+
+.. branch: vmprof-aarch64
+
+Enable vmprof on arm64

@@ -15,7 +15,10 @@ def get_list_of_files(shared):
     files.remove(shared.join('libbacktrace', 'config-x86_32.h'))
     files.remove(shared.join('libbacktrace', 'config-x86_64.h'))
     files.remove(shared.join('libbacktrace', 'gstdint.h'))
-    files.remove(shared.join('libbacktrace', 'config.h'))
+    try:
+        files.remove(shared.join('libbacktrace', 'config.h'))
+    except ValueError:
+        pass # might not be there
     return files
 
 def test_same_file():

@@ -5,6 +5,7 @@ import shutil
 from rpython.tool.udir import udir
 from rpython.tool.version import rpythonroot
 from rpython.rtyper.lltypesystem import lltype, llmemory, rffi
+from rpython.rtyper.lltypesystem.lloperation import llop
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.rlib import rthread, jit
@@ -19,9 +20,10 @@ class VMProfPlatformUnsupported(Exception):
 IS_SUPPORTED = False
 if sys.platform in ('darwin', 'linux', 'linux2') or sys.platform.startswith('freebsd'):
     try:
-        IS_SUPPORTED = detect_cpu.autodetect().startswith('x86')
+        proc = detect_cpu.autodetect()
+        IS_SUPPORTED = proc.startswith('x86') or proc == 'aarch64'
     except detect_cpu.ProcessorAutodetectError:
-        pass
+        print("PROCESSOR NOT DETECTED, SKIPPING VMPROF")
 
 ROOT = py.path.local(rpythonroot).join('rpython', 'rlib', 'rvmprof')
 SRC = ROOT.join('src')
