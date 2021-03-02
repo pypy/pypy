@@ -217,6 +217,14 @@ class TestUnicodeObject:
             uniupper, = unicodedb.toupper_full(ch)
             assert chr(uniupper) == chr(ch).upper()
 
+    def test_latin1_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "check_ascii", None)
+        w_b = encode_object(self.space, self.space.newutf8("abc", 3), "latin-1", "strict")
+        assert self.space.bytes_w(w_b) == "abc"
+
+
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
         assert u'a' == 'a'

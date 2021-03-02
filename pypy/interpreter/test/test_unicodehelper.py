@@ -11,6 +11,7 @@ from rpython.rlib import rutf8
 
 from pypy.interpreter.unicodehelper import str_decode_utf8
 from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
+from pypy.interpreter.unicodehelper import utf8_encode_latin_1
 from pypy.interpreter import unicodehelper as uh
 from pypy.module._codecs.interp_codecs import CodecState
 
@@ -91,3 +92,9 @@ def test_encode_decimal(space):
     result = uh.unicode_encode_decimal(
         u'12\u1234'.encode('utf8'), 'xmlcharrefreplace', handler)
     assert result == '12&#4660;'
+
+def test_utf8_encode_latin1_ascii_prefix():
+    utf8 = b'abcde\xc3\xa4g'
+    b = utf8_encode_latin_1(utf8, None, None)
+    assert b == b'abcde\xe4g'
+

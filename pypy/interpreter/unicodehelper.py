@@ -155,14 +155,15 @@ def utf8_encode_latin_1(s, errors, errorhandler):
     try:
         rutf8.check_ascii(s)
         return s
-    except rutf8.CheckError:
-        return _utf8_encode_latin_1_slowpath(s, errors, errorhandler)
+    except rutf8.CheckError, e:
+        return _utf8_encode_latin_1_slowpath(s, e.pos, errors, errorhandler)
 
-def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
+def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler):
     size = len(s)
     result = StringBuilder(size)
     index = 0
-    pos = 0
+    result.append_slice(s, 0, first_non_ascii_char)
+    pos = first_non_ascii_char
     while pos < size:
         ch = rutf8.codepoint_at_pos(s, pos)
         if ch <= 0xFF:
