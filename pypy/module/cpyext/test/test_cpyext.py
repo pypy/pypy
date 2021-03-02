@@ -939,3 +939,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              ),
         ])
+
+    def test_consistent_flags(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ('test_optimize', 'METH_NOARGS',
+             '''
+                return PyLong_FromLong(Py_OptimizeFlag);
+             '''),
+        ])
+        # This is intentionally set to -1 by default from missing.c
+        # and should be set to sys.flags.optimize at startup
+        assert mod.test_optimize() == sys.flags.optimize
