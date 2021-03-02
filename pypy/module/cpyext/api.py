@@ -638,7 +638,7 @@ BOOTSTRAP_FUNCTIONS = []
 
 # Keep synchronized with pypy.interpreter.app_main.sys_flags and
 # module.sys.app.sysflags. Synchronized in an init_function
-_flags = (
+_flags = [
     # c name, sys.flags name
     ('Py_DebugFlag', 'debug'),
     ('Py_Py3kWarningFlag', 'py3k_warning'),
@@ -656,7 +656,7 @@ _flags = (
     ('Py_UnicodeFlag', 'unicode'),
     ('Py_BytesWarningFlag', 'bytes_warning'),
     ('Py_HashRandomizationFlag', 'hash_randomization'),
-)
+]
 
 SYMBOLS_C += [c_name for c_name, _ in _flags]
 
