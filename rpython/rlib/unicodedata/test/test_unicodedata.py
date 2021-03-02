@@ -171,3 +171,10 @@ class TestUnicodeData1100(object):
     unicodedb_11_0_0])
 def test_turkish_i(db):
     assert db.tolower_full(0x0130) == [0x69, 0x307]
+
+@pytest.mark.parametrize('db', [
+    unicodedb_3_2_0, unicodedb_5_2_0, unicodedb_6_0_0, unicodedb_6_2_0, unicodedb_8_0_0,
+    unicodedb_11_0_0])
+def test_turkish_i(db):
+    assert db.tolower(ord('A')) == ord('a')
+    assert ord('A') not in db._toupper
