@@ -1197,11 +1197,12 @@ def attach_c_functions(space, eci, prefix):
             include_dirs=include_dirs,
             includes=['Python.h'],
             link_extra = libs,
-           ) 
+           )
+    state.C.flag_setters = {}
     for c_name, attr in _flags:
         _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
-        setattr(state.C, 'set_' + attr, setter)
+        state.C.flag_setters[attr] = setter
         
 
 
@@ -1217,11 +1218,11 @@ def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
 
-@bootstrap_function
+@init_function
 def init_flags(space):
     state = space.fromcache(State)
     for _, attr in _flags:
-        f = getattr(state.C, 'set_' + attr)
+        f = state.C.flag_setters[attr]
         f(space.sys.get_flag(attr))
 
 #_____________________________________________________
