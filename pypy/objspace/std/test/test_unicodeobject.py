@@ -207,6 +207,15 @@ class TestUnicodeObject:
             for end in range(start, len(u)):
                 assert w_u._unicode_sliced_constant_index_jit(space, start, end)._utf8 == u[start: end].encode("utf-8")
 
+    def test_lower_upper_ascii(self):
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        # check that ascii chars tolower/toupper still behave sensibly in the
+        # unicodedb - unlikely to ever change, but well
+        for ch in range(128):
+            unilower, = unicodedb.tolower_full(ch)
+            assert chr(unilower) == chr(ch).lower()
+            uniupper, = unicodedb.toupper_full(ch)
+            assert chr(uniupper) == chr(ch).upper()
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):

@@ -503,11 +503,18 @@ class W_UnicodeObject(W_Root):
         return tformat.formatter_field_name_split()
 
     def descr_lower(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.lower(), len(self._utf8))
+        return self._descr_lower(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _descr_lower(utf8):
+        builder = rutf8.Utf8StringBuilder(len(utf8))
+        for ch in rutf8.Utf8StringIterator(utf8):
             lower = unicodedb.tolower(ch)
             builder.append_code(lower)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_isdecimal(self, space):
         return self._is_generic(space, '_isdecimal')
@@ -650,11 +657,18 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
-        builder = rutf8.Utf8StringBuilder(len(self._utf8))
-        for ch in rutf8.Utf8StringIterator(self._utf8):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.upper(), len(self._utf8))
+        return self._descr_upper(self._utf8)
+
+    @staticmethod
+    @jit.elidable
+    def _descr_upper(utf8):
+        builder = rutf8.Utf8StringBuilder(len(utf8))
+        for ch in rutf8.Utf8StringIterator(utf8):
             ch = unicodedb.toupper(ch)
             builder.append_code(ch)
-        return self.from_utf8builder(builder)
+        return W_UnicodeObject.from_utf8builder(builder)
 
     @unwrap_spec(width=int)
     def descr_zfill(self, space, width):
