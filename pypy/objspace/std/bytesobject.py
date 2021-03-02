@@ -647,11 +647,28 @@ class W_BytesObject(W_AbstractBytesObject):
 
     # auto-conversion fun
 
-    _StringMethods_descr_add = descr_add
-    def descr_add(self, space, w_other):
-        return self._StringMethods_descr_add(space, w_other)
-
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
         from rpython.rlib.rstring import replace
+        # almost copy of StringMethods.descr_replace :-(
+        input = self._value
+
+        sub = self._op_val(space, w_old)
+        by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+        # difference: reuse self if no replacement was done
+        if type(self) is W_BytesObject and res is input:
+            return self
+
+        return self._new(res)
+
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
         l = space.listview_bytes(w_list)
