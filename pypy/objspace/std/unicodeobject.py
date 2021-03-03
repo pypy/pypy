@@ -505,11 +505,11 @@ class W_UnicodeObject(W_Root):
     def descr_lower(self, space):
         if self.is_ascii():
             return space.newutf8(self._utf8.lower(), len(self._utf8))
-        return self._descr_lower(self._utf8)
+        return self._lower_unicode(self._utf8)
 
     @staticmethod
     @jit.elidable
-    def _descr_lower(utf8):
+    def _lower_unicode(utf8):
         builder = rutf8.Utf8StringBuilder(len(utf8))
         for ch in rutf8.Utf8StringIterator(utf8):
             lower = unicodedb.tolower(ch)
@@ -659,11 +659,11 @@ class W_UnicodeObject(W_Root):
     def descr_upper(self, space):
         if self.is_ascii():
             return space.newutf8(self._utf8.upper(), len(self._utf8))
-        return self._descr_upper(self._utf8)
+        return self._upper_unicode(self._utf8)
 
     @staticmethod
     @jit.elidable
-    def _descr_upper(utf8):
+    def _upper_unicode(utf8):
         builder = rutf8.Utf8StringBuilder(len(utf8))
         for ch in rutf8.Utf8StringIterator(utf8):
             ch = unicodedb.toupper(ch)
