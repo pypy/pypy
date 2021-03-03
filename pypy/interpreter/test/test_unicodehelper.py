@@ -98,3 +98,9 @@ def test_utf8_encode_latin1_ascii_prefix():
     b = utf8_encode_latin_1(utf8, None, None)
     assert b == b'abcde\xe4g'
 
+def test_latin1_shortcut_bug(space):
+    state = space.fromcache(CodecState)
+    handler = state.encode_error_handler
+
+    sin = u"a\xac\u1234\u20ac\u8000"
+    assert utf8_encode_latin_1(sin.encode("utf-8"), "backslashreplace", handler) == sin.encode("latin-1", "backslashreplace")
