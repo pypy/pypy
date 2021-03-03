@@ -4,6 +4,10 @@ from pypy.interpreter.unicodehelper import (
     utf8_encode_utf_8, decode_utf8sp, ErrorHandlerError
 )
 
+from pypy.interpreter.unicodehelper import str_decode_utf8
+from pypy.interpreter.unicodehelper import utf8_encode_ascii, str_decode_ascii
+from pypy.interpreter import unicodehelper as uh
+from pypy.module._codecs.interp_codecs import CodecState
 
 class Hit(Exception):
     pass
@@ -64,3 +68,15 @@ def test_decode_utf8sp():
     got = decode_utf8sp(space, "\xf0\x90\x80\x80")
     assert map(ord, got[0].decode('utf8')) == [0x10000]
 
+
+def test_utf8_encode_latin1_ascii_prefix():
+    utf8 = b'abcde\xc3\xa4g'
+    b = utf8_encode_latin_1(utf8, None, None)
+    assert b == b'abcde\xe4g'
+
+def test_latin1_shortcut_bug(space):
+    state = space.fromcache(CodecState)
+    handler = state.encode_error_handler
+
+    sin = u"a\xac\u1234\u20ac\u8000"
+    assert utf8_encode_latin_1(sin.encode("utf-8"), "backslashreplace", handler) == sin.encode("latin-1", "backslashreplace")

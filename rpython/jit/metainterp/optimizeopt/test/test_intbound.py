@@ -5,7 +5,7 @@ from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
 
 special_values = (
     range(-100, 100) +
@@ -485,10 +485,12 @@ def test_invert_bound_random(t1):
     assert b2.contains(~n1)
 
 @given(bound_with_contained_number)
+@example((IntUpperBound(-100), -sys.maxint-1))
 def test_neg_bound_random(t1):
     b1, n1 = t1
     b2 = b1.neg_bound()
     if n1 != -sys.maxint - 1:
         assert b2.contains(-n1)
     else:
-        assert not b2.has_lower
+        assert not b1.has_lower
+        assert not b2.has_upper
