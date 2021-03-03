@@ -631,7 +631,8 @@ SYMBOLS_C = [
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_UseClassExceptionsFlag', 'Py_FrozenFlag', # not part of sys.flags
+    'Py_FrozenFlag', # not part of sys.flags
+    'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
     '_Py_PackageContext', 'PyOS_InputHook',
     '_Py_PackageContext',
 
@@ -657,12 +658,9 @@ BOOTSTRAP_FUNCTIONS = []
 
 # Keep synchronized with pypy.interpreter.app_main.sys_flags and
 # module.sys.app.sysflags. Synchronized in an init_function
-_flags = (
+_flags = [
     # c name, sys.flags name
     ('Py_DebugFlag', 'debug'),
-    ('Py_Py3kWarningFlag', 'py3k_warning'),
-    ('Py_DivisionWarningFlag', 'division_warning'),
-    ('_Py_QnewFlag', 'division_new'),
     ('Py_InspectFlag', 'inspect'),
     ('Py_InteractiveFlag', 'interactive'),
     ('Py_OptimizeFlag', 'optimize'),
@@ -670,12 +668,12 @@ _flags = (
     ('Py_NoUserSiteDirectory', 'no_user_site'),
     ('Py_NoSiteFlag', 'no_site'),
     ('Py_IgnoreEnvironmentFlag', 'ignore_environment'),
-    ('Py_TabcheckFlag', 'tabcheck'),
     ('Py_VerboseFlag', 'verbose'),
-    ('Py_UnicodeFlag', 'unicode'),
     ('Py_BytesWarningFlag', 'bytes_warning'),
+    ('Py_QuietFlag', 'quiet'),
     ('Py_HashRandomizationFlag', 'hash_randomization'),
-)
+    ('Py_IsolatedFlag', 'isolated'),
+]
 
 SYMBOLS_C += [c_name for c_name, _ in _flags]
 
