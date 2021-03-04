@@ -1,4 +1,4 @@
-/* Derived from CPython 3.3.5's operator.c::_tscmp
+/* Derived from CPython 3.7's operator.c::_tscmp
  */
 
 #include <stdlib.h>
@@ -17,7 +17,7 @@ pypy_tscmp(const char *a, const char *b, Signed len_a, Signed len_b)
     volatile const char *left;
     volatile const char *right;
     Signed i;
-    char result;
+    volatile char result;
 
     /* loop count depends on length of b */
     length = len_b;
@@ -54,7 +54,7 @@ pypy_tscmp_wide(const wchar_t *a, const wchar_t *b, Signed len_a, Signed len_b)
     volatile const wchar_t *left;
     volatile const wchar_t *right;
     Signed i;
-    wchar_t result;
+    volatile wchar_t result;
 
     /* loop count depends on length of b */
     length = len_b;
