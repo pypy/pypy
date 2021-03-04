@@ -358,13 +358,17 @@ class W_SRE_Pattern(W_Root):
         ctx = self.make_ctx(w_string)
         last = ctx.ZERO
         while not maxsplit or n < maxsplit:
-            if not searchcontext(space, ctx, self.code):
+            pattern = self.code
+            num_groups = self.num_groups
+            split_jitdriver.jit_merge_point(
+                pattern=pattern, num_groups=num_groups, ctx_type=type(ctx))
+            if not searchcontext(space, ctx, pattern):
                 break
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
             # add groups (if any)
-            fmarks = do_flatten_marks(ctx, self.num_groups)
-            for groupnum in range(self.num_groups):
+            fmarks = do_flatten_marks(ctx, num_groups)
+            for groupnum in range(num_groups):
                 groupstart, groupend = fmarks[groupnum*2], fmarks[groupnum*2+1]
                 splitlist.append(slice_w(space, ctx, groupstart, groupend,
                                          space.w_None))
@@ -518,6 +522,17 @@ class W_SRE_Pattern(W_Root):
                                        space.newlist(sublist_w))
             return w_item, n
 
+def sub_get_printable_location(filter_is_callable, use_builder, filter_type, pattern):
+    s = str(pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+    if use_builder == '\x00':
+        use_builder = 'list'
+    else:
+        use_builder = "%sBuilder" % use_builder
+
+    return "re.sub %s %s %s %s" % (s, filter_is_callable, use_builder, filter_type)
+
 sub_jitdriver = jit.JitDriver(
     reds="""count n last_pos
             ctx w_filter
@@ -525,8 +540,23 @@ sub_jitdriver = jit.JitDriver(
             filter_as_string
             w_string sublist_w
             self""".split(),
-    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"])
+    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"],
+    get_printable_location=sub_get_printable_location,
+    )
 
+
+def split_get_printable_location(num_groups, ctx_type, pattern):
+    s = str(pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+
+    return "re.split %s %s %s" % (s, num_groups, ctx_type)
+
+split_jitdriver = jit.JitDriver(
+    reds="auto",
+    greens=["num_groups", "ctx_type", "pattern"],
+    get_printable_location=split_get_printable_location,
+)
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
                       strbuilder, start, end):
