@@ -1188,7 +1188,11 @@ def attach_c_functions(space, eci, prefix):
     state.C.tuple_new = rffi.llexternal(
         '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
+    do_setters = True
     if we_are_translated():
+        eci_flags = eci
+    elif sys.platform == "win32":
+        do_setters = False
         eci_flags = eci
     else:
         # To get this to work in tests, we need a new eci
@@ -1198,11 +1202,12 @@ def attach_c_functions(space, eci, prefix):
             includes=['Python.h'],
             link_extra = libs,
            )
-    state.C.flag_setters = {}
-    for c_name, attr in _flags:
-        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
-                                         _nowrapper=True, c_type='int')
-        state.C.flag_setters[attr] = setter
+    if do_setters:
+        state.C.flag_setters = {}
+        for c_name, attr in _flags:
+            _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+                                             _nowrapper=True, c_type='int')
+            state.C.flag_setters[attr] = setter
         
 
 
@@ -1220,10 +1225,14 @@ def run_bootstrap_functions(space):
 
 @init_function
 def init_flags(space):
-    state = space.fromcache(State)
-    for _, attr in _flags:
-        f = state.C.flag_setters[attr]
-        f(space.sys.get_flag(attr))
+    do_setters = True
+    if not we_are_translated() and sys.platform == "win32":
+        do_setters = False
+    if do_setters:
+        state = space.fromcache(State)
+        for _, attr in _flags:
+            f = state.C.flag_setters[attr]
+            f(space.sys.get_flag(attr))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
