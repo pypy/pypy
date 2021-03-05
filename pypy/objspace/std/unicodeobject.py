@@ -1461,9 +1461,6 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
 
 def encode_object(space, w_obj, encoding, errors):
     from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
-    if NonConstant(0):
-        W_UnicodeObject("abc", 3) # hack to make test_ztranslation of
-        # _hpy_universal work :(
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
