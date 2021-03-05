@@ -115,6 +115,23 @@ class TestUnicodeObject:
             for end in range(start, len(u)):
                 assert w_u._unicode_sliced_constant_index_jit(space, start, end)._utf8 == u[start: end].encode("utf-8")
 
+    def test_lower_upper_ascii(self):
+        from pypy.module.unicodedata.interp_ucd import unicodedb
+        # check that ascii chars tolower/toupper still behave sensibly in the
+        # unicodedb - unlikely to ever change, but well
+        for ch in range(128):
+            unilower, = unicodedb.tolower_full(ch)
+            assert chr(unilower) == chr(ch).lower()
+            uniupper, = unicodedb.toupper_full(ch)
+            assert chr(uniupper) == chr(ch).upper()
+
+    def test_latin1_encode_shortcut_ascii(self, monkeypatch):
+        from rpython.rlib import rutf8
+        from pypy.objspace.std.unicodeobject import encode_object
+        monkeypatch.setattr(rutf8, "check_ascii", None)
+        w_b = encode_object(self.space, self.space.newutf8("abc", 3), "latin-1", "strict")
+        assert self.space.bytes_w(w_b) == "abc"
+
 
 class AppTestUnicodeStringStdOnly:
     def test_compares(self):
@@ -1329,3 +1346,6 @@ class AppTestUnicodeString:
     with open(os.path.join(os.path.dirname(__file__), 'startswith.py')) as f:
         exec 'def test_startswith_endswith_external(self): """%s"""\n' % (
             f.read(),)
+    def test_replace_no_occurrence(self):
+        x = u"xyz"
+        assert x.replace(u"a", u"b") is x

@@ -1574,6 +1574,8 @@ def _run_applevel_hook(space, w_callable):
         e.write_unraisable(space, "fork hook")
 
 def run_applevel_fork_hooks(space, l_w, reverse=False):
+    if len(l_w) == 0:
+        return
     if not reverse:
         for i in range(len(l_w)): # callable can append to the list
             _run_applevel_hook(space, l_w[i])

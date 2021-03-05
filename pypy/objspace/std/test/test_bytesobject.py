@@ -349,6 +349,10 @@ class AppTestBytesObject:
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
 
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
+
     def test_strip(self):
         s = b" a b "
         assert s.strip() == b"a b"

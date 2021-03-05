@@ -399,6 +399,8 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     return stream
 
 
+# Keep synchronized with pypy.module.sys.app.sysflags and
+# pypy.module.cpyext._flags
 sys_flags = (
     "debug",
     "inspect",

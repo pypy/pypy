@@ -181,16 +181,16 @@ class TestString(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_remove_duplicate_method_calls(self):
+    def test_remove_duplicate_method_calls_bytes(self):
         def main(n):
             lst = []
             for i in range(n):
-                s = 'Hello %d' % i
+                s = b'Hello %d' % i
                 t = s.lower()   # ID: callone
                 u = s.lower()   # ID: calltwo
                 lst.append(t)
                 lst.append(u)
-            return len(','.join(lst))
+            return len(b','.join(lst))
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
@@ -198,7 +198,6 @@ class TestString(BaseTestPyPyC):
         assert loop.match_by_id('callone', '''
             p114 = call_r(ConstClass(_lower_unicode), p113, descr=<Callr . r EF=4>)
             guard_no_exception(descr=...)
-            guard_nonnull_class(p114, ConstClass(W_UnicodeObject), descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 

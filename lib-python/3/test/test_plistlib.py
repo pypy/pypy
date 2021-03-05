@@ -3,6 +3,7 @@ import copy
 import operator
 import pickle
 import struct
+import struct
 import unittest
 import plistlib
 import os
@@ -810,31 +811,6 @@ class TestPlistlib(unittest.TestCase):
                 data = bom + data.decode('utf-8').encode(encoding)
                 pl2 = plistlib.loads(data)
                 self.assertEqual(dict(pl), dict(pl2))
-
-    def test_dump_invalid_format(self):
-        with self.assertRaises(ValueError):
-            plistlib.dumps({}, fmt="blah")
-
-    def test_load_invalid_file(self):
-        with self.assertRaises(plistlib.InvalidFileException):
-            plistlib.loads(b"these are not plist file contents")
-
-    def test_modified_uid_negative(self):
-        neg_uid = UID(1)
-        neg_uid.data = -1  # dodge the negative check in the constructor
-        with self.assertRaises(ValueError):
-            plistlib.dumps(neg_uid, fmt=plistlib.FMT_BINARY)
-
-    def test_modified_uid_huge(self):
-        huge_uid = UID(1)
-        huge_uid.data = 2 ** 64  # dodge the size check in the constructor
-        with self.assertRaises(OverflowError):
-            plistlib.dumps(huge_uid, fmt=plistlib.FMT_BINARY)
-
-    def test_xml_plist_with_entity_decl(self):
-        with self.assertRaisesRegex(plistlib.InvalidFileException,
-                                    "XML entity declarations are not supported"):
-            plistlib.loads(XML_PLIST_WITH_ENTITY, fmt=plistlib.FMT_XML)
 
 
 class TestBinaryPlistlib(unittest.TestCase):

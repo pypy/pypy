@@ -177,10 +177,10 @@ if _PYTHON_BUILD:
 def _subst_vars(s, local_vars):
     try:
         return s.format(**local_vars)
-    except KeyError:
+    except KeyError as var:
         try:
             return s.format(**os.environ)
-        except KeyError as var:
+        except KeyError:
             raise AttributeError('{%s}' % var) from None
 
 def _extend_dict(target_dict, other_dict):
@@ -450,6 +450,7 @@ def _generate_posix_vars():
 
 def _init_posix(vars):
     """Initialize the module as appropriate for POSIX systems."""
+    # _sysconfigdata is generated at build time, see _generate_posix_vars()
     name = _get_sysconfigdata_name()
     _temp = __import__(name, globals(), locals(), ['build_time_vars'], 0)
     build_time_vars = _temp.build_time_vars
@@ -467,7 +468,6 @@ def _init_non_posix(vars):
     vars['VERSION'] = _PY_VERSION_SHORT_NO_DOT
     vars['BINDIR'] = os.path.dirname(_safe_realpath(sys.executable))
     # pypy: give us control over the ABI tag in a wheel name
-    import _imp
     so_ext = _imp.extension_suffixes()[0]
     vars['SOABI']= '-'.join(so_ext.split('.')[1].split('-')[:2])
 
@@ -705,7 +705,8 @@ def get_platform():
             machine += ".%s" % bitness[sys.maxsize]
         # fall through to standard osname-release-machine representation
     elif osname[:3] == "aix":
-        return "%s-%s.%s" % (osname, version, release)
+        from _aix_support import aix_platform
+        return aix_platform()
     elif osname[:6] == "cygwin":
         osname = "cygwin"
         import re

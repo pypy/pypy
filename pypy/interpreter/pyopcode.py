@@ -613,8 +613,6 @@ class __extend__(pyframe.PyFrame):
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
-    BINARY_DIVIDE       = binaryoperation("div")
-    # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
     BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")

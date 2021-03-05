@@ -85,3 +85,21 @@ Backport changes to ``_ctypes`` needed for maxos BigSur from py3.7
 Updated the API to the latest cppyy_backend (1.14.2), made all types used
 consistent to avoid void*/long casting problems on Win64, and added several
 new "builtin" types (wide chars, complex, etc.).
+
+
+.. branch: intbound-improvements-3
+
+Refactor the intbound analysis in the JIT
+
+.. branch: issue-3404
+
+Fix ``PyObject_Format`` for type objects
+
+
+.. branch: string-algorithmic-optimizations
+
+Faster str.replace and bytes.replace implementations.
+
+.. branch: vmprof-aarch64
+
+Enable vmprof on arm64

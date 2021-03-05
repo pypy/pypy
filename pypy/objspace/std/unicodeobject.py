@@ -5,6 +5,7 @@ import sys
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
+from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, replace_count, startswith, endswith)
@@ -742,6 +743,8 @@ class W_UnicodeObject(W_Root):
         return W_UnicodeObject.from_utf8builder(builder)
 
     def descr_lower(self, space):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.lower(), len(self._utf8))
         return W_UnicodeObject._lower_unicode(self._utf8)
 
     @staticmethod
@@ -914,6 +917,8 @@ class W_UnicodeObject(W_Root):
         return space.newlist(strs_w)
 
     def descr_upper(self, space):
+        if self.is_ascii():
+            return space.newutf8(self._utf8.upper(), len(self._utf8))
         return W_UnicodeObject._upper_unicode(self._utf8)
 
     @staticmethod
@@ -1146,8 +1151,11 @@ class W_UnicodeObject(W_Root):
                                               count, isutf8=True)
         except OverflowError:
             raise oefmt(space.w_OverflowError, "replace string is too long")
+        if type(self) is W_UnicodeObject and replacements == 0:
+            return self
 
         newlength = self._length + replacements * (w_by._length - w_sub._length)
+        assert res is not None
         return W_UnicodeObject(res, newlength)
 
     def descr_mul(self, space, w_times):
@@ -1465,6 +1473,9 @@ def encode_object(space, w_obj, encoding, errors):
                     a.pos, a.pos + 1)
                 assert False, "always raises"
             return space.newbytes(utf8)
+        if ((encoding == "latin1" or encoding == "latin-1") and
+                isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+            return space.newbytes(w_obj._utf8)
         elif encoding == 'ascii':
             try:
                 rutf8.check_ascii(utf8)

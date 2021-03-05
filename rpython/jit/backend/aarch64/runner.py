@@ -14,6 +14,7 @@ class CPU_ARM64(AbstractLLCPU):
     gen_regs = r.all_regs
     float_regs = VFPRegisterManager.all_regs
     supports_floats = True
+    HAS_CODEMAP = True
 
     from rpython.jit.backend.aarch64.arch import JITFRAME_FIXED_SIZE
 
@@ -29,6 +30,8 @@ class CPU_ARM64(AbstractLLCPU):
 
     def setup_once(self):
         self.assembler.setup_once()
+        if self.HAS_CODEMAP:
+            self.codemap.setup()
 
     def compile_bridge(self, faildescr, inputargs, operations,
                        original_loop_token, log=True, logger=None):
