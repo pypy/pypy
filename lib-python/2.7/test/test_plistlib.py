@@ -228,11 +228,5 @@ class TestPlistlib(unittest.TestCase):
 def test_main():
     test_support.run_unittest(TestPlistlib)
 
-    def test_xml_plist_with_entity_decl(self):
-        with self.assertRaisesRegexp(ValueError,
-                                     "XML entity declarations are not supported"):
-            plistlib.readPlistFromString(XML_PLIST_WITH_ENTITY)
-
-
 if __name__ == '__main__':
     test_main()
