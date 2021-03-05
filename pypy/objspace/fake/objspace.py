@@ -72,7 +72,7 @@ class W_MyListObj(W_MyObject):
     def append(self, w_other):
         pass
 
-class W_UnicodeOjbect(W_MyObject):
+class W_UnicodeObject(W_MyObject):
     _length = 21
     _utf8 = 'foobar'
 
@@ -257,14 +257,14 @@ class FakeObjSpace(ObjSpace):
         return w_some_obj()
 
     def newutf8(self, x, l):
-        return w_some_obj()
+        return W_UnicodeObject()
 
     def eq_w(self, obj1, obj2):
         return NonConstant(True)
 
     @specialize.argtype(1)
     def newtext(self, x, lgt=-1):
-        return W_UnicodeOjbect()
+        return W_UnicodeObject()
     newtext_or_none = newtext
     newfilename = newtext
 

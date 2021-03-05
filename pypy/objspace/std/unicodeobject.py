@@ -5,6 +5,7 @@ import sys
 from rpython.rlib.objectmodel import (
     compute_hash, compute_unique_id, import_from_mixin, always_inline,
     enforceargs, newlist_hint, specialize, we_are_translated)
+from rpython.rlib.nonconst import NonConstant
 from rpython.rlib.rarithmetic import ovfcheck, r_uint
 from rpython.rlib.rstring import (
     StringBuilder, split, rsplit, replace_count, startswith, endswith)
@@ -1460,6 +1461,9 @@ def get_encoding_and_errors(space, w_encoding, w_errors):
 
 def encode_object(space, w_obj, encoding, errors):
     from pypy.module._codecs.interp_codecs import _call_codec, lookup_text_codec
+    if NonConstant(0):
+        W_UnicodeObject("abc", 3) # hack to make test_ztranslation of
+        # _hpy_universal work :(
     if errors is None or errors == 'strict':
         # fast paths
         utf8 = space.utf8_w(w_obj)
