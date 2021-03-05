@@ -33,6 +33,9 @@ class AppTestMemoryView(object):
         assert v.shape == ()
         assert v.strides == ()
         assert v.tobytes() == b'x'
+        assert v.contiguous
+        assert v.c_contiguous
+        assert v.f_contiguous
         #assert v[()] == b'x'[0]
 
     def test_rw(self):
@@ -57,6 +60,9 @@ class AppTestMemoryView(object):
         v[::2] = b'ABC'
         assert data == bytearray(eval("b'AbBeCg'"))
         w = v[::2]
+        assert not w.contiguous
+        assert not w.c_contiguous
+        assert not w.f_contiguous
         assert w.tobytes() == bytes(w) == b'ABC'
         w = v[::-2]
         assert w.tobytes() == bytes(w) == b'geb'

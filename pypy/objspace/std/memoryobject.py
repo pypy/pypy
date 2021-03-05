@@ -417,7 +417,7 @@ class W_MemoryView(W_Root):
         view = self.view
         ndim = 1
 
-        if not memory_view_c_contiguous(space, self.flags):
+        if not memory_view_c_contiguous(self.flags):
             raise oefmt(space.w_TypeError,
                         "memoryview: casts are restricted"
                         " to C-contiguous views")
@@ -554,10 +554,20 @@ class W_MemoryView(W_Root):
         self._check_released(space)
         return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength())
 
+    def w_get_c_contiguous(self, space):
+        return space.newbool(memory_view_c_contiguous(self.flags))
+
+    def w_get_f_contiguous(self, space):
+        return space.newbool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_FORTRAN))
+
+    def w_get_contiguous(self, space):
+        return space.newbool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C|MEMORYVIEW_FORTRAN))
+
+
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
-def memory_view_c_contiguous(space, flags):
+def memory_view_c_contiguous(flags):
     return flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C)
 
 W_MemoryView.typedef = TypeDef(
@@ -590,6 +600,9 @@ Create a new memoryview object which references the given object.
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
     suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
     obj         = GetSetProperty(W_MemoryView.w_get_obj),
+    c_contiguous= GetSetProperty(W_MemoryView.w_get_c_contiguous),
+    f_contiguous= GetSetProperty(W_MemoryView.w_get_f_contiguous),
+    contiguous  = GetSetProperty(W_MemoryView.w_get_contiguous),
     _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False
