@@ -63,16 +63,17 @@ class LLVM_CPU(AbstractLLCPU):
         lltype.free(llvm_arg_types, flavor='raw')
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
-        #patch_block = self.dispatcher.bailout_blocks[faildescr]
-        #instr = self.llvm.GetFirstInstruction(patch_block)
-        #self.llvm.EraseInstruction(instr)
-        #self.llvm.PositionBuilderAtEnd(self.Builder, patch_block)
+        dispatcher = looptoken.dispatcher
+        patch_block = dispatcher.bailout_blocks[faildescr]
+        instr = self.llvm.GetFirstInstruction(patch_block)
+        self.llvm.EraseInstruction(instr)
+        self.llvm.PositionBuilderAtEnd(dispatcher.builder, patch_block)
+        dispatcher.dispatch_ops(inputargs, operations, is_bridge=True)
 
-        #self.dispatcher.dispatch_ops()
-        pass
-    """
-    look up faildescr's bailout block, set builder to top of block, erase ret instruction, parse as normal - bridge is now patched :)
-    """
+        if self.debug:
+            self.verify()
+
+        self.assembler.jit_compile(dispatcher.module, looptoken, inputargs)
 
     def convert_args(self, inputargs):
         arg_array = rffi.CArray(self.llvm.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
