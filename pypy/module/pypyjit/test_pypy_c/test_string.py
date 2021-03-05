@@ -190,7 +190,7 @@ class TestString(BaseTestPyPyC):
                 u = s.lower()   # ID: calltwo
                 lst.append(t)
                 lst.append(u)
-            return len(','.join(lst))
+            return len(b','.join(lst))
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
