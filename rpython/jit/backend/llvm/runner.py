@@ -3,9 +3,9 @@ from rpython.jit.backend.model import CompiledLoopToken, CPUTotalTracker
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger
-from rpython.jit.backend.llvm.llvm_api import LLVM_API
-from rpython.jit.backend.llvm.llvm_parse_ops import LLVM_Op_Dispatcher
-from rpython.jit.backend.llvm.assembler import LLVM_Assembler
+from rpython.jit.backend.llvm.llvm_api import LLVMAPI
+from rpython.jit.backend.llvm.llvm_parse_ops import LLVMOpDispatcher
+from rpython.jit.backend.llvm.assembler import LLVMAssembler
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None,
@@ -15,9 +15,9 @@ class LLVM_CPU(AbstractLLCPU):
 
         self.tracker = CPUTotalTracker()
         self.debug = debug
-        self.llvm = LLVM_API()
-        self.dispatcher = LLVM_Op_Dispatcher(self)
-        self.assembler = LLVM_Assembler(self)
+        self.llvm = LLVMAPI()
+        self.dispatcher = LLVMOpDispatcher(self)
+        self.assembler = LLVMAssembler(self)
 
         self.ThreadSafeContext = self.llvm.CreateThreadSafeContext(None)
         self.Context = self.llvm.GetContext(self.ThreadSafeContext)
@@ -45,20 +45,26 @@ class LLVM_CPU(AbstractLLCPU):
         trace = self.llvm.AddFunction(self.Module,
                                  str2constcharp("trace"),
                                  signature)
-        self.entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
-        self.llvm.PositionBuilderAtEnd(self.Builder, self.entry)
+        entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
+        self.llvm.PositionBuilderAtEnd(self.Builder, entry)
 
-        self.dispatcher.dispatch_ops(trace, entry, inputargs, operations)
+        self.dispatcher.dispatch_ops(trace, inputargs, operations)
 
         if self.debug:
             self.verify()
 
-        self.assembler.JIT_compile(self.Module, looptoken, inputargs) #set compiled loop token and func addr
+        self.assembler.jit_compile(self.Module, looptoken, inputargs) #set compiled loop token and func addr
 
         #FUNC_PTR = lltype.Ptr(lltype.FuncType(arg_types, ret_type))
         #func = rffi.cast(FUNC_PTR, addr)
         #self.execute_token = self.make_executable_token(arg_types)
         lltype.free(llvm_arg_types, flavor='raw')
+
+    def compile_bridge(self, faildescr, inputargs, operations, looptoken):
+        pass
+    """
+    look up faildescr's bailout block, set builder to top of block, erase ret instruction, parse as normal - bridge is now patched :)
+    """
 
     def convert_args(self, inputargs):
         arg_array = rffi.CArray(self.llvm.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array

@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 
-class LLVM_API:
+class LLVMAPI:
     def __init__(self, debug=False):
         self.debug = debug #disable in prod to prevent castings and comparisons of returned values
         self.define_types()
