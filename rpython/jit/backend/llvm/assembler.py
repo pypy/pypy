@@ -12,13 +12,12 @@ class LLVMAssembler(BaseAssembler):
     def jit_compile(self, module, looptoken, inputargs):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
 
-        #CompiledLoopToken doesn't have this, and several other, attritubtes that I see the x86 backend define, not sure how it's doing that
-        #if self.debug:
-        #    clt._debug_nbargs = len(inputargs)
+        if self.debug:
+            clt._debug_nbargs = len(inputargs)
 
         looptoken.compiled_loop_token = clt
         thread_safe_module = self.llvm.CreateThreadSafeModule(module,
-                                                            self.cpu.ThreadSafeContext)
+                                                              self.cpu.thread_safe_context)
         if self.debug and thread_safe_module._cast_to_int() == 0:
             raise Exception("TSM is Null")
 

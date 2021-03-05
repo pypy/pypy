@@ -271,7 +271,19 @@ class LLVMAPI:
         self.GetParam =  rffi.llexternal("LLVMGetParam",[self.ValueRef, lltype.Signed],
                                                         self.ValueRef,
                                                         compilation_info=info)
-
+        self.PositionBuilderBefore =  rffi.llexternal("LLVMPositionBuilderBefore",
+                                                      [self.BuilderRef,
+                                                       self.BasicBlockRef],
+                                                      self.Void,
+                                                        compilation_info=info)
+        self.EraseInstruction =  rffi.llexternal("LLVMInstructionEraseFromParent",
+                                                 [self.ValueRef],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.GetFirstInstruction =  rffi.llexternal("LLVMGetFirstInstruction",
+                                                 [self.BasicBlockRef],
+                                                 self.ValueRef,
+                                                 compilation_info=info)
     def initialise_jit(self):
         if self.debug:
             if self.InitializeNativeTarget(None): #returns 0 on success

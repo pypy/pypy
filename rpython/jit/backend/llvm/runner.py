@@ -16,13 +16,9 @@ class LLVM_CPU(AbstractLLCPU):
         self.tracker = CPUTotalTracker()
         self.debug = debug
         self.llvm = LLVMAPI()
-        self.dispatcher = LLVMOpDispatcher(self)
         self.assembler = LLVMAssembler(self)
 
-        self.ThreadSafeContext = self.llvm.CreateThreadSafeContext(None)
-        self.Context = self.llvm.GetContext(self.ThreadSafeContext)
-        self.Module = self.llvm.CreateModule(str2constcharp("hot_code"))
-        self.Builder = self.llvm.CreateBuilder(None)
+        self.thread_safe_context = self.llvm.CreateThreadSafeContext(None)
 
     def setup_once(self):
         pass
@@ -35,6 +31,8 @@ class LLVM_CPU(AbstractLLCPU):
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
 
+        module = self.llvm.CreateModule(str2constcharp(name))
+        builder = self.llvm.CreateBuilder(None)
         arg_types = [arg.datatype for arg in inputargs]
         ret_type = lltype.Signed #hard coding for now
         llvm_arg_types = self.convert_args(inputargs)
@@ -42,18 +40,22 @@ class LLVM_CPU(AbstractLLCPU):
         signature = self.llvm.FunctionType(self.llvm.IntType(32),
                                       llvm_arg_types,
                                       len(inputargs), 0)
-        trace = self.llvm.AddFunction(self.Module,
+        trace = self.llvm.AddFunction(module,
                                  str2constcharp("trace"),
                                  signature)
         entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
-        self.llvm.PositionBuilderAtEnd(self.Builder, entry)
+        self.llvm.PositionBuilderAtEnd(builder, entry)
 
-        self.dispatcher.dispatch_ops(trace, inputargs, operations)
+        dispatcher = LLVMOpDispatcher(self, builder)
+        looptoken.dispathcer = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for use by bridges
+
+        dispatcher.func = trace
+        dispatcher.dispatch_ops(inputargs, operations)
 
         if self.debug:
             self.verify()
 
-        self.assembler.jit_compile(self.Module, looptoken, inputargs) #set compiled loop token and func addr
+        self.assembler.jit_compile(module, looptoken, inputargs) #set compiled loop token and func addr
 
         #FUNC_PTR = lltype.Ptr(lltype.FuncType(arg_types, ret_type))
         #func = rffi.cast(FUNC_PTR, addr)
@@ -61,6 +63,12 @@ class LLVM_CPU(AbstractLLCPU):
         lltype.free(llvm_arg_types, flavor='raw')
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
+        #patch_block = self.dispatcher.bailout_blocks[faildescr]
+        #instr = self.llvm.GetFirstInstruction(patch_block)
+        #self.llvm.EraseInstruction(instr)
+        #self.llvm.PositionBuilderAtEnd(self.Builder, patch_block)
+
+        #self.dispatcher.dispatch_ops()
         pass
     """
     look up faildescr's bailout block, set builder to top of block, erase ret instruction, parse as normal - bridge is now patched :)
