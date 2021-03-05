@@ -84,3 +84,7 @@ Port map-improvements to py3.7
 .. branch: win64-hpy
 
 Enable _hpy_universal on win64
+
+.. branch: vendor/stdlib-3.7
+
+Update stdlib to 3.7.10
