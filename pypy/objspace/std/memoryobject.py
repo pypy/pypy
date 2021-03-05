@@ -555,13 +555,13 @@ class W_MemoryView(W_Root):
         return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength())
 
     def w_get_c_contiguous(self, space):
-        return space.newbool(memory_view_c_contiguous(self.flags))
+        return space.newbool(bool(memory_view_c_contiguous(self.flags)))
 
     def w_get_f_contiguous(self, space):
-        return space.newbool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_FORTRAN))
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_FORTRAN)))
 
     def w_get_contiguous(self, space):
-        return space.newbool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C|MEMORYVIEW_FORTRAN))
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C|MEMORYVIEW_FORTRAN)))
 
 
 def is_byte_format(char):
