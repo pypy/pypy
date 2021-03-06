@@ -15,3 +15,10 @@ def test_julians_weird_test():
 
     # check that the implementation doesn't use *=
     assert math.prod([1, 2], start=A())
+
+def test_more_weird():
+    start = [4]
+    assert math.prod([2], start=start) == [4, 4]
+    assert start == [4]
+    start =  object()
+    assert math.prod([], start=start) is start
