@@ -17,25 +17,25 @@ class LLVM_CPU(AbstractLLCPU):
         self.debug = debug
         self.llvm = LLVMAPI()
         self.assembler = LLVMAssembler(self)
-
-        self.thread_safe_context = self.llvm.CreateThreadSafeContext(None)
+        self.context = self.llvm.CreateThreadSafeContext(None)
 
     def setup_once(self):
         pass
 
-    def verify(self):
-        verified = self.llvm.VerifyModule(self.Module)
+    def verify(self, module):
+        verified = self.llvm.VerifyModule(module)
         if verified: #returns 0 on success
             raise Exception("Malformed IR")
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
-
         module = self.llvm.CreateModule(str2constcharp(name))
         builder = self.llvm.CreateBuilder(None)
         arg_types = [arg.datatype for arg in inputargs]
         ret_type = lltype.Signed #hard coding for now
         llvm_arg_types = self.convert_args(inputargs)
+        print(operations[1])
+        print(operations[1].getarglist()[0].getvalue())
 
         signature = self.llvm.FunctionType(self.llvm.IntType(32),
                                       llvm_arg_types,
@@ -46,14 +46,13 @@ class LLVM_CPU(AbstractLLCPU):
         entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
         self.llvm.PositionBuilderAtEnd(builder, entry)
 
-        dispatcher = LLVMOpDispatcher(self, builder)
-        looptoken.dispathcer = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for use by bridges
-
+        dispatcher = LLVMOpDispatcher(self, builder, module)
+        looptoken.dispathcer = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for bridges
         dispatcher.func = trace
         dispatcher.dispatch_ops(inputargs, operations)
 
         if self.debug:
-            self.verify()
+            self.verify(module)
 
         self.assembler.jit_compile(module, looptoken, inputargs) #set compiled loop token and func addr
 
@@ -63,6 +62,9 @@ class LLVM_CPU(AbstractLLCPU):
         lltype.free(llvm_arg_types, flavor='raw')
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
+        print(inputargs[0])
+        print(faildescr)
+        print(dir(faildescr))
         dispatcher = looptoken.dispatcher
         patch_block = dispatcher.bailout_blocks[faildescr]
         instr = self.llvm.GetFirstInstruction(patch_block)
@@ -71,7 +73,7 @@ class LLVM_CPU(AbstractLLCPU):
         dispatcher.dispatch_ops(inputargs, operations, is_bridge=True)
 
         if self.debug:
-            self.verify()
+            self.verify(dispatcher.module)
 
         self.assembler.jit_compile(dispatcher.module, looptoken, inputargs)
 

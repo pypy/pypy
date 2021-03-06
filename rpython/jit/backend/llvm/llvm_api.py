@@ -284,6 +284,15 @@ class LLVMAPI:
                                                  [self.BasicBlockRef],
                                                  self.ValueRef,
                                                  compilation_info=info)
+        self.CloneModule =  rffi.llexternal("LLVMCloneModule",
+                                            [self.ModuleRef],
+                                            self.ModuleRef,
+                                            compilation_info=info)
+        self.TypeOf =  rffi.llexternal("LLVMTypeOf",
+                                      [self.ValueRef],
+                                      self.TypeRef,
+                                      compilation_info=info)
+
     def initialise_jit(self):
         if self.debug:
             if self.InitializeNativeTarget(None): #returns 0 on success

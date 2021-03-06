@@ -11,13 +11,14 @@ class LLVMAssembler(BaseAssembler):
 
     def jit_compile(self, module, looptoken, inputargs):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
-
         if self.debug:
             clt._debug_nbargs = len(inputargs)
-
         looptoken.compiled_loop_token = clt
-        thread_safe_module = self.llvm.CreateThreadSafeModule(module,
-                                                              self.cpu.thread_safe_context)
+
+        module_copy = self.llvm.CloneModule(module) #if we want to mutate module later to patch in a bridge we have to pass a copy to be owned by LLVM's JIT
+        #TODO: look into possible memory leak, though the JIT takes ownership not sure when it actually free's the module
+        thread_safe_module = self.llvm.CreateThreadSafeModule(module_copy,
+                                                              self.cpu.context)
         if self.debug and thread_safe_module._cast_to_int() == 0:
             raise Exception("TSM is Null")
 

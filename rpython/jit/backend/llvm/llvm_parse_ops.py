@@ -1,34 +1,39 @@
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMOpDispatcher:
-    #FIXME: opnames, enums, desc counts, parse args
-    def __init__(self, cpu, builder):
+    #FIXME: enums, rets
+    def __init__(self, cpu, builder, module):
         self.cpu = cpu
         self.builder = builder
+        self.module = module
         self.llvm = self.cpu.llvm
-        self.ssa_vars = {} #map ssa names to LLVM objects
+        self.ssa_vars = {} #map pypy ssa vars to LLVM objects
         self.const_cnt = 0 #counter to help keep llvm's ssa names unique
         self.descrs = [] #save descr objects from branches in order they're seen #TODO: this may not make sense in a trace tree
-        self.desc_cnt = 0
+        self.descr_cnt = 0
         self.descr_phis = {} #map label descrs to phi values
         self.descr_blocks = {} #map label descrs to their blocks
         self.bailout_blocks = {} #map guard descrs to their bailout blocks
         self.func = None
 
-    def parse_args(self, args): #convert opcode args into LLVM objects and types
+    def parse_args(self, args):
         llvm_args = []
-        #for arg in args:
-        #    if arg.is_constant():
-        #        if arg.datatype == 'i':
-        #            if arg.
-        #            self.llvm.ConstInt(LLVMIntType(arg.bytesize), arg.getvalue(), )
+        for arg in args:
+            if arg.is_constant():
+                if arg.datatype == 'i':
+                    signed = 1 if arg.signed else 0
+                    typ = self.llvm.IntType(arg.bytesize)
+                    val = self.llvm.ConstInt(typ, arg.getvalue(), signed)
+                    llvm_args.append([val, typ])
+            else:
+                val = self.ssa_vars[arg]
+                llvm_args.append([val, self.llvm.TypeOf(val)])
         return llvm_args
 
     def dispatch_ops(self, inputargs, ops, is_bridge=False):
         if not is_bridge: #input args for a bridge can only be args parsed in a previous trace
             for c, arg in enumerate(inputargs):
-                name = repr(arg)
-                self.ssa_vars[name] = self.llvm.GetParam(self.func, c)
+                self.ssa_vars[arg] = self.llvm.GetParam(self.func, c)
 
         for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
             if op.opnum == 1:
@@ -56,7 +61,7 @@ class LLVMOpDispatcher:
         phis = self.descr_phis[descr]
 
         c = 0
-        for arg, _, _, in self.parse_args(op.getargslist()):
+        for arg, _, in self.parse_args(op.getarglist()):
             phi = phis[c]
             self.llvm.AddIncoming(phi, arg, current_block)
             c += 1
@@ -66,14 +71,13 @@ class LLVMOpDispatcher:
     def parse_finish(self, op):
         self.descrs.append(op.getdescr())
         self.descr_cnt += 1
-        self.llvm.BuildRet(self.builder, self.ssa_vars[op._args[0]]) #TODO: return both arg as well as desc count
+        self.llvm.BuildRet(self.builder, self.ssa_vars[op.getarglist()[0]])
 
     def parse_label(self, op):
         descr = op.getdescr()
-        self.descrs[descr]
-        self.descr_cnt += 1
+        self.descrs.append(descr)
         last_block = self.llvm.GetInsertBlock(self.builder)
-        loop_header = self.llvm.LLVMAppendBasicBlock(self.func,
+        loop_header = self.llvm.AppendBasicBlock(self.func,
                                                      str2constcharp("loop_header_"
                                                                     +str(self.descr_cnt)))
         self.llvm.BuildBr(self.builder, loop_header) #llvm requires explicit branching even for fall through
@@ -81,51 +85,50 @@ class LLVMOpDispatcher:
 
         phis = []
 
-        for arg, typ, name in self.parse_args(op.getargslist()):
+        c = 0
+        for arg, typ in self.parse_args(op.getarglist()):
             phi = self.llvm.BuildPhi(self.builder, typ,
-                                     str2constcharp(name+"_phi"))
+                                     str2constcharp("phi_"+str(c)+"_"+str(self.descr_cnt)))
             self.llvm.AddIncoming(phi, arg, last_block)
-            self.ssa_vars[name] = phi #this introduces divergence between our ssa values and llvm's, hope that's not too hacky
+            self.ssa_vars[arg] = phi
             phis.append(phi)
+            c += 1
 
         self.descr_phis[descr] = phis
         self.descr_blocks[descr] = loop_header
+        self.descr_cnt += 1
 
     def parse_guard_true(self, op):
         descr = op.getdescr()
         self.descrs.append(descr)
         self.descr_cnt += 1
 
-        resume = self.llvm.AppendBasicblock(self.func, str2constcharp("resume_"
+        resume = self.llvm.AppendBasicBlock(self.func, str2constcharp("resume_"
                                                                  +str(self.descr_cnt)))
-        bailout = self.llvm.AppendBasicblock(self.func,
+        bailout = self.llvm.AppendBasicBlock(self.func,
                                              str2constcharp("bailout_"
                                                             +str(self.descr_cnt)))
 
-        cnd = self.ssa_vars[op.getargslist()[0]]
+        cnd = self.ssa_vars[op.getarglist()[0]]
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        self.llvm.BuildRet(self.builder, self.descr_cnt) #FIXME: convert to LLVM const
+        self.llvm.BuildRet(self.builder, self.descr_cnt)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
         self.bailout_blocks[descr] = bailout
 
     def parse_int_add(self, op):
-        args = []
-        for arg, typ, name in self.parse_args(op.getargslist()):
-            args.append(arg)
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
-        self.ssa_vars[op.name] = self.llvm.BuildAdd(self.builder, lhs, rhs,
+        self.ssa_vars[op] = self.llvm.BuildAdd(self.builder, lhs, rhs,
                                                     str2constcharp(op.name))
 
     def parse_int_le(self, op):
-        args = []
-        for arg, typ, name in self.parse_args(args):
-            args.append(arg)
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
-        self.ssa_vars[op.name] = self.llvm.BuildICmp(self.builder, enumop,
+        self.ssa_vars[op] = self.llvm.BuildICmp(self.builder, enumop,
                                                 lhs, rhs, str2constcharp(op.name))
