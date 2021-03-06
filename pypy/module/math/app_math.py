@@ -155,3 +155,18 @@ def isqrt(n):
         a = (a << d - e - 1) + (n >> 2*c - e - d + 1) // a
 
     return a - (a*a > n)
+
+def prod(iterable, /, *, start=1):
+    """
+    Calculate the product of all the elements in the input iterable.
+
+    The default start value for the product is 1.
+
+    When the iterable is empty, return the start value.  This function is
+    intended specifically for use with numeric values and may reject
+    non-numeric types.
+    """
+    res = start
+    for x in iterable:
+        res = res * x
+    return res
