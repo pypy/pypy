@@ -749,9 +749,17 @@ def numeric(code):
     totitle = {}
     for code, char in table.enum_chars():
         if char.upper:
-            toupper[code] = char.upper
+            if code < 128:
+                assert ord('a') <= code <= ord('z')
+                assert char.upper == code - 32
+            else:
+                toupper[code] = char.upper
         if char.lower:
-            tolower[code] = char.lower
+            if code < 128:
+                assert ord('A') <= code <= ord('Z')
+                assert char.lower == code + 32
+            else:
+                tolower[code] = char.lower
         if char.title:
             totitle[code] = char.title
     writeDict(outfile, '_toupper', toupper, base_mod)
@@ -760,6 +768,10 @@ def numeric(code):
     writeDict(outfile, '_special_casing', table.special_casing, base_mod)
     print >> outfile, '''
 def toupper(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return code - 32
+        return code
     try:
         return _toupper[code]
     except KeyError:
@@ -769,6 +781,10 @@ def toupper(code):
             return code
 
 def tolower(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return code + 32
+        return code
     try:
         return _tolower[code]
     except KeyError:
@@ -787,6 +803,10 @@ def totitle(code):
             return code
 
 def toupper_full(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return [code - 32]
+        return [code]
     try:
         return _special_casing[code][2]
     except KeyError:
@@ -798,6 +818,10 @@ def toupper_full(code):
     return [toupper(code)]
 
 def tolower_full(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return [code + 32]
+        return [code]
     try:
         return _special_casing[code][0]
     except KeyError:

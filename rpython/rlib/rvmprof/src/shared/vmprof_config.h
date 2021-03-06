@@ -24,6 +24,8 @@
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_EIP]
 #elif defined(__s390x__)
   #define PC_FROM_UCONTEXT uc_mcontext.psw.addr
+#elif defined(__aarch64__)
+  #define PC_FROM_UCONTEXT uc_mcontext.pc
 #else
   /* linux, gnuc */
   #define PC_FROM_UCONTEXT uc_mcontext.gregs[REG_RIP]

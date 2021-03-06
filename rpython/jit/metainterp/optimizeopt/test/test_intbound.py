@@ -5,7 +5,7 @@ from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
 
 special_values = (
     range(-100, 100) +
@@ -371,6 +371,19 @@ def test_next_pow2_m1():
     assert next_pow2_m1((1 << 32) - 5) == (1 << 32) - 1
     assert next_pow2_m1((1 << 64) - 1) == (1 << 64) - 1
 
+def test_invert_bound():
+    for _, _, b1 in some_bounds():
+        b2 = b1.invert_bound()
+        for n1 in nbr:
+            if b1.contains(n1):
+                assert b2.contains(~n1)
+
+def test_neg_bound():
+    for _, _, b1 in some_bounds():
+        b2 = b1.neg_bound()
+        for n1 in nbr:
+            if b1.contains(n1):
+                assert b2.contains(-n1)
 
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_make_random(t1, t2):
@@ -464,3 +477,20 @@ def test_or_bound_random(t1, t2):
     assert b3.contains(r)
     r = n1 ^ n2
     assert b3.contains(r)
+
+@given(bound_with_contained_number)
+def test_invert_bound_random(t1):
+    b1, n1 = t1
+    b2 = b1.invert_bound()
+    assert b2.contains(~n1)
+
+@given(bound_with_contained_number)
+@example((IntUpperBound(-100), -sys.maxint-1))
+def test_neg_bound_random(t1):
+    b1, n1 = t1
+    b2 = b1.neg_bound()
+    if n1 != -sys.maxint - 1:
+        assert b2.contains(-n1)
+    else:
+        assert not b1.has_lower
+        assert not b2.has_upper

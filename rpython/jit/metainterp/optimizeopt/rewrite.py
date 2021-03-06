@@ -4,7 +4,6 @@ from rpython.jit.metainterp import compile
 from rpython.jit.metainterp.history import (
     Const, ConstInt, make_hashable_int, ConstFloat, CONST_NULL)
 from rpython.jit.metainterp.optimize import InvalidLoop
-from rpython.jit.metainterp.optimizeopt.intutils import IntBound
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimization, OptimizationResult, REMOVED, CONST_0, CONST_1)
 from rpython.jit.metainterp.optimizeopt.info import (
@@ -239,9 +238,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.is_constant() and b2.getint() == 0:
+        if b2.equal(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.is_constant() and b1.getint() == 0:
+        elif b1.equal(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -250,9 +249,9 @@ class OptRewrite(Optimization):
         b1 = self.getintbound(op.getarg(0))
         b2 = self.getintbound(op.getarg(1))
 
-        if b2.is_constant() and b2.getint() == 0:
+        if b2.equal(0):
             self.make_equal_to(op, op.getarg(0))
-        elif b1.is_constant() and b1.getint() == 0:
+        elif b1.equal(0):
             self.make_constant_int(op, 0)
         else:
             return self.emit(op)
@@ -267,6 +266,9 @@ class OptRewrite(Optimization):
             self.make_equal_to(op, op.getarg(0))
         else:
             return self.emit(op)
+
+    def postprocess_INT_INVERT(self, op):
+        self.optimizer.pure_from_args(rop.INT_INVERT, [op], op.getarg(0))
 
     def optimize_FLOAT_MUL(self, op):
         arg1 = op.getarg(0)
@@ -837,7 +839,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.is_constant() and b1.getint() == 0:
+        if b1.equal(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
@@ -859,7 +861,7 @@ class OptRewrite(Optimization):
             return True
         else:
             from rpython.jit.metainterp.optimizeopt import intdiv
-            known_nonneg = b1.known_ge(IntBound(0, 0))
+            known_nonneg = b1.known_nonnegative()
             operations = intdiv.division_operations(arg1, val, known_nonneg)
             newop = None
             for newop in operations:
@@ -873,7 +875,7 @@ class OptRewrite(Optimization):
         arg2 = op.getarg(2)
         b2 = self.getintbound(arg2)
 
-        if b1.is_constant() and b1.getint() == 0:
+        if b1.equal(0):
             self.make_constant_int(op, 0)
             self.last_emitted_operation = REMOVED
             return True
@@ -899,7 +901,7 @@ class OptRewrite(Optimization):
             return True
         else:
             from rpython.jit.metainterp.optimizeopt import intdiv
-            known_nonneg = b1.known_ge(IntBound(0, 0))
+            known_nonneg = b1.known_nonnegative()
             operations = intdiv.modulo_operations(arg1, val, known_nonneg)
             newop = None
             for newop in operations:
