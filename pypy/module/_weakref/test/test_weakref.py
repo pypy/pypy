@@ -562,10 +562,14 @@ class AppTestProxy(object):
             def __matmul__(self, other):
                 return 17
 
+            def __rmatmul__(self, other):
+                return 20
+
             def __imatmul__(self, other):
                 return 19
 
         assert A() @ 12 == 17
+        assert 12 @ A() == 20
         a = A()
         a @= -1
         assert a == 19
@@ -573,6 +577,8 @@ class AppTestProxy(object):
         a = A()
         p = _weakref.proxy(a)
         assert p @ 12 == 17
+        print(12 @ p)
+        assert 12 @ p == 20
         p @= -1
         assert p == 19
         """
