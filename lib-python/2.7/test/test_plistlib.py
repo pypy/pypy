@@ -221,9 +221,9 @@ class TestPlistlib(unittest.TestCase):
         self.assertEqual(test2, result2)
 
     def test_xml_plist_with_entity_decl(self):
-        with self.assertRaisesRegex(plistlib.InvalidFileException,
+        with self.assertRaisesRegexp(ValueError,
                                     "XML entity declarations are not supported"):
-            plistlib.loads(XML_PLIST_WITH_ENTITY, fmt=plistlib.FMT_XML)
+            plistlib.readPlistFromString(XML_PLIST_WITH_ENTITY)
 
 def test_main():
     test_support.run_unittest(TestPlistlib)
