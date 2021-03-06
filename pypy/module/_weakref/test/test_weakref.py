@@ -554,3 +554,25 @@ class AppTestProxy(object):
         if hasattr(unboundmeth, 'im_func'):
             e = raises(TypeError, unboundmeth.im_func, 42)
             assert "'weakref-or-proxy'" in str(e.value)
+
+    def test_proxy_matmul(self):
+        """
+        import _weakref
+        class A:
+            def __matmul__(self, other):
+                return 17
+
+            def __imatmul__(self, other):
+                return 19
+
+        assert A() @ 12 == 17
+        a = A()
+        a @= -1
+        assert a == 19
+
+        a = A()
+        p = _weakref.proxy(a)
+        assert p @ 12 == 17
+        p @= -1
+        assert p == 19
+        """
