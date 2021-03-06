@@ -125,6 +125,8 @@ class Module(MixedModule):
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
 
         'write_unraisable'          : 'interp_magic.write_unraisable',
+
+        'PickleBuffer'              : 'interp_buffer.W_PickleBuffer',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

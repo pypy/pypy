@@ -101,3 +101,38 @@ class FormatBufferViewND(BufferViewND):
 
     def getitemsize(self):
         return self.itemsize
+
+class W_PickleBuffer(W_Root):
+    """ Wrapper for potentially out-of-band buffers """
+    def __init__(self, space, w_obj):
+        self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
+
+    def descr_raw(self, space):
+        """
+        Return a memoryview of the raw memory underlying this buffer.
+        Will raise BufferError is the buffer isn't contiguous.
+        """
+        if self.buf is None:
+            raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+        return self.buf.wrap(space)
+
+    def descr_release(self, space):
+        """
+        Release the underlying buffer exposed by the PickleBuffer object.
+        """
+        self.buf = None
+
+    def buffer_w(self, space, flags):
+        space.check_buf_flags(flags, self.buf.readonly)
+        return self.buf
+
+
+def descr_new_picklebuffer(space, w_type, w_obj):
+    return W_PickleBuffer(space, w_obj)
+
+W_PickleBuffer.typedef = TypeDef("PickleBuffer", None, None, 'read',
+    __new__ = interp2app(descr_new_picklebuffer),
+    raw = interp2app(W_PickleBuffer.descr_raw),
+    release = interp2app(W_PickleBuffer.descr_release),
+)
+W_PickleBuffer.typedef.acceptable_as_base_class = False
