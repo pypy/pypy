@@ -9,6 +9,7 @@ class Module(MixedModule):
        'isqrt'     : 'app_math.isqrt',
        'prod'      : 'app_math.prod',
        'comb'      : 'app_math.comb',
+       'perm'      : 'app_math.perm',
     }
 
     interpleveldefs = {

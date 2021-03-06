@@ -37,3 +37,19 @@ def test_comb():
             return 4
 
     assert comb(A(), 2) == comb(4, 2)
+
+
+def test_perm():
+    from math import perm, factorial
+
+    assert perm(10, 11) == 0
+
+    for n in range(5):
+        for k in range(n + 1):
+            assert perm(n, k) == factorial(n) // factorial(n - k)
+
+    class A:
+        def __index__(self):
+            return 4
+
+    assert perm(A(), 2) == perm(4, 2)

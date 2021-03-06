@@ -202,3 +202,36 @@ def comb(n, k, /):
         den = den * (i + 1)
 
     return num // den
+
+def perm(n, k=None, /):
+    """
+    Number of ways to choose k items from n items without repetition and with order.
+
+    Evaluates to n! / (n - k)! when k <= n and evaluates
+    to zero when k > n.
+
+    If k is not specified or is None, then k defaults to n
+    and the function returns n!.
+
+    Raises TypeError if either of the arguments are not integers.
+    Raises ValueError if either of the arguments are negative.
+    """
+    import operator
+
+    n = operator.index(n)
+    if k is None:
+        k = n
+    else:
+        k = operator.index(k)
+
+    if n < 0:
+        raise ValueError("n must be a non-negative integer")
+    if k < 0:
+        raise ValueError("k must be a non-negative integer")
+    if k > n:
+        return 0
+
+    res = 1
+    for x in range(n, n - k, -1):
+        res *= x
+    return res
