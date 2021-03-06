@@ -88,3 +88,7 @@ Enable _hpy_universal on win64
 .. branch: vendor/stdlib-3.7
 
 Update stdlib to 3.7.10
+
+.. branch: fix-issue-3181
+
+Fix ElementTree.extend not working on iterators (issue 3181 and bpo43399)
