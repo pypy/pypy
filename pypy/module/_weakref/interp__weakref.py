@@ -373,9 +373,24 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
     exec py.code.Source(code).compile()
 
     func.func_name = opname
-    for special_method in special_methods:
-        proxy_typedef_dict[special_method] = interp2app(func)
-        callable_proxy_typedef_dict[special_method] = interp2app(func)
+    if len(special_methods) == 2 and special_methods[1].startswith("__r"):
+        proxy_typedef_dict[special_methods[0]] = interp2app(func)
+        callable_proxy_typedef_dict[special_methods[0]] = interp2app(func)
+
+        # HACK: need to call the space method with arguments in the reverse
+        # order!
+        code = code.replace("(w_obj0, w_obj1)", "(w_obj1, w_obj0)").replace("func", "rfunc")
+
+        exec py.code.Source(code).compile()
+
+        proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
+        callable_proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
+    elif opname in ["lt", "le", "gt", "ge", "eq", "ne"]:
+        proxy_typedef_dict[special_methods[0]] = interp2app(func)
+    else:
+        for special_method in special_methods:
+            proxy_typedef_dict[special_method] = interp2app(func)
+            callable_proxy_typedef_dict[special_method] = interp2app(func)
 
 # __bytes__ is not yet a space operation
 def proxy_unicode(space, w_obj):
