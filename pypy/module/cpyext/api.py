@@ -42,7 +42,7 @@ from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
@@ -622,12 +622,8 @@ SYMBOLS_C = [
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_InteractiveFlag', 'Py_InspectFlag',
-    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_TabcheckFlag', 'Py_UnicodeFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DivisionWarningFlag', 'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    '_Py_QnewFlag', 'Py_Py3kWarningFlag', 'Py_HashRandomizationFlag', '_Py_PackageContext',
-    'PyOS_InputHook',
+    'Py_UseClassExceptionsFlag', 'Py_FrozenFlag', # not part of sys.flags
+    '_Py_PackageContext', 'PyOS_InputHook',
     '_PyTraceMalloc_Track', '_PyTraceMalloc_Untrack', 'PyMem_Malloc',
     'PyObject_Free', 'PyObject_GC_Del', 'PyType_GenericAlloc',
     '_PyObject_New', '_PyObject_NewVar',
@@ -639,6 +635,30 @@ TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# Keep synchronized with pypy.interpreter.app_main.sys_flags and
+# module.sys.app.sysflags. Synchronized in an init_function
+_flags = [
+    # c name, sys.flags name
+    ('Py_DebugFlag', 'debug'),
+    ('Py_Py3kWarningFlag', 'py3k_warning'),
+    ('Py_DivisionWarningFlag', 'division_warning'),
+    ('_Py_QnewFlag', 'division_new'),
+    ('Py_InspectFlag', 'inspect'),
+    ('Py_InteractiveFlag', 'interactive'),
+    ('Py_OptimizeFlag', 'optimize'),
+    ('Py_DontWriteBytecodeFlag', 'dont_write_bytecode'),
+    ('Py_NoUserSiteDirectory', 'no_user_site'),
+    ('Py_NoSiteFlag', 'no_site'),
+    ('Py_IgnoreEnvironmentFlag', 'ignore_environment'),
+    ('Py_TabcheckFlag', 'tabcheck'),
+    ('Py_VerboseFlag', 'verbose'),
+    ('Py_UnicodeFlag', 'unicode'),
+    ('Py_BytesWarningFlag', 'bytes_warning'),
+    ('Py_HashRandomizationFlag', 'hash_randomization'),
+]
+
+SYMBOLS_C += [c_name for c_name, _ in _flags]
 
 # this needs to include all prebuilt pto, otherwise segfaults occur
 register_global('_Py_NoneStruct',
@@ -724,11 +744,13 @@ class CpyextTypeSpace(CTypeSpace):
 
 CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
 cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
-cts.parse_header(parse_dir / 'cpyext_object.h')
+cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
+cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
+cts.configure_types()
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -1166,6 +1188,28 @@ def attach_c_functions(space, eci, prefix):
     state.C.tuple_new = rffi.llexternal(
         '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
+    do_setters = True
+    if we_are_translated():
+        eci_flags = eci
+    elif sys.platform == "win32":
+        do_setters = False
+        eci_flags = eci
+    else:
+        # To get this to work in tests, we need a new eci
+        libs = eci.get_module_files()[1].libraries
+        eci_flags = ExternalCompilationInfo(
+            include_dirs=include_dirs,
+            includes=['Python.h'],
+            link_extra = libs,
+           )
+    if do_setters:
+        state.C.flag_setters = {}
+        for c_name, attr in _flags:
+            _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+                                             _nowrapper=True, c_type='int')
+            state.C.flag_setters[attr] = setter
+        
+
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1178,6 +1222,17 @@ def bootstrap_function(func):
 def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
+
+@init_function
+def init_flags(space):
+    do_setters = True
+    if not we_are_translated() and sys.platform == "win32":
+        do_setters = False
+    if do_setters:
+        state = space.fromcache(State)
+        for _, attr in _flags:
+            f = state.C.flag_setters[attr]
+            f(space.sys.get_flag(attr))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1369,21 +1424,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',

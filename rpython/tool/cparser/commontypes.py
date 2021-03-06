@@ -1,5 +1,5 @@
 import sys
-from . import cmodel as model
+from . import model
 from .error import FFIError
 
 

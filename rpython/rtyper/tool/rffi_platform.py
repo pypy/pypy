@@ -11,7 +11,7 @@ from rpython.tool.gcc_cache import build_executable_cache, try_compile_cache
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.platform import CompilationError
 from rpython.tool.udir import udir
-from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask
+from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 
 # ____________________________________________________________
 #
@@ -112,7 +112,7 @@ def memory_alignment():
     global _memory_alignment
     if _memory_alignment is None:
         if sys.platform == 'win32':
-            _memory_alignment = 4
+            _memory_alignment = LONG_BIT // 8
         else:
             S = getstruct('struct memory_alignment_test', """
                struct memory_alignment_test {

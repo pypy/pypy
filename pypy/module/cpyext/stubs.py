@@ -1203,13 +1203,6 @@ def PyMethod_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_CheckExact(space, p):
-    """Return true if p is a module object, but not a subtype of
-    PyModule_Type.
-    """
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Return the name of the file from which module was loaded using module's
@@ -1616,15 +1609,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyUnicode_Contains(space, container, element):
-    """Check whether element is contained in container and return true or false
-    accordingly.
-
-    element has to coerce to a one element Unicode string. -1 is returned if
-    there was an error."""
     raise NotImplementedError
 
 @cpython_api([rffi.INT_real, rffi.CCHARPP], rffi.INT_real, error=2)

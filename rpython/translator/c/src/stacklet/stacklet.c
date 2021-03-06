@@ -353,23 +353,23 @@ void stacklet_destroy(stacklet_handle target)
 char **_stacklet_translate_pointer(stacklet_handle context, char **ptr)
 {
   char *p = (char *)ptr;
-  long delta;
+  Signed delta;
   if (context == NULL)
     return ptr;
   check_valid(context);
   delta = p - context->stack_start;
-  if (((unsigned long)delta) < ((unsigned long)context->stack_saved)) {
+  if (((Unsigned)delta) < ((Unsigned)context->stack_saved)) {
       /* a pointer to a saved away word */
       char *c = (char *)(context + 1);
       return (char **)(c + delta);
   }
-  if (((unsigned long)delta) >=
-      (unsigned long)(context->stack_stop - context->stack_start)) {
+  if (((Unsigned)delta) >=
+      (Unsigned)(context->stack_stop - context->stack_start)) {
       /* out-of-stack pointer!  it's only ok if we are the main stacklet
          and we are reading past the end, because the main stacklet's
          stack stop is not exactly known. */
       _check(delta >= 0);
-      _check(((long)context->stack_stop) & 1);
+      _check(((Signed)context->stack_stop) & 1);
   }
   return ptr;
 }

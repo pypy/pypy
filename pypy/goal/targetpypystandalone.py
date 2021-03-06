@@ -1,6 +1,7 @@
 import py
 
 import os, sys, subprocess
+from os.path import join, dirname
 
 import pypy
 from pypy.interpreter import gateway
@@ -16,9 +17,9 @@ from pypy.module.thread import os_thread
 thisdir = py.path.local(__file__).dirpath()
 
 try:
-    this_dir = os.path.dirname(__file__)
+    this_dir = dirname(__file__)
 except NameError:
-    this_dir = os.path.dirname(sys.argv[0])
+    this_dir = dirname(sys.argv[0])
 
 def debug(msg):
     try:
@@ -107,7 +108,7 @@ def get_additional_entrypoints(space, w_initstdio):
         verbose = rffi.cast(lltype.Signed, verbose)
         if ll_home and ord(ll_home[0]):
             home1 = rffi.charp2str(ll_home)
-            home = os.path.join(home1, 'x') # <- so that 'll_home' can be
+            home = join(home1, 'x') # <- so that 'll_home' can be
                                             # directly the root directory
         else:
             home1 = "pypy's shared library location"
@@ -260,7 +261,8 @@ class PyPyTarget(object):
 
         config.translation.suggest(check_str_without_nul=True)
         config.translation.suggest(shared=True)
-        config.translation.suggest(icon=os.path.join(this_dir, 'pypy.ico'))
+        config.translation.suggest(icon=join(this_dir, 'pypy.ico'))
+        config.translation.suggest(manifest=join(this_dir, 'python.manifest'))
         if config.translation.shared:
             if config.translation.output is not None:
                 raise Exception("Cannot use the --output option with PyPy "
@@ -350,7 +352,7 @@ class PyPyTarget(object):
         @taskdef([compile_goal], "Create cffi bindings for modules")
         def task_build_cffi_imports(self):
             ''' Use cffi to compile cffi interfaces to modules'''
-            filename = os.path.join(pypydir, '..', 'lib_pypy', 'pypy_tools',
+            filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
             if sys.platform == 'darwin':
                 argv = [filename, '--embed-dependencies']
@@ -381,7 +383,7 @@ class PyPyTarget(object):
         self.space = make_objspace(config)
 
         # manually imports app_main.py
-        filename = os.path.join(pypydir, 'interpreter', 'app_main.py')
+        filename = join(pypydir, 'interpreter', 'app_main.py')
         app = gateway.applevel(open(filename).read(), 'app_main.py', 'app_main')
         app.hidden_applevel = False
         w_dict = app.getwdict(self.space)

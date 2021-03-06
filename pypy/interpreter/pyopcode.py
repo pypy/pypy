@@ -1320,7 +1320,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
             self.space.call_method(w_set, 'add', w_item)
-        self.popvalues(itemcount)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):

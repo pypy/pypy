@@ -10,13 +10,13 @@
 
 /* this is a spin-lock that must be acquired around each doubly-linked-list
    manipulation (because such manipulations can occur without the GIL) */
-static long pypy_threadlocal_lock = 0;
+static Signed pypy_threadlocal_lock = 0;
 
 static int check_valid(void);
 
 int _RPython_ThreadLocals_AcquireTimeout(int max_wait_iterations) {
     while (1) {
-        long old_value = pypy_lock_test_and_set(&pypy_threadlocal_lock, 1);
+        Signed old_value = pypy_lock_test_and_set(&pypy_threadlocal_lock, 1);
         if (old_value == 0)
             break;
         /* busy loop */
@@ -109,9 +109,9 @@ static void _RPy_ThreadLocals_Init(void *p)
 #ifdef RPY_TLOFS_thread_ident
     tls->thread_ident =
 #    ifdef _WIN32
-        GetCurrentThreadId();
+        (Signed)GetCurrentThreadId();
 #    else
-        (long)pthread_self();    /* xxx This abuses pthread_self() by
+        (Signed)pthread_self();    /* xxx This abuses pthread_self() by
                   assuming it just returns a integer.  According to
                   comments in CPython's source code, the platforms
                   where it is not the case are rather old nowadays. */

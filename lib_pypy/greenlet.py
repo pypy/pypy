@@ -4,6 +4,13 @@ import _continuation
 __version__ = "0.4.13"
 
 # ____________________________________________________________
+# Constants from greenlet 1.0.0
+
+GREENLET_USE_GC = True
+GREENLET_USE_TRACING = True
+GREENLET_USE_CONTEXT_VARS = False
+
+# ____________________________________________________________
 # Exceptions
 
 class GreenletExit(BaseException):
@@ -38,7 +45,8 @@ class greenlet(_continulet):
 
     def __new__(cls, *args, **kwds):
         self = _continulet.__new__(cls)
-        self.parent = getcurrent()
+        self.parent = getcurrent()     # creates '_tls.thread_id' if needed
+        self.__thread_id = _tls.thread_id
         return self
 
     def __init__(self, run=None, parent=None):
@@ -46,6 +54,7 @@ class greenlet(_continulet):
             self.run = run
         if parent is not None:
             self.parent = parent
+            self.__thread_id = parent.__thread_id
 
     def switch(self, *args, **kwds):
         "Switch execution to this greenlet, optionally passing the values "
@@ -58,6 +67,8 @@ class greenlet(_continulet):
 
     def __switch(target, methodname, *baseargs):
         current = getcurrent()
+        if current.__thread_id is not target.__thread_id:
+            raise error("cannot switch to a different thread")
         #
         while not (target.__main or _continulet.is_pending(target)):
             # inlined __nonzero__ ^^^ in case it's overridden
@@ -173,6 +184,7 @@ _tls = _local()
 def _green_create_main():
     # create the main greenlet for this thread
     _tls.current = None
+    _tls.thread_id = object()
     gmain = greenlet.__new__(greenlet)
     gmain._greenlet__main = True
     gmain._greenlet__started = True

@@ -1,4 +1,4 @@
-import py
+import pytest
 import sys, os, subprocess
 
 
@@ -30,9 +30,8 @@ time.sleep(1.0)
 """
 
 
+@pytest.mark.skipif("not getattr(os, 'fork', None)")
 def test_thread_fork_file_lock():
-    if not hasattr(os, 'fork'):
-        py.test.skip("requires 'fork'")
     output = subprocess.check_output([sys.executable, '-u', '-c', CODE])
     assert output.splitlines() == [
         'thread started',

@@ -38,6 +38,8 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
     register PY_STACK_FRAME_T * callee_saved asm("edi");
 #elif defined(__arm__)
     register PY_STACK_FRAME_T * callee_saved asm("r4");
+#elif defined(__aarch64__)
+    register PY_STACK_FRAME_T * callee_saved asm("x19");
 #else
 #    error "platform not supported"
 #endif
@@ -47,7 +49,7 @@ PY_EVAL_RETURN_T * vmprof_eval(PY_STACK_FRAME_T *f, int throwflag)
         "movq %1, %0\t\n"
 #elif defined(X86_32)
         "mov %1, %0\t\n"
-#elif defined(__arm__)
+#elif defined(__arm__) || defined(__aarch64__)
 	"mov %1, %0\t\n"
 #else
 #    error "platform not supported"

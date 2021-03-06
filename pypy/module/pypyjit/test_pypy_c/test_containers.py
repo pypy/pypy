@@ -9,6 +9,7 @@ class TestDicts(BaseTestPyPyC):
             class A(object):
                 pass
             a = A()
+            a.x = "x" # stop field unboxing
             a.x = 1
             for s in sys.modules.keys() * 1000:
                 d.get(s)  # force pending setfields etc.

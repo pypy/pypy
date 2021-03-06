@@ -1253,9 +1253,13 @@ class FakeSpace:
         assert isinstance(integer, int)
         return integer
 
+    def float_w(self, fl, allow_conversion=True):
+        assert isinstance(fl, float)
+        return fl
+
     def wrap(self, obj):
         return obj
-    newtext = newbytes = wrap
+    newtext = newbytes = newint = newfloat = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
@@ -1297,6 +1301,8 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
+    IntObjectCls = int
+    FloatObjectCls = float
     w_dict = W_DictObject
     iter = iter
     fixedview = list

@@ -4,7 +4,7 @@ import pytest
 
 from rpython.jit.backend.llsupport.test import test_regalloc_integration
 from rpython.jit.backend.x86.assembler import Assembler386
-from rpython.jit.backend.x86.arch import IS_X86_64
+from rpython.jit.backend.x86.arch import IS_X86_64, WIN64
 
 class LogEntry(object):
     def __init__(self, position, name, *args):
@@ -186,14 +186,14 @@ class TestCheckRegistersExplicitly(BaseTestCheckRegistersExplicitly):
         i5 = int_add(i2, i3)
         i7 = int_lshift(i0, i5)
         i8 = int_lshift(i7, i3)
-        i9 = call_i(ConstClass(f1ptr), i8, descr=f1_calldescr)
+        i9 = call_i(ConstClass(f1ptr), 42, i8, descr=f2_calldescr)
         i10 = int_is_true(i9)
         guard_true(i10) []
         finish(i9)
         '''
         self.interpret(ops, [5, 6, 7, 8])
-        # 3 moves for arguments, 1 move for result
-        assert len(self.filter_log_moves()) == 4
+        # 3 moves for arguments, 1 move for the constant 42, 1 move for result
+        assert len(self.filter_log_moves()) == 5
 
     def test_binop_dont_swap_unnecessarily(self):
         ops = '''
@@ -421,4 +421,13 @@ class TestCheckRegistersExplicitly64(BaseTestCheckRegistersExplicitly):
         # 3 for argument shuffling
 
         # XXX there is an additional mov, find out why!
-        assert len(self.filter_log_moves()) == 12
+        if not WIN64:
+            assert len(self.filter_log_moves()) == 12
+        else:
+            # on Win64 we get:
+            # 5 arguments (including the constant 0)
+            # 1 result
+            # 1 because lifetime of i172 does not end at the int_xor
+            # 2 ptrs to save before call (p249, p244)
+            # 1 for argument shuffling (ecx => edx)
+            assert len(self.filter_log_moves()) == 10

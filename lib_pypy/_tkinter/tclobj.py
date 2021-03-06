@@ -142,7 +142,16 @@ def AsObj(value):
     if isinstance(value, bool):
         return tklib.Tcl_NewBooleanObj(value)
     if isinstance(value, int):
-        return tklib.Tcl_NewLongObj(value)
+        try:
+            return tklib.Tcl_NewLongObj(value)
+        except OverflowError:
+            # 64-bit windows
+            if tklib.HAVE_WIDE_INT_TYPE:
+                return tklib.Tcl_NewWideIntObj(value)
+            else:
+                import sys
+                t, v, tb = sys.exc_info()
+                raise t, v, tb
     if isinstance(value, long):
         try:
             tkffi.new("long[]", [value])

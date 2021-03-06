@@ -92,12 +92,12 @@ void pypy_faulthandler_write_uint(int fd, unsigned long uvalue, int min_digits)
     pypy_faulthandler_write(fd, p);
 }
 
-static void pypy_faulthandler_write_hex(int fd, unsigned long uvalue)
+static void pypy_faulthandler_write_hex(int fd, Unsigned uvalue)
 {
     char buf[48], *p = buf + 48;
     *--p = 0;
     do {
-        unsigned long byte = uvalue % 16UL;
+        Unsigned byte = uvalue % 16UL;
         assert(p > buf);
         if (byte < 10)
             *--p = '0' + byte;
@@ -140,7 +140,7 @@ void pypy_faulthandler_dump_traceback(int fd, int all_threads,
 
             pypy_faulthandler_write(fd, my == p ? "Current thread 0x"
                                                 : "Thread 0x");
-            pypy_faulthandler_write_hex(fd, (unsigned long)p->thread_ident);
+            pypy_faulthandler_write_hex(fd, (Unsigned)p->thread_ident);
             pypy_faulthandler_write(fd, " (most recent call first,"
                                         " approximate line numbers):\n");
 

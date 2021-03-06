@@ -39,13 +39,15 @@ def typeof(space, w_cdata):
 def sizeof(space, w_obj):
     if isinstance(w_obj, cdataobj.W_CData):
         size = w_obj._sizeof()
+        ctype = w_obj.ctype
     elif isinstance(w_obj, ctypeobj.W_CType):
         size = w_obj.size
-        if size < 0:
-            raise oefmt(space.w_ValueError,
-                        "ctype '%s' is of unknown size", w_obj.name)
+        ctype = w_obj
     else:
         raise oefmt(space.w_TypeError, "expected a 'cdata' or 'ctype' object")
+    if size < 0:
+        raise oefmt(space.w_ValueError,
+                    "ctype '%s' is of unknown size", ctype.name)
     return space.newint(size)
 
 @unwrap_spec(w_ctype=ctypeobj.W_CType)

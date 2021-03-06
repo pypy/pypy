@@ -8,6 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
+    POSIX_SIZE_T, POSIX_SSIZE_T,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
@@ -552,10 +553,10 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_write = external(UNDERSCORE_ON_WIN32 + 'write',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -817,6 +818,7 @@ def getcwd():
         # else try again with a larger buffer, up to some sane limit
         bufsize *= 4
         if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                                 #     must be <2**31 for win32
             raise OSError(error, "getcwd result too large")
     result = rffi.charp2str(res)
     lltype.free(buf, flavor='raw')
@@ -837,6 +839,7 @@ def getcwdu():
         # else try again with a larger buffer, up to some sane limit
         bufsize *= 4
         if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                                 #     must be <2**31 for win32
             raise OSError(error, "getcwd result too large")
     result = rffi.wcharp2unicode(res)
     lltype.free(buf, flavor='raw')

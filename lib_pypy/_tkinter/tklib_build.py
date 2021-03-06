@@ -15,7 +15,7 @@ elif sys.platform.startswith("freebsd"):
     libdirs = ['/usr/local/lib']
 elif sys.platform == 'win32':
     incdirs = []
-    linklibs = ['tcl85', 'tk85']
+    linklibs = ['tcl86t', 'tk86t']
     libdirs = []
 elif sys.platform == 'darwin':
     # homebrew

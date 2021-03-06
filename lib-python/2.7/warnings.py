@@ -5,7 +5,6 @@
 # See bug 683658.
 import linecache
 import sys
-import types
 
 __all__ = ["warn", "warn_explicit", "showwarning",
            "formatwarning", "filterwarnings", "simplefilter",
@@ -77,6 +76,7 @@ def filterwarnings(action, message="", category=Warning, module="", lineno=0,
     'lineno' -- an integer line number, 0 matches all warnings
     'append' -- if true, append to the list of filters
     """
+    import types
     import re
     assert action in ("error", "ignore", "always", "default", "module",
                       "once"), "invalid action: %r" % (action,)

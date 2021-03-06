@@ -143,7 +143,7 @@ def _PyString_AsString(space, ref):
     elif not PyString_Check(space, ref):   # otherwise, use the alternate way
         from pypy.module.cpyext.unicodeobject import (
             PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
-        if PyUnicode_Check(space, ref):
+        if PyUnicode_Check(ref):
             ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
         else:
             raise oefmt(space.w_TypeError,
@@ -167,7 +167,7 @@ def PyString_AsStringAndSize(space, ref, data, length):
     if not PyString_Check(space, ref):
         from pypy.module.cpyext.unicodeobject import (
             PyUnicode_Check, _PyUnicode_AsDefaultEncodedString)
-        if PyUnicode_Check(space, ref):
+        if PyUnicode_Check(ref):
             ref = _PyUnicode_AsDefaultEncodedString(space, ref, lltype.nullptr(rffi.CCHARP.TO))
         else:
             raise oefmt(space.w_TypeError,
