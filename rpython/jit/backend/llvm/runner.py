@@ -34,8 +34,6 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types = [arg.datatype for arg in inputargs]
         ret_type = lltype.Signed #hard coding for now
         llvm_arg_types = self.convert_args(inputargs)
-        print(operations[1])
-        print(operations[1].getarglist()[0].getvalue())
 
         signature = self.llvm.FunctionType(self.llvm.IntType(32),
                                       llvm_arg_types,

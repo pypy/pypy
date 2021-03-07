@@ -53,3 +53,37 @@ LLVMBool VerifyModule(LLVMModuleRef module){
 void AddIncoming(LLVMValueRef phi, LLVMValueRef val, LLVMBasicBlockRef block){
 	LLVMAddIncoming(phi, &val, &block, 1);
 }
+
+LLVMValueRef BuildICmp(LLVMBuilderRef builder, int op, LLVMValueRef lhs, LLVMValueRef rhs, char *name){
+	LLVMIntPredicate pred;
+	switch (op){ //hack because I couldn't be bothered to get enums working through the rffi for now
+		case 1:
+			pred = LLVMIntEQ;
+			break;
+		case 2:
+			pred = LLVMIntNE;
+			break;
+		case 3:
+			pred = LLVMIntUGT;
+			break;
+		case 4:
+			pred = LLVMIntUGE;
+			break;
+		case 5:
+			pred = LLVMIntULE;
+			break;
+		case 6:
+			pred = LLVMIntSGT;
+			break;
+		case 7:
+			pred = LLVMIntSGE;
+			break;
+		case 8:
+			pred = LLVMIntSLT;
+			break;
+		case 9:
+			pred = LLVMIntSLE;
+			break;
+	}
+	return LLVMBuildICmp(builder, pred, lhs, rhs, name);
+}

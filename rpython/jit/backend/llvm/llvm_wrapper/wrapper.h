@@ -4,6 +4,7 @@
 #include <llvm-c/TargetMachine.h>
 #include <llvm-c/Orc.h>
 #include <llvm-c/Analysis.h>
+#include <llvm-c/Core.h>
 #include <stddef.h>
 #include <stdio.h>
 
@@ -20,3 +21,7 @@ LLVMErrorRef LLJITAddLLVMIRModule(LLVMOrcLLJITRef jit, LLVMOrcJITDylibRef dylib,
 LLVMOrcJITTargetAddress LLJITLookup(LLVMOrcLLJITRef jit, const char *name);
 
 LLVMBool VerifyModule(LLVMModuleRef module);
+
+void AddIncoming(LLVMValueRef phi, LLVMValueRef val, LLVMBasicBlockRef block);
+
+LLVMValueRef BuildICmp(LLVMBuilderRef builder, int op, LLVMValueRef lhs, LLVMValueRef rhs, char *name);

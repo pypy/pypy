@@ -1,13 +1,14 @@
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMOpDispatcher:
-    #FIXME: enums, rets
+    #FIXME: rets
     def __init__(self, cpu, builder, module):
         self.cpu = cpu
         self.builder = builder
         self.module = module
         self.llvm = self.cpu.llvm
-        self.ssa_vars = {} #map pypy ssa vars to LLVM objects
+        self.ssa_vars = {} #map pypy ssa vars to llvm objects
+        self.var_cnt = 0 #keep ssa names in llvm unique
         self.const_cnt = 0 #counter to help keep llvm's ssa names unique
         self.descrs = [] #save descr objects from branches in order they're seen #TODO: this may not make sense in a trace tree
         self.descr_cnt = 0
@@ -20,10 +21,9 @@ class LLVMOpDispatcher:
         llvm_args = []
         for arg in args:
             if arg.is_constant():
-                if arg.datatype == 'i':
-                    signed = 1 if arg.signed else 0
-                    typ = self.llvm.IntType(arg.bytesize)
-                    val = self.llvm.ConstInt(typ, arg.getvalue(), signed)
+                if arg.type == 'i':
+                    typ = self.llvm.IntType(32) #assuming 'i' == int32
+                    val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
                     llvm_args.append([val, typ])
             else:
                 val = self.ssa_vars[arg]
@@ -51,7 +51,7 @@ class LLVMOpDispatcher:
             elif op.opnum == 31:
                 self.parse_int_add(op)
 
-            elif op.opnum == 99:
+            elif op.opnum == 92:
                 self.parse_int_le(op)
 
     def parse_jump(self, op):
@@ -86,11 +86,13 @@ class LLVMOpDispatcher:
         phis = []
 
         c = 0
-        for arg, typ in self.parse_args(op.getarglist()):
+        arg_list = op.getarglist()
+        for arg, typ in self.parse_args(arg_list):
             phi = self.llvm.BuildPhi(self.builder, typ,
                                      str2constcharp("phi_"+str(c)+"_"+str(self.descr_cnt)))
             self.llvm.AddIncoming(phi, arg, last_block)
-            self.ssa_vars[arg] = phi
+            rpy_val = arg_list[c] #want to replace referances to this value with the phi instead of whatever was there beofre
+            self.ssa_vars[rpy_val] = phi
             phis.append(phi)
             c += 1
 
@@ -113,22 +115,25 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        self.llvm.BuildRet(self.builder, self.descr_cnt)
+        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(32), self.descr_cnt, 1)
+        self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
         self.bailout_blocks[descr] = bailout
 
-    def parse_int_add(self, op):
+    def parse_int_add(self, op): #TODO: look into signed/unsigned wrapping
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
         self.ssa_vars[op] = self.llvm.BuildAdd(self.builder, lhs, rhs,
-                                                    str2constcharp(op.name))
+                                               str2constcharp(str(self.var_cnt)))
+        self.var_cnt += 1
 
     def parse_int_le(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
-        self.ssa_vars[op] = self.llvm.BuildICmp(self.builder, enumop,
-                                                lhs, rhs, str2constcharp(op.name))
+        self.ssa_vars[op] = self.llvm.BuildICmp(self.builder, 9, lhs, rhs,
+                                                str2constcharp(str(self.var_cnt)))
+        self.var_cnt += 1

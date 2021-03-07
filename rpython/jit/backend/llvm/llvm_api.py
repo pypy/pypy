@@ -142,8 +142,8 @@ class LLVMAPI:
                                           self.ValueRef, self.ValueRef,
                                           self.Str], self.ValueRef,
                                           compilation_info=info)
-        self.BuildICmp = rffi.llexternal("LLVMBuildICmp",
-                                         [self.BuilderRef, self.IntPredicate,
+        self.BuildICmp = rffi.llexternal("BuildICmp",
+                                         [self.BuilderRef, lltype.Signed,
                                           self.ValueRef, self.ValueRef,
                                           self.Str], self.ValueRef,
                                          compilation_info=info)
@@ -155,8 +155,8 @@ class LLVMAPI:
                                          [self.BasicBlockRef], self.ValueRef,
                                          compilation_info=info)
         self.AddIncoming = rffi.llexternal("AddIncoming",
-                                           [self.ValueRef, self.ValueRefPtr,
-                                            self.BasicBlockRef,lltype.Unsigned],
+                                           [self.ValueRef, self.ValueRef,
+                                            self.BasicBlockRef],
                                            self.Void, compilation_info=info)
         self.BuildBr = rffi.llexternal("LLVMBuildBr",
                                        [self.BuilderRef, self.BasicBlockRef],
