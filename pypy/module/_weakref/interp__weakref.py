@@ -379,9 +379,11 @@ for opname, _, arity, special_methods in ObjSpace.MethodTable:
 
         # HACK: need to call the space method with arguments in the reverse
         # order!
-        code = code.replace("(w_obj0, w_obj1)", "(w_obj1, w_obj0)").replace("func", "rfunc")
+        code = code.replace("(w_obj0, w_obj1)", "(w_obj1, w_obj0)")
+        code = code.replace("func", "rfunc")
 
         exec py.code.Source(code).compile()
+        rfunc.func_name = special_methods[1][2:-2]
 
         proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
         callable_proxy_typedef_dict[special_methods[1]] = interp2app(rfunc)
