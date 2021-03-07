@@ -23,6 +23,7 @@ class Module(MixedModule):
        'copysign'       : 'interp_math.copysign',
        'ldexp'          : 'interp_math.ldexp',
        'hypot'          : 'interp_math.hypot',
+       'dist'           : 'interp_math.dist',
        'tan'            : 'interp_math.tan',
        'asin'           : 'interp_math.asin',
        'fabs'           : 'interp_math.fabs',

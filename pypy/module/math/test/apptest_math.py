@@ -53,3 +53,16 @@ def test_perm():
             return 4
 
     assert perm(A(), 2) == perm(4, 2)
+
+def test_hypot_many_args():
+    from math import hypot
+    args = math.e, math.pi, math.sqrt(2.0), math.gamma(3.5), math.sin(2.1), 1e48, 2e-47
+    for i in range(len(args)+1):
+        assert round(
+            hypot(*args[:i]) - math.sqrt(sum(s**2 for s in args[:i])), 7) == 0
+
+
+def test_dist():
+    from math import dist
+    assert dist((1.0, 2.0, 3.0), (4.0, 2.0, -1.0)) == 5.0
+    assert dist((1, 2, 3), (4, 2, -1)) == 5.0
