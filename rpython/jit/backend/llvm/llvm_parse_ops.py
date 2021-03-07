@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMOpDispatcher:
-    #FIXME: rets
     def __init__(self, cpu, builder, module):
         self.cpu = cpu
         self.builder = builder
@@ -22,7 +21,7 @@ class LLVMOpDispatcher:
         for arg in args:
             if arg.is_constant():
                 if arg.type == 'i':
-                    typ = self.llvm.IntType(32) #assuming 'i' == int32
+                    typ = self.llvm.IntType(32) #assuming 'i' == signed int32
                     val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
                     llvm_args.append([val, typ])
             else:

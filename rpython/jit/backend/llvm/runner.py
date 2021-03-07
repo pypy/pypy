@@ -18,6 +18,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.llvm = LLVMAPI()
         self.assembler = LLVMAssembler(self)
         self.context = self.llvm.CreateThreadSafeContext(None)
+        self.dispatchers = {} #map loop tokens to their dispatcher instances
 
     def setup_once(self):
         pass
@@ -45,7 +46,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.llvm.PositionBuilderAtEnd(builder, entry)
 
         dispatcher = LLVMOpDispatcher(self, builder, module)
-        looptoken.dispathcer = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for bridges
+        self.dispatchers[looptoken] = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for bridges
         dispatcher.func = trace
         dispatcher.dispatch_ops(inputargs, operations)
 
@@ -60,10 +61,7 @@ class LLVM_CPU(AbstractLLCPU):
         lltype.free(llvm_arg_types, flavor='raw')
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
-        print(inputargs[0])
-        print(faildescr)
-        print(dir(faildescr))
-        dispatcher = looptoken.dispatcher
+        dispatcher = self.dispatchers[looptoken]
         patch_block = dispatcher.bailout_blocks[faildescr]
         instr = self.llvm.GetFirstInstruction(patch_block)
         self.llvm.EraseInstruction(instr)
