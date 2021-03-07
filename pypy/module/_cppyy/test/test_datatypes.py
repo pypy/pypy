@@ -343,7 +343,6 @@ class AppTestDATATYPES:
         assert c.s_char                == b'c'
         assert c.s_uchar               == b'u'
         assert CppyyTestData.s_uchar   == b'u'
-        assert c.s_uchar                == 'u'
         assert CppyyTestData.s_wchar    == u'U'
         assert c.s_wchar                == u'U'
         assert CppyyTestData.s_char16   == u'\u6c29'
