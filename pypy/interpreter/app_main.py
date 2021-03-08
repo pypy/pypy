@@ -719,9 +719,10 @@ def run_command_line(interactive,
     success = True
 
     try:
+        from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
-            # Put '' on sys.path
+            # Put os.path.abspath('') on sys.path
             try:
                 bytes = run_command.encode()
             except BaseException as e:
@@ -731,13 +732,15 @@ def run_command_line(interactive,
                 success = False
             else:
                 if not isolated:
-                    sys.path.insert(0, '')
+                    fullpath = abspath('.')
+                    sys.path.insert(0, fullpath)
                 success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
             # '' on sys.path is required also here
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
             import runpy
             success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
@@ -749,7 +752,8 @@ def run_command_line(interactive,
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
 
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print a

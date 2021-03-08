@@ -7,6 +7,7 @@ import sys, os, re, runpy, subprocess
 import shutil
 from rpython.tool.udir import udir
 from contextlib import contextmanager
+import textwrap
 from pypy import pypydir
 from pypy.conftest import PYTHON3, LOOK_FOR_PYTHON3
 from pypy.interpreter.test.conftest import banner
@@ -1067,6 +1068,48 @@ class TestNonInteractive:
         assert status == 1
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
 
+    def test_consistent_sys_path_for_module_execution(self):
+        # This test case ensures that the following all give the same
+        # sys.path configuration:
+        #
+        #    ./python -sm script_pkg.__main__
+        #    ./python -sm script_pkg
+        #
+        # And that this fails as unable to find the package:
+        #    ./python -Im script_pkg
+        work_dir = _get_next_path(ext='')
+        script = textwrap.dedent("""
+            import sys
+            for d in sys.path:
+               print(d) 
+            """)
+        script_dir = work_dir / "script_pkg"
+        script_dir.ensure_dir()
+        (script_dir / '__main__.py').write(script)
+        env = os.environ.copy()
+        p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg.__main__"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        out_by_module = p.stdout.read().splitlines()
+        assert out_by_module[0] == str(work_dir)
+        assert script_dir not in out_by_module
+
+        p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        out_by_package = p.stdout.read().splitlines()
+        assert out_by_module == out_by_package
+
+        p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        stderr = p.stderr.read()
+        traceback_lines = stderr.decode().splitlines()
+        assert "No module named script_pkg" in traceback_lines[-1]
+ 
 
 @py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:
