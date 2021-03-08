@@ -655,9 +655,9 @@ class MMap(object):
         self.data[index] = value[0]
 
     if has_madvise:
-        def madvise(self, flags, start, length):
+        def madvise(self, flags, start, end):
             res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, + start)),
-                                 rffi.cast(size_t, length),
+                                 rffi.cast(size_t, end),
                                  rffi.cast(rffi.INT, flags))
             if res == 0:
                 return
