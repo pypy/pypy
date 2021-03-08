@@ -2697,6 +2697,20 @@ If follow_symlinks is False, and the last element of the path is a symbolic
 
 @unwrap_spec(name="bytes", flags=int)
 def memfd_create(space, name, flags=getattr(rposix, "MFD_CLOEXEC", 0xdead)):
+    """
+os.memfd_create(name[, flags=os.MFD_CLOEXEC])
+
+Create an anonymous file and return a file descriptor that refers to it. flags
+must be one of the os.MFD_* constants available on the system (or a bitwise
+ORed combination of them). By default, the new file descriptor is
+non-inheritable.
+
+The name supplied in name is used as a filename and will be displayed as the
+target of the corresponding symbolic link in the directory /proc/self/fd/. The
+displayed name is always prefixed with memfd: and serves only for debugging
+purposes. Names do not affect the behavior of the file descriptor, and as such
+multiple files can have the same name without any side effects.
+"""
     try:
         result = rposix.memfd_create(name, flags)
     except OSError as e:
