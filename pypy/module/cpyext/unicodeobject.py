@@ -8,7 +8,7 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.unicodehelper import (
     wcharpsize2utf8, str_decode_utf_16_helper, str_decode_utf_32_helper,
     unicode_encode_decimal, utf8_encode_utf_16_helper, BYTEORDER,
-    utf8_encode_utf_32_helper, str_decode_latin_1)
+    utf8_encode_utf_32_helper, str_decode_latin_1, utf8_encode_latin_1)
 from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, Py_TPFLAGS_UNICODE_SUBCLASS, cpython_api,
@@ -364,7 +364,12 @@ def _readify(space, py_obj, value):
                     "Character U+%s is not in range [U+0000; U+10ffff]",
                     '%x' % maxchar)
     if maxchar < 256:
-        ucs1_data = cts.cast('void *', rffi.str2charp(value))
+        if maxchar < 128:
+            ucs1_data = cts.cast('void *', rffi.str2charp(value))
+        else:
+            # value is encoded as latin-1, not ascii
+            s = utf8_encode_latin_1(value, 'strict', None)
+            ucs1_data = cts.cast('void *', rffi.str2charp(s))
         set_data(py_obj, ucs1_data)
         set_kind(py_obj, _1BYTE_KIND)
         set_len(py_obj, get_wsize(py_obj))

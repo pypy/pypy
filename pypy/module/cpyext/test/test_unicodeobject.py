@@ -521,6 +521,45 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         indx = module.findchar(s, ord('d'), 0, -1, 0)
         assert indx == 3 
 
+    def test_tolist(self):
+        module = self.import_extension('foo', [
+            ("to_list", "METH_O",
+            """
+                int i, len = PyUnicode_GET_LENGTH(args);
+                enum PyUnicode_Kind kind = PyUnicode_KIND(args);
+                PyObject *retval = PyTuple_New(len);
+                uint8_t * c = NULL;
+                uint16_t * k = NULL;
+                uint32_t * u = NULL;
+                
+                switch (kind) {
+                    case PyUnicode_1BYTE_KIND:
+                        c = PyUnicode_DATA(args);
+                        for(i=0; i<len; i++)
+                            PyTuple_SetItem(retval, i, PyLong_FromLong(c[i])); 
+                        break;
+                    case PyUnicode_2BYTE_KIND:
+                        k = PyUnicode_DATA(args);
+                        for(i=0; i<len; i++)
+                            PyTuple_SetItem(retval, i, PyLong_FromLong(k[i])); 
+                        break;
+                    case PyUnicode_4BYTE_KIND:
+                        u = PyUnicode_DATA(args);
+                        for(i=0; i<len; i++)
+                            PyTuple_SetItem(retval, i, PyLong_FromLong(u[i])); 
+                        break;
+                    default:
+                        Py_DECREF(retval);
+                        PyErr_SetString(PyExc_RuntimeError, "unknown kind");
+                        return NULL;
+                        break;
+                }
+                return retval;
+            """),
+            ])
+        print(module.to_list(u'000\x80'))
+        assert module.to_list(u'000\x80') == (48, 48, 48, 128)
+
  
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
