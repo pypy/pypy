@@ -291,7 +291,7 @@ corresponding Unix manual entries for more information on calls."""
                 MFD_HUGE_2GB
                 MFD_HUGE_16GB
                 """.split():
-            if getattr(rposix, name) is not None:
+            if getattr(rposix, name, None) is not None:
                 interpleveldefs[name] = 'space.wrap(%d)' % getattr(rposix, name)
 
     def startup(self, space):

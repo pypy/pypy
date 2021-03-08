@@ -1,3 +1,4 @@
+import sys
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, GetSetProperty, make_weakref_descr
@@ -253,6 +254,30 @@ class W_MMap(W_Root):
             return iterate()
         """)
 
+    @unwrap_spec(flags=int, start=int, length=int)
+    def descr_madvise(self, space, flags, start=0, length=sys.maxint):
+        """
+        madvise(option[, start[, length]])
+
+        Send advice option to the kernel about the memory region beginning at
+        start and extending length bytes. option must be one of the MADV_*
+        constants available on the system. If start and length are omitted,
+        the entire mapping is spanned. On some systems (including Linux),
+        start must be a multiple of the PAGESIZE.
+        """
+        if start < 0 or start >= self.mmap.size:
+            raise oefmt(space.w_ValueError, "madvise start out of bounds")
+        if length < 0:
+            raise oefmt(space.w_ValueError, "madvise length can't be negative")
+        try:
+            end = rarithmetic.ovfcheck(start + length)
+        except OverflowError:
+            length = self.mmap.size - start
+        else:
+            if end > self.mmap.size:
+                length = self.mmap.size - start
+        self.mmap.madvise(flags, start, length)
+
 
 if rmmap._POSIX:
 
@@ -289,6 +314,10 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         return self
 
+optional = {}
+if rmmap.has_madvise:
+    optional['madvise'] = interp2app(W_MMap.descr_madvise)
+
 W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __new__ = interp2app(mmap),
     close = interp2app(W_MMap.close),
@@ -316,6 +345,8 @@ W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __reversed__ = interp2app(W_MMap.descr_reversed),
 
     closed = GetSetProperty(W_MMap.closed_get),
+
+    **optional
 )
 
 constants = rmmap.constants
