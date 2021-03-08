@@ -52,8 +52,8 @@ class AppTestUnicodeData:
             ('4E00', '9FEF'),
             ('20000', '2A6D6'),
             ('2A700', '2B734'),
-            ('2B740', '2B81D'),
-            ('2B820', '2CEA1'),
+            ('2B740', '2CEA1'),
+            ('2CEB0', '2EBE0'),
         ]
         for first, last in cases:
             first = int(first, 16)
@@ -162,3 +162,8 @@ class AppTestUnicodeData:
     def test_11_change(self):
         import unicodedata
         assert unicodedata.name(chr(0x1f9b9)) == "SUPERVILLAIN"
+
+    def test_12_1_change(self):
+        import unicodedata
+        assert unicodedata.name(chr(0x32ff)) == 'SQUARE ERA NAME REIWA'
+
