@@ -2695,6 +2695,14 @@ If follow_symlinks is False, and the last element of the path is a symbolic
             raise wrap_oserror2(space, e, path.w_path)
     return space.newlist([space.newfilename(attr) for attr in result])
 
+@unwrap_spec(name="bytes", flags=int)
+def memfd_create(space, name, flags=getattr(rposix, "MFD_CLOEXEC", 0xdead)):
+    try:
+        result = rposix.memfd_create(name, flags)
+    except OSError as e:
+        raise wrap_oserror2(space, e)
+    return space.newint(result)
+
 
 have_functions = []
 for name in """FACCESSAT FCHDIR FCHMOD FCHMODAT FCHOWN FCHOWNAT FEXECVE

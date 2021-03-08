@@ -1603,6 +1603,17 @@ class AppTestPosix:
                 os.getxattr(self.path, 'user.test')
             assert os.listxattr(self.path, follow_symlinks=False) == init_names
 
+    if hasattr(rposix, 'memfd_create'):
+        # minimal testing
+        def test_memfd_create(self):
+            os = self.posix
+            fd = os.memfd_create(b"abc")
+            try:
+                s = b"defghi?"
+                os.write(fd, s)
+            finally:
+                os.close(fd)
+
     def test_get_terminal_size(self):
         os = self.posix
         for args in [(), (1,), (0,), (42421,)]:
