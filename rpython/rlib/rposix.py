@@ -2995,11 +2995,12 @@ if sys.platform.startswith('linux'):
                 MFD_HUGE_2GB
                 MFD_HUGE_16GB
                 """.split():
-            if rffi_platform.Has(name):
-                locals()[name] = rffi_platform.DefinedConstantInteger(name)
+            locals()[name] = rffi_platform.DefinedConstantInteger(name)
 
     cConfig = rffi_platform.configure(CConfig)
-    globals().update(cConfig)
+    for key, value in cConfig.items():
+        if value is not None:
+            globals()[key] = value
 
     c_memfd_create = external('memfd_create',
         [rffi.CCHARP, rffi.UINT], rffi.INT,
@@ -3008,4 +3009,5 @@ if sys.platform.startswith('linux'):
     def memfd_create(name, flags):
         return handle_posix_error(
             'memfd_create', c_memfd_create(name, flags))
+
 

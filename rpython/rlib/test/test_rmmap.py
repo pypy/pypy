@@ -485,6 +485,12 @@ class TestMMap:
         py.test.raises(RValueError, m.getitem, 0)
         m.close()
 
+    @py.test.mark.skipif("not mmap.has_madvise")
+    def test_madvise(self):
+        m = mmap.mmap(-1, 8096)
+        m.madvise(mmap.MADV_NORMAL, 0, 8096)
+
+
 def test_alloc_free():
     map_size = 65536
     data = alloc(map_size)
