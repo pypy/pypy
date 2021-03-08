@@ -286,6 +286,11 @@ class UCD(W_Root):
 
         return self.build(space, result, stop=next_insert)
 
+    @unwrap_spec(form='text')
+    def is_normalized(self, space, form, w_uni):
+        # XXX inefficient!
+        return space.eq(self.normalize(space, form, w_uni), w_uni)
+
     def build(self, space, r, stop):
         builder = Utf8StringBuilder(stop * 3)
         for i in range(stop):
@@ -297,6 +302,7 @@ methods = {}
 for methodname in """
         _get_code lookup name decimal digit numeric category east_asian_width
         bidirectional combining mirrored decomposition normalize
+        is_normalized
         """.split():
     methods[methodname] = interp2app(getattr(UCD, methodname))
 

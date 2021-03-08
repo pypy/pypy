@@ -92,6 +92,11 @@ class AppTestUnicodeData:
         import unicodedata
         assert unicodedata.normalize('NFC', '\U000110a5\U000110ba') == '\U000110ab'
 
+    def test_is_normalized(self):
+        import unicodedata
+        assert unicodedata.is_normalized("NFC", '\U000110ab')
+        assert not unicodedata.is_normalized("NFC", '\U000110a5\U000110ba')
+
     def test_linebreaks(self):
         linebreaks = (0x0a, 0x0b, 0x0c, 0x0d, 0x85,
                       0x1c, 0x1d, 0x1e, 0x2028, 0x2029)
