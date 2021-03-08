@@ -110,9 +110,12 @@ def setup_context(space, stacklevel):
     if frame:
         w_globals = frame.get_w_globals()
         lineno = frame.get_last_lineno()
+        code = frame.getcode()
+        w_filename = space.newtext(code.co_filename)
     else:
         w_globals = space.sys.w_dict
         lineno = 1
+        w_filename = space.newtext("sys")
 
     # setup registry
     try:
@@ -130,28 +133,6 @@ def setup_context(space, stacklevel):
         if not e.match(space, space.w_KeyError):
             raise
         w_module = space.newtext("<string>")
-
-    # setup filename
-    try:
-        w_filename = space.getitem(w_globals, space.newtext("__file__"))
-        filename = space.fsencode_w(w_filename)
-    except OperationError as e:
-        if space.text_w(w_module) == '__main__':
-            w_argv = space.sys.getdictvalue(space, 'argv')
-            if w_argv and space.len_w(w_argv) > 0:
-                w_filename = space.getitem(w_argv, space.newint(0))
-                if not space.is_true(w_filename):
-                    w_filename = space.newtext('__main__')
-            else:
-                # embedded interpreters don't have sys.argv
-                w_filename = space.newtext('__main__')
-        else:
-            w_filename = w_module
-    else:
-        lc_filename = filename.lower()
-        if lc_filename.endswith(".pyc"):
-            # strip last character
-            w_filename = space.fsdecode(space.newbytes(filename[:-1]))
 
     return (w_filename, lineno, w_module, w_registry)
 
