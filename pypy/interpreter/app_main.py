@@ -722,7 +722,7 @@ def run_command_line(interactive,
         from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
-            # Put os.path.abspath('') on sys.path
+            # Put '' on sys.path
             try:
                 bytes = run_command.encode()
             except BaseException as e:
@@ -732,12 +732,11 @@ def run_command_line(interactive,
                 success = False
             else:
                 if not isolated:
-                    fullpath = abspath('.')
-                    sys.path.insert(0, fullpath)
+                    sys.path.insert(0, '')
                 success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
-            # '' on sys.path is required also here
+            # Put abspath('') on sys.path
             if not isolated:
                 fullpath = abspath('.')
                 sys.path.insert(0, fullpath)
@@ -863,8 +862,14 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
-                        with open(filename, 'rb') as f:
-                            code = f.read()
+                        try:
+                            with open(filename, 'rb') as f:
+                                code = f.read()
+                        except IOError as e:
+                            sys.stderr.write(
+                                "%s: can't open file %s: [Errno %d] %s\n" %
+                                (sys.executable, filename, e.errno, e.strerror))
+                            raise SystemExit(e.errno)
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
                         exec(co, namespace)

@@ -1110,6 +1110,12 @@ class TestNonInteractive:
         traceback_lines = stderr.decode().splitlines()
         assert "No module named script_pkg" in traceback_lines[-1]
  
+    def test_error_msg(self):
+        data, status = self.run_with_status_code('does_not_exist.py')
+        assert "can't open file" in data
+        assert status == 2
+
+        
 
 @py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:
