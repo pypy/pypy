@@ -39,17 +39,12 @@ class TestLogParser(BaseTestPyPyC):
         fn_with_bridges_loops = []
         bridges = {}
 
-        lib_re = re.compile("file '.*lib-python.*'")
         for loop in loops:
             if hasattr(loop, 'force_asm'):
                 try:
                     loop.force_asm()
                 except ObjdumpNotFound:
                     py.test.skip("ObjDump was not found, skipping")
-            if lib_re.search(loop.comment) or \
-                    lib_re.search(loop.operations[0].repr()):
-                # do not care for _optimize_charset or _mk_bitmap
-                continue
             assert loop.count > 0
             if 'is_prime' in loop.comment:
                 is_prime_loops.append(loop)
@@ -57,8 +52,7 @@ class TestLogParser(BaseTestPyPyC):
                 fn_with_bridges_loops.append(loop)
             elif 'tuple.contains' in loop.comment:
                 pass
-            else:
-                assert ' bridge ' in loop.comment
+            elif ' bridge ' in loop.comment:
                 key = mangle_descr(loop.descr)
                 assert key not in bridges
                 bridges[key] = loop
