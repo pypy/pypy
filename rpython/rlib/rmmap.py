@@ -316,6 +316,7 @@ elif _MS_WINDOWS:
             lltype.free(high_ref, flavor='raw')
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
+    has_madvise = False
 
 PAGESIZE = _get_page_size()
 ALLOCATIONGRANULARITY = _get_allocation_granularity()
