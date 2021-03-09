@@ -196,8 +196,32 @@ class TestString(BaseTestPyPyC):
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         assert loop.match_by_id('callone', '''
-            p114 = call_r(ConstClass(_lower_unicode), p113, descr=<Callr . r EF=4>)
+            p114 = call_r(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
             guard_no_exception(descr=...)
+            ''')
+        assert loop.match_by_id('calltwo', '')    # nothing
+
+    def test_remove_duplicate_method_calls_unicode(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = u'H\xe4llo %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(u','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        assert loop.match_by_id('callone', '''
+            i136 = strlen(p131)
+            i137 = int_eq(i135, i136)
+            guard_false(i137, descr=...)
+            p139 = call_r(ConstClass(_lower_unicode), p131, descr=...)
+            guard_no_exception(descr=...)
+            guard_nonnull(p139, descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
