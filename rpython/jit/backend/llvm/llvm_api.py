@@ -311,7 +311,7 @@ class LLVMAPI:
         #cpu_features = self.GetHostCPUFeatures(None)
         #triple = self.GetTargetTriple(None)
         #target = self.GetTarget(triple)
-        #if target._obj._getitem(0) == 0: #pointer is NULL
+        #if self.debug and target._obj._getitem(0) == 0: #pointer is NULL
         #    raise Exception("Get Target From Triple Failed")
         #opt_level = DefinedConstantInteger("LLVMCodeGenLevelAggressive")
         #reloc_mode = DefinedConstantInteger("LLVMRelocDefault")

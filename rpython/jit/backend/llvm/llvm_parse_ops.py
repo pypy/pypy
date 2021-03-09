@@ -1,11 +1,14 @@
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMOpDispatcher:
-    def __init__(self, cpu, builder, module):
+    def __init__(self, cpu, builder, module, func):
         self.cpu = cpu
         self.builder = builder
         self.module = module
+        self.func = func
         self.llvm = self.cpu.llvm
+        self.args_size = 0
+        self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
         self.var_cnt = 0 #keep ssa names in llvm unique
         self.const_cnt = 0 #counter to help keep llvm's ssa names unique
@@ -14,14 +17,13 @@ class LLVMOpDispatcher:
         self.descr_phis = {} #map label descrs to phi values
         self.descr_blocks = {} #map label descrs to their blocks
         self.bailout_blocks = {} #map guard descrs to their bailout blocks
-        self.func = None
 
     def parse_args(self, args):
         llvm_args = []
         for arg in args:
             if arg.is_constant():
                 if arg.type == 'i':
-                    typ = self.llvm.IntType(32) #assuming 'i' == signed int32
+                    typ = self.llvm.IntType(64)
                     val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
                     llvm_args.append([val, typ])
             else:
@@ -33,6 +35,8 @@ class LLVMOpDispatcher:
         if not is_bridge: #input args for a bridge can only be args parsed in a previous trace
             for c, arg in enumerate(inputargs):
                 self.ssa_vars[arg] = self.llvm.GetParam(self.func, c)
+                self.arg_size += self.cpu.WORD
+
 
         for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
             if op.opnum == 1:
@@ -114,7 +118,7 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(32), self.descr_cnt, 1)
+        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(64), self.descr_cnt, 1)
         self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume)

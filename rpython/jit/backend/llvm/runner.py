@@ -1,6 +1,6 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
 from rpython.jit.backend.model import CompiledLoopToken, CPUTotalTracker
-from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger
 from rpython.jit.backend.llvm.llvm_api import LLVMAPI
@@ -19,6 +19,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.assembler = LLVMAssembler(self)
         self.context = self.llvm.CreateThreadSafeContext(None)
         self.dispatchers = {} #map loop tokens to their dispatcher instances
+        self.WORD = 8
 
     def setup_once(self):
         pass
@@ -32,11 +33,13 @@ class LLVM_CPU(AbstractLLCPU):
                      unique_id=0, log=True, name='', logger=None):
         module = self.llvm.CreateModule(str2constcharp(name))
         builder = self.llvm.CreateBuilder(None)
-        arg_types = [arg.datatype for arg in inputargs]
-        ret_type = lltype.Signed #hard coding for now
         llvm_arg_types = self.convert_args(inputargs)
+        arg_array = rffi.CArray(self.llvm.TypeRef)
+        arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
+        arg_types = arg_types_ptr._getobj()
+        arg_types.setitem(0, self.llvm.VoidPtr)
 
-        signature = self.llvm.FunctionType(self.llvm.IntType(32),
+        signature = self.llvm.FunctionType(self.llvm.VoidPtr,
                                       llvm_arg_types,
                                       len(inputargs), 0)
         trace = self.llvm.AddFunction(module,
@@ -45,19 +48,15 @@ class LLVM_CPU(AbstractLLCPU):
         entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
         self.llvm.PositionBuilderAtEnd(builder, entry)
 
-        dispatcher = LLVMOpDispatcher(self, builder, module)
+        dispatcher = LLVMOpDispatcher(self, builder, module, trace)
         self.dispatchers[looptoken] = dispatcher #this class holds data about llvm's state, so helpful to keep around on a per-loop basis for bridges
-        dispatcher.func = trace
         dispatcher.dispatch_ops(inputargs, operations)
 
         if self.debug:
             self.verify(module)
 
-        self.assembler.jit_compile(module, looptoken, inputargs) #set compiled loop token and func addr
+        self.assembler.jit_compile(module, looptoken, inputargs, dispatcher) #set compiled loop token and func addr
 
-        #FUNC_PTR = lltype.Ptr(lltype.FuncType(arg_types, ret_type))
-        #func = rffi.cast(FUNC_PTR, addr)
-        #self.execute_token = self.make_executable_token(arg_types)
         lltype.free(llvm_arg_types, flavor='raw')
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
@@ -71,7 +70,13 @@ class LLVM_CPU(AbstractLLCPU):
         if self.debug:
             self.verify(dispatcher.module)
 
-        self.assembler.jit_compile(dispatcher.module, looptoken, inputargs)
+        self.assembler.jit_compile(dispatcher.module, looptoken, inputargs, dispatcher)
+
+    def make_executable_args(self, *ARGS):
+        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
+                                             llmemory.GCREF))
+
+        #func = rffi.cast(FUNCPTR, addr)
 
     def convert_args(self, inputargs):
         arg_array = rffi.CArray(self.llvm.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
