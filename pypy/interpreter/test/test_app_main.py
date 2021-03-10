@@ -7,6 +7,7 @@ import sys, os, re, runpy, subprocess
 import shutil
 from rpython.tool.udir import udir
 from contextlib import contextmanager
+import textwrap
 from pypy import pypydir
 from pypy.conftest import PYTHON3, LOOK_FOR_PYTHON3
 from pypy.interpreter.test.conftest import banner
@@ -1066,15 +1067,6 @@ class TestNonInteractive:
         data, status = self.run_with_status_code(p, env=env)
         assert status == 1
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
-
-    def test_keyboardinterrupt_exit_signal(self):
-        import subprocess, signal, os
-        p= subprocess.Popen([get_python3(), app_main, "-c", "raise KeyboardInterrupt"],
-                            stdout=subprocess.PIPE,
-                            stdin=subprocess.PIPE,
-                            stderr=subprocess.PIPE)
-        out, err = p.communicate()
-        assert p.returncode == -signal.SIGINT
 
 
 @py.test.mark.skipif('config.getoption("runappdirect")')

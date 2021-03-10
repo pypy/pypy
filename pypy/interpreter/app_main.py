@@ -722,6 +722,7 @@ def run_command_line(interactive,
     success = True
 
     try:
+        from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
@@ -738,9 +739,10 @@ def run_command_line(interactive,
                 success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
-            # '' on sys.path is required also here
+            # Put abspath('') on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
             import runpy
             success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
@@ -752,7 +754,8 @@ def run_command_line(interactive,
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
 
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print a
@@ -862,8 +865,14 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
-                        with open(filename, 'rb') as f:
-                            code = f.read()
+                        try:
+                            with open(filename, 'rb') as f:
+                                code = f.read()
+                        except IOError as e:
+                            sys.stderr.write(
+                                "%s: can't open file %s: [Errno %d] %s\n" %
+                                (sys.executable, filename, e.errno, e.strerror))
+                            raise SystemExit(e.errno)
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
                         exec(co, namespace)

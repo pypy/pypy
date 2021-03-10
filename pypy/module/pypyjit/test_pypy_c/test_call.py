@@ -644,5 +644,4 @@ class TestCall(BaseTestPyPyC):
             res += (9999 in map(g, range(200000)))
             return res
         """, [])
-        # as opposed to one loop, one bridge  (the third loop is tuple.contains)
-        assert len(log.loops) == 3
+        assert len([l for l in log.loops if l.chunks[1].bytecode_name.startswith("DescrOperation.contains")]) == 2
