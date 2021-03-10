@@ -1,5 +1,6 @@
+import pytest
+
 import itertools
-import random
 from operator import itemgetter
 from heapq import merge
 
@@ -27,18 +28,14 @@ def test_merge_hypothesis(lists):
     check_merge_case(lists)
 
 
-def test_merge_tree_sizes():
-    def check_n_iterables(n):
-        lists = [
-            [
-                (random.randrange(-5, 5), random.choice("ABC"))
-                for j in range(random.randrange(20))
-            ]
-            for i in range(n)
-        ]
-        check_merge_case(lists)
 
-    for _ in range(10):
-        for n in range(30):
-            check_n_iterables(n)
-        check_n_iterables(1000)
+@given(random=st.randoms(), n=st.sampled_from(list(range(2, 30)) + [1000]))
+def test_merge_tree_sizes(random, n):
+    lists = [
+        [
+            (random.randrange(-5, 5), random.choice("ABC"))
+            for j in range(random.randrange(20))
+        ]
+        for i in range(n)
+    ]
+    check_merge_case(lists)
