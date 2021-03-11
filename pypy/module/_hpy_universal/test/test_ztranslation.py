@@ -39,12 +39,14 @@ def make_cpyext_struct():
 def test_checkmodule():
     DUMMY_CPYEXT_STRUCT = make_cpyext_struct()
     def extra_func(space):
+        from pypy.objspace.std.unicodeobject import W_UnicodeObject
         state = space.fromcache(State)
         state.setup()
         attach_dict_strategy(space)
         p = lltype.malloc(DUMMY_CPYEXT_STRUCT, flavor='raw')
         lltype.free(p, flavor='raw')
         W_TypeObject(space, 'foo', [], {}).hasmro = False
+        W_UnicodeObject("abc", 3) # unfortunately needed
 
     rpython_opts = {'translation.gc': 'boehm'}
     # it isn't possible to ztranslate cpyext easily, so we check _hpy_universal

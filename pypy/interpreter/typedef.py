@@ -654,10 +654,12 @@ PyFrame.typedef = TypeDef('frame',
     f_lasti = GetSetProperty(PyFrame.fget_f_lasti),
     f_trace = GetSetProperty(PyFrame.fget_f_trace, PyFrame.fset_f_trace,
                              PyFrame.fdel_f_trace),
-    f_restricted = GetSetProperty(PyFrame.fget_f_restricted),
+    f_trace_lines = GetSetProperty(PyFrame.fget_f_trace_lines, PyFrame.fset_f_trace_lines),
+    f_trace_opcodes = GetSetProperty(PyFrame.fget_f_trace_opcodes, PyFrame.fset_f_trace_opcodes),
     f_code = GetSetProperty(PyFrame.fget_code),
     f_locals = GetSetProperty(PyFrame.fget_getdictscope),
     f_globals = GetSetProperty(PyFrame.fget_w_globals),
+    __repr__ = interp2app(PyFrame.descr_repr),
 )
 assert not PyFrame.typedef.acceptable_as_base_class  # no __new__
 
@@ -812,14 +814,15 @@ BuiltinFunction.typedef.acceptable_as_base_class = False
 
 PyTraceback.typedef = TypeDef("traceback",
     __reduce__ = interp2app(PyTraceback.descr__reduce__),
+    __new__ = interp2app(PyTraceback.descr_new),
     __setstate__ = interp2app(PyTraceback.descr__setstate__),
     __dir__ = interp2app(PyTraceback.descr__dir__),
     tb_frame = interp_attrproperty_w('frame', cls=PyTraceback),
-    tb_lasti = interp_attrproperty('lasti', cls=PyTraceback, wrapfn="newint"),
-    tb_lineno = GetSetProperty(PyTraceback.descr_tb_lineno),
-    tb_next = interp_attrproperty_w('next', cls=PyTraceback),
+    tb_lasti = GetSetProperty(PyTraceback.descr_get_tb_lasti, PyTraceback.descr_set_tb_lasti),
+    tb_lineno = GetSetProperty(PyTraceback.descr_get_tb_lineno, PyTraceback.descr_set_tb_lineno),
+    tb_next = GetSetProperty(PyTraceback.descr_get_next, PyTraceback.descr_set_next),
     )
-assert not PyTraceback.typedef.acceptable_as_base_class  # no __new__
+PyTraceback.typedef.acceptable_as_base_class = False
 
 GeneratorIterator.typedef = TypeDef("generator",
     __repr__   = interp2app(GeneratorIterator.descr__repr__),
@@ -863,6 +866,7 @@ Coroutine.typedef = TypeDef("coroutine",
     cr_frame   = GetSetProperty(Coroutine.descr_gicr_frame),
     cr_code    = interp_attrproperty_w('pycode', cls=Coroutine),
     cr_await=GetSetProperty(Coroutine.descr_delegate),
+    cr_origin  = interp_attrproperty_w('w_cr_origin', cls=Coroutine),
     __name__   = GetSetProperty(Coroutine.descr__name__,
                                 Coroutine.descr_set__name__,
                                 doc="name of the coroutine"),
@@ -942,7 +946,11 @@ Cell.typedef = TypeDef("cell",
     __reduce__   = interp2app(Cell.descr__reduce__),
     __repr__     = interp2app(Cell.descr__repr__),
     __setstate__ = interp2app(Cell.descr__setstate__),
-    cell_contents= GetSetProperty(Cell.descr__cell_contents, cls=Cell),
+    cell_contents= GetSetProperty(
+        Cell.descr__cell_contents,
+        Cell.descr_set_cell_contents,
+        Cell.descr_del_cell_contents,
+        cls=Cell),
 )
 assert not Cell.typedef.acceptable_as_base_class  # no __new__
 

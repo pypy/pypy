@@ -102,8 +102,7 @@ else:
     INITIAL_BUFFER_SIZE = 8192
 
 UINT_MAX = 2**32-1
-MAX_BUFSIZE = min(sys.maxint, UINT_MAX)
-assert isinstance(MAX_BUFSIZE, int)
+MAX_BUFSIZE = int(min(sys.maxint, UINT_MAX))
 
 if rffi.sizeof(rffi.INT) > 4:
     BIGCHUNK = 512 * 32

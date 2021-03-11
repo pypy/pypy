@@ -293,3 +293,9 @@ class AppTestAbstractInst:
         else:
             assert False, "Should have raised KeyError"
         """
+
+    def test_exception_contains_type_name(self):
+        with raises(TypeError) as e:
+            issubclass(type, None)
+        print(e.value)
+        assert "NoneType" in str(e.value)

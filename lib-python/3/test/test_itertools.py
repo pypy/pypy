@@ -11,6 +11,7 @@ import pickle
 from functools import reduce
 import sys
 import struct
+import threading
 maxsize = support.MAX_Py_ssize_t
 minsize = -maxsize-1
 
@@ -756,6 +757,26 @@ class TestBasicOps(unittest.TestCase):
         self.assertEqual(set(keys), expectedkeys)
         self.assertEqual(len(keys), len(expectedkeys))
 
+        # Check case where inner iterator is used after advancing the groupby
+        # iterator
+        s = list(zip('AABBBAAAA', range(9)))
+        it = groupby(s, testR)
+        _, g1 = next(it)
+        _, g2 = next(it)
+        _, g3 = next(it)
+        self.assertEqual(list(g1), [])
+        self.assertEqual(list(g2), [])
+        self.assertEqual(next(g3), ('A', 5))
+        list(it)  # exhaust the groupby iterator
+        self.assertEqual(list(g3), [])
+
+        for proto in range(pickle.HIGHEST_PROTOCOL + 1):
+            it = groupby(s, testR)
+            _, g = next(it)
+            next(it)
+            next(it)
+            self.assertEqual(list(pickle.loads(pickle.dumps(g, proto))), [])
+
         # Exercise pipes and filters style
         s = 'abracadabra'
         # sort s | uniq
@@ -1253,6 +1274,19 @@ class TestBasicOps(unittest.TestCase):
         support.gc_collect()
         self.assertIsNone(wr())
 
+        # Issue #30537: islice can accept integer-like objects as
+        # arguments
+        class IntLike(object):
+            def __init__(self, val):
+                self.val = val
+            def __index__(self):
+                return self.val
+        self.assertEqual(list(islice(range(100), IntLike(10))), list(range(10)))
+        self.assertEqual(list(islice(range(100), IntLike(10), IntLike(50))),
+                         list(range(10, 50)))
+        self.assertEqual(list(islice(range(100), IntLike(10), IntLike(50), IntLike(5))),
+                         list(range(10,50,5)))
+
     def test_takewhile(self):
         data = [1, 3, 5, 20, 2, 4, 6, 8]
         self.assertEqual(list(takewhile(underten, data)), [1, 3, 5])
@@ -1448,6 +1482,42 @@ class TestBasicOps(unittest.TestCase):
         except:
             del forward, backward
             raise
+
+    def test_tee_reenter(self):
+        class I:
+            first = True
+            def __iter__(self):
+                return self
+            def __next__(self):
+                first = self.first
+                self.first = False
+                if first:
+                    return next(b)
+
+        a, b = tee(I())
+        with self.assertRaisesRegex(RuntimeError, "tee"):
+            next(a)
+
+    def test_tee_concurrent(self):
+        start = threading.Event()
+        finish = threading.Event()
+        class I:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                start.set()
+                finish.wait()
+
+        a, b = tee(I())
+        thread = threading.Thread(target=next, args=[a])
+        thread.start()
+        try:
+            start.wait()
+            with self.assertRaisesRegex(RuntimeError, "tee"):
+                next(b)
+        finally:
+            finish.set()
+            thread.join()
 
     def test_StopIteration(self):
         self.assertRaises(StopIteration, next, zip())
@@ -2074,7 +2144,7 @@ class SubclassWithKwargsTest(unittest.TestCase):
                 Subclass(newarg=1)
             except TypeError as err:
                 # we expect type errors because of wrong argument count
-                self.assertNotIn("does not take keyword arguments", err.args[0])
+                self.assertNotIn("keyword arguments", err.args[0])
 
 @support.cpython_only
 class SizeofTest(unittest.TestCase):

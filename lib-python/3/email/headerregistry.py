@@ -250,7 +250,7 @@ class BaseHeader(str):
         the header name and the ': ' separator.
 
         """
-        # At some point we need to put fws here iif it was in the source.
+        # At some point we need to put fws here if it was in the source.
         header = parser.Header([
             parser.HeaderLabel([
                 parser.ValueTerminal(self.name, 'header-name'),
@@ -377,8 +377,8 @@ class AddressHeader:
     @property
     def addresses(self):
         if self._addresses is None:
-            self._addresses = tuple([address for group in self._groups
-                                             for address in group.addresses])
+            self._addresses = tuple(address for group in self._groups
+                                            for address in group.addresses)
         return self._addresses
 
 

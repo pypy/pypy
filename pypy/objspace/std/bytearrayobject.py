@@ -222,11 +222,13 @@ class W_BytearrayObject(W_Root):
 
     def descr_repr(self, space):
         s, start, end, _ = self._convert_idx_params(space, None, None)
+        cls_name = space.type(self).getname(space)
 
         # Good default if there are no replacements.
-        buf = StringBuilder(len("bytearray(b'')") + (end - start))
+        buf = StringBuilder(len(cls_name) + len("(b'')") + (end - start))
 
-        buf.append("bytearray(b")
+        buf.append(cls_name)
+        buf.append("(b")
         quote = "'"
         for i in range(start, end):
             c = s[i]
@@ -354,6 +356,12 @@ class W_BytearrayObject(W_Root):
         if not success:
             return space.w_NotImplemented
         return space.newbool(cmp > 0 or (cmp == 0 and self._len() >= other_len))
+
+    def descr_isascii(self, space):
+        for i in self._data[self._offset:]:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
 
     def descr_inplace_add(self, space, w_other):
         if isinstance(w_other, W_BytearrayObject):
@@ -550,7 +558,7 @@ def _hexstring_to_array(space, s):
     length = len(s)
     i = 0
     while True:
-        while i < length and s[i] == ' ':
+        while i < length and s[i].isspace():
             i += 1
         if i >= length:
             break
@@ -814,6 +822,12 @@ class BytearrayDocstrings:
         Return True if all characters in B are alphabetic
         and there is at least one character in B, False otherwise.
         """
+
+    def isascii():
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
 
     def isdigit():
         """B.isdigit() -> bool
@@ -1112,6 +1126,8 @@ W_BytearrayObject.typedef = TypeDef(
                          doc=BytearrayDocstrings.isalnum.__doc__),
     isalpha = interp2app(W_BytearrayObject.descr_isalpha,
                          doc=BytearrayDocstrings.isalpha.__doc__),
+    isascii = interp2app(W_BytearrayObject.descr_isascii,
+                         doc=BytearrayDocstrings.isascii.__doc__),
     isdigit = interp2app(W_BytearrayObject.descr_isdigit,
                          doc=BytearrayDocstrings.isdigit.__doc__),
     islower = interp2app(W_BytearrayObject.descr_islower,

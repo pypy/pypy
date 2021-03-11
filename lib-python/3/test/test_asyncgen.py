@@ -1,9 +1,6 @@
 import inspect
-import sys
 import types
 import unittest
-
-from unittest import mock
 
 from test.support import import_module, gc_collect
 asyncio = import_module("asyncio")
@@ -756,6 +753,33 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         self.loop.run_until_complete(run())
         self.assertEqual(DONE, 10)
 
+    def test_async_gen_asyncio_aclose_12(self):
+        DONE = 0
+
+        async def target():
+            await asyncio.sleep(0.01)
+            1 / 0
+
+        async def foo():
+            nonlocal DONE
+            task = asyncio.create_task(target())
+            try:
+                yield 1
+            finally:
+                try:
+                    await task
+                except ZeroDivisionError:
+                    DONE = 1
+
+        async def run():
+            gen = foo()
+            it = gen.__aiter__()
+            await it.__anext__()
+            await gen.aclose()
+
+        self.loop.run_until_complete(run())
+        self.assertEqual(DONE, 1)
+
     def test_async_gen_asyncio_asend_01(self):
         DONE = 0
 
@@ -1096,6 +1120,122 @@ class AsyncGenAsyncioTest(unittest.TestCase):
         # Silence warnings
         t.cancel()
         self.loop.run_until_complete(asyncio.sleep(0.1, loop=self.loop))
+
+    def test_async_gen_expression_01(self):
+        async def arange(n):
+            for i in range(n):
+                await asyncio.sleep(0.01, loop=self.loop)
+                yield i
+
+        def make_arange(n):
+            # This syntax is legal starting with Python 3.7
+            return (i * 2 async for i in arange(n))
+
+        async def run():
+            return [i async for i in make_arange(10)]
+
+        res = self.loop.run_until_complete(run())
+        self.assertEqual(res, [i * 2 for i in range(10)])
+
+    def test_async_gen_expression_02(self):
+        async def wrap(n):
+            await asyncio.sleep(0.01, loop=self.loop)
+            return n
+
+        def make_arange(n):
+            # This syntax is legal starting with Python 3.7
+            return (i * 2 for i in range(n) if await wrap(i))
+
+        async def run():
+            return [i async for i in make_arange(10)]
+
+        res = self.loop.run_until_complete(run())
+        self.assertEqual(res, [i * 2 for i in range(1, 10)])
+
+    def test_asyncgen_nonstarted_hooks_are_cancellable(self):
+        # See https://bugs.python.org/issue38013
+        messages = []
+
+        def exception_handler(loop, context):
+            messages.append(context)
+
+        async def async_iterate():
+            yield 1
+            yield 2
+
+        async def main():
+            loop = asyncio.get_running_loop()
+            loop.set_exception_handler(exception_handler)
+
+            async for i in async_iterate():
+                break
+
+        asyncio.run(main())
+
+        self.assertEqual([], messages)
+
+    def test_async_gen_await_same_anext_coro_twice(self):
+        async def async_iterate():
+            yield 1
+            yield 2
+
+        async def run():
+            it = async_iterate()
+            nxt = it.__anext__()
+            await nxt
+            with self.assertRaisesRegex(
+                    RuntimeError,
+                    r"cannot reuse already awaited __anext__\(\)/asend\(\)"
+            ):
+                await nxt
+
+            await it.aclose()  # prevent unfinished iterator warning
+
+        self.loop.run_until_complete(run())
+
+    def test_async_gen_await_same_aclose_coro_twice(self):
+        async def async_iterate():
+            yield 1
+            yield 2
+
+        async def run():
+            it = async_iterate()
+            nxt = it.aclose()
+            await nxt
+            with self.assertRaisesRegex(
+                    RuntimeError,
+                    r"cannot reuse already awaited aclose\(\)/athrow\(\)"
+            ):
+                await nxt
+
+        self.loop.run_until_complete(run())
+
+    def test_async_gen_aclose_twice_with_different_coros(self):
+        # Regression test for https://bugs.python.org/issue39606
+        async def async_iterate():
+            yield 1
+            yield 2
+
+        async def run():
+            it = async_iterate()
+            await it.aclose()
+            await it.aclose()
+
+        self.loop.run_until_complete(run())
+
+    def test_async_gen_aclose_after_exhaustion(self):
+        # Regression test for https://bugs.python.org/issue39606
+        async def async_iterate():
+            yield 1
+            yield 2
+
+        async def run():
+            it = async_iterate()
+            async for _ in it:
+                pass
+            await it.aclose()
+
+        self.loop.run_until_complete(run())
 
 if __name__ == "__main__":
     unittest.main()

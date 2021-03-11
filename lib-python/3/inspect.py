@@ -18,7 +18,7 @@ Here are some of the useful functions provided by this module:
 
     getargvalues(), getcallargs() - get info about function arguments
     getfullargspec() - same, with support for Python 3 features
-    formatargspec(), formatargvalues() - format an argument spec
+    formatargvalues() - format an argument spec
     getouterframes(), getinnerframes() - get info about frames
     currentframe() - get the current stack frame
     stack(), trace() - get info about frames on the stack or in a traceback
@@ -32,7 +32,6 @@ __author__ = ('Ka-Ping Yee <ping@lfw.org>',
               'Yury Selivanov <yselivanov@sprymix.com>')
 
 import abc
-import ast
 import dis
 import collections.abc
 import enum
@@ -393,7 +392,7 @@ def classify_class_attrs(cls):
 
     mro = getmro(cls)
     metamro = getmro(type(cls)) # for attributes stored in the metaclass
-    metamro = tuple([cls for cls in metamro if cls not in (type, object)])
+    metamro = tuple(cls for cls in metamro if cls not in (type, object))
     class_bases = (cls,) + mro
     all_bases = class_bases + metamro
     names = dir(cls)
@@ -461,10 +460,10 @@ def classify_class_attrs(cls):
             continue
         obj = get_obj if get_obj is not None else dict_obj
         # Classify the object or its descriptor.
-        if isinstance(dict_obj, staticmethod):
+        if isinstance(dict_obj, (staticmethod, types.BuiltinMethodType)):
             kind = "static method"
             obj = dict_obj
-        elif isinstance(dict_obj, classmethod):
+        elif isinstance(dict_obj, (classmethod, types.ClassMethodDescriptorType)):
             kind = "class method"
             obj = dict_obj
         elif isinstance(dict_obj, property):
@@ -647,14 +646,14 @@ def cleandoc(doc):
 def getfile(object):
     """Work out which source or compiled file an object was defined in."""
     if ismodule(object):
-        if hasattr(object, '__file__'):
+        if getattr(object, '__file__', None):
             return object.__file__
         raise TypeError('{!r} is a built-in module'.format(object))
     if isclass(object):
         if hasattr(object, '__module__'):
-            object = sys.modules.get(object.__module__)
-            if hasattr(object, '__file__'):
-                return object.__file__
+            module = sys.modules.get(object.__module__)
+            if getattr(module, '__file__', None):
+                return module.__file__
         raise TypeError('{!r} is a built-in class'.format(object))
     if ismethod(object):
         object = object.__func__
@@ -666,8 +665,9 @@ def getfile(object):
         object = object.f_code
     if iscode(object):
         return object.co_filename
-    raise TypeError('{!r} is not a module, class, method, '
-                    'function, traceback, frame, or code object'.format(object))
+    raise TypeError('module, class, method, function, traceback, frame, or '
+                    'code object was expected, got {}'.format(
+                    type(object).__name__))
 
 def getmodulename(path):
     """Return the module name for a given file, or None."""
@@ -733,7 +733,7 @@ def getmodule(object, _filename=None):
         return sys.modules.get(modulesbyfile[file])
     # Update the filename to module name cache and check yet again
     # Copy sys.modules in order to cope with changes while iterating
-    for modname, module in list(sys.modules.items()):
+    for modname, module in sys.modules.copy().items():
         if ismodule(module) and hasattr(module, '__file__'):
             f = module.__file__
             if f == _filesbymodname.get(modname, None):
@@ -1228,7 +1228,19 @@ def formatargspec(args, varargs=None, varkw=None, defaults=None,
     kwonlyargs, kwonlydefaults, annotations).  The other five arguments
     are the corresponding optional formatting functions that are called to
     turn names and values into strings.  The last argument is an optional
-    function to format the sequence of arguments."""
+    function to format the sequence of arguments.
+
+    Deprecated since Python 3.5: use the `signature` function and `Signature`
+    objects.
+    """
+
+    from warnings import warn
+
+    warn("`formatargspec` is deprecated since Python 3.5. Use `signature` and "
+         "the `Signature` object directly",
+         DeprecationWarning,
+         stacklevel=2)
+
     def formatargandannotation(arg):
         result = formatarg(arg)
         if arg in annotations:
@@ -1397,7 +1409,7 @@ def getclosurevars(func):
         func = func.__func__
 
     if not isfunction(func):
-        raise TypeError("'{!r}' is not a Python function".format(func))
+        raise TypeError("{!r} is not a Python function".format(func))
 
     code = func.__code__
     # Nonlocal references are named in co_freevars and resolved
@@ -1646,7 +1658,7 @@ def getgeneratorlocals(generator):
     bound values."""
 
     if not isgenerator(generator):
-        raise TypeError("'{!r}' is not a Python generator".format(generator))
+        raise TypeError("{!r} is not a Python generator".format(generator))
 
     frame = getattr(generator, "gi_frame", None)
     if frame is not None:
@@ -1970,6 +1982,9 @@ def _signature_fromstr(cls, obj, s, skip_bound_arg=True):
     """Private helper to parse content of '__text_signature__'
     and return a Signature based on it.
     """
+    # Lazy import ast because it's relatively heavy and
+    # it's not used for other than this function.
+    import ast
 
     Parameter = cls._parameter_cls
 
@@ -2380,7 +2395,7 @@ def _signature_from_callable(obj, *,
                 if (obj.__init__ is object.__init__ and
                     obj.__new__ is object.__new__):
                     # Return a signature of 'object' builtin.
-                    return signature(object)
+                    return sigcls.from_callable(object)
                 else:
                     raise ValueError(
                         'no signature found for builtin type {!r}'.format(obj))
@@ -2576,11 +2591,14 @@ class Parameter:
 
         # Add annotation and default value
         if self._annotation is not _empty:
-            formatted = '{}:{}'.format(formatted,
+            formatted = '{}: {}'.format(formatted,
                                        formatannotation(self._annotation))
 
         if self._default is not _empty:
-            formatted = '{}={}'.format(formatted, repr(self._default))
+            if self._annotation is not _empty:
+                formatted = '{} = {}'.format(formatted, repr(self._default))
+            else:
+                formatted = '{}={}'.format(formatted, repr(self._default))
 
         if kind == _VAR_POSITIONAL:
             formatted = '*' + formatted
@@ -3127,7 +3145,7 @@ def _main():
                                                     type(exc).__name__,
                                                     exc)
         print(msg, file=sys.stderr)
-        exit(2)
+        sys.exit(2)
 
     if has_attrs:
         parts = attrs.split(".")
@@ -3137,7 +3155,7 @@ def _main():
 
     if module.__name__ in sys.builtin_module_names:
         print("Can't get info for builtin modules.", file=sys.stderr)
-        exit(1)
+        sys.exit(1)
 
     if args.details:
         print('Target: {}'.format(target))

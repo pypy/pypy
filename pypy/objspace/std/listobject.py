@@ -2015,7 +2015,7 @@ def plain_int_w(space, w_obj):
 
 # _______________________________________________________
 
-init_signature = Signature(['sequence'], None, None)
+init_signature = Signature(['sequence'], posonlyargcount=1)
 init_defaults = [None]
 
 app = applevel("""

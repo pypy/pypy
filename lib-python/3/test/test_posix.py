@@ -1,6 +1,7 @@
 "Test posix functions"
 
 from test import support
+from test.support.script_helper import assert_python_ok
 
 # Skip these tests if there is no posix module.
 posix = support.import_module('posix')
@@ -190,6 +191,7 @@ class PosixTester(unittest.TestCase):
         finally:
             os.close(fp)
 
+
     @unittest.skipUnless(hasattr(posix, 'waitid'), "test needs posix.waitid()")
     @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
     def test_waitid(self):
@@ -200,6 +202,67 @@ class PosixTester(unittest.TestCase):
         else:
             res = posix.waitid(posix.P_PID, pid, posix.WEXITED)
             self.assertEqual(pid, res.si_pid)
+
+    @unittest.skipUnless(hasattr(os, 'fork'), "test needs os.fork()")
+    def test_register_at_fork(self):
+        with self.assertRaises(TypeError, msg="Positional args not allowed"):
+            os.register_at_fork(lambda: None)
+        with self.assertRaises(TypeError, msg="Args must be callable"):
+            os.register_at_fork(before=2)
+        with self.assertRaises(TypeError, msg="Args must be callable"):
+            os.register_at_fork(after_in_child="three")
+        with self.assertRaises(TypeError, msg="Args must be callable"):
+            os.register_at_fork(after_in_parent=b"Five")
+        with self.assertRaises(TypeError, msg="Args must not be None"):
+            os.register_at_fork(before=None)
+        with self.assertRaises(TypeError, msg="Args must not be None"):
+            os.register_at_fork(after_in_child=None)
+        with self.assertRaises(TypeError, msg="Args must not be None"):
+            os.register_at_fork(after_in_parent=None)
+        with self.assertRaises(TypeError, msg="Invalid arg was allowed"):
+            # Ensure a combination of valid and invalid is an error.
+            os.register_at_fork(before=None, after_in_parent=lambda: 3)
+        with self.assertRaises(TypeError, msg="Invalid arg was allowed"):
+            # Ensure a combination of valid and invalid is an error.
+            os.register_at_fork(before=lambda: None, after_in_child='')
+        # We test actual registrations in their own process so as not to
+        # pollute this one.  There is no way to unregister for cleanup.
+        code = """if 1:
+            import os
+
+            r, w = os.pipe()
+            fin_r, fin_w = os.pipe()
+
+            os.register_at_fork(before=lambda: os.write(w, b'A'))
+            os.register_at_fork(after_in_parent=lambda: os.write(w, b'C'))
+            os.register_at_fork(after_in_child=lambda: os.write(w, b'E'))
+            os.register_at_fork(before=lambda: os.write(w, b'B'),
+                                after_in_parent=lambda: os.write(w, b'D'),
+                                after_in_child=lambda: os.write(w, b'F'))
+
+            pid = os.fork()
+            if pid == 0:
+                # At this point, after-forkers have already been executed
+                os.close(w)
+                # Wait for parent to tell us to exit
+                os.read(fin_r, 1)
+                os._exit(0)
+            else:
+                try:
+                    os.close(w)
+                    with open(r, "rb") as f:
+                        data = f.read()
+                        assert len(data) == 6, data
+                        # Check before-fork callbacks
+                        assert data[:2] == b'BA', data
+                        # Check after-fork callbacks
+                        assert sorted(data[2:]) == list(b'CDEF'), data
+                        assert data.index(b'C') < data.index(b'D'), data
+                        assert data.index(b'E') < data.index(b'F'), data
+                finally:
+                    os.write(fin_w, b'!')
+            """
+        assert_python_ok('-c', code)
 
     @unittest.skipUnless(hasattr(posix, 'lockf'), "test needs posix.lockf()")
     def test_lockf(self):
@@ -225,6 +288,52 @@ class PosixTester(unittest.TestCase):
         finally:
             os.close(fd)
 
+    @unittest.skipUnless(hasattr(posix, 'preadv'), "test needs posix.preadv()")
+    def test_preadv(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'test1tt2t3t5t6t6t8')
+            buf = [bytearray(i) for i in [5, 3, 2]]
+            self.assertEqual(posix.preadv(fd, buf, 3), 10)
+            self.assertEqual([b't1tt2', b't3t', b'5t'], list(buf))
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'preadv'), "test needs posix.preadv()")
+    @unittest.skipUnless(hasattr(posix, 'RWF_HIPRI'), "test needs posix.RWF_HIPRI")
+    def test_preadv_flags(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b'test1tt2t3t5t6t6t8')
+            buf = [bytearray(i) for i in [5, 3, 2]]
+            self.assertEqual(posix.preadv(fd, buf, 3, os.RWF_HIPRI), 10)
+            self.assertEqual([b't1tt2', b't3t', b'5t'], list(buf))
+        except NotImplementedError:
+            self.skipTest("preadv2 not available")
+        except OSError as inst:
+            # Is possible that the macro RWF_HIPRI was defined at compilation time
+            # but the option is not supported by the kernel or the runtime libc shared
+            # library.
+            if inst.errno in {errno.EINVAL, errno.ENOTSUP}:
+                raise unittest.SkipTest("RWF_HIPRI is not supported by the current system")
+            else:
+                raise
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'preadv'), "test needs posix.preadv()")
+    @requires_32b
+    def test_preadv_overflow_32bits(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            buf = [bytearray(2**16)] * 2**15
+            with self.assertRaises(OSError) as cm:
+                os.preadv(fd, buf, 0)
+            self.assertEqual(cm.exception.errno, errno.EINVAL)
+            self.assertEqual(bytes(buf[0]), b'\0'* 2**16)
+        finally:
+            os.close(fd)
+
     @unittest.skipUnless(hasattr(posix, 'pwrite'), "test needs posix.pwrite()")
     def test_pwrite(self):
         fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
@@ -233,6 +342,46 @@ class PosixTester(unittest.TestCase):
             os.lseek(fd, 0, os.SEEK_SET)
             posix.pwrite(fd, b'xx', 1)
             self.assertEqual(b'txxt', posix.read(fd, 4))
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'pwritev'), "test needs posix.pwritev()")
+    def test_pwritev(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd, b"xx")
+            os.lseek(fd, 0, os.SEEK_SET)
+            n = os.pwritev(fd, [b'test1', b'tt2', b't3'], 2)
+            self.assertEqual(n, 10)
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            self.assertEqual(b'xxtest1tt2t3', posix.read(fd, 100))
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'pwritev'), "test needs posix.pwritev()")
+    @unittest.skipUnless(hasattr(posix, 'os.RWF_SYNC'), "test needs os.RWF_SYNC")
+    def test_pwritev_flags(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            os.write(fd,b"xx")
+            os.lseek(fd, 0, os.SEEK_SET)
+            n = os.pwritev(fd, [b'test1', b'tt2', b't3'], 2, os.RWF_SYNC)
+            self.assertEqual(n, 10)
+
+            os.lseek(fd, 0, os.SEEK_SET)
+            self.assertEqual(b'xxtest1tt2', posix.read(fd, 100))
+        finally:
+            os.close(fd)
+
+    @unittest.skipUnless(hasattr(posix, 'pwritev'), "test needs posix.pwritev()")
+    @requires_32b
+    def test_pwritev_overflow_32bits(self):
+        fd = os.open(support.TESTFN, os.O_RDWR | os.O_CREAT)
+        try:
+            with self.assertRaises(OSError) as cm:
+                os.pwritev(fd, [b"x" * 2**16] * 2**15, 0)
+            self.assertEqual(cm.exception.errno, errno.EINVAL)
         finally:
             os.close(fd)
 
@@ -541,6 +690,7 @@ class PosixTester(unittest.TestCase):
         self.assertRaises(TypeError, posix.minor)
         self.assertRaises((ValueError, OverflowError), posix.minor, -1)
 
+        # FIXME: reenable these tests on FreeBSD with the kernel fix
         if sys.platform.startswith('freebsd') and dev >= 0x1_0000_0000:
             self.skipTest("bpo-31044: on FreeBSD CURRENT, minor() truncates "
                           "64-bit dev to 32-bit")
@@ -1225,6 +1375,7 @@ class PosixTester(unittest.TestCase):
         self.assertEqual(posix.sched_getaffinity(0), mask)
         self.assertRaises(OSError, posix.sched_setaffinity, 0, [])
         self.assertRaises(ValueError, posix.sched_setaffinity, 0, [-10])
+        self.assertRaises(ValueError, posix.sched_setaffinity, 0, map(int, "0X"))
         self.assertRaises(OverflowError, posix.sched_setaffinity, 0, [1<<128])
         self.assertRaises(OSError, posix.sched_setaffinity, -1, mask)
 

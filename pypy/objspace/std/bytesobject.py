@@ -75,6 +75,12 @@ class W_AbstractBytesObject(W_Root):
     def descr_hash(self, space):
         """x.__hash__() <==> hash(x)"""
 
+    def descr_isascii(self, space):
+        """B.isascii() -> bool
+
+        Return true if the string is empty or all characters in the string are ASCII, false otherwise.
+        ASCII characters have code points in the range U+0000-U+007F."""
+
     def descr_iter(self, space):
         """x.__iter__() <==> iter(x)"""
 
@@ -603,6 +609,12 @@ class W_BytesObject(W_AbstractBytesObject):
         x -= (x == -1) # convert -1 to -2 without creating a bridge
         return space.newint(x)
 
+    def descr_isascii(self, space):
+        for i in self._value:
+            if ord(i) > 127:
+                return space.w_False
+        return space.w_True
+
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_BytesObject):
             return space.w_NotImplemented
@@ -635,9 +647,27 @@ class W_BytesObject(W_AbstractBytesObject):
 
     # auto-conversion fun
 
-    _StringMethods_descr_add = descr_add
-    def descr_add(self, space, w_other):
-        return self._StringMethods_descr_add(space, w_other)
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        from rpython.rlib.rstring import replace
+        # almost copy of StringMethods.descr_replace :-(
+        input = self._value
+
+        sub = self._op_val(space, w_old)
+        by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+        # difference: reuse self if no replacement was done
+        if type(self) is W_BytesObject and res is input:
+            return self
+
+        return self._new(res)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -864,6 +894,7 @@ W_BytesObject.typedef = TypeDef(
     isspace = interpindirect2app(W_AbstractBytesObject.descr_isspace),
     istitle = interpindirect2app(W_AbstractBytesObject.descr_istitle),
     isupper = interpindirect2app(W_AbstractBytesObject.descr_isupper),
+    isascii = interpindirect2app(W_AbstractBytesObject.descr_isascii),
     join = interpindirect2app(W_AbstractBytesObject.descr_join),
     ljust = interpindirect2app(W_AbstractBytesObject.descr_ljust),
     rjust = interpindirect2app(W_AbstractBytesObject.descr_rjust),

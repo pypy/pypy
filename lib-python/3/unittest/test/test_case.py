@@ -8,6 +8,7 @@ import logging
 import warnings
 import weakref
 import inspect
+import types
 
 from copy import deepcopy
 from test import support
@@ -610,6 +611,15 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
                  'Tests shortDescription() for a method with a longer '
                  'docstring.')
 
+    def testShortDescriptionWhitespaceTrimming(self):
+        """
+            Tests shortDescription() whitespace is trimmed, so that the first
+            line of nonwhite-space text becomes the docstring.
+        """
+        self.assertEqual(
+            self.shortDescription(),
+            'Tests shortDescription() whitespace is trimmed, so that the first')
+
     def testAddTypeEqualityFunc(self):
         class SadSnake(object):
             """Dummy class for test_addTypeEqualityFunc."""
@@ -956,7 +966,7 @@ class Test_TestCase(unittest.TestCase, TestEquality, TestHashing):
                           [], [divmod, 'x', 1, 5j, 2j, frozenset()])
         # comparing dicts
         self.assertCountEqual([{'a': 1}, {'b': 2}], [{'b': 2}, {'a': 1}])
-        # comparing heterogenous non-hashable sequences
+        # comparing heterogeneous non-hashable sequences
         self.assertCountEqual([1, 'x', divmod, []], [divmod, [], 'x', 1])
         self.assertRaises(self.failureException, self.assertCountEqual,
                           [], [divmod, [], 'x', 1, 5j, 2j, set()])
@@ -1343,6 +1353,20 @@ test case
         class MyWarn(Warning):
             pass
         self.assertRaises(TypeError, self.assertWarnsRegex, MyWarn, lambda: True)
+
+    def testAssertWarnsModifySysModules(self):
+        # bpo-29620: handle modified sys.modules during iteration
+        class Foo(types.ModuleType):
+            @property
+            def __warningregistry__(self):
+                sys.modules['@bar@'] = 'bar'
+
+        sys.modules['@foo@'] = Foo('foo')
+        try:
+            self.assertWarns(UserWarning, warnings.warn, 'expected')
+        finally:
+            del sys.modules['@foo@']
+            del sys.modules['@bar@']
 
     def testAssertRaisesRegexMismatch(self):
         def Stub():

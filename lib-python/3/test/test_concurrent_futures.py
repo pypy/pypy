@@ -4,25 +4,29 @@ import test.support
 test.support.import_module('_multiprocessing')
 # Skip tests if sem_open implementation is broken.
 test.support.import_module('multiprocessing.synchronize')
-# import threading after _multiprocessing to raise a more relevant error
-# message: "No module named _multiprocessing". _multiprocessing is not compiled
-# without thread support.
-test.support.import_module('threading')
 
 from test.support.script_helper import assert_python_ok
 
+import contextlib
 import itertools
+import logging
+from logging.handlers import QueueHandler
 import os
+import queue
 import sys
 import threading
 import time
 import unittest
 import weakref
+from pickle import PicklingError
 
 from concurrent import futures
 from concurrent.futures._base import (
-    PENDING, RUNNING, CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED, Future)
+    PENDING, RUNNING, CANCELLED, CANCELLED_AND_NOTIFIED, FINISHED, Future,
+    BrokenExecutor)
 from concurrent.futures.process import BrokenProcessPool
+from multiprocessing import get_context
+import multiprocessing.util
 
 
 def create_future(state=PENDING, exception=None, result=None):
@@ -40,10 +44,14 @@ CANCELLED_AND_NOTIFIED_FUTURE = create_future(state=CANCELLED_AND_NOTIFIED)
 EXCEPTION_FUTURE = create_future(state=FINISHED, exception=OSError())
 SUCCESSFUL_FUTURE = create_future(state=FINISHED, result=42)
 
+INITIALIZER_STATUS = 'uninitialized'
+
 
 def mul(x, y):
     return x * y
 
+def capture(*args, **kwargs):
+    return args, kwargs
 
 def sleep_and_raise(t):
     time.sleep(t)
@@ -54,10 +62,34 @@ def sleep_and_print(t, msg):
     print(msg)
     sys.stdout.flush()
 
+def init(x):
+    global INITIALIZER_STATUS
+    INITIALIZER_STATUS = x
+
+def get_init_status():
+    return INITIALIZER_STATUS
+
+def init_fail(log_queue=None):
+    if log_queue is not None:
+        logger = logging.getLogger('concurrent.futures')
+        logger.addHandler(QueueHandler(log_queue))
+        logger.setLevel('CRITICAL')
+        logger.propagate = False
+    time.sleep(0.1)  # let some futures be scheduled
+    raise ValueError('error in initializer')
+
 
 class MyObject(object):
     def my_method(self):
         pass
+
+
+class EventfulGCObj():
+    def __init__(self, mgr):
+        self.event = mgr.Event()
+
+    def __del__(self):
+        self.event.set()
 
 
 def make_dummy_object(_):
@@ -75,15 +107,21 @@ class BaseTestCase(unittest.TestCase):
 
 class ExecutorMixin:
     worker_count = 5
+    executor_kwargs = {}
 
     def setUp(self):
         super().setUp()
 
         self.t1 = time.monotonic()
-        try:
-            self.executor = self.executor_type(max_workers=self.worker_count)
-        except NotImplementedError as e:
-            self.skipTest(str(e))
+        if hasattr(self, "ctx"):
+            self.executor = self.executor_type(
+                max_workers=self.worker_count,
+                mp_context=self.get_context(),
+                **self.executor_kwargs)
+        else:
+            self.executor = self.executor_type(
+                max_workers=self.worker_count,
+                **self.executor_kwargs)
         self._prime_executor()
 
     def tearDown(self):
@@ -97,12 +135,14 @@ class ExecutorMixin:
 
         super().tearDown()
 
+    def get_context(self):
+        return get_context(self.ctx)
+
     def _prime_executor(self):
         # Make sure that the executor is ready to do work before running the
         # tests. This should reduce the probability of timeouts in the tests.
         futures = [self.executor.submit(time.sleep, 0.1)
                    for _ in range(self.worker_count)]
-
         for f in futures:
             f.result()
 
@@ -111,8 +151,130 @@ class ThreadPoolMixin(ExecutorMixin):
     executor_type = futures.ThreadPoolExecutor
 
 
-class ProcessPoolMixin(ExecutorMixin):
+class ProcessPoolForkMixin(ExecutorMixin):
     executor_type = futures.ProcessPoolExecutor
+    ctx = "fork"
+
+    def get_context(self):
+        if sys.platform == "win32":
+            self.skipTest("require unix system")
+        return super().get_context()
+
+
+class ProcessPoolSpawnMixin(ExecutorMixin):
+    executor_type = futures.ProcessPoolExecutor
+    ctx = "spawn"
+
+
+class ProcessPoolForkserverMixin(ExecutorMixin):
+    executor_type = futures.ProcessPoolExecutor
+    ctx = "forkserver"
+
+    def get_context(self):
+        if sys.platform == "win32":
+            self.skipTest("require unix system")
+        return super().get_context()
+
+
+def create_executor_tests(mixin, bases=(BaseTestCase,),
+                          executor_mixins=(ThreadPoolMixin,
+                                           ProcessPoolForkMixin,
+                                           ProcessPoolForkserverMixin,
+                                           ProcessPoolSpawnMixin)):
+    def strip_mixin(name):
+        if name.endswith(('Mixin', 'Tests')):
+            return name[:-5]
+        elif name.endswith('Test'):
+            return name[:-4]
+        else:
+            return name
+
+    for exe in executor_mixins:
+        name = ("%s%sTest"
+                % (strip_mixin(exe.__name__), strip_mixin(mixin.__name__)))
+        cls = type(name, (mixin,) + (exe,) + bases, {})
+        globals()[name] = cls
+
+
+class InitializerMixin(ExecutorMixin):
+    worker_count = 2
+
+    def setUp(self):
+        global INITIALIZER_STATUS
+        INITIALIZER_STATUS = 'uninitialized'
+        self.executor_kwargs = dict(initializer=init,
+                                    initargs=('initialized',))
+        super().setUp()
+
+    def test_initializer(self):
+        futures = [self.executor.submit(get_init_status)
+                   for _ in range(self.worker_count)]
+
+        for f in futures:
+            self.assertEqual(f.result(), 'initialized')
+
+
+class FailingInitializerMixin(ExecutorMixin):
+    worker_count = 2
+
+    def setUp(self):
+        if hasattr(self, "ctx"):
+            # Pass a queue to redirect the child's logging output
+            self.mp_context = self.get_context()
+            self.log_queue = self.mp_context.Queue()
+            self.executor_kwargs = dict(initializer=init_fail,
+                                        initargs=(self.log_queue,))
+        else:
+            # In a thread pool, the child shares our logging setup
+            # (see _assert_logged())
+            self.mp_context = None
+            self.log_queue = None
+            self.executor_kwargs = dict(initializer=init_fail)
+        super().setUp()
+
+    def test_initializer(self):
+        with self._assert_logged('ValueError: error in initializer'):
+            try:
+                future = self.executor.submit(get_init_status)
+            except BrokenExecutor:
+                # Perhaps the executor is already broken
+                pass
+            else:
+                with self.assertRaises(BrokenExecutor):
+                    future.result()
+            # At some point, the executor should break
+            t1 = time.monotonic()
+            while not self.executor._broken:
+                if time.monotonic() - t1 > 5:
+                    self.fail("executor not broken after 5 s.")
+                time.sleep(0.01)
+            # ... and from this point submit() is guaranteed to fail
+            with self.assertRaises(BrokenExecutor):
+                self.executor.submit(get_init_status)
+
+    def _prime_executor(self):
+        pass
+
+    @contextlib.contextmanager
+    def _assert_logged(self, msg):
+        if self.log_queue is not None:
+            yield
+            output = []
+            try:
+                while True:
+                    output.append(self.log_queue.get_nowait().getMessage())
+            except queue.Empty:
+                pass
+        else:
+            with self.assertLogs('concurrent.futures', 'CRITICAL') as cm:
+                yield
+            output = cm.output
+        self.assertTrue(any(msg in line for line in output),
+                        output)
+
+
+create_executor_tests(InitializerMixin)
+create_executor_tests(FailingInitializerMixin)
 
 
 class ExecutorShutdownTest:
@@ -128,13 +290,49 @@ class ExecutorShutdownTest:
             from concurrent.futures import {executor_type}
             from time import sleep
             from test.test_concurrent_futures import sleep_and_print
-            t = {executor_type}(5)
-            t.submit(sleep_and_print, 1.0, "apple")
-            """.format(executor_type=self.executor_type.__name__))
+            if __name__ == "__main__":
+                context = '{context}'
+                if context == "":
+                    t = {executor_type}(5)
+                else:
+                    from multiprocessing import get_context
+                    context = get_context(context)
+                    t = {executor_type}(5, mp_context=context)
+                t.submit(sleep_and_print, 1.0, "apple")
+            """.format(executor_type=self.executor_type.__name__,
+                       context=getattr(self, "ctx", "")))
         # Errors in atexit hooks don't change the process exit code, check
         # stderr manually.
         self.assertFalse(err)
         self.assertEqual(out.strip(), b"apple")
+
+    def test_submit_after_interpreter_shutdown(self):
+        # Test the atexit hook for shutdown of worker threads and processes
+        rc, out, err = assert_python_ok('-c', """if 1:
+            import atexit
+            @atexit.register
+            def run_last():
+                try:
+                    t.submit(id, None)
+                except RuntimeError:
+                    print("runtime-error")
+                    raise
+            from concurrent.futures import {executor_type}
+            if __name__ == "__main__":
+                context = '{context}'
+                if not context:
+                    t = {executor_type}(5)
+                else:
+                    from multiprocessing import get_context
+                    context = get_context(context)
+                    t = {executor_type}(5, mp_context=context)
+                    t.submit(id, 42).result()
+            """.format(executor_type=self.executor_type.__name__,
+                       context=getattr(self, "ctx", "")))
+        # Errors in atexit hooks don't change the process exit code, check
+        # stderr manually.
+        self.assertIn("RuntimeError: cannot schedule new futures", err.decode())
+        self.assertEqual(out.strip(), b"runtime-error")
 
     def test_hang_issue12364(self):
         fs = [self.executor.submit(time.sleep, 0.1) for _ in range(50)]
@@ -201,7 +399,7 @@ class ThreadPoolShutdownTest(ThreadPoolMixin, ExecutorShutdownTest, BaseTestCase
             t.join()
 
 
-class ProcessPoolShutdownTest(ProcessPoolMixin, ExecutorShutdownTest, BaseTestCase):
+class ProcessPoolShutdownTest(ExecutorShutdownTest):
     def _prime_executor(self):
         pass
 
@@ -231,14 +429,22 @@ class ProcessPoolShutdownTest(ProcessPoolMixin, ExecutorShutdownTest, BaseTestCa
         queue_management_thread = executor._queue_management_thread
         processes = executor._processes
         call_queue = executor._call_queue
+        queue_management_thread = executor._queue_management_thread
         del executor
         test.support.gc_collect()
 
+        # Make sure that all the executor resources were properly cleaned by
+        # the shutdown process
         queue_management_thread.join()
         for p in processes.values():
             p.join()
-        call_queue.close()
         call_queue.join_thread()
+
+
+create_executor_tests(ProcessPoolShutdownTest,
+                      executor_mixins=(ProcessPoolForkMixin,
+                                       ProcessPoolForkserverMixin,
+                                       ProcessPoolSpawnMixin))
 
 
 class WaitTests:
@@ -365,8 +571,10 @@ class ThreadPoolWaitTests(ThreadPoolMixin, WaitTests, BaseTestCase):
             seti(oldinterval)
 
 
-class ProcessPoolWaitTests(ProcessPoolMixin, WaitTests, BaseTestCase):
-    pass
+create_executor_tests(WaitTests,
+                      executor_mixins=(ProcessPoolForkMixin,
+                                       ProcessPoolForkserverMixin,
+                                       ProcessPoolSpawnMixin))
 
 
 class AsCompletedTests:
@@ -451,12 +659,7 @@ class AsCompletedTests:
         self.assertEqual(str(cm.exception), '2 (of 4) futures unfinished')
 
 
-class ThreadPoolAsCompletedTests(ThreadPoolMixin, AsCompletedTests, BaseTestCase):
-    pass
-
-
-class ProcessPoolAsCompletedTests(ProcessPoolMixin, AsCompletedTests, BaseTestCase):
-    pass
+create_executor_tests(AsCompletedTests)
 
 
 class ExecutorTest:
@@ -469,6 +672,12 @@ class ExecutorTest:
     def test_submit_keyword(self):
         future = self.executor.submit(mul, 2, y=8)
         self.assertEqual(16, future.result())
+        future = self.executor.submit(capture, 1, self=2, fn=3)
+        self.assertEqual(future.result(), ((1,), {'self': 2, 'fn': 3}))
+        future = self.executor.submit(fn=capture, arg=1)
+        self.assertEqual(future.result(), ((), {'arg': 1}))
+        with self.assertRaises(TypeError):
+            self.executor.submit(arg=1)
 
     def test_map(self):
         self.assertEqual(
@@ -556,7 +765,14 @@ class ThreadPoolExecutorTest(ThreadPoolMixin, ExecutorTest, BaseTestCase):
                          (os.cpu_count() or 1) * 5)
 
 
-class ProcessPoolExecutorTest(ProcessPoolMixin, ExecutorTest, BaseTestCase):
+class ProcessPoolExecutorTest(ExecutorTest):
+
+    @unittest.skipUnless(sys.platform=='win32', 'Windows-only process limit')
+    def test_max_workers_too_large(self):
+        with self.assertRaisesRegex(ValueError,
+                                    "max_workers must be <= 61"):
+            futures.ProcessPoolExecutor(max_workers=62)
+
     def test_killed_child(self):
         # When a child process is abruptly terminated, the whole pool gets
         # "broken".
@@ -610,6 +826,196 @@ class ProcessPoolExecutorTest(ProcessPoolMixin, ExecutorTest, BaseTestCase):
                 sys.excepthook(*sys.exc_info())
         self.assertIn('raise RuntimeError(123) # some comment',
                       f1.getvalue())
+
+    def test_ressources_gced_in_workers(self):
+        # Ensure that argument for a job are correctly gc-ed after the job
+        # is finished
+        mgr = get_context(self.ctx).Manager()
+        obj = EventfulGCObj(mgr)
+        future = self.executor.submit(id, obj)
+        future.result()
+
+        self.assertTrue(obj.event.wait(timeout=1))
+
+        # explicitly destroy the object to ensure that EventfulGCObj.__del__()
+        # is called while manager is still running.
+        obj = None
+        test.support.gc_collect()
+
+        mgr.shutdown()
+        mgr.join()
+
+
+create_executor_tests(ProcessPoolExecutorTest,
+                      executor_mixins=(ProcessPoolForkMixin,
+                                       ProcessPoolForkserverMixin,
+                                       ProcessPoolSpawnMixin))
+
+def hide_process_stderr():
+    import io
+    sys.stderr = io.StringIO()
+
+
+def _crash(delay=None):
+    """Induces a segfault."""
+    if delay:
+        time.sleep(delay)
+    import faulthandler
+    faulthandler.disable()
+    faulthandler._sigsegv()
+
+
+def _exit():
+    """Induces a sys exit with exitcode 1."""
+    sys.exit(1)
+
+
+def _raise_error(Err):
+    """Function that raises an Exception in process."""
+    hide_process_stderr()
+    raise Err()
+
+
+def _return_instance(cls):
+    """Function that returns a instance of cls."""
+    hide_process_stderr()
+    return cls()
+
+
+class CrashAtPickle(object):
+    """Bad object that triggers a segfault at pickling time."""
+    def __reduce__(self):
+        _crash()
+
+
+class CrashAtUnpickle(object):
+    """Bad object that triggers a segfault at unpickling time."""
+    def __reduce__(self):
+        return _crash, ()
+
+
+class ExitAtPickle(object):
+    """Bad object that triggers a process exit at pickling time."""
+    def __reduce__(self):
+        _exit()
+
+
+class ExitAtUnpickle(object):
+    """Bad object that triggers a process exit at unpickling time."""
+    def __reduce__(self):
+        return _exit, ()
+
+
+class ErrorAtPickle(object):
+    """Bad object that triggers an error at pickling time."""
+    def __reduce__(self):
+        from pickle import PicklingError
+        raise PicklingError("Error in pickle")
+
+
+class ErrorAtUnpickle(object):
+    """Bad object that triggers an error at unpickling time."""
+    def __reduce__(self):
+        from pickle import UnpicklingError
+        return _raise_error, (UnpicklingError, )
+
+
+class ExecutorDeadlockTest:
+    TIMEOUT = 15
+
+    @classmethod
+    def _sleep_id(cls, x, delay):
+        time.sleep(delay)
+        return x
+
+    def _fail_on_deadlock(self, executor):
+        # If we did not recover before TIMEOUT seconds, consider that the
+        # executor is in a deadlock state and forcefully clean all its
+        # composants.
+        import faulthandler
+        from tempfile import TemporaryFile
+        with TemporaryFile(mode="w+") as f:
+            faulthandler.dump_traceback(file=f)
+            f.seek(0)
+            tb = f.read()
+        for p in executor._processes.values():
+            p.terminate()
+        # This should be safe to call executor.shutdown here as all possible
+        # deadlocks should have been broken.
+        executor.shutdown(wait=True)
+        print(f"\nTraceback:\n {tb}", file=sys.__stderr__)
+        self.fail(f"Executor deadlock:\n\n{tb}")
+
+
+    def test_crash(self):
+        # extensive testing for deadlock caused by crashes in a pool.
+        self.executor.shutdown(wait=True)
+        crash_cases = [
+            # Check problem occurring while pickling a task in
+            # the task_handler thread
+            (id, (ErrorAtPickle(),), PicklingError, "error at task pickle"),
+            # Check problem occurring while unpickling a task on workers
+            (id, (ExitAtUnpickle(),), BrokenProcessPool,
+             "exit at task unpickle"),
+            (id, (ErrorAtUnpickle(),), BrokenProcessPool,
+             "error at task unpickle"),
+            (id, (CrashAtUnpickle(),), BrokenProcessPool,
+             "crash at task unpickle"),
+            # Check problem occurring during func execution on workers
+            (_crash, (), BrokenProcessPool,
+             "crash during func execution on worker"),
+            (_exit, (), SystemExit,
+             "exit during func execution on worker"),
+            (_raise_error, (RuntimeError, ), RuntimeError,
+             "error during func execution on worker"),
+            # Check problem occurring while pickling a task result
+            # on workers
+            (_return_instance, (CrashAtPickle,), BrokenProcessPool,
+             "crash during result pickle on worker"),
+            (_return_instance, (ExitAtPickle,), SystemExit,
+             "exit during result pickle on worker"),
+            (_return_instance, (ErrorAtPickle,), PicklingError,
+             "error during result pickle on worker"),
+            # Check problem occurring while unpickling a task in
+            # the result_handler thread
+            (_return_instance, (ErrorAtUnpickle,), BrokenProcessPool,
+             "error during result unpickle in result_handler"),
+            (_return_instance, (ExitAtUnpickle,), BrokenProcessPool,
+             "exit during result unpickle in result_handler")
+        ]
+        for func, args, error, name in crash_cases:
+            with self.subTest(name):
+                # The captured_stderr reduces the noise in the test report
+                with test.support.captured_stderr():
+                    executor = self.executor_type(
+                        max_workers=2, mp_context=get_context(self.ctx))
+                    res = executor.submit(func, *args)
+                    with self.assertRaises(error):
+                        try:
+                            res.result(timeout=self.TIMEOUT)
+                        except futures.TimeoutError:
+                            # If we did not recover before TIMEOUT seconds,
+                            # consider that the executor is in a deadlock state
+                            self._fail_on_deadlock(executor)
+                    executor.shutdown(wait=True)
+
+    def test_shutdown_deadlock(self):
+        # Test that the pool calling shutdown do not cause deadlock
+        # if a worker fails after the shutdown call.
+        self.executor.shutdown(wait=True)
+        with self.executor_type(max_workers=2,
+                                mp_context=get_context(self.ctx)) as executor:
+            self.executor = executor  # Allow clean up in fail_on_deadlock
+            f = executor.submit(_crash, delay=.1)
+            executor.shutdown(wait=True)
+            with self.assertRaises(BrokenProcessPool):
+                f.result()
+
+
+create_executor_tests(ExecutorDeadlockTest,
+                      executor_mixins=(ProcessPoolForkMixin,
+                                       ProcessPoolForkserverMixin,
+                                       ProcessPoolSpawnMixin))
 
 
 class FutureTests(BaseTestCase):
@@ -700,6 +1106,22 @@ class FutureTests(BaseTestCase):
         self.assertTrue(f.cancel())
         f.add_done_callback(fn)
         self.assertTrue(was_cancelled)
+
+    def test_done_callback_raises_already_succeeded(self):
+        with test.support.captured_stderr() as stderr:
+            def raising_fn(callback_future):
+                raise Exception('doh!')
+
+            f = Future()
+
+            # Set the result first to simulate a future that runs instantly,
+            # effectively allowing the callback to be run immediately.
+            f.set_result(5)
+            f.add_done_callback(raising_fn)
+
+            self.assertIn('exception calling callback for', stderr.getvalue())
+            self.assertIn('doh!', stderr.getvalue())
+
 
     def test_repr(self):
         self.assertRegex(repr(PENDING_FUTURE),
@@ -837,12 +1259,14 @@ class FutureTests(BaseTestCase):
         self.assertTrue(isinstance(f1.exception(timeout=5), OSError))
         t.join()
 
+
 @test.support.reap_threads
 def test_main():
     try:
         test.support.run_unittest(__name__)
     finally:
         test.support.reap_children()
+        multiprocessing.util._cleanup_tests()
 
 if __name__ == "__main__":
     test_main()

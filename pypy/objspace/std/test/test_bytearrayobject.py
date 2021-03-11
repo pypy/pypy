@@ -439,6 +439,8 @@ class AppTestBytesArray:
         b = bytearray([0x1a, 0x2b, 0x30])
         assert bytearray.fromhex('1a2B30') == b
         assert bytearray.fromhex('  1A 2B  30   ') == b
+        assert bytearray.fromhex('''\t1a\t2B\n
+           30\n''') == b
         assert bytearray.fromhex('0000') == b'\0\0'
 
         raises(ValueError, bytearray.fromhex, 'a')
@@ -605,6 +607,17 @@ class AppTestBytesArray:
     def test_hex(self):
         assert bytearray(b'santa claus').hex() == "73616e746120636c617573"
 
+    def test_isascii(self):
+        assert bytearray(b'hello world').isascii() is True
+        assert bytearray(b'\x00\x7f').isascii() is True
+        assert bytearray(b'\x80').isascii() is False
+        ba = bytearray(b"\xff\xffHello World")
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is False
+        del ba[0:1]
+        assert ba.isascii() is True
+
     def test_format(self):
         """
         assert bytearray(b'a%db') % 2 == b'a2b'
@@ -751,3 +764,8 @@ class AppTestBytesArray:
         assert x.find(b'fe') == -1
         assert x.index(b'f', 2, 11) == 5
         assert x.__alloc__() == 14
+
+    def test_subclass_repr(self):
+        class subclass(bytearray):
+            pass
+        assert repr(subclass(b'test')) == "subclass(b'test')"

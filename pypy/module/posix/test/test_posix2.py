@@ -1248,6 +1248,40 @@ class AppTestPosix:
             with raises(OSError) as e:
                 posix.truncate(dest + '-DOESNT-EXIST', 0)
             assert e.value.filename == dest + '-DOESNT-EXIST'
+            posix = self.posix
+            dest = self.path2
+
+            def mkfile(dest, size=4):
+                with open(dest, 'wb') as f:
+                    f.write(b'd' * size)
+
+            # Check invalid inputs
+            mkfile(dest)
+            with raises(OSError):
+                posix.truncate(dest, -1)
+            with open(dest, 'rb') as f:  # f is read-only so cannot be truncated
+                with raises(OSError):
+                    posix.truncate(f.fileno(), 1)
+            with raises(TypeError):
+                posix.truncate(dest, None)
+            with raises(TypeError):
+                posix.truncate(None, None)
+
+            # Truncate via file descriptor
+            mkfile(dest)
+            with open(dest, 'wb') as f:
+                posix.truncate(f.fileno(), 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # Truncate via filename
+            mkfile(dest)
+            posix.truncate(dest, 1)
+            assert 1 == posix.stat(dest).st_size
+
+            # File does not exist
+            with raises(OSError) as e:
+                posix.truncate(dest + '-DOESNT-EXIST', 0)
+            assert e.value.filename == dest + '-DOESNT-EXIST'
 
     try:
         os.getlogin()
@@ -1579,70 +1613,10 @@ class AppTestPosix:
             assert isinstance(w, int)
             assert isinstance(h, int)
 
-    if hasattr(rposix, 'sched_rr_get_interval'):
-        def test_sched_rr_get_interval(self):
-            posix= self.posix
-            try:
-                interval = posix.sched_rr_get_interval(0)
-            except OSError as e:
-                # This likely means that sched_rr_get_interval is only valid for
-                # processes with the SCHED_RR scheduler in effect.
-                if e.errno != errno.EINVAL:
-                    raise
-                self.skipTest("only works on SCHED_RR processes")
-            assert isinstance(interval, float)
-            # Reasonable constraints, I think.
-            assert 0 < interval < 1
-
-        def test_get_and_set_scheduler_and_param(self):
-            posix= self.posix
-            import sys
-            possible_schedulers = [sched for name, sched in posix.__dict__.items()
-                                   if name.startswith("SCHED_")]
-            mine = posix.sched_getscheduler(0)
-            assert mine in possible_schedulers
-            try:
-                parent = posix.sched_getscheduler(posix.getppid())
-            except OSError as e:
-                if e.errno != errno.EPERM:
-                    raise
-            else:
-                assert parent in possible_schedulers
-            with raises(OSError):
-                posix.sched_getscheduler(-1)
-            with raises(OSError):
-                posix.sched_getparam(-1)
-            param = posix.sched_getparam(0)
-            assert isinstance(param, posix.sched_param)
-            assert isinstance(param.sched_priority, int)
-            # POSIX states that calling sched_setparam() or sched_setscheduler() on
-            # a process with a scheduling policy other than SCHED_FIFO or SCHED_RR
-            # is implementation-defined: NetBSD and FreeBSD can return EINVAL.
-            if not sys.platform.startswith(('freebsd', 'netbsd')):
-                try:
-                    posix.sched_setscheduler(0, mine, param)
-                    posix.sched_setparam(0, param)
-                except OSError as e:
-                    if e.errno != errno.EPERM:
-                        raise
-                with raises(OSError):
-                    posix.sched_setparam(-1, param)
-            with raises(OSError):
-                posix.sched_setscheduler(-1, mine, param)
-            with raises(TypeError):
-                posix.sched_setscheduler(0, mine, None)
-            with raises(TypeError):
-                posix.sched_setparam(0,None)
-            # param = posix.sched_param(None)
-            with raises(TypeError):
-                posix.sched_setparam(0, None)
-            large = 214748364700
-            param = posix.sched_param(large)
-            with raises(OverflowError):
-                posix.sched_setparam(0, param)
-            param = posix.sched_param(-large)
-            with raises(OverflowError):
-                posix.sched_setparam(0, param)
+    def test_scandir(self):
+        retU = [x.name for x in self.posix.scandir(u'.')]
+        retP = [x.name for x in self.posix.scandir(self.Path('.'))]
+        assert retU == retP
 
     def test_execv_no_args(self):
         posix = self.posix
@@ -1651,6 +1625,13 @@ class AppTestPosix:
         # PyPy needs at least one arg, CPython 2.7 is fine without
         with raises(ValueError):
             posix.execve("notepad", [], {})
+
+    def test_execv_bad_args(self):
+        posix = self.posix
+        with raises(ValueError):
+            posix.execv("notepad", ('',))
+        with raises(OSError):
+            posix.execv("notepad", (' ',))
 
 
 @py.test.mark.skipif("sys.platform != 'win32'")

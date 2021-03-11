@@ -1,4 +1,5 @@
 import copy
+import re
 import sys
 import tempfile
 
@@ -37,6 +38,9 @@ class Something(object):
     @staticmethod
     def smeth(a, b, c, d=None):
         pass
+
+
+def something(a): pass
 
 
 class MockTest(unittest.TestCase):
@@ -871,6 +875,15 @@ class MockTest(unittest.TestCase):
             patcher.stop()
 
 
+    def test_dir_does_not_include_deleted_attributes(self):
+        mock = Mock()
+        mock.child.return_value = 1
+
+        self.assertIn('child', dir(mock))
+        del mock.child
+        self.assertNotIn('child', dir(mock))
+
+
     def test_configure_mock(self):
         mock = Mock(foo='bar')
         self.assertEqual(mock.foo, 'bar')
@@ -1303,6 +1316,54 @@ class MockTest(unittest.TestCase):
                         )
 
 
+    def test_assert_has_calls_nested_spec(self):
+        class Something:
+
+            def __init__(self): pass
+            def meth(self, a, b, c, d=None): pass
+
+            class Foo:
+
+                def __init__(self, a): pass
+                def meth1(self, a, b): pass
+
+        mock_class = create_autospec(Something)
+
+        for m in [mock_class, mock_class()]:
+            m.meth(1, 2, 3, d=1)
+            m.assert_has_calls([call.meth(1, 2, 3, d=1)])
+            m.assert_has_calls([call.meth(1, 2, 3, 1)])
+
+        mock_class.reset_mock()
+
+        for m in [mock_class, mock_class()]:
+            self.assertRaises(AssertionError, m.assert_has_calls, [call.Foo()])
+            m.Foo(1).meth1(1, 2)
+            m.assert_has_calls([call.Foo(1), call.Foo(1).meth1(1, 2)])
+            m.Foo.assert_has_calls([call(1), call().meth1(1, 2)])
+
+        mock_class.reset_mock()
+
+        invalid_calls = [call.meth(1),
+                         call.non_existent(1),
+                         call.Foo().non_existent(1),
+                         call.Foo().meth(1, 2, 3, 4)]
+
+        for kall in invalid_calls:
+            self.assertRaises(AssertionError,
+                              mock_class.assert_has_calls,
+                              [kall]
+            )
+
+
+    def test_assert_has_calls_nested_without_spec(self):
+        m = MagicMock()
+        m().foo().bar().baz()
+        m.one().two().three()
+        calls = call.one().two().three().call_list()
+        m.assert_has_calls(calls)
+
+
     def test_assert_has_calls_with_function_spec(self):
         def f(a, b, c, d=None):
             pass
@@ -1335,6 +1396,32 @@ class MockTest(unittest.TestCase):
             mock.assert_has_calls(calls[:-1])
         mock.assert_has_calls(calls[:-1], any_order=True)
 
+    def test_assert_has_calls_not_matching_spec_error(self):
+        def f(x=None): pass
+
+        mock = Mock(spec=f)
+        mock(1)
+
+        with self.assertRaisesRegex(
+                AssertionError,
+                '^{}$'.format(
+                    re.escape('Calls not found.\n'
+                              'Expected: [call()]\n'
+                              'Actual: [call(1)]'))) as cm:
+            mock.assert_has_calls([call()])
+        self.assertIsNone(cm.exception.__cause__)
+
+
+        with self.assertRaisesRegex(
+                AssertionError,
+                '^{}$'.format(
+                    re.escape(
+                        'Error processing expected calls.\n'
+                        "Errors: [None, TypeError('too many positional arguments')]\n"
+                        "Expected: [call(), call(1, 2)]\n"
+                        'Actual: [call(1)]'))) as cm:
+            mock.assert_has_calls([call(), call(1, 2)])
+        self.assertIsInstance(cm.exception.__cause__, TypeError)
 
     def test_assert_any_call(self):
         mock = Mock()
@@ -1404,6 +1491,23 @@ class MockTest(unittest.TestCase):
     def test_create_autospec_with_name(self):
         m = mock.create_autospec(object(), name='sweet_func')
         self.assertIn('sweet_func', repr(m))
+
+    #Issue23078
+    def test_create_autospec_classmethod_and_staticmethod(self):
+        class TestClass:
+            @classmethod
+            def class_method(cls):
+                pass
+
+            @staticmethod
+            def static_method():
+                pass
+        for method in ('class_method', 'static_method'):
+            with self.subTest(method=method):
+                mock_method = mock.create_autospec(getattr(TestClass, method))
+                mock_method()
+                mock_method.assert_called_once_with()
+                self.assertRaises(TypeError, mock_method, 'extra_arg')
 
     #Issue21238
     def test_mock_unsafe(self):
@@ -1624,6 +1728,29 @@ class MockTest(unittest.TestCase):
         f2_data = f2.read()
         self.assertEqual(f1_data, f2_data)
 
+    def test_mock_open_dunder_iter_issue(self):
+        # Test dunder_iter method generates the expected result and
+        # consumes the iterator.
+        mocked_open = mock.mock_open(read_data='Remarkable\nNorwegian Blue')
+        f1 = mocked_open('a-name')
+        lines = [line for line in f1]
+        self.assertEqual(lines[0], 'Remarkable\n')
+        self.assertEqual(lines[1], 'Norwegian Blue')
+        self.assertEqual(list(f1), [])
+
+    def test_mock_open_using_next(self):
+        mocked_open = mock.mock_open(read_data='1st line\n2nd line\n3rd line')
+        f1 = mocked_open('a-name')
+        line1 = next(f1)
+        line2 = f1.__next__()
+        lines = [line for line in f1]
+        self.assertEqual(line1, '1st line\n')
+        self.assertEqual(line2, '2nd line\n')
+        self.assertEqual(lines[0], '3rd line')
+        self.assertEqual(list(f1), [])
+        with self.assertRaises(StopIteration):
+            next(f1)
+
     def test_mock_open_write(self):
         # Test exception in file writing write()
         mock_namedtemp = mock.mock_open(mock.MagicMock(name='JLV'))
@@ -1717,6 +1844,55 @@ class MockTest(unittest.TestCase):
                 self.assertEqual(m.mock_calls, call().foo().call_list())
 
 
+    def test_attach_mock_patch_autospec(self):
+        parent = Mock()
+
+        with mock.patch(f'{__name__}.something', autospec=True) as mock_func:
+            self.assertEqual(mock_func.mock._extract_mock_name(), 'something')
+            parent.attach_mock(mock_func, 'child')
+            parent.child(1)
+            something(2)
+            mock_func(3)
+
+            parent_calls = [call.child(1), call.child(2), call.child(3)]
+            child_calls = [call(1), call(2), call(3)]
+            self.assertEqual(parent.mock_calls, parent_calls)
+            self.assertEqual(parent.child.mock_calls, child_calls)
+            self.assertEqual(something.mock_calls, child_calls)
+            self.assertEqual(mock_func.mock_calls, child_calls)
+            self.assertIn('mock.child', repr(parent.child.mock))
+            self.assertEqual(mock_func.mock._extract_mock_name(), 'mock.child')
+
+
+    def test_attach_mock_patch_autospec_signature(self):
+        with mock.patch(f'{__name__}.Something.meth', autospec=True) as mocked:
+            manager = Mock()
+            manager.attach_mock(mocked, 'attach_meth')
+            obj = Something()
+            obj.meth(1, 2, 3, d=4)
+            manager.assert_has_calls([call.attach_meth(mock.ANY, 1, 2, 3, d=4)])
+            obj.meth.assert_has_calls([call(mock.ANY, 1, 2, 3, d=4)])
+            mocked.assert_has_calls([call(mock.ANY, 1, 2, 3, d=4)])
+
+        with mock.patch(f'{__name__}.something', autospec=True) as mocked:
+            manager = Mock()
+            manager.attach_mock(mocked, 'attach_func')
+            something(1)
+            manager.assert_has_calls([call.attach_func(1)])
+            something.assert_has_calls([call(1)])
+            mocked.assert_has_calls([call(1)])
+
+        with mock.patch(f'{__name__}.Something', autospec=True) as mocked:
+            manager = Mock()
+            manager.attach_mock(mocked, 'attach_obj')
+            obj = Something()
+            obj.meth(1, 2, 3, d=4)
+            manager.assert_has_calls([call.attach_obj(),
+                                      call.attach_obj().meth(1, 2, 3, d=4)])
+            obj.meth.assert_has_calls([call(1, 2, 3, d=4)])
+            mocked.assert_has_calls([call(), call().meth(1, 2, 3, d=4)])
+
+
     def test_attribute_deletion(self):
         for mock in (Mock(), MagicMock(), NonCallableMagicMock(),
                      NonCallableMock()):
@@ -1728,6 +1904,33 @@ class MockTest(unittest.TestCase):
             del mock.f
             self.assertFalse(hasattr(mock, 'f'))
             self.assertRaises(AttributeError, getattr, mock, 'f')
+
+
+    def test_mock_does_not_raise_on_repeated_attribute_deletion(self):
+        # bpo-20239: Assigning and deleting twice an attribute raises.
+        for mock in (Mock(), MagicMock(), NonCallableMagicMock(),
+                     NonCallableMock()):
+            mock.foo = 3
+            self.assertTrue(hasattr(mock, 'foo'))
+            self.assertEqual(mock.foo, 3)
+
+            del mock.foo
+            self.assertFalse(hasattr(mock, 'foo'))
+
+            mock.foo = 4
+            self.assertTrue(hasattr(mock, 'foo'))
+            self.assertEqual(mock.foo, 4)
+
+            del mock.foo
+            self.assertFalse(hasattr(mock, 'foo'))
+
+
+    def test_mock_raises_when_deleting_nonexistent_attribute(self):
+        for mock in (Mock(), MagicMock(), NonCallableMagicMock(),
+                     NonCallableMock()):
+            del mock.foo
+            with self.assertRaises(AttributeError):
+                del mock.foo
 
 
     def test_reset_mock_does_not_raise_on_attr_deletion(self):
@@ -1761,6 +1964,71 @@ class MockTest(unittest.TestCase):
         self.assertIsNotNone(call.parent)
         self.assertEqual(type(call.parent), _Call)
         self.assertEqual(type(call.parent().parent), _Call)
+
+
+    def test_parent_propagation_with_create_autospec(self):
+
+        def foo(a, b):
+            pass
+
+        mock = Mock()
+        mock.child = create_autospec(foo)
+        mock.child(1, 2)
+
+        self.assertRaises(TypeError, mock.child, 1)
+        self.assertEqual(mock.mock_calls, [call.child(1, 2)])
+        self.assertIn('mock.child', repr(mock.child.mock))
+
+    def test_parent_propagation_with_autospec_attach_mock(self):
+
+        def foo(a, b): pass
+
+        parent = Mock()
+        parent.attach_mock(create_autospec(foo, name='bar'), 'child')
+        parent.child(1, 2)
+
+        self.assertRaises(TypeError, parent.child, 1)
+        self.assertEqual(parent.child.mock_calls, [call.child(1, 2)])
+        self.assertIn('mock.child', repr(parent.child.mock))
+
+
+    def test_isinstance_under_settrace(self):
+        # bpo-36593 : __class__ is not set for a class that has __class__
+        # property defined when it's used with sys.settrace(trace) set.
+        # Delete the module to force reimport with tracing function set
+        # restore the old reference later since there are other tests that are
+        # dependent on unittest.mock.patch. In testpatch.PatchTest
+        # test_patch_dict_test_prefix and test_patch_test_prefix not restoring
+        # causes the objects patched to go out of sync
+
+        old_patch = unittest.mock.patch
+
+        # Directly using __setattr__ on unittest.mock causes current imported
+        # reference to be updated. Use a lambda so that during cleanup the
+        # re-imported new reference is updated.
+        self.addCleanup(lambda patch: setattr(unittest.mock, 'patch', patch),
+                        old_patch)
+
+        with patch.dict('sys.modules'):
+            del sys.modules['unittest.mock']
+
+            def trace(frame, event, arg):
+                return trace
+
+            sys.settrace(trace)
+            self.addCleanup(sys.settrace, None)
+
+            from unittest.mock import (
+                Mock, MagicMock, NonCallableMock, NonCallableMagicMock
+            )
+
+            mocks = [
+                Mock, MagicMock, NonCallableMock, NonCallableMagicMock
+            ]
+
+            for mock in mocks:
+                obj = mock(spec=Something)
+                self.assertIsInstance(obj, Something)
 
 
 if __name__ == '__main__':

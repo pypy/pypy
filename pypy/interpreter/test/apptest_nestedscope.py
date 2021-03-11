@@ -88,6 +88,36 @@ def test_cell_contents():
     g = f(10)
     assert g.__closure__[0].cell_contents == 10
 
+def test_set_cell_contents():
+    def f(x):
+        def g(y):
+            return x + y
+        return g
+
+    g10 = f(10)
+    assert g10(5) == 15
+    assert g10.__closure__[0].cell_contents == 10
+    g10.__closure__[0].cell_contents = 20
+    assert g10.__closure__[0].cell_contents == 20
+    assert g10(5) == 25
+
+def test_del_cell_contents():
+    def f(x):
+        def g(y):
+            return x + y
+        return g
+
+    g10 = f(10)
+    del g10.__closure__[0].cell_contents
+    with raises(ValueError):
+        g10.__closure__[0].cell_contents
+    del g10.__closure__[0].cell_contents # does nothing
+    with raises(NameError):
+        g10(6)
+
+    g10.__closure__[0].cell_contents = 20
+    assert g10(5) == 25
+
 def test_empty_cell_contents():
 
     def f():

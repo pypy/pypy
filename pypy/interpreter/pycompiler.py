@@ -101,7 +101,7 @@ class PythonAstCompiler(PyCodeCompiler):
     """
     def __init__(self, space, override_version=None):
         PyCodeCompiler.__init__(self, space)
-        self.future_flags = future.futureFlags_3_5
+        self.future_flags = future.futureFlags_3_7
         self.parser = pyparse.PythonParser(space, self.future_flags)
         self.additional_rules = {}
         self.compiler_flags = self.future_flags.allowed_flags
@@ -129,7 +129,10 @@ class PythonAstCompiler(PyCodeCompiler):
         return self._compile_ast(node, info)
 
     def _compile_ast(self, node, info, source=None):
+        from pypy.interpreter.astcompiler.unparse import unparse_annotations
         space = self.space
+        if info.flags & consts.CO_FUTURE_ANNOTATIONS:
+            node = unparse_annotations(space, node)
         try:
             mod = optimize.optimize_ast(space, node, info)
             code = codegen.compile_ast(space, mod, info)

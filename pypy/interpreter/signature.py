@@ -3,12 +3,15 @@ from rpython.rlib import jit
 class Signature(object):
     _immutable_ = True
     _immutable_fields_ = ["argnames[*]", "kwonlyargnames[*]"]
-    __slots__ = ("argnames", "kwonlyargnames", "varargname", "kwargname")
+    __slots__ = ("argnames", "posonlyargcount", "kwonlyargnames", "varargname", "kwargname")
 
-    def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None):
+    def __init__(self, argnames, varargname=None, kwargname=None, kwonlyargnames=None, posonlyargcount=0):
+        # argnames contains both the positional only as well as the positional
+        # arguments. the number of positional only arguments is posonlyargcount
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
+        self.posonlyargcount = posonlyargcount
         if kwonlyargnames is None:
             kwonlyargnames = []
         self.kwonlyargnames = kwonlyargnames
@@ -27,6 +30,9 @@ class Signature(object):
 
     def num_argnames(self):
         return len(self.argnames)
+
+    def num_posonlyargnames(self):
+        return self.posonlyargcount
 
     def num_kwonlyargnames(self):
         return len(self.kwonlyargnames)
@@ -54,8 +60,8 @@ class Signature(object):
         return argnames
 
     def __repr__(self):
-        return "Signature(%r, %r, %r, %r)" % (
-                self.argnames, self.varargname, self.kwargname, self.kwonlyargnames)
+        return "Signature(%r, %r, %r, %r, %r)" % (
+                self.argnames, self.varargname, self.kwargname, self.kwonlyargnames, self.posonlyargcount)
 
     def __eq__(self, other):
         if not isinstance(other, Signature):
@@ -63,6 +69,7 @@ class Signature(object):
         return (self.argnames == other.argnames and
                 self.varargname == other.varargname and
                 self.kwargname == other.kwargname and
+                self.posonlyargcount == other.posonlyargcount and
                 self.kwonlyargnames == other.kwonlyargnames)
 
     def __ne__(self, other):

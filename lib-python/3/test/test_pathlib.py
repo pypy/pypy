@@ -1,6 +1,7 @@
-import collections
+import collections.abc
 import io
 import os
+import sys
 import errno
 import pathlib
 import pickle
@@ -577,6 +578,8 @@ class _BasePurePathTest(object):
         self.assertRaises(ValueError, P('a/b').with_suffix, '.c/.d')
         self.assertRaises(ValueError, P('a/b').with_suffix, './.d')
         self.assertRaises(ValueError, P('a/b').with_suffix, '.d/.')
+        self.assertRaises(ValueError, P('a/b').with_suffix,
+                          (self.flavour.sep, 'd'))
 
     def test_relative_to_common(self):
         P = self.cls
@@ -1173,25 +1176,10 @@ BASE = os.path.realpath(TESTFN)
 join = lambda *x: os.path.join(BASE, *x)
 rel_join = lambda *x: os.path.join(TESTFN, *x)
 
-def symlink_skip_reason():
-    if not pathlib.supports_symlinks:
-        return "no system support for symlinks"
-    try:
-        os.symlink(__file__, BASE)
-    except OSError as e:
-        return str(e)
-    else:
-        support.unlink(BASE)
-    return None
-
-symlink_skip_reason = symlink_skip_reason()
-
 only_nt = unittest.skipIf(os.name != 'nt',
                           'test requires a Windows-compatible system')
 only_posix = unittest.skipIf(os.name == 'nt',
                              'test requires a POSIX-compatible system')
-with_symlinks = unittest.skipIf(symlink_skip_reason, symlink_skip_reason)
-
 
 @only_posix
 class PosixPathAsPureTest(PurePosixPathTest):
@@ -1230,7 +1218,8 @@ class _BasePathTest(object):
     #  |-- dirE  # No permissions
     #  |-- fileA
     #  |-- linkA -> fileA
-    #  `-- linkB -> dirB
+    #  |-- linkB -> dirB
+    #  `-- brokenLinkLoop -> brokenLinkLoop
     #
 
     def setUp(self):
@@ -1253,7 +1242,7 @@ class _BasePathTest(object):
         with open(join('dirC', 'dirD', 'fileD'), 'wb') as f:
             f.write(b"this is file D\n")
         os.chmod(join('dirE'), 0)
-        if not symlink_skip_reason:
+        if support.can_symlink():
             # Relative symlinks
             os.symlink('fileA', join('linkA'))
             os.symlink('non-existing', join('brokenLink'))
@@ -1261,6 +1250,8 @@ class _BasePathTest(object):
             self.dirlink(os.path.join('..', 'dirB'), join('dirA', 'linkC'))
             # This one goes upwards, creating a loop
             self.dirlink(os.path.join('..', 'dirB'), join('dirB', 'linkD'))
+            # Broken symlink (pointing to itself).
+            os.symlink('brokenLinkLoop',  join('brokenLinkLoop'))
 
     if os.name == 'nt':
         # Workaround for http://bugs.python.org/issue13772
@@ -1280,10 +1271,13 @@ class _BasePathTest(object):
             func(*args, **kwargs)
         self.assertEqual(cm.exception.errno, errno.ENOENT)
 
+    def assertEqualNormCase(self, path_a, path_b):
+        self.assertEqual(os.path.normcase(path_a), os.path.normcase(path_b))
+
     def _test_cwd(self, p):
         q = self.cls(os.getcwd())
         self.assertEqual(p, q)
-        self.assertEqual(str(p), str(q))
+        self.assertEqualNormCase(str(p), str(q))
         self.assertIs(type(p), type(q))
         self.assertTrue(p.is_absolute())
 
@@ -1294,7 +1288,7 @@ class _BasePathTest(object):
     def _test_home(self, p):
         q = self.cls(os.path.expanduser('~'))
         self.assertEqual(p, q)
-        self.assertEqual(str(p), str(q))
+        self.assertEqualNormCase(str(p), str(q))
         self.assertIs(type(p), type(q))
         self.assertTrue(p.is_absolute())
 
@@ -1347,7 +1341,7 @@ class _BasePathTest(object):
         self.assertIs(True, (p / 'dirA').exists())
         self.assertIs(True, (p / 'fileA').exists())
         self.assertIs(False, (p / 'fileA' / 'bah').exists())
-        if not symlink_skip_reason:
+        if support.can_symlink():
             self.assertIs(True, (p / 'linkA').exists())
             self.assertIs(True, (p / 'linkB').exists())
             self.assertIs(True, (p / 'linkB' / 'fileB').exists())
@@ -1390,11 +1384,11 @@ class _BasePathTest(object):
         it = p.iterdir()
         paths = set(it)
         expected = ['dirA', 'dirB', 'dirC', 'dirE', 'fileA']
-        if not symlink_skip_reason:
-            expected += ['linkA', 'linkB', 'brokenLink']
+        if support.can_symlink():
+            expected += ['linkA', 'linkB', 'brokenLink', 'brokenLinkLoop']
         self.assertEqual(paths, { P(BASE, q) for q in expected })
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_iterdir_symlink(self):
         # __iter__ on a symlink to a directory
         P = self.cls
@@ -1419,20 +1413,20 @@ class _BasePathTest(object):
         P = self.cls
         p = P(BASE)
         it = p.glob("fileA")
-        self.assertIsInstance(it, collections.Iterator)
+        self.assertIsInstance(it, collections.abc.Iterator)
         _check(it, ["fileA"])
         _check(p.glob("fileB"), [])
         _check(p.glob("dir*/file*"), ["dirB/fileB", "dirC/fileC"])
-        if symlink_skip_reason:
+        if not support.can_symlink():
             _check(p.glob("*A"), ['dirA', 'fileA'])
         else:
             _check(p.glob("*A"), ['dirA', 'fileA', 'linkA'])
-        if symlink_skip_reason:
+        if not support.can_symlink():
             _check(p.glob("*B/*"), ['dirB/fileB'])
         else:
             _check(p.glob("*B/*"), ['dirB/fileB', 'dirB/linkD',
                                     'linkB/fileB', 'linkB/linkD'])
-        if symlink_skip_reason:
+        if not support.can_symlink():
             _check(p.glob("*/fileB"), ['dirB/fileB'])
         else:
             _check(p.glob("*/fileB"), ['dirB/fileB', 'linkB/fileB'])
@@ -1443,11 +1437,11 @@ class _BasePathTest(object):
         P = self.cls
         p = P(BASE)
         it = p.rglob("fileA")
-        self.assertIsInstance(it, collections.Iterator)
+        self.assertIsInstance(it, collections.abc.Iterator)
         _check(it, ["fileA"])
         _check(p.rglob("fileB"), ["dirB/fileB"])
         _check(p.rglob("*/fileA"), [])
-        if symlink_skip_reason:
+        if not support.can_symlink():
             _check(p.rglob("*/fileB"), ["dirB/fileB"])
         else:
             _check(p.rglob("*/fileB"), ["dirB/fileB", "dirB/linkD/fileB",
@@ -1458,7 +1452,7 @@ class _BasePathTest(object):
         _check(p.rglob("file*"), ["dirC/fileC", "dirC/dirD/fileD"])
         _check(p.rglob("*/*"), ["dirC/dirD/fileD"])
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_rglob_symlink_loop(self):
         # Don't get fooled by symlink loops (Issue #26012)
         P = self.cls
@@ -1472,6 +1466,7 @@ class _BasePathTest(object):
                   'fileA',
                   'linkA',
                   'linkB',
+                  'brokenLinkLoop',
                   }
         self.assertEqual(given, {p / x for x in expect})
 
@@ -1483,6 +1478,42 @@ class _BasePathTest(object):
         self.assertEqual(set(p.glob("dirA/../file*")), { P(BASE, "dirA/../fileA") })
         self.assertEqual(set(p.glob("../xyzzy")), set())
 
+    @support.skip_unless_symlink
+    def test_glob_permissions(self):
+        # See bpo-38894
+        P = self.cls
+        base = P(BASE) / 'permissions'
+        base.mkdir()
+
+        file1 = base / "file1"
+        file1.touch()
+        file2 = base / "file2"
+        file2.touch()
+
+        subdir = base / "subdir"
+
+        file3 = base / "file3"
+        file3.symlink_to(subdir / "other")
+
+        # Patching is needed to avoid relying on the filesystem
+        # to return the order of the files as the error will not
+        # happen if the symlink is the last item.
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 3)
+
+        subdir.mkdir()
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 4)
+
+        subdir.chmod(000)
+
+        with mock.patch("os.scandir") as scandir:
+            scandir.return_value = sorted(os.scandir(base))
+            self.assertEqual(len(set(base.glob("*"))), 4)
 
     def _check_resolve(self, p, expected, strict=True):
         q = p.resolve(strict)
@@ -1491,7 +1522,7 @@ class _BasePathTest(object):
     # this can be used to check both relative and absolute resolutions
     _check_resolve_relative = _check_resolve_absolute = _check_resolve
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_resolve_common(self):
         P = self.cls
         p = P(BASE, 'foo')
@@ -1499,15 +1530,15 @@ class _BasePathTest(object):
             p.resolve(strict=True)
         self.assertEqual(cm.exception.errno, errno.ENOENT)
         # Non-strict
-        self.assertEqual(str(p.resolve(strict=False)),
-                         os.path.join(BASE, 'foo'))
+        self.assertEqualNormCase(str(p.resolve(strict=False)),
+                                 os.path.join(BASE, 'foo'))
         p = P(BASE, 'foo', 'in', 'spam')
-        self.assertEqual(str(p.resolve(strict=False)),
-                         os.path.join(BASE, 'foo', 'in', 'spam'))
+        self.assertEqualNormCase(str(p.resolve(strict=False)),
+                                 os.path.join(BASE, 'foo', 'in', 'spam'))
         p = P(BASE, '..', 'foo', 'in', 'spam')
-        self.assertEqual(str(p.resolve(strict=False)),
-                         os.path.abspath(os.path.join('foo', 'in', 'spam')))
-        # These are all relative symlinks
+        self.assertEqualNormCase(str(p.resolve(strict=False)),
+                                 os.path.abspath(os.path.join('foo', 'in', 'spam')))
+        # These are all relative symlinks.
         p = P(BASE, 'dirB', 'fileB')
         self._check_resolve_relative(p, p)
         p = P(BASE, 'linkA')
@@ -1531,7 +1562,7 @@ class _BasePathTest(object):
             # resolves to 'dirB/..' first before resolving to parent of dirB.
             self._check_resolve_relative(p, P(BASE, 'foo', 'in', 'spam'), False)
         # Now create absolute symlinks
-        d = support._longpath(tempfile.mkdtemp(suffix='-dirD'))
+        d = support._longpath(tempfile.mkdtemp(suffix='-dirD', dir=os.getcwd()))
         self.addCleanup(support.rmtree, d)
         os.symlink(os.path.join(d), join('dirA', 'linkX'))
         os.symlink(join('dirB'), os.path.join(d, 'linkY'))
@@ -1551,7 +1582,7 @@ class _BasePathTest(object):
             # resolves to 'dirB/..' first before resolving to parent of dirB.
             self._check_resolve_relative(p, P(BASE, 'foo', 'in', 'spam'), False)
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_resolve_dot(self):
         # See https://bitbucket.org/pitrou/pathlib/issue/9/pathresolve-fails-on-complex-symlinks
         p = self.cls(BASE)
@@ -1603,7 +1634,7 @@ class _BasePathTest(object):
         self.addCleanup(p.chmod, st.st_mode)
         self.assertNotEqual(p.stat(), st)
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_lstat(self):
         p = self.cls(BASE)/ 'linkA'
         st = p.stat()
@@ -1845,7 +1876,7 @@ class _BasePathTest(object):
                 self.assertNotIn(str(p12), concurrently_created)
             self.assertTrue(p.exists())
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_symlink_to(self):
         P = self.cls(BASE)
         target = P / 'fileA'
@@ -1875,7 +1906,7 @@ class _BasePathTest(object):
         self.assertFalse((P / 'fileA').is_dir())
         self.assertFalse((P / 'non-existing').is_dir())
         self.assertFalse((P / 'fileA' / 'bah').is_dir())
-        if not symlink_skip_reason:
+        if support.can_symlink():
             self.assertFalse((P / 'linkA').is_dir())
             self.assertTrue((P / 'linkB').is_dir())
             self.assertFalse((P/ 'brokenLink').is_dir())
@@ -1886,10 +1917,22 @@ class _BasePathTest(object):
         self.assertFalse((P / 'dirA').is_file())
         self.assertFalse((P / 'non-existing').is_file())
         self.assertFalse((P / 'fileA' / 'bah').is_file())
-        if not symlink_skip_reason:
+        if support.can_symlink():
             self.assertTrue((P / 'linkA').is_file())
             self.assertFalse((P / 'linkB').is_file())
             self.assertFalse((P/ 'brokenLink').is_file())
+
+    @only_posix
+    def test_is_mount(self):
+        P = self.cls(BASE)
+        R = self.cls('/')  # TODO: Work out windows
+        self.assertFalse((P / 'fileA').is_mount())
+        self.assertFalse((P / 'dirA').is_mount())
+        self.assertFalse((P / 'non-existing').is_mount())
+        self.assertFalse((P / 'fileA' / 'bah').is_mount())
+        self.assertTrue(R.is_mount())
+        if support.can_symlink():
+            self.assertFalse((P / 'linkA').is_mount())
 
     def test_is_symlink(self):
         P = self.cls(BASE)
@@ -1897,7 +1940,7 @@ class _BasePathTest(object):
         self.assertFalse((P / 'dirA').is_symlink())
         self.assertFalse((P / 'non-existing').is_symlink())
         self.assertFalse((P / 'fileA' / 'bah').is_symlink())
-        if not symlink_skip_reason:
+        if support.can_symlink():
             self.assertTrue((P / 'linkA').is_symlink())
             self.assertTrue((P / 'linkB').is_symlink())
             self.assertTrue((P/ 'brokenLink').is_symlink())
@@ -1992,16 +2035,16 @@ class _BasePathTest(object):
         # Resolve absolute paths
         p = (P / 'link0').resolve()
         self.assertEqual(p, P)
-        self.assertEqual(str(p), BASE)
+        self.assertEqualNormCase(str(p), BASE)
         p = (P / 'link1').resolve()
         self.assertEqual(p, P)
-        self.assertEqual(str(p), BASE)
+        self.assertEqualNormCase(str(p), BASE)
         p = (P / 'link2').resolve()
         self.assertEqual(p, P)
-        self.assertEqual(str(p), BASE)
+        self.assertEqualNormCase(str(p), BASE)
         p = (P / 'link3').resolve()
         self.assertEqual(p, P)
-        self.assertEqual(str(p), BASE)
+        self.assertEqualNormCase(str(p), BASE)
 
         # Resolve relative paths
         old_path = os.getcwd()
@@ -2009,28 +2052,28 @@ class _BasePathTest(object):
         try:
             p = self.cls('link0').resolve()
             self.assertEqual(p, P)
-            self.assertEqual(str(p), BASE)
+            self.assertEqualNormCase(str(p), BASE)
             p = self.cls('link1').resolve()
             self.assertEqual(p, P)
-            self.assertEqual(str(p), BASE)
+            self.assertEqualNormCase(str(p), BASE)
             p = self.cls('link2').resolve()
             self.assertEqual(p, P)
-            self.assertEqual(str(p), BASE)
+            self.assertEqualNormCase(str(p), BASE)
             p = self.cls('link3').resolve()
             self.assertEqual(p, P)
-            self.assertEqual(str(p), BASE)
+            self.assertEqualNormCase(str(p), BASE)
         finally:
             os.chdir(old_path)
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_complex_symlinks_absolute(self):
         self._check_complex_symlinks(BASE)
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_complex_symlinks_relative(self):
         self._check_complex_symlinks('.')
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_complex_symlinks_relative_dot_dot(self):
         self._check_complex_symlinks(os.path.join('dirA', '..'))
 
@@ -2093,7 +2136,7 @@ class PosixPathTest(_BasePathTest, unittest.TestCase):
         st = os.stat(join('masked_new_file'))
         self.assertEqual(stat.S_IMODE(st.st_mode), 0o750)
 
-    @with_symlinks
+    @support.skip_unless_symlink
     def test_resolve_loop(self):
         # Loops with relative symlinks
         os.symlink('linkX/inside', join('linkX'))
@@ -2177,6 +2220,29 @@ class PosixPathTest(_BasePathTest, unittest.TestCase):
             self.assertEqual(p6.expanduser(), p6)
             self.assertRaises(RuntimeError, p7.expanduser)
 
+    @unittest.skipIf(sys.platform != "darwin",
+                     "Bad file descriptor in /dev/fd affects only macOS")
+    def test_handling_bad_descriptor(self):
+        try:
+            file_descriptors = list(pathlib.Path('/dev/fd').rglob("*"))[3:]
+            if not file_descriptors:
+                self.skipTest("no file descriptors - issue was not reproduced")
+            # Checking all file descriptors because there is no guarantee
+            # which one will fail.
+            for f in file_descriptors:
+                f.exists()
+                f.is_dir()
+                f.is_file()
+                f.is_symlink()
+                f.is_block_device()
+                f.is_char_device()
+                f.is_fifo()
+                f.is_socket()
+        except OSError as e:
+            if e.errno == errno.EBADF:
+                self.fail("Bad file descriptor not handled.")
+            raise
+
 
 @only_nt
 class WindowsPathTest(_BasePathTest, unittest.TestCase):
@@ -2186,11 +2252,15 @@ class WindowsPathTest(_BasePathTest, unittest.TestCase):
         P = self.cls
         p = P(BASE)
         self.assertEqual(set(p.glob("FILEa")), { P(BASE, "fileA") })
+        self.assertEqual(set(p.glob("F*a")), { P(BASE, "fileA") })
+        self.assertEqual(set(map(str, p.glob("FILEa"))), {f"{p}\\FILEa"})
+        self.assertEqual(set(map(str, p.glob("F*a"))), {f"{p}\\fileA"})
 
     def test_rglob(self):
         P = self.cls
         p = P(BASE, "dirC")
         self.assertEqual(set(p.rglob("FILEd")), { P(BASE, "dirC/dirD/fileD") })
+        self.assertEqual(set(map(str, p.rglob("FILEd"))), {f"{p}\\dirD\\FILEd"})
 
     def test_expanduser(self):
         P = self.cls

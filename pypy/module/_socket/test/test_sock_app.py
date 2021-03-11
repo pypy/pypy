@@ -314,18 +314,15 @@ def test_timeout(space, w_socket):
 # XXX also need tests for other connection and timeout errors
 
 def test_type(space, w_socket):
-    w_type = space.appexec([w_socket],
+    w_bool = space.appexec([w_socket],
                     """(_socket,):
                     if not hasattr(_socket, 'SOCK_CLOEXEC'):
                         return -1
                     s = _socket.socket(_socket.AF_INET,
                                     _socket.SOCK_STREAM | _socket.SOCK_CLOEXEC)
-                    return s.type
+                    return s.type == _socket.SOCK_STREAM
                     """)
-    typeint = space.int_w(w_type)
-    if typeint > 0:
-        # SOCK_CLOEXEC on Ubuntu 18.04
-        assert typeint & 524288 
+    assert(space.bool_w(w_bool))
 
 class AppTestSocket:
     spaceconfig = dict(usemodules=['_socket', '_weakref', 'struct', 'select',
@@ -797,6 +794,68 @@ class AppTestSocket:
         s.close()
         raises(TypeError, s.connect, (domain + '\x00', 80))
 
+    def test_socket_close(self):
+        import _socket
+        sock = _socket.socket()
+        try:
+            sock.bind(('localhost', 0))
+            _socket.close(sock.fileno())
+            with raises(OSError):
+                sock.listen(1)
+            with raises(OSError):
+                _socket.close(sock.fileno())
+        finally:
+            with raises(OSError):
+                sock.close()
+
+    def test_socket_get_values_from_fd(self):
+        import _socket
+        if hasattr(_socket, "SOCK_DGRAM"):
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+            try:
+                s.bind(('localhost', 0))
+                fd = s.fileno()
+                s2 = _socket.socket(fileno=fd)
+                try:
+                    # detach old fd to avoid double close
+                    s.detach()
+                    assert s2.fileno() == fd
+                    assert s2.family == _socket.AF_INET
+                    assert s2.type == _socket.SOCK_DGRAM
+
+                finally:
+                    s2.close()
+            finally:
+                s.close()
+
+    def test_socket_init_non_blocking(self):
+        import _socket
+        if not hasattr(_socket, "SOCK_NONBLOCK"):
+            skip("no SOCK_NONBLOCK")
+        s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM |
+                                            _socket.SOCK_NONBLOCK)
+        assert s.getblocking() == False
+        assert s.gettimeout() == 0.0
+
+    def test_socket_consistent_sock_type(self):
+        import _socket
+        SOCK_NONBLOCK = getattr(_socket, 'SOCK_NONBLOCK', 0)
+        SOCK_CLOEXEC = getattr(_socket, 'SOCK_CLOEXEC', 0)
+        sock_type = _socket.SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC
+
+        s = _socket.socket(_socket.AF_INET, sock_type)
+        try:
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(1)
+            assert s.type == _socket.SOCK_STREAM
+            s.settimeout(0)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(True)
+            assert s.type == _socket.SOCK_STREAM
+            s.setblocking(False)
+            assert s.type == _socket.SOCK_STREAM
+        finally:
+            s.close()
 
 @pytest.mark.skipif(not hasattr(os, 'getpid'),
     reason="AF_NETLINK needs os.getpid()")
@@ -922,6 +981,12 @@ class AppTestSocketTCP:
         # done
         cli.close()
         t.close()
+
+    def test_getblocking(self):
+        self.serv.setblocking(True)
+        assert self.serv.getblocking()
+        self.serv.setblocking(False)
+        assert not self.serv.getblocking()
 
     def test_recv_into(self):
         import socket
@@ -1068,7 +1133,7 @@ class AppTestSocketTCP:
     def test_no_socket_cloexec_non_block(self):
         import _socket
         #assert not hasattr(_socket, "SOCK_CLOEXEC") # not in py 2
-        assert not hasattr(_socket, "SOCK_NONBLOCK") # 3.7 only
+        #assert not hasattr(_socket, "SOCK_NONBLOCK") # 3.7 only
 
 
 class AppTestErrno:

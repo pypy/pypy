@@ -240,7 +240,7 @@ class JSONDecoder(W_Root):
     def decode_float(self, i):
         from rpython.rlib import rdtoa
         start = rffi.ptradd(self.ll_chars, i)
-        floatval = rdtoa.dg_strtod(start, self.end_ptr)
+        floatval = rdtoa.dg_strtod(rffi.cast(rffi.CONST_CCHARP, start), self.end_ptr)
         diff = rffi.cast(rffi.SIGNED, self.end_ptr[0]) - rffi.cast(rffi.SIGNED, start)
         self.pos = i + diff
         return self.space.newfloat(floatval)

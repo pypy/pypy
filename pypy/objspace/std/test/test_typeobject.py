@@ -1001,6 +1001,15 @@ class AppTestTypeObject:
             else:
                 assert False
 
+    def test_qualname_and_slots(self):
+        class A:
+            __slots__ = ['__qualname__', 'b']
+        assert isinstance(A.__qualname__, str)
+        assert isinstance(A.__dict__['__qualname__'], type(A.b))
+        a = A()
+        a.__qualname__ = 1
+        assert a.__qualname__ == 1
+
     def test_compare(self):
         class A(object):
             pass
@@ -1398,6 +1407,95 @@ class AppTestTypeObject:
         class A(Base):
             pass
         assert found == [1]
+        """
+
+    def test_class_getitem(self):
+        """
+        class WithoutMetaclass:
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return "{}[{}]".format(cls.__name__, item.__name__)
+
+        class WithoutMetaclassSubclass(WithoutMetaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return super().__class_getitem__(item)
+
+        assert WithoutMetaclass()[0] == 1
+        assert WithoutMetaclass[int] == "WithoutMetaclass[int]"
+        assert WithoutMetaclassSubclass()[0] == 1
+        assert WithoutMetaclassSubclass[int] == "WithoutMetaclassSubclass[int]"
+
+        class Metaclass(type):
+            def __getitem__(self, item):
+                return "Metaclass[{}]".format(item.__name__)
+
+        class WithMetaclass(metaclass=Metaclass):
+            def __getitem__(self, index):
+                return index + 1
+            def __class_getitem__(cls, item):
+                return super().__class_getitem__(item)
+
+        assert WithMetaclass()[0] == 1
+        assert WithMetaclass[int] == "Metaclass[int]"
+        """
+
+    def test_mro_entries(self):
+        """
+        class BaseA: pass
+        class BaseB: pass
+        class BaseC: pass
+        class BaseD: pass
+
+        class ProxyA:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA,)
+        class ProxyAB:
+            def __mro_entries__(self, orig_bases):
+                return (BaseA, BaseB)
+        class ProxyNone:
+            def __mro_entries__(self, orig_bases):
+                return ()
+
+        class TestA(ProxyA()): pass
+        assert TestA.__bases__ == (BaseA,)
+        assert len(TestA.__orig_bases__) == 1
+        assert isinstance(TestA.__orig_bases__[0], ProxyA)
+
+        class TestAB(ProxyAB()): pass
+        assert TestAB.__bases__ == (BaseA, BaseB)
+        assert len(TestAB.__orig_bases__) == 1
+        assert isinstance(TestAB.__orig_bases__[0], ProxyAB)
+
+        class TestNone(ProxyNone()): pass
+        assert TestNone.__bases__ == (object,)
+        assert len(TestNone.__orig_bases__) == 1
+        assert isinstance(TestNone.__orig_bases__[0], ProxyNone)
+
+        class TestMixed(BaseC, ProxyAB(), BaseD, ProxyNone()): pass
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        with raises(TypeError) as excinfo:
+            class TestDuplicate(BaseB, ProxyAB()): pass
+        assert str(excinfo.value) == "duplicate base class 'BaseB'"
+
+        with raises(TypeError) as excinfo:
+            type('TestType', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert str(excinfo.value) == "type() doesn't support MRO entry resolution; use types.new_class()"
+
+        import types
+        TestTypesNewClass = types.new_class('TestTypesNewClass', (BaseC, ProxyAB(), BaseD, ProxyNone()), {})
+        assert TestMixed.__bases__ == (BaseC, BaseA, BaseB, BaseD)
+        assert len(TestMixed.__orig_bases__) == 4
+        assert isinstance(TestMixed.__orig_bases__[1], ProxyAB) and isinstance(TestMixed.__orig_bases__[3], ProxyNone)
+
+        class TestNoOrigBases(BaseA, BaseB): pass
+        assert TestNoOrigBases.__bases__ == (BaseA, BaseB)
+        assert not hasattr(TestNoOrigBases, '__orig_bases__')
         """
 
 

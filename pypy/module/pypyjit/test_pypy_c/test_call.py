@@ -115,6 +115,8 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
+            a = A("a") # stop field unboxing
+
             i = 0
             a = A(1)
             while i < n:
@@ -573,7 +575,7 @@ class TestCall(BaseTestPyPyC):
         calls = [op for op in allops if op.name.startswith('call')]
         assert OpMatcher(calls).match('''
         p93 = call_r(ConstClass(view_as_kwargs), p35, p12, descr=<.*>)
-        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, p94, p98, 0, descr=<.*>)
+        i103 = call_i(ConstClass(_match_keywords), ConstPtr(ptr52), 0, 0, 0, p94, p98, 0, descr=<.*>)
         ''')
         assert len([op for op in allops if op.name.startswith('new')]) == 1
         # 1 alloc
@@ -642,5 +644,4 @@ class TestCall(BaseTestPyPyC):
             res += (9999 in map(g, range(200000)))
             return res
         """, [])
-        # as opposed to one loop, one bridge  (the third loop is tuple.contains)
-        assert len(log.loops) == 3
+        assert len([l for l in log.loops if l.chunks[1].bytecode_name.startswith("DescrOperation.contains")]) == 2

@@ -5,6 +5,7 @@ import locale
 import sys
 import unittest
 import encodings
+from unittest import mock
 
 from test import support
 
@@ -399,6 +400,23 @@ class ReadTest(MixInCheckStateHandling):
                                        for b in self.ill_formed_sequence)
             self.assertEqual(test_sequence.decode(self.encoding, "backslashreplace"),
                              before + backslashreplace + after)
+
+    def test_incremental_surrogatepass(self):
+        # Test incremental decoder for surrogatepass handler:
+        # see issue #24214
+        # High surrogate
+        data = '\uD901'.encode(self.encoding, 'surrogatepass')
+        for i in range(1, len(data)):
+            dec = codecs.getincrementaldecoder(self.encoding)('surrogatepass')
+            self.assertEqual(dec.decode(data[:i]), '')
+            self.assertEqual(dec.decode(data[i:], True), '\uD901')
+        # Low surrogate
+        data = '\uDC02'.encode(self.encoding, 'surrogatepass')
+        for i in range(1, len(data)):
+            dec = codecs.getincrementaldecoder(self.encoding)('surrogatepass')
+            self.assertEqual(dec.decode(data[:i]), '')
+            final = self.encoding == "cp65001"
+            self.assertEqual(dec.decode(data[i:], final), '\uDC02')
 
 
 class UTF32Test(ReadTest, unittest.TestCase):
@@ -839,6 +857,23 @@ class UTF8Test(ReadTest, unittest.TestCase):
         with self.assertRaises(UnicodeDecodeError):
             b"abc\xed\xa0z".decode(self.encoding, "surrogatepass")
 
+    def test_incremental_errors(self):
+        # Test that the incremental decoder can fail with final=False.
+        # See issue #24214
+        cases = [b'\x80', b'\xBF', b'\xC0', b'\xC1', b'\xF5', b'\xF6', b'\xFF']
+        for prefix in (b'\xC2', b'\xDF', b'\xE0', b'\xE0\xA0', b'\xEF',
+                       b'\xEF\xBF', b'\xF0', b'\xF0\x90', b'\xF0\x90\x80',
+                       b'\xF4', b'\xF4\x8F', b'\xF4\x8F\xBF'):
+            for suffix in b'\x7F', b'\xC0':
+                cases.append(prefix + suffix)
+        cases.extend((b'\xE0\x80', b'\xE0\x9F', b'\xED\xA0\x80',
+                      b'\xED\xBF\xBF', b'\xF0\x80', b'\xF0\x8F', b'\xF4\x90'))
+
+        for data in cases:
+            with self.subTest(data=data):
+                dec = codecs.getincrementaldecoder(self.encoding)()
+                self.assertRaises(UnicodeDecodeError, dec.decode, data)
+
 
 @unittest.skipUnless(sys.platform == 'win32',
                      'cp65001 is a Windows-only codec')
@@ -1171,6 +1206,7 @@ class UTF8SigTest(UTF8Test, unittest.TestCase):
             got = ostream.getvalue()
             self.assertEqual(got, unistring)
 
+
 class EscapeDecodeTest(unittest.TestCase):
     def test_empty(self):
         self.assertEqual(codecs.escape_decode(b""), (b"", 0))
@@ -1370,6 +1406,18 @@ class PunycodeTest(unittest.TestCase):
             self.assertEqual(uni, puny.decode("punycode"))
             puny = puny.decode("ascii").encode("ascii")
             self.assertEqual(uni, puny.decode("punycode"))
+
+    def test_decode_invalid(self):
+        testcases = [
+            (b"xn--w&", "strict", UnicodeError()),
+            (b"xn--w&", "ignore", "xn-"),
+        ]
+        for puny, errors, expected in testcases:
+            with self.subTest(puny=puny, errors=errors):
+                if isinstance(expected, Exception):
+                    self.assertRaises(UnicodeError, puny.decode, "punycode", errors)
+                else:
+                    self.assertEqual(puny.decode("punycode", errors), expected)
 
 
 class UnicodeInternalTest(unittest.TestCase):
@@ -1821,6 +1869,14 @@ class CodecsModuleTest(unittest.TestCase):
                 codecs.encode, 'abc', 'undefined', errors)
             self.assertRaises(UnicodeError,
                 codecs.decode, b'abc', 'undefined', errors)
+
+    def test_file_closes_if_lookup_error_raised(self):
+        mock_open = mock.mock_open()
+        with mock.patch('builtins.open', mock_open) as file:
+            with self.assertRaises(LookupError):
+                codecs.open(support.TESTFN, 'wt', 'invalid-encoding')
+
+            file().close.assert_called()
 
 
 class StreamReaderTest(unittest.TestCase):
@@ -3159,6 +3215,15 @@ class CodePageTest(unittest.TestCase):
             ('[\U0010ffff\uDC80]', 'replace', b'[\xf4\x8f\xbf\xbf?]'),
         ))
 
+    def test_code_page_decode_flags(self):
+        # Issue #36312: For some code pages (e.g. UTF-7) flags for
+        # MultiByteToWideChar() must be set to 0.
+        for cp in (50220, 50221, 50222, 50225, 50227, 50229,
+                   *range(57002, 57011+1), 65000):
+            self.assertEqual(codecs.code_page_decode(cp, b'abc'), ('abc', 3))
+        self.assertEqual(codecs.code_page_decode(42, b'abc'),
+                         ('\uf061\uf062\uf063', 3))
+
     def test_incremental(self):
         decoded = codecs.code_page_decode(932, b'\x82', 'strict', False)
         self.assertEqual(decoded, ('', 0))
@@ -3181,25 +3246,18 @@ class CodePageTest(unittest.TestCase):
     def test_mbcs_alias(self):
         # Check that looking up our 'default' codepage will return
         # mbcs when we don't have a more specific one available
-        import _bootlocale
-        def _get_fake_codepage(*a):
-            return 'cp123'
-        old_getpreferredencoding = _bootlocale.getpreferredencoding
-        _bootlocale.getpreferredencoding = _get_fake_codepage
-        try:
+        with mock.patch('_winapi.GetACP', return_value=123):
             codec = codecs.lookup('cp123')
             self.assertEqual(codec.name, 'mbcs')
-        finally:
-            _bootlocale.getpreferredencoding = old_getpreferredencoding
 
     @support.bigmemtest(size=2**31, memuse=7, dry_run=False)
-    def test_large_input(self):
+    def test_large_input(self, size):
         # Test input longer than INT_MAX.
         # Input should contain undecodable bytes before and after
         # the INT_MAX limit.
-        encoded = (b'01234567' * (2**28-1) +
+        encoded = (b'01234567' * ((size//8)-1) +
                    b'\x85\x86\xea\xeb\xec\xef\xfc\xfd\xfe\xff')
-        self.assertEqual(len(encoded), 2**31+2)
+        self.assertEqual(len(encoded), size+2)
         decoded = codecs.code_page_decode(932, encoded, 'surrogateescape', True)
         self.assertEqual(decoded[1], len(encoded))
         del encoded
@@ -3209,6 +3267,20 @@ class CodePageTest(unittest.TestCase):
                          '6701234567'
                          '\udc85\udc86\udcea\udceb\udcec'
                          '\udcef\udcfc\udcfd\udcfe\udcff')
+
+    @support.bigmemtest(size=2**31, memuse=6, dry_run=False)
+    def test_large_utf8_input(self, size):
+        # Test input longer than INT_MAX.
+        # Input should contain a decodable multi-byte character
+        # surrounding INT_MAX
+        encoded = (b'0123456\xed\x84\x80' * (size//8))
+        self.assertEqual(len(encoded), size // 8 * 10)
+        decoded = codecs.code_page_decode(65001, encoded, 'ignore', True)
+        self.assertEqual(decoded[1], len(encoded))
+        del encoded
+        self.assertEqual(len(decoded[0]), size)
+        self.assertEqual(decoded[0][:10], '0123456\ud10001')
+        self.assertEqual(decoded[0][-11:], '56\ud1000123456\ud100')
 
 
 class ASCIITest(unittest.TestCase):
@@ -3285,6 +3357,52 @@ class Latin1Test(unittest.TestCase):
         ):
             with self.subTest(data=data, expected=expected):
                 self.assertEqual(data.decode('latin1'), expected)
+
+
+class StreamRecoderTest(unittest.TestCase):
+    def test_writelines(self):
+        bio = io.BytesIO()
+        codec = codecs.lookup('ascii')
+        sr = codecs.StreamRecoder(bio, codec.encode, codec.decode,
+                                  encodings.ascii.StreamReader, encodings.ascii.StreamWriter)
+        sr.writelines([b'a', b'b'])
+        self.assertEqual(bio.getvalue(), b'ab')
+
+    def test_write(self):
+        bio = io.BytesIO()
+        codec = codecs.lookup('latin1')
+        # Recode from Latin-1 to utf-8.
+        sr = codecs.StreamRecoder(bio, codec.encode, codec.decode,
+                                  encodings.utf_8.StreamReader, encodings.utf_8.StreamWriter)
+
+        text = 'àñé'
+        sr.write(text.encode('latin1'))
+        self.assertEqual(bio.getvalue(), text.encode('utf-8'))
+
+    def test_seeking_read(self):
+        bio = io.BytesIO('line1\nline2\nline3\n'.encode('utf-16-le'))
+        sr = codecs.EncodedFile(bio, 'utf-8', 'utf-16-le')
+
+        self.assertEqual(sr.readline(), b'line1\n')
+        sr.seek(0)
+        self.assertEqual(sr.readline(), b'line1\n')
+        self.assertEqual(sr.readline(), b'line2\n')
+        self.assertEqual(sr.readline(), b'line3\n')
+        self.assertEqual(sr.readline(), b'')
+
+    def test_seeking_write(self):
+        bio = io.BytesIO('123456789\n'.encode('utf-16-le'))
+        sr = codecs.EncodedFile(bio, 'utf-8', 'utf-16-le')
+
+        # Test that seek() only resets its internal buffer when offset
+        # and whence are zero.
+        sr.seek(2)
+        sr.write(b'\nabc\n')
+        self.assertEqual(sr.readline(), b'789\n')
+        sr.seek(0)
+        self.assertEqual(sr.readline(), b'1\n')
+        self.assertEqual(sr.readline(), b'abc\n')
+        self.assertEqual(sr.readline(), b'789\n')
 
 
 if __name__ == "__main__":

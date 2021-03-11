@@ -1085,7 +1085,7 @@ import re
 
 def IS_LINE_JUNK(line, pat=re.compile(r"\s*(?:#\s*)?$").match):
     r"""
-    Return 1 for ignorable line: iff `line` is blank or contains a single '#'.
+    Return True for ignorable line: iff `line` is blank or contains a single '#'.
 
     Examples:
 
@@ -1101,7 +1101,7 @@ def IS_LINE_JUNK(line, pat=re.compile(r"\s*(?:#\s*)?$").match):
 
 def IS_CHARACTER_JUNK(ch, ws=" \t"):
     r"""
-    Return 1 for ignorable character: iff `ch` is a space or tab.
+    Return True for ignorable character: iff `ch` is a space or tab.
 
     Examples:
 
@@ -2083,7 +2083,7 @@ def restore(delta, which):
         tag = {1: "- ", 2: "+ "}[int(which)]
     except KeyError:
         raise ValueError('unknown delta choice (must be 1 or 2): %r'
-                           % which)
+                           % which) from None
     prefixes = ("  ", tag)
     for line in delta:
         if line[:2] in prefixes:

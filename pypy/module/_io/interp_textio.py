@@ -255,7 +255,7 @@ def _determine_encoding(space, encoding, w_buffer):
             if space.isinstance_w(w_encoding, space.w_unicode):
                 return w_encoding
 
-    # On legacy systems or darwin, try app-level 
+    # On legacy systems or darwin, try app-level
     # _bootlocale.getprefferedencoding(False)
     try:
         w_locale = space.call_method(space.builtin, '__import__',
@@ -495,6 +495,15 @@ def check_decoded(space, w_decoded):
         raise oefmt(space.w_TypeError, msg, w_decoded)
     return w_decoded
 
+def unwrap_newline(space, w_newline):
+    if space.is_none(w_newline):
+        newline = None
+    else:
+        newline = space.utf8_w(w_newline)
+        if newline and newline not in ('\n', '\r\n', '\r'):
+            raise oefmt(space.w_ValueError,
+                        "illegal newline value: %R", w_newline)
+    return newline
 
 class W_TextIOWrapper(W_TextIOBase):
     def __init__(self, space):
@@ -523,23 +532,31 @@ class W_TextIOWrapper(W_TextIOBase):
                    write_through=0):
         self.state = STATE_ZERO
         self.w_buffer = w_buffer
-        self.w_encoding = _determine_encoding(space, encoding, w_buffer)
+        self.w_encoding = w_encoding = _determine_encoding(space, encoding, w_buffer)
 
         if space.is_none(w_errors):
             w_errors = space.newtext("strict")
         self.w_errors = w_errors
 
-        if space.is_none(w_newline):
-            newline = None
-        else:
-            newline = space.utf8_w(w_newline)
-        if newline and newline not in ('\n', '\r\n', '\r'):
-            raise oefmt(space.w_ValueError,
-                        "illegal newline value: %R", w_newline)
+        newline = unwrap_newline(space, w_newline)
 
-        self.line_buffering = line_buffering
-        self.write_through = write_through
+        self.line_buffering = bool(line_buffering)
+        self.write_through = bool(write_through)
 
+        self._set_newline(newline)
+
+        self._set_encoder_decoder(w_encoding, w_errors)
+
+        self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
+        self.telling = self.seekable
+
+        self.has_read1 = space.findattr(w_buffer, space.newtext("read1"))
+
+        self._fix_encoder_state()
+
+        self.state = STATE_OK
+
+    def _set_newline(self, newline):
         self.readuniversal = not newline # null or empty
         self.readtranslate = newline is None
         self.readnl = newline
@@ -554,16 +571,18 @@ class W_TextIOWrapper(W_TextIOBase):
         else:
             self.writenl = None
 
+    def _set_encoder_decoder(self, w_encoding, w_errors):
+        space = self.space
         w_codec = interp_codecs.lookup_codec(space,
-                                             space.text_w(self.w_encoding))
+                                             space.text_w(w_encoding))
         if not space.is_true(space.getattr(w_codec,
                                            space.newtext('_is_text_encoding'))):
             msg = ("%R is not a text encoding; "
                    "use codecs.open() to handle arbitrary codecs")
-            raise oefmt(space.w_LookupError, msg, self.w_encoding)
+            raise oefmt(space.w_LookupError, msg, w_encoding)
 
         # build the decoder object
-        if space.is_true(space.call_method(w_buffer, "readable")):
+        if space.is_true(space.call_method(self.w_buffer, "readable")):
             self.w_decoder = space.call_method(w_codec,
                                                "incrementaldecoder", w_errors)
             if self.readuniversal:
@@ -572,15 +591,12 @@ class W_TextIOWrapper(W_TextIOBase):
                     self.w_decoder, space.newbool(self.readtranslate))
 
         # build the encoder object
-        if space.is_true(space.call_method(w_buffer, "writable")):
+        if space.is_true(space.call_method(self.w_buffer, "writable")):
             self.w_encoder = space.call_method(w_codec,
                                                "incrementalencoder", w_errors)
 
-        self.seekable = space.is_true(space.call_method(w_buffer, "seekable"))
-        self.telling = self.seekable
-
-        self.has_read1 = space.findattr(w_buffer, space.newtext("read1"))
-
+    def _fix_encoder_state(self):
+        space = self.space
         self.encoding_start_of_stream = False
         if self.seekable and self.w_encoder:
             self.encoding_start_of_stream = True
@@ -589,7 +605,71 @@ class W_TextIOWrapper(W_TextIOBase):
                 self.encoding_start_of_stream = False
                 space.call_method(self.w_encoder, "setstate", space.newint(0))
 
-        self.state = STATE_OK
+    def reconfigure(self, space, __args__):
+        """
+        Reconfigure the text stream with new parameters.
+
+        This also does an implicit stream flush.
+        """
+        # XXX quite annoying, kwonly args can't easily support unwrapped None
+        # as the default, do our own argument parsing
+        args_w, kwargs_w = __args__.unpack()
+        if args_w:
+            raise oefmt(space.w_TypeError, "reconfigure() takes no positional arguments")
+        # for all arguments passing w_None means "keep value", with two exceptions:
+        # 1) if encoding is given but not errors, set errors to strict
+        # 2) newline=None means universal newline support
+        w_encoding = kwargs_w.pop("encoding", space.w_None)
+        w_errors = kwargs_w.pop("errors", space.w_None)
+        w_newline = kwargs_w.pop("newline", None)
+        w_line_buffering = kwargs_w.pop("line_buffering", space.w_None)
+        w_write_through = kwargs_w.pop("write_through", space.w_None)
+        if kwargs_w:
+            key, w_value = kwargs_w.popitem()
+            raise oefmt(space.w_TypeError, "%8 is an invalid keyword argument for reconfigure()", key)
+
+        if self.decoded.text is not None:
+            if (not space.is_none(w_encoding) or
+                    not space.is_none(w_errors) or
+                    w_newline is not None):
+                self._unsupportedoperation(
+                    space, "It is not possible to set the encoding "
+                           "or newline of stream after the first read")
+
+
+        newline = None
+        if w_newline is not None:
+            newline = unwrap_newline(space, w_newline)
+
+        line_buffering = self.line_buffering
+        if not space.is_none(w_line_buffering):
+            line_buffering = bool(space.int_w(w_line_buffering))
+        write_through = self.write_through
+        if not space.is_none(w_write_through):
+            write_through = bool(space.int_w(w_write_through))
+
+        space.call_method(self, "flush")
+        if w_newline is not None:
+            self._set_newline(newline)
+        # if encoding is specified but not errors, set errors to strict
+        if not space.is_none(w_encoding):
+            if space.is_none(w_errors):
+                w_errors = space.newtext("strict")
+        if not space.is_none(w_encoding) or not space.is_none(w_errors) or (w_newline is not None and self.readuniversal):
+            if space.is_none(w_encoding):
+                w_encoding = self.w_encoding
+            if space.is_none(w_errors):
+                w_errors = self.w_errors
+            # NB we also need to call _set_encoder_decoder if the newline
+            # changed to readuniversal, to get newline translation
+            self._set_encoder_decoder(w_encoding, w_errors)
+            self.w_encoding = w_encoding
+            self.w_errors = w_errors
+
+        self.line_buffering = line_buffering
+        self.write_through = write_through
+
+        self._fix_encoder_state()
 
     def _check_init(self, space):
         if self.state == STATE_ZERO:
@@ -1222,8 +1302,12 @@ W_TextIOWrapper.typedef = TypeDef(
     truncate = interp2app(W_TextIOWrapper.truncate_w),
     close = interp2app(W_TextIOWrapper.close_w),
 
+    reconfigure = interp2app(W_TextIOWrapper.reconfigure),
+
     line_buffering = interp_attrproperty("line_buffering", W_TextIOWrapper,
-        wrapfn="newint"),
+        wrapfn="newbool"),
+    write_through = interp_attrproperty("write_through", W_TextIOWrapper,
+        wrapfn="newbool"),
     readable = interp2app(W_TextIOWrapper.readable_w),
     writable = interp2app(W_TextIOWrapper.writable_w),
     seekable = interp2app(W_TextIOWrapper.seekable_w),

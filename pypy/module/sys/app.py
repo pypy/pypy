@@ -70,6 +70,31 @@ def excepthook_failsafe(exctype, value):
     except:
         return False    # got an exception again... ignore, report the original
 
+def breakpointhook(*args, **kwargs):
+    """This hook function is called by built-in breakpoint()."""
+
+    import importlib, os, warnings
+
+    hookname = os.getenv('PYTHONBREAKPOINT')
+    if hookname is None or len(hookname) == 0:
+        hookname = 'pdb.set_trace'
+    elif hookname == '0':
+        return None
+    modname, dot, funcname = hookname.rpartition('.')
+    if dot == '':
+        modname = 'builtins'
+
+    try:
+        module = importlib.import_module(modname)
+        hook = getattr(module, funcname)
+    except:
+        warnings.warn(
+            'Ignoring unimportable $PYTHONBREAKPOINT: "{}"'.format(hookname),
+            RuntimeWarning)
+        return None
+
+    return hook(*args, **kwargs)
+
 def exit(exitcode=None):
     """Exit the interpreter by raising SystemExit(exitcode).
 If the exitcode is omitted or None, it defaults to zero (i.e., success).
@@ -91,11 +116,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2016 PyPy development team.
+Copyright 2003-2021 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2016 Python Software Foundation.
+Portions Copyright (c) 2001-2021 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.
@@ -108,6 +133,8 @@ Portions Copyright (c) 1991-1995 Stichting Mathematisch Centrum, Amsterdam.
 All Rights Reserved.
 """
 
+# Keep synchronized with pypy.interpreter.app_main.sys_flags and
+# pypy.module.cpyext._flags
 
 # This is tested in test_app_main.py
 class sysflags(metaclass=structseqtype):
@@ -126,8 +153,12 @@ class sysflags(metaclass=structseqtype):
     quiet = structseqfield(10)
     hash_randomization = structseqfield(11)
     isolated = structseqfield(12)
+    dev_mode = structseqfield(13)
+    utf8_mode = structseqfield(14)
 
-null_sysflags = sysflags((0,)*13)
+# no clue why dev_mode in particular has to be a bool, but CPython has tests
+# for that
+null_sysflags = sysflags((0,)*13 + (False, 0))
 null__xoptions = {}
 
 

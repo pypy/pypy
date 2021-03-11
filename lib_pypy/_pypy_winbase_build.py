@@ -1,3 +1,6 @@
+# This module provides interfaces needed by both msvcrt and
+# _subprocess.py.
+#
 # Note: uses the CFFI out-of-line ABI mode.  We can't use the API
 # mode because ffi.compile() needs to run the compiler, which
 # needs 'subprocess', which needs 'msvcrt' and '_subprocess',
@@ -6,17 +9,17 @@
 # Note that if you need to regenerate _pypy_winbase_cffi and
 # can't use a preexisting PyPy to do that, then running this
 # file should work as long as 'subprocess' is not imported
-# by cffi.  I had to hack in 'cffi._pycparser' to move an
-#'import subprocess' to the inside of a function.  (Also,
-# CPython+CFFI should work as well.)
-#
-# This module supports both msvcrt.py and _subprocess.py.
+# by cffi. (CPython+CFFI should work)
 
 from cffi import FFI
 
 ffi = FFI()
 
-ffi.set_source("_pypy_winbase_cffi", None)
+if ffi.sizeof('HANDLE') == 8:
+    # 64 bit windows
+    ffi.set_source("_pypy_winbase_cffi64", None)
+else:
+    ffi.set_source("_pypy_winbase_cffi", None)
 
 # ---------- MSVCRT ----------
 
@@ -117,6 +120,7 @@ void WINAPI SetLastError(DWORD);
 BOOL WINAPI GetOverlappedResult(HANDLE, LPOVERLAPPED, LPDWORD, BOOL);
 HANDLE WINAPI GetCurrentProcess(void);
 HANDLE OpenProcess(DWORD, BOOL, DWORD);
+UINT WINAPI GetACP(VOID);
 void ExitProcess(UINT);
 BOOL WINAPI DuplicateHandle(HANDLE, HANDLE, HANDLE, LPHANDLE,
                             DWORD, BOOL, DWORD);

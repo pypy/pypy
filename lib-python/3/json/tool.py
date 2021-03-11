@@ -11,7 +11,6 @@ Usage::
 
 """
 import argparse
-import collections
 import json
 import sys
 
@@ -21,9 +20,9 @@ def main():
     description = ('A simple command line interface for json module '
                    'to validate and pretty-print JSON objects.')
     parser = argparse.ArgumentParser(prog=prog, description=description)
-    parser.add_argument('infile', nargs='?', type=argparse.FileType(),
+    parser.add_argument('infile', nargs='?', type=argparse.FileType(encoding="utf-8"),
                         help='a JSON file to be validated or pretty-printed')
-    parser.add_argument('outfile', nargs='?', type=argparse.FileType('w'),
+    parser.add_argument('outfile', nargs='?', type=argparse.FileType('w', encoding="utf-8"),
                         help='write the output of infile to outfile')
     parser.add_argument('--sort-keys', action='store_true', default=False,
                         help='sort the output of dictionaries alphabetically by key')
@@ -34,11 +33,7 @@ def main():
     sort_keys = options.sort_keys
     with infile:
         try:
-            if sort_keys:
-                obj = json.load(infile)
-            else:
-                obj = json.load(infile,
-                                object_pairs_hook=collections.OrderedDict)
+            obj = json.load(infile)
         except ValueError as e:
             raise SystemExit(e)
     with outfile:
@@ -47,4 +42,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except BrokenPipeError as exc:
+        sys.exit(exc.errno)

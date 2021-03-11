@@ -478,6 +478,9 @@ class TestAstBuilder:
             assert isinstance(b, ast.Name)
             assert b.ctx == ast.Load
 
+        with pytest.raises(SyntaxError) as info:
+            self.get_ast("class A(x for x in T): pass")
+
     def test_function(self):
         func = self.get_first_stmt("def f(): pass")
         assert isinstance(func, ast.FunctionDef)
@@ -584,13 +587,13 @@ class TestAstBuilder:
         for i in range(255):
             fundef += "i%d, "%i
         fundef += "*, key=100):\n pass\n"
-        pytest.raises(SyntaxError, self.get_first_stmt, fundef)
+        self.get_first_stmt(fundef) # no crash, works since 3.7
 
         fundef2 = "def foo(i,*,"
         for i in range(255):
             fundef2 += "i%d, "%i
         fundef2 += "lastarg):\n  pass\n"
-        pytest.raises(SyntaxError, self.get_first_stmt, fundef)
+        self.get_first_stmt(fundef2) # no crash, works since 3.7
 
         fundef3 = "def f(i,*,"
         for i in range(253):
@@ -1087,14 +1090,17 @@ class TestAstBuilder:
         exc = pytest.raises(SyntaxError, self.get_ast, input).value
         assert exc.msg == "Generator expression must be parenthesized if not " \
             "sole argument"
+        input = "f(x for x in y, )"
+        exc = pytest.raises(SyntaxError, self.get_ast, input).value
+        assert exc.msg == "Generator expression must be parenthesized if not " \
+            "sole argument"
         many_args = ", ".join("x%i" % i for i in range(256))
         input = "f(%s)" % (many_args,)
-        exc = pytest.raises(SyntaxError, self.get_ast, input).value
-        assert exc.msg == "more than 255 arguments"
+        self.get_ast(input) # doesn't crash any more
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == "keyword can't be an expression"
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
-        assert exc.msg == "keyword argument repeated"
+        assert exc.msg == "keyword argument repeated: 'a'"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
@@ -1512,3 +1518,9 @@ class TestAstBuilder:
         mod = self.get_ast('x=1\nf"{    x + 1}"')
         assert mod.body[1].value.values[0].value.lineno == 2
         assert mod.body[1].value.values[0].value.col_offset == 7
+
+    def test_wrong_async_def_col_offset(self):
+        mod = self.get_ast("async def f():\n pass")
+        asyncdef = mod.body[0]
+        assert asyncdef.col_offset == 0
+

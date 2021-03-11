@@ -32,7 +32,7 @@ __version__ = "2.6"
 # =======
 
 from io import StringIO, BytesIO, TextIOWrapper
-from collections import Mapping
+from collections.abc import Mapping
 import sys
 import os
 import urllib.parse
@@ -117,7 +117,8 @@ log = initlog           # The current logging function
 # 0 ==> unlimited input
 maxlen = 0
 
-def parse(fp=None, environ=os.environ, keep_blank_values=0, strict_parsing=0):
+def parse(fp=None, environ=os.environ, keep_blank_values=0,
+          strict_parsing=0, separator='&'):
     """Parse a query in the environment or from a file (default stdin)
 
         Arguments, all optional:
@@ -136,6 +137,9 @@ def parse(fp=None, environ=os.environ, keep_blank_values=0, strict_parsing=0):
         strict_parsing: flag indicating what to do with parsing errors.
             If false (the default), errors are silently ignored.
             If true, errors raise a ValueError exception.
+
+        separator: str. The symbol to use for separating the query arguments.
+            Defaults to &.
     """
     if fp is None:
         fp = sys.stdin
@@ -156,7 +160,7 @@ def parse(fp=None, environ=os.environ, keep_blank_values=0, strict_parsing=0):
     if environ['REQUEST_METHOD'] == 'POST':
         ctype, pdict = parse_header(environ['CONTENT_TYPE'])
         if ctype == 'multipart/form-data':
-            return parse_multipart(fp, pdict)
+            return parse_multipart(fp, pdict, separator=separator)
         elif ctype == 'application/x-www-form-urlencoded':
             clength = int(environ['CONTENT_LENGTH'])
             if maxlen and clength > maxlen:
@@ -180,7 +184,7 @@ def parse(fp=None, environ=os.environ, keep_blank_values=0, strict_parsing=0):
             qs = ""
         environ['QUERY_STRING'] = qs    # XXX Shouldn't, really
     return urllib.parse.parse_qs(qs, keep_blank_values, strict_parsing,
-                                 encoding=encoding)
+                                 encoding=encoding, separator=separator)
 
 
 # parse query string function called from urlparse,
@@ -198,105 +202,32 @@ def parse_qsl(qs, keep_blank_values=0, strict_parsing=0):
          DeprecationWarning, 2)
     return urllib.parse.parse_qsl(qs, keep_blank_values, strict_parsing)
 
-def parse_multipart(fp, pdict):
+def parse_multipart(fp, pdict, encoding="utf-8", errors="replace", separator='&'):
     """Parse multipart input.
 
     Arguments:
     fp   : input file
     pdict: dictionary containing other parameters of content-type header
+    encoding, errors: request encoding and error handler, passed to
+        FieldStorage
 
     Returns a dictionary just like parse_qs(): keys are the field names, each
-    value is a list of values for that field.  This is easy to use but not
-    much good if you are expecting megabytes to be uploaded -- in that case,
-    use the FieldStorage class instead which is much more flexible.  Note
-    that content-type is the raw, unparsed contents of the content-type
-    header.
-
-    XXX This does not parse nested multipart parts -- use FieldStorage for
-    that.
-
-    XXX This should really be subsumed by FieldStorage altogether -- no
-    point in having two implementations of the same parsing algorithm.
-    Also, FieldStorage protects itself better against certain DoS attacks
-    by limiting the size of the data read in one chunk.  The API here
-    does not support that kind of protection.  This also affects parse()
-    since it can call parse_multipart().
-
+    value is a list of values for that field. For non-file fields, the value
+    is a list of strings.
     """
-    import http.client
-
-    boundary = b""
-    if 'boundary' in pdict:
-        boundary = pdict['boundary']
-    if not valid_boundary(boundary):
-        raise ValueError('Invalid boundary in multipart form: %r'
-                            % (boundary,))
-
-    nextpart = b"--" + boundary
-    lastpart = b"--" + boundary + b"--"
-    partdict = {}
-    terminator = b""
-
-    while terminator != lastpart:
-        bytes = -1
-        data = None
-        if terminator:
-            # At start of next part.  Read headers first.
-            headers = http.client.parse_headers(fp)
-            clength = headers.get('content-length')
-            if clength:
-                try:
-                    bytes = int(clength)
-                except ValueError:
-                    pass
-            if bytes > 0:
-                if maxlen and bytes > maxlen:
-                    raise ValueError('Maximum content length exceeded')
-                data = fp.read(bytes)
-            else:
-                data = b""
-        # Read lines until end of part.
-        lines = []
-        while 1:
-            line = fp.readline()
-            if not line:
-                terminator = lastpart # End outer loop
-                break
-            if line.startswith(b"--"):
-                terminator = line.rstrip()
-                if terminator in (nextpart, lastpart):
-                    break
-            lines.append(line)
-        # Done with part.
-        if data is None:
-            continue
-        if bytes < 0:
-            if lines:
-                # Strip final line terminator
-                line = lines[-1]
-                if line[-2:] == b"\r\n":
-                    line = line[:-2]
-                elif line[-1:] == b"\n":
-                    line = line[:-1]
-                lines[-1] = line
-                data = b"".join(lines)
-        line = headers['content-disposition']
-        if not line:
-            continue
-        key, params = parse_header(line)
-        if key != 'form-data':
-            continue
-        if 'name' in params:
-            name = params['name']
-        else:
-            continue
-        if name in partdict:
-            partdict[name].append(data)
-        else:
-            partdict[name] = [data]
-
-    return partdict
-
+    # RFC 2026, Section 5.1 : The "multipart" boundary delimiters are always
+    # represented as 7bit US-ASCII.
+    boundary = pdict['boundary'].decode('ascii')
+    ctype = "multipart/form-data; boundary={}".format(boundary)
+    headers = Message()
+    headers.set_type(ctype)
+    try:
+        headers['Content-Length'] = pdict['CONTENT-LENGTH']
+    except KeyError:
+        pass
+    fs = FieldStorage(fp, headers=headers, encoding=encoding, errors=errors,
+        environ={'REQUEST_METHOD': 'POST'}, separator=separator)
+    return {k: fs.getlist(k) for k in fs}
 
 def _parseparam(s):
     while s[:1] == ';':
@@ -405,7 +336,7 @@ class FieldStorage:
     def __init__(self, fp=None, headers=None, outerboundary=b'',
                  environ=os.environ, keep_blank_values=0, strict_parsing=0,
                  limit=None, encoding='utf-8', errors='replace',
-                 max_num_fields=None):
+                 max_num_fields=None, separator='&'):
         """Constructor.  Read multipart/* until last part.
 
         Arguments, all optional:
@@ -453,6 +384,7 @@ class FieldStorage:
         self.keep_blank_values = keep_blank_values
         self.strict_parsing = strict_parsing
         self.max_num_fields = max_num_fields
+        self.separator = separator
         if 'REQUEST_METHOD' in environ:
             method = environ['REQUEST_METHOD'].upper()
         self.qs_on_post = None
@@ -540,7 +472,8 @@ class FieldStorage:
         self.type = ctype
         self.type_options = pdict
         if 'boundary' in pdict:
-            self.innerboundary = pdict['boundary'].encode(self.encoding)
+            self.innerboundary = pdict['boundary'].encode(self.encoding,
+                                                          self.errors)
         else:
             self.innerboundary = b""
 
@@ -553,7 +486,7 @@ class FieldStorage:
             if maxlen and clen > maxlen:
                 raise ValueError('Maximum content length exceeded')
         self.length = clen
-        if self.limit is None and clen:
+        if self.limit is None and clen >= 0:
             self.limit = clen
 
         self.list = self.file = None
@@ -678,7 +611,7 @@ class FieldStorage:
         query = urllib.parse.parse_qsl(
             qs, self.keep_blank_values, self.strict_parsing,
             encoding=self.encoding, errors=self.errors,
-            max_num_fields=self.max_num_fields)
+            max_num_fields=self.max_num_fields, separator=self.separator)
         self.list = [MiniFieldStorage(key, value) for key, value in query]
         self.skip_lines()
 
@@ -694,7 +627,7 @@ class FieldStorage:
             query = urllib.parse.parse_qsl(
                 self.qs_on_post, self.keep_blank_values, self.strict_parsing,
                 encoding=self.encoding, errors=self.errors,
-                max_num_fields=self.max_num_fields)
+                max_num_fields=self.max_num_fields, separator=self.separator)
             self.list.extend(MiniFieldStorage(key, value) for key, value in query)
 
         klass = self.FieldStorageClass or self.__class__
@@ -734,9 +667,11 @@ class FieldStorage:
             if 'content-length' in headers:
                 del headers['content-length']
 
+            limit = None if self.limit is None \
+                else self.limit - self.bytes_read
             part = klass(self.fp, headers, ib, environ, keep_blank_values,
-                         strict_parsing,self.limit-self.bytes_read,
-                         self.encoding, self.errors, max_num_fields)
+                         strict_parsing, limit,
+                         self.encoding, self.errors, max_num_fields, self.separator)
 
             if max_num_fields is not None:
                 max_num_fields -= 1
@@ -826,7 +761,8 @@ class FieldStorage:
         last_line_lfend = True
         _read = 0
         while 1:
-            if _read >= self.limit:
+
+            if self.limit is not None and 0 <= self.limit <= _read:
                 break
             line = self.fp.readline(1<<16) # bytes
             self.bytes_read += len(line)

@@ -44,6 +44,17 @@ class BuildExtTestCase(TempdirManager,
         self.temp_cwd.__enter__()
         self.addCleanup(self.temp_cwd.__exit__, None, None, None)
 
+    def tearDown(self):
+        # Get everything back to normal
+        support.unload('xx')
+        sys.path = self.sys_path[0]
+        sys.path[:] = self.sys_path[1]
+        import site
+        site.USER_BASE = self.old_user_base
+        from distutils.command import build_ext
+        build_ext.USER_BASE = self.old_user_base
+        super(BuildExtTestCase, self).tearDown()
+
     def build_ext(self, *args, **kwargs):
         return build_ext(*args, **kwargs)
 
@@ -90,17 +101,6 @@ class BuildExtTestCase(TempdirManager,
             self.assertEqual(xx.__doc__, doc)
         self.assertIsInstance(xx.Null(), xx.Null)
         self.assertIsInstance(xx.Str(), xx.Str)
-
-    def tearDown(self):
-        # Get everything back to normal
-        support.unload('xx')
-        sys.path = self.sys_path[0]
-        sys.path[:] = self.sys_path[1]
-        import site
-        site.USER_BASE = self.old_user_base
-        from distutils.command import build_ext
-        build_ext.USER_BASE = self.old_user_base
-        super(BuildExtTestCase, self).tearDown()
 
     def test_solaris_enable_shared(self):
         dist = Distribution({'name': 'xx'})
@@ -177,10 +177,12 @@ class BuildExtTestCase(TempdirManager,
         cmd.finalize_options()
 
         py_include = sysconfig.get_python_inc()
-        self.assertIn(py_include, cmd.include_dirs)
+        for p in py_include.split(os.path.pathsep):
+            self.assertIn(p, cmd.include_dirs)
 
         plat_py_include = sysconfig.get_python_inc(plat_specific=1)
-        self.assertIn(plat_py_include, cmd.include_dirs)
+        for p in plat_py_include.split(os.path.pathsep):
+            self.assertIn(p, cmd.include_dirs)
 
         # make sure cmd.libraries is turned into a list
         # if it's a string
@@ -468,7 +470,7 @@ class BuildExtTestCase(TempdirManager,
         # format the target value as defined in the Apple
         # Availability Macros.  We can't use the macro names since
         # at least one value we test with will not exist yet.
-        if target[1] < 10:
+        if target[:2] < (10, 10):
             # for 10.1 through 10.9.x -> "10n0"
             target = '%02d%01d0' % target
         else:

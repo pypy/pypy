@@ -46,10 +46,10 @@ class AppTestUnicodeData:
     def test_cjk(self):
         import sys
         import unicodedata
-        assert unicodedata.unidata_version >= "8"
+        assert int(unicodedata.unidata_version.split(".")[0]) >= 8
         cases = [
             ('3400', '4DB5'),
-            ('4E00', '9FD5'),
+            ('4E00', '9FEF'),
             ('20000', '2A6D6'),
             ('2A700', '2B734'),
             ('2B740', '2B81D'),
@@ -157,5 +157,8 @@ class AppTestUnicodeData:
     def test_east_asian_width_9_0_changes(self):
         import unicodedata
         assert unicodedata.ucd_3_2_0.east_asian_width('\u231a') == 'N'
-        assert unicodedata.ucd.east_asian_width('\u231a') == 'W'
+        assert unicodedata.east_asian_width('\u231a') == 'W'
 
+    def test_11_change(self):
+        import unicodedata
+        assert unicodedata.name(chr(0x1f9b9)) == "SUPERVILLAIN"

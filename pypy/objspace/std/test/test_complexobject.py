@@ -79,5 +79,3 @@ class TestW_ComplexObject:
         r = c.descr_pow(self.space, p, self.space.wrap(None))
         assert r.realval == -1.0
         assert r.imagval == 0.0
-
-

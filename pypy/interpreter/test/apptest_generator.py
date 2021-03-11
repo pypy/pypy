@@ -221,16 +221,6 @@ def test_close():
     g = f()
     assert g.close() is None
 
-def test_close2():
-    def f():
-        try:
-            yield 1
-        except GeneratorExit:
-            raise StopIteration
-    g = f()
-    next(g)
-    assert g.close() is None
-
 def test_close3():
     def f():
         try:
@@ -275,21 +265,6 @@ def test_generator_raises_typeerror():
     with raises(TypeError):
         g.send(1)  # not started, must send None
 
-def test_generator_explicit_stopiteration():
-    def f():
-        yield 1
-        raise StopIteration
-    g = f()
-    assert [x for x in g] == [1]
-
-def test_generator_propagate_stopiteration():
-    def f():
-        it = iter([1])
-        while 1:
-            yield next(it)
-    g = f()
-    assert [x for x in g] == [1]
-
 def test_generator_restart():
     def g():
         i = next(me)
@@ -324,12 +299,6 @@ def test_unpackiterable_gen():
     assert set(g) == set([0, 1, 4, 9, 16, 25])
     assert set(g) == set()
     assert set(i for i in range(0)) == set()
-
-def test_explicit_stop_iteration_unpackiterable():
-    def f():
-        yield 1
-        raise StopIteration
-    assert tuple(f()) == (1,)
 
 def test_exception_is_cleared_by_yield():
     def f():
@@ -826,34 +795,33 @@ def test_exception_context():
     assert isinstance(excinfo.value.__context__, ValueError)
 
 
-def test_past_generator_stop():
-    # how it works without 'from __future__' import generator_stop
-    def f(x):
-        raise StopIteration
+def test_stopiteration_turned_into_runtime_error():
+    def badgenerator(x):
+        if x == 5:
+            raise StopIteration
         yield x
-    with raises(StopIteration):
-        next(f(5))
-
-def test_future_generator_stop():
-    d = {}
-    exec("""from __future__ import generator_stop
-
-def f(x):
-    raise StopIteration
-    yield x
-""", d)
-    f = d['f']
     with raises(RuntimeError):
-        next(f(5))
+        next(badgenerator(5))
+
+def test_stopiteration_can_be_caught():
+    def g():
+        raise StopIteration
+    def finegenerator(x):
+        yield x
+        if x == 5:
+            try:
+                g()
+            except StopIteration:
+                pass
+        yield x
+    gen = finegenerator(5)
+    next(gen) # fine
+    next(gen) # fine
 
 def test_generator_stop_cause():
-    d = {}
-    exec("""from __future__ import generator_stop
-
-def gen1():
-    yield 42
-""", d)
-    my_gen = d['gen1']()
+    def gen1():
+        yield 42
+    my_gen = gen1()
     assert next(my_gen) == 42
     stop_exc = StopIteration('spam')
     with raises(RuntimeError) as e:

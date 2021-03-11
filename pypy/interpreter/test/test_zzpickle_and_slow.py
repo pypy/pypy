@@ -177,6 +177,7 @@ class AppTestInterpObjectPickling:
         assert mod is result
 
     def test_pickle_moduledict(self):
+        skip("this behavior was disabled to follow CPython more closely")
         self.skip_on_cpython()
         import pickle
         moddict = pickle.__dict__

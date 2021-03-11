@@ -32,12 +32,15 @@ Options and arguments (and corresponding environment variables):
 -W arg : warning control; arg is action:message:category:module:lineno
          also PYTHONWARNINGS=arg
 -X opt : set implementation-specific option
+--check-hash-based-pycs always|default|never:
+    control how Python invalidates hash-based .pyc files
 file   : program read from script file
 -      : program read from stdin (default; interactive mode if a tty)
 arg ...: arguments passed to program in sys.argv[1:]
 PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
+-X dev: enable PyPy's "development mode"
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -47,6 +50,8 @@ PYTHONPATH   : %r-separated list of directories prefixed to the
                default module search path.  The result is sys.path.
 PYTHONCASEOK : ignore case in 'import' statements (Windows).
 PYTHONIOENCODING: Encoding[:errors] used for stdin/stdout/stderr.
+PYTHONFAULTHANDLER: dump the Python traceback on fatal errors.
+PYTHONDEVMODE: enable the development mode.
 PYPY_IRC_TOPIC: if set to a non-empty value, print a random #pypy IRC
                topic at startup of interactive mode.
 PYPYLOG: If set to a non-empty value, enable logging.
@@ -391,6 +396,8 @@ def create_stdio(fd, writing, name, encoding, errors, unbuffered):
     return stream
 
 
+# Keep synchronized with pypy.module.sys.app.sysflags and
+# pypy.module.cpyext._flags
 sys_flags = (
     "debug",
     "inspect",
@@ -405,6 +412,8 @@ sys_flags = (
     "quiet",
     "hash_randomization",
     "isolated",
+    "dev_mode",
+    "utf8_mode",
 )
 # ^^^ Order is significant!  Keep in sync with module.sys.app.sysflags
 
@@ -415,6 +424,8 @@ default_options = dict.fromkeys(
     "run_stdin",
     "warnoptions",
     "unbuffered"), 0)
+default_options["check_hash_based_pycs"] = "default"
+default_options["dev_mode"] = False # needs to be bool
 
 def simple_option(options, name, iterargv):
     options[name] += 1
@@ -434,6 +445,8 @@ def m_option(options, runmodule, iterargv):
 
 def X_option(options, xoption, iterargv):
     options["_xoptions"].append(xoption)
+    if xoption == "dev":
+        options["dev_mode"] = True
 
 def W_option(options, warnoption, iterargv):
     options["warnoptions"].append(warnoption)
@@ -443,6 +456,16 @@ def end_options(options, _, iterargv):
 
 def ignore_option(*args):
     pass
+
+def check_hash_based_pycs(options, value, iterargv):
+    if value not in ("default", "always", "never"):
+        initstdio()
+        print_error("--check-hash-based-pycs must be one of 'default', 'always', or 'never'")
+        raise SystemExit
+    import _imp
+    _imp.check_hash_based_pycs = value
+    options["check_hash_based_pycs"] = value
+
 
 cmdline_options = {
     # simple options just increment the counter of the options listed above
@@ -471,6 +494,7 @@ cmdline_options = {
     '--info':    (print_info,      None),
     '--jit':     (set_jit_option,  Ellipsis),
     '-funroll-loops': (funroll_loops, None),
+    '--check-hash-based-pycs': (check_hash_based_pycs, Ellipsis),
     '--':        (end_options,     None),
     'R':         (ignore_option,   None),      # previously hash_randomization
     }
@@ -551,14 +575,15 @@ def parse_command_line(argv):
 
     if not options["ignore_environment"]:
         parse_env('PYTHONDEBUG', "debug", options)
-        if getenv('PYTHONDONTWRITEBYTECODE'):
-            options["dont_write_bytecode"] = 1
+        parse_env('PYTHONDONTWRITEBYTECODE', "dont_write_bytecode", options)
         if getenv('PYTHONNOUSERSITE'):
             options["no_user_site"] = 1
         if getenv('PYTHONUNBUFFERED'):
             options["unbuffered"] = 1
         parse_env('PYTHONVERBOSE', "verbose", options)
         parse_env('PYTHONOPTIMIZE', "optimize", options)
+        if getenv('PYTHONDEVMODE'):
+            options["dev_mode"] = True
     if (options["interactive"] or
         (not options["ignore_environment"] and getenv('PYTHONINSPECT'))):
         options["inspect"] = 1
@@ -588,9 +613,11 @@ def run_command_line(interactive,
                      warnoptions,
                      unbuffered,
                      ignore_environment,
-                     quiet,
                      verbose,
+                     bytes_warning,
+                     quiet,
                      isolated,
+                     dev_mode,
                      **ignored):
     # with PyPy in top of CPython we can only have around 100
     # but we need more in the PyPy level for the compiler package
@@ -598,12 +625,13 @@ def run_command_line(interactive,
         sys.setrecursionlimit(5000)
     getenv = get_getenv()
 
+
     readenv = not ignore_environment
     io_encoding = getenv("PYTHONIOENCODING") if readenv else None
     initstdio(io_encoding, unbuffered)
 
     if 'faulthandler' in sys.builtin_module_names:
-        if 'faulthandler' in sys._xoptions or getenv('PYTHONFAULTHANDLER'):
+        if dev_mode or 'faulthandler' in sys._xoptions or (readenv and getenv('PYTHONFAULTHANDLER')):
             import faulthandler
             try:
                 faulthandler.enable(2)   # manually set to stderr
@@ -625,11 +653,32 @@ def run_command_line(interactive,
         except:
             print("'import site' failed", file=sys.stderr)
 
+    # The priority order for warnings configuration is (highest precedence
+    # first):
+    #
+    # - the BytesWarning filter, if needed ('-b', '-bb')
+    # - any '-W' command line options; then
+    # - the 'PYTHONWARNINGS' environment variable; then
+    # - the dev mode filter ('-X dev', 'PYTHONDEVMODE'); then
+    # - any implicit filters added by _warnings.c/warnings.py
+    #
+    # All settings except the last are passed to the warnings module via
+    # the `sys.warnoptions` list. Since the warnings module works on the basis
+    # of "the most recently added filter will be checked first", we add
+    # the lowest precedence entries first so that later entries override them.
+    sys_warnoptions = []
+    if dev_mode:
+        sys_warnoptions.append("default")
     pythonwarnings = readenv and getenv('PYTHONWARNINGS')
     if pythonwarnings:
-        warnoptions = pythonwarnings.split(',') + warnoptions
+        sys_warnoptions.extend(pythonwarnings.split(','))
     if warnoptions:
-        sys.warnoptions[:] = warnoptions
+        sys_warnoptions.extend(warnoptions)
+    if bytes_warning:
+        sys_warnoptions.append("error::BytesWarning" if bytes_warning > 1 else "default::BytesWarning")
+
+    if sys_warnoptions:
+        sys.warnoptions[:] = sys_warnoptions
         try:
             if 'warnings' in sys.modules:
                 from warnings import _processoptions
@@ -670,6 +719,7 @@ def run_command_line(interactive,
     success = True
 
     try:
+        from os.path import abspath
         if run_command != 0:
             # handle the "-c" command
             # Put '' on sys.path
@@ -686,9 +736,10 @@ def run_command_line(interactive,
                 success = run_toplevel(exec, bytes, mainmodule.__dict__)
         elif run_module != 0:
             # handle the "-m" command
-            # '' on sys.path is required also here
+            # Put abspath('') on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
             import runpy
             success = run_toplevel(runpy._run_module_as_main, run_module)
         elif run_stdin:
@@ -700,7 +751,8 @@ def run_command_line(interactive,
             # executing the interactive prompt, if we're running a script we
             # put it's directory on sys.path
             if not isolated:
-                sys.path.insert(0, '')
+                fullpath = abspath('.')
+                sys.path.insert(0, fullpath)
 
             if interactive or sys.stdin.isatty():
                 # If stdin is a tty or if "-i" is specified, we print a
@@ -810,8 +862,14 @@ def run_command_line(interactive,
                     mainmodule.__loader__ = loader
                     @hidden_applevel
                     def execfile(filename, namespace):
-                        with open(filename, 'rb') as f:
-                            code = f.read()
+                        try:
+                            with open(filename, 'rb') as f:
+                                code = f.read()
+                        except IOError as e:
+                            sys.stderr.write(
+                                "%s: can't open file %s: [Errno %d] %s\n" %
+                                (sys.executable, filename, e.errno, e.strerror))
+                            raise SystemExit(e.errno)
                         co = compile(code, filename, 'exec',
                                      PyCF_ACCEPT_NULL_BYTES)
                         exec(co, namespace)

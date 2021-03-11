@@ -584,6 +584,63 @@ def test_locals2fast_freevar_bug():
     sys.settrace(None)
     assert res == 10
 
+def test_disable_line_tracing():
+    import sys
+    assert sys._getframe().f_trace_lines
+
+    l = []
+    def trace(frame, event, arg):
+        l.append((frame.f_code.co_name, event, arg, frame.f_lineno - frame.f_code.co_firstlineno))
+        frame.f_trace_lines = False
+        return trace
+    def g(n):
+        return n + 2
+    def f(n):
+        n = g(n)
+        return n * 7
+    sys.settrace(trace)
+    x = f(4)
+    sys.settrace(None)
+    print(l)
+    assert l == [('f', 'call', None, 0), ('g', 'call', None, 0), ('g', 'return', 6, 1), ('f', 'return', 42, 2)]
+
+test_disable_line_tracing()
+
+def test_opcode_tracing():
+    import sys
+    assert not sys._getframe().f_trace_opcodes
+
+    l = []
+    def trace(frame, event, arg):
+        l.append((frame.f_code.co_name, event, arg, frame.f_lasti, frame.f_lineno - frame.f_code.co_firstlineno))
+        frame.f_trace_opcodes = True
+        return trace
+    def g(n):
+        return n + 2
+    def f(n):
+        return g(n)
+    sys.settrace(trace)
+    x = f(4)
+    sys.settrace(None)
+    print(l)
+    assert l == [
+        ('f', 'call', None, -1, 0),
+        ('f', 'line', None, 0, 1),
+        ('f', 'opcode', None, 0, 1),
+        ('f', 'opcode', None, 2, 1),
+        ('f', 'opcode', None, 4, 1),
+        ('g', 'call', None, -1, 0),
+        ('g', 'line', None, 0, 1),
+        ('g', 'opcode', None, 0, 1),
+        ('g', 'opcode', None, 2, 1),
+        ('g', 'opcode', None, 4, 1),
+        ('g', 'opcode', None, 6, 1),
+        ('g', 'return', 6, 6, 1),
+        ('f', 'opcode', None, 6, 1),
+        ('f', 'return', 6, 6, 1)]
+
+test_opcode_tracing()
+
 def test_preserve_exc_state_in_generators():
     import sys
     def yield_raise():

@@ -137,6 +137,7 @@ class AppTestBytesObject:
         assert bytes.fromhex("abcd") == b'\xab\xcd'
         assert b''.fromhex("abcd") == b'\xab\xcd'
         assert bytes.fromhex("ab cd  ef") == b'\xab\xcd\xef'
+        assert bytes.fromhex("\nab\tcd  \tef\t") == b'\xab\xcd\xef'
         raises(TypeError, bytes.fromhex, b"abcd")
         raises(TypeError, bytes.fromhex, True)
         raises(ValueError, bytes.fromhex, "hello world")
@@ -281,6 +282,15 @@ class AppTestBytesObject:
         assert b'aaaa'.capitalize() == b'Aaaa'
         assert b'AaAa'.capitalize() == b'Aaaa'
 
+    def test_isascii(self):
+        assert b"hello".isascii() is True
+        assert b"\x00\x7f".isascii() is True
+        assert b"\x80".isascii() is False
+        assert b"\x97".isascii() is False
+        assert b"\xff".isascii() is False
+        assert b"Hello World\x00".isascii() is True
+        assert b"Hello World\x80".isascii() is False
+
     def test_rjust(self):
         s = b"abc"
         assert s.rjust(2) == s
@@ -338,6 +348,10 @@ class AppTestBytesObject:
     def test_replace_buffer(self):
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
+
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
 
     def test_strip(self):
         s = b" a b "

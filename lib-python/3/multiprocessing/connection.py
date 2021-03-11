@@ -102,7 +102,7 @@ def address_type(address):
         return 'AF_INET'
     elif type(address) is str and address.startswith('\\\\'):
         return 'AF_PIPE'
-    elif type(address) is str:
+    elif type(address) is str or util.is_abstract_socket_namespace(address):
         return 'AF_UNIX'
     else:
         raise ValueError('address type of %r unrecognized' % address)
@@ -465,8 +465,13 @@ class Listener(object):
             self._listener = None
             listener.close()
 
-    address = property(lambda self: self._listener._address)
-    last_accepted = property(lambda self: self._listener._last_accepted)
+    @property
+    def address(self):
+        return self._listener._address
+
+    @property
+    def last_accepted(self):
+        return self._listener._last_accepted
 
     def __enter__(self):
         return self
@@ -582,7 +587,8 @@ class SocketListener(object):
         self._family = family
         self._last_accepted = None
 
-        if family == 'AF_UNIX':
+        if family == 'AF_UNIX' and not util.is_abstract_socket_namespace(address):
+            # Linux abstract socket namespaces do not need to be explicitly unlinked
             self._unlink = util.Finalize(
                 self, os.unlink, args=(address,), exitpriority=0
                 )
@@ -715,7 +721,9 @@ FAILURE = b'#FAILURE#'
 
 def deliver_challenge(connection, authkey):
     import hmac
-    assert isinstance(authkey, bytes)
+    if not isinstance(authkey, bytes):
+        raise ValueError(
+            "Authkey must be bytes, not {0!s}".format(type(authkey)))
     message = os.urandom(MESSAGE_LENGTH)
     connection.send_bytes(CHALLENGE + message)
     digest = hmac.new(authkey, message, 'md5').digest()
@@ -728,7 +736,9 @@ def deliver_challenge(connection, authkey):
 
 def answer_challenge(connection, authkey):
     import hmac
-    assert isinstance(authkey, bytes)
+    if not isinstance(authkey, bytes):
+        raise ValueError(
+            "Authkey must be bytes, not {0!s}".format(type(authkey)))
     message = connection.recv_bytes(256)         # reject large message
     assert message[:len(CHALLENGE)] == CHALLENGE, 'message = %r' % message
     message = message[len(CHALLENGE):]

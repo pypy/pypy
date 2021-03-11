@@ -59,7 +59,7 @@ else:
 
 
 class _ResourceSharer(object):
-    '''Manager for resouces using background thread.'''
+    '''Manager for resources using background thread.'''
     def __init__(self):
         self._key = 0
         self._cache = {}
@@ -125,7 +125,7 @@ class _ResourceSharer(object):
 
     def _start(self):
         from .connection import Listener
-        assert self._listener is None
+        assert self._listener is None, "Already have Listener"
         util.debug('starting listener and thread for sending handles')
         self._listener = Listener(authkey=process.current_process().authkey)
         self._address = self._listener.address

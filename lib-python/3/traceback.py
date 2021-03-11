@@ -257,8 +257,7 @@ class FrameSummary:
         self._line = line
         if lookup_line:
             self.line
-        self.locals = \
-            dict((k, repr(v)) for k, v in locals.items()) if locals else None
+        self.locals = {k: repr(v) for k, v in locals.items()} if locals else None
 
     def __eq__(self, other):
         if isinstance(other, FrameSummary):
@@ -547,7 +546,7 @@ class TracebackException:
         The return value is a generator of strings, each ending in a newline.
 
         Normally, the generator emits a single string; however, for
-        SyntaxError exceptions, it emites several lines that (when
+        SyntaxError exceptions, it emits several lines that (when
         printed) display detailed information about where the syntax
         error occurred.
 

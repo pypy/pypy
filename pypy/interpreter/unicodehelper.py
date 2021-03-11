@@ -123,25 +123,6 @@ def encode(space, w_data, encoding=None, errors='strict'):
 
 
 # These functions take and return unwrapped rpython strings
-def decode_unicode_escape(space, string):
-    from pypy.module._codecs import interp_codecs
-    state = space.fromcache(interp_codecs.CodecState)
-    unicodedata_handler = state.get_unicodedata_handler(space)
-    s, ulen, blen, first_escape_error_char = str_decode_unicode_escape(
-        string, "strict",
-        final=True,
-        errorhandler=state.decode_error_handler,
-        ud_handler=unicodedata_handler)
-    if first_escape_error_char is not None:
-        msg = "invalid escape sequence '%s'"
-        try:
-            space.warn(space.newtext(msg % first_escape_error_char), space.w_DeprecationWarning)
-        except OperationError as e:
-            if e.match(space, space.w_DeprecationWarning):
-                raise oefmt(space.w_SyntaxError, msg, first_escape_error_char)
-            else:
-                raise
-    return s, ulen, blen
 
 def decode_raw_unicode_escape(space, string):
     return str_decode_raw_unicode_escape(
@@ -287,13 +268,13 @@ def utf8_encode_latin_1(s, errors, errorhandler, allow_surrogates=False):
     try:
         rutf8.check_ascii(s)
         return s
-    except rutf8.CheckError:
-        return _utf8_encode_latin_1_slowpath(s, errors, errorhandler)
+    except rutf8.CheckError, e:
+        return _utf8_encode_latin_1_slowpath(s, e.pos, errors, errorhandler)
 
-def _utf8_encode_latin_1_slowpath(s, errors, errorhandler):
+def _utf8_encode_latin_1_slowpath(s, first_non_ascii_char, errors, errorhandler):
     result = StringBuilder(len(s))
-    index = 0
-    pos = 0
+    result.append_slice(s, 0, first_non_ascii_char)
+    pos = index = first_non_ascii_char
     while pos < len(s):
         ch = rutf8.codepoint_at_pos(s, pos)
         if ch <= 0xFF:
@@ -422,12 +403,6 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
 
         n = ord(runicode._utf8_code_length[ordch1 - 0x80])
         if pos + n > len(s):
-            special_errors = errors in ('replace', 'ignore', 'surrogateescape')
-            if not final and not special_errors:
-                # These error handlers operate on a character-by-character basis
-                # so they disable "final=False" (they are special cased in
-                # cpython's unicode_decode_utf8)
-                break
             # argh, this obscure block of code is mostly a copy of
             # what follows :-(
             charsleft = len(s) - pos - 1 # either 0, 1, 2
@@ -1217,6 +1192,13 @@ def str_decode_utf_16_helper(s, errors, final=True,
         if ch < 0xD800 or ch > 0xDFFF:
             rutf8.unichr_as_utf8_append(result, ch)
             continue
+        # unexpected low surrogate
+        elif ch >= 0xDC00:
+            r, pos, rettype, s = errorhandler(errors, public_encoding_name,
+                                  "illegal encoding",
+                                  s, pos - 2, pos)
+            result.append(r)
+            continue
         # UTF-16 code pair:
         if len(s) - pos < 2:
             pos -= 2
@@ -1226,7 +1208,7 @@ def str_decode_utf_16_helper(s, errors, final=True,
             r, pos, rettype, s = errorhandler(errors, public_encoding_name,
                                   errmsg, s, pos, len(s))
             result.append(r)
-        elif 0xD800 <= ch <= 0xDBFF:
+        else:
             ch2 = (ord(s[pos+ihi]) << 8) | ord(s[pos+ilo])
             pos += 2
             if 0xDC00 <= ch2 <= 0xDFFF:
@@ -1238,14 +1220,9 @@ def str_decode_utf_16_helper(s, errors, final=True,
                                       "illegal UTF-16 surrogate",
                                       s, pos - 4, pos - 2)
                 result.append(r)
-        else:
-            r, pos, rettype, s = errorhandler(errors, public_encoding_name,
-                                  "illegal encoding",
-                                  s, pos - 2, pos)
-            result.append(r)
     r = result.build()
     lgt = rutf8.check_utf8(r, True)
-    return result.build(), lgt, pos, bo
+    return r, lgt, pos, bo
 
 def _STORECHAR(result, CH, byteorder):
     hi = chr(((CH) >> 8) & 0xff)

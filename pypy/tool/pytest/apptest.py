@@ -30,6 +30,8 @@ RENAMED_USEMODULES = {
     'operator': '_operator',
     'signal': '_signal',
     'imp': '_imp'}
+if sys.platform == 'win32':
+    RENAMED_USEMODULES['posix'] = 'nt'
 
 if sys.platform == 'win32':
     RENAMED_USEMODULES['posix'] = 'nt'
@@ -188,7 +190,7 @@ def run_with_python(python_, target_, usemodules, **definitions):
             # They may be extension modules on CPython
             name = None
             for name in missing.copy():
-                if name in ['cpyext', '_cffi_backend']:
+                if name in ['cpyext', '_cffi_backend', '_rawffi']:
                     missing.remove(name)
                     continue
                 try:

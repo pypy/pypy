@@ -1,6 +1,6 @@
 # UNICODE CHARACTER DATABASE
 # This file was generated with the command:
-#     generate_unicodedb.py --base=unicodedb_5_2_0 --output=unicodedb_11_0_0 --unidata_version=11.0.0
+#     generate_unicodedb.py --unidata_version=11.0.0 --output=unicodedb_11_0_0 --base=unicodedb_5_2_0
 
 from rpython.rlib.rarithmetic import r_longlong
 
@@ -64479,6 +64479,10 @@ _special_casing_corrected = {
 }
 
 def toupper(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return code - 32
+        return code
     try:
         return _toupper[code]
     except KeyError:
@@ -64488,6 +64492,10 @@ def toupper(code):
             return code
 
 def tolower(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return code + 32
+        return code
     try:
         return _tolower[code]
     except KeyError:
@@ -64506,6 +64514,10 @@ def totitle(code):
             return code
 
 def toupper_full(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return [code - 32]
+        return [code]
     try:
         return _special_casing[code][2]
     except KeyError:
@@ -64517,6 +64529,10 @@ def toupper_full(code):
     return [toupper(code)]
 
 def tolower_full(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return [code + 32]
+        return [code]
     try:
         return _special_casing[code][0]
     except KeyError:

@@ -178,6 +178,7 @@ Python 3.6 C-API
 .. _3331: https://foss.heptapod.net/pypy/pypy/-/issues/3331
 .. _3324: https://foss.heptapod.net/pypy/pypy/-/issues/3324
 .. _3334: https://foss.heptapod.net/pypy/pypy/-/issues/3334
+.. _3336: https://foss.heptapod.net/pypy/pypy/-/issues/3336
 .. _3307: https://foss.heptapod.net/pypy/pypy/-/issues/3307
 .. _3343: https://foss.heptapod.net/pypy/pypy/-/issues/3343
 .. _3346: https://foss.heptapod.net/pypy/pypy/-/issues/3346

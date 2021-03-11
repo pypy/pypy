@@ -770,8 +770,9 @@ class W_ArrayBase(W_Root):
     # Misc methods
 
     def descr_repr(self, space):
+        cls_name = space.type(self).getname(space)
         if self.len == 0:
-            return space.newtext("array('%s')" % self.typecode)
+            return space.newtext("%s('%s')" % (cls_name, self.typecode))
         elif self.typecode == "u":
             try:
                 w_unicode = self.descr_tounicode(space)
@@ -782,11 +783,11 @@ class W_ArrayBase(W_Root):
                 r = "<%s>" % (space.text_w(w_exc_value),)
             else:
                 r = space.text_w(space.repr(w_unicode))
-            s = "array('%s', %s)" % (self.typecode, r)
+            s = "%s('%s', %s)" % (cls_name, self.typecode, r)
             return space.newtext(s)
         else:
             r = space.repr(self.descr_tolist(space))
-            s = "array('%s', %s)" % (self.typecode, space.text_w(r))
+            s = "%s('%s', %s)" % (cls_name, self.typecode, space.text_w(r))
             return space.newtext(s)
 
     def check_valid_unicode(self, space, s):

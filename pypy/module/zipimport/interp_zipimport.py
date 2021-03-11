@@ -196,31 +196,50 @@ class W_ZipImporter(W_Root):
             d = -d
         return d > 1    # more than one second => different
 
-    def can_use_pyc(self, space, filename, magic, timestamp):
+    def can_use_pyc(self, space, filename, magic, buf):
         if magic != importing.get_pyc_magic(space):
             return False
+        bitfield = importing._get_long(buf[4:8])
+        if bitfield != 0:
+            # Hash-based pyc. CPython (and we) currently refuse to handle
+            # checked hash-based pycs in zips. We could validate hash-based
+            # pycs against the source, but it seems likely that most people
+            # putting hash-based pycs in a zipfile will use unchecked ones.
+            w_imp = space.getbuiltinmodule("_imp")
+            w_mode = space.getattr(w_imp, space.newtext("check_hash_based_pycs"))
+            mode = space.text_w(w_mode)
+            if mode == "always":
+                return False
+            if mode == "default" and bitfield & 0b10:
+                return False
+            return True
+        timestamp = importing._get_long(buf[8:12])
         if self.check_newer_pyfile(space, filename[:-1], timestamp):
             return False
         return True
 
     @enforceargs(filename=s_Str0, typecheck=False)
     def import_pyc_file(self, space, modname, filename, buf, pkgpath):
-        if len(buf) < 8:
+        # a field are four bytes
+        # | magic | 0b00 | timestamp | size   # traditional timestamp based pyc
+        # | magic | 0b01 | hash1     | hash2  # unchecked
+        # | magic | 0b11 | hash1     | hash2  # checked
+
+        if len(buf) < 16:
             raise oefmt(get_error(space), "bad pyc data")
         magic = importing._get_long(buf[:4])
-        timestamp = importing._get_long(buf[4:8])
-        if not self.can_use_pyc(space, filename, magic, timestamp):
+        if not self.can_use_pyc(space, filename, magic, buf):
             return None
-        # zipimport ignores the size field
-        buf = buf[12:]  # XXX ugly copy, should use sequential read instead
+        buf = buf[16:]  # XXX ugly copy, should use sequential read instead
         w_mod = Module(space, space.newtext(modname))
         real_name = self.filename + os.path.sep + self.corr_zname(filename)
         space.setattr(w_mod, space.newtext('__loader__'), self)
         importing._prepare_module(space, w_mod, real_name, pkgpath)
         result = importing.load_compiled_module(
             space, space.newtext(modname),
-            w_mod, real_name, magic, timestamp, buf)
+            w_mod, real_name, magic, buf)
         return result
+
 
     def have_modulefile(self, space, filename):
         if ZIPSEP != os.path.sep:
@@ -332,16 +351,14 @@ class W_ZipImporter(W_Root):
                 w_source = self.get_data(space, filename + ext)
                 source = space.bytes_w(w_source)
                 if compiled:
-                    if len(source) < 8:
+                    if len(source) < 16:
                         raise oefmt(get_error(space), "bad pyc data")
                     magic = importing._get_long(source[:4])
-                    timestamp = importing._get_long(source[4:8])
-                    if not self.can_use_pyc(space, filename + ext,
-                                            magic, timestamp):
+                    if not self.can_use_pyc(space, filename + ext, magic, source):
                         continue
                     # zipimport ignores the size field
                     w_code = importing.read_compiled_module(
-                        space, filename + ext, source[12:])
+                        space, filename + ext, source[16:])
                 else:
                     co_filename = self.make_co_filename(filename+ext)
                     w_code = importing.parse_source_module(

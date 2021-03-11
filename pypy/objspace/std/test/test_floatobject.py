@@ -661,6 +661,11 @@ class AppTestAppFloatTest:
             else:
                 assert False, 'did not raise'
 
+    def test_new_pos_only(self):
+        with raises(TypeError) as info:
+            float(x=1)
+        assert "got an unexpected keyword argument 'x'" in str(info.value)
+
 class AppTestFloatHex:
     spaceconfig = {
         'usemodules': ['binascii', 'time', 'struct'],

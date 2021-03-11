@@ -5,6 +5,7 @@ from pypy.interpreter.mixedmodule import MixedModule
 class Module(MixedModule):
     appleveldefs = {
        'factorial' : 'app_math.factorial',
+       'remainder' : 'app_math.remainder',
     }
 
     interpleveldefs = {

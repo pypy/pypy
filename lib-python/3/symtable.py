@@ -119,8 +119,8 @@ class Function(SymbolTable):
     __globals = None
 
     def __idents_matching(self, test_func):
-        return tuple([ident for ident in self.get_identifiers()
-                      if test_func(self._table.symbols[ident])])
+        return tuple(ident for ident in self.get_identifiers()
+                     if test_func(self._table.symbols[ident]))
 
     def get_parameters(self):
         if self.__params is None:
@@ -188,7 +188,7 @@ class Symbol(object):
         return bool(self.__scope == GLOBAL_EXPLICIT)
 
     def is_local(self):
-        return bool(self.__flags & DEF_BOUND)
+        return bool(self.__scope in (LOCAL, CELL))
 
     def is_annotated(self):
         return bool(self.__flags & DEF_ANNOT)

@@ -85,7 +85,8 @@ def build_frame(space):
         StdObjSpaceFrame.INPLACE_SUBTRACT = int_INPLACE_SUBTRACT
     if space.config.objspace.std.optimized_list_getitem:
         StdObjSpaceFrame.BINARY_SUBSCR = list_BINARY_SUBSCR
-    from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD
+    from pypy.objspace.std.callmethod import LOOKUP_METHOD, CALL_METHOD, CALL_METHOD_KW
     StdObjSpaceFrame.LOOKUP_METHOD = LOOKUP_METHOD
     StdObjSpaceFrame.CALL_METHOD = CALL_METHOD
+    StdObjSpaceFrame.CALL_METHOD_KW = CALL_METHOD_KW
     return StdObjSpaceFrame

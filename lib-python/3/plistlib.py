@@ -47,7 +47,7 @@ Parse Plist example:
 """
 __all__ = [
     "readPlist", "writePlist", "readPlistFromBytes", "writePlistToBytes",
-    "Plist", "Data", "Dict", "InvalidFileException", "FMT_XML", "FMT_BINARY",
+    "Data", "InvalidFileException", "FMT_XML", "FMT_BINARY",
     "load", "dump", "loads", "dumps"
 ]
 
@@ -76,44 +76,6 @@ globals().update(PlistFormat.__members__)
 #
 
 
-class _InternalDict(dict):
-
-    # This class is needed while Dict is scheduled for deprecation:
-    # we only need to warn when a *user* instantiates Dict or when
-    # the "attribute notation for dict keys" is used.
-    __slots__ = ()
-
-    def __getattr__(self, attr):
-        try:
-            value = self[attr]
-        except KeyError:
-            raise AttributeError(attr)
-        warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", DeprecationWarning, 2)
-        return value
-
-    def __setattr__(self, attr, value):
-        warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", DeprecationWarning, 2)
-        self[attr] = value
-
-    def __delattr__(self, attr):
-        try:
-            del self[attr]
-        except KeyError:
-            raise AttributeError(attr)
-        warn("Attribute access from plist dicts is deprecated, use d[key] "
-             "notation instead", DeprecationWarning, 2)
-
-
-class Dict(_InternalDict):
-
-    def __init__(self, **kwargs):
-        warn("The plistlib.Dict class is deprecated, use builtin dict instead",
-             DeprecationWarning, 2)
-        super().__init__(**kwargs)
-
-
 @contextlib.contextmanager
 def _maybe_open(pathOrFile, mode):
     if isinstance(pathOrFile, str):
@@ -122,31 +84,6 @@ def _maybe_open(pathOrFile, mode):
 
     else:
         yield pathOrFile
-
-
-class Plist(_InternalDict):
-    """This class has been deprecated. Use dump() and load()
-    functions instead, together with regular dict objects.
-    """
-
-    def __init__(self, **kwargs):
-        warn("The Plist class is deprecated, use the load() and "
-             "dump() functions instead", DeprecationWarning, 2)
-        super().__init__(**kwargs)
-
-    @classmethod
-    def fromFile(cls, pathOrFile):
-        """Deprecated. Use the load() function instead."""
-        with _maybe_open(pathOrFile, 'rb') as fp:
-            value = load(fp)
-        plist = cls()
-        plist.update(value)
-        return plist
-
-    def write(self, pathOrFile):
-        """Deprecated. Use the dump() function instead."""
-        with _maybe_open(pathOrFile, 'wb') as fp:
-            dump(self, fp)
 
 
 def readPlist(pathOrFile):
@@ -160,8 +97,7 @@ def readPlist(pathOrFile):
         DeprecationWarning, 2)
 
     with _maybe_open(pathOrFile, 'rb') as fp:
-        return load(fp, fmt=None, use_builtin_types=False,
-            dict_type=_InternalDict)
+        return load(fp, fmt=None, use_builtin_types=False)
 
 def writePlist(value, pathOrFile):
     """
@@ -184,8 +120,7 @@ def readPlistFromBytes(data):
     """
     warn("The readPlistFromBytes function is deprecated, use loads() instead",
         DeprecationWarning, 2)
-    return load(BytesIO(data), fmt=None, use_builtin_types=False,
-        dict_type=_InternalDict)
+    return load(BytesIO(data), fmt=None, use_builtin_types=False)
 
 
 def writePlistToBytes(value):
@@ -322,8 +257,16 @@ class _PlistParser:
         self.parser.StartElementHandler = self.handle_begin_element
         self.parser.EndElementHandler = self.handle_end_element
         self.parser.CharacterDataHandler = self.handle_data
+        self.parser.EntityDeclHandler = self.handle_entity_decl
         self.parser.ParseFile(fileobj)
+        self.parser.EntityDeclHandler = self.handle_entity_decl
         return self.root
+
+    def handle_entity_decl(self, entity_name, is_parameter_entity, value, base, system_id, public_id, notation_name):
+        # Reject plist files with entity declarations to avoid XML vulnerabilies in expat.
+        # Regular plist files don't contain those declerations, and Apple's plutil tool does not
+        # accept them either.
+        raise InvalidFileException("XML entity declarations are not supported in plist files")
 
     def handle_begin_element(self, element, attrs):
         self.data = []
@@ -626,7 +569,7 @@ class _BinaryPlistParser:
             return self._read_object(top_object)
 
         except (OSError, IndexError, struct.error, OverflowError,
-                UnicodeDecodeError):
+                ValueError):
             raise InvalidFileException()
 
     def _get_size(self, tokenL):
@@ -642,7 +585,7 @@ class _BinaryPlistParser:
     def _read_ints(self, n, size):
         data = self._fp.read(size * n)
         if size in _BINARY_FORMAT:
-            return struct.unpack('>' + _BINARY_FORMAT[size] * n, data)
+            return struct.unpack(f'>{n}{_BINARY_FORMAT[size]}', data)
         else:
             if not size or len(data) != size * n:
                 raise InvalidFileException()
@@ -701,19 +644,25 @@ class _BinaryPlistParser:
 
         elif tokenH == 0x40:  # data
             s = self._get_size(tokenL)
-            if self._use_builtin_types:
-                result = self._fp.read(s)
-            else:
-                result = Data(self._fp.read(s))
+            result = self._fp.read(s)
+            if len(result) != s:
+                raise InvalidFileException()
+            if not self._use_builtin_types:
+                result = Data(result)
 
         elif tokenH == 0x50:  # ascii string
             s = self._get_size(tokenL)
-            result =  self._fp.read(s).decode('ascii')
-            result = result
+            data = self._fp.read(s)
+            if len(data) != s:
+                raise InvalidFileException()
+            result = data.decode('ascii')
 
         elif tokenH == 0x60:  # unicode string
-            s = self._get_size(tokenL)
-            result = self._fp.read(s * 2).decode('utf-16be')
+            s = self._get_size(tokenL) * 2
+            data = self._fp.read(s)
+            if len(data) != s:
+                raise InvalidFileException()
+            result = data.decode('utf-16be')
 
         # tokenH == 0x80 is documented as 'UID' and appears to be used for
         # keyed-archiving, not in plists.
@@ -737,9 +686,11 @@ class _BinaryPlistParser:
             obj_refs = self._read_refs(s)
             result = self._dict_type()
             self._objects[ref] = result
-            for k, o in zip(key_refs, obj_refs):
-                result[self._read_object(k)] = self._read_object(o)
-
+            try:
+                for k, o in zip(key_refs, obj_refs):
+                    result[self._read_object(k)] = self._read_object(o)
+            except TypeError:
+                raise InvalidFileException()
         else:
             raise InvalidFileException()
 
@@ -994,7 +945,7 @@ _FORMATS={
 
 
 def load(fp, *, fmt=None, use_builtin_types=True, dict_type=dict):
-    """Read a .plist file. 'fp' should be (readable) file object.
+    """Read a .plist file. 'fp' should be a readable and binary file object.
     Return the unpacked root object (which usually is a dictionary).
     """
     if fmt is None:
@@ -1025,8 +976,8 @@ def loads(value, *, fmt=None, use_builtin_types=True, dict_type=dict):
 
 
 def dump(value, fp, *, fmt=FMT_XML, sort_keys=True, skipkeys=False):
-    """Write 'value' to a .plist file. 'fp' should be a (writable)
-    file object.
+    """Write 'value' to a .plist file. 'fp' should be a writable,
+    binary file object.
     """
     if fmt not in _FORMATS:
         raise ValueError("Unsupported format: %r"%(fmt,))

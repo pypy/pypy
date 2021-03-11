@@ -95,7 +95,7 @@ def get_file():
         data = marshal.dumps(compile(source, 'uuu.py', 'exec'))
         size = len(data).to_bytes(4, 'little', signed=True)
 
-        return imp.get_magic() + mtimeb + size + data
+        return imp.get_magic() + b"\0\0\0\0" + mtimeb + size + data
 
     def w_now_in_the_future(self, delta):
         self.now += delta
@@ -189,6 +189,26 @@ def get_file():
         z = zipimport.zipimporter(self.zipfile)
         code = z.get_code('uuu')
         assert isinstance(code, type((lambda:0).__code__))
+
+    def test_hash_pyc(self):
+        import sys, os
+        pyc = self.get_pyc()
+        b = bytearray(pyc)
+        b[4] = 0b1 # unchecked hash
+        self.writefile("uuu.pyc", bytes(b))
+        mod = __import__('uuu', globals(), locals(), [])
+        assert mod.__name__ == 'uuu'
+        assert mod.__file__.endswith('.zip'+os.sep+'uuu.pyc')
+
+    def test_hash_check_not_imported_pyc(self):
+        import zipimport
+        import sys, os
+        pyc = self.get_pyc()
+        b = bytearray(pyc)
+        b[4] = 0b10 # checked hash
+        self.writefile("uuu.pyc", bytes(b))
+        raises(zipimport.ZipImportError,
+            "__import__('uuu', globals(), locals(), [])")
 
     def test_bad_pyc(self):
         import zipimport

@@ -253,13 +253,35 @@ class ProxyTests(unittest.TestCase):
         self.assertTrue(bypass('localhost'))
         self.assertTrue(bypass('LocalHost'))                 # MixedCase
         self.assertTrue(bypass('LOCALHOST'))                 # UPPERCASE
+        self.assertTrue(bypass('.localhost'))
         self.assertTrue(bypass('newdomain.com:1234'))
+        self.assertTrue(bypass('.newdomain.com:1234'))
         self.assertTrue(bypass('foo.d.o.t'))                 # issue 29142
+        self.assertTrue(bypass('d.o.t'))
         self.assertTrue(bypass('anotherdomain.com:8888'))
+        self.assertTrue(bypass('.anotherdomain.com:8888'))
         self.assertTrue(bypass('www.newdomain.com:1234'))
         self.assertFalse(bypass('prelocalhost'))
         self.assertFalse(bypass('newdomain.com'))            # no port
         self.assertFalse(bypass('newdomain.com:1235'))       # wrong port
+
+    def test_proxy_bypass_environment_always_match(self):
+        bypass = urllib.request.proxy_bypass_environment
+        self.env.set('NO_PROXY', '*')
+        self.assertTrue(bypass('newdomain.com'))
+        self.assertTrue(bypass('newdomain.com:1234'))
+        self.env.set('NO_PROXY', '*, anotherdomain.com')
+        self.assertTrue(bypass('anotherdomain.com'))
+        self.assertFalse(bypass('newdomain.com'))
+        self.assertFalse(bypass('newdomain.com:1234'))
+
+    def test_proxy_bypass_environment_newline(self):
+        bypass = urllib.request.proxy_bypass_environment
+        self.env.set('NO_PROXY',
+                     'localhost, anotherdomain.com, newdomain.com:1234')
+        self.assertFalse(bypass('localhost\n'))
+        self.assertFalse(bypass('anotherdomain.com:8888\n'))
+        self.assertFalse(bypass('newdomain.com:1234\n'))
 
 
 class ProxyTests_withOrderedEnv(unittest.TestCase):
@@ -798,7 +820,7 @@ FF
 
         with self.assertRaises(urllib.error.ContentTooShortError):
             try:
-                urllib.request.urlretrieve('http://example.com/',
+                urllib.request.urlretrieve(support.TEST_HTTP_URL,
                                            reporthook=_reporthook)
             finally:
                 self.unfakehttp()
@@ -815,7 +837,7 @@ FF
 ''')
         with self.assertRaises(urllib.error.ContentTooShortError):
             try:
-                urllib.request.urlretrieve('http://example.com/')
+                urllib.request.urlretrieve(support.TEST_HTTP_URL)
             finally:
                 self.unfakehttp()
 
@@ -823,7 +845,7 @@ FF
 class QuotingTests(unittest.TestCase):
     r"""Tests for urllib.quote() and urllib.quote_plus()
 
-    According to RFC 2396 (Uniform Resource Identifiers), to escape a
+    According to RFC 3986 (Uniform Resource Identifiers), to escape a
     character you write it as '%' + <2 character US-ASCII hex value>.
     The Python code of ``'%' + hex(ord(<character>))[2:]`` escapes a
     character properly. Case does not matter on the hex letters.
@@ -851,7 +873,7 @@ class QuotingTests(unittest.TestCase):
         do_not_quote = '' .join(["ABCDEFGHIJKLMNOPQRSTUVWXYZ",
                                  "abcdefghijklmnopqrstuvwxyz",
                                  "0123456789",
-                                 "_.-"])
+                                 "_.-~"])
         result = urllib.parse.quote(do_not_quote)
         self.assertEqual(do_not_quote, result,
                          "using quote(): %r != %r" % (do_not_quote, result))

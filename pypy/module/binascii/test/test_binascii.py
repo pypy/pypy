@@ -13,6 +13,7 @@ class AppTestBinascii(object):
         for input, expected in [
             (b"!,_", b"3"),
             (b" ", b""),
+            (b"`", b""),
             (b"!", b"\x00"),
             (b"!6", b"X"),
             (b'"6', b"X\x00"),
@@ -30,12 +31,18 @@ class AppTestBinascii(object):
             (b')WAXR6UBA3#Q', b"\xde\x1e2[X\xa1L<@"),
             (b'*WAXR6UBA3#Q!5', b"\xde\x1e2[X\xa1L<AT"),
             (b'!,_', b'\x33'),
+            (b'$  $" P  ', b'\x00\x01\x02\x03'),
+            (b'$``$"`P``', b'\x00\x01\x02\x03'),
             ]:
             assert self.binascii.a2b_uu(input) == expected
             assert self.binascii.a2b_uu(input + b' ') == expected
             assert self.binascii.a2b_uu(input + b'  ') == expected
             assert self.binascii.a2b_uu(input + b'   ') == expected
             assert self.binascii.a2b_uu(input + b'    ') == expected
+            assert self.binascii.a2b_uu(input + b'`') == expected
+            assert self.binascii.a2b_uu(input + b'``') == expected
+            assert self.binascii.a2b_uu(input + b'```') == expected
+            assert self.binascii.a2b_uu(input + b'````') == expected
             assert self.binascii.a2b_uu(input + b'\n') == expected
             assert self.binascii.a2b_uu(input + b'\r\n') == expected
             assert self.binascii.a2b_uu(input + b'  \r\n') == expected
@@ -84,7 +91,12 @@ class AppTestBinascii(object):
             (b"\xde\x1e2[X\xa1L<@", b')WAXR6UBA3#Q '),
             (b"\xde\x1e2[X\xa1L<AT", b'*WAXR6UBA3#Q!5   '),
             ]:
-            assert self.binascii.b2a_uu(input) == expected + b'\n'
+            for backtick in [None, True, False]:
+                if backtick is None:
+                    assert self.binascii.b2a_uu(input) == expected + b'\n'
+                else:
+                    really_expected = expected.replace(b' ', b'`') if backtick else expected
+                    assert self.binascii.b2a_uu(input, backtick=backtick) == really_expected + b'\n'
 
     def test_a2b_base64(self):
         for input, expected in [

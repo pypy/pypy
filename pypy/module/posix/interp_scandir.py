@@ -1,70 +1,93 @@
 import stat
-from errno import ENOENT
+from errno import ENOENT, ENOTDIR
 from rpython.rlib import rgc
 from rpython.rlib import rposix, rposix_scandir, rposix_stat
 
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault, interp2app
-from pypy.interpreter.error import OperationError, oefmt, wrap_oserror2
+from pypy.interpreter.error import (OperationError, oefmt, wrap_oserror,
+                                    wrap_oserror2)
 from pypy.interpreter.typedef import TypeDef, GetSetProperty
 from pypy.interpreter.baseobjspace import W_Root
+from pypy.interpreter.buffer import BufferInterfaceNotFound
 
-from pypy.module.posix.interp_posix import unwrap_fd, build_stat_result, _WIN32
+from pypy.module.posix.interp_posix import (path_or_fd, build_stat_result,
+                                            _WIN32, dup)
 
 
-def scandir(space, w_path=None):
+# XXX: update os.supports_fd when fd support is implemented
+@unwrap_spec(path=path_or_fd(allow_fd=rposix.HAVE_FDOPENDIR, nullable=True))
+def scandir(space, path=None):
     "scandir(path='.') -> iterator of DirEntry objects for given path"
-    if space.is_none(w_path):
-        w_path = space.newtext(".")
-
-    if not _WIN32:
-        if space.isinstance_w(w_path, space.w_bytes):
-            path = space.bytes0_w(w_path)
-            result_is_bytes = True
-        else:
-            path = space.fsencode_w(w_path)
-            result_is_bytes = False
-        # 'path' is always bytes on posix and always unicode on windows
+    try:
+        space._try_buffer_w(path.w_path, space.BUF_FULL_RO)
+    except BufferInterfaceNotFound:
+        as_bytes = (path.as_unicode is None)
+        result_is_bytes = False
+    else:
+        as_bytes = True
+        result_is_bytes = True
+    if path.as_fd != -1:
+        if not rposix.HAVE_FDOPENDIR:
+            # needed for translation, in practice this is dead code
+            raise oefmt(space.w_TypeError,
+                "scandir: illegal type for path argument")
         try:
-            dirp = rposix_scandir.opendir(path, len(path))
+            dirfd = rposix.dup(path.as_fd, inheritable=False)
+        except OSError as e:
+            raise wrap_oserror(space, e, eintr_retry=False)
+        dirp = rposix.c_fdopendir(dirfd)
+        if not dirp:
+            rposix.c_close(dirfd)
+            e = rposix.get_saved_errno()
+            if e == ENOTDIR:
+                w_type = space.w_NotADirectoryError
+            else:
+                w_type = space.w_ValueError
+            raise oefmt(w_type, "invalid fd %d", path.as_fd)
+        path_prefix = ''
+    elif as_bytes:
+        path_prefix = path.as_bytes
+        try:
+            name = path.as_bytes
+            dirp = rposix_scandir.opendir(name, len(name))
+        except OSError as e:
+            raise wrap_oserror2(space, e, space.newbytes(path.as_bytes), eintr_retry=False)
+    else:
+        w_path = path.w_path
+        path_prefix = space.utf8_w(w_path)
+        lgt = len(path_prefix)
+        try:
+            dirp = rposix_scandir.opendir(path_prefix, lgt)
         except OSError as e:
             raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-        path_prefix = path
+    if not _WIN32:
         if len(path_prefix) > 0 and path_prefix[-1] != '/':
             path_prefix += '/'
         w_path_prefix = space.newbytes(path_prefix)
         if not result_is_bytes:
             w_path_prefix = space.fsdecode(w_path_prefix)
     else:
-        if space.isinstance_w(w_path, space.w_bytes):
-            raise oefmt(space.w_TypeError, "os.scandir() doesn't support bytes path"
-                                           " on Windows, use Unicode instead")
-        path = space.utf8_w(w_path)
-        lgt = space.len_w(w_path)
-        result_is_bytes = False
-        # 'path' is always bytes on posix and always unicode on windows
-        try:
-            dirp = rposix_scandir.opendir(path, lgt)
-        except OSError as e:
-            raise wrap_oserror2(space, e, w_path, eintr_retry=False)
-
-        path_prefix = path
         if len(path_prefix) > 0 and path_prefix[-1] not in ('\\', '/', ':'):
             path_prefix += '\\'
-        w_path_prefix = space.newtext(path_prefix)
+        if result_is_bytes:
+            w_path_prefix = space.newbytes(path_prefix)
+        else:
+            w_path_prefix = space.newtext(path_prefix)
     if rposix.HAVE_FSTATAT:
         dirfd = rposix.c_dirfd(dirp)
     else:
         dirfd = -1
-    return W_ScandirIterator(space, dirp, dirfd, w_path_prefix, result_is_bytes)
+    return W_ScandirIterator(space, dirp, dirfd, w_path_prefix, result_is_bytes, path.as_fd)
 
 
 class W_ScandirIterator(W_Root):
     _in_next = False
 
-    def __init__(self, space, dirp, dirfd, w_path_prefix, result_is_bytes):
+    def __init__(self, space, dirp, dirfd, w_path_prefix, result_is_bytes, orig_fd):
         self.space = space
         self.dirp = dirp
         self.dirfd = dirfd
+        self.orig_fd = orig_fd
         self.w_path_prefix = w_path_prefix
         self.result_is_bytes = result_is_bytes
         self.register_finalizer(space)
@@ -121,14 +144,9 @@ class W_ScandirIterator(W_Root):
                                                   eintr_retry=False))
                 if not entry:
                     raise self.fail()
-                if not _WIN32:
-                    name = rposix_scandir.get_name_bytes(entry)
-                    if name != '.' and name != '..':
-                        break
-                else:
-                    name = rposix_scandir.get_name_unicode(entry)
-                    if name != u'.' and name != u'..':
-                        break
+                name = rposix_scandir.get_name_bytes(entry)
+                if name != '.' and name != '..':
+                    break
             #
             known_type = rposix_scandir.get_known_type(entry)
             inode = rposix_scandir.get_inode(entry)
@@ -179,7 +197,7 @@ class W_DirEntry(W_Root):
     def __init__(self, scandir_iterator, name, known_type, inode):
         self.space = scandir_iterator.space
         self.scandir_iterator = scandir_iterator
-        self.name = name     # always bytes on Posix; always unicode on Windows
+        self.name = name     # always bytes, used only on posix
         self.inode = inode
         self.flags = known_type
         #
@@ -189,7 +207,10 @@ class W_DirEntry(W_Root):
             if not scandir_iterator.result_is_bytes:
                 w_name = self.space.fsdecode(w_name)
         else:
-            w_name = self.space.newtext(name)
+            if not scandir_iterator.result_is_bytes:
+                w_name = self.space.newtext(name)
+            else:
+                w_name = self.space.newbytes(name)
         self.w_name = w_name
 
     def descr_repr(self, space):
@@ -216,7 +237,7 @@ class W_DirEntry(W_Root):
             """Get the lstat() of the direntry."""
             if (self.flags & FLAG_LSTAT) == 0:
                 # Unlike CPython, try to use fstatat() if possible
-                dirfd = self.scandir_iterator.dirfd
+                dirfd = self.scandir_iterator.orig_fd
                 if rposix.HAVE_FSTATAT and dirfd != -1:
                     st = rposix_stat.fstatat(self.name, dirfd,
                                              follow_symlinks=False)
@@ -261,7 +282,7 @@ class W_DirEntry(W_Root):
 
                 if must_call_stat:
                     # Must call stat().  Try to use fstatat() if possible
-                    dirfd = self.scandir_iterator.dirfd
+                    dirfd = self.scandir_iterator.orig_fd
                     if dirfd != -1 and rposix.HAVE_FSTATAT:
                         st = rposix_stat.fstatat(self.name, dirfd,
                                                  follow_symlinks=True)

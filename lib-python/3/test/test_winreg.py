@@ -4,7 +4,7 @@
 import os, sys, errno
 import unittest
 from test import support
-threading = support.import_module("threading")
+import threading
 from platform import machine
 
 # Do this first so test will be skipped if module doesn't exist
@@ -41,6 +41,7 @@ test_data = [
     ("String Val",    "A string value",                        REG_SZ),
     ("StringExpand",  "The path is %path%",                    REG_EXPAND_SZ),
     ("Multi-string",  ["Lots", "of", "string", "values"],      REG_MULTI_SZ),
+    ("Multi-nul",     ["", "", "", ""],                        REG_MULTI_SZ),
     ("Raw Data",      b"binary\x00data",                       REG_BINARY),
     ("Big String",    "x"*(2**14-1),                           REG_SZ),
     ("Big Binary",    b"x"*(2**14),                            REG_BINARY),

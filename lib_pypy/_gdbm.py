@@ -14,7 +14,7 @@ def _checkstr(key):
 
 def _fromstr(key):
     if isinstance(key, str):
-        key = key.encode()
+        key = key.encode(sys.getdefaultencoding())
     elif not isinstance(key, bytes):
         msg = "gdbm mappings have bytes or string indices only, not {!r}"
         raise TypeError(msg.format(type(key).__name__))

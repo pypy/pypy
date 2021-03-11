@@ -75,6 +75,7 @@ class AppTestAppSysTests:
         builtin2 = sys.modules['builtins']
         assert builtins is builtin2, ( "import builtins "
                                        "is not sys.modules[builtins].")
+
     def test_builtin_module_names(self):
         import sys
         names = sys.builtin_module_names
@@ -91,12 +92,12 @@ class AppTestAppSysTests:
         except Exception as exc:
             e = exc
             import sys
-            exc_type, exc_val, tb = sys.exc_info()
+            exc_type,exc_val,tb = sys.exc_info()
         try:
             raise Exception   # 6 lines below the previous one
         except Exception as exc:
             e2 = exc
-            exc_type2, exc_val2, tb2 = sys.exc_info()
+            exc_type2,exc_val2,tb2 = sys.exc_info()
         assert exc_type ==Exception
         assert exc_val ==e
         assert exc_type2 ==Exception
@@ -141,7 +142,6 @@ class AppTestAppSysTests:
             # see comment in 'setup_after_space_initialization'
             untranslated_enc = {'win32': 'utf-8', 'darwin': 'utf-8'}.get(enc, 'utf-8')
             assert enc == untranslated_enc
-
 
     def test_float_info(self):
         import sys
@@ -188,6 +188,15 @@ class AppTestAppSysTests:
         assert isinstance(li.imag, int)
         assert isinstance(li.algorithm, str)
 
+    def test_sys_flags(self):
+        import sys
+        # sanity check
+        assert sys.flags.optimize is not None
+        # make sure the flags are read-only
+        exc = raises(TypeError, 'sys.flags.optimize = 3')
+        assert 'readonly' in str(exc.value)
+        raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
+        
     def test_sys_exit(self):
         import sys
         exc = raises(SystemExit, sys.exit)
@@ -208,6 +217,10 @@ class AppTestAppSysTests:
         assert isinstance(info.name, str)
         assert isinstance(info.lock, (str, type(None)))
         assert isinstance(info.version, (str, type(None)))
+
+    def test_sys_flags_dev_mode_is_bool(self):
+        import sys
+        assert type(sys.flags.dev_mode) is bool
 
 
 class AppTestSysModulePortedFromCPython:
@@ -380,9 +393,9 @@ class AppTestSysModulePortedFromCPython:
             raise ValueError(42)
 
         def get_error_with_tracebacklimit(limit):
-            import _io
+            import io
             sys.tracebacklimit = limit
-            sys.stderr = err = _io.StringIO()
+            sys.stderr = err = io.StringIO()
             try:
                 f1()
             except ValueError:
@@ -402,12 +415,6 @@ class AppTestSysModulePortedFromCPython:
         msg = get_error_with_tracebacklimit(-1)
         assert "Traceback (most recent call last):" not in msg
         assert "ValueError" in msg
-
-        msg = get_error_with_tracebacklimit(1<<100)
-        assert "Traceback (most recent call last):" in msg
-        assert "f1" in msg
-        assert "f2" in msg
-        assert "f3" in msg
 
         sys.stderr = savestderr
         del sys.tracebacklimit
@@ -507,6 +514,16 @@ class AppTestSysModulePortedFromCPython:
         assert sys.getrecursionlimit() == 10000
         sys.setrecursionlimit(oldlimit)
         raises(OverflowError, sys.setrecursionlimit, 1<<31)
+
+    def test_recursionlimit_toolow(self):
+        import sys
+        def callatlevel(l):
+            if l > 0:
+                callatlevel(l - 1)
+            else:
+                sys.setrecursionlimit(1)
+        with raises(RecursionError):
+            callatlevel(500)
 
     def test_getwindowsversion(self):
         import sys
@@ -619,6 +636,7 @@ class AppTestSysModulePortedFromCPython:
         assert isinstance(vi[2], int)
         assert vi[3] in ("alpha", "beta", "candidate", "final")
         assert isinstance(vi[4], int)
+        assert isinstance(sys._framework, str)
 
     def test_implementation(self):
         import sys
@@ -794,6 +812,20 @@ class AppTestSysModulePortedFromCPython:
         cur = sys.get_asyncgen_hooks()
         assert cur.firstiter is None
         assert cur.finalizer is None
+
+    def test_coroutine_origin_tracking_depth(self):
+        import sys
+        depth = sys.get_coroutine_origin_tracking_depth()
+        assert depth == 0
+        try:
+            sys.set_coroutine_origin_tracking_depth(6)
+            depth = sys.get_coroutine_origin_tracking_depth()
+            assert depth == 6
+            with raises(ValueError):
+                sys.set_coroutine_origin_tracking_depth(-5)
+        finally:
+            sys.set_coroutine_origin_tracking_depth(0)
+
 
 
 class AppTestSysSettracePortedFromCpython(object):

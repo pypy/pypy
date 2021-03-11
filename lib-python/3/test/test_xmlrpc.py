@@ -10,6 +10,7 @@ import xmlrpc.server
 import http.client
 import http, http.server
 import socket
+import threading
 import re
 import io
 import contextlib
@@ -19,10 +20,6 @@ try:
     import gzip
 except ImportError:
     gzip = None
-try:
-    import threading
-except ImportError:
-    threading = None
 
 alist = [{'astring': 'foo@bar.baz.spam',
           'afloat': 7283.43,
@@ -307,7 +304,6 @@ class XMLRPCTestCase(unittest.TestCase):
         except OSError:
             self.assertTrue(has_ssl)
 
-    @unittest.skipUnless(threading, "Threading required for this test.")
     def test_keepalive_disconnect(self):
         class RequestHandler(http.server.BaseHTTPRequestHandler):
             protocol_version = "HTTP/1.1"
@@ -597,10 +593,6 @@ def http_server(evt, numrequests, requestHandler=None, encoding=None):
             def getData():
                 return '42'
 
-    def my_function():
-        '''This is my function'''
-        return True
-
     class MyXMLRPCServer(xmlrpc.server.SimpleXMLRPCServer):
         def get_request(self):
             # Ensure the socket is always non-blocking.  On Linux, socket
@@ -627,9 +619,14 @@ def http_server(evt, numrequests, requestHandler=None, encoding=None):
         serv.register_introspection_functions()
         serv.register_multicall_functions()
         serv.register_function(pow)
-        serv.register_function(lambda x,y: x+y, 'add')
         serv.register_function(lambda x: x, 'têšt')
-        serv.register_function(my_function)
+        @serv.register_function
+        def my_function():
+            '''This is my function'''
+            return True
+        @serv.register_function(name='add')
+        def _(x, y):
+            return x + y
         testInstance = TestInstanceClass()
         serv.register_instance(testInstance, allow_dotted_names=True)
         evt.set()
@@ -746,7 +743,6 @@ def make_request_and_skipIf(condition, reason):
         return make_request_and_skip
     return decorator
 
-@unittest.skipUnless(threading, 'Threading required for this test.')
 class BaseServerTestCase(unittest.TestCase):
     requestHandler = None
     request_count = 1
@@ -822,11 +818,10 @@ class SimpleServerTestCase(BaseServerTestCase):
                 # protocol error; provide additional information in test output
                 self.fail("%s\n%s" % (e, getattr(e, "headers", "")))
 
-    # [ch] The test 404 is causing lots of false alarms.
-    def XXXtest_404(self):
+    def test_404(self):
         # send POST with http.client, it should return 404 header and
         # 'Not Found' message.
-        conn = httplib.client.HTTPConnection(ADDR, PORT)
+        conn = http.client.HTTPConnection(ADDR, PORT)
         conn.request('POST', '/this-is-not-valid')
         response = conn.getresponse()
         conn.close()
@@ -1208,7 +1203,6 @@ class FailingMessageClass(http.client.HTTPMessage):
         return super().get(key, failobj)
 
 
-@unittest.skipUnless(threading, 'Threading required for this test.')
 class FailingServerTestCase(unittest.TestCase):
     def setUp(self):
         self.evt = threading.Event()

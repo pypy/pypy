@@ -203,7 +203,15 @@ class UnixCCompiler(CCompiler):
                         i = 1
                         while '=' in linker[i]:
                             i += 1
-                    linker[i] = self.compiler_cxx[i]
+
+                    if os.path.basename(linker[i]) == 'ld_so_aix':
+                        # AIX platforms prefix the compiler with the ld_so_aix
+                        # script, so we need to adjust our linker index
+                        offset = 1
+                    else:
+                        offset = 0
+
+                    linker[i+offset] = self.compiler_cxx[i]
 
                 if sys.platform == 'darwin':
                     linker = _osx_support.compiler_fixup(linker, ld_args)
@@ -252,8 +260,6 @@ class UnixCCompiler(CCompiler):
             if self._is_gcc(compiler):
                 return ["-Wl,+s", "-L" + dir]
             return ["+s", "-L" + dir]
-        elif sys.platform[:7] == "irix646" or sys.platform[:6] == "osf1V5":
-            return ["-rpath", dir]
         else:
             if self._is_gcc(compiler):
                 # gcc on non-GNU systems does not need -Wl, but can
@@ -301,7 +307,7 @@ class UnixCCompiler(CCompiler):
             # vs
             #   /usr/lib/libedit.dylib
             cflags = sysconfig.get_config_var('CFLAGS') or ''
-            m = re.search(r'-isysroot\s+(\S+)', cflags)
+            m = re.search(r'-isysroot\s*(\S+)', cflags)
             if m is None:
                 sysroot = '/'
             else:

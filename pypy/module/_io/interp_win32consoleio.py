@@ -19,6 +19,7 @@ from rpython.rlib.runicode import WideCharToMultiByte, MultiByteToWideChar
 from rpython.rlib.rwin32file import make_win32_traits
 from rpython.rlib.buffer import ByteBuffer
 from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rposix import getfullpathname
 
 # SMALLBUF determines how many utf-8 characters will be
 # buffered within the stream, in order to support reads
@@ -125,7 +126,14 @@ def _get_console_type(handle):
 
 def _pyio_get_console_type(space, w_path_or_fd):
 
-    # XXX 2020-07-22 Disable WinConsoleIO since it is flaky
+    # XXX 2021-01-10 Disable WinConsoleIO (again) it is flaky. Some interaction
+    # with pytest in running numpy's tests makes the handle invalid.
+    # TODO: refactor the w_path_or_fd handling to be more like interp_posix
+    #       and use the path_or_fd() unwrap_spec all through the _io module
+    #       Then this will recieve a already-processed Path object
+    # Another alternative to this whole mess would be to adapt the ctypes-based
+    # https://pypi.org/project/win_unicode_console/ which also implements PEP 528
+
     return '\0'
 
     if space.isinstance_w(w_path_or_fd, space.w_int):
@@ -156,8 +164,19 @@ def _pyio_get_console_type(space, w_path_or_fd):
         m = 'w'
     elif dlower == 'con':
         m = 'x'
+    if m != '\0':
+        return m
 
-    # TODO: call GetFullPathNameW to deal with C:\Program Files\CONOUT$
+    # Handle things like 'c:\users\user\appdata\local\temp\usession\CONOUT$
+    dlower = getfullpathname(decoded).lower()
+    if dlower[:4] == '\\\\.\\' or dlower[:4] == '\\\\?\\':
+        dlower = dlower[4:]
+    if  dlower == 'conin$':
+        m = 'r'
+    elif dlower == 'conout$':
+        m = 'w'
+    elif dlower == 'con':
+        m = 'x'
     return m
 
 
@@ -286,14 +305,13 @@ class W_WinConsoleIO(W_RawIOBase):
             pathlen = space.len_w(w_path)
             name = rffi.utf82wcharp(space.utf8_w(w_path), pathlen)
             self.handle = win32traits.CreateFile(name, 
-                rwin32.GENERIC_READ | rwin32.GENERIC_WRITE,
-                rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                rwin32.ALL_READ_WRITE, rwin32.SHARE_READ_WRITE,
                 rffi.NULL, win32traits.OPEN_EXISTING,
                 0, rffi.cast(rwin32.HANDLE, 0))
             if self.handle == rwin32.INVALID_HANDLE_VALUE:
                 self.handle = win32traits.CreateFile(name, 
                     access,
-                    rwin32.FILE_SHARE_READ | rwin32.FILE_SHARE_WRITE,
+                    rwin32.SHARE_READ_WRITE,
                     rffi.NULL, win32traits.OPEN_EXISTING,
                     0, rffi.cast(rwin32.HANDLE, 0))
             lltype.free(name, flavor='raw')

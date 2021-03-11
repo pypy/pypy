@@ -2,10 +2,10 @@ import sys, errno
 from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.buffer import RawByteBuffer
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
-    RSocketError, SOMAXCONN
+    RSocketError, SOMAXCONN, HAS_SO_PROTOCOL,
 )
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -87,6 +87,16 @@ def fill_from_object(addr, space, w_address):
     else:
         raise NotImplementedError
 
+
+if HAS_SO_PROTOCOL:
+    def get_so_protocol(fd):
+        from rpython.rlib import _rsocket_rffi as _c
+        return rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_PROTOCOL)
+else:
+    def get_so_protocol(fd):
+        return -1
+
+
 def idna_converter(space, w_host):
     # Converts w_host to a byte string.  Similar to encode_idna()
     # but accepts more types and refuses NULL bytes.
@@ -113,6 +123,7 @@ def idna_converter(space, w_host):
 
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
+    family = widen(family)
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
         host = idna_converter(space, w_host)
@@ -200,12 +211,19 @@ class W_Socket(W_Root):
 
     @unwrap_spec(family=int, type=int, proto=int,
                  w_fileno=WrappedDefault(None))
-    def descr_init(self, space, family=AF_INET, type=SOCK_STREAM, proto=0,
+    def descr_init(self, space, family=-1, type=-1, proto=-1,
                    w_fileno=None):
+        from rpython.rlib.rsocket import _c
+        if space.is_w(w_fileno, space.w_None):
+            if family == -1:
+                family = AF_INET
+            if type == -1:
+                type = SOCK_STREAM
+            if proto == -1:
+                proto = 0
         try:
             if not space.is_w(w_fileno, space.w_None):
                 if _WIN32 and space.isinstance_w(w_fileno, space.w_bytes):
-                    from rpython.rlib.rsocket import _c
                     # it is possible to pass some bytes representing a socket
                     # in the file descriptor object on winodws
                     fdobj = space.bytes_w(w_fileno)
@@ -225,12 +243,16 @@ class W_Socket(W_Root):
                     finally:
                         lltype.free(info_charptr, flavor='raw')
                 else:
-                    sock = RSocket(family, type, proto,
-                                   fd=space.c_filedescriptor_w(w_fileno))
+                    fd = space.c_filedescriptor_w(w_fileno)
+                    if family == -1:
+                        family = rsocket.get_socket_family(fd)
+                    if type == -1:
+                        type = rsocket.getsockopt_int(fd, _c.SOL_SOCKET, _c.SO_TYPE)
+                    if proto == -1:
+                        proto = get_so_protocol(fd)
+                    sock = RSocket(family, type, proto, fd=fd)
             else:
                 sock = RSocket(family, type, proto, inheritable=False)
-            # On Python3.6+, the SOCK_CLOEXEC flag (if preset) is added
-            sock.type = type
             W_Socket.__init__(self, space, sock)
         except SocketError as e:
             raise converted_error(space, e)
@@ -268,10 +290,12 @@ class W_Socket(W_Root):
 
     def descr_repr(self, space):
         fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        family = widen(self.sock.family)  # these are too small on win64
+        tp = widen(self.sock.type)
+        proto = widen(self.sock.proto)
         return space.newtext("<socket object, fd=%d, family=%d,"
                              " type=%d, proto=%d>" %
-                          (fd, self.sock.family,
-                           self.sock.type, self.sock.proto))
+                          (fd, family, tp, proto))
 
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
@@ -416,11 +440,20 @@ class W_Socket(W_Root):
 
         Returns the timeout in floating seconds associated with socket
         operations. A timeout of None indicates that timeouts on socket
+        operations are disabled.
         """
         timeout = self.sock.gettimeout()
         if timeout < 0.0:
             return space.w_None
         return space.newfloat(timeout)
+
+    def getblocking_w(self, space):
+        """getblocking()
+
+        Returns True if socket is in blocking mode, or False if it
+        is in non-blocking mode.
+        """
+        return space.newbool(self.sock.gettimeout() != 0.0)
 
     @unwrap_spec(backlog="c_int")
     def listen_w(self, space, backlog=min(SOMAXCONN, 128)):
@@ -1036,6 +1069,7 @@ getpeername getsockname getsockopt gettimeout listen
 recv recvfrom send sendall sendto setblocking
 setsockopt settimeout shutdown _reuse _drop
 recv_into recvfrom_into
+getblocking
 """.split()
 if hasattr(rsocket._c, 'WSAIoctl'):
     socketmethodnames.append('ioctl')
@@ -1102,3 +1136,11 @@ if_indextoname(index) -- return the corresponding interface name
     family = GetSetProperty(W_Socket.get_family_w),
     **socketmethods
     )
+
+@unwrap_spec(fd=int)
+def close(space, fd):
+    from rpython.rlib import _rsocket_rffi as _c
+    res = _c.socketclose(fd)
+    if res:
+        converted_error(space, rsocket.last_error())
+

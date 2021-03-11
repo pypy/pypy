@@ -284,6 +284,11 @@ def test_width():
     assert "%3s" % a == '  a'
     assert "%-3s"% a == 'a  '
 
+def test_no_chars_between_percent():
+    with raises(ValueError) as exc:
+        "%   %" % ()
+    assert "extra character ' ' (0x20) before escaped '%' at index 1" in str(exc.value)
+
 def test_prec_zero():
     z = 0
     assert "%.0x" % z == '0'

@@ -94,3 +94,6 @@ class Module(MixedModule):
         space.call_function(w_install,
                             space.getbuiltinmodule('sys'),
                             space.getbuiltinmodule('_imp'))
+        w_install_external = self.getdictvalue(
+            space, '_install_external_importers')
+        space.call_function(w_install_external)

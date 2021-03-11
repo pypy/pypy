@@ -119,8 +119,14 @@ def make_methods(functions, modname):
     codes = []
     for funcname, flags, code in functions:
         cfuncname = "%s_%s" % (modname, funcname)
-        if 'METH_KEYWORDS' in flags:
+        if 'METH_FASTCALL' in flags and 'METH_KEYWORDS' in flags:
+            signature = ('(PyObject *self, PyObject *const *args, '
+                         'Py_ssize_t len_args, PyObject *kwnames)')
+        elif 'METH_KEYWORDS' in flags:
             signature = '(PyObject *self, PyObject *args, PyObject *kwargs)'
+        elif 'METH_FASTCALL' in flags:
+            signature = ('(PyObject *self, PyObject *const *args, '
+                         'Py_ssize_t len_args)')
         else:
             signature = '(PyObject *self, PyObject *args)'
         methods_table.append(

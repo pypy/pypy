@@ -22,6 +22,7 @@ except ImportError:
 
 from io import BytesIO, StringIO
 from fileinput import FileInput, hook_encoded
+from pathlib import Path
 
 from test.support import verbose, TESTFN, check_warnings
 from test.support import unlink as safe_unlink
@@ -490,6 +491,24 @@ class FileInputTests(BaseTests, unittest.TestCase):
             self.assertEqual(src.linesread, [''])
             self.assertRaises(StopIteration, next, fi)
             self.assertEqual(src.linesread, [])
+
+    def test_pathlib_file(self):
+        t1 = Path(self.writeTmp("Pathlib file."))
+        with FileInput(t1) as fi:
+            line = fi.readline()
+            self.assertEqual(line, 'Pathlib file.')
+            self.assertEqual(fi.lineno(), 1)
+            self.assertEqual(fi.filelineno(), 1)
+            self.assertEqual(fi.filename(), os.fspath(t1))
+
+    def test_pathlib_file_inplace(self):
+        t1 = Path(self.writeTmp('Pathlib file.'))
+        with FileInput(t1, inplace=True) as fi:
+            line = fi.readline()
+            self.assertEqual(line, 'Pathlib file.')
+            print('Modified %s' % line)
+        with open(t1) as f:
+            self.assertEqual(f.read(), 'Modified Pathlib file.\n')
 
 
 class MockFileInput:

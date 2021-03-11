@@ -9,10 +9,10 @@ import asynchat
 import socket
 import os
 import errno
+import threading
 
 from unittest import TestCase, skipUnless
 from test import support as test_support
-threading = test_support.import_module('threading')
 
 HOST = test_support.HOST
 PORT = 0
@@ -176,6 +176,10 @@ class DummyPOP3Handler(asynchat.async_chat):
                     return
                 elif err.args[0] == ssl.SSL_ERROR_EOF:
                     return self.handle_close()
+                # TODO: SSLError does not expose alert information
+                elif ("SSLV3_ALERT_BAD_CERTIFICATE" in err.args[1] or
+                      "SSLV3_ALERT_CERTIFICATE_UNKNOWN" in err.args[1]):
+                    return self.handle_close()
                 raise
             except OSError as err:
                 if err.args[0] == errno.ECONNABORTED:
@@ -200,6 +204,7 @@ class DummyPOP3Server(asyncore.dispatcher, threading.Thread):
     def __init__(self, address, af=socket.AF_INET):
         threading.Thread.__init__(self)
         asyncore.dispatcher.__init__(self)
+        self.daemon = True
         self.create_socket(af, socket.SOCK_STREAM)
         self.bind(address)
         self.listen(5)
@@ -363,10 +368,10 @@ class TestPOP3Class(TestCase):
     @requires_ssl
     def test_stls_context(self):
         expected = b'+OK Begin TLS negotiation'
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         ctx.load_verify_locations(CAFILE)
-        ctx.verify_mode = ssl.CERT_REQUIRED
-        ctx.check_hostname = True
+        self.assertEqual(ctx.verify_mode, ssl.CERT_REQUIRED)
+        self.assertEqual(ctx.check_hostname, True)
         with self.assertRaises(ssl.CertificateError):
             resp = self.client.stls(context=ctx)
         self.client = poplib.POP3("localhost", self.server.port, timeout=3)
@@ -403,7 +408,9 @@ class TestPOP3_SSLClass(TestPOP3Class):
         self.assertIn('POP3_SSL', poplib.__all__)
 
     def test_context(self):
-        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS)
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         self.assertRaises(ValueError, poplib.POP3_SSL, self.server.host,
                             self.server.port, keyfile=CERTFILE, context=ctx)
         self.assertRaises(ValueError, poplib.POP3_SSL, self.server.host,
@@ -470,7 +477,7 @@ class TestTimeouts(TestCase):
         self.sock.settimeout(60)  # Safety net. Look issue 11812
         self.port = test_support.bind_port(self.sock)
         self.thread = threading.Thread(target=self.server, args=(self.evt,self.sock))
-        self.thread.setDaemon(True)
+        self.thread.daemon = True
         self.thread.start()
         self.evt.wait()
 

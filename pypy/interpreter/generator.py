@@ -163,23 +163,14 @@ return next yielded value or raise StopIteration."""
         self.frame.w_yielding_from = w_delegate
 
     def _leak_stopiteration(self, e):
-        # Check for __future__ generator_stop and conditionally turn
-        # a leaking StopIteration into RuntimeError (with its cause
-        # set appropriately).
+        # turn a leaking StopIteration into RuntimeError (with its cause set
+        # appropriately).
         space = self.space
-        if self.pycode.co_flags & (consts.CO_FUTURE_GENERATOR_STOP |
-                                   consts.CO_COROUTINE |
-                                   consts.CO_ITERABLE_COROUTINE |
-                                   consts.CO_ASYNC_GENERATOR):
-            e2 = OperationError(space.w_RuntimeError,
-                                space.newtext("%s raised StopIteration" %
-                                              self.KIND))
-            e2.chain_exceptions_from_cause(space, e)
-            raise e2
-        else:
-            space.warn(space.newtext("generator '%s' raised StopIteration"
-                                        % self.get_qualname()),
-                       space.w_DeprecationWarning)
+        e2 = OperationError(space.w_RuntimeError,
+                            space.newtext("%s raised StopIteration" %
+                                          self.KIND))
+        e2.chain_exceptions_from_cause(space, e)
+        raise e2
 
     def _leak_stopasynciteration(self, e):
         space = self.space
@@ -313,7 +304,6 @@ return next yielded value or raise StopIteration."""
 class GeneratorIterator(GeneratorOrCoroutine):
     "An iterator created by a generator."
     KIND = "generator"
-    KIND_U = u"generator"
 
     def descr__iter__(self):
         """Implement iter(self)."""
@@ -360,19 +350,43 @@ class GeneratorIterator(GeneratorOrCoroutine):
 class Coroutine(GeneratorOrCoroutine):
     "A coroutine object."
     KIND = "coroutine"
-    KIND_U = u"coroutine"
+
+    def __init__(self, frame, name=None, qualname=None):
+        GeneratorOrCoroutine.__init__(self, frame, name, qualname)
+        self.w_cr_origin = self.space.w_None
+
+    def capture_origin(self, ec):
+        if not ec.coroutine_origin_tracking_depth:
+            return
+        self._capture_origin(ec)
+
+    def _capture_origin(self, ec):
+        space = self.space
+        frames_w = []
+        frame = ec.gettopframe_nohidden()
+        for i in range(ec.coroutine_origin_tracking_depth):
+            frames_w.append(
+                space.newtuple([
+                    frame.pycode.w_filename,
+                    frame.fget_f_lineno(space),
+                    space.newtext(frame.pycode.co_name)]))
+            frame = ec.getnextframe_nohidden(frame)
+            if frame is None:
+                break
+        self.w_cr_origin = space.newtuple(frames_w)
 
     def descr__await__(self, space):
         return CoroutineWrapper(self)
 
     def _finalize_(self):
         # If coroutine was never awaited on issue a RuntimeWarning.
-        if self.pycode is not None and \
-           self.frame is not None and \
-           self.frame.last_instr == -1:
+        if (self.pycode is not None and
+                self.frame is not None and
+                self.frame.last_instr == -1):
             space = self.space
-            msg = "coroutine '%s' was never awaited" % self.get_qualname()
-            space.warn(space.newtext(msg), space.w_RuntimeWarning)
+            w_mod = space.getbuiltinmodule("_warnings")
+            w_f = space.getattr(w_mod, space.newtext("_warn_unawaited_coroutine"))
+            space.call_function(w_f, self)
         GeneratorOrCoroutine._finalize_(self)
 
 
@@ -514,7 +528,6 @@ def should_not_inline(pycode):
 class AsyncGenerator(GeneratorOrCoroutine):
     "An async generator (i.e. a coroutine with a 'yield')"
     KIND = "async generator"
-    KIND_U = u"async_generator"
 
     def __init__(self, frame, name=None, qualname=None):
         self.hooks_inited = False

@@ -36,6 +36,12 @@ class AppTestItertools(object):
         raises(TypeError, itertools.count, 'a')
         raises(TypeError, itertools.count, [])
 
+    def test_count_subclass_repr(self):
+        import itertools
+        class subclass(itertools.count):
+            pass
+        assert repr(subclass(123)) == 'subclass(123)'
+
     def test_repeat(self):
         import itertools
 
@@ -98,6 +104,12 @@ class AppTestItertools(object):
 
         r = itertools.repeat('a', -3)
         assert operator.length_hint(r, 3) == 0
+
+    def test_repeat_subclass_repr(self):
+        import itertools
+        class subclass(itertools.repeat):
+            pass
+        assert repr(subclass('foobar')) == "subclass('foobar')"
 
     def test_takewhile(self):
         import itertools
@@ -279,6 +291,20 @@ class AppTestItertools(object):
         import sys
         raises((OverflowError, ValueError),    # ValueError on top of CPython
                itertools.islice, [], sys.maxsize + 1)
+
+    def test_islice_intlike_args(self):
+        import itertools
+
+        class IntLike(object):
+            def __init__(self, value):
+                self.value = value
+            def __index__(self):
+                return self.value
+
+        it = itertools.islice([1, 2, 3, 4, 5], IntLike(0), IntLike(3), IntLike(2))
+        for x in [1, 3]:
+            assert next(it) == x
+        raises(StopIteration, next, it)
 
     def test_islice_wrongargs(self):
         import itertools
@@ -512,6 +538,21 @@ class AppTestItertools(object):
         raises(StopIteration, next, g)
         raises(StopIteration, next, it)
 
+        # inner iterator is used after advancing the groupby iterator
+        s = list(zip('AABBBAAAA', range(9)))
+        it = itertools.groupby(s, key=lambda x: x[0])
+        _, g1 = next(it)
+        _, g2 = next(it)
+        _, g3 = next(it)
+        assert list(g1) == []
+        assert g1.__reduce__() == (iter, ((),))
+        assert list(g2) == []
+        assert g2.__reduce__() == (iter, ((),))
+        assert next(g3) == ('A', 5)
+        list(it)  # exhaust the groupby iterator
+        assert list(g3) == []
+        assert g3.__reduce__() == (iter, ((),))
+
     def test_groupby_wrongargs(self):
         import itertools
 
@@ -521,6 +562,7 @@ class AppTestItertools(object):
 
     def test_groupby_question_43905804(self):
         # http://stackoverflow.com/questions/43905804/
+        # Superseded by https://bugs.python.org/issue30346
         import itertools
 
         inputs = ((x > 5, x) for x in range(10))
@@ -528,18 +570,7 @@ class AppTestItertools(object):
         a = list(a)
         b = list(b)
         assert a == []
-        assert b == [(True, 9)]
-
-    def test_groupby_question_43905804(self):
-        # http://stackoverflow.com/questions/43905804/
-        import itertools
-
-        inputs = ((x > 5, x) for x in range(10))
-        (_, a), (_, b) = itertools.groupby(inputs, key=lambda x: x[0])
-        a = list(a)
-        b = list(b)
-        assert a == []
-        assert b == [(True, 9)]
+        assert b == [] # Before Python 3.7: assert b == [(True, 9)]
 
     def test_groupby_crash(self):
         # see http://bugs.python.org/issue30347
@@ -1150,3 +1181,28 @@ class AppTestItertools32:
         b = x1(*x2)
         res = list(b)
         assert res == [True, False]
+
+    def test_tee_concurrent(self):
+        from itertools import tee
+        import threading
+        start = threading.Event()
+        finish = threading.Event()
+        class I:
+            def __iter__(self):
+                return self
+            def __next__(self):
+                start.set()
+                finish.wait()
+
+        a, b = tee(I())
+        thread = threading.Thread(target=next, args=[a])
+        thread.start()
+        try:
+            start.wait()
+            with raises(RuntimeError) as exc:
+                next(b)
+                assert 'tee' in str(exc)
+        finally:
+            finish.set()
+            thread.join()
+

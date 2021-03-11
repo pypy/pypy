@@ -203,12 +203,10 @@ class W_TypeObject(W_Root):
         self.flag_map_or_seq = '?'   # '?' means "don't know, check otherwise"
 
         self.layout = None  # the lines below may try to access self.layout
-        if overridetypedef is not None:
-            assert not force_new_layout
-            layout = setup_builtin_type(self, overridetypedef)
-        else:
-            layout = setup_user_defined_type(self, force_new_layout)
-        self.layout = layout
+
+        # get and remove the __qualname__ from the dict *first*, so that if
+        # e.g. a slot named "__qualname__" exists, the setup_user_defined_type
+        # below will not see it
         self.qualname = self.getname(space)
         if self.flag_heaptype:
             w_qualname = self.dict_w.pop('__qualname__', None)
@@ -219,6 +217,13 @@ class W_TypeObject(W_Root):
                     raise oefmt(space.w_TypeError,
                                 "type __qualname__ must be a str, not %T",
                                 w_qualname)
+
+        if overridetypedef is not None:
+            assert not force_new_layout
+            layout = setup_builtin_type(self, overridetypedef)
+        else:
+            layout = setup_user_defined_type(self, force_new_layout)
+        self.layout = layout
 
         if not is_mro_purely_of_types(self.mro_w):
             pass
@@ -817,6 +822,11 @@ def _create_new_type(space, w_typetype, w_name, w_bases, w_dict, __args__):
     # above to be seen by the jit.
     _check_new_args(space, w_name, w_bases, w_dict)
     bases_w = space.fixedview(w_bases)
+    for w_base in bases_w:
+        if space.lookup(w_base, '__mro_entries__') is not None:
+            raise oefmt(space.w_TypeError,
+                        "type() doesn't support MRO entry resolution; "
+                        "use types.new_class()")
 
     w_winner = _calculate_metaclass(space, w_typetype, bases_w)
     if not space.is_w(w_winner, w_typetype):
@@ -1407,7 +1417,7 @@ def ensure_common_attributes(w_self):
     w_self.mro_w = []      # temporarily
     w_self.hasmro = False
     compute_mro(w_self)
-    ensure_classmethod_init_subclass(w_self)
+    ensure_classmethods(w_self, ['__init_subclass__', '__class_getitem__'])
 
 def ensure_static_new(w_self):
     # special-case __new__, as in CPython:
@@ -1417,11 +1427,12 @@ def ensure_static_new(w_self):
         if isinstance(w_new, Function):
             w_self.dict_w['__new__'] = StaticMethod(w_new)
 
-def ensure_classmethod_init_subclass(w_self):
-    if '__init_subclass__' in w_self.dict_w:
-        w_init_subclass = w_self.dict_w['__init_subclass__']
-        if isinstance(w_init_subclass, Function):
-            w_self.dict_w['__init_subclass__'] = ClassMethod(w_init_subclass)
+def ensure_classmethods(w_self, method_names):
+    for method_name in method_names:
+        if method_name in w_self.dict_w:
+            w_method = w_self.dict_w[method_name]
+            if isinstance(w_method, Function):
+                w_self.dict_w[method_name] = ClassMethod(w_method)
 
 def ensure_module_attr(w_self):
     # initialize __module__ in the dict (user-defined types only)

@@ -6,7 +6,9 @@ import weakref
 import operator
 import contextlib
 import copy
+import threading
 import time
+import random
 
 from test import support
 from test.support import script_helper
@@ -75,11 +77,10 @@ class TestBase(unittest.TestCase):
 
 
 @contextlib.contextmanager
-def collect_in_thread(period=0.0001):
+def collect_in_thread(period=0.001):
     """
     Ensure GC collections happen in a different thread, at a high frequency.
     """
-    threading = support.import_module('threading')
     please_stop = False
 
     def collect():
@@ -381,6 +382,26 @@ class ReferencesTestCase(TestBase):
         class List(list): pass
         lyst = List()
         self.assertEqual(bool(weakref.proxy(lyst)), bool(lyst))
+
+    def test_proxy_iter(self):
+        # Test fails with a debug build of the interpreter
+        # (see bpo-38395).
+
+        obj = None
+
+        class MyObj:
+            def __iter__(self):
+                nonlocal obj
+                del obj
+                return NotImplemented
+
+        obj = MyObj()
+        p = weakref.proxy(obj)
+        with self.assertRaises(TypeError):
+            # "blech" in p calls MyObj.__iter__ through the proxy,
+            # without keeping a reference to the real object, so it
+            # can be killed in the middle of the call
+            "blech" in p
 
     def test_getweakrefcount(self):
         o = C()
@@ -1713,6 +1734,92 @@ class MappingTestCase(TestBase):
                 self.assertEqual(len(d), 1)
                 o = None  # lose ref
 
+    def check_threaded_weak_dict_copy(self, type_, deepcopy):
+        # `type_` should be either WeakKeyDictionary or WeakValueDictionary.
+        # `deepcopy` should be either True or False.
+        exc = []
+
+        class DummyKey:
+            def __init__(self, ctr):
+                self.ctr = ctr
+
+        class DummyValue:
+            def __init__(self, ctr):
+                self.ctr = ctr
+
+        def dict_copy(d, exc):
+            try:
+                if deepcopy is True:
+                    _ = copy.deepcopy(d)
+                else:
+                    _ = d.copy()
+            except Exception as ex:
+                exc.append(ex)
+
+        def pop_and_collect(lst):
+            gc_ctr = 0
+            while lst:
+                i = random.randint(0, len(lst) - 1)
+                gc_ctr += 1
+                lst.pop(i)
+                if gc_ctr % 10000 == 0:
+                    gc.collect()  # just in case
+
+        self.assertIn(type_, (weakref.WeakKeyDictionary, weakref.WeakValueDictionary))
+
+        d = type_()
+        keys = []
+        values = []
+        # Initialize d with many entries
+        for i in range(70000):
+            k, v = DummyKey(i), DummyValue(i)
+            keys.append(k)
+            values.append(v)
+            d[k] = v
+            del k
+            del v
+
+        t_copy = threading.Thread(target=dict_copy, args=(d, exc,))
+        if type_ is weakref.WeakKeyDictionary:
+            t_collect = threading.Thread(target=pop_and_collect, args=(keys,))
+        else:  # weakref.WeakValueDictionary
+            t_collect = threading.Thread(target=pop_and_collect, args=(values,))
+
+        t_copy.start()
+        t_collect.start()
+
+        t_copy.join()
+        t_collect.join()
+
+        # Test exceptions
+        if exc:
+            raise exc[0]
+
+    def test_threaded_weak_key_dict_copy(self):
+        # Issue #35615: Weakref keys or values getting GC'ed during dict
+        # copying should not result in a crash.
+        self.check_threaded_weak_dict_copy(weakref.WeakKeyDictionary, False)
+
+    def test_threaded_weak_key_dict_deepcopy(self):
+        # Issue #35615: Weakref keys or values getting GC'ed during dict
+        # copying should not result in a crash.
+        self.check_threaded_weak_dict_copy(weakref.WeakKeyDictionary, True)
+
+    def test_threaded_weak_value_dict_copy(self):
+        # Issue #35615: Weakref keys or values getting GC'ed during dict
+        # copying should not result in a crash.
+        self.check_threaded_weak_dict_copy(weakref.WeakValueDictionary, False)
+
+    def test_threaded_weak_value_dict_deepcopy(self):
+        # Issue #35615: Weakref keys or values getting GC'ed during dict
+        # copying should not result in a crash.
+        self.check_threaded_weak_dict_copy(weakref.WeakValueDictionary, True)
+
+    @support.cpython_only
+    def test_remove_closure(self):
+        d = weakref.WeakValueDictionary()
+        self.assertIsNone(d._remove.__closure__)
+
 
 from test import mapping_tests
 
@@ -1781,6 +1888,33 @@ class FinalizeTestCase(unittest.TestCase):
         self.assertEqual(f.detach(), None)
         self.assertEqual(f.alive, False)
         self.assertEqual(res, [199])
+
+    def test_arg_errors(self):
+        def fin(*args, **kwargs):
+            res.append((args, kwargs))
+
+        a = self.A()
+
+        res = []
+        f = weakref.finalize(a, fin, 1, 2, func=3, obj=4)
+        self.assertEqual(f.peek(), (a, fin, (1, 2), {'func': 3, 'obj': 4}))
+        f()
+        self.assertEqual(res, [((1, 2), {'func': 3, 'obj': 4})])
+
+        res = []
+        f = weakref.finalize(a, func=fin, arg=1)
+        self.assertEqual(f.peek(), (a, fin, (), {'arg': 1}))
+        f()
+        self.assertEqual(res, [((), {'arg': 1})])
+
+        res = []
+        f = weakref.finalize(obj=a, func=fin, arg=1)
+        self.assertEqual(f.peek(), (a, fin, (), {'arg': 1}))
+        f()
+        self.assertEqual(res, [((), {'arg': 1})])
+
+        self.assertRaises(TypeError, weakref.finalize, a)
+        self.assertRaises(TypeError, weakref.finalize)
 
     def test_order(self):
         a = self.A()

@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
@@ -55,7 +56,7 @@ def _dealloc(space, obj):
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    if widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
         decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)
@@ -209,6 +210,10 @@ def PyObject_Repr(space, w_obj):
 def PyObject_Format(space, w_obj, w_format_spec):
     if w_format_spec is None:
         w_format_spec = space.newtext('')
+    # issue 3404: handle PyObject_Format(type('a'), '')
+    if (space.isinstance_w(w_format_spec, space.w_unicode) and
+                space.len_w(w_format_spec) == 0):
+        return space.unicode_from_object(w_obj)
     w_ret = space.call_method(w_obj, '__format__', w_format_spec)
     if space.isinstance_w(w_format_spec, space.w_unicode):
         return space.unicode_from_object(w_ret)

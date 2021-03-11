@@ -33,4 +33,11 @@
   <namespace name="T_WithGreedyOverloads" />
   <class pattern="T_WithGreedyOverloads::*" />
 
+  <namespace name="TypeReduction" />
+  <class pattern="TypeReduction::*" />
+  <function pattern="TypeReduction::*" />
+
+  <namespace name="FailedTypeDeducer" />
+  <class pattern="FailedTypeDeducer::*" />
+
 </lcgdict>

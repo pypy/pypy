@@ -3,8 +3,10 @@
 /* CPython defines Py_ssize_t in pyport.h as intptr_t */
 #ifdef _WIN64
 typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
 #else
 typedef long Py_ssize_t;
+typedef long Py_hash_t;
 #endif
 
 #define PyObject_HEAD  \
@@ -34,7 +36,7 @@ typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
 typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
 typedef int (*cmpfunc)(PyObject *, PyObject *);
 typedef PyObject *(*reprfunc)(PyObject *);
-typedef long (*hashfunc)(PyObject *);
+typedef Py_hash_t (*hashfunc)(PyObject *);
 typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
 typedef PyObject *(*getiterfunc) (PyObject *);
 typedef PyObject *(*iternextfunc) (PyObject *);
@@ -168,10 +170,15 @@ typedef struct {
      releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
-/* from methodobject.h */
+/* from methodobject.h (the `PyObject **` are `PyObject *const *` in CPython) */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+typedef PyObject *(*_PyCFunctionFast) (PyObject *, PyObject **, Py_ssize_t);
 typedef PyObject *(*PyCFunctionWithKeywords)(PyObject *, PyObject *,
                                              PyObject *);
+typedef PyObject *(*_PyCFunctionFastWithKeywords) (PyObject *,
+                                                   PyObject **, Py_ssize_t,
+                                                   PyObject *);
+
 typedef PyObject *(*PyNoArgsFunction)(PyObject *);
 
 struct PyMethodDef {
@@ -194,11 +201,11 @@ typedef struct {
 /* from structmember.h */
 typedef struct PyMemberDef {
     /* Current version, use this */
-    char *name;
+    const char *name;
     int type;
     Py_ssize_t offset;
     int flags;
-    char *doc;
+    const char *doc;
 } PyMemberDef;
 
 

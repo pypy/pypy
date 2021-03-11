@@ -239,12 +239,37 @@ _PyTime_FromSeconds(int seconds)
 }
 
 _PyTime_t
-_PyTime_FromNanoseconds(long long ns)
+_PyTime_FromNanoseconds(_PyTime_t ns)
 {
+    /* _PyTime_t already uses nanosecond resolution, no conversion needed */
+    return ns;
+}
+
+int
+_PyTime_FromNanosecondsObject(_PyTime_t *tp, PyObject *obj)
+{
+    long long nsec;
     _PyTime_t t;
-    Py_BUILD_ASSERT(sizeof(long long) <= sizeof(_PyTime_t));
-    t = Py_SAFE_DOWNCAST(ns, long long, _PyTime_t);
-    return t;
+
+    if (!PyLong_Check(obj)) {
+        PyErr_Format(PyExc_TypeError, "expect int, got %s",
+                     Py_TYPE(obj)->tp_name);
+        return -1;
+    }
+
+    Py_BUILD_ASSERT(sizeof(long long) == sizeof(_PyTime_t));
+    nsec = PyLong_AsLongLong(obj);
+    if (nsec == -1 && PyErr_Occurred()) {
+        if (PyErr_ExceptionMatches(PyExc_OverflowError)) {
+            _PyTime_overflow();
+        }
+        return -1;
+    }
+
+    /* _PyTime_t already uses nanosecond resolution, no conversion needed */
+    t = (_PyTime_t)nsec;
+    *tp = t;
+    return 0;
 }
 
 #ifdef HAVE_CLOCK_GETTIME

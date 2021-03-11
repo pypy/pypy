@@ -290,30 +290,30 @@ class Test_reload(FixerTestCase):
 
     def test(self):
         b = """reload(a)"""
-        a = """import imp\nimp.reload(a)"""
+        a = """import importlib\nimportlib.reload(a)"""
         self.check(b, a)
 
     def test_comment(self):
         b = """reload( a ) # comment"""
-        a = """import imp\nimp.reload( a ) # comment"""
+        a = """import importlib\nimportlib.reload( a ) # comment"""
         self.check(b, a)
 
         # PEP 8 comments
         b = """reload( a )  # comment"""
-        a = """import imp\nimp.reload( a )  # comment"""
+        a = """import importlib\nimportlib.reload( a )  # comment"""
         self.check(b, a)
 
     def test_space(self):
         b = """reload( a )"""
-        a = """import imp\nimp.reload( a )"""
+        a = """import importlib\nimportlib.reload( a )"""
         self.check(b, a)
 
         b = """reload( a)"""
-        a = """import imp\nimp.reload( a)"""
+        a = """import importlib\nimportlib.reload( a)"""
         self.check(b, a)
 
         b = """reload(a )"""
-        a = """import imp\nimp.reload(a )"""
+        a = """import importlib\nimportlib.reload(a )"""
         self.check(b, a)
 
     def test_unchanged(self):
@@ -2954,6 +2954,11 @@ class Test_filter(FixerTestCase):
         a = """x = [x for x in range(10) if x%2 == 0]"""
         self.check(b, a)
 
+        # bpo-38871
+        b = """filter(lambda x: True if x > 2 else False, [1, 2, 3])"""
+        a = """[x for x in [1, 2, 3] if (True if x > 2 else False)]"""
+        self.check(b, a)
+
     def test_filter_trailers(self):
         b = """x = filter(None, 'abc')[0]"""
         a = """x = [_f for _f in 'abc' if _f][0]"""
@@ -4409,7 +4414,7 @@ class Test_operator(FixerTestCase):
 
     def test_operator_isCallable(self):
         b = "operator.isCallable(x)"
-        a = "hasattr(x, '__call__')"
+        a = "callable(x)"
         self.check(b, a)
 
     def test_operator_sequenceIncludes(self):
@@ -4427,12 +4432,12 @@ class Test_operator(FixerTestCase):
 
     def test_operator_isSequenceType(self):
         b = "operator.isSequenceType(x)"
-        a = "import collections\nisinstance(x, collections.Sequence)"
+        a = "import collections.abc\nisinstance(x, collections.abc.Sequence)"
         self.check(b, a)
 
     def test_operator_isMappingType(self):
         b = "operator.isMappingType(x)"
-        a = "import collections\nisinstance(x, collections.Mapping)"
+        a = "import collections.abc\nisinstance(x, collections.abc.Mapping)"
         self.check(b, a)
 
     def test_operator_isNumberType(self):
@@ -4468,7 +4473,7 @@ class Test_operator(FixerTestCase):
 
     def test_bare_isCallable(self):
         s = "isCallable(x)"
-        t = "You should use 'hasattr(x, '__call__')' here."
+        t = "You should use 'callable(x)' here."
         self.warns_unchanged(s, t)
 
     def test_bare_sequenceIncludes(self):
@@ -4478,12 +4483,12 @@ class Test_operator(FixerTestCase):
 
     def test_bare_operator_isSequenceType(self):
         s = "isSequenceType(z)"
-        t = "You should use 'isinstance(z, collections.Sequence)' here."
+        t = "You should use 'isinstance(z, collections.abc.Sequence)' here."
         self.warns_unchanged(s, t)
 
     def test_bare_operator_isMappingType(self):
         s = "isMappingType(x)"
-        t = "You should use 'isinstance(x, collections.Mapping)' here."
+        t = "You should use 'isinstance(x, collections.abc.Mapping)' here."
         self.warns_unchanged(s, t)
 
     def test_bare_operator_isNumberType(self):

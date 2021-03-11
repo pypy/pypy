@@ -27,12 +27,13 @@ class W_Count(W_Root):
 
     def repr_w(self):
         space = self.space
+        cls_name = space.type(self).getname(space)
         c = space.text_w(space.repr(self.w_c))
         if self.single_argument():
-            s = 'count(%s)' % (c,)
+            s = '%s(%s)' % (cls_name, c)
         else:
             step = space.text_w(space.repr(self.w_step))
-            s = 'count(%s, %s)' % (c, step)
+            s = '%s(%s, %s)' % (cls_name, c, step)
         return self.space.newtext(s)
 
     def reduce_w(self):
@@ -107,11 +108,13 @@ class W_Repeat(W_Root):
         return self.space.newint(self.count)
 
     def repr_w(self):
-        objrepr = self.space.text_w(self.space.repr(self.w_obj))
+        space = self.space
+        cls_name = space.type(self).getname(space)
+        objrepr = self.space.text_w(space.repr(self.w_obj))
         if self.counting:
-            s = 'repeat(%s, %d)' % (objrepr, self.count)
+            s = '%s(%s, %d)' % (cls_name, objrepr, self.count)
         else:
-            s = 'repeat(%s)' % (objrepr,)
+            s = '%s(%s)' % (cls_name, objrepr)
         return self.space.newtext(s)
 
     def descr_reduce(self):
@@ -359,7 +362,7 @@ class W_ISlice(W_Root):
     def arg_int_w(self, w_obj, minimum, errormsg):
         space = self.space
         try:
-            result = space.int_w(w_obj)
+            result = space.int_w(space.index(w_obj))
         except OperationError as e:
             if e.async(space):
                 raise
@@ -838,6 +841,7 @@ class W_TeeChainedListNode(W_Root):
     def __init__(self, space):
         self.w_next = None
         self.w_obj = None
+        self.running = False
 
     def reduce_w(self, space):
         list_w = []
@@ -891,13 +895,19 @@ class W_TeeIterable(W_Root):
         w_chained_list = self.w_chained_list
         if w_chained_list is None:
             raise OperationError(self.space.w_StopIteration, self.space.w_None)
+        if w_chained_list.running:
+            raise oefmt(self.space.w_RuntimeError,
+                                 "cannot re-enter the tee iterator")
         w_obj = w_chained_list.w_obj
         if w_obj is None:
+            w_chained_list.running = True
             try:
                 w_obj = self.space.next(self.w_iterator)
+                w_chained_list.running = False
             except OperationError as e:
                 if e.match(self.space, self.space.w_StopIteration):
                     self.w_chained_list = None
+                w_chained_list.running = False
                 raise
             w_chained_list.w_next = W_TeeChainedListNode(self.space)
             w_chained_list.w_obj = w_obj
@@ -970,6 +980,7 @@ class W_GroupBy(W_Root):
         return self
 
     def next_w(self):
+        self.w_currgrouper = None
         self._skip_to_next_iteration_group()
         w_key = self.w_tgtkey = self.w_currkey
         w_grouper = W_GroupByIterator(self, w_key)
@@ -1055,6 +1066,7 @@ class W_GroupByIterator(W_Root):
     def __init__(self, groupby, w_tgtkey):
         self.groupby = groupby
         self.w_tgtkey = w_tgtkey
+        groupby.w_currgrouper = self
 
     def iter_w(self):
         return self
@@ -1062,6 +1074,8 @@ class W_GroupByIterator(W_Root):
     def next_w(self):
         groupby = self.groupby
         space = groupby.space
+        if groupby.w_currgrouper is not self:
+            raise OperationError(space.w_StopIteration, space.w_None)
         if groupby.w_currvalue is None:
             w_newvalue = space.next(groupby.w_iterator)
             if space.is_w(groupby.w_keyfunc, space.w_None):
@@ -1082,6 +1096,9 @@ class W_GroupByIterator(W_Root):
         return w_result
 
     def descr_reduce(self, space):
+        if self.groupby.w_currgrouper is not self:
+            w_callable = space.builtin.get('iter')
+            return space.newtuple([w_callable, space.newtuple([space.newtuple([])])])
         return space.newtuple([
             space.type(self),
             space.newtuple([

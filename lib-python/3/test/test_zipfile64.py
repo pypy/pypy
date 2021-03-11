@@ -15,7 +15,6 @@ import zipfile, os, unittest
 import time
 import sys
 
-from io import StringIO
 from tempfile import TemporaryFile
 
 from test.support import TESTFN, requires_zlib
@@ -23,7 +22,7 @@ from test.support import TESTFN, requires_zlib
 TESTFN2 = TESTFN + "2"
 
 # How much time in seconds can pass before we print a 'Still working' message.
-_PRINT_WORKING_MSG_INTERVAL = 5 * 60
+_PRINT_WORKING_MSG_INTERVAL = 60
 
 class TestsWithSourceFile(unittest.TestCase):
     def setUp(self):
@@ -40,16 +39,16 @@ class TestsWithSourceFile(unittest.TestCase):
         # Create the ZIP archive.
         zipfp = zipfile.ZipFile(f, "w", compression)
 
-        # It will contain enough copies of self.data to reach about 6GB of
+        # It will contain enough copies of self.data to reach about 6 GiB of
         # raw data to store.
         filecount = 6*1024**3 // len(self.data)
 
-        next_time = time.time() + _PRINT_WORKING_MSG_INTERVAL
+        next_time = time.monotonic() + _PRINT_WORKING_MSG_INTERVAL
         for num in range(filecount):
             zipfp.writestr("testfn%d" % num, self.data)
             # Print still working message since this test can be really slow
-            if next_time <= time.time():
-                next_time = time.time() + _PRINT_WORKING_MSG_INTERVAL
+            if next_time <= time.monotonic():
+                next_time = time.monotonic() + _PRINT_WORKING_MSG_INTERVAL
                 print((
                    '  zipTest still writing %d of %d, be patient...' %
                    (num, filecount)), file=sys.__stdout__)
@@ -61,8 +60,8 @@ class TestsWithSourceFile(unittest.TestCase):
         for num in range(filecount):
             self.assertEqual(zipfp.read("testfn%d" % num), self.data)
             # Print still working message since this test can be really slow
-            if next_time <= time.time():
-                next_time = time.time() + _PRINT_WORKING_MSG_INTERVAL
+            if next_time <= time.monotonic():
+                next_time = time.monotonic() + _PRINT_WORKING_MSG_INTERVAL
                 print((
                    '  zipTest still reading %d of %d, be patient...' %
                    (num, filecount)), file=sys.__stdout__)

@@ -178,15 +178,6 @@ class Super:
 
 class Child(Super):
     pass
-
-# new-style classes
-class NewSuper(object):
-    pass
-
-class NewChild(NewSuper):
-    pass
-
-
 
 class TestIsInstanceIsSubclass(unittest.TestCase):
     # Tests to ensure that isinstance and issubclass work on abstract
@@ -248,15 +239,8 @@ class TestIsInstanceIsSubclass(unittest.TestCase):
         self.assertEqual(False, issubclass(Child, ()))
         self.assertEqual(True, issubclass(Super, (Child, (Super,))))
 
-        self.assertEqual(True, issubclass(NewChild, (NewChild,)))
-        self.assertEqual(True, issubclass(NewChild, (NewSuper,)))
-        self.assertEqual(False, issubclass(NewSuper, (NewChild,)))
-        self.assertEqual(True, issubclass(NewSuper, (NewChild, NewSuper)))
-        self.assertEqual(False, issubclass(NewChild, ()))
-        self.assertEqual(True, issubclass(NewSuper, (NewChild, (NewSuper,))))
-
         self.assertEqual(True, issubclass(int, (int, (float, int))))
-        self.assertEqual(True, issubclass(str, (str, (Child, NewChild, str))))
+        self.assertEqual(True, issubclass(str, (str, (Child, str))))
 
     def test_subclass_recursion_limit(self):
         # make sure that issubclass raises RecursionError before the C stack is
@@ -267,6 +251,27 @@ class TestIsInstanceIsSubclass(unittest.TestCase):
         # make sure that issubclass raises RecursionError before the C stack is
         # blown
         self.assertRaises(RecursionError, blowstack, isinstance, '', str)
+
+    def test_issubclass_refcount_handling(self):
+        # bpo-39382: abstract_issubclass() didn't hold item reference while
+        # peeking in the bases tuple, in the single inheritance case.
+        class A:
+            @property
+            def __bases__(self):
+                return (int, )
+
+        class B:
+            def __init__(self):
+                # setting this here increases the chances of exhibiting the bug,
+                # probably due to memory layout changes.
+                self.x = 1
+
+            @property
+            def __bases__(self):
+                return (A(), )
+
+        self.assertEqual(True, issubclass(B(), int))
+
 
 def blowstack(fxn, arg, compare_to):
     # Make sure that calling isinstance with a deeply nested tuple for its

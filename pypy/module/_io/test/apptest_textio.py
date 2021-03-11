@@ -1,5 +1,6 @@
 #encoding: utf-8
 # spaceconfig = {"usemodules" : ["_locale", "array"]}
+from pytest import raises
 import _io
 import os
 import sys
@@ -586,3 +587,174 @@ def test_newlines2():
     for ch in msg:
         decoded += decoder.decode(bytes([ch]))
     assert set(decoder.newlines) == {"\r", "\n", "\r\n"}
+
+def test_reconfigure_line_buffering():
+    r = _io.BytesIO()
+    b = _io.BufferedWriter(r, 1000)
+    t = _io.TextIOWrapper(b, newline="\n", line_buffering=False)
+    t.write("AB\nC")
+    assert r.getvalue() == b""
+
+    t.reconfigure(line_buffering=True)   # implicit flush
+    assert r.getvalue() == b"AB\nC"
+    t.write("DEF\nG")
+    assert r.getvalue() == b"AB\nCDEF\nG"
+    t.write("H")
+    assert r.getvalue() == b"AB\nCDEF\nG"
+    t.reconfigure(line_buffering=False)   # implicit flush
+    assert r.getvalue() == b"AB\nCDEF\nGH"
+    t.write("IJ")
+    assert r.getvalue() == b"AB\nCDEF\nGH"
+
+    # Keeping default value
+    t.reconfigure()
+    t.reconfigure(line_buffering=None)
+    assert t.line_buffering == False
+    assert type(t.line_buffering) is bool
+    t.reconfigure(line_buffering=True)
+    t.reconfigure()
+    t.reconfigure(line_buffering=None)
+    assert t.line_buffering == True
+
+def test_reconfigure_write_through():
+    raw = get_MockRawIO()([])
+    t = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+    t.write('1')
+    t.reconfigure(write_through=True)  # implied flush
+    assert t.write_through == True
+    assert b''.join(raw._write_stack) == b'1'
+    t.write('23')
+    assert b''.join(raw._write_stack) == b'123'
+    t.reconfigure(write_through=False)
+    assert t.write_through == False
+    t.write('45')
+    t.flush()
+    assert b''.join(raw._write_stack) == b'12345'
+    # Keeping default value
+    t.reconfigure()
+    t.reconfigure(write_through=None)
+    assert t.write_through == False
+    t.reconfigure(write_through=True)
+    t.reconfigure()
+    t.reconfigure(write_through=None)
+    assert t.write_through == True
+
+def test_reconfigure_newline():
+    import os
+    raw = _io.BytesIO(b'CR\rEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
+    txt.reconfigure(newline=None)
+    assert txt.readline() == 'CR\n'
+    raw = _io.BytesIO(b'CR\rEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
+    txt.reconfigure(newline='')
+    assert txt.readline() == 'CR\r'
+    raw = _io.BytesIO(b'CR\rLF\nEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\r')
+    txt.reconfigure(newline='\n')
+    assert txt.readline() == 'CR\rLF\n'
+    raw = _io.BytesIO(b'LF\nCR\rEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\n')
+    txt.reconfigure(newline='\r')
+    assert txt.readline() == 'LF\nCR\r'
+    raw = _io.BytesIO(b'CR\rCRLF\r\nEOF')
+    txt = _io.TextIOWrapper(raw, 'ascii', newline='\r')
+    txt.reconfigure(newline='\r\n')
+    assert txt.readline() == 'CR\rCRLF\r\n'
+
+    txt = _io.TextIOWrapper(_io.BytesIO(), 'ascii', newline='\r')
+    txt.reconfigure(newline=None)
+    txt.write('linesep\n')
+    txt.reconfigure(newline='')
+    txt.write('LF\n')
+    txt.reconfigure(newline='\n')
+    txt.write('LF\n')
+    txt.reconfigure(newline='\r')
+    txt.write('CR\n')
+    txt.reconfigure(newline='\r\n')
+    txt.write('CRLF\n')
+    expected = 'linesep' + os.linesep + 'LF\nLF\nCR\rCRLF\r\n'
+    assert txt.detach().getvalue().decode('ascii') == expected
+
+def test_reconfigure_encoding_read():
+    # latin1 -> utf8
+    # (latin1 can decode utf-8 encoded string)
+    data = 'abc\xe9\n'.encode('latin1') + 'd\xe9f\n'.encode('utf8')
+    raw = _io.BytesIO(data)
+    txt = _io.TextIOWrapper(raw, encoding='latin1', newline='\n')
+    assert txt.readline() == 'abc\xe9\n'
+    with raises(_io.UnsupportedOperation):
+        txt.reconfigure(encoding='utf-8')
+    with raises(_io.UnsupportedOperation):
+        txt.reconfigure(newline=None)
+
+def test_reconfigure_write_fromascii():
+    # ascii has a specific encodefunc in the C implementation,
+    # but utf-8-sig has not. Make sure that we get rid of the
+    # cached encodefunc when we switch encoders.
+    raw = _io.BytesIO()
+    txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+    txt.write('foo\n')
+    txt.reconfigure(encoding='utf-8-sig')
+    txt.write('\xe9\n')
+    txt.flush()
+    res = raw.getvalue()
+    assert raw.getvalue() == b'foo\n\xc3\xa9\n'
+
+def test_reconfigure_write():
+    # latin -> utf8
+    raw = _io.BytesIO()
+    txt = _io.TextIOWrapper(raw, encoding='latin1', newline='\n')
+    txt.write('abc\xe9\n')
+    txt.reconfigure(encoding='utf-8')
+    assert raw.getvalue() == b'abc\xe9\n'
+    txt.write('d\xe9f\n')
+    txt.flush()
+    assert raw.getvalue() == b'abc\xe9\nd\xc3\xa9f\n'
+
+    # ascii -> utf-8-sig: ensure that no BOM is written in the middle of
+    # the file
+    raw = _io.BytesIO()
+    txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+    txt.write('abc\n')
+    txt.reconfigure(encoding='utf-8-sig')
+    txt.write('d\xe9f\n')
+    txt.flush()
+    assert raw.getvalue() == b'abc\nd\xc3\xa9f\n'
+
+def test_reconfigure_write_non_seekable():
+    raw = _io.BytesIO()
+    raw.seekable = lambda: False
+    raw.seek = None
+    txt = _io.TextIOWrapper(raw, encoding='ascii', newline='\n')
+    txt.write('abc\n')
+    txt.reconfigure(encoding='utf-8-sig')
+    txt.write('d\xe9f\n')
+    txt.flush()
+
+    # If the raw stream is not seekable, there'll be a BOM
+    assert raw.getvalue() ==  b'abc\n\xef\xbb\xbfd\xc3\xa9f\n'
+
+def test_reconfigure_defaults():
+    txt = _io.TextIOWrapper(_io.BytesIO(), 'ascii', 'replace', '\n')
+    txt.reconfigure(encoding=None)
+    assert txt.encoding == 'ascii'
+    assert txt.errors == 'replace'
+    txt.write('LF\n')
+
+    txt.reconfigure(newline='\r\n')
+    assert txt.encoding == 'ascii'
+    assert txt.errors == 'replace'
+
+    txt.reconfigure(errors='ignore')
+    assert txt.encoding == 'ascii'
+    assert txt.errors == 'ignore'
+    txt.write('CRLF\n')
+
+    txt.reconfigure(encoding='utf-8', newline=None)
+    assert txt.errors == 'strict'
+    txt.seek(0)
+    assert txt.read() == 'LF\nCRLF\n'
+
+    assert txt.detach().getvalue() == b'LF\nCRLF\r\n'
+

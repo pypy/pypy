@@ -13,23 +13,23 @@ import sysconfig
 import textwrap
 import unittest
 
-# Is this Python configured to support threads?
-try:
-    import _thread
-except ImportError:
-    _thread = None
-
 from test import support
 from test.support import run_unittest, findfile, python_is_optimized
 
 def get_gdb_version():
     try:
-        proc = subprocess.Popen(["gdb", "-nx", "--version"],
+        cmd = ["gdb", "-nx", "--version"]
+        proc = subprocess.Popen(cmd,
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE,
                                 universal_newlines=True)
         with proc:
-            version = proc.communicate()[0]
+            version, stderr = proc.communicate()
+
+        if proc.returncode:
+            raise Exception(f"Command {' '.join(cmd)!r} failed "
+                            f"with exit code {proc.returncode}: "
+                            f"stdout={version!r} stderr={stderr!r}")
     except OSError:
         # This is what "no gdb" looks like.  There may, however, be other
         # errors that manifest this way too.
@@ -217,43 +217,31 @@ class DebuggerTests(unittest.TestCase):
         elif script:
             args += [script]
 
-        # print args
-        # print (' '.join(args))
-
         # Use "args" to invoke gdb, capturing stdout, stderr:
         out, err = run_gdb(*args, PYTHONHASHSEED=PYTHONHASHSEED)
 
-        errlines = err.splitlines()
-        unexpected_errlines = []
+        for line in err.splitlines():
+            print(line, file=sys.stderr)
 
-        # Ignore some benign messages on stderr.
-        ignore_patterns = (
-            'Function "%s" not defined.' % breakpoint,
-            'Do you need "set solib-search-path" or '
-            '"set sysroot"?',
-            # BFD: /usr/lib/debug/(...): unable to initialize decompress
-            # status for section .debug_aranges
-            'BFD: ',
-            # ignore all warnings
-            'warning: ',
-            )
-        for line in errlines:
-            if not line:
-                continue
-            # bpo34007: Sometimes some versions of the shared libraries that
-            # are part of the traceback are compiled in optimised mode and the
-            # Program Counter (PC) is not present, not allowing gdb to walk the
-            # frames back. When this happens, the Python bindings of gdb raise
-            # an exception, making the test impossible to succeed.
-            if "PC not saved" in line:
-                raise unittest.SkipTest("gdb cannot walk the frame object"
-                                        " because the Program Counter is"
-                                        " not present")
-            if not line.startswith(ignore_patterns):
-                unexpected_errlines.append(line)
+        # bpo-34007: Sometimes some versions of the shared libraries that
+        # are part of the traceback are compiled in optimised mode and the
+        # Program Counter (PC) is not present, not allowing gdb to walk the
+        # frames back. When this happens, the Python bindings of gdb raise
+        # an exception, making the test impossible to succeed.
+        if "PC not saved" in err:
+            raise unittest.SkipTest("gdb cannot walk the frame object"
+                                    " because the Program Counter is"
+                                    " not present")
 
-        # Ensure no unexpected error messages:
-        self.assertEqual(unexpected_errlines, [])
+        # bpo-40019: Skip the test if gdb failed to read debug information
+        # because the Python binary is optimized.
+        for pattern in (
+            '(frame information optimized out)',
+            'Unable to read information on python frame',
+        ):
+            if pattern in out:
+                raise unittest.SkipTest(f"{pattern!r} found in gdb output")
+
         return out
 
     def get_gdb_repr(self, source,
@@ -279,8 +267,15 @@ class DebuggerTests(unittest.TestCase):
         # gdb can insert additional '\n' and space characters in various places
         # in its output, depending on the width of the terminal it's connected
         # to (using its "wrap_here" function)
-        m = re.match(r'.*#0\s+builtin_id\s+\(self\=.*,\s+v=\s*(.*?)\)\s+at\s+\S*Python/bltinmodule.c.*',
-                     gdb_output, re.DOTALL)
+        m = re.search(
+            # Match '#0 builtin_id(self=..., v=...)'
+            r'#0\s+builtin_id\s+\(self\=.*,\s+v=\s*(.*?)?\)'
+            # Match ' at Python/bltinmodule.c'.
+            # bpo-38239: builtin_id() is defined in Python/bltinmodule.c,
+            # but accept any "Directory\file.c" to support Link Time
+            # Optimization (LTO).
+            r'\s+at\s+\S*[A-Za-z]+/[A-Za-z0-9_-]+\.c',
+            gdb_output, re.DOTALL)
         if not m:
             self.fail('Unexpected gdb output: %r\n%s' % (gdb_output, gdb_output))
         return m.group(1), gdb_output
@@ -355,7 +350,20 @@ class PrettyPrintTests(DebuggerTests):
 
     def test_strings(self):
         'Verify the pretty-printing of unicode strings'
-        encoding = locale.getpreferredencoding()
+        # We cannot simply call locale.getpreferredencoding() here,
+        # as GDB might have been linked against a different version
+        # of Python with a different encoding and coercion policy
+        # with respect to PEP 538 and PEP 540.
+        out, err = run_gdb(
+            '--eval-command',
+            'python import locale; print(locale.getpreferredencoding())')
+
+        encoding = out.rstrip()
+        if err or not encoding:
+            raise RuntimeError(
+                f'unable to determine the preferred encoding '
+                f'of embedded Python in GDB: {err}')
+
         def check_repr(text):
             try:
                 text.encode(encoding)
@@ -792,8 +800,6 @@ Traceback \(most recent call first\):
     foo\(1, 2, 3\)
 ''')
 
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_threads(self):
         'Verify that "py-bt" indicates threads that are waiting for the GIL'
         cmd = '''
@@ -831,8 +837,6 @@ id(42)
     # Some older versions of gdb will fail with
     #  "Cannot find new threads: generic error"
     # unless we add LD_PRELOAD=PATH-TO-libpthread.so.1 as a workaround
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_gc(self):
         'Verify that "py-bt" indicates if a thread is garbage-collecting'
         cmd = ('from gc import collect\n'
@@ -859,8 +863,6 @@ id(42)
     # Some older versions of gdb will fail with
     #  "Cannot find new threads: generic error"
     # unless we add LD_PRELOAD=PATH-TO-libpthread.so.1 as a workaround
-    @unittest.skipUnless(_thread,
-                         "Python was compiled without thread support")
     def test_pycfunction(self):
         'Verify that "py-bt" displays invocations of PyCFunction instances'
         # Tested function must not be defined with METH_NOARGS or METH_O,
@@ -883,7 +885,7 @@ id(42)
                                           breakpoint='time_gmtime',
                                           cmds_after_breakpoint=['py-bt-full'],
                                           )
-        self.assertIn('#1 <built-in method gmtime', gdb_output)
+        self.assertIn('#2 <built-in method gmtime', gdb_output)
 
     @unittest.skipIf(python_is_optimized(),
                      "Python was compiled with optimizations")

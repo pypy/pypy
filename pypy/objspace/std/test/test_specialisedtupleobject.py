@@ -267,6 +267,14 @@ class AppTestW_SpecialisedTupleObject:
         assert T == (N, N)
         assert (0.0, 0.0) == (-0.0, -0.0)
 
+    def test_issue3301_exactly_two_bases(self):
+        # used to fail because the 2-tuple of bases gets specialized;
+        # the test would always pass with any number of bases != 2...
+        class BaseA: pass
+        class BaseB: pass
+        class Foo(BaseA, BaseB): pass
+        assert not hasattr(Foo, '__orig_bases__')
+
 
 class AppTestAll(test_tupleobject.AppTestW_TupleObject):
     spaceconfig = {"objspace.std.withspecialisedtuple": True}

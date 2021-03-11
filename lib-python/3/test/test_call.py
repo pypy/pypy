@@ -1,4 +1,3 @@
-import collections
 import datetime
 import unittest
 from test.support import cpython_only
@@ -6,6 +5,10 @@ try:
     import _testcapi
 except ImportError:
     _testcapi = None
+import struct
+import collections
+import itertools
+import gc
 
 
 class FunctionCalls(unittest.TestCase):
@@ -56,9 +59,6 @@ class CFunctionCalls(unittest.TestCase):
             pass
         else:
             raise RuntimeError
-
-    def test_varargs0_kw(self):
-        self.assertRaises(TypeError, {}.__contains__, x=2)
 
     def test_varargs1_kw(self):
         self.assertRaises(TypeError, {}.__contains__, x=2)
@@ -144,6 +144,130 @@ class CFunctionCalls(unittest.TestCase):
 
     def test_oldargs1_2_kw(self):
         self.assertRaises(TypeError, [].count, x=2, y=2)
+
+
+@cpython_only
+class CFunctionCallsErrorMessages(unittest.TestCase):
+
+    def test_varargs0(self):
+        msg = r"__contains__\(\) takes exactly one argument \(0 given\)"
+        self.assertRaisesRegex(TypeError, msg, {}.__contains__)
+
+    def test_varargs2(self):
+        msg = r"__contains__\(\) takes exactly one argument \(2 given\)"
+        self.assertRaisesRegex(TypeError, msg, {}.__contains__, 0, 1)
+
+    def test_varargs3(self):
+        msg = r"^from_bytes\(\) takes at most 2 positional arguments \(3 given\)"
+        self.assertRaisesRegex(TypeError, msg, int.from_bytes, b'a', 'little', False)
+
+    def test_varargs1_kw(self):
+        msg = r"__contains__\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, {}.__contains__, x=2)
+
+    def test_varargs2_kw(self):
+        msg = r"__contains__\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, {}.__contains__, x=2, y=2)
+
+    def test_varargs3_kw(self):
+        msg = r"bool\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, bool, x=2)
+
+    def test_varargs4_kw(self):
+        msg = r"^index\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, [].index, x=2)
+
+    def test_varargs5_kw(self):
+        msg = r"^hasattr\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, hasattr, x=2)
+
+    def test_varargs6_kw(self):
+        msg = r"^getattr\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, getattr, x=2)
+
+    def test_varargs7_kw(self):
+        msg = r"^next\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, next, x=2)
+
+    def test_varargs8_kw(self):
+        msg = r"^pack\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, struct.pack, x=2)
+
+    def test_varargs9_kw(self):
+        msg = r"^pack_into\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, struct.pack_into, x=2)
+
+    def test_varargs10_kw(self):
+        msg = r"^index\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, collections.deque().index, x=2)
+
+    def test_varargs11_kw(self):
+        msg = r"^pack\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, struct.Struct.pack, struct.Struct(""), x=2)
+
+    def test_varargs12_kw(self):
+        msg = r"^staticmethod\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, staticmethod, func=id)
+
+    def test_varargs13_kw(self):
+        msg = r"^classmethod\(\) takes no keyword arguments$"
+        self.assertRaisesRegex(TypeError, msg, classmethod, func=id)
+
+    def test_varargs14_kw(self):
+        msg = r"^product\(\) takes at most 1 keyword argument \(2 given\)$"
+        self.assertRaisesRegex(TypeError, msg,
+                               itertools.product, 0, repeat=1, foo=2)
+
+    def test_varargs15_kw(self):
+        msg = r"^ImportError\(\) takes at most 2 keyword arguments \(3 given\)$"
+        self.assertRaisesRegex(TypeError, msg,
+                               ImportError, 0, name=1, path=2, foo=3)
+
+    def test_varargs16_kw(self):
+        msg = r"^min\(\) takes at most 2 keyword arguments \(3 given\)$"
+        self.assertRaisesRegex(TypeError, msg,
+                               min, 0, default=1, key=2, foo=3)
+
+    def test_varargs17_kw(self):
+        msg = r"^print\(\) takes at most 4 keyword arguments \(5 given\)$"
+        self.assertRaisesRegex(TypeError, msg,
+                               print, 0, sep=1, end=2, file=3, flush=4, foo=5)
+
+    def test_oldargs0_1(self):
+        msg = r"keys\(\) takes no arguments \(1 given\)"
+        self.assertRaisesRegex(TypeError, msg, {}.keys, 0)
+
+    def test_oldargs0_2(self):
+        msg = r"keys\(\) takes no arguments \(2 given\)"
+        self.assertRaisesRegex(TypeError, msg, {}.keys, 0, 1)
+
+    def test_oldargs0_1_kw(self):
+        msg = r"keys\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, {}.keys, x=2)
+
+    def test_oldargs0_2_kw(self):
+        msg = r"keys\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, {}.keys, x=2, y=2)
+
+    def test_oldargs1_0(self):
+        msg = r"count\(\) takes exactly one argument \(0 given\)"
+        self.assertRaisesRegex(TypeError, msg, [].count)
+
+    def test_oldargs1_2(self):
+        msg = r"count\(\) takes exactly one argument \(2 given\)"
+        self.assertRaisesRegex(TypeError, msg, [].count, 1, 2)
+
+    def test_oldargs1_0_kw(self):
+        msg = r"count\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, [].count, x=2)
+
+    def test_oldargs1_1_kw(self):
+        msg = r"count\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, [].count, {}, x=2)
+
+    def test_oldargs1_2_kw(self):
+        msg = r"count\(\) takes no keyword arguments"
+        self.assertRaisesRegex(TypeError, msg, [].count, x=2, y=2)
 
 
 def pyfunc(arg1, arg2):
@@ -315,6 +439,22 @@ class FastCallTests(unittest.TestCase):
                 result = _testcapi.pyobject_fastcallkeywords(func, args, kwnames)
                 self.check_result(result, expected)
 
+    def test_fastcall_clearing_dict(self):
+        # Test bpo-36907: the point of the test is just checking that this
+        # does not crash.
+        class IntWithDict:
+            __slots__ = ["kwargs"]
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+            def __int__(self):
+                self.kwargs.clear()
+                gc.collect()
+                return 0
+        x = IntWithDict(dont_inherit=IntWithDict())
+        # We test the argument handling of "compile" here, the compilation
+        # itself is not relevant. When we pass flags=x below, x.__int__() is
+        # called, which changes the keywords dict.
+        compile("pass", "", "exec", x, **x.kwargs)
 
 if __name__ == "__main__":
     unittest.main()

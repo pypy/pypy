@@ -31,6 +31,7 @@ static const long Cryptography_HAS_GENERIC_DTLS_METHOD;
 static const long Cryptography_HAS_SIGALGS;
 static const long Cryptography_HAS_PSK;
 static const long Cryptography_HAS_CIPHER_DETAILS;
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION;
 
 /* Internally invented symbol to tell us if SNI is supported */
 static const long Cryptography_HAS_TLSEXT_HOSTNAME;
@@ -195,6 +196,9 @@ int SSL_get_ex_data_X509_STORE_CTX_idx(void);
 
 /* Added in 1.0.2 */
 X509_VERIFY_PARAM *SSL_get0_param(SSL *);
+X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *ctx);
+int SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm);
+int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
 
 int SSL_use_certificate(SSL *, X509 *);
 int SSL_use_certificate_ASN1(SSL *, const unsigned char *, int);
@@ -401,6 +405,10 @@ const SSL_METHOD *SSLv23_method(void);
 const SSL_METHOD *SSLv23_server_method(void);
 const SSL_METHOD *SSLv23_client_method(void);
 
+const SSL_METHOD *TLS_method(void);
+const SSL_METHOD *TLS_server_method(void);
+const SSL_METHOD *TLS_client_method(void);
+
 /*- These aren't macros these arguments are all const X on openssl > 1.0.x -*/
 SSL_CTX *SSL_CTX_new(SSL_METHOD *);
 long SSL_CTX_get_timeout(const SSL_CTX *);
@@ -412,7 +420,7 @@ int SSL_version(const SSL *);
 void *SSL_CTX_get_ex_data(const SSL_CTX *, int);
 void *SSL_get_ex_data(const SSL *, int);
 
-void SSL_set_tlsext_host_name(SSL *, char *);
+int SSL_set_tlsext_host_name(SSL *, char *);
 void SSL_CTX_set_tlsext_servername_callback(
     SSL_CTX *,
     int (*)(SSL *, int *, void *));
@@ -543,10 +551,25 @@ int SSL_verify_client_post_handshake(SSL *);
 void SSL_CTX_set_post_handshake_auth(SSL_CTX *, int);
 void SSL_set_post_handshake_auth(SSL *, int);
 
+
 uint32_t SSL_SESSION_get_max_early_data(const SSL_SESSION *);
 int SSL_write_early_data(SSL *, const void *, size_t, size_t *);
 int SSL_read_early_data(SSL *, void *, size_t, size_t *);
 int SSL_CTX_set_max_early_data(SSL_CTX *, uint32_t);
+
+long SSL_get_verify_result(const SSL *ssl);
+
+int SSL_CTX_set_min_proto_version(SSL_CTX *ctx, int version);
+int SSL_CTX_set_max_proto_version(SSL_CTX *ctx, int version);
+int SSL_CTX_get_min_proto_version(SSL_CTX *ctx);
+int SSL_CTX_get_max_proto_version(SSL_CTX *ctx);
+
+int SSL_set_min_proto_version(SSL *ssl, int version);
+int SSL_set_max_proto_version(SSL *ssl, int version);
+int SSL_get_min_proto_version(SSL *ssl);
+int SSL_get_max_proto_version(SSL *ssl);
+
+ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
 """
 
 CUSTOMIZATIONS = """
@@ -644,6 +667,9 @@ static const long Cryptography_HAS_NEXTPROTONEG = 1;
 /* SSL_get0_param was added in OpenSSL 1.0.2. */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
 X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *) = NULL;
+X509_VERIFY_PARAM *(*SSL_CTX_get0_param)(SSL_CTX *ctx) = NULL;
+int *(SSL_CTX_set1_param)(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm) = NULL;
+int *(SSL_set1_param)(SSL *ssl, X509_VERIFY_PARAM *vpm) = NULL;
 #else
 #endif
 
@@ -694,6 +720,12 @@ static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 1;
 #else
 static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 0;
 long (*SSL_get_server_tmp_key)(SSL *, EVP_PKEY **) = NULL;
+#endif
+
+#if defined(SSL_CTRL_GET_MAX_PROTO_VERSION)
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 1;
+#else
+static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 0;
 #endif
 
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE = 1;

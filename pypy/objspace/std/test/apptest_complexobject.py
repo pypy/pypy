@@ -80,8 +80,7 @@ def test_div():
 
     # Just for fun.
     for i in range(100):
-        check_div(complex(random(), random()),
-                       complex(random(), random()))
+        check_div(complex(random(), random()), complex(random(), random()))
 
     raises(ZeroDivisionError, complex.__truediv__, 1+1j, 0+0j)
     # FIXME: The following currently crashes on Alpha
@@ -175,7 +174,6 @@ def test_pow():
     assert repr(b) == "(nan+nanj)"
 
 def test_boolcontext():
-    from random import random
     for i in range(100):
         assert complex(random() + 1e-6, random() + 1e-6)
     assert not complex(0.0, 0.0)
@@ -411,15 +409,14 @@ def test_repr_roundtrip():
             z = complex(x, y)
             roundtrip = eval(repr(z))
             # adding 0.0 has no effect beside changing -0.0 to 0.0
-            floats_identical(0.0 + z.real,
-                                  0.0 + roundtrip.real)
-            floats_identical(0.0 + z.imag,
-                                  0.0 + roundtrip.imag)
+            floats_identical(0.0 + z.real, 0.0 + roundtrip.real)
+            floats_identical(0.0 + z.imag, 0.0 + roundtrip.imag)
 
 def test_neg():
     assert -(1+6j) == -1-6j
 
 def test_file():
+    import os
     import tempfile
 
     a = 3.33+4.43j
@@ -443,6 +440,7 @@ def test_file():
             pass
 
 def test_convert():
+    import warnings
     raises(TypeError, int, 1+1j)
     raises(TypeError, float, 1+1j)
 
@@ -458,7 +456,32 @@ def test_convert():
             return complex.__new__(self, 2*value)
         def __complex__(self):
             return self
-    assert complex(complex1(1j)) == 2j
+    with warnings.catch_warnings(record=True) as log:
+        warnings.simplefilter("always", DeprecationWarning)
+        assert complex(complex1(1j)) == 2j
+        assert len(log) == 1
+        assert log[0].category == DeprecationWarning
+
+    class complex1b(complex):
+        """Test usage of a complex subclass without __complex__() method"""
+        def __new__(self, value=0j):
+            return complex.__new__(self, 2*value)
+    with warnings.catch_warnings(record=True) as log:
+        warnings.simplefilter("always", DeprecationWarning)
+        assert complex(complex1b(1j)) == 2j
+        assert len(log) == 0
+
+    class complex1_proxy:
+        """Test usage of __complex__() without subclassing complex"""
+        def __init__(self, value=0j):
+            self.value = value
+        def __complex__(self):
+            return complex1(self.value)
+    with warnings.catch_warnings(record=True) as log:
+        warnings.simplefilter("always", DeprecationWarning)
+        assert complex(complex1_proxy(1j)) == 2j
+        assert len(log) == 1
+        assert log[0].category == DeprecationWarning
 
     class complex2(complex):
         """Make sure that __complex__() calls fail if anything other than a

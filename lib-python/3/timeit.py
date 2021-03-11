@@ -9,7 +9,7 @@ the Python Cookbook, published by O'Reilly.
 Library usage: see the Timer class.
 
 Command line usage:
-    python timeit.py [-n N] [-r N] [-s S] [-t] [-c] [-p] [-h] [--] [statement]
+    python timeit.py [-n N] [-r N] [-s S] [-p] [-h] [--] [statement]
 
 Options:
   -n/--number N: how many times to execute 'statement' (default: see below)
@@ -17,10 +17,8 @@ Options:
   -s/--setup S: statement to be executed once initially (default 'pass').
                 Execution time of this setup statement is NOT timed.
   -p/--process: use time.process_time() (default is time.perf_counter())
-  -t/--time: use time.time() (deprecated)
-  -c/--clock: use time.clock() (deprecated)
   -v/--verbose: print raw timing results; repeat for more digits precision
-  -u/--unit: set the output time unit (usec, msec, or sec)
+  -u/--unit: set the output time unit (nsec, usec, msec, or sec)
   -h/--help: print this usage message and exit
   --: separate options from statement, use when statement starts with -
   statement: statement to be timed (default 'pass')
@@ -31,7 +29,8 @@ argument in quotes and using leading spaces.  Multiple -s options are
 treated similarly.
 
 If -n is not given, a suitable number of loops is calculated by trying
-successive powers of 10 until the total time is at least 0.2 seconds.
+increasing numbers from the sequence 1, 2, 5, 10, 20, 50, ... until the
+total time is at least 0.2 seconds.
 
 Note: there is a certain baseline overhead associated with executing a
 pass statement.  It differs between versions.  The code here doesn't try
@@ -189,7 +188,7 @@ class Timer:
 
         This is a convenience function that calls the timeit()
         repeatedly, returning a list of results.  The first argument
-        specifies how many times to call timeit(), defaulting to 3;
+        specifies how many times to call timeit(), defaulting to 5;
         the second argument specifies the timer argument, defaulting
         to one million.
 
@@ -213,22 +212,23 @@ class Timer:
     def autorange(self, callback=None):
         """Return the number of loops and time taken so that total time >= 0.2.
 
-        Calls the timeit method with *number* set to successive powers of
-        ten (10, 100, 1000, ...) up to a maximum of one billion, until
-        the time taken is at least 0.2 second, or the maximum is reached.
-        Returns ``(number, time_taken)``.
+        Calls the timeit method with increasing numbers from the sequence
+        1, 2, 5, 10, 20, 50, ... until the time taken is at least 0.2
+        second.  Returns (number, time_taken).
 
         If *callback* is given and is not None, it will be called after
         each trial with two arguments: ``callback(number, time_taken)``.
         """
-        for i in range(0, 10):
-            number = 10**i
-            time_taken = self.timeit(number)
-            if callback:
-                callback(number, time_taken)
-            if time_taken >= 0.2:
-                break
-        return (number, time_taken)
+        i = 1
+        while True:
+            for j in 1, 2, 5:
+                number = i * j
+                time_taken = self.timeit(number)
+                if callback:
+                    callback(number, time_taken)
+                if time_taken >= 0.2:
+                    return (number, time_taken)
+            i *= 10
 
 def timeit(stmt="pass", setup="pass", timer=default_timer,
            number=default_number, globals=None):
@@ -270,6 +270,7 @@ def main(args=None, *, _wrap_timer=None):
         print(err)
         print("use -h/--help for command line help")
         return 2
+
     timer = default_timer
     stmt = "\n".join(args) or "pass"
     number = 0 # auto-determine
@@ -295,10 +296,6 @@ def main(args=None, *, _wrap_timer=None):
             repeat = int(a)
             if repeat <= 0:
                 repeat = 1
-        if o in ("-t", "--time"):
-            timer = time.time
-        if o in ("-c", "--clock"):
-            timer = time.clock
         if o in ("-p", "--process"):
             timer = time.process_time
         if o in ("-v", "--verbose"):
@@ -324,6 +321,7 @@ def main(args=None, *, _wrap_timer=None):
     sys.path.insert(0, os.curdir)
     if _wrap_timer is not None:
         timer = _wrap_timer(timer)
+
     t = Timer(stmt, setup, timer)
     if number == 0:
         # determine number so that 0.2 <= total time < 2.0
@@ -337,6 +335,10 @@ def main(args=None, *, _wrap_timer=None):
         except:
             t.print_exc()
             return 1
+
+        if verbose:
+            print()
+
     try:
         timings = t.repeat(repeat, number)
     except:

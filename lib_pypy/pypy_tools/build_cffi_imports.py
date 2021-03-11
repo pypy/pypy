@@ -1,5 +1,5 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib
+import sys, shutil, os, tempfile, hashlib, collections
 import sysconfig
 from os.path import join
 
@@ -22,22 +22,24 @@ class MissingDependenciesError(Exception):
     pass
 
 
-cffi_build_scripts = {
-    "_blake2": "_blake2/_blake2_build.py",
-    "_ssl": "_ssl_build.py",
-    "sqlite3": "_sqlite3_build.py",
-    "audioop": "_audioop_build.py",
-    "_tkinter": "_tkinter/tklib_build.py",
-    "curses": "_curses_build.py" if sys.platform != "win32" else None,
-    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "_gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "grp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
-    "resource": "_resource_build.py" if sys.platform != "win32" else None,
-    "lzma": "_lzma_build.py",
-    # "_decimal": "_decimal_build.py",
-    "_sha3": "_sha3/_sha3_build.py",
-    "xx": None,    # for testing: 'None' should be completely ignored
-    }
+cffi_build_scripts = collections.OrderedDict([
+    ("_ctypes._ctypes_cffi",
+     "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
+    ("_blake2", "_blake2/_blake2_build.py"),
+    ("_ssl", "_ssl_build.py"),
+    ("sqlite3", "_sqlite3_build.py"),
+    ("audioop", "_audioop_build.py"),
+    ("_tkinter", "_tkinter/tklib_build.py"),
+    ("curses", "_curses_build.py" if sys.platform != "win32" else None),
+    ("syslog", "_syslog_build.py" if sys.platform != "win32" else None),
+    ("_gdbm", "_gdbm_build.py"  if sys.platform != "win32" else None),
+    ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
+    ("resource", "_resource_build.py" if sys.platform != "win32" else None),
+    ("lzma", "_lzma_build.py"),
+    # ("_decimal", "_decimal_build.py"),
+    ("_sha3", "_sha3/_sha3_build.py"),
+    ("xx", None),    # for testing: 'None' should be completely ignored
+    ])
 
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
@@ -172,15 +174,16 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
-    # be sure pip, setuptools are installed in a fresh pypy
-    # allows proper functioning of cffi on win32 with newer vc compilers
-    # XXX move this to a build slave step?
     env = os.environ
     if sys.platform == 'win32':
+        # requires the repo pypy/externals to be located under pypy
+        externals_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        '..', '..', 'externals'))
+        assert os.path.exists(externals_path), externals_path
         env = os.environ.copy()
-        env['INCLUDE'] = r'..\externals\include;' + env.get('INCLUDE', '')
-        env['LIB'] = r'..\externals\lib;' + env.get('LIB', '')
-        env['PATH'] = r'..\externals\bin;' + env.get('PATH', '')
+        env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
+        env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
+        env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])

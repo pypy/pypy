@@ -45,6 +45,7 @@ class Module(MixedModule):
         'argv'                  : 'state.get(space).w_argv',
         'warnoptions'           : 'state.get(space).w_warnoptions',
         'abiflags'              : 'space.wrap("")',
+        '_framework': "space.newtext('')",
         'builtin_module_names'  : 'space.w_None',
         'pypy_getudir'          : 'state.pypy_getudir',    # not translated
         'pypy_find_stdlib'      : 'initpath.pypy_find_stdlib',
@@ -99,6 +100,9 @@ class Module(MixedModule):
         'set_asyncgen_hooks'    : 'vm.set_asyncgen_hooks',
 
         'is_finalizing'         : 'vm.is_finalizing',
+
+        'get_coroutine_origin_tracking_depth': 'vm.get_coroutine_origin_tracking_depth',
+        'set_coroutine_origin_tracking_depth': 'vm.set_coroutine_origin_tracking_depth',
         }
 
     if sys.platform == 'win32':
@@ -111,6 +115,8 @@ class Module(MixedModule):
     appleveldefs = {
         'excepthook'            : 'app.excepthook',
         '__excepthook__'        : 'app.excepthook',
+        'breakpointhook'        : 'app.breakpointhook',
+        '__breakpointhook__'    : 'app.breakpointhook',
         'exit'                  : 'app.exit',
         'callstats'             : 'app.callstats',
         'copyright'             : 'app.copyright_str',

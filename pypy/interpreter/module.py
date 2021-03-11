@@ -134,6 +134,10 @@ class Module(W_Root):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
+            w_dict = self.w_dict
+            w_getattr = space.finditem(w_dict, space.newtext('__getattr__'))
+            if w_getattr is not None:
+                return space.call_function(w_getattr, w_attr)
             w_name = space.finditem(self.w_dict, space.newtext('__name__'))
             if w_name is None:
                 raise oefmt(space.w_AttributeError,
@@ -147,6 +151,9 @@ class Module(W_Root):
         if not space.isinstance_w(w_dict, space.w_dict):
             raise oefmt(space.w_TypeError, "%N.__dict__ is not a dictionary",
                         self)
+        w_dir = space.finditem(w_dict, space.newtext('__dir__'))
+        if w_dir is not None:
+            return space.call_function(w_dir)
         return space.call_function(space.w_list, w_dict)
 
     # These three methods are needed to implement '__class__' assignment

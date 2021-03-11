@@ -1,6 +1,6 @@
 
 from pypy.interpreter.mixedmodule import MixedModule
-from .interp_time import HAS_MONOTONIC
+from .interp_time import HAS_MONOTONIC, HAS_THREAD_TIME
 from rpython.rlib import rtime
 import os
 
@@ -11,6 +11,7 @@ class Module(MixedModule):
 
     interpleveldefs = {
         'time': 'interp_time.time',
+        'time_ns': 'interp_time.time_ns',
         'clock': 'interp_time.clock',
         'ctime': 'interp_time.ctime',
         'asctime': 'interp_time.asctime',
@@ -21,19 +22,27 @@ class Module(MixedModule):
         'sleep' : 'interp_time.sleep',
         '_STRUCT_TM_ITEMS': 'space.wrap(interp_time._STRUCT_TM_ITEMS)',
         'perf_counter': 'interp_time.perf_counter',
+        'perf_counter_ns': 'interp_time.perf_counter_ns',
         'process_time': 'interp_time.process_time',
+        'process_time_ns': 'interp_time.process_time_ns',
         '_get_time_info': 'interp_time._get_time_info',
     }
 
     if rtime.HAS_CLOCK_GETTIME:
         interpleveldefs['clock_gettime'] = 'interp_time.clock_gettime'
+        interpleveldefs['clock_gettime_ns'] = 'interp_time.clock_gettime_ns'
         interpleveldefs['clock_settime'] = 'interp_time.clock_settime'
+        interpleveldefs['clock_settime_ns'] = 'interp_time.clock_settime_ns'
         interpleveldefs['clock_getres'] = 'interp_time.clock_getres'
         for constant in rtime.ALL_DEFINED_CLOCKS:
             interpleveldefs[constant] = 'space.wrap(%d)' % (
                 getattr(rtime, constant),)
     if HAS_MONOTONIC:
         interpleveldefs['monotonic'] = 'interp_time.monotonic'
+        interpleveldefs['monotonic_ns'] = 'interp_time.monotonic_ns'
+    if HAS_THREAD_TIME:
+        interpleveldefs['thread_time'] = 'interp_time.thread_time'
+        interpleveldefs['thread_time_ns'] = 'interp_time.thread_time_ns'
     if os.name == "posix":
         interpleveldefs['tzset'] = 'interp_time.tzset'
 

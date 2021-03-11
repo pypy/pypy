@@ -37,6 +37,8 @@ class FrameDebugData(object):
     f_lineno                 = 0      # current lineno for tracing
     is_being_profiled        = False
     is_in_line_tracing       = False
+    f_trace_lines            = True
+    f_trace_opcodes          = False
     w_locals                 = None
     hidden_operationerr      = None
 
@@ -148,6 +150,18 @@ class PyFrame(W_Root):
         if d is None:
             return None
         return d.w_locals
+
+    def get_f_trace_lines(self):
+        d = self.getdebug()
+        if d is None:
+            return True
+        return d.f_trace_lines
+
+    def get_f_trace_opcodes(self):
+        d = self.getdebug()
+        if d is None:
+            return False
+        return d.f_trace_opcodes
 
     @not_rpython
     def __repr__(self):
@@ -268,6 +282,7 @@ class PyFrame(W_Root):
             gen = Coroutine(self, name, qualname)
             ec = space.getexecutioncontext()
             w_wrapper = ec.w_coroutine_wrapper_fn
+            gen.capture_origin(ec)
         elif flags & pycode.CO_ASYNC_GENERATOR:
             from pypy.interpreter.generator import AsyncGenerator
             gen = AsyncGenerator(self, name, qualname)
@@ -509,6 +524,7 @@ class PyFrame(W_Root):
         """ Returns 'funcname()' from either a function name fnname or a
         wrapped callable w_function. If it's not a function or a method, returns
         'Classname object'"""
+        # XXX this is super annoying to compute every time we do a function call!
         # CPython has a similar function, PyEval_GetFuncName
         from pypy.interpreter.function import Function, Method
         if fnname is not None:
@@ -905,10 +921,17 @@ class PyFrame(W_Root):
     def fdel_f_trace(self, space):
         self.getorcreatedebug().w_f_trace = None
 
-    def fget_f_restricted(self, space):
-        if space.config.objspace.honor__builtins__:
-            return space.newbool(self.builtin is not space.builtin)
-        return space.w_False
+    def fget_f_trace_lines(self, space):
+        return space.newbool(self.get_f_trace_lines())
+
+    def fset_f_trace_lines(self, space, w_trace):
+        self.getorcreatedebug().f_trace_lines = space.is_true(w_trace)
+
+    def fget_f_trace_opcodes(self, space):
+        return space.newbool(self.get_f_trace_opcodes())
+
+    def fset_f_trace_opcodes(self, space, w_trace):
+        self.getorcreatedebug().f_trace_opcodes = space.is_true(w_trace)
 
     def get_generator(self):
         if self.space.config.translation.rweakref:
@@ -960,6 +983,12 @@ class PyFrame(W_Root):
         pytraceback.record_application_traceback(
             self.space, operr, self, self.last_instr)
         raise operr
+
+    def descr_repr(self, space):
+        code = self.pycode
+        moreinfo = ", file '%s', line %s, code %s" % (
+            code.co_filename, self.get_last_lineno(), code.co_name)
+        return self.getrepr(space, "frame", moreinfo)
 
 # ____________________________________________________________
 

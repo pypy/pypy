@@ -18,8 +18,7 @@ PyAPI_DATA(int) Py_InspectFlag;
 PyAPI_DATA(int) Py_OptimizeFlag;
 PyAPI_DATA(int) Py_NoSiteFlag;
 PyAPI_DATA(int) Py_BytesWarningFlag;
-PyAPI_DATA(int) Py_UseClassExceptionsFlag;
-PyAPI_DATA(int) Py_FrozenFlag;
+PyAPI_DATA(int) Py_FrozenFlag; /* set when the python is "frozen" */
 PyAPI_DATA(int) Py_IgnoreEnvironmentFlag;
 PyAPI_DATA(int) Py_DontWriteBytecodeFlag;
 PyAPI_DATA(int) Py_NoUserSiteDirectory;
@@ -27,7 +26,7 @@ PyAPI_DATA(int) Py_UnbufferedStdioFlag;
 PyAPI_DATA(int) Py_HashRandomizationFlag;
 PyAPI_DATA(int) Py_IsolatedFlag;
 
-#ifdef MS_WINDOWS
+#ifdef _WIN32
 PyAPI_DATA(int) Py_LegacyWindowsStdioFlag;
 #endif
 

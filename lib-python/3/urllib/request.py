@@ -94,7 +94,6 @@ import socket
 import string
 import sys
 import time
-import collections
 import tempfile
 import contextlib
 import warnings
@@ -684,8 +683,8 @@ class HTTPRedirectHandler(BaseHandler):
         newurl = newurl.replace(' ', '%20')
 
         CONTENT_HEADERS = ("content-length", "content-type")
-        newheaders = dict((k, v) for k, v in req.headers.items()
-                          if k.lower() not in CONTENT_HEADERS)
+        newheaders = {k: v for k, v in req.headers.items()
+                      if k.lower() not in CONTENT_HEADERS}
         return Request(newurl,
                        headers=newheaders,
                        origin_req_host=req.origin_req_host,
@@ -846,7 +845,7 @@ class HTTPPasswordMgr:
             self.passwd[realm] = {}
         for default_port in True, False:
             reduced_uri = tuple(
-                [self.reduce_uri(u, default_port) for u in uri])
+                self.reduce_uri(u, default_port) for u in uri)
             self.passwd[realm][reduced_uri] = (user, passwd)
 
     def find_user_password(self, realm, authuri):
@@ -1175,7 +1174,11 @@ class AbstractDigestAuthHandler:
         A2 = "%s:%s" % (req.get_method(),
                         # XXX selector: what about proxies and full urls
                         req.selector)
-        if qop == 'auth':
+        # NOTE: As per  RFC 2617, when server sends "auth,auth-int", the client could use either `auth`
+        #     or `auth-int` to the response back. we use `auth` to send the response back.
+        if qop is None:
+            respdig = KD(H(A1), "%s:%s" % (nonce, H(A2)))
+        elif 'auth' in qop.split(','):
             if nonce == self.last_nonce:
                 self.nonce_count += 1
             else:
@@ -1183,10 +1186,8 @@ class AbstractDigestAuthHandler:
                 self.last_nonce = nonce
             ncvalue = '%08x' % self.nonce_count
             cnonce = self.get_cnonce(nonce)
-            noncebit = "%s:%s:%s:%s:%s" % (nonce, ncvalue, cnonce, qop, H(A2))
+            noncebit = "%s:%s:%s:%s:%s" % (nonce, ncvalue, cnonce, 'auth', H(A2))
             respdig = KD(H(A1), noncebit)
-        elif qop is None:
-            respdig = KD(H(A1), "%s:%s" % (nonce, H(A2)))
         else:
             # XXX handle auth-int.
             raise URLError("qop '%s' is not supported." % qop)
@@ -1318,8 +1319,8 @@ class AbstractHTTPHandler(BaseHandler):
         h.set_debuglevel(self._debuglevel)
 
         headers = dict(req.unredirected_hdrs)
-        headers.update(dict((k, v) for k, v in req.headers.items()
-                            if k not in headers))
+        headers.update({k: v for k, v in req.headers.items()
+                        if k not in headers})
 
         # TODO(jhylton): Should this be redesigned to handle
         # persistent connections?
@@ -1331,7 +1332,7 @@ class AbstractHTTPHandler(BaseHandler):
         # So make sure the connection gets closed after the (only)
         # request.
         headers["Connection"] = "close"
-        headers = dict((name.title(), val) for name, val in headers.items())
+        headers = {name.title(): val for name, val in headers.items()}
 
         if req._tunnel_host:
             tunnel_headers = {}
@@ -1825,7 +1826,6 @@ class URLopener:
             if filename:
                 tfp = open(filename, 'wb')
             else:
-                import tempfile
                 garbage, path = splittype(url)
                 garbage, path = splithost(path or "")
                 path, garbage = splitquery(path or "")
@@ -2530,24 +2530,26 @@ def proxy_bypass_environment(host, proxies=None):
     try:
         no_proxy = proxies['no']
     except KeyError:
-        return 0
+        return False
     # '*' is special case for always bypass
     if no_proxy == '*':
-        return 1
+        return True
+    host = host.lower()
     # strip port off host
     hostonly, port = splitport(host)
     # check if the host ends with any of the DNS suffixes
-    no_proxy_list = [proxy.strip() for proxy in no_proxy.split(',')]
-    for name in no_proxy_list:
+    for name in no_proxy.split(','):
+        name = name.strip()
         if name:
             name = name.lstrip('.')  # ignore leading dots
-            name = re.escape(name)
-            pattern = r'(.+\.)?%s$' % name
-            if (re.match(pattern, hostonly, re.I)
-                    or re.match(pattern, host, re.I)):
-                return 1
+            name = name.lower()
+            if hostonly == name or host == name:
+                return True
+            name = '.' + name
+            if hostonly.endswith(name) or host.endswith(name):
+                return True
     # otherwise, don't bypass
-    return 0
+    return False
 
 
 # This code tests an OSX specific data structure but is testable on all
@@ -2673,7 +2675,7 @@ elif os.name == 'nt':
                     for p in proxyServer.split(';'):
                         protocol, address = p.split('=', 1)
                         # See if address has a type:// prefix
-                        if not re.match('^([^/:]+)://', address):
+                        if not re.match('(?:[^/:]+)://', address):
                             address = '%s://%s' % (protocol, address)
                         proxies[protocol] = address
                 else:

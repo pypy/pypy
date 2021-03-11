@@ -86,12 +86,30 @@ Write the packed bytes into the writable buffer buf starting at offset
     """
     size = _calcsize(space, format)
     buf = space.writebuf_w(w_buffer)
+    buflen = buf.getlength()
     if offset < 0:
-        offset += buf.getlength()
-    if offset < 0 or (buf.getlength() - offset) < size:
+        # Check that negative offset is low enough to fit data
+        if offset + size > 0:
+            raise oefmt(get_error(space),
+                        "no space to pack %d bytes at offset %d",
+                        size,
+                        offset)
+        # Check that negative offset is not crossing buffer boundary
+        if offset + buflen < 0:
+            raise oefmt(get_error(space),
+                        "offset %d out of range for %d-byte buffer",
+                        offset,
+                        buflen)
+        offset += buflen
+    if (buflen - offset) < size:
         raise oefmt(get_error(space),
-                    "pack_into requires a buffer of at least %d bytes",
-                    size)
+                    "pack_into requires a buffer of at least %d bytes for "
+                    "packing %d bytes at offset %d "
+                    "(actual buffer size is %d)",
+                    size + offset,
+                    size,
+                    offset,
+                    buflen)
     #
     wbuf = SubBuffer(buf, offset, size)
     fmtiter = PackFormatIterator(space, wbuf, args_w)
@@ -215,7 +233,7 @@ class W_Struct(W_Root):
 W_Struct.typedef = TypeDef("Struct",
     __new__=interp2app(W_Struct.descr__new__.im_func),
     __init__=interp2app(W_Struct.descr__init__),
-    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newbytes"),
+    format=interp_attrproperty("format", cls=W_Struct, wrapfn="newtext"),
     size=interp_attrproperty("size", cls=W_Struct, wrapfn="newint"),
 
     pack=interp2app(W_Struct.descr_pack),

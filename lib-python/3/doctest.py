@@ -93,7 +93,6 @@ __all__ = [
 ]
 
 import __future__
-import argparse
 import difflib
 import inspect
 import linecache
@@ -212,6 +211,13 @@ def _normalize_module(module, depth=2):
     else:
         raise TypeError("Expected a module, string, or None")
 
+def _newline_convert(data):
+    # We have two cases to cover and we need to make sure we do
+    # them in the right order
+    for newline in ('\r\n', '\r'):
+        data = data.replace(newline, '\n')
+    return data
+
 def _load_testfile(filename, package, module_relative, encoding):
     if module_relative:
         package = _normalize_module(package, 3)
@@ -222,7 +228,7 @@ def _load_testfile(filename, package, module_relative, encoding):
                 file_contents = file_contents.decode(encoding)
                 # get_data() opens files as 'rb', so one must do the equivalent
                 # conversion as universal newlines would do.
-                return file_contents.replace(os.linesep, '\n'), filename
+                return _newline_convert(file_contents), filename
     with open(filename, encoding=encoding) as f:
         return f.read(), filename
 
@@ -1062,7 +1068,8 @@ class DocTestFinder:
         if module is None:
             filename = None
         else:
-            filename = getattr(module, '__file__', module.__name__)
+            # __file__ can be None for namespace packages.
+            filename = getattr(module, '__file__', None) or module.__name__
             if filename[-4:] == ".pyc":
                 filename = filename[:-1]
         return self._parser.get_doctest(docstring, globs, name,
@@ -1614,7 +1621,7 @@ class OutputChecker:
                           '', want)
             # If a line in got contains only spaces, then remove the
             # spaces.
-            got = re.sub(r'(?m)^\s*?$', '', got)
+            got = re.sub(r'(?m)^[^\S\n]+$', '', got)
             if got == want:
                 return True
 
@@ -1693,8 +1700,6 @@ class OutputChecker:
                 kind = 'ndiff with -expected +actual'
             else:
                 assert 0, 'Bad diff option'
-            # Remove trailing whitespace on diff output.
-            diff = [line.rstrip() + '\n' for line in diff]
             return 'Differences (%s):\n' % kind + _indent(''.join(diff))
 
         # If we're not using diff, then simply list the expected
@@ -2743,6 +2748,8 @@ __test__ = {"_TestClass": _TestClass,
 
 
 def _test():
+    import argparse
+
     parser = argparse.ArgumentParser(description="doctest runner")
     parser.add_argument('-v', '--verbose', action='store_true', default=False,
                         help='print very verbose output for all tests')

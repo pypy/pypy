@@ -14,7 +14,7 @@ size = 2_500_000_000
 
 class LargeFileTest:
     """Test that each file function works as expected for large
-    (i.e. > 2GB) files.
+    (i.e. > 2 GiB) files.
     """
 
     def setUp(self):

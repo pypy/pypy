@@ -17,11 +17,13 @@ import traceback
 import types
 import unittest
 import warnings
+from contextlib import ExitStack
 from operator import neg
 from test.support import (
-    TESTFN, unlink,  run_unittest, check_warnings, check_impl_detail,
-    cpython_only)
+    EnvironmentVarGuard, TESTFN, check_warnings, swap_attr, unlink)
+from test.support import check_impl_detail, cpython_only
 from test.support.script_helper import assert_python_ok
+from unittest.mock import MagicMock, patch
 try:
     import pty, signal
 except ImportError:
@@ -153,6 +155,11 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(TypeError, __import__, 1, 2, 3, 4)
         self.assertRaises(ValueError, __import__, '')
         self.assertRaises(TypeError, __import__, 'sys', name='sys')
+        # Relative import outside of a package with no __package__ or __spec__ (bpo-37409).
+        with self.assertWarns(ImportWarning):
+            self.assertRaises(ImportError, __import__, '',
+                              {'__package__': None, '__spec__': None, '__name__': '__main__'},
+                              locals={}, fromlist=('foo',), level=1)
         # embedded null character
         self.assertRaises(ModuleNotFoundError, __import__, 'string\x00')
 
@@ -330,18 +337,21 @@ class BuiltinTest(unittest.TestCase):
 
         codestr = '''def f():
         """doc"""
+        debug_enabled = False
+        if __debug__:
+            debug_enabled = True
         try:
             assert False
         except AssertionError:
-            return (True, f.__doc__, __debug__)
+            return (True, f.__doc__, debug_enabled, __debug__)
         else:
-            return (False, f.__doc__, __debug__)
+            return (False, f.__doc__, debug_enabled, __debug__)
         '''
         def f(): """doc"""
-        values = [(-1, __debug__, f.__doc__, __debug__),
-                  (0, True, 'doc', True),
-                  (1, False, 'doc', False),
-                  (2, False, None, False)]
+        values = [(-1, __debug__, f.__doc__, __debug__, __debug__),
+                  (0, True, 'doc', True, True),
+                  (1, False, 'doc', False, False),
+                  (2, False, None, False, False)]
         for optval, *expected in values:
             # test both direct compilation and compilation via AST
             codeobjs = []
@@ -777,10 +787,18 @@ class BuiltinTest(unittest.TestCase):
             def __len__(self):
                 return 4.5
         self.assertRaises(TypeError, len, FloatLen())
+        class NegativeLen:
+            def __len__(self):
+                return -10
+        self.assertRaises(ValueError, len, NegativeLen())
         class HugeLen:
             def __len__(self):
                 return sys.maxsize + 1
         self.assertRaises(OverflowError, len, HugeLen())
+        class HugeNegativeLen:
+            def __len__(self):
+                return -sys.maxsize-10
+        self.assertRaises(ValueError, len, HugeNegativeLen())
         class NoLenMethod(object): pass
         self.assertRaises(TypeError, len, NoLenMethod())
 
@@ -1013,6 +1031,7 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(ValueError, open, 'a\x00b')
         self.assertRaises(ValueError, open, b'a\x00b')
 
+    @unittest.skipIf(sys.flags.utf8_mode, "utf-8 mode is enabled")
     def test_open_default_encoding(self):
         old_environ = dict(os.environ)
         try:
@@ -1501,6 +1520,11 @@ class BuiltinTest(unittest.TestCase):
         self.assertRaises(ValueError, x.translate, b"1", 1)
         self.assertRaises(TypeError, x.translate, b"1"*256, 1)
 
+    def test_bytearray_extend_error(self):
+        array = bytearray()
+        bad_iter = map(int, "X")
+        self.assertRaises(ValueError, array.extend, bad_iter)
+
     def test_construct_singletons(self):
         for const in None, Ellipsis, NotImplemented:
             tp = type(const)
@@ -1508,12 +1532,132 @@ class BuiltinTest(unittest.TestCase):
             self.assertRaises(TypeError, tp, 1, 2)
             self.assertRaises(TypeError, tp, a=1, b=2)
 
+
+class TestBreakpoint(unittest.TestCase):
+    def setUp(self):
+        # These tests require a clean slate environment.  For example, if the
+        # test suite is run with $PYTHONBREAKPOINT set to something else, it
+        # will mess up these tests.  Similarly for sys.breakpointhook.
+        # Cleaning the slate here means you can't use breakpoint() to debug
+        # these tests, but I think that's okay.  Just use pdb.set_trace() if
+        # you must.
+        self.resources = ExitStack()
+        self.addCleanup(self.resources.close)
+        self.env = self.resources.enter_context(EnvironmentVarGuard())
+        del self.env['PYTHONBREAKPOINT']
+        self.resources.enter_context(
+            swap_attr(sys, 'breakpointhook', sys.__breakpointhook__))
+
+    def test_breakpoint(self):
+        with patch('pdb.set_trace') as mock:
+            breakpoint()
+        mock.assert_called_once()
+
+    def test_breakpoint_with_breakpointhook_set(self):
+        my_breakpointhook = MagicMock()
+        sys.breakpointhook = my_breakpointhook
+        breakpoint()
+        my_breakpointhook.assert_called_once_with()
+
+    def test_breakpoint_with_breakpointhook_reset(self):
+        my_breakpointhook = MagicMock()
+        sys.breakpointhook = my_breakpointhook
+        breakpoint()
+        my_breakpointhook.assert_called_once_with()
+        # Reset the hook and it will not be called again.
+        sys.breakpointhook = sys.__breakpointhook__
+        with patch('pdb.set_trace') as mock:
+            breakpoint()
+            mock.assert_called_once_with()
+        my_breakpointhook.assert_called_once_with()
+
+    def test_breakpoint_with_args_and_keywords(self):
+        my_breakpointhook = MagicMock()
+        sys.breakpointhook = my_breakpointhook
+        breakpoint(1, 2, 3, four=4, five=5)
+        my_breakpointhook.assert_called_once_with(1, 2, 3, four=4, five=5)
+
+    def test_breakpoint_with_passthru_error(self):
+        def my_breakpointhook():
+            pass
+        sys.breakpointhook = my_breakpointhook
+        self.assertRaises(TypeError, breakpoint, 1, 2, 3, four=4, five=5)
+
+    @unittest.skipIf(sys.flags.ignore_environment, '-E was given')
+    def test_envar_good_path_builtin(self):
+        self.env['PYTHONBREAKPOINT'] = 'int'
+        with patch('builtins.int') as mock:
+            breakpoint('7')
+            mock.assert_called_once_with('7')
+
+    @unittest.skipIf(sys.flags.ignore_environment, '-E was given')
+    def test_envar_good_path_other(self):
+        self.env['PYTHONBREAKPOINT'] = 'sys.exit'
+        with patch('sys.exit') as mock:
+            breakpoint()
+            mock.assert_called_once_with()
+
+    @unittest.skipIf(sys.flags.ignore_environment, '-E was given')
+    def test_envar_good_path_noop_0(self):
+        self.env['PYTHONBREAKPOINT'] = '0'
+        with patch('pdb.set_trace') as mock:
+            breakpoint()
+            mock.assert_not_called()
+
+    def test_envar_good_path_empty_string(self):
+        # PYTHONBREAKPOINT='' is the same as it not being set.
+        self.env['PYTHONBREAKPOINT'] = ''
+        with patch('pdb.set_trace') as mock:
+            breakpoint()
+            mock.assert_called_once_with()
+
+    @unittest.skipIf(sys.flags.ignore_environment, '-E was given')
+    def test_envar_unimportable(self):
+        for envar in (
+                '.', '..', '.foo', 'foo.', '.int', 'int.',
+                '.foo.bar', '..foo.bar', '/./',
+                'nosuchbuiltin',
+                'nosuchmodule.nosuchcallable',
+                ):
+            with self.subTest(envar=envar):
+                self.env['PYTHONBREAKPOINT'] = envar
+                mock = self.resources.enter_context(patch('pdb.set_trace'))
+                w = self.resources.enter_context(check_warnings(quiet=True))
+                breakpoint()
+                self.assertEqual(
+                    str(w.message),
+                    f'Ignoring unimportable $PYTHONBREAKPOINT: "{envar}"')
+                self.assertEqual(w.category, RuntimeWarning)
+                mock.assert_not_called()
+
+    def test_envar_ignored_when_hook_is_set(self):
+        self.env['PYTHONBREAKPOINT'] = 'sys.exit'
+        with patch('sys.exit') as mock:
+            sys.breakpointhook = int
+            breakpoint()
+            mock.assert_not_called()
+
+
 @unittest.skipUnless(pty, "the pty and signal modules must be available")
 class PtyTests(unittest.TestCase):
     """Tests that use a pseudo terminal to guarantee stdin and stdout are
     terminals in the test environment"""
 
+    @staticmethod
+    def handle_sighup(signum, frame):
+        # bpo-40140: if the process is the session leader, os.close(fd)
+        # of "pid, fd = pty.fork()" can raise SIGHUP signal:
+        # just ignore the signal.
+        pass
+
     def run_child(self, child, terminal_input):
+        old_sighup = signal.signal(signal.SIGHUP, self.handle_sighup)
+        try:
+            return self._run_child(child, terminal_input)
+        finally:
+            signal.signal(signal.SIGHUP, old_sighup)
+
+    def _run_child(self, child, terminal_input):
         r, w = os.pipe()  # Pipe test results from child back to parent
         try:
             pid, fd = pty.fork()
@@ -1564,6 +1708,9 @@ class PtyTests(unittest.TestCase):
             child_output = child_output.decode("ascii", "ignore")
             self.fail("got %d lines in pipe but expected 2, child output was:\n%s"
                       % (len(lines), child_output))
+
+        # bpo-40155: Close the PTY before waiting for the child process
+        # completion, otherwise the child process hangs on AIX.
         os.close(fd)
 
         # Wait until the child process completes

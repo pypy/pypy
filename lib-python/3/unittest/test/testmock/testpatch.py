@@ -51,6 +51,14 @@ class Foo(object):
         pass
     foo = 'bar'
 
+    @staticmethod
+    def static_method():
+        return 24
+
+    @classmethod
+    def class_method(cls):
+        return 42
+
     class Bar(object):
         def a(self):
             pass
@@ -104,6 +112,10 @@ class PatchTest(unittest.TestCase):
         self.assertEqual(Something.attribute, sentinel.Original,
                          "patch not restored")
 
+    def test_patchobject_with_string_as_target(self):
+        msg = "'Something' must be the actual object to be patched, not a str"
+        with self.assertRaisesRegex(TypeError, msg):
+            patch.object('Something', 'do_something')
 
     def test_patchobject_with_none(self):
         class Something(object):
@@ -664,6 +676,23 @@ class PatchTest(unittest.TestCase):
         test()
 
 
+    def test_patch_dict_decorator_resolution(self):
+        # bpo-35512: Ensure that patch with a string target resolves to
+        # the new dictionary during function call
+        original = support.target.copy()
+
+        @patch.dict('unittest.test.testmock.support.target', {'bar': 'BAR'})
+        def test():
+            self.assertEqual(support.target, {'foo': 'BAZ', 'bar': 'BAR'})
+
+        try:
+            support.target = {'foo': 'BAZ'}
+            test()
+            self.assertEqual(support.target, {'foo': 'BAZ'})
+        finally:
+            support.target = original
+
+
     def test_patch_descriptor(self):
         # would be some effort to fix this - we could special case the
         # builtin descriptors: classmethod, property, staticmethod
@@ -996,6 +1025,18 @@ class PatchTest(unittest.TestCase):
 
         result = test()
         self.assertEqual(result, 3)
+
+
+    def test_autospec_staticmethod(self):
+        with patch('%s.Foo.static_method' % __name__, autospec=True) as method:
+            Foo.static_method()
+            method.assert_called_once_with()
+
+
+    def test_autospec_classmethod(self):
+        with patch('%s.Foo.class_method' % __name__, autospec=True) as method:
+            Foo.class_method()
+            method.assert_called_once_with()
 
 
     def test_autospec_with_new(self):

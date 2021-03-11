@@ -23,6 +23,8 @@ class Module(MixedModule):
         'bin'           : 'app_operation.bin',
         'oct'           : 'app_operation.oct',
         'hex'           : 'app_operation.hex',
+
+        'breakpoint'    : 'app_breakpoint.breakpoint',
     }
 
     interpleveldefs = {

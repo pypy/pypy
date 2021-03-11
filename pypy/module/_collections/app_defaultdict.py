@@ -40,7 +40,7 @@ class defaultdict(dict):
                 factoryrepr = repr(self.default_factory)
             finally:
                 recurse.remove(id(self))
-        return "defaultdict(%s, %s)" % (factoryrepr, dictrepr)
+        return "%s(%s, %s)" % (self.__class__.__name__, factoryrepr, dictrepr)
 
     def copy(self):
         return type(self)(self.default_factory, self)

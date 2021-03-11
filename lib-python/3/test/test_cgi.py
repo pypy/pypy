@@ -55,12 +55,9 @@ parse_strict_test_cases = [
     ("", ValueError("bad query field: ''")),
     ("&", ValueError("bad query field: ''")),
     ("&&", ValueError("bad query field: ''")),
-    (";", ValueError("bad query field: ''")),
-    (";&;", ValueError("bad query field: ''")),
     # Should the next few really be valid?
     ("=", {}),
     ("=&=", {}),
-    ("=;=", {}),
     # This rest seem to make sense
     ("=a", {'': ['a']}),
     ("&=a", ValueError("bad query field: ''")),
@@ -75,8 +72,6 @@ parse_strict_test_cases = [
     ("a=a+b&b=b+c", {'a': ['a b'], 'b': ['b c']}),
     ("a=a+b&a=b+a", {'a': ['a b', 'b a']}),
     ("x=1&y=2.0&z=2-3.%2b0", {'x': ['1'], 'y': ['2.0'], 'z': ['2-3.+0']}),
-    ("x=1;y=2.0&z=2-3.%2b0", {'x': ['1'], 'y': ['2.0'], 'z': ['2-3.+0']}),
-    ("x=1;y=2.0;z=2-3.%2b0", {'x': ['1'], 'y': ['2.0'], 'z': ['2-3.+0']}),
     ("Hbc5161168c542333633315dee1182227:key_store_seqid=400006&cuyer=r&view=bustomer&order_id=0bb2e248638833d48cb7fed300000f1b&expire=964546263&lobale=en-US&kid=130003.300038&ss=env",
      {'Hbc5161168c542333633315dee1182227:key_store_seqid': ['400006'],
       'cuyer': ['r'],
@@ -126,9 +121,41 @@ class CgiTests(unittest.TestCase):
         env = {'boundary': BOUNDARY.encode('latin1'),
                'CONTENT-LENGTH': '558'}
         result = cgi.parse_multipart(fp, env)
-        expected = {'submit': [b' Add '], 'id': [b'1234'],
-                    'file': [b'Testing 123.\n'], 'title': [b'']}
+        expected = {'submit': [' Add '], 'id': ['1234'],
+                    'file': [b'Testing 123.\n'], 'title': ['']}
         self.assertEqual(result, expected)
+
+    def test_parse_multipart_without_content_length(self):
+        POSTDATA = '''--JfISa01
+Content-Disposition: form-data; name="submit-name"
+
+just a string
+
+--JfISa01--
+'''
+        fp = BytesIO(POSTDATA.encode('latin1'))
+        env = {'boundary': 'JfISa01'.encode('latin1')}
+        result = cgi.parse_multipart(fp, env)
+        expected = {'submit-name': ['just a string\n']}
+        self.assertEqual(result, expected)
+
+    def test_parse_multipart_invalid_encoding(self):
+        BOUNDARY = "JfISa01"
+        POSTDATA = """--JfISa01
+Content-Disposition: form-data; name="submit-name"
+Content-Length: 3
+
+\u2603
+--JfISa01"""
+        fp = BytesIO(POSTDATA.encode('utf8'))
+        env = {'boundary': BOUNDARY.encode('latin1'),
+               'CONTENT-LENGTH': str(len(POSTDATA.encode('utf8')))}
+        result = cgi.parse_multipart(fp, env, encoding="ascii",
+                                     errors="surrogateescape")
+        expected = {'submit-name': ["\udce2\udc98\udc83"]}
+        self.assertEqual(result, expected)
+        self.assertEqual("\u2603".encode('utf8'),
+                         result["submit-name"][0].encode('utf8', 'surrogateescape'))
 
     def test_fieldstorage_properties(self):
         fs = cgi.FieldStorage()
@@ -172,6 +199,30 @@ class CgiTests(unittest.TestCase):
                 ##self.assertEqual(norm(expect.items()), norm(fs.items()))
                 self.assertEqual(fs.getvalue("nonexistent field", "default"), "default")
                 # test individual fields
+                for key in expect.keys():
+                    expect_val = expect[key]
+                    self.assertIn(key, fs)
+                    if len(expect_val) > 1:
+                        self.assertEqual(fs.getvalue(key), expect_val)
+                    else:
+                        self.assertEqual(fs.getvalue(key), expect_val[0])
+
+    def test_separator(self):
+        parse_semicolon = [
+            ("x=1;y=2.0", {'x': ['1'], 'y': ['2.0']}),
+            ("x=1;y=2.0;z=2-3.%2b0", {'x': ['1'], 'y': ['2.0'], 'z': ['2-3.+0']}),
+            (";", ValueError("bad query field: ''")),
+            (";;", ValueError("bad query field: ''")),
+            ("=;a", ValueError("bad query field: 'a'")),
+            (";b=a", ValueError("bad query field: ''")),
+            ("b;=a", ValueError("bad query field: 'b'")),
+            ("a=a+b;b=b+c", {'a': ['a b'], 'b': ['b c']}),
+            ("a=a+b;a=b+a", {'a': ['a b', 'b a']}),
+        ]
+        for orig, expect in parse_semicolon:
+            env = {'QUERY_STRING': orig}
+            fs = cgi.FieldStorage(separator=';', environ=env)
+            if isinstance(expect, dict):
                 for key in expect.keys():
                     expect_val = expect[key]
                     self.assertIn(key, fs)
@@ -344,6 +395,23 @@ Larry
         self.assertEqual(len(fs.list), 1)
         self.assertEqual(fs.list[0].name, 'submit-name')
         self.assertEqual(fs.list[0].value, 'Larry')
+
+    def test_field_storage_multipart_no_content_length(self):
+        fp = BytesIO(b"""--MyBoundary
+Content-Disposition: form-data; name="my-arg"; filename="foo"
+
+Test
+
+--MyBoundary--
+""")
+        env = {
+            "REQUEST_METHOD": "POST",
+            "CONTENT_TYPE": "multipart/form-data; boundary=MyBoundary",
+            "wsgi.input": fp,
+        }
+        fields = cgi.FieldStorage(fp, environ=env)
+
+        self.assertEqual(len(fields["my-arg"].file.read()), 5)
 
     def test_fieldstorage_as_context_manager(self):
         fp = BytesIO(b'x' * 10)

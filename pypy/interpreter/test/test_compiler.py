@@ -1,10 +1,10 @@
 # encoding: utf-8
-import __future__
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.argument import Arguments
+from pypy.tool import stdlib___future__ as __future__
 
 class TestPythonAstCompiler:
     def setup_method(self, method):
@@ -80,10 +80,11 @@ class TestPythonAstCompiler:
             ('<string>', 3, 2, ' y\n'))
 
     def test_getcodeflags(self):
-        code = self.compiler.compile('from __future__ import division\n',
+        code = self.compiler.compile('from __future__ import division, annotations\n',
                                      '<hello>', 'exec', 0)
         flags = self.compiler.getcodeflags(code)
         assert flags & __future__.division.compiler_flag == 0
+        assert flags & __future__.annotations.compiler_flag
         # check that we don't get more flags than the compiler can accept back
         code2 = self.compiler.compile('print(6*7)', '<hello>', 'exec', flags)
         # check that the flag remains in force
@@ -343,7 +344,6 @@ class TestPythonAstCompiler:
             assert ex.match(self.space, self.space.w_SyntaxError)
 
     def test_globals_warnings(self):
-        # also tests some other constructions that give a warning
         space = self.space
         w_mod = space.appexec((), '():\n import warnings\n return warnings\n') #sys.getmodule('warnings')
         w_filterwarnings = space.getattr(w_mod, space.wrap('filterwarnings'))
@@ -365,18 +365,6 @@ def wrong3():
     print x
     x = 2
     global x
-''', '''
-def wrong_listcomp():
-    return [(yield 42) for i in j]
-''', '''
-def wrong_gencomp():
-    return ((yield 42) for i in j)
-''', '''
-def wrong_dictcomp():
-    return {(yield 42):2 for i in j}
-''', '''
-def wrong_setcomp():
-    return {(yield 42) for i in j}
 '''):
 
             space.call_args(w_filterwarnings, filter_arg)

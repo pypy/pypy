@@ -33,10 +33,7 @@ import datetime
 import re
 import time
 import urllib.parse, urllib.request
-try:
-    import threading as _threading
-except ImportError:
-    import dummy_threading as _threading
+import threading as _threading
 import http.client  # only for the default HTTP port
 from calendar import timegm
 
@@ -1599,6 +1596,7 @@ class CookieJar:
         headers = response.info()
         rfc2965_hdrs = headers.get_all("Set-Cookie2", [])
         ns_hdrs = headers.get_all("Set-Cookie", [])
+        self._policy._now = self._now = int(time.time())
 
         rfc2965 = self._policy.rfc2965
         netscape = self._policy.netscape
@@ -1678,8 +1676,6 @@ class CookieJar:
         _debug("extract_cookies: %s", response.info())
         self._cookies_lock.acquire()
         try:
-            self._policy._now = self._now = int(time.time())
-
             for cookie in self.make_cookies(response, request):
                 if self._policy.set_ok(cookie, request):
                     _debug(" setting cookie: %s", cookie)

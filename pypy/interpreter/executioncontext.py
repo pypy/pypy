@@ -44,6 +44,8 @@ class ExecutionContext(object):
         self.in_coroutine_wrapper = False
         self.w_asyncgen_firstiter_fn = None
         self.w_asyncgen_finalizer_fn = None
+        self.contextvar_context = None
+        self.coroutine_origin_tracking_depth = 0
 
     @staticmethod
     def _mark_thread_disappeared(space):
@@ -181,7 +183,8 @@ class ExecutionContext(object):
         if d.instr_lb <= frame.last_instr < d.instr_ub:
             if frame.last_instr < d.instr_prev_plus_one:
                 # We jumped backwards in the same line.
-                self._trace(frame, 'line', self.space.w_None)
+                if d.f_trace_lines:
+                    self._trace(frame, 'line', self.space.w_None)
         else:
             size = len(code.co_lnotab) / 2
             addr = 0
@@ -217,7 +220,10 @@ class ExecutionContext(object):
 
             if d.instr_lb == frame.last_instr: # At start of line!
                 d.f_lineno = line
-                self._trace(frame, 'line', self.space.w_None)
+                if d.f_trace_lines:
+                    self._trace(frame, 'line', self.space.w_None)
+        if d.f_trace_opcodes:
+            self._trace(frame, 'opcode', self.space.w_None)
 
         d.instr_prev_plus_one = frame.last_instr + 1
 

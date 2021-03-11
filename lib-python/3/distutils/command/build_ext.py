@@ -160,9 +160,10 @@ class build_ext(Command):
 
         # Put the Python "system" include dir at the end, so that
         # any local include dirs take precedence.
-        self.include_dirs.append(py_include)
+        self.include_dirs.extend(py_include.split(os.path.pathsep))
         if plat_py_include != py_include:
-            self.include_dirs.append(plat_py_include)
+            self.include_dirs.extend(
+                plat_py_include.split(os.path.pathsep))
 
         self.ensure_string_list('libraries')
         self.ensure_string_list('link_objects')
@@ -210,7 +211,7 @@ class build_ext(Command):
             if self.plat_name == 'win32':
                 suffix = 'win32'
             else:
-                # win-amd64 or win-ia64
+                # win-amd64
                 suffix = self.plat_name[4:]
             new_lib = os.path.join(sys.exec_prefix, 'PCbuild')
             if suffix:
@@ -218,9 +219,9 @@ class build_ext(Command):
             # pypy has no PCBuild directory
             # self.library_dirs.append(new_lib)
 
-        # for extensions under Cygwin and AtheOS Python's library directory must be
+        # For extensions under Cygwin, Python's library directory must be
         # appended to library_dirs
-        if sys.platform[:6] == 'cygwin' or sys.platform[:6] == 'atheos':
+        if sys.platform[:6] == 'cygwin':
             if sys.executable.startswith(os.path.join(sys.exec_prefix, "bin")):
                 # building third party extensions
                 self.library_dirs.append(os.path.join(sys.prefix, "lib",
@@ -718,29 +719,6 @@ class build_ext(Command):
                 return ext.libraries + [pythonlib]
             else:
                 return ext.libraries
-        elif sys.platform[:6] == "cygwin":
-            template = "python%d.%d"
-            pythonlib = (template %
-                   (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
-            # don't extend ext.libraries, it may be shared with other
-            # extensions, it is a reference to the original list
-            return ext.libraries + [pythonlib]
-        elif sys.platform[:6] == "atheos":
-            from distutils import sysconfig
-
-            template = "python%d.%d"
-            pythonlib = (template %
-                   (sys.hexversion >> 24, (sys.hexversion >> 16) & 0xff))
-            # Get SHLIBS from Makefile
-            extra = []
-            for lib in sysconfig.get_config_var('SHLIBS').split():
-                if lib.startswith('-l'):
-                    extra.append(lib[2:])
-                else:
-                    extra.append(lib)
-            # don't extend ext.libraries, it may be shared with other
-            # extensions, it is a reference to the original list
-            return ext.libraries + [pythonlib, "m"] + extra
         elif sys.platform == 'darwin':
             # Don't use the default code below
             return ext.libraries

@@ -6,7 +6,7 @@ from pypy.interpreter.typedef import make_weakref_descr
 from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from rpython.rlib.objectmodel import compute_hash
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, int_between
 from rpython.rlib import jit, rutf8
 from rpython.rlib.rstring import StringBuilder
 
@@ -15,13 +15,24 @@ from rpython.rlib.rstring import StringBuilder
 # Constants and exposed functions
 
 from rpython.rlib.rsre import rsre_core, rsre_char, rsre_utf8, rsre_constants as consts
-from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, getlower, set_unicode_db
+from rpython.rlib.rsre.rsre_char import CODESIZE, MAXREPEAT, MAXGROUPS, set_unicode_db
 
 
-@unwrap_spec(char_ord=int, flags=int)
-def w_getlower(space, char_ord, flags):
-    return space.newint(getlower(char_ord, flags))
+@unwrap_spec(character=int)
+def w_ascii_iscased(space, character):
+    return space.newbool(rsre_char.iscased_ascii(character))
 
+@unwrap_spec(character=int)
+def w_unicode_iscased(space, character):
+    return space.newbool(rsre_char.iscased_unicode(character))
+
+@unwrap_spec(character=int)
+def w_ascii_tolower(space, character):
+    return space.newint(rsre_char.getlower_ascii(character))
+
+@unwrap_spec(character=int)
+def w_unicode_tolower(space, character):
+    return space.newint(rsre_char.getlower_unicode(character))
 
 def w_getcodesize(space):
     return space.newint(CODESIZE)
@@ -90,8 +101,7 @@ def allgroups_w(space, ctx, fmarks, num_groups, w_default):
 
 
 def import_re(space):
-    w_import = space.getattr(space.builtin, space.newtext("__import__"))
-    return space.call_function(w_import, space.newtext("re"))
+    return space.fromcache(AppReCache).get_re()
 
 def matchcontext(space, ctx, pattern):
     try:
@@ -113,12 +123,27 @@ FLAG_NAMES = ["re.TEMPLATE", "re.IGNORECASE", "re.LOCALE", "re.MULTILINE",
               "re.DOTALL", "re.UNICODE", "re.VERBOSE", "re.DEBUG",
               "re.ASCII"]
 
+
+class AppReCache(object):
+    def __init__(self, space):
+        self.space = space
+        self.w_re = None
+
+    def get_re(self):
+        if self.w_re is not None:
+            return self.w_re
+        space = self.space
+        w_import = space.getattr(space.builtin, space.newtext("__import__"))
+        w_re = space.call_function(w_import, space.newtext("re"))
+        self.w_re = w_re
+        return w_re
+
+
 class W_SRE_Pattern(W_Root):
     _immutable_fields_ = ["code", "flags", "num_groups", "w_groupindex"]
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this pattern object")
+    def copy_identity_w(self, args_w):
+        return self
 
     def repr_w(self):
         space = self.space
@@ -313,12 +338,7 @@ class W_SRE_Pattern(W_Root):
                     w_item = allgroups_w(space, ctx, fmarks, num_groups,
                                          w_emptystr)
             matchlist_w.append(w_item)
-            reset_at = ctx.match_end
-            if ctx.match_start == ctx.match_end:
-                if reset_at == ctx.end:
-                    break
-                reset_at = ctx.next_indirect(reset_at)
-            ctx.reset(reset_at)
+            ctx.reset(ctx.match_end, ctx.match_start == ctx.match_end)
         return space.newlist(matchlist_w)
 
     @unwrap_spec(pos=int, endpos=int)
@@ -332,38 +352,29 @@ class W_SRE_Pattern(W_Root):
     @unwrap_spec(maxsplit=int)
     def split_w(self, w_string, maxsplit=0):
         space = self.space
-
-        if self.code.pattern[0] != consts.OPCODE_INFO or self.code.pattern[3] == 0:
-            if self.code.pattern[0] == consts.OPCODE_INFO and self.code.pattern[4] == 0:
-                raise oefmt(space.w_ValueError,
-                            "split() requires a non-empty pattern match.")
-            space.warn(
-                space.newtext("split() requires a non-empty pattern match."),
-                space.w_FutureWarning)
         #
         splitlist = []
         n = 0
         ctx = self.make_ctx(w_string)
         last = ctx.ZERO
         while not maxsplit or n < maxsplit:
-            if not searchcontext(space, ctx, self.code):
+            pattern = self.code
+            num_groups = self.num_groups
+            split_jitdriver.jit_merge_point(
+                pattern=pattern, num_groups=num_groups, ctx_type=type(ctx))
+            if not searchcontext(space, ctx, pattern):
                 break
-            if ctx.match_start == ctx.match_end:     # zero-width match
-                if ctx.match_start == ctx.end:       # or end of string
-                    break
-                ctx.reset(ctx.next_indirect(ctx.match_end))
-                continue
             splitlist.append(slice_w(space, ctx, last, ctx.match_start,
                                      space.w_None))
             # add groups (if any)
-            fmarks = do_flatten_marks(ctx, self.num_groups)
-            for groupnum in range(self.num_groups):
+            fmarks = do_flatten_marks(ctx, num_groups)
+            for groupnum in range(num_groups):
                 groupstart, groupend = fmarks[groupnum*2], fmarks[groupnum*2+1]
                 splitlist.append(slice_w(space, ctx, groupstart, groupend,
                                          space.w_None))
             n += 1
             last = ctx.match_end
-            ctx.reset(last)
+            ctx.reset(last, ctx.match_start == last)
         splitlist.append(slice_w(space, ctx, last, ctx.end, space.w_None))
         return space.newlist(splitlist)
 
@@ -463,9 +474,7 @@ class W_SRE_Pattern(W_Root):
                 _sub_append_slice(
                     ctx, space, use_builder, sublist_w,
                     strbuilder, last_pos, ctx.match_start)
-            if not (last_pos == ctx.match_start
-                             == ctx.match_end and n > 0):
-                # the above ignores empty matches on latest position
+            if 1:  # keeps the following block indented
                 last_pos = ctx.match_end
                 if filter_is_callable:
                     w_match = self.getmatch(ctx, True)
@@ -484,15 +493,9 @@ class W_SRE_Pattern(W_Root):
                     else:
                         sublist_w.append(w_filter)
                 n += 1
-            elif last_pos >= ctx.end:
-                break    # empty match at the end: finished
 
             start = ctx.match_end
-            if start == ctx.match_start:
-                if start == ctx.end:
-                    break
-                start = ctx.next_indirect(start)
-            ctx.reset(start)
+            ctx.reset(start, ctx.match_start == start)
 
         if last_pos < ctx.end:
             _sub_append_slice(ctx, space, use_builder, sublist_w,
@@ -519,6 +522,17 @@ class W_SRE_Pattern(W_Root):
                                        space.newlist(sublist_w))
             return w_item, n
 
+def sub_get_printable_location(filter_is_callable, use_builder, filter_type, pattern):
+    s = str(pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+    if use_builder == '\x00':
+        use_builder = 'list'
+    else:
+        use_builder = "%sBuilder" % use_builder
+
+    return "re.sub %s %s %s %s" % (s, filter_is_callable, use_builder, filter_type)
+
 sub_jitdriver = jit.JitDriver(
     reds="""count n last_pos
             ctx w_filter
@@ -526,8 +540,23 @@ sub_jitdriver = jit.JitDriver(
             filter_as_string
             w_string sublist_w
             self""".split(),
-    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"])
+    greens=["filter_is_callable", "use_builder", "filter_type", "pattern"],
+    get_printable_location=sub_get_printable_location,
+    )
 
+
+def split_get_printable_location(num_groups, ctx_type, pattern):
+    s = str(pattern)
+    if len(s) > 120:
+        s = s[:110] + '...'
+
+    return "re.split %s %s %s" % (s, num_groups, ctx_type)
+
+split_jitdriver = jit.JitDriver(
+    reds="auto",
+    greens=["num_groups", "ctx_type", "pattern"],
+    get_printable_location=split_get_printable_location,
+)
 
 def _sub_append_slice(ctx, space, use_builder, sublist_w,
                       strbuilder, start, end):
@@ -580,10 +609,10 @@ def SRE_Pattern__new__(space, w_subtype, w_pattern, flags, w_code,
 
 
 W_SRE_Pattern.typedef = TypeDef(
-    '_sre.SRE_Pattern',
+    're.Pattern',
     __new__      = interp2app(SRE_Pattern__new__),
-    __copy__     = interp2app(W_SRE_Pattern.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Pattern.cannot_copy_w),
+    __copy__     = interp2app(W_SRE_Pattern.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Pattern.copy_identity_w),
     __repr__     = interp2app(W_SRE_Pattern.repr_w),
     __weakref__  = make_weakref_descr(W_SRE_Pattern),
     __eq__       = interp2app(W_SRE_Pattern.descr_eq),
@@ -632,12 +661,11 @@ class W_SRE_Match(W_Root):
         u = space.utf8_w(w_s)
         start = self.bytepos_to_charindex(start)
         end = self.bytepos_to_charindex(end)
-        return space.newtext('<_sre.SRE_Match object; span=(%d, %d), match=%s>' %
+        return space.newtext('<re.Match object; span=(%d, %d), match=%s>' %
                           (start, end, u))
 
-    def cannot_copy_w(self):
-        space = self.space
-        raise oefmt(space.w_TypeError, "cannot copy this match object")
+    def copy_identity_w(self, args_w):
+        return self
 
     def descr_getitem(self, space, w_index):
         start, end = self.do_span(w_index)
@@ -814,9 +842,9 @@ class W_SRE_Match(W_Root):
 
 
 W_SRE_Match.typedef = TypeDef(
-    '_sre.SRE_Match',
-    __copy__     = interp2app(W_SRE_Match.cannot_copy_w),
-    __deepcopy__ = interp2app(W_SRE_Match.cannot_copy_w),
+    're.Match',
+    __copy__     = interp2app(W_SRE_Match.copy_identity_w),
+    __deepcopy__ = interp2app(W_SRE_Match.copy_identity_w),
     __repr__     = interp2app(W_SRE_Match.repr_w),
     __getitem__  = interp2app(W_SRE_Match.descr_getitem),
     #
@@ -878,18 +906,10 @@ class W_SRE_Scanner(W_Root):
         ctx = self.ctx
         assert ctx is not None
         if found:
+            thisstart = ctx.match_start
             nextstart = ctx.match_end
-            exhausted = False
-            if ctx.match_start == nextstart:
-                if nextstart == ctx.end:
-                    exhausted = True
-                else:
-                    nextstart = ctx.next_indirect(nextstart)
-            if exhausted:
-                self.ctx = None
-            else:
-                self.ctx = self.srepat.fresh_copy(ctx)
-                self.ctx.match_start = nextstart
+            self.ctx = self.srepat.fresh_copy(ctx)
+            self.ctx.reset(nextstart, thisstart == nextstart)
             match = W_SRE_Match(self.srepat, ctx)
             return match
         else:

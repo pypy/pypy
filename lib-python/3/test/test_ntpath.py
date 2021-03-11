@@ -7,11 +7,26 @@ from test.support import TestFailed, FakePath
 from test import support, test_genericpath
 from tempfile import TemporaryFile
 
+try:
+    import nt
+except ImportError:
+    # Most tests can complete without the nt module,
+    # but for those that require it we import here.
+    nt = None
+
+
+def _norm(path):
+    if isinstance(path, (bytes, str, os.PathLike)):
+        return ntpath.normcase(os.fsdecode(path))
+    elif hasattr(path, "__iter__"):
+        return tuple(ntpath.normcase(os.fsdecode(p)) for p in path)
+    return path
+
 
 def tester(fn, wantResult):
     fn = fn.replace("\\", "\\\\")
     gotResult = eval(fn)
-    if wantResult != gotResult:
+    if wantResult != gotResult and _norm(wantResult) != _norm(gotResult):
         raise TestFailed("%s should return: %s but returned: %s" \
               %(str(fn), str(wantResult), str(gotResult)))
 
@@ -27,18 +42,22 @@ def tester(fn, wantResult):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         gotResult = eval(fn)
-    if isinstance(wantResult, str):
-        wantResult = os.fsencode(wantResult)
-    elif isinstance(wantResult, tuple):
-        wantResult = tuple(os.fsencode(r) for r in wantResult)
-
-    gotResult = eval(fn)
-    if wantResult != gotResult:
+    if _norm(wantResult) != _norm(gotResult):
         raise TestFailed("%s should return: %s but returned: %s" \
               %(str(fn), str(wantResult), repr(gotResult)))
 
 
-class TestNtpath(unittest.TestCase):
+class NtpathTestCase(unittest.TestCase):
+    def assertPathEqual(self, path1, path2):
+        if path1 == path2 or _norm(path1) == _norm(path2):
+            return
+        self.assertEqual(path1, path2)
+
+    def assertPathIn(self, path, pathset):
+        self.assertIn(_norm(path), _norm(pathset))
+
+
+class TestNtpath(NtpathTestCase):
     def test_splitext(self):
         tester('ntpath.splitext("foo.ext")', ('foo', '.ext'))
         tester('ntpath.splitext("/foo/foo.ext")', ('/foo/foo', '.ext'))
@@ -71,29 +90,6 @@ class TestNtpath(unittest.TestCase):
         # Issue #19911: UNC part containing U+0130
         self.assertEqual(ntpath.splitdrive('//conky/MOUNTPOİNT/foo/bar'),
                          ('//conky/MOUNTPOİNT', '/foo/bar'))
-
-    def test_splitunc(self):
-        with self.assertWarns(DeprecationWarning):
-            ntpath.splitunc('')
-        with support.check_warnings(('', DeprecationWarning)):
-            tester('ntpath.splitunc("c:\\foo\\bar")',
-                   ('', 'c:\\foo\\bar'))
-            tester('ntpath.splitunc("c:/foo/bar")',
-                   ('', 'c:/foo/bar'))
-            tester('ntpath.splitunc("\\\\conky\\mountpoint\\foo\\bar")',
-                   ('\\\\conky\\mountpoint', '\\foo\\bar'))
-            tester('ntpath.splitunc("//conky/mountpoint/foo/bar")',
-                   ('//conky/mountpoint', '/foo/bar'))
-            tester('ntpath.splitunc("\\\\\\conky\\mountpoint\\foo\\bar")',
-                   ('', '\\\\\\conky\\mountpoint\\foo\\bar'))
-            tester('ntpath.splitunc("///conky/mountpoint/foo/bar")',
-                   ('', '///conky/mountpoint/foo/bar'))
-            tester('ntpath.splitunc("\\\\conky\\\\mountpoint\\foo\\bar")',
-                   ('', '\\\\conky\\\\mountpoint\\foo\\bar'))
-            tester('ntpath.splitunc("//conky//mountpoint/foo/bar")',
-                   ('', '//conky//mountpoint/foo/bar'))
-            self.assertEqual(ntpath.splitunc('//conky/MOUNTPOİNT/foo/bar'),
-                             ('//conky/MOUNTPOİNT', '/foo/bar'))
 
     def test_split(self):
         tester('ntpath.split("c:\\foo\\bar")', ('c:\\foo', 'bar'))
@@ -294,23 +290,15 @@ class TestNtpath(unittest.TestCase):
             tester('ntpath.expanduser("~/foo/bar")',
                    'C:\\idle\\eric/foo/bar')
 
+    @unittest.skipUnless(nt, "abspath requires 'nt' module")
     def test_abspath(self):
-        # ntpath.abspath() can only be used on a system with the "nt" module
-        # (reasonably), so we protect this test with "import nt".  This allows
-        # the rest of the tests for the ntpath module to be run to completion
-        # on any platform, since most of the module is intended to be usable
-        # from any platform.
-        try:
-            import nt
-            tester('ntpath.abspath("C:\\")', "C:\\")
-            with support.temp_cwd(support.TESTFN) as cwd_dir: # bpo-31047
-                tester('ntpath.abspath("")', cwd_dir)
-                tester('ntpath.abspath(" ")', cwd_dir + "\\ ")
-                tester('ntpath.abspath("?")', cwd_dir + "\\?")
-                drive, _ = ntpath.splitdrive(cwd_dir)
-                tester('ntpath.abspath("/abc/")', drive + "\\abc")
-        except ImportError:
-            self.skipTest('nt module not available')
+        tester('ntpath.abspath("C:\\")', "C:\\")
+        with support.temp_cwd(support.TESTFN) as cwd_dir: # bpo-31047
+            tester('ntpath.abspath("")', cwd_dir)
+            tester('ntpath.abspath(" ")', cwd_dir + "\\ ")
+            tester('ntpath.abspath("?")', cwd_dir + "\\?")
+            drive, _ = ntpath.splitdrive(cwd_dir)
+            tester('ntpath.abspath("/abc/")', drive + "\\abc")
 
     def test_relpath(self):
         tester('ntpath.relpath("a")', 'a')
@@ -453,12 +441,40 @@ class TestNtpath(unittest.TestCase):
             self.assertTrue(ntpath.ismount(b"\\\\localhost\\c$"))
             self.assertTrue(ntpath.ismount(b"\\\\localhost\\c$\\"))
 
+    @unittest.skipUnless(nt, "OS helpers require 'nt' module")
+    def test_nt_helpers(self):
+        # Trivial validation that the helpers do not break, and support both
+        # unicode and bytes (UTF-8) paths
+
+        drive, path = ntpath.splitdrive(sys.executable)
+        drive = drive.rstrip(ntpath.sep) + ntpath.sep
+        self.assertEqual(drive, nt._getvolumepathname(sys.executable))
+        self.assertEqual(drive.encode(),
+                         nt._getvolumepathname(sys.executable.encode()))
+
+        cap, free = nt._getdiskusage(sys.exec_prefix)
+        self.assertGreater(cap, 0)
+        self.assertGreater(free, 0)
+        b_cap, b_free = nt._getdiskusage(sys.exec_prefix.encode())
+        # Free space may change, so only test the capacity is equal
+        self.assertEqual(b_cap, cap)
+        self.assertGreater(b_free, 0)
+
+        for path in [sys.prefix, sys.executable]:
+            final_path = nt._getfinalpathname(path)
+            self.assertIsInstance(final_path, str)
+            self.assertGreater(len(final_path), 0)
+
+            b_final_path = nt._getfinalpathname(path.encode())
+            self.assertIsInstance(b_final_path, bytes)
+            self.assertGreater(len(b_final_path), 0)
+
 class NtCommonTest(test_genericpath.CommonTest, unittest.TestCase):
     pathmodule = ntpath
-    attributes = ['relpath', 'splitunc']
+    attributes = ['relpath']
 
 
-class PathLikeTests(unittest.TestCase):
+class PathLikeTests(NtpathTestCase):
 
     path = ntpath
 
@@ -469,67 +485,67 @@ class PathLikeTests(unittest.TestCase):
         with open(self.file_name, 'xb', 0) as file:
             file.write(b"test_ntpath.PathLikeTests")
 
-    def assertPathEqual(self, func):
-        self.assertEqual(func(self.file_path), func(self.file_name))
+    def _check_function(self, func):
+        self.assertPathEqual(func(self.file_path), func(self.file_name))
 
     def test_path_normcase(self):
-        self.assertPathEqual(self.path.normcase)
+        self._check_function(self.path.normcase)
 
     def test_path_isabs(self):
-        self.assertPathEqual(self.path.isabs)
+        self._check_function(self.path.isabs)
 
     def test_path_join(self):
         self.assertEqual(self.path.join('a', FakePath('b'), 'c'),
                          self.path.join('a', 'b', 'c'))
 
     def test_path_split(self):
-        self.assertPathEqual(self.path.split)
+        self._check_function(self.path.split)
 
     def test_path_splitext(self):
-        self.assertPathEqual(self.path.splitext)
+        self._check_function(self.path.splitext)
 
     def test_path_splitdrive(self):
-        self.assertPathEqual(self.path.splitdrive)
+        self._check_function(self.path.splitdrive)
 
     def test_path_basename(self):
-        self.assertPathEqual(self.path.basename)
+        self._check_function(self.path.basename)
 
     def test_path_dirname(self):
-        self.assertPathEqual(self.path.dirname)
+        self._check_function(self.path.dirname)
 
     def test_path_islink(self):
-        self.assertPathEqual(self.path.islink)
+        self._check_function(self.path.islink)
 
     def test_path_lexists(self):
-        self.assertPathEqual(self.path.lexists)
+        self._check_function(self.path.lexists)
 
     def test_path_ismount(self):
-        self.assertPathEqual(self.path.ismount)
+        self._check_function(self.path.ismount)
 
     def test_path_expanduser(self):
-        self.assertPathEqual(self.path.expanduser)
+        self._check_function(self.path.expanduser)
 
     def test_path_expandvars(self):
-        self.assertPathEqual(self.path.expandvars)
+        self._check_function(self.path.expandvars)
 
     def test_path_normpath(self):
-        self.assertPathEqual(self.path.normpath)
+        self._check_function(self.path.normpath)
 
     def test_path_abspath(self):
-        self.assertPathEqual(self.path.abspath)
+        self._check_function(self.path.abspath)
 
     def test_path_realpath(self):
-        self.assertPathEqual(self.path.realpath)
+        self._check_function(self.path.realpath)
 
     def test_path_relpath(self):
-        self.assertPathEqual(self.path.relpath)
+        self._check_function(self.path.relpath)
 
     def test_path_commonpath(self):
         common_path = self.path.commonpath([self.file_path, self.file_name])
-        self.assertEqual(common_path, self.file_name)
+        self.assertPathEqual(common_path, self.file_name)
 
     def test_path_isdir(self):
-        self.assertPathEqual(self.path.isdir)
+        self._check_function(self.path.isdir)
 
 
 if __name__ == "__main__":

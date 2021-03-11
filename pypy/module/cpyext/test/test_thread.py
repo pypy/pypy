@@ -128,3 +128,63 @@ class AppTestThread(AppTestCpythonExtensionBase):
             print(".")
             time.sleep(.5)
         assert result == [True]
+
+    def test_tss(self):
+        module = self.import_extension('foo', [
+            ("tss", "METH_NOARGS",
+             """
+                void *tss_key = NULL;
+                /* non-Py_LIMITED_API */
+                Py_tss_t _tss_key = Py_tss_NEEDS_INIT;
+                int the_value = 1;
+                if ( PyThread_tss_is_created(&_tss_key) ) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "tss_is_created should not succeed yet");
+                     return NULL;
+                }
+                /* This should be a no-op */
+                PyThread_tss_delete(&_tss_key);
+                /* Py_LIMITED_API */
+                tss_key = PyThread_tss_alloc();
+                if ( PyThread_tss_is_created(tss_key) ) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "tss_is_created should not succeed yet");
+                     return NULL;
+                }
+                if (PyThread_tss_create(tss_key)) {
+                    return NULL;
+                }
+                if (! PyThread_tss_is_created(tss_key)) {
+                    return NULL;
+                }
+                /* Be sure additional calls succeed */
+                if (PyThread_tss_create(tss_key)) {
+                    return NULL;
+                }
+                if (PyThread_tss_get(tss_key) != NULL) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "tss_get should not succeed yet");
+                    return NULL;
+                }
+                
+                if (PyThread_tss_set(tss_key, (void *)&the_value)) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "tss_set failed");
+                    return NULL;
+                }
+                void *val = PyThread_tss_get(tss_key);
+                if (val == NULL) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "tss_get failed");
+                    return NULL;
+                }
+                if (the_value != *(int*)val) {
+                     PyErr_SetString(PyExc_AssertionError,
+                         "retrieved value is wrong");
+                    return NULL;
+                }
+                PyThread_tss_free(tss_key);
+                Py_RETURN_NONE;
+             """),
+            ])
+        module.tss()

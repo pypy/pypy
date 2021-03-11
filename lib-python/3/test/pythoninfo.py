@@ -6,6 +6,7 @@ import errno
 import re
 import sys
 import traceback
+import warnings
 
 
 def normalize_text(text):
@@ -142,7 +143,11 @@ def collect_platform(info_add):
     info_add('platform.python_implementation',
              platform.python_implementation())
     info_add('platform.platform',
-             platform.platform(aliased=True, terse=True))
+             platform.platform(aliased=True))
+
+    libc_ver = ('%s %s' % platform.libc_ver()).strip()
+    if libc_ver:
+        info_add('platform.libc_ver', libc_ver)
 
 
 def collect_locale(info_add):
@@ -335,6 +340,9 @@ def collect_gdb(info_add):
                                 stderr=subprocess.PIPE,
                                 universal_newlines=True)
         version = proc.communicate()[0]
+        if proc.returncode:
+            # ignore gdb failure: test_gdb will log the error
+            return
     except OSError:
         return
 
@@ -376,9 +384,17 @@ def collect_time(info_add):
     copy_attributes(info_add, time, 'time.%s', attributes)
 
     if hasattr(time, 'get_clock_info'):
-        for clock in ('time', 'perf_counter'):
-            tinfo = time.get_clock_info(clock)
-            info_add('time.get_clock_info(%s)' % clock, tinfo)
+        for clock in ('clock', 'monotonic', 'perf_counter',
+                      'process_time', 'thread_time', 'time'):
+            try:
+                # prevent DeprecatingWarning on get_clock_info('clock')
+                with warnings.catch_warnings(record=True):
+                    clock_info = time.get_clock_info(clock)
+            except ValueError:
+                # missing clock like time.thread_time()
+                pass
+            else:
+                info_add('time.get_clock_info(%s)' % clock, clock_info)
 
 
 def collect_datetime(info_add):
@@ -410,6 +426,7 @@ def collect_sysconfig(info_add):
         'PY_CORE_LDFLAGS',
         'PY_LDFLAGS',
         'PY_LDFLAGS_NODIST',
+        'PY_STDMODULE_CFLAGS',
         'Py_DEBUG',
         'Py_ENABLE_SHARED',
         'SHELL',
@@ -425,10 +442,15 @@ def collect_sysconfig(info_add):
 
 
 def collect_ssl(info_add):
+    import os
     try:
         import ssl
     except ImportError:
         return
+    try:
+        import _ssl
+    except ImportError:
+        _ssl = None
 
     def format_attr(attr, value):
         if attr.startswith('OP_'):
@@ -444,6 +466,32 @@ def collect_ssl(info_add):
         'OP_NO_TLSv1_1',
     )
     copy_attributes(info_add, ssl, 'ssl.%s', attributes, formatter=format_attr)
+
+    for name, ctx in (
+        ('SSLContext', ssl.SSLContext()),
+        ('default_https_context', ssl._create_default_https_context()),
+        ('stdlib_context', ssl._create_stdlib_context()),
+    ):
+        attributes = (
+            'minimum_version',
+            'maximum_version',
+            'protocol',
+            'options',
+            'verify_mode',
+        )
+        copy_attributes(info_add, ctx, f'ssl.{name}.%s', attributes)
+
+    env_names = ["OPENSSL_CONF", "SSLKEYLOGFILE"]
+    if _ssl is not None and hasattr(_ssl, 'get_default_verify_paths'):
+        parts = _ssl.get_default_verify_paths()
+        env_names.extend((parts[0], parts[2]))
+
+    for name in env_names:
+        try:
+            value = os.environ[name]
+        except KeyError:
+            continue
+        info_add('ssl.environ[%s]' % name, value)
 
 
 def collect_socket(info_add):
@@ -515,6 +563,8 @@ def collect_resource(info_add):
         value = resource.getrlimit(key)
         info_add('resource.%s' % name, value)
 
+    call_func(info_add, 'resource.pagesize', resource, 'getpagesize')
+
 
 def collect_test_socket(info_add):
     try:
@@ -555,10 +605,17 @@ def collect_cc(info_add):
     except ImportError:
         args = CC.split()
     args.append('--version')
-    proc = subprocess.Popen(args,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT,
-                            universal_newlines=True)
+    try:
+        proc = subprocess.Popen(args,
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                universal_newlines=True)
+    except OSError:
+        # Cannot run the compiler, for example when Python has been
+        # cross-compiled and installed on the target platform where the
+        # compiler is missing.
+        return
+
     stdout = proc.communicate()[0]
     if proc.returncode:
         # CC --version failed: ignore error
@@ -567,6 +624,35 @@ def collect_cc(info_add):
     text = stdout.splitlines()[0]
     text = normalize_text(text)
     info_add('CC.version', text)
+
+
+def collect_gdbm(info_add):
+    try:
+        from _gdbm import _GDBM_VERSION
+    except ImportError:
+        return
+
+    info_add('gdbm.GDBM_VERSION', '.'.join(map(str, _GDBM_VERSION)))
+
+
+def collect_get_config(info_add):
+    # Dump global configuration variables, _PyCoreConfig
+    # and _PyMainInterpreterConfig
+    try:
+        from _testinternalcapi import get_configs
+    except ImportError:
+        return
+
+    all_configs = get_configs()
+    for config_type in sorted(all_configs):
+        config = all_configs[config_type]
+        for key in sorted(config):
+            info_add('%s[%s]' % (config_type, key), repr(config[key]))
+
+
+def collect_subprocess(info_add):
+    import subprocess
+    copy_attributes(info_add, subprocess, 'subprocess.%s', ('_USE_POSIX_SPAWN',))
 
 
 def collect_info(info):
@@ -596,6 +682,9 @@ def collect_info(info):
         collect_testcapi,
         collect_resource,
         collect_cc,
+        collect_gdbm,
+        collect_get_config,
+        collect_subprocess,
 
         # Collecting from tests should be last as they have side effects.
         collect_test_socket,

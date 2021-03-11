@@ -10,6 +10,8 @@
 # the same way as the original. Thus, a substantial part of the
 # memoryview tests is now in this module.
 #
+# Written and designed by Stefan Krah for Python 3.3.
+#
 
 import contextlib
 import unittest
@@ -2728,6 +2730,10 @@ class TestBufferProtocol(unittest.TestCase):
         # be 1D, at least one format must be 'c', 'b' or 'B'.
         for _tshape in gencastshapes():
             for char in fmtdict['@']:
+                # Casts to _Bool are undefined if the source contains values
+                # other than 0 or 1.
+                if char == "?":
+                    continue
                 tfmt = ('', '@')[randrange(2)] + char
                 tsize = struct.calcsize(tfmt)
                 n = prod(_tshape) * tsize

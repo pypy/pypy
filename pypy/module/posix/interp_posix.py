@@ -1501,6 +1501,105 @@ def fork(space):
     pid, irrelevant = _run_forking_function(space, "F")
     return space.newint(pid)
 
+class ApplevelForkCallbacks(object):
+    def __init__(self, space):
+        self.space = space
+        self.before_w = []
+        self.parent_w = []
+        self.child_w = []
+
+def register_at_fork(space, __args__):
+    """
+    register_at_fork(*, [before], [after_in_child], [after_in_parent])
+    Register callables to be called when forking a new process.
+
+      before
+        A callable to be called in the parent before the fork() syscall.
+      after_in_child
+        A callable to be called in the child after fork().
+      after_in_parent
+        A callable to be called in the parent after fork().
+
+    'before' callbacks are called in reverse order.
+    'after_in_child' and 'after_in_parent' callbacks are called in order.
+    """
+    # annoying, can't express argument parsing of this nicely
+    # because cpython explicitly wants
+    # os.register_at_fork(before=None, after_in_parent=<callable>)
+    # to fail, and we can't use unwrapped None as a kwonly default
+    args_w, kwargs_w = __args__.unpack()
+    if args_w:
+        raise oefmt(space.w_TypeError,
+            "register_at_fork() takes no positional arguments")
+    w_before = kwargs_w.pop("before", None)
+    w_after_in_parent = kwargs_w.pop("after_in_parent", None)
+    w_after_in_child = kwargs_w.pop("after_in_child", None)
+    if kwargs_w:
+        for key in kwargs_w:
+            raise oefmt(space.w_TypeError,
+                "%s is an invalid keyword argument for register_at_fork()", key)
+
+    registered = False
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    if w_before is not None:
+        if not space.callable_w(w_before):
+            raise oefmt(space.w_TypeError,
+                    "'before' must be callable, not %T",
+                    w_before)
+        cbs.before_w.append(w_before)
+        registered = True
+    if w_after_in_parent is not None:
+        if not space.callable_w(w_after_in_parent):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_parent' must be callable, not %T",
+                    w_after_in_parent)
+        cbs.parent_w.append(w_after_in_parent)
+        registered = True
+    if w_after_in_child is not None:
+        if not space.callable_w(w_after_in_child):
+            raise oefmt(space.w_TypeError,
+                    "'after_in_child' must be callable, not %T",
+                    w_after_in_child)
+        cbs.child_w.append(w_after_in_child)
+        registered = True
+    if not registered:
+        raise oefmt(space.w_TypeError,
+            "At least one argument is required.")
+
+
+def _run_applevel_hook(space, w_callable):
+    try:
+        space.call_function(w_callable)
+    except OperationError as e:
+        e.write_unraisable(space, "fork hook")
+
+def run_applevel_fork_hooks(space, l_w, reverse=False):
+    if len(l_w) == 0:
+        return
+    if not reverse:
+        for i in range(len(l_w)): # callable can append to the list
+            _run_applevel_hook(space, l_w[i])
+    else:
+        for i in range(len(l_w) - 1, -1, -1):
+            _run_applevel_hook(space, l_w[i])
+
+def run_applevel_fork_hooks_before(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.before_w, reverse=True)
+
+def run_applevel_fork_hooks_parent(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.parent_w)
+
+def run_applevel_fork_hooks_child(space):
+    cbs = space.fromcache(ApplevelForkCallbacks)
+    run_applevel_fork_hooks(space, cbs.child_w)
+
+add_fork_hook('before', run_applevel_fork_hooks_before)
+add_fork_hook('parent', run_applevel_fork_hooks_parent)
+add_fork_hook('child', run_applevel_fork_hooks_child)
+
+
 def openpty(space):
     "Open a pseudo-terminal, returning open fd's for both master and slave end."
     master_fd = slave_fd = -1
@@ -1561,6 +1660,9 @@ Execute an executable path with arguments, replacing current process.
             raise
         raise oefmt(space.w_TypeError,
             "execv() arg 2 must be an iterable of strings")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "execv() arg 2 first element cannot be empty")
     try:
         os.execv(command, args)
     except OSError as e:
@@ -1597,6 +1699,9 @@ On some platforms, you may specify an open file descriptor for path;
     if len(args) < 1:
         raise oefmt(space.w_ValueError,
             "execve() arg 2 must not be empty")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "execve() arg 2 first element cannot be empty")
     env = _env2interp(space, w_env)
     try:
         path = space.fsencode_w(w_path)
@@ -1621,7 +1726,17 @@ On some platforms, you may specify an open file descriptor for path;
 
 @unwrap_spec(mode=int, path='fsencode')
 def spawnv(space, mode, path, w_argv):
+    if not (space.isinstance_w(w_argv, space.w_list)
+            or space.isinstance_w(w_argv, space.w_tuple)):
+        raise oefmt(space.w_TypeError,
+            "spawnv: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    if len(args) < 1:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 cannot be empty")
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 first element cannot be empty")
     try:
         ret = os.spawnv(mode, path, args)
     except OSError as e:
@@ -1630,8 +1745,18 @@ def spawnv(space, mode, path, w_argv):
 
 @unwrap_spec(mode=int, path='fsencode')
 def spawnve(space, mode, path, w_argv, w_env):
+    if not (space.isinstance_w(w_argv, space.w_list)
+            or space.isinstance_w(w_argv, space.w_tuple)):
+        raise oefmt(space.w_TypeError,
+            "spawnve: argv must be a tuple or a list")
     args = [space.fsencode_w(w_arg) for w_arg in space.unpackiterable(w_argv)]
+    if len(args) < 1:
+        raise oefmt(space.w_ValueError,
+            "spawnv() arg 2 cannot be empty")
     env = _env2interp(space, w_env)
+    if not args[0]:
+        raise oefmt(space.w_ValueError,
+            "spawnve() arg 2 first element cannot be empty")
     try:
         ret = os.spawnve(mode, path, args, env)
     except OSError as e:

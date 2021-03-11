@@ -34,7 +34,9 @@ class TestApi:
     def test_signature(self):
         common_functions = api.FUNCTIONS_BY_HEADER[api.pypy_decl]
         assert 'PyModule_Check' in common_functions
-        assert common_functions['PyModule_Check'].argtypes == [api.PyObject]
+        assert common_functions['PyModule_Check'].argtypes == [cts.gettype("void *")]
+        assert 'PyModule_GetDict' in common_functions
+        assert common_functions['PyModule_GetDict'].argtypes == [api.PyObject]
 
 
 class SpaceCompiler(SystemCompilationInfo):
@@ -702,7 +704,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         import sys
         body = """
         PyAPI_FUNC(PyObject*) PyPy_Crash1(void);
-        PyAPI_FUNC(long) PyPy_Crash2(void);
+        PyAPI_FUNC(Py_ssize_t) PyPy_Crash2(void);
         PyAPI_FUNC(PyObject*) PyPy_Noop(PyObject*);
         static PyObject* foo_crash1(PyObject* self, PyObject *args)
         {
@@ -710,22 +712,22 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         }
         static PyObject* foo_crash2(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
+            Py_ssize_t a = PyPy_Crash2();
             if (a == -1)
                 return NULL;
-            return PyFloat_FromDouble(a);
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_crash3(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
+            Py_ssize_t a = PyPy_Crash2();
             if (a == -1)
                 PyErr_Clear();
-            return PyFloat_FromDouble(a);
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_crash4(PyObject* self, PyObject *args)
         {
-            int a = PyPy_Crash2();
-            return PyFloat_FromDouble(a);
+            Py_ssize_t a = PyPy_Crash2();
+            return PyFloat_FromDouble((double)a);
         }
         static PyObject* foo_noop(PyObject* self, PyObject* args)
         {
@@ -771,12 +773,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         module = self.import_module(name='foo', body=body)
 
         # uncaught interplevel exceptions are turned into SystemError
-        expected = "ZeroDivisionError('integer division or modulo by zero',)"
+        expected1 = "ZeroDivisionError('integer division or modulo by zero',)"
+        # win64 uses long internally not int, which gives a different error
+        expected2 = "ZeroDivisionError('integer division by zero',)"
         exc = raises(SystemError, module.crash1)
-        assert exc.value.args[0] == expected
+        v = exc.value.args[0]
+        assert v == expected1 or v == expected2
 
         exc = raises(SystemError, module.crash2)
-        assert exc.value.args[0] == expected
+        assert v == expected1 or v == expected2
 
         # caught exception, api.cpython_api return value works
         assert module.crash3() == -1
@@ -784,7 +789,7 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
         expected = 'An exception was set, but function returned a value'
         # PyPy only incompatibility/extension
         exc = raises(SystemError, module.crash4)
-        assert exc.value.args[0] == expected
+        assert v == expected1 or v == expected2
 
         # An exception was set by the previous call, it can pass
         # cleanly through a call that doesn't check error state
@@ -948,3 +953,15 @@ class AppTestCpythonExtension(AppTestCpythonExtensionBase):
              '''
              ),
         ])
+
+    def test_consistent_flags(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ('test_optimize', 'METH_NOARGS',
+             '''
+                return PyLong_FromLong(Py_OptimizeFlag);
+             '''),
+        ])
+        # This is intentionally set to -1 by default from missing.c
+        # and should be set to sys.flags.optimize at startup
+        assert mod.test_optimize() == sys.flags.optimize

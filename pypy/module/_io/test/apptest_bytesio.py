@@ -132,8 +132,7 @@ def test_getbuffer():
 
 def test_read1():
     memio = _io.BytesIO(b"1234567890")
-    raises(TypeError, memio.read1)
-    assert memio.read() == b"1234567890"
+    assert memio.read1() == b"1234567890"
 
 def test_readline():
     f = _io.BytesIO(b'abc\ndef\nxyzzy\nfoo\x00bar\nanother line')

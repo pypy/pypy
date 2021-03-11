@@ -1,5 +1,6 @@
 import pytest
 import time
+import sys
 from rpython.rlib.rgil import yield_thread
 from pypy.tool.pytest.objspace import gettestobjspace
 from pypy.interpreter.gateway import interp2app
@@ -9,6 +10,7 @@ from pypy.module._multiprocessing.interp_semaphore import (
     create_semaphore, delete_semaphore, W_SemLock, sem_unlink)
 
 
+@pytest.mark.skipif(sys.platform == 'win32', reason='hangs on win32')
 @pytest.mark.parametrize('spaceconfig', [
     {'usemodules': ['_multiprocessing', 'thread']}])
 def test_semlock_release(space):

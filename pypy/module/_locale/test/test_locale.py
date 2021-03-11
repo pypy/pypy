@@ -310,7 +310,7 @@ class AppTestLocaleTrivia:
         assert encoding.startswith('cp')
 
     def test_lc_numeric_basic(self):
-        import _locale
+        import _locale, sys
         if sys.platform == 'win32':
             skip("No nl_langinfo to test")
         from _locale import (setlocale, nl_langinfo, Error, LC_NUMERIC,

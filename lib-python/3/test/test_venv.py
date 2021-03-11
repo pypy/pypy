@@ -9,28 +9,28 @@ import ensurepip
 import os
 import os.path
 import re
+import shutil
 import struct
 import subprocess
 import sys
 import tempfile
 from test.support import (captured_stdout, captured_stderr, requires_zlib,
                           can_symlink, EnvironmentVarGuard, rmtree)
+import threading
 import unittest
 import venv
-
-
-try:
-    import threading
-except ImportError:
-    threading = None
 
 try:
     import ctypes
 except ImportError:
     ctypes = None
 
-skipInVenv = unittest.skipIf(sys.prefix != sys.base_prefix,
-                             'Test not appropriate in a venv')
+# Platforms that set sys._base_executable can create venvs from within
+# another venv, so no need to skip tests that require venv.create().
+requireVenvCreate = unittest.skipUnless(
+    hasattr(sys, '_base_executable')
+    or sys.prefix == sys.base_prefix,
+    'cannot run venv.create from within a venv on this platform')
 
 def check_output(cmd, encoding=None):
     p = subprocess.Popen(cmd,
@@ -42,24 +42,6 @@ def check_output(cmd, encoding=None):
         raise subprocess.CalledProcessError(
             p.returncode, cmd, out, err)
     return out, err
-
-def _my_executable():
-    # PyPy: resolve the executable if it is a symlink
-    if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in os.environ:
-        executable = os.environ['__PYVENV_LAUNCHER__']
-    else:
-        executable = sys.executable
-    try:
-        for i in range(10):
-            executable = os.path.abspath(executable)
-            executable = os.path.join(os.path.dirname(executable),
-                                      os.readlink(executable))
-    except OSError:
-        pass
-    except AttributeError:
-        pass
-    return executable
-
 
 class BaseTest(unittest.TestCase):
     """Base class for venv tests."""
@@ -75,8 +57,14 @@ class BaseTest(unittest.TestCase):
             self.bindir = 'bin'
             self.lib = ('lib', 'python%d.%d' % sys.version_info[:2])
             self.include = 'include'
-        executable = _my_executable()
+        executable = getattr(sys, '_base_executable', sys.executable)
         self.exe = os.path.split(executable)[-1]
+        if (sys.platform == 'win32'
+            and os.path.lexists(executable)
+            and not os.path.exists(executable)):
+            self.cannot_link_exe = True
+        else:
+            self.cannot_link_exe = False
 
     def tearDown(self):
         rmtree(self.env_dir)
@@ -120,7 +108,7 @@ class BasicTest(BaseTest):
         else:
             self.assertFalse(os.path.exists(p))
         data = self.get_text_file_contents('pyvenv.cfg')
-        executable = _my_executable()
+        executable = getattr(sys, '_base_executable', sys.executable)
         path = os.path.dirname(executable)
         self.assertIn('home = %s' % path, data)
         fn = self.get_env_file(self.bindir, self.exe)
@@ -141,15 +129,11 @@ class BasicTest(BaseTest):
         context = builder.ensure_directories(self.env_dir)
         self.assertEqual(context.prompt, '(My prompt) ')
 
-    @skipInVenv
+    @requireVenvCreate
     def test_prefixes(self):
         """
         Test that the prefix values are as expected.
         """
-        #check our prefixes
-        self.assertEqual(sys.base_prefix, sys.prefix)
-        self.assertEqual(sys.base_exec_prefix, sys.exec_prefix)
-
         # check a venv's prefixes
         rmtree(self.env_dir)
         self.run_with_capture(venv.create, self.env_dir)
@@ -158,8 +142,8 @@ class BasicTest(BaseTest):
         for prefix, expected in (
             ('prefix', self.env_dir),
             ('prefix', self.env_dir),
-            ('base_prefix', sys.prefix),
-            ('base_exec_prefix', sys.exec_prefix)):
+            ('base_prefix', sys.base_prefix),
+            ('base_exec_prefix', sys.base_exec_prefix)):
             cmd[2] = 'import sys; print(sys.%s)' % prefix
             out, err = check_output(cmd)
             self.assertEqual(out.strip(), expected.encode())
@@ -271,13 +255,18 @@ class BasicTest(BaseTest):
             # symlinked to 'python3.3' in the env, even when symlinking in
             # general isn't wanted.
             if usl:
-                self.assertTrue(os.path.islink(fn))
+                if self.cannot_link_exe:
+                    # Symlinking is skipped when our executable is already a
+                    # special app symlink
+                    self.assertFalse(os.path.islink(fn))
+                else:
+                    self.assertTrue(os.path.islink(fn))
 
     # If a venv is created from a source build and that venv is used to
     # run the test, the pyvenv.cfg in the venv created in the test will
     # point to the venv being used to run the test, and we lose the link
     # to the source build - so Python can't initialise properly.
-    @skipInVenv
+    @requireVenvCreate
     def test_executable(self):
         """
         Test that the sys.executable value is as expected.
@@ -321,7 +310,54 @@ class BasicTest(BaseTest):
         )
         self.assertEqual(out.strip(), '0')
 
-@skipInVenv
+    @requireVenvCreate
+    def test_multiprocessing(self):
+        """
+        Test that the multiprocessing is able to spawn.
+        """
+        rmtree(self.env_dir)
+        self.run_with_capture(venv.create, self.env_dir)
+        envpy = os.path.join(os.path.realpath(self.env_dir),
+                             self.bindir, self.exe)
+        out, err = check_output([envpy, '-c',
+            'from multiprocessing import Pool; '
+            'pool = Pool(1); '
+            'print(pool.apply_async("Python".lower).get(3)); '
+            'pool.terminate()'])
+        self.assertEqual(out.strip(), "python".encode())
+
+    @unittest.skipIf(os.name == 'nt', 'not relevant on Windows')
+    def test_deactivate_with_strict_bash_opts(self):
+        bash = shutil.which("bash")
+        if bash is None:
+            self.skipTest("bash required for this test")
+        rmtree(self.env_dir)
+        builder = venv.EnvBuilder(clear=True)
+        builder.create(self.env_dir)
+        activate = os.path.join(self.env_dir, self.bindir, "activate")
+        test_script = os.path.join(self.env_dir, "test_strict.sh")
+        with open(test_script, "w") as f:
+            f.write("set -euo pipefail\n"
+                    f"source {activate}\n"
+                    "deactivate\n")
+        out, err = check_output([bash, test_script])
+        self.assertEqual(out, "".encode())
+        self.assertEqual(err, "".encode())
+
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'only relevant on macOS')
+    def test_macos_env(self):
+        rmtree(self.env_dir)
+        builder = venv.EnvBuilder()
+        builder.create(self.env_dir)
+
+        envpy = os.path.join(os.path.realpath(self.env_dir),
+                             self.bindir, self.exe)
+        out, err = check_output([envpy, '-c',
+            'import os; print("__PYVENV_LAUNCHER__" in os.environ)'])
+        self.assertEqual(out.strip(), 'False'.encode())
+
+@requireVenvCreate
 class EnsurePipTest(BaseTest):
     """Test venv module installation of pip."""
     def assert_pip_not_installed(self):
@@ -405,7 +441,9 @@ class EnsurePipTest(BaseTest):
                     self.fail(msg.format(exc, details))
         # Ensure pip is available in the virtual environment
         envpy = os.path.join(os.path.realpath(self.env_dir), self.bindir, self.exe)
-        out, err = check_output([envpy, '-Im', 'pip', '--version'])
+        # Ignore DeprecationWarning since pip code is not part of Python
+        out, err = check_output([envpy, '-W', 'ignore::DeprecationWarning', '-I',
+               '-m', 'pip', '--version'])
         # We force everything to text, so unittest gives the detailed diff
         # if we get unexpected results
         err = err.decode("latin-1") # Force to text, prevent decoding errors
@@ -420,7 +458,9 @@ class EnsurePipTest(BaseTest):
         # Check the private uninstall command provided for the Windows
         # installers works (at least in a virtual environment)
         with EnvironmentVarGuard() as envvars:
-            out, err = check_output([envpy, '-Im', 'ensurepip._uninstall'])
+            out, err = check_output([envpy,
+                '-W', 'ignore::DeprecationWarning', '-I',
+                '-m', 'ensurepip._uninstall'])
         # We force everything to text, so unittest gives the detailed diff
         # if we get unexpected results
         err = err.decode("latin-1") # Force to text, prevent decoding errors
@@ -430,8 +470,9 @@ class EnsurePipTest(BaseTest):
         #    Please check the permissions and owner of that directory. If
         #    executing pip with sudo, you may want sudo's -H flag."
         # where $HOME is replaced by the HOME environment variable.
-        err = re.sub("^The directory .* or its parent directory is not owned "
-                     "by the current user .*$", "", err, flags=re.MULTILINE)
+        err = re.sub("^(WARNING: )?The directory .* or its parent directory "
+                     "is not owned or is not writable by the current user.*$", "",
+                     err, flags=re.MULTILINE)
         self.assertEqual(err.rstrip(), "")
         # Being fairly specific regarding the expected behaviour for the
         # initial bundling phase in Python 3.4. If the output changes in
@@ -445,8 +486,6 @@ class EnsurePipTest(BaseTest):
         if not system_site_packages:
             self.assert_pip_not_installed()
 
-    @unittest.skipUnless(threading, 'some dependencies of pip import threading'
-                                    ' module unconditionally')
     # Issue #26610: pip/pep425tags.py requires ctypes
     @unittest.skipUnless(ctypes, 'pip requires ctypes')
     @requires_zlib

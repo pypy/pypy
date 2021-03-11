@@ -35,7 +35,19 @@ import re
 import io
 import codecs
 import _compat_pickle
-
+try:
+    from __pypy__.builders import BytesBuilder
+except ImportError:
+    class BytesBuilder():
+        def __init__(self):
+            self.builder = io.BytesIO()
+        def __len__(self):
+            return self.builder.tell()
+        def build(self):
+            return self.builder.getbuffer()
+        def append(self, data):
+            self.builder.write(data)
+ 
 __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
@@ -183,6 +195,7 @@ __all__.extend([x for x in dir() if re.match("[A-Z][A-Z0-9_]+$", x)])
 
 class _Framer:
 
+    _FRAME_SIZE_MIN = 4
     _FRAME_SIZE_TARGET = 64 * 1024
 
     def __init__(self, file_write):
@@ -190,31 +203,58 @@ class _Framer:
         self.current_frame = None
 
     def start_framing(self):
-        self.current_frame = io.BytesIO()
+        self.current_frame = BytesBuilder()
 
     def end_framing(self):
-        if self.current_frame and self.current_frame.tell() > 0:
+        if self.current_frame and len(self.current_frame) > 0:
             self.commit_frame(force=True)
             self.current_frame = None
 
     def commit_frame(self, force=False):
-        if self.current_frame:
+        if self.current_frame is not None:
             f = self.current_frame
-            if f.tell() >= self._FRAME_SIZE_TARGET or force:
-                with f.getbuffer() as data:
-                    n = len(data)
-                    write = self.file_write
-                    write(FRAME)
-                    write(pack("<Q", n))
-                    write(data)
-                f.seek(0)
-                f.truncate()
+            if len(f) >= self._FRAME_SIZE_TARGET or force:
+                data = f.build()
+                write = self.file_write
+                if len(data) >= self._FRAME_SIZE_MIN:
+                    # Issue a single call to the write method of the underlying
+                    # file object for the frame opcode with the size of the
+                    # frame. The concatenation is expected to be less expensive
+                    # than issuing an additional call to write.
+                    write(FRAME + pack("<Q", len(data)))
+
+                # Issue a separate call to write to append the frame
+                # contents without concatenation to the above to avoid a
+                # memory copy.
+                write(data)
+
+                # Start the new frame with a new BytesBuilder instance so that
+                # the file object can have delayed access to the previous frame
+                # contents via an unreleased memoryview of the previous
+                # BytesBuilder instance.
+                self.current_frame = BytesBuilder()
 
     def write(self, data):
-        if self.current_frame:
-            return self.current_frame.write(data)
+        if self.current_frame is not None:
+            self.current_frame.append(data)
+            return len(data)
         else:
             return self.file_write(data)
+
+    def write_large_bytes(self, header, payload):
+        write = self.file_write
+        if self.current_frame:
+            # Terminate the current frame and flush it to the file.
+            self.commit_frame(force=True)
+
+        # Perform direct write of the header and payload of the large binary
+        # object. Be careful not to concatenate the header and the payload
+        # prior to calling 'write' as we do not want to allocate a large
+        # temporary bytes object.
+        # We intentionally do not insert a protocol 4 frame opcode to make
+        # it possible to optimize file.read calls in the loader.
+        write(header)
+        write(payload)
 
 
 class _Unframer:
@@ -269,7 +309,7 @@ def _getattribute(obj, name):
             obj = getattr(obj, subpath)
         except AttributeError:
             raise AttributeError("Can't get attribute {!r} on {!r}"
-                                 .format(name, obj))
+                                 .format(name, obj)) from None
     return obj, parent
 
 def whichmodule(obj, name):
@@ -379,6 +419,7 @@ class _Pickler:
             raise TypeError("file must have a 'write' attribute")
         self.framer = _Framer(self._file_write)
         self.write = self.framer.write
+        self._write_large_bytes = self.framer.write_large_bytes
         self.memo = {}
         self.proto = int(protocol)
         self.bin = protocol >= 1
@@ -674,7 +715,10 @@ class _Pickler:
             else:
                 self.write(LONG4 + pack("<i", n) + encoded)
             return
-        self.write(LONG + repr(obj).encode("ascii") + b'L\n')
+        if -0x80000000 <= obj <= 0x7fffffff:
+            self.write(INT + repr(obj).encode("ascii") + b'\n')
+        else:
+            self.write(LONG + repr(obj).encode("ascii") + b'L\n')
     dispatch[int] = save_long
 
     def save_float(self, obj):
@@ -696,7 +740,9 @@ class _Pickler:
         if n <= 0xff:
             self.write(SHORT_BINBYTES + pack("<B", n) + obj)
         elif n > 0xffffffff and self.proto >= 4:
-            self.write(BINBYTES8 + pack("<Q", n) + obj)
+            self._write_large_bytes(BINBYTES8 + pack("<Q", n), obj)
+        elif n >= self.framer._FRAME_SIZE_TARGET:
+            self._write_large_bytes(BINBYTES + pack("<I", n), obj)
         else:
             self.write(BINBYTES + pack("<I", n) + obj)
         self.memoize(obj)
@@ -709,12 +755,17 @@ class _Pickler:
             if n <= 0xff and self.proto >= 4:
                 self.write(SHORT_BINUNICODE + pack("<B", n) + encoded)
             elif n > 0xffffffff and self.proto >= 4:
-                self.write(BINUNICODE8 + pack("<Q", n) + encoded)
+                self._write_large_bytes(BINUNICODE8 + pack("<Q", n), encoded)
+            elif n >= self.framer._FRAME_SIZE_TARGET:
+                self._write_large_bytes(BINUNICODE + pack("<I", n), encoded)
             else:
                 self.write(BINUNICODE + pack("<I", n) + encoded)
         else:
             obj = obj.replace("\\", "\\u005c")
+            obj = obj.replace("\0", "\\u0000")
             obj = obj.replace("\n", "\\u000a")
+            obj = obj.replace("\r", "\\u000d")
+            obj = obj.replace("\x1a", "\\u001a")  # EOF on DOS
             self.write(UNICODE + obj.encode('raw-unicode-escape') +
                        b'\n')
         self.memoize(obj)
@@ -812,10 +863,6 @@ class _Pickler:
                 return
 
     def save_dict(self, obj):
-        modict_saver = self._pickle_maybe_moduledict(obj)
-        if modict_saver is not None:
-            return self.save_reduce(*modict_saver)
-
         if self.bin:
             self.write(EMPTY_DICT)
         else:   # proto 0 -- can't use EMPTY_DICT
@@ -858,22 +905,6 @@ class _Pickler:
             # else tmp is empty, and we're done
             if n < self._BATCHSIZE:
                 return
-
-    def _pickle_maybe_moduledict(self, obj):
-        # save module dictionary as "getattr(module, '__dict__')"
-        from types import ModuleType
-        try:
-            name = obj['__name__']
-            if type(name) is not str:
-                return None
-            themodule = sys.modules[name]
-            if type(themodule) is not ModuleType:
-                return None
-            if themodule.__dict__ is not obj:
-                return None
-        except (AttributeError, KeyError, TypeError):
-            return None
-        return getattr, (themodule, '__dict__')
 
     def save_set(self, obj):
         save = self.save
@@ -939,7 +970,7 @@ class _Pickler:
         except (ImportError, KeyError, AttributeError):
             raise PicklingError(
                 "Can't pickle %r: it's not found as %s.%s" %
-                (obj, module_name, name))
+                (obj, module_name, name)) from None
         else:
             if obj2 is not obj:
                 raise PicklingError(
@@ -984,7 +1015,7 @@ class _Pickler:
             except UnicodeEncodeError:
                 raise PicklingError(
                     "can't pickle global identifier '%s.%s' using "
-                    "pickle protocol %i" % (module, name, self.proto))
+                    "pickle protocol %i" % (module, name, self.proto)) from None
 
         self.memoize(obj)
 
@@ -1484,12 +1515,19 @@ class _Unpickler:
     def load_appends(self):
         items = self.pop_mark()
         list_obj = self.stack[-1]
-        if isinstance(list_obj, list):
-            list_obj.extend(items)
+        try:
+            extend = list_obj.extend
+        except AttributeError:
+            pass
         else:
-            append = list_obj.append
-            for item in items:
-                append(item)
+            extend(items)
+            return
+        # Even if the PEP 307 requires extend() and append() methods,
+        # fall back on append() if the object has no extend() method
+        # for backward compatibility.
+        append = list_obj.append
+        for item in items:
+            append(item)
     dispatch[APPENDS[0]] = load_appends
 
     def load_setitem(self):

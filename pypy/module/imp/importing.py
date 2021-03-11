@@ -409,7 +409,7 @@ def read_compiled_module(space, cpathname, strbuf):
 
 @jit.dont_look_inside
 def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
-                         timestamp, source, write_paths=True):
+                         source, write_paths=True):
     """
     Load a module from a compiled file, execute it, and return its
     module object.

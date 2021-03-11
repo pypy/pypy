@@ -181,24 +181,47 @@ class TestString(BaseTestPyPyC):
             jump(..., descr=...)
         """)
 
-    def test_remove_duplicate_method_calls(self):
+    def test_remove_duplicate_method_calls_bytes(self):
         def main(n):
             lst = []
             for i in range(n):
-                s = 'Hello %d' % i
+                s = b'Hello %d' % i
                 t = s.lower()   # ID: callone
                 u = s.lower()   # ID: calltwo
                 lst.append(t)
                 lst.append(u)
-            return len(','.join(lst))
+            return len(b','.join(lst))
         log = self.run(main, [1000])
         assert log.result == main(1000)
         loops = log.loops_by_filename(self.filepath)
         loop, = loops
         assert loop.match_by_id('callone', '''
-            p114 = call_r(ConstClass(_lower_unicode), p113, descr=<Callr . r EF=4>)
+            p114 = call_r(ConstClass(ll_lower__rpy_stringPtr), p113, descr=<Callr . r EF=3>)
             guard_no_exception(descr=...)
-            guard_nonnull_class(p114, ConstClass(W_UnicodeObject), descr=...)
+            ''')
+        assert loop.match_by_id('calltwo', '')    # nothing
+
+    def test_remove_duplicate_method_calls_unicode(self):
+        def main(n):
+            lst = []
+            for i in range(n):
+                s = u'H\xe4llo %d' % i
+                t = s.lower()   # ID: callone
+                u = s.lower()   # ID: calltwo
+                lst.append(t)
+                lst.append(u)
+            return len(u','.join(lst))
+        log = self.run(main, [1000])
+        assert log.result == main(1000)
+        loops = log.loops_by_filename(self.filepath)
+        loop, = loops
+        assert loop.match_by_id('callone', '''
+            i136 = strlen(p131)
+            i137 = int_eq(i135, i136)
+            guard_false(i137, descr=...)
+            p139 = call_r(ConstClass(_lower_unicode), p131, descr=...)
+            guard_no_exception(descr=...)
+            guard_nonnull(p139, descr=...)
             ''')
         assert loop.match_by_id('calltwo', '')    # nothing
 
@@ -278,7 +301,8 @@ class TestString(BaseTestPyPyC):
                 for i in range(len(u)):
                     u[i] # ID: index0
         """, [])
-        ops = log.loops[1].ops_by_id("index0")
+        loop, = log.loops_by_id("index0")
+        ops = loop.ops_by_id("index0")
         for op in ops:
             assert op.bridge is None
 

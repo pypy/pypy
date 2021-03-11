@@ -85,7 +85,7 @@ Returns None if the underlying raw stream was open in non-blocking
 mode and no data is available at the moment."""
         self._unsupportedoperation(space, "read")
 
-    def read1_w(self, space, w_size):
+    def read1_w(self, space, w_size=None):
         """Read and return up to n bytes, with at most one read() call
 to the underlying raw stream. A short result does not imply
 that EOF is imminent.
@@ -470,6 +470,8 @@ class BufferedMixin:
         else:
             raise oefmt(space.w_ValueError,
                         "read length must be positive or -1")
+        if res is None:
+            return space.w_None
         return space.newbytes(res)
 
     @unwrap_spec(size=int)
@@ -500,11 +502,11 @@ class BufferedMixin:
             return space.newbytes(data)
 
     @unwrap_spec(size=int)
-    def read1_w(self, space, size):
+    def read1_w(self, space, size=-1):
         self._check_closed(space, "read of closed file")
 
         if size < 0:
-            raise oefmt(space.w_ValueError, "read length must be positive")
+            size = self.buffer_size
         if size == 0:
             return space.newbytes("")
 
@@ -759,11 +761,12 @@ class BufferedMixin:
             self.read_end = self.pos
 
     def write_w(self, space, w_data):
-        self._check_closed(space, "write to closed file")
+        self._check_init(space)
         data = space.charbuf_w(w_data)
         size = len(data)
 
         with self.lock:
+            self._check_closed(space, "write to closed file")
             if (not (self.readable and self.read_end != -1) and
                 not (self.writable and self.write_end != -1)):
                 self.pos = 0

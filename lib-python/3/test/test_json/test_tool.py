@@ -1,7 +1,9 @@
+import errno
 import os
 import sys
 import textwrap
 import unittest
+
 from subprocess import Popen, PIPE
 from test import support
 from test.support.script_helper import assert_python_ok
@@ -67,11 +69,11 @@ class TestTool(unittest.TestCase):
         self.assertEqual(out.splitlines(), self.expect.encode().splitlines())
         self.assertEqual(err, b'')
 
-    def _create_infile(self):
+    def _create_infile(self, data=None):
         infile = support.TESTFN
-        with open(infile, "w") as fp:
+        with open(infile, "w", encoding="utf-8") as fp:
             self.addCleanup(os.remove, infile)
-            fp.write(self.data)
+            fp.write(data or self.data)
         return infile
 
     def test_infile_stdout(self):
@@ -79,6 +81,21 @@ class TestTool(unittest.TestCase):
         rc, out, err = assert_python_ok('-m', 'json.tool', infile)
         self.assertEqual(rc, 0)
         self.assertEqual(out.splitlines(), self.expect.encode().splitlines())
+        self.assertEqual(err, b'')
+
+    def test_non_ascii_infile(self):
+        data = '{"msg": "\u3053\u3093\u306b\u3061\u306f"}'
+        expect = textwrap.dedent('''\
+        {
+            "msg": "\\u3053\\u3093\\u306b\\u3061\\u306f"
+        }
+        ''').encode()
+
+        infile = self._create_infile(data)
+        rc, out, err = assert_python_ok('-m', 'json.tool', infile)
+
+        self.assertEqual(rc, 0)
+        self.assertEqual(out.splitlines(), expect.splitlines())
         self.assertEqual(err, b'')
 
     def test_infile_outfile(self):
@@ -105,3 +122,12 @@ class TestTool(unittest.TestCase):
         self.assertEqual(out.splitlines(),
                          self.expect_without_sort_keys.encode().splitlines())
         self.assertEqual(err, b'')
+
+    @unittest.skipIf(sys.platform =="win32", "The test is failed with ValueError on Windows")
+    def test_broken_pipe_error(self):
+        cmd = [sys.executable, '-m', 'json.tool']
+        proc = Popen(cmd, stdout=PIPE, stdin=PIPE)
+        # bpo-39828: Closing before json.tool attempts to write into stdout.
+        proc.stdout.close()
+        proc.communicate(b'"{}"')
+        self.assertEqual(proc.returncode, errno.EPIPE)

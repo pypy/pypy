@@ -29,44 +29,42 @@ async def f():
     # the dis of the "async for", which we can only access inside a "async def"
     result = io.StringIO()
     dis.dis(co.co_consts[0].co_code, file=result)
-    cpython36 = """ 0 LOAD_BUILD_CLASS
+    cpython37 = """ 0 LOAD_BUILD_CLASS
           2 LOAD_CONST               1 (1)
           4 LOAD_CONST               2 (2)
           6 MAKE_FUNCTION            0
           8 LOAD_CONST               2 (2)
          10 CALL_FUNCTION            2
          12 STORE_FAST               0 (0)
-         14 SETUP_LOOP              56 (to 72)
+         14 SETUP_LOOP              52 (to 68)
          16 LOAD_FAST                0 (0)
          18 CALL_FUNCTION            0
          20 GET_AITER
-         22 LOAD_CONST               0 (0)
-         24 YIELD_FROM
-    >>   26 SETUP_EXCEPT            12 (to 40)
-         28 GET_ANEXT
-         30 LOAD_CONST               0 (0)
-         32 YIELD_FROM
-         34 STORE_FAST               1 (1)
-         36 POP_BLOCK
-         38 JUMP_ABSOLUTE           26
-    >>   40 DUP_TOP
-         42 LOAD_GLOBAL              0 (0)
-         44 COMPARE_OP              10 (exception match)
-         46 POP_JUMP_IF_TRUE        52
-         48 END_FINALLY
-         50 JUMP_ABSOLUTE           26
-    >>   52 POP_TOP
-         54 POP_TOP
+    >>   22 SETUP_EXCEPT            12 (to 36)
+         24 GET_ANEXT
+         26 LOAD_CONST               0 (0)
+         28 YIELD_FROM
+         30 STORE_FAST               1 (1)
+         32 POP_BLOCK
+         34 JUMP_ABSOLUTE           22
+    >>   36 DUP_TOP
+         38 LOAD_GLOBAL              0 (0)
+         40 COMPARE_OP              10 (exception match)
+         42 POP_JUMP_IF_TRUE        48
+         44 END_FINALLY
+         46 JUMP_ABSOLUTE           22
+    >>   48 POP_TOP
+         50 POP_TOP
+         52 POP_TOP
+         54 POP_EXCEPT
          56 POP_TOP
-         58 POP_EXCEPT
-         60 POP_TOP
-         62 POP_BLOCK
-         64 LOAD_GLOBAL              1 (1)
-         66 LOAD_CONST               3 (3)
-         68 CALL_FUNCTION            1
-         70 POP_TOP
-    >>   72 LOAD_CONST               0 (0)
-         74 RETURN_VALUE
+         58 POP_BLOCK
+         60 LOAD_GLOBAL              1 (1)
+         62 LOAD_CONST               3 (3)
+         64 CALL_FUNCTION            1
+         66 POP_TOP
+    >>   68 LOAD_CONST               0 (0)
+         70 RETURN_VALUE
 """
 
-    compare_lines(cpython36, result.getvalue()) 
+    compare_lines(cpython37, result.getvalue()) 

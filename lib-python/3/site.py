@@ -126,7 +126,7 @@ def removeduppaths():
         # if they only differ in case); turn relative paths into absolute
         # paths.
         dir, dircase = makepath(dir)
-        if not dircase in known_paths:
+        if dircase not in known_paths:
             L.append(dir)
             known_paths.add(dircase)
     sys.path[:] = L
@@ -236,6 +236,55 @@ def check_enableusersite():
 
     return True
 
+
+# NOTE: sysconfig and it's dependencies are relatively large but site module
+# needs very limited part of them.
+# To speedup startup time, we have copy of them.
+#
+# See https://bugs.python.org/issue29585
+
+# Copy of sysconfig._get_implementation()
+def _get_implementation():
+    if is_pypy:
+        return 'PyPy'
+    return 'Python'
+
+
+# Copy of sysconfig._getuserbase()
+def _getuserbase():
+    env_base = os.environ.get("PYTHONUSERBASE", None)
+    if env_base:
+        return env_base
+
+    def joinuser(*args):
+        return os.path.expanduser(os.path.join(*args))
+
+    if os.name == "nt":
+        base = os.environ.get("APPDATA") or "~"
+        return joinuser(base, _get_implementation())
+
+    if sys.platform == "darwin" and sys._framework:
+        return joinuser("~", "Library", sys._framework,
+                        "%d.%d" % sys.version_info[:2])
+
+    return joinuser("~", ".local")
+
+
+# Same to sysconfig.get_path('purelib', os.name+'_user')
+def _get_path(userbase):
+    version = sys.version_info
+
+    implementation = _get_implementation()
+    implementation_lower = implementation.lower()
+    if os.name == 'nt':
+        return f'{userbase}\\{implementation}{version[0]}{version[1]}\\site-packages'
+
+    if sys.platform == 'darwin' and sys._framework:
+        return f'{userbase}/lib/{implementation_lower}/site-packages'
+
+    return f'{userbase}/lib/{implementation_lower}{version[0]}.{version[1]}/site-packages'
+
+
 def getuserbase():
     """Returns the `user base` directory path.
 
@@ -244,11 +293,10 @@ def getuserbase():
     it.
     """
     global USER_BASE
-    if USER_BASE is not None:
-        return USER_BASE
-    from sysconfig import get_config_var
-    USER_BASE = get_config_var('userbase')
+    if USER_BASE is None:
+        USER_BASE = _getuserbase()
     return USER_BASE
+
 
 def getusersitepackages():
     """Returns the user-specific site-packages directory path.
@@ -257,20 +305,11 @@ def getusersitepackages():
     function will also set it.
     """
     global USER_SITE
-    user_base = getuserbase() # this will also set USER_BASE
+    userbase = getuserbase() # this will also set USER_BASE
 
-    if USER_SITE is not None:
-        return USER_SITE
+    if USER_SITE is None:
+        USER_SITE = _get_path(userbase)
 
-    from sysconfig import get_path
-
-    if sys.platform == 'darwin':
-        from sysconfig import get_config_var
-        if get_config_var('PYTHONFRAMEWORK'):
-            USER_SITE = get_path('purelib', 'osx_framework_user')
-            return USER_SITE
-
-    USER_SITE = get_path('purelib', '%s_user' % os.name)
     return USER_SITE
 
 def addusersitepackages(known_paths):
@@ -307,22 +346,14 @@ def getsitepackages(prefixes=None):
 
         if is_pypy:
             sitepackages.append(os.path.join(prefix, "site-packages"))
-        elif os.sep == '/':
+            continue
+        if os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
                                         "site-packages"))
         else:
             sitepackages.append(prefix)
             sitepackages.append(os.path.join(prefix, "lib", "site-packages"))
-        if sys.platform == "darwin":
-            # for framework builds *only* we add the standard Apple
-            # locations.
-            from sysconfig import get_config_var
-            framework = get_config_var("PYTHONFRAMEWORK")
-            if framework:
-                sitepackages.append(
-                        os.path.join("/Library", framework,
-                            '%d.%d' % sys.version_info[:2], "site-packages"))
     return sitepackages
 
 def addsitepackages(known_paths, prefixes=None):
@@ -355,7 +386,7 @@ def setcopyright():
     licenseargs = None
     if is_pypy:
         credits = "PyPy is maintained by the PyPy developers: http://pypy.org/"
-        license = "See https://foss.heptapod.net/pypy/pypy/-/blob/branch/default/LICENSE"
+        license = "See https://foss.heptapod.net/pypy/pypy/src/default/LICENSE"
         licenseargs = (license,)
     elif sys.platform[:4] == 'java':
         credits = ("Jython is maintained by the Jython developers "
@@ -427,7 +458,7 @@ def enablerlcompleter():
                                    '.python_history')
             try:
                 readline.read_history_file(history)
-            except IOError:
+            except OSError:
                 pass
 
             def write_history():
@@ -447,7 +478,7 @@ def venv(known_paths):
 
     env = os.environ
     if sys.platform == 'darwin' and '__PYVENV_LAUNCHER__' in env:
-        executable = os.environ['__PYVENV_LAUNCHER__']
+        executable = sys._base_executable = os.environ['__PYVENV_LAUNCHER__']
     else:
         executable = sys.executable
     exe_dir, _ = os.path.split(os.path.abspath(executable))
@@ -542,8 +573,13 @@ def main():
     """
     global ENABLE_USER_SITE
 
-    abs_paths()
+    orig_path = sys.path[:]
     known_paths = removeduppaths()
+    if orig_path != sys.path:
+        # removeduppaths() might make sys.path absolute.
+        # fix __file__ and __cached__ of already imported modules too.
+        abs_paths()
+
     known_paths = venv(known_paths)
     if ENABLE_USER_SITE is None:
         ENABLE_USER_SITE = check_enableusersite()
@@ -574,7 +610,7 @@ def _script():
     Exit codes with --user-base or --user-site:
       0 - user site directory is enabled
       1 - user site directory is disabled by user
-      2 - uses site directory is disabled by super user
+      2 - user site directory is disabled by super user
           or for security reasons
      >2 - unknown error
     """

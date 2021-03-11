@@ -96,12 +96,31 @@ def exec_(space, w_prog, w_globals=None, w_locals=None):
     frame = space.getexecutioncontext().gettopframe()
     frame.exec_(w_prog, w_globals, w_locals)
 
+def _update_bases(space, w_bases, bases_w):
+    new_bases_w = []
+    changed = False
+    for w_base in bases_w:
+        w_meth = space.lookup(w_base, '__mro_entries__')
+        if w_meth is not None:
+            new_base_w = space.get_and_call_function(w_meth, w_base, w_bases)
+            if not space.isinstance_w(new_base_w, space.w_tuple):
+                raise oefmt(space.w_TypeError, "__mro_entries__ must return a tuple")
+            new_bases_w.extend(space.fixedview(new_base_w))
+            changed = True
+        else:
+            new_bases_w.append(w_base)
+    if not changed:
+        return bases_w
+    return new_bases_w[:]
+
 def build_class(space, w_func, w_name, __args__):
     from pypy.objspace.std.typeobject import _calculate_metaclass, W_TypeObject
     from pypy.interpreter.nestedscope import Cell
     if not isinstance(w_func, Function):
         raise oefmt(space.w_TypeError, "__build_class__: func must be a function")
-    bases_w, kwds_w = __args__.unpack()
+    orig_bases_w, kwds_w = __args__.unpack()
+    w_orig_bases = space.newtuple(orig_bases_w)
+    bases_w = _update_bases(space, w_orig_bases, orig_bases_w)
     w_bases = space.newtuple(bases_w)
     w_meta = kwds_w.pop('metaclass', None)
     if w_meta is not None:
@@ -144,6 +163,8 @@ def build_class(space, w_func, w_name, __args__):
     frame = space.createframe(code, w_func.w_func_globals, w_func)
     frame.setdictscope(w_namespace)
     w_cell = frame.run()
+    if bases_w is not orig_bases_w:
+        space.setitem(w_namespace, space.newtext("__orig_bases__"), w_orig_bases)
     keywords = kwds_w.keys()
     args = Arguments(space,
                      args_w=[w_name, w_bases, w_namespace],

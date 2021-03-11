@@ -42,7 +42,7 @@ def test_oefmt_noargs(space):
     val = operr.get_w_value(space)
     assert space.isinstance_w(val, space.w_AttributeError)
     w_repr = space.repr(val)
-    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\",)"
+    assert space.text_w(w_repr) == "AttributeError(\"no attribute 'foo'\")"
 
 def test_oefmt_T(space):
     operr = oefmt(space.w_AttributeError,
@@ -110,7 +110,7 @@ def test_errorstr(space):
     operr = OperationError(space.w_ValueError, space.wrap("message"))
     assert operr.errorstr(space) == "ValueError: message"
     assert operr.errorstr(space, use_repr=True) == (
-        "ValueError: ValueError('message',)")
+        "ValueError: ValueError('message')")
     operr = OperationError(space.w_ValueError, space.w_None)
     assert operr.errorstr(space) == "ValueError"
     operr = OperationError(space.w_ValueError,

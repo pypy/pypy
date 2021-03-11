@@ -4,10 +4,11 @@ from rpython.rlib import rutf8
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 
-def create_filter(space, w_category, action):
+def create_filter(space, w_category, action, modname):
+    w_modname = space.newtext(modname) if modname is not None else space.w_None
     return space.newtuple([
         space.newtext(action), space.w_None, w_category,
-        space.w_None, space.newint(0)])
+        w_modname, space.newint(0)])
 
 class State:
     def __init__(self, space):
@@ -22,27 +23,17 @@ class State:
     def init_filters(self, space):
         filters_w = []
 
+        # note: in CPython, all warnings are enabled by default in pydebug mode
         filters_w.append(create_filter(
-            space, space.w_DeprecationWarning, "ignore"))
+            space, space.w_DeprecationWarning, "default", "__main__"))
         filters_w.append(create_filter(
-            space, space.w_PendingDeprecationWarning, "ignore"))
+            space, space.w_DeprecationWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_ImportWarning, "ignore"))
-
-        bytes_warning = space.sys.get_flag('bytes_warning')
-        if bytes_warning > 1:
-            action = "error"
-        elif bytes_warning == 0:
-            action = "ignore"
-        else:
-            action = "default"
+            space, space.w_PendingDeprecationWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_BytesWarning, action))
-
-        # note: in CPython, resource usage warnings are enabled by default
-        # in pydebug mode
+            space, space.w_ImportWarning, "ignore", None))
         filters_w.append(create_filter(
-            space, space.w_ResourceWarning, "ignore"))
+            space, space.w_ResourceWarning, "ignore", None))
 
         self.w_filters = space.newlist(filters_w)
 
@@ -165,8 +156,13 @@ def setup_context(space, stacklevel):
     return (w_filename, lineno, w_module, w_registry)
 
 def check_matched(space, w_obj, w_arg):
+    # A 'None' filter always matches
     if space.is_w(w_obj, space.w_None):
         return True
+    # An internal plain text default filter must match exactly
+    if space.is_w(space.type(w_obj), space.w_unicode):
+        return space.eq_w(w_obj, w_arg)
+    # Otherwise assume a regex filter and call its match() method
     return space.is_true(space.call_method(w_obj, "match", w_arg))
 
 def get_filter(space, w_category, w_text, lineno, w_module):
@@ -317,6 +313,9 @@ def do_warn_explicit(space, w_category, w_message, context_w,
 
     if action == "error":
         raise OperationError(w_category, w_message)
+ 
+    if action == 'ignore':
+        return
 
     # Store in the registry that we've been here, *except* when the action is
     # "always".
@@ -324,8 +323,6 @@ def do_warn_explicit(space, w_category, w_message, context_w,
     if action != 'always':
         if not space.is_w(w_registry, space.w_None):
             space.setitem(w_registry, w_key, space.w_True)
-        if action == 'ignore':
-            return
         elif action == 'once':
             if space.is_w(w_registry, space.w_None):
                 w_registry = get_once_registry(space)

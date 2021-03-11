@@ -17,6 +17,8 @@ def con():
     yield con
     con.close()
 
+con2 = con # allow using two connections
+
 
 def test_list_ddl(con):
     """From issue996.  Mostly just looking for lack of exceptions."""
@@ -332,8 +334,40 @@ def test_cursor_del(con):
     import gc; gc.collect()
     con.execute("DROP TABLE foo")  # no error
 
+def test_open_path():
+    class P:
+        def __fspath__(self):
+            return b":memory:"
+    _sqlite3.connect(P())
+
 def test_isolation_bug():
     con = _sqlite3.connect(":memory:", isolation_level=None)
+    #con = _sqlite3.connect(":memory:")
+    #con.isolation_level = None
     cur = con.cursor()
     cur.execute("create table foo(x);")
 
+@pytest.mark.skipif(not hasattr(_sqlite3.Connection, "backup"), reason="no backup")
+class TestBackup:
+    def test_target_is_connection(self, con):
+        with pytest.raises(TypeError):
+            con.backup(None)
+
+    def test_target_different_self(self, con):
+        with pytest.raises(ValueError):
+            con.backup(con)
+
+    def test_progress_callable(self, con, con2):
+        with pytest.raises(TypeError):
+            con.backup(con2, progress=34)
+
+    def test_backup_simple(self, con, con2):
+        cursor = con.cursor()
+        con.execute('CREATE TABLE foo (key INTEGER)')
+        con.executemany('INSERT INTO foo (key) VALUES (?)', [(3,), (4,)])
+        con.commit()
+
+        con.backup(con2)
+        result = con2.execute("SELECT key FROM foo ORDER BY key").fetchall()
+        assert result[0][0] == 3
+        assert result[1][0] == 4

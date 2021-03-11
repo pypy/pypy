@@ -136,7 +136,7 @@ def descr__new__(space, w_type, __args__):
         if (space.is_w(tp_init, _object_init(space))
                 or not _same_static_method(space, tp_new, _object_new(space))):
             raise oefmt(space.w_TypeError,
-                        "object() takes no parameters")
+                        "%s() takes no arguments", w_type.name)
     if w_type.is_abstract():
         _abstract_method_error(space, w_type)
     return space.allocate_instance(W_ObjectObject, w_type)
@@ -156,7 +156,8 @@ def descr__init__(space, w_obj, __args__):
         if (_same_static_method(space, tp_new, _object_new(space))
                 or not space.is_w(tp_init, _object_init(space))):
             raise oefmt(space.w_TypeError,
-                        "object.__init__() takes no parameters")
+                        "%T.__init__() takes one argument (the instance to initialize)",
+                        w_obj)
 
 
 def descr_get___class__(space, w_obj):
@@ -236,8 +237,22 @@ def _getnewargs(space, w_obj):
         w_kwargs = space.w_None
     return hasargs, w_args, w_kwargs
 
+def descr__reduce__(space, w_obj):
+    w_proto = space.newint(0)
+    return reduce_1(space, w_obj, w_proto)
+
 @unwrap_spec(proto=int)
-def descr__reduce__(space, w_obj, proto=0):
+def descr__reduce_ex__(space, w_obj, proto):
+    w_st_reduce = space.newtext('__reduce__')
+    w_reduce = space.findattr(w_obj, w_st_reduce)
+    if w_reduce is not None:
+        # Check if __reduce__ has been overridden:
+        # "type(obj).__reduce__ is not object.__reduce__"
+        w_cls_reduce = space.getattr(space.type(w_obj), w_st_reduce)
+        w_obj_reduce = space.getattr(space.w_object, w_st_reduce)
+        override = not space.is_w(w_cls_reduce, w_obj_reduce)
+        if override:
+            return space.call_function(w_reduce)
     w_proto = space.newint(proto)
     if proto >= 2:
         hasargs, w_args, w_kwargs = _getnewargs(space, w_obj)
@@ -252,20 +267,6 @@ def descr__reduce__(space, w_obj, proto=0):
                     space.w_TypeError, "cannot pickle %N objects", w_obj_type)
         return reduce_2(space, w_obj, w_proto, w_args, w_kwargs)
     return reduce_1(space, w_obj, w_proto)
-
-@unwrap_spec(proto=int)
-def descr__reduce_ex__(space, w_obj, proto=0):
-    w_st_reduce = space.newtext('__reduce__')
-    w_reduce = space.findattr(w_obj, w_st_reduce)
-    if w_reduce is not None:
-        # Check if __reduce__ has been overridden:
-        # "type(obj).__reduce__ is not object.__reduce__"
-        w_cls_reduce = space.getattr(space.type(w_obj), w_st_reduce)
-        w_obj_reduce = space.getattr(space.w_object, w_st_reduce)
-        override = not space.is_w(w_cls_reduce, w_obj_reduce)
-        if override:
-            return space.call_function(w_reduce)
-    return descr__reduce__(space, w_obj, proto)
 
 def descr___format__(space, w_obj, w_format_spec):
     if space.isinstance_w(w_format_spec, space.w_unicode):

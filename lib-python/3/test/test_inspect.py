@@ -9,7 +9,6 @@ import linecache
 import os
 from os.path import normcase
 import pickle
-import re
 import shutil
 import sys
 import types
@@ -57,12 +56,34 @@ modfile = normcase(modfile)
 def revise(filename, *args):
     return (normcase(filename),) + args
 
-import builtins
-
 git = mod.StupidGit()
 
 class ExampleClassWithSlot(object):
     __slots__ = 'myslot'
+
+def signatures_with_lexicographic_keyword_only_parameters():
+    """
+    Yields a whole bunch of functions with only keyword-only parameters,
+    where those parameters are always in lexicographically sorted order.
+    """
+    parameters = ['a', 'bar', 'c', 'delta', 'ephraim', 'magical', 'yoyo', 'z']
+    for i in range(1, 2**len(parameters)):
+        p = []
+        bit = 1
+        for j in range(len(parameters)):
+            if i & (bit << j):
+                p.append(parameters[j])
+        fn_text = "def foo(*, " + ", ".join(p) + "): pass"
+        symbols = {}
+        exec(fn_text, symbols, symbols)
+        yield symbols['foo']
+
+
+def unsorted_keyword_only_parameters_fn(*, throw, out, the, baby, with_,
+                                        the_, bathwater):
+    pass
+
+unsorted_keyword_only_parameters = 'throw out the baby with_ the_ bathwater'.split()
 
 class IsTestBase(unittest.TestCase):
     predicates = set([inspect.isbuiltin, inspect.isclass, inspect.iscode,
@@ -466,6 +487,24 @@ class TestRetrievingSourceCode(GetSourceBase):
     def test_getfile(self):
         self.assertEqual(inspect.getfile(mod.StupidGit), mod.__file__)
 
+    def test_getfile_builtin_module(self):
+        with self.assertRaises(TypeError) as e:
+            inspect.getfile(sys)
+        self.assertTrue(str(e.exception).startswith('<module'))
+
+    def test_getfile_builtin_class(self):
+        with self.assertRaises(TypeError) as e:
+            inspect.getfile(int)
+        self.assertTrue(str(e.exception).startswith('<class'))
+
+    def test_getfile_builtin_function_or_method(self):
+        with self.assertRaises(TypeError) as e_abs:
+            inspect.getfile(abs)
+        self.assertIn('expected, got', str(e_abs.exception))
+        with self.assertRaises(TypeError) as e_append:
+            inspect.getfile(list.append)
+        self.assertIn('expected, got', str(e_append.exception))
+
     def test_getfile_class_without_module(self):
         class CM(type):
             @property
@@ -475,6 +514,14 @@ class TestRetrievingSourceCode(GetSourceBase):
             pass
         with self.assertRaises(TypeError):
             inspect.getfile(C)
+
+    def test_getfile_broken_repr(self):
+        class ErrorRepr:
+            def __repr__(self):
+                raise Exception('xyz')
+        er = ErrorRepr()
+        with self.assertRaises(TypeError):
+            inspect.getfile(er)
 
     def test_getmodule_recursion(self):
         from types import ModuleType
@@ -702,8 +749,9 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertEqual(varkw, varkw_e)
         self.assertEqual(defaults, defaults_e)
         if formatted is not None:
-            self.assertEqual(inspect.formatargspec(args, varargs, varkw, defaults),
-                             formatted)
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(inspect.formatargspec(args, varargs, varkw, defaults),
+                                 formatted)
 
     def assertFullArgSpecEquals(self, routine, args_e, varargs_e=None,
                                     varkw_e=None, defaults_e=None,
@@ -719,8 +767,9 @@ class TestClassesAndFunctions(unittest.TestCase):
         self.assertEqual(kwonlydefaults, kwonlydefaults_e)
         self.assertEqual(ann, ann_e)
         if formatted is not None:
-            self.assertEqual(inspect.formatargspec(args, varargs, varkw, defaults,
-                                                    kwonlyargs, kwonlydefaults, ann),
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(inspect.formatargspec(args, varargs, varkw, defaults,
+                                                       kwonlyargs, kwonlydefaults, ann),
                              formatted)
 
     def test_getargspec(self):
@@ -846,6 +895,17 @@ class TestClassesAndFunctions(unittest.TestCase):
         with self.assertRaises(TypeError):
             inspect.getfullargspec(builtin)
 
+    def test_getfullargspec_definition_order_preserved_on_kwonly(self):
+        for fn in signatures_with_lexicographic_keyword_only_parameters():
+            signature = inspect.getfullargspec(fn)
+            l = list(signature.kwonlyargs)
+            sorted_l = sorted(l)
+            self.assertTrue(l)
+            self.assertEqual(l, sorted_l)
+        signature = inspect.getfullargspec(unsorted_keyword_only_parameters_fn)
+        l = list(signature.kwonlyargs)
+        self.assertEqual(l, unsorted_keyword_only_parameters)
+
     def test_getargspec_method(self):
         class A(object):
             def m(self):
@@ -941,6 +1001,18 @@ class TestClassesAndFunctions(unittest.TestCase):
             builtin = getattr(__builtins__, name)
             if isinstance(builtin, type):
                 inspect.classify_class_attrs(builtin)
+
+        attrs = attrs_wo_objs(bool)
+        self.assertIn(('__new__', 'static method', bool), attrs,
+                      'missing __new__')
+        self.assertIn(('from_bytes', 'class method', int), attrs,
+                      'missing class method')
+        self.assertIn(('to_bytes', 'method', int), attrs,
+                      'missing plain method')
+        self.assertIn(('__add__', 'method', int), attrs,
+                      'missing plain method')
+        self.assertIn(('__and__', 'method', bool), attrs,
+                      'missing plain method')
 
     def test_classify_DynamicClassAttribute(self):
         class Meta(type):
@@ -2100,7 +2172,7 @@ class TestSignatureObject(unittest.TestCase):
         self.assertEqual(p('f'), False)
         self.assertEqual(p('local'), 3)
         self.assertEqual(p('sys'), sys.maxsize)
-        self.assertEqual(p('exp'), sys.maxsize - 1)
+        self.assertNotIn('exp', signature.parameters)
 
         test_callable(object)
 
@@ -2924,12 +2996,12 @@ class TestSignatureObject(unittest.TestCase):
         def foo(a:int=1, *, b, c=None, **kwargs) -> 42:
             pass
         self.assertEqual(str(inspect.signature(foo)),
-                         '(a:int=1, *, b, c=None, **kwargs) -> 42')
+                         '(a: int = 1, *, b, c=None, **kwargs) -> 42')
 
         def foo(a:int=1, *args, b, c=None, **kwargs) -> 42:
             pass
         self.assertEqual(str(inspect.signature(foo)),
-                         '(a:int=1, *args, b, c=None, **kwargs) -> 42')
+                         '(a: int = 1, *args, b, c=None, **kwargs) -> 42')
 
         def foo():
             pass
@@ -2996,7 +3068,14 @@ class TestSignatureObject(unittest.TestCase):
         class MySignature(inspect.Signature): pass
         def foo(a, *, b:1): pass
         foo_sig = MySignature.from_callable(foo)
-        self.assertTrue(isinstance(foo_sig, MySignature))
+        self.assertIsInstance(foo_sig, MySignature)
+
+    def test_signature_from_callable_class(self):
+        # A regression test for a class inheriting its signature from `object`.
+        class MySignature(inspect.Signature): pass
+        class foo: pass
+        foo_sig = MySignature.from_callable(foo)
+        self.assertIsInstance(foo_sig, MySignature)
 
     @cpython_only
     @unittest.skipIf(MISSING_C_DOCSTRINGS,
@@ -3004,7 +3083,18 @@ class TestSignatureObject(unittest.TestCase):
     def test_signature_from_callable_builtin_obj(self):
         class MySignature(inspect.Signature): pass
         sig = MySignature.from_callable(_pickle.Pickler)
-        self.assertTrue(isinstance(sig, MySignature))
+        self.assertIsInstance(sig, MySignature)
+
+    def test_signature_definition_order_preserved_on_kwonly(self):
+        for fn in signatures_with_lexicographic_keyword_only_parameters():
+            signature = inspect.signature(fn)
+            l = list(signature.parameters)
+            sorted_l = sorted(l)
+            self.assertTrue(l)
+            self.assertEqual(l, sorted_l)
+        signature = inspect.signature(unsorted_keyword_only_parameters_fn)
+        l = list(signature.parameters)
+        self.assertEqual(l, unsorted_keyword_only_parameters)
 
 
 class TestParameterObject(unittest.TestCase):
@@ -3585,7 +3675,8 @@ class TestSignatureDefinitions(unittest.TestCase):
         needs_semantic_update = {"round"}
         no_signature |= needs_semantic_update
         # These need *args support in Argument Clinic
-        needs_varargs = {"min", "max", "print", "__build_class__"}
+        needs_varargs = {"breakpoint", "min", "max", "print",
+                         "__build_class__"}
         no_signature |= needs_varargs
         # These simply weren't covered in the initial AC conversion
         # for builtin callables

@@ -240,3 +240,52 @@ PyThread_ReInitTLS(void)
             q = &p->next;
     }
 }
+
+/* Platform-specific components of TSS API implementation.  */
+
+int
+PyThread_tss_create(Py_tss_t *key)
+{
+    assert(key != NULL);
+    /* If the key has been created, function is silently skipped. */
+    if (key->_is_initialized) {
+        return 0;
+    }
+
+    int fail = pthread_key_create(&(key->_key), NULL);
+    if (fail) {
+        return -1;
+    }
+    key->_is_initialized = 1;
+    return 0;
+}
+
+void
+PyThread_tss_delete(Py_tss_t *key)
+{
+    assert(key != NULL);
+    /* If the key has not been created, function is silently skipped. */
+    if (!key->_is_initialized) {
+        return;
+    }
+
+    pthread_key_delete(key->_key);
+    /* pthread has not provided the defined invalid value for the key. */
+    key->_is_initialized = 0;
+}
+
+int
+PyThread_tss_set(Py_tss_t *key, void *value)
+{
+    assert(key != NULL);
+    int fail = pthread_setspecific(key->_key, value);
+    return fail ? -1 : 0;
+}
+
+void *
+PyThread_tss_get(Py_tss_t *key)
+{
+    assert(key != NULL);
+    return pthread_getspecific(key->_key);
+}
+
