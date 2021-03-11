@@ -53,19 +53,19 @@ class LLVM_CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
-        module = self.llvm.CreateModule(str2constcharp(name))
-        builder = self.llvm.CreateBuilder(None)
+        module = self.llvm.CreateModule(str2constcharp(name), self.context)
+        builder = self.llvm.CreateBuilder(self.context)
         llvm_arg_types = self.convert_args(inputargs)
         arg_array = rffi.CArray(self.llvm.TypeRef)
         arg_types = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
 
         signature = self.llvm.FunctionType(self.llvm.VoidPtr,
                                       llvm_arg_types,
-                                      len(inputargs), 0)
+                                      len(inputargs), 0) #FIXME
         trace = self.llvm.AddFunction(module,
                                  str2constcharp("trace"),
                                  signature)
-        entry = self.llvm.AppendBasicBlock(trace, str2constcharp("entry"))
+        entry = self.llvm.AppendBasicBlock(self.context, trace, str2constcharp("entry"))
         self.llvm.PositionBuilderAtEnd(builder, entry)
 
         dispatcher = LLVMOpDispatcher(self, builder, module, trace)

@@ -66,8 +66,8 @@ class LLVMAPI:
                                        library_dirs=["/usr/lib/llvm/11/lib64",path],
                                        compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
 
-        self.CreateModule = rffi.llexternal("LLVMModuleCreateWithName",
-                                            [self.Str], self.ModuleRef,
+        self.CreateModule = rffi.llexternal("LLVMModuleCreateWithNameInContext",
+                                            [self.Str, self.ContextRef], self.ModuleRef,
                                             compilation_info=info)
         self.FunctionType = rffi.llexternal("LLVMFunctionType",
                                             [self.TypeRef, self.TypeRefPtr,
@@ -76,12 +76,12 @@ class LLVMAPI:
         self.AddFunction = rffi.llexternal("LLVMAddFunction",
                                            [self.ModuleRef, self.Str, self.TypeRef],
                                            self.ValueRef, compilation_info=info)
-        self.AppendBasicBlock = rffi.llexternal("LLVMAppendBasicBlock",
-                                                [self.ValueRef, self.Str],
+        self.AppendBasicBlock = rffi.llexternal("LLVMAppendBasicBlockInContext",
+                                                [self.ContextRef, self.ValueRef, self.Str],
                                                 self.BasicBlockRef,
                                                 compilation_info=info)
-        self.CreateBuilder = rffi.llexternal("LLVMCreateBuilder",
-                                             [self.Void], self.BuilderRef,
+        self.CreateBuilder = rffi.llexternal("LLVMCreateBuilderInContext",
+                                             [self.ContextRef], self.BuilderRef,
                                              compilation_info=info)
         self.PositionBuilderAtEnd = rffi.llexternal("LLVMPositionBuilderAtEnd",
                                                     [self.BuilderRef,

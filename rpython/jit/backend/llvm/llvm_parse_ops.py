@@ -37,7 +37,6 @@ class LLVMOpDispatcher:
                 self.ssa_vars[arg] = self.llvm.GetParam(self.func, c)
                 self.arg_size += self.cpu.WORD
 
-
         for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
             if op.opnum == 1:
                 self.parse_jump(op)
@@ -80,9 +79,9 @@ class LLVMOpDispatcher:
         descr = op.getdescr()
         self.descrs.append(descr)
         last_block = self.llvm.GetInsertBlock(self.builder)
-        loop_header = self.llvm.AppendBasicBlock(self.func,
-                                                     str2constcharp("loop_header_"
-                                                                    +str(self.descr_cnt)))
+        loop_header = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                 str2constcharp("loop_header_"
+                                                                +str(self.descr_cnt)))
         self.llvm.BuildBr(self.builder, loop_header) #llvm requires explicit branching even for fall through
         self.llvm.PositionBuilderAtEnd(self.builder, loop_header)
 
@@ -108,9 +107,11 @@ class LLVMOpDispatcher:
         self.descrs.append(descr)
         self.descr_cnt += 1
 
-        resume = self.llvm.AppendBasicBlock(self.func, str2constcharp("resume_"
-                                                                 +str(self.descr_cnt)))
-        bailout = self.llvm.AppendBasicBlock(self.func,
+        resume = self.llvm.AppendBasicBlock(self.cpu.context,
+                                            self.func,
+                                            str2constcharp("resume_"
+                                                           +str(self.descr_cnt)))
+        bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                              str2constcharp("bailout_"
                                                             +str(self.descr_cnt)))
 
@@ -118,7 +119,8 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(self.cpu.context, 64), self.descr_cnt, 1)
+        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(self.cpu.context, 64),
+                                            self.descr_cnt, 1)
         self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
