@@ -321,34 +321,36 @@ class W_SRE_Pattern(W_Root):
                                              self, w_ptemplate)
                 filter_is_callable = space.is_true(space.callable(w_filter))
         #
-        # XXX this is a bit of a mess, but it improves performance a lot
         ctx = self.make_ctx(w_string)
+        ctx_end = ctx.end
+        pattern = self.code
+
+        # shortcut if the pattern doesn't occur at all (relatively common, eg
+        # when escaping things)
+        if not searchcontext(space, ctx, pattern):
+            w_typ = space.type(w_string)
+            if w_typ is space.w_unicode:
+                return w_string, 0
+            if space.issubtype_w(w_typ, space.w_unicode):
+                return space.add(w_string, space.newutf8('', 0)), 0
+            if w_typ is space.w_bytes:
+                return w_string, 0
+            if space.issubtype_w(w_typ, space.w_bytes):
+                return space.add(w_string, space.newbytes('')), 0
+
+        # XXX this is a bit of a mess, but it improves performance a lot
         sublist_w = strbuilder = None
         if use_builder != '\x00':
             assert filter_as_string is not None
-            strbuilder = StringBuilder(ctx.end)
+            strbuilder = StringBuilder(ctx_end)
         else:
             sublist_w = []
         n = 0
         last_pos = ctx.ZERO
         while not count or n < count:
-            pattern = self.code
-            sub_jitdriver.jit_merge_point(
-                self=self,
-                use_builder=use_builder,
-                filter_is_callable=filter_is_callable,
-                filter_type=type(w_filter),
-                ctx=ctx, pattern=pattern,
-                w_filter=w_filter,
-                strbuilder=strbuilder,
-                filter_as_string=filter_as_string,
-                count=count,
-                w_string=w_string,
-                n=n, last_pos=last_pos, sublist_w=sublist_w
-                )
+            # on entering this loop for the first time, we have already
+            # performed one match above
             space = self.space
-            if not searchcontext(space, ctx, pattern):
-                break
             if last_pos < ctx.match_start:
                 _sub_append_slice(
                     ctx, space, use_builder, sublist_w,
@@ -383,6 +385,15 @@ class W_SRE_Pattern(W_Root):
                     break
                 start = ctx.next_indirect(start)
             ctx.reset(start)
+
+            sub_jitdriver.jit_merge_point(
+                use_builder=use_builder,
+                filter_is_callable=filter_is_callable,
+                filter_type=type(w_filter),
+                pattern=pattern,
+                )
+            if not searchcontext(space, ctx, pattern):
+                break
 
         if last_pos < ctx.end:
             _sub_append_slice(ctx, space, use_builder, sublist_w,
@@ -421,12 +432,7 @@ def sub_get_printable_location(filter_is_callable, use_builder, filter_type, pat
     return "re.sub %s %s %s %s" % (s, filter_is_callable, use_builder, filter_type)
 
 sub_jitdriver = jit.JitDriver(
-    reds="""count n last_pos
-            ctx w_filter
-            strbuilder
-            filter_as_string
-            w_string sublist_w
-            self""".split(),
+    reds="auto",
     greens=["filter_is_callable", "use_builder", "filter_type", "pattern"],
     get_printable_location=sub_get_printable_location,
     )

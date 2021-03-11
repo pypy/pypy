@@ -325,6 +325,13 @@ class AppTestSreMatch:
         import re
         assert re.sub(r"b*", "*", "abc") == "*a*c*"   # changes in 3.7
 
+    def test_sub_shortcut_no_match(self):
+        import re
+        s = b"ccccccc"
+        assert re.sub(b"a", b"b", s) is s
+        s = u"ccccccc"
+        assert re.sub(u"a", u"b", s) is s
+
     def test_match_array(self):
         import re, array
         a = array.array('c', 'hello')
