@@ -3006,7 +3006,6 @@ if sys.platform.startswith('linux'):
         c_memfd_create = external('memfd_create',
             [rffi.CCHARP, rffi.UINT], rffi.INT,
             compilation_info=CConfig._compilation_info_)
-        c_memfd_create("abc", 2)
         def memfd_create(name, flags):
             return handle_posix_error(
                 'memfd_create', c_memfd_create(name, flags))
