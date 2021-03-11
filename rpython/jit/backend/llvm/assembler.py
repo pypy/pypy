@@ -28,7 +28,7 @@ class LLVMAssembler(BaseAssembler):
         module_copy = self.llvm.CloneModule(module) #if we want to mutate module later to patch in a bridge we have to pass a copy to be owned by LLVM's JIT
         #TODO: look into possible memory leak, though the JIT takes ownership not sure when it actually free's the module
         thread_safe_module = self.llvm.CreateThreadSafeModule(module_copy,
-                                                              self.cpu.context)
+                                                              self.cpu.thread_safe_context)
         if self.debug and thread_safe_module._cast_to_int() == 0:
             raise Exception("TSM is Null")
 

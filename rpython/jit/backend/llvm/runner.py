@@ -17,9 +17,31 @@ class LLVM_CPU(AbstractLLCPU):
         self.debug = debug
         self.llvm = LLVMAPI()
         self.assembler = LLVMAssembler(self)
-        self.context = self.llvm.CreateThreadSafeContext(None)
+        self.thread_safe_context = self.llvm.CreateThreadSafeContext(None)
+        self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instances
         self.WORD = 8
+        self.decl_jitframe()
+
+    def decl_jitframe(self):
+        elem_array = rffi.CArray(self.llvm.TypeRef)
+        elem_count = 8
+        packed = 0
+        elem_types = lltype.malloc(elem_array, n=8, flavor='raw')
+        elem_types.__setitem__(0, self.llvm.VoidType(self.context))
+        elem_types.__setitem__(1, self.llvm.VoidType(self.context))
+        elem_types.__setitem__(2, self.llvm.VoidType(self.context))
+        signed_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, 64), 0)
+        elem_types.__setitem__(3, signed_ptr)
+        elem_types.__setitem__(4, self.llvm.VoidType(self.context))
+        elem_types.__setitem__(5, self.llvm.VoidType(self.context))
+        elem_types.__setitem__(6, self.llvm.VoidType(self.context))
+        elem_types.__setitem__(7, self.llvm.PointerType(
+                                                self.llvm.IntType(self.context,
+                                                                  64), 0))
+        self.jitframe_struct = self.llvm.StructType(self.context,
+                                                    elem_types,
+                                                    elem_count, packed)
 
     def setup_once(self):
         pass
@@ -35,9 +57,7 @@ class LLVM_CPU(AbstractLLCPU):
         builder = self.llvm.CreateBuilder(None)
         llvm_arg_types = self.convert_args(inputargs)
         arg_array = rffi.CArray(self.llvm.TypeRef)
-        arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
-        arg_types = arg_types_ptr._getobj()
-        arg_types.setitem(0, self.llvm.VoidPtr)
+        arg_types = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
 
         signature = self.llvm.FunctionType(self.llvm.VoidPtr,
                                       llvm_arg_types,
@@ -57,7 +77,11 @@ class LLVM_CPU(AbstractLLCPU):
 
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher) #set compiled loop token and func addr
 
-        lltype.free(llvm_arg_types, flavor='raw')
+        lltype.free(llvm_arg_types, flavor='raw') #FIXME
+
+    def execute_token(self, looptoken, *ARGS):
+        func = self.make_execute_token([arg for arg in ARGS])
+        return func(looptoken, [arg for arg in ARGS])
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
         dispatcher = self.dispatchers[looptoken]
@@ -72,12 +96,6 @@ class LLVM_CPU(AbstractLLCPU):
 
         self.assembler.jit_compile(dispatcher.module, looptoken, inputargs, dispatcher)
 
-    def make_executable_args(self, *ARGS):
-        FUNCPTR = lltype.Ptr(lltype.FuncType([llmemory.GCREF, llmemory.Address],
-                                             llmemory.GCREF))
-
-        #func = rffi.cast(FUNCPTR, addr)
-
     def convert_args(self, inputargs):
         arg_array = rffi.CArray(self.llvm.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
         arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
@@ -90,4 +108,4 @@ class LLVM_CPU(AbstractLLCPU):
 
     def get_llvm_type(self, val):
         if val.datatype == 'i':
-            return self.llvm.IntType(val.bytesize)
+            return self.llvm.IntType(self.context, val.bytesize)

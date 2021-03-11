@@ -23,7 +23,7 @@ class LLVMOpDispatcher:
         for arg in args:
             if arg.is_constant():
                 if arg.type == 'i':
-                    typ = self.llvm.IntType(64)
+                    typ = self.llvm.IntType(self.cpu.context, 64)
                     val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
                     llvm_args.append([val, typ])
             else:
@@ -118,7 +118,7 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(64), self.descr_cnt, 1)
+        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(self.cpu.context, 64), self.descr_cnt, 1)
         self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume)

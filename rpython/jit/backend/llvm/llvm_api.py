@@ -117,8 +117,9 @@ class LLVMAPI:
         self.DiposeModule = rffi.llexternal("LLVMDisposeModule",
                                             [self.ModuleRef], self.Void,
                                             compilation_info=info)
-        self.IntType = rffi.llexternal("LLVMIntType",
-                                       [lltype.Unsigned], self.TypeRef,
+        self.IntType = rffi.llexternal("LLVMIntTypeInContext",
+                                       [self.ContextRef, lltype.Unsigned],
+                                       self.TypeRef,
                                        compilation_info=info)
         self.ConstInt = rffi.llexternal("LLVMConstInt",
                                         [self.TypeRef, lltype.UnsignedLongLong,
@@ -292,6 +293,30 @@ class LLVMAPI:
                                       [self.ValueRef],
                                       self.TypeRef,
                                       compilation_info=info)
+        self.VoidType =  rffi.llexternal("LLVMVoidTypeInContext",
+                                      [self.ContextRef],
+                                      self.TypeRef,
+                                      compilation_info=info)
+        self.StructType =  rffi.llexternal("LLVMStructTypeInContext",
+                                      [self.ContextRef, self.TypeRefPtr,
+                                       lltype.Unsigned, self.Bool],
+                                      self.TypeRef,
+                                      compilation_info=info)
+        self.ArrayType =  rffi.llexternal("LLVMArrayType",
+                                      [self.TypeRef, lltype.Unsigned],
+                                      self.TypeRef,
+                                      compilation_info=info)
+        self.PointerType =  rffi.llexternal("LLVMPointerType",
+                                      [self.TypeRef, lltype.Unsigned],
+                                      self.TypeRef,
+                                      compilation_info=info)
+        self.StructGEP =  rffi.llexternal("LLVMStructGEP2",
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, lltype.Unsigned,
+                                       self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+
 
     def initialise_jit(self):
         if self.debug:
