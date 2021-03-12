@@ -1188,28 +1188,37 @@ def attach_c_functions(space, eci, prefix):
     state.C.tuple_new = rffi.llexternal(
         '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
-    do_setters = True
     if we_are_translated():
         eci_flags = eci
-    elif sys.platform == "win32":
-        do_setters = False
-        eci_flags = eci
     else:
-        # To get this to work in tests, we need a new eci
-        libs = eci.get_module_files()[1].libraries
+        # To get this to work in tests, we need a new eci to
+        # link to the pypyapi.so/dll. Note that all this linking
+        # will only happen for tests, when translating the link args here
+        # are irrelevant.
+        library_dirs = eci.library_dirs
+        link_extra = list(eci.link_extra)
+        link_files = eci.link_files
+        if sys.platform == "win32":
+            # since we include Python.h, we must disable linking with
+            # the regular import lib
+            from pypy.module.sys import version
+            ver = version.CPYTHON_VERSION[:2]
+            link_extra.append("/NODEFAULTLIB:Python%d%d.lib" % ver)
+             # for testing, make sure "pypyapi.lib" is linked in
+            link_extra += [x.replace('dll', 'lib') for x in eci.libraries]
         eci_flags = ExternalCompilationInfo(
             include_dirs=include_dirs,
             includes=['Python.h'],
-            link_extra = libs,
+            link_extra = link_extra,
+            link_files = link_files,
+            library_dirs = library_dirs,
            )
-    if do_setters:
-        state.C.flag_setters = {}
-        for c_name, attr in _flags:
-            _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
-                                             _nowrapper=True, c_type='int')
-            state.C.flag_setters[attr] = setter
+    state.C.flag_setters = {}
+    for c_name, attr in _flags:
+        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+                                         _nowrapper=True, c_type='int')
+        state.C.flag_setters[attr] = setter
         
-
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1225,14 +1234,10 @@ def run_bootstrap_functions(space):
 
 @init_function
 def init_flags(space):
-    do_setters = True
-    if not we_are_translated() and sys.platform == "win32":
-        do_setters = False
-    if do_setters:
-        state = space.fromcache(State)
-        for _, attr in _flags:
-            f = state.C.flag_setters[attr]
-            f(space.sys.get_flag(attr))
+    state = space.fromcache(State)
+    for _, attr in _flags:
+        f = state.C.flag_setters[attr]
+        f(space.sys.get_flag(attr))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1550,7 +1555,7 @@ def build_eci(code, use_micronumpy=False, translating=False):
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
             # Sometimes the library is wrapped into another DLL, ensure that
-            # the correct bootstrap code is installed
+            # the correct bootstrap code is installed.
             kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
