@@ -1361,7 +1361,36 @@ class MIFrame(object):
         #
         args = [ConstInt(jd_index), ConstInt(portal_call_depth),
                 ConstInt(current_call_id)] + greenkey
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
+        metainterp = self.metainterp
+        metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
+        warmrunnerstate = jitdriver_sd.warmstate
+        if (metainterp.force_finish_trace and
+                metainterp.history.length() > warmrunnerstate.trace_limit // 2):
+            # were over half the trace limit, in a trace we really shouldn't
+            # abort. finish it now
+            metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
+            if we_are_translated():
+                llexception = jitexc.get_llexception(metainterp.cpu, AssertionError())
+            else:
+                # fish an AssertionError instance
+                llexception = jitexc._get_standard_error(metainterp.cpu.rtyper, AssertionError)
+
+            # add an unreachable finish that raises an AssertionError
+            exception_box = ConstInt(ptr2int(llexception.typeptr))
+            sd = metainterp.staticdata
+            token = sd.exit_frame_with_exception_descr_ref
+            metainterp.history.record(rop.FINISH, [exception_box], None, descr=token)
+
+            # compile the trace
+            target_token = compile.compile_trace(metainterp, metainterp.resumekey, [exception_box])
+            if target_token is not token:
+                compile.giveup()
+
+            # unlike basically any other trace that we can produce, we now need
+            # to blackhole back to the interpreter, because we are at a really
+            # arbitrary place here!
+            raise SwitchToBlackhole(Counters.ABORT_SEGMENTED_TRACE)
+
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
@@ -2047,7 +2076,7 @@ class MetaInterp(object):
     last_exc_box = None
     _last_op = None
 
-    def __init__(self, staticdata, jitdriver_sd):
+    def __init__(self, staticdata, jitdriver_sd, force_finish_trace=False):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
         self.jitdriver_sd = jitdriver_sd
@@ -2070,6 +2099,11 @@ class MetaInterp(object):
 
         self.aborted_tracing_jitdriver = None
         self.aborted_tracing_greenkey = None
+
+        # set to true if we really should finish the trace
+        # with a GUARD_ALWAYS_FAILS (and an unreachable finish that raises
+        # AssertionError)
+        self.force_finish_trace = force_finish_trace
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
@@ -2426,7 +2460,8 @@ class MetaInterp(object):
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
-        if (self.history.length() > warmrunnerstate.trace_limit or
+        length = self.history.length()
+        if (length > warmrunnerstate.trace_limit or
                 self.history.trace_tag_overflow()):
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
@@ -2440,6 +2475,16 @@ class MetaInterp(object):
                     jd_sd = self.jitdriver_sd
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
                     warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+            else:
+                # huge function, not due to inlining. the next time we trace
+                # it, force a trace to be created
+                if self.current_merge_points:
+                    jd_sd = self.jitdriver_sd
+                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                    warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+                    jd_sd.warmstate.mark_force_finish_tracing(greenkey)
+                    # bizarrely enough, this means *do trace here* ??!
+                    jd_sd.warmstate.dont_trace_here(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):

@@ -693,6 +693,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                 and not rstack.stack_almost_full()):
             self.start_compiling()
             try:
+                import pdb; pdb.set_trace()
                 self._trace_and_compile_from_bridge(deadframe, metainterp_sd,
                                                     jitdriver_sd)
             finally:
