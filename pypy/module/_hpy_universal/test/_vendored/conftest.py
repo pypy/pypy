@@ -1,22 +1,5 @@
 import pytest
-import sys
 from .support import ExtensionCompiler
-
-disable = False
-
-if sys.platform == 'win32':
-    # skip all tests on windows, see issue hpyproject/hpy#61
-    disable = True
-
-def pytest_ignore_collect(path, config):
-    if disable:
-        return True
-
-def pytest_collect_file(path, parent):
-    if disable:
-        # We end up here when calling py.test .../test_foo.py directly
-        # It's OK to kill the whole session with the following line
-        pytest.skip("skipping on windows")
 
 def pytest_addoption(parser):
     parser.addoption(

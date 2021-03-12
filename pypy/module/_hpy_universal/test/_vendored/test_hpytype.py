@@ -192,7 +192,7 @@ class TestType(HPyTest):
     def test_refcount(self):
         import pytest
         import sys
-        if not self.should_check_refcount():
+        if not self.supports_refcounts():
             pytest.skip()
         mod = self.make_module("""
             @DEFINE_PointObject
