@@ -1223,9 +1223,6 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
-
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self.valuestackdepth,
                           next_instr + offsettoend, self.lastblock)
