@@ -70,6 +70,16 @@ class HPyAppTest(object):
             return space.w_False
         self.w_supports_refcounts = self.space.wrap(interp2app(supports_refcounts))
 
+        def supports_ordinary_make_module_imports(space):
+            return space.w_False
+        self.w_supports_ordinary_make_module_imports = self.space.wrap(
+            interp2app(supports_ordinary_make_module_imports))
+
+        def supports_sys_executable(space):
+            return space.w_False
+        self.w_supports_sys_executable = self.space.wrap(
+            interp2app(supports_sys_executable))
+
         self.w_compiler = self.space.appexec([], """():
             class compiler:
                 hpy_abi = 'universal'
