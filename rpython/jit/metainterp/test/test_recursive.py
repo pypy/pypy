@@ -331,7 +331,6 @@ class RecursiveTests:
             return 0
         def loop(n):
             set_param(myjitdriver, "threshold", 10)
-            pc = 0
             while n:
                 myjitdriver.can_enter_jit(n=n)
                 myjitdriver.jit_merge_point(n=n)
@@ -343,7 +342,9 @@ class RecursiveTests:
         assert res == 0
         self.check_max_trace_length(TRACE_LIMIT)
         self.check_enter_count_at_most(10) # maybe
-        self.check_aborted_count(6)
+        # this function used to be traced eventually. nowadays, we just stop
+        # jitting it
+        self.check_aborted_count(1)
 
     def test_trace_limit_bridge(self):
         def recursive(n):
@@ -1334,7 +1335,6 @@ class RecursiveTests:
         pass
 
     def test_huge_trace_without_inlining(self):
-        py.test.skip("fix this!")
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
@@ -1370,9 +1370,7 @@ class RecursiveTests:
             for i in range(m):
                 result += f('-' * 50 + '-c-l-', i+100)
         self.meta_interp(g, [10], backendopt=True)
-        self.check_aborted_count(1)
-        self.check_resops(call=0, call_assembler_i=2)
-        self.check_jitcell_token_count(2)
+        self.check_aborted_count(1) # not 5
 
 
 class TestLLtype(RecursiveTests, LLJitMixin):

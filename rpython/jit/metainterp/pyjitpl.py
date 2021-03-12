@@ -2440,6 +2440,15 @@ class MetaInterp(object):
                     jd_sd = self.jitdriver_sd
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
                     warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+            else:
+                # there is a huge loop, but it's not due to inlining. if we
+                # don't do anything, it will be traced again and again,
+                # throwing out the trace every time due to length. better to
+                # disable tracing of that loop completely.
+                if self.current_merge_points:
+                    jd_sd = self.jitdriver_sd
+                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+                    jd_sd.warmstate.dont_ever_trace(greenkey)
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):

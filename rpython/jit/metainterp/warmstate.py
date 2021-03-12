@@ -137,6 +137,7 @@ JC_TRACING         = 0x01
 JC_DONT_TRACE_HERE = 0x02
 JC_TEMPORARY       = 0x04
 JC_TRACING_OCCURRED= 0x08
+JC_DONT_EVER_TRACE = 0x10
 
 class BaseJitCell(object):
     """Subclasses of BaseJitCell are used in tandem with the single
@@ -183,6 +184,11 @@ class BaseJitCell(object):
         this particular function.  (We only set this flag when aborting
         due to a trace too long, so we use the same flag as a hint to
         also mean "please trace from here as soon as possible".)
+
+        JC_DONT_EVER_TRACE: some functions inherently produce too long traces
+        without any inlining going on. Those shouldn't be traced, because we
+        will just trace and abort repeatedly. If this flag is set, we will
+        never start tracing the function.
     """
     flags = 0     # JC_xxx flags
     wref_procedure_token = None
@@ -219,6 +225,10 @@ class BaseJitCell(object):
             # we no longer have one, then remove me.  this prevents this
             # JitCell from being immortal.
             return self.has_seen_a_procedure_token()     # i.e. dead weakref
+        # we remove JC_DONT_EVER_TRACE occasionally, this might lead to trying
+        # to trace the huge function again, but maybe that's ok and we get a
+        # shorter path taken through the loop the next time
+
         return True   # Other JitCells can be removed.
 
 # ____________________________________________________________
@@ -424,11 +434,12 @@ class WarmEnterState(object):
             if cell is None:
                 cell = JitCell(*greenargs)
                 jitcounter.install_new_cell(hash, cell)
-            cell.flags |= JC_TRACING | JC_TRACING_OCCURRED
+            cell.flags |= JC_TRACING
             try:
                 metainterp.compile_and_run_once(jitdriver_sd, *args)
             finally:
                 cell.flags &= ~JC_TRACING
+                cell.flags |= JC_TRACING_OCCURRED
 
         def maybe_compile_and_run(increment_threshold, *args):
             """Entry point to the JIT.  Called at the point with the
@@ -455,10 +466,15 @@ class WarmEnterState(object):
 
             # Here, we have found 'cell'.
             #
-            if cell.flags & (JC_TRACING | JC_TEMPORARY):
-                if cell.flags & JC_TRACING:
+            if cell.flags & (JC_TRACING | JC_TEMPORARY | JC_DONT_EVER_TRACE):
+                if cell.flags & (JC_TRACING | JC_DONT_EVER_TRACE):
+                    # if JC_TRACING is set:
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
+                    if cell.flags & JC_DONT_EVER_TRACE:
+                        print "won't trace!", greenargs
+                    # if JC_DONT_EVER_TRACE:
+                    # the function is too huge to be traced.
                     return
                 # attached by compile_tmp_callback().  count normally
                 if jitcounter.tick(hash, increment_threshold):
@@ -665,6 +681,13 @@ class WarmEnterState(object):
             cell = JitCell.ensure_jit_cell_at_key(greenkey)
             cell.flags |= JC_DONT_TRACE_HERE
         self.dont_trace_here = dont_trace_here
+
+        def dont_ever_trace(greenkey):
+            # set greenkey as something that we should never *start* a trace
+            # of, it will be purely run in the interpreter
+            cell = JitCell.ensure_jit_cell_at_key(greenkey)
+            cell.flags |= JC_DONT_EVER_TRACE
+        self.dont_ever_trace = dont_ever_trace
 
         if jd._should_unroll_one_iteration_ptr is None:
             def should_unroll_one_iteration(greenkey):
