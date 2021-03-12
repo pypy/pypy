@@ -471,8 +471,6 @@ class WarmEnterState(object):
                     # if JC_TRACING is set:
                     # tracing already happening in some outer invocation of
                     # this function. don't trace a second time.
-                    if cell.flags & JC_DONT_EVER_TRACE:
-                        print "won't trace!", greenargs
                     # if JC_DONT_EVER_TRACE:
                     # the function is too huge to be traced.
                     return
