@@ -310,13 +310,52 @@ class LLVMAPI:
                                       [self.TypeRef, lltype.Unsigned],
                                       self.TypeRef,
                                       compilation_info=info)
-        self.StructGEP =  rffi.llexternal("LLVMStructGEP2",
+        self.BuildStructGEP =  rffi.llexternal("LLVMBuildStructGEP2",
                                       [self.BuilderRef, self.TypeRef,
                                        self.ValueRef, lltype.Unsigned,
                                        self.Str],
                                       self.ValueRef,
                                       compilation_info=info)
-
+        self.BuildGEP =  rffi.llexternal("LLVMBuildGEP2",
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, self.ValueRefPtr,
+                                       lltype.Unsigned, self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildGEP1D =  rffi.llexternal("BuildGEP1D", #wrappers for common cases so can avoid rffi malloc each call
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, self.ValueRef,
+                                       self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildGEP2D =  rffi.llexternal("BuildGEP2D",
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, self.ValueRef,
+                                       self.ValueRef, self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildGEP3D =  rffi.llexternal("BuildGEP3D",
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, self.ValueRef,
+                                       self.ValueRef, self.ValueRef,
+                                       self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildLoad =  rffi.llexternal("LLVMBuildLoad2",
+                                      [self.BuilderRef, self.TypeRef,
+                                       self.ValueRef, self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildStore =  rffi.llexternal("LLVMBuildStore",
+                                      [self.BuilderRef, self.ValueRef,
+                                       self.ValueRef],
+                                      self.ValueRef,
+                                      compilation_info=info)
+        self.BuildBitCast =  rffi.llexternal("LLVMBuildBitCast",
+                                      [self.BuilderRef, self.ValueRef,
+                                       self.TypeRef, self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
 
     def initialise_jit(self):
         if self.debug:

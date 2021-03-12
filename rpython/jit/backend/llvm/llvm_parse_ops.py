@@ -1,19 +1,19 @@
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMOpDispatcher:
-    def __init__(self, cpu, builder, module, func):
+    def __init__(self, cpu, builder, module, func, jitframe_type):
         self.cpu = cpu
         self.builder = builder
         self.module = module
         self.func = func
         self.llvm = self.cpu.llvm
+        self.jitframe_type = jitframe_type
+        self.jitframe = self.llvm.GetParam(self.func, 0)
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
         self.var_cnt = 0 #keep ssa names in llvm unique
         self.const_cnt = 0 #counter to help keep llvm's ssa names unique
-        self.descrs = [] #save descr objects from branches in order they're seen #TODO: this may not make sense in a trace tree
-        self.descr_cnt = 0
         self.descr_phis = {} #map label descrs to phi values
         self.descr_blocks = {} #map label descrs to their blocks
         self.bailout_blocks = {} #map guard descrs to their bailout blocks
@@ -23,7 +23,7 @@ class LLVMOpDispatcher:
         for arg in args:
             if arg.is_constant():
                 if arg.type == 'i':
-                    typ = self.llvm.IntType(self.cpu.context, 64)
+                    typ = self.cpu.llvm_int_type
                     val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
                     llvm_args.append([val, typ])
             else:
@@ -31,10 +31,23 @@ class LLVMOpDispatcher:
                 llvm_args.append([val, self.llvm.TypeOf(val)])
         return llvm_args
 
+    def cast_arg(self, arg, llvm_val, c):
+        if arg.type == 'i':
+            return llvm_val #already int
+
     def dispatch_ops(self, inputargs, ops, is_bridge=False):
         if not is_bridge: #input args for a bridge can only be args parsed in a previous trace
+            args = self.llvm.BuildStructGEP(self.builder, self.jitframe_type,
+                                            self.jitframe, 7,
+                                            str2constcharp("args"))
+            typ = self.cpu.llvm_int_type #args are stored at long ints in the jitframe so we can just read them out as such
             for c, arg in enumerate(inputargs):
-                self.ssa_vars[arg] = self.llvm.GetParam(self.func, c)
+                arg_ptr = self.llvm.BuildGEP1D(self.builder, typ, args,
+                                               self.llvm.ConstInt(typ, c, 0),
+                                               str2constcharp("arg_ptr_"+str(c)))
+                arg_raw = self.llvm.BuildLoad(self.builder, typ, arg_ptr,
+                                              str2constcharp("arg_raw_"+str(c)))
+                self.ssa_vars[arg] = self.cast_arg(arg, arg_raw, c)
                 self.arg_size += self.cpu.WORD
 
         for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
@@ -71,13 +84,16 @@ class LLVMOpDispatcher:
         self.llvm.BuildBr(self.builder, target_block)
 
     def parse_finish(self, op):
-        self.descrs.append(op.getdescr())
-        self.descr_cnt += 1
+        descr = op.getdescr()
+        final_descr = self.llvm.BuildStructGEP(self.builder, self.jitframe_type,
+                                               self.jitframe, 1,
+                                               str2constcharp("final_descr"))
+        descr_typ = self.cpu.llvm_void_ptr
+        self.llvm.BuildStore()
         self.llvm.BuildRet(self.builder, self.ssa_vars[op.getarglist()[0]])
 
     def parse_label(self, op):
         descr = op.getdescr()
-        self.descrs.append(descr)
         last_block = self.llvm.GetInsertBlock(self.builder)
         loop_header = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                  str2constcharp("loop_header_"
@@ -104,8 +120,6 @@ class LLVMOpDispatcher:
 
     def parse_guard_true(self, op):
         descr = op.getdescr()
-        self.descrs.append(descr)
-        self.descr_cnt += 1
 
         resume = self.llvm.AppendBasicBlock(self.cpu.context,
                                             self.func,
@@ -119,7 +133,7 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        llvm_descr_cnt = self.llvm.ConstInt(self.llvm.IntType(self.cpu.context, 64),
+        llvm_descr_cnt = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                             self.descr_cnt, 1)
         self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 

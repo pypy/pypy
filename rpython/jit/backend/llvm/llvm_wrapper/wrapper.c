@@ -87,3 +87,17 @@ LLVMValueRef BuildICmp(LLVMBuilderRef builder, int op, LLVMValueRef lhs, LLVMVal
 	}
 	return LLVMBuildICmp(builder, pred, lhs, rhs, name);
 }
+
+LLVMValueRef BuildGEP1D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx, char *name){
+	return LLVMBuildGEP2(builder, typ, ptr, &indx, 1, name);
+}
+
+LLVMValueRef BuildGEP2D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx1, LLVMValueRef indx2, char *name){
+	LLVMValueRef arr[] = {indx1, indx2};
+	return LLVMBuildGEP2(builder, typ, ptr, arr, 2, name);
+}
+
+LLVMValueRef BuildGEP3D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx1, LLVMValueRef indx2, LLVMValueRef indx3, char *name){
+	LLVMValueRef arr[] = {indx1, indx2, indx3};
+	return LLVMBuildGEP2(builder, typ, ptr, arr, 3, name);
+}
