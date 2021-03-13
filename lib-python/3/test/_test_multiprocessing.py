@@ -1118,6 +1118,7 @@ class _TestQueue(BaseTestCase):
         self.assertTrue(not_serializable_obj.reduce_was_called)
         self.assertTrue(not_serializable_obj.on_queue_feeder_error_was_called)
 
+    # PyPy added to fix issue bpo 42752
     def test_closed_queue_closes_both(self):
         q = multiprocessing.Queue()
         q.put(1)

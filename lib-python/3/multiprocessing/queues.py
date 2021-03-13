@@ -29,6 +29,7 @@ _ForkingPickler = context.reduction.ForkingPickler
 from .util import debug, info, Finalize, register_after_fork, is_exiting
 
 
+# PyPy added to fix issue bpo 42752
 class CleanExchange:
     def __init__(self, obj, attr):
         self.obj = obj
