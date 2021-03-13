@@ -415,6 +415,14 @@ class GcRewriterAssembler(object):
                 continue
             if opnum == rop.JUMP or opnum == rop.FINISH:
                 self.emit_pending_zeros()
+            if opnum == rop.GUARD_ALWAYS_FAILS:
+                # turn into guard_value(same_as_i(0), 1)
+                op1 = ResOperation(rop.SAME_AS_I, [ConstInt(0)])
+                self.emit_op(op1)
+                newop = op.copy_and_change(rop.GUARD_VALUE, args=[op1, ConstInt(1)])
+                newop.setfailargs(op.getfailargs())
+                self.emit_op(newop)
+                continue
             #
             self.emit_op(op)
         return self._newops
