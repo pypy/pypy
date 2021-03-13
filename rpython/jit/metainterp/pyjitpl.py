@@ -1365,8 +1365,8 @@ class MIFrame(object):
         metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
         warmrunnerstate = jitdriver_sd.warmstate
         if (metainterp.force_finish_trace and
-                metainterp.history.length() > warmrunnerstate.trace_limit // 2):
-            # were over half the trace limit, in a trace we really shouldn't
+                metainterp.history.length() > warmrunnerstate.trace_limit * 0.9):
+            # close to the trace limit, in a trace we really shouldn't
             # abort. finish it now
             metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
             if we_are_translated():
@@ -2485,6 +2485,15 @@ class MetaInterp(object):
                     jd_sd.warmstate.mark_force_finish_tracing(greenkey)
                     # bizarrely enough, this means *do trace here* ??!
                     jd_sd.warmstate.dont_trace_here(greenkey)
+                else:
+                    # we're tracing a bridge. there are no bits left in
+                    # ResumeGuardDescr to store that we should force a bridge
+                    # creation the next time. therefore, set a flag on the loop
+                    # token that will then apply to all bridges from that token
+                    # (bit crude, but creating a segmented bridge is generally
+                    # quite safe)
+                    loop_token = self.resumekey_original_loop_token
+                    loop_token.retraced_count |= loop_token.FORCE_BRIDGE_SEGMENTING
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):

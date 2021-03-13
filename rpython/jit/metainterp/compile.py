@@ -713,8 +713,12 @@ class AbstractResumeGuardDescr(ResumeDescr):
         # loop itself may contain temporarily recursion into other
         # jitdrivers.
         from rpython.jit.metainterp.pyjitpl import MetaInterp
+        loop_token = self.rd_loop_token.loop_token_wref()
+        force_finish_trace = False
+        if loop_token:
+            force_finish_trace = bool(loop_token.retraced_count & loop_token.FORCE_BRIDGE_SEGMENTING)
         metainterp = MetaInterp(metainterp_sd, jitdriver_sd,
-                force_finish_trace=isinstance(self, ResumeGuardDescrAlwaysFails))
+                force_finish_trace=force_finish_trace)
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 
@@ -920,17 +924,12 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
             resumedescr = ResumeGuardCopiedExcDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardExcDescr()
-    elif opnum == rop.GUARD_ALWAYS_FAILS:
-        resumedescr = ResumeGuardDescrAlwaysFails()
     else:
         if copied_from_descr is not None:
             resumedescr = ResumeGuardCopiedDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardDescr()
     return resumedescr
-
-class ResumeGuardDescrAlwaysFails(ResumeGuardDescr):
-    pass
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):
     def _init(self, metainterp_sd, jitdriver_sd):
