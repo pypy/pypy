@@ -713,7 +713,12 @@ class AbstractResumeGuardDescr(ResumeDescr):
         # loop itself may contain temporarily recursion into other
         # jitdrivers.
         from rpython.jit.metainterp.pyjitpl import MetaInterp
-        metainterp = MetaInterp(metainterp_sd, jitdriver_sd)
+        loop_token = self.rd_loop_token.loop_token_wref()
+        force_finish_trace = False
+        if loop_token:
+            force_finish_trace = bool(loop_token.retraced_count & loop_token.FORCE_BRIDGE_SEGMENTING)
+        metainterp = MetaInterp(metainterp_sd, jitdriver_sd,
+                force_finish_trace=force_finish_trace)
         metainterp.handle_guard_failure(self, deadframe)
     _trace_and_compile_from_bridge._dont_inline_ = True
 

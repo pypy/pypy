@@ -1,5 +1,5 @@
 import py
-from rpython.rlib.jit import JitDriver, hint, set_param
+from rpython.rlib.jit import JitDriver, hint, set_param, Counters
 from rpython.rlib.jit import unroll_safe, dont_look_inside, promote
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.debug import fatalerror
@@ -8,6 +8,7 @@ from rpython.jit.codewriter.policy import StopAtXPolicy
 from rpython.rtyper.annlowlevel import hlstr
 from rpython.jit.metainterp.warmspot import get_stats
 from rpython.jit.backend.llsupport import codemap
+from rpython.jit.metainterp.jitprof import Profiler
 
 class RecursiveTests:
 
@@ -1334,7 +1335,6 @@ class RecursiveTests:
         pass
 
     def test_huge_trace_without_inlining(self):
-        py.test.skip("fix this!")
         def p(pc, code):
             code = hlstr(code)
             return "%s %d %s" % (code, pc, code[pc])
@@ -1367,11 +1367,14 @@ class RecursiveTests:
             if m > 1000000:
                 f('', 0)
             result = 0
+            s = '-' * 50 + '-c-l-'
             for i in range(m):
-                result += f('-' * 50 + '-c-l-', i+100)
-        self.meta_interp(g, [10], backendopt=True)
-        self.check_aborted_count(1)
-        self.check_resops(call=0, call_assembler_i=2)
+                result += f(s, i+100)
+        self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
+        stats = get_stats()
+        assert stats.metainterp_sd.profiler.counters[
+            Counters.ABORT_SEGMENTED_TRACE] == 8
+        self.check_trace_count(10)
         self.check_jitcell_token_count(2)
 
 
