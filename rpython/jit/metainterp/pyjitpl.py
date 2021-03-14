@@ -2477,31 +2477,36 @@ class MetaInterp(object):
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
                     warmrunnerstate.JitCell.trace_next_iteration(greenkey)
             else:
-                # huge function, not due to inlining. the next time we trace
-                # it, force a trace to be created
-                debug_start("jit-disableinlining")
-                debug_print("no inlinable function found!")
-                if self.current_merge_points:
-                    jd_sd = self.jitdriver_sd
-                    greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
-                    warmrunnerstate.JitCell.trace_next_iteration(greenkey)
-                    jd_sd.warmstate.mark_force_finish_tracing(greenkey)
-                    # bizarrely enough, this means *do trace here* ??!
-                    jd_sd.warmstate.dont_trace_here(greenkey)
-                    loc = jd_sd.warmstate.get_location_str(greenkey)
-                    debug_print("force tracing loop next time", loc)
-                else:
-                    # we're tracing a bridge. there are no bits left in
-                    # ResumeGuardDescr to store that we should force a bridge
-                    # creation the next time. therefore, set a flag on the loop
-                    # token that will then apply to all bridges from that token
-                    # (bit crude, but creating a segmented bridge is generally
-                    # quite safe)
-                    loop_token = self.resumekey_original_loop_token
-                    loop_token.retraced_count |= loop_token.FORCE_BRIDGE_SEGMENTING
-                    debug_print("enable bridge segmenting of base loop")
-                debug_stop("jit-disableinlining")
+                self.prepare_trace_segmenting()
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+
+    def prepare_trace_segmenting(self):
+        warmrunnerstate = self.jitdriver_sd.warmstate
+        # huge function, not due to inlining. the next time we trace
+        # it, force a trace to be created
+        debug_start("jit-disableinlining")
+        debug_print("no inlinable function found!")
+        if self.current_merge_points:
+            # loop
+            jd_sd = self.jitdriver_sd
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+            jd_sd.warmstate.mark_force_finish_tracing(greenkey)
+            # bizarrely enough, this means *do trace here* ??!
+            jd_sd.warmstate.dont_trace_here(greenkey)
+            loc = jd_sd.warmstate.get_location_str(greenkey)
+            debug_print("force tracing loop next time", loc)
+        else:
+            # we're tracing a bridge. there are no bits left in
+            # ResumeGuardDescr to store that we should force a bridge
+            # creation the next time. therefore, set a flag on the loop
+            # token that will then apply to all bridges from that token
+            # (bit crude, but creating a segmented bridge is generally
+            # quite safe)
+            loop_token = self.resumekey_original_loop_token
+            loop_token.retraced_count |= loop_token.FORCE_BRIDGE_SEGMENTING
+            debug_print("enable bridge segmenting of base loop")
+        debug_stop("jit-disableinlining")
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
