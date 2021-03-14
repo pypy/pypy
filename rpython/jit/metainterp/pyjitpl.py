@@ -1392,8 +1392,8 @@ class MIFrame(object):
             compile.giveup()
 
         # unlike basically any other trace that we can produce, we now need
-        # to blackhole back to the interpreter, because we are at a really
-        # arbitrary place here!
+        # to blackhole back to the interpreter instead of jumping to some
+        # existing code, because we are at a really arbitrary place here!
         raise SwitchToBlackhole(Counters.ABORT_SEGMENTED_TRACE)
 
 
