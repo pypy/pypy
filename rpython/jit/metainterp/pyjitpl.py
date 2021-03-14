@@ -1365,7 +1365,8 @@ class MIFrame(object):
         metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
         warmrunnerstate = jitdriver_sd.warmstate
         if (metainterp.force_finish_trace and
-                metainterp.history.length() > warmrunnerstate.trace_limit * 0.9):
+                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8 or
+                 metainterp.history.trace_tag_overflow_imminent())):
             # close to the trace limit, in a trace we really shouldn't
             # abort. finish it now
             metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
@@ -2478,6 +2479,8 @@ class MetaInterp(object):
             else:
                 # huge function, not due to inlining. the next time we trace
                 # it, force a trace to be created
+                debug_start("jit-disableinlining")
+                debug_print("no inlinable function found!")
                 if self.current_merge_points:
                     jd_sd = self.jitdriver_sd
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
@@ -2485,6 +2488,8 @@ class MetaInterp(object):
                     jd_sd.warmstate.mark_force_finish_tracing(greenkey)
                     # bizarrely enough, this means *do trace here* ??!
                     jd_sd.warmstate.dont_trace_here(greenkey)
+                    loc = jd_sd.warmstate.get_location_str(greenkey)
+                    debug_print("force tracing loop next time", loc)
                 else:
                     # we're tracing a bridge. there are no bits left in
                     # ResumeGuardDescr to store that we should force a bridge
@@ -2494,6 +2499,8 @@ class MetaInterp(object):
                     # quite safe)
                     loop_token = self.resumekey_original_loop_token
                     loop_token.retraced_count |= loop_token.FORCE_BRIDGE_SEGMENTING
+                    debug_print("enable bridge segmenting of base loop")
+                debug_stop("jit-disableinlining")
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
 
     def _interpret(self):
