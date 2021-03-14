@@ -2496,7 +2496,7 @@ class MetaInterp(object):
             jd_sd.warmstate.dont_trace_here(greenkey)
             loc = jd_sd.warmstate.get_location_str(greenkey)
             debug_print("force tracing loop next time", loc)
-        else:
+        if not isinstance(self.resumekey, compile.ResumeFromInterpDescr):
             # we're tracing a bridge. there are no bits left in
             # ResumeGuardDescr to store that we should force a bridge
             # creation the next time. therefore, set a flag on the loop
