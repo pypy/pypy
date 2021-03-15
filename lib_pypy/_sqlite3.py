@@ -192,7 +192,7 @@ class _StatementCache(object):
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
         else:
-            if stat._in_use:
+            if stat._in_use_token:
                 stat = Statement(self.connection, sql)
                 self.cache[sql] = stat
         return stat
@@ -481,7 +481,7 @@ class Connection(object):
         if not self.in_transaction:
             return
 
-        self.__do_all_statements(Statement._reset, True)
+        self.__do_all_statements(Statement._force_reset, True)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
@@ -787,12 +787,16 @@ class Cursor(object):
         con._check_thread()
         con._remember_cursor(self)
 
+        # if a statement is in use by self, it's ._in_use_token is set to
+        # self.__in_use_token. That way, we know whether the Statement is used
+        # by *self* in self.__del__ and can only reset it in that case.
+        self.__in_use_token = _InUseToken()
         self.__initialized = True
 
     def __del__(self):
         # Since statements are cached, they can outlive their parent cursor
         if self.__statement:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
 
     def close(self):
         if not self.__initialized:
@@ -800,7 +804,7 @@ class Cursor(object):
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
             self.__statement = None
         self.__closed = True
 
@@ -926,7 +930,7 @@ class Cursor(object):
                 pass
             self.__rowcount = -1
             if self.__statement:
-                self.__statement._reset()
+                self.__statement._reset(self.__in_use_token)
             self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._begin_statement and self.__statement._is_dml:
@@ -934,7 +938,7 @@ class Cursor(object):
                     self.__connection._begin()
 
             for params in many_params:
-                self.__statement._set_params(params)
+                self.__statement._set_params(params, self.__in_use_token)
 
                 # Actually execute the SQL statement
 
@@ -966,13 +970,13 @@ class Cursor(object):
                     self.__next_row = self.__fetch_one_row()
                 elif ret == _lib.SQLITE_DONE:
                     if not multiple:
-                        self.__statement._reset()
+                        self.__statement._reset(self.__in_use_token)
                 else:
-                    self.__statement._reset()
+                    self.__statement._reset(self.__in_use_token)
                     raise self.__connection._get_exception(ret)
 
                 if multiple:
-                    self.__statement._reset()
+                    self.__statement._reset(self.__in_use_token)
         finally:
             self.__locked = False
         return self
@@ -1048,7 +1052,7 @@ class Cursor(object):
         if ret == _lib.SQLITE_ROW:
             self.__next_row = self.__fetch_one_row()
         else:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
             if ret != _lib.SQLITE_DONE:
                 raise self.__connection._get_exception(ret)
         return next_row
@@ -1101,6 +1105,8 @@ class Cursor(object):
     def setoutputsize(self, *args):
         pass
 
+class _InUseToken(object):
+    __slots__ = ()
 
 class Statement(object):
     _statement = None
@@ -1108,7 +1114,7 @@ class Statement(object):
     def __init__(self, connection, sql):
         self.__con = connection
 
-        self._in_use = False
+        self._in_use_token = None
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
@@ -1150,12 +1156,18 @@ class Statement(object):
         if self._statement:
             self.__con._finalize_raw_statement(self._statement)
             self._statement = None
-        self._in_use = False
+        self._in_use_token = None
 
-    def _reset(self):
-        if self._in_use and self._statement:
+    def _reset(self, token):
+        assert isinstance(token, _InUseToken)
+        if self._in_use_token is token and self._statement:
             _lib.sqlite3_reset(self._statement)
-            self._in_use = False
+            self._in_use_token = None
+
+    def _force_reset(self):
+        if self._in_use_token and self._statement:
+            _lib.sqlite3_reset(self._statement)
+            self._in_use_token = None
 
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
@@ -1205,8 +1217,9 @@ class Statement(object):
             rc = -1
         return rc
 
-    def _set_params(self, params):
-        self._in_use = True
+    def _set_params(self, params, token):
+        assert isinstance(token, _InUseToken)
+        self._in_use_token = token
 
         num_params_needed = _lib.sqlite3_bind_parameter_count(self._statement)
         if isinstance(params, (tuple, list)) or \
