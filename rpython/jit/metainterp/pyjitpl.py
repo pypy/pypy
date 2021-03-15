@@ -1386,10 +1386,26 @@ class MIFrame(object):
         token = sd.exit_frame_with_exception_descr_ref
         metainterp.history.record(rop.FINISH, [exception_box], None, descr=token)
 
-        # compile the trace
-        target_token = compile.compile_trace(metainterp, metainterp.resumekey, [exception_box])
-        if target_token is not token:
-            compile.giveup()
+        if (metainterp.current_merge_points and
+                isinstance(metainterp.resumekey, compile.ResumeFromInterpDescr)):
+            # making a loop. it's important to call compile_simple_loop to make
+            # sure that a label at the beginning is inserted, otherwise we
+            # cannot ever close the segmented loop later!
+            original_boxes, start = metainterp.current_merge_points[0]
+            jd_sd = metainterp.jitdriver_sd
+            greenkey = original_boxes[:jd_sd.num_green_args]
+            enable_opts = jd_sd.warmstate.enable_opts
+            cut_at = metainterp.history.get_trace_position()
+            target_token = compile.compile_simple_loop(
+                metainterp, greenkey, metainterp.history.trace, None, enable_opts, cut_at,
+                patch_jumpop_at_end=False)
+            jd_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+
+        else:
+            target_token = compile.compile_trace(metainterp, metainterp.resumekey, [exception_box])
+            if target_token is not token:
+                compile.giveup()
 
         # unlike basically any other trace that we can produce, we now need
         # to blackhole back to the interpreter instead of jumping to some

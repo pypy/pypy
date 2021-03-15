@@ -43,10 +43,11 @@ class TraceLimitTests:
                 result += f(s, i+100)
         self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
         stats = get_stats()
+        self.check_resops(label=1, jump=1, omit_finish=False)
         assert stats.metainterp_sd.profiler.counters[
-            Counters.ABORT_SEGMENTED_TRACE] == 6
-        self.check_trace_count(8)
-        self.check_jitcell_token_count(2)
+            Counters.ABORT_SEGMENTED_TRACE] == 4
+        self.check_trace_count(7)
+        self.check_jitcell_token_count(1)
 
     def test_huge_bridge(self):
         def p(pc, code):
