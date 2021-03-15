@@ -52,6 +52,8 @@ else:
 
 from _sqlite3_cffi import ffi as _ffi, lib as _lib
 
+_UNSUPPORTED_TYPE = object()
+
 exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
     'SQLITE_ANALYZE',
@@ -1214,7 +1216,7 @@ class Statement(object):
             rc = _lib.sqlite3_bind_blob(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
         else:
-            rc = -1
+            rc = _UNSUPPORTED_TYPE
         return rc
 
     def _set_params(self, params, token):
@@ -1236,9 +1238,11 @@ class Statement(object):
                                        (num_params_needed, num_params))
             for i in range(num_params):
                 rc = self.__set_param(i + 1, params[i])
-                if rc != _lib.SQLITE_OK:
+                if rc is _UNSUPPORTED_TYPE:
                     raise InterfaceError("Error binding parameter %d - "
                                          "probably unsupported type." % i)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__con._get_exception(rc)
         elif isinstance(params, dict):
             for i in range(1, num_params_needed + 1):
                 param_name = _lib.sqlite3_bind_parameter_name(self._statement, i)
@@ -1253,10 +1257,12 @@ class Statement(object):
                     raise ProgrammingError("You did not supply a value for "
                                            "binding %d." % i)
                 rc = self.__set_param(i, param)
-                if rc != _lib.SQLITE_OK:
+                if rc is _UNSUPPORTED_TYPE:
                     raise InterfaceError("Error binding parameter :%s - "
                                          "probably unsupported type." %
                                          param_name)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__con._get_exception(rc)
         else:
             raise ValueError("parameters are of unsupported type")
 
