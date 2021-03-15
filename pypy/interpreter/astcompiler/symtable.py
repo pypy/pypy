@@ -444,7 +444,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
             if assign.simple:
                 scope |= SYM_ANNOTATED
             if assign.value:
-                scope |= SYM_USED
+                scope |= SYM_ASSIGNED
             if scope:
                 self.note_symbol(name, scope)
         else:

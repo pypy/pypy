@@ -18,8 +18,6 @@
     #define INLINE
 #endif
 
-
-
 #ifndef __MSC_VER
 #include <cxxabi.h>
 INLINE std::string demangle_it(const char* name, const char* errmsg) {
@@ -324,8 +322,12 @@ bool is_valid(T&& new_value) {
 // variadic templates
 namespace some_variadic {
 
-#ifdef WIN32
+#ifdef _WIN32
+#ifdef __CLING__
 extern __declspec(dllimport) std::string gTypeName;
+#else
+extern __declspec(dllexport) std::string gTypeName;
+#endif
 #else
 extern std::string gTypeName;
 #endif
@@ -423,8 +425,12 @@ T fn_T(Args&&... args) {
 // template with empty body
 namespace T_WithEmptyBody {
 
-#ifdef WIN32
+#ifdef _WIN32
+#ifdef __CLING__
 extern __declspec(dllimport) std::string side_effect;
+#else
+extern __declspec(dllexport) std::string side_effect;
+#endif
 #else
 extern std::string side_effect;
 #endif
@@ -491,5 +497,46 @@ public:
 };
 
 } // namespace TemplateWithSetItem
+
+
+//===========================================================================
+// type reduction examples on gmpxx-like template expressions
+namespace TypeReduction {
+
+template <typename T>
+struct BinaryExpr;
+
+template <typename T>
+struct Expr {
+    Expr() {}
+    Expr(const BinaryExpr<T>&) {}
+};
+
+template <typename T>
+struct BinaryExpr {
+    BinaryExpr(const Expr<T>&, const Expr<T>&) {}
+};
+
+template<typename T>
+BinaryExpr<T> operator+(const Expr<T>& e1, const Expr<T>& e2) {
+    return BinaryExpr<T>(e1, e2);
+}
+
+} // namespace TypeReduction
+
+
+//===========================================================================
+// type deduction examples
+namespace FailedTypeDeducer {
+
+template<class T>
+class B {
+public:
+    auto result() { return 5.; }
+};
+
+extern template class B<int>;
+
+}
 
 #endif // !CPPYY_TEST_TEMPLATES_H

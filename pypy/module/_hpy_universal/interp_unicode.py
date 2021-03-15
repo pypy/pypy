@@ -15,7 +15,7 @@ def _maybe_utf8_to_w(space, utf8):
         raise   # XXX do something
     return space.newtext(s, length)
 
-@API.func("int HPyUnicode_Check(HPyContext ctx, HPy h)")
+@API.func("int HPyUnicode_Check(HPyContext ctx, HPy h)", error_value=API.int(-1))
 def HPyUnicode_Check(space, ctx, h):
     w_obj = handles.deref(space, h)
     w_obj_type = space.type(w_obj)

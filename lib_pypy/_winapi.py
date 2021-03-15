@@ -11,7 +11,10 @@ if sys.platform != 'win32':
 
 # Declare external Win32 functions
 
-from _pypy_winbase_cffi import ffi as _ffi
+if sys.maxsize > 2 ** 31:
+    from _pypy_winbase_cffi64 import ffi as _ffi
+else:
+    from _pypy_winbase_cffi import ffi as _ffi
 _kernel32 = _ffi.dlopen('kernel32')
 
 GetVersion = _kernel32.GetVersion
@@ -53,8 +56,6 @@ def _int2handle(val):
 def _handle2int(handle):
     return int(_ffi.cast("intptr_t", handle))
 
-_INVALID_HANDLE_VALUE = _int2handle(-1)
-
 def CreatePipe(attributes, size):
     handles = _ffi.new("HANDLE[2]")
     
@@ -67,13 +68,13 @@ def CreatePipe(attributes, size):
 
 def CreateNamedPipe(*args):
     handle = _kernel32.CreateNamedPipeW(*args)
-    if handle == _INVALID_HANDLE_VALUE:
+    if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
 
 def CreateFile(*args):
     handle = _kernel32.CreateFileW(*args)
-    if handle == _INVALID_HANDLE_VALUE:
+    if handle == INVALID_HANDLE_VALUE:
         RaiseFromWindowsErr(0)
     return _handle2int(handle)
 

@@ -677,11 +677,15 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_cache_from_source(self):
         import imp, sys
+        if sys.platform == 'win32':
+            sep = '\\'
+        else:
+            sep = '/'
         tag = sys.implementation.cache_tag
         pycfile = imp.cache_from_source('a/b/c.py')
-        assert pycfile == 'a/b/__pycache__/c.%s.pyc' % tag
+        assert pycfile == sep.join(('a/b', '__pycache__', 'c.%s.pyc' % tag))
         assert imp.source_from_cache('a/b/__pycache__/c.%s.pyc' % tag
-                                     ) == 'a/b/c.py'
+                                     ) == sep.join(('a/b', 'c.py'))
         raises(ValueError, imp.source_from_cache, 'a/b/c.py')
 
     @pytest.mark.skip("sys.version_info > (3, 6)")
@@ -981,6 +985,20 @@ class TestPycStuff:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
+
+    def test_pyc_magic_changes2(self):
+        from pypy.tool import stdlib_opcode
+        from pypy.interpreter.pycode import default_magic
+        from hashlib import sha1
+        h = sha1()
+        # very simple test: hard-code the hash of pypy/stdlib_opcode.py and the
+        # default magic. if you change stdlib_opcode, please update the hash
+        # below, as well as incrementing the magic number in pycode.py
+        with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
+            h.update(f.read())
+        assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
+        assert default_magic == 0xa0d00f0
+
 
 
 def test_PYTHONPATH_takes_precedence(space):

@@ -298,10 +298,11 @@ class EnvBuilder:
                     ]
             else:
                 # PyPy change: since PyPy does not use a PEP 397 launcer,
-                # copy the exe and dll.
-                suffixes = ['python.exe', 'python_d.exe', 'pythonw.exe',
-                            'pythonw_d.exe', 'pypy3.exe', 'libpypy3-c.dll']
-
+                # copy all the exes and dlls.
+                suffixes = [
+                    f for f in os.listdir(dirname) if
+                    os.path.normcase(os.path.splitext(f)[1]) in ('.exe', '.dll')
+                ]
             for suffix in suffixes:
                 src = os.path.join(dirname, suffix)
                 if os.path.lexists(src):

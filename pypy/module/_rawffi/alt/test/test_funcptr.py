@@ -40,13 +40,15 @@ class BaseAppTestFFI(object):
     def setup_class(cls):
         space = cls.space
         cls.w_iswin32 = space.wrap(sys.platform == 'win32')
+        cls.w_iswin64 = space.wrap(sys.platform == 'win32'
+                                   and sys.maxint == 2**63-1)
         cls.w_libfoo_name = space.wrap(cls.prepare_c_example())
         cls.w_libc_name = space.wrap(get_libc_name())
         libm_name = get_libm_name(sys.platform)
         cls.w_libm_name = space.wrap(libm_name)
         libm = CDLL(libm_name)
         pow = libm.getpointer('pow', [], types.void)
-        pow_addr = rffi.cast(rffi.LONG, pow.funcsym)
+        pow_addr = rffi.cast(rffi.SIGNED, pow.funcsym)
         cls._libm = libm     # otherwise it gets unloaded - argh!
         cls.w_pow_addr = space.wrap(pow_addr)
 
@@ -568,14 +570,15 @@ class AppTestFFI(BaseAppTestFFI):
         from _rawffi.alt import CDLL, types
         libfoo = CDLL(self.libfoo_name)
         raises(AttributeError, "libfoo.getfunc('I_do_not_exist', [], types.void)")
-        if self.iswin32:
+        if self.iswin32 or self.iswin64:
             skip("unix specific")
         libnone = CDLL(None)
         raises(AttributeError, "libnone.getfunc('I_do_not_exist', [], types.void)")
 
     def test_calling_convention1(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import WinDLL, types
         libm = WinDLL(self.libm_name)
         pow = libm.getfunc('pow', [types.double, types.double], types.double)
@@ -595,8 +598,9 @@ class AppTestFFI(BaseAppTestFFI):
         sleep(10)
 
     def test_calling_convention3(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import CDLL, types
         wrong_kernel = CDLL('Kernel32.dll')
         wrong_sleep = wrong_kernel.getfunc('Sleep', [types.uint], types.void)
@@ -608,8 +612,9 @@ class AppTestFFI(BaseAppTestFFI):
             assert 0, 'test must assert, wrong calling convention'
 
     def test_func_fromaddr2(self):
-        if not self.iswin32:
-            skip("windows specific")
+        # win64 doesn't have __stdcall
+        if not self.iswin32 or self.iswin64:
+            skip("windows 32-bit specific")
         from _rawffi.alt import CDLL, types, FuncPtr
         from _rawffi import FUNCFLAG_STDCALL
         libm = CDLL(self.libm_name)
@@ -624,6 +629,7 @@ class AppTestFFI(BaseAppTestFFI):
             assert 0, 'test must assert, wrong calling convention'
 
     def test_func_fromaddr3(self):
+        # win64: check FUNCFLAG_STDCALL is ignored on win64, as it should be
         if not self.iswin32:
             skip("windows specific")
         from _rawffi.alt import WinDLL, types, FuncPtr

@@ -45,11 +45,12 @@ typedef struct {
 
 /* All types are dynamically allocated */
 #define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
+#define _Py_TPFLAGS_HAVE_VERSION_TAG (1UL << 18)
 
 /* Set if the type allows subclassing */
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)
 
-#define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
+#define HPy_TPFLAGS_DEFAULT (_Py_TPFLAGS_HEAPTYPE | _Py_TPFLAGS_HAVE_VERSION_TAG)
 
 #define HPy_CAST(ctx, return_type, h) ((return_type *) _HPy_Cast(ctx, h))
 

@@ -553,10 +553,12 @@ Make sure that the old "raise X, Y[, Z]" form is gone:
    SyntaxError: invalid syntax
 
 
+PyPy-specific extension
+
 >>> f(a=23, a=234)
 Traceback (most recent call last):
    ...
-SyntaxError: keyword argument repeated
+SyntaxError: keyword argument repeated: 'a'
 
 >>> {1, 2, 3} = 42
 Traceback (most recent call last):

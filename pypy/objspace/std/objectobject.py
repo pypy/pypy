@@ -156,7 +156,8 @@ def descr__init__(space, w_obj, __args__):
         if (_same_static_method(space, tp_new, _object_new(space))
                 or not space.is_w(tp_init, _object_init(space))):
             raise oefmt(space.w_TypeError,
-                        "object.__init__() takes no parameters")
+                        "%T.__init__() takes one argument (the instance to initialize)",
+                        w_obj)
 
 
 def descr_get___class__(space, w_obj):

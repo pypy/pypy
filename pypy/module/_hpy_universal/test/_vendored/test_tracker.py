@@ -10,7 +10,7 @@ from .support import HPyTest
 
 
 class TestHPyTracker(HPyTest):
-    def hpytracker_module(self, ops, new="HPyTracker_New(ctx, 0)"):
+    def hpytracker_module(self, ops, size=0):
         return self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
             static HPy f_impl(HPyContext ctx, HPy self,
@@ -18,27 +18,26 @@ class TestHPyTracker(HPyTest):
             {{
                 HPyTracker ht;
                 HPy result = HPy_NULL;
-                ht = {new};
+                ht = HPyTracker_New(ctx, {size});
                 if HPy_IsNull(ht) {{
                     return HPy_NULL;
                 }}
                 {ops}
-                HPyTracker_Free(ctx, ht);
+                HPyTracker_Close(ctx, ht);
                 if (HPy_IsNull(result))
                     result = HPy_Dup(ctx, ctx->h_None);
                 return result;
             }}
             @EXPORT(f)
             @INIT
-        """.format(ops=ops, new=new))
+        """.format(ops=ops, size=size))
 
     def test_new_and_free(self):
         mod = self.hpytracker_module(ops="")
         mod.f()
 
     def test_new_with_size_and_free(self):
-        mod = self.hpytracker_module(
-            ops="", new="HPyTracker_New(ctx, 10)")
+        mod = self.hpytracker_module(ops="", size=10)
         mod.f()
 
     def test_add_and_free(self):
@@ -50,13 +49,13 @@ class TestHPyTracker(HPyTest):
     def test_add_and_remove_all(self):
         mod = self.hpytracker_module(ops="""
             HPyTracker_Add(ctx, ht, args[0]);
-            HPyTracker_RemoveAll(ctx, ht);
+            HPyTracker_ForgetAll(ctx, ht);
         """)
         assert mod.f(5) is None
 
     def test_remove_all_on_nothing(self):
         mod = self.hpytracker_module(ops="""
-            HPyTracker_RemoveAll(ctx, ht);
+            HPyTracker_ForgetAll(ctx, ht);
         """)
         assert mod.f() is None
 
@@ -73,7 +72,7 @@ class TestHPyTracker(HPyTest):
                 HPy key, value;
                 HPyTracker ht;
 
-                if (!HPyArg_Parse(ctx, args, nargs, "l|l", &n, &n_err))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "l|l", &n, &n_err))
                     return HPy_NULL;
 
                 ht = HPyTracker_New(ctx, 0);  // track key-value pairs
@@ -102,11 +101,11 @@ class TestHPyTracker(HPyTest):
                         goto error;
                 }
 
-                HPyTracker_Free(ctx, ht);
+                HPyTracker_Close(ctx, ht);
                 return dict;
 
                 error:
-                    HPyTracker_Free(ctx, ht);
+                    HPyTracker_Close(ctx, ht);
                     HPy_Close(ctx, dict);
                     HPyErr_SetString(ctx, ctx->h_ValueError, "Failed!");
                     return HPy_NULL;

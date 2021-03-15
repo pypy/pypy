@@ -146,7 +146,11 @@ ffi_status ffi_prep_cif(/*@out@*/ /*@partial@*/ ffi_cif *cif,
 	   && ((*ptr)->size > 16 || cif->abi != FFI_V9))
 	  || ((*ptr)->type == FFI_TYPE_LONGDOUBLE
 	      && cif->abi != FFI_V9))
-	bytes += sizeof(void*);
+	  bytes += sizeof(void*);
+      else
+#elif defined (_WIN64)
+      if ((*ptr)->type == FFI_TYPE_STRUCT && ((*ptr)->size > 8))
+	    bytes += sizeof(void*);
       else
 #endif
 	{

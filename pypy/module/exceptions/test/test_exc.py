@@ -307,7 +307,9 @@ class AppTestExc(object):
         assert ImportError("message").path is None
         assert ImportError("message", name="x").name == "x"
         assert ImportError("message", path="y").path == "y"
-        raises(TypeError, ImportError, invalid="z")
+        with raises(TypeError) as e:
+            ImportError(invalid="z")
+        assert "'invalid' is an invalid keyword argument for ImportError()" in str(e.value)
         assert ImportError("message").msg == "message"
         assert ImportError("message").args == ("message", )
         assert ImportError("message", "foo").msg is None
@@ -498,7 +500,7 @@ class AppTestExc(object):
         assert 'Did you mean "print(<-number>)"?' in str(excinfo.value)
 
     def test_importerror_kwarg_error(self):
-        msg = "'invalid' is an invalid keyword argument for this function"
+        msg = "'invalid' is an invalid keyword argument for ImportError()"
         exc = raises(TypeError,
                      ImportError,
                      'test', invalid='keyword', another=True)

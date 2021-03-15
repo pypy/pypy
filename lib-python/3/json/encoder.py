@@ -287,7 +287,8 @@ class JSONEncoder(object):
             elif self.skipkeys:
                 continue
             else:
-                raise TypeError("key " + repr(key) + " is not a string")
+                raise TypeError(f'keys must be str, int, float, bool or None, '
+                                f'not {key.__class__.__name__}')
             if first:
                 first = False
             else:

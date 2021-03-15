@@ -122,13 +122,13 @@ Use various combinations of explicit keywords and **kwds.
     True
     >>>
 
-Check for duplicate keywords.
+Check for duplicate keywords (PyPy-specific change).
 
     >>> class C(metaclass=type, metaclass=type): pass
     ...
     Traceback (most recent call last):
     [...]
-    SyntaxError: keyword argument repeated
+    SyntaxError: keyword argument repeated: 'metaclass'
     >>>
 
 Another way.

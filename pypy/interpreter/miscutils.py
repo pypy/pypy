@@ -46,6 +46,11 @@ class ThreadLocals:
         # for test_ztranslation
         pass
 
+    def reinit_threads(self, space):
+        # for test_ztranslation
+        pass
+
+        
 @not_rpython
 def make_weak_value_dictionary(space, keytype, valuetype):
     if space.config.translation.rweakref:

@@ -19,6 +19,8 @@ typedef struct pypy_header0 gcobj_t;    /* opaque here */
 
 #ifndef _WIN32
 typedef intptr_t Py_ssize_t;
+#elif defined(_WIN64)
+typedef long long Py_ssize_t;
 #else
 typedef long Py_ssize_t;
 #endif

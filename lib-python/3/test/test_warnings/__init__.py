@@ -1311,11 +1311,12 @@ class A:
     def __del__(self):
         warn("test")
 
-A()
-import gc; gc.collect()
+a=A()
+del a
+import gc; gc.collect();gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
-        self.assertEqual(err.decode(), '-c:7: UserWarning: test')
+        self.assertEqual(err.decode(), '<string>:7: UserWarning: test')
 
     @support.cpython_only
     def test_late_resource_warning(self):

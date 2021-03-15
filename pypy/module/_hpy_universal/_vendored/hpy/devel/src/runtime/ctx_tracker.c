@@ -10,8 +10,8 @@
  *    the handle passed to it has been tracked (internally it does this by
  *    maintaining space for one more handle).
  *
- *    After HPyTracker_Add fails, HPyTracker_Free should be called without
- *    any further calls to HPyTracker_Add. Calling HPyTracker_Free will close
+ *    After HPyTracker_Add fails, HPyTracker_Close should be called without
+ *    any further calls to HPyTracker_Add. Calling HPyTracker_Close will close
  *    all the tracked handles, including the handled passed to the failed call
  *    to HPyTracker_Add.
  *
@@ -47,11 +47,11 @@
  * }
  *
  * success:
- *    HPyTracker_Free(ctx, ht);
+ *    HPyTracker_Close(ctx, ht);
  *    return dict;
  *
  * error:
- *    HPyTracker_Free(ctx, ht);
+ *    HPyTracker_Close(ctx, ht);
  *    HPy_Close(ctx, dict);
  *    // HPyErr will already have been set by the error that occurred.
  *    return HPy_NULL;
@@ -138,14 +138,14 @@ ctx_Tracker_Add(HPyContext ctx, HPyTracker ht, HPy h)
 }
 
 _HPy_HIDDEN void
-ctx_Tracker_RemoveAll(HPyContext ctx, HPyTracker ht)
+ctx_Tracker_ForgetAll(HPyContext ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
     hp->next = 0;
 }
 
 _HPy_HIDDEN void
-ctx_Tracker_Free(HPyContext ctx, HPyTracker ht)
+ctx_Tracker_Close(HPyContext ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
     HPy_ssize_t i;

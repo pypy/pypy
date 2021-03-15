@@ -21,6 +21,8 @@ def test_delitem(tmpdir):
 def test_nonstring(tmpdir):
     path = str(tmpdir.join('test_dbm_extra.test_nonstring'))
     d = dbm.open(path, 'c')
+    if isinstance(d, dbm.dumb._Database):
+        pytest.skip('Needs adpatation for failure of d[123]')
     with pytest.raises(TypeError):
         d[123] = 'xyz'
     with pytest.raises(TypeError):
@@ -57,7 +59,10 @@ def test_multiple_sets(tmpdir):
 
 @pytest.mark.skipif("'__pypy__' not in sys.modules")
 def test_extra():
-    import _dbm
+    try:
+        import _dbm
+    except ImportError:
+        pytest.skip('no _dbm available')
     with pytest.raises(TypeError):
         _dbm.datum(123)
     with pytest.raises(TypeError):

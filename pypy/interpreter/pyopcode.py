@@ -292,8 +292,6 @@ class __extend__(pyframe.PyFrame):
                 self.DELETE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_ANNOTATIONS.index:
                 self.SETUP_ANNOTATIONS(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_ANNOTATION.index:
-                self.STORE_ANNOTATION(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
@@ -615,8 +613,6 @@ class __extend__(pyframe.PyFrame):
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
-    BINARY_DIVIDE       = binaryoperation("div")
-    # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
     BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")
@@ -841,7 +837,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             raise oefmt(self.space.w_NameError,
-                        "__annotations__ not found")
+                        "name %R is not defined", w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -948,19 +944,6 @@ class __extend__(pyframe.PyFrame):
         if not self.space.finditem_str(w_locals, '__annotations__'):
             w_annotations = self.space.newdict()
             self.space.setitem_str(w_locals, '__annotations__', w_annotations)
-
-    def STORE_ANNOTATION(self, varindex, next_instr):
-        space = self.space
-        varname = self.getname_u(varindex)
-        w_newvalue = self.popvalue()
-        w_locals = self.getorcreatedebug().w_locals
-        try:
-            w_annotations = space.getitem(w_locals, space.newtext('__annotations__'))
-        except OperationError as e:
-            if e.match(space, space.w_KeyError):
-                raise oefmt(space.w_NameError, CANNOT_CATCH_MSG)
-            raise
-        self.space.setitem_str(w_annotations, varname, w_newvalue)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -1240,9 +1223,6 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
-
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self.valuestackdepth,
                           next_instr + offsettoend, self.lastblock)
@@ -1353,18 +1333,20 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
-        w_tup_varnames = self.popvalue()
-        keywords_w = self.space.fixedview(w_tup_varnames)
-        n_keywords = len(keywords_w)
-        n_arguments -= n_keywords
-        keywords = [self.space.text_w(w_keyword) for w_keyword in keywords_w]
+        from pypy.objspace.std.tupleobject import W_AbstractTupleObject
+        space = self.space
+        # like in BUILD_CONST_KEY_MAP we can't use space.fixedview because then
+        # the immutability of the tuple is lost
+        w_tup_varnames = space.interp_w(W_AbstractTupleObject, self.popvalue())
+        n_keywords = space.len_w(w_tup_varnames)
+        keywords = [None] * n_keywords
         keywords_w = [None] * n_keywords
-        while True:
-            n_keywords -= 1
-            if n_keywords < 0:
-                break
-            w_value = self.popvalue()
-            keywords_w[n_keywords] = w_value
+        for i in range(n_keywords):
+            keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+            w_value = self.peekvalue(n_keywords - 1 - i)
+            keywords_w[i] = w_value
+        self.dropvalues(n_keywords)
+        n_arguments -= n_keywords
         arguments = self.popvalues(n_arguments)
         w_function  = self.popvalue()
         args = self.argument_factory(arguments, keywords, keywords_w, None, None,
@@ -1512,7 +1494,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount, 0, -1):
             w_item = self.peekvalue(i-1)
             space.call_method(w_set, "update", w_item)
-        self.popvalues(itemcount)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     @jit.unroll_safe

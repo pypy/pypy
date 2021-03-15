@@ -60,8 +60,8 @@ def attach_legacy_members(space, pymembers, w_type):
         if not name:
             break
         i += 1
-        name = rffi.charp2str(pymember.c_name)
-        doc = rffi.charp2str(pymember.c_doc) if pymember.c_doc else None
+        name = rffi.constcharp2str(pymember.c_name)
+        doc = rffi.constcharp2str(pymember.c_doc) if pymember.c_doc else None
         offset = rffi.cast(lltype.Signed, pymember.c_offset)
         #
         # NOTE: the following works only because the HPy's

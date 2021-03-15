@@ -2,7 +2,7 @@ import sys, errno
 from rpython.rlib import rsocket, rweaklist
 from rpython.rlib.buffer import RawByteBuffer
 from rpython.rlib.objectmodel import specialize
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, widen
 from rpython.rlib.rsocket import (
     RSocket, AF_INET, SOCK_STREAM, SocketError, SocketErrorWithErrno,
     RSocketError, SOMAXCONN, HAS_SO_PROTOCOL,
@@ -123,6 +123,7 @@ def idna_converter(space, w_host):
 
 # XXX Hack to seperate rpython and pypy
 def addr_from_object(family, fd, space, w_address):
+    family = widen(family)
     if family == rsocket.AF_INET:
         w_host, w_port = space.unpackiterable(w_address, 2)
         host = idna_converter(space, w_host)
@@ -289,10 +290,12 @@ class W_Socket(W_Root):
 
     def descr_repr(self, space):
         fd = intmask(self.sock.fd)  # Force to signed type even on Windows.
+        family = widen(self.sock.family)  # these are too small on win64
+        tp = widen(self.sock.type)
+        proto = widen(self.sock.proto)
         return space.newtext("<socket object, fd=%d, family=%d,"
                              " type=%d, proto=%d>" %
-                          (fd, self.sock.family,
-                           self.sock.type, self.sock.proto))
+                          (fd, family, tp, proto))
 
     def _accept_w(self, space):
         """_accept() -> (socket object, address info)
@@ -894,13 +897,13 @@ class W_Socket(W_Root):
             try:
                 if cmd == _c.SIO_RCVALL:
                     option_ptr = rffi.cast(rffi.INTP, value_ptr)
-                    option_ptr[0] = space.int_w(w_option)
+                    option_ptr[0] = rffi.cast(rffi.INT, space.int_w(w_option))
                 elif cmd == _c.SIO_KEEPALIVE_VALS:
                     w_onoff, w_time, w_interval = space.unpackiterable(w_option, 3)
                     option_ptr = rffi.cast(lltype.Ptr(_c.tcp_keepalive), value_ptr)
-                    option_ptr.c_onoff = space.uint_w(w_onoff)
-                    option_ptr.c_keepalivetime = space.uint_w(w_time)
-                    option_ptr.c_keepaliveinterval = space.uint_w(w_interval)
+                    option_ptr.c_onoff = rffi.cast(rffi.UINT, space.uint_w(w_onoff))
+                    option_ptr.c_keepalivetime = rffi.cast(rffi.UINT, space.uint_w(w_time))
+                    option_ptr.c_keepaliveinterval = rffi.cast(rffi.UINT, space.uint_w(w_interval))
 
                 res = _c.WSAIoctl(
                     self.sock.fd, cmd, value_ptr, value_size,

@@ -286,13 +286,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
                 break
             if ch == '{':
                 msg = "invalid escape sequence '%s'"
-                try:
-                    space.warn(space.newtext(msg % ch), space.w_DeprecationWarning)
-                except error.OperationError as e:
-                    if e.match(space, space.w_DeprecationWarning):
-                        astbuilder.error(msg % ch, atom_node)
-                    else:
-                        raise
+                astbuilder.deprecation_warn(msg % ch, atom_node)
         if ch == '{' or ch == '}':
             # Check for doubled braces, but only at the top level. If
             # we checked at every level, then f'{0:{3}}' would fail
@@ -326,7 +320,7 @@ def fstring_find_literal(astbuilder, fstr, atom_node, rec):
     if not raw and '\\' in literal:
         literal = parsestring.decode_unicode_utf8(space, literal, 0,
                                                   len(literal))
-        literal, lgt, pos = unicodehelper.decode_unicode_escape(space, literal)
+        literal, lgt, pos = parsestring.decode_unicode_escape(space, literal, astbuilder, atom_node)
     return space.newtext(literal, lgt)
 
 
@@ -395,7 +389,8 @@ def string_parse_literal(astbuilder, atom_node):
         child = atom_node.get_child(i)
         try:
             w_next = parsestring.parsestr(
-                    space, encoding, child.get_value(), child)
+                    space, encoding, child.get_value(), child,
+                    astbuilder)
             if not isinstance(w_next, parsestring.W_FString):
                 add_constant_string(astbuilder, joined_pieces, w_next,
                                     atom_node)

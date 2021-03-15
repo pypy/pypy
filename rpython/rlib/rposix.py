@@ -8,6 +8,7 @@ from rpython.rtyper.tool import rffi_platform
 from rpython.rlib import debug, jit, rstring, rthread, types
 from rpython.rlib._os_support import (
     _CYGWIN, _MACRO_ON_POSIX, UNDERSCORE_ON_WIN32, _WIN32,
+    POSIX_SIZE_T, POSIX_SSIZE_T,
     _prefer_unicode, _preferred_traits, _preferred_traits2)
 from rpython.rlib.objectmodel import (
     specialize, enforceargs, register_replacement_for, NOT_CONSTANT)
@@ -552,10 +553,10 @@ def open(path, flags, mode):
     return handle_posix_error('open', fd)
 
 c_read = external(UNDERSCORE_ON_WIN32 + 'read',
-                  [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO)
 c_write = external(UNDERSCORE_ON_WIN32 + 'write',
-                   [rffi.INT, rffi.VOIDP, rffi.SIZE_T], rffi.SSIZE_T,
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
                    releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
@@ -817,6 +818,7 @@ def getcwd():
         # else try again with a larger buffer, up to some sane limit
         bufsize *= 4
         if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                                 #     must be <2**31 for win32
             raise OSError(error, "getcwd result too large")
     result = rffi.charp2str(res)
     lltype.free(buf, flavor='raw')
@@ -837,6 +839,7 @@ def getcwdu():
         # else try again with a larger buffer, up to some sane limit
         bufsize *= 4
         if bufsize > 1024*1024:  # xxx hard-coded upper limit
+                                 #     must be <2**31 for win32
             raise OSError(error, "getcwd result too large")
     result = rffi.wcharp2unicode(res)
     lltype.free(buf, flavor='raw')
@@ -2963,3 +2966,48 @@ if sys.platform.startswith('linux'):
         else:
             c_name = 'listxattr' if follow_symlinks else 'llistxattr'
             raise OSError(errno.ERANGE, c_name + 'failed')
+
+
+# ____________________________________________________________
+# Support for memfd_create function
+
+if sys.platform.startswith('linux'):
+    class CConfig:
+        _compilation_info_ = ExternalCompilationInfo(
+            includes=['sys/mman.h'],)
+        for name in """
+                MFD_CLOEXEC
+                MFD_ALLOW_SEALING
+                MFD_HUGETLB
+                MFD_HUGE_SHIFT
+                MFD_HUGE_MASK
+                MFD_HUGE_64KB
+                MFD_HUGE_512KB
+                MFD_HUGE_1MB
+                MFD_HUGE_2MB
+                MFD_HUGE_8MB
+                MFD_HUGE_16MB
+                MFD_HUGE_32MB
+                MFD_HUGE_256MB
+                MFD_HUGE_512MB
+                MFD_HUGE_1GB
+                MFD_HUGE_2GB
+                MFD_HUGE_16GB
+                """.split():
+            locals()[name] = rffi_platform.DefinedConstantInteger(name)
+        HAVE_MEMFD_CREATE = rffi_platform.Has('memfd_create')
+
+    cConfig = rffi_platform.configure(CConfig)
+    for key, value in cConfig.items():
+        if value is not None and key.startswith("MFD_"):
+            globals()[key] = value
+
+    if cConfig['HAVE_MEMFD_CREATE']:
+        c_memfd_create = external('memfd_create',
+            [rffi.CCHARP, rffi.UINT], rffi.INT,
+            compilation_info=CConfig._compilation_info_)
+        def memfd_create(name, flags):
+            return handle_posix_error(
+                'memfd_create', c_memfd_create(name, flags))
+
+

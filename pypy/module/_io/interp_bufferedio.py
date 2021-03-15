@@ -470,6 +470,8 @@ class BufferedMixin:
         else:
             raise oefmt(space.w_ValueError,
                         "read length must be positive or -1")
+        if res is None:
+            return space.w_None
         return space.newbytes(res)
 
     @unwrap_spec(size=int)

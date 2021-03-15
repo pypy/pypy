@@ -1,12 +1,12 @@
 import py, os, sys
-from .support import setup_make
-
+from .support import setup_make, soext
 
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("operatorsDict.so"))
+test_dct = str(currpath.join("operatorsDict"))+soext
 
 def setup_module(mod):
-    setup_make("operatorsDict.so")
+    setup_make("operators")
+
 
 class AppTestOPERATORS:
     spaceconfig = dict(usemodules=['_cppyy', '_rawffi', 'itertools'])
@@ -26,8 +26,9 @@ class AppTestOPERATORS:
     def test01_math_operators(self):
         """Test overloading of math operators"""
 
-        import _cppyy
-        number = _cppyy.gbl.number
+        import _cppyy as cppyy
+
+        number = cppyy.gbl.number
 
         assert (number(20) + number(10)) == number(30)
         assert (number(20) + 10        ) == number(30)
@@ -48,8 +49,9 @@ class AppTestOPERATORS:
     def test02_unary_math_operators(self):
         """Test overloading of unary math operators"""
 
-        import _cppyy
-        number = _cppyy.gbl.number
+        import _cppyy as cppyy
+
+        number = cppyy.gbl.number
 
         n  = number(20)
         n += number(10)
@@ -64,8 +66,9 @@ class AppTestOPERATORS:
     def test03_comparison_operators(self):
         """Test overloading of comparison operators"""
 
-        import _cppyy
-        number = _cppyy.gbl.number
+        import _cppyy as cppyy
+
+        number = cppyy.gbl.number
 
         assert (number(20) >  number(10)) == True
         assert (number(20) <  number(10)) == False
@@ -77,8 +80,9 @@ class AppTestOPERATORS:
     def test04_boolean_operator(self):
         """Test implementation of operator bool"""
 
-        import _cppyy
-        number = _cppyy.gbl.number
+        import _cppyy as cppyy
+
+        number = cppyy.gbl.number
 
         n = number(20)
         assert n
@@ -89,8 +93,15 @@ class AppTestOPERATORS:
     def test05_exact_types(self):
         """Test converter operators of exact types"""
 
-        import _cppyy
-        gbl = _cppyy.gbl
+        import sys
+        import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+        else:
+            pylong = long
+
+        gbl = cppyy.gbl
 
         o = gbl.operator_char_star()
         assert o.m_str == 'operator_char_star'
@@ -105,8 +116,8 @@ class AppTestOPERATORS:
         assert int(o)  == -13
 
         o = gbl.operator_long(); o.m_long = 42
-        assert o.m_long == 42
-        assert long(o)  == 42
+        assert o.m_long  == 42
+        assert pylong(o) == 42
 
         o = gbl.operator_double(); o.m_double = 3.1415
         assert o.m_double == 3.1415
@@ -115,21 +126,30 @@ class AppTestOPERATORS:
     def test06_approximate_types(self):
         """Test converter operators of approximate types"""
 
-        import _cppyy, sys
-        gbl = _cppyy.gbl
+        import sys
+        import _cppyy as cppyy
+
+        if sys.hexversion >= 0x3000000:
+            pylong = int
+            maxvalue = sys.maxsize
+        else:
+            pylong = long
+            maxvalue = sys.maxint
+
+        gbl = cppyy.gbl
 
         o = gbl.operator_short(); o.m_short = 256
         assert o.m_short == 256
         assert int(o)    == 256
 
         o = gbl.operator_unsigned_int(); o.m_uint = 2147483647 + 32
-        assert o.m_uint == 2147483647 + 32
-        assert long(o)  == 2147483647 + 32
+        assert o.m_uint  == 2147483647 + 32
+        assert pylong(o) == 2147483647 + 32
 
         o = gbl.operator_unsigned_long();
-        o.m_ulong = sys.maxint + 128
-        assert o.m_ulong == sys.maxint + 128
-        assert long(o)   == sys.maxint + 128
+        o.m_ulong = maxvalue + 128
+        assert o.m_ulong == maxvalue + 128
+        assert pylong(o) == maxvalue + 128
 
         o = gbl.operator_float(); o.m_float = 3.14
         assert round(o.m_float - 3.14, 5) == 0.
@@ -138,12 +158,12 @@ class AppTestOPERATORS:
     def test07_virtual_operator_eq(self):
         """Test use of virtual bool operator=="""
 
-        import _cppyy
+        import _cppyy as cppyy
 
-        b1  = _cppyy.gbl.v_opeq_base(1)
-        b1a = _cppyy.gbl.v_opeq_base(1)
-        b2  = _cppyy.gbl.v_opeq_base(2)
-        b2a = _cppyy.gbl.v_opeq_base(2)
+        b1  = cppyy.gbl.v_opeq_base(1)
+        b1a = cppyy.gbl.v_opeq_base(1)
+        b2  = cppyy.gbl.v_opeq_base(2)
+        b2a = cppyy.gbl.v_opeq_base(2)
 
         assert b1 == b1
         assert b1 == b1a
@@ -152,10 +172,10 @@ class AppTestOPERATORS:
         assert b2 == b2
         assert b2 == b2a
 
-        d1  = _cppyy.gbl.v_opeq_derived(1)
-        d1a = _cppyy.gbl.v_opeq_derived(1)
-        d2  = _cppyy.gbl.v_opeq_derived(2)
-        d2a = _cppyy.gbl.v_opeq_derived(2)
+        d1  = cppyy.gbl.v_opeq_derived(1)
+        d1a = cppyy.gbl.v_opeq_derived(1)
+        d2  = cppyy.gbl.v_opeq_derived(2)
+        d2a = cppyy.gbl.v_opeq_derived(2)
 
         # derived operator== returns opposite
         assert not d1 == d1

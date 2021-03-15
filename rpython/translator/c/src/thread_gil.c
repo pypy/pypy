@@ -83,8 +83,8 @@ To sum up, there are various possible patterns of interaction:
 
 #include "src/threadlocal.h"
 
-long rpy_fastgil = 0;
-static long rpy_waiting_threads = -42;    /* GIL not initialized */
+Signed rpy_fastgil = 0;
+static Signed rpy_waiting_threads = -42;    /* GIL not initialized */
 static volatile int rpy_early_poll_n = 0;
 static mutex1_t mutex_gil_stealer;
 static mutex2_t mutex_gil;
@@ -119,7 +119,7 @@ void RPyGilAcquireSlowPath(void)
      */
     if (1) {      /* preserve commit history */
         int n;
-        long old_waiting_threads;
+        Signed old_waiting_threads;
 
         if (rpy_waiting_threads < 0) {
             /* <arigo> I tried to have RPyGilAllocate() called from
@@ -232,7 +232,7 @@ void RPyGilAcquireSlowPath(void)
     assert(RPY_FASTGIL_LOCKED(rpy_fastgil));
 }
 
-long RPyGilYieldThread(void)
+Signed RPyGilYieldThread(void)
 {
     /* can be called even before RPyGilAllocate(), but in this case,
        'rpy_waiting_threads' will be -42. */
@@ -282,14 +282,14 @@ void RPyGilAcquire(void)
 
 #undef RPyFetchFastGil
 RPY_EXTERN
-long *RPyFetchFastGil(void)
+Signed *RPyFetchFastGil(void)
 {
     return _RPyFetchFastGil();
 }
 
 #undef RPyGilGetHolder
 RPY_EXTERN
-long RPyGilGetHolder(void)
+Signed RPyGilGetHolder(void)
 {
     return _RPyGilGetHolder();
 }

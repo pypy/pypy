@@ -418,6 +418,9 @@ class AppTestObject:
             A(1)
         assert "A() takes no arguments" in str(excinfo.value)
 
+        with raises(TypeError) as excinfo:
+            A().__init__(1)
+        assert "A.__init__() takes one argument (the instance to initialize)" in str(excinfo.value)
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace

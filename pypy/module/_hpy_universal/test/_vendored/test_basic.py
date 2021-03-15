@@ -164,29 +164,7 @@ class TestBasic(HPyTest):
             mod.f(20)
         assert str(exc.value) == 'hello world'
 
-    def test_exception_occurred(self):
-        import pytest
-        mod = self.make_module("""
-            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
-            {
-                HPyLong_AsLong(ctx, arg);
-                if (HPyErr_Occurred(ctx)) {
-                    HPyErr_SetString(ctx, ctx->h_ValueError, "hello world");
-                    return HPy_NULL;
-                }
-                return HPyLong_FromLong(ctx, -1002);
-            }
-            @EXPORT(f)
-            @INIT
-        """)
-        assert mod.f(-10) == -1002
-        with pytest.raises(ValueError) as exc:
-            mod.f("not an integer")
-        assert str(exc.value) == 'hello world'
-
     def test_builtin_handles(self):
-        import pytest
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
             static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
@@ -199,12 +177,14 @@ class TestBasic(HPyTest):
                     case 3: h = ctx->h_True; break;
                     case 4: h = ctx->h_ValueError; break;
                     case 5: h = ctx->h_TypeError; break;
-                    case 6: h = ctx->h_BaseObjectType; break;
-                    case 7: h = ctx->h_TypeType; break;
-                    case 8: h = ctx->h_LongType; break;
-                    case 9: h = ctx->h_UnicodeType; break;
-                    case 10: h = ctx->h_TupleType; break;
-                    case 11: h = ctx->h_ListType; break;
+                    case 6: h = ctx->h_IndexError; break;
+                    case 7: h = ctx->h_SystemError; break;
+                    case 8: h = ctx->h_BaseObjectType; break;
+                    case 9: h = ctx->h_TypeType; break;
+                    case 10: h = ctx->h_LongType; break;
+                    case 11: h = ctx->h_UnicodeType; break;
+                    case 12: h = ctx->h_TupleType; break;
+                    case 13: h = ctx->h_ListType; break;
                     default:
                         HPyErr_SetString(ctx, ctx->h_ValueError, "invalid choice");
                         return HPy_NULL;
@@ -214,8 +194,10 @@ class TestBasic(HPyTest):
             @EXPORT(f)
             @INIT
         """)
-        builtin_objs = ('<NULL>', None, False, True, ValueError, TypeError,
-                        object, type, int, str, tuple, list)
+        builtin_objs = (
+            '<NULL>', None, False, True, ValueError, TypeError, IndexError,
+            SystemError, object, type, int, str, tuple, list,
+        )
         for i, obj in enumerate(builtin_objs):
             if i == 0:
                 continue
@@ -250,7 +232,7 @@ class TestBasic(HPyTest):
             static HPy h_impl(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs)
             {
                 long a, b;
-                if (!HPyArg_Parse(ctx, args, nargs, "ll", &a, &b))
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "ll", &a, &b))
                     return HPy_NULL;
                 return HPyLong_FromLong(ctx, 10*a + b);
             }
@@ -260,7 +242,7 @@ class TestBasic(HPyTest):
             {
                 long a, b;
                 static const char *kwlist[] = { "a", "b", NULL };
-                if (!HPyArg_ParseKeywords(ctx, args, nargs, kw, "ll", kwlist, &a, &b))
+                if (!HPyArg_ParseKeywords(ctx, NULL, args, nargs, kw, "ll", kwlist, &a, &b))
                     return HPy_NULL;
                 return HPyLong_FromLong(ctx, 10*a + b);
             }

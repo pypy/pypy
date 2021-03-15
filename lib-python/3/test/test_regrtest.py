@@ -569,7 +569,8 @@ class ProgramsTestCase(BaseTestCase):
         self.python_args = ['-Wd', '-E', '-bb']
         self.regrtest_args = ['-uall', '-rwW',
                               '--testdir=%s' % self.tmptestdir]
-        if hasattr(faulthandler, 'dump_traceback_later'):
+        if sys.platform != 'win32' and hasattr(faulthandler, 'dump_traceback_later'):
+            # PyPy 2020.1.5: somehow using this on windows hangs. See issue 3374
             self.regrtest_args.extend(('--timeout', '3600', '-j4'))
         if sys.platform == 'win32':
             self.regrtest_args.append('-n')

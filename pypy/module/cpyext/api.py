@@ -15,6 +15,7 @@ from rpython.rlib.rfile import (FILEP, c_fread, c_fclose, c_fwrite,
         c_fdopen, c_fileno, c_ferror,
         c_fopen)# for tests
 from rpython.rlib import jit, rutf8
+from rpython.rlib.rarithmetic import widen
 from rpython.translator import cdir
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.translator.gensupp import NameManager
@@ -43,7 +44,7 @@ from rpython.rlib import rthread
 from rpython.rlib.debug import fatalerror_notb
 from rpython.rlib import rstackovf
 from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
-from pypy.module.cpyext.cparser import CTypeSpace
+from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
 
@@ -133,7 +134,7 @@ udir.join('pypy_macros.h').write("/* Will be filled later */\n")
 constant_names = """
 Py_TPFLAGS_READY Py_TPFLAGS_READYING
 METH_COEXIST METH_STATIC METH_CLASS Py_TPFLAGS_BASETYPE
-METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O
+METH_NOARGS METH_VARARGS METH_KEYWORDS METH_FASTCALL METH_O
 Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED PyBUF_READ
@@ -143,6 +144,10 @@ PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
              'TYPE', 'BYTES'):
     constant_names.append('Py_TPFLAGS_%s_SUBCLASS' % name)
+
+#pystrtod.h flags
+for name in ('SIGN', 'ADD_DOT_0', 'ALT'):
+    constant_names.append('Py_DTSF_%s' % name)
 
 # PyPy-specific flags
 for name in ('FLOAT',):
@@ -626,14 +631,10 @@ SYMBOLS_C = [
 
     'PyFunction_Type', 'PyMethod_Type', 'PyRange_Type', 'PyTraceBack_Type',
 
-    'Py_DebugFlag', 'Py_VerboseFlag', 'Py_QuietFlag',
-    'Py_InteractiveFlag', 'Py_InspectFlag',
-    'Py_OptimizeFlag', 'Py_NoSiteFlag', 'Py_BytesWarningFlag', 'Py_UseClassExceptionsFlag',
-    'Py_FrozenFlag', 'Py_IgnoreEnvironmentFlag',
-    'Py_DontWriteBytecodeFlag', 'Py_NoUserSiteDirectory',
-    'Py_UnbufferedStdioFlag', 'Py_HashRandomizationFlag', 'Py_IsolatedFlag',
+    'Py_FrozenFlag', # not part of sys.flags
+    'Py_UnbufferedStdioFlag',  # not part of sys.flags (python3)
+    '_Py_PackageContext', 'PyOS_InputHook',
     '_Py_PackageContext',
-    'PyOS_InputHook',
 
     'PyMem_RawMalloc', 'PyMem_RawCalloc', 'PyMem_RawRealloc', 'PyMem_RawFree',
     'PyMem_Malloc', 'PyMem_Calloc', 'PyMem_Realloc', 'PyMem_Free',
@@ -654,6 +655,27 @@ TYPES = {}
 FORWARD_DECLS = []
 INIT_FUNCTIONS = []
 BOOTSTRAP_FUNCTIONS = []
+
+# Keep synchronized with pypy.interpreter.app_main.sys_flags and
+# module.sys.app.sysflags. Synchronized in an init_function
+_flags = [
+    # c name, sys.flags name
+    ('Py_DebugFlag', 'debug'),
+    ('Py_InspectFlag', 'inspect'),
+    ('Py_InteractiveFlag', 'interactive'),
+    ('Py_OptimizeFlag', 'optimize'),
+    ('Py_DontWriteBytecodeFlag', 'dont_write_bytecode'),
+    ('Py_NoUserSiteDirectory', 'no_user_site'),
+    ('Py_NoSiteFlag', 'no_site'),
+    ('Py_IgnoreEnvironmentFlag', 'ignore_environment'),
+    ('Py_VerboseFlag', 'verbose'),
+    ('Py_BytesWarningFlag', 'bytes_warning'),
+    ('Py_QuietFlag', 'quiet'),
+    ('Py_HashRandomizationFlag', 'hash_randomization'),
+    ('Py_IsolatedFlag', 'isolated'),
+]
+
+SYMBOLS_C += [c_name for c_name, _ in _flags]
 
 # this needs to include all prebuilt pto, otherwise segfaults occur
 register_global('_Py_NoneStruct',
@@ -741,11 +763,13 @@ class CpyextTypeSpace(CTypeSpace):
 
 CPYEXT_BASE_HEADERS = ['sys/types.h', 'stdarg.h', 'stdio.h', 'stddef.h']
 cts = CpyextTypeSpace(headers=CPYEXT_BASE_HEADERS)
-cts.parse_header(parse_dir / 'cpyext_object.h')
+cts.parse_header(parse_dir / 'cpyext_object.h', configure=False)
+cts.parse_header(parse_dir / 'cpyext_descrobject.h', configure=False)
+cts.configure_types()
 
 Py_ssize_t = cts.gettype('Py_ssize_t')
 Py_ssize_tP = cts.gettype('Py_ssize_t *')
-size_t = rffi.ULONG
+size_t = lltype.Unsigned
 ADDR = lltype.Signed
 
 # Note: as a special case, "PyObject" is the pointer type in RPython,
@@ -848,7 +872,7 @@ def build_type_checkers_flags(type_name, cls=None, flagsubstr=None):
         from pypy.module.cpyext.pyobject import is_pyobj, as_pyobj
         "Implements the Py_Xxx_Check function"
         if is_pyobj(pto):
-            return (pto.c_ob_type.c_tp_flags & tp_flag) == tp_flag
+            return (widen(pto.c_ob_type.c_tp_flags) & tp_flag) == tp_flag
         w_obj_type = space.type(pto)
         w_type = get_w_type(space)
         return (space.is_w(w_obj_type, w_type) or
@@ -1178,6 +1202,37 @@ def attach_c_functions(space, eci, prefix):
     state.C.tuple_new = rffi.llexternal(
         '_PyPy_tuple_new', [PyTypeObjectPtr, PyObject, PyObject], PyObject,
         compilation_info=eci, _nowrapper=True)
+    if we_are_translated():
+        eci_flags = eci
+    else:
+        # To get this to work in tests, we need a new eci to
+        # link to the pypyapi.so/dll. Note that all this linking
+        # will only happen for tests, when translating the link args here
+        # are irrelevant.
+        library_dirs = eci.library_dirs
+        link_extra = list(eci.link_extra)
+        link_files = eci.link_files
+        if sys.platform == "win32":
+            # since we include Python.h, we must disable linking with
+            # the regular import lib
+            from pypy.module.sys import version
+            ver = version.CPYTHON_VERSION[:2]
+            link_extra.append("/NODEFAULTLIB:Python%d%d.lib" % ver)
+             # for testing, make sure "pypyapi.lib" is linked in
+            link_extra += [x.replace('dll', 'lib') for x in eci.libraries]
+        eci_flags = ExternalCompilationInfo(
+            include_dirs=include_dirs,
+            includes=['Python.h'],
+            link_extra = link_extra,
+            link_files = link_files,
+            library_dirs = library_dirs,
+           )
+    state.C.flag_setters = {}
+    for c_name, attr in _flags:
+        _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
+                                         _nowrapper=True, c_type='int')
+        state.C.flag_setters[attr] = setter
+        
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1190,6 +1245,13 @@ def bootstrap_function(func):
 def run_bootstrap_functions(space):
     for func in BOOTSTRAP_FUNCTIONS:
         func(space)
+
+@init_function
+def init_flags(space):
+    state = space.fromcache(State)
+    for _, attr in _flags:
+        f = state.C.flag_setters[attr]
+        f(space.sys.get_flag(attr))
 
 #_____________________________________________________
 # Build the bridge DLL, Allow extension DLLs to call
@@ -1381,21 +1443,16 @@ def mangle_name(prefix, name):
 
 def write_header(header_name, decls):
     lines = [
+        '#include "cpyext_object.h"',
         '''
 #ifdef _WIN64
-/* this check is for sanity, but also because the 'temporary fix'
-   below seems to become permanent and would cause unexpected
-   nonsense on Win64---but note that it's not the only reason for
-   why Win64 is not supported!  If you want to help, see
-   http://doc.pypy.org/en/latest/windows.html#what-is-missing-for-a-full-64-bit-translation
-   */
-#  error "PyPy does not support 64-bit on Windows.  Use Win32"
+#define Signed   Py_ssize_t          /* xxx temporary fix */
+#define Unsigned unsigned long long  /* xxx temporary fix */
+#else
+#define Signed   Py_ssize_t     /* xxx temporary fix */
+#define Unsigned unsigned long  /* xxx temporary fix */
 #endif
-''',
-        '#include "cpyext_object.h"',
-        '#define Signed   Py_ssize_t     /* xxx temporary fix */',
-        '#define Unsigned unsigned long  /* xxx temporary fix */',
-        '',] + decls + [
+        '''] + decls + [
         '',
         '#undef Signed    /* xxx temporary fix */',
         '#undef Unsigned  /* xxx temporary fix */',
@@ -1514,7 +1571,7 @@ def build_eci(code, use_micronumpy=False, translating=False):
             # '%s' undefined; assuming extern returning int
             compile_extra.append("/we4013")
             # Sometimes the library is wrapped into another DLL, ensure that
-            # the correct bootstrap code is installed
+            # the correct bootstrap code is installed.
             kwds["link_extra"] = ["msvcrt.lib"]
         elif sys.platform.startswith('linux'):
             compile_extra.append("-Werror=implicit-function-declaration")
@@ -1657,8 +1714,9 @@ def create_extension_module(space, w_spec):
     from rpython.rlib import rdynload
 
     w_name = space.getattr(w_spec, space.newtext("name"))
+    w_path = space.getattr(w_spec, space.newtext("origin"))
     name = space.text_w(w_name)
-    path = space.text_w(space.getattr(w_spec, space.newtext("origin")))
+    path = space.text_w(w_path)
 
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
@@ -1673,7 +1731,6 @@ def create_extension_module(space, w_spec):
         finally:
             lltype.free(ll_libname, flavor='raw')
     except rdynload.DLOpenError as e:
-        w_path = space.newfilename(path)
         raise raise_import_error(space,
             space.newfilename(e.msg), w_name, w_path)
     look_for = None

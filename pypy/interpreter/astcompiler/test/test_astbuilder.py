@@ -265,6 +265,20 @@ class TestAstBuilder:
         assert len(sub_if.orelse) == 1
         assert isinstance(sub_if.orelse[0].value, ast.Tuple)
 
+    def test_elif_pos_bug(self):
+        if_ = self.get_first_stmt("if x: 3\nelif \\\n 'hi': pass")
+        assert isinstance(if_.test, ast.Name)
+        assert len(if_.orelse) == 1
+        sub_if = if_.orelse[0]
+        assert sub_if.lineno == 2
+        assert sub_if.col_offset == 0
+        if_ = self.get_first_stmt("if x: 3\nelif \\\n 'hi': pass\nelse: pass")
+        assert isinstance(if_.test, ast.Name)
+        assert len(if_.orelse) == 1
+        sub_if = if_.orelse[0]
+        assert sub_if.lineno == 2
+        assert sub_if.col_offset == 0
+
     def test_while(self):
         wh = self.get_first_stmt("while x: pass")
         assert isinstance(wh, ast.While)
@@ -1086,7 +1100,7 @@ class TestAstBuilder:
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
         assert exc.msg == "keyword can't be an expression"
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
-        assert exc.msg == "keyword argument repeated"
+        assert exc.msg == "keyword argument repeated: 'a'"
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")

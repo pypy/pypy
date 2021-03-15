@@ -69,9 +69,10 @@ class AppTestArray(object):
                 assert a[i] == v
                 assert type(a[i]) is pt or (
                     # A special case: we return ints in Array('I') on 64-bits,
+                    # and in Array('L') on 64-bit Windows,
                     # whereas CPython returns longs.  The difference is
                     # probably acceptable.
-                    tc == 'I' and
+                    (tc == 'I' or tc == 'L' and sys.platform == 'win32') and
                     sys.maxint > 2147483647 and type(a[i]) is int)
             for v in ok:
                 a[1] = v

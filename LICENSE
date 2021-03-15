@@ -31,7 +31,7 @@ directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2020
+PyPy Copyright holders 2003-2021
 --------------------------------
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -99,12 +99,14 @@ copyrighted by one or more of the following people and organizations:
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
+  nulano
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -121,6 +123,7 @@ copyrighted by one or more of the following people and organizations:
   Edd Barrett
   Marius Gedminas
   Laurence Tratt
+  Batuhan Taskaya
   Alexandre Fayolle
   Nicolas Truessel
   Simon Burton
@@ -129,12 +132,11 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   John Witulski
   Jeremy Thurgood
+  Julian Berman
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
-  Simon Cross
   Mark Pearse
-  Julian Berman
   Andreas Stührk
   Tobias Pape
   Jean-Philippe St. Pierre
@@ -154,6 +156,7 @@ copyrighted by one or more of the following people and organizations:
   Joannah Nanjekye
   Georg Brandl
   quejebo
+  muke101
   Bert Freudenberg
   Gerald Klix
   Wanja Saatkamp
@@ -232,6 +235,7 @@ copyrighted by one or more of the following people and organizations:
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
+  Ricky Zhou
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -258,6 +262,7 @@ copyrighted by one or more of the following people and organizations:
   Anthony Sottile
   Arianna Avanzini
   Matt Billenstein
+  Sebastian Berg
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
@@ -359,6 +364,9 @@ copyrighted by one or more of the following people and organizations:
   Bolutife Ogunsola
   ashwinahuja
   cjmcdonald@google.com
+  Alex Orange
+  alexprengere
+  Dennis Sweeney
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -460,6 +468,8 @@ copyrighted by one or more of the following people and organizations:
   Henri Tuhola
   shaolo1
   Chris AtLee
+  Christoph Reiter
+  Chris Burr
 
   Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden

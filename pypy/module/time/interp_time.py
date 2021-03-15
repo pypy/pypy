@@ -11,7 +11,8 @@ from pypy.module._codecs.locale import (
     str_decode_locale_surrogateescape, utf8_encode_locale_surrogateescape)
 from rpython.rtyper.lltypesystem import lltype
 from rpython.rlib.rarithmetic import (
-    intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck, ovfcheck_float_to_int, INT_MIN)
+    intmask, r_ulonglong, r_longfloat, r_int64, widen, ovfcheck,
+    ovfcheck_float_to_int, INT_MIN, r_uint)
 from rpython.rlib.rtime import (GETTIMEOFDAY_NO_TZ, TIMEVAL,
                                 HAVE_GETTIMEOFDAY, HAVE_FTIME)
 from rpython.rlib import rposix, rtime
@@ -39,6 +40,12 @@ if _CYGWIN:
                    "GMT",  "GMT+1", "GMT+2", "GMT+3", "GMT+4", "GMT+5",
                    "GMT+6",  "GMT+7", "GMT+8", "GMT+9", "GMT+10", "GMT+11",
                    "GMT+12",  "GMT+13", "GMT+14"]
+
+
+if r_uint.BITS == 64:
+    tolong = intmask
+else:
+    tolong = r_int64
 
 if _WIN:
     # Interruptible sleeps on Windows:
@@ -281,9 +288,9 @@ if _WIN:
                                              is_time_adjustment_disabled)
 
                     _setinfo(space, w_info, "GetSystemTimeAsFileTime()",
-                             time_increment[0] * 1e-7, False, True)
+                             intmask(time_increment[0]) * 1e-7, False, True)
             if return_ns:
-                return space.newint(r_int64(microseconds) * 10**3)
+                return space.newint(tolong(microseconds) * 10**3)
             else:
                 tv_sec = microseconds / 10**6
                 tv_usec = microseconds % 10**6
@@ -986,6 +993,7 @@ def strftime(space, format, w_tup=None):
                      rffi.getintfield(buf_value, "c_tm_year") - 1900)
 
     i = 1024
+    passthrough = False
     if _WIN:
         tm_year = rffi.getintfield(buf_value, 'c_tm_year')
         if (tm_year + 1900 < 1 or  9999 < tm_year + 1900):
@@ -1014,7 +1022,11 @@ def strftime(space, format, w_tup=None):
         # wcharp with track_allocation=True
         format_for_call = rffi.utf82wcharp(format, len(format))
     else:
-        format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+        try:
+            format_for_call= utf8_encode_locale_surrogateescape(format, len(format))
+        except UnicodeEncodeError:
+            format_for_call = format
+            passthrough = True
     try:
         while True:
             if _WIN:
@@ -1033,8 +1045,13 @@ def strftime(space, format, w_tup=None):
                     if _WIN:
                         decoded, size = rffi.wcharp2utf8n(outbuf, intmask(buflen))
                     else:
+                        from rpython.rlib.rutf8 import codepoints_in_utf8
                         result = rffi.charp2strn(outbuf, intmask(buflen))
-                        decoded, size = str_decode_locale_surrogateescape(result)
+                        if passthrough:
+                            decoded = result
+                            size = codepoints_in_utf8(result)
+                        else:
+                            decoded, size = str_decode_locale_surrogateescape(result)
                     return space.newutf8(decoded, size)
                 if buflen == 0 and rposix.get_saved_errno() == errno.EINVAL:
                     raise oefmt(space.w_ValueError, "invalid format string")
@@ -1077,11 +1094,11 @@ if HAS_MONOTONIC:
                         # Is this right? Cargo culting...
                         raise wrap_oserror(space,
                             rwin32.lastSavedWindowsError("GetSystemTimeAdjustment"))
-                    resolution = resolution * time_increment[0]
+                    resolution = resolution * intmask(time_increment[0])
                 _setinfo(space, w_info, implementation, resolution, True, False)
 
             if return_ns:
-                return space.newint(r_int64(tick_count) * 10**6)
+                return space.newint(tolong(tick_count) * 10**6)
             else:
                 return space.newfloat(tick_count * 1e-3)
 
@@ -1172,7 +1189,7 @@ if _WIN:
                 _setinfo(space, w_info, "QueryPerformanceCounter()", resolution,
                          True, False)
             if return_ns:
-                return space.newint(r_int64(diff) * 10**9 // time_state.divisor)
+                return space.newint(tolong(diff) * 10**9 // time_state.divisor)
             else:
                 return space.newfloat(float(diff) / float(time_state.divisor))
 
@@ -1227,9 +1244,11 @@ if _WIN:
         if w_info is not None:
             _setinfo(space, w_info, "GetProcessTimes()", 1e-7, True, False)
         if return_ns:
-            return space.newint((r_int64(kernel_time2) + r_int64(user_time2)) * 10**2)
+            return space.newint((tolong(kernel_time2) +
+                                 tolong(user_time2)) * 10**2)
         else:
-            return space.newfloat((float(kernel_time2) + float(user_time2)) * 1e-7)
+            return space.newfloat((float(kernel_time2) + 
+                                   float(user_time2)) * 1e-7)
 else:
     have_times = hasattr(rposix, 'c_times')
 
@@ -1336,7 +1355,7 @@ if HAS_THREAD_TIME:
 
             # ktime and utime have a resolution of 100 nanoseconds
             if return_ns:
-                return space.newint((r_int64(ktime) + r_int64(utime)) * 10**2)
+                return space.newint((tolong(ktime) + tolong(utime)) * 10**2)
             else:
                 return space.newfloat((float(ktime) + float(utime)) * 1e-7)
     else:

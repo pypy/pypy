@@ -246,10 +246,7 @@ class AppTestTime:
             assert time.mktime(time.localtime(-1)) == -1
 
         res = time.mktime((2000, 1, 1, 0, 0, 0, -1, -1, -1))
-        if os.name == 'nt':
-            assert time.ctime(res) == 'Sat Jan 01 00:00:00 2000'
-        else:
-            assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
+        assert time.ctime(res) == 'Sat Jan  1 00:00:00 2000'
 
     def test_mktime_overflow(self):
         import time
@@ -509,6 +506,18 @@ class AppTestTime:
             assert s == "f\xe9vrier."
         finally:
             _locale.setlocale(_locale.LC_TIME, prev_loc)
+
+    def test_strftime_surrogate(self):
+        import time
+        # maybe raises, maybe doesn't, but should not crash
+        try:
+            res = time.strftime(u'%y\ud800%m', time.localtime(192039127))
+        except UnicodeEncodeError:
+            pass
+        else:
+            expected = u'76\ud80002'
+            print(len(res), len(expected))
+            assert res == u'76\ud80002' 
 
     def test_strptime(self):
         import time

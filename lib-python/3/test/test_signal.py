@@ -163,6 +163,42 @@ class WakeupFDTests(unittest.TestCase):
         signal.set_wakeup_fd(-1)
 
 
+# PyPy: the signal handler writes to file descriptor 2 instead of via
+# the Python machinery to sys.stderr.  Here is a variant of
+# test.support.captured_stderr that captures everything from this
+# file descriptor.  This limited version relies on the pipe's capacity
+# being larger than the size of the written message, which should always
+# be the case in practice.
+STDERR_CAPTURE = """
+import os, sys
+
+class captured_stderr:
+
+    def __enter__(self):
+        self.olderr = os.dup(2)
+        self.pipe_read, self.pipe_write = os.pipe()
+        assert self.pipe_read >= 3
+        assert self.pipe_write >= 3
+        assert self.olderr >= 3
+        os.dup2(self.pipe_write, 2)
+        # the test thus modified fails on CPython, now, because sys.stderr
+        # is something else that doesn't write to file descriptor 2.  Hack.
+        self.old_sys_stderr = sys.stderr
+        sys.stderr = os.fdopen(2, 'w', encoding='latin1')
+        return self
+
+    def __exit__(self, *args):
+        sys.stderr = self.old_sys_stderr
+        os.dup2(self.olderr, 2)
+        os.close(self.olderr)
+        os.close(self.pipe_write)
+        self.data = os.read(self.pipe_read, 4096).decode('latin1')
+        os.close(self.pipe_read)
+
+    def getvalue(self):
+        return self.data
+"""
+
 @unittest.skipIf(sys.platform == "win32", "Not valid on Windows")
 class WakeupSignalTests(unittest.TestCase):
     @unittest.skipIf(_testcapi is None, 'need _testcapi')
@@ -204,20 +240,17 @@ class WakeupSignalTests(unittest.TestCase):
 
         assert_python_ok('-c', code)
 
-    @support.impl_detail("pypy writes the message to fd 2, not to sys.stderr",
-                         pypy=False)
     @unittest.skipIf(_testcapi is None, 'need _testcapi')
     def test_wakeup_write_error(self):
         # Issue #16105: write() errors in the C signal handler should not
         # pass silently.
         # Use a subprocess to have only one thread.
-        code = """if 1:
+        code = STDERR_CAPTURE + """if 1:
         import _testcapi
         import errno
         import os
         import signal
         import sys
-        from test.support import captured_stderr
 
         def handler(signum, frame):
             1/0
@@ -394,14 +427,13 @@ class WakeupSocketSignalTests(unittest.TestCase):
             action = 'send'
         else:
             action = 'write'
-        code = """if 1:
+        code = STDERR_CAPTURE + """if 1:
         import errno
         import signal
         import socket
         import sys
         import time
         import _testcapi
-        from test.support import captured_stderr
 
         signum = signal.SIGINT
 
@@ -416,18 +448,19 @@ class WakeupSocketSignalTests(unittest.TestCase):
 
         signal.set_wakeup_fd(write.fileno())
 
-        # Close sockets: send() will fail
-        read.close()
-        write.close()
-
         with captured_stderr() as err:
+            # Close sockets: send() will fail.  Note that captured_stderr()
+            # opens new file descriptors, which might end up at the same
+            # location as the ones closed here and create a lot of confusion.
+            read.close()
+            write.close()
             _testcapi.raise_signal(signum)
 
         err = err.getvalue()
         if ('Exception ignored when trying to {action} to the signal wakeup fd'
-            not in err) and {cpython_only}:
-            raise AssertionError(err)
-        """.format(action=action, cpython_only=support.check_impl_detail())
+            not in err):
+            raise AssertionError(repr(err))
+        """.format(action=action)
         # note that PyPy produces the same error message, but sent to
         # the real stderr instead of to sys.stderr.
         assert_python_ok('-c', code)
@@ -439,14 +472,13 @@ class WakeupSocketSignalTests(unittest.TestCase):
             action = 'send'
         else:
             action = 'write'
-        code = """if 1:
+        code = STDERR_CAPTURE + """if 1:
         import errno
         import signal
         import socket
         import sys
         import time
         import _testcapi
-        from test.support import captured_stderr
 
         signum = signal.SIGINT
 

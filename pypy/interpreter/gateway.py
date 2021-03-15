@@ -48,7 +48,7 @@ class SignatureBuilder(object):
         self.argnames = argnames
         self.varargname = varargname
         self.kwargname = kwargname
-        self.posonlyargnames = None
+        self.posonlyargcount = 0
         self.kwonlyargnames = None
 
     def append(self, argname):
@@ -58,10 +58,8 @@ class SignatureBuilder(object):
             self.kwonlyargnames.append(argname)
 
     def marker_posonly(self):
-        assert self.posonlyargnames is None
         assert self.kwonlyargnames is None
-        self.posonlyargnames = self.argnames
-        self.argnames = []
+        self.posonlyargcount = len(self.argnames)
 
     def marker_kwonly(self):
         assert self.kwonlyargnames is None
@@ -69,7 +67,7 @@ class SignatureBuilder(object):
 
     def signature(self):
         return Signature(self.argnames, self.varargname, self.kwargname,
-                         self.kwonlyargnames, self.posonlyargnames)
+                         self.kwonlyargnames, self.posonlyargcount)
 
 #________________________________________________________________
 
@@ -722,7 +720,7 @@ class BuiltinCode(Code):
         argnames = sig.argnames
         varargname = sig.varargname
         kwargname = sig.kwargname
-        if sig.posonlyargnames:
+        if sig.posonlyargcount:
             import pdb; pdb.set_trace()
         if sig.kwonlyargnames:
             import pdb; pdb.set_trace()
@@ -1130,7 +1128,7 @@ class interp2app(W_Root):
         #
         sig = self._code.sig
         first_defined = 0
-        allposargnames = sig.posonlyargnames + sig.argnames
+        allposargnames = sig.argnames
         n_allposargnames = len(allposargnames)
         while (first_defined < n_allposargnames and
                allposargnames[first_defined] not in alldefs_w):
