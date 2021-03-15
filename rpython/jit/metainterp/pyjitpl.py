@@ -1396,8 +1396,18 @@ class MIFrame(object):
             greenkey = original_boxes[:jd_sd.num_green_args]
             enable_opts = jd_sd.warmstate.enable_opts
             cut_at = metainterp.history.get_trace_position()
+            fake_runtime_boxes = None
+            vinfo = jd_sd.virtualizable_info
+            if vinfo is not None:
+                # this is a hack! compile_simple_loop does not actually need
+                # the runtime boxes. the only thing it does is extract the
+                # virtualizable box. so pass it that way
+                fake_runtime_boxes = [None] * (jd_sd.index_of_virtualizable + 1)
+                fake_runtime_boxes[jd_sd.index_of_virtualizable] = \
+                        metainterp.virtualizable_boxes[-1]
             target_token = compile.compile_simple_loop(
-                metainterp, greenkey, metainterp.history.trace, None, enable_opts, cut_at,
+                metainterp, greenkey, metainterp.history.trace,
+                fake_runtime_boxes, enable_opts, cut_at,
                 patch_jumpop_at_end=False)
             jd_sd.warmstate.attach_procedure_to_interp(
                 greenkey, target_token.targeting_jitcell_token)

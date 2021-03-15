@@ -49,6 +49,63 @@ class TraceLimitTests:
         self.check_trace_count(7)
         self.check_jitcell_token_count(1)
 
+    def test_virtualizable(self):
+        # basically the same test as test_segmented_trace, but the value of n
+        # is stored in a virtualizable
+        myjitdriver = JitDriver(greens = [], reds = ['frame'],
+                                virtualizables = ['frame'])
+
+        class Frame(object):
+            _virtualizable_ = ['n']
+
+            def __init__(self, n):
+                self.n = n
+
+        def p(pc, code):
+            return "%s %d %s" % (code, pc, code[pc])
+        myjitdriver = JitDriver(greens=['pc', 'code'], reds=['frame'],
+                                virtualizables=['frame'],
+                                get_printable_location=p,
+                                is_recursive=True)
+
+        def f(code, n):
+            frame = Frame(n)
+            pc = 0
+            while pc < len(code):
+                myjitdriver.jit_merge_point(frame=frame, code=code, pc=pc)
+
+                op = code[pc]
+                if op == "-":
+                    frame.n -= 1
+                elif op == "c":
+                    f('--------------------', frame.n)
+                elif op == "l":
+                    if frame.n > 0:
+                        myjitdriver.can_enter_jit(frame=frame, code=code, pc=0)
+                        pc = 0
+                        continue
+                else:
+                    assert 0
+                pc += 1
+            return frame.n
+        def g(m):
+            set_param(None, 'inlining', True)
+            set_param(None, 'trace_limit', 40)
+            if m > 1000000:
+                f('', 0)
+            result = 0
+            s = '-' * 50 + '-c-l-'
+            for i in range(m):
+                result += f(s, i+100)
+        self.meta_interp(g, [10], backendopt=True, ProfilerClass=Profiler)
+        stats = get_stats()
+        self.check_resops(label=1, jump=1, omit_finish=False)
+        assert stats.metainterp_sd.profiler.counters[
+            Counters.ABORT_SEGMENTED_TRACE] == 5
+        self.check_trace_count(8)
+        self.check_jitcell_token_count(1)
+
+
     def test_huge_bridge(self):
         def p(pc, code):
             return "%s %d %s" % (code, pc, code[pc])
