@@ -1367,30 +1367,50 @@ class MIFrame(object):
         if (metainterp.force_finish_trace and
                 (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8 or
                  metainterp.history.trace_tag_overflow_imminent())):
-            # close to the trace limit, in a trace we really shouldn't
-            # abort. finish it now
-            metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
-            if we_are_translated():
-                llexception = jitexc.get_llexception(metainterp.cpu, AssertionError())
-            else:
-                # fish an AssertionError instance
-                llexception = jitexc._get_standard_error(metainterp.cpu.rtyper, AssertionError)
+            self._create_segmented_trace_and_blackhole()
 
-            # add an unreachable finish that raises an AssertionError
-            exception_box = ConstInt(ptr2int(llexception.typeptr))
-            sd = metainterp.staticdata
-            token = sd.exit_frame_with_exception_descr_ref
-            metainterp.history.record(rop.FINISH, [exception_box], None, descr=token)
+    def _create_segmented_trace_and_blackhole(self):
+        metainterp = self.metainterp
+        # close to the trace limit, in a trace we really shouldn't
+        # abort. finish it now
+        metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
+        if we_are_translated():
+            llexception = jitexc.get_llexception(metainterp.cpu, AssertionError())
+        else:
+            # fish an AssertionError instance
+            llexception = jitexc._get_standard_error(metainterp.cpu.rtyper, AssertionError)
 
-            # compile the trace
+        # add an unreachable finish that raises an AssertionError
+        exception_box = ConstInt(ptr2int(llexception.typeptr))
+        sd = metainterp.staticdata
+        token = sd.exit_frame_with_exception_descr_ref
+        metainterp.history.record(rop.FINISH, [exception_box], None, descr=token)
+
+        if (metainterp.current_merge_points and
+                isinstance(metainterp.resumekey, compile.ResumeFromInterpDescr)):
+            # making a loop. it's important to call compile_simple_loop to make
+            # sure that a label at the beginning is inserted, otherwise we
+            # cannot ever close the segmented loop later!
+            original_boxes, start = metainterp.current_merge_points[0]
+            jd_sd = metainterp.jitdriver_sd
+            greenkey = original_boxes[:jd_sd.num_green_args]
+            enable_opts = jd_sd.warmstate.enable_opts
+            cut_at = metainterp.history.get_trace_position()
+            target_token = compile.compile_simple_loop(
+                metainterp, greenkey, metainterp.history.trace, None, enable_opts, cut_at,
+                patch_jumpop_at_end=False)
+            jd_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+
+        else:
             target_token = compile.compile_trace(metainterp, metainterp.resumekey, [exception_box])
             if target_token is not token:
                 compile.giveup()
 
-            # unlike basically any other trace that we can produce, we now need
-            # to blackhole back to the interpreter, because we are at a really
-            # arbitrary place here!
-            raise SwitchToBlackhole(Counters.ABORT_SEGMENTED_TRACE)
+        # unlike basically any other trace that we can produce, we now need
+        # to blackhole back to the interpreter instead of jumping to some
+        # existing code, because we are at a really arbitrary place here!
+        raise SwitchToBlackhole(Counters.ABORT_SEGMENTED_TRACE)
 
 
     @arguments("box", "label")
