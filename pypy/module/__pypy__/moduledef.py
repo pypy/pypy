@@ -122,6 +122,7 @@ class Module(MixedModule):
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'
+        interpleveldefs['get_osfhandle'] = 'interp_magic.get_osfhandle'
 
     submodules = {
         "builders": BuildersModule,

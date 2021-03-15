@@ -1,9 +1,41 @@
 #ifndef Py_PYPORT_H
 #define Py_PYPORT_H
 
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
+#include "pyconfig.h" /* include for defines */
+
+#include <inttypes.h>
+
+/**************************************************************************
+Symbols and macros to supply platform-independent interfaces to basic
+C language & library operations whose spellings vary across platforms.
+
+Please try to make documentation here as clear as possible:  by definition,
+the stuff here is trying to illuminate C's darkest corners.
+
+Config #defines referenced here:
+
+SIGNED_RIGHT_SHIFT_ZERO_FILLS
+Meaning:  To be defined iff i>>j does not extend the sign bit when i is a
+          signed integral type and i < 0.
+Used in:  Py_ARITHMETIC_RIGHT_SHIFT
+
+Py_DEBUG
+Meaning:  Extra checks compiled in for debug mode.
+Used in:  Py_SAFE_DOWNCAST
+
+**************************************************************************/
+
+/* typedefs for some C9X-defined synonyms for integral types.
+ *
+ * The names in Python are exactly the same as the C9X names, except with a
+ * Py_ prefix.  Until C9X is universally implemented, this is the only way
+ * to ensure that Python gets reliable names that don't conflict with names
+ * in non-Python code that are playing their own tricks to define the C9X
+ * names.
+ *
+ * NOTE: don't go nuts here!  Python has no use for *most* of the C9X
+ * integral synonyms.  Only define the ones we actually need.
+ */
 
 /* typedefs for some C9X-defined synonyms for integral types. */
 #ifdef HAVE_LONG_LONG

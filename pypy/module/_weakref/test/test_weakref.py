@@ -552,3 +552,47 @@ class AppTestProxy(object):
         if hasattr(unboundmeth, 'im_func'):
             e = raises(TypeError, unboundmeth.im_func, 42)
             assert "'weakref-or-proxy'" in str(e.value)
+
+    def test_reverse_add(self):
+        import _weakref
+        class A:
+            def __add__(self, other):
+                return 17
+
+            def __radd__(self, other):
+                return 20
+
+            def __iadd__(self, other):
+                return 19
+
+        assert A() + 12 == 17
+        assert 12 + A() == 20
+        a = A()
+        a += -1
+        assert a == 19
+
+        a = A()
+        p = _weakref.proxy(a)
+        assert p + 12 == 17
+        print(12 + p)
+        assert 12 + p == 20
+        p += -1
+        assert p == 19
+
+    def test_gt_lt(self):
+        import _weakref
+        class A:
+            def __gt__(self, other):
+                return True
+
+            def __lt__(self, other):
+                return False
+
+        assert (A() > 12) == True
+        assert (12 > A()) == False
+
+        a = A()
+        p = _weakref.proxy(a)
+        assert (p > 12) == True
+        print(12 > p)
+        assert (12 > p) == False

@@ -558,13 +558,14 @@ Return the size in bytes of the argument.
 It can be a string naming a C type, or a 'cdata' instance."""
         #
         if isinstance(w_arg, W_CData):
+            w_ctype = w_arg.ctype
             size = w_arg._sizeof()
         else:
             w_ctype = self.ffi_type(w_arg, ACCEPT_ALL)
             size = w_ctype.size
-            if size < 0:
-                raise oefmt(self.w_FFIError,
-                            "don't know the size of ctype '%s'", w_ctype.name)
+        if size < 0:
+            raise oefmt(self.w_FFIError,
+                        "don't know the size of ctype '%s'", w_ctype.name)
         return self.space.newint(size)
 
 

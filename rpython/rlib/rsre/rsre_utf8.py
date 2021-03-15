@@ -20,10 +20,6 @@ class Utf8MatchContext(AbstractMatchContext):
         check_nonneg(index)
         return rutf8.codepoint_at_pos(self._utf8, index)
 
-    def lowstr(self, index, flags):
-        c = self.str(index)
-        return rsre_char.getlower(c, flags)
-
     def get_single_byte(self, base_position, index):
         return self._utf8[base_position + index]
 
@@ -97,10 +93,11 @@ def utf8match(pattern, utf8string, bytestart=0, byteend=sys.maxint,
               fullmatch=False):
     # bytestart and byteend must be valid byte positions inside the
     # utf8string.
-    from rpython.rlib.rsre.rsre_core import match_context
+    from rpython.rlib.rsre.rsre_core import match_context, MODE_FULL
 
     ctx = make_utf8_ctx(utf8string, bytestart, byteend)
-    ctx.fullmatch_only = fullmatch
+    if fullmatch:
+        ctx.match_mode = MODE_FULL
     if match_context(ctx, pattern):
         return ctx
     else:

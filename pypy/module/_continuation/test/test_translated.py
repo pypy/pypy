@@ -117,6 +117,86 @@ class AppTestWrapper:
         _vmprof.disable()
         f.close()
 
+    def test_thread_switch_to_sub(self):
+        try:
+            import thread, time
+        except ImportError:
+            py.test.skip("no threads")
+        c_list = []
+        lock = thread.allocate_lock()
+        lock.acquire()
+        lock2 = thread.allocate_lock()
+        lock2.acquire()
+        #
+        def fn():
+            c = _continuation.continulet(lambda c_main: c_main.switch())
+            c.switch()
+            c_list.append(c)
+            lock.release()
+            lock2.acquire()
+        #
+        thread.start_new_thread(fn, ())
+        lock.acquire()
+        [c] = c_list
+        py.test.raises(_continuation.error, c.switch)
+        #
+        lock2.release()
+        time.sleep(0.5)
+        py.test.raises(_continuation.error, c.switch)
+
+    def test_thread_switch_to_sub_nonstarted(self):
+        try:
+            import thread, time
+        except ImportError:
+            py.test.skip("no threads")
+        c_list = []
+        lock = thread.allocate_lock()
+        lock.acquire()
+        lock2 = thread.allocate_lock()
+        lock2.acquire()
+        #
+        def fn():
+            c = _continuation.continulet(lambda c_main: None)
+            c_list.append(c)
+            lock.release()
+            lock2.acquire()
+        #
+        thread.start_new_thread(fn, ())
+        lock.acquire()
+        [c] = c_list
+        py.test.raises(_continuation.error, c.switch)
+        #
+        lock2.release()
+        time.sleep(0.5)
+        py.test.raises(_continuation.error, c.switch)
+
+    def test_thread_switch_to_main(self):
+        try:
+            import thread, time
+        except ImportError:
+            py.test.skip("no threads")
+        c_list = []
+        lock = thread.allocate_lock()
+        lock.acquire()
+        lock2 = thread.allocate_lock()
+        lock2.acquire()
+        #
+        def fn():
+            def in_continulet(c_main):
+                c_list.append(c_main)
+                lock.release()
+                lock2.acquire()
+            c = _continuation.continulet(in_continulet)
+            c.switch()
+        #
+        thread.start_new_thread(fn, ())
+        lock.acquire()
+        [c] = c_list
+        py.test.raises(_continuation.error, c.switch)
+        #
+        lock2.release()
+        time.sleep(0.5)
+        py.test.raises(_continuation.error, c.switch)
 
 def _setup():
     for _i in range(20):

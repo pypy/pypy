@@ -1,11 +1,11 @@
-import py
+import pytest
 
 class AppTest(object):
     spaceconfig = {"objspace.usemodules.select": False}
 
     def setup_class(cls):
         if cls.runappdirect:
-            py.test.skip("does not make sense on pypy-c")
+            pytest.skip("does not make sense on pypy-c")
 
     def test_cpumodel(self):
         import __pypy__
@@ -130,6 +130,18 @@ class AppTest(object):
         assert strategy(s) == "EmptySetStrategy"
         s = set([2, 3, 4])
         assert strategy(s) == "IntegerSetStrategy"
+
+    def test_instance_strategy(self):
+        import sys
+        from __pypy__ import strategy
+        if sys.maxsize < 2**32:
+            skip('not for 32-bit python')
+        class A(object):
+            pass
+        a = A()
+        a.x = 1
+        a.y = 2
+        assert strategy(a).startswith("<UnboxedPlainAttribute y DICT 0 1 <UnboxedPlainAttribute x DICT 0 0 <DictTerminator w_cls=<W_TypeObject 'A'")
 
 
 class AppTestJitFeatures(object):

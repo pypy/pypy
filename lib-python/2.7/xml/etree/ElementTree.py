@@ -1226,7 +1226,6 @@ class _IterParseIterator(object):
             if event == "start":
                 try:
                     parser.ordered_attributes = 1
-                    parser.specified_attributes = 1
                     def handler(tag, attrib_in, event=event, append=append,
                                 start=self._parser._start_list):
                         append((event, start(tag, attrib_in)))
@@ -1505,7 +1504,6 @@ class XMLParser(object):
         # use new-style attribute handling, if supported
         try:
             self._parser.ordered_attributes = 1
-            self._parser.specified_attributes = 1
             parser.StartElementHandler = self._start_list
         except AttributeError:
             pass

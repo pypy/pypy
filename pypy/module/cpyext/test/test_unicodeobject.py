@@ -229,9 +229,10 @@ class TestUnicode(BaseApiTest):
         encoded_obj = PyUnicode_AsEncodedObject(space, space.wrap(u'sp�m'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
+        one = space.newint(1)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(
-                space, space.newtuple([1, 2, 3]), None, None)
+                space, space.newtuple([one, one, one]), None, None)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(space, space.wrap(''), None, None)
         ascii = rffi.str2charp('ascii')
@@ -693,6 +694,15 @@ class TestUnicode(BaseApiTest):
         assert PyUnicode_Find(space, w_str, space.wrap(u"c"), 3, 7, -1) == 5
         assert PyUnicode_Find(space, w_str, space.wrap(u"c"), 0, 4, -1) == 2
         assert PyUnicode_Find(space, w_str, space.wrap(u"z"), 0, 4, -1) == -1
+
+    def test_contains(self, space):
+        w_str = space.wrap(u"abcabcd")
+        assert PyUnicode_Contains(space, w_str, space.wrap(u"a")) == 1
+        assert PyUnicode_Contains(space, w_str, space.wrap(u"e")) == 0
+        with raises_w(space, TypeError):
+            PyUnicode_Contains(space, w_str, space.wrap(1)) == -1
+        with raises_w(space, TypeError) as e:
+            PyUnicode_Contains(space, space.wrap(1), space.wrap(u"a")) == -1
 
     def test_split(self, space):
         w_str = space.wrap(u"a\nb\nc\nd")

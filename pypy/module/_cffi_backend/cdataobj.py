@@ -676,6 +676,14 @@ class W_CDataFromBuffer(W_CData):
     def get_array_length(self):
         return self.length
 
+    def _sizeof(self):
+        from pypy.module._cffi_backend import ctypearray
+        ctype = self.ctype
+        if isinstance(ctype, ctypearray.W_CTypeArray):
+            return self.length * ctype.ctitem.size
+        else:
+            return W_CData._sizeof(self)
+
     def _repr_extra(self):
         from pypy.module._cffi_backend import ctypearray
         if self.w_keepalive is None:

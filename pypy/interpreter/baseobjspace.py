@@ -704,6 +704,10 @@ class ObjSpace(object):
             # is required to initialise sys on Windows.
             from pypy.module.cpyext.state import State
             self.fromcache(State).build_api()
+        elif self.config.objspace.usemodules._cffi_backend:
+            from pypy.module._cffi_backend import copy_includes
+            copy_includes.main()
+        
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('imp')
         self.getbuiltinmodule('__builtin__')

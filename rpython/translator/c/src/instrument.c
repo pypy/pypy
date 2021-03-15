@@ -15,7 +15,7 @@
 #include <windows.h>
 #endif
 
-typedef unsigned long instrument_count_t;
+typedef Unsigned instrument_count_t;
 
 instrument_count_t *_instrument_counters = NULL;
 
@@ -55,7 +55,7 @@ void instrument_setup() {
     }
 }
 
-void instrument_count(long label) {
+void instrument_count(Signed label) {
     if(_instrument_counters) {
         _instrument_counters[label]++;
     }

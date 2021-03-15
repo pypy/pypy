@@ -92,20 +92,20 @@ modules, recursively).
 
 .. _`See below.`:
 
-Do CPython Extension modules work with PyPy?
---------------------------------------------
+Do C-extension modules work with PyPy?
+--------------------------------------
 
 **First note that some Linux distributions (e.g. Ubuntu, Debian) split
 PyPy into several packages.  If you installed a package called "pypy",
 then you may also need to install "pypy-dev" for the following to work.**
 
-We have experimental support for CPython extension modules, so
-they run with minor changes.  This has been a part of PyPy since
-the 1.4 release, but support is still in beta phase.  CPython
+We have support for c-extension modules (modules written using the C-API), so
+they run without modifications.  This has been a part of PyPy since
+the 1.4 release, and support is almost complete.  CPython
 extension modules in PyPy are often much slower than in CPython due to
 the need to emulate refcounting.  It is often faster to take out your
-CPython extension and replace it with a pure python version that the
-JIT can see.  If trying to install module xyz, and the module has both
+c-extension and replace it with a pure python or CFFI version that the
+JIT can optimize.  If trying to install module xyz, and the module has both
 a C and a Python version of the same code, try first to disable the C
 version; this is usually easily done by changing some line in ``setup.py``.
 
@@ -143,9 +143,6 @@ Linux so fixes may depend on 3rd-party contributions.
 To bootstrap from sources, PyPy can use either CPython 2.7 or
 another (e.g. older) PyPy.  Cross-translation is not really supported:
 e.g. to build a 32-bit PyPy, you need to have a 32-bit environment.
-Cross-translation is only explicitly supported between a 32-bit Intel
-Linux and ARM Linux (see :ref:`here <rpython:arm>`).
-
 
 Which Python version (2.x?) does PyPy implement?
 ------------------------------------------------
@@ -155,7 +152,7 @@ PyPy comes in two versions:
 * one is fully compatible with Python 2.7;
 
 * the other is fully compatible with one 3.x version.  At the time of
-  this writing, this is 3.6.
+  this writing, this is 3.7.
 
 
 .. _threading:
@@ -181,13 +178,12 @@ PyPy, this sub-problem is simpler: we need to make our GC
 multithread-aware.  This is easier to do efficiently in PyPy than in
 CPython.  It doesn't solve the issue (2), though.
 
-Note that since 2012 there is work going on on a still very experimental
+Note that there was work to support a
 :doc:`Software Transactional Memory <stm>` (STM) version of PyPy.  This
 should give an alternative PyPy which works without a GIL, while at the
 same time continuing to give the Python programmer the complete illusion
 of having one.  This work is currently a bit stalled because of its own
 technical difficulties.
-
 
 What about numpy, numpypy, micronumpy?
 --------------------------------------
@@ -401,6 +397,13 @@ If you get stuck or need advice, :doc:`contact us <index>`. IRC is
 the most immediate way to get feedback (at least during some parts of the day;
 most PyPy developers are in Europe) and the `mailing list`_ is better for long
 discussions.
+
+We also encourage engagement via the gitlab repo at
+https://foss.heptapod.net/pypy/pypy. Issues can be filed and discussed in the
+`issue tracker`_ and we welcome `merge requests`.
+
+.. _`issue tracker`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/issues
+.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
 
 .. _mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
 

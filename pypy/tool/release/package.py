@@ -154,7 +154,7 @@ def create_package(basedir, options, _fake=False):
                       ('sqlite3.dll', lib_pypy)]
         if not options.no__tkinter:
             tkinter_dir = lib_pypy.join('_tkinter')
-            win_extras += [('tcl85.dll', tkinter_dir), ('tk85.dll', tkinter_dir)]
+            win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
 
         for extra,target_dir in win_extras:
             p = pypy_c.dirpath().join(extra)
@@ -181,15 +181,15 @@ def create_package(basedir, options, _fake=False):
             # library was created?
         if not options.no__tkinter:
             try:
-                p = pypy_c.dirpath().join('tcl85.dll')
+                p = pypy_c.dirpath().join('tcl86t.dll')
                 if not p.check():
-                    p = py.path.local.sysfind('tcl85.dll')
+                    p = py.path.local.sysfind('tcl86t.dll')
                     if p is None:
-                        raise WindowsError("tcl85.dll not found")
+                        raise WindowsError("tcl86t.dll not found")
                 tktcldir = p.dirpath().join('..').join('lib')
                 shutil.copytree(str(tktcldir), str(pypydir.join('tcl')))
             except WindowsError:
-                print("Packaging Tk runtime failed. tk85.dll and tcl85.dll "
+                print("Packaging Tk runtime failed. tk86t.dll and tcl86t.dll "
                       "found in %s, expecting to find runtime in %s directory "
                       "next to the dlls, as per build "
                       "instructions." %(p, tktcldir), file=sys.stderr)

@@ -1132,9 +1132,6 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(w_nextitem)
         return next_instr
 
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
-
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self, next_instr + offsettoend, self.lastblock)
         self.lastblock = block
@@ -1320,7 +1317,7 @@ class __extend__(pyframe.PyFrame):
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
             self.space.call_method(w_set, 'add', w_item)
-        self.popvalues(itemcount)
+        self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
     def STORE_MAP(self, oparg, next_instr):

@@ -30,6 +30,7 @@ class TestCheckSignals:
         assert not space.is_true(w_received)
         #
         # calling ec.checksignals() should call it
+        print(space.getexecutioncontext().checksignals)
         space.getexecutioncontext().checksignals()
         assert space.is_true(w_received)
 

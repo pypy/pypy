@@ -1,6 +1,7 @@
 import sys, random
 from rpython.rlib import debug
 from rpython.rlib.rsre.rsre_core import _adjust, match_context, search_context
+from rpython.rlib.rsre.rsre_core import MODE_FULL
 from rpython.rlib.rsre.rsre_core import StrMatchContext, EndOfString
 
 
@@ -112,7 +113,8 @@ def match(pattern, string, start=0, end=sys.maxint, fullmatch=False):
     start = Position(start)
     end = Position(end)
     ctx = MatchContextForTests(string, start, end)
-    ctx.fullmatch_only = fullmatch
+    if fullmatch:
+        ctx.match_mode = MODE_FULL
     if match_context(ctx, pattern):
         return ctx
     else:

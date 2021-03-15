@@ -17,7 +17,7 @@ PyAPI_FUNC(PyObject *) PyUnicode_FromFormatV(const char *format, va_list vargs);
 PyAPI_FUNC(PyObject *) PyUnicode_FromFormat(const char *format, ...);
 
 #define PyUnicode_Check(op) \
-		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_UNICODE_SUBCLASS)
+    PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_UNICODE_SUBCLASS)
 #define PyUnicode_CheckExact(op) (Py_TYPE(op) == &PyUnicode_Type)
 
 #ifdef __cplusplus

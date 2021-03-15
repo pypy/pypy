@@ -496,12 +496,16 @@ class W_BaseSetObject(W_Root):
     @gateway.unwrap_spec(others_w='args_w')
     def descr_update(self, space, others_w):
         """Update a set with the union of itself and another."""
+        self._descr_update(space, others_w)
+
+    @jit.look_inside_iff(lambda self, space, others_w:
+            jit.loop_unrolling_heuristic(others_w, len(others_w), UNROLL_CUTOFF))
+    def _descr_update(self, space, others_w):
         for w_other in others_w:
             if isinstance(w_other, W_BaseSetObject):
                 self.update(w_other)
             else:
-                for w_key in space.listview(w_other):
-                    self.add(w_key)
+                _update_from_iterable(space, self, w_other)
 
 
 class W_SetObject(W_BaseSetObject):
@@ -1636,10 +1640,12 @@ def set_strategy_and_setdata(space, w_set, w_iterable):
 
     length_hint = space.length_hint(w_iterable, 0)
 
-    if jit.isconstant(length_hint):
+    if jit.isconstant(length_hint) and length_hint:
         return _pick_correct_strategy_unroll(space, w_set, w_iterable)
 
-    _create_from_iterable(space, w_set, w_iterable)
+    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
+    w_set.sstorage = strategy.get_empty_storage()
+    _update_from_iterable(space, w_set, w_iterable)
 
 
 @jit.unroll_safe
@@ -1687,17 +1693,14 @@ def _pick_correct_strategy_unroll(space, w_set, w_iterable):
 
 
 def get_printable_location(tp, strategy):
-    return "create_set: %s %s" % (tp.iterator_greenkey_printable(), strategy)
+    return "update_set: %s %s" % (tp.iterator_greenkey_printable(), strategy)
 
-create_set_driver = jit.JitDriver(name='create_set',
+update_set_driver = jit.JitDriver(name='update_set',
                                   greens=['tp', 'strategy'],
                                   reds='auto',
                                   get_printable_location=get_printable_location)
 
-def _create_from_iterable(space, w_set, w_iterable):
-    w_set.strategy = strategy = space.fromcache(EmptySetStrategy)
-    w_set.sstorage = strategy.get_empty_storage()
-
+def _update_from_iterable(space, w_set, w_iterable):
     tp = space.iterator_greenkey(w_iterable)
 
     w_iter = space.iter(w_iterable)
@@ -1708,7 +1711,7 @@ def _create_from_iterable(space, w_set, w_iterable):
             if not e.match(space, space.w_StopIteration):
                 raise
             return
-        create_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
+        update_set_driver.jit_merge_point(tp=tp, strategy=w_set.strategy)
         w_set.add(w_item)
 
 

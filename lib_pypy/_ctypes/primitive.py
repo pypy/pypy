@@ -286,9 +286,19 @@ class SimpleType(_CDataMeta):
             # other code may set their own restypes. We need out own
             # restype here.
             oleaut32 = WinDLL("oleaut32")
+            import ctypes
             SysAllocStringLen = oleaut32.SysAllocStringLen
             SysStringLen = oleaut32.SysStringLen
             SysFreeString = oleaut32.SysFreeString
+            if ctypes.sizeof(ctypes.c_void_p) == 4:
+                ptype = ctypes.c_int
+            else:
+                ptype = ctypes.c_longlong
+            SysAllocStringLen.argtypes=[ptype, ctypes.c_uint]
+            SysAllocStringLen.restype = ptype
+            SysStringLen.argtypes=[ptype]
+            SysStringLen.restype = ctypes.c_uint
+            SysFreeString.argtypes=[ptype]
             def _getvalue(self):
                 addr = self._buffer[0]
                 if addr == 0:
