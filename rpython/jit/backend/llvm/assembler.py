@@ -17,8 +17,7 @@ class LLVMAssembler(BaseAssembler):
         clt._debug_nbargs = dispatcher.args_size/self.cpu.WORD
         locs = [self.cpu.WORD*i for i in range(len(inputargs))]
         clt._ll_initial_locs = locs
-        frame_info = lltype.malloc(jitframe.JITFRAMEINFO,
-                                   jitframe.JITFRAMEINFO_SIZE)
+        frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
         frame_info.jfi_frame_depth = 8 #this field doesn't map into an LLVM backend well, hoping this will do
         frame_size = dispatcher.args_size + self.cpu.WORD
         + dispatcher.local_vars_size #args+ret addr+vars

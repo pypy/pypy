@@ -1,4 +1,4 @@
-from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU
+from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU, jitframe
 from rpython.jit.backend.model import CompiledLoopToken, CPUTotalTracker
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
@@ -6,10 +6,12 @@ from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger
 from rpython.jit.backend.llvm.llvm_api import LLVMAPI
 from rpython.jit.backend.llvm.llvm_parse_ops import LLVMOpDispatcher
 from rpython.jit.backend.llvm.assembler import LLVMAssembler
+from rpython.jit.metainterp import history
+import ctypes
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None,
-                 translate_support_code=False, gcdescr=None, debug=False):
+                 translate_support_code=False, gcdescr=None, debug=True):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
 
@@ -84,8 +86,15 @@ class LLVM_CPU(AbstractLLCPU):
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher) #set compiled loop token and func addr
 
     def execute_token(self, looptoken, *ARGS):
-        func = self.make_execute_token([arg for arg in ARGS])
-        return func(looptoken, [arg for arg in ARGS])
+        func = self.make_execute_token(lltype.Signed) #FIXME: parse input args into types or ask if something already does that
+        deadframe =  func(looptoken, *ARGS)
+        return deadframe
+
+    def get_latest_descr(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
+        descr = deadframe.jf_descr
+        descr_addr = rffi.cast(lltype.Signed, descr)
+        return ctypes.cast(descr_addr, ctypes.py_object).value #TODO: ask about how much of a massive hack this might be
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
         dispatcher = self.dispatchers[looptoken]

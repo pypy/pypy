@@ -47,7 +47,7 @@ LLVMOrcJITTargetAddress LLJITLookup(LLVMOrcLLJITRef jit, const char *name){
 
 LLVMBool VerifyModule(LLVMModuleRef module){
 	char *error = NULL;
-	return LLVMVerifyModule(module, LLVMAbortProcessAction, &error);
+	return LLVMVerifyModule(module, LLVMPrintMessageAction, &error);
 }
 
 void AddIncoming(LLVMValueRef phi, LLVMValueRef val, LLVMBasicBlockRef block){

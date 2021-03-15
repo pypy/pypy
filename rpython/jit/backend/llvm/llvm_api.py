@@ -356,6 +356,11 @@ class LLVMAPI:
                                        self.TypeRef, self.Str],
                                       self.ValueRef,
                                       compilation_info=info)
+        self.BuildIntToPtr =  rffi.llexternal("LLVMBuildIntToPtr",
+                                      [self.BuilderRef, self.ValueRef,
+                                       self.TypeRef, self.Str],
+                                      self.ValueRef,
+                                      compilation_info=info)
 
     def initialise_jit(self):
         if self.debug:
