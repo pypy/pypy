@@ -10,7 +10,6 @@ from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
 COMPILER_VERBOSE = False
 
 
-
 class HPyAppTest(object):
     """
     Base class for HPy app tests. This is used as a mixin, and individual
@@ -67,9 +66,19 @@ class HPyAppTest(object):
             return w_mod
         self.w_make_module = self.space.wrap(interp2app(descr_make_module))
 
-        def should_check_refcount(space):
+        def supports_refcounts(space):
             return space.w_False
-        self.w_should_check_refcount = self.space.wrap(interp2app(should_check_refcount))
+        self.w_supports_refcounts = self.space.wrap(interp2app(supports_refcounts))
+
+        def supports_ordinary_make_module_imports(space):
+            return space.w_False
+        self.w_supports_ordinary_make_module_imports = self.space.wrap(
+            interp2app(supports_ordinary_make_module_imports))
+
+        def supports_sys_executable(space):
+            return space.w_False
+        self.w_supports_sys_executable = self.space.wrap(
+            interp2app(supports_sys_executable))
 
         self.w_compiler = self.space.appexec([], """():
             class compiler:

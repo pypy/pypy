@@ -38,7 +38,7 @@ class HPyDevel:
         ]))
 
     def get_ctx_sources(self):
-        """ Extra sources needed only in Universal mode.
+        """ Extra sources needed only in the CPython ABI mode.
         """
         return list(map(str, self.src_dir.glob('ctx_*.c')))
 
@@ -112,6 +112,9 @@ def __bootstrap__():
     ext_filepath = pkg_resources.resource_filename(__name__, {ext_file!r})
     m = load_from_spec(Spec({module_name!r}, ext_filepath))
     m.__file__ = ext_filepath
+    m.__loader__ = __loader__
+    m.__package__ = __package__
+    m.__spec__ = __spec__
     sys.modules[__name__] = m
 
 __bootstrap__()
@@ -150,6 +153,14 @@ def remember_hpy_extension(f):
     """
     @functools.wraps(f)
     def wrapper(self, ext_name):
+        if self._only_hpy_extensions:
+            assert is_hpy_extension(ext_name), (
+                "Extension name %r is not marked as an HPyExtensionName"
+                " but only HPy extensions are present. This is almost"
+                " certainly a bug in HPy's overriding of setuptools"
+                " build_ext. Please report this error the HPy maintainers."
+                % (ext_name,)
+            )
         result = f(self, ext_name)
         if is_hpy_extension(ext_name):
             result = HPyExtensionName(result)
@@ -199,6 +210,10 @@ class build_hpy_ext_mixin:
 
     def finalize_options(self):
         self._extensions = self.distribution.ext_modules or []
+        # _only_hpy_extensions is used only as a sanity check that no
+        # hpy extensions are misidentified as legacy C API extensions in the
+        # case where only hpy extensions are present.
+        self._only_hpy_extensions = not bool(self._extensions)
         hpy_ext_modules = self.distribution.hpy_ext_modules or []
         for ext in hpy_ext_modules:
             self._finalize_hpy_ext(ext)
@@ -233,13 +248,19 @@ class build_hpy_ext_mixin:
                 self.distribution.hpy_abi != 'universal'):
             return self._base_build_ext.write_stub(
                 self, output_dir, ext, compile=compile)
-        # ignore output_dir which points to completely the wrong place
-        output_dir = self.build_lib
+        pkgs = ext._full_name.split('.')
+        if compile:
+            # compile is true when .write_stub is called while copying
+            # extensions to the source folder as part of build_ext --inplace.
+            # In this situation, output_dir includes the folders that make up
+            # the packages containing the module. When compile is false,
+            # output_dir does not include those folders (and is just the
+            # build_lib folder).
+            pkgs = [pkgs[-1]]
+        stub_file = os.path.join(output_dir, *pkgs) + '.py'
         log.info(
             "writing hpy universal stub loader for %s to %s",
-            ext._full_name, output_dir)
-        stub_file = (os.path.join(output_dir, *ext._full_name.split('.')) +
-                     '.py')
+            ext._full_name, stub_file)
         if compile and os.path.exists(stub_file):
             raise DistutilsError(stub_file + " already exists! Please delete.")
         ext_file = os.path.basename(ext._file_name)

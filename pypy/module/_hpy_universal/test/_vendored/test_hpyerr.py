@@ -35,7 +35,7 @@ class TestErr(HPyTest):
             @EXPORT(f)
             @INIT
         """)
-        if not hasattr(sys, "executable"):
+        if not self.supports_sys_executable():
             # if sys.executable is not available (e.g. inside pypy app-level)
             # tests, then skip the rest of this test
             return
@@ -248,10 +248,6 @@ class TestErr(HPyTest):
         check_exception(EnvironmentError)
         check_exception(IOError)
 
-    @pytest_collecting.mark.xfail(True, reason=(
-        "Creating the unicode exceptions requires something like HPyCall"
-        " and that isn't implemented yet."
-    ))
     def test_h_unicode_exceptions(self):
         import pytest
         mod = self.make_module("""
@@ -279,7 +275,7 @@ class TestErr(HPyTest):
                     HPy_Close(ctx, h_dict);
                     return HPy_NULL;
                 }
-                h_err_value = HPy_Call(ctx, h_err, h_args, h_kw);
+                h_err_value = HPy_CallTupleDict(ctx, h_err, h_args, h_kw);
                 if (HPy_IsNull(h_err_value)) {
                     HPy_Close(ctx, h_dict);
                     HPy_Close(ctx, h_err);

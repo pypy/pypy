@@ -216,9 +216,10 @@ class ExtensionCompiler:
                 "Test module {!r} already present in sys.modules".format(name))
         importlib.invalidate_caches()
         mod_dir = os.path.dirname(mod_filename)
+        sys.path.insert(0, mod_dir)
         try:
-            sys.path.insert(0, mod_dir)
             module = importlib.import_module(name)
+            assert sys.modules[name] is module
         finally:
             # assert that the module import didn't change the sys.path entry
             # that was added above, then remove the entry.
@@ -243,9 +244,34 @@ class HPyTest:
         return self.compiler.make_module(ExtensionTemplate, main_src, name,
                                          extra_sources)
 
-    def should_check_refcount(self):
-        # defaults to True on CPython, but is set to False by e.g. PyPy
-        return sys.implementation.name == 'cpython'
+    def supports_refcounts(self):
+        """ Returns True if the underlying Python implementation supports
+            reference counts.
+
+            By default returns True on CPython and False on other
+            implementations.
+        """
+        return sys.implementation.name == "cpython"
+
+    def supports_ordinary_make_module_imports(self):
+        """ Returns True if `.make_module(...)` loads modules using a
+            standard Python import mechanism (e.g. `importlib.import_module`).
+
+            By default returns True because the base implementation of
+            `.make_module(...)` uses an ordinary import. Sub-classes that
+            override `.make_module(...)` may also want to override this
+            method.
+        """
+        return True
+
+    def supports_sys_executable(self):
+        """ Returns True is `sys.executable` is set to a value that allows
+            a Python equivalent to the current Python to be launched via, e.g.,
+            `subprocess.run(...)`.
+
+            By default returns `True` if sys.executable is set to a true value.
+        """
+        return bool(getattr(sys, "executable", None))
 
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
@@ -273,13 +299,15 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     #
     dist = Distribution()
     dist.parse_config_files()
-    options = dist.get_option_dict('build_ext')
     if debug is None:
         debug = sys.flags.debug
-    options['debug'] = ('ffiplatform', debug)
-    options['force'] = ('ffiplatform', True)
-    options['build_lib'] = ('ffiplatform', tmpdir)
-    options['build_temp'] = ('ffiplatform', tmpdir)
+    options_build_ext = dist.get_option_dict('build_ext')
+    options_build_ext['debug'] = ('ffiplatform', debug)
+    options_build_ext['force'] = ('ffiplatform', True)
+    options_build_ext['build_lib'] = ('ffiplatform', tmpdir)
+    options_build_ext['build_temp'] = ('ffiplatform', tmpdir)
+    options_build_py = dist.get_option_dict('build_py')
+    options_build_py['build_lib'] = ('ffiplatform', tmpdir)
 
     # this is the equivalent of passing --hpy-abi from setup.py's command line
     dist.hpy_abi = hpy_abi

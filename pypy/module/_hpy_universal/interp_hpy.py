@@ -19,6 +19,7 @@ from pypy.module._hpy_universal import (
     interp_unicode,
     interp_float,
     interp_bytes,
+    interp_call,
     interp_dict,
     interp_list,
     interp_tuple,
