@@ -370,6 +370,15 @@ def test_reset_of_shared_statement(con):
     with pytest.raises(StopIteration):
         next(c2)
 
+def test_row_index_unicode(con):
+    import sqlite3
+    con.row_factory = sqlite3.Row
+    row = con.execute("select 1 as \xff").fetchone()
+    assert row["\xff"] == 1
+    with pytest.raises(IndexError):
+        row['\u0178']
+    with pytest.raises(IndexError):
+        row['\xdf']
 
 @pytest.mark.skipif(not hasattr(_sqlite3.Connection, "backup"), reason="no backup")
 class TestBackup:
