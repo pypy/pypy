@@ -1,6 +1,6 @@
 import pytest
 from .support import ExtensionCompiler
-from hpy.debug.pytest import hpy_debug # make it available to all tests
+#from hpy.debug.pytest import hpy_debug # make it available to all tests
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -21,3 +21,7 @@ def compiler(request, tmpdir, hpy_devel, hpy_abi):
     compiler_verbose = request.config.getoption('--compiler-v')
     return ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                              compiler_verbose=compiler_verbose)
+@pytest.fixture
+def hpy_debug():
+    # disable it for now
+    pass
