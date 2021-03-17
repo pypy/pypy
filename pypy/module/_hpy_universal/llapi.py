@@ -57,11 +57,15 @@ typedef struct _HPyTracker_s {
 typedef HPy_ssize_t HPyTracker;
 
 struct _HPyContext_s {
+    const char *name; // used just to make debugging and testing easier
+    void *_private;   // used by implementations to store custom data
     int ctx_version;
     // Constants
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
+    struct _HPy_s h_NotImplemented;
+    struct _HPy_s h_Ellipsis;
     // Exceptions
     struct _HPy_s h_BaseException;
     struct _HPy_s h_Exception;
@@ -155,6 +159,7 @@ struct _HPyContext_s {
     void * ctx_Long_AsSsize_t;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
+    void * ctx_Bool_FromLong;
     void * ctx_Length;
     void * ctx_Number_Check;
     void * ctx_Add;
@@ -214,6 +219,8 @@ struct _HPyContext_s {
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
+    void * ctx_Type;
+    void * ctx_TypeCheck;
     void * ctx_Cast;
     void * ctx_New;
     void * ctx_Repr;
@@ -257,6 +264,7 @@ struct _HPyContext_s {
     void * ctx_Tracker_Add;
     void * ctx_Tracker_ForgetAll;
     void * ctx_Tracker_Close;
+    void * ctx_Dump;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
