@@ -3,6 +3,22 @@ from .support import HPyTest
 
 class TestNumber(HPyTest):
 
+    def test_bool_from_long(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                long x = HPyLong_AsLong(ctx, arg);
+                if (HPyErr_Occurred(ctx))
+                    return HPy_NULL;
+                return HPyBool_FromLong(ctx, x);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f(0) is False
+        assert mod.f(42) is True
+
     def test_unary(self):
         import pytest
         import operator

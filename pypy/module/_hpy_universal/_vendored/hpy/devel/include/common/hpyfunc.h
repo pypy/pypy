@@ -9,6 +9,8 @@ typedef enum {
 
     HPyFunc_DESTROYFUNC,
 
+    HPyFunc_GETBUFFERPROC,
+    HPyFunc_RELEASEBUFFERPROC,
     HPyFunc_UNARYFUNC,
     HPyFunc_BINARYFUNC,
     HPyFunc_TERNARYFUNC,
@@ -70,6 +72,19 @@ typedef enum {
     enum { SYM##_sig = SIG };              \
     _HPyFunc_TRAMPOLINE_##SIG(SYM, IMPL)
 
+typedef struct {
+    void *buf;
+    HPy obj;        /* owned reference */
+    HPy_ssize_t len;
+    HPy_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    HPy_ssize_t *shape;
+    HPy_ssize_t *strides;
+    HPy_ssize_t *suboffsets;
+    void *internal;
+} HPy_buffer;
 
 #include "autogen_hpyfunc_declare.h"
 

@@ -41,9 +41,30 @@
 #define HPyTuple_Pack(ctx, n, ...) (HPyTuple_FromArray(ctx, (HPy[]){ __VA_ARGS__ }, n))
 
 /* Rich comparison opcodes */
-#define HPy_LT 0
-#define HPy_LE 1
-#define HPy_EQ 2
-#define HPy_NE 3
-#define HPy_GT 4
-#define HPy_GE 5
+typedef enum {
+    HPy_LT = 0,
+    HPy_LE = 1,
+    HPy_EQ = 2,
+    HPy_NE = 3,
+    HPy_GT = 4,
+    HPy_GE = 5,
+} HPy_RichCmpOp;
+
+// this needs to be a macro because val1 and val2 can be of arbitrary types
+#define HPy_RETURN_RICHCOMPARE(ctx, val1, val2, op)                     \
+    do {                                                                \
+        bool result;                                                    \
+        switch (op) {                                                   \
+        case HPy_EQ: result = ((val1) == (val2)); break;                \
+        case HPy_NE: result = ((val1) != (val2)); break;                \
+        case HPy_LT: result = ((val1) <  (val2)); break;                \
+        case HPy_GT: result = ((val1) >  (val2)); break;                \
+        case HPy_LE: result = ((val1) <= (val2)); break;                \
+        case HPy_GE: result = ((val1) >= (val2)); break;                \
+        default:                                                        \
+            HPy_FatalError(ctx, "Invalid value for HPy_RichCmpOp");     \
+        }                                                               \
+        if (result)                                                     \
+            return HPy_Dup(ctx, ctx->h_True);                           \
+        return HPy_Dup(ctx, ctx->h_False);                              \
+    } while (0)

@@ -47,7 +47,9 @@ class TestTuple(HPyTest):
                 HPy x = HPyLong_FromLong(ctx, 42);
                 if (HPy_IsNull(x))
                      return HPy_NULL;
-                return HPyTuple_Pack(ctx, 3, self, arg, x);
+                HPy result = HPyTuple_Pack(ctx, 3, self, arg, x);
+                HPy_Close(ctx, x);
+                return result;
             }
             @EXPORT(f)
             @INIT

@@ -90,6 +90,11 @@ HPyAPI_STORAGE double _HPy_IMPL_NAME(Float_AsDouble)(HPyContext ctx, HPy h)
     return PyFloat_AsDouble(_h2py(h));
 }
 
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME(Bool_FromLong)(HPyContext ctx, long v)
+{
+    return _py2h(PyBool_FromLong(v));
+}
+
 HPyAPI_STORAGE HPy_ssize_t _HPy_IMPL_NAME_NOPREFIX(Length)(HPyContext ctx, HPy h)
 {
     return PyObject_Length(_h2py(h));
@@ -338,6 +343,11 @@ HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(GetItem)(HPyContext ctx, HPy obj, HPy
 HPyAPI_STORAGE int _HPy_IMPL_NAME_NOPREFIX(SetItem)(HPyContext ctx, HPy obj, HPy key, HPy value)
 {
     return PyObject_SetItem(_h2py(obj), _h2py(key), _h2py(value));
+}
+
+HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Type)(HPyContext ctx, HPy obj)
+{
+    return _py2h(PyObject_Type(_h2py(obj)));
 }
 
 HPyAPI_STORAGE HPy _HPy_IMPL_NAME_NOPREFIX(Repr)(HPyContext ctx, HPy obj)

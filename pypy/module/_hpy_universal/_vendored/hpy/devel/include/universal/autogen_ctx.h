@@ -11,10 +11,14 @@
 */
 
 struct _HPyContext_s {
+    const char *name; // used just to make debugging and testing easier
+    void *_private;   // used by implementations to store custom data
     int ctx_version;
     HPy h_None;
     HPy h_True;
     HPy h_False;
+    HPy h_NotImplemented;
+    HPy h_Ellipsis;
     HPy h_BaseException;
     HPy h_Exception;
     HPy h_StopAsyncIteration;
@@ -104,6 +108,7 @@ struct _HPyContext_s {
     HPy_ssize_t (*ctx_Long_AsSsize_t)(HPyContext ctx, HPy h);
     HPy (*ctx_Float_FromDouble)(HPyContext ctx, double v);
     double (*ctx_Float_AsDouble)(HPyContext ctx, HPy h);
+    HPy (*ctx_Bool_FromLong)(HPyContext ctx, long v);
     HPy_ssize_t (*ctx_Length)(HPyContext ctx, HPy h);
     int (*ctx_Number_Check)(HPyContext ctx, HPy h);
     HPy (*ctx_Add)(HPyContext ctx, HPy h1, HPy h2);
@@ -163,6 +168,8 @@ struct _HPyContext_s {
     int (*ctx_SetItem)(HPyContext ctx, HPy obj, HPy key, HPy value);
     int (*ctx_SetItem_i)(HPyContext ctx, HPy obj, HPy_ssize_t idx, HPy value);
     int (*ctx_SetItem_s)(HPyContext ctx, HPy obj, const char *key, HPy value);
+    HPy (*ctx_Type)(HPyContext ctx, HPy obj);
+    int (*ctx_TypeCheck)(HPyContext ctx, HPy obj, HPy type);
     void *(*ctx_Cast)(HPyContext ctx, HPy h);
     HPy (*ctx_New)(HPyContext ctx, HPy h_type, void **data);
     HPy (*ctx_Repr)(HPyContext ctx, HPy obj);
@@ -206,4 +213,5 @@ struct _HPyContext_s {
     int (*ctx_Tracker_Add)(HPyContext ctx, HPyTracker ht, HPy h);
     void (*ctx_Tracker_ForgetAll)(HPyContext ctx, HPyTracker ht);
     void (*ctx_Tracker_Close)(HPyContext ctx, HPyTracker ht);
+    void (*ctx_Dump)(HPyContext ctx, HPy h);
 };

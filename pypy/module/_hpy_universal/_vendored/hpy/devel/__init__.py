@@ -100,17 +100,11 @@ def handle_hpy_ext_modules(dist, attr, hpy_ext_modules):
 
 
 _HPY_UNIVERSAL_MODULE_STUB_TEMPLATE = """
-class Spec:
-    def __init__(self, name, origin):
-        self.name = name
-        self.origin = origin
-
-
 def __bootstrap__():
     import sys, pkg_resources
-    from hpy.universal import load_from_spec
+    from hpy.universal import load
     ext_filepath = pkg_resources.resource_filename(__name__, {ext_file!r})
-    m = load_from_spec(Spec({module_name!r}, ext_filepath))
+    m = load({module_name!r}, ext_filepath)
     m.__file__ = ext_filepath
     m.__loader__ = __loader__
     m.__package__ = __package__
@@ -204,9 +198,12 @@ class build_hpy_ext_mixin:
         if ext.hpy_abi == 'cpython':
             ext.sources += self.hpydevel.get_ctx_sources()
             ext._hpy_needs_stub = False
-        if ext.hpy_abi == 'universal':
+        elif ext.hpy_abi == 'universal':
             ext.define_macros.append(('HPY_UNIVERSAL_ABI', None))
             ext._hpy_needs_stub = True
+        else:
+            raise DistutilsError('Unknown HPy ABI: %s. Valid values are: '
+                                 'cpython, universal' % ext.hpy_abi)
 
     def finalize_options(self):
         self._extensions = self.distribution.ext_modules or []

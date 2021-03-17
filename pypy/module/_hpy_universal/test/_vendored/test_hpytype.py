@@ -90,6 +90,20 @@ class TestType(HPyTest):
             pass
         assert isinstance(Sub(), mod.Dummy)
 
+    def test_doc_string(self):
+        mod = self.make_module("""
+            static HPyType_Spec Dummy_spec = {
+                .name = "mytest.Dummy",
+                .doc = "A succinct description.",
+                .itemsize = 0,
+                .flags = HPy_TPFLAGS_DEFAULT | HPy_TPFLAGS_BASETYPE,
+            };
+
+            @EXPORT_TYPE("Dummy", Dummy_spec)
+            @INIT
+        """)
+        assert mod.Dummy.__doc__ == "A succinct description."
+
     def test_HPyDef_SLOT(self):
         mod = self.make_module("""
             HPyDef_SLOT(Dummy_repr, Dummy_repr_impl, HPy_tp_repr);

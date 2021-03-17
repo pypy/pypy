@@ -86,6 +86,10 @@ static inline double HPyFloat_AsDouble(HPyContext ctx, HPy h) {
      return ctx->ctx_Float_AsDouble ( ctx, h ); 
 }
 
+static inline HPy HPyBool_FromLong(HPyContext ctx, long v) {
+     return ctx->ctx_Bool_FromLong ( ctx, v ); 
+}
+
 static inline HPy_ssize_t HPy_Length(HPyContext ctx, HPy h) {
      return ctx->ctx_Length ( ctx, h ); 
 }
@@ -318,6 +322,14 @@ static inline int HPy_SetItem_s(HPyContext ctx, HPy obj, const char *key, HPy va
      return ctx->ctx_SetItem_s ( ctx, obj, key, value ); 
 }
 
+static inline HPy HPy_Type(HPyContext ctx, HPy obj) {
+     return ctx->ctx_Type ( ctx, obj ); 
+}
+
+static inline int HPy_TypeCheck(HPyContext ctx, HPy obj, HPy type) {
+     return ctx->ctx_TypeCheck ( ctx, obj, type ); 
+}
+
 static inline void *_HPy_Cast(HPyContext ctx, HPy h) {
      return ctx->ctx_Cast ( ctx, h ); 
 }
@@ -484,5 +496,9 @@ static inline void HPyTracker_ForgetAll(HPyContext ctx, HPyTracker ht) {
 
 static inline void HPyTracker_Close(HPyContext ctx, HPyTracker ht) {
      ctx->ctx_Tracker_Close ( ctx, ht ); 
+}
+
+static inline void _HPy_Dump(HPyContext ctx, HPy h) {
+     ctx->ctx_Dump ( ctx, h ); 
 }
 

@@ -60,4 +60,27 @@
         Py_TYPE(self)->tp_free(self);                                   \
     }
 
+/* this needs to be written manually because HPy has a different type for
+   "op": HPy_RichCmpOp instead of int */
+#define _HPyFunc_TRAMPOLINE_HPyFunc_RICHCMPFUNC(SYM, IMPL)                 \
+    static cpy_PyObject *                                                  \
+    SYM(PyObject *self, PyObject *obj, int op)                             \
+    {                                                                      \
+        return _h2py(IMPL(_HPyGetContext(), _py2h(self), _py2h(obj), op)); \
+    }
+
+/* With the cpython ABI, Py_buffer and HPy_buffer are ABI-compatible.
+ * Even though casting between them is technically undefined behavior, it
+ * should always work. That way, we avoid a costly allocation and copy. */
+#define _HPyFunc_TRAMPOLINE_HPyFunc_GETBUFFERPROC(SYM, IMPL) \
+    static int SYM(PyObject *arg0, Py_buffer *arg1, int arg2) \
+    { \
+        return (IMPL(_HPyGetContext(), _py2h(arg0), (HPy_buffer*)arg1, arg2)); \
+    }
+#define _HPyFunc_TRAMPOLINE_HPyFunc_RELEASEBUFFERPROC(SYM, IMPL) \
+    static void SYM(PyObject *arg0, Py_buffer *arg1) \
+    { \
+        return (IMPL(_HPyGetContext(), _py2h(arg0), (HPy_buffer*)arg1)); \
+    }
+
 #endif // HPY_CPYTHON_HPYFUNC_TRAMPOLINES_H

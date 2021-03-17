@@ -31,7 +31,7 @@
 #define _HPyFunc_DECLARE_HPyFunc_SETATTROFUNC(SYM) static int SYM(HPyContext ctx, HPy, HPy, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_REPRFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_HASHFUNC(SYM) static HPy_hash_t SYM(HPyContext ctx, HPy)
-#define _HPyFunc_DECLARE_HPyFunc_RICHCMPFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy, int)
+#define _HPyFunc_DECLARE_HPyFunc_RICHCMPFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy, HPy_RichCmpOp)
 #define _HPyFunc_DECLARE_HPyFunc_GETITERFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_ITERNEXTFUNC(SYM) static HPy SYM(HPyContext ctx, HPy)
 #define _HPyFunc_DECLARE_HPyFunc_DESCRGETFUNC(SYM) static HPy SYM(HPyContext ctx, HPy, HPy, HPy)
@@ -40,6 +40,8 @@
 #define _HPyFunc_DECLARE_HPyFunc_GETTER(SYM) static HPy SYM(HPyContext ctx, HPy, void *)
 #define _HPyFunc_DECLARE_HPyFunc_SETTER(SYM) static int SYM(HPyContext ctx, HPy, HPy, void *)
 #define _HPyFunc_DECLARE_HPyFunc_OBJOBJPROC(SYM) static int SYM(HPyContext ctx, HPy, HPy)
+#define _HPyFunc_DECLARE_HPyFunc_GETBUFFERPROC(SYM) static int SYM(HPyContext, HPy, HPy_buffer *, int)
+#define _HPyFunc_DECLARE_HPyFunc_RELEASEBUFFERPROC(SYM) static void SYM(HPyContext, HPy, HPy_buffer *)
 #define _HPyFunc_DECLARE_HPyFunc_DESTROYFUNC(SYM) static void SYM(void *)
 
 typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
@@ -63,7 +65,7 @@ typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
 typedef int (*HPyFunc_setattrofunc)(HPyContext ctx, HPy, HPy, HPy);
 typedef HPy (*HPyFunc_reprfunc)(HPyContext ctx, HPy);
 typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, int);
+typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, HPy_RichCmpOp);
 typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
 typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
@@ -72,4 +74,6 @@ typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t
 typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
+typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
+typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
 typedef void (*HPyFunc_destroyfunc)(void *);

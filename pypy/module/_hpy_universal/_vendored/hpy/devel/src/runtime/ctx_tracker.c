@@ -57,70 +57,83 @@
  *    return HPy_NULL;
  */
 
-#include <Python.h>
 #include "hpy.h"
 #include "common/runtime/ctx_type.h"
 
-#ifdef HPY_UNIVERSAL_ABI
-#define _ht2hp(x) ((_HPyTracker_s *) (x)._i)
-#define _hp2ht(x) ((HPyTracker) {(HPy_ssize_t) (hp)})
-#else
-#define _ht2hp(x) ((_HPyTracker_s *) (x)._o)
-#define _hp2ht(x) ((HPyTracker) {(void *) (hp)})
-#endif
-
-static const HPy_ssize_t HPYTRACKER_INITIAL_SIZE = 5;
+static const HPy_ssize_t HPYTRACKER_INITIAL_CAPACITY = 5;
 
 typedef struct {
-    HPy_ssize_t size;
-    HPy_ssize_t next;
+    HPy_ssize_t capacity;  // allocated handles
+    HPy_ssize_t length;    // used handles
     HPy *handles;
 } _HPyTracker_s;
 
 
+#ifdef HPY_UNIVERSAL_ABI
+static inline _HPyTracker_s *_ht2hp(HPyTracker ht) {
+    return (_HPyTracker_s *) (ht)._i;
+}
+static inline HPyTracker _hp2ht(_HPyTracker_s *hp) {
+    return (HPyTracker) {(HPy_ssize_t) (hp)};
+}
+#else
+static inline _HPyTracker_s *_ht2hp(HPyTracker ht) {
+    return (_HPyTracker_s *) (ht)._o;
+}
+static inline HPyTracker _hp2ht(_HPyTracker_s *hp) {
+    return (HPyTracker) {(void *) (hp)};
+}
+#endif
+
+
 _HPy_HIDDEN HPyTracker
-ctx_Tracker_New(HPyContext ctx, HPy_ssize_t size)
+ctx_Tracker_New(HPyContext ctx, HPy_ssize_t capacity)
 {
     _HPyTracker_s *hp;
-    if (size == 0) {
-        size = HPYTRACKER_INITIAL_SIZE;
+    if (capacity == 0) {
+        capacity = HPYTRACKER_INITIAL_CAPACITY;
     }
-    size++;
+    capacity++; // always reserve space for an extra handle, see the docs
 
-    hp = PyMem_Malloc(sizeof(_HPyTracker_s));
+    hp = malloc(sizeof(_HPyTracker_s));
     if (hp == NULL) {
-        PyErr_NoMemory();
+        HPyErr_NoMemory(ctx);
         return _hp2ht(0);
     }
-    hp->handles = PyMem_Calloc(size, sizeof(HPy));
+    hp->handles = calloc(capacity, sizeof(HPy));
     if (hp->handles == NULL) {
-        PyMem_Free(hp);
-        PyErr_NoMemory();
+        free(hp);
+        HPyErr_NoMemory(ctx);
         return _hp2ht(0);
     }
-    hp->size = size;
-    hp->next = 0;
+    hp->capacity = capacity;
+    hp->length = 0;
+    // cppcheck thinks that hp->handles is a memory leak because we cast the
+    // pointer to an int (and thus the pointer is "lost" from its POV, I
+    // suppose). But it's not a real leak because we free it in
+    // ctx_Tracker_Close:
+    // cppcheck-suppress memleak
     return _hp2ht(hp);
 }
 
 static int
-tracker_resize(HPyContext ctx, _HPyTracker_s *hp, HPy_ssize_t size)
+tracker_resize(HPyContext ctx, _HPyTracker_s *hp, HPy_ssize_t capacity)
 {
     HPy *new_handles;
-    size++;
+    capacity++;
 
-    if (size <= hp->next) {
+    if (capacity <= hp->length) {
         // refuse a resize that would either 1) lose handles or  2) not leave
         // space for one new handle
-        PyErr_SetString(PyExc_ValueError, "HPyTracker resize would lose handles");
+        HPyErr_SetString(ctx, ctx->h_ValueError, "HPyTracker resize would lose handles");
         return -1;
     }
-    new_handles = PyMem_Realloc(hp->handles, size * sizeof(HPy));
+    new_handles = realloc(hp->handles, capacity * sizeof(HPy));
     if (new_handles == NULL) {
-        PyErr_NoMemory();
+        HPyErr_NoMemory(ctx);
         return -1;
     }
-    hp->size = size;
+    hp->capacity = capacity;
     hp->handles = new_handles;
     return 0;
 }
@@ -129,9 +142,9 @@ _HPy_HIDDEN int
 ctx_Tracker_Add(HPyContext ctx, HPyTracker ht, HPy h)
 {
     _HPyTracker_s *hp =  _ht2hp(ht);
-    hp->handles[hp->next++] = h;
-    if (hp->size <= hp->next) {
-        if (tracker_resize(ctx, hp, hp->size * 2 - 1) < 0)
+    hp->handles[hp->length++] = h;
+    if (hp->capacity <= hp->length) {
+        if (tracker_resize(ctx, hp, hp->capacity * 2 - 1) < 0)
             return -1;
     }
     return 0;
@@ -141,7 +154,7 @@ _HPy_HIDDEN void
 ctx_Tracker_ForgetAll(HPyContext ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
-    hp->next = 0;
+    hp->length = 0;
 }
 
 _HPy_HIDDEN void
@@ -149,9 +162,9 @@ ctx_Tracker_Close(HPyContext ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
     HPy_ssize_t i;
-    for (i=0; i<hp->next; i++) {
+    for (i=0; i<hp->length; i++) {
         HPy_Close(ctx, hp->handles[i]);
     }
-    PyMem_Free(hp->handles);
-    PyMem_Free(hp);
+    free(hp->handles);
+    free(hp);
 }

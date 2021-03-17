@@ -1,5 +1,6 @@
 import pytest
 from .support import ExtensionCompiler
+from hpy.debug.pytest import hpy_debug # make it available to all tests
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -11,7 +12,7 @@ def hpy_devel(request):
     from hpy.devel import HPyDevel
     return HPyDevel()
 
-@pytest.fixture(params=['cpython', 'universal'])
+@pytest.fixture(params=['cpython', 'universal', 'debug'])
 def hpy_abi(request):
     return request.param
 

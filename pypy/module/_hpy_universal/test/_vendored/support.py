@@ -190,43 +190,64 @@ class ExtensionCompiler:
             extra_compile_args=compile_args,
             extra_link_args=link_args)
 
+        hpy_abi = self.hpy_abi
+        if hpy_abi == 'debug':
+            # there is no compile-time difference between universal and debug
+            # extensions. The only difference happens at load time
+            hpy_abi = 'universal'
         so_filename = c_compile(str(self.tmpdir), ext,
                                 hpy_devel=self.hpy_devel,
-                                hpy_abi=self.hpy_abi,
+                                hpy_abi=hpy_abi,
                                 compiler_verbose=self.compiler_verbose)
         return so_filename
 
     def make_module(self, ExtensionTemplate, main_src, name, extra_sources):
         """
         Compile & load a module. This is NOT a proper import: e.g.
-        the module is not put into sys.modules
-        """
-        mod_filename = self.compile_module(
-            ExtensionTemplate, main_src, name, extra_sources)
-        return self.load_module(name, mod_filename)
+        the module is not put into sys.modules.
 
-    def load_module(self, name, mod_filename):
-        # It is important to do the imports only here, because this file will
-        # be imported also by PyPy tests which runs on Python2
-        import importlib
+        We don't want to unnecessarily modify the global state inside tests:
+        if you are writing a test which needs a proper import, you should not
+        use make_module but explicitly use compile_module and import it
+        manually as requied by your test.
+        """
+        so_filename = self.compile_module(
+            ExtensionTemplate, main_src, name, extra_sources)
+        if self.hpy_abi == 'universal':
+            return self.load_universal_module(name, so_filename, debug=False)
+        elif self.hpy_abi == 'debug':
+            return self.load_universal_module(name, so_filename, debug=True)
+        elif self.hpy_abi == 'cpython':
+            return self.load_cpython_module(name, so_filename)
+        else:
+            assert False
+
+    def load_universal_module(self, name, so_filename, debug):
+        assert self.hpy_abi in ('universal', 'debug')
         import sys
-        import os
-        if name in sys.modules:
-            raise ValueError(
-                "Test module {!r} already present in sys.modules".format(name))
-        importlib.invalidate_caches()
-        mod_dir = os.path.dirname(mod_filename)
-        sys.path.insert(0, mod_dir)
+        import hpy.universal
+        assert name not in sys.modules
+        mod = hpy.universal.load(name, so_filename, debug=debug)
+        mod.__file__ = so_filename
+        return mod
+
+    def load_cpython_module(self, name, so_filename):
+        assert self.hpy_abi == 'cpython'
+        # we've got a normal CPython module compiled with the CPython API/ABI,
+        # let's load it normally. It is important to do the imports only here,
+        # because this file will be imported also by PyPy tests which runs on
+        # Python2
+        import importlib.util
+        import sys
+        assert name not in sys.modules
+        spec = importlib.util.spec_from_file_location(name, so_filename)
         try:
-            module = importlib.import_module(name)
-            assert sys.modules[name] is module
+            # module_from_spec adds the module to sys.modules
+            module = importlib.util.module_from_spec(spec)
         finally:
-            # assert that the module import didn't change the sys.path entry
-            # that was added above, then remove the entry.
-            assert sys.path[0] == mod_dir
-            del sys.path[0]
             if name in sys.modules:
                 del sys.modules[name]
+        spec.loader.exec_module(module)
         return module
 
 
@@ -235,8 +256,9 @@ class HPyTest:
     ExtensionTemplate = DefaultExtensionTemplate
 
     @pytest.fixture()
-    def initargs(self, compiler):
-        # compiler is a fixture defined in conftest
+    def initargs(self, compiler, hpy_debug):
+        # compiler and hpy_debug are fixtures defined/imported by conftest.py.
+        # By using hpy_debug we enable leak detection in debug mode
         self.compiler = compiler
 
     def make_module(self, main_src, name='mytest', extra_sources=()):
@@ -273,6 +295,35 @@ class HPyTest:
         """
         return bool(getattr(sys, "executable", None))
 
+
+
+class HPyDebugTest(HPyTest):
+    """
+    Like HPyTest, but force hpy_abi=='debug' and thus run only [debug] tests
+    """
+
+    # override initargs to avoid using hpy_debug (we don't want to detect
+    # leaks here, we make them on purpose!
+    @pytest.fixture()
+    def initargs(self, compiler):
+        self.compiler = compiler
+
+    @pytest.fixture(params=['debug'])
+    def hpy_abi(self, request):
+        return request.param
+
+    def make_leak_module(self):
+        # for convenience
+        return self.make_module("""
+            HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
+            static HPy leak_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                HPy_Dup(ctx, arg); // leak!
+                return HPy_Dup(ctx, ctx->h_None);
+            }
+            @EXPORT(leak)
+            @INIT
+        """)
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
 
@@ -320,11 +371,11 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
         dist.run_command('build_ext')
         cmd_obj = dist.get_command_obj('build_ext')
         outputs = cmd_obj.get_outputs()
-        if hpy_abi == "cpython":
-            [mod_filename] = [x for x in outputs if not x.endswith(".py")]
-        else:
-            [mod_filename] = [x for x in outputs if x.endswith(".py")]
+        sonames = [x for x in outputs if
+                   not x.endswith(".py") and not x.endswith(".pyc")]
+        assert len(sonames) == 1, 'build_ext is not supposed to return multiple DLLs'
+        soname = sonames[0]
     finally:
         distutils.log.set_threshold(old_level)
 
-    return mod_filename
+    return soname

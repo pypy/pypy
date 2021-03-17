@@ -460,3 +460,53 @@ class TestObject(HPyTest):
         """)
         assert mod.f([5,6,7,8]) == 4
         assert mod.f({"a": 1}) == 1
+
+    def test_dump(self):
+        # _HPy_Dump is supposed to be used e.g. inside a gdb session: it
+        # prints various about the given handle to stdout, and it's
+        # implementation-specific. As such, it's hard to write a meaningful
+        # test: let's just call it an check it doesn't crash.
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                _HPy_Dump(ctx, arg);
+                return HPy_Dup(ctx, ctx->h_None);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        mod.f('hello')
+
+    def test_type(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                return HPy_Type(ctx, arg);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f('hello') is str
+        assert mod.f(42) is int
+
+    def test_typecheck(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            {
+                HPy a, b;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "OO", &a, &b))
+                    return HPy_NULL;
+                int res = HPy_TypeCheck(ctx, a, b);
+                return HPyBool_FromLong(ctx, res);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        class MyStr(str):
+            pass
+        assert mod.f('hello', str)
+        assert not mod.f('hello', int)
+        assert mod.f(MyStr('hello'), str)

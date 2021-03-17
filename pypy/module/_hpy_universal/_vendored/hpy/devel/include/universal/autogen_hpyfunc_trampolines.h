@@ -268,22 +268,6 @@ typedef struct {
 
 typedef struct {
     cpy_PyObject *arg0;
-    cpy_PyObject *arg1;
-    int arg2;
-    cpy_PyObject * result;
-} _HPyFunc_args_RICHCMPFUNC;
-
-#define _HPyFunc_TRAMPOLINE_HPyFunc_RICHCMPFUNC(SYM, IMPL) \
-    static cpy_PyObject *SYM(cpy_PyObject *arg0, cpy_PyObject *arg1, int arg2) \
-    { \
-        _HPyFunc_args_RICHCMPFUNC a = { arg0, arg1, arg2 }; \
-        _HPy_CallRealFunctionFromTrampoline( \
-           _ctx_for_trampolines, HPyFunc_RICHCMPFUNC, IMPL, &a); \
-        return a.result; \
-    }
-
-typedef struct {
-    cpy_PyObject *arg0;
     cpy_PyObject * result;
 } _HPyFunc_args_GETITERFUNC;
 

@@ -164,6 +164,21 @@ class TestBasic(HPyTest):
             mod.f(20)
         assert str(exc.value) == 'hello world'
 
+    def test_varargs(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_VARARGS)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs)
+            {
+                long a, b;
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, "ll", &a, &b))
+                    return HPy_NULL;
+                return HPyLong_FromLong(ctx, 10*a + b);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f(4, 5) == 45
+
     def test_builtin_handles(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
@@ -185,6 +200,8 @@ class TestBasic(HPyTest):
                     case 11: h = ctx->h_UnicodeType; break;
                     case 12: h = ctx->h_TupleType; break;
                     case 13: h = ctx->h_ListType; break;
+                    case 14: h = ctx->h_NotImplemented; break;
+                    case 15: h = ctx->h_Ellipsis; break;
                     default:
                         HPyErr_SetString(ctx, ctx->h_ValueError, "invalid choice");
                         return HPy_NULL;
@@ -196,7 +213,7 @@ class TestBasic(HPyTest):
         """)
         builtin_objs = (
             '<NULL>', None, False, True, ValueError, TypeError, IndexError,
-            SystemError, object, type, int, str, tuple, list,
+            SystemError, object, type, int, str, tuple, list, NotImplemented, Ellipsis,
         )
         for i, obj in enumerate(builtin_objs):
             if i == 0:
@@ -376,3 +393,26 @@ class TestBasic(HPyTest):
         """)
         x = object()
         assert mod.f(x) == hash(x)
+
+    def test_ctx_name(self, hpy_abi):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext ctx, HPy self)
+            {
+                return HPyUnicode_FromString(ctx, ctx->name);
+            }
+
+            @EXPORT(f)
+            @INIT
+        """)
+        ctx_name = mod.f()
+        if hpy_abi == 'cpython':
+            assert ctx_name == 'HPy CPython ABI'
+        elif hpy_abi == 'universal':
+            # this can be "HPy Universal ABI (CPython backend)" or
+            # "... (PyPy backend)", etc.
+            assert ctx_name.startswith('HPy Universal ABI')
+        elif hpy_abi == 'debug':
+            assert ctx_name.startswith('HPy Debug Mode ABI')
+        else:
+            assert False, 'unexpected hpy_abi: %s' % hpy_abi

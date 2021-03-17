@@ -44,6 +44,7 @@ class TestDict(HPyTest):
                 HPy val = HPyLong_FromLong(ctx, 1234);
                 if (HPy_SetItem(ctx, dict, arg, val) == -1)
                     return HPy_NULL;
+                HPy_Close(ctx, val);
                 return dict;
             }
             @EXPORT(f)
