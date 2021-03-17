@@ -25,7 +25,8 @@ OWN_BUILDERS = [
     'own-linux-x86-32',
     'own-linux-x86-64',
 #    'own-linux-armhf',
-    'own-win-x86-32',
+#    'own-win-x86-32',
+    'own-win-x86-64',
     'own-linux-s390x',
 #    'own-macosx-x86-32',
     'own-linux-aarch64',
@@ -35,7 +36,8 @@ JIT_BUILDERS = [
     'pypy-c-jit-linux-x86-64',
 #    'pypy-c-jit-freebsd-9-x86-64',
     'pypy-c-jit-macosx-x86-64',
-    'pypy-c-jit-win-x86-32',
+#    'pypy-c-jit-win-x86-32',
+    'pypy-c-jit-win-x86-64',
     'pypy-c-jit-linux-s390x',
 #    'build-pypy-c-jit-linux-armhf-raspbian',
 #    'build-pypy-c-jit-linux-armel',
@@ -45,6 +47,7 @@ RPYTHON_BUILDERS = [
     'rpython-linux-x86-32',
     'rpython-linux-x86-64',
     'rpython-win-x86-32'
+#    'rpython-win-x86-64'
 ]
 
 def get_user():
