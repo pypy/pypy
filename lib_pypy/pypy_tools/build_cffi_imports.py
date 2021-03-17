@@ -34,6 +34,7 @@ cffi_build_scripts = collections.OrderedDict({
     ("gdbm", "_gdbm_build.py"  if sys.platform != "win32" else None),
     ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
+    # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("xx", None),    # for testing: 'None' should be completely ignored
     })
 
