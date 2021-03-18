@@ -1,5 +1,4 @@
-from rpython.rtyper.lltypesystem import lltype, rffi
-from pypy.interpreter.error import OperationError, oefmt
+from rpython.rlib.rarithmetic import widen
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 
@@ -112,3 +111,9 @@ def HPyNumber_Check(space, ctx, h):
         0): # XXX in py3.8: space.lookup(w_obj, '__index__')):
         return API.int(1)
     return API.int(0)
+
+@API.func("HPy HPyBool_FromLong(HPyContext ctx, long v)")
+def HPyBool_FromLong(space, ctx, value):
+    if widen(value) != 0:
+        return handles.new(space, space.w_True)
+    return handles.new(space, space.w_False)
