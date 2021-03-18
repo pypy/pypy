@@ -21,7 +21,3 @@ def compiler(request, tmpdir, hpy_devel, hpy_abi):
     compiler_verbose = request.config.getoption('--compiler-v')
     return ExtensionCompiler(tmpdir, hpy_devel, hpy_abi,
                              compiler_verbose=compiler_verbose)
-@pytest.fixture
-def hpy_debug():
-    # disable it for now
-    pass

@@ -1,5 +1,6 @@
 import sys
 import types
+import pytest
 
 # ================================
 # Customization of applevel tests
@@ -103,3 +104,8 @@ def make_hpy_apptest(collector, name, cls):
     appcls = type(appname, bases, d)
     setattr(collector.obj, appname, appcls)
     return appname
+
+@pytest.fixture
+def hpy_debug():
+    # disable it for now
+    pass
