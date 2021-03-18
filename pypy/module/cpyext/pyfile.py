@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CONST_STRING, FILEP)
 from pypy.module.cpyext.pyobject import PyObject
@@ -63,8 +64,8 @@ def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, c
     encoding = rffi.charp2str(encoding)
     errors = rffi.charp2str(errors)
     newline = rffi.charp2str(newline)
-    w_ret = interp_io.open(space, space.newint(fd), mode,
-                           buffering, encoding, errors, newline, closefd)
+    w_ret = interp_io.open(space, space.newint(fd), mode, widen(buffering),
+                           encoding, errors, newline, widen(closefd))
     return w_ret
 
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
