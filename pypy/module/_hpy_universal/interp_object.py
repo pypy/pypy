@@ -208,3 +208,8 @@ def HPy_Hash(space, ctx, h_obj):
 def HPy_Length(space, ctx, h_obj):
     w_obj = handles.deref(space, h_obj)
     return space.len_w(w_obj)
+
+@API.func("HPy HPy_Type(HPyContext ctx, HPy obj)")
+def HPy_Type(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    return handles.new(space, space.type(w_obj))
