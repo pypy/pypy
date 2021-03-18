@@ -8,6 +8,8 @@ CONSTANTS = [
     ('None', lambda space: space.w_None),
     ('True', lambda space: space.w_True),
     ('False', lambda space: space.w_False),
+    ('NotImplemented', lambda space: space.w_NotImplemented),
+    ('Ellipsis', lambda space: space.w_Ellipsis),
     # Exceptions
     ('BaseException', lambda space: space.w_BaseException),
     ('Exception', lambda space: space.w_Exception),
