@@ -61,11 +61,20 @@ def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, c
     if not mode:
         raise oefmt(space.w_ValueError, "mode is required")
     mode = rffi.charp2str(mode)
-    encoding = rffi.charp2str(encoding)
-    errors = rffi.charp2str(errors)
-    newline = rffi.charp2str(newline)
+    if encoding:
+        encoding_ = rffi.charp2str(encoding)
+    else:
+        encoding_ = None
+    if errors:
+        errors_ = rffi.charp2str(errors)
+    else:
+        errors_ = None
+    if newline:
+        newline_ = rffi.charp2str(newline)
+    else:
+        newline_ = None
     w_ret = interp_io.open(space, space.newint(fd), mode, widen(buffering),
-                           encoding, errors, newline, widen(closefd))
+                           encoding_, errors_, newline_, widen(closefd))
     return w_ret
 
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
