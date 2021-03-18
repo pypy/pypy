@@ -213,3 +213,11 @@ def HPy_Length(space, ctx, h_obj):
 def HPy_Type(space, ctx, h_obj):
     w_obj = handles.deref(space, h_obj)
     return handles.new(space, space.type(w_obj))
+
+@API.func("int HPy_TypeCheck(HPyContext ctx, HPy obj, HPy type)",
+          error_value='CANNOT_FAIL')
+def HPy_TypeCheck(space, ctx, h_obj, h_type):
+    w_obj = handles.deref(space, h_obj)
+    w_type = handles.deref(space, h_type)
+    assert space.isinstance_w(w_type, space.w_type)
+    return API.int(space.issubtype_w(space.type(w_obj), w_type))
