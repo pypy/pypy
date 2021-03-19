@@ -21,7 +21,8 @@ two different interpreters:
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
     Python 3.7, including the stdlib for CPython 3.7.10. We no longer refer to
-    this as beta-quality
+    this as beta-quality as the last incompatibilites with CPython (in the
+    ``re`` module) have been fixed.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3
@@ -259,6 +260,8 @@ Python 3.7+
 - Fix ``xml.ElementTree.extend`` not working on iterators (issue 3181_, `bpo-43399`_)
 - `Python -m` now adds *starting* directory to `sys.path` (`bpo 33053`_)
 - Reimplement ``heapq.merge()`` using a linked tournamet tree (`bpo 38938`_)
+- Fix shring of cursors in ``sqllite3`` (issues 3351_ and 3403_)
+- Fix remaining ``sqllite3`` incompatibilities
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
@@ -272,6 +275,7 @@ Python 3.7 C-API
 - Converting utf-8 to 1-byte buffers must consider latin-1 encoding (`issue 3413`_)
 - Fix value of ``.__module__`` and ``.__name__`` on the result of
   ``PyType_FromSpec``
+- Add missing ``PyFile_FromFd``
 
 .. _2267: https://foss.heptapod.net/pypy/pypy/-/issues/2267
 .. _3172: https://foss.heptapod.net/pypy/pypy/-/issues/3172
@@ -282,6 +286,7 @@ Python 3.7 C-API
 .. _3342: https://foss.heptapod.net/pypy/pypy/-/issues/3342
 .. _3345: https://foss.heptapod.net/pypy/pypy/-/issues/3345
 .. _3348: https://foss.heptapod.net/pypy/pypy/-/issues/3348
+.. _3351: https://foss.heptapod.net/pypy/pypy/-/issues/3351
 .. _3355: https://foss.heptapod.net/pypy/pypy/-/issues/3355
 .. _3357: https://foss.heptapod.net/pypy/pypy/-/issues/3357
 .. _3359: https://foss.heptapod.net/pypy/pypy/-/issues/3359
@@ -297,6 +302,7 @@ Python 3.7 C-API
 .. _3395: https://foss.heptapod.net/pypy/pypy/-/issues/3395
 .. _3396: https://foss.heptapod.net/pypy/pypy/-/issues/3396
 .. _3400: https://foss.heptapod.net/pypy/pypy/-/issues/3400
+.. _3403: https://foss.heptapod.net/pypy/pypy/-/issues/3403
 .. _3404: https://foss.heptapod.net/pypy/pypy/-/issues/3404
 .. _3407: https://foss.heptapod.net/pypy/pypy/-/issues/3407
 .. _3409: https://foss.heptapod.net/pypy/pypy/-/issues/3409
