@@ -11,7 +11,7 @@ from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
 from rpython.rlib.rbigint import (rbigint, SHIFT, MASK, KARATSUBA_CUTOFF,
     _store_digit, _mask_digit, InvalidEndiannessError, InvalidSignednessError,
-    gcd_lehmer, lehmer_xgcd, gcd_binary)
+    gcd_lehmer, lehmer_xgcd, gcd_binary, divmod_fast, ONERBIGINT)
 from rpython.rlib.rfloat import NAN
 from rpython.rtyper.test.test_llinterp import interpret
 from rpython.translator.c.test.test_standalone import StandaloneTests
@@ -1285,6 +1285,37 @@ class TestHypothesis(object):
         else:
             print x, y
             a, b = f1.divmod(f2)
+            assert (a.tolong(), b.tolong()) == res
+
+    @given(biglongs, strategies.data())
+    def test_extract_bits(self, x, data):
+        x = abs(x)
+        start = data.draw(strategies.integers(min_value=0, max_value=x.bit_length()))
+        numbits = data.draw(strategies.integers(min_value=0, max_value=x.bit_length()-start))
+        print x, start, numbits
+        xl = rbigint.fromlong(x)
+        res = xl.extract_bits(start, numbits)
+        mask = ONERBIGINT.lshift(numbits).int_sub(1)
+        result = xl.rshift(start).and_(mask)
+        assert res.eq(result)
+
+    @given(biglongs, biglongs)
+    @example(510439143470502793407446782273075179618477362188870662225920,
+             108089693021945158982483698831267549521)
+    def test_divmod_fast(self, x, y):
+        if x < y:
+            x, y = y, x
+
+        f1 = rbigint.fromlong(x)
+        f2 = rbigint.fromlong(y)
+        try:
+            res = divmod(x, y)
+        except Exception as e:
+            with pytest.raises(type(e)):
+                f1.divmod(f2)
+        else:
+            print x, y
+            a, b = divmod_fast(f1, f2)
             assert (a.tolong(), b.tolong()) == res
 
     @given(biglongs, ints)

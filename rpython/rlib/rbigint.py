@@ -1288,6 +1288,51 @@ class rbigint(object):
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
+
+    def extract_bits(self, pos, numbits):
+        """ extract numbits, starting at position pos. equivalent to:
+        mask = ONERBIGINT.lshift(numbits).int_sub(1)
+        result = self.rshift(pos).and_(mask)
+        only works for non-negative numbers
+        """
+        assert self.sign >= 0
+        if self.sign == 0 or numbits == 0:
+            return NULLRBIGINT
+        if pos > self.size * SHIFT:
+            return NULLRBIGINT
+        if pos < 0:
+            raise ValueError("negative position")
+
+        res_size, restbits = numbits // SHIFT, numbits % SHIFT
+        num_digits = res_size
+        if restbits:
+            res_size += 1
+        z = rbigint([NULLDIGIT] * res_size, 1, res_size)
+        first_index, offset = pos // SHIFT, pos % SHIFT
+
+        target = 0
+        digit = self.digit(first_index)
+        index = first_index + 1
+        right = digit >> offset
+        for i in range(num_digits):
+            if index < self.size:
+                digit = self.digit(index)
+            else:
+                digit = 0
+            newdigit = right | (digit << (SHIFT - offset))
+            right = digit >> offset
+            z.setdigit(target, newdigit & MASK)
+            index += 1
+            target += 1
+        if restbits:
+            if index < self.size:
+                digit = self.digit(index)
+            else:
+                digit = 0
+            digit = right | (digit << (SHIFT - offset))
+            z.setdigit(target, digit & ((1 << restbits) - 1))
+        z._normalize()
+        return z
         
     @jit.elidable
     def rqshift(self, int_other):
@@ -2185,6 +2230,84 @@ def _divrem(a, b):
     if a.sign < 0 and rem.sign != 0:
         rem.sign = - rem.sign
     return z, rem
+
+class DivLimitHolder:
+    pass
+
+HOLDER = DivLimitHolder()
+HOLDER.DIV_LIMIT = 10
+
+def div2n1n(a, b, n):
+    """Divide a 2n-bit nonnegative integer a by an n-bit positive integer
+    b, using a recursive divide-and-conquer algorithm.
+
+    Inputs:
+      n is a positive integer
+      b is a positive integer with exactly n bits
+      a is a nonnegative integer such that a < 2**n * b
+
+    Output:
+      (q, r) such that a = b*q+r and 0 <= r < b.
+
+    """
+    if n <= HOLDER.DIV_LIMIT:
+        res = _divrem(a, b)
+        return res
+    pad = n & 1
+    if pad:
+        a = a.lshift(1)
+        b = b.lshift(1)
+        n += 1
+    half_n = n >> 1
+    b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
+    q1, r = div3n2n(a.rshift(n), a.extract_bits(half_n, half_n), b, b1, b2, half_n)
+    q2, r = div3n2n(r, a.extract_bits(0, half_n), b, b1, b2, half_n)
+    if pad:
+        r = r.rshift(1)
+    return q1.lshift(half_n).or_(q2), r
+
+def div3n2n(a12, a3, b, b1, b2, n):
+    """Helper function for div2n1n; not intended to be called directly."""
+    if a12.rshift(n).eq(b1):
+        q, r = ONERBIGINT.lshift(n).sub(ONERBIGINT), a12.sub(b1.lshift(n)).add(b1)
+    else:
+        q, r = div2n1n(a12, b1, n)
+    r = r.lshift(n).or_(a3).sub(q.mul(b2))
+    while r.sign < 0:
+        q = q.int_sub(1)
+        r = r.add(b)
+    return q, r
+
+def _divmod_fast_pos(a, b):
+    """Divide a positive integer a by a positive integer b, giving
+    quotient and remainder."""
+    # Use grade-school algorithm in base 2**n, n = nbits(b)
+    n = b.bit_length()
+    mask = ONERBIGINT.lshift(n).int_sub(1)
+    a_digits = []
+    while not a.eq(NULLRBIGINT):
+        a_digits.append(a.and_(mask))
+        a = a.rshift(n)
+    r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
+    q = NULLRBIGINT
+    while a_digits:
+        q_digit, r = div2n1n(r.lshift(n).or_(a_digits.pop()), b, n)
+        q = q.lshift(n).or_(q_digit)
+    return q, r
+
+def divmod_fast(a, b):
+    if b.eq(NULLRBIGINT):
+        raise ZeroDivisionError
+    elif b.sign < 0:
+        q, r = divmod_fast(a.neg(), b.neg())
+        return q, r.neg()
+    elif a.sign < 0:
+        q, r = divmod_fast(a.invert(), b)
+        return q.invert(), b.add(r.invert())
+    elif a.eq(NULLRBIGINT):
+        return NULLRBIGINT, NULLRBIGINT
+    else:
+        return _divmod_fast_pos(a, b)
 
 def _x_int_lt(a, b, eq=False):
     """ Compare bigint a with int b for less than or less than or equal """
