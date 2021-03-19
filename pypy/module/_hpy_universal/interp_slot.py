@@ -11,6 +11,7 @@ from pypy.module._hpy_universal.state import State
 from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
+HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
 
 class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
@@ -83,6 +84,29 @@ class W_wrap_binaryfunc(W_SlotWrapper):
         with handles.using(space, w_self, w_other) as (h_self, h_other):
             h_result = func(ctx, h_self, h_other)
             return handles.consume(space, h_result)
+
+def make_cmp_wrapper(OP):
+    class W_wrap_richcmpfunc(W_SlotWrapper):
+        def call(self, space, __args__):
+            func = llapi.cts.cast("HPyFunc_richcmpfunc", self.cfuncptr)
+            self.check_args(space, __args__, 2)
+            ctx = space.fromcache(State).ctx
+            w_self = __args__.arguments_w[0]
+            w_other = __args__.arguments_w[1]
+            with handles.using(space, w_self, w_other) as (h_self, h_other):
+                # rffi doesn't allow casting to an enum, we need to use int
+                # instead
+                h_result = func(
+                    ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
+                return handles.consume(space, h_result)
+    return W_wrap_richcmpfunc
+
+CMP_OPNAMES = ['eq', 'ne', 'lt', 'le', 'gt', 'ge']
+CMP_ENUM_VALUES = [
+    getattr(HPy_RichCmpOp, 'HPy_%s' % opname.upper()) for opname in CMP_OPNAMES]
+CMP_SLOTS = unrolling_iterable([
+    ('__%s__' % opname, make_cmp_wrapper(opval))
+    for opname, opval in zip(CMP_OPNAMES, CMP_ENUM_VALUES)])
 
 class W_wrap_unaryfunc(W_SlotWrapper):
     def call(self, space, __args__):
@@ -231,7 +255,6 @@ class W_wrap_objobjproc(W_SlotWrapper):
 ## wrap_hashfunc(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_call(PyObject *self, PyObject *args, void *wrapped, PyObject *kwds)
 ## wrap_del(PyObject *self, PyObject *args, void *wrapped)
-## wrap_richcmpfunc(PyObject *self, PyObject *args, void *wrapped, int op)
 ## wrap_next(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_get(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_set(PyObject *self, PyObject *args, void *wrapped)
@@ -268,6 +291,7 @@ class W_wrap_init(W_SlotWrapper):
             raise oefmt(space.w_SystemError,
                 "Function returned an error result without setting an exception")
         return space.w_None
+
 
 
 class W_tp_new_wrapper(W_ExtensionFunction):
@@ -395,6 +419,11 @@ def fill_slot(space, w_type, hpyslot):
         return
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
+        return
+    elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
+        for methname, cls in CMP_SLOTS:
+            w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
+            w_type.setdictvalue(space, methname, w_slot)
         return
 
     # generic cases

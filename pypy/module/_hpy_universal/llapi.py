@@ -421,14 +421,17 @@ typedef struct {
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)
 #define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
 
+/* macros.h */
 
 /* Rich comparison opcodes */
-#define HPy_LT 0
-#define HPy_LE 1
-#define HPy_EQ 2
-#define HPy_NE 3
-#define HPy_GT 4
-#define HPy_GE 5
+typedef enum {
+    HPy_LT = 0,
+    HPy_LE = 1,
+    HPy_EQ = 2,
+    HPy_NE = 3,
+    HPy_GT = 4,
+    HPy_GE = 5,
+} HPy_RichCmpOp;
 
 /* autogen_hpyfunc_declare.h */
 
@@ -462,6 +465,8 @@ typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t
 typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
+//typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
+//typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 
@@ -498,13 +503,6 @@ HPyFunc_O        = 4
 # }
 
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
-
-HPy_LT = 0
-HPy_LE = 1
-HPy_EQ = 2
-HPy_NE = 3
-HPy_GT = 4
-HPy_GE = 5
 
 SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
 

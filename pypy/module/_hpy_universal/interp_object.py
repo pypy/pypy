@@ -6,6 +6,8 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles
 from . import llapi
 
+HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
+
 @API.func("int HPy_IsTrue(HPyContext ctx, HPy h)", error_value=API.int(-1))
 def HPy_IsTrue(space, ctx, h_obj):
     w_obj = handles.deref(space, h_obj)
@@ -167,17 +169,17 @@ def HPy_RichCompare(space, ctx, v, w, op):
 
 def rich_compare(space, w_o1, w_o2, opid_int):
     opid = rffi.cast(lltype.Signed, opid_int)
-    if opid == llapi.HPy_LT:
+    if opid == HPy_RichCmpOp.HPy_LT:
         return space.lt(w_o1, w_o2)
-    elif opid == llapi.HPy_LE:
+    elif opid == HPy_RichCmpOp.HPy_LE:
         return space.le(w_o1, w_o2)
-    elif opid == llapi.HPy_EQ:
+    elif opid == HPy_RichCmpOp.HPy_EQ:
         return space.eq(w_o1, w_o2)
-    elif opid == llapi.HPy_NE:
+    elif opid == HPy_RichCmpOp.HPy_NE:
         return space.ne(w_o1, w_o2)
-    elif opid == llapi.HPy_GT:
+    elif opid == HPy_RichCmpOp.HPy_GT:
         return space.gt(w_o1, w_o2)
-    elif opid == llapi.HPy_GE:
+    elif opid == HPy_RichCmpOp.HPy_GE:
         return space.ge(w_o1, w_o2)
     else:
         raise oefmt(space.w_SystemError, "Bad internal call!")
@@ -192,9 +194,9 @@ def HPy_RichCompareBool(space, ctx, v, w, op):
     # Guarantees that identity implies equality.
     if space.is_w(w_o1, w_o2):
         opid = rffi.cast(lltype.Signed, op)
-        if opid == llapi.HPy_EQ:
+        if opid == HPy_RichCmpOp.HPy_EQ:
             return API.int(1)
-        if opid == llapi.HPy_NE:
+        if opid == HPy_RichCmpOp.HPy_NE:
             return API.int(0)
     w_result = rich_compare(space, w_o1, w_o2, op)
     return API.int(space.is_true(w_result))
