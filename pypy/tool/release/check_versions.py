@@ -31,9 +31,11 @@ def assert_in(a, b):
         raise ValueError(f"'{a}' not in '{b}'")
 
 
-   
-
-pypy_versions = {'7.3.3': {'python_version': ['3.7.9', '3.6.12', '2.7.18'],
+pypy_versions = {
+                 '7.3.4rc1': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-03-19',
+                          },
+                 '7.3.3': {'python_version': ['3.7.9', '3.6.12', '2.7.18'],
                            'date': '2020-11-21',
                           },
                  '7.3.3rc1': {'python_version': ['3.6.12'],
@@ -51,6 +53,9 @@ def create_latest_versions(v):
     pypy version for that cpython"""
     ret = {}
     for pypy_ver, vv in v.items():
+        if 'rc' in pypy_ver:
+            # skip release candidates
+            continue
         for pv in vv['python_version']:
             # for nightlies, we rely on python_version being major.minor while
             # for releases python_version is major.minor.patch
@@ -63,12 +68,13 @@ def create_latest_versions(v):
 latest_pypys = create_latest_versions(pypy_versions)
 
 arches = ['aarch64', 'i686', 'x64', 'x86', 'darwin', 's390x']
-platforms = ['linux', 'win32', 'darwin']
+platforms = ['linux', 'win32', 'win64', 'darwin']
 arch_map={('aarch64', 'linux'): 'aarch64',
           ('i686', 'linux'): 'linux32',
           ('x64', 'linux'): 'linux64',
           ('s390x', 'linux'): 's390x',
           ('x86', 'win32'): 'win32',
+          ('x64', 'win64'): 'win64',
           ('x64', 'darwin'): 'osx64',
          }
 
@@ -87,7 +93,10 @@ def check_versions(data):
         elif d['latest_pypy'] is True:
             assert_equal(latest_pypys[d['python_version']], d['pypy_version'])
         else:
-            assert_different(latest_pypys[d['python_version']], d['pypy_version'])
+            try:
+                assert_different(latest_pypys[d['python_version']], d['pypy_version'])
+            except KeyError:
+                assert 'rc' in d['pypy_version']
         if 'date' in d:
             assert_equal(d['date'], v['date'])
         for f in d['files']:
