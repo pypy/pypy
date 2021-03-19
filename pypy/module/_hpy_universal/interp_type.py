@@ -117,6 +117,9 @@ def HPyType_FromSpec(space, ctx, spec, params):
 
     w_result = _create_new_type(
         space, space.w_type, name, bases_w, dict_w, basicsize)
+    if spec.c_doc:
+        w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
+        w_result.setdictvalue(space, '__doc__', w_doc)
     if spec.c_legacy_slots:
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
