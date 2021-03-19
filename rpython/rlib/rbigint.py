@@ -2259,10 +2259,9 @@ def div2n1n(a, b, n):
         b = b.lshift(1)
         n += 1
     half_n = n >> 1
-    mask = ONERBIGINT.lshift(half_n).int_sub(1)
-    b1, b2 = b.rshift(half_n), b.and_(mask)
-    q1, r = div3n2n(a.rshift(n), a.rshift(half_n).and_(mask), b, b1, b2, half_n)
-    q2, r = div3n2n(r, a.and_(mask), b, b1, b2, half_n)
+    b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
+    q1, r = div3n2n(a.rshift(n), a.extract_bits(half_n, half_n), b, b1, b2, half_n)
+    q2, r = div3n2n(r, a.extract_bits(0, half_n), b, b1, b2, half_n)
     if pad:
         r = r.rshift(1)
     return q1.lshift(half_n).or_(q2), r
@@ -2292,8 +2291,8 @@ def _divmod_fast_pos(a, b):
     r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
     q = NULLRBIGINT
     while a_digits:
-        q_digit, r = div2n1n(r.lshift(n).add(a_digits.pop()), b, n)
-        q = q.lshift(n).add(q_digit)
+        q_digit, r = div2n1n(r.lshift(n).or_(a_digits.pop()), b, n)
+        q = q.lshift(n).or_(q_digit)
     return q, r
 
 def divmod_fast(a, b):
