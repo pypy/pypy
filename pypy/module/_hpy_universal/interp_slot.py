@@ -12,8 +12,6 @@ from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 
-# NOTE: most subclasses of W_SlotWrapper are inside autogen_interp_slots.py,
-# which is imported later
 class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
 
