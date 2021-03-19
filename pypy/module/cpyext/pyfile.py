@@ -1,8 +1,10 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, CONST_STRING, FILEP)
 from pypy.module.cpyext.pyobject import PyObject
 from pypy.module.cpyext.object import Py_PRINT_RAW
+from pypy.module._io import interp_io
 from pypy.interpreter.error import OperationError, oefmt
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
@@ -40,6 +42,40 @@ def PyFile_FromString(space, filename, mode):
     w_filename = space.newbytes(rffi.charp2str(filename))
     w_mode = space.newtext(rffi.charp2str(mode))
     return space.call_method(space.builtin, 'open', w_filename, w_mode)
+
+@cpython_api([rffi.INT_real, CONST_STRING, CONST_STRING, rffi.INT_real, CONST_STRING, CONST_STRING, CONST_STRING, rffi.INT_real], PyObject)
+def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
+    """Create a Python file object from the file descriptor of an already
+    opened file fd.  The arguments name, encoding, errors and newline
+    can be NULL to use the defaults; buffering can be -1 to use the
+    default. name is ignored and kept for backward compatibility. Return
+    NULL on failure. For a more comprehensive description of the arguments,
+    please refer to the io.open() function documentation.
+
+    Since Python streams have their own buffering layer, mixing them with
+    OS-level file descriptors can produce various issues (such as unexpected
+    ordering of data).
+
+    Ignore name attribute."""
+
+    if not mode:
+        raise oefmt(space.w_ValueError, "mode is required")
+    mode = rffi.charp2str(mode)
+    if encoding:
+        encoding_ = rffi.charp2str(encoding)
+    else:
+        encoding_ = None
+    if errors:
+        errors_ = rffi.charp2str(errors)
+    else:
+        errors_ = None
+    if newline:
+        newline_ = rffi.charp2str(newline)
+    else:
+        newline_ = None
+    w_ret = interp_io.open(space, space.newint(fd), mode, widen(buffering),
+                           encoding_, errors_, newline_, widen(closefd))
+    return w_ret
 
 @cpython_api([CONST_STRING, PyObject], rffi.INT_real, error=-1)
 def PyFile_WriteString(space, s, w_p):
