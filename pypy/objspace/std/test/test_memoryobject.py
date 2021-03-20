@@ -215,6 +215,15 @@ class AppTestMemoryView(object):
     def test_hex(self):
         assert memoryview(b"abc").hex() == u'616263'
 
+    def test_hex_sep(self):
+        res = memoryview(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert memoryview(
+                bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+
     def test_hex_long(self):
         x = b'01' * 100000
         m1 = memoryview(x)
