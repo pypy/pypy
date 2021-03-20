@@ -26,7 +26,32 @@ two different interpreters:
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3
-releases, but read on to find out what is new.
+releases. The two highlights of the release are binary **Windows 64** support,
+as well as faster numerical instance fields.
+
+A new contributor took us up on the challenge to get `windows 64-bit`_ support.
+The work has been merged and for the first time we are releasing a 64-bit
+Windows binary package.
+
+The release contains the biggest change to `PyPy's implementation of the
+instances of user-defined classes`_ in many years. The optimization was
+motivated by the report of performance problems running a `numerical particle
+emulation`_. We implemented an optimization that stores ``int`` and ``float``
+instance fields in an unboxed way, as long as these fields are type-stable
+(meaning that the same field always stores the same type, using the principle
+of `type freezing`_). This gives significant performance improvements on
+numerical pure-Python code, and other code where instances store many integers
+or floating point numbers.
+
+.. _`PyPy's implementation of the instances of user-defined classes`: https://www.pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+.. _`numerical particle emulation`: https://github.com/paugier/nbabel
+.. _`type freezing`: https://www.csl.cornell.edu/~cbatten/pdfs/cheng-type-freezing-cgo2020.pdf
+
+There were also a number of optimizations for methods around strings and bytes,
+following user reported performance problems. If you are unhappy with PyPy's
+performance on some code of yours, please file `a bug`_!
+
+.. _`a bug`: https://foss.heptapod.net/pypy/pypy/-/issues/
 
 ..
   The major new feature is prelminary support for the Universal mode of HPy: a
@@ -40,10 +65,6 @@ Several issues exposed in the 7.3.3 release were fixed. Many of them came from t
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
 A big shout out to them for taking this on.
 
-There are also some significant performance improvements around instances of
-user-defined classes, ints, strings, bytes and more. These were done as users
-reported reproducible performance problems.
-
 Development of PyPy takes place on https://foss.heptapod.net/pypy/pypy.
 We have seen an increase in the number of drive-by contributors who are able to
 use gitlab + mercurial to create merge requests.
@@ -54,10 +75,6 @@ European time on https://www.twitch.tv/pypyproject.
 The `CFFI`_ backend has been updated to version 1.14.5 and the cppyy_ backend
 to 1.14.2. We recommend using CFFI rather than C-extensions to interact with C,
 and using cppyy for performant wrapping of C++ code for Python.
-
-A new contributor took us up on the challenge to get `windows 64-bit`_ support.
-The work has been merged and for the first time we are releasing a 64-bit
-windows binary package.
 
 As always, this release fixed several issues and bugs.  We strongly recommend
 updating. Many of the fixes are the direct result of end-user bug reports, so
