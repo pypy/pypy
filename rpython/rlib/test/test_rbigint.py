@@ -1303,8 +1303,13 @@ class TestHypothesis(object):
     @example(510439143470502793407446782273075179618477362188870662225920,
              108089693021945158982483698831267549521)
     def test_divmod_fast(self, x, y):
+        from rpython.rlib.rbigint import HOLDER
         if x < y:
             x, y = y, x
+
+        # boost size
+        x *= 2 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
+        y *= 2 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
 
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)

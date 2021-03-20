@@ -1311,7 +1311,10 @@ class rbigint(object):
         first_index, offset = pos // SHIFT, pos % SHIFT
 
         target = 0
-        digit = self.digit(first_index)
+        if first_index < self.size:
+            digit = self.digit(first_index)
+        else:
+            digit = 0
         index = first_index + 1
         right = digit >> offset
         for i in range(num_digits):
@@ -2235,7 +2238,7 @@ class DivLimitHolder:
     pass
 
 HOLDER = DivLimitHolder()
-HOLDER.DIV_LIMIT = 10
+HOLDER.DIV_LIMIT = 3
 
 def div2n1n(a, b, n):
     """Divide a 2n-bit nonnegative integer a by an n-bit positive integer
@@ -2250,20 +2253,14 @@ def div2n1n(a, b, n):
       (q, r) such that a = b*q+r and 0 <= r < b.
 
     """
-    if n <= HOLDER.DIV_LIMIT:
+    if n // SHIFT <= HOLDER.DIV_LIMIT:
         res = _divrem(a, b)
         return res
-    pad = n & 1
-    if pad:
-        a = a.lshift(1)
-        b = b.lshift(1)
-        n += 1
+    assert n & 1 == 0
     half_n = n >> 1
     b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
     q1, r = div3n2n(a.rshift(n), a.extract_bits(half_n, half_n), b, b1, b2, half_n)
     q2, r = div3n2n(r, a.extract_bits(0, half_n), b, b1, b2, half_n)
-    if pad:
-        r = r.rshift(1)
     return q1.lshift(half_n).or_(q2), r
 
 def div3n2n(a12, a3, b, b1, b2, n):
@@ -2283,19 +2280,33 @@ def _divmod_fast_pos(a, b):
     quotient and remainder."""
     # Use grade-school algorithm in base 2**n, n = nbits(b)
     n = b.bit_length()
-    mask = ONERBIGINT.lshift(n).int_sub(1)
+    # make n of the form SHIFT * HOLDER.DIV_LIMIT * 2 ** x
+    new_n = SHIFT * HOLDER.DIV_LIMIT
+    while new_n < n:
+        new_n <<= 1
+    rest_shift = new_n - n
+    if rest_shift:
+        a = a.lshift(rest_shift)
+        b = b.lshift(rest_shift)
+        new_n = b.bit_length()
+
+    mask = ONERBIGINT.lshift(new_n).int_sub(1)
     a_digits = []
     while not a.eq(NULLRBIGINT):
         a_digits.append(a.and_(mask))
-        a = a.rshift(n)
+        a = a.rshift(new_n)
     r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
     q = NULLRBIGINT
     while a_digits:
-        q_digit, r = div2n1n(r.lshift(n).or_(a_digits.pop()), b, n)
-        q = q.lshift(n).or_(q_digit)
+        q_digit, r = div2n1n(r.lshift(new_n).or_(a_digits.pop()), b, new_n)
+        q = q.lshift(new_n).or_(q_digit)
+    if rest_shift:
+        r = r.rshift(rest_shift)
     return q, r
 
 def divmod_fast(a, b):
+    # code from Mark Dickinson via https://bugs.python.org/file11060/fast_div.py
+    # follows cr.yp.to/bib/1998/burnikel.ps
     if b.eq(NULLRBIGINT):
         raise ZeroDivisionError
     elif b.sign < 0:
