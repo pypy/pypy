@@ -40,8 +40,8 @@ Several issues exposed in the 7.3.3 release were fixed. Many of them came from t
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
 A big shout out to them for taking this on.
 
-There are also some significant performance improvements around maps
-(dictionaries), ints, strings, btyes and more. These were done as users
+There are also some significant performance improvements around instances of
+user-defined classes, ints, strings, bytes and more. These were done as users
 reported reproducible performance problems.
 
 Development of PyPy takes place on https://foss.heptapod.net/pypy/pypy.
@@ -52,7 +52,7 @@ We also have begun streaming the advances towards PyPy3.8 on Saturday evenings
 European time on https://www.twitch.tv/pypyproject.
 
 The `CFFI`_ backend has been updated to version 1.14.5 and the cppyy_ backend
-to 1.14.2. We recommend using CFFI rather than c-extensions to interact with C,
+to 1.14.2. We recommend using CFFI rather than C-extensions to interact with C,
 and using cppyy for performant wrapping of C++ code for Python.
 
 A new contributor took us up on the challenge to get `windows 64-bit`_ support.
@@ -71,16 +71,16 @@ We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
 direct consulting work. If PyPy is helping you out, we would love to hear about
 it and encourage submissions to our `renovated blog site`_ via a pull request
-to www.github.com://pypy/pypy.org
+to https://github.com/pypy/pypy.org
 
 We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
-on pypy, or general `help`_ with making RPython's JIT even better. Since the
+on PyPy, or general `help`_ with making RPython's JIT even better. Since the
 previous release, we have accepted contributions from 10 new contributors,
-thanks for pitching in.
+thanks for pitching in, and welcome to the project!
 
-If you are a python library maintainer and use c-extensions, please consider
+If you are a python library maintainer and use C-extensions, please consider
 making a cffi / cppyy version of your library that would be performant on PyPy.
 In any case both `cibuildwheel`_ and the `multibuild system`_ support
 building wheels for PyPy.
@@ -134,12 +134,11 @@ Changelog
 =========
 
 Bugfixes shared across versions
-------------------------------
+-------------------------------
 - Test, fix xml default attribute values (issue 3333_, `bpo 42151`_)
-- Update the ``re`` module to the Python3.7 implementation
 - Truncate ``REG_SZ`` at first ``NULL`` in ``winreg`` to match ``reg.exe``
   behaviour (`bpo 25778`_)
-- Rename ``_hashlib.Hash`` to ``HASH`` to match cpython
+- Rename ``_hashlib.Hash`` to ``HASH`` to match CPython
 - Fix loading system libraries with ctypes on macOS Big Sur (issue 3314)
 - Fix ``__thread_id`` in greenlets (issue 3381_)
 - Reject XML entity declarations in plist files (`bpo 42051`_)
@@ -153,7 +152,7 @@ Speedups and enhancements shared across versions
   officializes the fact that you can raise RPython exceptions from llhelpers,
   and makes it possible to specify what is the C value to return in case of
   errors. Useful for HPY_
-- Introduce a new RPython decorator ``@never_allocates`` which ensures a class
+- Introduce a new RPython decorator ``@never_allocate`` which ensures a class
   is **never** instantiated at runtime. Useful for objects that are required to
   be constant-folded away
 - Upstream internal ``cparser`` tool from ``pypy/`` to ``rpython/``
@@ -190,11 +189,11 @@ Speedups and enhancements shared across versions
 - Fast path for ``unicode.upper/lower``, ``unicodedb.toupper/lower`` for ascii,
   latin-1
 - Add a JIT driver for ``re.split``
-- Expose ``os.memfd_create`` on linux for glibc>2.27 (not on portable builds)
+- Expose ``os.memfd_create`` on Linux for glibc>2.27 (not on portable builds)
 - Add a shortcut for ``re.sub`` doing zero replacements
-for things like escaping characters)
+  for things like escaping characters)
 
-C-API (cpyext) and c-extensions
+C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - make order of arguments of ``PyDescr_NewGetSet`` consistent with CPython,
   related to issue 2267_
@@ -210,12 +209,13 @@ C-API (cpyext) and c-extensions
 
 Python 3.7+
 -----------
+- Update the ``re`` module to the Python 3.7 implementation
 - Fix the ``crypt`` thread lock (issue 3395_) and fix input encoding (issue
   3378_)
 - Fixes ``utf_8_decode`` for ``final=False`` (issue 3348_)
 - Test, fix for ``time.strftime(u'%y\ud800%m', time.localtime(192039127))``
-- ``CALL_FUNCTION_KW`` pops a constant tuple from the stack, and uses
-  fixedview, which loses the constness
+- ``CALL_FUNCTION_KW`` with keyword arguments is now much faster, because the
+  data structure storing the arguments can be removed by the JIT
 - Fix the ``repr`` of subclasses
 - Better error message for ``object.__init__`` with too many parameters
 - Fix bug in ``codecs`` where using a function from the parser turns warnings
@@ -247,8 +247,8 @@ Python 3.7+
 - Generalize venv to copy all ``*.exe`` and ``*.dll`` for windows
 - The evaluation order of keys and values of *large* dict literals was wrong in
   3.7 (in lower versions it was the same way, but in 3.7 the evaluation order
-  of *small* dicts changed (issue 3380_)
-- Cache the imported ``re`` module (going through ``__import__`` is
+  of *small* dicts changed), issue 3380_
+- Cache the imported ``re`` module in ``_sre`` (going through ``__import__`` is
   unfortunately quite expensive on 3.x)
 - Mention a repeated keyword argument in the error message
 - Stop emitting the ``STORE_ANNOTATION`` and ``BINARY_DIVIDE`` bytecodes,
@@ -259,7 +259,7 @@ Python 3.7+
 - Add missing `c_/f_/contiguous` flags on memoryview
 - Fix ``xml.ElementTree.extend`` not working on iterators (issue 3181_, `bpo-43399`_)
 - `Python -m` now adds *starting* directory to `sys.path` (`bpo 33053`_)
-- Reimplement ``heapq.merge()`` using a linked tournamet tree (`bpo 38938`_)
+- Reimplement ``heapq.merge()`` using a linked tournament tree (`bpo 38938`_)
 - Fix shring of cursors in ``sqllite3`` (issues 3351_ and 3403_)
 - Fix remaining ``sqllite3`` incompatibilities
 
