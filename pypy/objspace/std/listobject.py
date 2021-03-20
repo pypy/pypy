@@ -889,7 +889,7 @@ class ListStrategy(object):
     def is_empty_strategy(self):
         return False
 
-    def physical_size(self):
+    def physical_size(self, w_list):
         raise oefmt(self.space.w_ValueError, "can't get physical size of list")
 
 
@@ -1052,7 +1052,7 @@ class EmptyListStrategy(ListStrategy):
     def is_empty_strategy(self):
         return True
 
-    def physical_size(self):
+    def physical_size(self, w_list):
         return 0
 
 
