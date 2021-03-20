@@ -12,7 +12,7 @@ PyPy v7.3.4: release of 2.7 and 3.7
   Changelog up to commit d414fb8186a7
 
 
--The PyPy team is proud to release the version 7.3.4 of PyPy, which includes
+The PyPy team is proud to release the version 7.3.4 of PyPy, which includes
 two different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
@@ -21,7 +21,7 @@ two different interpreters:
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
     Python 3.7, including the stdlib for CPython 3.7.10. We no longer refer to
-    this as beta-quality as the last incompatibilites with CPython (in the
+    this as beta-quality as the last incompatibilities with CPython (in the
     ``re`` module) have been fixed.
 
 The interpreters are based on much the same codebase, thus the multiple
