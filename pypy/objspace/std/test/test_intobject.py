@@ -860,6 +860,33 @@ class AppTestInt(object):
                         y = pow(i, -k, j)
                         assert y == pow(x, k, j)
 
+    def test_int_constructor_calls_index(self):
+        class A:
+            def __index__(self):
+                return 25
+        assert int(A()) == 25
+        reallybig = 1 << 1000
+        class A:
+            def __index__(self):
+                return reallybig
+        assert int(A()) == reallybig
+
+        class A:
+            def __index__(self):
+                return "abc"
+        with raises(TypeError):
+            int(A())
+
+        class subint(int):
+            pass
+        class A:
+            def __index__(self):
+                return subint(12)
+        x = int(A())
+        assert x == 12
+        assert type(x) is int
+
+
 
 class AppTestIntShortcut(AppTestInt):
     spaceconfig = {"objspace.std.intshortcut": True}
