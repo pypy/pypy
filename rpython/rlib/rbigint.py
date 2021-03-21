@@ -2265,10 +2265,7 @@ def div2n1n(a, b, n):
 
 def div3n2n(a12, a3, b, b1, b2, n):
     """Helper function for div2n1n; not intended to be called directly."""
-    if a12.rshift(n).eq(b1):
-        q, r = ONERBIGINT.lshift(n).sub(ONERBIGINT), a12.sub(b1.lshift(n)).add(b1)
-    else:
-        q, r = div2n1n(a12, b1, n)
+    q, r = div2n1n(a12, b1, n)
     r = _full_digits_lshift_then_or(r, n, a3).sub(q.mul(b2))
     while r.sign < 0:
         q = q.int_sub(1)
@@ -2283,7 +2280,6 @@ def _full_digits_lshift_then_or(a, n, b):
         return b
     assert n % SHIFT == 0
     bdigits = b.numdigits()
-    shifted = rbigint([NULLDIGIT] * (n // SHIFT) + a._digits, a.sign, a.numdigits() + (n // SHIFT))
     assert b.numdigits() <= n // SHIFT
     result = rbigint(b._digits + [NULLDIGIT] * (n // SHIFT - bdigits) + a._digits, 1, a.numdigits() + (n // SHIFT))
     return result
@@ -2324,7 +2320,6 @@ def _divmod_fast_pos(a, b):
     else:
         r = a_digits_base_n[a_digits_index]
         a_digits_index -= 1
-
     q_digits = None
     q_index_start = a_digits_index * n_S
     while a_digits_index >= 0:

@@ -284,6 +284,10 @@ class TestRLong(object):
         f2 = rbigint.fromlong((2 << (65 * 3 + 2)) - 1)
         divmod_fast(f1, f2)
 
+        f1 = rbigint.fromlong((2 + 5 * 2 ** SHIFT) << (100 * SHIFT))
+        f2 = rbigint.fromlong(5 << (100 * SHIFT))
+        divmod_fast(f1, f2)
+
 
 def bigint(lst, sign):
     for digit in lst:
@@ -1308,14 +1312,15 @@ class TestHypothesis(object):
              108089693021945158982483698831267549521)
     @example(51043991434705027934074467822730751796184773621888706622259209143470502793407446782273075179618477362188870662225920143470502793407446782273075179618477362188870662225920,
              10808)
+    @example(17, 257)
     def test_divmod_fast(self, x, y):
         from rpython.rlib.rbigint import HOLDER
         if x < y:
             x, y = y, x
 
         # boost size
-        x *= 3 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
-        y *= 2 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
+        x *= 3 ** (HOLDER.DIV_LIMIT * SHIFT * 5) - 1
+        y *= 2 ** (HOLDER.DIV_LIMIT * SHIFT * 5) - 1
 
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)
