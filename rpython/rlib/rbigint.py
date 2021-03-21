@@ -2305,27 +2305,43 @@ def _divmod_fast_pos(a, b):
         a = a.lshift(rest_shift)
         b = b.lshift(rest_shift)
         assert b.bit_length() == new_n
+    n = new_n
 
-    mask = ONERBIGINT.lshift(new_n).int_sub(1)
-    n_S = new_n // SHIFT
+    n_S = n // SHIFT
     r = range(0, len(a._digits), n_S)
-    a_digits = [None] * len(r)
+    a_digits_base_n = [None] * len(r)
     index = 0
     for i in r:
         assert i >= 0
         stop = i + n_S
         assert stop >= 0
-        a_digits[index] = rbigint(a._digits[i: stop], 1)
+        a_digits_base_n[index] = rbigint(a._digits[i: stop], 1)
         index += 1
 
-    r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
-    q = NULLRBIGINT
-    while a_digits:
-        arg1 = _full_digits_lshift_then_or(r, new_n, a_digits.pop())
-        q_digit, r = div2n1n(arg1, b, new_n)
-        q = _full_digits_lshift_then_or(q, new_n, q_digit)
+    a_digits_index = len(a_digits_base_n) - 1
+    if a_digits_base_n[a_digits_index].ge(b):
+        r = NULLRBIGINT
+    else:
+        r = a_digits_base_n[a_digits_index]
+        a_digits_index -= 1
+
+    q_digits = None
+    q_index_start = a_digits_index * n_S
+    while a_digits_index >= 0:
+        arg1 = _full_digits_lshift_then_or(r, n, a_digits_base_n[a_digits_index])
+        q_digit_base_n, r = div2n1n(arg1, b, n)
+        if q_digits is None:
+             q_digits = [NULLDIGIT] * (a_digits_index * n_S + len(q_digit_base_n._digits))
+        for i, q_digit_digit in enumerate(q_digit_base_n._digits):
+            q_digits[q_index_start + i] = q_digit_digit
+        q_index_start -= n_S
+        a_digits_index -= 1
     if rest_shift:
         r = r.rshift(rest_shift)
+    if q_digits is None:
+        q = NULLRBIGINT
+    else:
+        q = rbigint(q_digits, 1)
     q._normalize()
     r._normalize()
     return q, r
