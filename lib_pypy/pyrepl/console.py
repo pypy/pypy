@@ -17,8 +17,10 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-class Event:
+
+class Event(object):
     """An Event.  `evt' is 'key' or somesuch."""
+    __slots__ = 'evt', 'data', 'raw'
 
     def __init__(self, evt, data, raw=''):
         self.evt = evt
@@ -26,16 +28,21 @@ class Event:
         self.raw = raw
 
     def __repr__(self):
-        return 'Event(%r, %r)'%(self.evt, self.data)
+        return 'Event(%r, %r)' % (self.evt, self.data)
 
-class Console:
+    def __eq__(self, other):
+        return (self.evt == other.evt and
+                self.data == other.data and
+                self.raw == other.raw)
+
+class Console(object):
     """Attributes:
 
     screen,
     height,
     width,
     """
-    
+
     def refresh(self, screen, xy):
         pass
 

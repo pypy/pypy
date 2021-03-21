@@ -76,8 +76,6 @@ def test_yank_pop():
                ( 'accept',                ['cd '])])
 
 
-# interrupt uses os.kill which doesn't go through signal handlers on windows
-@pytest.mark.skipif("os.name == 'nt'")
 def test_interrupt():
     with pytest.raises(KeyboardInterrupt):
         read_spec([('interrupt', [''])])
