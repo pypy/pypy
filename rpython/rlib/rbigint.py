@@ -2275,6 +2275,12 @@ def div3n2n(a12, a3, b, b1, b2, n):
         r = r.add(b)
     return q, r
 
+def _lshift_then_or(a, n, b):
+    """ equivalent to a.lshift(n).or_(b)
+    n must be a multiple of SHIFT. the size of b must be smaller than n // SHIFT
+    """
+    return a.lshift(n).or_(b)
+
 def _divmod_fast_pos(a, b):
     """Divide a positive integer a by a positive integer b, giving
     quotient and remainder."""
@@ -2288,18 +2294,32 @@ def _divmod_fast_pos(a, b):
     if rest_shift:
         a = a.lshift(rest_shift)
         b = b.lshift(rest_shift)
-        new_n = b.bit_length()
+        assert b.bit_length() == new_n
 
     mask = ONERBIGINT.lshift(new_n).int_sub(1)
-    a_digits = []
-    while not a.eq(NULLRBIGINT):
-        a_digits.append(a.and_(mask))
-        a = a.rshift(new_n)
+    n_S = new_n // SHIFT
+    r = range(0, len(a._digits), n_S)
+    a_digits = [None] * len(r)
+    index = 0
+    for i in r:
+        assert i >= 0
+        stop = i + n_S
+        assert stop >= 0
+        a_digits[index] = rbigint(a._digits[i: stop], 1)
+        index += 1
+
     r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
     q = NULLRBIGINT
     while a_digits:
-        q_digit, r = div2n1n(r.lshift(new_n).or_(a_digits.pop()), b, new_n)
-        q = q.lshift(new_n).or_(q_digit)
+        if r is NULLRBIGINT:
+            arg1 = a_digits.pop()
+        else:
+            arg1 = _lshift_then_or(r, new_n, a_digits.pop())
+        q_digit, r = div2n1n(arg1, b, new_n)
+        if q is NULLRBIGINT:
+            q = q_digit
+        else:
+            q = _lshift_then_or(q, new_n, q_digit)
     if rest_shift:
         r = r.rshift(rest_shift)
     return q, r

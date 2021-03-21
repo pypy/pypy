@@ -279,6 +279,10 @@ class TestRLong(object):
         assert not (a1 != a2)
         assert not (a1 == a3)
 
+    def test_divmod_fast2(self):
+        f1 = rbigint.fromlong((2 << 1000) - 1)
+        f2 = rbigint.fromlong((2 << (65 * 3 + 2)) - 1)
+        divmod_fast(f1, f2)
 
 
 def bigint(lst, sign):
@@ -1308,7 +1312,7 @@ class TestHypothesis(object):
             x, y = y, x
 
         # boost size
-        x *= 2 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
+        x *= 3 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
         y *= 2 ** (HOLDER.DIV_LIMIT * SHIFT) - 1
 
         f1 = rbigint.fromlong(x)
