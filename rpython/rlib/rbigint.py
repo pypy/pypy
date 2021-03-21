@@ -2261,7 +2261,7 @@ def div2n1n(a, b, n):
     b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
     q1, r = div3n2n(a.rshift(n), a.extract_bits(half_n, half_n), b, b1, b2, half_n)
     q2, r = div3n2n(r, a.extract_bits(0, half_n), b, b1, b2, half_n)
-    return q1.lshift(half_n).or_(q2), r
+    return _full_digits_lshift_then_or(q1, half_n, q2), r
 
 def div3n2n(a12, a3, b, b1, b2, n):
     """Helper function for div2n1n; not intended to be called directly."""
@@ -2269,23 +2269,33 @@ def div3n2n(a12, a3, b, b1, b2, n):
         q, r = ONERBIGINT.lshift(n).sub(ONERBIGINT), a12.sub(b1.lshift(n)).add(b1)
     else:
         q, r = div2n1n(a12, b1, n)
-    r = r.lshift(n).or_(a3).sub(q.mul(b2))
+    r = _full_digits_lshift_then_or(r, n, a3).sub(q.mul(b2))
     while r.sign < 0:
         q = q.int_sub(1)
         r = r.add(b)
     return q, r
 
-def _lshift_then_or(a, n, b):
+def _full_digits_lshift_then_or(a, n, b):
     """ equivalent to a.lshift(n).or_(b)
     n must be a multiple of SHIFT. the size of b must be smaller than n // SHIFT
     """
-    return a.lshift(n).or_(b)
+    if a.sign == 0:
+        return b
+    assert n % SHIFT == 0
+    bdigits = b.numdigits()
+    shifted = rbigint([NULLDIGIT] * (n // SHIFT) + a._digits, a.sign, a.numdigits() + (n // SHIFT))
+    assert b.numdigits() <= n // SHIFT
+    result = rbigint(b._digits + [NULLDIGIT] * (n // SHIFT - bdigits) + a._digits, 1, a.numdigits() + (n // SHIFT))
+    return result
 
 def _divmod_fast_pos(a, b):
     """Divide a positive integer a by a positive integer b, giving
     quotient and remainder."""
     # Use grade-school algorithm in base 2**n, n = nbits(b)
     n = b.bit_length()
+    m = a.bit_length()
+    if m < n:
+        return NULLRBIGINT, a
     # make n of the form SHIFT * HOLDER.DIV_LIMIT * 2 ** x
     new_n = SHIFT * HOLDER.DIV_LIMIT
     while new_n < n:
@@ -2311,17 +2321,13 @@ def _divmod_fast_pos(a, b):
     r = NULLRBIGINT if a_digits[-1].ge(b) else a_digits.pop()
     q = NULLRBIGINT
     while a_digits:
-        if r is NULLRBIGINT:
-            arg1 = a_digits.pop()
-        else:
-            arg1 = _lshift_then_or(r, new_n, a_digits.pop())
+        arg1 = _full_digits_lshift_then_or(r, new_n, a_digits.pop())
         q_digit, r = div2n1n(arg1, b, new_n)
-        if q is NULLRBIGINT:
-            q = q_digit
-        else:
-            q = _lshift_then_or(q, new_n, q_digit)
+        q = _full_digits_lshift_then_or(q, new_n, q_digit)
     if rest_shift:
         r = r.rshift(rest_shift)
+    q._normalize()
+    r._normalize()
     return q, r
 
 def divmod_fast(a, b):
