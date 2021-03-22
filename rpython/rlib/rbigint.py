@@ -924,7 +924,7 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
-        if self.numdigits() > 2 * other.numdigits() and \
+        if self.numdigits() > 1.2 * other.numdigits() and \
                 other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
             return divmod_big(self, other)
         return self._divmod_small(other)
@@ -2196,7 +2196,7 @@ class DivLimitHolder:
     pass
 
 HOLDER = DivLimitHolder()
-HOLDER.DIV_LIMIT = 11
+HOLDER.DIV_LIMIT = 21
 
 
 def _extract_digits(a, startindex, numdigits):
