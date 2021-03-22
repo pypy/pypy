@@ -924,6 +924,12 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
+        if self.numdigits() > 2 * other.numdigits() and \
+                other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
+            return divmod_big(self, other)
+        return self._divmod_small(other)
+
+    def _divmod_small(self, other):
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
@@ -2190,7 +2196,7 @@ class DivLimitHolder:
     pass
 
 HOLDER = DivLimitHolder()
-HOLDER.DIV_LIMIT = 3
+HOLDER.DIV_LIMIT = 11
 
 
 def _extract_digits(a, startindex, numdigits):
@@ -2327,16 +2333,16 @@ def _divmod_fast_pos(a, b):
     r._normalize()
     return q, r
 
-def divmod_fast(a, b):
+def divmod_big(a, b):
     # code from Mark Dickinson via https://bugs.python.org/file11060/fast_div.py
     # follows cr.yp.to/bib/1998/burnikel.ps
     if b.eq(NULLRBIGINT):
         raise ZeroDivisionError
     elif b.sign < 0:
-        q, r = divmod_fast(a.neg(), b.neg())
+        q, r = divmod_big(a.neg(), b.neg())
         return q, r.neg()
     elif a.sign < 0:
-        q, r = divmod_fast(a.invert(), b)
+        q, r = divmod_big(a.invert(), b)
         return q.invert(), b.add(r.invert())
     elif a.eq(NULLRBIGINT):
         return NULLRBIGINT, NULLRBIGINT
