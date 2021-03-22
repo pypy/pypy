@@ -1289,54 +1289,6 @@ class rbigint(object):
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
 
-    def extract_bits(self, pos, numbits):
-        """ extract numbits, starting at position pos. equivalent to:
-        mask = ONERBIGINT.lshift(numbits).int_sub(1)
-        result = self.rshift(pos).and_(mask)
-        only works for non-negative numbers
-        """
-        assert self.sign >= 0
-        if self.sign == 0 or numbits == 0:
-            return NULLRBIGINT
-        if pos > self.size * SHIFT:
-            return NULLRBIGINT
-        if pos < 0:
-            raise ValueError("negative position")
-
-        res_size, restbits = numbits // SHIFT, numbits % SHIFT
-        num_digits = res_size
-        if restbits:
-            res_size += 1
-        z = rbigint([NULLDIGIT] * res_size, 1, res_size)
-        first_index, offset = pos // SHIFT, pos % SHIFT
-
-        target = 0
-        if first_index < self.size:
-            digit = self.digit(first_index)
-        else:
-            digit = 0
-        index = first_index + 1
-        right = digit >> offset
-        for i in range(num_digits):
-            if index < self.size:
-                digit = self.digit(index)
-            else:
-                digit = 0
-            newdigit = right | (digit << (SHIFT - offset))
-            right = digit >> offset
-            z.setdigit(target, newdigit & MASK)
-            index += 1
-            target += 1
-        if restbits:
-            if index < self.size:
-                digit = self.digit(index)
-            else:
-                digit = 0
-            digit = right | (digit << (SHIFT - offset))
-            z.setdigit(target, digit & ((1 << restbits) - 1))
-        z._normalize()
-        return z
-        
     @jit.elidable
     def rqshift(self, int_other):
         wordshift = int_other / SHIFT
@@ -2240,45 +2192,59 @@ class DivLimitHolder:
 HOLDER = DivLimitHolder()
 HOLDER.DIV_LIMIT = 3
 
-def div2n1n(a_container, a_startindex, b, n):
-    """Divide a 2n-bit nonnegative integer a by an n-bit positive integer
+
+def _extract_digits(a, startindex, numdigits):
+    assert startindex >= 0
+    if startindex >= a.numdigits():
+        return NULLRBIGINT
+    stop = min(startindex + numdigits, a.numdigits())
+    assert stop >= 0
+    digits = a._digits[startindex: stop]
+    if not digits:
+        return NULLRBIGINT
+    r = rbigint(digits, 1)
+    r._normalize()
+    return r
+
+def div2n1n(a_container, a_startindex, b, n_S):
+    """Divide a 2*n_S-digit nonnegative integer a by an n_S-digit positive integer
     b, using a recursive divide-and-conquer algorithm.
 
     Inputs:
-      n is a positive integer
-      b is a positive integer with exactly n bits
-      a is a nonnegative integer such that a < 2**n * b
+      n_S is a positive integer
+      b is a positive rbigint with exactly n_S digits
+      a is a nonnegative integer such that a < 2**(n_S * SHIFT) * b
 
     Output:
       (q, r) such that a = b*q+r and 0 <= r < b.
 
-    a is represented as a slice of a bigger number a_container, 2 * n bits
-    wider, starting at a_startindex
+    a is represented as a slice of a bigger number a_container, 2 * n_S digits
+    wide, starting at a_startindex
     """
-    if n // SHIFT <= HOLDER.DIV_LIMIT:
-        a = a_container.extract_bits(a_startindex, 2 * n)
+    if n_S <= HOLDER.DIV_LIMIT:
+        a = _extract_digits(a_container, a_startindex, 2 * n_S)
         res = _divrem(a, b)
         return res
-    assert n & 1 == 0
-    half_n = n >> 1
-    b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
-    q1, r = div3n2n(a_container, a_startindex + n, a_container, a_startindex + half_n, b, b1, b2, half_n)
-    q2, r = div3n2n(r, 0, a_container, a_startindex, b, b1, b2, half_n)
-    return _full_digits_lshift_then_or(q1, half_n, q2), r
+    assert n_S & 1 == 0
+    half_n_S = n_S >> 1
+    b1, b2 = _extract_digits(b, half_n_S, half_n_S), _extract_digits(b, 0, half_n_S)
+    q1, r = div3n2n(a_container, a_startindex + n_S, a_container, a_startindex + half_n_S, b, b1, b2, half_n_S)
+    q2, r = div3n2n(r, 0, a_container, a_startindex, b, b1, b2, half_n_S)
+    return _full_digits_lshift_then_or(q1, half_n_S * SHIFT, q2), r
 
-def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n):
+def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n_S):
     """Helper function for div2n1n; not intended to be called directly."""
-    q, r = div2n1n(a12_container, a12_startindex, b1, n)
-    # equivalent to r = _full_digits_lshift_then_or(r, n, a3_container.extract_bits(a3_startindex, n))
+    q, r = div2n1n(a12_container, a12_startindex, b1, n_S)
+    # equivalent to r = _full_digits_lshift_then_or(r, n_S * SHIFT, _extract_digits(a_container, a3_startindex, n_S))
     if r.sign == 0:
-        r = a3_container.extract_bits(a3_startindex, n)
+        r = _extract_digits(a3_container, a3_startindex, n_S)
     else:
-        digits = [NULLDIGIT] * (n//SHIFT + r.numdigits())
+        digits = [NULLDIGIT] * (n_S + r.numdigits())
         index = 0
-        for i in range(a3_startindex//SHIFT, min(a3_startindex//SHIFT + n//SHIFT, a3_container.numdigits())):
+        for i in range(a3_startindex, min(a3_startindex + n_S, a3_container.numdigits())):
             digits[index] = a3_container._digits[i]
             index += 1
-        index = n//SHIFT
+        index = n_S
         for i in range(r.numdigits()):
             digits[index] = r._digits[i]
             index += 1
@@ -2344,7 +2310,7 @@ def _divmod_fast_pos(a, b):
     q_index_start = a_digits_index * n_S
     while a_digits_index >= 0:
         arg1 = _full_digits_lshift_then_or(r, n, a_digits_base_n[a_digits_index])
-        q_digit_base_n, r = div2n1n(arg1, 0, b, n)
+        q_digit_base_n, r = div2n1n(arg1, 0, b, n_S)
         if q_digits is None:
              q_digits = [NULLDIGIT] * (a_digits_index * n_S + len(q_digit_base_n._digits))
         for i, q_digit_digit in enumerate(q_digit_base_n._digits):
