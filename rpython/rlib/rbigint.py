@@ -2236,12 +2236,12 @@ def div2n1n(a_container, a_startindex, b, n_S):
     b1, b2 = _extract_digits(b, half_n_S, half_n_S), _extract_digits(b, 0, half_n_S)
     q1, r = div3n2n(a_container, a_startindex + n_S, a_container, a_startindex + half_n_S, b, b1, b2, half_n_S)
     q2, r = div3n2n(r, 0, a_container, a_startindex, b, b1, b2, half_n_S)
-    return _full_digits_lshift_then_or(q1, half_n_S * SHIFT, q2), r
+    return _full_digits_lshift_then_or(q1, half_n_S, q2), r
 
 def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n_S):
     """Helper function for div2n1n; not intended to be called directly."""
     q, r = div2n1n(a12_container, a12_startindex, b1, n_S)
-    # equivalent to r = _full_digits_lshift_then_or(r, n_S * SHIFT, _extract_digits(a_container, a3_startindex, n_S))
+    # equivalent to r = _full_digits_lshift_then_or(r, n_S, _extract_digits(a_container, a3_startindex, n_S))
     if r.sign == 0:
         r = _extract_digits(a3_container, a3_startindex, n_S)
     else:
@@ -2265,16 +2265,23 @@ def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b
     return q, r
 
 def _full_digits_lshift_then_or(a, n, b):
-    """ equivalent to a.lshift(n).or_(b)
-    n must be a multiple of SHIFT. the size of b must be smaller than n // SHIFT
+    """ equivalent to a.lshift(n * SHIFT).or_(b)
+    the size of b must be smaller than n
     """
     if a.sign == 0:
         return b
-    assert n % SHIFT == 0
     bdigits = b.numdigits()
-    assert b.numdigits() <= n // SHIFT
-    result = rbigint(b._digits + [NULLDIGIT] * (n // SHIFT - bdigits) + a._digits, 1, a.numdigits() + (n // SHIFT))
-    return result
+    assert bdigits <= n
+    # b._digits + [NULLDIGIT] * (n - bdigits) + a._digits
+    digits = [NULLDIGIT] * (a.numdigits() + n)
+    for i, digit in enumerate(b._digits):
+        digits[i] = digit
+    index = n
+    for i in range(a.numdigits()):
+        digits[index] = a._digits[i]
+        index += 1
+
+    return rbigint(digits, 1)
 
 def _divmod_fast_pos(a, b):
     """Divide a positive integer a by a positive integer b, giving
@@ -2315,7 +2322,7 @@ def _divmod_fast_pos(a, b):
     q_digits = None
     q_index_start = a_digits_index * n_S
     while a_digits_index >= 0:
-        arg1 = _full_digits_lshift_then_or(r, n, a_digits_base_n[a_digits_index])
+        arg1 = _full_digits_lshift_then_or(r, n_S, a_digits_base_n[a_digits_index])
         q_digit_base_n, r = div2n1n(arg1, 0, b, n_S)
         if q_digits is None:
              q_digits = [NULLDIGIT] * (a_digits_index * n_S + len(q_digit_base_n._digits))
