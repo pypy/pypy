@@ -2240,7 +2240,7 @@ class DivLimitHolder:
 HOLDER = DivLimitHolder()
 HOLDER.DIV_LIMIT = 3
 
-def div2n1n(a, b, n):
+def div2n1n(a_container, a_startindex, b, n):
     """Divide a 2n-bit nonnegative integer a by an n-bit positive integer
     b, using a recursive divide-and-conquer algorithm.
 
@@ -2252,21 +2252,41 @@ def div2n1n(a, b, n):
     Output:
       (q, r) such that a = b*q+r and 0 <= r < b.
 
+    a is represented as a slice of a bigger number a_container, 2 * n bits
+    wider, starting at a_startindex
     """
     if n // SHIFT <= HOLDER.DIV_LIMIT:
+        a = a_container.extract_bits(a_startindex, 2 * n)
         res = _divrem(a, b)
         return res
     assert n & 1 == 0
     half_n = n >> 1
     b1, b2 = b.rshift(half_n), b.extract_bits(0, half_n)
-    q1, r = div3n2n(a.rshift(n), a.extract_bits(half_n, half_n), b, b1, b2, half_n)
-    q2, r = div3n2n(r, a.extract_bits(0, half_n), b, b1, b2, half_n)
+    q1, r = div3n2n(a_container, a_startindex + n, a_container, a_startindex + half_n, b, b1, b2, half_n)
+    q2, r = div3n2n(r, 0, a_container, a_startindex, b, b1, b2, half_n)
     return _full_digits_lshift_then_or(q1, half_n, q2), r
 
-def div3n2n(a12, a3, b, b1, b2, n):
+def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n):
     """Helper function for div2n1n; not intended to be called directly."""
-    q, r = div2n1n(a12, b1, n)
-    r = _full_digits_lshift_then_or(r, n, a3).sub(q.mul(b2))
+    q, r = div2n1n(a12_container, a12_startindex, b1, n)
+    # equivalent to r = _full_digits_lshift_then_or(r, n, a3_container.extract_bits(a3_startindex, n))
+    if r.sign == 0:
+        r = a3_container.extract_bits(a3_startindex, n)
+    else:
+        digits = [NULLDIGIT] * (n//SHIFT + r.numdigits())
+        index = 0
+        for i in range(a3_startindex//SHIFT, min(a3_startindex//SHIFT + n//SHIFT, a3_container.numdigits())):
+            digits[index] = a3_container._digits[i]
+            index += 1
+        index = n//SHIFT
+        for i in range(r.numdigits()):
+            digits[index] = r._digits[i]
+            index += 1
+        r = rbigint(digits, 1)
+        r._normalize()
+    r = r.sub(q.mul(b2))
+
+    # loop runs at most twice
     while r.sign < 0:
         q = q.int_sub(1)
         r = r.add(b)
@@ -2324,7 +2344,7 @@ def _divmod_fast_pos(a, b):
     q_index_start = a_digits_index * n_S
     while a_digits_index >= 0:
         arg1 = _full_digits_lshift_then_or(r, n, a_digits_base_n[a_digits_index])
-        q_digit_base_n, r = div2n1n(arg1, b, n)
+        q_digit_base_n, r = div2n1n(arg1, 0, b, n)
         if q_digits is None:
              q_digits = [NULLDIGIT] * (a_digits_index * n_S + len(q_digit_base_n._digits))
         for i, q_digit_digit in enumerate(q_digit_base_n._digits):
