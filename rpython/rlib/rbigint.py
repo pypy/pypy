@@ -2192,6 +2192,8 @@ def _divrem(a, b):
         rem.sign = - rem.sign
     return z, rem
 
+
+
 class DivLimitHolder:
     pass
 
@@ -2274,7 +2276,8 @@ def _full_digits_lshift_then_or(a, n, b):
     assert bdigits <= n
     # b._digits + [NULLDIGIT] * (n - bdigits) + a._digits
     digits = [NULLDIGIT] * (a.numdigits() + n)
-    for i, digit in enumerate(b._digits):
+    for i in range(b.numdigits()):
+        digit = b._digits[i]
         digits[i] = digit
     index = n
     for i in range(a.numdigits()):
@@ -2303,7 +2306,7 @@ def _divmod_fast_pos(a, b):
     n = new_n
 
     n_S = n // SHIFT
-    r = range(0, len(a._digits), n_S)
+    r = range(0, a.numdigits(), n_S)
     a_digits_base_n = [None] * len(r)
     index = 0
     for i in r:
@@ -2325,9 +2328,9 @@ def _divmod_fast_pos(a, b):
         arg1 = _full_digits_lshift_then_or(r, n_S, a_digits_base_n[a_digits_index])
         q_digit_base_n, r = div2n1n(arg1, 0, b, n_S)
         if q_digits is None:
-             q_digits = [NULLDIGIT] * (a_digits_index * n_S + len(q_digit_base_n._digits))
-        for i, q_digit_digit in enumerate(q_digit_base_n._digits):
-            q_digits[q_index_start + i] = q_digit_digit
+            q_digits = [NULLDIGIT] * (a_digits_index * n_S + q_digit_base_n.numdigits())
+        for i in range(q_digit_base_n.numdigits()):
+            q_digits[q_index_start + i] = q_digit_base_n._digits[i]
         q_index_start -= n_S
         a_digits_index -= 1
     if rest_shift:

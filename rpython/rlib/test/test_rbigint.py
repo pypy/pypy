@@ -1024,6 +1024,22 @@ class TestInternalFunctions(object):
         assert div.tolong() == _div
         assert rem.tolong() == _rem
 
+    def test_divmod_big_bug(self):
+        a = -0x13131313131313131313cfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfcfd0
+        b = -0x131313131313131313d0
+        ra = rbigint.fromlong(a)
+        rb = rbigint.fromlong(b)
+        from rpython.rlib.rbigint import HOLDER
+        oldval = HOLDER.DIV_LIMIT
+        try:
+            HOLDER.DIV_LIMIT = 2 # set limit low to test divmod_big more
+            rdiv, rmod = divmod_big(ra, rb)
+            div, mod = divmod(a, b)
+            assert rdiv.tolong() == div
+            assert rmod.tolong() == mod
+        finally:
+            HOLDER.DIV_LIMIT = oldval
+
 
     def test_int_divmod(self):
         for x in long_vals:
