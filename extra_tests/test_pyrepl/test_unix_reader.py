@@ -1,5 +1,9 @@
 from __future__ import unicode_literals
-from pyrepl.unix_eventqueue import EncodedQueue, Event
+import pytest
+try:
+    from pyrepl.unix_eventqueue import EncodedQueue, Event
+except ImportError:
+    pytest.skip('cannot import unix_eventqueue', allow_module_level=True)
 
 
 def test_simple():

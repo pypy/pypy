@@ -1,5 +1,9 @@
+import pytest
 import os
-import pty
+try:
+    import pty
+except ImportError:
+    pytest.skip('cannot import pty', allow_module_level=True)
 import sys
 
 import pytest

@@ -1,5 +1,8 @@
 import pytest
-from pyrepl.curses import setupterm
+try:
+    from pyrepl.curses import setupterm
+except ImportError:
+    pytest.skip('cannot import curses', allow_module_level=True)
 import pyrepl
 
 
