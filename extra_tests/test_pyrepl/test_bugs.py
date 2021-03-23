@@ -48,9 +48,12 @@ def test_cmd_instantiation_crash():
 
 def test_signal_failure(monkeypatch):
     import os
-    import pty
     import signal
-    from pyrepl.unix_console import UnixConsole
+    try:
+        import pty
+        from pyrepl.unix_console import UnixConsole
+    except ImportError:
+        pytest.skip('cannot import needed modules for test')
 
     def failing_signal(a, b):
         raise ValueError
