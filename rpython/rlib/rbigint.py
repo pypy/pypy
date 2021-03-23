@@ -2307,30 +2307,30 @@ def _divmod_fast_pos(a, b):
 
     n_S = n // SHIFT
     r = range(0, a.numdigits(), n_S)
-    a_digits_base_n = [None] * len(r)
+    a_digits_base_two_pow_n = [None] * len(r)
     index = 0
     for i in r:
         assert i >= 0
         stop = i + n_S
         assert stop >= 0
-        a_digits_base_n[index] = rbigint(a._digits[i: stop], 1)
+        a_digitsbase_two_pow_n[index] = rbigint(a._digits[i: stop], 1)
         index += 1
 
-    a_digits_index = len(a_digits_base_n) - 1
-    if a_digits_base_n[a_digits_index].ge(b):
+    a_digits_index = len(a_digitsbase_two_pow_n) - 1
+    if a_digitsbase_two_pow_n[a_digits_index].ge(b):
         r = NULLRBIGINT
     else:
-        r = a_digits_base_n[a_digits_index]
+        r = a_digitsbase_two_pow_n[a_digits_index]
         a_digits_index -= 1
     q_digits = None
     q_index_start = a_digits_index * n_S
     while a_digits_index >= 0:
-        arg1 = _full_digits_lshift_then_or(r, n_S, a_digits_base_n[a_digits_index])
-        q_digit_base_n, r = div2n1n(arg1, 0, b, n_S)
+        arg1 = _full_digits_lshift_then_or(r, n_S, a_digitsbase_two_pow_n[a_digits_index])
+        q_digitbase_two_pow_n, r = div2n1n(arg1, 0, b, n_S)
         if q_digits is None:
-            q_digits = [NULLDIGIT] * (a_digits_index * n_S + q_digit_base_n.numdigits())
-        for i in range(q_digit_base_n.numdigits()):
-            q_digits[q_index_start + i] = q_digit_base_n._digits[i]
+            q_digits = [NULLDIGIT] * (a_digits_index * n_S + q_digitbase_two_pow_n.numdigits())
+        for i in range(q_digitbase_two_pow_n.numdigits()):
+            q_digits[q_index_start + i] = q_digitbase_two_pow_n._digits[i]
         q_index_start -= n_S
         a_digits_index -= 1
     if rest_shift:
