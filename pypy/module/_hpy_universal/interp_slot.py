@@ -392,7 +392,7 @@ SLOTS = unrolling_iterable([
 #   ('tp_iternext',                '__xxx__',       AGS.W_SlotWrapper_...),
 #   tp_new     SPECIAL-CASED
     ('tp_repr',                    '__repr__',      W_wrap_unaryfunc),
-#   ('tp_richcompare',             '__xxx__',       AGS.W_SlotWrapper_...),
+#   tp_richcompare  SPECIAL-CASED
 #   ('tp_setattr',                 '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('tp_setattro',                '__xxx__',       AGS.W_SlotWrapper_...),
 #    ('tp_str',                     '__str__',       W_wrap_unaryfunc),
