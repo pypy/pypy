@@ -1,4 +1,4 @@
-
+from __future__ import absolute_import
 #   Copyright 2000-2010 Michael Hudson-Doyle <micahel@gmail.com>
 #                       Armin Rigo
 #
@@ -19,5 +19,8 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-
-from ._minimal_curses import setupterm, tigetstr, tparm, error
+# First try the built-in module
+try:
+    from _minimal_curses import setupterm, tigetstr, tparm, error
+except ImportError:
+    from ._minimal_curses import setupterm, tigetstr, tparm, error
