@@ -1886,25 +1886,12 @@ def _k_mul(a, b):
     for i in range(t1.numdigits()):
         ret._digits[2*shift + i] = t1._digits[i]
 
-    # Zero-out the digits higher than the ah*bh copy. */
-    ## ignored, assuming that we initialize to zero
-    ##i = ret->ob_size - 2*shift - t1->ob_size;
-    ##if (i)
-    ##    memset(ret->ob_digit + 2*shift + t1->ob_size, 0,
-    ##           i * sizeof(digit));
-
     # 3. t2 <- al*bl, and copy into the low digits.
     t2 = al.mul(bl)
     assert t2.sign >= 0
     assert t2.numdigits() <= 2*shift # no overlap with high digits
     for i in range(t2.numdigits()):
         ret._digits[i] = t2._digits[i]
-
-    # Zero out remaining digits.
-    ## ignored, assuming that we initialize to zero
-    ##i = 2*shift - t2->ob_size;  /* number of uninitialized digits */
-    ##if (i)
-    ##    memset(ret->ob_digit + t2->ob_size, 0, i * sizeof(digit));
 
     # 4 & 5. Subtract ah*bh (t1) and al*bl (t2).  We do al*bl first
     # because it's fresher in cache.
