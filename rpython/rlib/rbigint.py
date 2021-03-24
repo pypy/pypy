@@ -1455,14 +1455,7 @@ class rbigint(object):
         if i == 1 and self._digits[0] == NULLDIGIT:
             return 0
         msd = self.digit(i - 1)
-        msd_bits = 0
-        while msd >= 32:
-            msd_bits += 6
-            msd >>= 6
-        msd_bits += [
-            0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-            ][msd]
+        msd_bits = bits_in_digit(msd)
         # yes, this can overflow: a huge number which fits 3 gigabytes of
         # memory has around 24 gigabits!
         bits = ovfcheck((i-1) * SHIFT) + msd_bits
