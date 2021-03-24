@@ -2235,9 +2235,30 @@ def div2n1n(a_container, a_startindex, b, n_S):
         return res
     assert n_S & 1 == 0
     half_n_S = n_S >> 1
+    # school division: (diagram from Burnikel & Ziegler, p 3)
+    #
+    #   size half_n_S                                     size n_S
+    #    |                                                     |
+    #    v                                                     v
+    # +----+----+----+----+   +----+----+   +----+----+   +---------+
+    # | a1 | a2 | a3 | a4 | / | b1 | b2 | = | q1 | q2 | = |     q   |
+    # +====+====+====+====+   +----+----+   +----+----+   +---------+
+    # | q1 * b1 |
+    # +----+----+----+               <
+    #      | q1 * b2 | subtracting  <   first call to div3n2n
+    #      +---------+----+          <
+    #      |    r1   | a4 |
+    #      +---------+----+
+    #      | q2 * b1 |
+    #      +----+----+----+              <
+    #           | q2 * b2 | subtracing  <   second call to div3n2n
+    #           +---------+              <
+    #           |     r   |
+    #           +---------+
+
     b1, b2 = _extract_digits(b, half_n_S, half_n_S), _extract_digits(b, 0, half_n_S)
-    q1, r = div3n2n(a_container, a_startindex + n_S, a_container, a_startindex + half_n_S, b, b1, b2, half_n_S)
-    q2, r = div3n2n(r, 0, a_container, a_startindex, b, b1, b2, half_n_S)
+    q1, r1 = div3n2n(a_container, a_startindex + n_S, a_container, a_startindex + half_n_S, b, b1, b2, half_n_S)
+    q2, r = div3n2n(r1, 0, a_container, a_startindex, b, b1, b2, half_n_S)
     return _full_digits_lshift_then_or(q1, half_n_S, q2), r
 
 def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n_S):
