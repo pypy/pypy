@@ -2211,6 +2211,8 @@ def div2n1n(a_container, a_startindex, b, n_S):
     """
     if n_S <= HOLDER.DIV_LIMIT:
         a = _extract_digits(a_container, a_startindex, 2 * n_S)
+        if a.sign == 0:
+            return NULLRBIGINT, NULLRBIGINT
         res = _divrem(a, b)
         return res
     assert n_S & 1 == 0
@@ -2259,6 +2261,8 @@ def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b
             index += 1
         r = rbigint(digits, 1)
         r._normalize()
+    if q.sign == 0:
+        return q, r
     r = r.sub(q.mul(b2))
 
     # loop runs at most twice
