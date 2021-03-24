@@ -940,7 +940,8 @@ def _new_baseint(space, w_value, w_base=None):
                     raise oefmt(space.w_TypeError,
                                 "int() argument must be a string, a bytes-like "
                                 "object or a number, not '%T'", w_value)
-            return w_obj
+            assert isinstance(w_obj, W_AbstractIntObject)
+            return _ensure_baseint(space, w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from pypy.objspace.std.unicodeobject import unicode_to_decimal_w
             try:
