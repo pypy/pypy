@@ -1,7 +1,7 @@
 from __future__ import division
 
 import operator
-import sys
+import sys, os
 import math
 from random import random, randint, sample
 
@@ -1314,20 +1314,20 @@ class TestHypothesis(object):
     @given(biglongs, biglongs)
     @example(510439143470502793407446782273075179618477362188870662225920,
              108089693021945158982483698831267549521)
-    def test_divrem(self, x, y):
+    def test_divmod_small(self, x, y):
         if x < y:
             x, y = y, x
 
         f1 = rbigint.fromlong(x)
         f2 = rbigint.fromlong(y)
         try:
-            res = _divrem(x, y)
+            res = divmod(x, y)
         except Exception as e:
             with pytest.raises(type(e)):
-                _divrem(f1, f2)
+                f1._divmod_small(f2)
         else:
-            print x, y
             a, b = _divrem(f1, f2)
+            a, b = f1._divmod_small(f2)
             assert (a.tolong(), b.tolong()) == res
 
 
@@ -1472,6 +1472,7 @@ class TestHypothesis(object):
         x, y, z = abs(x), abs(y), abs(z)
 
         def test(a, b, res):
+            print(rbigint.fromlong(a))
             g = rbigint.fromlong(a).gcd(rbigint.fromlong(b)).tolong()
 
             assert g == res
@@ -1488,3 +1489,46 @@ class TestHypothesis(object):
         test(z, y * z, z)
         test(x, 0, x)
         test(0, x, x)
+
+@pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
+def test_hypothesis_small_shift(methname):
+    # run the TestHypothesis in a subprocess with a smaller SHIFT value
+    # the idea is that this finds hopefully finds edge cases more easily
+    import subprocess, os
+    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = p.communicate()
+    print stdout
+    print stderr
+    assert not p.returncode
+
+def _get_hacked_rbigint(shift):
+    testpath = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(os.path.dirname(testpath), "rbigint.py")) as f:
+        s = f.read()
+    s = s.replace("SHIFT = 63", "SHIFT = %s" % (shift, ))
+    s = s.replace("SHIFT = 31", "SHIFT = %s" % (shift, ))
+    with open(os.path.join(testpath, "_hacked_rbigint.py"), "w") as f:
+        f.write(s)
+
+    from rpython.rlib.test import _hacked_rbigint
+    return _hacked_rbigint
+
+def run():
+    shift = 9
+    print "USING SHIFT", shift
+    _hacked_rbigint = _get_hacked_rbigint(shift)
+    globals().update(_hacked_rbigint.__dict__) # emulate import *
+    assert SHIFT == shift
+    t = TestHypothesis()
+    try:
+        getattr(t, sys.argv[1])()
+    except:
+        if "--pdb" in sys.argv:
+            import traceback, pdb
+            info = sys.exc_info()
+            print(traceback.format_exc())
+            pdb.post_mortem(info[2], pdb.Pdb)
+
+
+if __name__ == '__main__':
+    run()

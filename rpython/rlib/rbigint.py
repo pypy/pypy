@@ -213,6 +213,12 @@ class rbigint(object):
     def fromint(intval):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
+
+        # for hypothesis testing, we want to be able to set SHIFT to a small
+        # number to hit edge cases more easily. so use a slower path if SHIFT
+        # is a nonstandard value
+        if SHIFT != 63 and SHIFT != 31:
+            return rbigint.fromrarith_int(intval)
         check_regular_int(intval)
 
         if intval < 0:
@@ -1482,11 +1488,6 @@ _jmapping = [(5 * SHIFT) % 5,
              (2 * SHIFT) % 5,
              (1 * SHIFT) % 5]
 
-
-# if the bigint has more digits than this, it cannot fit into an int
-# Also, if it has less digits than this, then it must be <=sys.maxint in
-# absolute value and so it must fit an int.
-MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
 
 #_________________________________________________________________
@@ -3273,3 +3274,10 @@ def gcd_lehmer(a, b):
 
     a = a.mod(b)
     return rbigint.fromint(gcd_binary(b.toint(), a.toint()))
+
+
+# if the bigint has more digits than this, it cannot fit into an int
+# Also, if it has less digits than this, then it must be <=sys.maxint in
+# absolute value and so it must fit an int.
+MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+
