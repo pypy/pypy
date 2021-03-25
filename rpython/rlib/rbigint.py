@@ -2223,7 +2223,7 @@ def div2n1n(a_container, a_startindex, b, n_S):
     #    |                                                     |
     #    v                                                     v
     # +----+----+----+----+   +----+----+   +----+----+   +---------+
-    # | a1 | a2 | a3 | a4 | / | b1 | b2 | = | q1 | q2 | = |     q   |
+    # | a1 | a2 | a3 | a4 | / | b1 | b2 | = | q1 | q2 | = |    q    |
     # +====+====+====+====+   +----+----+   +----+----+   +---------+
     # | q1 * b1 |
     # +----+----+----+               <
@@ -2235,7 +2235,7 @@ def div2n1n(a_container, a_startindex, b, n_S):
     #      +----+----+----+              <
     #           | q2 * b2 | subtracing  <   second call to div3n2n
     #           +---------+              <
-    #           |     r   |
+    #           |    r    |
     #           +---------+
 
     b1, b2 = _extract_digits(b, half_n_S, half_n_S), _extract_digits(b, 0, half_n_S)
