@@ -29,9 +29,9 @@ release. This is a micro release, all APIs are compatible with the 7.3
 releases. The two highlights of the release are binary **Windows 64** support,
 as well as faster numerical instance fields.
 
-A new contributor took us up on the challenge to get `windows 64-bit`_ support.
-The work has been merged and for the first time we are releasing a 64-bit
-Windows binary package.
+A new contributor (Ondrej Baranovič - thanks!) took us up on the challenge to get
+`windows 64-bit`_ support.  The work has been merged and for the first time we
+are releasing a 64-bit Windows binary package.
 
 The release contains the biggest change to `PyPy's implementation of the
 instances of user-defined classes`_ in many years. The optimization was
@@ -153,8 +153,6 @@ Changelog
 Bugfixes shared across versions
 -------------------------------
 - Test, fix xml default attribute values (issue 3333_, `bpo 42151`_)
-- Truncate ``REG_SZ`` at first ``NULL`` in ``winreg`` to match ``reg.exe``
-  behaviour (`bpo 25778`_)
 - Rename ``_hashlib.Hash`` to ``HASH`` to match CPython
 - Fix loading system libraries with ctypes on macOS Big Sur (issue 3314)
 - Fix ``__thread_id`` in greenlets (issue 3381_)
@@ -187,6 +185,8 @@ Speedups and enhancements shared across versions
 - Copy manifest from CPython and link it into ``pypy.exe`` (issue 3363)
 - Preserve ``None`` passed as ``REG_BINARY`` instead of crashing or changing it
   to an empty string in ``winreg`` (`bpo 21151`_)
+- Add ``REG_QWORD*`` and ``Reg{Dis,En}ableReflectionKey``, and
+  ``RegDeleteKeyEx`` to ``winreg``
 - Backport msvc detection from python3, which probably breaks using Visual
   Studio 2008 (MSVC9, or the version that used to be used to build CPython2.7
   on Windows)
@@ -247,10 +247,10 @@ Python 3.7+
 - Hang on to ``servername_callback`` handle in ``_ssl`` so it will not be
   deleted until the context is deleted (issue 3396)
 - Implement ``set_wakeup_fd(warn_on_full_buffer)`` (issue 3227_)
-- Add ``REG_QWORD*`` and ``Reg{Dis,En}ableReflectionKey``, and
-  ``RegDeleteKeyEx`` to ``winreg``
 - Round-trip invalid UTF-16 data in ``winreg`` without a ``UnicodeDecodeError``
   (issue 3342_)
+- Truncate ``REG_SZ`` at first ``NULL`` in ``winreg`` to match ``reg.exe``
+  behaviour (`bpo 25778`_)
 - Fix for surrogates in ``winreg`` input value (issue 3345_)
 - In ``sysconfig``, ``INCLUDEPY`` and ``INCLUDEDIR`` should point to the
   original directory even in a virtualenv (issue 3364_)
