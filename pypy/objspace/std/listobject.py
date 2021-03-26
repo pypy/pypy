@@ -568,14 +568,26 @@ class W_ListObject(W_Root):
 
     def descr_setitem(self, space, w_index, w_any):
         if isinstance(w_index, W_SliceObject):
+            # special case for l[:] = l2
+            if (space.is_w(w_index.w_start, space.w_None) and
+                    space.is_w(w_index.w_stop, space.w_None) and
+                    space.is_w(w_index.w_step, space.w_None)):
+                if isinstance(w_any, W_ListObject):
+                    w_any.copy_into(self)
+                else:
+                    # use the extend logic
+                    self.clear()
+                    self.extend(w_any)
+                return
+
             oldsize = self.length()
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
             if isinstance(w_any, W_ListObject):
-                self.setslice(start, step, slicelength, w_any)
+                w_other = w_any
             else:
                 sequence_w = space.listview(w_any)
                 w_other = W_ListObject(space, sequence_w)
-                self.setslice(start, step, slicelength, w_other)
+            self.setslice(start, step, slicelength, w_other)
             return
 
         idx = space.getindex_w(w_index, space.w_IndexError, "list index")
@@ -1551,8 +1563,9 @@ class AbstractUnwrappedStrategy(object):
                     i -= 1
                 return
             else:
-                # Make a shallow copy to more easily handle the reversal case
-                w_list.reverse()
+                # other_items is items and step is < 0, therefore:
+                assert step == -1
+                items.reverse()
                 return
                 #other_items = list(other_items)
         for i in range(len2):
