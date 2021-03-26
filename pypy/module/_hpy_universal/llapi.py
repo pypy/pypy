@@ -433,6 +433,23 @@ typedef enum {
     HPy_GE = 5,
 } HPy_RichCmpOp;
 
+/* hpyfunc.h */
+
+typedef struct {
+    void *buf;
+    HPy obj;        /* owned reference */
+    HPy_ssize_t len;
+    HPy_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    HPy_ssize_t *shape;
+    HPy_ssize_t *strides;
+    HPy_ssize_t *suboffsets;
+    void *internal;
+} HPy_buffer;
+
+
 /* autogen_hpyfunc_declare.h */
 
 typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
@@ -465,8 +482,8 @@ typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t
 typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
-//typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
-//typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
+typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
+typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 

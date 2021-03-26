@@ -9,6 +9,7 @@ from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
 from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
+from .buffer import HPyBuffer
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
@@ -244,6 +245,43 @@ class W_wrap_objobjproc(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.newbool(bool(res))
 
+class W_wrap_getbuffer(W_SlotWrapper):
+    def call(self, space, __args__):
+        func = llapi.cts.cast("HPyFunc_getbufferproc", self.cfuncptr)
+        self.check_args(space, __args__, 2)
+        ctx = space.fromcache(State).ctx
+        w_self = __args__.arguments_w[0]
+        w_flags = __args__.arguments_w[1]
+        flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
+        with handles.using(space, w_self) as h_self:
+            with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
+                res = func(ctx, h_self, hpybuf, flags)
+                if widen(res) < 0:
+                    raise oefmt(space.w_BufferError)
+                buf_ptr = hpybuf.c_buf
+                w_obj = handles.consume(space, hpybuf.c_obj)
+                size = hpybuf.c_len
+                ndim = widen(hpybuf.c_ndim)
+                shape = None
+                if hpybuf.c_shape:
+                    shape = [hpybuf.c_shape[i] for i in range(ndim)]
+                strides = None
+                if hpybuf.c_strides:
+                    strides = [hpybuf.c_strides[i] for i in range(ndim)]
+                if hpybuf.c_format:
+                    format = rffi.charp2str(hpybuf.c_format)
+                else:
+                    format = 'B'
+                view = HPyBuffer(
+                    buf_ptr, size, w_obj,
+                    itemsize=hpybuf.c_itemsize,
+                    readonly=widen(hpybuf.c_readonly),
+                    ndim=hpybuf.c_ndim, format=format, shape=shape,
+                    strides=strides)
+                #if releasebuffer: fq.register_finalizer(view)
+                return view.wrap(space)
+
+
 # remaining wrappers to write
 ## wrap_binaryfunc_l(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_binaryfunc_r(PyObject *self, PyObject *args, void *wrapped)
@@ -327,6 +365,7 @@ class W_tp_new_wrapper(W_ExtensionFunction):
 # __setitem__ and __delitem__).
 SLOTS = unrolling_iterable([
     # CPython slots
+    ('bf_getbuffer',                '__buffer__',   W_wrap_getbuffer),
 #   ('mp_ass_subscript',           '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('mp_length',                  '__xxx__',       AGS.W_SlotWrapper_...),
 #   ('mp_subscript',               '__getitem__',   AGS.W_SlotWrapper_binaryfunc),
@@ -424,6 +463,8 @@ def fill_slot(space, w_type, hpyslot):
         for methname, cls in CMP_SLOTS:
             w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
+        return
+    elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
         return
 
     # generic cases
