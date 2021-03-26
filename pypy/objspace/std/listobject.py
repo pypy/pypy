@@ -576,7 +576,7 @@ class W_ListObject(W_Root):
                     w_any.copy_into(self)
                 else:
                     # use the extend logic
-                    self.clear()
+                    self.clear(space)
                     self.extend(w_any)
                 return
 
