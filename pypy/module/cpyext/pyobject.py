@@ -361,7 +361,7 @@ def make_ref(space, w_obj, w_userdata=None, immortal=False):
     if w_obj is not None and space.type(w_obj) is space.w_int:
         state = space.fromcache(State)
         intval = space.int_w(w_obj)
-        return state.ccall("PyInt_FromLong", intval)
+        return state.ccall("PyInt_FromLong", rffi.cast(rffi.LONG, intval))
     return get_pyobj_and_incref(space, w_obj, w_userdata, immortal=False)
 
 @specialize.ll()

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 # Note: uses the CFFI out-of-line ABI mode.  We can't use the API
 # mode because ffi.compile() needs to run the compiler, which
 # needs 'subprocess', which needs 'msvcrt' and '_subprocess',
@@ -16,7 +17,12 @@ from cffi import FFI
 
 ffi = FFI()
 
-ffi.set_source("_pypy_winbase_cffi", None)
+if ffi.sizeof('HANDLE') == 8:
+    # 64 bit windows
+    ffi.set_source("_pypy_winbase_cffi64", None)
+else:
+    ffi.set_source("_pypy_winbase_cffi", None)
+ 
 
 # ---------- MSVCRT ----------
 

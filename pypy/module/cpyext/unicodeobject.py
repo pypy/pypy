@@ -62,7 +62,7 @@ def new_empty_unicode(space, length):
     py_uni.c_str = lltype.malloc(rffi.CWCHARP.TO, buflen,
                                  flavor='raw', zero=True,
                                  add_memory_pressure=True)
-    py_uni.c_hash = -1
+    rffi.setintfield(py_uni, 'c_hash', -1)
     py_uni.c_defenc = lltype.nullptr(PyObject.TO)
     return py_uni
 
@@ -72,7 +72,7 @@ def unicode_attach(space, py_obj, w_obj, w_userdata=None):
     s, length = space.utf8_len_w(w_obj)
     py_unicode.c_length = length
     py_unicode.c_str = lltype.nullptr(rffi.CWCHARP.TO)
-    py_unicode.c_hash = space.hash_w(space.newutf8(s, length))
+    rffi.setintfield(py_unicode, 'c_hash', space.hash_w(space.newutf8(s, length)))
     py_unicode.c_defenc = lltype.nullptr(PyObject.TO)
 
 def unicode_realize(space, py_obj):
@@ -86,7 +86,7 @@ def unicode_realize(space, py_obj):
     w_type = from_ref(space, rffi.cast(PyObject, py_obj.c_ob_type))
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s, length)
-    py_uni.c_hash = space.hash_w(space.newutf8(s, length))
+    rffi.setintfield(py_uni, 'c_hash', space.hash_w(space.newutf8(s, length)))
     track_reference(space, py_obj, w_obj)
     return w_obj
 

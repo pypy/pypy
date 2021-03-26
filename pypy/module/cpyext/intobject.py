@@ -35,7 +35,7 @@ def int_alloc(typedescr, space, w_type, itemcount):
         # value. However, it's just easier to call PyInt_FromLong with a dummy
         # value; make sure it's big enough to avoid the smallint optimization
         # (if it will ever be enabled)
-        return state.ccall("PyInt_FromLong", 0x0DEADBEE)
+        return state.ccall("PyInt_FromLong", rffi.cast(rffi.LONG, 0x0DEADBEE))
     else:
         return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount)
 
@@ -45,7 +45,7 @@ def int_attach(space, py_obj, w_obj, w_userdata=None):
     value must not be modified.
     """
     py_int = rffi.cast(PyIntObject, py_obj)
-    py_int.c_ob_ival = space.int_w(w_obj)
+    py_int.c_ob_ival = rffi.cast(rffi.LONG, space.int_w(w_obj))
 
 def int_realize(space, obj):
     intval = rffi.cast(lltype.Signed, rffi.cast(PyIntObject, obj).c_ob_ival)

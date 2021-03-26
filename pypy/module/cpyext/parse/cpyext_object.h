@@ -3,8 +3,10 @@
 /* CPython defines Py_ssize_t in pyport.h as intptr_t */
 #ifdef _WIN64
 typedef long long Py_ssize_t;
+typedef long long Py_hash_t;
 #else
 typedef long Py_ssize_t;
+typedef long Py_hash_t;
 #endif
 
 #define PyObject_HEAD  \
@@ -34,7 +36,7 @@ typedef int (*setattrfunc)(PyObject *, char *, PyObject *);
 typedef int (*setattrofunc)(PyObject *, PyObject *, PyObject *);
 typedef int (*cmpfunc)(PyObject *, PyObject *);
 typedef PyObject *(*reprfunc)(PyObject *);
-typedef long (*hashfunc)(PyObject *);
+typedef Py_hash_t (*hashfunc)(PyObject *);
 typedef PyObject *(*richcmpfunc) (PyObject *, PyObject *, int);
 typedef PyObject *(*getiterfunc) (PyObject *);
 typedef PyObject *(*iternextfunc) (PyObject *);
@@ -98,7 +100,6 @@ typedef struct bufferinfo {
        mono-dimensional buffers. */
     /* Py_ssize_t smalltable[2]; */
 } Py_buffer;
-
 
 typedef int (*getbufferproc)(PyObject *, Py_buffer *, int);
 typedef void (*releasebufferproc)(PyObject *, Py_buffer *);
@@ -165,32 +166,32 @@ typedef struct {
 } PyNumberMethods;
 
 typedef struct {
-	lenfunc sq_length;
-	binaryfunc sq_concat;
-	ssizeargfunc sq_repeat;
-	ssizeargfunc sq_item;
-	ssizessizeargfunc sq_slice;
-	ssizeobjargproc sq_ass_item;
-	ssizessizeobjargproc sq_ass_slice;
-	objobjproc sq_contains;
-	/* Added in release 2.0 */
-	binaryfunc sq_inplace_concat;
-	ssizeargfunc sq_inplace_repeat;
+    lenfunc sq_length;
+    binaryfunc sq_concat;
+    ssizeargfunc sq_repeat;
+    ssizeargfunc sq_item;
+    ssizessizeargfunc sq_slice;
+    ssizeobjargproc sq_ass_item;
+    ssizessizeobjargproc sq_ass_slice;
+    objobjproc sq_contains;
+    /* Added in release 2.0 */
+    binaryfunc sq_inplace_concat;
+    ssizeargfunc sq_inplace_repeat;
 } PySequenceMethods;
 
 typedef struct {
-	lenfunc mp_length;
-	binaryfunc mp_subscript;
-	objobjargproc mp_ass_subscript;
+    lenfunc mp_length;
+    binaryfunc mp_subscript;
+    objobjargproc mp_ass_subscript;
 } PyMappingMethods;
 
 typedef struct {
-	readbufferproc bf_getreadbuffer;
-	writebufferproc bf_getwritebuffer;
-	segcountproc bf_getsegcount;
-	charbufferproc bf_getcharbuffer;
-	getbufferproc bf_getbuffer;
-	releasebufferproc bf_releasebuffer;
+    readbufferproc bf_getreadbuffer;
+    writebufferproc bf_getwritebuffer;
+    segcountproc bf_getsegcount;
+    charbufferproc bf_getcharbuffer;
+    getbufferproc bf_getbuffer;
+    releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
 
 /* from methodobject.h */
@@ -227,83 +228,83 @@ typedef struct PyMemberDef {
 
 
 typedef struct _typeobject {
-	PyObject_VAR_HEAD
-	const char *tp_name; /* For printing, in format "<module>.<name>" */
-	Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
+    PyObject_VAR_HEAD
+    const char *tp_name; /* For printing, in format "<module>.<name>" */
+    Py_ssize_t tp_basicsize, tp_itemsize; /* For allocation */
 
-	/* Methods to implement standard operations */
+    /* Methods to implement standard operations */
 
-	destructor tp_dealloc;
-	printfunc tp_print;
-	getattrfunc tp_getattr;
-	setattrfunc tp_setattr;
-	cmpfunc tp_compare;
-	reprfunc tp_repr;
+    destructor tp_dealloc;
+    printfunc tp_print;
+    getattrfunc tp_getattr;
+    setattrfunc tp_setattr;
+    cmpfunc tp_compare;
+    reprfunc tp_repr;
 
-	/* Method suites for standard classes */
+    /* Method suites for standard classes */
 
-	PyNumberMethods *tp_as_number;
-	PySequenceMethods *tp_as_sequence;
-	PyMappingMethods *tp_as_mapping;
+    PyNumberMethods *tp_as_number;
+    PySequenceMethods *tp_as_sequence;
+    PyMappingMethods *tp_as_mapping;
 
-	/* More standard operations (here for binary compatibility) */
+    /* More standard operations (here for binary compatibility) */
 
-	hashfunc tp_hash;
-	ternaryfunc tp_call;
-	reprfunc tp_str;
-	getattrofunc tp_getattro;
-	setattrofunc tp_setattro;
+    hashfunc tp_hash;
+    ternaryfunc tp_call;
+    reprfunc tp_str;
+    getattrofunc tp_getattro;
+    setattrofunc tp_setattro;
 
-	/* Functions to access object as input/output buffer */
-	PyBufferProcs *tp_as_buffer;
+    /* Functions to access object as input/output buffer */
+    PyBufferProcs *tp_as_buffer;
 
-	/* Flags to define presence of optional/expanded features */
-	long tp_flags;
+    /* Flags to define presence of optional/expanded features */
+    long tp_flags;
 
-	const char *tp_doc; /* Documentation string */
+    const char *tp_doc; /* Documentation string */
 
-	/* Assigned meaning in release 2.0 */
-	/* call function for all accessible objects */
-	traverseproc tp_traverse;
+    /* Assigned meaning in release 2.0 */
+    /* call function for all accessible objects */
+    traverseproc tp_traverse;
 
-	/* delete references to contained objects */
-	inquiry tp_clear;
+    /* delete references to contained objects */
+    inquiry tp_clear;
 
-	/* Assigned meaning in release 2.1 */
-	/* rich comparisons */
-	richcmpfunc tp_richcompare;
+    /* Assigned meaning in release 2.1 */
+    /* rich comparisons */
+    richcmpfunc tp_richcompare;
 
-	/* weak reference enabler */
-	Py_ssize_t tp_weaklistoffset;
+    /* weak reference enabler */
+    Py_ssize_t tp_weaklistoffset;
 
-	/* Added in release 2.2 */
-	/* Iterators */
-	getiterfunc tp_iter;
-	iternextfunc tp_iternext;
+    /* Added in release 2.2 */
+    /* Iterators */
+    getiterfunc tp_iter;
+    iternextfunc tp_iternext;
 
-	/* Attribute descriptor and subclassing stuff */
-	struct PyMethodDef *tp_methods;
-	struct PyMemberDef *tp_members;
-	struct PyGetSetDef *tp_getset;
-	struct _typeobject *tp_base;
-	PyObject *tp_dict;
-	descrgetfunc tp_descr_get;
-	descrsetfunc tp_descr_set;
-	Py_ssize_t tp_dictoffset;
-	initproc tp_init;
-	allocfunc tp_alloc;
-	newfunc tp_new;
-	freefunc tp_free; /* Low-level free-memory routine */
-	inquiry tp_is_gc; /* For PyObject_IS_GC */
-	PyObject *tp_bases;
-	PyObject *tp_mro; /* method resolution order */
-	PyObject *tp_cache;
-	PyObject *tp_subclasses;
-	PyObject *tp_weaklist;
-	destructor tp_del;
+    /* Attribute descriptor and subclassing stuff */
+    struct PyMethodDef *tp_methods;
+    struct PyMemberDef *tp_members;
+    struct PyGetSetDef *tp_getset;
+    struct _typeobject *tp_base;
+    PyObject *tp_dict;
+    descrgetfunc tp_descr_get;
+    descrsetfunc tp_descr_set;
+    Py_ssize_t tp_dictoffset;
+    initproc tp_init;
+    allocfunc tp_alloc;
+    newfunc tp_new;
+    freefunc tp_free; /* Low-level free-memory routine */
+    inquiry tp_is_gc; /* For PyObject_IS_GC */
+    PyObject *tp_bases;
+    PyObject *tp_mro; /* method resolution order */
+    PyObject *tp_cache;
+    PyObject *tp_subclasses;
+    PyObject *tp_weaklist;
+    destructor tp_del;
 
-	/* Type attribute cache version tag. Added in version 2.6 */
-	unsigned int tp_version_tag;
+    /* Type attribute cache version tag. Added in version 2.6 */
+    unsigned int tp_version_tag;
 
     /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
        for compatibility with CPython */

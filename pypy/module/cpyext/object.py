@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rlib.rarithmetic import widen
 from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t, Py_ssize_tP,
     PyVarObject, size_t, slot_function, INTP_real,
@@ -54,7 +55,7 @@ def _dealloc(space, obj):
     pto = obj.c_ob_type
     obj_voidp = rffi.cast(rffi.VOIDP, obj)
     generic_cpy_call(space, pto.c_tp_free, obj_voidp)
-    if pto.c_tp_flags & Py_TPFLAGS_HEAPTYPE:
+    if widen(pto.c_tp_flags) & Py_TPFLAGS_HEAPTYPE:
         decref(space, rffi.cast(PyObject, pto))
 
 @cpython_api([PyObject], PyObjectP, error=CANNOT_FAIL)

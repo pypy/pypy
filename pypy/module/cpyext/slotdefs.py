@@ -95,7 +95,7 @@ class wrap_binaryfunc_l(W_PyCWrapperObject):
         func_binary = rffi.cast(binaryfunc, func)
         w_value = __args__.arguments_w[0]
         ob_type = _get_ob_type(space, w_self)
-        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        if (not widen(ob_type.c_tp_flags) & Py_TPFLAGS_CHECKTYPES and
             not space.issubtype_w(space.type(w_value), space.type(w_self))):
             return space.w_NotImplemented
         return generic_cpy_call(space, func_binary, w_self, w_value)
@@ -107,7 +107,7 @@ class wrap_binaryfunc_r(W_PyCWrapperObject):
         func_binary = rffi.cast(binaryfunc, func)
         w_value = __args__.arguments_w[0]
         ob_type = _get_ob_type(space, w_self)
-        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        if (not widen(ob_type.c_tp_flags) & Py_TPFLAGS_CHECKTYPES and
             not space.issubtype_w(space.type(w_value), space.type(w_self))):
             return space.w_NotImplemented
         return generic_cpy_call(space, func_binary, w_value, w_self)
@@ -137,7 +137,7 @@ class wrap_ternaryfunc_r(W_PyCWrapperObject):
         else:
             w_arg1 = space.w_None
         ob_type = _get_ob_type(space, w_self)
-        if (not ob_type.c_tp_flags & Py_TPFLAGS_CHECKTYPES and
+        if (not widen(ob_type.c_tp_flags) & Py_TPFLAGS_CHECKTYPES and
             not space.issubtype_w(space.type(w_arg0), space.type(w_self))):
             return space.w_NotImplemented
         return generic_cpy_call(space, func_ternary, w_arg0, w_self, w_arg1)

@@ -69,7 +69,7 @@ def new_empty_str(space, length):
     typedescr = get_typedescr(space.w_bytes.layout.typedef)
     py_obj = typedescr.allocate(space, space.w_bytes, length)
     py_str = rffi.cast(PyBytesObject, py_obj)
-    py_str.c_ob_shash = -1
+    rffi.setintfield(py_str, 'c_ob_shash', -1)
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 0) # SSTATE_NOT_INTERNED
     return py_str
 
@@ -91,7 +91,7 @@ def bytes_attach(space, py_obj, w_obj, w_userdata=None):
     # if py_obj has a tp_hash, this will try to call it, but the objects are
     # not fully linked yet
     #py_str.c_ob_shash = space.hash_w(w_obj)
-    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
+    rffi.setintfield(py_str, 'c_ob_shash', space.hash_w(space.newbytes(s)))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
 
 def bytes_realize(space, py_obj):
@@ -106,7 +106,7 @@ def bytes_realize(space, py_obj):
     w_obj.__init__(s)
     # if py_obj has a tp_hash, this will try to call it but the object is
     # not realized yet
-    py_str.c_ob_shash = space.hash_w(space.newbytes(s))
+    rffi.setintfield(py_str, 'c_ob_shash', space.hash_w(space.newbytes(s)))
     py_str.c_ob_sstate = rffi.cast(rffi.INT, 1) # SSTATE_INTERNED_MORTAL
     track_reference(space, py_obj, w_obj)
     return w_obj
