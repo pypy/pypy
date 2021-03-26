@@ -279,14 +279,16 @@ class TestRLong(object):
         assert not (a1 != a2)
         assert not (a1 == a3)
 
-    def test_divmod_fast2(self):
-        f1 = rbigint.fromlong((2 << 1000) - 1)
-        f2 = rbigint.fromlong((2 << (65 * 3 + 2)) - 1)
-        divmod_big(f1, f2)
-
-        f1 = rbigint.fromlong((2 + 5 * 2 ** SHIFT) << (100 * SHIFT))
-        f2 = rbigint.fromlong(5 << (100 * SHIFT))
-        divmod_big(f1, f2)
+    def test_divmod_big2(self):
+        def check(a, b):
+            fa = rbigint.fromlong(a)
+            fb = rbigint.fromlong(b)
+            div, mod = divmod_big(fa, fb)
+            return div.mul(fb).add(mod).eq(fa)
+        check(2, 3)
+        check(3, 2)
+        check((2 << 1000) - 1, (2 << (65 * 3 + 2)) - 1)
+        check((2 + 5 * 2 ** SHIFT) << (100 * SHIFT), 5 << (100 * SHIFT))
 
 
 def bigint(lst, sign):
@@ -1125,6 +1127,9 @@ class TestInternalFunctions(object):
         assert (rbigint.fromlong(-9**50).ulonglongmask() ==
                 r_ulonglong(-9**50))
 
+    def test_toulonglong(self):
+        assert rbigint.fromlong(-1).toulonglong() == r_ulonglong(-1)
+
     def test_fits_int(self):
         assert rbigint.fromlong(0).fits_int()
         assert rbigint.fromlong(42).fits_int()
@@ -1134,6 +1139,7 @@ class TestInternalFunctions(object):
         assert rbigint.fromlong(-sys.maxint - 1).fits_int()
         assert not rbigint.fromlong(-sys.maxint - 2).fits_int()
         assert not rbigint.fromlong(-73786976294838206459).fits_int()
+        assert not rbigint.fromlong(1 << 1000).fits_int()
 
     def test_parse_digit_string(self):
         from rpython.rlib.rbigint import parse_digit_string
@@ -1337,7 +1343,7 @@ class TestHypothesis(object):
              10808)
     @example(17, 257)
     @example(510439143470502793407446782273075179618477362188870662225920L, 108089693021945158982483698831267549521L)
-    def test_divmod_fast(self, x, y):
+    def test_divmod_big(self, x, y):
         from rpython.rlib.rbigint import HOLDER
         oldval = HOLDER.DIV_LIMIT
         try:
@@ -1404,7 +1410,7 @@ class TestHypothesis(object):
             with pytest.raises(ZeroDivisionError):
                 ra.truediv(rb)
         else:
-            assert ra.truediv(rb) == a / b
+            assert repr(ra.truediv(rb)) == repr(a / b)
 
     @given(longs, longs)
     def test_bitwise_and_mul(self, x, y):
@@ -1488,6 +1494,23 @@ class TestHypothesis(object):
         test(z, y * z, z)
         test(x, 0, x)
         test(0, x, x)
+
+    @given(ints)
+    def test_longlong_roundtrip(self, x):
+        try:
+            rx = r_longlong(x)
+        except OverflowError:
+            pass
+        else:
+            assert rbigint.fromrarith_int(rx).tolonglong() == rx
+
+    @given(longs)
+    def test_unsigned_roundtrip(self, x):
+        x = abs(x)
+        rx = r_uint(x) # will wrap on overflow
+        assert rbigint.fromrarith_int(rx).touint() == rx
+        rx = r_ulonglong(x) # will wrap on overflow
+        assert rbigint.fromrarith_int(rx).toulonglong() == rx
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):
