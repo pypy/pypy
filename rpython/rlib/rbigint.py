@@ -989,7 +989,6 @@ class rbigint(object):
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
-            # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
         size_b = UDIGIT_TYPE(other.numdigits())
@@ -998,9 +997,6 @@ class rbigint(object):
             if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
-            # if modulus < 0:
-            #     negativeOutput = True
-            #     modulus = -modulus
             if modulus.sign < 0:
                 negativeOutput = True
                 modulus = modulus.neg()
@@ -1127,7 +1123,6 @@ class rbigint(object):
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
-            # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
         assert iother >= 0
@@ -1135,9 +1130,6 @@ class rbigint(object):
             if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
-            # if modulus < 0:
-            #     negativeOutput = True
-            #     modulus = -modulus
             if modulus.sign < 0:
                 negativeOutput = True
                 modulus = modulus.neg()
@@ -1181,8 +1173,6 @@ class rbigint(object):
 
         z = ONERBIGINT
 
-        # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
-        # into helper function result = _help_mult(x, y, modulus)
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
         j = 1 << (LONG_BIT-2)

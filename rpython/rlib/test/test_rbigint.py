@@ -1326,7 +1326,6 @@ class TestHypothesis(object):
             with pytest.raises(type(e)):
                 f1._divmod_small(f2)
         else:
-            a, b = _divrem(f1, f2)
             a, b = f1._divmod_small(f2)
             assert (a.tolong(), b.tolong()) == res
 
@@ -1495,7 +1494,7 @@ def test_hypothesis_small_shift(methname):
     # run the TestHypothesis in a subprocess with a smaller SHIFT value
     # the idea is that this finds hopefully finds edge cases more easily
     import subprocess, os
-    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
     stdout, stderr = p.communicate()
     print stdout
     print stderr
