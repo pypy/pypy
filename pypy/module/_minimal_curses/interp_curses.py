@@ -22,10 +22,11 @@ def curses_error(space, errmsg):
 
 @unwrap_spec(fd=int)
 def setupterm(space, w_termname=None, fd=-1):
+    _fd = fd
     if fd == -1:
         w_stdout = space.getattr(space.getbuiltinmodule('sys'),
                                  space.newtext('stdout'))
-        fd = space.int_w(space.call_function(space.getattr(w_stdout,
+        _fd = space.int_w(space.call_function(space.getattr(w_stdout,
                                              space.newtext('fileno'))))
     if space.is_none(w_termname):
         termname = None
@@ -33,10 +34,13 @@ def setupterm(space, w_termname=None, fd=-1):
         termname = space.text_w(w_termname)
 
     with rffi.scoped_str2charp(termname) as ll_term:
-        fd = rffi.cast(rffi.INT, fd)
-        ll_errmsg = fficurses.rpy_curses_setupterm(ll_term, fd)
+        _fd = rffi.cast(rffi.INT, _fd)
+        ll_errmsg = fficurses.rpy_curses_setupterm(ll_term, _fd)
     if ll_errmsg:
-        raise curses_error(space, rffi.charp2str(ll_errmsg))
+        msg = rffi.charp2str(ll_errmsg)
+        if "could not find terminal" in msg:
+            msg = "setupterm(%s, %d) failed (err=0): could not find terminal" %(termname, fd)
+        raise curses_error(space, msg)
 
     space.fromcache(ModuleInfo).setupterm_called = True
 
