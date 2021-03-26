@@ -10,8 +10,8 @@ class structseqfield(object):
     """
     def __init__(self, index, doc=None, default=lambda self: None):
         self.__name__ = '?'
-        self.index    = index    # patched to None if not positional
-        self._index   = index
+        self.index    = index
+        # self.is_positional = True/False, set later
         self.__doc__  = doc
         self._default = default
 
@@ -22,7 +22,7 @@ class structseqfield(object):
     def __get__(self, obj, typ=None):
         if obj is None:
             return self
-        if self.index is None:
+        if not self.is_positional:
             return obj.__dict__[self.__name__]
         else:
             return obj[self.index]
@@ -38,8 +38,8 @@ class structseqtype(type):
         fields_by_index = {}
         for name, field in dict.items():
             if isinstance(field, structseqfield):
-                assert field._index not in fields_by_index
-                fields_by_index[field._index] = field
+                assert field.index not in fields_by_index
+                fields_by_index[field.index] = field
                 field.__name__ = name
         dict['n_fields'] = len(fields_by_index)
 
@@ -53,7 +53,9 @@ class structseqtype(type):
 
         extra_fields = [field for index, field in extra_fields]
         for field in extra_fields:
-            field.index = None     # no longer relevant
+            field.is_positional = False
+        for i in range(n_sequence_fields):
+            fields_by_index[i].is_positional = True
 
         assert '__new__' not in dict
         dict['_extra_fields'] = tuple(extra_fields)
@@ -93,11 +95,12 @@ def structseq_new(cls, sequence, dict={}):
             dict[name] = value
         sequence = sequence[:N]
     result = tuple.__new__(cls, sequence)
-    object.__setattr__(result, '__dict__', dict)
+    for key, value in dict.items():
+        result.__dict__[key] = value
     for field in cls._extra_fields:
         name = field.__name__
         if name not in dict:
-            dict[name] = field._default(result)
+            result.__dict__[name] = field._default(result)
     return result
 
 def structseq_reduce(self):
@@ -114,7 +117,7 @@ def structseq_repr(self):
     fields = {}
     for field in type(self).__dict__.values():
         if isinstance(field, structseqfield):
-            fields[field._index] = field
+            fields[field.index] = field
     parts = ["%s=%r" % (fields[index].__name__, value)
              for index, value in enumerate(self)]
     return "%s(%s)" % (self._name, ", ".join(parts))
