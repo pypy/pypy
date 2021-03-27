@@ -279,7 +279,12 @@ class W_MMap(W_Root):
         self.mmap.madvise(flags, start, length)
 
 
+optional = {}
+
 if rmmap._POSIX:
+
+    if rmmap.has_madvise:
+        optional['madvise'] = interp2app(W_MMap.descr_madvise)
 
     @unwrap_spec(fileno=int, length=int, flags=int,
                  prot=int, access=int, offset=OFF_T)
@@ -314,9 +319,6 @@ elif rmmap._MS_WINDOWS:
             raise mmap_error(space, e)
         return self
 
-optional = {}
-if rmmap.has_madvise:
-    optional['madvise'] = interp2app(W_MMap.descr_madvise)
 
 W_MMap.typedef = TypeDef("mmap.mmap", None, None, 'read-write',
     __new__ = interp2app(mmap),

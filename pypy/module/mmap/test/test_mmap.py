@@ -903,7 +903,7 @@ class AppTestMMap:
         m = mmap.mmap(-1, 1024)
         if not hasattr(m, "madvise"):
             m.close()
-            py.test.skip("no madvise")
+            skip("no madvise")
 
         m.madvise(mmap.MADV_NORMAL)
         m.close()
