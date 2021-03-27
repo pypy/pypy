@@ -361,6 +361,14 @@ class LLVMAPI:
                                        self.TypeRef, self.Str],
                                       self.ValueRef,
                                       compilation_info=info)
+        self.WriteBitcodeToFile =  rffi.llexternal("LLVMWriteBitcodeToFile",
+                                                   [self.ModuleRef, self.Str],
+                                                   self.ValueRef,
+                                                   compilation_info=info)
+        self.BuildAlloca =  rffi.llexternal("LLVMBuildAlloca",
+                                                   [self.BuilderRef, self.TypeRef],
+                                                   self.Str,
+                                                   compilation_info=info)
 
     def initialise_jit(self):
         if self.debug:

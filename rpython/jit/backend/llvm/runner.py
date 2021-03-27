@@ -1,6 +1,7 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU, jitframe
 from rpython.jit.backend.model import CompiledLoopToken, CPUTotalTracker
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
+from rpython.rtyper.lltypesystem.lltype import r_uint
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 from rpython.rtyper.tool.rffi_platform import DefinedConstantInteger
 from rpython.jit.backend.llvm.llvm_api import LLVMAPI
@@ -8,6 +9,7 @@ from rpython.jit.backend.llvm.llvm_parse_ops import LLVMOpDispatcher
 from rpython.jit.backend.llvm.assembler import LLVMAssembler
 from rpython.jit.metainterp import history
 import ctypes
+import os
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None,
@@ -23,13 +25,14 @@ class LLVM_CPU(AbstractLLCPU):
         self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.WORD = 8
-        self.llvm_int_type = self.llvm.IntType(self.context, self.WORD*8) #would like to define these in LLVMAPI but need the context arg
-        self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, 0)
-        self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, 8), 0) #llvm doesn't have void*, represents as i8*
+        self.llvm_int_type = self.llvm.IntType(self.context, r_uint(self.WORD*8)) #would like to define these in LLVMAPI but need the context arg
+        self.llvm_indx_type = self.llvm.IntType(self.context, r_uint(self.WORD*4)) #llvm only allows 32bit ints for indecies (for some reason)
+        self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, r_uint(0))
+        self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, r_uint(8)), r_uint(0)) #llvm doesn't have void*, represents as i8*
 
     def decl_jitframe(self, num_args):
         elem_array = rffi.CArray(self.llvm.TypeRef)
-        elem_count = 8
+        elem_count = r_uint(8)
         packed = 0
         elem_types = lltype.malloc(elem_array, n=elem_count, flavor='raw')
         elem_types.__setitem__(0, self.llvm_void_ptr)
@@ -39,7 +42,7 @@ class LLVM_CPU(AbstractLLCPU):
         elem_types.__setitem__(4, self.llvm_void_ptr)
         elem_types.__setitem__(5, self.llvm_void_ptr)
         elem_types.__setitem__(6, self.llvm_void_ptr)
-        arg_array = self.llvm.ArrayType(self.llvm_int_type, num_args)
+        arg_array = self.llvm.ArrayType(self.llvm_int_type, r_uint(num_args))
         elem_types.__setitem__(7, arg_array)
         jitframe_type = self.llvm.StructType(self.context, elem_types,
                                                elem_count, packed)
@@ -55,19 +58,23 @@ class LLVM_CPU(AbstractLLCPU):
         if verified: #returns 0 on success
             raise Exception("Malformed IR")
 
+    def write_ir(self, module):
+        self.llvm.WriteBitcodeToFile(module, str2constcharp("./ir.bc"))
+        os.system("llvm-dis ir.bc")
+
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='', logger=None):
         module = self.llvm.CreateModule(str2constcharp(name), self.context)
         builder = self.llvm.CreateBuilder(self.context)
         jitframe_type = self.decl_jitframe(len(inputargs))
-        jitframe_ptr = self.llvm.PointerType(jitframe_type, 0)
+        jitframe_ptr = self.llvm.PointerType(jitframe_type, r_uint(0))
         arg_array = rffi.CArray(self.llvm.TypeRef)
         arg_types = lltype.malloc(arg_array, n=2, flavor='raw')
         arg_types.__setitem__(0, jitframe_ptr)
         arg_types.__setitem__(1, self.llvm_void_ptr)
         signature = self.llvm.FunctionType(jitframe_ptr,
                                            arg_types,
-                                           2, 0)
+                                           r_uint(2), 0)
         lltype.free(arg_types, flavor='raw')
         trace = self.llvm.AddFunction(module,
                                       str2constcharp("trace"),
@@ -82,19 +89,9 @@ class LLVM_CPU(AbstractLLCPU):
 
         if self.debug:
             self.verify(module)
+            self.write_ir(module)
 
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher) #set compiled loop token and func addr
-
-    def execute_token(self, looptoken, *ARGS):
-        func = self.make_execute_token(lltype.Signed) #FIXME: parse input args into types or ask if something already does that
-        deadframe =  func(looptoken, *ARGS)
-        return deadframe
-
-    def get_latest_descr(self, deadframe):
-        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
-        descr = deadframe.jf_descr
-        descr_addr = rffi.cast(lltype.Signed, descr)
-        return ctypes.cast(descr_addr, ctypes.py_object).value #TODO: ask about how much of a massive hack this might be
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
         dispatcher = self.dispatchers[looptoken]
@@ -110,16 +107,14 @@ class LLVM_CPU(AbstractLLCPU):
         self.assembler.jit_compile(dispatcher.module, looptoken,
                                    inputargs, dispatcher)
 
-    def convert_args(self, inputargs):
-        arg_array = rffi.CArray(self.llvm.TypeRef) #TODO: look into if missing out on optimisations by not using fixed array
-        arg_types_ptr = lltype.malloc(arg_array, n=len(inputargs), flavor='raw')
-        arg_types = arg_types_ptr._getobj()
+    def execute_token(self, looptoken, *ARGS):
+        func = self.make_execute_token(lltype.Signed) #FIXME: parse input args into types or ask if something already does that
+        deadframe = func(looptoken, *ARGS)
+        return deadframe
 
-        for c, arg in enumerate(inputargs):
-            typ = self.get_llvm_type(arg)
-            arg_types.setitem(c, typ)
-        return arg_types_ptr
-
-    def get_llvm_type(self, val):
-        if val.datatype == 'i':
-            return self.llvm.IntType(self.context, val.bytesize)
+    def get_latest_descr(self, deadframe):
+        deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
+        descr = deadframe.jf_descr
+        descr_addr = rffi.cast(lltype.Signed, descr)
+        descr = ctypes.cast(descr_addr, ctypes.py_object).value #TODO: ask about how much of a massive hack this might be
+        return descr

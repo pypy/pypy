@@ -1,5 +1,7 @@
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
+from rpython.rtyper.lltypesystem.lltype import r_uint
+from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 
 
 class LLVMOpDispatcher:
@@ -10,10 +12,7 @@ class LLVMOpDispatcher:
         self.func = func
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
-        self.jitframe = self.llvm.GetParam(self.func, 0)
-        self.args = self.llvm.BuildStructGEP(self.builder, self.jitframe_type,
-                                            self.jitframe, 7,
-                                            str2constcharp("args"))
+        self.jitframe = self.llvm.GetParam(self.func, r_uint(0))
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
@@ -29,7 +28,7 @@ class LLVMOpDispatcher:
             if arg.is_constant():
                 if arg.type == 'i':
                     typ = self.cpu.llvm_int_type
-                    val = self.llvm.ConstInt(typ, arg.getvalue(), 1)
+                    val = self.llvm.ConstInt(typ, r_uint(arg.getvalue()), 1)
                     llvm_args.append([val, typ])
             else:
                 val = self.ssa_vars[arg]
@@ -42,15 +41,31 @@ class LLVMOpDispatcher:
 
     def dispatch_ops(self, inputargs, ops, is_bridge=False):
         if not is_bridge: #input args for a bridge can only be args parsed in a previous trace
-            typ = self.cpu.llvm_int_type #args are stored at long ints in the jitframe so we can just read them out as such
+            indecies_array = rffi.CArray(self.llvm.ValueRef)
+            indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
             for c, arg in enumerate(inputargs):
-                arg_ptr = self.llvm.BuildGEP1D(self.builder, typ, self.args,
-                                               self.llvm.ConstInt(typ, c, 0),
-                                               str2constcharp("arg_ptr_"+str(c)))
-                arg_raw = self.llvm.BuildLoad(self.builder, typ, arg_ptr,
-                                              str2constcharp("arg_raw_"+str(c)))
-                self.ssa_vars[arg] = self.cast_arg(arg, arg_raw, c)
+                indecies.__setitem__(0, self.llvm.ConstInt(
+                                        self.cpu.llvm_indx_type,
+                                        r_uint(0), 1)) #note: passing unsigned index (ie last arg = 0) causes segfault
+                indecies.__setitem__(1, self.llvm.ConstInt(
+                                        self.cpu.llvm_indx_type,
+                                        r_uint(7), 1))
+                indecies.__setitem__(2, self.llvm.ConstInt(
+                                        self.cpu.llvm_indx_type,
+                                        r_uint(c), 1))
+                arg_ptr = self.llvm.BuildGEP(self.builder,
+                                             self.jitframe_type,
+                                             self.jitframe,
+                                             indecies, r_uint(3),
+                                             str2constcharp("arg_ptr_"+str(c)))
+                arg_uncast = self.llvm.BuildLoad(self.builder,
+                                                 self.cpu.llvm_int_type,
+                                                 arg_ptr,
+                                                 str2constcharp("arg_"+str(c)))
+                self.ssa_vars[arg] = self.cast_arg(arg, arg_uncast, c)
+                #self.ssa_vars[arg] = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(1), 1)
                 self.args_size += self.cpu.WORD
+            lltype.free(indecies, flavor='raw')
 
         for op in ops: #hoping if we use the opcode numbers and elif's this'll optimise to a jump table
             if op.opnum == 1:
@@ -87,30 +102,50 @@ class LLVMOpDispatcher:
 
     def parse_finish(self, op):
         descr = compute_unique_id(op.getdescr())
-        final_descr = self.llvm.BuildStructGEP(self.builder, self.jitframe_type,
-                                               self.jitframe, 1,
-                                               str2constcharp("final_descr"))
-        descr_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, descr, 0)
+        indecies_array = rffi.CArray(self.llvm.ValueRef)
+        indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
+        indecies.__setitem__(0, self.llvm.ConstInt(
+                                self.cpu.llvm_indx_type,
+                                r_uint(0), 1))
+        indecies.__setitem__(1, self.llvm.ConstInt(
+                                self.cpu.llvm_indx_type,
+                                r_uint(1), 1))
+        final_descr = self.llvm.BuildGEP(self.builder, self.jitframe_type,
+                                         self.jitframe,
+                                         indecies, r_uint(2),
+                                         str2constcharp("final_descr"))
+        descr_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(descr), 0)
         descr_ptr = self.llvm.BuildIntToPtr(self.builder, descr_ptr,
                                            self.cpu.llvm_void_ptr,
                                            str2constcharp("descr_ptr_"+
                                                           str(self.var_cnt)))
         self.var_cnt += 1
-        self.llvm.BuildStore(self.builder, descr_ptr, final_descr) #store descr in jitframe
+        self.llvm.BuildStore(self.builder, descr_ptr, final_descr)
 
         res = self.llvm.BuildBitCast(self.builder,
                                      self.ssa_vars[op.getarglist()[0]],
                                      self.cpu.llvm_int_type,
                                      str2constcharp("res_"+str(self.var_cnt)))
         self.var_cnt += 1
-        arg_0 = self.llvm.BuildGEP1D(self.builder, self.cpu.llvm_int_type,
-                                     self.args, self.llvm.ConstInt(
-                                         self.cpu.llvm_int_type, 0, 0),
+        indecies.__setitem__(0, self.llvm.ConstInt(
+                                self.cpu.llvm_indx_type,
+                                r_uint(0), 1))
+        indecies.__setitem__(1, self.llvm.ConstInt(
+                                self.cpu.llvm_indx_type,
+                                r_uint(7), 1))
+        indecies.__setitem__(2, self.llvm.ConstInt(
+                                self.cpu.llvm_indx_type,
+                                r_uint(0), 1))
+        arg_0 = self.llvm.BuildGEP(self.builder,
+                                     self.jitframe_type,
+                                     self.jitframe,
+                                     indecies, r_uint(3),
                                      str2constcharp("arg_"+str(self.var_cnt)))
         self.var_cnt += 1
         self.llvm.BuildStore(self.builder, res, arg_0)
 
         self.llvm.BuildRet(self.builder, self.jitframe)
+        lltype.free(indecies, flavor='raw')
 
     def parse_label(self, op):
         descr = op.getdescr()
@@ -157,7 +192,7 @@ class LLVMOpDispatcher:
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
         llvm_descr_cnt = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                            self.var_cnt, 1)
+                                            r_uint(self.var_cnt), 1)
         self.var_cnt += 1
         self.llvm.BuildRet(self.builder, llvm_descr_cnt)
 
