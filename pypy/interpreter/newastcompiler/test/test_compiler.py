@@ -1511,8 +1511,7 @@ rest = 2, 3
 x: tuple = 1, *rest, 4
 """, "x", (1, 2, 3, 4))
 
-
-    def test_simple_loop(self):
+    def test_for_loop(self):
         func = """def f():
     res = 0
     for i in range(10):
@@ -1520,7 +1519,43 @@ x: tuple = 1, *rest, 4
     return res
 """
         yield self.st, func, "f()", 45
-        
+
+    def test_for_loop_break(self):
+        func = """def f():
+    res = 0
+    for i in range(10000):
+        if i >= 10:
+            break
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_for_loop_continue(self):
+        func = """def f():
+    res = 0
+    for i in range(20):
+        if i >= 10:
+            continue
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_while_loop_break(self):
+        func = """def f():
+    res = 0
+    i = 0
+    while i < 10000:
+        if i >= 10:
+            break
+        res += i
+        i += 1
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 

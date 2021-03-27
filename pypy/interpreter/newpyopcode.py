@@ -204,10 +204,6 @@ class __extend__(pyframe.PyFrame):
                 return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
-            elif opcode == opcodedesc.BREAK_LOOP.index:
-                next_instr = self.BREAK_LOOP(oparg, next_instr)
-            elif opcode == opcodedesc.CONTINUE_LOOP.index:
-                return self.CONTINUE_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.FOR_ITER.index:
                 next_instr = self.FOR_ITER(oparg, next_instr)
             elif opcode == opcodedesc.JUMP_FORWARD.index:
@@ -382,8 +378,6 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_FINALLY.index:
                 self.SETUP_FINALLY(oparg, next_instr)
-            elif opcode == opcodedesc.SETUP_LOOP.index:
-                self.SETUP_LOOP(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
@@ -687,13 +681,6 @@ class __extend__(pyframe.PyFrame):
 
     def PRINT_NEWLINE(self, oparg, next_instr):
         print_newline(self.space)
-
-    def BREAK_LOOP(self, oparg, next_instr):
-        return self.unrollstack_and_jump(SBreakLoop.singleton)
-
-    def CONTINUE_LOOP(self, startofloop, next_instr):
-        unroller = SContinueLoop(startofloop)
-        return self.unrollstack_and_jump(unroller)
 
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
@@ -1223,14 +1210,6 @@ class __extend__(pyframe.PyFrame):
         if (isinstance(w_iterator, GeneratorOrCoroutine) or
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
-
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
-
-    def SETUP_LOOP(self, offsettoend, next_instr):
-        block = LoopBlock(self.valuestackdepth,
-                          next_instr + offsettoend, self.lastblock)
-        self.lastblock = block
 
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self.valuestackdepth,
@@ -1783,8 +1762,6 @@ class SuspendedUnroller(W_Root):
                 WHY_EXCEPTION,  SApplicationException
                 WHY_RERAISE,    implemented differently, see Reraise
                 WHY_RETURN,     SReturnValue
-                WHY_BREAK,      SBreakLoop
-                WHY_CONTINUE,   SContinueLoop
                 WHY_YIELD       not needed
     """
     _immutable_ = True
@@ -1810,20 +1787,6 @@ class SApplicationException(SuspendedUnroller):
         self.operr = operr
     def nomoreblocks(self):
         raise RaiseWithExplicitTraceback(self.operr)
-
-class SBreakLoop(SuspendedUnroller):
-    """Signals a 'break' statement."""
-    _immutable_ = True
-    kind = 0x04
-SBreakLoop.singleton = SBreakLoop()
-
-class SContinueLoop(SuspendedUnroller):
-    """Signals a 'continue' statement.
-    Argument is the bytecode position of the beginning of the loop."""
-    _immutable_ = True
-    kind = 0x08
-    def __init__(self, jump_to):
-        self.jump_to = jump_to
 
 
 class FrameBlock(object):
@@ -1864,27 +1827,6 @@ class FrameBlock(object):
         """ Purely abstract method
         """
         raise NotImplementedError
-
-class LoopBlock(FrameBlock):
-    """A loop block.  Stores the end-of-loop pointer in case of 'break'."""
-
-    _immutable_ = True
-    _opname = 'SETUP_LOOP'
-    handling_mask = SBreakLoop.kind | SContinueLoop.kind
-
-    def handle(self, frame, unroller):
-        if isinstance(unroller, SContinueLoop):
-            # re-push the loop block without cleaning up the value stack,
-            # and jump to the beginning of the loop, stored in the
-            # exception's argument
-            frame.append_block(self)
-            jumpto = unroller.jump_to
-            ec = frame.space.getexecutioncontext()
-            return r_uint(frame.jump_absolute(jumpto, ec))
-        else:
-            # jump to the end of the loop
-            self.cleanupstack(frame)
-            return r_uint(self.handlerposition)
 
 
 class SysExcInfoRestorer(FrameBlock):
@@ -1966,7 +1908,6 @@ class FinallyBlock(FrameBlock):
 
 
 block_classes = {'SYS_EXC_INFO_RESTORER': SysExcInfoRestorer,
-                 'SETUP_LOOP': LoopBlock,
                  'SETUP_EXCEPT': ExceptBlock,
                  'SETUP_FINALLY': FinallyBlock,
                  'SETUP_WITH': FinallyBlock,
