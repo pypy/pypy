@@ -1,7 +1,7 @@
 """A visitor to validate an AST object."""
 
 from pypy.interpreter.error import oefmt
-from pypy.interpreter.astcompiler import ast
+from pypy.interpreter.newastcompiler import ast
 from rpython.tool.pairtype import pair, pairtype
 from pypy.interpreter.baseobjspace import W_Root
 

@@ -4,9 +4,9 @@ import math
 import os
 from rpython.rlib.objectmodel import specialize, we_are_translated
 
-from pypy.interpreter.astcompiler import ast, consts, misc, symtable
+from pypy.interpreter.newastcompiler import ast, consts, misc, symtable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.pycode import PyCode
+from pypy.interpreter.newpycode import PyCode
 from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
 

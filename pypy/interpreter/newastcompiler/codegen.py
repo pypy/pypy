@@ -9,8 +9,8 @@ Generate Python bytecode from a Abstract Syntax Tree.
 import struct
 
 from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.astcompiler import ast, assemble, symtable, consts, misc
-from pypy.interpreter.astcompiler import optimize # For side effects
+from pypy.interpreter.newastcompiler import ast, assemble, symtable, consts, misc
+from pypy.interpreter.newastcompiler import optimize # For side effects
 from pypy.interpreter.pyparser.error import SyntaxError
 from pypy.tool import stdlib_opcode as ops
 
@@ -195,6 +195,12 @@ F_BLOCK_EXCEPT = 1
 F_BLOCK_FINALLY = 2
 F_BLOCK_FINALLY_END = 3
 
+class FrameBlockInfo(object):
+    def __init__(self, kind, block, end=None):
+        self.kind = kind
+        self.block = block
+        self.end = end
+
 
 class PythonCodeGenerator(assemble.PythonCodeMaker):
     """Base code generator.
@@ -235,12 +241,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                          self.compile_info, qualname)
         return generator.assemble(), qualname
 
-    def push_frame_block(self, kind, block):
-        self.frame_blocks.append((kind, block))
+    def push_frame_block(self, kind, block, end):
+        self.frame_blocks.append(FrameBlockInfo(kind, block))
 
     def pop_frame_block(self, kind, block):
-        actual_kind, old_block = self.frame_blocks.pop()
-        assert actual_kind == kind and old_block is block, \
+        fblock = self.frame_blocks.pop()
+        assert fblock.kind == kind and fblock.block is block, \
             "mismatched frame blocks"
 
     def error(self, msg, node):
@@ -596,7 +602,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
     def visit_Break(self, br):
         self.update_position(br.lineno, True)
         for f_block in self.frame_blocks:
-            if f_block[0] == F_BLOCK_LOOP:
+            if f_block.kind == F_BLOCK_LOOP:
                 break
         else:
             self.error("'break' outside loop", br)
@@ -606,23 +612,24 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(cont.lineno, True)
         if not self.frame_blocks:
             self.error("'continue' not properly in loop", cont)
+        fblock = self.frame_blocks[-1]
         current_block, block = self.frame_blocks[-1]
         # Continue cannot be in a finally block.
-        if current_block == F_BLOCK_LOOP:
-            self.emit_jump(ops.JUMP_ABSOLUTE, block, True)
-        elif current_block == F_BLOCK_EXCEPT or \
-                current_block == F_BLOCK_FINALLY:
+        if fblock.kind == F_BLOCK_LOOP:
+            self.emit_jump(ops.JUMP_ABSOLUTE, fblock.block, True)
+        elif fblock.kind == F_BLOCK_EXCEPT or \
+                fblock.kind == F_BLOCK_FINALLY:
             for i in range(len(self.frame_blocks) - 2, -1, -1):
-                f_type, block = self.frame_blocks[i]
-                if f_type == F_BLOCK_LOOP:
-                    self.emit_jump(ops.CONTINUE_LOOP, block, True)
+                fblock = self.frame_blocks[i]
+                if fblock.kind == F_BLOCK_LOOP:
+                    self.emit_jump(ops.CONTINUE_LOOP, fblock.block, True)
                     break
-                if f_type == F_BLOCK_FINALLY_END:
+                if fblock.kind == F_BLOCK_FINALLY_END:
                     self.error("'continue' not supported inside 'finally' "
                                    "clause", cont)
             else:
                 self.error("'continue' not properly in loop", cont)
-        elif current_block == F_BLOCK_FINALLY_END:
+        elif fblock.kind == F_BLOCK_FINALLY_END:
             self.error("'continue' not supported inside 'finally' clause", cont)
 
     def visit_For(self, fr):
@@ -630,8 +637,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         start = self.new_block()
         cleanup = self.new_block()
         end = self.new_block()
-        self.emit_jump(ops.SETUP_LOOP, end)
-        self.push_frame_block(F_BLOCK_LOOP, start)
+        # self.emit_jump(ops.SETUP_LOOP, end)
+        self.push_frame_block(F_BLOCK_LOOP, start, end)
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
@@ -642,7 +649,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(cleanup)
-        self.emit_op(ops.POP_BLOCK)
+        # self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_BLOCK_LOOP, start)
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)

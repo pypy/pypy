@@ -11,9 +11,9 @@ from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
-from pypy.interpreter import pycode, pytraceback
+from pypy.interpreter import newpycode as pycode, pytraceback
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.astcompiler import consts
+from pypy.interpreter.newastcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import (
     OperationError, get_cleared_operation_error, oefmt)
@@ -94,9 +94,6 @@ class PyFrame(W_Root):
     # frame current virtualizable state as seen by the JIT
 
     def __init__(self, space, code, w_globals, outer_func):
-        if not we_are_translated():
-            assert type(self) == space.FrameClass, (
-                "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.space = space
@@ -318,7 +315,7 @@ class PyFrame(W_Root):
     def resume_execute_frame(self, w_arg_or_err):
         # Called from execute_frame() just before resuming the bytecode
         # interpretation.
-        from pypy.interpreter.pyopcode import SApplicationException
+        from pypy.interpreter.newpyopcode import SApplicationException
         space = self.space
         w_yf = self.w_yielding_from
         if w_yf is not None:
@@ -352,7 +349,7 @@ class PyFrame(W_Root):
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
-        from pypy.interpreter import pyopcode
+        from pypy.interpreter import newpyopcode as pyopcode
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -879,7 +876,7 @@ class PyFrame(W_Root):
         assert go_iblock <= 0
 
         # Pop any blocks that we're jumping out of.
-        from pypy.interpreter.pyopcode import FinallyBlock
+        from pypy.interpreter.newpyopcode import FinallyBlock
         for ii in range(-go_iblock):
             block = self.pop_block()
             block.cleanupstack(self)
@@ -994,7 +991,7 @@ class PyFrame(W_Root):
 
 def get_block_class(opname):
     # select the appropriate kind of block
-    from pypy.interpreter.pyopcode import block_classes
+    from pypy.interpreter.newpyopcode import block_classes
     return block_classes[opname]
 
 def unpickle_block(space, w_tup):

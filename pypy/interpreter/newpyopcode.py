@@ -12,12 +12,12 @@ from rpython.rlib.rarithmetic import r_uint, intmask
 from rpython.tool.sourcetools import func_with_new_name
 
 from pypy.interpreter import (
-    gateway, function, eval, pyframe, pytraceback, pycode
+    gateway, function, eval, newpyframe as pyframe, pytraceback, newpycode as pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.nestedscope import Cell
-from pypy.interpreter.pycode import PyCode, BytecodeCorruption
+from pypy.interpreter.newpycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
 
 CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
@@ -742,7 +742,7 @@ class __extend__(pyframe.PyFrame):
             space.audit("exec", [w_prog])
             code = space.interp_w(PyCode, w_prog)
         else:
-            from pypy.interpreter.astcompiler import consts
+            from pypy.interpreter.newastcompiler import consts
             flags |= consts.PyCF_SOURCE_IS_UTF8
             source, flags = source_as_str(space, w_prog, 'exec',
                                           "string, bytes or code", flags)
@@ -1568,7 +1568,7 @@ class __extend__(pyframe.PyFrame):
             space.call_method(w_set, 'update', w_item)
 
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
-        from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.newastcompiler import consts
         from pypy.interpreter.generator import GeneratorIterator, Coroutine
         w_iterable = self.peekvalue()
         if isinstance(w_iterable, Coroutine):
@@ -1683,7 +1683,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_awaitable)
 
     def FORMAT_VALUE(self, oparg, next_instr):
-        from pypy.interpreter.astcompiler import consts
+        from pypy.interpreter.newastcompiler import consts
         space = self.space
         #
         if (oparg & consts.FVS_MASK) == consts.FVS_HAVE_SPEC:
@@ -2003,7 +2003,7 @@ def source_as_str(space, w_source, funcname, what, flags):
 
     w_source must be a str or support the buffer interface
     """
-    from pypy.interpreter.astcompiler import consts
+    from pypy.interpreter.newastcompiler import consts
 
     if space.isinstance_w(w_source, space.w_unicode):
         from pypy.interpreter.unicodehelper import encode

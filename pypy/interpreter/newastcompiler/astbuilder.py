@@ -1,6 +1,6 @@
-from pypy.interpreter.astcompiler import ast, consts, misc
-from pypy.interpreter.astcompiler import asthelpers # Side effects
-from pypy.interpreter.astcompiler import fstring
+from pypy.interpreter.newastcompiler import ast, consts, misc
+from pypy.interpreter.newastcompiler import asthelpers # Side effects
+from pypy.interpreter.newastcompiler import fstring
 from pypy.interpreter import error
 from pypy.interpreter.pyparser.pygram import syms, tokens
 from pypy.interpreter.pyparser.error import SyntaxError
@@ -15,7 +15,7 @@ def ast_from_node(space, node, compile_info, recursive_parser=None):
     # The goal is to check that validate_ast doesn't crash on valid
     # asts, at least.
     if not we_are_translated():
-        from pypy.interpreter.astcompiler import validate
+        from pypy.interpreter.newastcompiler import validate
         validate.validate_ast(space, ast)
     return ast
 

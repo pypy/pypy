@@ -1,7 +1,7 @@
 from __future__ import division
 import py, sys
 from pytest import raises
-from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
+from pypy.interpreter.newastcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
 from pypy.interpreter.pycode import PyCode
@@ -17,7 +17,7 @@ def compile_with_astcompiler(expr, mode, space):
     return codegen.compile_ast(space, ast, info)
 
 def generate_function_code(expr, space):
-    from pypy.interpreter.astcompiler.ast import FunctionDef
+    from pypy.interpreter.newastcompiler.ast import FunctionDef
     p = pyparse.PythonParser(space)
     info = pyparse.CompileInfo("<test>", 'exec')
     cst = p.parse_source(expr, info)
@@ -74,7 +74,7 @@ class BaseTestCompiler:
         # for now, we compile evalexpr with CPython's compiler but run
         # it with our own interpreter to extract the data from w_dict
         space = self.space
-        pyco_expr = space.createcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
+        pyco_expr = space.createnewcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
         w_res = space.exec_(pyco_expr, w_dict, w_dict)
         res = space.text_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
@@ -1510,6 +1510,16 @@ gen = f()
 rest = 2, 3
 x: tuple = 1, *rest, 4
 """, "x", (1, 2, 3, 4))
+
+
+    def test_simple_loop(self):
+        func = """def f():
+    res = 0
+    for i in range(10):
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
         
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
