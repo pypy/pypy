@@ -39,20 +39,18 @@ class LLVMOpDispatcher:
         if arg.type == 'i':
             return llvm_val #already int
 
+    def set_indecies(self, array, indecies):
+        for i in range(len(indecies)):
+            index = self.llvm.ConstInt(self.cpu.llvm_indx_type,
+                                       r_uint(indecies[i]), 1)
+            array.__setitem__(i, index)
+
     def dispatch_ops(self, inputargs, ops, is_bridge=False):
         if not is_bridge: #input args for a bridge can only be args parsed in a previous trace
             indecies_array = rffi.CArray(self.llvm.ValueRef)
             indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
-            for c, arg in enumerate(inputargs):
-                indecies.__setitem__(0, self.llvm.ConstInt(
-                                        self.cpu.llvm_indx_type,
-                                        r_uint(0), 1)) #note: passing unsigned index (ie last arg = 0) causes segfault
-                indecies.__setitem__(1, self.llvm.ConstInt(
-                                        self.cpu.llvm_indx_type,
-                                        r_uint(7), 1))
-                indecies.__setitem__(2, self.llvm.ConstInt(
-                                        self.cpu.llvm_indx_type,
-                                        r_uint(c), 1))
+            for c, arg in enumerate(inputargs,1):
+                self.set_indecies(indecies, [0,7,c])
                 arg_ptr = self.llvm.BuildGEP(self.builder,
                                              self.jitframe_type,
                                              self.jitframe,
@@ -63,7 +61,6 @@ class LLVMOpDispatcher:
                                                  arg_ptr,
                                                  str2constcharp("arg_"+str(c)))
                 self.ssa_vars[arg] = self.cast_arg(arg, arg_uncast, c)
-                #self.ssa_vars[arg] = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(1), 1)
                 self.args_size += self.cpu.WORD
             lltype.free(indecies, flavor='raw')
 
@@ -101,48 +98,33 @@ class LLVMOpDispatcher:
         self.llvm.BuildBr(self.builder, target_block)
 
     def parse_finish(self, op):
-        descr = compute_unique_id(op.getdescr())
         indecies_array = rffi.CArray(self.llvm.ValueRef)
         indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
-        indecies.__setitem__(0, self.llvm.ConstInt(
-                                self.cpu.llvm_indx_type,
-                                r_uint(0), 1))
-        indecies.__setitem__(1, self.llvm.ConstInt(
-                                self.cpu.llvm_indx_type,
-                                r_uint(1), 1))
+        self.set_indecies(indecies, [0,1])
         final_descr = self.llvm.BuildGEP(self.builder, self.jitframe_type,
                                          self.jitframe,
                                          indecies, r_uint(2),
                                          str2constcharp("final_descr"))
-        descr_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(descr), 0)
-        descr_ptr = self.llvm.BuildIntToPtr(self.builder, descr_ptr,
+        descr = compute_unique_id(op.getdescr()) #TODO: consider making this more efficient
+        descr_int = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(descr), 0)
+        descr_ptr = self.llvm.BuildIntToPtr(self.builder, descr_int,
                                            self.cpu.llvm_void_ptr,
                                            str2constcharp("descr_ptr_"+
                                                           str(self.var_cnt)))
         self.var_cnt += 1
         self.llvm.BuildStore(self.builder, descr_ptr, final_descr)
 
-        res = self.llvm.BuildBitCast(self.builder,
-                                     self.ssa_vars[op.getarglist()[0]],
-                                     self.cpu.llvm_int_type,
-                                     str2constcharp("res_"+str(self.var_cnt)))
-        self.var_cnt += 1
-        indecies.__setitem__(0, self.llvm.ConstInt(
-                                self.cpu.llvm_indx_type,
-                                r_uint(0), 1))
-        indecies.__setitem__(1, self.llvm.ConstInt(
-                                self.cpu.llvm_indx_type,
-                                r_uint(7), 1))
-        indecies.__setitem__(2, self.llvm.ConstInt(
-                                self.cpu.llvm_indx_type,
-                                r_uint(0), 1))
-        arg_0 = self.llvm.BuildGEP(self.builder,
-                                     self.jitframe_type,
-                                     self.jitframe,
-                                     indecies, r_uint(3),
-                                     str2constcharp("arg_"+str(self.var_cnt)))
-        self.var_cnt += 1
-        self.llvm.BuildStore(self.builder, res, arg_0)
+        for c, arg in enumerate(op.getarglist(),1):
+            cast_arg = self.llvm.BuildBitCast(self.builder, self.ssa_vars[arg],
+                                         self.cpu.llvm_int_type,
+                                         str2constcharp("res_"+str(c)))
+            self.set_indecies(indecies, [0,7,c])
+            ret_ptr = self.llvm.BuildGEP(self.builder,
+                                         self.jitframe_type,
+                                         self.jitframe,
+                                         indecies, r_uint(3),
+                                         str2constcharp("arg_"+str(c)))
+            self.llvm.BuildStore(self.builder, cast_arg, ret_ptr)
 
         self.llvm.BuildRet(self.builder, self.jitframe)
         lltype.free(indecies, flavor='raw')

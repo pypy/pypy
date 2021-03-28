@@ -42,7 +42,7 @@ class LLVM_CPU(AbstractLLCPU):
         elem_types.__setitem__(4, self.llvm_void_ptr)
         elem_types.__setitem__(5, self.llvm_void_ptr)
         elem_types.__setitem__(6, self.llvm_void_ptr)
-        arg_array = self.llvm.ArrayType(self.llvm_int_type, r_uint(num_args))
+        arg_array = self.llvm.ArrayType(self.llvm_int_type, r_uint(num_args+1)) #+1 for python metadata in element 0
         elem_types.__setitem__(7, arg_array)
         jitframe_type = self.llvm.StructType(self.context, elem_types,
                                                elem_count, packed)
@@ -107,9 +107,20 @@ class LLVM_CPU(AbstractLLCPU):
         self.assembler.jit_compile(dispatcher.module, looptoken,
                                    inputargs, dispatcher)
 
+    def parse_arg_types(self, *ARGS):
+        types = []
+        for arg in ARGS:
+            if type(arg) == int:
+                types.append(lltype.Signed)
+            elif type(arg) == float:
+                types.append(lltype.Float)
+        return types
+
     def execute_token(self, looptoken, *ARGS):
-        func = self.make_execute_token(lltype.Signed) #FIXME: parse input args into types or ask if something already does that
+        arg_types = self.parse_arg_types(*ARGS)
+        func = self.make_execute_token(*arg_types)
         deadframe = func(looptoken, *ARGS)
+        lltype.free(looptoken.compiled_loop_token.frame_info, flavor='raw')
         return deadframe
 
     def get_latest_descr(self, deadframe):
