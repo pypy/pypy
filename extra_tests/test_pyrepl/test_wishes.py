@@ -27,5 +27,5 @@ def test_quoted_insert_repeat():
     read_spec([
         (('digit-arg', '3'),      ['']),
         (('quoted-insert', None), ['']),
-        (('key', '\033'), ['^[^[^[']),
+        (('key', '\033'),         ['^[^[^[']),
         (('accept', None),        None)])

@@ -12,7 +12,7 @@ PyPy v7.3.4: release of 2.7 and 3.7
   Changelog up to commit d414fb8186a7
 
 
--The PyPy team is proud to release the version 7.3.4 of PyPy, which includes
+The PyPy team is proud to release the version 7.3.4 of PyPy, which includes
 two different interpreters:
 
   - PyPy2.7, which is an interpreter supporting the syntax and the features of
@@ -21,11 +21,37 @@ two different interpreters:
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
     Python 3.7, including the stdlib for CPython 3.7.10. We no longer refer to
-    this as beta-quality
+    this as beta-quality as the last incompatibilities with CPython (in the
+    ``re`` module) have been fixed.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3
-releases, but read on to find out what is new.
+releases. The two highlights of the release are binary **Windows 64** support,
+as well as faster numerical instance fields.
+
+A new contributor (Ondrej Baranovič - thanks!) took us up on the challenge to get
+`windows 64-bit`_ support.  The work has been merged and for the first time we
+are releasing a 64-bit Windows binary package.
+
+The release contains the biggest change to `PyPy's implementation of the
+instances of user-defined classes`_ in many years. The optimization was
+motivated by the report of performance problems running a `numerical particle
+emulation`_. We implemented an optimization that stores ``int`` and ``float``
+instance fields in an unboxed way, as long as these fields are type-stable
+(meaning that the same field always stores the same type, using the principle
+of `type freezing`_). This gives significant performance improvements on
+numerical pure-Python code, and other code where instances store many integers
+or floating point numbers.
+
+.. _`PyPy's implementation of the instances of user-defined classes`: https://www.pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+.. _`numerical particle emulation`: https://github.com/paugier/nbabel
+.. _`type freezing`: https://www.csl.cornell.edu/~cbatten/pdfs/cheng-type-freezing-cgo2020.pdf
+
+There were also a number of optimizations for methods around strings and bytes,
+following user reported performance problems. If you are unhappy with PyPy's
+performance on some code of yours, please file `a bug`_!
+
+.. _`a bug`: https://foss.heptapod.net/pypy/pypy/-/issues/
 
 ..
   The major new feature is prelminary support for the Universal mode of HPy: a
@@ -39,10 +65,6 @@ Several issues exposed in the 7.3.3 release were fixed. Many of them came from t
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
 A big shout out to them for taking this on.
 
-There are also some significant performance improvements around maps
-(dictionaries), ints, strings, btyes and more. These were done as users
-reported reproducible performance problems.
-
 Development of PyPy takes place on https://foss.heptapod.net/pypy/pypy.
 We have seen an increase in the number of drive-by contributors who are able to
 use gitlab + mercurial to create merge requests.
@@ -51,12 +73,8 @@ We also have begun streaming the advances towards PyPy3.8 on Saturday evenings
 European time on https://www.twitch.tv/pypyproject.
 
 The `CFFI`_ backend has been updated to version 1.14.5 and the cppyy_ backend
-to 1.14.2. We recommend using CFFI rather than c-extensions to interact with C,
+to 1.14.2. We recommend using CFFI rather than C-extensions to interact with C,
 and using cppyy for performant wrapping of C++ code for Python.
-
-A new contributor took us up on the challenge to get `windows 64-bit`_ support.
-The work has been merged and for the first time we are releasing a 64-bit
-windows binary package.
 
 As always, this release fixed several issues and bugs.  We strongly recommend
 updating. Many of the fixes are the direct result of end-user bug reports, so
@@ -70,16 +88,16 @@ We would like to thank our donors for the continued support of the PyPy
 project. If PyPy is not quite good enough for your needs, we are available for
 direct consulting work. If PyPy is helping you out, we would love to hear about
 it and encourage submissions to our `renovated blog site`_ via a pull request
-to www.github.com://pypy/pypy.org
+to https://github.com/pypy/pypy.org
 
 We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
-on pypy, or general `help`_ with making RPython's JIT even better. Since the
+on PyPy, or general `help`_ with making RPython's JIT even better. Since the
 previous release, we have accepted contributions from 10 new contributors,
-thanks for pitching in.
+thanks for pitching in, and welcome to the project!
 
-If you are a python library maintainer and use c-extensions, please consider
+If you are a python library maintainer and use C-extensions, please consider
 making a cffi / cppyy version of your library that would be performant on PyPy.
 In any case both `cibuildwheel`_ and the `multibuild system`_ support
 building wheels for PyPy.
@@ -133,12 +151,9 @@ Changelog
 =========
 
 Bugfixes shared across versions
-------------------------------
+-------------------------------
 - Test, fix xml default attribute values (issue 3333_, `bpo 42151`_)
-- Update the ``re`` module to the Python3.7 implementation
-- Truncate ``REG_SZ`` at first ``NULL`` in ``winreg`` to match ``reg.exe``
-  behaviour (`bpo 25778`_)
-- Rename ``_hashlib.Hash`` to ``HASH`` to match cpython
+- Rename ``_hashlib.Hash`` to ``HASH`` to match CPython
 - Fix loading system libraries with ctypes on macOS Big Sur (issue 3314)
 - Fix ``__thread_id`` in greenlets (issue 3381_)
 - Reject XML entity declarations in plist files (`bpo 42051`_)
@@ -152,7 +167,7 @@ Speedups and enhancements shared across versions
   officializes the fact that you can raise RPython exceptions from llhelpers,
   and makes it possible to specify what is the C value to return in case of
   errors. Useful for HPY_
-- Introduce a new RPython decorator ``@never_allocates`` which ensures a class
+- Introduce a new RPython decorator ``@never_allocate`` which ensures a class
   is **never** instantiated at runtime. Useful for objects that are required to
   be constant-folded away
 - Upstream internal ``cparser`` tool from ``pypy/`` to ``rpython/``
@@ -170,6 +185,8 @@ Speedups and enhancements shared across versions
 - Copy manifest from CPython and link it into ``pypy.exe`` (issue 3363)
 - Preserve ``None`` passed as ``REG_BINARY`` instead of crashing or changing it
   to an empty string in ``winreg`` (`bpo 21151`_)
+- Add ``REG_QWORD*`` and ``Reg{Dis,En}ableReflectionKey``, and
+  ``RegDeleteKeyEx`` to ``winreg``
 - Backport msvc detection from python3, which probably breaks using Visual
   Studio 2008 (MSVC9, or the version that used to be used to build CPython2.7
   on Windows)
@@ -189,11 +206,11 @@ Speedups and enhancements shared across versions
 - Fast path for ``unicode.upper/lower``, ``unicodedb.toupper/lower`` for ascii,
   latin-1
 - Add a JIT driver for ``re.split``
-- Expose ``os.memfd_create`` on linux for glibc>2.27 (not on portable builds)
+- Expose ``os.memfd_create`` on Linux for glibc>2.27 (not on portable builds)
 - Add a shortcut for ``re.sub`` doing zero replacements
-for things like escaping characters)
+  for things like escaping characters)
 
-C-API (cpyext) and c-extensions
+C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 - make order of arguments of ``PyDescr_NewGetSet`` consistent with CPython,
   related to issue 2267_
@@ -209,12 +226,13 @@ C-API (cpyext) and c-extensions
 
 Python 3.7+
 -----------
+- Update the ``re`` module to the Python 3.7 implementation
 - Fix the ``crypt`` thread lock (issue 3395_) and fix input encoding (issue
   3378_)
 - Fixes ``utf_8_decode`` for ``final=False`` (issue 3348_)
 - Test, fix for ``time.strftime(u'%y\ud800%m', time.localtime(192039127))``
-- ``CALL_FUNCTION_KW`` pops a constant tuple from the stack, and uses
-  fixedview, which loses the constness
+- ``CALL_FUNCTION_KW`` with keyword arguments is now much faster, because the
+  data structure storing the arguments can be removed by the JIT
 - Fix the ``repr`` of subclasses
 - Better error message for ``object.__init__`` with too many parameters
 - Fix bug in ``codecs`` where using a function from the parser turns warnings
@@ -229,10 +247,10 @@ Python 3.7+
 - Hang on to ``servername_callback`` handle in ``_ssl`` so it will not be
   deleted until the context is deleted (issue 3396)
 - Implement ``set_wakeup_fd(warn_on_full_buffer)`` (issue 3227_)
-- Add ``REG_QWORD*`` and ``Reg{Dis,En}ableReflectionKey``, and
-  ``RegDeleteKeyEx`` to ``winreg``
 - Round-trip invalid UTF-16 data in ``winreg`` without a ``UnicodeDecodeError``
   (issue 3342_)
+- Truncate ``REG_SZ`` at first ``NULL`` in ``winreg`` to match ``reg.exe``
+  behaviour (`bpo 25778`_)
 - Fix for surrogates in ``winreg`` input value (issue 3345_)
 - In ``sysconfig``, ``INCLUDEPY`` and ``INCLUDEDIR`` should point to the
   original directory even in a virtualenv (issue 3364_)
@@ -246,8 +264,8 @@ Python 3.7+
 - Generalize venv to copy all ``*.exe`` and ``*.dll`` for windows
 - The evaluation order of keys and values of *large* dict literals was wrong in
   3.7 (in lower versions it was the same way, but in 3.7 the evaluation order
-  of *small* dicts changed (issue 3380_)
-- Cache the imported ``re`` module (going through ``__import__`` is
+  of *small* dicts changed), issue 3380_
+- Cache the imported ``re`` module in ``_sre`` (going through ``__import__`` is
   unfortunately quite expensive on 3.x)
 - Mention a repeated keyword argument in the error message
 - Stop emitting the ``STORE_ANNOTATION`` and ``BINARY_DIVIDE`` bytecodes,
@@ -258,7 +276,9 @@ Python 3.7+
 - Add missing `c_/f_/contiguous` flags on memoryview
 - Fix ``xml.ElementTree.extend`` not working on iterators (issue 3181_, `bpo-43399`_)
 - `Python -m` now adds *starting* directory to `sys.path` (`bpo 33053`_)
-- Reimplement ``heapq.merge()`` using a linked tournamet tree (`bpo 38938`_)
+- Reimplement ``heapq.merge()`` using a linked tournament tree (`bpo 38938`_)
+- Fix shring of cursors in ``sqllite3`` (issues 3351_ and 3403_)
+- Fix remaining ``sqllite3`` incompatibilities
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
@@ -272,6 +292,7 @@ Python 3.7 C-API
 - Converting utf-8 to 1-byte buffers must consider latin-1 encoding (`issue 3413`_)
 - Fix value of ``.__module__`` and ``.__name__`` on the result of
   ``PyType_FromSpec``
+- Add missing ``PyFile_FromFd``
 
 .. _2267: https://foss.heptapod.net/pypy/pypy/-/issues/2267
 .. _3172: https://foss.heptapod.net/pypy/pypy/-/issues/3172
@@ -282,6 +303,7 @@ Python 3.7 C-API
 .. _3342: https://foss.heptapod.net/pypy/pypy/-/issues/3342
 .. _3345: https://foss.heptapod.net/pypy/pypy/-/issues/3345
 .. _3348: https://foss.heptapod.net/pypy/pypy/-/issues/3348
+.. _3351: https://foss.heptapod.net/pypy/pypy/-/issues/3351
 .. _3355: https://foss.heptapod.net/pypy/pypy/-/issues/3355
 .. _3357: https://foss.heptapod.net/pypy/pypy/-/issues/3357
 .. _3359: https://foss.heptapod.net/pypy/pypy/-/issues/3359
@@ -297,6 +319,7 @@ Python 3.7 C-API
 .. _3395: https://foss.heptapod.net/pypy/pypy/-/issues/3395
 .. _3396: https://foss.heptapod.net/pypy/pypy/-/issues/3396
 .. _3400: https://foss.heptapod.net/pypy/pypy/-/issues/3400
+.. _3403: https://foss.heptapod.net/pypy/pypy/-/issues/3403
 .. _3404: https://foss.heptapod.net/pypy/pypy/-/issues/3404
 .. _3407: https://foss.heptapod.net/pypy/pypy/-/issues/3407
 .. _3409: https://foss.heptapod.net/pypy/pypy/-/issues/3409

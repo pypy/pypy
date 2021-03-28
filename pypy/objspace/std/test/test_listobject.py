@@ -1130,6 +1130,11 @@ class AppTestListObject(object):
             b[i:i+1] = ['y']
         assert b == ['y'] * count
 
+    def test_setslice_full_notlist(self):
+        l = [1, 2, 3]
+        l[::] = "abc"
+        assert l == ['a', 'b', 'c']
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'

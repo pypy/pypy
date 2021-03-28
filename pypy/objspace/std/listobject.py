@@ -405,6 +405,12 @@ class W_ListObject(W_Root):
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
 
+    def physical_size(self):
+        """ return the physical (ie overallocated size) of the underlying list.
+        """
+        # exposed in __pypy__
+        return self.strategy.physical_size(self)
+
     # exposed to app-level
 
     @staticmethod
@@ -552,14 +558,26 @@ class W_ListObject(W_Root):
 
     def descr_setitem(self, space, w_index, w_any):
         if isinstance(w_index, W_SliceObject):
+            # special case for l[:] = l2
+            if (space.is_w(w_index.w_start, space.w_None) and
+                    space.is_w(w_index.w_stop, space.w_None) and
+                    space.is_w(w_index.w_step, space.w_None)):
+                if isinstance(w_any, W_ListObject):
+                    w_any.copy_into(self)
+                else:
+                    # use the extend logic
+                    self.clear(space)
+                    self.extend(w_any)
+                return
+
             oldsize = self.length()
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
             if isinstance(w_any, W_ListObject):
-                self.setslice(start, step, slicelength, w_any)
+                w_other = w_any
             else:
                 sequence_w = space.listview(w_any)
                 w_other = W_ListObject(space, sequence_w)
-                self.setslice(start, step, slicelength, w_other)
+            self.setslice(start, step, slicelength, w_other)
             return
 
         idx = space.getindex_w(w_index, space.w_IndexError, "list")
@@ -861,6 +879,9 @@ class ListStrategy(object):
     def is_empty_strategy(self):
         return False
 
+    def physical_size(self, w_list):
+        raise oefmt(self.space.w_ValueError, "can't get physical size of list")
+
 
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
@@ -1020,6 +1041,9 @@ class EmptyListStrategy(ListStrategy):
 
     def is_empty_strategy(self):
         return True
+
+    def physical_size(self, w_list):
+        return 0
 
 
 class SizeListStrategy(EmptyListStrategy):
@@ -1517,8 +1541,9 @@ class AbstractUnwrappedStrategy(object):
                     i -= 1
                 return
             else:
-                # Make a shallow copy to more easily handle the reversal case
-                w_list.reverse()
+                # other_items is items and step is < 0, therefore:
+                assert step == -1
+                items.reverse()
                 return
                 #other_items = list(other_items)
         for i in range(len2):
@@ -1586,6 +1611,11 @@ class AbstractUnwrappedStrategy(object):
 
     def reverse(self, w_list):
         self.unerase(w_list.lstorage).reverse()
+
+    def physical_size(self, w_list):
+        from rpython.rlib.objectmodel import list_get_physical_size
+        l = self.unerase(w_list.lstorage)
+        return list_get_physical_size(l)
 
 
 class ObjectListStrategy(ListStrategy):

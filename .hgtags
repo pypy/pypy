@@ -101,3 +101,5 @@ db1e853f94de42ad711bd930222bd2434e0f900d release-pypy3.6-v7.3.3rc2
 a29ef73f9b32953753d0dd6d2a56255fa2892e24 release-pypy2.7-v7.3.3
 db1e853f94de42ad711bd930222bd2434e0f900d release-pypy3.6-v7.3.3
 7e6e2bb30ac5fbdbd443619cae28c51d5c162a02 release-pypy3.7-v7.3.3
+9ea8f87bdc759c4ea577765d1a27ac1d1bc1eebb release-pypy2.7-v7.3.4rc1
+465347ee258af5dab3c3d5b09f42aff1bba1038a release-pypy3.7-v7.3.4rc1

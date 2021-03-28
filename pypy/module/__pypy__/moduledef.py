@@ -120,6 +120,7 @@ class Module(MixedModule):
         'newmemoryview'             : 'interp_buffer.newmemoryview',
         'set_exc_info'              : 'interp_magic.set_exc_info',
         'utf8content'               : 'interp_magic.utf8content',
+        'list_get_physical_size'    : 'interp_magic.list_get_physical_size',
 
         'get_contextvar_context'    : 'interp_magic.get_contextvar_context',
         'set_contextvar_context'    : 'interp_magic.set_contextvar_context',
