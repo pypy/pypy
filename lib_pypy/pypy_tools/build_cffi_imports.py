@@ -168,6 +168,7 @@ def _build_dependency(name, patches=[]):
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
     from rpython.tool.runsubprocess import run_subprocess
+    print('calling create_cffi_import_libraries with "embed_dependencies"', embed_dependencies)
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
