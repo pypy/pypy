@@ -64,15 +64,16 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
+}
+if sys.platform == 'darwin':
     # this does not compile on the buildbot, linker is missing '_history_list'
-    'gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
+    cffi_dependencies['gdbm'] = (
+              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-}
-
+             ])
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
