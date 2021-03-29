@@ -39,7 +39,7 @@ def setupterm(space, w_termname=None, fd=-1):
     if ll_errmsg:
         msg = rffi.charp2str(ll_errmsg)
         if "could not find terminal" in msg:
-            msg = "setupterm(%s, %d) failed (err=0): could not find terminal" %(termname, fd)
+            msg = "setupterm('%s', %d) failed (err=0): could not find terminal" %(termname, fd)
         raise curses_error(space, msg)
 
     space.fromcache(ModuleInfo).setupterm_called = True
