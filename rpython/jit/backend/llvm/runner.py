@@ -120,7 +120,7 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types = self.parse_arg_types(*ARGS)
         func = self.make_execute_token(*arg_types)
         deadframe = func(looptoken, *ARGS)
-        lltype.free(looptoken.compiled_loop_token.frame_info, flavor='raw')
+        #lltype.free(looptoken.compiled_loop_token.frame_info, flavor='raw') #TODO move this to a finish function
         return deadframe
 
     def get_latest_descr(self, deadframe):
