@@ -372,6 +372,10 @@ class __extend__(pyframe.PyFrame):
                 self.SETUP_EXCEPT(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_FINALLY.index:
                 self.SETUP_FINALLY(oparg, next_instr)
+            elif opcode == opcodedesc.BEGIN_FINALLY.index:
+                self.BEGIN_FINALLY(oparg, next_instr)
+            elif opcode == opcodedesc.POP_FINALLY.index:
+                self.POP_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_WITH.index:
                 self.SETUP_WITH(oparg, next_instr)
             elif opcode == opcodedesc.SET_ADD.index:
@@ -1219,6 +1223,27 @@ class __extend__(pyframe.PyFrame):
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
+    def BEGIN_FINALLY(self, oparg, next_instr):
+        self.pushvalue_none()
+
+    def POP_FINALLY(self, oparg, next_instr):
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
+        w_result = None
+        if oparg:
+            # top value is some result, needs to be preserved
+            w_result = self.popvalue()
+        w_top = self.popvalue_maybe_none()
+        if w_top is None:
+            pass
+        else:
+            assert isinstance(w_top, SApplicationException)
+
+        if oparg:
+            self.pushvalue(w_result)
+
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
@@ -1900,38 +1925,6 @@ class FinallyBlock(FrameBlock):
     def pop_block(self, frame):
         frame.save_and_change_sys_exc_info(None)
 
-
-block_classes = {'SYS_EXC_INFO_RESTORER': SysExcInfoRestorer,
-                 'SETUP_EXCEPT': ExceptBlock,
-                 'SETUP_FINALLY': FinallyBlock,
-                 'SETUP_WITH': FinallyBlock,
-                 }
-
-
-##class W_OperationError(W_Root):
-##    """
-##    Tiny applevel wrapper around an OperationError.
-##    """
-##
-##    def __init__(self, operr):
-##        self.operr = operr
-##
-##    def descr_reduce(self, space):
-##        from pypy.interpreter.mixedmodule import MixedModule
-##        w_mod = space.getbuiltinmodule('_pickle_support')
-##        mod = space.interp_w(MixedModule, w_mod)
-##        w_new_inst = mod.get('operationerror_new')
-##        w_args = space.newtuple([])
-##        operr = self.operr
-##        if operr is None:
-##            return space.newtuple([w_new_inst, w_args])
-##        w_state = space.newtuple([operr.w_type, operr.get_w_value(space),
-##                                  operr.get_traceback()])
-##        return space.newtuple([w_new_inst, w_args, w_state])
-##
-##    def descr_setstate(self, space, w_state):
-##        w_type, w_value, w_tb = space.fixedview(w_state, 3)
-##        self.operr = OperationError(w_type, w_value, w_tb)
 
 def source_as_str(space, w_source, funcname, what, flags):
     """Return source code as str0 with adjusted compiler flags

@@ -1663,6 +1663,22 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_newbytecode_continue_in_finally(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            h(i)
+        finally:
+            res += i
+            continue
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 190
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

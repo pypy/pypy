@@ -272,6 +272,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_jump(ops.CALL_FINALLY, fblock.end)
             else:
                 self.emit_op(ops.POP_EXCEPT)
+        elif kind == F_FINALLY_END:
+            fblock.end = None
+            self.emit_op_arg(ops.POP_FINALLY, preserve_tos)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+            self.emit_op(ops.POP_TOP)
         else:
             assert 0, "kind not implemented"
 
