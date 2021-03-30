@@ -255,7 +255,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             "mismatched frame blocks"
 
     def unwind_fblock(self, fblock, preserve_tos):
-        assert fblock is self.frame_blocks[-1]
         kind = fblock.kind
         if kind == F_FOR_LOOP:
             if preserve_tos:
@@ -266,6 +265,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif kind == F_FINALLY_TRY:
             self.emit_op(ops.POP_BLOCK)
             self.emit_jump(ops.CALL_FINALLY, fblock.end)
+        elif kind == F_HANDLER_CLEANUP:
+            if preserve_tos:
+                self.emit_op(ops.ROT_FOUR)
+            if fblock.end:
+                self.emit_op(ops.POP_BLOCK)
+                self.emit_op(ops.POP_EXCEPT)
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+            else:
+                self.emit_op(ops.POP_EXCEPT)
         else:
             assert 0, "kind not implemented"
 
@@ -757,15 +765,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_try_except(self, tr):
         self.update_position(tr.lineno, True)
+        body = self.new_block()
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
+        # XXX CPython uses SETUP_FINALLY here too
         self.emit_jump(ops.SETUP_EXCEPT, exc)
-        body = self.use_next_block()
-        self.push_frame_block(F_BLOCK_EXCEPT, body)
+        body = self.use_next_block(body)
+        self.push_frame_block(F_EXCEPT, body)
         self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_EXCEPT, body)
+        self.pop_frame_block(F_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         for i, handler in enumerate(tr.handlers):
@@ -800,11 +810,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second try
                 self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
                 cleanup_body = self.use_next_block()
-                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body, cleanup_end)
                 # second # body
                 self.visit_sequence(handler.body)
                 self.emit_op(ops.POP_BLOCK)
-                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.emit_op(ops.BEGIN_FINALLY)
+                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 # finally
                 self.load_const(self.space.w_None)
                 self.use_next_block(cleanup_end)
@@ -816,16 +827,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.name_op(handler.name, ast.Del)
                 #
                 self.emit_op(ops.END_FINALLY)
-                self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                self.emit_op(ops.POP_EXCEPT)
+                self.pop_frame_block(F_FINALLY_END, cleanup_end)
             else:
                 self.emit_op(ops.POP_TOP)
                 self.emit_op(ops.POP_TOP)
                 cleanup_body = self.use_next_block()
-                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 self.visit_sequence(handler.body)
-                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.emit_op(ops.POP_EXCEPT)
             #
-            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise

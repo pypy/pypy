@@ -1579,6 +1579,39 @@ def g():
 """
         yield self.st, func, "g()", 5
 
+    def test_finally_exception(self):
+        func = """def f():
+    global a
+    try:
+        raise ValueError
+    finally:
+        a = 5
+
+def g():
+    try:
+        f()
+    except Exception:
+        pass
+    return a
+"""
+        yield self.st, func, "g()", 5
+
+    def test_break_in_except(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError:
+            break
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

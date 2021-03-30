@@ -779,11 +779,11 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
             return None
-        if self.space.isinstance_w(w_top, self.space.w_int):
-            # we arrived here via a CALL_FINALLY
-            return w_top
         if isinstance(w_top, SuspendedUnroller):
             # case of a finally: block with a suspended unroller
+            return w_top
+        if self.space.isinstance_w(w_top, self.space.w_int):
+            # we arrived here via a CALL_FINALLY
             return w_top
         else:
             # case of an except: block.  We popped the exception type
@@ -1769,16 +1769,6 @@ class SuspendedUnroller(W_Root):
     _immutable_ = True
     def nomoreblocks(self):
         raise BytecodeCorruption("misplaced bytecode - should not return")
-
-class SReturnValue(SuspendedUnroller):
-    """Signals a 'return' statement.
-    Argument is the wrapped object to return."""
-    _immutable_ = True
-    kind = 0x01
-    def __init__(self, w_returnvalue):
-        self.w_returnvalue = w_returnvalue
-    def nomoreblocks(self):
-        return self.w_returnvalue
 
 class SApplicationException(SuspendedUnroller):
     """Signals an application-level exception
