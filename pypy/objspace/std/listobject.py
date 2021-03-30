@@ -562,12 +562,11 @@ class W_ListObject(W_Root):
             if (space.is_w(w_index.w_start, space.w_None) and
                     space.is_w(w_index.w_stop, space.w_None) and
                     space.is_w(w_index.w_step, space.w_None)):
-                if isinstance(w_any, W_ListObject):
-                    w_any.copy_into(self)
-                else:
-                    # use the extend logic
-                    self.clear(space)
-                    self.extend(w_any)
+                if space.is_w(self, w_any):
+                    return
+                # use the extend logic
+                self.clear(space)
+                self.extend(w_any)
                 return
 
             oldsize = self.length()
