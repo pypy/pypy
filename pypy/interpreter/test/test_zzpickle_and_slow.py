@@ -296,11 +296,15 @@ class AppTestInterpObjectPickling:
     def test_pickle_dictiter(self):
         import pickle
         tdict = {'2':2, '3':3, '5':5}
-        diter = iter(tdict)
-        seen = next(diter)
-        pckl = pickle.dumps(diter)
-        result = pickle.loads(pckl)
-        assert set(result) == (set('235') - set([seen]))
+        diter  = iter(tdict)
+        res1 = next(diter)
+        s = pickle.dumps(diter)
+        res2 = next(diter)
+        res3 = next(diter)
+        assert {res1, res2, res3} == set(tdict)
+
+        diter2 = pickle.loads(s)
+        assert set(diter2) == set(tdict) - {res1}
 
     def test_pickle_reversed(self):
         import pickle
