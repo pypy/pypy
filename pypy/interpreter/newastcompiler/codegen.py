@@ -258,10 +258,14 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         assert fblock is self.frame_blocks[-1]
         kind = fblock.kind
         if kind == F_FOR_LOOP:
-            assert not preserve_tos, "not implemented"
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP) # pop iterator
         elif kind == F_WHILE_LOOP:
             pass
+        elif kind == F_FINALLY_TRY:
+            self.emit_op(ops.POP_BLOCK)
+            self.emit_jump(ops.CALL_FINALLY, fblock.end)
         else:
             assert 0, "kind not implemented"
 
@@ -583,10 +587,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Return(self, ret):
         self.update_position(ret.lineno, True)
-        if ret.value:
+        preserve_tos = ret.value is not None and not isinstance(ret.value, ast.Constant)
+        if preserve_tos:
             ret.value.walkabout(self)
-        else:
+        for i in range(len(self.frame_blocks) - 1, -1, -1):
+            fblock = self.frame_blocks[i]
+            self.unwind_fblock(fblock, preserve_tos)
+        if ret.value is None:
             self.load_const(self.space.w_None)
+        else:
+            ret.value.walkabout(self) # Constant
         self.emit_op(ops.RETURN_VALUE)
 
     def visit_Delete(self, delete):
@@ -825,23 +835,50 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_try_finally(self, tr):
         self.update_position(tr.lineno, True)
+
+        body = self.new_block()
         end = self.new_block()
+        start = self.current_block
+
+        # compile finally block first
+        self.use_next_block(end)
+        self.push_frame_block(F_FINALLY_END, end, end)
+        self.visit_sequence(tr.finalbody)
+        self.emit_op(ops.END_FINALLY)
+        # we can find out whether the finally block was unwound by looking at
+        # the frame_block .end attribute, which is reset to None in
+        # unwind_fblock
+        unwound_finally = self.frame_blocks[-1].end is None
+        if unwound_finally:
+            self.emit_op(ops.POP_TOP)
+        self.pop_frame_block(F_FINALLY_END, end)
+
+        newcurblock = self.current_block
+        self.current_block = start
+        start.next_block = None
+
+        if unwound_finally:
+            # Pushes a placeholder for the value of "return" in the "try" block
+            # to balance the stack for "break", "continue" and "return" in the
+            # "finally" block.
+            self.load_const(self.space.w_None)
+            blocktype = F_FINALLY_TRY2
+        else:
+            blocktype = F_FINALLY_TRY
+
         self.emit_jump(ops.SETUP_FINALLY, end)
-        body = self.use_next_block()
-        self.push_frame_block(F_BLOCK_FINALLY, body)
+        self.use_next_block(body)
+        self.push_frame_block(blocktype, body, end)
         if tr.handlers:
             self._visit_try_except(tr)
         else:
             self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_FINALLY, body)
-        # Indicates there was no exception.
-        self.load_const(self.space.w_None)
-        self.use_next_block(end)
-        self.push_frame_block(F_BLOCK_FINALLY_END, end)
-        self.visit_sequence(tr.finalbody)
-        self.emit_op(ops.END_FINALLY)
-        self.pop_frame_block(F_BLOCK_FINALLY_END, end)
+        self.emit_op(ops.BEGIN_FINALLY)
+        self.pop_frame_block(blocktype, body)
+        self.current_block.next_block = end
+        self.current_block = newcurblock
+
 
     def visit_Try(self, tr):
         if tr.finalbody:

@@ -1555,6 +1555,30 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
+    def test_for_loop_return(self):
+        func = """def f():
+    res = 0
+    for i in range(10000):
+        if i >= 10:
+            return res
+        res += i
+"""
+        yield self.st, func, "f()", 45
+
+    def test_finally(self):
+        func = """def f():
+    global a
+    try:
+        return
+    finally:
+        a = 5
+
+def g():
+    f()
+    return a
+"""
+        yield self.st, func, "g()", 5
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

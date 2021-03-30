@@ -178,29 +178,23 @@ class __extend__(pyframe.PyFrame):
                 oparg = (oparg * 256) | arg
 
             if opcode == opcodedesc.RETURN_VALUE.index:
-                if not self.blockstack_non_empty():
-                    self.frame_finished_execution = True  # for generators
-                    raise Return
-                w_returnvalue = self.popvalue()
-                block = self.unrollstack(SReturnValue.kind)
-                if block is None:
-                    self.pushvalue(w_returnvalue)
-                    raise Return
-                else:
-                    unroller = SReturnValue(w_returnvalue)
-                    next_instr = block.handle(self, unroller)
-                    return next_instr    # now inside a 'finally' block
+                assert not self.blockstack_non_empty()
+                self.frame_finished_execution = True  # for generators
+                raise Return
             elif opcode == opcodedesc.END_FINALLY.index:
-                unroller = self.end_finally()
-                if isinstance(unroller, SuspendedUnroller):
+                unroller_or_int = self.end_finally()
+                if isinstance(unroller_or_int, SuspendedUnroller):
                     # go on unrolling the stack
-                    block = self.unrollstack(unroller.kind)
+                    block = self.unrollstack(unroller_or_int.kind)
                     if block is None:
-                        w_result = unroller.nomoreblocks()
+                        w_result = unroller_or_int.nomoreblocks()
                         self.pushvalue(w_result)
                         raise Return
                     else:
-                        next_instr = block.handle(self, unroller)
+                        next_instr = block.handle(self, unroller_or_int)
+                elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
+                    # we arrived here via a CALL_FINALLY
+                    next_instr = r_uint(self.space.int_w(unroller_or_int))
                 return next_instr
             elif opcode == opcodedesc.JUMP_ABSOLUTE.index:
                 return self.jump_absolute(oparg, ec)
@@ -430,6 +424,8 @@ class __extend__(pyframe.PyFrame):
                 self.FORMAT_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_STRING.index:
                 self.BUILD_STRING(oparg, next_instr)
+            elif opcode == opcodedesc.CALL_FINALLY.index:
+                next_instr = self.CALL_FINALLY(oparg, next_instr)
             elif opcode == opcodedesc.LOAD_REVDB_VAR.index:
                 self.LOAD_REVDB_VAR(oparg, next_instr)
             else:
@@ -775,7 +771,6 @@ class __extend__(pyframe.PyFrame):
         # item (unlike CPython which can have 1, 2, 3 or 5 items, and
         # even in one case a non-fixed number of items):
         #   [wrapped subclass of SuspendedUnroller]
-
         block = self.pop_block()
         assert isinstance(block, SysExcInfoRestorer)
         block.cleanupstack(self)   # restores ec.sys_exc_operror
@@ -784,6 +779,9 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
             return None
+        if self.space.isinstance_w(w_top, self.space.w_int):
+            # we arrived here via a CALL_FINALLY
+            return w_top
         if isinstance(w_top, SuspendedUnroller):
             # case of a finally: block with a suspended unroller
             return w_top
@@ -1236,6 +1234,10 @@ class __extend__(pyframe.PyFrame):
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
         self.pushvalue(w_result)
+
+    def CALL_FINALLY(self, jumpby, next_instr):
+        self.pushvalue(self.space.newint(intmask(next_instr)))
+        return next_instr + jumpby
 
     def WITH_CLEANUP_START(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state

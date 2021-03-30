@@ -404,7 +404,9 @@ class PyFrame(W_Root):
     def assert_stack_index(self, index):
         if we_are_translated():
             return
-        assert self._check_stack_index(index)
+        if not self._check_stack_index(index):
+            import pdb; pdb.set_trace()
+            fatal
 
     def _check_stack_index(self, index):
         code = self.pycode
