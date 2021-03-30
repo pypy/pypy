@@ -266,8 +266,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.POP_BLOCK)
             self.emit_jump(ops.CALL_FINALLY, fblock.end)
         elif kind == F_HANDLER_CLEANUP:
-            if preserve_tos:
-                self.emit_op(ops.ROT_FOUR)
             if fblock.end:
                 self.emit_op(ops.POP_BLOCK)
                 self.emit_op(ops.POP_EXCEPT)
@@ -603,7 +601,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.unwind_fblock(fblock, preserve_tos)
         if ret.value is None:
             self.load_const(self.space.w_None)
-        else:
+        elif not preserve_tos:
             ret.value.walkabout(self) # Constant
         self.emit_op(ops.RETURN_VALUE)
 
@@ -674,7 +672,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(cleanup)
-        # self.emit_op(ops.POP_BLOCK)
         self.pop_frame_block(F_FOR_LOOP, start)
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)

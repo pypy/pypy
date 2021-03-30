@@ -1807,8 +1807,8 @@ class FrameBlock(object):
         frame.dropvaluesuntil(self.valuestackdepth)
 
     def pop_block(self, frame):
-        "Clean up a frame when we normally exit the block."
-        self.cleanupstack(frame)
+        # cleaning up the stack is compiled into the bytecode nowadays
+        pass
 
     # internal pickling interface, not using the standard protocol
     def _get_state_(self, space):
@@ -1871,6 +1871,9 @@ class ExceptBlock(FrameBlock):
         frame.save_and_change_sys_exc_info(operationerr)
         return r_uint(self.handlerposition)   # jump to the handler
 
+    def pop_block(self, frame):
+        pass
+
 
 class FinallyBlock(FrameBlock):
     """A try:finally: block.  Stores the position of the exception handler."""
@@ -1895,7 +1898,6 @@ class FinallyBlock(FrameBlock):
         return r_uint(self.handlerposition)   # jump to the handler
 
     def pop_block(self, frame):
-        self.cleanupstack(frame)
         frame.save_and_change_sys_exc_info(None)
 
 

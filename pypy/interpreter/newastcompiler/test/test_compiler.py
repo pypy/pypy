@@ -1511,7 +1511,7 @@ rest = 2, 3
 x: tuple = 1, *rest, 4
 """, "x", (1, 2, 3, 4))
 
-    def test_for_loop(self):
+    def test_newbytecode_for_loop(self):
         func = """def f():
     res = 0
     for i in range(10):
@@ -1520,7 +1520,7 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
-    def test_for_loop_break(self):
+    def test_newbytecode_for_loop_break(self):
         func = """def f():
     res = 0
     for i in range(10000):
@@ -1531,7 +1531,7 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
-    def test_for_loop_continue(self):
+    def test_newbytecode_for_loop_continue(self):
         func = """def f():
     res = 0
     for i in range(20):
@@ -1542,7 +1542,7 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
-    def test_while_loop_break(self):
+    def test_newbytecode_while_loop_break(self):
         func = """def f():
     res = 0
     i = 0
@@ -1555,7 +1555,7 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
-    def test_for_loop_return(self):
+    def test_newbytecode_for_loop_return(self):
         func = """def f():
     res = 0
     for i in range(10000):
@@ -1565,7 +1565,7 @@ x: tuple = 1, *rest, 4
 """
         yield self.st, func, "f()", 45
 
-    def test_finally(self):
+    def test_newbytecode_finally(self):
         func = """def f():
     global a
     try:
@@ -1579,7 +1579,7 @@ def g():
 """
         yield self.st, func, "g()", 5
 
-    def test_finally_exception(self):
+    def test_newbytecode_finally_exception(self):
         func = """def f():
     global a
     try:
@@ -1596,7 +1596,7 @@ def g():
 """
         yield self.st, func, "g()", 5
 
-    def test_break_in_except(self):
+    def test_newbytecode_break_in_except(self):
         func = """def g():
     res = 0
     for i in range(100):
@@ -1613,7 +1613,7 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
-    def test_break_in_except_named(self):
+    def test_newbytecode_break_in_except_named(self):
         func = """def g():
     res = 0
     for i in range(100):
@@ -1629,6 +1629,40 @@ def h(i):
         raise ValueError
 """
         yield self.st, func, "g()", 45
+
+    def test_newbytecode_return_in_except(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError:
+            return res
+        res += i
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_return_in_except_named(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError as e:
+            return res
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
