@@ -819,7 +819,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # finally
                 self.load_const(self.space.w_None)
                 self.use_next_block(cleanup_end)
-                self.push_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                self.push_frame_block(F_FINALLY_END, cleanup_end)
                 # name = None
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store)

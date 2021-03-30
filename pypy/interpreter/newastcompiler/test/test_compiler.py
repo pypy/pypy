@@ -1613,6 +1613,23 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_break_in_except_named(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError as e:
+            break
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 
