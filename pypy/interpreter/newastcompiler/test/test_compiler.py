@@ -1663,6 +1663,18 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_newbytecode_return_in_except_body(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            return i
+        except:
+            pass
+    return res
+"""
+        yield self.st, func, "g()", 0
+
     def test_newbytecode_continue_in_try_finally(self):
         func = """def g():
     res = 0

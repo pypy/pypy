@@ -274,6 +274,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             else:
                 self.emit_jump(ops.CALL_FINALLY, fblock.end)
                 self.emit_op(ops.POP_TOP)
+        elif kind == F_EXCEPT:
+            self.emit_op(ops.POP_BLOCK)
         elif kind == F_HANDLER_CLEANUP:
             if fblock.end:
                 self.emit_op(ops.POP_BLOCK)
