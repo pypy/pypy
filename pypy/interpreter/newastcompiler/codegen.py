@@ -265,6 +265,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         elif kind == F_FINALLY_TRY:
             self.emit_op(ops.POP_BLOCK)
             self.emit_jump(ops.CALL_FINALLY, fblock.end)
+        elif kind == F_FINALLY_TRY2:
+            self.emit_op(ops.POP_BLOCK)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+                self.emit_op(ops.POP_TOP)
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+            else:
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+                self.emit_op(ops.POP_TOP)
         elif kind == F_HANDLER_CLEANUP:
             if fblock.end:
                 self.emit_op(ops.POP_BLOCK)

@@ -1663,6 +1663,18 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_newbytecode_continue_in_try_finally(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            continue
+        finally:
+            res += i
+    return res
+"""
+        yield self.st, func, "g()", 190
+
     def test_newbytecode_continue_in_finally(self):
         func = """def g():
     res = 0
@@ -1679,6 +1691,21 @@ def h(i):
         raise ValueError
 """
         yield self.st, func, "g()", 190
+
+    def test_newbytecode_blocktype_try2(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            return res
+        finally:
+            res += i
+            if i < 10:
+                continue
+    return res
+"""
+        yield self.st, func, "g()", 45
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

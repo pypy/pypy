@@ -1236,10 +1236,13 @@ class __extend__(pyframe.PyFrame):
             # top value is some result, needs to be preserved
             w_result = self.popvalue()
         w_top = self.popvalue_maybe_none()
+        # do nothing in any case, but check the cases ;-)
         if w_top is None:
             pass
+        elif isinstance(w_top, SApplicationException):
+            pass
         else:
-            assert isinstance(w_top, SApplicationException)
+            assert self.space.isinstance_w(w_top, self.space.w_int)
 
         if oparg:
             self.pushvalue(w_result)
