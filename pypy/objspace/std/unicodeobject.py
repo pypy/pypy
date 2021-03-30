@@ -103,7 +103,7 @@ class W_UnicodeObject(W_Root):
         return space.newint(uid)
 
     def str_w(self, space):
-        return space.text_w(encode_object(space, self, 'ascii', 'strict'))
+        return space.text_w(encode_object(space, self, None, 'strict'))
 
     def utf8_w(self, space):
         return self._utf8
@@ -244,7 +244,7 @@ class W_UnicodeObject(W_Root):
         return space.newtext(_repr_function(self._utf8))
 
     def descr_str(self, space):
-        return encode_object(space, self, 'ascii', 'strict')
+        return encode_object(space, self, None, 'strict')
 
     def hash_w(self):
         # shortcut for UnicodeDictStrategy
