@@ -1718,6 +1718,15 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_newbytecode_named_try_bug(self):
+        func = """def g():
+    try:
+        raise StopIteration
+    except StopIteration as e:
+        assert 1
+"""
+        self.st(func, "g()", None)
+
     def test_newbytecode_with_basic(self):
         func = """def g():
         class ContextManager:

@@ -841,7 +841,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.emit_op(ops.BEGIN_FINALLY)
                 self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 # finally
-                self.load_const(self.space.w_None)
                 self.use_next_block(cleanup_end)
                 self.push_frame_block(F_FINALLY_END, cleanup_end)
                 # name = None
