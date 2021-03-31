@@ -289,6 +289,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             if preserve_tos:
                 self.emit_op(ops.ROT_TWO)
             self.emit_op(ops.POP_TOP)
+        elif kind == F_WITH or kind == F_ASYNC_WITH:
+            self.emit_op(ops.POP_BLOCK)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+            self.emit_op(ops.BEGIN_FINALLY)
+            self.emit_op(ops.WITH_CLEANUP_START)
+            if kind == F_ASYNC_WITH:
+                xxx
+            self.emit_op(ops.WITH_CLEANUP_FINISH)
+            self.emit_op_arg(ops.POP_FINALLY, 0)
         else:
             assert 0, "kind not implemented"
 

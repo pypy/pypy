@@ -1733,6 +1733,22 @@ def h(i):
 """
         self.st(func, "g()", 6)
 
+    def test_newbytecode_with_continue(self):
+        func = """def g():
+    class ContextManager:
+        def __enter__(self, *args):
+            return self
+        def __exit__(self, typ, val, tb):
+            nonlocal res
+            res += i
+    res = 0
+    for i in range(20):
+        with ContextManager() as b:
+            continue
+    return res
+"""
+        self.st(func, "g()", 190)
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
