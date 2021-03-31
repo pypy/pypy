@@ -424,6 +424,8 @@ class __extend__(pyframe.PyFrame):
                 self.GET_AITER(oparg, next_instr)
             elif opcode == opcodedesc.GET_ANEXT.index:
                 self.GET_ANEXT(oparg, next_instr)
+            elif opcode == opcodedesc.END_ASYNC_FOR.index:
+                next_instr = self.END_ASYNC_FOR(oparg, next_instr)
             elif opcode == opcodedesc.FORMAT_VALUE.index:
                 self.FORMAT_VALUE(oparg, next_instr)
             elif opcode == opcodedesc.BUILD_STRING.index:
@@ -1642,27 +1644,12 @@ class __extend__(pyframe.PyFrame):
         # If __aiter__() returns an object with a __anext__() method,
         # wrap it in a awaitable that resolves to 'w_iter'.
         if space.lookup(w_iter, "__anext__") is not None:
-            w_awaitable = AIterWrapper(w_iter)
+            self.pushvalue(w_iter)
         else:
-            try:
-                w_awaitable = get_awaitable_iter(space, w_iter)
-            except OperationError as e:
-                if e.async(space):
-                    raise
-                new_error = oefmt(space.w_TypeError,
-                            "'async for' received an invalid object "
-                            "from __aiter__: %T", w_iter)
-                e.normalize_exception(space)
-                new_error.normalize_exception(space)
-                new_error.set_cause(space, e.get_w_value(space))
-                raise new_error
-            space.warn(space.newtext(
-                "'%s' implements legacy __aiter__ protocol; "
-                "__aiter__ should return an asynchronous "
-                "iterator, not awaitable" %
-                    space.type(w_obj).name),
-                space.w_DeprecationWarning)
-        self.pushvalue(w_awaitable)
+            new_error = oefmt(space.w_TypeError,
+                        "'async for' received a object from __aiter__ that"
+                        " does not implement __anext__: %T", w_iter)
+            raise new_error
 
     def GET_ANEXT(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
@@ -1690,6 +1677,27 @@ class __extend__(pyframe.PyFrame):
             new_error.set_cause(space, e.get_w_value(space))
             raise new_error
         self.pushvalue(w_awaitable)
+
+    def END_ASYNC_FOR(self, oparg, next_instr):
+        block = self.pop_block()
+        assert isinstance(block, SysExcInfoRestorer)
+        block.cleanupstack(self)   # restores ec.sys_exc_operror
+
+        w_typ = self.popvalue()
+        if self.space.exception_match(w_typ, self.space.w_StopAsyncIteration):
+            self.popvalue() # w_exc
+            self.popvalue() # unroller
+            self.popvalue() # aiter
+            return next_instr
+        else:
+            unroller = self.peekvalue(2)
+            block = self.unrollstack(unroller.kind)
+            if block is None:
+                w_result = unroller.nomoreblocks()
+                self.pushvalue(w_result)
+                raise Return
+            else:
+                next_instr = block.handle(self, unroller)
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.newastcompiler import consts

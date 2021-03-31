@@ -1758,6 +1758,58 @@ def h(i):
 """
         self.st(func, "g()", 190)
 
+    def test_newbytecode_async_for_break(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+
+    class MyAIter:
+        async def __anext__(self):
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+            if sum > 100:
+                break
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except StopIteration as e:
+        return e.value
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", 3 * 42)
+
+    def test_newbytecode_async_for(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+    class MyAIter:
+        count = 0
+        async def __anext__(self):
+            if self.count == 3:
+                raise StopAsyncIteration
+            self.count += 1
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except StopIteration as e:
+        assert e.value == 42 * 3
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", None)
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

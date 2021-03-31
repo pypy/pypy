@@ -87,6 +87,8 @@ class Block(object):
     reaches the end of the block, it continues to next_block.
     """
 
+    _source = None
+
     marked = False
     have_return = False
     auto_inserted_return = False
@@ -663,6 +665,7 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
+    ops.END_ASYNC_FOR: -4,
 
     ops.LOAD_CONST: 1,
 

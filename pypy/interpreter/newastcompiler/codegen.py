@@ -707,57 +707,31 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not self._check_async_function():
             self.error("'async for' outside async function", fr)
         self.update_position(fr.lineno, True)
-        b_try = self.new_block()
+        b_start = self.new_block()
         b_except = self.new_block()
         b_end = self.new_block()
-        b_after_try = self.new_block()
-        b_try_cleanup = self.new_block()
-        b_after_loop_else = self.new_block()
-
-        self.emit_jump(ops.SETUP_LOOP, b_end)
-        self.push_frame_block(F_BLOCK_LOOP, b_try)
 
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_AITER)
-        self.load_const(self.space.w_None)
-        self.emit_op(ops.YIELD_FROM)
 
-        self.use_next_block(b_try)
+        self.use_next_block(b_start)
+        self.push_frame_block(F_FOR_LOOP, b_start, b_end)
+
         # This adds another line, so each for iteration can be traced.
         self.lineno_set = False
         self.emit_jump(ops.SETUP_EXCEPT, b_except)
-        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
-
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        fr.target.walkabout(self)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
-        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
-
-        self.use_next_block(b_except)
-        self.emit_op(ops.DUP_TOP)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
-        self.emit_op_arg(ops.COMPARE_OP, 10)
-        self.emit_jump(ops.POP_JUMP_IF_TRUE, b_try_cleanup, True)
-        self.emit_op(ops.END_FINALLY)
-
-        self.use_next_block(b_after_try)
+        fr.target.walkabout(self)
         self.visit_sequence(fr.body)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_start, True)
+        self.pop_frame_block(F_FOR_LOOP, b_start)
 
-        self.use_next_block(b_try_cleanup)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
-        self.emit_op(ops.POP_TOP)
-
-        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
-        self.pop_frame_block(F_BLOCK_LOOP, b_try)
-
-        self.use_next_block(b_after_loop_else)
+        # except block for errors from __anext__
+        self.use_next_block(b_except)
+        self.emit_op(ops.END_ASYNC_FOR)
         self.visit_sequence(fr.orelse)
 
         self.use_next_block(b_end)
