@@ -9,7 +9,7 @@ PyPy v7.3.4: release of 2.7 and 3.7
 .. _`PyPy blog`: https://pypy.org/blog
 
 ..
-  Changelog up to commit d414fb8186a7
+  Changelog up to commit 9c11d242d78c
 
 
 The PyPy team is proud to release the version 7.3.4 of PyPy, which includes
@@ -160,6 +160,7 @@ Bugfixes shared across versions
 - Make compare_digest more constant-time (`bpo-40791`_)
 - Only use '&' as a query string separator in url parsing (`bpo 42967`_)
 - Fix `__r*__` reverse methods on weakref proxies
+- Restore pickle of dict iterators on default (python2.7)
 
 Speedups and enhancements shared across versions
 ------------------------------------------------
@@ -209,6 +210,13 @@ Speedups and enhancements shared across versions
 - Expose ``os.memfd_create`` on Linux for glibc>2.27 (not on portable builds)
 - Add a shortcut for ``re.sub`` doing zero replacements
   for things like escaping characters)
+- Expose the physical size of a list in ``__pypy__.list_get_physical_size``
+- Sync with upstream https://github.com/pypy/pyrepl to improve unicode handling
+  in history (issue 2371)
+- Clean up the icon bundled with the exe in windows
+- Add a fast path for ``list[:] = l2``
+- Update packaged OpenSSL to 1.1.1k
+- Make ARM builds portable
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -222,6 +230,8 @@ C-API (cpyext) and C-extensions
 - Fix ``PyObject_Format`` for type objects (issue 3404_)
 - Move ``inttypes.h`` into ``pyport.h`` (issue 3407_)
 - Sync ``Py_.*Flags`` values with ``sys.flags`` (issue 3409_)
+- Make ``PyUnicode_Check`` a macro, but still export the function from
+  the shared library for backwards compatibility
 
 
 Python 3.7+
@@ -279,6 +289,7 @@ Python 3.7+
 - Reimplement ``heapq.merge()`` using a linked tournament tree (`bpo 38938`_)
 - Fix shring of cursors in ``sqllite3`` (issues 3351_ and 3403_)
 - Fix remaining ``sqllite3`` incompatibilities
+- Fix ``CALL_METHOD_KW`` to not lose the immutability of the keyword name tuple
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
@@ -295,6 +306,7 @@ Python 3.7 C-API
 - Add missing ``PyFile_FromFd``
 
 .. _2267: https://foss.heptapod.net/pypy/pypy/-/issues/2267
+.. _2371: https://foss.heptapod.net/pypy/pypy/-/issues/2371
 .. _3172: https://foss.heptapod.net/pypy/pypy/-/issues/3172
 .. _3181: https://foss.heptapod.net/pypy/pypy/-/issues/3181
 .. _3227: https://foss.heptapod.net/pypy/pypy/-/issues/3227
