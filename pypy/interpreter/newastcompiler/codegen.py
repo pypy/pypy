@@ -1152,7 +1152,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
 
         self.use_next_block(body_block)
-        self.push_frame_block(F_BLOCK_FINALLY, body_block)
+        self.push_frame_block(F_WITH, body_block)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
         else:
@@ -1162,10 +1162,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.handle_withitem(wih, pos + 1, is_async=is_async)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_FINALLY, body_block)
-        self.load_const(self.space.w_None)
+        self.emit_op(ops.BEGIN_FINALLY)
+        self.pop_frame_block(F_WITH, body_block)
+
         self.use_next_block(cleanup)
-        self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
+        self.push_frame_block(F_FINALLY_END, cleanup)
         self.emit_op(ops.WITH_CLEANUP_START)
         if is_async:
             self.emit_op(ops.GET_AWAITABLE)
@@ -1173,7 +1174,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.WITH_CLEANUP_FINISH)
         self.emit_op(ops.END_FINALLY)
-        self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
+        self.pop_frame_block(F_FINALLY_END, cleanup)
 
     def visit_AsyncWith(self, wih):
         if not self._check_async_function():

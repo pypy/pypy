@@ -1718,6 +1718,21 @@ def h(i):
 """
         yield self.st, func, "g()", 45
 
+    def test_newbytecode_with_basic(self):
+        func = """def g():
+        class ContextManager:
+            def __enter__(self, *args):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        x = 0
+        with ContextManager():
+            x = 6
+        return x
+"""
+        self.st(func, "g()", 6)
+
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

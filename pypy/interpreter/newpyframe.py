@@ -401,6 +401,11 @@ class PyFrame(W_Root):
         assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
+    def pushvalue_maybe_none(self, w_object):
+        depth = self.valuestackdepth
+        self.locals_cells_stack_w[depth] = w_object
+        self.valuestackdepth = depth + 1
+
     def assert_stack_index(self, index):
         if we_are_translated():
             return

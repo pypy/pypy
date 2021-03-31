@@ -782,7 +782,7 @@ class __extend__(pyframe.PyFrame):
         w_top = self.popvalue()
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
-            return None
+            return self.space.w_None
         if isinstance(w_top, SuspendedUnroller):
             # case of a finally: block with a suspended unroller
             return w_top
@@ -1224,7 +1224,7 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
 
     def BEGIN_FINALLY(self, oparg, next_instr):
-        self.pushvalue_none()
+        self.pushvalue(self.space.w_None)
 
     def POP_FINALLY(self, oparg, next_instr):
         block = self.pop_block()
@@ -1235,9 +1235,9 @@ class __extend__(pyframe.PyFrame):
         if oparg:
             # top value is some result, needs to be preserved
             w_result = self.popvalue()
-        w_top = self.popvalue_maybe_none()
+        w_top = self.popvalue()
         # do nothing in any case, but check the cases ;-)
-        if w_top is None:
+        if self.space.is_w(w_top, self.space.w_None):
             pass
         elif isinstance(w_top, SApplicationException):
             pass
