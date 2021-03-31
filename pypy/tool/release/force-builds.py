@@ -46,8 +46,8 @@ JIT_BUILDERS = [
 RPYTHON_BUILDERS = [
     'rpython-linux-x86-32',
     'rpython-linux-x86-64',
-    'rpython-win-x86-32'
-#    'rpython-win-x86-64'
+#    'rpython-win-x86-32'
+    'rpython-win-x86-64'
 ]
 
 def get_user():
