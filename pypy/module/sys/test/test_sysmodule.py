@@ -196,7 +196,7 @@ class AppTestAppSysTests:
         exc = raises(TypeError, 'sys.flags.optimize = 3')
         assert 'readonly' in str(exc.value)
         raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
-        
+
     def test_sys_exit(self):
         import sys
         exc = raises(SystemExit, sys.exit)
@@ -221,7 +221,6 @@ class AppTestAppSysTests:
     def test_sys_flags_dev_mode_is_bool(self):
         import sys
         assert type(sys.flags.dev_mode) is bool
-
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {

@@ -58,7 +58,7 @@ _escapes = {
     "'":"'",
     '"':'"',
     'a':'\a',
-    'b':'\b',
+    'b':r'\h',
     'e':'\033',
     'f':'\f',
     'n':'\n',
@@ -89,6 +89,8 @@ _keynames = {
     'space':     ' ',
     'tab':       '\t',
     'up':        'up',
+    'ctrl left': 'ctrl left',
+    'ctrl right': 'ctrl right',
     }
 
 class KeySpecError(Exception):

@@ -179,7 +179,8 @@ class ReaderConsole(code.InteractiveInterpreter):
         else:
             return
         try:
-            execfile(initfile, self.locals, self.locals)
+            with open(initfile, "r") as f:
+                exec(compile(f.read(), initfile, "exec"), self.locals, self.locals)
         except:
             etype, value, tb = sys.exc_info()
             traceback.print_exception(etype, value, tb.tb_next)
@@ -189,7 +190,7 @@ class ReaderConsole(code.InteractiveInterpreter):
             # ooh, look at the hack:
             code = self.compile(text, '<stdin>', 'single')
         except (OverflowError, SyntaxError, ValueError):
-            self.showsyntaxerror('<stdin>')
+            self.showsyntaxerror("<stdin>")
         else:
             self.runcode(code)
             if sys.stdout and not sys.stdout.closed:

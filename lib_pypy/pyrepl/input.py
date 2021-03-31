@@ -35,6 +35,8 @@
 from __future__ import print_function
 import unicodedata
 from collections import deque
+import pprint
+from .trace import trace
 
 
 class InputTranslator(object):
@@ -59,26 +61,23 @@ class KeymapTranslator(InputTranslator):
         for keyspec, command in keymap:
             keyseq = tuple(parse_keys(keyspec))
             d[keyseq] = command
-        if self.verbose:
-            print(d)
+        if verbose:
+            trace('[input] keymap: {}', pprint.pformat(d))
         self.k = self.ck = compile_keymap(d, ())
         self.results = deque()
         self.stack = []
 
     def push(self, evt):
-        if self.verbose:
-            print("pushed", evt.data, end='')
+        trace("[input] pushed {!r}", evt.data)
         key = evt.data
         d = self.k.get(key)
         if isinstance(d, dict):
-            if self.verbose:
-                print("transition")
+            trace("[input] transition")
             self.stack.append(key)
             self.k = d
         else:
             if d is None:
-                if self.verbose:
-                    print("invalid")
+                trace("[input] invalid")
                 if self.stack or len(key) > 1 or unicodedata.category(key) == 'C':
                     self.results.append(
                         (self.invalid_cls, self.stack + [key]))
@@ -88,8 +87,7 @@ class KeymapTranslator(InputTranslator):
                     self.results.append(
                         (self.character_cls, [key]))
             else:
-                if self.verbose:
-                    print("matched", d)
+                trace("[input] matched {}", d)
                 self.results.append((d, self.stack + [key]))
             self.stack = []
             self.k = self.ck

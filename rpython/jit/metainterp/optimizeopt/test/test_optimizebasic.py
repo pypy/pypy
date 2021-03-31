@@ -408,6 +408,39 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_is_symmetric(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        i1 = instance_ptr_eq(p1, p0)
+        guard_false(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_ne(p1, p0)
+        guard_true(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonnull_1(self):
         ops = """
         [p0]
