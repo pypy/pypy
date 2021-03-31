@@ -59,7 +59,7 @@ class MachOTest(unittest.TestCase):
         # /usr/local/lib before /usr/lib, which caused test failures if
         # a local copy of libz exists in one of them. Now ignore the head
         # of the path.
-        self.assertRegexpMatches(result, r".*/lib/libz\.*\.dylib")
+        self.assertRegexpMatches(result, r".*/lib/libz\..*.*\.dylib")
 
         self.assertIn(find_lib('IOKit'),
                               ('/System/Library/Frameworks/IOKit.framework/Versions/A/IOKit',
