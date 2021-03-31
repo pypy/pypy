@@ -183,7 +183,7 @@ class __extend__(pyframe.PyFrame):
                 raise Return
             elif opcode == opcodedesc.END_FINALLY.index:
                 unroller_or_int = self.end_finally()
-                if isinstance(unroller_or_int, SuspendedUnroller):
+                if isinstance(unroller_or_int, SApplicationException):
                     # go on unrolling the stack
                     block = self.unrollstack(unroller_or_int.kind)
                     if block is None:
@@ -776,7 +776,7 @@ class __extend__(pyframe.PyFrame):
         # In the case of a finally: block, the stack contains only one
         # item (unlike CPython which can have 1, 2, 3 or 5 items, and
         # even in one case a non-fixed number of items):
-        #   [wrapped subclass of SuspendedUnroller]
+        #   [wrapped SApplicationException]
         block = self.pop_block()
         assert isinstance(block, SysExcInfoRestorer)
         block.cleanupstack(self)   # restores ec.sys_exc_operror
@@ -785,7 +785,7 @@ class __extend__(pyframe.PyFrame):
         if self.space.is_w(w_top, self.space.w_None):
             # case of a finally: block with no exception
             return self.space.w_None
-        if isinstance(w_top, SuspendedUnroller):
+        if isinstance(w_top, SApplicationException):
             # case of a finally: block with a suspended unroller
             return w_top
         if self.space.isinstance_w(w_top, self.space.w_int):
@@ -1788,25 +1788,7 @@ class RaiseWithExplicitTraceback(Exception):
 
 ### Frame Blocks ###
 
-class SuspendedUnroller(W_Root):
-    """Abstract base class for interpreter-level objects that
-    instruct the interpreter to change the control flow and the
-    block stack.
-
-    The concrete subclasses correspond to the various values WHY_XXX
-    values of the why_code enumeration in ceval.c:
-
-                WHY_NOT,        OK, not this one :-)
-                WHY_EXCEPTION,  SApplicationException
-                WHY_RERAISE,    implemented differently, see Reraise
-                WHY_RETURN,     SReturnValue
-                WHY_YIELD       not needed
-    """
-    _immutable_ = True
-    def nomoreblocks(self):
-        raise BytecodeCorruption("misplaced bytecode - should not return")
-
-class SApplicationException(SuspendedUnroller):
+class SApplicationException(W_Root):
     """Signals an application-level exception
     (i.e. an OperationException)."""
     _immutable_ = True
