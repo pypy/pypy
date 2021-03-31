@@ -109,7 +109,7 @@ char *rpy_curses_tparm(char *str, int x0, int x1, int x2, int x3,
 
 
 setupterm = rffi.llexternal(
-    "setupterm", [rffi.CCHARP, rffi.INT, rffi.INTP],
+    "rpy_curses_setupterm", [rffi.CCHARP, rffi.INT, rffi.INTP],
                             rffi.INT, compilation_info=eci)
 
 rpy_curses_tigetstr = rffi.llexternal(
