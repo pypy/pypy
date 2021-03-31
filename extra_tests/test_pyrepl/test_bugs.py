@@ -18,7 +18,7 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from pyrepl.historical_reader import HistoricalReader
-from .infrastructure import EA, BaseTestReader, sane_term, read_spec
+from .infrastructure import EA, TestReader, read_spec
 
 # this test case should contain as-verbatim-as-possible versions of
 # (applicable) bug reports
@@ -26,7 +26,7 @@ from .infrastructure import EA, BaseTestReader, sane_term, read_spec
 import pytest
 
 
-class HistoricalTestReader(HistoricalReader, BaseTestReader):
+class HistoricalTestReader(HistoricalReader, TestReader):
     pass
 
 
@@ -46,13 +46,14 @@ def test_cmd_instantiation_crash():
     read_spec(spec, HistoricalTestReader)
 
 
-@pytest.mark.skipif("os.name != 'posix' or 'darwin' in sys.platform or "
-                    "'kfreebsd' in sys.platform")
 def test_signal_failure(monkeypatch):
     import os
-    import pty
     import signal
-    from pyrepl.unix_console import UnixConsole
+    try:
+        import pty
+        from pyrepl.unix_console import UnixConsole
+    except ImportError:
+        pytest.skip('cannot import needed modules for test')
 
     def failing_signal(a, b):
         raise ValueError
@@ -62,14 +63,13 @@ def test_signal_failure(monkeypatch):
 
     mfd, sfd = pty.openpty()
     try:
-        with sane_term():
-            c = UnixConsole(sfd, sfd)
-            c.prepare()
-            c.restore()
-            monkeypatch.setattr(signal, 'signal', failing_signal)
-            c.prepare()
-            monkeypatch.setattr(signal, 'signal', really_failing_signal)
-            c.restore()
+        c = UnixConsole(sfd, sfd)
+        c.prepare()
+        c.restore()
+        monkeypatch.setattr(signal, 'signal', failing_signal)
+        c.prepare()
+        monkeypatch.setattr(signal, 'signal', really_failing_signal)
+        c.restore()
     finally:
         os.close(mfd)
         os.close(sfd)

@@ -81,7 +81,8 @@ class TestCCurses(object):
 
         def runs_setupterm():
             null = lltype.nullptr(rffi.CCHARP.TO)
-            fficurses.rpy_curses_setupterm(null, 1)
+            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+            errval = fficurses.setupterm(null, 1, p_errret)
 
         fn = compile(runs_setupterm, [])
         fn()
@@ -92,8 +93,9 @@ class TestCCurses(object):
         from pypy.module._minimal_curses import fficurses
 
         def runs_ctgetstr():
+            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
             with rffi.scoped_str2charp("xterm") as ll_term:
-                fficurses.rpy_curses_setupterm(ll_term, 1)
+                errval = fficurses.setupterm(ll_term, 1, p_errret)
             with rffi.scoped_str2charp("cup") as ll_capname:
                 ll = fficurses.rpy_curses_tigetstr(ll_capname)
                 return rffi.charp2str(ll)
@@ -108,8 +110,9 @@ class TestCCurses(object):
         from pypy.module._minimal_curses import fficurses
 
         def runs_tparm():
+            p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
             with rffi.scoped_str2charp("xterm") as ll_term:
-                fficurses.rpy_curses_setupterm(ll_term, 1)
+                errval = fficurses.setupterm(ll_term, 1, p_errret)
             with rffi.scoped_str2charp("cup") as ll_capname:
                 cup = fficurses.rpy_curses_tigetstr(ll_capname)
                 res = fficurses.rpy_curses_tparm(cup, 5, 3, 0, 0, 0, 0, 0, 0, 0)

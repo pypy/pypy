@@ -17,9 +17,14 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import __builtin__
+try:
+    import __builtin__ as builtins
+    builtins  # silence broken pyflakes
+except ImportError:
+    import builtins
 
-class Completer:
+
+class Completer(object):
     def __init__(self, ns):
         self.ns = ns
 
@@ -38,12 +43,11 @@ class Completer:
         """
         import keyword
         matches = []
-        n = len(text)
         for list in [keyword.kwlist,
-                     __builtin__.__dict__.keys(),
+                     builtins.__dict__.keys(),
                      self.ns.keys()]:
             for word in list:
-                if word[:n] == text and word != "__builtins__":
+                if word.startswith(text) and word != "__builtins__":
                     matches.append(word)
         return matches
 
@@ -77,11 +81,10 @@ class Completer:
                 matches.append("%s.%s" % (expr, word))
         return matches
 
+
 def get_class_members(klass):
     ret = dir(klass)
     if hasattr(klass, '__bases__'):
         for base in klass.__bases__:
             ret = ret + get_class_members(base)
     return ret
-
-

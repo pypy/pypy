@@ -1125,6 +1125,18 @@ class AppTestDictViews:
         assert (foo2, foo2_bis) in logger_copy
         assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
 
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)
+
 
 class AppTestStrategies(object):
     def setup_class(cls):

@@ -65,7 +65,7 @@ Contributors
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
-  nulano
+  Ondrej Baranovič
   Jan de Mooij
   Stefan Beyer
   Tyler Wade

@@ -1420,7 +1420,10 @@ class TranslationObjBuilder(StaticObjectBuilder):
 
 
 def mangle_name(prefix, name):
-    if name.startswith('Py'):
+    if name.startswith('PyPyUnicode'):
+        # for PyPyUnicode_Check, PyPyUnicode_CheckExact
+        return name
+    elif name.startswith('Py'):
         return prefix + name[2:]
     elif name.startswith('_Py'):
         return '_' + prefix + name[3:]

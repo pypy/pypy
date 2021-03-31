@@ -704,9 +704,15 @@ class OptRewrite(Optimization):
         return self._optimize_oois_ooisnot(op, True, False)
 
     def optimize_INSTANCE_PTR_EQ(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.pure_from_args(rop.INSTANCE_PTR_EQ, [arg1, arg0], op)
         return self._optimize_oois_ooisnot(op, False, True)
 
     def optimize_INSTANCE_PTR_NE(self, op):
+        arg0 = get_box_replacement(op.getarg(0))
+        arg1 = get_box_replacement(op.getarg(1))
+        self.pure_from_args(rop.INSTANCE_PTR_NE, [arg1, arg0], op)
         return self._optimize_oois_ooisnot(op, True, True)
 
     def optimize_CALL_N(self, op):

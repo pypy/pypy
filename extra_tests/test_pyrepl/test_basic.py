@@ -17,6 +17,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 import pytest
+import sys
 from .infrastructure import read_spec
 
 
@@ -76,8 +77,7 @@ def test_yank_pop():
                ( 'accept',                ['cd '])])
 
 
-# interrupt uses os.kill which doesn't go through signal handlers on windows
-@pytest.mark.skipif("os.name == 'nt'")
+@pytest.mark.skipif(sys.platform=='win32', reason='interrupt exits the interpreter in win32') 
 def test_interrupt():
     with pytest.raises(KeyboardInterrupt):
         read_spec([('interrupt', [''])])

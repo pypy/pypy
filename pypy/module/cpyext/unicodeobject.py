@@ -9,8 +9,8 @@ from pypy.interpreter.unicodehelper import (
     unicode_encode_decimal)
 from pypy.module.unicodedata.interp_ucd import unicodedb
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, Py_TPFLAGS_UNICODE_SUBCLASS, cpython_api,
-    bootstrap_function, CONST_STRING, INTP_real,
+    CANNOT_FAIL, Py_ssize_t, cpython_api,
+    bootstrap_function, CONST_STRING, INTP_real, Py_TPFLAGS_UNICODE_SUBCLASS,
     CONST_WSTRING, slot_function, cts, parse_dir)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
@@ -41,11 +41,29 @@ DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
 
-
-def PyUnicode_Check(ref):
+# Backward compatibility: in PyPy7.3.4 this function became a C macro. But
+# since we do not change the API, we need to export this function from the
+# dll/so. This requires giving the mangled name here and special casing it in
+# mangle_name from api.py
+@cts.decl("int PyPyUnicode_Check(void * obj)", error=CANNOT_FAIL)
+def PyUnicode_Check(space, ref):
     if not ref:
         return False
+    ref = rffi.cast(PyObject, ref)
     return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
+
+# Backward compatibility: in PyPy7.3.4 this function became a C macro. But
+# since we do not change the API, we need to also export this function from the
+# dll/so. This requires giving the mangled name here and special casing it in
+# mangle_name from api.py
+@cts.decl("int PyPyUnicode_CheckExact(void * obj)", error=CANNOT_FAIL)
+def PyUnicode_CheckExact(space, ref):
+    if not ref:
+        return False
+    w_obj = from_ref(space, rffi.cast(PyObject, ref))
+    w_obj_type = space.type(w_obj)
+    return space.is_w(w_obj_type, space.w_unicode)
+ 
 
 def new_empty_unicode(space, length):
     """
@@ -232,7 +250,7 @@ def PyUnicode_AS_UNICODE(space, ref):
 def PyUnicode_AsUnicode(space, ref):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     return PyUnicode_AS_UNICODE(space, rffi.cast(rffi.VOIDP, ref))
 
@@ -295,7 +313,7 @@ def PyUnicode_SetDefaultEncoding(space, encoding):
     return 0
 
 def _unicode_as_encoded_object(space, pyobj, llencoding, llerrors):
-    if not PyUnicode_Check(pyobj):
+    if not PyUnicode_Check(space, pyobj):
         PyErr_BadArgument(space)
 
     encoding = errors = None
@@ -333,7 +351,7 @@ def PyUnicode_AsUnicodeEscapeString(space, pyobj):
     """Encode a Unicode object using Unicode-Escape and return the result as Python
     string object.  Error handling is "strict". Return NULL if an exception was
     raised by the codec."""
-    if not PyUnicode_Check(pyobj):
+    if not PyUnicode_Check(space, pyobj):
         PyErr_BadArgument(space)
 
     w_unicode = from_ref(space, pyobj)
@@ -481,7 +499,7 @@ def make_conversion_functions(suffix, encoding, only_for_asstring=False):
         """Encode a Unicode object and return the result as Python
         string object.  Error handling is "strict".  Return NULL if an
         exception was raised by the codec."""
-        if not PyUnicode_Check(pyobj):
+        if not PyUnicode_Check(space, pyobj):
             PyErr_BadArgument(space)
         w_unicode = from_ref(space, pyobj)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")

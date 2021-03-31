@@ -112,6 +112,12 @@ def strategy(space, w_obj):
             raise oefmt(space.w_TypeError, "expecting dict or list or set object, or instance of some kind")
     return space.newtext(name)
 
+def list_get_physical_size(space, w_obj):
+    if not isinstance(w_obj, W_ListObject):
+        raise oefmt(space.w_TypeError, "expected list")
+    return space.newint(w_obj.physical_size())
+
+
 def get_console_cp(space):
     """get_console_cp()
 

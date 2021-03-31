@@ -78,3 +78,9 @@ def f():
         with open(self.file) as fid:
             f = get_osfhandle(fid.fileno())
         raises(OSError, get_osfhandle, 2**30)
+
+    def test_list_get_physical_size(self):
+        from __pypy__ import list_get_physical_size
+        l = [1, 2]
+        l.append(3)
+        assert list_get_physical_size(l) >= 3 # should be 6, but untranslated 3

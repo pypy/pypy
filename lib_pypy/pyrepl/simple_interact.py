@@ -26,6 +26,7 @@ allowing multiline input and multiline history entries.
 import sys
 from pyrepl.readline import multiline_input, _error, _get_reader
 
+
 def check():     # returns False if there is a problem initializing the state
     try:
         _get_reader()
@@ -33,27 +34,21 @@ def check():     # returns False if there is a problem initializing the state
         return False
     return True
 
-def _strip_final_indent(text):
-    # kill spaces and tabs at the end, but only if they follow '\n'.
-    # meant to remove the auto-indentation only (although it would of
-    # course also remove explicitly-added indentation).
-    short = text.rstrip(' \t')
-    n = len(short)
-    if n > 0 and text[n-1] == '\n':
-        return short
-    return text
 
 def run_multiline_interactive_console(mainmodule=None, future_flags=0):
     import code
-    if mainmodule is None:
-        import __main__ as mainmodule
+    import __main__
+    mainmodule = mainmodule or __main__
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
     if future_flags:
         console.compile.compiler.flags |= future_flags
 
     def more_lines(unicodetext):
-        # ooh, look at the hack:
-        src = "#coding:utf-8\n"+_strip_final_indent(unicodetext).encode('utf-8')
+        if sys.version_info < (3, ):
+            # ooh, look at the hack:
+            src = "#coding:utf-8\n"+unicodetext.encode('utf-8')
+        else:
+            src = unicodetext
         try:
             code = console.compile(src, '<stdin>', 'single')
         except (OverflowError, SyntaxError, ValueError):
@@ -70,11 +65,8 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
                                             returns_unicode=True)
             except EOFError:
                 break
-            more = console.push(_strip_final_indent(statement))
+            more = console.push(statement)
             assert not more
         except KeyboardInterrupt:
             console.write("\nKeyboardInterrupt\n")
-            console.resetbuffer()
-        except MemoryError:
-            console.write("\nMemoryError\n")
             console.resetbuffer()

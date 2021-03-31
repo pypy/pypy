@@ -354,7 +354,7 @@ class PyPyTarget(object):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
-            if sys.platform == 'darwin':
+            if sys.platform in ('darwin', 'linux', 'linux2'):
                 argv = [filename, '--embed-dependencies']
             else:
                 argv = [filename,]
