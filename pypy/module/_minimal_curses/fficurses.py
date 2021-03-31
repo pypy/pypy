@@ -75,7 +75,7 @@ eci = eci.copy_without('includes')
 
 eci = eci.merge(ExternalCompilationInfo(
    post_include_bits=[
-        "RPY_EXTERN int setupterm(char *, int, int *);\n"
+        "RPY_EXTERN int rpy_curses_setupterm(char *, int, int *);\n"
         "RPY_EXTERN char *rpy_curses_tigetstr(char *);\n"
         "RPY_EXTERN char *rpy_curses_tparm(char *, int, int, int, int,"
         " int, int, int, int, int);"
@@ -83,6 +83,11 @@ eci = eci.merge(ExternalCompilationInfo(
     separate_module_sources=["""
 
 %(include_lines)s
+
+RPY_EXTERN
+int rpy_curses_setupterm(char *t, int fd, int *errret) {
+    return setupterm(t, fd, errret);
+}
 
 RPY_EXTERN
 char *rpy_curses_tigetstr(char *capname)
@@ -104,7 +109,7 @@ char *rpy_curses_tparm(char *str, int x0, int x1, int x2, int x3,
 
 
 setupterm = rffi.llexternal(
-    "setupterm", [rffi.CCHARP, rffi.INT, rffi.INTP],
+    "rpy_curses_setupterm", [rffi.CCHARP, rffi.INT, rffi.INTP],
                             rffi.INT, compilation_info=eci)
 
 rpy_curses_tigetstr = rffi.llexternal(
