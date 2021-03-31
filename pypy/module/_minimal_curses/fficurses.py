@@ -75,7 +75,7 @@ eci = eci.copy_without('includes')
 
 eci = eci.merge(ExternalCompilationInfo(
    post_include_bits=[
-        "RPY_EXTERN int rpy_curses_setupterm(char *, int, int *);\n"
+        "RPY_EXTERN int setupterm(char *, int, int *);\n"
         "RPY_EXTERN char *rpy_curses_tigetstr(char *);\n"
         "RPY_EXTERN char *rpy_curses_tparm(char *, int, int, int, int,"
         " int, int, int, int, int);"
