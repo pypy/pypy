@@ -1811,6 +1811,31 @@ def h(i):
 """
         self.st(func, "g()", None)
 
+    def test_newbytecode_async_genexpr(self):
+        func = """def g():
+    def run_async(coro):
+        buffer = []
+        result = None
+        while True:
+            try:
+                buffer.append(coro.send(None))
+            except StopIteration as ex:
+                result = ex.args[0] if ex.args else None
+                break
+        return buffer, result
+
+    async def f(it):
+        for i in it:
+            yield i
+
+    async def run_gen():
+        gen = (i + 1 async for i in f([10, 20]))
+        return [g + 100 async for g in gen]
+
+    assert run_async(run_gen()) == ([], [111, 121])
+"""
+        self.st(func, "g()", None)
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 

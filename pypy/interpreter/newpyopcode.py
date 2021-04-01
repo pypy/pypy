@@ -450,11 +450,6 @@ class __extend__(pyframe.PyFrame):
         self.frame_finished_execution = True  # for generators
         return None
 
-    def unrollstack_and_jump(self, unroller):
-        block = self.unrollstack(unroller.kind)
-        if block is None:
-            raise BytecodeCorruption("misplaced bytecode - should not return")
-        return block.handle(self, unroller)
 
     ### accessor functions ###
 

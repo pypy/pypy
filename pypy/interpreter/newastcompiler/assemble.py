@@ -622,7 +622,7 @@ _static_opcode_stack_effects = {
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
     ops.BEGIN_FINALLY: 4,
-    ops.POP_FINALLY: 4,
+    ops.POP_FINALLY: -1,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
                              # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
@@ -665,7 +665,8 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
-    ops.END_ASYNC_FOR: -4,
+    ops.END_ASYNC_FOR: -5, # this is really only -4, but it needs to be -5 to
+    # balance the SETUP_EXCEPT, which pretends to push +4
 
     ops.LOAD_CONST: 1,
 
