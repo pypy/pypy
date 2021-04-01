@@ -1836,6 +1836,29 @@ def h(i):
 """
         self.st(func, "g()", None)
 
+    def test_newbytecode_async_with(self):
+        func = """def g():
+    seen = []
+    class X:
+        async def __aenter__(self):
+            seen.append('aenter')
+        async def __aexit__(self, *args):
+            seen.append('aexit')
+    async def f(x):
+        async with x:
+            return 42
+    c = f(X())
+    try:
+        c.send(None)
+    except StopIteration as e:
+        assert e.value == 42
+    else:
+        assert False, "should have raised"
+    assert seen == ['aenter', 'aexit']
+"""
+        self.st(func, "g()", None)
+
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 

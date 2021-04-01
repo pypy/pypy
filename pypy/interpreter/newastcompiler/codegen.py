@@ -296,7 +296,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.BEGIN_FINALLY)
             self.emit_op(ops.WITH_CLEANUP_START)
             if kind == F_ASYNC_WITH:
-                xxx
+                self.emit_op(ops.GET_AWAITABLE)
+                self.load_const(self.space.w_None)
+                self.emit_op(ops.YIELD_FROM)
             self.emit_op(ops.WITH_CLEANUP_FINISH)
             self.emit_op_arg(ops.POP_FINALLY, 0)
         else:
@@ -1127,15 +1129,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         witem.context_expr.walkabout(self)
         if not is_async:
             self.emit_jump(ops.SETUP_WITH, cleanup)
+            fblock_kind = F_WITH
         else:
             self.emit_op(ops.BEFORE_ASYNC_WITH)
             self.emit_op(ops.GET_AWAITABLE)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+            fblock_kind = F_ASYNC_WITH
 
         self.use_next_block(body_block)
-        self.push_frame_block(F_WITH, body_block)
+        self.push_frame_block(fblock_kind, body_block, cleanup)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
         else:
@@ -1146,7 +1150,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.handle_withitem(wih, pos + 1, is_async=is_async)
         self.emit_op(ops.POP_BLOCK)
         self.emit_op(ops.BEGIN_FINALLY)
-        self.pop_frame_block(F_WITH, body_block)
+        self.pop_frame_block(fblock_kind, body_block)
 
         self.use_next_block(cleanup)
         self.push_frame_block(F_FINALLY_END, cleanup)
