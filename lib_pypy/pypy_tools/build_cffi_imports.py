@@ -55,12 +55,6 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
     '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
              '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
              [['./config', '--prefix=/usr', 'no-shared'],
@@ -69,11 +63,19 @@ cffi_dependencies = {
              ]),
 }
 if sys.platform == 'darwin':
-    # this does not compile on the buildbot, linker is missing '_history_list'
     cffi_dependencies['gdbm'] = (
+              # this does not compile on the buildbot, linker is missing '_history_list'
               'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args + ['--without-readline'],
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ])
+    cffi_dependencies['lzma'] = (
+              # this does not compile on the linux64 buildbot, needs -fPIC
+             'http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
+             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
+             [configure_args,
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ])
