@@ -49,7 +49,8 @@ extensions = ['sphinx.ext.autodoc',
               'sphinx.ext.ifconfig',
               'sphinx.ext.graphviz',
               'pypyconfig',
-              'sphinx_affiliates']
+              # 'sphinx_affiliates',
+             ]
 
 # Canonical URL (including the '/') so searching from rpython docs finds these
 affiliate_options = {
