@@ -37,22 +37,24 @@ def setupterm(space, w_termname=None, fd=-1):
         termname_err = "'%s'" % termname
 
     p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
-    with rffi.scoped_str2charp(termname) as ll_term:
-        _fd = rffi.cast(rffi.INT, _fd)
-        errval = fficurses.setupterm(ll_term, _fd, p_errret)
-        
-    if errval == -1:
-        errret = widen(p_errret[0])
-        if errret == 0:
-            msg_ext = 'could not find terminal'
-        elif errret == -1:
-            msg_ext = 'could not find termininfo database'
-        else:
-            msg_ext = 'unknown error'
-        msg = ("setupterm(%s, %d) failed (err=%d): %s"  %
-              (termname_err, fd, errret, msg_ext))
-        raise curses_error(space, msg)
-
+    try:
+        with rffi.scoped_str2charp(termname) as ll_term:
+            _fd = rffi.cast(rffi.INT, _fd)
+            errval = fficurses.setupterm(ll_term, _fd, p_errret)
+            
+        if errval == -1:
+            errret = widen(p_errret[0])
+            if errret == 0:
+                msg_ext = 'could not find terminal'
+            elif errret == -1:
+                msg_ext = 'could not find termininfo database'
+            else:
+                msg_ext = 'unknown error'
+            msg = ("setupterm(%s, %d) failed (err=%d): %s"  %
+                  (termname_err, fd, errret, msg_ext))
+            raise curses_error(space, msg)
+    finally:
+        llytpe.free(p_errret, flavor='raw')
     space.fromcache(ModuleInfo).setupterm_called = True
 
 @unwrap_spec(capname='text')
