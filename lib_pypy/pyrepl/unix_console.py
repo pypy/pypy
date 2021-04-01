@@ -29,6 +29,7 @@ import re
 import time
 import sys
 from fcntl import ioctl
+import unicodedata
 from . import curses
 from .fancy_termios import tcgetattr, tcsetattr
 from .console import Console, Event
@@ -43,6 +44,12 @@ try:
     unicode
 except NameError:
     unicode = str
+
+def width(c):
+    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
+
+def wlen(s):
+    return sum(map(width, s))
 
 _error = (termios.error, curses.error, InvalidTerminal)
 
@@ -247,46 +254,56 @@ class UnixConsole(Console):
         # structuring this function are equally painful (I'm trying to
         # avoid writing code generators these days...)
         x = 0
-        minlen = min(len(oldline), len(newline))
+        i = 0
+        minlen = min(wlen(oldline), wlen(newline))
+        pi = 0
+        xx = 0
+        for c in oldline:
+          xx += width(c)
+          pi += 1
+          if xx >= px: break
         #
         # reuse the oldline as much as possible, but stop as soon as we
         # encounter an ESCAPE, because it might be the start of an escape
         # sequene
-        #XXX unicode check!
-        while x < minlen and oldline[x] == newline[x] and newline[x] != '\x1b':
-            x += 1
-        if oldline[x:] == newline[x+1:] and self.ich1:
-            if (y == self.__posxy[1] and x > self.__posxy[0] and
-                    oldline[px:x] == newline[px+1:x+1]):
+        while x < minlen and oldline[i] == newline[i] and newline[i] != '\x1b':
+            x += width(newline[i])
+            i += 1
+        if oldline[i:] == newline[i+1:] and self.ich1:
+            if (y == self.__posxy[1] and x > self.__posxy[0]
+                  and oldline[pi:i] == newline[pi+1:i+1]):
+                i = pi
                 x = px
             self.__move(x, y)
-            self.__write_code(self.ich1)
-            self.__write(newline[x])
-            self.__posxy = x + 1, y
-        elif x < minlen and oldline[x + 1:] == newline[x + 1:]:
+            cw = width(newline[i])
+            self.__write_code(cw*self.ich1)
+            self.__write(newline[i])
+            self.__posxy = x + cw, y
+        elif (x < minlen and oldline[i+1:] == newline[i+1:]
+              and width(oldline[i]) == width(newline[i])):
             self.__move(x, y)
-            self.__write(newline[x])
-            self.__posxy = x + 1, y
-        elif (self.dch1 and self.ich1 and len(newline) == self.width
-              and x < len(newline) - 2
-              and newline[x+1:-1] == oldline[x:-2]):
+            self.__write(newline[i])
+            self.__posxy = x + width(newline[i]), y
+        elif (self.dch1 and self.ich1 and wlen(newline) == self.width
+              and x < wlen(newline) - 2
+              and newline[i+1:] == oldline[i:-1]):
+            cw = width(newline[i])
             self.__hide_cursor()
-            self.__move(self.width - 2, y)
-            self.__posxy = self.width - 2, y
-            self.__write_code(self.dch1)
+            self.__move(self.width - cw, y)
+            self.__posxy = self.width - cw, y
+            self.__write_code(cw*self.dch1)
             self.__move(x, y)
-            self.__write_code(self.ich1)
-            self.__write(newline[x])
-            self.__posxy = x + 1, y
+            self.__write_code(cw*self.ich1)
+            self.__write(newline[i])
+            self.__posxy = x + cw, y
         else:
             self.__hide_cursor()
             self.__move(x, y)
-            if len(oldline) > len(newline):
+            if wlen(oldline) > wlen(newline):
                 self.__write_code(self._el)
-            self.__write(newline[x:])
-            self.__posxy = len(newline), y
+            self.__write(newline[i:])
+            self.__posxy = wlen(newline), y
 
-        #XXX: check for unicode mess
         if '\x1b' in newline:
             # ANSI escape characters are present, so we can't assume
             # anything about the position of the cursor.  Moving the cursor

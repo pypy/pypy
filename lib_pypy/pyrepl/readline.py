@@ -313,7 +313,7 @@ class _ReadlineWrapper(object):
     def write_history_file(self, filename='~/.history'):
         maxlength = self.saved_history_length
         history = self.get_reader().get_trimmed_history(maxlength)
-        f = open(os.path.expanduser(filename), 'w', encoding='utf-8')
+        entries=''
         for entry in history:
             # if we are on py3k, we don't need to encode strings before
             # writing it to a file

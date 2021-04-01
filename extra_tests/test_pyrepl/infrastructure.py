@@ -64,7 +64,7 @@ class TestReader(Reader):
     __test__ = False
 
     def get_prompt(self, lineno, cursor_on_line):
-        return ''
+        return u''
 
     def refresh(self):
         Reader.refresh(self)

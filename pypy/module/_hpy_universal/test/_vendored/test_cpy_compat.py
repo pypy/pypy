@@ -3,7 +3,7 @@ from .support import HPyTest
 
 class TestCPythonCompatibility(HPyTest):
 
-    # One note about the should_check_refcount() in the tests below: on
+    # One note about the supports_refcounts() in the tests below: on
     # CPython, handles are actually implemented as INCREF/DECREF, so we can
     # check e.g. after an HPy_Dup the refcnt is += 1. However, on PyPy they
     # are implemented in a completely different way which is unrelated to the
@@ -35,7 +35,7 @@ class TestCPythonCompatibility(HPyTest):
         x = mod.f()
         assert x[0] == 1234
         assert len(x) == 2
-        if self.should_check_refcount():
+        if self.supports_refcounts():
             assert x == [1234, +1]
 
     def test_aspyobject(self):
@@ -97,7 +97,7 @@ class TestCPythonCompatibility(HPyTest):
             @INIT
         """)
         x = mod.f()
-        if self.should_check_refcount():
+        if self.supports_refcounts():
             assert x == -1
 
     def test_hpy_dup(self):
@@ -123,7 +123,7 @@ class TestCPythonCompatibility(HPyTest):
             @INIT
         """)
         x = mod.f()
-        if self.should_check_refcount():
+        if self.supports_refcounts():
             assert x == +1
 
     def test_many_handles(self):
