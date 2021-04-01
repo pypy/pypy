@@ -33,12 +33,9 @@ import sys, os
 class Command(object):
     finish = 0
     kills_digit_arg = 1
-
-    def __init__(self, reader, event_name, event):
+    def __init__(self, reader, cmd):
         self.reader = reader
-        self.event = event
-        self.event_name = event_name
-
+        self.event_name, self.event = cmd
     def do(self):
         pass
 
@@ -369,12 +366,8 @@ class invalid_command(Command):
 
 class qIHelp(Command):
     def do(self):
-        from .reader import disp_str
-
         r = self.reader
-        pending = r.console.getpending().data
-        disp = disp_str((self.event + pending))[0]
-        r.insert(disp * r.get_arg())
+        r.insert((self.event + r.console.getpending().data) * r.get_arg())
         r.pop_input_trans()
 
 from pyrepl import input
@@ -383,7 +376,7 @@ class QITrans(object):
     def push(self, evt):
         self.evt = evt
     def get(self):
-        return ('qIHelp', self.evt.data)
+        return ('qIHelp', self.evt.raw)
 
 class quoted_insert(Command):
     kills_digit_arg = 0

@@ -17,7 +17,7 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from pyrepl import reader, commands
+from pyrepl import reader, commands, input
 from pyrepl.reader import Reader as R
 
 isearch_keymap = tuple(
@@ -33,8 +33,7 @@ isearch_keymap = tuple(
      (r'\C-g', 'isearch-cancel'),
      (r'\<backspace>', 'isearch-backspace')])
 
-if 'c' in globals():
-    del c
+del c
 
 ISEARCH_DIRECTION_NONE = ''
 ISEARCH_DIRECTION_BACKWARDS = 'r'
@@ -112,7 +111,7 @@ class forward_history_isearch(commands.Command):
         r.isearch_term = ''
         r.dirty = 1
         r.push_input_trans(r.isearch_trans)
-        
+
 
 class reverse_history_isearch(commands.Command):
     def do(self):
@@ -215,11 +214,10 @@ class HistoricalReader(R):
                   isearch_forwards, isearch_backwards, operate_and_get_next]:
             self.commands[c.__name__] = c
             self.commands[c.__name__.replace('_', '-')] = c
-        from pyrepl import input
         self.isearch_trans = input.KeymapTranslator(
             isearch_keymap, invalid_cls=isearch_end,
             character_cls=isearch_add_character)
-        
+
     def select_item(self, i):
         self.transient_history[self.historyi] = self.get_unicode()
         buf = self.transient_history.get(i)
@@ -231,7 +229,7 @@ class HistoricalReader(R):
         self.dirty = 1
 
     def get_item(self, i):
-        if i != len(self.history):
+        if i <> len(self.history):
             return self.transient_history.get(i, self.history[i])
         else:
             return self.transient_history.get(i, self.get_unicode())
@@ -254,9 +252,9 @@ class HistoricalReader(R):
             raise
 
     def get_prompt(self, lineno, cursor_on_line):
-        if cursor_on_line and self.isearch_direction != ISEARCH_DIRECTION_NONE:
+        if cursor_on_line and self.isearch_direction <> ISEARCH_DIRECTION_NONE:
             d = 'rf'[self.isearch_direction == ISEARCH_DIRECTION_FORWARDS]
-            return u"(%s-search `%s') "%(d, self.isearch_term)
+            return "(%s-search `%s') "%(d, self.isearch_term)
         else:
             return super(HistoricalReader, self).get_prompt(lineno, cursor_on_line)
 

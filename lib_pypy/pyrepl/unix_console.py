@@ -19,37 +19,22 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import termios
-import select
-import os
-import struct
-import errno
-import signal
-import re
-import time
-import sys
+import termios, select, os, struct, errno
+import signal, re, time, sys
 from fcntl import ioctl
-import unicodedata
-from . import curses
-from .fancy_termios import tcgetattr, tcsetattr
-from .console import Console, Event
-from .unix_eventqueue import EventQueue
-from .trace import trace
+from pyrepl import curses
+from pyrepl.fancy_termios import tcgetattr, tcsetattr
+from pyrepl.console import Console, Event
+from pyrepl import unix_eventqueue
+try:
+    from __pypy__ import pyos_inputhook
+except ImportError:
+    def pyos_inputhook():
+        pass
 
 
 class InvalidTerminal(RuntimeError):
     pass
-
-try:
-    unicode
-except NameError:
-    unicode = str
-
-def width(c):
-    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
-
-def wlen(s):
-    return sum(map(width, s))
 
 _error = (termios.error, curses.error, InvalidTerminal)
 
@@ -59,18 +44,16 @@ SIGWINCH_EVENT = 'repaint'
 FIONREAD = getattr(termios, "FIONREAD", None)
 TIOCGWINSZ = getattr(termios, "TIOCGWINSZ", None)
 
-
 def _my_getstr(cap, optional=0):
     r = curses.tigetstr(cap)
     if not optional and r is None:
-        raise InvalidTerminal(
-            "terminal doesn't have the required '%s' capability" % cap)
+        raise InvalidTerminal, \
+              "terminal doesn't have the required '%s' capability"%cap
     return r
-
 
 # at this point, can we say: AAAAAAAAAAAAAAAAAAAAAARGH!
 def maybe_add_baudrate(dict, rate):
-    name = 'B%d' % rate
+    name = 'B%d'%rate
     if hasattr(termios, name):
         dict[getattr(termios, name)] = rate
 
@@ -81,7 +64,7 @@ for r in [0, 110, 115200, 1200, 134, 150, 1800, 19200, 200, 230400,
 
 del r, maybe_add_baudrate
 
-delayprog = re.compile(b"\\$<([0-9]+)((?:/|\\*){0,2})>")
+delayprog = re.compile("\\$<([0-9]+)((?:/|\\*){0,2})>")
 
 try:
     poll = select.poll
@@ -91,28 +74,19 @@ except AttributeError:
     class poll:
         def __init__(self):
             pass
-
         def register(self, fd, flag):
             self.fd = fd
-
-        def poll(self, timeout=None):
-            r, w, e = select.select([self.fd], [], [], timeout)
+        def poll(self):   # note: a 'timeout' argument would be *milliseconds*
+            r,w,e = select.select([self.fd],[],[])
             return r
 
 POLLIN = getattr(select, "POLLIN", None)
-
-
-required_curses_tistrings = 'bel clear cup el'
-optional_curses_tistrings = (
-    'civis cnorm cub cub1 cud cud1 cud cud1 cuf '
-    'cuf1 cuu cuu1 dch dch1 hpa ich ich1 ind pad ri rmkx smkx')
-
 
 class UnixConsole(Console):
     def __init__(self, f_in=0, f_out=1, term=None, encoding=None):
         if encoding is None:
             encoding = sys.getdefaultencoding()
-
+            
         self.encoding = encoding
 
         if isinstance(f_in, int):
@@ -124,35 +98,53 @@ class UnixConsole(Console):
             self.output_fd = f_out
         else:
             self.output_fd = f_out.fileno()
-
+        
         self.pollob = poll()
         self.pollob.register(self.input_fd, POLLIN)
         curses.setupterm(term, self.output_fd)
         self.term = term
-
-        for name in required_curses_tistrings.split():
-            setattr(self, '_' + name, _my_getstr(name))
-
-        for name in optional_curses_tistrings.split():
-            setattr(self, '_' + name, _my_getstr(name, optional=1))
-
+        
+        self._bel   = _my_getstr("bel")
+        self._civis = _my_getstr("civis", optional=1)
+        self._clear = _my_getstr("clear")
+        self._cnorm = _my_getstr("cnorm", optional=1)
+        self._cub   = _my_getstr("cub",   optional=1)
+        self._cub1  = _my_getstr("cub1",  1)
+        self._cud   = _my_getstr("cud",   1)
+        self._cud1  = _my_getstr("cud1",  1)
+        self._cuf   = _my_getstr("cuf",   1)
+        self._cuf1  = _my_getstr("cuf1",  1)
+        self._cup   = _my_getstr("cup")
+        self._cuu   = _my_getstr("cuu",   1)
+        self._cuu1  = _my_getstr("cuu1",  1)
+        self._dch1  = _my_getstr("dch1",  1)
+        self._dch   = _my_getstr("dch",   1)
+        self._el    = _my_getstr("el")
+        self._hpa   = _my_getstr("hpa",   1)
+        self._ich   = _my_getstr("ich",   1)
+        self._ich1  = _my_getstr("ich1",  1)
+        self._ind   = _my_getstr("ind",   1)
+        self._pad   = _my_getstr("pad",   1)
+        self._ri    = _my_getstr("ri",    1)
+        self._rmkx  = _my_getstr("rmkx",  1)
+        self._smkx  = _my_getstr("smkx",  1)
+        
         ## work out how we're going to sling the cursor around
-        # hpa don't work in windows telnet :-(
-        if 0 and self._hpa:
+        if 0 and self._hpa: # hpa don't work in windows telnet :-(
             self.__move_x = self.__move_x_hpa
         elif self._cub and self._cuf:
             self.__move_x = self.__move_x_cub_cuf
         elif self._cub1 and self._cuf1:
             self.__move_x = self.__move_x_cub1_cuf1
         else:
-            raise RuntimeError("insufficient terminal (horizontal)")
+            raise RuntimeError, "insufficient terminal (horizontal)"
 
         if self._cuu and self._cud:
             self.__move_y = self.__move_y_cuu_cud
         elif self._cuu1 and self._cud1:
             self.__move_y = self.__move_y_cuu1_cud1
         else:
-            raise RuntimeError("insufficient terminal (vertical)")
+            raise RuntimeError, "insufficient terminal (vertical)"
 
         if self._dch1:
             self.dch1 = self._dch1
@@ -170,12 +162,16 @@ class UnixConsole(Console):
 
         self.__move = self.__move_short
 
-        self.event_queue = EventQueue(self.input_fd, self.encoding)
+        self.event_queue = unix_eventqueue.EventQueue(self.input_fd)
+        self.partial_char = ''
         self.cursor_visible = 1
 
-    def refresh(self, screen, c_xy):
+    def change_encoding(self, encoding):
+        self.encoding = encoding
+    
+    def refresh(self, screen, cxy):
         # this function is still too long (over 90 lines)
-        cx, cy = c_xy
+
         if not self.__gone_tall:
             while len(self.screen) < min(len(screen), self.height):
                 self.__hide_cursor()
@@ -185,7 +181,7 @@ class UnixConsole(Console):
                 self.screen.append("")
         else:
             while len(self.screen) < len(screen):
-                self.screen.append("")
+                self.screen.append("")            
 
         if len(screen) > self.height:
             self.__gone_tall = 1
@@ -195,8 +191,10 @@ class UnixConsole(Console):
         old_offset = offset = self.__offset
         height = self.height
 
+
         # we make sure the cursor is on the screen, and that we're
         # using all of the screen if we can
+        cx, cy = cxy
         if cy < offset:
             offset = cy
         elif cy >= offset + height:
@@ -233,7 +231,7 @@ class UnixConsole(Console):
                                         newscr):
             if oldline != newline:
                 self.__write_changed_line(y, oldline, newline, px)
-
+                
         y = len(newscr)
         while y < len(oldscr):
             self.__hide_cursor()
@@ -243,7 +241,7 @@ class UnixConsole(Console):
             y += 1
 
         self.__show_cursor()
-
+        
         self.screen = screen
         self.move_cursor(cx, cy)
         self.flushoutput()
@@ -254,56 +252,44 @@ class UnixConsole(Console):
         # structuring this function are equally painful (I'm trying to
         # avoid writing code generators these days...)
         x = 0
-        i = 0
-        minlen = min(wlen(oldline), wlen(newline))
-        pi = 0
-        xx = 0
-        for c in oldline:
-          xx += width(c)
-          pi += 1
-          if xx >= px: break
+        minlen = min(len(oldline), len(newline))
         #
         # reuse the oldline as much as possible, but stop as soon as we
         # encounter an ESCAPE, because it might be the start of an escape
         # sequene
-        while x < minlen and oldline[i] == newline[i] and newline[i] != '\x1b':
-            x += width(newline[i])
-            i += 1
-        if oldline[i:] == newline[i+1:] and self.ich1:
-            if (y == self.__posxy[1] and x > self.__posxy[0]
-                  and oldline[pi:i] == newline[pi+1:i+1]):
-                i = pi
+        while x < minlen and oldline[x] == newline[x] and newline[x] != '\x1b':
+            x += 1
+        if oldline[x:] == newline[x+1:] and self.ich1:
+            if ( y == self.__posxy[1] and x > self.__posxy[0]
+                 and oldline[px:x] == newline[px+1:x+1] ):
                 x = px
             self.__move(x, y)
-            cw = width(newline[i])
-            self.__write_code(cw*self.ich1)
-            self.__write(newline[i])
-            self.__posxy = x + cw, y
-        elif (x < minlen and oldline[i+1:] == newline[i+1:]
-              and width(oldline[i]) == width(newline[i])):
+            self.__write_code(self.ich1)
+            self.__write(newline[x])
+            self.__posxy = x + 1, y
+        elif x < minlen and oldline[x + 1:] == newline[x + 1:]:
             self.__move(x, y)
-            self.__write(newline[i])
-            self.__posxy = x + width(newline[i]), y
-        elif (self.dch1 and self.ich1 and wlen(newline) == self.width
-              and x < wlen(newline) - 2
-              and newline[i+1:] == oldline[i:-1]):
-            cw = width(newline[i])
+            self.__write(newline[x])
+            self.__posxy = x + 1, y
+        elif (self.dch1 and self.ich1 and len(newline) == self.width
+              and x < len(newline) - 2
+              and newline[x+1:-1] == oldline[x:-2]):
             self.__hide_cursor()
-            self.__move(self.width - cw, y)
-            self.__posxy = self.width - cw, y
-            self.__write_code(cw*self.dch1)
+            self.__move(self.width - 2, y)
+            self.__posxy = self.width - 2, y
+            self.__write_code(self.dch1)
             self.__move(x, y)
-            self.__write_code(cw*self.ich1)
-            self.__write(newline[i])
-            self.__posxy = x + cw, y
+            self.__write_code(self.ich1)
+            self.__write(newline[x])
+            self.__posxy = x + 1, y
         else:
             self.__hide_cursor()
             self.__move(x, y)
-            if wlen(oldline) > wlen(newline):
+            if len(oldline) > len(newline):
                 self.__write_code(self._el)
-            self.__write(newline[i:])
-            self.__posxy = wlen(newline), y
-
+            self.__write(newline[x:])
+            self.__posxy = len(newline), y
+        
         if '\x1b' in newline:
             # ANSI escape characters are present, so we can't assume
             # anything about the position of the cursor.  Moving the cursor
@@ -314,7 +300,6 @@ class UnixConsole(Console):
         self.__buffer.append((text, 0))
 
     def __write_code(self, fmt, *args):
-
         self.__buffer.append((curses.tparm(fmt, *args), 1))
 
     def __maybe_write_code(self, fmt, *args):
@@ -373,13 +358,13 @@ class UnixConsole(Console):
         # per-readline preparations:
         self.__svtermstate = tcgetattr(self.input_fd)
         raw = self.__svtermstate.copy()
-        raw.iflag |= termios.ICRNL
-        raw.iflag &= ~(termios.BRKINT | termios.INPCK |
+        raw.iflag &=~ (termios.BRKINT | termios.INPCK |
                        termios.ISTRIP | termios.IXON)
-        raw.cflag &= ~(termios.CSIZE | termios.PARENB)
-        raw.cflag |= (termios.CS8)
-        raw.lflag &= ~(termios.ICANON | termios.ECHO |
-                       termios.IEXTEN | (termios.ISIG * 1))
+        raw.oflag &=~ (termios.OPOST)
+        raw.cflag &=~ (termios.CSIZE|termios.PARENB)
+        raw.cflag |=  (termios.CS8)
+        raw.lflag &=~ (termios.ICANON|termios.ECHO|
+                       termios.IEXTEN|(termios.ISIG*1))
         raw.cc[termios.VMIN] = 1
         raw.cc[termios.VTIME] = 0
         tcsetattr(self.input_fd, termios.TCSADRAIN, raw)
@@ -388,7 +373,7 @@ class UnixConsole(Console):
         self.height, self.width = self.getheightwidth()
 
         self.__buffer = []
-
+        
         self.__posxy = 0, 0
         self.__gone_tall = 0
         self.__move = self.__move_short
@@ -408,30 +393,39 @@ class UnixConsole(Console):
         tcsetattr(self.input_fd, termios.TCSADRAIN, self.__svtermstate)
 
         if hasattr(self, 'old_sigwinch'):
-            try:
-                signal.signal(signal.SIGWINCH, self.old_sigwinch)
-                del self.old_sigwinch
-            except ValueError:
-                # signal only works in main thread.
-                pass
+            signal.signal(signal.SIGWINCH, self.old_sigwinch)
+            del self.old_sigwinch
 
     def __sigwinch(self, signum, frame):
         self.height, self.width = self.getheightwidth()
         self.event_queue.insert(Event('resize', None))
-        if self.old_sigwinch != signal.SIG_DFL:
-            self.old_sigwinch(signum, frame)
 
     def push_char(self, char):
-        trace('push char {char!r}', char=char)
-        self.event_queue.push(char)
-
+        self.partial_char += char
+        try:
+            c = unicode(self.partial_char, self.encoding)
+        except UnicodeError, e:
+            if len(e.args) > 4 and \
+                   e.args[4] == 'unexpected end of data':
+                pass
+            else:
+                # was: "raise".  But it crashes pyrepl, and by extension the
+                # pypy currently running, in which we are e.g. in the middle
+                # of some debugging session.  Argh.  Instead just print an
+                # error message to stderr and continue running, for now.
+                self.partial_char = ''
+                sys.stderr.write('\n%s: %s\n' % (e.__class__.__name__, e))
+        else:
+            self.partial_char = ''
+            self.event_queue.push(c)
+        
     def get_event(self, block=1):
         while self.event_queue.empty():
-            while 1:
-                # All hail Unix!
+            while 1: # All hail Unix!
+                pyos_inputhook()
                 try:
                     self.push_char(os.read(self.input_fd, 1))
-                except (IOError, OSError) as err:
+                except (IOError, OSError), err:
                     if err.errno == errno.EINTR:
                         if not self.event_queue.empty():
                             return self.event_queue.get()
@@ -483,8 +477,7 @@ class UnixConsole(Console):
             except KeyError:
                 height, width = struct.unpack(
                     "hhhh", ioctl(self.input_fd, TIOCGWINSZ, "\000"*8))[0:2]
-                if not height:
-                    return 25, 80
+                if not height: return 25, 80
                 return height, width
     else:
         def getheightwidth(self):
@@ -551,12 +544,10 @@ class UnixConsole(Console):
                 e2 = self.event_queue.get()
                 e.data += e2.data
                 e.raw += e.raw
-
+                
             amount = struct.unpack(
                 "i", ioctl(self.input_fd, FIONREAD, "\0\0\0\0"))[0]
-            data = os.read(self.input_fd, amount)
-            raw = unicode(data, self.encoding, 'replace')
-            #XXX: something is wrong here
+            raw = unicode(os.read(self.input_fd, amount), self.encoding, 'replace')
             e.data += raw
             e.raw += raw
             return e
@@ -568,11 +559,9 @@ class UnixConsole(Console):
                 e2 = self.event_queue.get()
                 e.data += e2.data
                 e.raw += e.raw
-
+                
             amount = 10000
-            data = os.read(self.input_fd, amount)
-            raw = unicode(data, self.encoding, 'replace')
-            #XXX: something is wrong here
+            raw = unicode(os.read(self.input_fd, amount), self.encoding, 'replace')
             e.data += raw
             e.raw += raw
             return e
@@ -583,3 +572,4 @@ class UnixConsole(Console):
         self.__move = self.__move_tall
         self.__posxy = 0, 0
         self.screen = []
+

@@ -57,5 +57,5 @@ def find_modules(stem):
     try:
         mods = _packages[pack]
     except KeyError:
-        raise ImportError("can't find \"%s\" package" % pack)
+        raise ImportError, "can't find \"%s\" package"%pack
     return [mod for mod in mods if mod.startswith(stem)]

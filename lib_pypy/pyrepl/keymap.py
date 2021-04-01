@@ -58,7 +58,7 @@ _escapes = {
     "'":"'",
     '"':'"',
     'a':'\a',
-    'b':r'\h',
+    'b':'\b',
     'e':'\033',
     'f':'\f',
     'n':'\n',
@@ -89,8 +89,6 @@ _keynames = {
     'space':     ' ',
     'tab':       '\t',
     'up':        'up',
-    'ctrl left': 'ctrl left',
-    'ctrl right': 'ctrl right',
     }
 
 class KeySpecError(Exception):
@@ -103,27 +101,27 @@ def _parse_key1(key, s):
     while not ret and s < len(key):
         if key[s] == '\\':
             c = key[s+1].lower()
-            if c in _escapes:
+            if _escapes.has_key(c):
                 ret = _escapes[c]
                 s += 2
             elif c == "c":
                 if key[s + 2] != '-':
-                    raise KeySpecError(
+                    raise KeySpecError, \
                               "\\C must be followed by `-' (char %d of %s)"%(
-                        s + 2, repr(key)))
+                        s + 2, repr(key))
                 if ctrl:
-                    raise KeySpecError("doubled \\C- (char %d of %s)"%(
-                        s + 1, repr(key)))
+                    raise KeySpecError, "doubled \\C- (char %d of %s)"%(
+                        s + 1, repr(key))
                 ctrl = 1
                 s += 3
             elif c == "m":
                 if key[s + 2] != '-':
-                    raise KeySpecError(
+                    raise KeySpecError, \
                               "\\M must be followed by `-' (char %d of %s)"%(
-                        s + 2, repr(key)))
+                        s + 2, repr(key))
                 if meta:
-                    raise KeySpecError("doubled \\M- (char %d of %s)"%(
-                        s + 1, repr(key)))
+                    raise KeySpecError, "doubled \\M- (char %d of %s)"%(
+                        s + 1, repr(key))
                 meta = 1
                 s += 3
             elif c.isdigit():
@@ -137,26 +135,26 @@ def _parse_key1(key, s):
             elif c == '<':
                 t = key.find('>', s)
                 if t == -1:
-                    raise KeySpecError(
+                    raise KeySpecError, \
                               "unterminated \\< starting at char %d of %s"%(
-                        s + 1, repr(key)))
+                        s + 1, repr(key))                        
                 ret = key[s+2:t].lower()
                 if ret not in _keynames:
-                    raise KeySpecError(
+                    raise KeySpecError, \
                               "unrecognised keyname `%s' at char %d of %s"%(
-                        ret, s + 2, repr(key)))
+                        ret, s + 2, repr(key))
                 ret = _keynames[ret]
                 s = t + 1
             else:
-                raise KeySpecError(
+                raise KeySpecError, \
                           "unknown backslash escape %s at char %d of %s"%(
-                    repr(c), s + 2, repr(key)))
+                    `c`, s + 2, repr(key))
         else:
             ret = key[s]
             s += 1
     if ctrl:
         if len(ret) > 1:
-            raise KeySpecError("\\C- must be followed by a character")
+            raise KeySpecError, "\\C- must be followed by a character"
         ret = chr(ord(ret) & 0x1f)   # curses.ascii.ctrl()
     if meta:
         ret = ['\033', ret]
@@ -172,19 +170,15 @@ def parse_keys(key):
         r.extend(k)
     return r
 
-def compile_keymap(keymap, empty=b''):
+def compile_keymap(keymap, empty=''):
     r = {}
     for key, value in keymap.items():
-        if isinstance(key, bytes):
-            first = key[:1]
-        else:
-            first = key[0]
-        r.setdefault(first, {})[key[1:]] = value
+        r.setdefault(key[0], {})[key[1:]] = value
     for key, value in r.items():
         if empty in value:
-            if len(value) != 1:
-                raise KeySpecError(
-                      "key definitions for %s clash"%(value.values(),))
+            if len(value) <> 1:
+                raise KeySpecError, \
+                      "key definitions for %s clash"%(value.values(),)
             else:
                 r[key] = value[empty]
         else:
