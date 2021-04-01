@@ -54,7 +54,7 @@ def setupterm(space, w_termname=None, fd=-1):
                   (termname_err, fd, errret, msg_ext))
             raise curses_error(space, msg)
     finally:
-        llytpe.free(p_errret, flavor='raw')
+        lltype.free(p_errret, flavor='raw')
     space.fromcache(ModuleInfo).setupterm_called = True
 
 @unwrap_spec(capname='text')

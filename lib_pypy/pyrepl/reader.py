@@ -27,7 +27,7 @@ from pyrepl import input
 try:
     unicode
     enc = getattr(sys.stdout, 'encoding', sys.getdefaultencoding())
-    def decode(x, enc=:nc):
+    def decode(x, enc=enc):
         if not isinstance(x, unicode):
             return unicode(x, enc)
         return x
