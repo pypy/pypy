@@ -304,17 +304,28 @@ feeling more loquacious than I am now."""
             prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
             wrapcount = (wlen(l) + lp) // w
-            if 1 or wrapcount == 0:                           #  FIXME
+            if wrapcount == 0:
                 screen.append(prompt + l)
                 screeninfo.append((lp, l2 + [1]))
             else:
-                screen.append(prompt + l[:w - lp] + "\\")
-                screeninfo.append((lp, l2[:w - lp]))
-                for i in range(-lp + w, -lp + wrapcount * w, w):
-                    screen.append(l[i:i + w] + "\\")
-                    screeninfo.append((0, l2[i:i + w]))
-                screen.append(l[wrapcount * w - lp:])
-                screeninfo.append((0, l2[wrapcount * w - lp:] + [1]))
+                for i in range(wrapcount + 1):
+                    s = lp if i == 0 else 0
+                    r = w - s - 1
+                    j = 0
+                    while j < len(l2):
+                        n = l2[j] or 1
+                        if n > r:
+                            break
+                        else:
+                            r -= n
+                            j += 1
+                    pre = prompt if i == 0 else ""
+                    post = "" if i == wrapcount else "\\"
+                    after = [1] if i == wrapcount else []
+                    screen.append(pre + l[:j] + post)
+                    screeninfo.append((s, l2[:j] + after))
+                    l = l[j:]
+                    l2 = l2[j:]
         self.screeninfo = screeninfo
         self.cxy = self.pos2xy(self.pos)
         if self.msg and self.msg_at_bottom:
