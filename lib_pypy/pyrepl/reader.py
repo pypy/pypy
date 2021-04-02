@@ -20,50 +20,55 @@
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
 from __future__ import unicode_literals
-import re
+import re, sys
 import unicodedata
 from pyrepl import commands
 from pyrepl import input
 try:
     unicode
+    def decode(x, enc = sys.stdout.encoding):
+        if not isinstance(x, unicode):
+            return unicode(x, enc)
+        return x
 except NameError:
     unicode = str
     unichr = chr
+    decode = lambda x, _ = None: x
+
+
+def width(c):
+    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
+def wlen(s):
+    return sum(map(width, s))
 
 
 _r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
 
 def _make_unctrl_map():
     uc_map = {}
+    for c in map(unichr, range(256)):
+        if unicodedata.category(c)[0] != 'C':
+            uc_map[c] = c
+    for i in range(32):
+        c = unichr(i)
+        uc_map[c] = '^' + unichr(ord('A') + i - 1)
+    uc_map['\t'] = '    '  # display TABs as 4 characters
+    uc_map['\177'] = unicode('^?')
     for i in range(256):
         c = unichr(i)
-        if unicodedata.category(c)[0] != 'C':
-            uc_map[i] = c
-    for i in range(32):
-        uc_map[i] = '^' + unichr(ord('A') + i - 1)
-    uc_map[ord(b'\t')] = '    '  # display TABs as 4 characters
-    uc_map[ord(b'\177')] = unicode('^?')
-    for i in range(256):
-        if i not in uc_map:
-            uc_map[i] = unicode('\\%03o') % i
+        if c not in uc_map:
+            uc_map[c] = unicode('\\%03o') % i
     return uc_map
 
 
 def _my_unctrl(c, u=_make_unctrl_map()):
-    # takes an integer, returns a unicode
     if c in u:
         return u[c]
     else:
         if unicodedata.category(c).startswith('C'):
-            return r'\u%04x' % ord(c)
+            return '\\u%04x' % ord(c)
         else:
             return c
-
-if 'a'[0] == b'a':
-    # When running tests with python2, bytes characters are bytes.
-    def _my_unctrl(c, uc=_my_unctrl):
-        return uc(ord(c))
-
 
 def disp_str(buffer, join=''.join, uc=_my_unctrl):
     """ disp_str(buffer:string) -> (string, [int])
@@ -82,7 +87,7 @@ def disp_str(buffer, join=''.join, uc=_my_unctrl):
     s = [uc(x) for x in buffer]
     b = []  # XXX: bytearray
     for x in s:
-        b.append(1)
+        b.append(width(x[0]))
         b.extend([0] * (len(x) - 1))
     return join(s), b
 
@@ -289,7 +294,7 @@ feeling more loquacious than I am now."""
                     for mline in self.msg.split("\n"):
                         screen.append(mline)
                         screeninfo.append((0, []))
-                self.lxy = p, ln
+                # self.lxy = p, ln
             prompt = self.get_prompt(ln, ll >= p >= 0)
             while '\n' in prompt:
                 pre_prompt, _, prompt = prompt.partition('\n')
@@ -298,8 +303,8 @@ feeling more loquacious than I am now."""
             p -= ll + 1
             prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
-            wrapcount = (len(l) + lp) // w
-            if wrapcount == 0:
+            wrapcount = (wlen(l) + lp) // w
+            if 1 or wrapcount == 0:                           #  FIXME
                 screen.append(prompt + l)
                 screeninfo.append((lp, l2 + [1]))
             else:
@@ -331,7 +336,7 @@ feeling more loquacious than I am now."""
         # They are CSI (or ANSI) sequences  ( ESC [ ... LETTER )
 
         out_prompt = ''
-        l = len(prompt)
+        l = wlen(prompt)
         pos = 0
         while True:
             s = prompt.find('\x01', pos)
@@ -437,7 +442,7 @@ feeling more loquacious than I am now."""
         # the object on which str() was called.  This ensures that even if the
         # same object is used e.g. for ps1 and ps2, str() is called only once.
         if res not in self._pscache:
-            self._pscache[res] = str(res)
+            self._pscache[res] = decode(res)
         return self._pscache[res]
 
     def push_input_trans(self, itrans):
@@ -455,10 +460,10 @@ feeling more loquacious than I am now."""
         if pos == len(self.buffer):
             y = len(self.screeninfo) - 1
             p, l2 = self.screeninfo[y]
-            return p + len(l2) - 1, y
+            return p + sum(l2) + l2.count(0) - 1, y
         else:
             for p, l2 in self.screeninfo:
-                l = l2.count(1)
+                l = len(l2) - l2.count(0)
                 if l > pos:
                     break
                 else:
@@ -466,12 +471,15 @@ feeling more loquacious than I am now."""
                     y += 1
             c = 0
             i = 0
-            while c < pos:
-                c += l2[i]
+            j = 0
+            while j < pos:
+                j += 1 if l2[i] else 0
+                c += l2[i] or 1
                 i += 1
             while l2[i] == 0:
+                c += 1
                 i += 1
-            return p + i, y
+            return p + c, y
 
     def insert(self, text):
         """Insert 'text' at the insertion point."""
