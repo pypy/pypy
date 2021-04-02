@@ -36,10 +36,29 @@ except NameError:
     decode = lambda x, _ = None: x
 
 
-def width(c):
-    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
-def wlen(s):
-    return sum(map(width, s))
+try:
+    from wcwidth import width
+except ImportError:
+    try:
+        from wcwidth import wcwidth
+    except ImportError:
+        import unicodedata
+
+        def wcwidth(c):
+            if unicodedata.east_asian_width(c) in "FW":
+                return 2
+            if unicodedata.category(c)[0] == "C":
+                return 0
+            return 1
+
+    try:
+        from functools import lru_cache
+    except ImportError:
+        lru_cache = lambda *a, **k: lambda f: f
+
+    @lru_cache(maxsize=1000)
+    def width(s):
+        return sum(max(0, wcwidth(c)) for c in s)
 
 
 _r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
@@ -303,7 +322,7 @@ feeling more loquacious than I am now."""
             p -= ll + 1
             prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
-            wrapcount = (wlen(l) + lp) // w
+            wrapcount = (width(l) + lp) // w
             if wrapcount == 0:
                 screen.append(prompt + l)
                 screeninfo.append((lp, l2 + [1]))
@@ -347,7 +366,7 @@ feeling more loquacious than I am now."""
         # They are CSI (or ANSI) sequences  ( ESC [ ... LETTER )
 
         out_prompt = ''
-        l = wlen(prompt)
+        l = sum(max(1, width(c)) for c in prompt)  # FIXME
         pos = 0
         while True:
             s = prompt.find('\x01', pos)

@@ -21,7 +21,6 @@
 
 import termios, select, os, struct, errno
 import signal, re, time, sys
-import unicodedata
 from fcntl import ioctl
 from . import curses
 from .fancy_termios import tcgetattr, tcsetattr
@@ -44,10 +43,29 @@ except NameError:
     unicode = str
 
 
-def width(c):
-    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
-def wlen(s):
-    return sum(map(width, s))
+try:
+    from wcwidth import width
+except ImportError:
+    try:
+        from wcwidth import wcwidth
+    except ImportError:
+        import unicodedata
+
+        def wcwidth(c):
+            if unicodedata.east_asian_width(c) in "FW":
+                return 2
+            if unicodedata.category(c)[0] == "C":
+                return 0
+            return 1
+
+    try:
+        from functools import lru_cache
+    except ImportError:
+        lru_cache = lambda *a, **k: lambda f: f
+
+    @lru_cache(maxsize=1000)
+    def width(s):
+        return sum(max(0, wcwidth(c)) for c in s)
 
 
 _error = (termios.error, curses.error, InvalidTerminal)
@@ -266,7 +284,7 @@ class UnixConsole(Console):
         # avoid writing code generators these days...)
         x = 0
         i = 0
-        minlen = min(wlen(oldline), wlen(newline))
+        minlen = min(width(oldline), width(newline))
         pi = 0
         xx = 0
         for c in oldline:
@@ -295,8 +313,8 @@ class UnixConsole(Console):
             self.__move(x, y)
             self.__write(newline[i])
             self.__posxy = x + width(newline[i]), y
-        elif (self.dch1 and self.ich1 and wlen(newline) == self.width
-              and x < wlen(newline) - 2
+        elif (self.dch1 and self.ich1 and width(newline) == self.width
+              and x < width(newline) - 2
               and newline[i+1:] == oldline[i:-1]):
             cw = width(newline[i])
             self.__hide_cursor()
@@ -310,10 +328,10 @@ class UnixConsole(Console):
         else:
             self.__hide_cursor()
             self.__move(x, y)
-            if wlen(oldline) > wlen(newline):
+            if width(oldline) > width(newline):
                 self.__write_code(self._el)
             self.__write(newline[i:])
-            self.__posxy = wlen(newline), y
+            self.__posxy = width(newline), y
 
         if '\x1b' in newline:
             # ANSI escape characters are present, so we can't assume
