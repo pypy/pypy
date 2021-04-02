@@ -5,7 +5,6 @@ import sys
 
 if sys.version_info < (3,):
     input = raw_input
-    value = 
 
 
 def _test_print():
