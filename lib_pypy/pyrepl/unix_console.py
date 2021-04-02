@@ -298,15 +298,15 @@ class UnixConsole(Console):
         elif (self.dch1 and self.ich1 and wlen(newline) == self.width
               and x < wlen(newline) - 2
               and newline[i+1:-1] == oldline[i:-2]):
-            raise NotImplementedError()                       #  FIXME
+            cw = width(newline[i])
             self.__hide_cursor()
-            self.__move(self.width - 2, y)
-            self.__posxy = self.width - 2, y
-            self.__write_code(self.dch1)
+            self.__move(self.width - cw, y)
+            self.__posxy = self.width - cw, y
+            self.__write_code(cw*self.dch1)
             self.__move(x, y)
             self.__write_code(self.ich1)
             self.__write(newline[i])
-            self.__posxy = x + width(newline[i]), y
+            self.__posxy = x + cw, y
         else:
             self.__hide_cursor()
             self.__move(x, y)
