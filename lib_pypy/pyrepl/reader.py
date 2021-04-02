@@ -310,7 +310,7 @@ feeling more loquacious than I am now."""
             else:
                 for i in range(wrapcount + 1):
                     s = lp if i == 0 else 0
-                    r = w - s - 1
+                    r = w - s
                     j = 0
                     while j < len(l2):
                         n = l2[j] or 1

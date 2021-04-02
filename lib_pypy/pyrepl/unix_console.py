@@ -281,8 +281,8 @@ class UnixConsole(Console):
             x += width(newline[i])
             i += 1
         if oldline[i:] == newline[i+1:] and self.ich1:
-            if ( y == self.__posxy[1] and x > self.__posxy[0]
-                 and oldline[pi:i] == newline[pi+1:i+1] ):
+            if (y == self.__posxy[1] and x > self.__posxy[0]
+                  and oldline[pi:i] == newline[pi+1:i+1]):
                 i = pi
                 x = px
             self.__move(x, y)
@@ -290,21 +290,21 @@ class UnixConsole(Console):
             self.__write_code(cw*self.ich1)
             self.__write(newline[i])
             self.__posxy = x + cw, y
-        elif (x < minlen and oldline[i + 1:] == newline[i + 1:]
+        elif (x < minlen and oldline[i+1:] == newline[i+1:]
               and width(oldline[i]) == width(newline[i])):
             self.__move(x, y)
             self.__write(newline[i])
             self.__posxy = x + width(newline[i]), y
         elif (self.dch1 and self.ich1 and wlen(newline) == self.width
               and x < wlen(newline) - 2
-              and newline[i+1:-1] == oldline[i:-2]):
+              and newline[i+1:] == oldline[i:-1]):
             cw = width(newline[i])
             self.__hide_cursor()
             self.__move(self.width - cw, y)
             self.__posxy = self.width - cw, y
             self.__write_code(cw*self.dch1)
             self.__move(x, y)
-            self.__write_code(self.ich1)
+            self.__write_code(cw*self.ich1)
             self.__write(newline[i])
             self.__posxy = x + cw, y
         else:
