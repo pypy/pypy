@@ -19,80 +19,66 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-from __future__ import unicode_literals
-import sys
-import unicodedata
+import types, re
+from pyrepl import unicodedata_
 from pyrepl import commands
 from pyrepl import input
-try:
-    unicode
-    enc = getattr(sys.stdout, 'encoding', sys.getdefaultencoding())
-    def decode(x, enc=enc):
-        if not isinstance(x, unicode):
-            return unicode(x, enc)
-        return x
-except NameError:
-    unicode = str
-    unichr = chr
-    basestring = bytes, str
-    decode = lambda x, _ = None: x
 
-
-def width(c):
-    return 2 if unicodedata.east_asian_width(c) in "FW" else 1
-
-def wlen(s):
-    return sum(map(width, s))
+_r_csi_seq = re.compile(r"\033\[[ -@]*[A-~]")
 
 def _make_unctrl_map():
     uc_map = {}
     for c in map(unichr, range(256)):
-        if unicodedata.category(c)[0] != 'C':
+        if unicodedata_.category(c)[0] <> 'C':
             uc_map[c] = c
     for i in range(32):
         c = unichr(i)
-        uc_map[c] = '^' + unichr(ord('A') + i - 1)
-    uc_map['\t'] = '    '  # display TABs as 4 characters
-    uc_map['\177'] = unicode('^?')
+        uc_map[c] = u'^' + unichr(ord('A') + i - 1)
+    uc_map['\t'] = '    ' # display TABs as 4 characters
+    uc_map['\177'] = u'^?'
     for i in range(256):
         c = unichr(i)
-        if c not in uc_map:
-            uc_map[c] = unicode('\\%03o') % i
+        if not uc_map.has_key(c):
+            uc_map[c] = u'\\%03o'%i
     return uc_map
 
+# disp_str proved to be a bottleneck for large inputs, so it's been
+# rewritten in C; it's not required though.
+try:
+    raise ImportError # currently it's borked by the unicode support
 
-def _my_unctrl(c, u=_make_unctrl_map()):
-    if c in u:
-        return u[c]
-    else:
-        if unicodedata.category(c).startswith('C'):
-            return '\\u%04x' % ord(c)
+    from _pyrepl_utils import disp_str, init_unctrl_map
+
+    init_unctrl_map(_make_unctrl_map())
+
+    del init_unctrl_map
+except ImportError:
+    def _my_unctrl(c, u=_make_unctrl_map()):
+        if c in u:
+            return u[c]
         else:
-            return c
+            if unicodedata_.category(c).startswith('C'):
+                return br'\u%04x'%(ord(c),)
+            else:
+                return c
 
+    def disp_str(buffer, join=''.join, uc=_my_unctrl):
+        """ disp_str(buffer:string) -> (string, [int])
 
-def disp_str(buffer, join=''.join, uc=_my_unctrl):
-    """ disp_str(buffer:string) -> (string, [int])
+        Return the string that should be the printed represenation of
+        |buffer| and a list detailing where the characters of |buffer|
+        get used up.  E.g.:
 
-    Return the string that should be the printed represenation of
-    |buffer| and a list detailing where the characters of |buffer|
-    get used up.  E.g.:
+        >>> disp_str(chr(3))
+        ('^C', [1, 0])
 
-    >>> disp_str(chr(3))
-    ('^C', [1, 0])
+        the list always contains 0s or 1s at present; it could conceivably
+        go higher as and when unicode support happens."""
+        s = map(uc, buffer)
+        return (join(s),
+                map(ord, join(map(lambda x:'\001'+(len(x)-1)*'\000', s))))
 
-    the list always contains 0s or 1s at present; it could conceivably
-    go higher as and when unicode support happens."""
-    # disp_str proved to be a bottleneck for large inputs,
-    # so it needs to be rewritten in C; it's not required though.
-    s = [uc(x) for x in buffer]
-    b = []  # XXX: bytearray
-    for x in s:
-        b.append(width(x[0]))
-        b.extend([0] * (len(x) - 1))
-    return join(s), b
-
-del _my_unctrl
+    del _my_unctrl
 
 del _make_unctrl_map
 
@@ -102,15 +88,14 @@ del _make_unctrl_map
  SYNTAX_WORD,
  SYNTAX_SYMBOL] = range(3)
 
-
 def make_default_syntax_table():
     # XXX perhaps should use some unicodedata here?
     st = {}
     for c in map(unichr, range(256)):
         st[c] = SYNTAX_SYMBOL
-    for c in [a for a in map(unichr, range(256)) if a.isalpha()]:
+    for c in [a for a in map(unichr, range(256)) if a.isalnum()]:
         st[c] = SYNTAX_WORD
-    st[unicode('\n')] = st[unicode(' ')] = SYNTAX_WHITESPACE
+    st[u'\n'] = st[u' '] = SYNTAX_WHITESPACE
     return st
 
 default_keymap = tuple(
@@ -156,11 +141,11 @@ default_keymap = tuple(
      (r'\M-8', 'digit-arg'),
      (r'\M-9', 'digit-arg'),
      #(r'\M-\n', 'insert-nl'),
-     ('\\\\', 'self-insert')] +
+     ('\\\\', 'self-insert')] + \
     [(c, 'self-insert')
-     for c in map(chr, range(32, 127)) if c != '\\'] +
+     for c in map(chr, range(32, 127)) if c <> '\\'] + \
     [(c, 'self-insert')
-     for c in map(chr, range(128, 256)) if c.isalpha()] +
+     for c in map(chr, range(128, 256)) if c.isalpha()] + \
     [(r'\<up>', 'up'),
      (r'\<down>', 'down'),
      (r'\<left>', 'left'),
@@ -172,16 +157,12 @@ default_keymap = tuple(
      (r'\<end>', 'end-of-line'),         # was 'end'
      (r'\<home>', 'beginning-of-line'),  # was 'home'
      (r'\<f1>', 'help'),
-     (r'\EOF', 'end'),   # the entries in the terminfo database for xterms
-     (r'\EOH', 'home'),  # seem to be wrong.  this is a less than ideal
-                         # workaround
-     (r'\<ctrl left>',  'backward-word'),
-     (r'\<ctrl right>', 'forward-word'),
+     (r'\EOF', 'end'),  # the entries in the terminfo database for xterms
+     (r'\EOH', 'home'), # seem to be wrong.  this is a less than ideal
+                        # workaround
      ])
 
-if 'c' in globals():  # only on python 2.x
-    del c  # from the listcomps
-
+del c # from the listcomps
 
 class Reader(object):
     """The Reader class implements the bare bones of a command reader,
@@ -259,9 +240,9 @@ feeling more loquacious than I am now."""
         self.commands = {}
         self.msg = ''
         for v in vars(commands).values():
-            if (isinstance(v, type) and
-                    issubclass(v, commands.Command) and
-                    v.__name__[0].islower()):
+            if  ( isinstance(v, type)
+                  and issubclass(v, commands.Command)
+                  and v.__name__[0].islower() ):
                 self.commands[v.__name__] = v
                 self.commands[v.__name__.replace('_', '-')] = v
         self.syntax_table = make_default_syntax_table()
@@ -293,7 +274,7 @@ feeling more loquacious than I am now."""
                     for mline in self.msg.split("\n"):
                         screen.append(mline)
                         screeninfo.append((0, []))
-                #self.lxy = p, ln
+                self.lxy = p, ln
             prompt = self.get_prompt(ln, ll >= p >= 0)
             while '\n' in prompt:
                 pre_prompt, _, prompt = prompt.partition('\n')
@@ -302,29 +283,18 @@ feeling more loquacious than I am now."""
             p -= ll + 1
             prompt, lp = self.process_prompt(prompt)
             l, l2 = disp_str(line)
-            wrapcount = (wlen(l) + lp) // w
+            wrapcount = (len(l) + lp) / w
             if wrapcount == 0:
                 screen.append(prompt + l)
-                screeninfo.append((lp, l2 + [1]))
+                screeninfo.append((lp, l2+[1]))
             else:
-                for i in range(wrapcount + 1):
-                    s = lp if i == 0 else 0
-                    r = w - s
-                    j = 0
-                    while j < len(l2):
-                        n = l2[j] or 1
-                        if n > r:
-                            break
-                        else:
-                            r -= n
-                            j += 1
-                    pre = prompt if i == 0 else ""
-                    post = "" if i == wrapcount else "\\"
-                    after = [1] if i == wrapcount else []
-                    screen.append(pre + l[:j] + post)
-                    screeninfo.append((s, l2[:j] + after))
-                    l = l[j:]
-                    l2 = l2[j:]
+                screen.append(prompt + l[:w-lp] + "\\")
+                screeninfo.append((lp, l2[:w-lp]))
+                for i in range(-lp + w, -lp + wrapcount*w, w):
+                    screen.append(l[i:i+w] +  "\\")
+                    screeninfo.append((0, l2[i:i + w]))
+                screen.append(l[wrapcount*w - lp:])
+                screeninfo.append((0, l2[wrapcount*w - lp:]+[1]))
         self.screeninfo = screeninfo
         self.cxy = self.pos2xy(self.pos)
         if self.msg and self.msg_at_bottom:
@@ -341,8 +311,12 @@ feeling more loquacious than I am now."""
         excluded from the length calculation.  So also a copy of the prompt
         is returned with these control characters removed.  """
 
+        # The logic below also ignores the length of common escape
+        # sequences if they were not explicitly within \x01...\x02.
+        # They are CSI (or ANSI) sequences  ( ESC [ ... LETTER )
+
         out_prompt = ''
-        l = wlen(prompt)
+        l = len(prompt)
         pos = 0
         while True:
             s = prompt.find('\x01', pos)
@@ -352,10 +326,14 @@ feeling more loquacious than I am now."""
             if e == -1:
                 break
             # Found start and end brackets, subtract from string length
-            l = l - (e - s + 1)
-            out_prompt += prompt[pos:s] + prompt[s + 1:e]
-            pos = e + 1
-        out_prompt += prompt[pos:]
+            l = l - (e-s+1)
+            keep = prompt[pos:s]
+            l -= sum(map(len, _r_csi_seq.findall(keep)))
+            out_prompt += keep + prompt[s+1:e]
+            pos = e+1
+        keep = prompt[pos:]
+        l -= sum(map(len, _r_csi_seq.findall(keep)))
+        out_prompt += keep
         return out_prompt, l
 
     def bow(self, p=None):
@@ -369,7 +347,7 @@ feeling more loquacious than I am now."""
         st = self.syntax_table
         b = self.buffer
         p -= 1
-        while p >= 0 and st.get(b[p], SYNTAX_WORD) != SYNTAX_WORD:
+        while p >= 0 and st.get(b[p], SYNTAX_WORD) <> SYNTAX_WORD:
             p -= 1
         while p >= 0 and st.get(b[p], SYNTAX_WORD) == SYNTAX_WORD:
             p -= 1
@@ -385,7 +363,7 @@ feeling more loquacious than I am now."""
             p = self.pos
         st = self.syntax_table
         b = self.buffer
-        while p < len(b) and st.get(b[p], SYNTAX_WORD) != SYNTAX_WORD:
+        while p < len(b) and st.get(b[p], SYNTAX_WORD) <> SYNTAX_WORD:
             p += 1
         while p < len(b) and st.get(b[p], SYNTAX_WORD) == SYNTAX_WORD:
             p += 1
@@ -401,7 +379,7 @@ feeling more loquacious than I am now."""
             p = self.pos
         b = self.buffer
         p -= 1
-        while p >= 0 and b[p] != '\n':
+        while p >= 0 and b[p] <> '\n':
             p -= 1
         return p + 1
 
@@ -413,7 +391,7 @@ feeling more loquacious than I am now."""
         if p is None:
             p = self.pos
         b = self.buffer
-        while p < len(b) and b[p] != '\n':
+        while p < len(b) and b[p] <> '\n':
             p += 1
         return p
 
@@ -430,7 +408,7 @@ feeling more loquacious than I am now."""
         """Return what should be in the left-hand margin for line
         `lineno'."""
         if self.arg is not None and cursor_on_line:
-            return "(arg: %s) " % self.arg
+            return "(arg: %s) "%self.arg
         if "\n" in self.buffer:
             if lineno == 0:
                 res = self.ps2
@@ -444,7 +422,7 @@ feeling more loquacious than I am now."""
         # the object on which str() was called.  This ensures that even if the
         # same object is used e.g. for ps1 and ps2, str() is called only once.
         if res not in self._pscache:
-            self._pscache[res] = decode(res)
+            self._pscache[res] = str(res)
         return self._pscache[res]
 
     def push_input_trans(self, itrans):
@@ -462,10 +440,10 @@ feeling more loquacious than I am now."""
         if pos == len(self.buffer):
             y = len(self.screeninfo) - 1
             p, l2 = self.screeninfo[y]
-            return p + sum(l2) + l2.count(0) - 1, y
+            return p + len(l2) - 1, y
         else:
             for p, l2 in self.screeninfo:
-                l = len(l2) - l2.count(0)
+                l = l2.count(1)
                 if l > pos:
                     break
                 else:
@@ -473,15 +451,12 @@ feeling more loquacious than I am now."""
                     y += 1
             c = 0
             i = 0
-            j = 0
-            while j < pos:
-                j += 1 if l2[i] else 0
-                c += l2[i] or 1
+            while c < pos:
+                c += l2[i]
                 i += 1
             while l2[i] == 0:
-                c += 1
                 i += 1
-            return p + c, y
+            return p + i, y
 
     def insert(self, text):
         """Insert 'text' at the insertion point."""
@@ -546,18 +521,15 @@ feeling more loquacious than I am now."""
         # this call sets up self.cxy, so call it first.
         screen = self.calc_screen()
         self.console.refresh(screen, self.cxy)
-        self.dirty = 0  # forgot this for a while (blush)
+        self.dirty = 0 # forgot this for a while (blush)
 
     def do_cmd(self, cmd):
         #print cmd
-        if isinstance(cmd[0], basestring):
-            #XXX: unify to text
+        if isinstance(cmd[0], str):
             cmd = self.commands.get(cmd[0],
-                                    commands.invalid_command)(self, *cmd)
+                                    commands.invalid_command)(self, cmd)
         elif isinstance(cmd[0], type):
-            cmd = cmd[0](self, *cmd)
-        else:
-            return  # nothing to do
+            cmd = cmd[0](self, cmd)
 
         cmd.do()
 
@@ -587,7 +559,7 @@ feeling more loquacious than I am now."""
 
         while 1:
             event = self.console.get_event(block)
-            if not event:  # can only happen if we're not blocking
+            if not event: # can only happen if we're not blocking
                 return None
 
             translate = True
@@ -646,12 +618,11 @@ feeling more loquacious than I am now."""
     def get_buffer(self, encoding=None):
         if encoding is None:
             encoding = self.console.encoding
-        return unicode('').join(self.buffer).encode(self.console.encoding)
+        return u''.join(self.buffer).encode(self.console.encoding)
 
     def get_unicode(self):
         """Return the current buffer as a unicode string."""
-        return unicode('').join(self.buffer)
-
+        return u''.join(self.buffer)
 
 def test():
     from pyrepl.unix_console import UnixConsole
@@ -663,6 +634,5 @@ def test():
     while reader.readline():
         pass
 
-
-if __name__ == '__main__':
+if __name__=='__main__':
     test()

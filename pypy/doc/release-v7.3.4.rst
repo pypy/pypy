@@ -216,9 +216,6 @@ Speedups and enhancements shared across versions
 - Add a shortcut for ``re.sub`` doing zero replacements
   for things like escaping characters)
 - Expose the physical size of a list in ``__pypy__.list_get_physical_size``
-- Sync with upstream https://github.com/pypy/pyrepl to improve unicode handling
-  in history (issue 2371). This also includes some PRs not yet merged to
-  upstream.
 - Clean up the icon bundled with the exe in windows
 - Add a fast path for ``list[:] = l2``
 - Update packaged OpenSSL to 1.1.1k

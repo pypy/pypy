@@ -45,18 +45,15 @@ def _strip_final_indent(text):
 
 def run_multiline_interactive_console(mainmodule=None, future_flags=0):
     import code
-    import __main__
-    mainmodule = mainmodule or __main__
+    if mainmodule is None:
+        import __main__ as mainmodule
     console = code.InteractiveConsole(mainmodule.__dict__, filename='<stdin>')
     if future_flags:
         console.compile.compiler.flags |= future_flags
 
     def more_lines(unicodetext):
-        if sys.version_info < (3, ):
-            # ooh, look at the hack:
-            src = "#coding:utf-8\n" + _strip_final_indent(unicodetext).encode('utf-8')
-        else:
-            src = _strip_final_indent(unicodetext)
+        # ooh, look at the hack:
+        src = "#coding:utf-8\n"+_strip_final_indent(unicodetext).encode('utf-8')
         try:
             code = console.compile(src, '<stdin>', 'single')
         except (OverflowError, SyntaxError, ValueError):
@@ -66,10 +63,6 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
 
     while 1:
         try:
-            try:
-                sys.stdout.flush()
-            except:
-                pass
             ps1 = getattr(sys, 'ps1', '>>> ')
             ps2 = getattr(sys, 'ps2', '... ')
             try:
