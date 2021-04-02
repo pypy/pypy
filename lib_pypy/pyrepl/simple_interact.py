@@ -26,7 +26,6 @@ allowing multiline input and multiline history entries.
 import sys
 from pyrepl.readline import multiline_input, _error, _get_reader
 
-
 def check():     # returns False if there is a problem initializing the state
     try:
         _get_reader()
@@ -34,6 +33,15 @@ def check():     # returns False if there is a problem initializing the state
         return False
     return True
 
+def _strip_final_indent(text):
+    # kill spaces and tabs at the end, but only if they follow '\n'.
+    # meant to remove the auto-indentation only (although it would of
+    # course also remove explicitly-added indentation).
+    short = text.rstrip(' \t')
+    n = len(short)
+    if n > 0 and text[n-1] == '\n':
+        return short
+    return text
 
 def run_multiline_interactive_console(mainmodule=None, future_flags=0):
     import code
@@ -69,8 +77,11 @@ def run_multiline_interactive_console(mainmodule=None, future_flags=0):
                                             returns_unicode=True)
             except EOFError:
                 break
-            more = console.push(statement)
+            more = console.push(_strip_final_indent(statement))
             assert not more
         except KeyboardInterrupt:
             console.write("\nKeyboardInterrupt\n")
+            console.resetbuffer()
+        except MemoryError:
+            console.write("\nMemoryError\n")
             console.resetbuffer()

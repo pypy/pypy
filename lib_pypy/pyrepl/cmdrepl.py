@@ -35,28 +35,26 @@ pyrepl."""
 
 from __future__ import print_function
 
-from pyrepl import completer
+from pyrepl import completing_reader as cr, reader, completer
 from pyrepl.completing_reader import CompletingReader as CR
 import cmd
-
 
 class CmdReader(CR):
     def collect_keymap(self):
         return super(CmdReader, self).collect_keymap() + (
             ("\\M-\\n", "invalid-key"),
             ("\\n", "accept"))
-
+    
+    CR_init = CR.__init__
     def __init__(self, completions):
-        super(CmdReader, self).__init__()
+        self.CR_init(self)
         self.completions = completions
 
     def get_completions(self, stem):
         if len(stem) != self.pos:
             return []
-        return sorted(set(s
-                          for s in self.completions
-                          if s.startswith(stem)))
-
+        return sorted(set(s for s in self.completions
+                           if s.startswith(stem)))
 
 def replize(klass, history_across_invocations=1):
 
@@ -73,25 +71,26 @@ def replize(klass, history_across_invocations=1):
                    for s in completer.get_class_members(klass)
                    if s.startswith("do_")]
 
-    assert issubclass(klass, cmd.Cmd)
+    if not issubclass(klass, cmd.Cmd):
+        raise Exception
 #    if klass.cmdloop.im_class is not cmd.Cmd:
 #        print "this may not work"
 
-    class MultiHist(object):
-        __history = []
+    class CmdRepl(klass):
+        k_init = klass.__init__
 
-        def __init__(self, *args, **kw):
-            super(MultiHist, self).__init__(*args, **kw)
-            self.__reader = CmdReader(completions)
-            self.__reader.history = self.__history
-            self.__reader.historyi = len(self.__history)
-
-    class SimpleHist(object):
-        def __init__(self, *args, **kw):
-            super(SimpleHist, self).__init__(*args, **kw)
-            self.__reader = CmdReader(completions)
-
-    class CmdLoopMixin(object):
+        if history_across_invocations:
+            _CmdRepl__history = []
+            def __init__(self, *args, **kw):
+                self.k_init(*args, **kw)
+                self.__reader = CmdReader(completions)
+                self.__reader.history = CmdRepl._CmdRepl__history
+                self.__reader.historyi = len(CmdRepl._CmdRepl__history)
+        else:
+            def __init__(self, *args, **kw):
+                self.k_init(*args, **kw)
+                self.__reader = CmdReader(completions)
+        
         def cmdloop(self, intro=None):
             self.preloop()
             if intro is not None:
@@ -114,8 +113,6 @@ def replize(klass, history_across_invocations=1):
                 stop = self.postcmd(stop, line)
             self.postloop()
 
-    hist = MultiHist if history_across_invocations else SimpleHist
-
-    class CmdRepl(hist, CmdLoopMixin, klass):
-        __name__ = "replize(%s.%s)" % (klass.__module__, klass.__name__)
+    CmdRepl.__name__ = "replize(%s.%s)"%(klass.__module__, klass.__name__)
     return CmdRepl
+

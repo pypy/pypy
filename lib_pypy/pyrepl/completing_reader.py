@@ -18,12 +18,11 @@
 # CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN
 # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 
-import re
 from pyrepl import commands, reader
 from pyrepl.reader import Reader
 
 
-def prefix(wordlist, j=0):
+def prefix(wordlist, j = 0):
     d = {}
     i = j
     try:
@@ -37,16 +36,13 @@ def prefix(wordlist, j=0):
     except IndexError:
         return wordlist[0][j:i]
 
-
-STRIPCOLOR_REGEX = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[m|K]")
-
+import re
 def stripcolor(s):
-    return STRIPCOLOR_REGEX.sub('', s)
-
+    return stripcolor.regexp.sub('', s)
+stripcolor.regexp = re.compile(r"\x1B\[([0-9]{1,3}(;[0-9]{1,2})?)?[m|K]")
 
 def real_len(s):
     return len(stripcolor(s))
-
 
 def left_align(s, maxlen):
     stripped = stripcolor(s)
@@ -56,7 +52,6 @@ def left_align(s, maxlen):
     padding = maxlen - len(stripped)
     return s + ' '*padding
 
-
 def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
     if use_brackets:
         item = "[ %s ]"
@@ -65,20 +60,20 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
         item = "%s  "
         padding = 2
     maxlen = min(max(map(real_len, wordlist)), cons.width - padding)
-    cols = int(cons.width / (maxlen + padding))
-    rows = int((len(wordlist) - 1)/cols + 1)
+    cols = cons.width // (maxlen + padding)
+    rows = (len(wordlist) - 1)//cols + 1
 
     if sort_in_column:
         # sort_in_column=False (default)     sort_in_column=True
         #          A B C                       A D G
-        #          D E F                       B E
+        #          D E F                       B E 
         #          G                           C F
         #
         # "fill" the table with empty words, so we always have the same amout
         # of rows for each column
         missing = cols*rows - len(wordlist)
         wordlist = wordlist + ['']*missing
-        indexes = [(i % cols) * rows + i // cols for i in range(len(wordlist))]
+        indexes = [(i%cols)*rows + i//cols for i in range(len(wordlist))]
         wordlist = [wordlist[i] for i in indexes]
     menu = []
     i = start
@@ -89,14 +84,14 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
             i += 1
             if i >= len(wordlist):
                 break
-        menu.append(''.join(row))
+        menu.append( ''.join(row) )
         if i >= len(wordlist):
             i = 0
             break
         if r + 5 > cons.height:
-            menu.append("   %d more... " % (len(wordlist) - i))
+            menu.append("   %d more... "%(len(wordlist) - i))
             break
-    return menu, i
+    return menu, i    
 
 # this gets somewhat user interface-y, and as a result the logic gets
 # very convoluted.
@@ -123,7 +118,7 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
 # only if the ``assume_immutable_completions`` is True.
 #
 # now it gets complicated.
-#
+# 
 # for the first press of a completion key:
 #  if there's a common prefix, stick it in.
 
@@ -145,22 +140,22 @@ def build_menu(cons, wordlist, start, use_brackets, sort_in_column):
 # for subsequent bangs, rotate the menu around (if there are sufficient
 # choices).
 
-
 class complete(commands.Command):
     def do(self):
         r = self.reader
-        last_is_completer = r.last_command_is(self.__class__)
-        immutable_completions = r.assume_immutable_completions
-        completions_unchangable = last_is_completer and immutable_completions
         stem = r.get_stem()
-        if not completions_unchangable:
-            r.cmpltn_menu_choices = r.get_completions(stem)
-
-        completions = r.cmpltn_menu_choices
-        if not completions:
+        if r.assume_immutable_completions and \
+                r.last_command_is(self.__class__):
+            completions = r.cmpltn_menu_choices
+        else:
+            r.cmpltn_menu_choices = completions = \
+                                        r.get_completions(stem)
+        if len(completions) == 0:
             r.error("no matches")
         elif len(completions) == 1:
-            if completions_unchangable and len(completions[0]) == len(stem):
+            if r.assume_immutable_completions and \
+                   len(completions[0]) == len(stem) and \
+                   r.last_command_is(self.__class__):
                 r.msg = "[ sole completion ]"
                 r.dirty = 1
             r.insert(completions[0][len(stem):])
@@ -168,7 +163,7 @@ class complete(commands.Command):
             p = prefix(completions, len(stem))
             if p:
                 r.insert(p)
-            if last_is_completer:
+            if r.last_command_is(self.__class__):
                 if not r.cmpltn_menu_vis:
                     r.cmpltn_menu_vis = 1
                 r.cmpltn_menu, r.cmpltn_menu_end = build_menu(
@@ -181,7 +176,6 @@ class complete(commands.Command):
             else:
                 r.msg = "[ not unique ]"
                 r.dirty = 1
-
 
 class self_insert(commands.self_insert):
     def do(self):
@@ -201,7 +195,6 @@ class self_insert(commands.self_insert):
                 else:
                     r.cmpltn_reset()
 
-
 class CompletingReader(Reader):
     """Adds completion support
 
@@ -211,25 +204,26 @@ class CompletingReader(Reader):
     """
     # see the comment for the complete command
     assume_immutable_completions = True
-    use_brackets = True  # display completions inside []
+    use_brackets = True # display completions inside []
     sort_in_column = False
-
+    
     def collect_keymap(self):
         return super(CompletingReader, self).collect_keymap() + (
             (r'\t', 'complete'),)
-
+    
     def __init__(self, console):
         super(CompletingReader, self).__init__(console)
         self.cmpltn_menu = ["[ menu 1 ]", "[ menu 2 ]"]
         self.cmpltn_menu_vis = 0
         self.cmpltn_menu_end = 0
-        for c in (complete, self_insert):
+        for c in [complete, self_insert]:
             self.commands[c.__name__] = c
-            self.commands[c.__name__.replace('_', '-')] = c
+            self.commands[c.__name__.replace('_', '-')] = c        
 
     def after_command(self, cmd):
         super(CompletingReader, self).after_command(cmd)
-        if not isinstance(cmd, (complete, self_insert)):
+        if not isinstance(cmd, self.commands['complete']) \
+           and not isinstance(cmd, self.commands['self_insert']):
             self.cmpltn_reset()
 
     def calc_screen(self):
@@ -249,7 +243,7 @@ class CompletingReader(Reader):
         self.cmpltn_menu = []
         self.cmpltn_menu_vis = 0
         self.cmpltn_menu_end = 0
-        self.cmpltn_menu_choices = []
+        self.cmpltn_menu_choices = []        
 
     def get_stem(self):
         st = self.syntax_table
@@ -263,14 +257,11 @@ class CompletingReader(Reader):
     def get_completions(self, stem):
         return []
 
-
 def test():
     class TestReader(CompletingReader):
         def get_completions(self, stem):
-            return [s for l in self.history
-                    for s in l.split()
-                    if s and s.startswith(stem)]
-
+            return [s for l in map(lambda x:x.split(),self.history)
+                    for s in l if s and s.startswith(stem)]
     reader = TestReader()
     reader.ps1 = "c**> "
     reader.ps2 = "c/*> "
@@ -279,6 +270,5 @@ def test():
     while reader.readline():
         pass
 
-
-if __name__ == '__main__':
+if __name__=='__main__':
     test()

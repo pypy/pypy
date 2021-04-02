@@ -19,12 +19,10 @@
 
 try:
     import __builtin__ as builtins
-    builtins  # silence broken pyflakes
 except ImportError:
     import builtins
 
-
-class Completer(object):
+class Completer:
     def __init__(self, ns):
         self.ns = ns
 
@@ -81,10 +79,11 @@ class Completer(object):
                 matches.append("%s.%s" % (expr, word))
         return matches
 
-
 def get_class_members(klass):
     ret = dir(klass)
     if hasattr(klass, '__bases__'):
         for base in klass.__bases__:
             ret = ret + get_class_members(base)
     return ret
+
+

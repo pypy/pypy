@@ -53,4 +53,4 @@ class AppTestReadline:
         """
         import readline
         readline.insert_text("\t")
-        assert readline.get_line_buffer() == "\t"
+        assert readline.get_line_buffer() == b"\t"
