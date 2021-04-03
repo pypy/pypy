@@ -1,6 +1,12 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib, collections
+import collections
+import hashlib
+import os
+import platform
+import shutil
+import sys
 import sysconfig
+import tempfile
 from os.path import join
 
 try:
@@ -62,9 +68,10 @@ cffi_dependencies = {
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
 }
-if sys.platform == 'darwin':
-    cffi_dependencies['gdbm'] = (
-              # this does not compile on the buildbot, linker is missing '_history_list'
+if sys.platform == 'darwin' or platform.machine() == 'aarch64':
+    # TODO: use these on x86 after upgrading Docker images to manylinux2014
+    cffi_dependencies['_gdbm'] = (
+              # this does not compile on the x86 buildbot, linker is missing '_history_list'
               'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args + ['--without-readline'],
