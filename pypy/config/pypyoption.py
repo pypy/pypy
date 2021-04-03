@@ -99,7 +99,7 @@ if sys.platform == "sunos5":
     if "_cppyy" in working_modules:
         working_modules.remove("_cppyy")  # depends on ctypes
 
-if 1 or sys.platform.startswith('linux') and sys.maxsize <= 2**31:
+if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
     # _hpy_universal needs tweaking to work on 32-bit linux
     working_modules.remove('_hpy_universal')
 
