@@ -33,7 +33,7 @@ attacker is allowed to run (why? read about pysandbox_).
 
 .. _SECCOMP: https://code.google.com/p/seccompsandbox/wiki/overview
 .. _pysandbox: https://mail.python.org/pipermail/python-dev/2013-November/130132.html
-.. _sandbloxlib: https://foss.heptapod.net/pypy/sandboxlib
+.. _sandboxlib: https://foss.heptapod.net/pypy/sandboxlib
 
 Another point of comparison: if we were instead to try to plug CPython
 into a special virtualizing C library, we would get a result
