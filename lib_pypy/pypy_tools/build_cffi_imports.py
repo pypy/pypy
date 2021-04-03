@@ -195,6 +195,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
         env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
         env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
+    else:
+        env['CFLAGS'] = '-fPIC ' + env.get('CFLAGS', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
