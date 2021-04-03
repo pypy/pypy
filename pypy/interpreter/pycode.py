@@ -154,6 +154,8 @@ class PyCode(eval.Code):
         self._initialize()
         self._init_ready()
         self.new_code_hook()
+        self.dump()
+        print
 
     def frame_stores_global(self, w_globals):
         if self.w_globals is None:

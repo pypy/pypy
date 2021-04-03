@@ -1,7 +1,7 @@
 """codegen helpers and AST constant folding."""
 import sys
 
-from pypy.interpreter.astcompiler import ast, consts, misc
+from pypy.interpreter.newastcompiler import ast, consts, misc
 from pypy.tool import stdlib_opcode as ops
 from pypy.interpreter.error import OperationError
 from rpython.rlib.unroll import unrolling_iterable

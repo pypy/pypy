@@ -1,4 +1,4 @@
-from pypy.interpreter.astcompiler import ast, consts
+from pypy.interpreter.newastcompiler import ast, consts
 from pypy.interpreter.pyparser import parsestring
 from pypy.interpreter import error
 from pypy.interpreter import unicodehelper
@@ -29,7 +29,7 @@ def f_string_compile(astbuilder, source, atom_node, fstr):
     # on all the '{expr}' parts.  The 'expr' part is not parsed
     # or even tokenized together with the rest of the source code!
     from pypy.interpreter.pyparser import pyparse
-    from pypy.interpreter.astcompiler.astbuilder import ast_from_node
+    from pypy.interpreter.newastcompiler.astbuilder import ast_from_node
 
     # complain if 'source' is only whitespace or an empty string
     for c in source:

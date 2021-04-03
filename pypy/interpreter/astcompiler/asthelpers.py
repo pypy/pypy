@@ -1,4 +1,4 @@
-from pypy.interpreter.astcompiler import ast, misc
+from pypy.interpreter.newastcompiler import ast, misc
 from pypy.interpreter.error import OperationError
 
 

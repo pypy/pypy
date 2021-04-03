@@ -2,7 +2,7 @@
 Symbol tabling building.
 """
 
-from pypy.interpreter.astcompiler import ast, consts, misc
+from pypy.interpreter.newastcompiler import ast, consts, misc
 from pypy.interpreter.pyparser.error import SyntaxError
 
 # These are for internal use only:
