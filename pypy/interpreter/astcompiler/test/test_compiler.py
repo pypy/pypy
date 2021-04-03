@@ -1742,6 +1742,19 @@ def h(i):
 """
         self.st(func, "g()", 6)
 
+    def test_newbytecode_with_return(self):
+        func = """class ContextManager:
+    def __enter__(self, *args):
+        return self
+    def __exit__(self, *args):
+        pass
+
+def g():
+        with ContextManager():
+            return 8
+"""
+        self.st(func, "g()", 8)
+
     def test_newbytecode_with_continue(self):
         func = """def g():
     class ContextManager:

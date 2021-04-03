@@ -394,6 +394,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         depth = block.initial_depth
         if depth == -99:     # this block is never reached, skip
              return 0
+
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth < 0:
@@ -619,10 +620,10 @@ _static_opcode_stack_effects = {
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
     ops.BEGIN_FINALLY: 4,
-    ops.POP_FINALLY: -1,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
                              # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
+    ops.POP_FINALLY: -4,     # same
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
