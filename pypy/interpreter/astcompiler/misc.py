@@ -27,7 +27,7 @@ def syntax_warning(space, msg, fn, lineno, offset):
 
 
 def parse_future(space, tree, feature_flags):
-    from pypy.interpreter.newastcompiler import ast
+    from pypy.interpreter.astcompiler import ast
     future_lineno = 0
     future_column = 0
     flags = 0

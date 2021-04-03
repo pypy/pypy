@@ -11,9 +11,9 @@ from rpython.rlib.objectmodel import not_rpython
 from rpython.rlib.rarithmetic import intmask, r_uint
 from rpython.tool.pairtype import extendabletype
 
-from pypy.interpreter import newpycode as pycode, pytraceback
+from pypy.interpreter import pycode, pytraceback
 from pypy.interpreter.argument import Arguments
-from pypy.interpreter.newastcompiler import consts
+from pypy.interpreter.astcompiler import consts
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import (
     OperationError, get_cleared_operation_error, oefmt)
@@ -22,7 +22,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
+for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
@@ -315,7 +315,7 @@ class PyFrame(W_Root):
     def resume_execute_frame(self, w_arg_or_err):
         # Called from execute_frame() just before resuming the bytecode
         # interpretation.
-        from pypy.interpreter.newpyopcode import SApplicationException
+        from pypy.interpreter.pyopcode import SApplicationException
         space = self.space
         w_yf = self.w_yielding_from
         if w_yf is not None:
@@ -349,7 +349,7 @@ class PyFrame(W_Root):
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
-        from pypy.interpreter import newpyopcode as pyopcode
+        from pypy.interpreter import pyopcode as pyopcode
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -789,7 +789,7 @@ class PyFrame(W_Root):
         while addr < len(code):
             assert addr & 1 == 0
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
                 blockstack.append(addr)
                 in_finally.append(False)
@@ -860,7 +860,7 @@ class PyFrame(W_Root):
             assert addr & 1 == 0
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:
@@ -883,7 +883,7 @@ class PyFrame(W_Root):
         assert go_iblock <= 0
 
         # Pop any blocks that we're jumping out of.
-        from pypy.interpreter.newpyopcode import FinallyBlock
+        from pypy.interpreter.pyopcode import FinallyBlock
         for ii in range(-go_iblock):
             block = self.pop_block()
             block.cleanupstack(self)
@@ -998,7 +998,7 @@ class PyFrame(W_Root):
 
 def get_block_class(opname):
     # select the appropriate kind of block
-    from pypy.interpreter.newpyopcode import block_classes
+    from pypy.interpreter.pyopcode import block_classes
     return block_classes[opname]
 
 def unpickle_block(space, w_tup):

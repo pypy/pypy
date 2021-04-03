@@ -4,9 +4,9 @@ import math
 import os
 from rpython.rlib.objectmodel import specialize, we_are_translated
 
-from pypy.interpreter.newastcompiler import ast, consts, misc, symtable
+from pypy.interpreter.astcompiler import ast, consts, misc, symtable
 from pypy.interpreter.error import OperationError
-from pypy.interpreter.newpycode import PyCode
+from pypy.interpreter.pycode import PyCode
 from pypy.interpreter.miscutils import string_sort
 from pypy.tool import stdlib_opcode as ops
 
@@ -610,9 +610,6 @@ _static_opcode_stack_effects = {
 
     ops.GET_ITER: 0,
     ops.FOR_ITER: 1,
-    ops.BREAK_LOOP: 0,
-    ops.CONTINUE_LOOP: 0,
-    ops.SETUP_LOOP: 0,
 
     ops.PRINT_EXPR: -1,
 

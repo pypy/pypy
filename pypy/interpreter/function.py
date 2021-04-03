@@ -112,8 +112,7 @@ class Function(W_Root):
                 return code.fastcall_4(self.space, self, args_w[0],
                                        args_w[1], args_w[2], args_w[3])
         elif (nargs | PyCode.FLATPYCALL) == fast_natural_arity:
-            from pypy.interpreter.newpycode import PyCode as NewPyCode
-            assert isinstance(code, (PyCode, NewPyCode))
+            assert isinstance(code, PyCode)
             if nargs < 5:
                 new_frame = self.space.createframe(code, self.w_func_globals,
                                                    self)
@@ -132,7 +131,6 @@ class Function(W_Root):
         # methodcall is only for better error messages
         from pypy.interpreter import gateway
         from pypy.interpreter.pycode import PyCode
-        from pypy.interpreter.newpycode import PyCode as NewPyCode
 
         code = self.getcode() # hook for the jit
         #
@@ -163,12 +161,12 @@ class Function(W_Root):
                                        frame.peekvalue(2), frame.peekvalue(1),
                                         frame.peekvalue(0))
         elif (nargs | Code.FLATPYCALL) == fast_natural_arity:
-            assert isinstance(code, (PyCode, NewPyCode))
+            assert isinstance(code, PyCode)
             return self._flat_pycall(code, nargs, frame)
         elif fast_natural_arity & Code.FLATPYCALL:
             natural_arity = fast_natural_arity & 0xff
             if natural_arity > nargs >= natural_arity - len(self.defs_w):
-                assert isinstance(code, (PyCode, NewPyCode))
+                assert isinstance(code, PyCode)
                 return self._flat_pycall_defaults(code, nargs, frame,
                                                   natural_arity - nargs)
         elif fast_natural_arity == Code.PASSTHROUGHARGS1 and nargs >= 1:
@@ -234,8 +232,7 @@ class Function(W_Root):
             defs_w = []
         nfreevars = 0
         from pypy.interpreter.pycode import PyCode
-        from pypy.interpreter.newpycode import PyCode as NewPyCode
-        if isinstance(code, (PyCode, NewPyCode)):
+        if isinstance(code, PyCode):
             nfreevars = len(code.co_freevars)
         if space.is_none(w_closure) and nfreevars == 0:
             closure = None

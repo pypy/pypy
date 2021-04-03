@@ -1,7 +1,7 @@
 from rpython.rlib.rutf8 import Utf8StringBuilder
 from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import oefmt, OperationError
-from pypy.interpreter.newastcompiler import ast
+from pypy.interpreter.astcompiler import ast
 
 
 PRIORITY_TUPLE = 0

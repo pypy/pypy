@@ -730,17 +730,13 @@ class ObjSpace(object):
         try:
             return self.default_newcompiler
         except AttributeError:
-            from pypy.interpreter.newpycompiler import PythonAstCompiler
+            from pypy.interpreter.pycompiler import PythonAstCompiler
             compiler = PythonAstCompiler(self)
             self.default_newcompiler = compiler
             return compiler
 
     def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
-        from pypy.interpreter.newpyframe import PyFrame as NewPyFrame
-        from pypy.interpreter.newpycode import PyCode as NewPyCode
-        if isinstance(code, NewPyCode):
-            return NewPyFrame(self, code, w_globals, outer_func)
         return self.FrameClass(self, code, w_globals, outer_func)
 
     def allocate_lock(self):
@@ -1352,12 +1348,11 @@ class ObjSpace(object):
         if filename is None:
             filename = '?'
         from pypy.interpreter.pycode import PyCode
-        from pypy.interpreter.newpycode import PyCode as NewPyCode
         if isinstance(statement, str):
             compiler = self.createcompiler()
             statement = compiler.compile(statement, filename, 'exec', 0,
                                          hidden_applevel=hidden_applevel)
-        if not isinstance(statement, (PyCode, NewPyCode)):
+        if not isinstance(statement, PyCode):
             raise TypeError('space.exec_(): expected a string, code or PyCode object')
         w_key = self.newtext('__builtins__')
         if not self.contains_w(w_globals, w_key):
