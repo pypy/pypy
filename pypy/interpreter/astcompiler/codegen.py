@@ -190,21 +190,22 @@ class __extend__(ast.DictComp):
 
 
 # These are frame blocks.
-F_WHILE_LOOP = 0
-F_FOR_LOOP = 1
-F_EXCEPT = 2
-F_FINALLY_TRY = 3
-F_FINALLY_TRY2 = 4
-F_FINALLY_END = 5
-F_WITH = 6
-F_ASYNC_WITH = 7
-F_HANDLER_CLEANUP = 8
+fblock_kind_to_str = []
+for i, name in enumerate("F_WHILE_LOOP F_FOR_LOOP F_EXCEPT F_FINALLY_TRY F_FINALLY_TRY2 F_FINALLY_END F_WITH F_ASYNC_WITH F_HANDLER_CLEANUP".split()):
+    globals()[name] = i
+    fblock_kind_to_str.append(name)
+del name, i
+
 
 class FrameBlockInfo(object):
     def __init__(self, kind, block, end):
         self.kind = kind
         self.block = block
         self.end = end
+
+    def __repr__(self):
+        # for debugging
+        return "<FrameBlockInfo kind=%s block=%s end=%s>" % (fblock_kind_to_str[self.kind], self.block, self.end)
 
 
 class PythonCodeGenerator(assemble.PythonCodeMaker):
