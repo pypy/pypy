@@ -411,7 +411,7 @@ class PyFrame(W_Root):
             return
         if not self._check_stack_index(index):
             import pdb; pdb.set_trace()
-            fatal
+            assert 0
 
     def _check_stack_index(self, index):
         code = self.pycode

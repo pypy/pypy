@@ -115,7 +115,6 @@ def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
-def_op('BREAK_LOOP', 80)
 def_op('WITH_CLEANUP_START', 81)
 def_op('WITH_CLEANUP_FINISH', 82)
 
@@ -160,8 +159,6 @@ jabs_op('POP_JUMP_IF_TRUE', 115)     # ""
 
 name_op('LOAD_GLOBAL', 116)     # Index in name list
 
-jabs_op('CONTINUE_LOOP', 119)   # Target address
-#jrel_op('SETUP_LOOP', 120)      # Distance to target address
 jrel_op('SETUP_EXCEPT', 121)    # ""
 jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 

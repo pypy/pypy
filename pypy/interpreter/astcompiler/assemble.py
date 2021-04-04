@@ -388,7 +388,8 @@ class PythonCodeMaker(ast.ASTVisitor):
     def _next_stack_depth_walk(self, nextblock, depth, source):
         if depth > nextblock.initial_depth:
             nextblock.initial_depth = depth
-            nextblock._source = source
+            if not we_are_translated():
+                nextblock._source = source
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
@@ -443,7 +444,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 break
         else:
             if block.next_block:
-                self._next_stack_depth_walk(block.next_block, depth, block)
+                self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
     def _build_lnotab(self, blocks):

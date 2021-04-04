@@ -132,8 +132,7 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
-        block = self.unrollstack(SApplicationException.kind)
-        if block is None:
+        if not self.blockstack_non_empty():
             # no handler found for the OperationError
             if we_are_translated():
                 raise operr
@@ -144,7 +143,7 @@ class __extend__(pyframe.PyFrame):
                 raise OperationError, operr, tb
         else:
             unroller = SApplicationException(operr)
-            next_instr = block.handle(self, unroller)
+            next_instr = self.pop_block().handle(self, unroller)
             return next_instr
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
@@ -185,13 +184,11 @@ class __extend__(pyframe.PyFrame):
                 unroller_or_int = self.end_finally()
                 if isinstance(unroller_or_int, SApplicationException):
                     # go on unrolling the stack
-                    block = self.unrollstack(unroller_or_int.kind)
-                    if block is None:
-                        w_result = unroller_or_int.nomoreblocks()
-                        self.pushvalue(w_result)
-                        raise Return
+                    if not self.blockstack_non_empty():
+                        w_result = unroller_or_int.reraise()
+                        assert 0, "unreachable"
                     else:
-                        next_instr = block.handle(self, unroller_or_int)
+                        next_instr = self.pop_block().handle(self, unroller_or_int)
                 elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
                     # we arrived here via a CALL_FINALLY
                     next_instr = r_uint(self.space.int_w(unroller_or_int))
@@ -439,16 +436,6 @@ class __extend__(pyframe.PyFrame):
 
             if jit.we_are_jitted():
                 return next_instr
-
-    @jit.unroll_safe
-    def unrollstack(self, unroller_kind):
-        while self.blockstack_non_empty():
-            block = self.pop_block()
-            if (block.handling_mask & unroller_kind) != 0:
-                return block
-            block.cleanupstack(self)
-        self.frame_finished_execution = True  # for generators
-        return None
 
 
     ### accessor functions ###
@@ -1686,13 +1673,11 @@ class __extend__(pyframe.PyFrame):
             return next_instr
         else:
             unroller = self.peekvalue(2)
-            block = self.unrollstack(unroller.kind)
-            if block is None:
-                w_result = unroller.nomoreblocks()
-                self.pushvalue(w_result)
-                raise Return
+            if not self.blockstack_non_empty():
+                w_result = unroller.reraise()
+                assert 0, "unreachable"
             else:
-                next_instr = block.handle(self, unroller)
+                return self.pop_block().handle(self, unroller)
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
@@ -1787,10 +1772,9 @@ class SApplicationException(W_Root):
     """Signals an application-level exception
     (i.e. an OperationException)."""
     _immutable_ = True
-    kind = 0x02
     def __init__(self, operr):
         self.operr = operr
-    def nomoreblocks(self):
+    def reraise(self):
         raise RaiseWithExplicitTraceback(self.operr)
 
 
@@ -1804,17 +1788,6 @@ class FrameBlock(object):
         self.handlerposition = handlerposition
         self.valuestackdepth = valuestackdepth
         self.previous = previous   # this makes a linked list of blocks
-
-    def __eq__(self, other):
-        return (self.__class__ is other.__class__ and
-                self.handlerposition == other.handlerposition and
-                self.valuestackdepth == other.valuestackdepth)
-
-    def __ne__(self, other):
-        return not (self == other)
-
-    def __hash__(self):
-        return hash((self.handlerposition, self.valuestackdepth))
 
     def cleanupstack(self, frame):
         frame.dropvaluesuntil(self.valuestackdepth)
@@ -1842,7 +1815,6 @@ class SysExcInfoRestorer(FrameBlock):
 
     _immutable_ = True
     _opname = 'SYS_EXC_INFO_RESTORER' # it's not associated to any opcode
-    handling_mask = 0 # this block is never handled, only popped by POP_EXCEPT
 
     def __init__(self, operr, previous):
         self.operr = operr
@@ -1864,7 +1836,6 @@ class ExceptBlock(FrameBlock):
 
     _immutable_ = True
     _opname = 'SETUP_EXCEPT'
-    handling_mask = SApplicationException.kind
 
     def handle(self, frame, unroller):
         # push the exception to the value stack for inspection by the
@@ -1893,7 +1864,6 @@ class FinallyBlock(FrameBlock):
 
     _immutable_ = True
     _opname = 'SETUP_FINALLY'
-    handling_mask = -1     # handles every kind of SuspendedUnroller
 
     def handle(self, frame, unroller):
         # any abnormal reason for unrolling a finally: triggers the end of
