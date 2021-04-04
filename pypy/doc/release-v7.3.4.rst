@@ -24,10 +24,16 @@ two different interpreters:
     this as beta-quality as the last incompatibilities with CPython (in the
     ``re`` module) have been fixed.
 
+We are no longer releasing a Python3.6 version, as we focus on updating to
+Python 3.8. We have begun streaming the advances towards this goal on Saturday
+evenings European time on https://www.twitch.tv/pypyproject. If Python3.6 is
+important to you, please reach out as we could offer sponsored longer term
+support.
+
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the 7.3
-releases. The two highlights of the release are binary **Windows 64** support,
-as well as faster numerical instance fields.
+releases. Highlights of the release include binary **Windows 64** support,
+faster numerical instance fields, and a preliminary HPy backend.
 
 A new contributor (Ondrej Baranovič - thanks!) took us up on the challenge to get
 `windows 64-bit`_ support.  The work has been merged and for the first time we
@@ -43,23 +49,24 @@ of `type freezing`_). This gives significant performance improvements on
 numerical pure-Python code, and other code where instances store many integers
 or floating point numbers.
 
-.. _`PyPy's implementation of the instances of user-defined classes`: https://www.pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
+.. _`PyPy's implementation of the instances of user-defined classes`:
+   https://www.pypy.org/posts/2010/11/efficiently-implementing-python-objects-3838329944323946932.html
 .. _`numerical particle emulation`: https://github.com/paugier/nbabel
 .. _`type freezing`: https://www.csl.cornell.edu/~cbatten/pdfs/cheng-type-freezing-cgo2020.pdf
 
 There were also a number of optimizations for methods around strings and bytes,
 following user reported performance problems. If you are unhappy with PyPy's
-performance on some code of yours, please file `a bug`_!
+performance on some code of yours, please report `an issue`_!
 
-.. _`a bug`: https://foss.heptapod.net/pypy/pypy/-/issues/
+.. _`an issue`: https://foss.heptapod.net/pypy/pypy/-/issues/
 
-..
-  The major new feature is prelminary support for the Universal mode of HPy: a
-  new way of writing c-extension modules to totally encapsulate the `PyObject*`.
-  The goal, as laid out in the `HPy blog post`_, is to enable a migration path
-  for c-extension authors who wish their code to be performant on alternative
-  interpreters like GraalPython_ (written on top of the Java virtual machine),
-  RustPython_, and PyPy. Thanks to Oracle for sponsoring work on HPy.
+A major new feature is prelminary support for the Universal mode of HPy: a
+new way of writing c-extension modules to totally encapsulate ``PyObject*``.
+The goal, as laid out in the `HPy documentation`_ and recent `HPy blog post`_,
+is to enable a migration path
+for c-extension authors who wish their code to be performant on alternative
+interpreters like GraalPython_ (written on top of the Java virtual machine),
+RustPython_, and PyPy. Thanks to Oracle and IBM for sponsoring work on HPy.
 
 Several issues exposed in the 7.3.3 release were fixed. Many of them came from the
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
@@ -69,16 +76,13 @@ Development of PyPy takes place on https://foss.heptapod.net/pypy/pypy.
 We have seen an increase in the number of drive-by contributors who are able to
 use gitlab + mercurial to create merge requests.
 
-We also have begun streaming the advances towards PyPy3.8 on Saturday evenings
-European time on https://www.twitch.tv/pypyproject.
-
 The `CFFI`_ backend has been updated to version 1.14.5 and the cppyy_ backend
 to 1.14.2. We recommend using CFFI rather than C-extensions to interact with C,
 and using cppyy for performant wrapping of C++ code for Python.
 
-As always, this release fixed several issues and bugs.  We strongly recommend
-updating. Many of the fixes are the direct result of end-user bug reports, so
-please continue reporting issues as they crop up.
+As always, we strongly recommend updating to the latest versions. Many fixes
+are the direct result of end-user bug reports, so please continue reporting
+issues as they crop up.
 
 You can find links to download the v7.3.4 releases here:
 
@@ -109,13 +113,14 @@ building wheels for PyPy.
 .. _`cppyy`: https://cppyy.readthedocs.io
 .. _`multibuild system`: https://github.com/matthew-brett/multibuild
 .. _`cibuildwheel`: https://github.com/joerick/cibuildwheel
-.. _`blog post`: https://morepypy.blogspot.com/2020/02/pypy-and-cffi-have-moved-to-heptapod.html
+.. _`blog post`: https://pypy.org/blog/2020/02/pypy-and-cffi-have-moved-to-heptapod.html
 .. _`conda-forge`: https://conda-forge.org/blog//2020/03/10/pypy
 .. _`documented changes`: https://docs.python.org/3/whatsnew/3.7.html#re
 .. _`PyPy 3.7 wiki`: https://foss.heptapod.net/pypy/pypy/-/wikis/py3.7%20status
 .. _`wheels on PyPI`: https://pypi.org/project/numpy/#files
 .. _`windows 64-bit`: https://foss.heptapod.net/pypy/pypy/-/issues/2073#note_141389
-.. _`HPy blog post`: https://morepypy.blogspot.com/2019/12/hpy-kick-off-sprint-report.html
+.. _`HPy documentation`: https://hpy.readthedocs.io/en/latest/
+.. _`HPy blog post`: https://hpyproject.org/blog/posts/2021/03/hello-hpy/
 .. _`GraalPython`: https://github.com/graalvm/graalpython
 .. _`RustPython`: https://github.com/RustPython/RustPython
 .. _`renovated blog site`: https://pypy.org/blog
@@ -157,7 +162,7 @@ Bugfixes shared across versions
 - Fix loading system libraries with ctypes on macOS Big Sur (issue 3314)
 - Fix ``__thread_id`` in greenlets (issue 3381_)
 - Reject XML entity declarations in plist files (`bpo 42051`_)
-- Make compare_digest more constant-time (`bpo-40791`_)
+- Make compare_digest more constant-time (`bpo 40791`_)
 - Only use '&' as a query string separator in url parsing (`bpo 42967`_)
 - Fix `__r*__` reverse methods on weakref proxies
 - Restore pickle of dict iterators on default (python2.7)
@@ -211,8 +216,6 @@ Speedups and enhancements shared across versions
 - Add a shortcut for ``re.sub`` doing zero replacements
   for things like escaping characters)
 - Expose the physical size of a list in ``__pypy__.list_get_physical_size``
-- Sync with upstream https://github.com/pypy/pyrepl to improve unicode handling
-  in history (issue 2371)
 - Clean up the icon bundled with the exe in windows
 - Add a fast path for ``list[:] = l2``
 - Update packaged OpenSSL to 1.1.1k
@@ -284,7 +287,7 @@ Python 3.7+
   ``pip install --local``
 - No longer call ``eval()`` on content received via HTTP in CJK codec tests (`bpo 41944`_)
 - Add missing `c_/f_/contiguous` flags on memoryview
-- Fix ``xml.ElementTree.extend`` not working on iterators (issue 3181_, `bpo-43399`_)
+- Fix ``xml.ElementTree.extend`` not working on iterators (issue 3181_, `bpo 43399`_)
 - `Python -m` now adds *starting* directory to `sys.path` (`bpo 33053`_)
 - Reimplement ``heapq.merge()`` using a linked tournament tree (`bpo 38938`_)
 - Fix shring of cursors in ``sqllite3`` (issues 3351_ and 3403_)
@@ -300,7 +303,7 @@ Python 3.7 C-API
 - Clean up some ``char *`` -> ``const char *`` misnaming (issue 3362)
 - Accept ``NULL`` input to ``PyLong_AsUnsignedLongLongMask``
 - Add ``PyImport_GetModule`` (issue 3385_)
-- Converting utf-8 to 1-byte buffers must consider latin-1 encoding (`issue 3413`_)
+- Converting utf-8 to 1-byte buffers must consider latin-1 encoding (issue `3413`_)
 - Fix value of ``.__module__`` and ``.__name__`` on the result of
   ``PyType_FromSpec``
 - Add missing ``PyFile_FromFd``
@@ -335,10 +338,12 @@ Python 3.7 C-API
 .. _3404: https://foss.heptapod.net/pypy/pypy/-/issues/3404
 .. _3407: https://foss.heptapod.net/pypy/pypy/-/issues/3407
 .. _3409: https://foss.heptapod.net/pypy/pypy/-/issues/3409
+.. _3413: https://foss.heptapod.net/pypy/pypy/-/issues/3413
 
 .. _`merge request 723`: https://foss.heptapod.net/pypy/pypy/-/merge_request/723
 
 .. _`bpo 21151`: https://bugs.python.org/issue21151
+.. _`bpo 25778`: https://bugs.python.org/issue25778
 .. _`bpo 28732`: https://bugs.python.org/issue28732
 .. _`bpo 30024`: https://bugs.python.org/issue30024
 .. _`bpo 31286`: https://bugs.python.org/issue31286
