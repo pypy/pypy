@@ -132,7 +132,8 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
-        if not self.blockstack_non_empty():
+        block = self.unrollstack()
+        if block is None:
             # no handler found for the OperationError
             if we_are_translated():
                 raise operr
@@ -143,7 +144,7 @@ class __extend__(pyframe.PyFrame):
                 raise OperationError, operr, tb
         else:
             unroller = SApplicationException(operr)
-            next_instr = self.pop_block().handle(self, unroller)
+            next_instr = block.handle(self, unroller)
             return next_instr
 
     def call_contextmanager_exit_function(self, w_func, w_typ, w_val, w_tb):
@@ -184,11 +185,12 @@ class __extend__(pyframe.PyFrame):
                 unroller_or_int = self.end_finally()
                 if isinstance(unroller_or_int, SApplicationException):
                     # go on unrolling the stack
-                    if not self.blockstack_non_empty():
+                    block = self.unrollstack()
+                    if block is None:
                         w_result = unroller_or_int.reraise()
                         assert 0, "unreachable"
                     else:
-                        next_instr = self.pop_block().handle(self, unroller_or_int)
+                        next_instr = block.handle(self, unroller_or_int)
                 elif self.space.isinstance_w(unroller_or_int, self.space.w_int):
                     # we arrived here via a CALL_FINALLY
                     next_instr = r_uint(self.space.int_w(unroller_or_int))
@@ -436,6 +438,16 @@ class __extend__(pyframe.PyFrame):
 
             if jit.we_are_jitted():
                 return next_instr
+
+    @jit.unroll_safe
+    def unrollstack(self):
+        while self.blockstack_non_empty():
+            block = self.pop_block()
+            if not isinstance(block, SysExcInfoRestorer):
+                return block
+            block.cleanupstack(self)
+        self.frame_finished_execution = True  # for generators
+        return None
 
 
     ### accessor functions ###
@@ -1673,11 +1685,13 @@ class __extend__(pyframe.PyFrame):
             return next_instr
         else:
             unroller = self.peekvalue(2)
-            if not self.blockstack_non_empty():
+            block = self.unrollstack()
+            if block is None:
                 w_result = unroller.reraise()
                 assert 0, "unreachable"
             else:
-                return self.pop_block().handle(self, unroller)
+                next_instr = block.handle(self, unroller)
+        return next_instr
 
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
