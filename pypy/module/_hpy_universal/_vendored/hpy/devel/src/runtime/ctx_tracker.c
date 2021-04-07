@@ -58,7 +58,7 @@
  */
 
 #include "hpy.h"
-#include "common/runtime/ctx_type.h"
+//#include "common/runtime/ctx_type.h"
 
 static const HPy_ssize_t HPYTRACKER_INITIAL_CAPACITY = 5;
 

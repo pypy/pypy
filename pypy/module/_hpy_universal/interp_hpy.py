@@ -30,6 +30,14 @@ from pypy.module._hpy_universal import (
     interp_tracker,
     )
 
+def init_hpy_module(space):
+    """
+    Initialize _hpy_universal. This is called by moduledef.Module.__init__
+    """
+    state = space.fromcache(State)
+    state.setup()
+    h_mod = llapi.HPyInit__debug(state.ctx)
+    # WIP: do something with h_mod
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it
@@ -57,8 +65,8 @@ def descr_load_from_spec(space, w_spec):
 
 @unwrap_spec(name='text', libpath='fsencode')
 def descr_load(space, name, libpath):
-    state = space.fromcache(State)
-    state.setup()
+    ## state = space.fromcache(State)
+    ## state.setup()
     try:
         with rffi.scoped_str2charp(libpath) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)

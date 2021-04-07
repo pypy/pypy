@@ -9,6 +9,7 @@ PYPYDIR = py.path.local(pypydir)
 SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
+DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
@@ -17,10 +18,38 @@ eci = ExternalCompilationInfo(
         cdir,        # for precommondefs.h
         INCLUDE_DIR, # for universal/hpy.h
         SRC_DIR,     # for hpyerr.h
+        DEBUG_DIR.join('include'),  # for hpy_debug.h
     ],
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
+        #
+        # <debug mode>
+        DEBUG_DIR.join('debug_ctx.c'),
+        DEBUG_DIR.join('debug_ctx_not_cpython.c'),
+        DEBUG_DIR.join('debug_handles.c'),
+        DEBUG_DIR.join('_debugmod.c'),
+        DEBUG_DIR.join('autogen_debug_wrappers.c'),
+        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
+        # </debug mode>
+    ],
+    separate_module_sources=[
+        """
+        #include <hpy_debug.h>
+        // the default symbol visibility is hidden: the easiest way to export
+        // these two functions is to write a small wrapper.        
+        RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
+            return hpy_debug_get_ctx(uctx);
+        }
+        RPY_EXPORTED HPy pypy_HPyInit__debug(HPyContext uctx) {
+            return HPyInit__debug(uctx);
+        }
+
+        // NOTE: this is currently unused: it is needed because it is
+        // referenced by hpy_magic_dump. But we could try to use this variable to
+        // store the actual ctx instead of malloc()ing it in setup_ctx.
+        struct _HPyContext_s g_universal_ctx;
+        """
     ],
 )
 
@@ -547,3 +576,10 @@ pypy_HPyErr_Clear = rffi.llexternal('pypy_HPyErr_Clear',
                                     [HPyContext],
                                     lltype.Void,
                                     compilation_info=eci, _nowrapper=True)
+
+# debug mode
+hpy_debug_get_ctx = rffi.llexternal('pypy_hpy_debug_get_ctx', [HPyContext], HPyContext,
+                                    compilation_info=eci)
+
+HPyInit__debug = rffi.llexternal('pypy_HPyInit__debug', [HPyContext], HPy,
+                                 compilation_info=eci)
