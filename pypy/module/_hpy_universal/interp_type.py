@@ -9,10 +9,12 @@ from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import handles, llapi
 from .interp_module import get_doc
 from .interp_extfunc import W_ExtensionMethod
-from .interp_slot import fill_slot
+from .interp_slot import fill_slot, W_wrap_getbuffer
 from .interp_descr import add_member, add_getset
 from .interp_cpy_compat import attach_legacy_slots_to_type
 from rpython.rlib.rutf8 import surrogate_in_utf8
+
+HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 
 class W_HPyObject(W_ObjectObject):
     hpy_data = lltype.nullptr(rffi.VOIDP.TO)
@@ -130,11 +132,17 @@ def add_slot_defs(space, ctx, w_result, c_defines):
     p = c_defines
     i = 0
     HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
+    rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
     while p[i]:
         kind = rffi.cast(lltype.Signed, p[i].c_kind)
         if kind == HPyDef_Kind.HPyDef_Kind_Slot:
             hpyslot = llapi.cts.cast('_pypy_HPyDef_as_slot*', p[i]).c_slot
-            fill_slot(space, w_result, hpyslot)
+            slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
+            if slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
+                rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
+                                     hpyslot.c_impl)
+            else:
+                fill_slot(space, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
@@ -153,6 +161,10 @@ def add_slot_defs(space, ctx, w_result, c_defines):
         else:
             raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
         i += 1
+    if rbp:
+       w_buffer_wrapper = w_result.getdictvalue(space, '__buffer__')
+       if w_buffer_wrapper and isinstance(w_buffer_wrapper, W_wrap_getbuffer):
+           w_buffer_wrapper.rbp = rbp
 
 def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
     pos = surrogate_in_utf8(name)

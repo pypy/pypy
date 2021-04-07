@@ -8,8 +8,8 @@ from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi, handles
 from pypy.module._hpy_universal.state import State
-from .interp_extfunc import W_ExtensionFunction, W_ExtensionMethod
-from .buffer import HPyBuffer
+from .interp_extfunc import W_ExtensionFunction
+from .buffer import HPyBuffer, HPY_BUFFER_FQ
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
@@ -246,6 +246,8 @@ class W_wrap_objobjproc(W_SlotWrapper):
             return space.newbool(bool(res))
 
 class W_wrap_getbuffer(W_SlotWrapper):
+    rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
+
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_getbufferproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -273,12 +275,15 @@ class W_wrap_getbuffer(W_SlotWrapper):
                 else:
                     format = 'B'
                 view = HPyBuffer(
-                    buf_ptr, size, w_obj,
+                    space, buf_ptr, size, w_obj,
                     itemsize=hpybuf.c_itemsize,
                     readonly=widen(hpybuf.c_readonly),
                     ndim=hpybuf.c_ndim, format=format, shape=shape,
                     strides=strides)
-                #if releasebuffer: fq.register_finalizer(view)
+                if self.rbp:
+                    # XXX: we're assuming w_self and w_obj have the same type!
+                    view.releasebufferproc = self.rbp
+                    HPY_BUFFER_FQ.register_finalizer(view)
                 return view.wrap(space)
 
 
