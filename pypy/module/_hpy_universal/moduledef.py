@@ -13,4 +13,4 @@ class Module(MixedModule):
     def __init__(self, space, *args):
         from pypy.module._hpy_universal.interp_hpy import init_hpy_module
         MixedModule.__init__(self, space, *args)
-        init_hpy_module(space)
+        init_hpy_module(space, self)

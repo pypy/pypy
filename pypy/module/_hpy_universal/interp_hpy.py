@@ -30,14 +30,15 @@ from pypy.module._hpy_universal import (
     interp_tracker,
     )
 
-def init_hpy_module(space):
+def init_hpy_module(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
     state = space.fromcache(State)
     state.setup()
-    h_mod = llapi.HPyInit__debug(state.ctx)
-    # WIP: do something with h_mod
+    h_debug_mod = llapi.HPyInit__debug(state.ctx)
+    w_debug_mod = handles.consume(space, h_debug_mod)
+    w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it
