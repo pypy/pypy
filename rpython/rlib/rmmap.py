@@ -316,6 +316,7 @@ elif _MS_WINDOWS:
             lltype.free(high_ref, flavor='raw')
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
+    has_madvise = False
 
 PAGESIZE = _get_page_size()
 ALLOCATIONGRANULARITY = _get_allocation_granularity()
@@ -655,9 +656,9 @@ class MMap(object):
         self.data[index] = value[0]
 
     if has_madvise:
-        def madvise(self, flags, start, length):
+        def madvise(self, flags, start, end):
             res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, start)),
-                                 rffi.cast(size_t, length),
+                                 rffi.cast(size_t, end),
                                  rffi.cast(rffi.INT, flags))
             res = rffi.cast(lltype.Signed, res)
             if res == 0:

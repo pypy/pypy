@@ -2,6 +2,25 @@ from .support import HPyTest
 
 class TestTuple(HPyTest):
 
+    def test_Check(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            {
+                if (HPyTuple_Check(ctx, arg))
+                    return HPy_Dup(ctx, ctx->h_True);
+                return HPy_Dup(ctx, ctx->h_False);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        class MyTuple(tuple):
+            pass
+
+        assert mod.f(()) is True
+        assert mod.f([]) is False
+        assert mod.f(MyTuple()) is True
+
     def test_FromArray(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)

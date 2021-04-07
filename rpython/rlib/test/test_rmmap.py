@@ -489,6 +489,7 @@ class TestMMap:
     def test_madvise(self):
         m = mmap.mmap(-1, 8096)
         m.madvise(mmap.MADV_NORMAL, 0, 8096)
+        m.close()
 
 
 def test_alloc_free():

@@ -132,7 +132,7 @@ class __extend__(pyframe.PyFrame):
                 self.space, operr, self, self.last_instr)
             ec.exception_trace(self, operr)
 
-        block = self.unrollstack()
+        block = self.unrollstack(SApplicationException.kind)
         if block is None:
             # no handler found for the OperationError
             if we_are_translated():

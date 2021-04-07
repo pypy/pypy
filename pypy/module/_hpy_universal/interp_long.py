@@ -98,7 +98,8 @@ def HPyLong_AsLongLong(space, ctx, h):
 def HPyLong_AsUnsignedLongLong(space, ctx, h):
     w_long = handles.deref(space, h)
     try:
-        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(w_long))
+        return rffi.cast(rffi.ULONGLONG, space.r_ulonglong_w(
+            w_long, allow_conversion=False))
     except OperationError as e:
         if e.match(space, space.w_ValueError):
             e.w_type = space.w_OverflowError
@@ -126,4 +127,4 @@ def HPyLong_AsSize_t(space, ctx, h):
           error_value=API.cast("ssize_t", -1))
 def HPyLong_AsSsize_t(space, ctx, h):
     w_long = handles.deref(space, h)
-    return space.int_w(w_long)
+    return space.int_w(w_long, allow_conversion=False)

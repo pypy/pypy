@@ -191,6 +191,9 @@ struct _HPyContext_s {
     void * ctx_InPlaceAnd;
     void * ctx_InPlaceXor;
     void * ctx_InPlaceOr;
+    void * ctx_Callable_Check;
+    void * ctx_CallTupleDict;
+    void * ctx_FatalError;
     void * ctx_Err_SetString;
     void * ctx_Err_SetObject;
     void * ctx_Err_Occurred;
@@ -236,7 +239,7 @@ struct _HPyContext_s {
     void * ctx_List_Append;
     void * ctx_Dict_Check;
     void * ctx_Dict_New;
-    void * ctx_FatalError;
+    void * ctx_Tuple_Check;
     void * ctx_Tuple_FromArray;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
@@ -497,6 +500,11 @@ HPy_GE = 5
 SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
 
 # HPy API functions which are implemented directly in C
+pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
+                                      [HPyContext, rffi.CCHARP],
+                                      lltype.Void,
+                                      compilation_info=eci, _nowrapper=True)
+
 pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
                                        rffi.INT_real,
                                        compilation_info=eci, _nowrapper=True)

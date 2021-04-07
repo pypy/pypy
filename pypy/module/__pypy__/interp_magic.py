@@ -110,6 +110,12 @@ def strategy(space, w_obj):
             raise oefmt(space.w_TypeError, "expecting dict or list or set object, or instance of some kind")
     return space.newtext(name)
 
+def list_get_physical_size(space, w_obj):
+    if not isinstance(w_obj, W_ListObject):
+        raise oefmt(space.w_TypeError, "expected list")
+    return space.newint(w_obj.physical_size())
+
+
 def get_console_cp(space):
     """get_console_cp()
 
@@ -248,6 +254,23 @@ def utf8content(space, w_u):
     if type(w_u) is not W_UnicodeObject:
         raise oefmt(space.w_TypeError, "expected unicode string, got %T", w_u)
     return space.newbytes(w_u._utf8)
+
+def set_exc_info(space, w_type, w_value, w_traceback=None):
+    ec = space.getexecutioncontext()
+    ec.set_sys_exc_info3(w_type, w_value, w_traceback)
+
+def get_contextvar_context(space):
+    ec = space.getexecutioncontext()
+    context = ec.contextvar_context
+    if context:
+        return context
+    else:
+        return space.w_None
+
+def set_contextvar_context(space, w_obj):
+    ec = space.getexecutioncontext()
+    ec.contextvar_context = w_obj
+    return space.w_None
 
 def set_exc_info(space, w_type, w_value, w_traceback=None):
     ec = space.getexecutioncontext()

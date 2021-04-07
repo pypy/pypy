@@ -2,6 +2,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import OperationError
 from pypy.module._minimal_curses import fficurses
 from rpython.rtyper.lltypesystem import lltype, rffi
+from rpython.rlib.rarithmetic import r_uint, intmask, widen
 
 
 class ModuleInfo:
@@ -22,22 +23,38 @@ def curses_error(space, errmsg):
 
 @unwrap_spec(fd=int)
 def setupterm(space, w_termname=None, fd=-1):
+    _fd = fd
     if fd == -1:
         w_stdout = space.getattr(space.getbuiltinmodule('sys'),
                                  space.newtext('stdout'))
-        fd = space.int_w(space.call_function(space.getattr(w_stdout,
+        _fd = space.int_w(space.call_function(space.getattr(w_stdout,
                                              space.newtext('fileno'))))
     if space.is_none(w_termname):
         termname = None
+        termname_err = 'None'
     else:
         termname = space.text_w(w_termname)
+        termname_err = "'%s'" % termname
 
-    with rffi.scoped_str2charp(termname) as ll_term:
-        fd = rffi.cast(rffi.INT, fd)
-        ll_errmsg = fficurses.rpy_curses_setupterm(ll_term, fd)
-    if ll_errmsg:
-        raise curses_error(space, rffi.charp2str(ll_errmsg))
-
+    p_errret = lltype.malloc(rffi.INTP.TO, 1, flavor='raw')
+    try:
+        with rffi.scoped_str2charp(termname) as ll_term:
+            _fd = rffi.cast(rffi.INT, _fd)
+            errval = fficurses.setupterm(ll_term, _fd, p_errret)
+            
+        if errval == -1:
+            errret = widen(p_errret[0])
+            if errret == 0:
+                msg_ext = 'could not find terminal'
+            elif errret == -1:
+                msg_ext = 'could not find termininfo database'
+            else:
+                msg_ext = 'unknown error'
+            msg = ("setupterm(%s, %d) failed (err=%d): %s"  %
+                  (termname_err, fd, errret, msg_ext))
+            raise curses_error(space, msg)
+    finally:
+        lltype.free(p_errret, flavor='raw')
     space.fromcache(ModuleInfo).setupterm_called = True
 
 @unwrap_spec(capname='text')

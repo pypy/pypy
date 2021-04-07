@@ -78,7 +78,8 @@ class W_AbstractLongObject(W_AbstractIntObject):
         return space.newint(_hash_long(space, self.asbigint()))
 
     def descr_str(self, space):
-        return space.newtext(self.asbigint().str())
+        res = self.asbigint().str()
+        return space.newutf8(res, len(res))
     descr_repr = descr_str
 
 

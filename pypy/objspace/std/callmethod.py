@@ -99,22 +99,24 @@ def CALL_METHOD(f, oparg, *ignored):
 
 @jit.unroll_safe
 def CALL_METHOD_KW(f, n_arguments, *ignored):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     # opargs contains the arg + kwarg count, excluding the implicit 'self'
     w_self = f.peekvalue_maybe_none(n_arguments + 1)
-    w_tup_varnames = f.popvalue()
-    keywords_w = f.space.fixedview(w_tup_varnames)
-    n_keywords = len(keywords_w)
+
+    space = f.space
+    # like in BUILD_CONST_KEY_MAP we can't use space.fixedview because then
+    # the immutability of the tuple is lost
+    w_tup_varnames = space.interp_w(W_AbstractTupleObject, f.popvalue())
+    n_keywords = space.len_w(w_tup_varnames)
+    keywords = [None] * n_keywords
+    keywords_w = [None] * n_keywords
+    for i in range(n_keywords):
+        keywords[i] = space.text_w(w_tup_varnames.getitem(space, i))
+        w_value = f.peekvalue(n_keywords - 1 - i)
+        keywords_w[i] = w_value
+    f.dropvalues(n_keywords)
     n_arguments -= n_keywords
     n = n_arguments + (w_self is not None)
-    keywords = [f.space.text_w(w_keyword) for w_keyword in keywords_w]
-    keywords_w = [None] * n_keywords
-    while True:
-        n_keywords -= 1
-        if n_keywords < 0:
-            break
-        w_value = f.popvalue()
-        keywords_w[n_keywords] = w_value
-
     arguments = f.popvalues(n)    # includes w_self if it is not None
     if w_self is None:
         f.popvalue_maybe_none()    # removes w_self, which is None

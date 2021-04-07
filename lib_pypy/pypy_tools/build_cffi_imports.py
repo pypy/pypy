@@ -1,6 +1,12 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib, collections
+import collections
+import hashlib
+import os
+import platform
+import shutil
+import sys
 import sysconfig
+import tempfile
 from os.path import join
 
 try:
@@ -36,7 +42,7 @@ cffi_build_scripts = collections.OrderedDict([
     ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
     ("lzma", "_lzma_build.py"),
-    # ("_decimal", "_decimal_build.py"),
+    # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("_sha3", "_sha3/_sha3_build.py"),
     ("xx", None),    # for testing: 'None' should be completely ignored
     ])
@@ -55,27 +61,31 @@ configure_args = ['./configure',
 # without an _ssl module, but the OpenSSL download site redirect HTTP
 # to HTTPS
 cffi_dependencies = {
-    'lzma': ('http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
-             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
-             [configure_args,
-              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
-              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1f.tar.gz',
-             '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
+    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
+             '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    # this does not compile on the buildbot, linker is missing '_history_list'
-    'gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
+}
+if sys.platform == 'darwin' or platform.machine() == 'aarch64':
+    # TODO: use these on x86 after upgrading Docker images to manylinux2014
+    cffi_dependencies['_gdbm'] = (
+              # this does not compile on the x86 buildbot, linker is missing '_history_list'
+              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-}
-
+             ])
+    cffi_dependencies['lzma'] = (
+              # this does not compile on the linux64 buildbot, needs -fPIC
+             'http://distfiles.macports.org/xz/xz-5.2.5.tar.bz2',
+             '5117f930900b341493827d63aa910ff5e011e0b994197c3b71c08a20228a42df',
+             [configure_args,
+              ['make', '-s', '-j', str(multiprocessing.cpu_count())],
+              ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
+             ])
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
@@ -171,6 +181,7 @@ def _build_dependency(name, patches=[]):
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
     from rpython.tool.runsubprocess import run_subprocess
+    print('calling create_cffi_import_libraries with "embed_dependencies"', embed_dependencies)
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)
@@ -184,6 +195,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
         env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
         env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
+    else:
+        env['CFLAGS'] = '-fPIC ' + env.get('CFLAGS', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])

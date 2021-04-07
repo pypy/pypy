@@ -663,7 +663,7 @@ class UserDelAction(AsyncAction):
                 try:
                     space.call_function(w_impl)
                 except Exception as e:
-                    report_error(space, e, '', w_impl)
+                    report_error(space, e, '', w_del)
 
         # Call the RPython-level _finalize_() method.
         try:
