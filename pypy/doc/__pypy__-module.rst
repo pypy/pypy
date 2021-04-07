@@ -97,6 +97,9 @@ Generally available functionality
   - ``strategy(dict or list or set)``: Return the underlying strategy currently
     used by the object
 
+  - ``list_get_physical_size(obj)``: Return the physical (ie overallocated
+    size) of the underlying list
+  
   - ``specialized_zip_2_lists``
   - ``locals_to_fast``
   - ``set_code_callback``

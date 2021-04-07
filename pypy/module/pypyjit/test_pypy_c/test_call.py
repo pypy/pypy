@@ -645,3 +645,27 @@ class TestCall(BaseTestPyPyC):
             return res
         """, [])
         assert len([l for l in log.loops if l.chunks[1].bytecode_name.startswith("DescrOperation.contains")]) == 2
+
+    def test_methodcall_kwargs_regression(self):
+        log = self.run("""
+        class A:
+            def f(self, x, y, z):
+                return x + y + z
+        def main():
+            a = A()
+            res = 0
+            for i in range(10000):
+                a.f(x=i, y=i+1, z=i*2) # ID: meth
+                res += i
+        """, [])
+        
+        loop, = log.loops_by_id('meth')
+
+        assert loop.match_by_id("meth", """
+            setfield_gc(p15, i65, descr=...)
+            guard_not_invalidated(descr=...)
+            i68 = int_mul_ovf(i62, 2)
+            guard_no_overflow(descr=...)
+            p69 = force_token()
+        """)
+

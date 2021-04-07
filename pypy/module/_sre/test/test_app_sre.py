@@ -348,6 +348,13 @@ class AppTestSreMatch:
         import re
         assert re.sub(r"b*", "*", "abc") == "*a*c*"   # changes in 3.7
 
+    def test_sub_shortcut_no_match(self):
+        import re
+        s = b"ccccccc"
+        assert re.sub(b"a", b"b", s) is s
+        s = u"ccccccc"
+        assert re.sub(u"a", u"b", s) is s
+        
     def test_sub_bytearray(self):
         import re
         assert re.sub(b'a', bytearray(b'A'), b'axa') == b'AxA'
