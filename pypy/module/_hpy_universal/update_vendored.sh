@@ -58,10 +58,10 @@ apply_patches() {
     # see also patches/README for more info
 
     cat > ${DIR}/test/_vendored/conftest.py <<EOF
-# AUTOMATICALLY DELETED BY ./update_vendored.sh
+# AUTOMATICALLY DELETED BY pypy/module/_hpy_universal/update_vendored.sh
 EOF
     cat > ${DIR}/test/_vendored/debug/__init__.py <<EOF
-# AUTOMATICALLY CREATED BY ./update_vendored.sh
+# AUTOMATICALLY CREATED BY pypy/module/_hpy_universal/update_vendored.sh
 EOF
 
     fixmes=`ls patches/*FIXME*.patch | wc -l`

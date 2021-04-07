@@ -12,10 +12,10 @@ There are two kinds of patches:
 
   - FIXME patches: these are temporary workarounds which we expect to delete
     soon and/or to incorporate upstream. For example, sometimes it is
-    necessary to tweak a test to make it passing on pypy. ./update_vendored.sh
-    reminds you about the number of FIXME patches: when you ./update_vendored
-    to a new HPy revision, it might be a good idea to check whether you can
-    kill some of them.
+    necessary to tweak a test to make it passing on
+    pypy. _hpy_universal/update_vendored.sh reminds you about the number of
+    FIXME patches: when you update to a new HPy revision, it might be a good
+    idea to check whether you can kill some of them.
 
 If a patch fails to apply, too bad :(. You need to understand what's going on
 and either fix or delete it.
@@ -23,7 +23,7 @@ and either fix or delete it.
 
 To create a patch:
 
-  1. ./update_vendored to the desired HPy revision
+  1. ./pypy/module/_hpy_universal/update_vendored.sh to the desired HPy revision
 
   2. modify the files as you like
 
