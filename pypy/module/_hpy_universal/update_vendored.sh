@@ -14,6 +14,9 @@ fi
 DIR=$(dirname $0)
 HPY=$1
 
+# cd to pypy/module/_hpy_universal/ so we can use relative paths
+cd $DIR
+
 # ~~~ helper functions ~~~
 
 indent() {
@@ -80,7 +83,6 @@ EOF
     done
     echo
 }
-
 
 # ~~~ main code ~~~
 
