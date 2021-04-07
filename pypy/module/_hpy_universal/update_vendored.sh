@@ -90,6 +90,7 @@ check_dirty
 check_version_status
 
 myrsync -a --delete ${HPY}/hpy/devel/ ${DIR}/_vendored/hpy/devel/
+myrsync -a --delete ${HPY}/hpy/debug/src/ ${DIR}/_vendored/hpy/debug/src/
 myrsync -a --delete ${HPY}/test/* ${DIR}/test/_vendored/
 apply_patches
 
