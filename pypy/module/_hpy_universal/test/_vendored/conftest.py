@@ -1,1 +1,1 @@
-# AUTOMATICALLY DELETED BY ./update_vendored.sh
+# AUTOMATICALLY DELETED BY pypy/module/_hpy_universal/update_vendored.sh
