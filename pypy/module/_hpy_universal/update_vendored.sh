@@ -1,5 +1,9 @@
 #!/bin/bash
 
+RED='\033[0;31m'
+YELLOW='\033[0;33;01m'
+RESET='\033[0m' # No Color
+
 set -e
 
 if [ "$#" -ne 1 ]; then
@@ -11,6 +15,10 @@ DIR=$(dirname $0)
 HPY=$1
 
 # ~~~ helper functions ~~~
+
+indent() {
+   sed 's/^/  /'
+}
 
 check_dirty() {
     if [[ $(git -C "$HPY" diff --stat) != '' ]]; then
@@ -43,6 +51,37 @@ myrsync() {
     rsync --exclude '*~' --exclude '*.pyc' --exclude __pycache__ "$@" 
 }
 
+apply_patches() {
+    # see also patches/README for more info
+
+    cat > ${DIR}/test/_vendored/conftest.py <<EOF
+# AUTOMATICALLY DELETED BY ./update_vendored.sh
+EOF
+    cat > ${DIR}/test/_vendored/debug/__init__.py <<EOF
+# AUTOMATICALLY CREATED BY ./update_vendored.sh
+EOF
+
+    fixmes=`ls patches/*FIXME*.patch | wc -l`
+    if [ $fixmes -gt 0 ]
+    then
+        echo -e "${RED}REMINDER: there are ${fixmes} patches marked as FIXME${RESET}:"
+        ls -1 patches/*FIXME*.patch | indent
+    fi
+
+    for FILE in patches/*.patch
+    do
+        patch -p4 < $FILE
+        if [ $? -ne 0 ]
+        then
+            echo "${FILE}: patch failed, stopping here"
+            echo "See patches/README for more details"
+            exit 1
+        fi
+    done
+    echo
+}
+
+
 # ~~~ main code ~~~
 
 check_dirty
@@ -50,14 +89,14 @@ check_version_status
 
 myrsync -a --delete ${HPY}/hpy/devel/ ${DIR}/_vendored/hpy/devel/
 myrsync -a --delete ${HPY}/test/* ${DIR}/test/_vendored/
+apply_patches
 
-
-echo "GIT status of $HPY"
+echo -e "${YELLOW}GIT status${RESET} of $HPY"
 git -C "$HPY" --no-pager log --oneline -n 1
 git -C "$HPY" --no-pager diff --stat
 echo
-echo "HG status of pypy"
+echo -e "${YELLOW}HG status${RESET} of pypy"
 hg st $DIR
 echo
-echo "HPy version"
+echo -en "${YELLOW}HPy version${RESET}"
 cat _vendored/hpy/devel/version.py
