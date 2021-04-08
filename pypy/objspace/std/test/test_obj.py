@@ -1,4 +1,5 @@
 from pypy.conftest import option
+import pytest
 
 class AppTestObject:
 
@@ -8,7 +9,6 @@ class AppTestObject:
 
         space = cls.space
         cls.w_appdirect = space.wrap(option.runappdirect)
-        cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.newutf8(space.utf8_w(w_obj), w_obj._length)
@@ -99,9 +99,8 @@ class AppTestObject:
         assert A().__str__() == 123456
 
 
+    @pytest.mark.pypy_only
     def test_is_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert 1 is 1
         x = 1000000
         assert x + 1 is int(str(x + 1))
@@ -130,12 +129,15 @@ class AppTestObject:
         s = "a"
         assert self.unwrap_wrap_str(s) is s
 
+    @pytest.mark.pypy_only
+    def test_is_by_value(self):
+        for typ in [int, long, float, complex]:
+            assert typ(42) is typ(42)
+
     def test_is_on_subclasses(self):
         for typ in [int, long, float, complex, str, unicode]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ not in (str, unicode):
-                assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
             assert typ(42) is not mytyp(42)
@@ -152,9 +154,8 @@ class AppTestObject:
             assert "43" is not x
             assert None is not x
 
+    @pytest.mark.pypy_only
     def test_id_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert id(1) == (1 << 4) + 1
         assert id(1l) == (1 << 4) + 3
         class myint(int):
