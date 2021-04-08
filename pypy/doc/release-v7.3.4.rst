@@ -2,12 +2,6 @@
 PyPy v7.3.4: release of 2.7 and 3.7
 ===================================
 
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 ..
   Changelog up to commit 9c11d242d78c
 
@@ -30,8 +24,8 @@ evenings European time on https://www.twitch.tv/pypyproject. If Python3.6 is
 important to you, please reach out as we could offer sponsored longer term
 support.
 
-The interpreters are based on much the same codebase, thus the multiple
-release. This is a micro release, all APIs are compatible with the 7.3
+The two interpreters are based on much the same codebase, thus the multiple
+release. This is a micro release, all APIs are compatible with the other 7.3
 releases. Highlights of the release include binary **Windows 64** support,
 faster numerical instance fields, and a preliminary HPy backend.
 
