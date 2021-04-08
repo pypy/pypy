@@ -133,8 +133,11 @@ Other steps
     the ``versions.json`` in ``pypy/tools/release``, upload it, and run the
     ``check_versions.py`` file in that directory. This file is used by various
     downstream tools like "github actions" to find valid pypy downloads. It
-    takes an hour for
-    https://downloads.python.org/pypy/ to sync
+    takes an hour for https://downloads.python.org/pypy/ to sync. Note the
+    "latest_pypy" attribute: it is per-python-version. So if the new release
+    overrides a current latest_pypy (both are 2.7.18, for instance), you must
+    find the older version and set its "lastest_pypy" to "false" or
+    ``check_versions.py`` (and the various tools) will fail.
 
 * Send out a mailing list message asking for last-minute comments and testing
 
