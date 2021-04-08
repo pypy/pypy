@@ -1,4 +1,3 @@
-from __future__ import with_statement
 from pypy.conftest import option
 
 class AppTestObject:
@@ -7,12 +6,7 @@ class AppTestObject:
         from pypy.interpreter import gateway
         import sys
 
-        cpython_behavior = (not option.runappdirect
-                            or not hasattr(sys, 'pypy_translation_info'))
-
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(cpython_behavior)
-        cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
         cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
@@ -22,15 +16,6 @@ class AppTestObject:
         def w_unwrap_wrap_str(space, w_obj):
             return space.wrap(space.str_w(w_obj))
         cls.w_unwrap_wrap_str = space.wrap(gateway.interp2app(w_unwrap_wrap_str))
-
-    def test_hash_builtin(self):
-        if not self.cpython_behavior:
-            skip("on pypy-c id == hash is not guaranteed")
-        if self.cpython_version >= (2, 7):
-            skip("on CPython >= 2.7, id != hash")
-        import sys
-        o = object()
-        assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
 
     def test_hash_method(self):
         o = object()
@@ -49,8 +34,6 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):

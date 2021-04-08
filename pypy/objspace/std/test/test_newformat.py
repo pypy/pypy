@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 """Test unicode/str's format method"""
-from __future__ import with_statement
 
 
 class BaseStringFormatTests:
