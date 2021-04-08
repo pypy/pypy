@@ -62,6 +62,9 @@ for c-extension authors who wish their code to be performant on alternative
 interpreters like GraalPython_ (written on top of the Java virtual machine),
 RustPython_, and PyPy. Thanks to Oracle and IBM for sponsoring work on HPy.
 
+Support for the vmprof_ statistical profiler has been extended to ARM64 via a
+built-in backend.
+
 Several issues exposed in the 7.3.3 release were fixed. Many of them came from the
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
 A big shout out to them for taking this on.
@@ -118,6 +121,7 @@ building wheels for PyPy.
 .. _`GraalPython`: https://github.com/graalvm/graalpython
 .. _`RustPython`: https://github.com/RustPython/RustPython
 .. _`renovated blog site`: https://pypy.org/blog
+.. _vmprof: https://vmprof.readthedocs.io/en/latest/
 
 
 What is PyPy?

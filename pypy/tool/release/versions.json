@@ -396,7 +396,7 @@
     "pypy_version": "7.3.3",
     "python_version": "2.7.18",
     "stable": true,
-    "latest_pypy": true,
+    "latest_pypy": false,
     "date": "2020-11-21",
     "files": [
       {
