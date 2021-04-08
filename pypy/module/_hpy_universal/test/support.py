@@ -87,6 +87,13 @@ class HPyAppTest(object):
         """)
 
 
+class HPyDebugAppTest(HPyAppTest):
+    # make self.make_leak_module() available to the tests. Note that this is
+    # code which will be run at applevel, and will call self.make_module,
+    # which is finally executed at interp-level (see descr_make_module above)
+    w_make_leak_module = _support.HPyDebugTest.make_leak_module
+
+
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     """
     Base class for hpy tests which also need cpyext
