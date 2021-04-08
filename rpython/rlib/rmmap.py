@@ -657,11 +657,10 @@ class MMap(object):
 
     if has_madvise:
         def madvise(self, flags, start, end):
-            res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, start)),
+            res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, + start)),
                                  rffi.cast(size_t, end),
                                  rffi.cast(rffi.INT, flags))
-            res = rffi.cast(lltype.Signed, res)
-            if res == 0:
+            if rffi.cast(lltype.Signed, res) == 0:
                 return
             errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))
