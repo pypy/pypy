@@ -48,17 +48,21 @@ typedef HPy DHPy;
    DHPy_sanity_check is a minimal check to ensure that we are not treating a
    UHPy as a DHPy. Note that DHPy_sanity_check works fine also on HPy_NULL.
 
-   NOTE: UHPy_sanity_check works ONLY with CPython's hpy.universal. If you
-   bundle the debug mode in an alternative Python implementation, you should
-   probably change/override UHPy_sanity_check, possibly with an #ifdef.
+   NOTE: UHPy_sanity_check works ONLY with CPython's hpy.universal, because
+   UHPys are computed in such a way that the last bit it's always 1. On other
+   implementations this assumption might not hold. By default,
+   UHPy_sanity_check does nothing, unless you #define
+   HPY_DEBUG_ENABLE_UHPY_SANITY_CHECK, which for CPython is done by setup.py
 */
 static inline void DHPy_sanity_check(DHPy dh) {
     assert( (dh._i & 1) == 0 );
 }
 
 static inline void UHPy_sanity_check(UHPy uh) {
+#ifdef HPY_DEBUG_ENABLE_UHPY_SANITY_CHECK
     if (!HPy_IsNull(uh))
         assert( (uh._i & 1) == 1 );
+#endif
 }
 
 // NOTE: having a "generation" field is the easiest way to know when a handle
