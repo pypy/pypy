@@ -37,9 +37,17 @@ class State:
         # current space, so we reinitialize them every time.
         self.setup_bridge()
 
+    @staticmethod
+    @specialize.memo()
+    def ctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Universal ABI (PyPy backend)")
+
     def setup_ctx(self):
         space = self.space
         self.ctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        self.ctx.c_name = self.ctx_name()
 
         for name in CONTEXT_FIELDS:
             if name == 'c_ctx_version':

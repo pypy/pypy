@@ -394,7 +394,7 @@ class TestBasic(HPyTest):
         x = object()
         assert mod.f(x) == hash(x)
 
-    def test_ctx_name(self, hpy_abi):
+    def test_ctx_name(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
@@ -406,6 +406,7 @@ class TestBasic(HPyTest):
             @INIT
         """)
         ctx_name = mod.f()
+        hpy_abi = self.compiler.hpy_abi
         if hpy_abi == 'cpython':
             assert ctx_name == 'HPy CPython ABI'
         elif hpy_abi == 'universal':
