@@ -51,6 +51,11 @@ HPyContext hpy_debug_get_ctx(HPyContext uctx)
     return dctx;
 }
 
+HPy hpy_debug_unwrap_handle(HPy uh)
+{
+    return DHPy_unwrap(uh);
+}
+
 // this function is supposed to be called from gdb: it tries to determine
 // whether a handle is universal or debug by looking at the last bit
 extern struct _HPyContext_s g_universal_ctx;
