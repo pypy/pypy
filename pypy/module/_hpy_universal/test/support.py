@@ -16,6 +16,7 @@ class HPyAppTest(object):
     subclasses are created by conftest.make_hpy_apptest
     """
     spaceconfig = {'usemodules': ['_hpy_universal']}
+    load_with_debug = False
 
     @pytest.fixture
     def compiler(self):
@@ -57,10 +58,12 @@ class HPyAppTest(object):
             py_filename = compiler.compile_module(ExtensionTemplate,
                                                   source_template, name, extra_sources)
             so_filename = py_filename.replace(".py", ".hpy.so")
-            w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
-                """(path, modname):
+            w_mod = space.appexec([space.newtext(so_filename),
+                                   space.newtext(name),
+                                   space.newbool(self.load_with_debug)],
+                """(path, modname, debug):
                     import _hpy_universal
-                    return _hpy_universal.load(modname, path)
+                    return _hpy_universal.load(modname, path, debug)
                 """
             )
             return w_mod
@@ -88,6 +91,8 @@ class HPyAppTest(object):
 
 
 class HPyDebugAppTest(HPyAppTest):
+    load_with_debug = True
+    
     # make self.make_leak_module() available to the tests. Note that this is
     # code which will be run at applevel, and will call self.make_module,
     # which is finally executed at interp-level (see descr_make_module above)
