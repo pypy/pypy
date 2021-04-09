@@ -6,16 +6,34 @@ RESET='\033[0m' # No Color
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-    echo "Usage: $0 /path/to/hpy"
+# <argument parsing>
+FORCE_VERSION=false
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+        -f|--force-version)
+            FORCE_VERSION=true
+            shift # past argument
+            ;;
+        *)    # unknown option
+            POSITIONAL+=("$1") # save it in an array for later
+            shift # past argument
+            ;;
+    esac
+done
+
+if [ "${#POSITIONAL[@]}" -ne 1 ]; then
+    echo "Usage: $0 [-f|--force-version] /path/to/hpy"
     exit 1
 fi
 
 DIR=$(dirname $0)
-HPY=$1
-
+HPY="${POSITIONAL[0]}"
 # cd to pypy/module/_hpy_universal/ so we can use relative paths
 cd $DIR
+# </argument parsing>
 
 # ~~~ helper functions ~~~
 
@@ -41,12 +59,23 @@ check_version_status() {
 
     if [ "$revgit" != "$revpy" ]
     then
-        echo "ERROR: hpy/devel/version.py seems to be outdated"
+        if [ "$FORCE_VERSION" = true ]
+        then
+            admonition="${YELLOW}WARNING${RESET}"
+        else
+            admonition="${RED}ERROR${RESET}"
+        fi
+        
+        echo -e "${admonition} hpy/devel/version.py seems to be outdated"
         echo "  revision reported by git describe: $revgit"
         echo "  revision in hpy/devel/version.py:  $revpy"
         echo
-        echo "Please run setup.py build in the hpy repo"
-        exit 1
+
+        if [ "$FORCE_VERSION" != true ]
+        then
+            echo "Please run setup.py build in the hpy repo"
+            exit 1
+        fi
     fi
 }
 
