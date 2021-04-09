@@ -2,6 +2,25 @@ from ..support import HPyDebugTest
 
 class TestHandles(HPyDebugTest):
 
+    def test_debug_ctx_name(self):
+        # this is very similar to the one in test_00_basic, but:
+        #   1. by doing the same here, we ensure that we are actually using
+        #      the debug ctx in these tests
+        #   2. in pypy we run HPyTest with only hpy_abi==universal, so this
+        #      tests something which is NOT tested by test_00_basic
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
+            static HPy f_impl(HPyContext ctx, HPy self)
+            {
+                return HPyUnicode_FromString(ctx, ctx->name);
+            }
+
+            @EXPORT(f)
+            @INIT
+        """)
+        ctx_name = mod.f()
+        assert ctx_name.startswith('HPy Debug Mode ABI')
+
     def test_get_open_handles(self):
         from hpy.universal import _debug
         mod = self.make_leak_module()
