@@ -61,6 +61,8 @@ def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
         raise oefmt(space.w_SystemError,
             "initialization of %s failed without raising an exception",
             name)
+    if debug:
+        h_module = llapi.hpy_debug_unwrap_handle(h_module)
     return handles.consume(space, h_module)
 
 def descr_load_from_spec(space, w_spec):
