@@ -49,7 +49,8 @@ def HPyModule_Create(space, state, ctx, hpydef):
 @DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
             func_name='HPyModule_Create')
 def debug_HPyModule_Create(space, state, ctx, hpydef):
-    raise NotImplementedError
+    from rpython.rlib.nonconst import NonConstant # for the annotator
+    if NonConstant(False): return 0
 
 def get_doc(c_doc):
     if not c_doc:

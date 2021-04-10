@@ -10,6 +10,6 @@ class Module(MixedModule):
         'get_version': 'interp_hpy.descr_get_version',
     }
 
-    ## def startup(self, space):
-    ##     from pypy.module._hpy_universal.interp_hpy import init_hpy_module
-    ##     init_hpy_module(space, self)
+    def startup(self, space):
+        from pypy.module._hpy_universal.interp_hpy import init_hpy_module
+        init_hpy_module(space, self)
