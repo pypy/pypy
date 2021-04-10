@@ -54,7 +54,8 @@ class State(object):
     def uctx_name():
         # by using specialize.memo() this becomes a statically allocated
         # charp, like a C string literal
-        return rffi.str2constcharp("HPy Universal ABI (PyPy backend)")
+        return rffi.str2constcharp("HPy Universal ABI (PyPy backend)",
+                                   track_allocation=False)
 
     def setup_uctx(self):
         space = self.space
@@ -78,7 +79,14 @@ class State(object):
                 h_struct.c__i = i
             i = i + 1
 
-        self.init_ctx_from_apiset(self.uctx, API)
+        for func in API.all_functions:
+            if func.cpyext and not space.config.objspace.hpy_cpyext_API:
+                # ignore cpyext functions if hpy_cpyext_API is False
+                return
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(self.uctx, ctx_field, funcptr)
+
         self.uctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
         self.uctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
         self.uctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
@@ -86,18 +94,12 @@ class State(object):
         self.uctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
 
     def setup_dctx(self):
-        self.dctx = llapi.hpy_debug_get_ctx(self.uctx)
-        self.init_ctx_from_apiset(self.dctx, DEBUG)
-
-    def init_ctx_from_apiset(self, ctx, apiset):
         space = self.space
-        for func in apiset.all_functions:
-            if func.cpyext and not space.config.objspace.hpy_cpyext_API:
-                # ignore cpyext functions if hpy_cpyext_API is False
-                continue
+        self.dctx = llapi.hpy_debug_get_ctx(self.uctx)
+        for func in DEBUG.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
-            setattr(ctx, ctx_field, funcptr)
+            setattr(self.dctx, ctx_field, funcptr)
 
     def setup_bridge(self):
         if self.space.config.translating:
