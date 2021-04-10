@@ -46,7 +46,7 @@ class W_HPyTypeObject(W_TypeObject):
 
 
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
-def _HPy_Cast(space, ctx, h):
+def _HPy_Cast(space, state, ctx, h):
     w_obj = handles.deref(space, h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
@@ -54,7 +54,7 @@ def _HPy_Cast(space, ctx, h):
     return w_obj.hpy_data
 
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
-def _HPy_New(space, ctx, h_type, data):
+def _HPy_New(space, state, ctx, h_type, data):
     w_type = handles.deref(space, h_type)
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
@@ -63,7 +63,7 @@ def _HPy_New(space, ctx, h_type, data):
     return h
 
 
-def get_bases_from_params(space, ctx, params):
+def get_bases_from_params(space, state, ctx, params):
     KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
     params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
     if not params:
@@ -100,7 +100,7 @@ def get_bases_from_params(space, ctx, params):
     return make_sure_not_resized(bases_w[:])
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
-def HPyType_FromSpec(space, ctx, spec, params):
+def HPyType_FromSpec(space, state, ctx, spec, params):
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -114,7 +114,7 @@ def HPyType_FromSpec(space, ctx, spec, params):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = get_bases_from_params(space, ctx, params)
+    bases_w = get_bases_from_params(space, state, ctx, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(
@@ -125,10 +125,10 @@ def HPyType_FromSpec(space, ctx, spec, params):
     if spec.c_legacy_slots:
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
-        add_slot_defs(space, ctx, w_result, spec.c_defines)
+        add_slot_defs(space, state, ctx, w_result, spec.c_defines)
     return handles.new(space, w_result)
 
-def add_slot_defs(space, ctx, w_result, c_defines):
+def add_slot_defs(space, state, ctx, w_result, c_defines):
     p = c_defines
     i = 0
     HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
@@ -199,7 +199,7 @@ def _create_instance(space, w_type):
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
-def HPyType_GenericNew(space, ctx, h_type, args, nargs, kw):
+def HPyType_GenericNew(space, state, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(space, h_type)
     w_result = _create_instance(space, w_type)
     return handles.new(space, w_result)

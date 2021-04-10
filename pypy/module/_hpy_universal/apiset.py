@@ -96,6 +96,7 @@ class APISet(object):
                 'you might solve this by making sure that the module is imported '
                 'earlier')
         def decorate(fn):
+            from pypy.module._hpy_universal.state import State
             name, ll_functype, ll_errval = self.parse_signature(cdecl, error_value)
             if name != fn.__name__:
                 raise ValueError(
@@ -113,7 +114,8 @@ class APISet(object):
             def make_wrapper(space):
                 @llhelper_error_value(ll_errval)
                 def wrapper(*args):
-                    return fn(space, *args)
+                    state = State.get(space)
+                    return fn(space, state, *args)
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
                 if self.force_c_name:
                     wrapper.c_name = fn.__name__

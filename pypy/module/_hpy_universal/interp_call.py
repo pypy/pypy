@@ -3,7 +3,7 @@ from .apiset import API
 from . import handles
 
 @API.func("HPy HPy_CallTupleDict(HPyContext ctx, HPy callable, HPy args, HPy kw)")
-def HPy_CallTupleDict(space, ctx, h_callable, h_args, h_kw):
+def HPy_CallTupleDict(space, state, ctx, h_callable, h_args, h_kw):
     w_callable = handles.deref(space, h_callable)
     w_args = handles.deref(space, h_args) if h_args else None
     w_kw = handles.deref(space, h_kw) if h_kw else None

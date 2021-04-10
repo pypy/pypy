@@ -9,7 +9,7 @@ from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
 @API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
-def HPyModule_Create(space, ctx, hpydef):
+def HPyModule_Create(space, state, ctx, hpydef):
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
@@ -48,7 +48,7 @@ def HPyModule_Create(space, ctx, hpydef):
 
 @DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
             func_name='HPyModule_Create')
-def debug_HPyModule_Create(space, ctx, hpydef):
+def debug_HPyModule_Create(space, state, ctx, hpydef):
     raise NotImplementedError
 
 def get_doc(c_doc):

@@ -53,13 +53,19 @@ class TestAPISet(object):
         assert _HPyFoo_Internal.basename == 'Foo_Internal'
 
     def test_llhelper(self, api):
+        class FakeSpace:
+            @staticmethod
+            def fromcache(cls):
+                return 'fake %s' % cls.__name__
+
         @api.func('double divide(long a, long b)', error_value=-1.0)
-        def divide(space, a, b):
-            assert space == 'MySpace'
+        def divide(space, state, a, b):
+            assert space is fakespace
+            assert state == 'fake State'
             return float(a)/b
         #
-        space = 'MySpace'
-        lldivide = divide.get_llhelper(space)
+        fakespace = FakeSpace()
+        lldivide = divide.get_llhelper(fakespace)
         assert lldivide(5, 2) == 2.5
 
     def test_freeze(self, api):

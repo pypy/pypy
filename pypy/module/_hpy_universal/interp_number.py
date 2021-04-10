@@ -7,7 +7,7 @@ def make_unary(name, spacemeth):
     spacemeth = spacemeth[len('space.'):]
     #
     @API.func("HPy HPy_unary(HPyContext ctx, HPy h1)", func_name=name)
-    def HPy_unary(space, ctx, h1):
+    def HPy_unary(space, state, ctx, h1):
         w_obj1 = handles.deref(space, h1)
         meth = getattr(space, spacemeth)
         w_res = meth(w_obj1)
@@ -20,7 +20,7 @@ def make_binary(name, spacemeth):
     spacemeth = spacemeth[len('space.'):]
     #
     @API.func("HPy HPy_binary(HPyContext ctx, HPy h1, HPy h2)", func_name=name)
-    def HPy_binary(space, ctx, h1, h2):
+    def HPy_binary(space, state, ctx, h1, h2):
         w_obj1 = handles.deref(space, h1)
         w_obj2 = handles.deref(space, h2)
         meth = getattr(space, spacemeth)
@@ -65,21 +65,21 @@ make_binary('HPy_InPlaceMatrixMultiply', 'space.inplace_matmul')
 
 
 @API.func("HPy HPy_Long(HPyContext ctx, HPy h1)")
-def HPy_Long(space, ctx, h1):
+def HPy_Long(space, state, ctx, h1):
     w_obj1 = handles.deref(space, h1)
     w_res = space.call_function(space.w_int, w_obj1)
     return handles.new(space, w_res)
 
 
 @API.func("HPy HPy_Float(HPyContext ctx, HPy h1)")
-def HPy_Float(space, ctx, h1):
+def HPy_Float(space, state, ctx, h1):
     w_obj1 = handles.deref(space, h1)
     w_res = space.call_function(space.w_float, w_obj1)
     return handles.new(space, w_res)
 
 
 @API.func("HPy HPy_Power(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
-def HPy_Power(space, ctx, h1, h2, h3):
+def HPy_Power(space, state, ctx, h1, h2, h3):
     w_o1 = handles.deref(space, h1)
     w_o2 = handles.deref(space, h2)
     w_o3 = handles.deref(space, h3)
@@ -88,7 +88,7 @@ def HPy_Power(space, ctx, h1, h2, h3):
 
 
 @API.func("HPy HPy_InPlacePower(HPyContext ctx, HPy h1, HPy h2, HPy h3)")
-def HPy_InPlacePower(space, ctx, h1, h2, h3):
+def HPy_InPlacePower(space, state, ctx, h1, h2, h3):
     # CPython seems to have a weird semantics for InPlacePower: if __ipow__ is
     # defined, the 3rd argument is always ignored (contrarily to what the
     # documentation says). If now, it falls back to pow, so the 3rd arg is
@@ -104,7 +104,7 @@ def HPy_InPlacePower(space, ctx, h1, h2, h3):
     return handles.new(space, w_res)
 
 @API.func("int HPyNumber_Check(HPyContext ctx, HPy h)", error_value='CANNOT_FAIL')
-def HPyNumber_Check(space, ctx, h):
+def HPyNumber_Check(space, state, ctx, h):
     # XXX: write proper tests
     w_obj = handles.deref(space, h)
     if (space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__') or
@@ -113,7 +113,7 @@ def HPyNumber_Check(space, ctx, h):
     return API.int(0)
 
 @API.func("HPy HPyBool_FromLong(HPyContext ctx, long v)")
-def HPyBool_FromLong(space, ctx, value):
+def HPyBool_FromLong(space, state, ctx, value):
     if widen(value) != 0:
         return handles.new(space, space.w_True)
     return handles.new(space, space.w_False)
