@@ -43,7 +43,7 @@ class HPyBuffer(BufferView):
             return
         #import pdb; pdb.set_trace()
         if self.releasebufferproc:
-            ctx = self.space.fromcache(State).ctx
+            ctx = self.State.get(space).ctx
             with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
                 hpybuf.c_buf = self.get_raw_address()
                 hpybuf.c_len = self.getlength()

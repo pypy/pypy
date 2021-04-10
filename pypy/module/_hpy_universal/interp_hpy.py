@@ -34,7 +34,7 @@ def init_hpy_module(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
-    state = space.fromcache(State)
+    state = State.get(space)
     state.setup()
     h_debug_mod = llapi.HPyInit__debug(state.uctx)
     w_debug_mod = handles.consume(space, h_debug_mod)
@@ -50,7 +50,7 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 
 
 def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
-    state = space.fromcache(State)
+    state = State.get(space)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     ctx = state.get_ctx(debug)
     h_module = initfunc_ptr(ctx)

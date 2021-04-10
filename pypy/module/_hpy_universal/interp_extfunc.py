@@ -30,14 +30,14 @@ class W_ExtensionFunction(W_Root):
         self.cfuncptr = cfuncptr
 
     def call_noargs(self, space, h_self):
-        state = space.fromcache(State)
+        state = State.get(space)
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
         h_result = func(state.ctx, h_self)
         # XXX check for exceptions
         return handles.consume(space, h_result)
 
     def call_o(self, space, h_self, w_arg):
-        state = space.fromcache(State)
+        state = State.get(space)
         with handles.using(space, w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
             h_result = func(state.ctx, h_self, h_arg)
@@ -73,12 +73,12 @@ class W_ExtensionFunction(W_Root):
         return handles.consume(space, h_result)
 
     def call_varargs(self, space, h_self, args_h, n):
-        state = space.fromcache(State)
+        state = State.get(space)
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
         return fptr(state.ctx, h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, __args__):
-        state = space.fromcache(State)
+        state = State.get(space)
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
         h_kw = 0

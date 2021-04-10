@@ -180,7 +180,7 @@ def add_member(space, w_type, hpymember):
 # ======== HPyDef_Kind_GetSet ========
 
 def getset_get(w_getset, space, w_self):
-    state = space.fromcache(State)
+    state = State.get(space)
     cfuncptr = w_getset.hpygetset.c_getter_impl
     func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
     with handles.using(space, w_self) as h_self:
@@ -188,7 +188,7 @@ def getset_get(w_getset, space, w_self):
     return handles.consume(space, h_result)
     
 def getset_set(w_getset, space, w_self, w_value):
-    state = space.fromcache(State)
+    state = State.get(space)
     cfuncptr = w_getset.hpygetset.c_setter_impl
     func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
     with handles.using(space, w_self, w_value) as (h_self, h_value):

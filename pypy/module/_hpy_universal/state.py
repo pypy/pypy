@@ -30,6 +30,10 @@ class State:
         self.uctx = lltype.nullptr(llapi.HPyContext.TO)
         self.dctx = lltype.nullptr(llapi.HPyContext.TO)
 
+    @classmethod
+    def get(cls, space):
+        return space.fromcache(cls)
+
     @jit.dont_look_inside
     def setup(self):
         if not self.uctx:

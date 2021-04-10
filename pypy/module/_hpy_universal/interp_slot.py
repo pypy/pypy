@@ -79,7 +79,7 @@ class W_wrap_binaryfunc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_binaryfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_other = __args__.arguments_w[1]
         with handles.using(space, w_self, w_other) as (h_self, h_other):
@@ -91,7 +91,7 @@ def make_cmp_wrapper(OP):
         def call(self, space, __args__):
             func = llapi.cts.cast("HPyFunc_richcmpfunc", self.cfuncptr)
             self.check_args(space, __args__, 2)
-            ctx = space.fromcache(State).ctx
+            ctx = State.get(space).ctx
             w_self = __args__.arguments_w[0]
             w_other = __args__.arguments_w[1]
             with handles.using(space, w_self, w_other) as (h_self, h_other):
@@ -113,7 +113,7 @@ class W_wrap_unaryfunc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_unaryfunc", self.cfuncptr)
         self.check_args(space, __args__, 1)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         with handles.using(space, w_self) as h_self:
             h_result = func(ctx, h_self)
@@ -127,7 +127,7 @@ class W_wrap_ternaryfunc(W_SlotWrapper):
         func = llapi.cts.cast("HPyFunc_ternaryfunc", self.cfuncptr)
         self.check_argsv(space, __args__, 2, 3)
         n = len(__args__.arguments_w)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w1 = __args__.arguments_w[1]
         if n == 2:
@@ -142,7 +142,7 @@ class W_wrap_indexargfunc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = space.int_w(space.index(w_idx))
@@ -154,21 +154,21 @@ class W_wrap_inquirypred(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_inquiry", self.cfuncptr)
         self.check_args(space, __args__, 1)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         with handles.using(space, w_self) as h_self:
             res = func(ctx, h_self)
             res = rffi.cast(lltype.Signed, res)
             if res == -1:
                 raise NotImplementedError('write a test')
-                #space.fromcache(State).check_and_raise_exception(always=True)
+                #State.get(space).check_and_raise_exception(always=True)
             return space.newbool(bool(res))
 
 class W_wrap_lenfunc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_lenfunc", self.cfuncptr)
         self.check_args(space, __args__, 1)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         with handles.using(space, w_self) as h_self:
             result = func(ctx, h_self)
@@ -194,7 +194,7 @@ class W_wrap_sq_item(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
@@ -206,7 +206,7 @@ class W_wrap_sq_setitem(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
         self.check_args(space, __args__, 3)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
@@ -221,7 +221,7 @@ class W_wrap_sq_delitem(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
@@ -235,7 +235,7 @@ class W_wrap_objobjproc(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_objobjproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_key = __args__.arguments_w[1]
         with handles.using(space, w_self, w_key) as (h_self, h_key):
@@ -251,7 +251,7 @@ class W_wrap_getbuffer(W_SlotWrapper):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_getbufferproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
-        ctx = space.fromcache(State).ctx
+        ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_flags = __args__.arguments_w[1]
         flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
@@ -321,7 +321,7 @@ class W_wrap_init(W_SlotWrapper):
                         space.setitem_str(w_kw, key, w_value)
                     h_kw = handles.new(space, w_kw)
                 fptr = llapi.cts.cast('HPyFunc_initproc', self.cfuncptr)
-                state = space.fromcache(State)
+                state = State.get(space)
                 try:
                     result = fptr(state.ctx, h_self, args_h, n, h_kw)
                 finally:

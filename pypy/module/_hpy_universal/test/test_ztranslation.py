@@ -40,7 +40,7 @@ def test_checkmodule():
     DUMMY_CPYEXT_STRUCT = make_cpyext_struct()
     def extra_func(space):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
-        state = space.fromcache(State)
+        state = State.get(space)
         state.setup()
         attach_dict_strategy(space)
         p = lltype.malloc(DUMMY_CPYEXT_STRUCT, flavor='raw')
