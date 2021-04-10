@@ -1702,13 +1702,15 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def BUILD_STRING(self, itemcount, next_instr):
+        from rpython.rlib import rutf8
         space = self.space
-        lst = []
+        builder = rutf8.Utf8StringBuilder()
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.utf8_w(w_item))
+            utf8, length = space.utf8_len_w(w_item)
+            builder.append_utf8(utf8, length)
         self.dropvalues(itemcount)
-        w_res = space.newtext(''.join(lst))
+        w_res = space.newutf8(builder.build(), builder.getlength())
         self.pushvalue(w_res)
 
     def _revdb_load_var(self, oparg):
