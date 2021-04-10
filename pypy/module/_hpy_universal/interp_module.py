@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module, init_extra_module_attrs
-from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import interp_extfunc
@@ -45,6 +45,11 @@ def HPyModule_Create(space, ctx, hpydef):
     init_extra_module_attrs(space, w_mod)
     return handles.new(space, w_mod)
 
+
+@DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
+            func_name='HPyModule_Create')
+def debug_HPyModule_Create(space, ctx, hpydef):
+    raise NotImplementedError
 
 def get_doc(c_doc):
     if not c_doc:

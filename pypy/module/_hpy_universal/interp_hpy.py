@@ -36,7 +36,7 @@ def init_hpy_module(space, w_mod):
     """
     state = space.fromcache(State)
     state.setup()
-    h_debug_mod = llapi.HPyInit__debug(state.ctx)
+    h_debug_mod = llapi.HPyInit__debug(state.uctx)
     w_debug_mod = handles.consume(space, h_debug_mod)
     w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
@@ -52,10 +52,7 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
     state = space.fromcache(State)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
-    if debug:
-        ctx = llapi.hpy_debug_get_ctx(state.ctx)
-    else:
-        ctx = state.ctx
+    ctx = state.get_ctx(debug)
     h_module = initfunc_ptr(ctx)
     if not h_module:
         raise oefmt(space.w_SystemError,

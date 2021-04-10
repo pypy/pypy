@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi, handles
-from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal.bridge import BRIDGE, hpy_get_bridge
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
@@ -27,27 +27,35 @@ class State:
     def __init__(self, space):
         "NOT_RPYTHON"
         self.space = space
-        self.ctx = lltype.nullptr(llapi.HPyContext.TO)
+        self.uctx = lltype.nullptr(llapi.HPyContext.TO)
+        self.dctx = lltype.nullptr(llapi.HPyContext.TO)
 
     @jit.dont_look_inside
     def setup(self):
-        if not self.ctx:
-            self.setup_ctx()
+        if not self.uctx:
+            self.setup_uctx()
+            self.setup_dctx()
+            self.ctx = self.uctx # XXX temporary, kill me
         # bridge functions are stored in a global but they need to match the
         # current space, so we reinitialize them every time.
         self.setup_bridge()
 
+    def get_ctx(self, debug):
+        if debug:
+            return self.dctx
+        return self.uctx
+
     @staticmethod
     @specialize.memo()
-    def ctx_name():
+    def uctx_name():
         # by using specialize.memo() this becomes a statically allocated
         # charp, like a C string literal
         return rffi.str2constcharp("HPy Universal ABI (PyPy backend)")
 
-    def setup_ctx(self):
+    def setup_uctx(self):
         space = self.space
-        self.ctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
-        self.ctx.c_name = self.ctx_name()
+        self.uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        self.uctx.c_name = self.uctx_name()
 
         for name in CONTEXT_FIELDS:
             if name == 'c_ctx_version':
@@ -58,27 +66,34 @@ class State:
                 # assigned to something else
                 missing_function = make_missing_function(space, name)
                 funcptr = llhelper(lltype.Ptr(DUMMY_FUNC), missing_function)
-                setattr(self.ctx, name, rffi.cast(rffi.VOIDP, funcptr))
+                setattr(self.uctx, name, rffi.cast(rffi.VOIDP, funcptr))
         i = 0
         for name in CONSTANT_NAMES:
             if name != 'NULL':
-                h_struct = getattr(self.ctx, 'c_h_' + name)
+                h_struct = getattr(self.uctx, 'c_h_' + name)
                 h_struct.c__i = i
             i = i + 1
 
-        for func in API.all_functions:
+        self.init_ctx_from_apiset(self.uctx, API)
+        self.uctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
+        self.uctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
+        self.uctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
+        self.uctx.c_ctx_Err_SetObject = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetObject)
+        self.uctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
+
+    def setup_dctx(self):
+        self.dctx = llapi.hpy_debug_get_ctx(self.uctx)
+        self.init_ctx_from_apiset(self.dctx, DEBUG)
+
+    def init_ctx_from_apiset(self, ctx, apiset):
+        space = self.space
+        for func in apiset.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
                 # ignore cpyext functions if hpy_cpyext_API is False
                 continue
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
-            setattr(self.ctx, ctx_field, funcptr)
-
-        self.ctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
-        self.ctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
-        self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
-        self.ctx.c_ctx_Err_SetObject = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetObject)
-        self.ctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
+            setattr(ctx, ctx_field, funcptr)
 
     def setup_bridge(self):
         if self.space.config.translating:

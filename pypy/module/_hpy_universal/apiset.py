@@ -159,3 +159,4 @@ class APISet(object):
 
 
 API = APISet(llapi.cts)
+DEBUG = APISet(llapi.cts)
