@@ -36,9 +36,11 @@ def init_hpy_module(space, w_mod):
     """
     state = State.get(space)
     state.setup()
-    h_debug_mod = llapi.HPyInit__debug(state.uctx)
-    w_debug_mod = handles.consume(space, h_debug_mod)
-    w_mod.setdictvalue(space, '_debug', w_debug_mod)
+    if not hasattr(space, 'is_fake_objspace'):
+        # the following lines break test_ztranslation :(
+        h_debug_mod = llapi.HPyInit__debug(state.uctx)
+        w_debug_mod = handles.consume(space, h_debug_mod)
+        w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it

@@ -23,16 +23,16 @@ def make_missing_function(space, name):
     return missing_function
 
 
-class State:
+class State(object):
     def __init__(self, space):
         "NOT_RPYTHON"
         self.space = space
         self.uctx = lltype.nullptr(llapi.HPyContext.TO)
         self.dctx = lltype.nullptr(llapi.HPyContext.TO)
 
-    @classmethod
-    def get(cls, space):
-        return space.fromcache(cls)
+    @staticmethod
+    def get(space):
+        return space.fromcache(State)
 
     @jit.dont_look_inside
     def setup(self):
