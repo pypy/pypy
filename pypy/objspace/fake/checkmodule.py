@@ -16,7 +16,6 @@ def checkmodule(*modnames, **kwds):
         # force computation and record what we wrap
         module = mod.Module(space, W_Root())
         module.setup_after_space_initialization()
-        module.init(space)
         modules.append(module)
         for name in module.loaders:
             if name in ignore:
