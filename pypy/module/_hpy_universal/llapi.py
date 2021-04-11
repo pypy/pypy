@@ -15,9 +15,10 @@ eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
     includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h"],
     include_dirs=[
-        cdir,        # for precommondefs.h
-        INCLUDE_DIR, # for universal/hpy.h
-        SRC_DIR,     # for hpyerr.h
+        cdir,                       # for precommondefs.h
+        INCLUDE_DIR,                # for universal/hpy.h
+        SRC_DIR,                    # for hpyerr.h
+        DEBUG_DIR,                  # for debug_internal.h
         DEBUG_DIR.join('include'),  # for hpy_debug.h
     ],
     separate_module_files=[
