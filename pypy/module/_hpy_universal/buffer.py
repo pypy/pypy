@@ -9,9 +9,11 @@ from . import llapi, handles
 class HPyBuffer(BufferView):
     _immutable_ = True
 
-    def __init__(self, space, ptr, size, w_owner, itemsize, readonly, ndim,
+    def __init__(self, space, ctx, handles, ptr, size, w_owner, itemsize, readonly, ndim,
                  format, shape, strides):
         self.space = space
+        self.ctx = ctx
+        self.handles = handles
         self.rawbuf = LLBuffer(ptr, size)
         self.w_owner = w_owner
         self.format = format
@@ -43,7 +45,6 @@ class HPyBuffer(BufferView):
             return
         #import pdb; pdb.set_trace()
         if self.releasebufferproc:
-            ctx = self.State.get(space).ctx
             with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
                 hpybuf.c_buf = self.get_raw_address()
                 hpybuf.c_len = self.getlength()
@@ -51,8 +52,8 @@ class HPyBuffer(BufferView):
                 hpybuf.c_ndim = llapi.cts.cast('int', ndim)
                 # XXX: hpybuf.c_shape, hpybuf.c_strides, ...
                 func = llapi.cts.cast('HPyFunc_releasebufferproc', self.releasebufferproc)
-                with handles.using(self.space, self.w_owner) as h_owner:
-                    func(ctx, h_owner, hpybuf)
+                with self.handles.using(self.w_owner) as h_owner:
+                    func(self.ctx, h_owner, hpybuf)
         self.w_owner = None
 
     def getlength(self):

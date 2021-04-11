@@ -28,21 +28,22 @@ class W_ExtensionFunction(W_Root):
             #raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
         self.doc = doc
         self.cfuncptr = cfuncptr
+        state = State.get(space)
+        self.ctx = state.ctx
+        self.handles = state.handles
 
     def call_noargs(self, space, h_self):
-        state = State.get(space)
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-        h_result = func(state.ctx, h_self)
+        h_result = func(self.ctx, h_self)
         # XXX check for exceptions
-        return state.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
     def call_o(self, space, h_self, w_arg):
-        state = State.get(space)
-        with state.handles.using(w_arg) as h_arg:
+        with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-            h_result = func(state.ctx, h_self, h_arg)
+            h_result = func(self.ctx, h_self, h_arg)
         # XXX check for exceptions
-        return state.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
         # this function is more or less the equivalent of
@@ -57,7 +58,7 @@ class W_ExtensionFunction(W_Root):
         with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
             i = 0
             while i < n:
-                args_h[i] = state.handles.new(__args__.arguments_w[i + skip_args])
+                args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
                 i += 1
 
             if has_keywords:
@@ -68,17 +69,15 @@ class W_ExtensionFunction(W_Root):
             # XXX this should probably be in a try/finally. We should add a
             # test to check that we don't leak handles
             for i in range(n):
-                state.handles.close(args_h[i])
+                self.handles.close(args_h[i])
 
-        return state.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
     def call_varargs(self, space, h_self, args_h, n):
-        state = State.get(space)
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
-        return fptr(state.ctx, h_self, args_h, n)
+        return fptr(self.ctx, h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, __args__):
-        state = State.get(space)
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
         # dict?
         h_kw = 0
@@ -88,18 +87,18 @@ class W_ExtensionFunction(W_Root):
                 key = __args__.keywords[i]
                 w_value = __args__.keywords_w[i]
                 space.setitem_str(w_kw, key, w_value)
-            h_kw = state.handles.new(w_kw)
+            h_kw = self.handles.new(w_kw)
 
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
         try:
-            return fptr(state.ctx, h_self, args_h, n, h_kw)
+            return fptr(self.ctx, h_self, args_h, n, h_kw)
         finally:
             if h_kw:
-                state.handles.consume(h_kw)
+                self.handles.consume(h_kw)
 
 
     def descr_call(self, space, __args__):
-        with state.handles.using(self.w_self) as h_self:
+        with self.handles.using(self.w_self) as h_self:
             return self.call(space, h_self, __args__)
 
     def call(self, space, h_self, __args__, skip_args=0):
@@ -164,7 +163,7 @@ class W_ExtensionMethod(W_ExtensionFunction):
                 "descriptor '%8' requires a '%s' object but received a '%T'",
                 self.name, w_objclass.name, w_instance)
         #
-        with state.handles.using(w_instance) as h_instance:
+        with self.handles.using(w_instance) as h_instance:
             return self.call(space, h_instance, __args__, skip_args=1)
 
 W_ExtensionMethod.typedef = TypeDef(
