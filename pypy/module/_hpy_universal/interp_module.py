@@ -51,6 +51,7 @@ def HPyModule_Create(space, state, ctx, hpydef):
 def debug_HPyModule_Create(space, state, ctx, hpydef):
     from rpython.rlib.nonconst import NonConstant # for the annotator
     if NonConstant(False): return 0
+    raise NotImplementedError
 
 def get_doc(c_doc):
     if not c_doc:
