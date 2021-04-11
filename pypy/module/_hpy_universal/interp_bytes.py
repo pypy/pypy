@@ -27,7 +27,7 @@ def HPyBytes_AsString(space, state, ctx, h):
     s = space.bytes_w(w_obj)
     llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
     cb = handles.FreeNonMovingBuffer(llbuf, llstring, flag)
-    handles.attach_release_callback(space, h, cb)
+    state.handles.attach_release_callback(h, cb)
     return llbuf
 
 @API.func("char *HPyBytes_AS_STRING(HPyContext ctx, HPy h)")
