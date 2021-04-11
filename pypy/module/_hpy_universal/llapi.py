@@ -33,18 +33,25 @@ eci = ExternalCompilationInfo(
         BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
         # </debug mode>
     ],
+    post_include_bits=[
+        """
+        RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx);
+        RPY_EXPORTED HPy pypy_hpy_debug_unwrap_handle(HPy uh);
+        RPY_EXPORTED HPy pypy_HPyInit__debug(HPyContext uctx);
+        """
+    ],
     separate_module_sources=[
         """
         #include <hpy_debug.h>
         // the default symbol visibility is hidden: the easiest way to export
         // these two functions is to write a small wrapper.        
-        RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
+        HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
             return hpy_debug_get_ctx(uctx);
         }
-        RPY_EXPORTED HPy pypy_hpy_debug_unwrap_handle(HPy uh) {
+        HPy pypy_hpy_debug_unwrap_handle(HPy uh) {
             return hpy_debug_unwrap_handle(uh);
         }
-        RPY_EXPORTED HPy pypy_HPyInit__debug(HPyContext uctx) {
+        HPy pypy_HPyInit__debug(HPyContext uctx) {
             return HPyInit__debug(uctx);
         }
 
