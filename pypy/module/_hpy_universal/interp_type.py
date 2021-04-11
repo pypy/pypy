@@ -47,7 +47,7 @@ class W_HPyTypeObject(W_TypeObject):
 
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
 def _HPy_Cast(space, state, ctx, h):
-    w_obj = handles.deref(space, h)
+    w_obj = state.handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
@@ -55,11 +55,11 @@ def _HPy_Cast(space, state, ctx, h):
 
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
 def _HPy_New(space, state, ctx, h_type, data):
-    w_type = handles.deref(space, h_type)
+    w_type = state.handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
     data[0] = w_result.hpy_data
-    h = handles.new(space, w_result)
+    h = state.handles.new(w_result)
     return h
 
 
@@ -82,11 +82,11 @@ def get_bases_from_params(space, state, ctx, params):
         i += 1
         if p_kind == KIND.HPyType_SpecParam_Base:
             found_base = True
-            w_base = handles.deref(space, p_h)
+            w_base = state.handles.deref(p_h)
             bases_w.append(w_base)
         elif p_kind == KIND.HPyType_SpecParam_BasesTuple:
             found_basestuple = True
-            w_bases = handles.deref(space, p_h)
+            w_bases = state.handles.deref(p_h)
             bases_w = space.unpackiterable(w_bases)
         else:
             raise NotImplementedError('XXX write a test')
@@ -126,7 +126,7 @@ def HPyType_FromSpec(space, state, ctx, spec, params):
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
         add_slot_defs(space, state, ctx, w_result, spec.c_defines)
-    return handles.new(space, w_result)
+    return state.handles.new(w_result)
 
 def add_slot_defs(space, state, ctx, w_result, c_defines):
     p = c_defines
@@ -200,6 +200,6 @@ def _create_instance(space, w_type):
 
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, state, ctx, h_type, args, nargs, kw):
-    w_type = handles.deref(space, h_type)
+    w_type = state.handles.deref(h_type)
     w_result = _create_instance(space, w_type)
-    return handles.new(space, w_result)
+    return state.handles.new(w_result)

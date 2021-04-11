@@ -170,42 +170,6 @@ class FreeNonMovingBuffer(HandleReleaseCallback):
         rffi.free_nonmovingbuffer_ll(self.llbuf, self.llstring, self.flag)
 
 
-
-# =========================
-# high level user interface
-# =========================
-
-def new(space, w_object):
-    mgr = space.fromcache(HandleManager)
-    return mgr.new(w_object)
-
-def close(space, index):
-    mgr = space.fromcache(HandleManager)
-    mgr.close(index)
-
-def deref(space, index):
-    mgr = space.fromcache(HandleManager)
-    return mgr.deref(index)
-
-def consume(space, index):
-    mgr = space.fromcache(HandleManager)
-    return mgr.consume(index)
-
-def dup(space, index):
-    mgr = space.fromcache(HandleManager)
-    return mgr.dup(index)
-
-def attach_release_callback(space, index, cb):
-    mgr = space.fromcache(HandleManager)
-    return mgr.attach_release_callback(index, cb)
-
-# ~~~ context manager ~~~
-
-@specialize.argtype(1)
-def using(space, *w_objs):
-    mgr = space.fromcache(HandleManager)
-    return mgr.using(*w_objs)
-
 @specialize.memo()
 def make_UsingContextManager(N):
     INDICES = unrolling_iterable(range(N))

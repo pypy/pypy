@@ -4,9 +4,9 @@ from . import handles
 
 @API.func("HPy HPy_CallTupleDict(HPyContext ctx, HPy callable, HPy args, HPy kw)")
 def HPy_CallTupleDict(space, state, ctx, h_callable, h_args, h_kw):
-    w_callable = handles.deref(space, h_callable)
-    w_args = handles.deref(space, h_args) if h_args else None
-    w_kw = handles.deref(space, h_kw) if h_kw else None
+    w_callable = state.handles.deref(h_callable)
+    w_args = state.handles.deref(h_args) if h_args else None
+    w_kw = state.handles.deref(h_kw) if h_kw else None
 
     # Check the types here, as space.call would allow any iterable/mapping
     if w_args and not space.isinstance_w(w_args, space.w_tuple):
@@ -18,4 +18,4 @@ def HPy_CallTupleDict(space, state, ctx, h_callable, h_args, h_kw):
 
     # Note: both w_args and w_kw are allowed to be None
     w_result = space.call(w_callable, w_args, w_kw)
-    return handles.new(space, w_result)
+    return state.handles.new(w_result)

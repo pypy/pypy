@@ -183,15 +183,15 @@ def getset_get(w_getset, space, w_self):
     state = State.get(space)
     cfuncptr = w_getset.hpygetset.c_getter_impl
     func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
-    with handles.using(space, w_self) as h_self:
+    with state.handles.using(w_self) as h_self:
         h_result = func(state.ctx, h_self, w_getset.hpygetset.c_closure)
-    return handles.consume(space, h_result)
+    return state.handles.consume(h_result)
     
 def getset_set(w_getset, space, w_self, w_value):
     state = State.get(space)
     cfuncptr = w_getset.hpygetset.c_setter_impl
     func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
-    with handles.using(space, w_self, w_value) as (h_self, h_value):
+    with state.handles.using(w_self, w_value) as (h_self, h_value):
         h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
         # XXX: write a test to check that we do the correct thing if
         # c_setter raises an exception

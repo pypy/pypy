@@ -43,7 +43,7 @@ def HPyModule_Create(space, state, ctx, hpydef):
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
     init_extra_module_attrs(space, w_mod)
-    return handles.new(space, w_mod)
+    return state.handles.new(w_mod)
 
 
 @DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",

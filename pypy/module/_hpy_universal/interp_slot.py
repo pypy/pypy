@@ -82,9 +82,9 @@ class W_wrap_binaryfunc(W_SlotWrapper):
         ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_other = __args__.arguments_w[1]
-        with handles.using(space, w_self, w_other) as (h_self, h_other):
+        with state.handles.using(w_self, w_other) as (h_self, h_other):
             h_result = func(ctx, h_self, h_other)
-            return handles.consume(space, h_result)
+            return state.handles.consume(h_result)
 
 def make_cmp_wrapper(OP):
     class W_wrap_richcmpfunc(W_SlotWrapper):
@@ -94,12 +94,12 @@ def make_cmp_wrapper(OP):
             ctx = State.get(space).ctx
             w_self = __args__.arguments_w[0]
             w_other = __args__.arguments_w[1]
-            with handles.using(space, w_self, w_other) as (h_self, h_other):
+            with state.handles.using(w_self, w_other) as (h_self, h_other):
                 # rffi doesn't allow casting to an enum, we need to use int
                 # instead
                 h_result = func(
                     ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
-                return handles.consume(space, h_result)
+                return state.handles.consume(h_result)
     return W_wrap_richcmpfunc
 
 CMP_OPNAMES = ['eq', 'ne', 'lt', 'le', 'gt', 'ge']
@@ -115,9 +115,9 @@ class W_wrap_unaryfunc(W_SlotWrapper):
         self.check_args(space, __args__, 1)
         ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             h_result = func(ctx, h_self)
-            return handles.consume(space, h_result)
+            return state.handles.consume(h_result)
 
 class W_wrap_ternaryfunc(W_SlotWrapper):
     def call(self, space, __args__):
@@ -134,9 +134,9 @@ class W_wrap_ternaryfunc(W_SlotWrapper):
             w2 = space.w_None
         else:
             w2 = __args__.arguments_w[2]
-        with handles.using(space, w_self, w1, w2) as (h_self, h1, h2):
+        with state.handles.using(w_self, w1, w2) as (h_self, h1, h2):
             h_result = func(ctx, h_self, h1, h2)
-            return handles.consume(space, h_result)
+            return state.handles.consume(h_result)
 
 class W_wrap_indexargfunc(W_SlotWrapper):
     def call(self, space, __args__):
@@ -146,9 +146,9 @@ class W_wrap_indexargfunc(W_SlotWrapper):
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = space.int_w(space.index(w_idx))
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             h_result = func(ctx, h_self, idx)
-            return handles.consume(space, h_result)
+            return state.handles.consume(h_result)
 
 class W_wrap_inquirypred(W_SlotWrapper):
     def call(self, space, __args__):
@@ -156,7 +156,7 @@ class W_wrap_inquirypred(W_SlotWrapper):
         self.check_args(space, __args__, 1)
         ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             res = func(ctx, h_self)
             res = rffi.cast(lltype.Signed, res)
             if res == -1:
@@ -170,7 +170,7 @@ class W_wrap_lenfunc(W_SlotWrapper):
         self.check_args(space, __args__, 1)
         ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             result = func(ctx, h_self)
             if widen(result) == -1:
                 raise NotImplementedError('write a test')
@@ -198,9 +198,9 @@ class W_wrap_sq_item(W_SlotWrapper):
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             h_result = func(ctx, h_self, idx)
-            return handles.consume(space, h_result)
+            return state.handles.consume(h_result)
 
 class W_wrap_sq_setitem(W_SlotWrapper):
     def call(self, space, __args__):
@@ -211,7 +211,7 @@ class W_wrap_sq_setitem(W_SlotWrapper):
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
         w_value = __args__.arguments_w[2]
-        with handles.using(space, w_self, w_value) as (h_self, h_value):
+        with state.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(ctx, h_self, idx, h_value)
             if widen(result) == -1:
                 raise NotImplementedError('write a test')
@@ -225,7 +225,7 @@ class W_wrap_sq_delitem(W_SlotWrapper):
         w_self = __args__.arguments_w[0]
         w_idx = __args__.arguments_w[1]
         idx = sq_getindex(space, w_self, w_idx)
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             result = func(ctx, h_self, idx, llapi.HPy_NULL)
             if widen(result) == -1:
                 raise NotImplementedError('write a test')
@@ -238,7 +238,7 @@ class W_wrap_objobjproc(W_SlotWrapper):
         ctx = State.get(space).ctx
         w_self = __args__.arguments_w[0]
         w_key = __args__.arguments_w[1]
-        with handles.using(space, w_self, w_key) as (h_self, h_key):
+        with state.handles.using(w_self, w_key) as (h_self, h_key):
             res = func(ctx, h_self, h_key)
             res = widen(res)
             if res == -1:
@@ -255,13 +255,13 @@ class W_wrap_getbuffer(W_SlotWrapper):
         w_self = __args__.arguments_w[0]
         w_flags = __args__.arguments_w[1]
         flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
                 res = func(ctx, h_self, hpybuf, flags)
                 if widen(res) < 0:
                     raise oefmt(space.w_BufferError)
                 buf_ptr = hpybuf.c_buf
-                w_obj = handles.consume(space, hpybuf.c_obj)
+                w_obj = state.handles.consume(hpybuf.c_obj)
                 size = hpybuf.c_len
                 ndim = widen(hpybuf.c_ndim)
                 shape = None
@@ -305,12 +305,12 @@ class W_wrap_getbuffer(W_SlotWrapper):
 
 class W_wrap_init(W_SlotWrapper):
     def call(self, space, __args__):
-        with handles.using(space, __args__.arguments_w[0]) as h_self:
+        with state.handles.using(__args__.arguments_w[0]) as h_self:
             n = len(__args__.arguments_w) - 1
             with lltype.scoped_alloc(rffi.CArray(llapi.HPy), n) as args_h:
                 i = 0
                 while i < n:
-                    args_h[i] = handles.new(space, __args__.arguments_w[i + 1])
+                    args_h[i] = state.handles.new(__args__.arguments_w[i + 1])
                     i += 1
                 h_kw = 0
                 if __args__.keywords:
@@ -319,16 +319,16 @@ class W_wrap_init(W_SlotWrapper):
                         key = __args__.keywords[i]
                         w_value = __args__.keywords_w[i]
                         space.setitem_str(w_kw, key, w_value)
-                    h_kw = handles.new(space, w_kw)
+                    h_kw = state.handles.new(w_kw)
                 fptr = llapi.cts.cast('HPyFunc_initproc', self.cfuncptr)
                 state = State.get(space)
                 try:
                     result = fptr(state.ctx, h_self, args_h, n, h_kw)
                 finally:
                     if h_kw:
-                        handles.close(space, h_kw)
+                        state.handles.close(h_kw)
                     for i in range(n):
-                        handles.close(space, args_h[i])
+                        state.handles.close(args_h[i])
         if rffi.cast(lltype.Signed, result) < 0:
             # If we're here, it means no exception was set
             raise oefmt(space.w_SystemError,
@@ -359,7 +359,7 @@ class W_tp_new_wrapper(W_ExtensionFunction):
         # XXX: tp_new_wrapper does additional checks, we should write tests
         # and implement the same checks
         w_self = __args__.arguments_w[0]
-        with handles.using(space, w_self) as h_self:
+        with state.handles.using(w_self) as h_self:
             return self.call_varargs_kw(space, h_self, __args__,
                                         skip_args=1, has_keywords=True)
 

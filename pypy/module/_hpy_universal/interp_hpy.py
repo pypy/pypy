@@ -39,7 +39,7 @@ def init_hpy_module(space, w_mod):
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         h_debug_mod = llapi.HPyInit__debug(state.uctx)
-        w_debug_mod = handles.consume(space, h_debug_mod)
+        w_debug_mod = state.handles.consume(h_debug_mod)
         w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
@@ -62,7 +62,7 @@ def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
             name)
     if debug:
         h_module = llapi.hpy_debug_unwrap_handle(h_module)
-    return handles.consume(space, h_module)
+    return state.handles.consume(h_module)
 
 def descr_load_from_spec(space, w_spec):
     name = space.text_w(space.getattr(w_spec, space.newtext("name")))
@@ -98,8 +98,8 @@ def descr_get_version(space):
 
 @API.func("HPy HPy_Dup(HPyContext ctx, HPy h)")
 def HPy_Dup(space, state, ctx, h):
-    return handles.dup(space, h)
+    return state.handles.dup(h)
 
 @API.func("void HPy_Close(HPyContext ctx, HPy h)")
 def HPy_Close(space, state, ctx, h):
-    handles.close(space, h)
+    state.handles.close(h)

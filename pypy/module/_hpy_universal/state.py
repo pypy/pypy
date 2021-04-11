@@ -29,6 +29,7 @@ class State(object):
         self.space = space
         self.uctx = lltype.nullptr(llapi.HPyContext.TO)
         self.dctx = lltype.nullptr(llapi.HPyContext.TO)
+        self.handles = handles.HandleManager(space)
 
     @staticmethod
     def get(space):

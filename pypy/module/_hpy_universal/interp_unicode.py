@@ -17,7 +17,7 @@ def _maybe_utf8_to_w(space, utf8):
 
 @API.func("int HPyUnicode_Check(HPyContext ctx, HPy h)", error_value=API.int(-1))
 def HPyUnicode_Check(space, state, ctx, h):
-    w_obj = handles.deref(space, h)
+    w_obj = state.handles.deref(h)
     w_obj_type = space.type(w_obj)
     res = (space.is_w(w_obj_type, space.w_unicode) or
            space.issubtype_w(w_obj_type, space.w_unicode))
@@ -26,14 +26,14 @@ def HPyUnicode_Check(space, state, ctx, h):
 @API.func("HPy HPyUnicode_FromString(HPyContext ctx, const char *utf8)")
 def HPyUnicode_FromString(space, state, ctx, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
-    return handles.new(space, w_obj)
+    return state.handles.new(w_obj)
 
 @API.func("HPy HPyUnicode_AsUTF8String(HPyContext ctx, HPy h)")
 def HPyUnicode_AsUTF8String(space, state, ctx, h):
-    w_unicode = handles.deref(space, h)
+    w_unicode = state.handles.deref(h)
     # XXX: what should we do if w_unicode is not a str?
     w_bytes = unicodeobject.encode_object(space, w_unicode, 'utf-8', 'strict')
-    return handles.new(space, w_bytes)
+    return state.handles.new(w_bytes)
 
 @API.func("HPy HPyUnicode_FromWideChar(HPyContext ctx, const wchar_t *w, HPy_ssize_t size)")
 def HPyUnicode_FromWideChar(space, state, ctx, wchar_p, size):
@@ -46,7 +46,7 @@ def HPyUnicode_FromWideChar(space, state, ctx, wchar_p, size):
         # we don't have any test for it
         s = wcharpsize2utf8(space, wchar_p, size)
         w_obj = space.newutf8(s, size)
-        return handles.new(space, w_obj)
+        return state.handles.new(w_obj)
     else:
         # cpyext returns an empty string, we need a test
         raise NotImplementedError("WRITE TEST")
