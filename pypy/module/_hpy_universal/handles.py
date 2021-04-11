@@ -137,6 +137,18 @@ class HandleManager:
         else:
             self.release_callbacks[index].append(cb)
 
+    @specialize.argtype(1)
+    def using(self, *w_objs):
+        """
+        context-manager to new/close one or more handles
+        """
+        # Here we are using some RPython trickery to create different classes
+        # depending on the number of w_objs. The idea is that the whole class is
+        # optimized away and what's left is a series of calls to handles.new() and
+        # handles.close()
+        UsingContextManager = make_UsingContextManager(len(w_objs))
+        return UsingContextManager(self, w_objs)
+
 
 class HandleReleaseCallback(object):
 
@@ -191,15 +203,8 @@ def attach_release_callback(space, index, cb):
 
 @specialize.argtype(1)
 def using(space, *w_objs):
-    """
-    context-manager to new/close one or more handles
-    """
-    # Here we are using some RPython trickery to create different classes
-    # depending on the number of w_objs. The idea is that the whole class is
-    # optimized away and what's left is a series of calls to handles.new() and
-    # handles.close()
-    UsingContextManager = make_UsingContextManager(len(w_objs))
-    return UsingContextManager(space, w_objs)
+    mgr = space.fromcache(HandleManager)
+    return mgr.using(*w_objs)
 
 @specialize.memo()
 def make_UsingContextManager(N):
@@ -207,8 +212,8 @@ def make_UsingContextManager(N):
     class UsingContextManager(object):
 
         @always_inline
-        def __init__(self, space, w_objects):
-            self.space = space
+        def __init__(self, mgr, w_objects):
+            self.mgr = mgr
             self.w_objects = w_objects
             self.handles = (0,) * N
 
@@ -216,16 +221,16 @@ def make_UsingContextManager(N):
         def __enter__(self):
             handles = ()
             for i in INDICES:
-                h = new(self.space, self.w_objects[i])
+                h = self.mgr.new(self.w_objects[i])
                 handles += (h,)
             self.handles = handles
 
             # if we have only one handle, return it directly. This makes it
             # possible to write this:
-            #     with handles.using(space, w1) as h1:
+            #     with handles.using(w1) as h1:
             #         ...
             # AND this
-            #     with handles.using(space, w1, w2) as (h1, h2):
+            #     with handles.using(w1, w2) as (h1, h2):
             #         ...
             if N == 1:
                 return self.handles[0]
@@ -235,6 +240,6 @@ def make_UsingContextManager(N):
         @always_inline
         def __exit__(self, etype, evalue, tb):
             for i in INDICES:
-                close(self.space, self.handles[i])
+                self.mgr.close(self.handles[i])
 
     return UsingContextManager
