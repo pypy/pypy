@@ -7,16 +7,16 @@ from pypy.module._hpy_universal import handles
 
 class W_Tracker(W_Root):
     def __init__(self, size):
-        self.handles = newlist_hint(size)
+        self.hlist = newlist_hint(size)
 
     def add(self, h):
-        self.handles.append(h)
+        self.hlist.append(h)
 
     def forget_all(self):
-        self.handles = []
+        self.hlist = []
 
-    def close(self, space):
-        for h in self.handles:
+    def close(self, state):
+        for h in self.hlist:
             state.handles.close(h)
 
 @API.func("HPyTracker HPyTracker_New(HPyContext ctx, HPy_ssize_t size)", error_value=0)
@@ -42,5 +42,5 @@ def HPyTracker_ForgetAll(space, state, ctx, ht):
 def HPyTracker_Close(space, state, ctx, ht):
     w_tracker = state.handles.deref(ht)
     assert isinstance(w_tracker, W_Tracker)
-    w_tracker.close(space)
+    w_tracker.close(state)
     state.handles.close(ht)

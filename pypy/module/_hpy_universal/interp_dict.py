@@ -8,7 +8,7 @@ from pypy.module._hpy_universal import llapi
 @API.func("HPy HPyDict_New(HPyContext ctx)")
 def HPyDict_New(space, state, ctx):
     w_dict = space.newdict()
-    return state.handles.new(space, w_dict)
+    return state.handles.new(w_dict)
 
 @API.func("int HPyDict_Check(HPyContext ctx, HPy h)", error_value='CANNOT_FAIL')
 def HPyDict_Check(space, state, ctx, h):
