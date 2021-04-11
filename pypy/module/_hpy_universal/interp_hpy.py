@@ -71,9 +71,6 @@ def descr_load_from_spec(space, w_spec):
 
 @unwrap_spec(name='text', path='fsencode', debug=bool)
 def descr_load(space, name, path, debug=False):
-    state = space.fromcache(State)
-    state.setup()
-
     try:
         with rffi.scoped_str2charp(path) as ll_libname:
             lib = dlopen(ll_libname, space.sys.dlopenflags)
