@@ -48,11 +48,6 @@ class State(object):
         # current space, so we reinitialize them every time.
         self.setup_bridge()
 
-    def get_ctx(self, debug):
-        if debug:
-            return self.dctx
-        return self.uctx
-
     def get_handle_manager(self, debug):
         if debug:
             return self.debug_handles

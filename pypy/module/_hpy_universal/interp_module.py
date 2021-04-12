@@ -15,7 +15,7 @@ def HPyModule_Create(space, state, ctx, hpydef):
 @DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
             func_name='HPyModule_Create')
 def debug_HPyModule_Create(space, state, ctx, hpydef):
-    assert ctx == state.get_ctx(debug=True)
+    assert ctx == state.get_handle_manager(debug=True).ctx
     return _hpymodule_create(space, state, ctx, hpydef, debug=True)
 
 def _hpymodule_create(space, state, ctx, hpydef, debug):
