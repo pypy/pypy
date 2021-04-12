@@ -937,9 +937,9 @@ class rbigint(object):
             div, mod = res
             ok = div.mul(other).add(self).eq(self)
             if not ok:
-                print "broken divmod!", self.str(), other.str(), div.str(), mod.str(), div.mul(other).add(mod).str()
+                print "broken divmod!", self.hex(), other.hex(), div.hex(), mod.hex(), div.mul(other).add(mod).hex()
                 div, mod = self._divmod_small(other)
-                print "correct:", div.str(), mod.str()
+                print "correct:", div.hex(), mod.hex()
                 print b'\xf0\x9f\x92\x80' * 10
                 assert ok
             return res
