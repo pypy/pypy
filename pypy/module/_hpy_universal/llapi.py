@@ -37,7 +37,8 @@ eci = ExternalCompilationInfo(
     post_include_bits=[
         """
         RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx);
-        RPY_EXPORTED HPy pypy_hpy_debug_unwrap_handle(HPy uh);
+        RPY_EXPORTED HPy hpy_debug_wrap_handle(HPyContext dctx, HPy uh);
+        RPY_EXPORTED HPy pypy_hpy_debug_unwrap_handle(HPy dh);
         RPY_EXPORTED HPy pypy_HPyInit__debug(HPyContext uctx);
         """
     ],
@@ -49,7 +50,10 @@ eci = ExternalCompilationInfo(
         HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
             return hpy_debug_get_ctx(uctx);
         }
-        HPy pypy_hpy_debug_unwrap_handle(HPy uh) {
+        HPy hpy_debug_wrap_handle(HPyContext dctx, HPy uh) {
+            return hpy_debug_wrap_handle(dxtx, uh);
+        }
+        HPy pypy_hpy_debug_unwrap_handle(HPy dh) {
             return hpy_debug_unwrap_handle(uh);
         }
         HPy pypy_HPyInit__debug(HPyContext uctx) {
@@ -591,6 +595,10 @@ pypy_HPyErr_Clear = rffi.llexternal('pypy_HPyErr_Clear',
 # debug mode
 hpy_debug_get_ctx = rffi.llexternal('pypy_hpy_debug_get_ctx', [HPyContext], HPyContext,
                                     compilation_info=eci)
+
+hpy_debug_wrap_handle = rffi.llexternal('pypy_hpy_debug_wrap_handle',
+                                        [HPyContext, HPy], HPy,
+                                        compilation_info=eci)
 
 hpy_debug_unwrap_handle = rffi.llexternal('pypy_hpy_debug_unwrap_handle', [HPy], HPy,
                                           compilation_info=eci)
