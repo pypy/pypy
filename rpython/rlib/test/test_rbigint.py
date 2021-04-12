@@ -1128,7 +1128,8 @@ class TestInternalFunctions(object):
                 r_ulonglong(-9**50))
 
     def test_toulonglong(self):
-        assert rbigint.fromlong(-1).toulonglong() == r_ulonglong(-1)
+        with pytest.raises(ValueError):
+            rbigint.fromlong(-1).toulonglong()
 
     def test_fits_int(self):
         assert rbigint.fromlong(0).fits_int()
