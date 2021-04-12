@@ -1042,7 +1042,6 @@ class TestInternalFunctions(object):
         finally:
             HOLDER.DIV_LIMIT = oldval
 
-
     def test_int_divmod(self):
         for x in long_vals:
             for y in int_vals + [-sys.maxint-1]:
@@ -1534,6 +1533,7 @@ def _get_hacked_rbigint(shift):
         f.write(s)
 
     from rpython.rlib.test import _hacked_rbigint
+    assert _hacked_rbigint.SHIFT == shift
     return _hacked_rbigint
 
 def run():
