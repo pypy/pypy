@@ -912,7 +912,7 @@ class rbigint(object):
             mod = mod.int_add(iother)
         return mod
 
-    @jit.elidable
+    #@jit.elidable
     def divmod(self, other):
         """
         The / and % operators are now defined in terms of divmod().
