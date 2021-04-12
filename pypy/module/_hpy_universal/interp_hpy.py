@@ -36,9 +36,9 @@ from pypy.module._hpy_universal import (
 # debug mode and how it works:
 #
 # 1. someone calls _hpy_universal.load(..., debug=True), which calls
-#    create_hpy_module
+#    init_hpy_module
 #
-# 2. create_hpy_module(debug=True) calls HPyInit_foo(dctx)
+# 2. init_hpy_module(debug=True) calls HPyInit_foo(dctx)
 #
 # 3. HPyInit_foo calls HPyModule_Create(), and since it's using a dctx it ends
 #    up calling interp_module.debug_HPyModule_Create
@@ -65,7 +65,7 @@ from pypy.module._hpy_universal import (
 
 # XXX: implement point 7!
 
-def init_hpy_module(space, w_mod):
+def startup(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
@@ -86,7 +86,7 @@ def load_version():
 HPY_VERSION, HPY_GIT_REV = load_version()
 
 
-def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
+def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
     handles = State.get(space).get_handle_manager(debug)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     h_module = initfunc_ptr(handles.ctx)
@@ -121,7 +121,7 @@ def descr_load(space, name, path, debug=False):
         w_path = space.newfilename(path)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
-    return create_hpy_module(space, name, path, lib, debug, initptr)
+    return init_hpy_module(space, name, path, lib, debug, initptr)
 
 def descr_get_version(space):
     w_ver = space.newtext(HPY_VERSION)
