@@ -51,9 +51,14 @@ HPyContext hpy_debug_get_ctx(HPyContext uctx)
     return dctx;
 }
 
-HPy hpy_debug_unwrap_handle(HPy uh)
+HPy hpy_debug_wrap_handle(HPyContext dctx, HPy uh)
 {
-    return DHPy_unwrap(uh);
+    return DHPy_wrap(dctx, uh);
+}
+
+HPy hpy_debug_unwrap_handle(HPy dh)
+{
+    return DHPy_unwrap(dh);
 }
 
 // this function is supposed to be called from gdb: it tries to determine
