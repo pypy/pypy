@@ -932,7 +932,12 @@ class rbigint(object):
         """
         if self.numdigits() > 1.2 * other.numdigits() and \
                 other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
-            return divmod_big(self, other)
+            res = divmod_big(self, other)
+            # be paranoid: keep the assert here for a bit
+            div, mod = res
+            assert div.mul(other).add(self).eq(self)
+            return res
+
         return self._divmod_small(other)
 
     def _divmod_small(self, other):
