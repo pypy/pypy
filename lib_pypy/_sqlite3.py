@@ -396,7 +396,7 @@ class Connection(object):
         for weakref in lst:
             statement = weakref()
             if statement is not None:
-                statement._reset()
+                statement._force_reset()
 
     @_check_thread_wrap
     @_check_closed_wrap
