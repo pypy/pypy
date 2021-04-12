@@ -29,18 +29,21 @@ class State(object):
         self.space = space
         self.uctx = lltype.nullptr(llapi.HPyContext.TO)
         self.dctx = lltype.nullptr(llapi.HPyContext.TO)
-        self.handles = handles.HandleManager(space)
+        self.handles = None
+        self.debug_handles = None
 
     @staticmethod
     def get(space):
         return space.fromcache(State)
 
     @jit.dont_look_inside
-    def setup(self):
+    def setup(self, space):
         if not self.uctx:
             self.setup_uctx()
             self.setup_dctx()
             self.ctx = self.uctx # XXX temporary, kill me
+            self.handles = handles.HandleManager(self.uctx, space)
+            self.debug_handles = handles.DebugHandleManager(self.dctx, self.handles)
         # bridge functions are stored in a global but they need to match the
         # current space, so we reinitialize them every time.
         self.setup_bridge()
@@ -49,6 +52,11 @@ class State(object):
         if debug:
             return self.dctx
         return self.uctx
+
+    def get_handle_manager(self, debug):
+        if debug:
+            return self.debug_handles
+        return self.handles
 
     @staticmethod
     @specialize.memo()

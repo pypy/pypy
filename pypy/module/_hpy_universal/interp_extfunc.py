@@ -19,7 +19,8 @@ class W_ExtensionFunction(W_Root):
     # XXX: should we have separate classes for each sig?
     _immutable_fields_ = ["sig", "name"]
 
-    def __init__(self, space, name, sig, doc, cfuncptr, w_self):
+    def __init__(self, space, handles, name, sig, doc, cfuncptr, w_self):
+        self.handles = handles
         self.w_self = w_self
         self.name = name
         self.sig = sig
@@ -28,20 +29,17 @@ class W_ExtensionFunction(W_Root):
             #raise oefmt(space.w_ValueError, "Unsupported HPyMeth.signature: %d", self.sig)
         self.doc = doc
         self.cfuncptr = cfuncptr
-        state = State.get(space)
-        self.ctx = state.ctx
-        self.handles = state.handles
 
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
-        h_result = func(self.ctx, h_self)
+        h_result = func(self.handles.ctx, h_self)
         # XXX check for exceptions
         return self.handles.consume(h_result)
 
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
-            h_result = func(self.ctx, h_self, h_arg)
+            h_result = func(self.handles.ctx, h_self, h_arg)
         # XXX check for exceptions
         return self.handles.consume(h_result)
 
@@ -75,7 +73,7 @@ class W_ExtensionFunction(W_Root):
 
     def call_varargs(self, space, h_self, args_h, n):
         fptr = llapi.cts.cast('HPyFunc_varargs', self.cfuncptr)
-        return fptr(self.ctx, h_self, args_h, n)
+        return fptr(self.handles.ctx, h_self, args_h, n)
 
     def call_keywords(self, space, h_self, args_h, n, __args__):
         # XXX: if there are no keywords, should we pass HPy_NULL or an empty
@@ -91,7 +89,7 @@ class W_ExtensionFunction(W_Root):
 
         fptr = llapi.cts.cast('HPyFunc_keywords', self.cfuncptr)
         try:
-            return fptr(self.ctx, h_self, args_h, n, h_kw)
+            return fptr(self.handles.ctx, h_self, args_h, n, h_kw)
         finally:
             if h_kw:
                 self.handles.consume(h_kw)
@@ -143,7 +141,10 @@ W_ExtensionFunction.typedef.acceptable_as_base_class = False
 
 class W_ExtensionMethod(W_ExtensionFunction):
     def __init__(self, space, name, sig, doc, cfuncptr, w_objclass):
-        W_ExtensionFunction.__init__(self, space, name, sig, doc, cfuncptr, space.w_None)
+        # XXX this should be passed from the outside
+        handles = State.get(space).handles
+        W_ExtensionFunction.__init__(self, space, handles, name, sig, doc,
+                                     cfuncptr, space.w_None)
         self.w_objclass = w_objclass
 
     def descr_call(self, space, __args__):

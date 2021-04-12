@@ -30,12 +30,47 @@ from pypy.module._hpy_universal import (
     interp_tracker,
     )
 
+# ~~~ Some info on the debug mode ~~~
+#
+# The following is an explation of what happens when you load a module in
+# debug mode and how it works:
+#
+# 1. someone calls _hpy_universal.load(..., debug=True), which calls
+#    create_hpy_module
+#
+# 2. create_hpy_module(debug=True) calls HPyInit_foo(dctx)
+#
+# 3. HPyInit_foo calls HPyModule_Create(), and since it's using a dctx it ends
+#    up calling interp_module.debug_HPyModule_Create
+#
+# 4. the important part happens inside _hpymodule_create(debug=True):
+#        handles = state.get_handle_manager(debug)
+#    This means that depending on the value of debug, we get either
+#    HandleManager or DebugHandleManager. This handle manager is passed to
+#    W_ExtensionFunction.
+#
+# 5. When we call a function or a method, we ultimately end up in
+#    W_ExtensionFunction.call_{noargs,o,...}, which uses self.handles: so, the
+#    net result is that depending on the value of debug at point (1), we call
+#    the underlying C function with either dctx or uctx.
+#
+# 6. Argument passing works in the same way: handles are created by calling
+#    self.handles.new, which in debug mode calls
+#    llapi.hpy_debug_wrap_handle. The same for the return value, which calls
+#    self.handles.consume which calls llapi.hpy_debug_unwrap_handle.
+#
+# 7. We need to ensure that ALL python-to-C entry points use the correct
+#    HandleManager/ctx: so the same applies for W_ExtensionMethod and
+#    W_SlotWrapper.
+
+# XXX: implement point 7!
+
 def init_hpy_module(space, w_mod):
     """
     Initialize _hpy_universal. This is called by moduledef.Module.__init__
     """
     state = State.get(space)
-    state.setup()
+    state.setup(space)
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         h_debug_mod = llapi.HPyInit__debug(state.uctx)
@@ -52,17 +87,14 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 
 
 def create_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
-    state = State.get(space)
+    handles = State.get(space).get_handle_manager(debug)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
-    ctx = state.get_ctx(debug)
-    h_module = initfunc_ptr(ctx)
+    h_module = initfunc_ptr(handles.ctx)
     if not h_module:
         raise oefmt(space.w_SystemError,
             "initialization of %s failed without raising an exception",
             name)
-    if debug:
-        h_module = llapi.hpy_debug_unwrap_handle(h_module)
-    return state.handles.consume(h_module)
+    return handles.consume(h_module)
 
 def descr_load_from_spec(space, w_spec):
     name = space.text_w(space.getattr(w_spec, space.newtext("name")))

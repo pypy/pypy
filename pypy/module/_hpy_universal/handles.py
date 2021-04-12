@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.objectmodel import specialize, always_inline, we_are_translated
 from rpython.rlib.unroll import unrolling_iterable
+from pypy.module._hpy_universal import llapi
 
 CONSTANTS = [
     ('NULL', lambda space: None),
@@ -85,10 +86,43 @@ CONSTANTS = [
     ('ListType', lambda space: space.w_list),
 ]
 
+class AbstractHandleManager(object):
 
-class HandleManager:
+    def new(self, w_object):
+        raise NotImplementedError
 
-    def __init__(self, space):
+    def close(self, index):
+        raise NotImplementedError
+
+    def deref(self, index):
+        raise NotImplementedError
+
+    def consume(self, index):
+        raise NotImplementedError
+
+    def dup(self, index):
+        raise NotImplementedError
+
+    def attach_release_callback(self, index, cb):
+        raise NotImplementedError
+
+    @specialize.argtype(1)
+    def using(self, *w_objs):
+        """
+        context-manager to new/close one or more handles
+        """
+        # Here we are using some RPython trickery to create different classes
+        # depending on the number of w_objs. The idea is that the whole class is
+        # optimized away and what's left is a series of calls to handles.new() and
+        # handles.close()
+        UsingContextManager = make_UsingContextManager(len(w_objs))
+        return UsingContextManager(self, w_objs)
+
+
+class HandleManager(AbstractHandleManager):
+
+    def __init__(self, uctx, space):
+        self.ctx = uctx
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
@@ -137,17 +171,24 @@ class HandleManager:
         else:
             self.release_callbacks[index].append(cb)
 
-    @specialize.argtype(1)
-    def using(self, *w_objs):
-        """
-        context-manager to new/close one or more handles
-        """
-        # Here we are using some RPython trickery to create different classes
-        # depending on the number of w_objs. The idea is that the whole class is
-        # optimized away and what's left is a series of calls to handles.new() and
-        # handles.close()
-        UsingContextManager = make_UsingContextManager(len(w_objs))
-        return UsingContextManager(self, w_objs)
+
+class DebugHandleManager(AbstractHandleManager):
+
+    def __init__(self, dctx, u_handles):
+        self.ctx = dctx
+        self.u_handles = u_handles
+
+    def new(self, w_object):
+        uh = self.u_handles.new(w_object)
+        return llapi.hpy_debug_wrap_handle(self.ctx, uh)
+
+    def close(self, dh):
+        uh = llapi.hpy_debug_unwrap_handle(dh)
+        self.u_handles.close(uh)
+
+    def consume(self, dh):
+        uh = llapi.hpy_debug_unwrap_handle(dh)
+        return self.u_handles.consume(uh)
 
 
 class HandleReleaseCallback(object):

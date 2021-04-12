@@ -10,6 +10,16 @@ from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 @API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
 def HPyModule_Create(space, state, ctx, hpydef):
+    return _hpymodule_create(space, state, ctx, hpydef, debug=False)
+
+@DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
+            func_name='HPyModule_Create')
+def debug_HPyModule_Create(space, state, ctx, hpydef):
+    assert ctx == state.get_ctx(debug=True)
+    return _hpymodule_create(space, state, ctx, hpydef, debug=True)
+
+def _hpymodule_create(space, state, ctx, hpydef, debug):
+    handles = state.get_handle_manager(debug)
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
@@ -34,7 +44,7 @@ def HPyModule_Create(space, state, ctx, hpydef):
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             doc = get_doc(hpymeth.c_doc)
             w_extfunc = interp_extfunc.W_ExtensionFunction(
-                space, name, sig, doc, hpymeth.c_impl, w_mod)
+                space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
     if hpydef.c_m_doc:
@@ -43,15 +53,7 @@ def HPyModule_Create(space, state, ctx, hpydef):
         w_doc = space.w_None
     space.setattr(w_mod, space.newtext('__doc__'), w_doc)
     init_extra_module_attrs(space, w_mod)
-    return state.handles.new(w_mod)
-
-
-@DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
-            func_name='HPyModule_Create')
-def debug_HPyModule_Create(space, state, ctx, hpydef):
-    from rpython.rlib.nonconst import NonConstant # for the annotator
-    if NonConstant(False): return 0
-    raise NotImplementedError
+    return handles.new(w_mod)
 
 def get_doc(c_doc):
     if not c_doc:
