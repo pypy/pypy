@@ -1824,6 +1824,33 @@ def g():
 """
         self.st(func, "g()", None)
 
+    def test_newbytecode_async_for_other_exception(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+    class MyAIter:
+        count = 0
+        async def __anext__(self):
+            if self.count == 3:
+                1/0
+            self.count += 1
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except ZeroDivisionError:
+        pass
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", None)
+
     def test_newbytecode_async_genexpr(self):
         func = """def g():
     def run_async(coro):

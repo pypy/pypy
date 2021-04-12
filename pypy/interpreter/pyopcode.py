@@ -1684,7 +1684,10 @@ class __extend__(pyframe.PyFrame):
             self.popvalue() # aiter
             return next_instr
         else:
-            unroller = self.peekvalue(2)
+            unroller = self.peekvalue(1)
+            if not isinstance(unroller, SApplicationException):
+                raise oefmt(space.w_RuntimeError,
+                        "END_ASYNC_FOR found no exception")
             block = self.unrollstack()
             if block is None:
                 w_result = unroller.reraise()
