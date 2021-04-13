@@ -159,7 +159,7 @@ class ContextVar(metaclass=Unsubclassable):
 
     @classmethod
     def __class_getitem__(self, key):
-        return None
+        return self
 
     def __repr__(self):
         default = ''
