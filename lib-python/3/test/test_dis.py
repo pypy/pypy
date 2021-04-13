@@ -624,7 +624,7 @@ Argument count:    1
 Kw-only arguments: 0
 Number of locals:  1
 Stack size:        3
-Flags:             OPTIMIZED, NEWLOCALS, NOFREE, 0x100000
+Flags:             OPTIMIZED, NEWLOCALS, NOFREE, (.*)
 Constants:
    0: %r
 Names:
