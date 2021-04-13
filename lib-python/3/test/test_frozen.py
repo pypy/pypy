@@ -12,11 +12,12 @@
 
 import sys
 import unittest
-from test.support import captured_stdout
+from test.support import captured_stdout, impl_detail
 from importlib import util
 
 
 class TestFrozen(unittest.TestCase):
+    @impl_detail
     def test_frozen(self):
         name = '__hello__'
         if name in sys.modules:
