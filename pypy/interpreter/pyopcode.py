@@ -1686,7 +1686,7 @@ class __extend__(pyframe.PyFrame):
         else:
             unroller = self.peekvalue(1)
             if not isinstance(unroller, SApplicationException):
-                raise oefmt(space.w_RuntimeError,
+                raise oefmt(self.space.w_RuntimeError,
                         "END_ASYNC_FOR found no exception")
             block = self.unrollstack()
             if block is None:
