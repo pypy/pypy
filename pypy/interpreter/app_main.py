@@ -838,7 +838,7 @@ def run_command_line(interactive,
                     with open(filename, 'rb') as f:
                         if f.read(4) != MAGIC_NUMBER:
                             raise RuntimeError("Bad magic number in .pyc file")
-                        if len(f.read(8)) != 8:
+                        if len(f.read(12)) != 12:
                             raise RuntimeError("Truncated .pyc file")
                         co = marshal.load(f)
                     if type(co) is not type((lambda:0).__code__):
