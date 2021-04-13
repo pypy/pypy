@@ -697,6 +697,8 @@ class PyFrame(W_Root):
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
+        # XXX this is broken right now!
+
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
@@ -721,6 +723,9 @@ class PyFrame(W_Root):
         if not d.is_in_line_tracing:
             raise oefmt(space.w_ValueError,
                         "can only jump from a 'line' trace event")
+
+        raise oefmt(space.w_ValueError,
+                    "disabled at the moment!")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
