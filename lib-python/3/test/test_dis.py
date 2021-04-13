@@ -387,8 +387,8 @@ Disassembly of <code object foo at 0x..., file "%s", line %d>:
 
 dis_nested_2 = """%s
 Disassembly of <code object <listcomp> at 0x..., file "%s", line %d>:
-%3d           0 BUILD_LIST               0
-              2 LOAD_FAST                0 (.0)
+%3d           0 LOAD_FAST                0 (.0)
+              2 BUILD_LIST_FROM_ARG      0
         >>    4 FOR_ITER                12 (to 18)
               6 STORE_FAST               1 (z)
               8 LOAD_DEREF               0 (x)
