@@ -16,7 +16,16 @@ class HPyAppTest(object):
     subclasses are created by conftest.make_hpy_apptest
     """
     spaceconfig = {'usemodules': ['_hpy_universal']}
-    load_with_debug = False
+
+    # NOTE: HPyTest has already an initargs fixture, but it's ignored here
+    # because pypy is using an old pytest version which does not support
+    # @pytest.mark.usefixtures on classes. To work around the limitation, we
+    # redeclare initargs as autouse=True, so it's automatically used by all
+    # tests; self.w_make_module (defined inside setup_method) uses the hpy_abi
+    # attribute to determine whether to load with or without debug mode.
+    @pytest.fixture(params=['universal', 'debug'], autouse=True)
+    def initargs(self, request):
+        self.hpy_abi = request.param
 
     @pytest.fixture
     def compiler(self):
@@ -58,9 +67,10 @@ class HPyAppTest(object):
             py_filename = compiler.compile_module(ExtensionTemplate,
                                                   source_template, name, extra_sources)
             so_filename = py_filename.replace(".py", ".hpy.so")
+            debug = self.hpy_abi == 'debug'
             w_mod = space.appexec([space.newtext(so_filename),
                                    space.newtext(name),
-                                   space.newbool(self.load_with_debug)],
+                                   space.newbool(debug)],
                 """(path, modname, debug):
                     import _hpy_universal
                     return _hpy_universal.load(modname, path, debug)
@@ -91,8 +101,13 @@ class HPyAppTest(object):
 
 
 class HPyDebugAppTest(HPyAppTest):
-    load_with_debug = True
-    
+
+    # override the initargs fixture to run the tests ONLY in debug mode, as
+    # done by upstream's HPyDebugTest
+    @pytest.fixture(autouse=True)
+    def initargs(self, request):
+        self.hpy_abi = 'debug'
+
     # make self.make_leak_module() available to the tests. Note that this is
     # code which will be run at applevel, and will call self.make_module,
     # which is finally executed at interp-level (see descr_make_module above)
