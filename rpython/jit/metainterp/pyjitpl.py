@@ -489,7 +489,7 @@ class MIFrame(object):
             elif typ == 'r':
                 assert resvalue == tobox.getref_base()
             elif typ == 'f':
-                assert resvalue == tobox.getfloat()
+                assert ConstFloat.fromfloat(resvalue).same_box(tobox.getfloat())
             else:
                 assert 0, "unreachable"
             return tobox
@@ -743,7 +743,7 @@ class MIFrame(object):
             elif typ == 'r':
                 assert resvalue == tobox.getref_base()
             elif typ == 'f':
-                assert resvalue == tobox.getfloat()
+                assert ConstFloat.fromfloat(resvalue).same_box(tobox.getfloat())
             return tobox
         resop = self.execute_with_descr(opnum, descr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
