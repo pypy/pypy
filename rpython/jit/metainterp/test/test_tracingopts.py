@@ -859,3 +859,13 @@ class TestLLtype(LLJitMixin):
         res = self.interp_operations(g, [21])
         assert res == g(21)
         self.check_operations_history(call_loopinvariant_r=2)
+
+    def test_heapcache_interiorfields(self):
+        def fn(n):
+            d = {1: n, 2: n}
+            d[4] = n + 1
+            return d[4]
+        res = self.interp_operations(fn, [0])
+        assert res == 1
+        self.check_operations_history(getinteriorfield_gc_i=0)
+
