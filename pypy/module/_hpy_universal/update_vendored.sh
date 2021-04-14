@@ -51,7 +51,7 @@ check_dirty() {
 check_version_status() {
     # check that the version in hpy/devel/version.py corresponds to the one
     # given by git
-    revgit=$(git -C "$HPY" describe --abbrev=7 --dirty --always --tags --long)
+    revgit=$(git -C "$HPY" rev-parse --short HEAD)
 
     pushd "$HPY/hpy/devel" > /dev/null
     revpy=$(python -c 'import version;print(version.__git_revision__)')
