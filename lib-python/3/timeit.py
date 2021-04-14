@@ -278,7 +278,7 @@ def main(args=None, *, _wrap_timer=None):
     repeat = default_repeat
     verbose = 0
     time_unit = None
-    nits = {"nsec": 1e-9, "usec": 1e-6, "msec": 1e-3, "sec": 1.0}
+    units = {"nsec": 1e-9, "usec": 1e-6, "msec": 1e-3, "sec": 1.0}
     precision = 3
     for o, a in opts:
         if o in ("-n", "--number"):
