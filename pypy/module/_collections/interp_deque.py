@@ -53,8 +53,8 @@ class Lock(object):
     pass
 
 
-def get_printable_location(strategy_type, tp):
-    return "deque._find [%s, %s]" % (tp.getname(tp.space), )
+def get_printable_location(tp):
+    return "deque._find [%s]" % (tp.getname(tp.space), )
 find_jmp = jit.JitDriver(greens=['tp'], reds='auto', name='deque._find', get_printable_location=get_printable_location)
 
 # ------------------------------------------------------------
