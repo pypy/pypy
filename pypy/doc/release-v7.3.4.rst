@@ -2,12 +2,6 @@
 PyPy v7.3.4: release of 2.7 and 3.7
 ===================================
 
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 ..
   Changelog up to commit 9c11d242d78c
 
@@ -30,8 +24,8 @@ evenings European time on https://www.twitch.tv/pypyproject. If Python3.6 is
 important to you, please reach out as we could offer sponsored longer term
 support.
 
-The interpreters are based on much the same codebase, thus the multiple
-release. This is a micro release, all APIs are compatible with the 7.3
+The two interpreters are based on much the same codebase, thus the multiple
+release. This is a micro release, all APIs are compatible with the other 7.3
 releases. Highlights of the release include binary **Windows 64** support,
 faster numerical instance fields, and a preliminary HPy backend.
 
@@ -67,6 +61,9 @@ is to enable a migration path
 for c-extension authors who wish their code to be performant on alternative
 interpreters like GraalPython_ (written on top of the Java virtual machine),
 RustPython_, and PyPy. Thanks to Oracle and IBM for sponsoring work on HPy.
+
+Support for the vmprof_ statistical profiler has been extended to ARM64 via a
+built-in backend.
 
 Several issues exposed in the 7.3.3 release were fixed. Many of them came from the
 great work ongoing to ship PyPy-compatible binary packages in `conda-forge`_.
@@ -124,6 +121,7 @@ building wheels for PyPy.
 .. _`GraalPython`: https://github.com/graalvm/graalpython
 .. _`RustPython`: https://github.com/RustPython/RustPython
 .. _`renovated blog site`: https://pypy.org/blog
+.. _vmprof: https://vmprof.readthedocs.io/en/latest/
 
 
 What is PyPy?

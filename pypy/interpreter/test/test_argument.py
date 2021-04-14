@@ -815,6 +815,7 @@ class TestErrorHandling(object):
 
 
 class AppTestArgument:
+    @pytest.mark.pypy_only
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
         assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'a'"
