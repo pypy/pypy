@@ -1143,6 +1143,11 @@ class AppTestListObject(object):
         l[::] = l
         assert l == [1, 2, 3]
 
+    def test_setslice_full_bug(self):
+        l = [1, 2, 3]
+        l[::] = (x + 1 for x in l)
+        assert l == [2, 3, 4]
+
     def test_recursive_repr(self):
         l = []
         assert repr(l) == '[]'
