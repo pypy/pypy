@@ -573,6 +573,10 @@ ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
 """
 
 CUSTOMIZATIONS = """
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
+#error Python 3.7 requires OpenSSL >= 1.0.2
+#endif
+
 /* Added in 1.0.2 but we need it in all versions now due to the great
    opaquing. */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
