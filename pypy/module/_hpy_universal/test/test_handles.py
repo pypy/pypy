@@ -1,5 +1,4 @@
 import pytest
-from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal.handles import HandleManager, HandleReleaseCallback
 
 class FakeSpace(object):
@@ -24,38 +23,36 @@ def test_fakespace(fakespace):
         return object()
     assert fakespace.fromcache(x) is fakespace.fromcache(x)
 
+@pytest.fixture
+def mgr(fakespace):
+    return HandleManager(None, fakespace)
+
 class TestHandleManager(object):
 
-    def test_first_handle_is_not_zero(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_first_handle_is_not_zero(self, mgr):
         h = mgr.new('hello')
         assert h > 0
 
-    def test_new(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_new(self, mgr):
         h = mgr.new('hello')
         assert mgr.handles_w[h] == 'hello'
 
-    def test_close(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_close(self, mgr):
         h = mgr.new('hello')
         assert mgr.close(h) is None
         assert mgr.handles_w[h] is None
 
-    def test_deref(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_deref(self, mgr):
         h = mgr.new('hello')
         assert mgr.deref(h) == 'hello'     # 'hello' is a fake W_Root
         assert mgr.deref(h) == 'hello'
 
-    def test_consume(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_consume(self, mgr):
         h = mgr.new('hello')
         assert mgr.consume(h) == 'hello'
         assert mgr.handles_w[h] is None
 
-    def test_freelist(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_freelist(self, mgr):
         h0 = mgr.new('hello')
         h1 = mgr.new('world')
         assert mgr.consume(h0) == 'hello'
@@ -64,8 +61,7 @@ class TestHandleManager(object):
         assert h2 == h0
         assert mgr.free_list == []
 
-    def test_dup(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_dup(self, mgr):
         h0 = mgr.new('hello')
         h1 = mgr.dup(h0)
         assert h1 != h0
@@ -81,8 +77,7 @@ class TestReleaseCallback(object):
         def release(self, h, obj):
             self.seen.append((h, obj, self.data))
 
-    def test_callback(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_callback(self, mgr):
         seen = []
         h0 = mgr.new('hello')
         h1 = mgr.dup(h0)
@@ -101,8 +96,7 @@ class TestReleaseCallback(object):
         assert seen == [(h1, 'hello', 'bar'),
                         (h0, 'hello', 'foo')]
 
-    def test_clear(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_clear(self, mgr):
         seen = []
         h0 = mgr.new('hello')
         mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
@@ -116,8 +110,7 @@ class TestReleaseCallback(object):
         mgr.close(h1)
         assert seen == [(h0, 'hello', 'foo')]
 
-    def test_multiple_releasers(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_multiple_releasers(self, mgr):
         seen = []
         h0 = mgr.new('hello')
         mgr.attach_release_callback(h0, self.MyCallback(seen, 'foo'))
@@ -130,14 +123,12 @@ class TestReleaseCallback(object):
 
 class TestUsing(object):
 
-    def test_simple(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_simple(self, mgr):
         with mgr.using('hello') as h:
             assert mgr.handles_w[h] == 'hello'
         assert mgr.handles_w[h] is None
 
-    def test_multiple_handles(self, fakespace):
-        mgr = HandleManager(fakespace)
+    def test_multiple_handles(self, mgr):
         with mgr.using('hello', 'world', 'foo') as (h1, h2, h3):
             assert mgr.handles_w[h1] == 'hello'
             assert mgr.handles_w[h2] == 'world'
