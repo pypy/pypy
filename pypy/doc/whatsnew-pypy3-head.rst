@@ -8,3 +8,7 @@ What's new in PyPy3 7.3.3+
 .. branch: hpy
 
 Merge latest hpy
+
+.. branch: py3.8-reversed-dict
+
+Implement ``reversed(dict)``
