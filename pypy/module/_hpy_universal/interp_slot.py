@@ -250,7 +250,8 @@ class W_wrap_getbuffer(W_SlotWrapper):
             with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
                 res = func(self.ctx, h_self, hpybuf, flags)
                 if widen(res) < 0:
-                    raise oefmt(space.w_BufferError)
+                    raise oefmt(space.w_BufferError,
+                        "HPy_bf_getbuffer slot failed without setting an exception")
                 buf_ptr = hpybuf.c_buf
                 w_obj = self.handles.consume(hpybuf.c_obj)
                 size = hpybuf.c_len
