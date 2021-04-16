@@ -298,6 +298,14 @@ class TestPosixFunction:
         assert rposix.major(dev) == 24
         assert rposix.minor(dev) == 7
 
+    @py.test.mark.skipif("not hasattr(rposix, 'memfd_create')")
+    def test_memfd_create(self):
+        fd = rposix.memfd_create("abc", rposix.MFD_CLOEXEC)
+        try:
+            s = "defghi?"
+            os.write(fd, s)
+        finally:
+            os.close(fd)
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):

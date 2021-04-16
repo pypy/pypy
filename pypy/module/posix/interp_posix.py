@@ -1574,6 +1574,8 @@ def _run_applevel_hook(space, w_callable):
         e.write_unraisable(space, "fork hook")
 
 def run_applevel_fork_hooks(space, l_w, reverse=False):
+    if len(l_w) == 0:
+        return
     if not reverse:
         for i in range(len(l_w)): # callable can append to the list
             _run_applevel_hook(space, l_w[i])
@@ -2692,6 +2694,28 @@ If follow_symlinks is False, and the last element of the path is a symbolic
         except OSError as e:
             raise wrap_oserror2(space, e, path.w_path)
     return space.newlist([space.newfilename(attr) for attr in result])
+
+@unwrap_spec(name="bytes", flags=int)
+def memfd_create(space, name, flags=getattr(rposix, "MFD_CLOEXEC", 0xdead)):
+    """
+os.memfd_create(name[, flags=os.MFD_CLOEXEC])
+
+Create an anonymous file and return a file descriptor that refers to it. flags
+must be one of the os.MFD_* constants available on the system (or a bitwise
+ORed combination of them). By default, the new file descriptor is
+non-inheritable.
+
+The name supplied in name is used as a filename and will be displayed as the
+target of the corresponding symbolic link in the directory /proc/self/fd/. The
+displayed name is always prefixed with memfd: and serves only for debugging
+purposes. Names do not affect the behavior of the file descriptor, and as such
+multiple files can have the same name without any side effects.
+"""
+    try:
+        result = rposix.memfd_create(name, flags)
+    except OSError as e:
+        raise wrap_oserror2(space, e)
+    return space.newint(result)
 
 
 have_functions = []

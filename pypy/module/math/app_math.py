@@ -155,3 +155,83 @@ def isqrt(n):
         a = (a << d - e - 1) + (n >> 2*c - e - d + 1) // a
 
     return a - (a*a > n)
+
+def prod(iterable, /, *, start=1):
+    """
+    Calculate the product of all the elements in the input iterable.
+
+    The default start value for the product is 1.
+
+    When the iterable is empty, return the start value.  This function is
+    intended specifically for use with numeric values and may reject
+    non-numeric types.
+    """
+    res = start
+    for x in iterable:
+        res = res * x
+    return res
+
+def comb(n, k, /):
+    """
+    Number of ways to choose k items from n items without repetition and without order.
+
+    Evaluates to n! / (k! * (n - k)!) when k <= n and evaluates
+    to zero when k > n.
+
+    Also called the binomial coefficient because it is equivalent
+    to the coefficient of k-th term in polynomial expansion of the
+    expression (1 + x)**n.
+
+    Raises TypeError if either of the arguments are not integers.
+    Raises ValueError if either of the arguments are negative.
+    """
+    import operator
+    n = operator.index(n)
+    k = operator.index(k)
+
+    if n < 0:
+        raise ValueError("n must be a non-negative integer")
+    if k < 0:
+        raise ValueError("k must be a non-negative integer")
+    if k > n:
+        return 0
+    k = min(k, n-k)
+    num, den = 1, 1
+    for i in range(k):
+        num = num * (n - i)
+        den = den * (i + 1)
+
+    return num // den
+
+def perm(n, k=None, /):
+    """
+    Number of ways to choose k items from n items without repetition and with order.
+
+    Evaluates to n! / (n - k)! when k <= n and evaluates
+    to zero when k > n.
+
+    If k is not specified or is None, then k defaults to n
+    and the function returns n!.
+
+    Raises TypeError if either of the arguments are not integers.
+    Raises ValueError if either of the arguments are negative.
+    """
+    import operator
+
+    n = operator.index(n)
+    if k is None:
+        k = n
+    else:
+        k = operator.index(k)
+
+    if n < 0:
+        raise ValueError("n must be a non-negative integer")
+    if k < 0:
+        raise ValueError("k must be a non-negative integer")
+    if k > n:
+        return 0
+
+    res = 1
+    for x in range(n, n - k, -1):
+        res *= x
+    return res

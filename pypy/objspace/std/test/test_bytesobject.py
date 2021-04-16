@@ -349,6 +349,10 @@ class AppTestBytesObject:
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n'), 1) == b'nne'
         assert b'one'.replace(memoryview(b'o'), memoryview(b'n')) == b'nne'
 
+    def test_replace_no_occurrence(self):
+        x = b"xyz"
+        assert x.replace(b"a", b"b") is x
+
     def test_strip(self):
         s = b" a b "
         assert s.strip() == b"a b"
@@ -1003,6 +1007,18 @@ class AppTestBytesObject:
         assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex() == \
                "73616e746120636c617573"
         assert bytes(64).hex() == "00"*64
+
+    def test_hex_sep(self):
+        res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('.')
+        print(res)
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            bytes([1, 2, 3]).hex("abc")
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', 4) == \
+               "73616e?74612063?6c617573"
+        with raises(ValueError) as excinfo:
+            bytes([1, 2, 3]).hex("ä")
+        assert "ASCII" in str(excinfo.value)
 
     def test_format(self):
         """

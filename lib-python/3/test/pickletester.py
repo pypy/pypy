@@ -25,7 +25,7 @@ from test import support
 from test.support import (
     TestFailed, TESTFN, run_with_locale, no_tracing,
     _2G, _4G, bigmemtest, reap_threads, forget,
-    save_restore_warnings_filters
+    save_restore_warnings_filters,
     check_impl_detail, impl_detail
     )
 

@@ -115,6 +115,8 @@ class TestCall(BaseTestPyPyC):
                     self.a = a
                 def f(self, i):
                     return self.a + i
+            a = A("a") # stop field unboxing
+
             i = 0
             a = A(1)
             while i < n:
@@ -642,5 +644,28 @@ class TestCall(BaseTestPyPyC):
             res += (9999 in map(g, range(200000)))
             return res
         """, [])
-        # as opposed to one loop, one bridge  (the third loop is tuple.contains)
-        assert len(log.loops) == 3
+        assert len([l for l in log.loops if l.chunks[1].bytecode_name.startswith("DescrOperation.contains")]) == 2
+
+    def test_methodcall_kwargs_regression(self):
+        log = self.run("""
+        class A:
+            def f(self, x, y, z):
+                return x + y + z
+        def main():
+            a = A()
+            res = 0
+            for i in range(10000):
+                a.f(x=i, y=i+1, z=i*2) # ID: meth
+                res += i
+        """, [])
+        
+        loop, = log.loops_by_id('meth')
+
+        assert loop.match_by_id("meth", """
+            setfield_gc(p15, i65, descr=...)
+            guard_not_invalidated(descr=...)
+            i68 = int_mul_ovf(i62, 2)
+            guard_no_overflow(descr=...)
+            p69 = force_token()
+        """)
+

@@ -52,7 +52,7 @@ __all__ = ["PickleError", "PicklingError", "UnpicklingError", "Pickler",
            "Unpickler", "dump", "dumps", "load", "loads"]
 
 try:
-    from _pickle import PickleBuffer
+    from __pypy__ import PickleBuffer
     __all__.append("PickleBuffer")
     _HAVE_PICKLE_BUFFER = True
 except ImportError:

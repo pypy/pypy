@@ -7,7 +7,7 @@ from dotviewer.conftest import option
 from dotviewer.strunicode import RAW_ENCODING
 
 SOURCE1 = u"""digraph G{
-λ -> b
+λ -> b [label="λλλλλ"]
 b -> μ
 }
 """

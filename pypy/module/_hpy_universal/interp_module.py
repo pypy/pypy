@@ -1,7 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.rarithmetic import widen
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.module import Module
+from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal import handles
@@ -21,8 +20,8 @@ def HPyModule_Create(space, ctx, hpydef):
             attach_legacy_methods(space, pymethods, w_mod, modname)
         else:
             raise oefmt(space.w_RuntimeError,
-                    "Module %s contains legacy methods, but _hpy_universal "
-                    "was compiled without cpyext support", modname)
+                "Module %s contains legacy methods, but _hpy_universal "
+                "was compiled without cpyext support", modname)
     #
     # add the native HPy defines
     if hpydef.c_defines:
@@ -38,6 +37,12 @@ def HPyModule_Create(space, ctx, hpydef):
                 space, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1
+    if hpydef.c_m_doc:
+        w_doc = space.newtext(rffi.constcharp2str(hpydef.c_m_doc))
+    else:
+        w_doc = space.w_None
+    space.setattr(w_mod, space.newtext('__doc__'), w_doc)
+    init_extra_module_attrs(space, w_mod)
     return handles.new(space, w_mod)
 
 

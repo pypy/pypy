@@ -65,12 +65,14 @@ Contributors
   Alex Martelli
   Spenser Bauman
   Michal Bendowski
+  Ondrej Baranovič
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -79,7 +81,6 @@ Contributors
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
-  nulano
   David Malcolm
   Yannick Jadoul
   Squeaky
@@ -87,6 +88,7 @@ Contributors
   Edd Barrett
   Marius Gedminas
   Laurence Tratt
+  Batuhan Taskaya
   Alexandre Fayolle
   Nicolas Truessel
   Simon Burton
@@ -95,12 +97,11 @@ Contributors
   Wenzhu Man
   John Witulski
   Jeremy Thurgood
+  Julian Berman
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
-  Simon Cross
   Mark Pearse
-  Julian Berman
   Andreas Stührk
   Tobias Pape
   Jean-Philippe St. Pierre
@@ -120,6 +121,7 @@ Contributors
   Joannah Nanjekye
   Georg Brandl
   quejebo
+  muke101
   Bert Freudenberg
   Gerald Klix
   Wanja Saatkamp
@@ -198,6 +200,7 @@ Contributors
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
+  Ricky Zhou
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -224,6 +227,7 @@ Contributors
   Anthony Sottile
   Arianna Avanzini
   Matt Billenstein
+  Sebastian Berg
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
@@ -325,6 +329,9 @@ Contributors
   Bolutife Ogunsola
   ashwinahuja
   cjmcdonald@google.com
+  Alex Orange
+  alexprengere
+  Dennis Sweeney
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -426,3 +433,5 @@ Contributors
   Henri Tuhola
   shaolo1
   Chris AtLee
+  Christoph Reiter
+  Chris Burr

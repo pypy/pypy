@@ -139831,32 +139831,6 @@ def numeric(code):
             raise
 
 _toupper = {
-97: 65,
-98: 66,
-99: 67,
-100: 68,
-101: 69,
-102: 70,
-103: 71,
-104: 72,
-105: 73,
-106: 74,
-107: 75,
-108: 76,
-109: 77,
-110: 78,
-111: 79,
-112: 80,
-113: 81,
-114: 82,
-115: 83,
-116: 84,
-117: 85,
-118: 86,
-119: 87,
-120: 88,
-121: 89,
-122: 90,
 181: 924,
 224: 192,
 225: 193,
@@ -140873,32 +140847,6 @@ _toupper = {
 _toupper_corrected = {
 }
 _tolower = {
-65: 97,
-66: 98,
-67: 99,
-68: 100,
-69: 101,
-70: 102,
-71: 103,
-72: 104,
-73: 105,
-74: 106,
-75: 107,
-76: 108,
-77: 109,
-78: 110,
-79: 111,
-80: 112,
-81: 113,
-82: 114,
-83: 115,
-84: 116,
-85: 117,
-86: 118,
-87: 119,
-88: 120,
-89: 121,
-90: 122,
 192: 224,
 193: 225,
 194: 226,
@@ -143062,6 +143010,10 @@ _special_casing_corrected = {
 }
 
 def toupper(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return code - 32
+        return code
     try:
         return _toupper[code]
     except KeyError:
@@ -143071,6 +143023,10 @@ def toupper(code):
             return code
 
 def tolower(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return code + 32
+        return code
     try:
         return _tolower[code]
     except KeyError:
@@ -143089,6 +143045,10 @@ def totitle(code):
             return code
 
 def toupper_full(code):
+    if code < 128:
+        if ord('a') <= code <= ord('z'):
+            return [code - 32]
+        return [code]
     try:
         return _special_casing[code][2]
     except KeyError:
@@ -143100,6 +143060,10 @@ def toupper_full(code):
     return [toupper(code)]
 
 def tolower_full(code):
+    if code < 128:
+        if ord('A') <= code <= ord('Z'):
+            return [code + 32]
+        return [code]
     try:
         return _special_casing[code][0]
     except KeyError:

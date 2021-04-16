@@ -8,7 +8,7 @@ def _string_from_asn1(asn1):
     return _str_with_len(ffi.cast("char*",data), length)
 
 def _str_with_len(char_ptr, length):
-    return ffi.buffer(char_ptr, length)[:].decode('utf-8')
+    return ffi.buffer(char_ptr, length)[:].decode('utf-8').strip('\n')
 
 def _bytes_with_len(char_ptr, length):
     return ffi.buffer(char_ptr, length)[:]

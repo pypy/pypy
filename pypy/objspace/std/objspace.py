@@ -55,6 +55,8 @@ class StdObjSpace(ObjSpace):
         self.FrameClass = frame.build_frame(self)
         self.StringObjectCls = W_BytesObject
         self.UnicodeObjectCls = W_UnicodeObject
+        self.IntObjectCls = W_IntObject
+        self.FloatObjectCls = W_FloatObject
 
         # singletons
         self.w_None = W_NoneObject.w_None

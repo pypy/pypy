@@ -7,7 +7,7 @@ from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.buffer import BufferView, SubBuffer
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.gateway import interp2app
+from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
 from rpython.rlib.unroll import unrolling_iterable
 
@@ -417,7 +417,7 @@ class W_MemoryView(W_Root):
         view = self.view
         ndim = 1
 
-        if not memory_view_c_contiguous(space, self.flags):
+        if not memory_view_c_contiguous(self.flags):
             raise oefmt(space.w_TypeError,
                         "memoryview: casts are restricted"
                         " to C-contiguous views")
@@ -549,15 +549,48 @@ class W_MemoryView(W_Root):
             i -= 1
         return s
 
-    def descr_hex(self, space):
+    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
+    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+        """
+        Return the data in the buffer as a str of hexadecimal numbers.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = memoryview(b'\xb9\x01\xef')
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
         self._check_released(space)
-        return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength())
+        return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength(),
+                sep=sep, bytes_per_sep=bytes_per_sep)
+
+
+    def w_get_c_contiguous(self, space):
+        return space.newbool(bool(memory_view_c_contiguous(self.flags)))
+
+    def w_get_f_contiguous(self, space):
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_FORTRAN)))
+
+    def w_get_contiguous(self, space):
+        return space.newbool(bool(self.flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C|MEMORYVIEW_FORTRAN)))
+
 
 def is_byte_format(char):
     return char == 'b' or char == 'B' or char == 'c'
 
-def memory_view_c_contiguous(space, flags):
+def memory_view_c_contiguous(flags):
     return flags & (MEMORYVIEW_SCALAR|MEMORYVIEW_C)
 
 W_MemoryView.typedef = TypeDef(
@@ -590,6 +623,9 @@ Create a new memoryview object which references the given object.
     strides     = GetSetProperty(W_MemoryView.w_get_strides),
     suboffsets  = GetSetProperty(W_MemoryView.w_get_suboffsets),
     obj         = GetSetProperty(W_MemoryView.w_get_obj),
+    c_contiguous= GetSetProperty(W_MemoryView.w_get_c_contiguous),
+    f_contiguous= GetSetProperty(W_MemoryView.w_get_f_contiguous),
+    contiguous  = GetSetProperty(W_MemoryView.w_get_contiguous),
     _pypy_raw_address = interp2app(W_MemoryView.descr_pypy_raw_address),
     )
 W_MemoryView.typedef.acceptable_as_base_class = False

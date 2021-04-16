@@ -1187,6 +1187,18 @@ class AppTestDictViews:
         assert (foo2, foo2_bis) in logger_copy
         assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
 
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)
+
 
 class AppTestStrategies(object):
     def setup_class(cls):
@@ -1373,6 +1385,10 @@ class FakeSpace:
         assert isinstance(integer, int)
         return integer
 
+    def float_w(self, fl, allow_conversion=True):
+        assert isinstance(fl, float)
+        return fl
+
     def wrap(self, obj):
         if isinstance(obj, str):
             return FakeUnicode(obj.decode('ascii'))
@@ -1392,6 +1408,8 @@ class FakeSpace:
 
     def new_interned_str(self, s):
         return s.decode('utf-8')
+
+    newint = newfloat = wrap
 
     def isinstance_w(self, obj, klass):
         return isinstance(obj, klass)
@@ -1433,6 +1451,8 @@ class FakeSpace:
     w_float = float
     StringObjectCls = FakeString
     UnicodeObjectCls = FakeUnicode
+    IntObjectCls = int
+    FloatObjectCls = float
     w_dict = W_DictObject
     iter = iter
     fixedview = list

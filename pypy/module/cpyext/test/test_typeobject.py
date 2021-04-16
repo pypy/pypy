@@ -372,6 +372,7 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
                 /* this is issue #2434: logic from pybind11 */
                 type->ht_type.tp_flags |= Py_TPFLAGS_HEAPTYPE;
                 type->ht_type.tp_name = ((PyTypeObject*)args)->tp_name;
+                type->ht_name = PyUnicode_FromString(type->ht_type.tp_name);
                 PyType_Ready(&type->ht_type);
                 ret = PyObject_SetAttrString((PyObject*)&type->ht_type,
                                     "__module__", name);
@@ -528,6 +529,13 @@ class AppTestTypeObject(AppTestCpythonExtensionBase):
         else:  # XXX: bug in CPython?
             assert module.HeapType.__text_signature__ is None
         assert module.HeapType.__doc__ == 'A type with a signature'
+
+    def test_heaptype_attributes(self):
+        module = self.import_module(name='docstrings')
+        htype = module.HeapType
+        assert htype.__module__ == 'docstrings'
+        assert htype.__name__ == 'HeapType'
+        assert htype.__qualname__ == 'HeapType'
 
 
 class TestTypes(BaseApiTest):
@@ -1452,23 +1460,13 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                 Base1->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base2->tp_basicsize = sizeof(PyHeapTypeObject);
                 Base12->tp_basicsize = sizeof(PyHeapTypeObject);
-                #ifndef PYPY_VERSION /* PyHeapTypeObject has no ht_qualname nor ht_name on PyPy */
-                #if PY_MAJOR_VERSION >= 3 && PY_MINOR_VERSION >= 3
-                {
-                  PyObject * dummyname = PyBytes_FromString("dummy name");
-                  ((PyHeapTypeObject*)Base1)->ht_qualname = dummyname;
-                  ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
-                  ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
-                }
-                #elif PY_MAJOR_VERSION == 2
-                {
-                  PyObject * dummyname = PyBytes_FromString("dummy name");
-                  ((PyHeapTypeObject*)Base1)->ht_name = dummyname;
-                  ((PyHeapTypeObject*)Base2)->ht_name = dummyname;
-                  ((PyHeapTypeObject*)Base12)->ht_name = dummyname;
-                }
-                #endif
-                #endif
+                PyObject * dummyname = PyUnicode_FromString("dummy name");
+                ((PyHeapTypeObject*)Base1)->ht_qualname = dummyname;
+                ((PyHeapTypeObject*)Base2)->ht_qualname = dummyname;
+                ((PyHeapTypeObject*)Base12)->ht_qualname = dummyname;
+                ((PyHeapTypeObject*)Base1)->ht_name = PyUnicode_FromString("Base1");
+                ((PyHeapTypeObject*)Base2)->ht_name = PyUnicode_FromString("Base2");
+                ((PyHeapTypeObject*)Base12)->ht_name = PyUnicode_FromString("Base12");
                 Base1->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base2->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
                 Base12->tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HEAPTYPE;

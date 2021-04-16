@@ -647,9 +647,27 @@ class W_BytesObject(W_AbstractBytesObject):
 
     # auto-conversion fun
 
-    _StringMethods_descr_add = descr_add
-    def descr_add(self, space, w_other):
-        return self._StringMethods_descr_add(space, w_other)
+    @unwrap_spec(count=int)
+    def descr_replace(self, space, w_old, w_new, count=-1):
+        from rpython.rlib.rstring import replace
+        # almost copy of StringMethods.descr_replace :-(
+        input = self._value
+
+        sub = self._op_val(space, w_old)
+        by = self._op_val(space, w_new)
+        # the following two lines are for being bug-to-bug compatible
+        # with CPython: see issue #2448
+        if count >= 0 and len(input) == 0:
+            return self._empty()
+        try:
+            res = replace(input, sub, by, count)
+        except OverflowError:
+            raise oefmt(space.w_OverflowError, "replace string is too long")
+        # difference: reuse self if no replacement was done
+        if type(self) is W_BytesObject and res is input:
+            return self
+
+        return self._new(res)
 
     _StringMethods_descr_join = descr_join
     def descr_join(self, space, w_list):
@@ -669,9 +687,31 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    def descr_hex(self, space):
+    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
+    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+        """
+        Create a str of hexadecimal numbers from a bytes object.
+
+          sep
+            An optional single character or byte to separate hex bytes.
+          bytes_per_sep
+            How many bytes between separators.  Positive values count from the
+            right, negative values count from the left.
+
+        Example:
+        >>> value = b'\xb9\x01\xef'
+        >>> value.hex()
+        'b901ef'
+        >>> value.hex(':')
+        'b9:01:ef'
+        >>> value.hex(':', 2)
+        'b9:01ef'
+        >>> value.hex(':', -2)
+        'b901:ef'
+        """
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
-        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1, len(self._value))
+        return _array_to_hexstring(space, StringBuffer(self._value), 0, 1,
+                                   len(self._value), sep=sep, bytes_per_sep=bytes_per_sep)
 
     def descr_mod(self, space, w_values):
         return mod_format(space, self, w_values, fmt_type=FORMAT_BYTES)

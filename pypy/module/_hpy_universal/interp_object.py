@@ -67,6 +67,12 @@ def HPy_SetAttr_s(space, ctx, h_obj, name, h_value):
     return API.int(0)
 
 
+@API.func("int HPyCallable_Check(HPyContext ctx, HPy h)", error_value='CANNOT_FAIL')
+def HPyCallable_Check(space, ctx, h_obj):
+    w_obj = handles.deref(space, h_obj)
+    return API.int(space.is_true(space.callable(w_obj)))
+
+
 @API.func("HPy HPy_GetItem(HPyContext ctx, HPy h_obj, HPy h_key)")
 def HPy_GetItem(space, ctx, h_obj, h_key):
     w_obj = handles.deref(space, h_obj)

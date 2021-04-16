@@ -7,6 +7,9 @@ class Module(MixedModule):
        'factorial' : 'app_math.factorial',
        'remainder' : 'app_math.remainder',
        'isqrt'     : 'app_math.isqrt',
+       'prod'      : 'app_math.prod',
+       'comb'      : 'app_math.comb',
+       'perm'      : 'app_math.perm',
     }
 
     interpleveldefs = {
@@ -20,6 +23,7 @@ class Module(MixedModule):
        'copysign'       : 'interp_math.copysign',
        'ldexp'          : 'interp_math.ldexp',
        'hypot'          : 'interp_math.hypot',
+       'dist'           : 'interp_math.dist',
        'tan'            : 'interp_math.tan',
        'asin'           : 'interp_math.asin',
        'fabs'           : 'interp_math.fabs',

@@ -20,6 +20,8 @@ class TestErr(HPyTest):
             mod.f()
 
     def test_FatalError(self):
+        import os
+        import sys
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
             static HPy f_impl(HPyContext ctx, HPy self)
@@ -33,8 +35,21 @@ class TestErr(HPyTest):
             @EXPORT(f)
             @INIT
         """)
-        # Calling mod.f() gives a fatal error, ending in abort().
-        # How to check that?  For now we just check that the above compiles
+        if not self.supports_sys_executable():
+            # if sys.executable is not available (e.g. inside pypy app-level)
+            # tests, then skip the rest of this test
+            return
+        # subprocess is not importable in pypy app-level tests
+        import subprocess
+        env = os.environ.copy()
+        env["PYTHONPATH"] = os.path.dirname(mod.__file__)
+        result = subprocess.run([
+            sys.executable,
+            "-c", "import {} as mod; mod.f()".format(mod.__name__)
+        ], env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        assert result.returncode == -6
+        assert result.stdout == b""
+        assert result.stderr.startswith(b"Fatal Python error: boom!\n")
 
     def test_HPyErr_Occurred(self):
         import pytest
@@ -233,10 +248,6 @@ class TestErr(HPyTest):
         check_exception(EnvironmentError)
         check_exception(IOError)
 
-    @pytest_collecting.mark.xfail(True, reason=(
-        "Creating the unicode exceptions requires something like HPyCall"
-        " and that isn't implemented yet."
-    ))
     def test_h_unicode_exceptions(self):
         import pytest
         mod = self.make_module("""
@@ -264,7 +275,7 @@ class TestErr(HPyTest):
                     HPy_Close(ctx, h_dict);
                     return HPy_NULL;
                 }
-                h_err_value = HPy_Call(ctx, h_err, h_args, h_kw);
+                h_err_value = HPy_CallTupleDict(ctx, h_err, h_args, h_kw);
                 if (HPy_IsNull(h_err_value)) {
                     HPy_Close(ctx, h_dict);
                     HPy_Close(ctx, h_err);

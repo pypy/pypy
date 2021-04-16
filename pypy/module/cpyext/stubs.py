@@ -405,22 +405,6 @@ def PyUnicodeDecodeError_SetReason(space, exc, reason):
     0 on success, -1 on failure."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
-    """Create a Python file object from the file descriptor of an already
-    opened file fd.  The arguments name, encoding, errors and newline
-    can be NULL to use the defaults; buffering can be -1 to use the
-    default. name is ignored and kept for backward compatibility. Return
-    NULL on failure. For a more comprehensive description of the arguments,
-    please refer to the io.open() function documentation.
-
-    Since Python streams have their own buffering layer, mixing them with
-    OS-level file descriptors can produce various issues (such as unexpected
-    ordering of data).
-
-    Ignore name attribute."""
-    raise NotImplementedError
-
 @cpython_api([], PyObject)
 def PyFloat_GetInfo(space):
     """Return a structseq instance which contains information about the
@@ -1167,12 +1151,6 @@ def PyMethod_ClearFreeList(space):
     """
     raise NotImplementedError
 
-@cpython_api([PyObject], rffi.INT_real, error=CANNOT_FAIL)
-def PyModule_CheckExact(space, p):
-    """Return true if p is a module object, but not a subtype of
-    PyModule_Type."""
-    raise NotImplementedError
-
 @cpython_api([PyObject], rffi.CCHARP)
 def PyModule_GetFilename(space, module):
     """Similar to PyModule_GetFilenameObject() but return the filename
@@ -1568,15 +1546,6 @@ def PyUnicode_RichCompare(space, left, right, op):
 
     Possible values for op are Py_GT, Py_GE, Py_EQ,
     Py_NE, Py_LT, and Py_LE."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, PyObject], rffi.INT_real, error=-1)
-def PyUnicode_Contains(space, container, element):
-    """Check whether element is contained in container and return true or false
-    accordingly.
-
-    element has to coerce to a one element Unicode string. -1 is returned if
-    there was an error."""
     raise NotImplementedError
 
 

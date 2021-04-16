@@ -7,6 +7,7 @@ import sys, os, re, runpy, subprocess
 import shutil
 from rpython.tool.udir import udir
 from contextlib import contextmanager
+import textwrap
 from pypy import pypydir
 from pypy.conftest import PYTHON3, LOOK_FOR_PYTHON3
 from pypy.interpreter.test.conftest import banner

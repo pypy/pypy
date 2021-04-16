@@ -1008,10 +1008,10 @@ for name in SSL_CTX_STATS_NAMES:
     SSL_CTX_STATS.append((name, getattr(lib, attr)))
 
 class _SSLContext(object):
-    __slots__ = ('ctx', '_check_hostname', 'servername_callback',
+    __slots__ = ('ctx', '_check_hostname',
                  'alpn_protocols', '_alpn_protocols_handle', '_protocol'
                  'npn_protocols', 'set_hostname', '_post_handshake_auth',
-                 '_sni_cb', '_npn_protocols_handle')
+                 '_sni_cb', '_sni_cb_handle', '_npn_protocols_handle')
     def __new__(cls, protocol):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
@@ -1451,13 +1451,15 @@ class _SSLContext(object):
                     "is not in the current OpenSSL library.")
         if cb is None:
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
-            self._sni_cb= None
+            self._sni_cb = None
+            lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, ffi.NULL)
+            self._sni_cb_handle = None
             return
         if not callable(cb):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
         self._sni_cb = ServernameCallback(cb, self)
-        sni_cb = ffi.new_handle(self._sni_cb)
+        self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
         lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
 

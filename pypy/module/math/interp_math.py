@@ -122,12 +122,112 @@ def ldexp(space, w_x,  w_i):
         raise oefmt(space.w_ValueError, "math domain error")
     return space.newfloat(r)
 
-def hypot(space, w_x, w_y):
-    """hypot(x,y)
-
-       Return the Euclidean distance, sqrt(x*x + y*y).
+def hypot(space, args_w):
     """
-    return math2(space, math.hypot, w_x, w_y)
+    Multidimensional Euclidean distance from the origin to a point.
+
+    Roughly equivalent to:
+        sqrt(sum(x**2 for x in args))
+
+    For a two dimensional point (x, y), gives the hypotenuse
+    using the Pythagorean theorem:  sqrt(x*x + y*y).
+
+    For example, the hypotenuse of a 3/4/5 right triangle is:
+
+        >>> hypot(3.0, 4.0)
+        5.0
+    """
+    vec = [0.0] * len(args_w)
+    found_nan = False
+    max = 0.0
+    for i in range(len(args_w)):
+        w_x = args_w[i]
+        x = math.fabs(_get_double(space, w_x))
+        found_nan = math.isnan(x) or found_nan
+        if x > max:
+            max = x
+        vec[i] = x
+    result = _vector_norm(vec, max, found_nan)
+    return space.newfloat(result)
+
+def dist(space, w_p, w_q):
+    """
+    Return the Euclidean distance between two points p and q.
+
+    The points should be specified as sequences (or iterables) of
+    coordinates.  Both inputs must have the same dimension.
+
+    Roughly equivalent to:
+        sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p, q)))
+    """
+    p_w = space.unpackiterable(w_p)
+    q_w = space.unpackiterable(w_q)
+    if len(p_w) != len(q_w):
+        raise oefmt(space.w_ValueError, "both points must have the same number of dimensions")
+
+    vec = [0.0] * len(p_w)
+    found_nan = False
+    max = 0.0
+    for i in range(len(p_w)):
+        px = _get_double(space, p_w[i])
+        qx = _get_double(space, q_w[i])
+        x = math.fabs(px - qx)
+        found_nan = math.isnan(x) or found_nan
+        if x > max:
+            max = x
+        vec[i] = x
+    result = _vector_norm(vec, max, found_nan)
+    return space.newfloat(result)
+
+
+def _vector_norm(vec, max, found_nan):
+    # code and comment from CPython's vector_norm
+
+    # Given an *n* length *vec* of values and a value *max*, compute:
+    #
+    #     max * sqrt(sum((x / max) ** 2 for x in vec))
+    #
+    # The value of the *max* variable must be non-negative and equal to the
+    # absolute value of the largest magnitude entry in the vector.  If n==0,
+    # then *max* should be 0.0. If an infinity is present in the vec, *max*
+    # should be INF.
+    #
+    # The *found_nan* variable indicates whether some member of the *vec* is a
+    # NaN.
+    #
+    # To improve accuracy and to increase the number of cases where
+    # vector_norm() is commutative, we use a variant of Neumaier summation
+    # specialized to exploit that we always know that |csum| >= |x|.
+    #
+    # The *csum* variable tracks the cumulative sum and *frac* tracks the
+    # cumulative fractional errors at each step.  Since this variant assumes
+    # that |csum| >= |x| at each step, we establish the precondition by
+    # starting the accumulation from 1.0 which represents the largest possible
+    # value of (x/max)**2.
+    #
+    # After the loop is finished, the initial 1.0 is subtracted out for a net
+    # zero effect on the final sum.  Since *csum* will be greater than 1.0, the
+    # subtraction of 1.0 will not cause fractional digits to be dropped from
+    # *csum*.
+
+    x = csum = 1.0
+    oldsum = frac = 0.0
+    if math.isinf(max):
+        return max
+    if found_nan:
+        return rfloat.NAN
+    if max == 0.0 or len(vec) <= 1:
+        return max
+    for x in vec:
+        assert rfloat.isfinite(x) and math.fabs(x) <= max
+        x /= max
+        x = x * x
+        oldcsum = csum
+        csum += x
+        assert csum >= x
+        frac += (oldcsum - csum) + x
+    return max * math.sqrt(csum - 1.0 + frac)
+
 
 def tan(space, w_x):
     """tan(x)

@@ -666,6 +666,19 @@ class AppTestAppFloatTest:
             float(x=1)
         assert "got a positional-only argument passed as keyword argument: 'x'" in str(info.value)
 
+    def test_float_constructor_calls_index(self):
+        class A:
+            def __index__(self):
+                return 25
+        assert float(A()) == 25.0
+
+        reallybig = 1 << 1000
+        class A:
+            def __index__(self):
+                return reallybig
+        assert float(A()) == float(reallybig)
+
+
 class AppTestFloatHex:
     spaceconfig = {
         'usemodules': ['binascii', 'time', 'struct'],

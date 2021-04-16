@@ -1243,7 +1243,8 @@ class A:
     def __del__(self):
         warn("test")
 
-a=A()
+A()
+import gc; gc.collect()
         """
         rc, out, err = assert_python_ok("-c", code)
         self.assertEqual(err.decode(), '<string>:7: UserWarning: test')

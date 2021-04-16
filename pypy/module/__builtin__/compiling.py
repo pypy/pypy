@@ -36,7 +36,8 @@ in addition to any features explicitly specified.
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
                  consts.PyCF_DONT_IMPLY_DEDENT | consts.PyCF_SOURCE_IS_UTF8 |
-                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS):
+                 consts.PyCF_ACCEPT_NULL_BYTES | consts.PyCF_TYPE_COMMENTS |
+                 consts.PyCF_ALLOW_TOP_LEVEL_AWAIT):
         raise oefmt(space.w_ValueError, "compile() unrecognized flags")
 
     only_ast = flags & consts.PyCF_ONLY_AST
@@ -94,6 +95,7 @@ If only globals is given, locals defaults to it.
 
     if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
         code = space.interp_w(PyCode, w_prog)
+        space.audit("exec", [w_prog])
     else:
         source, flags = source_as_str(space, w_prog, 'eval',
                                       "string, bytes or code",
@@ -109,6 +111,18 @@ If only globals is given, locals defaults to it.
     return code.exec_code(space, w_globals, w_locals)
 
 def exec_(space, w_prog, w_globals=None, w_locals=None):
+    """
+    exec(source, globals=None, locals=None, /)
+
+    Execute the given source in the context of globals and locals.
+
+    The source may be a string representing one or more Python statements
+    or a code object as returned by compile().
+    The globals must be a dictionary and locals can be any mapping,
+    defaulting to the current globals and locals.
+    If only globals is given, locals defaults to it.
+    """
+
     frame = space.getexecutioncontext().gettopframe()
     frame.exec_(w_prog, w_globals, w_locals)
 

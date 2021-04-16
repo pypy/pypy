@@ -37,6 +37,7 @@ class TestThread(BaseTestPyPyC):
             except ImportError:
                 from thread import _local
             local = _local()
+            local.x = "abc" # prevent type unboxing
             local.x = 1
             i = 0
             while i < n:

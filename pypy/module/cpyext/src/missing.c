@@ -13,10 +13,10 @@ int Py_VerboseFlag = 0;
 int Py_QuietFlag = 0;
 int Py_InteractiveFlag = 0;
 int Py_InspectFlag = 0;
-int Py_OptimizeFlag = 0;
+/* intentionally set to -1 for test, should be reset at startup */
+int Py_OptimizeFlag = -1;
 int Py_NoSiteFlag = 0;
 int Py_BytesWarningFlag = 0;
-int Py_UseClassExceptionsFlag = 0;
 int Py_FrozenFlag = 0;
 int Py_IgnoreEnvironmentFlag = 0;
 int Py_DontWriteBytecodeFlag = 0;

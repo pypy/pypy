@@ -292,8 +292,6 @@ class __extend__(pyframe.PyFrame):
                 self.DELETE_FAST(oparg, next_instr)
             elif opcode == opcodedesc.SETUP_ANNOTATIONS.index:
                 self.SETUP_ANNOTATIONS(oparg, next_instr)
-            elif opcode == opcodedesc.STORE_ANNOTATION.index:
-                self.STORE_ANNOTATION(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_GLOBAL.index:
                 self.DELETE_GLOBAL(oparg, next_instr)
             elif opcode == opcodedesc.DELETE_NAME.index:
@@ -615,8 +613,6 @@ class __extend__(pyframe.PyFrame):
     BINARY_MULTIPLY = binaryoperation("mul")
     BINARY_TRUE_DIVIDE  = binaryoperation("truediv")
     BINARY_FLOOR_DIVIDE = binaryoperation("floordiv")
-    BINARY_DIVIDE       = binaryoperation("div")
-    # XXX BINARY_DIVIDE must fall back to BINARY_TRUE_DIVIDE with -Qnew
     BINARY_MODULO       = binaryoperation("mod")
     BINARY_MATRIX_MULTIPLY = binaryoperation("matmul")
     BINARY_ADD      = binaryoperation("add")
@@ -743,6 +739,7 @@ class __extend__(pyframe.PyFrame):
         flags = ec.compiler.getcodeflags(self.pycode)
 
         if space.isinstance_w(w_prog, space.gettypeobject(PyCode.typedef)):
+            space.audit("exec", [w_prog])
             code = space.interp_w(PyCode, w_prog)
         else:
             from pypy.interpreter.astcompiler import consts
@@ -841,7 +838,7 @@ class __extend__(pyframe.PyFrame):
             if not e.match(self.space, self.space.w_KeyError):
                 raise
             raise oefmt(self.space.w_NameError,
-                        "__annotations__ not found")
+                        "name %R is not defined", w_varname)
 
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
@@ -948,19 +945,6 @@ class __extend__(pyframe.PyFrame):
         if not self.space.finditem_str(w_locals, '__annotations__'):
             w_annotations = self.space.newdict()
             self.space.setitem_str(w_locals, '__annotations__', w_annotations)
-
-    def STORE_ANNOTATION(self, varindex, next_instr):
-        space = self.space
-        varname = self.getname_u(varindex)
-        w_newvalue = self.popvalue()
-        w_locals = self.getorcreatedebug().w_locals
-        try:
-            w_annotations = space.getitem(w_locals, space.newtext('__annotations__'))
-        except OperationError as e:
-            if e.match(space, space.w_KeyError):
-                raise oefmt(space.w_NameError, CANNOT_CATCH_MSG)
-            raise
-        self.space.setitem_str(w_annotations, varname, w_newvalue)
 
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
@@ -1240,8 +1224,23 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
-    def FOR_LOOP(self, oparg, next_instr):
-        raise BytecodeCorruption("old opcode, no longer in use")
+    def _report_stopiteration_sometimes(self, w_iterator, operr):
+        # CPython 3.5 calls the exception trace in an ill-defined subset
+        # of cases: only if tp_iternext returned NULL and set a
+        # StopIteration exception, but not if tp_iternext returned NULL
+        # *without* setting an exception.  We can't easily emulate that
+        # behavior at this point.  For example, the generator's
+        # tp_iternext uses one or other case depending on whether the
+        # generator is already exhausted or just exhausted now.  We'll
+        # classify that as a CPython incompatibility and use an
+        # approximative rule: if w_iterator is a generator-iterator,
+        # we always report it; if operr has already a stack trace
+        # attached (likely from a custom __iter__() method), we also
+        # report it; in other cases, we don't.
+        from pypy.interpreter.generator import GeneratorOrCoroutine
+        if (isinstance(w_iterator, GeneratorOrCoroutine) or
+                operr.has_any_traceback()):
+            self.space.getexecutioncontext().exception_trace(self, operr)
 
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self.valuestackdepth,

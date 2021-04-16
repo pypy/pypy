@@ -9,7 +9,10 @@ import math as _math
 import sys
 
 # for cpyext, use these as base classes
-from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
+try:
+    from __pypy__._pypydatetime import dateinterop, deltainterop, timeinterop
+except ImportError:
+    dateinterop = deltainterop = timeinterop = object
 
 def _cmp(x, y):
     return 0 if x == y else 1 if x > y else -1

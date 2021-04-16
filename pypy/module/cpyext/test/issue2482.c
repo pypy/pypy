@@ -21,6 +21,7 @@ PyObject *make_object_base_type(void) {
 
     PyTypeObject *type = &heap_type->ht_type;
     if (!heap_type) return NULL;
+    heap_type->ht_name = PyUnicode_FromString(name);
     type->tp_name = name;
 #ifdef ISSUE_2482
     type->tp_base = &PyBaseObject_Type; /*fails */
@@ -96,6 +97,7 @@ initissue2482(void)
 
     type = &heap_type->ht_type;
     type->tp_name = name;
+    heap_type->ht_name = PyUnicode_FromString(name);
 
     base = make_object_base_type();
     if (! base) INITERROR;

@@ -7,6 +7,7 @@ from __future__ import generators
 import re, os, math
 import pygame
 from pygame.locals import *
+
 from strunicode import forceunicode
 
 
@@ -702,6 +703,15 @@ def getcolor(name, default):
     else:
         return default
 
+def ensure_readable(fgcolor, bgcolor):
+    if bgcolor is None:
+        return fgcolor
+    r, g, b = bgcolor
+
+    l = 0.2627 * r + 0.6780 * g + 0.0593 * b
+    if l < 70:
+        return (255, 255, 255)
+    return fgcolor
 
 class GraphLayout:
     fixedfont = False
@@ -783,7 +793,8 @@ class Edge:
                        for i in range(0, cnt*2, 2)]
         rest = rest[cnt*2:]
         if len(rest) > 2:
-            self.label, xl, yl = rest[:3]
+            label, xl, yl = rest[:3]
+            self.label = forceunicode(label)
             self.xl = float(xl)
             self.yl = float(yl)
             rest = rest[3:]
@@ -898,11 +909,15 @@ def segmentdistance((x0,y0), (x1,y1), (x,y)):
 
 class GraphRenderer:
     MARGIN = 0.6
-    SCALEMIN = 3
-    SCALEMAX = 100
     FONTCACHE = {}
     
-    def __init__(self, screen, graphlayout, scale=75):
+    def __init__(self, screen, graphlayout, scale=75, highdpi=False):
+        if highdpi:
+            self.SCALEMIN = 10
+            self.SCALEMAX = 200
+        else:
+            self.SCALEMIN = 3
+            self.SCALEMAX = 100
         self.graphlayout = graphlayout
         self.setscale(scale)
         self.setoffset(0, 0)
@@ -1280,6 +1295,7 @@ class GraphRenderer:
 class TextSnippet:
     
     def __init__(self, renderer, text, fgcolor, bgcolor=None, font=None):
+        fgcolor = ensure_readable(fgcolor, bgcolor)
         self.renderer = renderer
         self.imgs = []
         self.parts = []

@@ -269,6 +269,30 @@ corresponding Unix manual entries for more information on calls."""
             if getattr(rposix, _name) is not None:
                 interpleveldefs[_name] = 'space.wrap(%d)' % getattr(rposix, _name)
 
+    if hasattr(rposix, 'memfd_create'):
+        interpleveldefs['memfd_create'] = 'interp_posix.memfd_create'
+        for name in """
+                MFD_CLOEXEC
+                MFD_ALLOW_SEALING
+                MFD_CLOEXEC
+                MFD_HUGETLB
+                MFD_HUGE_SHIFT
+                MFD_HUGE_MASK
+                MFD_HUGE_64KB
+                MFD_HUGE_512KB
+                MFD_HUGE_1MB
+                MFD_HUGE_2MB
+                MFD_HUGE_8MB
+                MFD_HUGE_16MB
+                MFD_HUGE_32MB
+                MFD_HUGE_256MB
+                MFD_HUGE_512MB
+                MFD_HUGE_1GB
+                MFD_HUGE_2GB
+                MFD_HUGE_16GB
+                """.split():
+            if getattr(rposix, name, None) is not None:
+                interpleveldefs[name] = 'space.wrap(%d)' % getattr(rposix, name)
 
     def startup(self, space):
         from pypy.module.posix import interp_posix

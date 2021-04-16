@@ -456,6 +456,17 @@ class TestMMap:
 
         compile(func, [int], gcpolicy='boehm')
 
+    @py.test.mark.skipif("not mmap.has_madvise")
+    def test_translated_madvise_bug(self):
+        from rpython.translator.c.test.test_genc import compile
+
+        def func():
+            m = mmap.mmap(-1, 8096)
+            m.madvise(mmap.MADV_NORMAL, 0, 8096)
+            m.close()
+
+        compile(func, [], gcpolicy='boehm')
+
     def test_windows_crasher_1(self):
         if sys.platform != "win32":
             py.test.skip("Windows-only test")
@@ -484,6 +495,13 @@ class TestMMap:
         py.test.raises(WindowsError, m.resize, 0)
         py.test.raises(RValueError, m.getitem, 0)
         m.close()
+
+    @py.test.mark.skipif("not mmap.has_madvise")
+    def test_madvise(self):
+        m = mmap.mmap(-1, 8096)
+        m.madvise(mmap.MADV_NORMAL, 0, 8096)
+        m.close()
+
 
 def test_alloc_free():
     map_size = 65536

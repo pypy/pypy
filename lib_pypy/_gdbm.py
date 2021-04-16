@@ -38,7 +38,7 @@ class gdbm(object):
     def close(self):
         with _lock:
             if self.__ll_dbm:
-                lib.gdbm_close(self.__ll_dbm)
+                lib.pygdbm_close(self.__ll_dbm)
                 self.__ll_dbm = None
 
     def __raise_from_errno(self):

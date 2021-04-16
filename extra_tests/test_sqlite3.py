@@ -4,6 +4,7 @@
 from __future__ import absolute_import
 import pytest
 import sys
+import gc
 
 _sqlite3 = pytest.importorskip('_sqlite3')
 
@@ -346,6 +347,38 @@ def test_isolation_bug():
     #con.isolation_level = None
     cur = con.cursor()
     cur.execute("create table foo(x);")
+
+def test_reset_of_shared_statement(con):
+    con = _sqlite3.connect(':memory:')
+    c0 = con.cursor()
+    c0.execute('CREATE TABLE data(n int, t int)')
+    # insert two values
+    c0.execute('INSERT INTO data(n, t) VALUES(?, ?)', (0, 1))
+    c0.execute('INSERT INTO data(n, t) VALUES(?, ?)', (1, 2))
+
+    c1 = con.execute('select * from data')
+    list(c1) # c1's statement is no longer in use afterwards
+    c2 = con.execute('select * from data')
+    # the statement between c1 and c2 is shared
+    assert c1._Cursor__statement is c2._Cursor__statement
+    val = next(c2)
+    assert val == (0, 1)
+    c1 = None # make c1 unreachable
+    gc.collect() # calling c1.__del__ used to reset c2._Cursor__statement!
+    val = next(c2)
+    assert val == (1, 2)
+    with pytest.raises(StopIteration):
+        next(c2)
+
+def test_row_index_unicode(con):
+    import sqlite3
+    con.row_factory = sqlite3.Row
+    row = con.execute("select 1 as \xff").fetchone()
+    assert row["\xff"] == 1
+    with pytest.raises(IndexError):
+        row['\u0178']
+    with pytest.raises(IndexError):
+        row['\xdf']
 
 @pytest.mark.skipif(not hasattr(_sqlite3.Connection, "backup"), reason="no backup")
 class TestBackup:

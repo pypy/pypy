@@ -240,6 +240,9 @@ class W_FloatObject(W_Root):
             elif space.is_w(w_floattype, space.w_float):
                 return w_obj
             value = space.float_w(w_obj)
+        elif space.lookup(w_value, "__index__") is not None:
+            w_obj = space.index(w_value)
+            return space.float(w_obj)
         elif space.isinstance_w(w_value, space.w_unicode):
             from unicodeobject import unicode_to_decimal_w
             value = _string_to_float(space, w_value,

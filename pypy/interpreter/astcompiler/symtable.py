@@ -2,7 +2,7 @@
 Symbol tabling building.
 """
 
-from pypy.interpreter.astcompiler import ast, misc
+from pypy.interpreter.astcompiler import ast, consts, misc
 from pypy.interpreter.pyparser.error import SyntaxError
 
 # These are for internal use only:
@@ -237,9 +237,13 @@ class Scope(object):
 
 class ModuleScope(Scope):
 
-    def __init__(self):
+    def __init__(self, allow_top_level_await=False):
         Scope.__init__(self, "<top-level>")
+        self.allow_top_level_await = allow_top_level_await
 
+    def note_await(self, await_node):
+        if not self.allow_top_level_await:
+            Scope.note_await(self, await_node)
 
 class FunctionScope(Scope):
 
@@ -356,7 +360,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         self.scopes = {}
         self.scope = None
         self.stack = []
-        top = ModuleScope()
+        allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        top = ModuleScope(allow_top_level_await=allow_top_level_await)
         self.globs = top.roles
         self.push_scope(top, module)
         try:

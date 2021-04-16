@@ -10,8 +10,6 @@ syntax: glob
 .vscode
 __pycache__
 .venv
-.cache
-
 .cache/
 .gdb_history
 syntax: regexp
@@ -100,5 +98,5 @@ syntax: regexp
 .hypothesis/
 ^release/
 ^rpython/_cache$
-^lib
+^lib/
 ^extra_tests/hpy_tests/_vendored$

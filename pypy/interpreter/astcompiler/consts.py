@@ -37,6 +37,7 @@ PyCF_IGNORE_COOKIE = 0x0800
 PyCF_ACCEPT_NULL_BYTES = 0x10000000   # PyPy only, for compile()
 PyCF_FOUND_ENCODING = 0x20000000      # PyPy only, for pytokenizer
 PyCF_TYPE_COMMENTS = 0x40000000
+PyCF_ALLOW_TOP_LEVEL_AWAIT = 0x80000000
 
 # Masks and values used by FORMAT_VALUE opcode
 FVC_MASK      = 0x3
