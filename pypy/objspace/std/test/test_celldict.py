@@ -153,7 +153,14 @@ class AppTestModuleDict(object):
         print(l)
         assert l == ['def', 'xyz']
         assert __pypy__.strategy(d) == "ModuleDictStrategy"
+        l = [v for v in reversed(d.values()) if v is not None and v != "abc"]
+        print(l)
+        assert l == [654, 123]
+        assert __pypy__.strategy(d) == "ModuleDictStrategy"
 
+        l = [(key, value) for (key, value) in reversed(d.items()) if not key.startswith("__")]
+        print(l)
+        assert l == [('def', 654), ('xyz', 123)]
 
 
 class TestModuleDictImplementation(BaseTestRDictImplementation):
