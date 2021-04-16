@@ -562,11 +562,16 @@ class W_ListObject(W_Root):
             if (space.is_w(w_index.w_start, space.w_None) and
                     space.is_w(w_index.w_stop, space.w_None) and
                     space.is_w(w_index.w_step, space.w_None)):
-                if space.is_w(self, w_any):
-                    return
                 # use the extend logic
+                if isinstance(w_any, W_ListObject):
+                    if space.is_w(self, w_any):
+                        return
+                    w_other = w_any
+                else:
+                    sequence_w = space.listview(w_any)
+                    w_other = W_ListObject(space, sequence_w)
                 self.clear(space)
-                self.extend(w_any)
+                w_other.copy_into(self)
                 return
 
             oldsize = self.length()
