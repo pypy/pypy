@@ -6,7 +6,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from .interp_extfunc import W_ExtensionFunction
 from .buffer import HPyBuffer, HPY_BUFFER_FQ
@@ -337,8 +337,10 @@ class W_tp_new_wrapper(W_ExtensionFunction):
     """
 
     def __init__(self, space, cfuncptr, w_type):
-        W_ExtensionFunction.__init__(self, space, '__new__', llapi.HPyFunc_KEYWORDS,
-                                     None, cfuncptr, w_self=w_type)
+        handles = State.get(space).handles
+        W_ExtensionFunction.__init__(self, space, handles, '__new__',
+                                     llapi.HPyFunc_KEYWORDS, None, cfuncptr,
+                                     w_self=w_type)
 
     def call(self, space, h_self, __args__, skip_args=0):
         assert skip_args == 0
