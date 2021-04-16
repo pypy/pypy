@@ -497,7 +497,7 @@ class MIFrame(object):
                     print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
                     assert 0
             elif typ == 'f':
-                if not ConstFloat.fromfloat(resvalue).same_constant(tobox.constbox()):
+                if not ConstFloat(resvalue).same_constant(tobox.constbox()):
                     self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, [arraybox, indexbox])
                     self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
                     print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
@@ -756,7 +756,7 @@ class MIFrame(object):
                 assert resvalue == tobox.getref_base()
             elif typ == 'f':
                 # need to be careful due to NaNs etc
-                assert ConstFloat.fromfloat(resvalue).same_constant(tobox.constbox())
+                assert ConstFloat(resvalue).same_constant(tobox.constbox())
             return tobox
         resop = self.execute_with_descr(opnum, descr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
