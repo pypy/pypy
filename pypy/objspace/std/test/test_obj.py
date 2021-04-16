@@ -10,8 +10,6 @@ class AppTestObject:
         import sys
 
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(cpython_behavior)
-        cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
 
         def w_unwrap_wrap_unicode(space, w_obj):
@@ -20,15 +18,6 @@ class AppTestObject:
         def w_unwrap_wrap_bytes(space, w_obj):
             return space.newbytes(space.bytes_w(w_obj))
         cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
-
-    def test_hash_builtin(self):
-        if not self.cpython_behavior:
-            skip("on pypy-c id == hash is not guaranteed")
-        if self.cpython_version >= (2, 7):
-            skip("on CPython >= 2.7, id != hash")
-        import sys
-        o = object()
-        assert (hash(o) & sys.maxint) == (id(o) & sys.maxint)
 
     def test_hash_method(self):
         o = object()
@@ -47,8 +36,6 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxint) == (id(x) & sys.maxint)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -268,15 +255,13 @@ class AppTestObject:
 
     @pytest.mark.pypy_only
     def test_is_by_value(self):
-        for typ in [int, long, float, complex]:
+        for typ in [int, float, complex]:
             assert typ(42) is typ(42)
 
     def test_is_on_subclasses(self):
         for typ in [int, float, complex, str]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ not in (str, unicode):
-                assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
             assert typ(42) is not mytyp(42)
