@@ -485,11 +485,23 @@ class MIFrame(object):
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         op, arraydescr, arraybox, indexbox)
             if typ == 'i':
-                assert resvalue == tobox.getint()
+                if resvalue != tobox.getint():
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
+                    assert 0
             elif typ == 'r':
-                assert resvalue == tobox.getref_base()
+                if resvalue != tobox.getref_base():
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
+                    assert 0
             elif typ == 'f':
-                assert ConstFloat.fromfloat(resvalue).same_constant(tobox.constbox())
+                if not ConstFloat.fromfloat(resvalue).same_constant(tobox.constbox()):
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
+                    assert 0
             else:
                 assert 0, "unreachable"
             return tobox
