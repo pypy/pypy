@@ -1252,6 +1252,19 @@ class AppTestWithMapDict(object):
         res = list(d.items())
         assert res == [('x', 'a'), ('y', 1), ('z', 'b')]
 
+    def test_iter_reversed(self):
+        class A(object):
+            pass
+        a = A()
+        a.a = 2
+        a.b = 3
+        a.c = 4
+        d = a.__dict__
+        assert list(reversed(d)) == ['c', 'b', 'a']
+        assert list(reversed(d.keys())) == ['c', 'b', 'a']
+        assert list(reversed(d.values())) == [4, 3, 2]
+        assert list(reversed(d.items())) == [('c', 4), ('b', 3), ('a', 2)]
+
 
 @pytest.mark.skipif('config.option.runappdirect')
 class AppTestWithMapDictAndCounters(object):

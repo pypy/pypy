@@ -1075,6 +1075,11 @@ class MapDictStrategy(DictStrategy):
     def iteritems(self, w_dict):
         return MapDictIteratorItems(self.space, self, w_dict)
 
+    def iterreversed(self, w_dict):
+        return MapDictKeyIteratorReversed(self.space, self, w_dict)
+
+
+
 def make_instance_dict(space):
     w_fake_object = Object()
     terminator = space.fromcache(get_terminator_for_dicts)
@@ -1164,6 +1169,30 @@ class MapDictIteratorItems(BaseItemIterator):
             return w_attr, self.w_obj.getdictvalue(self.space, attr)
         return None, None
 
+class MapDictKeyIteratorReversed(BaseKeyIterator):
+    def __init__(self, space, strategy, w_dict):
+        BaseKeyIterator.__init__(self, space, strategy, w_dict)
+        w_obj = strategy.unerase(w_dict.dstorage)
+        self.w_obj = w_obj
+        curr_map = w_obj._get_mapdict_map()
+        attrs = []
+        while True:
+            curr_map = curr_map.search(DICT)
+            if curr_map is None:
+                break
+            attrs.append(curr_map.name)
+            curr_map = curr_map.back
+        attrs.reverse()
+        self.attrs = attrs
+
+    def next_key_entry(self):
+        assert isinstance(self.w_dict.get_strategy(), MapDictStrategy)
+        attrs = self.attrs
+        if len(attrs) > 0:
+            attr = attrs.pop()
+            w_attr = self.space.newtext(attr)
+            return w_attr
+        return None
 
 # ____________________________________________________________
 # Magic caching
