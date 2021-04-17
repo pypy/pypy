@@ -10,3 +10,9 @@ What's new in PyPy2.7 7.3.4+
 
 Speed up ``divmod`` for very large numbers. This also speeds up string
 formatting of big numbers.
+
+.. branch: jit-heapcache-interiorfields
+
+Optimize dictionary operations in the JIT a bit more, making it possible to
+completely optimize away the creation of dictionaries in more situations (such
+as calling the ``dict.update`` method on known dicts).
