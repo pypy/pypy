@@ -213,6 +213,18 @@ class TestRLong(object):
                 r2 = x % y
                 assert r1.tolong() == r2
 
+    def test_int_mod_int_result(self):
+        for x in gen_signs(long_vals):
+            op1 = rbigint.fromlong(x)
+            for y in signed_int_vals:
+                if not y:
+                    with pytest.raises(ZeroDivisionError):
+                        op1.int_mod_int_result(0)
+                    continue
+                r1 = op1.int_mod_int_result(y)
+                r2 = x % y
+                assert r1 == r2
+
     def test_pow(self):
         for op1 in gen_signs(long_vals_not_too_big):
             rl_op1 = rbigint.fromlong(op1)
@@ -1064,6 +1076,28 @@ class TestInternalFunctions(object):
         with pytest.raises(ZeroDivisionError):
             rbigint.fromlong(x).int_divmod(0)
 
+    def test_int_divmod_mod_int_result(self):
+        for x in long_vals:
+            for y in int_vals + [-sys.maxint-1]:
+                if not y:
+                    continue
+                for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
+                    sx *= x
+                    sy *= y
+                    if sy == sys.maxint + 1:
+                        continue
+                    f1 = rbigint.fromlong(sx)
+                    div, rem = f1.int_divmod_mod_int_result(sy)
+                    div1, rem1 = f1.divmod(rbigint.fromlong(sy))
+                    _div, _rem = divmod(sx, sy)
+                    print sx, sy, " | ", div.tolong(), rem.tolong()
+                    assert div1.tolong() == _div
+                    assert rem1.tolong() == _rem
+                    assert div.tolong() == _div
+                    assert rem.tolong() == _rem
+        with pytest.raises(ZeroDivisionError):
+            rbigint.fromlong(x).int_divmod_mod_int_result(0)
+
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
@@ -1511,6 +1545,41 @@ class TestHypothesis(object):
         assert rbigint.fromrarith_int(rx).touint() == rx
         rx = r_ulonglong(x) # will wrap on overflow
         assert rbigint.fromrarith_int(rx).toulonglong() == rx
+
+    @given(biglongs, biglongs)
+    def test_mod(self, x, y):
+        rx = rbigint.fromlong(x)
+        ry = rbigint.fromlong(y)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.mod(ry)
+            return
+        r1 = rx.mod(ry)
+        r2 = x % y
+
+        assert r1.tolong() == r2
+
+    @given(biglongs, ints)
+    def test_int_mod(self, x, y):
+        rx = rbigint.fromlong(x)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.int_mod(0)
+            return
+        r1 = rx.int_mod(y)
+        r2 = x % y
+        assert r1.tolong() == r2
+
+    @given(biglongs, ints)
+    def test_int_mod_int_result(self, x, y):
+        rx = rbigint.fromlong(x)
+        if not y:
+            with pytest.raises(ZeroDivisionError):
+                rx.int_mod(0)
+            return
+        r1 = rx.int_mod_int_result(y)
+        r2 = x % y
+        assert r1 == r2
 
 @pytest.mark.parametrize(['methname'], [(methodname, ) for methodname in dir(TestHypothesis) if methodname.startswith("test_")])
 def test_hypothesis_small_shift(methname):

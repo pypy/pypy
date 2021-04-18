@@ -143,6 +143,8 @@ class Entry(extregistry.ExtRegistryEntry):
         hop.exception_cannot_occur()
 
 def intsign(i):
+    if i == 0:
+        return 0
     return -1 if i < 0 else 1
 
 class rbigint(object):
@@ -892,18 +894,7 @@ class rbigint(object):
             elif digit & (digit - 1) == 0:
                 mod = self.int_and_(digit - 1)
             else:
-                # Perform
-                size = UDIGIT_TYPE(self.numdigits() - 1)
-
-                if size > 0:
-                    wrem = self.widedigit(size)
-                    while size > 0:
-                        size -= 1
-                        wrem = ((wrem << SHIFT) | self.digit(size)) % digit
-                    rem = _store_digit(wrem)
-                else:
-                    rem = _store_digit(self.digit(0) % digit)
-
+                rem = _int_rem_core(self, digit)
                 if rem == 0:
                     return NULLRBIGINT
                 mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
@@ -912,7 +903,35 @@ class rbigint(object):
             mod = mod.int_add(iother)
         return mod
 
-    #@jit.elidable
+    @jit.elidable
+    def int_mod_int_result(self, iother):
+        if iother == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
+        if self.sign == 0:
+            return 0
+
+        elif not int_in_valid_range(iother):
+            # Fallback to long.
+            return self.mod(rbigint.fromint(iother)).toint() # cannot raise
+
+        assert iother != -sys.maxint-1 # covered by int_in_valid_range above
+        digit = abs(iother)
+        if digit == 1:
+            return 0
+        elif digit == 2:
+            modm = self.digit(0) & 1
+            if modm:
+                return -1 if iother < 0 else 1
+            return 0
+        elif digit & (digit - 1) == 0:
+            mod = self.int_and_(digit - 1).toint() # XXX improve
+        else:
+            mod = _int_rem_core(self, digit) * self.sign
+        if intsign(mod) * intsign(iother) == -1:
+            mod = mod + iother
+        return mod
+
+    @jit.elidable
     def divmod(self, other):
         """
         The / and % operators are now defined in terms of divmod().
@@ -1935,6 +1954,21 @@ def _divrem1(a, n):
     rem = _inplace_divrem1(z, a, n)
     z._normalize()
     return z, rem
+
+def _int_rem_core(a, digit):
+    # digit must be positive
+    size = UDIGIT_TYPE(a.numdigits() - 1)
+
+    if size > 0:
+        wrem = a.widedigit(size)
+        while size > 0:
+            size -= 1
+            wrem = ((wrem << SHIFT) | a.digit(size)) % digit
+        rem = _store_digit(wrem)
+    else:
+        rem = _store_digit(a.digit(0) % digit)
+
+    return rem
 
 def _v_iadd(x, xofs, m, y, n):
     """
