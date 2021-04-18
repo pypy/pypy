@@ -40,10 +40,10 @@ def test_compute_suggestion_attribute_error():
         good = 1
         walk = 2
 
-    assert _compute_suggestion_attribute_error(AttributeError(obj=A(), name="god")) == "good"
-    assert _compute_suggestion_attribute_error(AttributeError(obj=A(), name="wlak")) == "walk"
-    assert _compute_suggestion_attribute_error(AttributeError(obj=A(), name="good")) == None
-    assert _compute_suggestion_attribute_error(AttributeError(obj=A(), name="goodabcd")) == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="god")) == "good"
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="wlak")) == "walk"
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="good")) == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="goodabcd")) == None
 
 def test_format_attribute_error():
     class A:
