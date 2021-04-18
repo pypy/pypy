@@ -1,5 +1,5 @@
 import pytest
-from traceback import _levenshtein_distance, _compute_suggestion_attribute_error, \
+from traceback import _levenshtein_distance, _compute_suggestion_error, \
         TracebackException
 from hypothesis import given, strategies as st
 
@@ -40,10 +40,14 @@ def test_compute_suggestion_attribute_error():
         good = 1
         walk = 2
 
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="god")) == "good"
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="wlak")) == "walk"
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="good")) == None
-    assert _compute_suggestion_error(AttributeError(obj=A(), name="goodabcd")) == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="god"), None) == "good"
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="wlak"), None) == "walk"
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="good"), None) == None
+    assert _compute_suggestion_error(AttributeError(obj=A(), name="goodabcd"), None) == None
+
+def fmt(e):
+    return "\n".join(
+            TracebackException.from_exception(e).format_exception_only())
 
 def test_format_attribute_error():
     class A:
@@ -53,6 +57,29 @@ def test_format_attribute_error():
     try:
         a.god
     except AttributeError as e:
-        formatted = "\n".join(
-            TracebackException.from_exception(e).format_exception_only())
-        assert formatted == "AttributeError: 'A' object has no attribute 'god'. Did you mean: good?\n"
+        assert fmt(e) == "AttributeError: 'A' object has no attribute 'god'. Did you mean: good?\n"
+
+def test_compute_suggestion_name_error():
+    def f():
+        abc = 1
+        ab # abc beats abs!
+
+    try:
+        f()
+    except NameError as e:
+        assert fmt(e) == "NameError: name 'ab' is not defined. Did you mean: abc?\n"
+
+def test_compute_suggestion_name_error_from_global():
+    def f():
+        test_triang
+
+    try:
+        f()
+    except NameError as e:
+        assert fmt(e) == "NameError: name 'test_triang' is not defined. Did you mean: test_triangle?\n"
+
+def test_compute_suggestion_name_error_from_builtin():
+    try:
+        ab
+    except NameError as e:
+        assert fmt(e) == "NameError: name 'ab' is not defined. Did you mean: abs?\n"

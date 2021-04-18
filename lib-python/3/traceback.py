@@ -163,18 +163,29 @@ def _some_str(value):
 
 _MAX_DISTANCE = 3
 
-def _compute_suggestion_error(exc_value):
+def _compute_suggestion_error(exc_value, tb):
     wrong_name = exc_value.name
-    obj = exc_value.obj
-    d = dir(obj)
+    if isinstance(exc_value, AttributeError):
+        obj = exc_value.obj
+        d = dir(obj)
+    else:
+        assert isinstance(exc_value, NameError)
+        # find most recent frame
+        if tb is None:
+            return None
+        while tb.tb_next is not None:
+            tb = tb.tb_next
+        frame = tb.tb_frame
+        d = list(frame.f_locals) + list(frame.f_globals) + dir(__builtins__)
     best_distance = len(wrong_name)
     suggestion = None
-    for possible_name in dir(obj):
+    for possible_name in d:
         distance = _levenshtein_distance(wrong_name, possible_name)
         if distance == 0 or distance > _MAX_DISTANCE:
             continue
         if distance < best_distance:
             suggestion = possible_name
+            best_distance = distance
     return suggestion
 
 def _levenshtein_distance(a, b):
@@ -566,9 +577,9 @@ class TracebackException:
             self.text = exc_value.text
             self.offset = exc_value.offset
             self.msg = exc_value.msg
-        elif exc_type and issubclass(exc_type, AttributeError) and \
+        elif exc_type and issubclass(exc_type, (NameError, AttributeError)) and \
                 getattr(exc_value, "name", None) is not None:
-            suggestion = _compute_suggestion_error(exc_value)
+            suggestion = _compute_suggestion_error(exc_value, exc_traceback)
             if suggestion:
                 self._str += ". Did you mean: %s?" % (suggestion, )
         if lookup_lines:
