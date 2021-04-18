@@ -759,9 +759,25 @@ W_FloatingPointError = _new_exception('FloatingPointError', W_ArithmeticError,
 W_ReferenceError = _new_exception('ReferenceError', W_Exception,
                            """Weak ref proxy used after referent went away.""")
 
-W_NameError = _new_exception('NameError', W_Exception,
-                             """Name not found globally.""")
+class W_NameError(W_Exception):
+    """Name not found globally."""
+    name = None
 
+    def __init__(self, space):
+        pass
+
+    @unwrap_spec(w_name=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_name=None):
+        self.args_w = args_w
+        self.w_name = w_name
+
+
+W_NameError.typedef = TypeDef('NameError', W_Exception.typedef,
+    __doc__ = W_NameError.__doc__,
+    __new__ = _new(W_NameError),
+    __init__ = interp2app(W_NameError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_NameError),
+)
 
 class W_SyntaxError(W_Exception):
     """Invalid syntax."""

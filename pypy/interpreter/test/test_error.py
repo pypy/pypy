@@ -25,11 +25,11 @@ def test_get_operrcls2(space):
     assert strings2 == ("a ", " b ", " c")
 
 def test_get_operr_attribute_error_class(space):
-    cls, strings = get_operr_attribute_error_class('abc %s def %s')
-    cls2, strings2 = get_operr_attribute_error_class('abc %s def %s')
+    cls, strings = get_operr_attribute_error_class('abc %s def %s', 'AttributeError')
+    cls2, strings2 = get_operr_attribute_error_class('abc %s def %s', 'AttributeError')
     assert cls2 is cls
     assert strings is strings2
-    cls3, strings3 = get_operr_attribute_error_class('abc %s ghi %s')
+    cls3, strings3 = get_operr_attribute_error_class('abc %s ghi %s', 'AttributeError')
     assert cls3 is cls
 
 def test_oefmt(space):

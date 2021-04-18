@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -510,8 +510,10 @@ class __extend__(pyframe.PyFrame):
         self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
-        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
-        return freevarnames[index]
+        pycode = self.pycode
+        if self.iscellvar(index):
+            return pycode.co_cellvars[index]
+        return pycode.co_freevars[index - len(pycode.co_cellvars)]
 
     def iscellvar(self, index):
         # is the variable given by index a cell or a free var?
@@ -904,8 +906,8 @@ class __extend__(pyframe.PyFrame):
         # fall-back
         w_value = self._load_global(varname)
         if w_value is None:
-            raise oefmt(self.space.w_NameError,
-                        "name %R is not defined", w_varname)
+            raise oefmt_name_error(self.space, w_varname,
+                        "name %R is not defined")
         self.pushvalue(w_value)
 
     @always_inline
@@ -920,8 +922,8 @@ class __extend__(pyframe.PyFrame):
     def _load_global_failed(self, w_varname):
         # CPython Issue #17032: The "global" in the "NameError: global
         # name 'x' is not defined" error message has been removed.
-        raise oefmt(self.space.w_NameError,
-                    "name %R is not defined", w_varname)
+        raise oefmt_name_error(self.space, w_varname,
+                    "name %R is not defined")
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
