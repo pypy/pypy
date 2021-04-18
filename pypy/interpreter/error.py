@@ -596,6 +596,38 @@ def oefmt(w_type, valuefmt, *args):
     OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 
+_fmtcache_attribute_error = {}
+
+@specialize.memo()
+def get_operr_attribute_error_class(valuefmt):
+    try:
+        return _fmtcache_attribute_error[valuefmt]
+    except KeyError:
+        basecls, strings = get_operr_class(valuefmt)
+        class OpErrFmtAttributeError(basecls):
+            def get_w_value(self, space):
+                from pypy.module.exceptions.interp_exceptions import W_AttributeError
+                w_value = self._w_value
+                if w_value is None:
+                    value, lgt = self._compute_value(space)
+                    # do the instantiation here, poking at the internals somewhat
+                    w_msg = space.newtext(value, lgt)
+                    w_value = W_AttributeError(space)
+                    w_value.descr_init(space, [w_msg], None, self.x0, self.x1)
+                    self._w_value = w_value
+                return w_value
+        result = _fmtcache_attribute_error[valuefmt] = OpErrFmtAttributeError, strings
+        return result
+
+@specialize.arg(3)
+def oefmt_attribute_error(space, w_obj, w_name, valuefmt, *args):
+    """ Like oefmt, but always raises w_AttributeError, passing w_obj and
+    w_name to its constructor. the valuefmt needs at least two fmt characters
+    for these two arguments. """
+
+    cls, strings = get_operr_attribute_error_class(valuefmt)
+    return cls(space.w_AttributeError, strings, *(w_obj, w_name) + args)
+
 # ____________________________________________________________
 
 # Utilities

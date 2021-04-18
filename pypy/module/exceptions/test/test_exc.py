@@ -524,3 +524,13 @@ class AppTestExc(object):
         exc = AttributeError("'a' not found", name="a", obj=7)
         assert exc.name == "a"
         assert exc.obj == 7
+
+    def test_attribute_errorr_name_obj_attributes_are_filled(self):
+        class A:
+            pass
+        a = A()
+        with raises(AttributeError) as info:
+            a.blub
+        exc = info.value
+        assert exc.name == "blub"
+        assert exc.obj is a
