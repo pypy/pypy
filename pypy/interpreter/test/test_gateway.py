@@ -974,10 +974,10 @@ class TestGateway:
         space = self.space
         @gateway.unwrap_spec(w_name=WrappedDefault(None), w_obj=WrappedDefault(None))
         def init(w_a, space, args_w, __kwonly__, w_obj=None, w_name=None):
-            return w_a, args_w, w_obj, w_name
+            return space.newtuple([w_a, space.newtuple(args_w), w_obj, w_name])
         w_g = space.wrap(gateway.interp2app_temp(init))
         w_res = space.call_function(w_g, space.newint(1), space.newint(2))
-        import pdb; pdb.set_trace()
+        assert space.eq_w(w_res, space.newtuple([space.newint(1), space.newtuple([space.newint(2)]), space.w_None, space.w_None]))
 
     def test_posonly_args(self):
         space = self.space
