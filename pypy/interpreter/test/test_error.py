@@ -3,7 +3,7 @@
 import py, os, errno
 from pypy.interpreter.error import (
     OperationError, decompose_valuefmt, get_operrcls2, new_exception_class,
-    oefmt, wrap_oserror, new_import_error)
+    oefmt, wrap_oserror, new_import_error, get_operr_attribute_error_class)
 
 
 def test_decompose_valuefmt():
@@ -23,6 +23,14 @@ def test_get_operrcls2(space):
     cls2, strings2 = get_operrcls2('a %s b %d c')
     assert cls2 is cls     # caching
     assert strings2 == ("a ", " b ", " c")
+
+def test_get_operr_attribute_error_class(space):
+    cls, strings = get_operr_attribute_error_class('abc %s def %s')
+    cls2, strings2 = get_operr_attribute_error_class('abc %s def %s')
+    assert cls2 is cls
+    assert strings is strings2
+    cls3, strings3 = get_operr_attribute_error_class('abc %s ghi %s')
+    assert cls3 is cls
 
 def test_oefmt(space):
     operr = oefmt("w_type", "abc %s def %d", "foo", 42)

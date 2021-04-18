@@ -596,14 +596,15 @@ def oefmt(w_type, valuefmt, *args):
     OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 
-_fmtcache_attribute_error = {}
+_fmtcache_attribute_error2 = {}
 
-@specialize.memo()
-def get_operr_attribute_error_class(valuefmt):
+
+def get_operr_attribute_error_class2(valuefmt):
+    strings, formats = decompose_valuefmt(valuefmt)
     try:
-        return _fmtcache_attribute_error[valuefmt]
+        OpErrFmtAttributeError = _fmtcache_attribute_error2[formats]
     except KeyError:
-        basecls, strings = get_operr_class(valuefmt)
+        basecls, _ = get_operr_class(valuefmt)
         class OpErrFmtAttributeError(basecls):
             def get_w_value(self, space):
                 from pypy.module.exceptions.interp_exceptions import W_AttributeError
@@ -616,8 +617,21 @@ def get_operr_attribute_error_class(valuefmt):
                     w_value.descr_init(space, [w_msg], None, self.x0, self.x1)
                     self._w_value = w_value
                 return w_value
+        _fmtcache_attribute_error2[formats] = OpErrFmtAttributeError
+    return OpErrFmtAttributeError, strings
+
+
+_fmtcache_attribute_error = {}
+
+@specialize.memo()
+def get_operr_attribute_error_class(valuefmt):
+    try:
+        return _fmtcache_attribute_error[valuefmt]
+    except KeyError:
+        OpErrFmtAttributeError, strings = get_operr_attribute_error_class2(valuefmt)
         result = _fmtcache_attribute_error[valuefmt] = OpErrFmtAttributeError, strings
         return result
+
 
 @specialize.arg(3)
 def oefmt_attribute_error(space, w_obj, w_name, valuefmt, *args):
