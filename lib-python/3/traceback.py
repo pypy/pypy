@@ -158,6 +158,55 @@ def _some_str(value):
 
 # --
 
+
+# -- PyPy extension: pure Python implementation of suggestions
+
+_MAX_DISTANCE = 3
+
+def _compute_suggestion_error(exc_value):
+    wrong_name = exc_value.name
+    obj = exc_value.obj
+    d = dir(obj)
+    best_distance = len(wrong_name)
+    suggestion = None
+    for possible_name in dir(obj):
+        distance = _levenshtein_distance(wrong_name, possible_name)
+        if distance == 0 or distance > _MAX_DISTANCE:
+            continue
+        if distance < best_distance:
+            suggestion = possible_name
+    return suggestion
+
+def _levenshtein_distance(a, b):
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    row = list(range(1, len(a) + 1))
+    for bindex in range(len(b)):
+        bchar = b[bindex]
+        distance = result = bindex
+        for index in range(len(a)):
+            bdistance = distance if bchar == a[index] else distance + 1
+            distance = row[index]
+            if distance > result:
+                if bdistance > result:
+                    result += 1
+                else:
+                    result = bdistance
+            else:
+                if bdistance > distance:
+                    result = distance + 1
+                else:
+                    result = bdistance
+            row[index] = result
+    return result
+
+
+# --
+
 def print_exc(limit=None, file=None, chain=True):
     """Shorthand for 'print_exception(*sys.exc_info(), limit, file)'."""
     print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
@@ -517,6 +566,11 @@ class TracebackException:
             self.text = exc_value.text
             self.offset = exc_value.offset
             self.msg = exc_value.msg
+        elif exc_type and issubclass(exc_type, AttributeError) and \
+                getattr(exc_value, "name", None) is not None:
+            suggestion = _compute_suggestion_error(exc_value)
+            if suggestion:
+                self._str += ". Did you mean: %s?" % (suggestion, )
         if lookup_lines:
             self._load_lines()
 
