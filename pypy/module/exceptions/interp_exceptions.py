@@ -93,7 +93,7 @@ from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import (
     TypeDef, GetSetProperty, interp_attrproperty,
     descr_get_dict, descr_set_dict, descr_del_dict)
-from pypy.interpreter.gateway import interp2app, unwrap_spec
+from pypy.interpreter.gateway import interp2app, unwrap_spec, WrappedDefault
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.pytraceback import PyTraceback, check_traceback
 from rpython.rlib import rwin32, jit
@@ -1064,8 +1064,29 @@ W_NotImplementedError = _new_exception('NotImplementedError', W_RuntimeError,
 W_RecursionError = _new_exception('RecursionError', W_RuntimeError,
                         """Recursion limit exceeded.""")
 
-W_AttributeError = _new_exception('AttributeError', W_Exception,
-                                  """Attribute not found.""")
+
+class W_AttributeError(W_Exception):
+    """Attribute not found."""
+    name = None
+    obj = None
+
+    def __init__(self, space):
+        pass
+
+    @unwrap_spec(w_name=WrappedDefault(None), w_obj=WrappedDefault(None))
+    def descr_init(self, space, args_w, __kwonly__, w_obj=None, w_name=None):
+        self.args_w = args_w
+        self.w_name = w_name
+        self.w_obj = w_obj
+
+
+W_AttributeError.typedef = TypeDef('AttributeError', W_Exception.typedef,
+    __doc__ = W_AttributeError.__doc__,
+    __new__ = _new(W_AttributeError),
+    __init__ = interp2app(W_AttributeError.descr_init),
+    name = readwrite_attrproperty_w('w_name', W_AttributeError),
+    obj = readwrite_attrproperty_w('w_obj', W_AttributeError),
+)
 
 W_OverflowError = _new_exception('OverflowError', W_ArithmeticError,
                                  """Result too large to be represented.""")

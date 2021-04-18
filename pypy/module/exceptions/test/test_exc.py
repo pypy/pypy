@@ -520,3 +520,7 @@ class AppTestExc(object):
         assert str(exc.value) == msg
 
 
+    def test_attribute_error_name_obj_attributes(self):
+        exc = AttributeError("'a' not found", name="a", obj=7)
+        assert exc.name == "a"
+        assert exc.obj == 7
