@@ -19,6 +19,18 @@ from site import USER_BASE
 from site import USER_SITE
 HAS_USER_SITE = True
 
+
+# See also: site.py/sysconfig.py
+def _get_implementation():
+    if '__pypy__' in sys.builtin_module_names:
+        return 'PyPy'
+    return 'Python'
+
+
+IMPLEMENTATION = _get_implementation()
+IMPLEMENTATION_LOWER = IMPLEMENTATION.lower()
+
+
 WINDOWS_SCHEME = {
     'purelib': '$base/Lib/site-packages',
     'platlib': '$base/Lib/site-packages',
@@ -29,16 +41,16 @@ WINDOWS_SCHEME = {
 
 INSTALL_SCHEMES = {
     'unix_prefix': {
-        'purelib': '$base/lib/$implementation_lower$py_version_short/site-packages',
-        'platlib': '$platbase/lib/$implementation_lower$py_version_short/site-packages',
-        'headers': '$base/include/$implementation_lower$py_version_short$abiflags/$dist_name',
+        'purelib': '$base/lib/' + IMPLEMENTATION_LOWER + '$py_version_short/site-packages',
+        'platlib': '$platbase/lib/' + IMPLEMENTATION_LOWER + '$py_version_short/site-packages',
+        'headers': '$base/include/' + IMPLEMENTATION_LOWER + '$py_version_short$abiflags/$dist_name',
         'scripts': '$base/bin',
         'data'   : '$base',
         },
     'unix_home': {
-        'purelib': '$base/lib/$implementation_lower',
-        'platlib': '$base/lib/$implementation_lower',
-        'headers': '$base/include/$implementation_lower/$dist_name',
+        'purelib': '$base/lib/' + IMPLEMENTATION_LOWER,
+        'platlib': '$base/lib/' + IMPLEMENTATION_LOWER,
+        'headers': '$base/include/' + IMPLEMENTATION_LOWER + '/$dist_name',
         'scripts': '$base/bin',
         'data'   : '$base',
         },
@@ -64,8 +76,8 @@ if HAS_USER_SITE:
     INSTALL_SCHEMES['nt_user'] = {
         'purelib': '$usersite',
         'platlib': '$usersite',
-        'headers': '$userbase/$implementation$py_version_nodot/Include/$dist_name',
-        'scripts': '$userbase/$implementation$py_version_nodot/Scripts',
+        'headers': '$userbase/' + IMPLEMENTATION + '$py_version_nodot/Include/$dist_name',
+        'scripts': '$userbase/' + IMPLEMENTATION + '$py_version_nodot/Scripts',
         'data'   : '$userbase',
         }
 
@@ -73,7 +85,7 @@ if HAS_USER_SITE:
         'purelib': '$usersite',
         'platlib': '$usersite',
         'headers':
-            '$userbase/include/$implementation_lower$py_version_short$abiflags/$dist_name',
+            '$userbase/include/' + IMPLEMENTATION_LOWER + '$py_version_short$abiflags/$dist_name',
         'scripts': '$userbase/bin',
         'data'   : '$userbase',
         }
@@ -82,11 +94,6 @@ if HAS_USER_SITE:
 # installed, be sure to add an entry to every installation scheme above,
 # and to SCHEME_KEYS here.
 SCHEME_KEYS = ('purelib', 'platlib', 'headers', 'scripts', 'data')
-
-def _get_implementation():
-    if '__pypy__' in sys.builtin_module_names:
-        return 'PyPy'
-    return 'Python'
 
 
 class install(Command):
@@ -317,8 +324,6 @@ class install(Command):
                             'sys_exec_prefix': exec_prefix,
                             'exec_prefix': exec_prefix,
                             'abiflags': abiflags,
-                            'implementation_lower': _get_implementation().lower(),
-                            'implementation': _get_implementation(),
                            }
 
         if HAS_USER_SITE:
