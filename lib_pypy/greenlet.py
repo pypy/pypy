@@ -46,8 +46,7 @@ class greenlet(_continulet):
 
     def __new__(cls, *args, **kwds):
         self = _continulet.__new__(cls)
-        self.parent = getcurrent()     # creates '_tls.thread_id' if needed
-        self.__thread_id = _tls.thread_id
+        self.parent = getcurrent()
         return self
 
     def __init__(self, run=None, parent=None):
@@ -55,7 +54,6 @@ class greenlet(_continulet):
             self.run = run
         if parent is not None:
             self.parent = parent
-            self.__thread_id = parent.__thread_id
 
     def switch(self, *args, **kwds):
         "Switch execution to this greenlet, optionally passing the values "
@@ -68,12 +66,20 @@ class greenlet(_continulet):
 
     def __switch(target, methodname, *baseargs):
         current = getcurrent()
-        if current.__thread_id is not target.__thread_id:
-            raise error("cannot switch to a different thread")
         #
         while not (target.__main or _continulet.is_pending(target)):
             # inlined __nonzero__ ^^^ in case it's overridden
             if not target.__started:
+                # check that 'target.parent' runs in the current thread,
+                # at least.  It can be changed arbitrarily afterwards in
+                # pypy greenlets, but too bad
+                parent1 = target.parent
+                while not parent1.__started:
+                    parent1 = parent1.parent
+                if parent1.__thread_id is not _tls.thread_id:
+                    raise error("cannot start greenlet because its 'parent'"
+                                " is running on a different thread")
+
                 if methodname == 'switch':
                     greenlet_func = _greenlet_start
                 else:
@@ -81,6 +87,7 @@ class greenlet(_continulet):
                 _continulet.__init__(target, greenlet_func, *baseargs)
                 methodname = 'switch'
                 baseargs = ()
+                target.__thread_id = _tls.thread_id
                 target.__started = True
                 break
             # already done, go to the parent instead
@@ -97,6 +104,10 @@ class greenlet(_continulet):
                     baseargs = (((e,), {}),)
                 except:
                     baseargs = sys.exc_info()[:2] + baseargs[2:]
+        else:
+            if target.__thread_id is not _tls.thread_id:
+                raise error("cannot switch to greenlet running in a"
+                            " different thread")
         #
         try:
             unbound_method = getattr(_continulet, methodname)
@@ -187,6 +198,7 @@ def _green_create_main():
     _tls.current = None
     _tls.thread_id = object()
     gmain = greenlet.__new__(greenlet)
+    gmain._greenlet__thread_id = _tls.thread_id
     gmain._greenlet__main = True
     gmain._greenlet__started = True
     assert gmain.parent is None
