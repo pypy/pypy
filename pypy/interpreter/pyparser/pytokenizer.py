@@ -157,7 +157,7 @@ def generate_tokens(lines, flags):
             if endmatch >= 0:
                 pos = end = endmatch
                 tok = Token(tokens.STRING, contstr + line[:end], strstart[0],
-                       strstart[1], line)
+                       strstart[1], line, lnum, end)
                 token_list.append(tok)
                 last_comment = ''
                 contstr, needcont = '', 0
@@ -259,7 +259,7 @@ def generate_tokens(lines, flags):
                 if (initial in numchars or \
                    (initial == '.' and token != '.' and token != '...')):
                     # ordinary number
-                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line))
+                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line, lnum, end))
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
@@ -290,7 +290,7 @@ def generate_tokens(lines, flags):
                     if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
-                        tok = Token(tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line, lnum, pos)
                         token_list.append(tok)
                         last_comment = ''
                     else:
@@ -324,7 +324,7 @@ def generate_tokens(lines, flags):
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
                     else:
-                        token_list.append(Token(tokens.NAME, token, lnum, start, line))
+                        token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
@@ -354,7 +354,7 @@ def generate_tokens(lines, flags):
                         punct = python_opmap[token]
                     else:
                         punct = tokens.OP
-                    token_list.append(Token(punct, token, lnum, start, line))
+                    token_list.append(Token(punct, token, lnum, start, line, lnum, end))
                     last_comment = ''
             else:
                 start = whiteSpaceDFA.recognize(line, pos)

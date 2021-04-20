@@ -527,7 +527,9 @@ class UnparseAnnotationsVisitor(ast.ASTVisitor):
                     w_unparse(self.space, node),
                     self.space.w_None,
                     node.lineno,
-                    node.col_offset)
+                    node.col_offset,
+                    node.end_lineno,
+                    node.end_col_offset)
 
     def visit_arg(self, node):
         annotation = node.annotation

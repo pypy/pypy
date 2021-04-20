@@ -336,6 +336,11 @@ if 1:
             print x
             py.test.raises(SyntaxError, self.parse, "x = %s" % x)
 
+    def test_end_positions(self):
+        tree = self.parse("45 * a", "eval")
+        import pdb; pdb.set_trace()
+
+
 
 class TestPythonParserWithSpace:
 

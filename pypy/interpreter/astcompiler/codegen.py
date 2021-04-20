@@ -503,7 +503,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         target = assign.target
         if isinstance(target, ast.Attribute):
             attr = ast.Attribute(target.value, target.attr, ast.AugLoad,
-                                 target.lineno, target.col_offset)
+                                 target.lineno, target.col_offset,
+                                 target.end_lineno, target.end_col_offset)
             attr.walkabout(self)
             assign.value.walkabout(self)
             self.emit_op(self._op_for_augassign(assign.op))
@@ -511,7 +512,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             attr.walkabout(self)
         elif isinstance(target, ast.Subscript):
             sub = ast.Subscript(target.value, target.slice, ast.AugLoad,
-                                target.lineno, target.col_offset)
+                                target.lineno, target.col_offset,
+                                target.end_lineno, target.end_col_offset)
             sub.walkabout(self)
             assign.value.walkabout(self)
             self.emit_op(self._op_for_augassign(assign.op))

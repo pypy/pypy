@@ -17,8 +17,7 @@ def add_constant_string(astbuilder, joined_pieces, w_string, atom_node,
             if is_unicode is space.isinstance_w(prev.value, space.w_unicode):
                 w_string = space.add(prev.value, w_string)
                 del joined_pieces[-1]                
-    joined_pieces.append(ast.Constant(w_string, space.newtext_or_none(kind), atom_node.get_lineno(),
-                                                                             atom_node.get_column()))
+    joined_pieces.append(ast.build(ast.Constant, w_string, space.newtext_or_none(kind), atom_node))
 
 def f_constant_string(astbuilder, joined_pieces, w_u, atom_node):
     add_constant_string(astbuilder, joined_pieces, w_u, atom_node)
@@ -278,9 +277,8 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
 
     # And now create the FormattedValue node that represents this
     # entire expression with the conversion and format spec.
-    return ast.FormattedValue(expr.body, conversion, format_spec,
-                              atom_node.get_lineno(),
-                              atom_node.get_column()), w_expr_text
+    return ast.build(ast.FormattedValue, expr.body, conversion, format_spec,
+            atom_node), w_expr_text
 
 
 def fstring_find_literal(astbuilder, fstr, atom_node, rec):
@@ -408,8 +406,7 @@ def f_string_to_ast_node(astbuilder, joined_pieces, atom_node):
     values = [node for node in joined_pieces
                    if not isinstance(node, ast.Constant)
                       or space.is_true(node.value)]
-    return ast.JoinedStr(values, atom_node.get_lineno(),
-                                 atom_node.get_column())
+    return ast.build(ast.JoinedStr, values, atom_node)
 
 
 def string_parse_literal(astbuilder, atom_node):

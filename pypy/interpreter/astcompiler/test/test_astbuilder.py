@@ -1793,3 +1793,9 @@ class TestAstBuilder:
         assert isinstance(expr, ast.Constant)
         assert self.space.eq_w(expr.kind, self.space.wrap("u"))
 
+    def test_end_positions(self):
+        s = "a + b"
+        expr = self.get_first_expr(s)
+        assert expr.end_lineno == expr.lineno
+        assert expr.col_offset + len(s) == expr.end_col_offset
+

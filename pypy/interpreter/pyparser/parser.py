@@ -57,10 +57,11 @@ class Grammar(object):
         return True
 
 class DFA(object):
-    def __init__(self, symbol_id, states, first):
+    def __init__(self, symbol_id, states, first, grammar=None):
         self.symbol_id = symbol_id
         self.states = states
         self.first = self._first_to_string(first)
+        self.grammar = grammar
 
     def could_match_token(self, label_index):
         pos = label_index >> 3
@@ -80,13 +81,15 @@ class DFA(object):
 
 
 class Token(object):
-    def __init__(self, token_type, value, lineno, column, line):
+    def __init__(self, token_type, value, lineno, column, line, end_lineno=-1, end_column=-1):
         self.token_type = token_type
         self.value = value
         self.lineno = lineno
         # 0-based offset
         self.column = column
         self.line = line
+        self.end_lineno = end_lineno
+        self.end_column = end_column
 
     def __repr__(self):
         return "Token(%s, %s)" % (self.token_type, self.value)
@@ -98,7 +101,9 @@ class Token(object):
             self.value == other.value and
             self.lineno == other.lineno and
             self.column == other.column and
-            self.line == other.line
+            self.line == other.line and
+            self.end_lineno == other.end_lineno and
+            self.end_column == other.end_column
         )
 
     def __ne__(self, other):
@@ -107,9 +112,10 @@ class Token(object):
 
 class Node(object):
 
-    __slots__ = ("type", )
+    __slots__ = ("type", 'grammar')
 
-    def __init__(self, type):
+    def __init__(self, grammar, type):
+        self.grammar = grammar
         self.type = type
 
     def __eq__(self, other):
@@ -139,21 +145,35 @@ class Node(object):
     def get_line(self):
         raise NotImplementedError("abstract base class")
 
+    def flatten(self, res=None):
+        if res is None:
+            res = []
+        for i in range(self.num_children()):
+            child = self.get_child(i)
+            if isinstance(child, Terminal):
+                res.append(child)
+            else:
+                child.flatten(res)
+        return res
+
 
 class Terminal(Node):
-    __slots__ = ("value", "lineno", "column", "line")
-    def __init__(self, type, value, lineno, column, line=None):
-        Node.__init__(self, type)
+    __slots__ = ("value", "lineno", "column", "line", "end_lineno", "end_column")
+    def __init__(self, grammar, type, value, lineno, column, line=None, end_lineno=-1, end_column=-1):
+        Node.__init__(self, grammar, type)
         self.value = value
         self.lineno = lineno
         self.column = column
         self.line = line
+        self.end_lineno = end_lineno
+        self.end_column = end_column
 
     @staticmethod
-    def fromtoken(token):
+    def fromtoken(grammar, token):
         return Terminal(
+            grammar,
             token.token_type, token.value, token.lineno, token.column,
-            token.line)
+            token.line, token.end_lineno, token.end_column)
 
     def __repr__(self):
         return "Terminal(type=%s, value=%r)" % (self.type, self.value)
@@ -173,6 +193,12 @@ class Terminal(Node):
     def get_column(self):
         return self.column
 
+    def get_end_lineno(self):
+        return self.end_lineno
+
+    def get_end_column(self):
+        return self.end_column
+
     def get_line(self):
         return self.line
 
@@ -187,6 +213,12 @@ class AbstractNonterminal(Node):
 
     def get_line(self):
         return self.get_child(0).get_line()
+
+    def get_end_lineno(self):
+        return self.get_child(self.num_children() - 1).get_end_lineno()
+
+    def get_end_column(self):
+        return self.get_child(self.num_children() - 1).get_end_column()
 
     def __eq__(self, other):
         # For tests.
@@ -205,14 +237,14 @@ class AbstractNonterminal(Node):
 
 class Nonterminal(AbstractNonterminal):
     __slots__ = ("_children", )
-    def __init__(self, type, children=None):
-        Node.__init__(self, type)
+    def __init__(self, grammar, type, children=None):
+        Node.__init__(self, grammar, type)
         if children is None:
             children = []
         self._children = children
 
     def __repr__(self):
-        return "Nonterminal(type=%s, children=%r)" % (self.type, self._children)
+        return "Nonterminal(type=%s, children=%r)" % (self.grammar.symbol_names[self.type], self._children)
 
     def get_child(self, i):
         assert self._children is not None
@@ -227,12 +259,12 @@ class Nonterminal(AbstractNonterminal):
 
 class Nonterminal1(AbstractNonterminal):
     __slots__ = ("_child", )
-    def __init__(self, type, child):
-        Node.__init__(self, type)
+    def __init__(self, grammar, type, child):
+        Node.__init__(self, grammar, type)
         self._child = child
 
     def __repr__(self):
-        return "Nonterminal(type=%s, children=[%r])" % (self.type, self._child)
+        return "Nonterminal(type=%s, children=[%r])" % (self.grammar.symbol_names[self.type], self._child)
 
     def get_child(self, i):
         assert i == 0 or i == -1
@@ -274,9 +306,11 @@ class StackEntry(object):
     def node_append_child(self, child):
         node = self.node
         if node is None:
-            self.node = Nonterminal1(self.dfa.symbol_id, child)
+            self.node = Nonterminal1(self.dfa.grammar,
+                    self.dfa.symbol_id, child)
         elif isinstance(node, Nonterminal1):
             newnode = self.node = Nonterminal(
+                    self.dfa.grammar,
                     self.dfa.symbol_id, [node._child, child])
         else:
             self.node.append_child(child)
@@ -310,7 +344,7 @@ class Parser(object):
                 sym_id = self.grammar.labels[i]
                 if label_index == i:
                     # We matched a non-terminal.
-                    self.shift(next_state, token)
+                    self.shift(dfa.grammar, next_state, token)
                     state = states[next_state]
                     # While the only possible action is to accept, pop nodes off
                     # the stack.
@@ -356,9 +390,9 @@ class Parser(object):
         for syntax errors."""
         return arcs
 
-    def shift(self, next_state, token):
+    def shift(self, grammar, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
-        new_node = Terminal.fromtoken(token)
+        new_node = Terminal.fromtoken(grammar, token)
         self.stack.node_append_child(new_node)
         self.stack.state = next_state
 

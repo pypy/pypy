@@ -203,7 +203,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                     else:
                         if self.space.int_w(w_len) > 20:
                             return binop
-                    return self.new_constant(w_const, binop.lineno, binop.col_offset)
+                    return self.new_constant(w_const, binop)
         return binop
 
     def visit_UnaryOp(self, unary):
@@ -224,7 +224,7 @@ class OptimizingVisitor(ast.ASTVisitor):
             except OperationError:
                 pass
             else:
-                return self.new_constant(w_const, unary.lineno, unary.col_offset)
+                return self.new_constant(w_const, unary)
         elif op == ast.Not:
             compare = unary.operand
             if isinstance(compare, ast.Compare) and len(compare.ops) == 1:
@@ -265,7 +265,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if name.id == '__debug__':
             w_const = space.newbool(self.compile_info.optimize == 0)
         if w_const is not None:
-            return self.new_constant(w_const, name.lineno, name.col_offset)
+            return self.new_constant(w_const, name)
         return name
 
     def visit_Tuple(self, tup):
@@ -281,7 +281,7 @@ class OptimizingVisitor(ast.ASTVisitor):
                 if w_const is None:
                     new_elts = self._optimize_constant_star_unpacks(tup.elts)
                     if new_elts is not None:
-                        return ast.Tuple(new_elts, ast.Load, tup.lineno, tup.col_offset)
+                        return ast.Tuple(new_elts, ast.Load, tup.lineno, tup.col_offset, tup.end_lineno, tup.end_col_offset)
                     return tup
                 consts_w[i] = w_const
             # intern the string constants packed into the tuple here,
@@ -292,13 +292,14 @@ class OptimizingVisitor(ast.ASTVisitor):
         else:
             consts_w = []
         w_consts = self.space.newtuple(consts_w)
-        return self.new_constant(w_consts, tup.lineno, tup.col_offset)
+        return self.new_constant(w_consts, tup)
 
     def _make_starred_tuple_const(self, consts_w, firstelt):
         w_consts = self.space.newtuple(consts_w[:])
         return ast.Starred(self.new_constant(
-                    w_consts, firstelt.lineno, firstelt.col_offset),
-                ast.Load, firstelt.lineno, firstelt.col_offset)
+                    w_consts, firstelt),
+                ast.Load, firstelt.lineno, firstelt.col_offset,
+                firstelt.end_lineno, firstelt.end_col_offset)
 
     def _optimize_constant_star_unpacks(self, elts):
         # turn (1, 2, 3, *a) into (*(1, 2, 3), *a) with a constant (1, 2, 3)
@@ -347,7 +348,7 @@ class OptimizingVisitor(ast.ASTVisitor):
         if l.ctx == ast.Load and l.elts:
             new_elts = self._optimize_constant_star_unpacks(l.elts)
             if new_elts:
-                return ast.List(new_elts, ast.Load, l.lineno, l.col_offset)
+                return ast.List(new_elts, ast.Load, l.lineno, l.col_offset, l.end_lineno, l.end_col_offset)
         return l
 
     def visit_Subscript(self, subs):
@@ -385,9 +386,10 @@ class OptimizingVisitor(ast.ASTVisitor):
                         # See test_const_fold_unicode_subscr
                         return subs
 
-                    return self.new_constant(w_const, subs.lineno, subs.col_offset)
+                    return self.new_constant(w_const, subs)
 
         return subs
 
-    def new_constant(self, const, lineno, col_offset):
-        return ast.Constant(const, self.space.w_None, lineno, col_offset)
+    def new_constant(self, const, node):
+        return ast.Constant(const, self.space.w_None, node.lineno, node.col_offset,
+                node.end_lineno, node.end_col_offset)
