@@ -1799,3 +1799,11 @@ class TestAstBuilder:
         assert expr.end_lineno == expr.lineno
         assert expr.col_offset + len(s) == expr.end_col_offset
 
+        s = '''def func(x: int,
+         *args: str,
+         z: float = 0,
+         **kwargs: Any) -> bool:
+    return True'''
+        fdef = self.get_ast(s).body[0]
+        assert fdef.end_lineno == 5
+        assert fdef.end_col_offset == 15

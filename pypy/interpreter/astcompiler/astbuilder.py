@@ -538,12 +538,15 @@ class ASTBuilder(object):
         body, possible_type_comment = self.handle_typed_suite(funcdef_node.get_child(suite))
         if not self.space.is_none(possible_type_comment):
             type_comment = possible_type_comment
+        assert len(body)
         if is_async:
-            return build(ast.AsyncFunctionDef, name, args, body, decorators, returns, type_comment,
-                                        posnode)
+            return ast.AsyncFunctionDef(name, args, body, decorators, returns, type_comment,
+                                   posnode.get_lineno(), posnode.get_column(),
+                                   body[-1].end_lineno, body[-1].end_col_offset)
         else:
-            return build(ast.FunctionDef, name, args, body, decorators, returns, type_comment,
-                                        posnode)
+            return ast.FunctionDef(name, args, body, decorators, returns, type_comment,
+                                   posnode.get_lineno(), posnode.get_column(),
+                                   body[-1].end_lineno, body[-1].end_col_offset)
 
     def handle_async_funcdef(self, node, decorators=None):
         return self.handle_funcdef_impl(node.get_child(1), 1, decorators, posnode=node)
