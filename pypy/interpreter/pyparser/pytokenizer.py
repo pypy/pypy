@@ -330,7 +330,7 @@ def generate_tokens(lines, flags):
                     continued = 1
                 elif initial == '$':
                     token_list.append(Token(tokens.REVDBMETAVAR, token,
-                                       lnum, start, line. lnum, pos))
+                                       lnum, start, line, lnum, pos))
                     last_comment = ''
                 else:
                     if initial in '([{':
