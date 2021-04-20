@@ -217,7 +217,7 @@ def generate_tokens(lines, flags):
                     raise TabError(lnum, pos, line)
                 indents.append(column)
                 altindents.append(altcolumn)
-                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line))
+                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line, lnum, pos))
                 last_comment = ''
             else:
                 while column < indents[-1]:
@@ -309,7 +309,7 @@ def generate_tokens(lines, flags):
                         contline = line
                         break
                     else:                                  # ordinary string
-                        tok = Token(tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line, lnum, pos)
                         token_list.append(tok)
                         last_comment = ''
                 elif (initial in namechars or              # ordinary name
@@ -330,7 +330,7 @@ def generate_tokens(lines, flags):
                     continued = 1
                 elif initial == '$':
                     token_list.append(Token(tokens.REVDBMETAVAR, token,
-                                       lnum, start, line))
+                                       lnum, start, line. lnum, pos))
                     last_comment = ''
                 else:
                     if initial in '([{':
