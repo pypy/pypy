@@ -337,8 +337,8 @@ if 1:
             py.test.raises(SyntaxError, self.parse, "x = %s" % x)
 
     def test_end_positions(self):
-        tree = self.parse("45 * a", "eval")
-        import pdb; pdb.set_trace()
+        tree = self.parse("45 * a", "eval").get_child(0)
+        assert tree.get_end_column() == 6
 
 
 
