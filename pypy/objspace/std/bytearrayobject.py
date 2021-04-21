@@ -635,7 +635,8 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=No
     elif bytes_per_sep < 0:
         bytes_per_sep_prefix = -bytes_per_sep
         bytes_per_sep = -bytes_per_sep
-    elif bytes_per_sep == 0:
+    else:
+        assert bytes_per_sep == 0
         bytes_per_sep_prefix = -1 # disable separators
 
     sep_counter = bytes_per_sep_prefix
