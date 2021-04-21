@@ -228,7 +228,9 @@ class PythonParser(parser.Parser):
                 if token.token_type == pygram.tokens.INDENT:
                     msg = "unexpected indent"
                 elif e.expected == pygram.tokens.INDENT:
-                    msg = "expected an indented block"
+                    # hack a bit to find the line that starts the block. should
+                    # be two stack entries back
+                    msg = _compute_indentation_error_msg(self.stack)
                 else:
                     new_err = error.SyntaxError
                     if (last_token_seen is not None and
@@ -252,3 +254,28 @@ class PythonParser(parser.Parser):
             # Avoid hanging onto the tree.
             self.root = None
         return tree
+
+SUITE_STARTERS = dict.fromkeys("def if elif else while for try except finally with class".split())
+
+def _compute_indentation_error_msg(stack):
+    if stack.next is not None:
+        stack = stack.next
+        node = stack.node
+        num_children = node.num_children()
+        if num_children and \
+                node.get_child(num_children - 1).type == pygram.tokens.COLON:
+            # found the start of the suite, no identify the terminal before the
+            # token that can start a suite
+            for i in range(num_children - 2, -1, -1):
+                child = node.get_child(i)
+                if child.type == pygram.tokens.NAME:
+                    assert isinstance(child, parser.Terminal)
+                    if child.value not in SUITE_STARTERS:
+                        continue
+                    if child.value == "def":
+                        return "expected an indented block after function definition on line %s" % (
+                                child.lineno)
+
+                    return "expected an indented block after '%s' statement on line %s" % (
+                            child.value, child.lineno)
+    return "expected an indented block"

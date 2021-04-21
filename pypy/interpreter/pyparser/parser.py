@@ -139,6 +139,17 @@ class Node(object):
     def get_line(self):
         raise NotImplementedError("abstract base class")
 
+    def flatten(self, res=None):
+        if res is None:
+            res = []
+        for i in range(self.num_children()):
+            child = self.get_child(i)
+            if isinstance(child, Terminal):
+                res.append(child)
+            else:
+                child.flatten(res)
+        return res
+
 
 class Terminal(Node):
     __slots__ = ("value", "lineno", "column", "line")
