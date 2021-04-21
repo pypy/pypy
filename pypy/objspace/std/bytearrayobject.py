@@ -481,8 +481,8 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self._data[self._offset:])
 
-    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
-    def descr_hex(self, space, sep=None, bytes_per_sep=0):
+    @unwrap_spec(bytes_per_sep=int)
+    def descr_hex(self, space, w_sep=None, bytes_per_sep=0):
         """
         Create a str of hexadecimal numbers from a bytearray object.
 
