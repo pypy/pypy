@@ -1807,3 +1807,8 @@ class TestAstBuilder:
         fdef = self.get_ast(s).body[0]
         assert fdef.end_lineno == 5
         assert fdef.end_col_offset == 15
+
+        s = '( ( ( a ) ) ) ( )'
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        import pdb; pdb.set_trace()

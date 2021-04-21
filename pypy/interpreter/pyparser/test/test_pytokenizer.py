@@ -121,3 +121,10 @@ whatisthis"""'''
             Token(tokens.EQUAL, '=', 1, 2, lines[0], 1, 3),
             Token(tokens.STRING, s, 1, 4, lines[3], 4, 13),
         ]
+
+    def test_parenthesis_positions(self):
+        input = '( ( ( a ) ) ) ( )'
+        tks = tokenize(input)[:-3]
+        columns = [t.column for t in tks]
+        assert columns == [0, 2, 4, 6, 8, 10, 12, 14, 16]
+        assert [t.end_column - 1 for t in tks] == columns

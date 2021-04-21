@@ -54,12 +54,20 @@ class AST(object):
     __metaclass__ = extendabletype
     _attrs_ = ['lineno', 'col_offset', 'end_lineno', 'end_col_offset']
 
-
     def walkabout(self, visitor):
         raise AssertionError("walkabout() implementation not provided")
 
     def mutate_over(self, visitor):
         raise AssertionError("mutate_over() implementation not provided")
+
+    def copy_location(self, node_start, node_end=None):
+        if node_end is None:
+            node_end = node_start
+        self.lineno = node_start.get_lineno()
+        self.col_offset = node_start.get_column()
+        self.end_lineno = node_end.get_end_lineno()
+        self.end_col_offset = node_end.get_end_column()
+        return self
 
 
 class NodeVisitorNotImplemented(Exception):

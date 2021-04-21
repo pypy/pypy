@@ -509,7 +509,7 @@ class ASTBuilder(object):
         if classdef_node.get_child(3).type == tokens.RPAR:
             # class NAME '(' ')' ':' suite
             body = self.handle_suite(classdef_node.get_child(5))
-            return build(ast.ClassDef, name, None, None, body, decorators, 
+            return build(ast.ClassDef, name, None, None, body, decorators,
                                 classdef_node)
 
         # class NAME '(' arglist ')' ':' suite
@@ -1097,16 +1097,18 @@ class ASTBuilder(object):
         if atom_node.get_child(0).type == tokens.NAME:
             # await
             start = 1
-        atom_expr = self.handle_atom(atom_node.get_child(start))
+        start_node = atom_node.get_child(start)
+        atom_expr = self.handle_atom(start_node)
         if num_ch == 1:
             return atom_expr
         if start and num_ch == 2:
             return build(ast.Await, atom_expr, atom_node)
+
         for i in range(start+1, num_ch):
             trailer = atom_node.get_child(i)
             if trailer.type != syms.trailer:
                 break
-            tmp_atom_expr = self.handle_trailer(trailer, atom_expr)
+            tmp_atom_expr = self.handle_trailer(trailer, atom_expr, start_node)
             tmp_atom_expr.lineno = atom_expr.lineno
             tmp_atom_expr.col_offset = atom_expr.col_offset
             atom_expr = tmp_atom_expr
@@ -1151,13 +1153,17 @@ class ASTBuilder(object):
                     step = self.handle_expr(step_child)
         return ast.Slice(lower, upper, step)
 
-    def handle_trailer(self, trailer_node, left_expr):
+    def handle_trailer(self, trailer_node, left_expr, start_node):
         first_child = trailer_node.get_child(0)
         if first_child.type == tokens.LPAR:
             if trailer_node.num_children() == 2:
-                return build(ast.Call, left_expr, None, None, trailer_node)
+
+                if trailer_node.flatten()[0].line.strip() == '( ( ( a ) ) ) ( )':
+                    import pdb; pdb.set_trace()
+
+                return build(ast.Call, left_expr, None, None, trailer_node).copy_location(start_node, trailer_node)
             else:
-                return self.handle_call(trailer_node.get_child(1), left_expr)
+                return self.handle_call(trailer_node.get_child(1), left_expr).copy_location(start_node, trailer_node)
         elif first_child.type == tokens.DOT:
             attr = self.new_identifier(trailer_node.get_child(1).get_value())
             return build(ast.Attribute, left_expr, attr, ast.Load, trailer_node)
@@ -1367,7 +1373,8 @@ class ASTBuilder(object):
                 return build(ast.Tuple, None, ast.Load, atom_node)
             elif second_child.type == syms.yield_expr:
                 return self.handle_expr(second_child)
-            return self.handle_testlist_gexp(second_child)
+            result = self.handle_testlist_gexp(second_child)
+            return result
         elif first_child_type == tokens.LSQB:
             second_child = atom_node.get_child(1)
             if second_child.type == tokens.RSQB:
