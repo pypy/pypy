@@ -54,6 +54,8 @@ def get_so_extension(space):
                 platform_name = 'x86_64-linux-gnu'
         else:
             platform_name = 'linux-gnu'
+    elif platform_name == 'win32' and sys.maxsize > 2**32:
+        platform_name = 'win_amd64'
 
     soabi += '-' + platform_name
 
