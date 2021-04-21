@@ -1,8 +1,6 @@
-import py
-try:
-    from lib_pypy import greenlet
-except ImportError as e:
-    py.test.skip(e)
+import pytest
+greenlet = pytest.importorskip('greenlet')
+
 
 class SomeError(Exception):
     pass
@@ -22,7 +20,7 @@ class TestTracing:
             g1 = greenlet.greenlet(dummy)
             g1.switch()
             g2 = greenlet.greenlet(dummyexc)
-            py.test.raises(SomeError, g2.switch)
+            pytest.raises(SomeError, g2.switch)
         finally:
             greenlet.settrace(oldtrace)
         assert actions == [
@@ -44,7 +42,7 @@ class TestTracing:
         g.switch()
         oldtrace = greenlet.settrace(trace)
         try:
-            py.test.raises(SomeError, g.switch)
+            pytest.raises(SomeError, g.switch)
             assert greenlet.gettrace() is None
         finally:
             greenlet.settrace(oldtrace)
