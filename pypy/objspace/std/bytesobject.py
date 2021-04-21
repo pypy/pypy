@@ -687,8 +687,8 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
-    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+    @unwrap_spec(bytes_per_sep=int)
+    def descr_hex(self, space, w_sep=None, bytes_per_sep=0):
         """
         Create a str of hexadecimal numbers from a bytes object.
 
@@ -710,6 +710,12 @@ class W_BytesObject(W_AbstractBytesObject):
         'b901:ef'
         """
         from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        if w_sep is not None:
+            if not space.int_w(space.len(w_sep)) == 1:
+                raise oefmt(space.w_ValueError, "sep must be length 1.")
+            sep = space.text_w(w_sep)
+        else:
+            sep = None
         return _array_to_hexstring(space, StringBuffer(self._value), 0, 1,
                                    len(self._value), sep=sep, bytes_per_sep=bytes_per_sep)
 
