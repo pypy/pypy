@@ -3,8 +3,7 @@ from rpython.rlib.buffer import LLBuffer
 from rpython.rlib.rgc import FinalizerQueue
 
 from pypy.interpreter.buffer import BufferView
-from .state import State
-from . import llapi, handles
+from . import llapi
 
 class HPyBuffer(BufferView):
     _immutable_ = True
@@ -14,7 +13,7 @@ class HPyBuffer(BufferView):
         self.space = space
         self.ctx = ctx
         self.handles = handles
-        self.rawbuf = LLBuffer(ptr, size)
+        self.rawbuf = LLBuffer(llapi.cts.cast('char*', ptr), size)
         self.w_owner = w_owner
         self.format = format
         self.itemsize = itemsize
@@ -37,16 +36,15 @@ class HPyBuffer(BufferView):
             # XXX: missing init_strides_from_shape
             self.strides = strides
         self.readonly = readonly
-        self.releasebufferproc = None
+        self.releasebufferproc = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
 
     def releasebuffer(self):
         if self.w_owner is None:
             # don't call twice
             return
-        #import pdb; pdb.set_trace()
         if self.releasebufferproc:
             with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
-                hpybuf.c_buf = self.get_raw_address()
+                hpybuf.c_buf = llapi.cts.cast('void*', self.get_raw_address())
                 hpybuf.c_len = self.getlength()
                 ndim = self.getndim()
                 hpybuf.c_ndim = llapi.cts.cast('int', ndim)
