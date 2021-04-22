@@ -40,9 +40,9 @@ class State(object):
     def setup(self, space):
         if not self.uctx:
             self.setup_uctx()
-            self.setup_dctx()
             self.ctx = self.uctx # XXX temporary, kill me
             self.handles = handles.HandleManager(self.uctx, space)
+            self.setup_dctx()
             self.debug_handles = handles.DebugHandleManager(self.dctx, self.handles)
         # bridge functions are stored in a global but they need to match the
         # current space, so we reinitialize them every time.
@@ -59,6 +59,14 @@ class State(object):
         # by using specialize.memo() this becomes a statically allocated
         # charp, like a C string literal
         return rffi.str2constcharp("HPy Universal ABI (PyPy backend)",
+                                   track_allocation=False)
+
+    @staticmethod
+    @specialize.memo()
+    def dctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Debug Mode ABI (PyPy backend)",
                                    track_allocation=False)
 
     def setup_uctx(self):
@@ -99,7 +107,11 @@ class State(object):
 
     def setup_dctx(self):
         space = self.space
-        self.dctx = llapi.hpy_debug_get_ctx(self.uctx)
+        self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        self.dctx.c_name = self.dctx_name()
+        rffi.setintfield(self.dctx, 'c_ctx_version', 1)
+        llapi.hpy_debug_ctx_init(self.dctx, self.uctx)
+        llapi.hpy_debug_set_ctx(self.dctx)
         for func in DEBUG.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename

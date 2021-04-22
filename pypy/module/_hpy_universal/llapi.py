@@ -37,6 +37,8 @@ eci = ExternalCompilationInfo(
     post_include_bits=[
         """
         RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx);
+        RPY_EXPORTED int pypy_hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx);
+        RPY_EXPORTED void pypy_hpy_debug_set_ctx(HPyContext uctx);
         RPY_EXPORTED HPy pypy_hpy_debug_wrap_handle(HPyContext dctx, HPy uh);
         RPY_EXPORTED HPy pypy_hpy_debug_unwrap_handle(HPy dh);
         RPY_EXPORTED HPy pypy_HPyInit__debug(HPyContext uctx);
@@ -46,9 +48,12 @@ eci = ExternalCompilationInfo(
         """
         #include <hpy_debug.h>
         // the default symbol visibility is hidden: the easiest way to export
-        // these two functions is to write a small wrapper.        
+        // these two functions is to write a small wrapper.
         HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
             return hpy_debug_get_ctx(uctx);
+        }
+        int pypy_hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx) {
+            return hpy_debug_ctx_init(dctx, uctx);
         }
         HPy pypy_hpy_debug_wrap_handle(HPyContext dctx, HPy uh) {
             return hpy_debug_wrap_handle(dctx, uh);
@@ -59,6 +64,11 @@ eci = ExternalCompilationInfo(
         HPy pypy_HPyInit__debug(HPyContext uctx) {
             return HPyInit__debug(uctx);
         }
+
+        void pypy_hpy_debug_set_ctx(HPyContext dctx) {
+            hpy_debug_set_ctx(dctx);
+        }
+
 
         // NOTE: this is currently unused: it is needed because it is
         // referenced by hpy_magic_dump. But we could try to use this variable to
@@ -595,6 +605,13 @@ pypy_HPyErr_Clear = rffi.llexternal('pypy_HPyErr_Clear',
 # debug mode
 hpy_debug_get_ctx = rffi.llexternal('pypy_hpy_debug_get_ctx', [HPyContext], HPyContext,
                                     compilation_info=eci)
+
+hpy_debug_ctx_init = rffi.llexternal('pypy_hpy_debug_ctx_init',
+                                    [HPyContext, HPyContext], rffi.INT_real,
+                                    compilation_info=eci)
+
+hpy_debug_set_ctx = rffi.llexternal('pypy_hpy_debug_set_ctx', [HPyContext],
+                                    lltype.Void, compilation_info=eci)
 
 hpy_debug_wrap_handle = rffi.llexternal('pypy_hpy_debug_wrap_handle',
                                         [HPyContext, HPy], HPy,

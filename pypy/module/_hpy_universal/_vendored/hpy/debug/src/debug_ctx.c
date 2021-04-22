@@ -14,7 +14,7 @@ static struct _HPyContext_s g_debug_ctx = {
 // same. If/when we migrate to a system in which we can have multiple
 // independent contexts, this function should ensure to create a different
 // debug wrapper for each of them.
-static int debug_ctx_init(HPyContext dctx, HPyContext uctx)
+int hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx)
 {
     if (dctx->_private != NULL) {
         // already initialized
@@ -46,9 +46,14 @@ HPyContext hpy_debug_get_ctx(HPyContext uctx)
         HPy_FatalError(uctx, "hpy_debug_get_ctx: expected an universal ctx, "
                              "got a debug ctx");
     }
-    if (debug_ctx_init(dctx, uctx) < 0)
+    if (hpy_debug_ctx_init(dctx, uctx) < 0)
         return NULL;
     return dctx;
+}
+
+void hpy_debug_set_ctx(HPyContext dctx)
+{
+    g_debug_ctx = *dctx;
 }
 
 HPy hpy_debug_wrap_handle(HPyContext dctx, HPy uh)

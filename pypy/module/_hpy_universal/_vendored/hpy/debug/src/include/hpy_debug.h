@@ -25,6 +25,8 @@
 */
 
 HPyContext hpy_debug_get_ctx(HPyContext uctx);
+int hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx);
+void hpy_debug_set_ctx(HPyContext dctx);
 
 // convert between debug and universal handles. These are basically
 // the same as DHPy_wrap and DHPy_unwrap but with a different name
