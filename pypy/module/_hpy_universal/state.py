@@ -38,14 +38,11 @@ class State(object):
 
     @jit.dont_look_inside
     def setup(self, space):
-        if not self.uctx:
-            self.setup_uctx()
-            self.ctx = self.uctx # XXX temporary, kill me
-            self.handles = handles.HandleManager(self.uctx, space)
-            self.setup_dctx()
-            self.debug_handles = handles.DebugHandleManager(self.dctx, self.handles)
-        # bridge functions are stored in a global but they need to match the
-        # current space, so we reinitialize them every time.
+        self.setup_uctx()
+        self.ctx = self.uctx # XXX temporary, kill me
+        self.handles = handles.HandleManager(self.uctx, space)
+        self.setup_dctx()
+        self.debug_handles = handles.DebugHandleManager(self.dctx, self.handles)
         self.setup_bridge()
 
     def get_handle_manager(self, debug):
@@ -94,7 +91,7 @@ class State(object):
         for func in API.all_functions:
             if func.cpyext and not space.config.objspace.hpy_cpyext_API:
                 # ignore cpyext functions if hpy_cpyext_API is False
-                return
+                continue
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.uctx, ctx_field, funcptr)
