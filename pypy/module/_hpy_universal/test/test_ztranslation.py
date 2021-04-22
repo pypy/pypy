@@ -41,7 +41,7 @@ def test_checkmodule():
     def extra_func(space):
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
         state = State.get(space)
-        state.setup()
+        state.setup(space)
         attach_dict_strategy(space)
         p = lltype.malloc(DUMMY_CPYEXT_STRUCT, flavor='raw')
         lltype.free(p, flavor='raw')
