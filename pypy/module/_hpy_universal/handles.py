@@ -106,7 +106,6 @@ class AbstractHandleManager(object):
     def attach_release_callback(self, index, cb):
         raise NotImplementedError
 
-    @specialize.argtype(1)
     def using(self, *w_objs):
         """
         context-manager to new/close one or more handles
@@ -115,6 +114,7 @@ class AbstractHandleManager(object):
         # depending on the number of w_objs. The idea is that the whole class is
         # optimized away and what's left is a series of calls to handles.new() and
         # handles.close()
+        # XXX: That doesn't work: __enter__ and __exit__ can't be inlined
         UsingContextManager = make_UsingContextManager(len(w_objs))
         return UsingContextManager(self, w_objs)
 
@@ -222,7 +222,7 @@ def make_UsingContextManager(N):
             self.w_objects = w_objects
             self.handles = (0,) * N
 
-        @always_inline
+        #@always_inline
         def __enter__(self):
             handles = ()
             for i in INDICES:
@@ -242,7 +242,7 @@ def make_UsingContextManager(N):
             else:
                 return handles
 
-        @always_inline
+        #@always_inline
         def __exit__(self, etype, evalue, tb):
             for i in INDICES:
                 self.mgr.close(self.handles[i])
