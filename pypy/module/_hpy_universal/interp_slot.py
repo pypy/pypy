@@ -270,7 +270,7 @@ class W_wrap_getbuffer(W_SlotWrapper):
                     space, self.ctx, self.handles, buf_ptr, size, w_obj,
                     itemsize=hpybuf.c_itemsize,
                     readonly=widen(hpybuf.c_readonly),
-                    ndim=hpybuf.c_ndim, format=format, shape=shape,
+                    ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
                     strides=strides)
                 if self.rbp:
                     # XXX: we're assuming w_self and w_obj have the same type!
