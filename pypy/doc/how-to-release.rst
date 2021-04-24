@@ -156,6 +156,9 @@ Other steps
   * add a tag on the codespeed web site that corresponds to pypy release
   * revise versioning at https://readthedocs.org/projects/pypy
   * suggest updates to multibuild_ and cibuildwheel_
+  * update conda forge's `pypy3.6-feedstock`_ and `pypy-meta-feedstock`_
 
 .. _multibuild: https://github.com/matthew-brett/multibuild
 .. _cibuildwheel: https://github.com/joerick/cibuildwheel
+.. _`pypy3.6-feedstock`: https://github.com/conda-forge/pypy3.6-feedstock
+.. _`pypy-meta-feedstock`: https://github.com/conda-forge/pypy-meta-feedstock
