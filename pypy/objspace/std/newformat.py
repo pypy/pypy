@@ -594,7 +594,13 @@ def make_formatting_class(for_unicode):
             if precision != -1 and length >= precision:
                 assert precision >= 0
                 length = precision
-                string = string[:precision]
+                if for_unicode:
+                    w_slice = space.newslice(
+                        space.newint(0), space.newint(precision), space.w_None)
+                    w_string = space.getitem(w_string, w_slice)
+                    string = space.utf8_w(w_string)
+                else:
+                    string = string[:precision]
             self._calc_padding(string, length)
             return self.wrap(self._pad(string))
 
