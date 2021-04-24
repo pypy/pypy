@@ -834,7 +834,7 @@ a = A()
         try:
             self.simple_test(source, None, None)
         except IndentationError as e:
-            assert e.msg == 'expected an indented block'
+            assert e.msg == 'expected an indented block after function definition on line 2'
         else:
             raise Exception("DID NOT RAISE")
 
