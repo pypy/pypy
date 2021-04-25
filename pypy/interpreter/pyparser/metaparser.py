@@ -148,7 +148,7 @@ class ParserGenerator(object):
                     arcs.append((self.make_label(gram, label), dfa.index(next)))
                 states.append((arcs, state.is_final))
             symbol_id = gram.symbol_ids[name]
-            dfa = parser.DFA(symbol_id, states, self.make_first(gram, name))
+            dfa = parser.DFA(gram, symbol_id, states, self.make_first(gram, name))
             gram.dfas.append(dfa)
             assert len(gram.dfas) - 1 == symbol_id - 256
         gram.start = gram.symbol_ids[self.start_symbol]
