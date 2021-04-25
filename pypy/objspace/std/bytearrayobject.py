@@ -481,8 +481,8 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self._data[self._offset:])
 
-    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
-    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+    @unwrap_spec(bytes_per_sep=int)
+    def descr_hex(self, space, w_sep=None, bytes_per_sep=0):
         """
         Create a str of hexadecimal numbers from a bytearray object.
 
@@ -503,6 +503,12 @@ class W_BytearrayObject(W_Root):
         >>> value.hex(':', -2)
         'b901:ef'
         """
+        if w_sep is not None:
+            if not space.int_w(space.len(w_sep)) == 1:
+                raise oefmt(space.w_ValueError, "sep must be length 1.")
+            sep = space.text_w(w_sep)
+        else:
+            sep = None
         data = self.getdata()
         return _array_to_hexstring(space, data, 0, 1, len(data), True,
                 sep=sep, bytes_per_sep=bytes_per_sep)
@@ -601,7 +607,7 @@ HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
 @specialize.arg(5) # raw access
-def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=None, bytes_per_sep=-1):
+def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=None, bytes_per_sep=0):
     from rpython.rlib.rutf8 import check_ascii, CheckError
     if sep is not None:
         try:
@@ -610,10 +616,10 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=No
             raise oefmt(space.w_ValueError, "sep must be ASCII.")
         if len(sep) != 1:
             raise oefmt(space.w_ValueError, "sep must be length 1.")
-        if bytes_per_sep == -1:
+        if bytes_per_sep == 0:
             bytes_per_sep = 1
     else:
-        bytes_per_sep = -1
+        bytes_per_sep = 0
     hexstring = StringBuilder(length*2)
 
     if length > PY_SIZE_T_MAX/2:
@@ -621,12 +627,17 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=No
 
     if bytes_per_sep == 1:
         bytes_per_sep_prefix = 1
+
     elif bytes_per_sep > 1:
         bytes_per_sep_prefix = length % bytes_per_sep
         if bytes_per_sep_prefix == 0:
             bytes_per_sep_prefix = bytes_per_sep
+    elif bytes_per_sep < 0:
+        bytes_per_sep_prefix = -bytes_per_sep
+        bytes_per_sep = -bytes_per_sep
     else:
-        bytes_per_sep_prefix = -1
+        assert bytes_per_sep == 0
+        bytes_per_sep_prefix = -1 # disable separators
 
     sep_counter = bytes_per_sep_prefix
 

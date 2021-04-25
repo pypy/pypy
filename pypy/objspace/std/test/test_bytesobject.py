@@ -1016,9 +1016,13 @@ class AppTestBytesObject:
             bytes([1, 2, 3]).hex("abc")
         assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', 4) == \
                "73616e?74612063?6c617573"
+        assert bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('?', -4) == \
+               "73616e74?6120636c?617573"
         with raises(ValueError) as excinfo:
             bytes([1, 2, 3]).hex("ä")
         assert "ASCII" in str(excinfo.value)
+        with raises(TypeError):
+            bytes().hex(None, 1)
 
     def test_format(self):
         """

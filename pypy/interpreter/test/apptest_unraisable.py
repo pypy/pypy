@@ -58,3 +58,23 @@ def test_custom_unraisablehook_fails():
     finally:
         sys.unraisablehook = sys.__unraisablehook__
         sys.stderr = oldstderr
+
+def test_del_object_is_unbound_method():
+    import gc
+    l = []
+    def ownhook(hookargs):
+        l.append(hookargs)
+    class A:
+        def __del__(self):
+            raise IndexError
+    sys.unraisablehook = ownhook
+    try:
+        A()
+        gc.collect()
+        assert len(l) == 1
+        args, = l
+        print(args.object)
+        assert args.object is A.__del__
+    finally:
+        sys.unraisablehook = sys.__unraisablehook__
+

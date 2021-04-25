@@ -2978,7 +2978,6 @@ if sys.platform.startswith('linux'):
         for name in """
                 MFD_CLOEXEC
                 MFD_ALLOW_SEALING
-                MFD_CLOEXEC
                 MFD_HUGETLB
                 MFD_HUGE_SHIFT
                 MFD_HUGE_MASK
@@ -2996,18 +2995,19 @@ if sys.platform.startswith('linux'):
                 MFD_HUGE_16GB
                 """.split():
             locals()[name] = rffi_platform.DefinedConstantInteger(name)
+        HAVE_MEMFD_CREATE = rffi_platform.Has('memfd_create')
 
     cConfig = rffi_platform.configure(CConfig)
     for key, value in cConfig.items():
-        if value is not None:
+        if value is not None and key.startswith("MFD_"):
             globals()[key] = value
 
-    c_memfd_create = external('memfd_create',
-        [rffi.CCHARP, rffi.UINT], rffi.INT,
-        compilation_info=CConfig._compilation_info_)
-
-    def memfd_create(name, flags):
-        return handle_posix_error(
-            'memfd_create', c_memfd_create(name, flags))
+    if cConfig['HAVE_MEMFD_CREATE']:
+        c_memfd_create = external('memfd_create',
+            [rffi.CCHARP, rffi.UINT], rffi.INT,
+            compilation_info=CConfig._compilation_info_)
+        def memfd_create(name, flags):
+            return handle_posix_error(
+                'memfd_create', c_memfd_create(name, flags))
 
 

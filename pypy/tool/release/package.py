@@ -253,7 +253,7 @@ def create_package(basedir, options, _fake=False):
             os.symlink(POSIX_EXE, 'pypy{}'.format(python_ver))
             os.symlink(POSIX_EXE, 'python')
             os.symlink(POSIX_EXE, 'python{}'.format(python_ver))
-            os.symlink(POSIX_EXE, 'python{}'.format(python_ver[1]))
+            os.symlink(POSIX_EXE, 'python{}'.format(python_ver[0]))
         finally:
             os.chdir(old_dir)
     fix_permissions(pypydir)
@@ -355,7 +355,7 @@ def package(*args, **kwds):
     parser.add_argument('--embedded-dependencies', '--no-embedded-dependencies',
                         dest='embed_dependencies',
                         action=NegateAction,
-                        default=(ARCH in ('darwin', 'aarch64')),
+                        default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
     parser.add_argument('--make-portable',

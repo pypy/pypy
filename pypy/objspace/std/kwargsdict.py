@@ -170,6 +170,12 @@ class KwargsDictStrategy(DictStrategy):
         keys, values_w = self.unerase(w_dict.dstorage)
         return ZipItemsWithHash(keys, values_w)
 
+    def getiterreversed(self, w_dict):
+        l = self.unerase(w_dict.dstorage)[0]
+        l = l[:] # inefficient, but who cares
+        l.reverse()
+        return iter(l)
+
     wrapkey = _wrapkey
 
 

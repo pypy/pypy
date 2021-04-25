@@ -216,8 +216,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.qualname = qualname + '.<locals>'
         else:
             self.qualname = qualname
-        self._compile(tree)
         self.allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self._compile(tree)
 
     def _compile(self, tree):
         """Override in subclasses to compile a scope."""

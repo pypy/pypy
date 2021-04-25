@@ -311,6 +311,19 @@ class AppTest_DictObject:
             values.append(k)
         assert values == list(d.values())
 
+    def test_reverse_keys(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d)) == [3, 1]
+        assert list(reversed(d.keys())) == [3, 1]
+
+    def test_reverse_values(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.values())) == [4, 2]
+
+    def test_reverse_items(self):
+        d = {1: 2, 3: 4}
+        assert list(reversed(d.items())) == [(3, 4), (1, 2)]
+
     def test_reversed_dict(self):
         import __pypy__
         def kw(**d): return d
@@ -1173,6 +1186,18 @@ class AppTestDictViews:
         logger_copy = set(logger[:])  # prevent re-evaluation during pytest error print
         assert (foo2, foo2_bis) in logger_copy
         assert logger_copy.issubset({(foo1, foo2_bis), (foo2, foo2_bis), (foo3, foo2_bis)})
+
+    def test_pickle(self):
+        d = {1: 1, 2: 2, 3: 3}
+        it = iter(d)
+        first = next(it)
+        reduced = it.__reduce__()
+        rebuild, args = reduced
+        new = rebuild(*args)
+        items = set(new)
+        assert len(items) == 2
+        items.add(first)
+        assert items == set(d)
 
 
 class AppTestStrategies(object):

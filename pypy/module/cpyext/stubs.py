@@ -405,22 +405,6 @@ def PyUnicodeDecodeError_SetReason(space, exc, reason):
     0 on success, -1 on failure."""
     raise NotImplementedError
 
-@cpython_api([rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.INT_real, rffi.CCHARP, rffi.CCHARP, rffi.CCHARP, rffi.INT_real], PyObject)
-def PyFile_FromFd(space, fd, name, mode, buffering, encoding, errors, newline, closefd):
-    """Create a Python file object from the file descriptor of an already
-    opened file fd.  The arguments name, encoding, errors and newline
-    can be NULL to use the defaults; buffering can be -1 to use the
-    default. name is ignored and kept for backward compatibility. Return
-    NULL on failure. For a more comprehensive description of the arguments,
-    please refer to the io.open() function documentation.
-
-    Since Python streams have their own buffering layer, mixing them with
-    OS-level file descriptors can produce various issues (such as unexpected
-    ordering of data).
-
-    Ignore name attribute."""
-    raise NotImplementedError
-
 @cpython_api([], PyObject)
 def PyFloat_GetInfo(space):
     """Return a structseq instance which contains information about the

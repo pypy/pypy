@@ -2,11 +2,11 @@
 
 # Edit these appropriately before running this script
 pmaj=3  # python main version: 2 or 3
-pmin=6  # python minor version
+pmin=7  # python minor version
 maj=7
 min=3
-rev=3
-#rc=rc2  # set to blank for actual release
+rev=4
+# rc=rc2  # comment this line for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -48,7 +48,6 @@ fi
 function repackage_builds {
     # Download latest builds from the buildmaster, rename the top
     # level directory, and repackage ready to be uploaded 
-    actual_ver=xxxxxxxxxxxxxxx
     for plat in linux linux64 osx64 aarch64 s390x # linux-armhf-raspbian linux-armel
       do
         echo downloading package for $plat
@@ -70,40 +69,55 @@ function repackage_builds {
         fi
         tar -xf pypy-c-jit-latest-$plat.tar.bz2
         rm pypy-c-jit-latest-$plat.tar.bz2
+
+        # Check that this is the correct version
+        actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
+        if [ $actual_ver != "\"$maj.$min.$rev\"" ]
+        then
+            echo xxxxxxxxxxxxxxxxxxxxxx
+            echo version mismatch, expected "\"$maj.$min.$rev\"", got $actual_ver for $plat
+            echo xxxxxxxxxxxxxxxxxxxxxx
+            exit -1
+            rm -rf pypy-c-jit-*-$plat
+            continue
+        fi
+
+        # Move the files into the correct directory and create the tarball
         plat_final=$plat
         if [ $plat = linux ]; then
             plat_final=linux32
         fi
         mv pypy-c-jit-*-$plat $rel-$plat_final
-        # TODO: automate the platform choice or move it to the head of the file
-        if [ $plat_final == linux64 ]
-        then
-            actual_ver=`$rel-$plat_final/bin/$exe -c "import sys; print('.'.join([str(x) for x in sys.pypy_version_info[:2]]))"`
-        fi
         echo packaging $plat_final
         tar --owner=root --group=root --numeric-owner -cjf $rel-$plat_final.tar.bz2 $rel-$plat_final
         rm -rf $rel-$plat_final
       done
-    if [ "$actual_ver" != "$maj.$min" ]
-    then
-        echo xxxxxxxxxxxxxxxxxxxxxx
-        echo version mismatch, expected $maj.$min, got $actual_ver
-        echo xxxxxxxxxxxxxxxxxxxxxx
-        exit -1
-        rm -rf $rel-$plat_final
-        continue
-    fi
-    plat=win32
-    if wget http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
-    then
+    # end of "for" loop
+    for plat in win64 win32
+      do
+        if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
+        then
+            echo $plat downloaded 
+        else
+            echo $plat no download available
+            continue
+        fi
         unzip -q pypy-c-jit-latest-$plat.zip
         rm pypy-c-jit-latest-$plat.zip
+        actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
+        if [ $actual_ver != "\"$maj.$min.$rev\"" ]
+        then
+            echo xxxxxxxxxxxxxxxxxxxxxx
+            echo version mismatch, expected "\"$maj.$min.$rev\"", got $actual_ver for $plat
+            echo xxxxxxxxxxxxxxxxxxxxxx
+            rm -rf pypy-c-jit-*-$plat
+            continue
+        fi
         mv pypy-c-jit-*-$plat $rel-$plat
         zip -rq $rel-$plat.zip $rel-$plat
         rm -rf $rel-$plat
-    else
-        echo no download for $plat
-    fi
+      done
+    # end of "for" loop
 }
 
 function repackage_source {
