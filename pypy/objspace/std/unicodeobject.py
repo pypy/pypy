@@ -1197,7 +1197,8 @@ def encode_object(space, w_obj, encoding, errors):
              encoding == 'ascii'):
             s = space.utf8_w(w_obj)
             try:
-                rutf8.check_ascii(s)
+                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+                    rutf8.check_ascii(s)
             except rutf8.CheckError as a:
                 if space.isinstance_w(w_obj, space.w_unicode):
                     eh = unicodehelper.encode_error_handler(space)
