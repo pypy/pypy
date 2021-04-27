@@ -26,8 +26,6 @@ KEYS = dict([
     for ident in dir(pygame.locals) if ident.startswith('K_')
 ])
 
-dbg = open("/tmp/debugrstar.txt", "a")
-
 
 KEYS['plus'] = ('=', '+', '.')
 KEYS['quit'] = ('q', 'escape')
@@ -184,8 +182,6 @@ class GraphDisplay(Display):
                 args = ()
             method = getattr(self, methodname, None)
             if method is None:
-                print('Can not implement key mapping %r, %s.%s does not exist' % (
-                        strnames, self.__class__.__name__, methodname), file=dbg)
                 continue
 
             mods = []
@@ -595,17 +591,12 @@ class GraphDisplay(Display):
         return False
 
     def process_event(self, event):
-
-        dbg.write("event %s\n" % ((event, event.__dict__),))
         method = self.method_cache.get(event.type, KeyError)
         if method is KeyError:
             method = getattr(self, 'process_%s' % (pygame.event.event_name(event.type),), None)
             self.method_cache[method] = method
         if method is not None:
             method(event)
-        else:
-            dbg.write("no method! %s\nmethod_cache: %s\n" % ((pygame.event.event_name(event.type), event, event.__dict__), self.method_cache))
-        dbg.flush()
         
     def process_MouseMotion(self, event):
         if self.peek(MOUSEMOTION):
@@ -665,10 +656,6 @@ class GraphDisplay(Display):
             method, args = self.ascii_key_cache.get((char, mod), (None, None))
         if method is not None:
             method(*args)
-        else:
-            dbg.write("can't find mapping for key %s\n" % ((char, mod, event, event.key),))
-            dbg.write("%r\n" % (self.key_cache, ))
-            dbg.write("%r\n" % (self.ascii_key_cache, ))
 
     def process_VideoResize(self, event):
         # short-circuit if there are more resize events pending
