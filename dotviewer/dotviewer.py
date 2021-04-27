@@ -9,6 +9,8 @@ In the first form, show the graph contained in a .dot file.
 In the second form, the graph was already compiled to a .plain file.
 """
 
+from __future__ import print_function
+
 import sys
 
 def main(args = sys.argv[1:]):
@@ -22,7 +24,7 @@ def main(args = sys.argv[1:]):
         if option in ('-s', '--server'):      # deprecated
             server_addr = value
     if not args and server_addr is None:
-        print >> sys.stderr, __doc__
+        print(__doc__, file=sys.stderr)
         sys.exit(2)
     for filename in args:
         import graphclient

@@ -30,15 +30,16 @@ class GraphPage(object):
         import graphclient, msgstruct
         try:
             graphclient.display_page(self, save_tmp_file=self.save_tmp_file)
-        except msgstruct.RemoteError, e:
+        except msgstruct.RemoteError as e:
             import sys
             print >> sys.stderr, "Exception in the graph viewer:", str(e)
 
     def display_background(self):
         "Display a graph page in a background thread."
         try:
-            import thread
-            thread.start_new_thread(self.display, ())
+            import threading
+            t = threading.Thread(target=self.display)
+            t.start()
         except ImportError:
             self.display()
 

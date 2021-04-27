@@ -8,7 +8,7 @@ import re, os, math
 import pygame
 from pygame.locals import *
 
-from strunicode import forceunicode
+from strunicode import forcestr, forceunicode
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
@@ -672,7 +672,7 @@ COLOR = {
     'yellowgreen': (154, 205, 50),
     }
 re_nonword=re.compile(r'([^0-9a-zA-Z_.]+)')
-re_linewidth=re.compile(r'setlinewidth\((\d+(\.\d*)?|\.\d+)\)')
+re_linewidth=re.compile(forcestr(r'setlinewidth\((\d+(\.\d*)?|\.\d+)\)'))
 
 def combine(color1, color2, alpha):
     r1, g1, b1 = color1
@@ -775,8 +775,8 @@ class Node:
         self.label = forceunicode(label)
         self.style = style
         self.shape = shape
-        self.color = color
-        self.fillcolor = fillcolor
+        self.color = forceunicode(color)
+        self.fillcolor = forceunicode(fillcolor)
         self.highlight = False
 
     def sethighlight(self, which):
@@ -799,6 +799,7 @@ class Edge:
             self.yl = float(yl)
             rest = rest[3:]
         self.style, self.color = rest
+        self.color = forceunicode(self.color)
         linematch = re_linewidth.match(self.style)
         if linematch:
             num = linematch.group(1)
@@ -874,7 +875,11 @@ class Edge:
             self.cachedarrowhead = result
         return result
 
-def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
+def beziercurve(p0, p1, p2, p3, resolution=8):
+    (x0, y0) = p0
+    (x1, y1) = p1
+    (x2, y2) = p2
+    (x3, y3) = p3
     result = []
     f = 1.0/(resolution-1)
     append = result.append
@@ -888,10 +893,13 @@ def beziercurve((x0,y0), (x1,y1), (x2,y2), (x3,y3), resolution=8):
                 y0*t0 + y1*t1 + y2*t2 + y3*t3))
     return result
 
-def segmentdistance((x0,y0), (x1,y1), (x,y)):
+def segmentdistance(p0, p1, p):
     "Distance between the point (x,y) and the segment (x0,y0)-(x1,y1)."
-    vx = x1-x0
-    vy = y1-y0
+    (x0, y0) = p0
+    (x1, y1) = p1
+    (x, y) = p
+    vx = x1 - x0
+    vy = y1 - y0
     try:
         l = math.hypot(vx, vy)
         vx /= l
@@ -1261,23 +1269,26 @@ class GraphRenderer:
             if item.label and searchstr in item.label:
                 yield item
 
-    def at_position(self, (x, y)):
+    def at_position(self, p):
         """Figure out the word under the cursor."""
+        x, y = p
         for rx, ry, rw, rh, word in self.textzones:
             if rx <= x < rx+rw and ry <= y < ry+rh:
                 return word
         return None
 
-    def node_at_position(self, (x, y)):
+    def node_at_position(self, p):
         """Return the Node under the cursor."""
+        x, y = p
         x, y = self.revmap(x, y)
         for node in self.visiblenodes:
             if 2.0*abs(x-node.x) <= node.w and 2.0*abs(y-node.y) <= node.h:
                 return node
         return None
 
-    def edge_at_position(self, (x, y), distmax=14):
+    def edge_at_position(self, p, distmax=14):
         """Return the Edge near the cursor."""
+        x, y = p
         # XXX this function is very CPU-intensive and makes the display kinda sluggish
         distmax /= self.scale
         xy = self.revmap(x, y)
