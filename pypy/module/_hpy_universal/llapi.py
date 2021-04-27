@@ -13,7 +13,7 @@ DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug'
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
-    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h"],
+    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
         INCLUDE_DIR,                # for universal/hpy.h
@@ -450,7 +450,7 @@ typedef enum {
 
 typedef struct {
     void *buf;
-    HPy obj;        /* owned reference */
+    struct _HPy_s obj;        /* owned reference */
     HPy_ssize_t len;
     HPy_ssize_t itemsize;
     int readonly;

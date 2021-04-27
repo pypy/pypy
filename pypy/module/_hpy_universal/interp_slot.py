@@ -253,7 +253,7 @@ class W_wrap_getbuffer(W_SlotWrapper):
                     raise oefmt(space.w_BufferError,
                         "HPy_bf_getbuffer slot failed without setting an exception")
                 buf_ptr = hpybuf.c_buf
-                w_obj = self.handles.consume(hpybuf.c_obj)
+                w_obj = self.handles.consume(hpybuf.c_obj.c__i)
                 size = hpybuf.c_len
                 ndim = widen(hpybuf.c_ndim)
                 shape = None

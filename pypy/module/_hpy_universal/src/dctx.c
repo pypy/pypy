@@ -9,14 +9,19 @@ HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx) {
 int pypy_hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx) {
     return hpy_debug_ctx_init(dctx, uctx);
 }
-HPy pypy_hpy_debug_wrap_handle(HPyContext dctx, HPy uh) {
-    return hpy_debug_wrap_handle(dctx, uh);
+HPy_ssize_t pypy_hpy_debug_wrap_handle(HPyContext dctx, HPy_ssize_t _uh) {
+    HPy uh = {._i = _uh};
+    HPy dh = hpy_debug_wrap_handle(dctx, uh);
+    return dh._i;
 }
-HPy pypy_hpy_debug_unwrap_handle(HPy dh) {
-    return hpy_debug_unwrap_handle(dh);
+HPy_ssize_t pypy_hpy_debug_unwrap_handle(HPy_ssize_t _dh) {
+    HPy dh = {._i = _dh};
+    HPy uh = hpy_debug_unwrap_handle(dh);
+    return uh._i;
 }
-HPy pypy_HPyInit__debug(HPyContext uctx) {
-    return HPyInit__debug(uctx);
+HPy_ssize_t pypy_HPyInit__debug(HPyContext uctx) {
+    HPy h_mod = HPyInit__debug(uctx);
+    return h_mod._i;
 }
 
 void pypy_hpy_debug_set_ctx(HPyContext dctx) {
