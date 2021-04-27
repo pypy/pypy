@@ -1152,7 +1152,7 @@ class GraphRenderer:
         x = xcenter-boxwidth//2
         y = ycenter-boxheight//2
 
-        if node.shape == 'box':
+        if node.shape == b'box':
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
             def cmd():
                 self.screen.fill(bgcolor, rect)
@@ -1160,7 +1160,7 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.rect(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
-        elif node.shape == 'ellipse':
+        elif node.shape == b'ellipse':
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
             def cmd():
                 pygame.draw.ellipse(self.screen, bgcolor, rect, 0)
@@ -1168,7 +1168,7 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.ellipse(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
-        elif node.shape == 'octagon':
+        elif node.shape == b'octagon':
             step = 1-math.sqrt(2)/2
             points = [(int(x+boxwidth*fx), int(y+boxheight*fy))
                       for fx, fy in [(step,0), (1-step,0),
