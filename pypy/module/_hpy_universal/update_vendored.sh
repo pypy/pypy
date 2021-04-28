@@ -29,15 +29,11 @@ if [ "${#POSITIONAL[@]}" -ne 1 ]; then
     exit 1
 fi
 
-DIR=$(dirname $0)
-echo ${DIR}
 HPY="${POSITIONAL[0]}"
 # cd to pypy/module/_hpy_universal/ so we can use relative paths
-cd $DIR
-# </argument parsing>
-
+cd $(dirname $0)
 BASEDIR=$(cd ../../..; pwd)
-echo ${BASEDIR}
+# </argument parsing>
 
 # ~~~ helper functions ~~~
 
@@ -69,7 +65,7 @@ check_version_status() {
         else
             admonition="${RED}ERROR${RESET}"
         fi
-        
+
         echo -e "${admonition} hpy/devel/version.py seems to be outdated"
         echo "  revision reported by git describe: $revgit"
         echo "  revision in hpy/devel/version.py:  $revpy"
@@ -128,6 +124,8 @@ check_version_status
 myrsync -a --delete ${HPY}/hpy/devel/ _vendored/hpy/devel/
 myrsync -a --delete ${HPY}/hpy/debug/src/ _vendored/hpy/debug/src/
 myrsync -a --delete ${HPY}/test/* test/_vendored/
+myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
+rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"
