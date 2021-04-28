@@ -107,6 +107,7 @@ class State(object):
         self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.dctx.c_name = self.dctx_name()
         rffi.setintfield(self.dctx, 'c_ctx_version', 1)
+        self.dctx.c__private = llapi.cts.cast('void*', 0) 
         llapi.hpy_debug_ctx_init(self.dctx, self.uctx)
         llapi.hpy_debug_set_ctx(self.dctx)
         for func in DEBUG.all_functions:
