@@ -1,11 +1,11 @@
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 import os, time, sys
 import pygame
 from pygame.locals import *
-from drawgraph import GraphRenderer, FIXEDFONT
-from drawgraph import Node, Edge
-from drawgraph import EventQueue, wait_for_events
-from strunicode import forceunicode, forcestr, unicode
+from dotviewer.drawgraph import GraphRenderer, FIXEDFONT
+from dotviewer.drawgraph import Node, Edge
+from dotviewer.drawgraph import EventQueue, wait_for_events
+from dotviewer.strunicode import forceunicode, forcestr, unicode
 
 
 METAKEYS = dict([

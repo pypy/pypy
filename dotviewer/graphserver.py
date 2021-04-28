@@ -4,10 +4,16 @@
 From the command-line it's easier to use sshgraphserver.py instead of this.
 """
 
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
-import sys
-import msgstruct
+import os, sys
+
+PARENTDIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# make dotviewer importable
+sys.path.insert(0, PARENTDIR)
+
+from dotviewer import msgstruct
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -60,15 +66,15 @@ class Server(object):
     def setlayout(self, layout):
         if self.display is None:
             # make the initial display
-            from graphdisplay import GraphDisplay
+            from dotviewer.graphdisplay import GraphDisplay
             self.display = GraphDisplay(layout)
         else:
             # send an async command to the display running the main thread
-            from drawgraph import display_async_cmd
+            from dotviewer.drawgraph import display_async_cmd
             display_async_cmd(layout=layout)
 
     def cmsg_start_graph(self, graph_id, scale, width, height, *rest):
-        from drawgraph import GraphLayout
+        from dotviewer.drawgraph import GraphLayout
         self.newlayout = GraphLayout(float(scale), float(width), float(height))
 
         def request_reload():

@@ -1,7 +1,9 @@
+from __future__ import absolute_import
+
 import os, sys, re
 import subprocess
-import msgstruct
-from strunicode import forcestr
+from dotviewer import msgstruct
+from dotviewer.strunicode import forcestr
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 GRAPHSERVER = os.path.join(this_dir, 'graphserver.py')
@@ -12,7 +14,7 @@ def display_dot_file(dotfile, wait=True, save_tmp_file=None):
     """
     if not os.path.exists(str(dotfile)):
         raise IOError("No such file: %s" % (dotfile,))
-    import graphpage
+    from dotviewer import graphpage
     page = graphpage.DotFileGraphPage(str(dotfile))
     display_page(page, wait=wait, save_tmp_file=save_tmp_file)
 
@@ -75,7 +77,7 @@ def display_page(page, wait=True, save_tmp_file=None):
         io.close()
 
 def page_messages(page, graph_id):
-    import graphparse
+    from dotviewer import graphparse
     return graphparse.parse_dot(graph_id, forcestr(page.source), page.links,
                                 getattr(page, 'fixedfont', False))
 
@@ -130,7 +132,11 @@ def spawn_local_handler():
     python = os.getenv('PYPY_PYGAME_PYTHON')
     if not python:
         python = sys.executable
-    args = [python, '-u', GRAPHSERVER, '--stdio']
+    # hack to pick the right file to run:
+    if "__main__.py" in sys.modules['__main__'].__file__:
+        args = [python, '-m', "dotviewer.graphserver", '--stdio']
+    else:
+        args = [python, GRAPHSERVER, '--stdio']
     p = subprocess.Popen(args,
                          stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     child_in, child_out = p.stdin, p.stdout

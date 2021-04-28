@@ -1,6 +1,7 @@
+from __future__ import absolute_import
 import sys, os
 from struct import pack, unpack, calcsize
-from strunicode import tryencode, ord_byte_index
+from dotviewer.strunicode import tryencode, ord_byte_index
 
 MAGIC = -0x3b83728b
 

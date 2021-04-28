@@ -3,12 +3,12 @@ A custom graphic renderer for the '.plain' files produced by dot.
 
 """
 
-from __future__ import generators
+from __future__ import absolute_import
 import re, os, math
 import pygame
 from pygame.locals import *
 
-from strunicode import forcestr, forceunicode
+from dotviewer.strunicode import forcestr, forceunicode
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))

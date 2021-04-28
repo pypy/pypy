@@ -1,14 +1,14 @@
 """
 Graph file parsing.
 """
-from __future__ import print_function
+from __future__ import print_function, absolute_import
 
 import sys, re
 import subprocess
 
-import msgstruct
+from dotviewer import msgstruct
 
-from strunicode import forcestr, forceunicode
+from dotviewer.strunicode import forcestr, forceunicode
 
 re_nonword = re.compile(forcestr(r'([^0-9a-zA-Z_.]+)'))
 re_plain   = re.compile(forcestr(r'graph [-0-9.]+ [-0-9.]+ [-0-9.]+$'), re.MULTILINE)
