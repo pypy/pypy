@@ -30,10 +30,14 @@ if [ "${#POSITIONAL[@]}" -ne 1 ]; then
 fi
 
 DIR=$(dirname $0)
+echo ${DIR}
 HPY="${POSITIONAL[0]}"
 # cd to pypy/module/_hpy_universal/ so we can use relative paths
 cd $DIR
 # </argument parsing>
+
+BASEDIR=$(cd ../../..; pwd)
+echo ${BASEDIR}
 
 # ~~~ helper functions ~~~
 
@@ -86,10 +90,10 @@ myrsync() {
 apply_patches() {
     # see also patches/README for more info
 
-    cat > ${DIR}/test/_vendored/conftest.py <<EOF
+    cat > test/_vendored/conftest.py <<EOF
 # AUTOMATICALLY DELETED BY pypy/module/_hpy_universal/update_vendored.sh
 EOF
-    cat > ${DIR}/test/_vendored/debug/__init__.py <<EOF
+    cat > test/_vendored/debug/__init__.py <<EOF
 # AUTOMATICALLY CREATED BY pypy/module/_hpy_universal/update_vendored.sh
 EOF
 
@@ -100,16 +104,19 @@ EOF
         ls -1 patches/*FIXME*.patch | indent
     fi
 
-    for FILE in patches/*.patch
+    pushd ${BASEDIR} > /dev/null
+    for FILE in pypy/module/_hpy_universal/patches/*.patch
     do
-        patch -p4 < $FILE
+        patch -p1 < $FILE
         if [ $? -ne 0 ]
         then
+            popd > /dev/null
             echo "${FILE}: patch failed, stopping here"
             echo "See patches/README for more details"
             exit 1
         fi
     done
+    popd > /dev/null
     echo
 }
 
@@ -118,9 +125,9 @@ EOF
 check_dirty
 check_version_status
 
-myrsync -a --delete ${HPY}/hpy/devel/ ${DIR}/_vendored/hpy/devel/
-myrsync -a --delete ${HPY}/hpy/debug/src/ ${DIR}/_vendored/hpy/debug/src/
-myrsync -a --delete ${HPY}/test/* ${DIR}/test/_vendored/
+myrsync -a --delete ${HPY}/hpy/devel/ _vendored/hpy/devel/
+myrsync -a --delete ${HPY}/hpy/debug/src/ _vendored/hpy/debug/src/
+myrsync -a --delete ${HPY}/test/* test/_vendored/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"
@@ -128,7 +135,7 @@ git -C "$HPY" --no-pager log --oneline -n 1
 git -C "$HPY" --no-pager diff --stat
 echo
 echo -e "${YELLOW}HG status${RESET} of pypy"
-hg st $DIR
+hg st .
 echo
 echo -en "${YELLOW}HPy version${RESET}"
 cat _vendored/hpy/devel/version.py
