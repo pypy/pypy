@@ -1080,7 +1080,7 @@ class GraphRenderer:
                 self.bboxh - (py + (self.ofsy - self.margin)) / self.scale)
 
     def draw_node_commands(self, node):
-        if node.shape == b"record":
+        if node.shape in (b"record", b'Mrecord'):
             return self.draw_record_commands(node)
 
         xcenter, ycenter = self.map(node.x, node.y)
@@ -1320,10 +1320,10 @@ class GraphRenderer:
 
         text = node.label
 
-        img = TextSnippetRecordLR.make(self, text, fgcolor, bgcolor)
+        img = TextSnippetRecordLR.make(self, text, (boxwidth, boxheight), fgcolor, bgcolor)
         wmax, hmax = img.get_size()
-        xleft = xcenter - wmax//2
-        ytop = ycenter - hmax//2
+        xleft = xcenter - boxwidth//2
+        ytop = ycenter - boxheight//2
         def cmd(img=img, y=0):
             img.draw(xleft, ytop+y)
         commands = [cmd]
@@ -1519,6 +1519,8 @@ def record_to_nested_lists(s):
             curr_string.append(char)
         index += 1
         prev = char
+    if curr_string:
+        curr.append("".join(curr_string))
     assert not stack
     return curr
 
@@ -1530,12 +1532,16 @@ class TextSnippetRecordLR:
         if font is None:
             return
         self.snippets = snippets
+        self.renderer = renderer
+        self.fgcolor = fgcolor
 
     @staticmethod
-    def make(renderer, s, fgcolor, bgcolor=None, font=None):
+    def make(renderer, s, bbox, fgcolor, bgcolor=None, font=None):
         fgcolor = ensure_readable(fgcolor, bgcolor)
         l = record_to_nested_lists(s)
-        return TextSnippetRecordLR.make_from_list(renderer, l, fgcolor, bgcolor, font)
+        res = TextSnippetRecordLR.make_from_list(renderer, l, fgcolor, bgcolor, font)
+        res._compute_offsets(bbox)
+        return res
 
     @classmethod
     def make_from_list(cls, renderer, l, fgcolor, bgcolor, font):
@@ -1555,11 +1561,32 @@ class TextSnippetRecordLR:
             return 0, 0
 
     def draw(self, x, y):
-        for img in self.snippets:
+        for i, img in enumerate(self.snippets):
             w, h = img.get_size()
-            img.draw(x, y)
-            x += w
+            if not isinstance(img, TextSnippetRecordLR):
+                img.draw(x + self.offsets[i] + self.spacing, y + (self.bbox[1] - h) // 2)
+            else:
+                img.draw(x + self.offsets[i], y)
+            if i != 0:
+                start = x + self.offsets[i], y
+                end = x + self.offsets[i], y + self.bbox[1]
+                pygame.draw.line(self.renderer.screen, self.fgcolor, start, end)
 
+    def _compute_offsets(self, bbox):
+        self.bbox = bbox
+        width_content, height_content = self.get_size()
+        width, height = bbox
+        spacing = (width - width_content) / 2.0 / len(self.snippets)
+        offset = 0
+        offsets = []
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            offsets.append(int(offset))
+            offset += w + 2 * spacing
+            if not isinstance(img, TextSnippet):
+                img._compute_offsets((w + 2 * spacing, height))
+        self.offsets = offsets
+        self.spacing = spacing
 
 class TextSnippetRecordTD(TextSnippetRecordLR):
     othercls = TextSnippetRecordLR
@@ -1572,9 +1599,32 @@ class TextSnippetRecordTD(TextSnippetRecordLR):
             return 0, 0
 
     def draw(self, x, y):
-        for img in self.snippets:
+        for i, img in enumerate(self.snippets):
             w, h = img.get_size()
-            img.draw(x, y)
-            y += h
+            if not isinstance(img, TextSnippetRecordLR):
+                img.draw(x + (self.bbox[0] - w) // 2, y + self.offsets[i] + self.spacing)
+            else:
+                img.draw(x, y + self.offsets[i])
+            if i != 0:
+                start = x, y + self.offsets[i]
+                end = x + self.bbox[0], y  + self.offsets[i]
+                pygame.draw.line(self.renderer.screen, self.fgcolor, start, end)
+
+    def _compute_offsets(self, bbox):
+        self.bbox = bbox
+        width_content, height_content = self.get_size()
+        width, height = bbox
+        spacing = (height - height_content) / 2.0 / len(self.snippets)
+        offset = 0
+        offsets = []
+        for i, img in enumerate(self.snippets):
+            w, h = img.get_size()
+            offsets.append(int(offset))
+            offset += h + 2 * spacing
+            if not isinstance(img, TextSnippet):
+                img._compute_offsets((width, h + 2 * spacing))
+        self.offsets = offsets
+        self.spacing = spacing
+
 
 TextSnippetRecordLR.othercls = TextSnippetRecordTD
