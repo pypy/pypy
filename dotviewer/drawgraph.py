@@ -3,7 +3,7 @@ A custom graphic renderer for the '.plain' files produced by dot.
 
 """
 
-from __future__ import absolute_import
+from __future__ import absolute_import, print_function
 import re, os, math
 import pygame
 from pygame.locals import *
@@ -671,6 +671,16 @@ COLOR = {
     'yellow4': (139, 139, 0),
     'yellowgreen': (154, 205, 50),
     }
+
+GONS = {
+    b'triangle': 3,
+    b'diamond': 4,
+    b'pentagon': 5,
+    b'hexagon': 6,
+    b'septagon': 7,
+    b'octagon': 8,
+}
+
 re_nonword=re.compile(r'([^0-9a-zA-Z_.]+)')
 re_linewidth=re.compile(forcestr(r'setlinewidth\((\d+(\.\d*)?|\.\d+)\)'))
 
@@ -914,6 +924,11 @@ def segmentdistance(p0, p1, p):
     else:
         return abs(vy*(x-x0) - vx*(y-y0))
 
+def ellipse(t, center, a, b):
+    """ compute points on an elliplse, with t running from 0 to 2*math.pi, a
+    and b being the radii and center as the origin of the ellipse. """
+    xcenter, ycenter = center
+    return int(xcenter - a / 2.0 * math.sin(t)), int(ycenter - b / 2.0 * math.cos(t))
 
 class GraphRenderer:
     MARGIN = 0.6
@@ -1151,15 +1166,30 @@ class GraphRenderer:
         ytop = ycenter - hmax//2
         x = xcenter-boxwidth//2
         y = ycenter-boxheight//2
+        center = (xcenter, ycenter)
 
-        if node.shape == b'box':
+        if node.shape in (b'box', b'rect', b'rectangle'):
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
+            if rect[0] < 0:
+                rect = (0, y-1, boxwidth+2 + x-1, boxheight+2)
+            if rect[1] < 0:
+                rect = (rect[0], 0, rect[2], boxheight+2 - y-1)
             def cmd():
                 self.screen.fill(bgcolor, rect)
             bkgndcommands.append(cmd)
             def cmd():
                 pygame.draw.rect(self.screen, fgcolor, rect, 1)
             commands.append(cmd)
+        elif node.shape == b'square':
+            width = max(boxwidth+2, boxheight+2)
+            rect = (x-1, y-1, width, width)
+            def cmd():
+                self.screen.fill(bgcolor, rect)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.rect(self.screen, fgcolor, rect, 1)
+            commands.append(cmd)
+
         elif node.shape == b'ellipse':
             rect = (x-1, y-1, boxwidth+2, boxheight+2)
             def cmd():
@@ -1167,6 +1197,24 @@ class GraphRenderer:
             bkgndcommands.append(cmd)
             def cmd():
                 pygame.draw.ellipse(self.screen, fgcolor, rect, 1)
+            commands.append(cmd)
+        elif node.shape == b'circle':
+            radius = max(boxwidth+2, boxheight+2) // 2
+            def cmd():
+                pygame.draw.circle(self.screen, bgcolor, center, radius, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.circle(self.screen, fgcolor, center, radius, 1)
+            commands.append(cmd)
+        elif node.shape == b'doublecircle':
+            radius = max(boxwidth+2, boxheight+2) // 2
+            bigradius = int(radius * 1.05)
+            def cmd():
+                pygame.draw.circle(self.screen, bgcolor, center, bigradius, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.circle(self.screen, fgcolor, center, radius, 1)
+                pygame.draw.circle(self.screen, fgcolor, center, bigradius, 1)
             commands.append(cmd)
         elif node.shape == b'octagon':
             step = 1-math.sqrt(2)/2
@@ -1181,6 +1229,43 @@ class GraphRenderer:
             def cmd():
                 pygame.draw.polygon(self.screen, fgcolor, points, 1)
             commands.append(cmd)
+        elif node.shape == b'doubleoctagon' or node.shape == b'tripleoctagon':
+            radius = max(boxwidth+2, boxheight+2)
+            # not quite right: not all sides are parallel
+            width = int(radius * 1.05) - radius
+            count = 8
+            points = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth, boxheight)
+                      for i in range(count)]
+            points2 = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth + width, boxheight + width)
+                      for i in range(count)]
+            points3 = [ellipse((2 * math.pi) / float(count) * (i + 0.5),
+                        center, boxwidth + 2 * width, boxheight + 2 * width)
+                      for i in range(count)]
+            if node.shape != b'tripleoctagon':
+                points3 = points2
+            def cmd():
+                pygame.draw.polygon(self.screen, bgcolor, points3, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.polygon(self.screen, fgcolor, points, 1)
+                pygame.draw.polygon(self.screen, fgcolor, points2, 1)
+                pygame.draw.polygon(self.screen, fgcolor, points3, 1)
+            commands.append(cmd)
+        elif node.shape in GONS:
+            count = GONS[node.shape]
+            points = [ellipse((2 * math.pi) / float(count) * i, center, boxwidth, boxheight)
+                      for i in range(count)]
+            def cmd():
+                pygame.draw.polygon(self.screen, bgcolor, points, 0)
+            bkgndcommands.append(cmd)
+            def cmd():
+                pygame.draw.polygon(self.screen, fgcolor, points, 1)
+            commands.append(cmd)
+
+        elif node.shape in (b'none', b'plain', b'plaintext'):
+            pass
         return bkgndcommands, commands
 
     def draw_commands(self):

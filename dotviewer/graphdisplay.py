@@ -594,7 +594,7 @@ class GraphDisplay(Display):
         method = self.method_cache.get(event.type, KeyError)
         if method is KeyError:
             method = getattr(self, 'process_%s' % (pygame.event.event_name(event.type),), None)
-            self.method_cache[method] = method
+            self.method_cache[event.type] = method
         if method is not None:
             method(event)
         

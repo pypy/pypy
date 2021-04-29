@@ -49,7 +49,7 @@ class Server(object):
             while True:
                 self.process_next_message()
         except EOFError:
-            from drawgraph import display_async_quit
+            from dotviewer.drawgraph import display_async_quit
             display_async_quit()
 
     def process_next_message(self):
