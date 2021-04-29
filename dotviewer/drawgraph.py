@@ -741,7 +741,7 @@ class GraphLayout:
         self.edges.append(Edge(self.nodes, *args))
 
     def get_display(self):
-        from graphdisplay import GraphDisplay
+        from dotviewer.graphdisplay import GraphDisplay
         return GraphDisplay(self)      
 
     def display(self):
@@ -1080,6 +1080,9 @@ class GraphRenderer:
                 self.bboxh - (py + (self.ofsy - self.margin)) / self.scale)
 
     def draw_node_commands(self, node):
+        if node.shape == b"record":
+            return self.draw_record_commands(node)
+
         xcenter, ycenter = self.map(node.x, node.y)
         boxwidth = int(node.w * self.scale)
         boxheight = int(node.h * self.scale)
@@ -1098,7 +1101,6 @@ class GraphRenderer:
         hmax = 0
         commands = []
         bkgndcommands = []
-
         if self.font is None:
             if lines:
                 raw_line = lines[0].replace('\\l','').replace('\r','')
@@ -1306,6 +1308,44 @@ class GraphRenderer:
 
         return edgebodycmd + nodebkgndcmd + edgeheadcmd + nodecmd
 
+    def draw_record_commands(self, node):
+        xcenter, ycenter = self.map(node.x, node.y)
+        boxwidth = int(node.w * self.scale)
+        boxheight = int(node.h * self.scale)
+        fgcolor = getcolor(node.color, (0,0,0))
+        bgcolor = getcolor(node.fillcolor, (255,255,255))
+        if node.highlight:
+            fgcolor = highlight_color(fgcolor)
+            bgcolor = highlight_color(bgcolor)
+
+        text = node.label
+
+        img = TextSnippetRecordLR.make(self, text, fgcolor, bgcolor)
+        wmax, hmax = img.get_size()
+        xleft = xcenter - wmax//2
+        ytop = ycenter - hmax//2
+        def cmd(img=img, y=0):
+            img.draw(xleft, ytop+y)
+        commands = [cmd]
+        bkgndcommands = []
+
+        x = xcenter-boxwidth//2
+        y = ycenter-boxheight//2
+
+        # draw box
+        rect = (x-1, y-1, boxwidth+2, boxheight+2)
+        if rect[0] < 0:
+            rect = (0, y-1, boxwidth+2 + x-1, boxheight+2)
+        if rect[1] < 0:
+            rect = (rect[0], 0, rect[2], boxheight+2 + y-1)
+        def cmd():
+            self.screen.fill(bgcolor, rect)
+        bkgndcommands.append(cmd)
+        def cmd():
+            pygame.draw.rect(self.screen, fgcolor, rect, 1)
+        commands.append(cmd)
+        return bkgndcommands, commands
+
     def render(self):
         self.computevisible()
 
@@ -1447,3 +1487,94 @@ class TextSnippet:
             self.renderer.textzones.append((x, y, w, h, word))
             x += w
 
+
+def record_to_nested_lists(s):
+    curr = []
+    stack = []
+    curr_string = []
+    index = 0
+    prev = ''
+    while index < len(s):
+        char = s[index]
+        if char == "|":
+            if prev != '}':
+                curr.append("".join(curr_string))
+                curr_string = []
+        elif char == "{":
+            stack.append(curr)
+            curr = []
+        elif char == "}":
+            curr.append("".join(curr_string))
+            curr_string = []
+            stack[-1].append(curr)
+            curr = stack.pop()
+        elif char == "<":
+            index = s.find(">", index) + 1
+            if index == 0:
+                assert 0
+            else:
+                prev = ">"
+                continue
+        else:
+            curr_string.append(char)
+        index += 1
+        prev = char
+    assert not stack
+    return curr
+
+
+class TextSnippetRecordLR:
+    def __init__(self, renderer, snippets, fgcolor, bgcolor=None, font=None):
+        if font is None:
+            font = renderer.font
+        if font is None:
+            return
+        self.snippets = snippets
+
+    @staticmethod
+    def make(renderer, s, fgcolor, bgcolor=None, font=None):
+        fgcolor = ensure_readable(fgcolor, bgcolor)
+        l = record_to_nested_lists(s)
+        return TextSnippetRecordLR.make_from_list(renderer, l, fgcolor, bgcolor, font)
+
+    @classmethod
+    def make_from_list(cls, renderer, l, fgcolor, bgcolor, font):
+        snippets = []
+        for element in l:
+            if isinstance(element, list):
+                snippets.append(cls.othercls.make_from_list(renderer, element, fgcolor, bgcolor, font))
+            else:
+                snippets.append(TextSnippet(renderer, element, fgcolor, bgcolor, font))
+        return cls(renderer, snippets, fgcolor, bgcolor, font)
+
+    def get_size(self):
+        if self.snippets:
+            sizes = [img.get_size() for img in self.snippets]
+            return sum([w for w,h in sizes]), max([h for w,h in sizes])
+        else:
+            return 0, 0
+
+    def draw(self, x, y):
+        for img in self.snippets:
+            w, h = img.get_size()
+            img.draw(x, y)
+            x += w
+
+
+class TextSnippetRecordTD(TextSnippetRecordLR):
+    othercls = TextSnippetRecordLR
+
+    def get_size(self):
+        if self.snippets:
+            sizes = [img.get_size() for img in self.snippets]
+            return max([w for w,h in sizes]), sum([h for w,h in sizes])
+        else:
+            return 0, 0
+
+    def draw(self, x, y):
+        for img in self.snippets:
+            w, h = img.get_size()
+            img.draw(x, y)
+            y += h
+
+TextSnippetRecordLR.othercls = TextSnippetRecordTD
