@@ -1064,6 +1064,8 @@ class GraphRenderer:
             if x-nw2 < w and x+nw2 > 0 and y-nh2 < h and y+nh2 > 0:
                 self.visiblenodes.append(node)
         for edge in self.graphlayout.edges:
+            if edge.style == b"invis":
+                continue
             x1, y1, x2, y2 = edge.limits()
             x1, y1 = self.map(x1, y1)
             if x1 < w and y1 < h:
