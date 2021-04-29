@@ -1173,7 +1173,7 @@ class GraphRenderer:
             if rect[0] < 0:
                 rect = (0, y-1, boxwidth+2 + x-1, boxheight+2)
             if rect[1] < 0:
-                rect = (rect[0], 0, rect[2], boxheight+2 - y-1)
+                rect = (rect[0], 0, rect[2], boxheight+2 + y-1)
             def cmd():
                 self.screen.fill(bgcolor, rect)
             bkgndcommands.append(cmd)
