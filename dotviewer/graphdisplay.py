@@ -318,6 +318,7 @@ class GraphDisplay(Display):
         if not searchstr:
             return
         self.searchstr = searchstr
+        self.viewer.highlightwords[searchstr] = searchstr
         self.searchpos = -1
         self.searchresults = list(self.viewer.findall(self.searchstr))
         self.find_next()
