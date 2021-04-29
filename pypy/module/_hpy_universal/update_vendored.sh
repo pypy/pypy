@@ -126,6 +126,7 @@ myrsync -a --delete ${HPY}/hpy/debug/src/ _vendored/hpy/debug/src/
 myrsync -a --delete ${HPY}/test/* test/_vendored/
 myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
 rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
+myrsync -a --delete ${HPY}/hpy/devel/ ${BASEDIR}/lib_pypy/hpy/devel/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"
@@ -133,7 +134,7 @@ git -C "$HPY" --no-pager log --oneline -n 1
 git -C "$HPY" --no-pager diff --stat
 echo
 echo -e "${YELLOW}HG status${RESET} of pypy"
-hg st .
+hg status
 echo
 echo -en "${YELLOW}HPy version${RESET}"
 cat _vendored/hpy/devel/version.py
