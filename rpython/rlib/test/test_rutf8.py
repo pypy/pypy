@@ -4,6 +4,7 @@ import sys
 from hypothesis import given, strategies, settings, example
 
 from rpython.rlib import rutf8, runicode
+from rpython.rlib.unicodedata import unicodedb_12_1_0
 
 
 @given(strategies.characters(), strategies.booleans())
@@ -248,3 +249,12 @@ def test_has_surrogate_xed_no_surrogate():
     b = u.encode("utf-8")
     assert b.startswith(b"\xed")
     assert not rutf8.has_surrogates(b)
+
+printable_repr_func = rutf8.make_utf8_escape_function(pass_printable=True,
+                                                      quotes=True,
+                                                      unicodedb=unicodedb_12_1_0)
+
+def test_printable_repr_func():
+    s = u'\U0001f42a'.encode("utf-8")
+    assert printable_repr_func(s) == "'" + s + "'"
+
