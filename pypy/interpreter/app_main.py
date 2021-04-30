@@ -41,6 +41,7 @@ PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
 -X dev: enable PyPy's "development mode"
+-X jit-off: turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
