@@ -556,6 +556,26 @@ class TestCall(BaseTestPyPyC):
         assert len(calls) == 0
         assert len([op for op in allops if op.name.startswith('new')]) == 0
 
+    def test_kwargs_update_virtual1(self):
+        log = self.run("""
+        def f(**kwargs):
+            return len(kwargs)
+        def main(stop):
+            i = 0
+            res = 0
+            while i < stop:
+                d = {'a': 1, 'b': 2}
+                # used to force the dict!
+                res += f(c=2, **d) # ID: call
+                i += 1
+            return res
+        """, [1000])
+        loop, = log.loops_by_id('call')
+        ops = loop.ops_by_id('call')
+        assert log.opnames(ops) == ["guard_not_invalidated", "force_token",
+                "int_add_ovf", "guard_no_overflow"]
+
+
     def test_kwargs_non_virtual(self):
         log = self.run("""
         def f(a, b, c):

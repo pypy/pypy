@@ -17,6 +17,8 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 - Two upstream (CPython) security patches were applied: `BPO 42988`_ to remove
   ``pydoc.getfile`` and `BPO 43285`_ to not trust the ``PASV`` response in
   ``ftplib``.
+- Update the packaged sqlite3 to 3.35.5 on windows. While not a bugfix, this
+  seems like an easy win.
 
 We recommend updating. These fixes are the direct result of end-user bug
 reports, so please continue reporting issues as they crop up.

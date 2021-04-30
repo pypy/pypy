@@ -637,6 +637,9 @@ def run_command_line(interactive,
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
+    if 'pypyjit' in sys.builtin_module_names:
+        if 'jit-off' in sys._xoptions:
+            set_jit_option(None, "off")
 
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
