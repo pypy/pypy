@@ -511,7 +511,7 @@ class AppTestUnicodeString:
     def test_repr(self):
         for ustr in ["", "a", "'", "\'", "\"", "\t", "\\", '',
                      'a', '"', '\'', '\"', '\t', '\\', "'''\"",
-                     chr(19), chr(2), '\u1234', '\U00101234']:
+                     chr(19), chr(2), '\u1234', '\U00101234', '\U0001f42a']:
             assert eval(repr(ustr)) == ustr
 
     def test_getnewargs(self):

@@ -2195,4 +2195,5 @@ def _unicode_to_decimal_w(space, w_unistr):
     return result.build()
 
 _repr_function = rutf8.make_utf8_escape_function(
-    pass_printable=True, quotes=True, prefix='')
+    pass_printable=True, quotes=True, prefix='',
+    unicodedb=unicodedb)
