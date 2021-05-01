@@ -770,11 +770,17 @@ def PyUnicode_Contains(space, w_str, w_substr):
     element has to coerce to a one element Unicode string. -1 is returned if
     there was an error."""
     if not space.isinstance_w(w_substr, space.w_unicode):
-        raise oefmt(space.w_TypeError,
-                    "in <string> requires string as left operand, not %T",
-                     w_substr)
+        if space.isinstance_w(w_substr, space.w_bytes):
+            w_substr = space.call_method(w_substr, 'decode')
+        else:
+            raise oefmt(space.w_TypeError,
+                        "in <string> requires string as left operand, not %T",
+                         w_substr)
     if not space.isinstance_w(w_str, space.w_unicode):
-        raise oefmt(space.w_TypeError, "must be str, not %T", w_str)
+        if space.isinstance_w(w_str, space.w_bytes):
+            w_str = space.call_method(w_str, 'decode')
+        else:
+            raise oefmt(space.w_TypeError, "must be str, not %T", w_str)
     return space.int_w(space.call_method(w_str, '__contains__', w_substr))
 
 @cpython_api([PyObject, PyObject, Py_ssize_t], PyObject)

@@ -17,6 +17,9 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 - Two upstream (CPython) security patches were applied: `BPO 42988`_ to remove
   ``pydoc.getfile`` and `BPO 43285`_ to not trust the ``PASV`` response in
   ``ftplib``.
+- When assigning the full slice of a list, evaluate the rhs before clearing the
+  list (issue 3440_)
+- On Python2, ``PyUnicode_Contains`` accepts bytes as well as unicode.
 - Update the packaged sqlite3 to 3.35.5 on windows. While not a bugfix, this
   seems like an easy win.
 
@@ -81,6 +84,7 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 
 .. _3443: https://foss.heptapod.net/pypy/pypy/-/issues/3443
 .. _3442: https://foss.heptapod.net/pypy/pypy/-/issues/3442
+.. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
 
