@@ -3213,13 +3213,13 @@ class TestOptimizeOpt(BaseTestWithUnroll):
         escape_n(i3)
         escape_n(i3)
         guard_true(i1) []
-        jump(p1, p2)
+        jump(p1)
         """
         expected = """
-        [p1, p2]
+        [p1]
         escape_n(2)
         escape_n(2)
-        jump(p1, p2)
+        jump(p1)
         """
         self.optimize_loop(ops, expected, preamble)
 

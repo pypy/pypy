@@ -2069,7 +2069,7 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_n(i3)
         escape_n(i3)
         guard_true(i1) []
-        jump(p1, p2)
+        jump(p1, p1)
         """
         self.optimize_loop(ops, expected)
 
