@@ -462,6 +462,12 @@ class AppTestStruct(object):
         assert val == sys.maxint+1
         assert type(val) is long
 
+    def test_bpo35714(self):
+        # why not "bad char in struct format"??
+        for s in '\0', '2\0i', b'\0':
+            exc = raises(self.struct.error, self.struct.calcsize, s)
+            assert str(exc.value) == 'embedded null character'
+
 class AppTestStructBuffer(object):
     spaceconfig = dict(usemodules=['struct', '__pypy__'])
 
