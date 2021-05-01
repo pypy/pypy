@@ -441,6 +441,48 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_replaces_variables(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_true(i0) []
+        escape_r(p0)
+        escape_r(p1)
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_true(i0) []
+        escape_r(p0)
+        escape_r(p0)
+        jump(p0, p0)
+        """
+        self.optimize_loop(ops, expected)
+        ops = """
+        [p0, p1, p2]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_eq(p1, p2)
+        guard_true(i1) []
+        escape_r(p0)
+        escape_r(p1)
+        escape_r(p2)
+        jump(p0, p1, p2)
+        """
+        expected = """
+        [p0, p1, p2]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_eq(p0, p2)
+        guard_true(i1) []
+        escape_r(p0)
+        escape_r(p0)
+        escape_r(p0)
+        jump(p0, p0, p0)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonnull_1(self):
         ops = """
         [p0]

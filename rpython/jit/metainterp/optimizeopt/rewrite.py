@@ -514,6 +514,9 @@ class OptRewrite(Optimization):
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
+        if box1 is not None and box1.getopnum() == rop.INSTANCE_PTR_EQ:
+            self.make_equal_to(box1.getarg(1), box1.getarg(0))
+        # XXX what about float_eq, ptr_eq?
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
