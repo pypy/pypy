@@ -501,6 +501,52 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_replaces_two_variable_with_constant(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p1, ConstPtr(myptr))
+        guard_true(i0) []
+        i1 = instance_ptr_eq(p0, p1)
+        guard_true(i1) []
+        escape_r(p0)
+        escape_r(p1)
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p1, ConstPtr(myptr))
+        guard_true(i0) []
+        i1 = instance_ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i1) []
+        escape_r(ConstPtr(myptr))
+        escape_r(ConstPtr(myptr))
+        jump(ConstPtr(myptr), ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [p0, p1]
+        i1 = instance_ptr_eq(p0, p1)
+        guard_true(i1) []
+        i0 = instance_ptr_eq(p1, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(p0)
+        escape_r(p1)
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i1 = instance_ptr_eq(p0, p1)
+        guard_true(i1) []
+        i0 = instance_ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(ConstPtr(myptr))
+        escape_r(ConstPtr(myptr))
+        jump(ConstPtr(myptr), ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
+
     def test_instance_ptr_eq_const_const(self):
         ops = """
         []
