@@ -5602,6 +5602,42 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_ptr_eq_replaces(self):
+        ops = """
+        [p0, p1]
+        i0 = ptr_eq(p0, p1)
+        guard_true(i0) []
+        escape_r(p0)
+        escape_r(p1)
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = ptr_eq(p0, p1)
+        guard_true(i0) []
+        escape_r(p0)
+        escape_r(p0)
+        jump(p0, p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_ptr_eq_replaces_variable_with_constant(self):
+        ops = """
+        [p0]
+        i0 = ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(p0)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(ConstPtr(myptr))
+        jump(ConstPtr(myptr))
+        """
+        self.optimize_loop(ops, expected)
+
     def test_known_equal_ints(self):
         py.test.skip("in-progress")
         ops = """

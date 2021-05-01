@@ -514,18 +514,20 @@ class OptRewrite(Optimization):
             # we can't use the (current) range analysis for this because
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
-        if box1 is not None and box1.getopnum() == rop.INSTANCE_PTR_EQ:
+        if box1 is not None and box1.getopnum() == rop.INSTANCE_PTR_EQ or \
+                box1.getopnum() == rop.PTR_EQ:
             arg0 = box1.getarg(1)
             arg1 = box1.getarg(0)
             # one of arg0 or arg1 *must* be not a constant, otherwise the
-            # INSTANCE_PTR_EQ would have been removed by pure.py
+            # (INSTANCE_)PTR_EQ would have been removed by pure.py
             if isinstance(arg0, Const):
                 self.make_constant(arg1, arg0)
             elif isinstance(arg1, Const):
                 self.make_constant(arg0, arg1)
             else:
                 self.make_equal_to(arg0, arg1)
-        # XXX what about float_eq, ptr_eq?
+        # can't do this for float_eq because we must not replace 0.0 by -0.0,
+        # but float_eq(0.0, -0.0) == true
         self.make_constant(box, CONST_1)
 
     def optimize_GUARD_FALSE(self, op):
