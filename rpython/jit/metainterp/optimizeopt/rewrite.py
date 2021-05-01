@@ -517,6 +517,8 @@ class OptRewrite(Optimization):
         if box1 is not None and box1.getopnum() == rop.INSTANCE_PTR_EQ:
             arg0 = box1.getarg(1)
             arg1 = box1.getarg(0)
+            # one of arg0 or arg1 *must* be not a constant, otherwise the
+            # INSTANCE_PTR_EQ would have been removed by pure.py
             if isinstance(arg0, Const):
                 self.make_constant(arg1, arg0)
             elif isinstance(arg1, Const):

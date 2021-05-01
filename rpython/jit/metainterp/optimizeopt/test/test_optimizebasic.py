@@ -501,6 +501,19 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_const_const(self):
+        ops = """
+        []
+        i0 = instance_ptr_eq(ConstPtr(myptr), ConstPtr(myptr))
+        guard_true(i0) []
+        jump()
+        """
+        expected = """
+        []
+        jump()
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonnull_1(self):
         ops = """
         [p0]
