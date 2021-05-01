@@ -515,7 +515,14 @@ class OptRewrite(Optimization):
             # "anything but 0" is not a valid range
             self.pure_from_args(rop.INT_IS_ZERO, [box1.getarg(0)], CONST_0)
         if box1 is not None and box1.getopnum() == rop.INSTANCE_PTR_EQ:
-            self.make_equal_to(box1.getarg(1), box1.getarg(0))
+            arg0 = box1.getarg(1)
+            arg1 = box1.getarg(0)
+            if isinstance(arg0, Const):
+                self.make_constant(arg1, arg0)
+            elif isinstance(arg1, Const):
+                self.make_constant(arg0, arg1)
+            else:
+                self.make_equal_to(arg0, arg1)
         # XXX what about float_eq, ptr_eq?
         self.make_constant(box, CONST_1)
 

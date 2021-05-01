@@ -459,6 +459,7 @@ class TestOptimizeBasic(BaseTestBasic):
         jump(p0, p0)
         """
         self.optimize_loop(ops, expected)
+
         ops = """
         [p0, p1, p2]
         i0 = instance_ptr_eq(p0, p1)
@@ -480,6 +481,23 @@ class TestOptimizeBasic(BaseTestBasic):
         escape_r(p0)
         escape_r(p0)
         jump(p0, p0, p0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_instance_ptr_eq_replaces_variable_with_constant(self):
+        ops = """
+        [p0]
+        i0 = instance_ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(p0)
+        jump(p0)
+        """
+        expected = """
+        [p0]
+        i0 = instance_ptr_eq(p0, ConstPtr(myptr))
+        guard_true(i0) []
+        escape_r(ConstPtr(myptr))
+        jump(ConstPtr(myptr))
         """
         self.optimize_loop(ops, expected)
 
