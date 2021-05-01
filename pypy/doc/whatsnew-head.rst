@@ -16,3 +16,10 @@ formatting of big numbers.
 Optimize dictionary operations in the JIT a bit more, making it possible to
 completely optimize away the creation of dictionaries in more situations (such
 as calling the ``dict.update`` method on known dicts).
+
+
+.. branch: jit-instance-ptr-eq-improvements
+
+Make the JIT reason better about ``a is b``, specifically the
+``instance_ptr_eq`` and ``ptr_eq`` operations: if they are followed by a
+``guard_true``, we can replace ``b`` with ``a`` in the rest of the trace.
