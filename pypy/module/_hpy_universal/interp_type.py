@@ -46,7 +46,7 @@ class W_HPyTypeObject(W_TypeObject):
 
 
 @API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
-def _HPy_Cast(space, state, ctx, h):
+def _HPy_Cast(space, handles, ctx, h):
     w_obj = state.handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
@@ -54,7 +54,7 @@ def _HPy_Cast(space, state, ctx, h):
     return w_obj.hpy_data
 
 @API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
-def _HPy_New(space, state, ctx, h_type, data):
+def _HPy_New(space, handles, ctx, h_type, data):
     w_type = state.handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     data = llapi.cts.cast('void**', data)
@@ -63,7 +63,7 @@ def _HPy_New(space, state, ctx, h_type, data):
     return h
 
 
-def get_bases_from_params(space, state, ctx, params):
+def get_bases_from_params(space, handles, ctx, params):
     KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
     params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
     if not params:
@@ -100,15 +100,15 @@ def get_bases_from_params(space, state, ctx, params):
     return make_sure_not_resized(bases_w[:])
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
-def HPyType_FromSpec(space, state, ctx, spec, params):
-    return _hpytype_fromspec(space, state, ctx, spec, params, debug=False)
+def HPyType_FromSpec(space, handles, ctx, spec, params):
+    return _hpytype_fromspec(space, handles, ctx, spec, params, debug=False)
 
 @DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
-def debug_HPyType_FromSpec(space, state, ctx, spec, params):
+def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
     assert ctx == state.get_handle_manager(debug=True).ctx
-    return _hpytype_fromspec(space, state, ctx, spec, params, debug=True)
+    return _hpytype_fromspec(space, handles, ctx, spec, params, debug=True)
 
-def _hpytype_fromspec(space, state, ctx, spec, params, debug):
+def _hpytype_fromspec(space, handles, ctx, spec, params, debug):
     handles = state.get_handle_manager(debug)
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
@@ -123,7 +123,7 @@ def _hpytype_fromspec(space, state, ctx, spec, params, debug):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = get_bases_from_params(space, state, ctx, params)
+    bases_w = get_bases_from_params(space, handles, ctx, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(
@@ -208,7 +208,7 @@ def _create_instance(space, w_type):
     return w_result
 
 @API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
-def HPyType_GenericNew(space, state, ctx, h_type, args, nargs, kw):
+def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
     w_type = state.handles.deref(h_type)
     w_result = _create_instance(space, w_type)
     return state.handles.new(w_result)

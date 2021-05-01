@@ -133,5 +133,5 @@ def HPy_Dup(space, handles, ctx, h):
     return handles.dup(h)
 
 @API.func("void HPy_Close(HPyContext ctx, HPy h)")
-def HPy_Close(space, state, ctx, h):
+def HPy_Close(space, handles, ctx, h):
     state.handles.close(h)
