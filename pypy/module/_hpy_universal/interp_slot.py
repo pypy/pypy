@@ -337,11 +337,10 @@ class W_tp_new_wrapper(W_ExtensionFunction):
     a PyCFunction, while here we have our own type.
     """
 
-    def __init__(self, space, cfuncptr, w_type):
-        handles = State.get(space).handles
+    def __init__(self, space, handles, cfuncptr, w_type):
         W_ExtensionFunction.__init__(self, space, handles, '__new__',
-                                     llapi.HPyFunc_KEYWORDS, None, cfuncptr,
-                                     w_self=w_type)
+                                     llapi.HPyFunc_KEYWORDS,
+                                     None, cfuncptr, w_self=w_type)
 
     def call(self, space, h_self, __args__, skip_args=0):
         assert skip_args == 0
@@ -446,12 +445,12 @@ SLOTS = unrolling_iterable([
     ])
 
 
-def fill_slot(space, w_type, hpyslot):
+def fill_slot(space, handles, w_type, hpyslot):
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
         # this is the moral equivalent of CPython's add_tp_new_wrapper
-        w_func = W_tp_new_wrapper(space, hpyslot.c_impl, w_type)
+        w_func = W_tp_new_wrapper(space, handles, hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:

@@ -5,7 +5,7 @@ from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
-from pypy.module._hpy_universal.apiset import API
+from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import handles, llapi
 from .interp_module import get_doc
 from .interp_extfunc import W_ExtensionMethod
@@ -101,6 +101,15 @@ def get_bases_from_params(space, state, ctx, params):
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, state, ctx, spec, params):
+    return _hpytype_fromspec(space, state, ctx, spec, params, debug=False)
+
+@DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
+def debug_HPyType_FromSpec(space, state, ctx, spec, params):
+    assert ctx == state.get_handle_manager(debug=True).ctx
+    return _hpytype_fromspec(space, state, ctx, spec, params, debug=True)
+
+def _hpytype_fromspec(space, state, ctx, spec, params, debug):
+    handles = state.get_handle_manager(debug)
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -125,10 +134,10 @@ def HPyType_FromSpec(space, state, ctx, spec, params):
     if spec.c_legacy_slots:
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
-        add_slot_defs(space, state, ctx, w_result, spec.c_defines)
-    return state.handles.new(w_result)
+        add_slot_defs(space, handles, ctx, w_result, spec.c_defines)
+    return handles.new(w_result)
 
-def add_slot_defs(space, state, ctx, w_result, c_defines):
+def add_slot_defs(space, handles, ctx, w_result, c_defines):
     p = c_defines
     i = 0
     HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
@@ -142,7 +151,7 @@ def add_slot_defs(space, state, ctx, w_result, c_defines):
                 rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
                                      hpyslot.c_impl)
             else:
-                fill_slot(space, w_result, hpyslot)
+                fill_slot(space, handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
