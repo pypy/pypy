@@ -1096,17 +1096,18 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
     Py_UNICODE buffer of the given size by ASCII digits 0--9
     according to their decimal value.  Return NULL if an exception
     occurs."""
-    result = rstring.UnicodeBuilder(size)
+    result = rutf8.Utf8StringBuilder(size)
     for i in range(size):
         ch = s[i]
-        if ord(ch) > 127:
+        ordch = ord(ch)
+        if ordch > 127:
             decimal = Py_UNICODE_TODECIMAL(space, ch)
             decimal = rffi.cast(lltype.Signed, decimal)
             if decimal >= 0:
-                ch = unichr(ord('0') + decimal)
-        result.append(ch)
+                ordch = ord('0') + decimal
+        result.append_code(ordch)
     u = result.build()
-    return space.newtext(u.encode("utf-8"), len(u))
+    return space.newtext(u, result.getlength())
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
