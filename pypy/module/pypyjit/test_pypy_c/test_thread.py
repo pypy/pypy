@@ -43,6 +43,8 @@ class TestThread(BaseTestPyPyC):
         assert loop.match("""
             i53 = int_lt(i48, i27)
             guard_true(i53, descr=...)
+            i26 = instance_ptr_eq(p24, p25)
+            guard_true(i26, descr=...)
             i54 = int_add_ovf(i48, i47)
             guard_no_overflow(descr=...)
             --TICK--
