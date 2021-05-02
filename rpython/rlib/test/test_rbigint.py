@@ -1076,28 +1076,6 @@ class TestInternalFunctions(object):
         with pytest.raises(ZeroDivisionError):
             rbigint.fromlong(x).int_divmod(0)
 
-    def test_int_divmod_mod_int_result(self):
-        for x in long_vals:
-            for y in int_vals + [-sys.maxint-1]:
-                if not y:
-                    continue
-                for sx, sy in (1, 1), (1, -1), (-1, -1), (-1, 1):
-                    sx *= x
-                    sy *= y
-                    if sy == sys.maxint + 1:
-                        continue
-                    f1 = rbigint.fromlong(sx)
-                    div, rem = f1.int_divmod_mod_int_result(sy)
-                    div1, rem1 = f1.divmod(rbigint.fromlong(sy))
-                    _div, _rem = divmod(sx, sy)
-                    print sx, sy, " | ", div.tolong(), rem.tolong()
-                    assert div1.tolong() == _div
-                    assert rem1.tolong() == _rem
-                    assert div.tolong() == _div
-                    assert rem.tolong() == _rem
-        with pytest.raises(ZeroDivisionError):
-            rbigint.fromlong(x).int_divmod_mod_int_result(0)
-
     # testing Karatsuba stuff
     def test__v_iadd(self):
         f1 = bigint([lobj.MASK] * 10, 1)
@@ -1575,7 +1553,7 @@ class TestHypothesis(object):
         rx = rbigint.fromlong(x)
         if not y:
             with pytest.raises(ZeroDivisionError):
-                rx.int_mod(0)
+                rx.int_mod_int_result(0)
             return
         r1 = rx.int_mod_int_result(y)
         r2 = x % y
