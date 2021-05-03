@@ -47,9 +47,16 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
+if sys.platform == 'win32':
+    dash = '_'
+    WIN32 = True
+else:
+    dash = ''
+    WIN32 = False
 
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
+pc_dir = pypydir / 'module' / 'cpyext' / 'PC'
 parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
@@ -59,6 +66,8 @@ include_dirs = [
     translator_c_dir,
     udir,
     ]
+if WIN32:
+    include_dirs.insert(0, pc_dir)
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -91,14 +100,6 @@ assert CONST_WSTRING is not rffi.CWCHARP
 assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
-
-if sys.platform == 'win32':
-    dash = '_'
-    WIN32 = True
-else:
-    dash = ''
-    WIN32 = False
-
 
 def fclose(fp):
     try:

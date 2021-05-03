@@ -683,4 +683,12 @@ Py_NO_ENABLE_SHARED to find out.  Also support MS_NO_COREDLL for b/w compat */
 /* Define if libssl has X509_VERIFY_PARAM_set1_host and related function */
 #define HAVE_X509_VERIFY_PARAM_SET1_HOST 1
 
+/* PyPy backport from python2, used in cpyext/src/unicodeobject.c
+   Remove when the implementation (in c) of PyUnicode_FromFormatV is updated
+*/
+#define HAVE_LONG_LONG 1
+#define PY_FORMAT_LONG_LONG "ll"
+#define PY_FORMAT_SIZE_T "z"
+
+
 #endif /* !Py_CONFIG_H */
