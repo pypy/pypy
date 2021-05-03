@@ -101,15 +101,13 @@ def get_bases_from_params(space, handles, ctx, params):
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
-    return _hpytype_fromspec(space, handles, ctx, spec, params, debug=False)
+    return _hpytype_fromspec(space, handles, ctx, spec, params)
 
 @DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
-    assert ctx == state.get_handle_manager(debug=True).ctx
-    return _hpytype_fromspec(space, handles, ctx, spec, params, debug=True)
+    return _hpytype_fromspec(space, handles, ctx, spec, params)
 
 def _hpytype_fromspec(space, handles, ctx, spec, params, debug):
-    handles = state.get_handle_manager(debug)
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
