@@ -17,14 +17,13 @@ HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
 class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
 
-    def __init__(self, space, slot, method_name, cfuncptr, w_objclass):
+    def __init__(self, space, handles, slot, method_name, cfuncptr, w_objclass):
+        self.handles = handles
+        self.ctx = handles.ctx
         self.slot = slot
         self.name = method_name
         self.cfuncptr = cfuncptr
         self.w_objclass = w_objclass
-        state = State.get(space)
-        self.ctx = state.ctx
-        self.handles = handles
 
     def check_args(self, space, __args__, arity):
         length = len(__args__.arguments_w)
@@ -471,7 +470,7 @@ def fill_slot(space, handles, w_type, hpyslot):
         n = getattr(HPySlot_Slot, 'HPy_' + slotname)
         if slot_num == n:
             found = True
-            w_slot = cls(space, slot_num, methname, hpyslot.c_impl, w_type)
+            w_slot = cls(space, handles, slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
 
     if not found:

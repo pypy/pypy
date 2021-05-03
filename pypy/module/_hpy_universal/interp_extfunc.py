@@ -140,9 +140,7 @@ W_ExtensionFunction.typedef.acceptable_as_base_class = False
 
 
 class W_ExtensionMethod(W_ExtensionFunction):
-    def __init__(self, space, name, sig, doc, cfuncptr, w_objclass):
-        # XXX this should be passed from the outside
-        handles = State.get(space).handles
+    def __init__(self, space, handles, name, sig, doc, cfuncptr, w_objclass):
         W_ExtensionFunction.__init__(self, space, handles, name, sig, doc,
                                      cfuncptr, space.w_None)
         self.w_objclass = w_objclass

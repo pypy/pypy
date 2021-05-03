@@ -107,7 +107,7 @@ def HPyType_FromSpec(space, handles, ctx, spec, params):
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
     return _hpytype_fromspec(space, handles, ctx, spec, params)
 
-def _hpytype_fromspec(space, handles, ctx, spec, params, debug):
+def _hpytype_fromspec(space, handles, ctx, spec, params):
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -155,7 +155,7 @@ def add_slot_defs(space, handles, ctx, w_result, c_defines):
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             doc = get_doc(hpymeth.c_doc)
-            w_extfunc = W_ExtensionMethod(space, name, sig, doc, hpymeth.c_impl,
+            w_extfunc = W_ExtensionMethod(space, handles, name, sig, doc, hpymeth.c_impl,
                                           w_result)
             w_result.setdictvalue(
                 space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
