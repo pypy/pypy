@@ -14,7 +14,7 @@ class W_Tracker(W_Root):
     def forget_all(self):
         self.hlist = []
 
-    def close(self, state):
+    def close(self, handles):
         for h in self.hlist:
             handles.close(h)
 
@@ -41,5 +41,5 @@ def HPyTracker_ForgetAll(space, handles, ctx, ht):
 def HPyTracker_Close(space, handles, ctx, ht):
     w_tracker = handles.deref(ht)
     assert isinstance(w_tracker, W_Tracker)
-    w_tracker.close(state)
+    w_tracker.close(handles)
     handles.close(ht)
