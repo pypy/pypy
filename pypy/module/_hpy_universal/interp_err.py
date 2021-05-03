@@ -38,19 +38,19 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 ## These functions are called from hpyerr.c, and are used only in tests
 
 @BRIDGE.func("void _hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
-def _hpy_err_SetString(space, state, ctx, h_exc_type, utf8):
+def _hpy_err_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = state.handles.deref(h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("void _hpy_err_SetObject(HPyContext ctx, HPy type, HPy value)")
-def _hpy_err_SetObject(space, state, ctx, h_exc_type, h_exc_value):
+def _hpy_err_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
     w_exc_type = state.handles.deref(h_exc_type)
     w_obj = state.handles.deref(h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
-def hpy_err_Occurred_rpy(space, state):
+def hpy_err_Occurred_rpy(space, handles):
     if we_are_translated():
         # this function should never been called after translation. We can't
         # simply put an assert else the annotator complains that the function
@@ -69,7 +69,7 @@ def hpy_err_Occurred_rpy(space, state):
     return API.int(res)
 
 @BRIDGE.func("void hpy_err_Clear(void)")
-def hpy_err_Clear(space, state):
+def hpy_err_Clear(space, handles):
     assert not we_are_translated()
     ll2ctypes._callback_exc_info = None
 
@@ -79,7 +79,7 @@ def hpy_err_Clear(space, state):
 ## implementation.
 
 @API.func("HPy HPyErr_NoMemory(HPyContext ctx)")
-def HPyErr_NoMemory(space, state, ctx):
+def HPyErr_NoMemory(space, handles, ctx):
     # hack to convince the annotator that this function returns an HPy (i.e.,
     # a Signed)
     if NonConstant(False):

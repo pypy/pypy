@@ -20,12 +20,12 @@ from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
 
 @API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)", cpyext=True)
-def HPy_FromPyObject(space, state, ctx, obj):
+def HPy_FromPyObject(space, handles, ctx, obj):
     w_obj = pyobject.from_ref(space, rffi.cast(pyobject.PyObject, obj))
     return state.handles.new(w_obj)
 
 @API.func("void *HPy_AsPyObject(HPyContext ctx, HPy h)", cpyext=True)
-def HPy_AsPyObject(space, state, ctx, h):
+def HPy_AsPyObject(space, handles, ctx, h):
     w_obj = state.handles.deref(h)
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)

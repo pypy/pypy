@@ -5,21 +5,24 @@ from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import interp_extfunc
+from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods
 
 
 @API.func("HPy HPyModule_Create(HPyContext ctx, HPyModuleDef *def)")
-def HPyModule_Create(space, state, ctx, hpydef):
-    return _hpymodule_create(space, state, ctx, hpydef, debug=False)
+def HPyModule_Create(space, handles, ctx, hpydef):
+    return _hpymodule_create(space, handles, ctx, hpydef, debug=False)
 
 @DEBUG.func("HPy debug_HPyModule_Create(HPyContext ctx, HPyModuleDef *def)",
             func_name='HPyModule_Create')
-def debug_HPyModule_Create(space, state, ctx, hpydef):
+def debug_HPyModule_Create(space, handles, ctx, hpydef):
+    state = State.get(space)
     assert ctx == state.get_handle_manager(debug=True).ctx
-    return _hpymodule_create(space, state, ctx, hpydef, debug=True)
+    return _hpymodule_create(space, handles, ctx, hpydef, debug=True)
 
-def _hpymodule_create(space, state, ctx, hpydef, debug):
-    handles = state.get_handle_manager(debug)
+def _hpymodule_create(space, handles, ctx, hpydef, debug):
+    state = State.get(space)
+    assert handles is state.get_handle_manager(debug) # sanity check
     modname = rffi.constcharp2str(hpydef.c_m_name)
     w_mod = Module(space, space.newtext(modname))
     #
