@@ -74,7 +74,7 @@ def startup(space, w_mod):
     if not hasattr(space, 'is_fake_objspace'):
         # the following lines break test_ztranslation :(
         h_debug_mod = llapi.HPyInit__debug(state.uctx)
-        w_debug_mod = state.handles.consume(h_debug_mod)
+        w_debug_mod = handles.consume(h_debug_mod)
         w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
@@ -134,4 +134,4 @@ def HPy_Dup(space, handles, ctx, h):
 
 @API.func("void HPy_Close(HPyContext ctx, HPy h)")
 def HPy_Close(space, handles, ctx, h):
-    state.handles.close(h)
+    handles.close(h)

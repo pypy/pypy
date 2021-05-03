@@ -24,7 +24,7 @@ class W_SlotWrapper(W_Root):
         self.w_objclass = w_objclass
         state = State.get(space)
         self.ctx = state.ctx
-        self.handles = state.handles
+        self.handles = handles
 
     def check_args(self, space, __args__, arity):
         length = len(__args__.arguments_w)

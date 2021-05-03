@@ -3,7 +3,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.module import Module, init_extra_module_attrs
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
-from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import interp_extfunc
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.interp_cpy_compat import attach_legacy_methods

@@ -4,7 +4,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.bridge import BRIDGE
-from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 
@@ -40,13 +39,13 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 @BRIDGE.func("void _hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
 def _hpy_err_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
-    w_exc_type = state.handles.deref(h_exc_type)
+    w_exc_type = handles.deref(h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("void _hpy_err_SetObject(HPyContext ctx, HPy type, HPy value)")
 def _hpy_err_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
-    w_exc_type = state.handles.deref(h_exc_type)
-    w_obj = state.handles.deref(h_exc_value)
+    w_exc_type = handles.deref(h_exc_type)
+    w_obj = handles.deref(h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))

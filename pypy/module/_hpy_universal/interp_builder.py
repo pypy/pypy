@@ -4,7 +4,6 @@ from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.objspace.std.listobject import W_ListObject
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import handles
 
 # ~~~ HPyListBuilder ~~~
 
@@ -20,24 +19,24 @@ class W_ListBuilder(W_Root):
           error_value=0)
 def HPyListBuilder_New(space, handles, ctx, initial_size):
     w_builder = W_ListBuilder(initial_size)
-    h = state.handles.new(w_builder)
+    h = handles.new(w_builder)
     return h
 
 @API.func("void HPyListBuilder_Set(HPyContext ctx, HPyListBuilder builder, HPy_ssize_t index, HPy h_item)")
 def HPyListBuilder_Set(space, handles, ctx, builder, index, h_item):
     # XXX if builder==0, there was an error inside _New. The C code just exits
     # here, but there is no tests for it. Write it
-    w_builder = state.handles.deref(builder)
+    w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_ListBuilder)
-    w_item = state.handles.deref(h_item)
+    w_item = handles.deref(h_item)
     w_builder.items_w[index] = w_item
 
 @API.func("HPy HPyListBuilder_Build(HPyContext ctx, HPyListBuilder builder)")
 def HPyListBuilder_Build(space, handles, ctx, builder):
-    w_builder = state.handles.deref(builder)
+    w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_ListBuilder)
     w_list = space.newlist(w_builder.items_w)
-    return state.handles.new(w_list)
+    return handles.new(w_list)
 
 @API.func("void HPyListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)")
 def HPyListBuilder_Cancel(space, handles, ctx, builder):
@@ -58,24 +57,24 @@ class W_TupleBuilder(W_Root):
           error_value=0)
 def HPyTupleBuilder_New(space, handles, ctx, initial_size):
     w_builder = W_TupleBuilder(initial_size)
-    h = state.handles.new(w_builder)
+    h = handles.new(w_builder)
     return h
 
 @API.func("void HPyTupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder, HPy_ssize_t index, HPy h_item)")
 def HPyTupleBuilder_Set(space, handles, ctx, builder, index, h_item):
     # XXX if builder==0, there was an error inside _New. The C code just exits
     # here, but there is no tests for it. Write it
-    w_builder = state.handles.deref(builder)
+    w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_TupleBuilder)
-    w_item = state.handles.deref(h_item)
+    w_item = handles.deref(h_item)
     w_builder.items_w[index] = w_item
 
 @API.func("HPy HPyTupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder)")
 def HPyTupleBuilder_Build(space, handles, ctx, builder):
-    w_builder = state.handles.deref(builder)
+    w_builder = handles.deref(builder)
     assert isinstance(w_builder, W_TupleBuilder)
     w_tuple = space.newtuple(w_builder.items_w)
-    return state.handles.new(w_tuple)
+    return handles.new(w_tuple)
 
 @API.func("void HPyTupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder)")
 def HPyTupleBuilder_Cancel(space, handles, ctx, builder):
