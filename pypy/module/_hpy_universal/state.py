@@ -6,12 +6,13 @@ from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.error import OperationError
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal import handlemanager
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal.bridge import BRIDGE, hpy_get_bridge
 
 CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
-CONSTANT_NAMES = unrolling_iterable([name for name, _ in handles.CONSTANTS])
+CONSTANT_NAMES = unrolling_iterable([name for name, _ in handlemanager.CONSTANTS])
 DUMMY_FUNC = lltype.FuncType([], lltype.Void)
 
 @specialize.memo()
@@ -41,8 +42,8 @@ class State(object):
         self.setup_uctx()
         self.setup_dctx()
         self.ctx = self.uctx # XXX temporary, kill me
-        self.u_handles = handles.HandleManager(self.uctx, space)
-        self.d_handles = handles.DebugHandleManager(self.dctx, self.u_handles)
+        self.u_handles = handlemanager.HandleManager(self.uctx, space)
+        self.d_handles = handlemanager.DebugHandleManager(self.dctx, self.u_handles)
         self.setup_bridge()
 
     def get_handle_manager(self, debug):

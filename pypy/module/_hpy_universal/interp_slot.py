@@ -457,7 +457,7 @@ def fill_slot(space, handles, w_type, hpyslot):
         return
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
         for methname, cls in CMP_SLOTS:
-            w_slot = cls(space, slot_num, methname, hpyslot.c_impl, w_type)
+            w_slot = cls(space, handles, slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
         return
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:

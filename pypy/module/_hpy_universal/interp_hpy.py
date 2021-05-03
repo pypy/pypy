@@ -5,7 +5,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
 from pypy.interpreter.error import OperationError, oefmt
 
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.llapi import BASE_DIR
@@ -71,11 +71,12 @@ def startup(space, w_mod):
     """
     state = State.get(space)
     state.setup(space)
-    if not hasattr(space, 'is_fake_objspace'):
-        # the following lines break test_ztranslation :(
-        h_debug_mod = llapi.HPyInit__debug(state.uctx)
-        w_debug_mod = handles.consume(h_debug_mod)
-        w_mod.setdictvalue(space, '_debug', w_debug_mod)
+    # XXX temporarily commented out during a refactoring, re-enable it
+    ## if not hasattr(space, 'is_fake_objspace'):
+    ##     # the following lines break test_ztranslation :(
+    ##     h_debug_mod = llapi.HPyInit__debug(state.uctx)
+    ##     w_debug_mod = handles.consume(h_debug_mod)
+    ##     w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it

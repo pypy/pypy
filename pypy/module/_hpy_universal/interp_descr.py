@@ -7,7 +7,7 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp2app)
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 
 ADDRESS = lltype.Signed

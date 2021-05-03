@@ -5,7 +5,7 @@ from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app, interp_attrproperty
 from pypy.objspace.std.typeobject import W_TypeObject
 
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 
 SUPPORTED_SIGNATURES = (
