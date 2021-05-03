@@ -190,11 +190,6 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
         numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
-    if WIN32:
-        # Override pyconfig.h with the one for windows
-        PC_dir = pypydir / 'module' / 'cpyext' / 'PC'
-        headers = PC_dir.listdir('*.h')
-        _copy_header_files(headers, dstdir)
 
 
 class NotSpecified(object):
