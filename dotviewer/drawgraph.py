@@ -1491,6 +1491,16 @@ class TextSnippet:
 
 
 def record_to_nested_lists(s):
+    try:
+        # Python 2
+        from HTMLParser import HTMLParser
+    except ImportError:
+        # Python 3
+        from html.parser import HTMLParser
+    h = HTMLParser()
+    def delimit_string():
+        curr.append(h.unescape("".join(curr_string).strip("\n")))
+        del curr_string[:]
     curr = []
     stack = []
     curr_string = []
@@ -1500,16 +1510,20 @@ def record_to_nested_lists(s):
         char = s[index]
         if char == "|":
             if prev != '}':
-                curr.append("".join(curr_string))
-                curr_string = []
+                delimit_string()
         elif char == "{":
-            stack.append(curr)
-            curr = []
+            if prev == "\\":
+                curr_string[-1] = "{"
+            else:
+                stack.append(curr)
+                curr = []
         elif char == "}":
-            curr.append("".join(curr_string))
-            curr_string = []
-            stack[-1].append(curr)
-            curr = stack.pop()
+            if prev == "\\":
+                curr_string[-1] = "}"
+            else:
+                delimit_string()
+                stack[-1].append(curr)
+                curr = stack.pop()
         elif char == "<":
             index = s.find(">", index) + 1
             if index == 0:
@@ -1521,8 +1535,8 @@ def record_to_nested_lists(s):
             curr_string.append(char)
         index += 1
         prev = char
-    if curr_string:
-        curr.append("".join(curr_string))
+    if curr_string or prev == "|":
+        delimit_string()
     assert not stack
     return curr
 
@@ -1531,8 +1545,6 @@ class TextSnippetRecordLR:
     def __init__(self, renderer, snippets, fgcolor, bgcolor=None, font=None):
         if font is None:
             font = renderer.font
-        if font is None:
-            return
         self.snippets = snippets
         self.renderer = renderer
         self.fgcolor = fgcolor

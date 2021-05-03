@@ -12,6 +12,16 @@ def test_split_record():
     l = record_to_nested_lists(s)
     assert l == s.split("|")
 
+def test_split_record_escape():
+    s = '|{(\\{process1\\}->(0->1->\\{process3\\}))\n|# states: 1}|'
+    l = record_to_nested_lists(s)
+    assert l == ['', ['({process1}->(0->1->{process3}))', '# states: 1'], '']
+
+def test_html_entity():
+    s = '(&empty;&#8614;1&#8614;&empty;)'
+    l = record_to_nested_lists(s)
+    assert l == [u'(\u2205\u21a61\u21a6\u2205)']
+
 def test_ignore_angular():
     s = "a|{<portname>b|c|d|e}|{f|{g|h}|{i|j}|k|l}"
     l = record_to_nested_lists(s)
