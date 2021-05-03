@@ -164,7 +164,7 @@ def add_slot_defs(space, handles, ctx, w_result, c_defines):
             add_member(space, w_result, hpymember)
         elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
             hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
-            add_getset(space, w_result, hpygetset)
+            add_getset(space, handles, w_result, hpygetset)
         else:
             raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
         i += 1

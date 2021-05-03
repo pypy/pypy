@@ -180,25 +180,26 @@ def add_member(space, w_type, hpymember):
 # ======== HPyDef_Kind_GetSet ========
 
 def getset_get(w_getset, space, w_self):
-    state = State.get(space)
+    handles = w_getset.handles
     cfuncptr = w_getset.hpygetset.c_getter_impl
     func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
     with handles.using(w_self) as h_self:
-        h_result = func(state.ctx, h_self, w_getset.hpygetset.c_closure)
+        h_result = func(handles.ctx, h_self, w_getset.hpygetset.c_closure)
     return handles.consume(h_result)
     
 def getset_set(w_getset, space, w_self, w_value):
-    state = State.get(space)
+    handles = w_getset.handles
     cfuncptr = w_getset.hpygetset.c_setter_impl
     func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
     with handles.using(w_self, w_value) as (h_self, h_value):
-        h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
+        h_result = func(handles.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
         # XXX: write a test to check that we do the correct thing if
         # c_setter raises an exception
 
 
 class W_HPyGetSetProperty(GetSetProperty):
-    def __init__(self, w_type, hpygetset):
+    def __init__(self, handles, w_type, hpygetset):
+        self.handles = handles
         self.hpygetset = hpygetset
         self.w_type = w_type
         #
@@ -224,8 +225,8 @@ class W_HPyGetSetProperty(GetSetProperty):
 
 
 
-def add_getset(space, w_type, hpygetset):
-    w_descr = W_HPyGetSetProperty(w_type, hpygetset)
+def add_getset(space, handles, w_type, hpygetset):
+    w_descr = W_HPyGetSetProperty(handles, w_type, hpygetset)
     w_type.setdictvalue(space, w_descr.name, w_descr)
     #
     # the following is needed to ensure that we annotate getset_*, else

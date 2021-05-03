@@ -186,6 +186,10 @@ class DebugHandleManager(AbstractHandleManager):
         uh = llapi.hpy_debug_unwrap_handle(dh)
         self.u_handles.close(uh)
 
+    def deref(self, dh):
+        uh = llapi.hpy_debug_unwrap_handle(dh)
+        return self.u_handles.deref(uh)
+
     def consume(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(dh)
         return self.u_handles.consume(uh)
