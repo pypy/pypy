@@ -1,5 +1,5 @@
 import pytest
-from pypy.module._hpy_universal.handles import HandleManager, HandleReleaseCallback
+from pypy.module._hpy_universal.handlemanager import HandleManager, HandleReleaseCallback
 
 class FakeSpace(object):
     def __init__(self):

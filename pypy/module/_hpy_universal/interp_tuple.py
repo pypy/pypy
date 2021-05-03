@@ -1,5 +1,4 @@
 from .apiset import API
-from . import handles
 
 @API.func('HPy HPyTuple_FromArray(HPyContext ctx, HPy items[], HPy_ssize_t n)')
 def HPyTuple_FromArray(space, handles, ctx, items, n):
