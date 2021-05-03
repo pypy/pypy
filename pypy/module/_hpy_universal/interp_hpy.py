@@ -71,12 +71,12 @@ def startup(space, w_mod):
     """
     state = State.get(space)
     state.setup(space)
-    # XXX temporarily commented out during a refactoring, re-enable it
-    ## if not hasattr(space, 'is_fake_objspace'):
-    ##     # the following lines break test_ztranslation :(
-    ##     h_debug_mod = llapi.HPyInit__debug(state.uctx)
-    ##     w_debug_mod = handles.consume(h_debug_mod)
-    ##     w_mod.setdictvalue(space, '_debug', w_debug_mod)
+    if not hasattr(space, 'is_fake_objspace'):
+        # the following lines break test_ztranslation :(
+        handles = state.get_handle_manager(debug=False)
+        h_debug_mod = llapi.HPyInit__debug(handles.ctx)
+        w_debug_mod = handles.consume(h_debug_mod)
+        w_mod.setdictvalue(space, '_debug', w_debug_mod)
 
 def load_version():
     # eval the content of _vendored/hpy/devel/version.py without importing it
