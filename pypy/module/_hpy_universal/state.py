@@ -41,7 +41,6 @@ class State(object):
     def setup(self, space):
         self.setup_uctx()
         self.setup_dctx()
-        self.ctx = self.uctx # XXX temporary, kill me
         self.u_handles = handlemanager.HandleManager(self.uctx, space)
         self.d_handles = handlemanager.DebugHandleManager(self.dctx, self.u_handles)
         self.setup_bridge()
