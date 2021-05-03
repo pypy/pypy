@@ -1,3 +1,4 @@
+import os
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import OperationError, oefmt
 import pypy.module.__builtin__.operation as operation
@@ -222,3 +223,17 @@ def HPy_TypeCheck(space, handles, ctx, h_obj, h_type):
     w_type = handles.deref(h_type)
     assert space.isinstance_w(w_type, space.w_type)
     return API.int(space.issubtype_w(space.type(w_obj), w_type))
+
+@API.func("void _HPy_Dump(HPyContext ctx, HPy h)")
+def _HPy_Dump(space, handles, ctx, h_obj):
+    # this is a debugging helper meant to be called from gdb. As such, we
+    # write directly to stderr, bypassing sys.stderr&co.
+    stderr = 2
+    w_obj = handles.deref(h_obj)
+    w_type = space.type(w_obj)
+    os.write(stderr, "object type     : %r\n" % (w_type,))
+    os.write(stderr, "object type name: %s\n" % (w_type.name,))
+    os.write(stderr, "object rpy repr : %r\n" % (w_obj,))
+    w_repr = space.repr(w_obj)
+    s = space.text_w(w_repr)
+    os.write(stderr, "object repr     : %s\n" % (s,))
