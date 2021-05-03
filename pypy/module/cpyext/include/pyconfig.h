@@ -4,14 +4,6 @@
 extern "C" {
 #endif
 
-/* in CPython, this is done in PC/pyconfig.h
-   We do it here since we are not using autoconf to generate this file
-   At some point we should re-sync with CPython
-*/
-#ifdef _WIN64
-#define MS_WIN64
-#endif
-
 #define HAVE_PROTOTYPES 1
 #define STDC_HEADERS 1
 
@@ -28,12 +20,10 @@ extern "C" {
 
 /* PyPy supposes Py_UNICODE == wchar_t */
 #define HAVE_USABLE_WCHAR_T 1
-#ifdef _WIN32
-#define MS_WIN32 /* only support win32 and greater. */
-#define MS_WINDOWS
-#define SIZEOF_WCHAR_T 2
-#else
+#ifndef _WIN32
 #define SIZEOF_WCHAR_T 4
+#else
+#define SIZEOF_WCHAR_T 2
 #endif
 
 #ifndef _WIN32
