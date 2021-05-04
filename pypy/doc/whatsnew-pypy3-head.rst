@@ -16,3 +16,10 @@ Produce better error messages for IndentationErrors (showing statement and line
 that opened the block that is missing), AttributeErrors and NameErrors (showing
 suggestions which name could have been meant instead in case of typos). This
 follows the upcoming CPython 3.10 features.
+
+.. branch: distutils-implementation
+Instantiate the ``distutils.command.install`` schema for the python
+implementation (issue 3436)
+
+.. branch: py3.7-bpo-30245
+Avoid overflow in ``struct.pack_into`` error message (BPO 30245)
