@@ -21,3 +21,5 @@ as calling the ``dict.update`` method on known dicts).
 
 Add special error messange for ``'\0'`` in ``rstruct.formatiterator``
 (bpo-35714)
+.. minor branches not worth to document
+.. branch: fix-checkmodule-2
