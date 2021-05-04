@@ -12,7 +12,7 @@ from dotviewer.strunicode import forcestr, forceunicode
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-FONT = os.path.join(this_dir, 'font', 'DroidSans.ttf')
+FONT = os.path.join(this_dir, 'font', 'FiraMath-Regular.otf')
 FIXEDFONT = os.path.join(this_dir, 'font', 'DroidSansMono.ttf')
 COLOR = {
     'aliceblue': (240, 248, 255),
