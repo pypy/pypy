@@ -107,13 +107,13 @@ class State(object):
         self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.dctx.c_name = self.dctx_name()
         rffi.setintfield(self.dctx, 'c_ctx_version', 1)
-        self.dctx.c__private = llapi.cts.cast('void*', 0) 
+        self.dctx.c__private = llapi.cts.cast('void*', 0)
         llapi.hpy_debug_ctx_init(self.dctx, self.uctx)
-        llapi.hpy_debug_set_ctx(self.dctx)
         for func in DEBUG.all_functions:
             funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
             ctx_field = 'c_ctx_' + func.basename
             setattr(self.dctx, ctx_field, funcptr)
+        llapi.hpy_debug_set_ctx(self.dctx)
 
     def setup_bridge(self):
         if self.space.config.translating:
