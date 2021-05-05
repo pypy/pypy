@@ -58,16 +58,14 @@ class W_ExtensionFunction(W_Root):
             while i < n:
                 args_h[i] = self.handles.new(__args__.arguments_w[i + skip_args])
                 i += 1
-
-            if has_keywords:
-                h_result = self.call_keywords(space, h_self, args_h, n, __args__)
-            else:
-                h_result = self.call_varargs(space, h_self, args_h, n)
-
-            # XXX this should probably be in a try/finally. We should add a
-            # test to check that we don't leak handles
-            for i in range(n):
-                self.handles.close(args_h[i])
+            try:
+                if has_keywords:
+                    h_result = self.call_keywords(space, h_self, args_h, n, __args__)
+                else:
+                    h_result = self.call_varargs(space, h_self, args_h, n)
+            finally:
+                for i in range(n):
+                    self.handles.close(args_h[i])
 
         return self.handles.consume(h_result)
 
