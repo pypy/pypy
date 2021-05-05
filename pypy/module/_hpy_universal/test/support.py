@@ -7,6 +7,7 @@ from pypy.module._hpy_universal.llapi import BASE_DIR
 from pypy.module._hpy_universal.test._vendored import support as _support
 from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
 from ..state import State
+from .. import llapi
 
 COMPILER_VERBOSE = False
 
@@ -35,14 +36,16 @@ class HPyAppTest(object):
     @pytest.fixture(params=['universal', 'debug'], autouse=True)
     def initargs(self, request):
         hpy_abi = request.param
-        state = self.space.fromcache(State)
-        if state.uctx:
-            # bridge functions are stored in a global but they need to match the
-            # current space, so we reinitialize them every time.
-            state.setup_bridge()
         self._init(request, hpy_abi)
 
     def _init(self, request, hpy_abi):
+        state = self.space.fromcache(State)
+        if state.uctx:
+            # The bridge functions and the debug context are stored in globals
+            # but they need to match the current space, so we reinitialize them
+            # every time.
+            state.setup_bridge()
+            llapi.hpy_debug_set_ctx(state.dctx)
         if self.space.config.objspace.usemodules.cpyext:
             from pypy.module import cpyext
             cpyext_include_dirs = cpyext.api.include_dirs

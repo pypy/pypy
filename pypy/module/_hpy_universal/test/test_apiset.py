@@ -53,15 +53,19 @@ class TestAPISet(object):
         assert _HPyFoo_Internal.basename == 'Foo_Internal'
 
     def test_llhelper(self, api):
+        class FakeState:
+            def get_handle_manager(self, *args):
+                return 'fake manager'
+
         class FakeSpace:
             @staticmethod
             def fromcache(cls):
-                return 'fake %s' % cls.__name__
+                return FakeState()
 
         @api.func('double divide(long a, long b)', error_value=-1.0)
-        def divide(space, state, a, b):
+        def divide(space, handles, a, b):
             assert space is fakespace
-            assert state == 'fake State'
+            assert handles == 'fake manager'
             return float(a)/b
         #
         fakespace = FakeSpace()
