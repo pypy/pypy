@@ -427,6 +427,10 @@ def urlsplit(url, scheme='', allow_fragments=True):
     if len(_parse_cache) >= MAX_CACHE_SIZE: # avoid runaway growth
         clear_cache()
     netloc = query = fragment = ''
+
+    for b in _UNSAFE_URL_BYTES_TO_REMOVE:
+        url = url.replace(b, "")
+
     i = url.find(':')
     if i > 0:
         if url[:i] == 'http': # optimize the common case
@@ -454,9 +458,6 @@ def urlsplit(url, scheme='', allow_fragments=True):
             if not rest or any(c not in '0123456789' for c in rest):
                 # not a port number
                 scheme, url = url[:i].lower(), rest
-
-    for b in _UNSAFE_URL_BYTES_TO_REMOVE:
-        url = url.replace(b, "")
 
     if url[:2] == '//':
         netloc, url = _splitnetloc(url, 2)
