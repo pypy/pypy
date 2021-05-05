@@ -574,16 +574,16 @@ hpy_debug_set_ctx = rffi.llexternal(
     'pypy_hpy_debug_set_ctx', [HPyContext], lltype.Void,
     compilation_info=eci, _nowrapper=True)
 
-hpy_debug_wrap_handle = rffi.llexternal(
-    'pypy_hpy_debug_wrap_handle', [HPyContext, HPy], HPy,
-    compilation_info=eci, _nowrapper=True)
-
-hpy_debug_untrack = rffi.llexternal(
-    'pypy_hpy_debug_untrack', [HPyContext, HPy], lltype.Void,
+hpy_debug_open_handle = rffi.llexternal(
+    'pypy_hpy_debug_open_handle', [HPyContext, HPy], HPy,
     compilation_info=eci, _nowrapper=True)
 
 hpy_debug_unwrap_handle = rffi.llexternal(
     'pypy_hpy_debug_unwrap_handle', [HPy], HPy,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_close_handle = rffi.llexternal(
+    'pypy_hpy_debug_close_handle', [HPyContext, HPy], lltype.Void,
     compilation_info=eci, _nowrapper=True)
 
 HPyInit__debug = rffi.llexternal(

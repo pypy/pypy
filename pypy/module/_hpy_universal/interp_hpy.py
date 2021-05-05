@@ -56,8 +56,8 @@ from pypy.module._hpy_universal import (
 #
 # 6. Argument passing works in the same way: handles are created by calling
 #    self.handles.new, which in debug mode calls
-#    llapi.hpy_debug_wrap_handle. The same for the return value, which calls
-#    self.handles.consume which calls llapi.hpy_debug_unwrap_handle.
+#    llapi.hpy_debug_open_handle. The same for the return value, which calls
+#    self.handles.consume which calls llapi.hpy_debug_close_handle.
 #
 # 7. We need to ensure that ALL python-to-C entry points use the correct
 #    HandleManager/ctx: so the same applies for W_ExtensionMethod and
