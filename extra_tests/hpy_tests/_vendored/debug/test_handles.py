@@ -1,4 +1,4 @@
-from test.support import HPyDebugTest
+from ..support import HPyDebugTest
 
 class TestHandles(HPyDebugTest):
 
