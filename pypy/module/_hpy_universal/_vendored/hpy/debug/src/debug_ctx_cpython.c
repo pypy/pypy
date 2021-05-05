@@ -27,7 +27,7 @@
 
 static inline DHPy _py2dh(HPyContext dctx, PyObject *obj)
 {
-    return DHPy_wrap(dctx, _py2h(obj));
+    return DHPy_open(dctx, _py2h(obj));
 }
 
 static inline PyObject *_dh2py(DHPy dh)

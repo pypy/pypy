@@ -180,11 +180,11 @@ class DebugHandleManager(AbstractHandleManager):
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
-        return llapi.hpy_debug_wrap_handle(self.ctx, uh)
+        return llapi.hpy_debug_open_handle(self.ctx, uh)
 
     def close(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(dh)
-        llapi.hpy_debug_untrack(self.ctx, dh)
+        llapi.hpy_debug_close_handle(self.ctx, dh)
         self.u_handles.close(uh)
 
     def deref(self, dh):
@@ -193,7 +193,7 @@ class DebugHandleManager(AbstractHandleManager):
 
     def consume(self, dh):
         uh = llapi.hpy_debug_unwrap_handle(dh)
-        llapi.hpy_debug_untrack(self.ctx, dh)
+        llapi.hpy_debug_close_handle(self.ctx, dh)
         return self.u_handles.consume(uh)
 
 
