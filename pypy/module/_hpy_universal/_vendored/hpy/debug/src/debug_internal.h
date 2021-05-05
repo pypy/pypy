@@ -23,10 +23,9 @@
    To cast between DHPy and DebugHandle*, use as_DebugHandle and as_DHPy:
    these are just no-op casts.
 
-   To wrap a UHPy, call DHPy_wrap: this contains some actual logic, because it
-   malloc()s a new DebugHandle, which will be released at some point in the
-   future after we call HPy_Close on it.  Note that if you call DHPy_wrap
-   twice on the same UHPy, you get two different DHPy.
+   Each DHPy wraps a corresponding UHPy: DHPys are created by calling
+   DHPy_open, and they must be eventually closed by DHPy_close. Note that if
+   you call DHPy_open twice on the same UHPy, you get two different DHPy.
 
    To unwrap a DHPy and get the underyling UHPy, call DHPy_unwrap. If you call
    DHPy_unwrap multiple times on the same DHPy, you always get the same UHPy.
@@ -36,6 +35,21 @@
 
    Each DebugHandle has a "generation", which is just a int to be able to get
    only the handles which were created after a certain point.
+
+   DHPys/DebugHandles are memory-managed by using a free list:
+
+     - info->open_handles is a list of all DHPys which are currently open
+
+     - DHPy_close() moves a DHPy from info->open_handles to info->closed_handles
+
+     - if closed_handles is too big, the oldest DHPy is freed by DHPy_free()
+
+     - to allocate memory for a new DHPy, DHPy_open() does the following:
+
+         * if closed_handles is empty, it malloc()s memory for a new DHPy
+
+         * if it's not empty, it reuses the memory of the oldest DHPy in the
+           queue
 */
 
 typedef HPy UHPy;
@@ -86,7 +100,7 @@ static inline DHPy as_DHPy(DebugHandle *handle) {
     return (DHPy){(HPy_ssize_t)handle};
 }
 
-DHPy DHPy_wrap(HPyContext dctx, UHPy uh);
+DHPy DHPy_open(HPyContext dctx, UHPy uh);
 void DHPy_close(HPyContext dctx, DHPy dh);
 void DHPy_free(DHPy dh);
 
