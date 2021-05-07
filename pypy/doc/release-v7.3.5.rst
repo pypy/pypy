@@ -13,6 +13,7 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 - The new windows 64-bit builds improperly named c-extension modules
   with the same extension as the 32-bit build (issue 3443_)
 - Use the windows-specific ``PC/pyconfig.h`` rather than the posix one
+- Fix the return type for ``_Py_HashDouble`` which impacts 64-bit windows
 - A change to the python 3.7 ``sysconfig.get_config_var('LIBDIR')`` was wrong,
   leading to problems finding `libpypy3-c.so` for embedded PyPy (issue 3442_).
 - Instantiate ``distutils.command.install`` schema for PyPy-specific
