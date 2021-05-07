@@ -27,30 +27,33 @@ SEEN_ALL  = SEEN_CR | SEEN_LF | SEEN_CRLF
 
 _WINDOWS = sys.platform == 'win32'
 
+def make_newlines_dict(space):
+    return {
+        SEEN_CR: space.newtext("\r", 1),
+        SEEN_LF: space.newtext("\n", 1),
+        SEEN_CRLF: space.newtext("\r\n", 2),
+        SEEN_CR | SEEN_LF: space.newtuple(
+            [space.newtext("\r", 1),
+             space.newtext("\n", 1)]),
+        SEEN_CR | SEEN_CRLF: space.newtuple(
+            [space.newtext("\r", 1),
+             space.newtext("\r\n", 2)]),
+        SEEN_LF | SEEN_CRLF: space.newtuple(
+            [space.newtext("\n", 1),
+             space.newtext("\r\n", 2)]),
+        SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
+            [space.newtext("\r", 1),
+             space.newtext("\n", 1),
+             space.newtext("\r\n", 2)]),
+    }
+
 class W_IncrementalNewlineDecoder(W_Root):
     seennl = 0
     pendingcr = False
     w_decoder = None
 
     def __init__(self, space):
-        self.w_newlines_dict = {
-            SEEN_CR: space.newutf8("\r", 1),
-            SEEN_LF: space.newutf8("\n", 1),
-            SEEN_CRLF: space.newutf8("\r\n", 2),
-            SEEN_CR | SEEN_LF: space.newtuple(
-                [space.newutf8("\r", 1),
-                 space.newutf8("\n", 1)]),
-            SEEN_CR | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\r", 1),
-                 space.newutf8("\r\n", 2)]),
-            SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\n", 1),
-                 space.newutf8("\r\n", 2)]),
-            SEEN_CR | SEEN_LF | SEEN_CRLF: space.newtuple(
-                [space.newutf8("\r", 1),
-                 space.newutf8("\n", 1),
-                 space.newutf8("\r\n", 2)]),
-            }
+        pass
 
     @unwrap_spec(translate=int)
     def descr_init(self, space, w_decoder, translate, w_errors=None):
@@ -64,7 +67,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         self.seennl = 0
 
     def newlines_get_w(self, space):
-        return self.w_newlines_dict.get(self.seennl, space.w_None)
+        return space.fromcache(make_newlines_dict).get(self.seennl, space.w_None)
 
     @unwrap_spec(final=int)
     def decode_w(self, space, w_input, final=False):
