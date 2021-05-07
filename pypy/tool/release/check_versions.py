@@ -32,6 +32,12 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.5rc2': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-05',
+                          },
+                 '7.3.5rc1': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-02',
+                          },
                  '7.3.4': {'python_version': ['3.7.10', '2.7.18'],
                            'date': '2021-04-08',
                           },
@@ -137,3 +143,4 @@ if __name__ == '__main__':
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
     check_versions(data)
+    print('ok')
