@@ -5,6 +5,7 @@ A custom graphic renderer for the '.plain' files produced by dot.
 
 from __future__ import absolute_import, print_function
 import re, os, math
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 from pygame.locals import *
 

@@ -179,6 +179,7 @@ if __name__ == '__main__':
             help = (" | if you want to debug on a remote machine, see\n"
                     " | instructions in dotviewer/sshgraphserver.py\n")
             try:
+                os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
                 import pygame
                 if isinstance(e, pygame.error):
                     print(help, file=f)
