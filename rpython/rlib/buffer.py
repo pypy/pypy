@@ -333,6 +333,12 @@ class ByteBuffer(GCBuffer):
     def _get_gc_data_offset():
         return get_gc_data_offset_for_list_of_chars()
 
+    def setslice(self, start, string):
+        # this could maybe be done with a memcopy, but at least make sure there
+        # is no virtual method call in the loop here!
+        data = self.data
+        for i in range(len(string)):
+            data[start + i] =  string[i]
 
 @GCBuffer.decorate
 class StringBuffer(GCBuffer):
