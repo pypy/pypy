@@ -417,7 +417,8 @@ class DecodeBuffer(object):
                     return False
                 ch = self.text[self.pos]
                 if ch == '\n':
-                    self._advance_codepoint()
+                    self.pos += 1
+                    self.upos += 1
                     return True
                 else:
                     return True
@@ -431,9 +432,10 @@ class DecodeBuffer(object):
             if self.exhausted():
                 return False
             ch = self.text[self.pos]
-            self._advance_codepoint()
             scanned += 1
             if ch == '\r':
+                self.pos += 1
+                self.upos += 1
                 if scanned >= limit:
                     return False
                 if self.exhausted():
@@ -443,8 +445,11 @@ class DecodeBuffer(object):
                     self.upos -= 1
                     return False
                 if self.text[self.pos] == '\n':
-                    self._advance_codepoint()
+                    self.pos += 1
+                    self.upos += 1
                     return True
+            else:
+                self._advance_codepoint()
         return False
 
     def find_char(self, marker, limit):
@@ -477,9 +482,11 @@ class DecodeBuffer(object):
                 return False
             # this is never true if self.text[pos] is part of a larger char
             found = self.text[self.pos] == marker
-            self._advance_codepoint()
             if found:
+                self.pos += 1
+                self.upos += 1
                 return True
+            self._advance_codepoint()
             scanned += 1
         return False
 
