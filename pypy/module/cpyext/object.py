@@ -365,7 +365,7 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.hash_w(w_obj)
 
-@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
+@cpython_api([rffi.DOUBLE], lltype.Signed, error=-1)
 def _Py_HashDouble(space, v):
     return space.hash_w(space.newfloat(v))
 
