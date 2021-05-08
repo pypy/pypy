@@ -137,7 +137,8 @@ class W_IncrementalNewlineDecoder(W_Root):
             assert rpos >= 0
             # Translate!
             builder = StringBuilder(len(output))
-            i = 0
+            builder.append_slice(output, 0, rpos)
+            i = rpos
             while i < len(output):
                 c = output[i]
                 i += 1
