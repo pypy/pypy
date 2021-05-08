@@ -165,7 +165,7 @@ class W_IncrementalNewlineDecoder(W_Root):
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
             space.call_method(self.w_decoder, "reset")
 
-    def getstate_w(self, space):
+    def getstate_u(self, space):
         if self.w_decoder and not space.is_w(self.w_decoder, space.w_None):
             w_state = space.call_method(self.w_decoder, "getstate")
             w_buffer, w_flag = space.unpackiterable(w_state, 2)
@@ -176,6 +176,10 @@ class W_IncrementalNewlineDecoder(W_Root):
         flag <<= 1
         if self.pendingcr:
             flag |= 1
+        return w_buffer, flag
+
+    def getstate_w(self, space):
+        w_buffer, flag = self.getstate_u(space)
         return space.newtuple([w_buffer, space.newint(flag)])
 
     def setstate_w(self, space, w_state):
@@ -798,19 +802,25 @@ class W_TextIOWrapper(W_TextIOBase):
         if self.telling:
             # To prepare for tell(), we need to snapshot a point in the file
             # where the decoder's input buffer is empty.
-            w_state = space.call_method(self.w_decoder, "getstate")
-            if (not space.isinstance_w(w_state, space.w_tuple)
-                    or space.len_w(w_state) != 2):
-                raise oefmt(space.w_TypeError, "illegal decoder state")
-            # Given this, we know there was a valid snapshot point
-            # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
-            w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
-            if not space.isinstance_w(w_dec_buffer, space.w_bytes):
-                msg = ("illegal decoder state: the first value should be a "
-                    "bytes object not '%T'")
-                raise oefmt(space.w_TypeError, msg, w_dec_buffer)
+            w_decoder = self.w_decoder
+            # fast path for the common case of decoder being
+            # W_IncrementalNewlineDecoder. avoids (un)wrapping the tuple too
+            if type(w_decoder) is W_IncrementalNewlineDecoder:
+                w_dec_buffer, dec_flags = w_decoder.getstate_u(space)
+            else:
+                w_state = space.call_method(self.w_decoder, "getstate")
+                if (not space.isinstance_w(w_state, space.w_tuple)
+                        or space.len_w(w_state) != 2):
+                    raise oefmt(space.w_TypeError, "illegal decoder state")
+                # Given this, we know there was a valid snapshot point
+                # len(dec_buffer) bytes ago with decoder state (b'', dec_flags).
+                w_dec_buffer, w_dec_flags = space.unpackiterable(w_state, 2)
+                if not space.isinstance_w(w_dec_buffer, space.w_bytes):
+                    msg = ("illegal decoder state: the first value should be a "
+                        "bytes object not '%T'")
+                    raise oefmt(space.w_TypeError, msg, w_dec_buffer)
+                dec_flags = space.int_w(w_dec_flags)
             dec_buffer = space.bytes_w(w_dec_buffer)
-            dec_flags = space.int_w(w_dec_flags)
         else:
             dec_buffer = None
             dec_flags = 0
@@ -828,8 +838,12 @@ class W_TextIOWrapper(W_TextIOBase):
             raise oefmt(space.w_TypeError, msg, func_name, w_input)
 
         eof = input_buf.getlength() == 0
-        w_decoded = space.call_method(self.w_decoder, "decode",
-                                      w_input, space.newbool(eof))
+        w_decoder = self.w_decoder
+        if type(w_decoder) is W_IncrementalNewlineDecoder:
+            w_decoded = w_decoder.decode_w(space, w_input, eof)
+        else:
+            w_decoded = space.call_method(w_decoder, "decode",
+                                          w_input, space.newbool(eof))
         self.decoded.set(space, w_decoded)
         if space.len_w(w_decoded) > 0:
             eof = False
