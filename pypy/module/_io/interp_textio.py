@@ -903,15 +903,14 @@ class W_TextIOWrapper(W_TextIOBase):
         return space.newutf8(builder.build(), builder.getlength())
 
     def _scan_line_ending(self, limit):
+        if self.readtranslate:
+            # Newlines are already translated, only search for \n
+            return self.decoded.find_char('\n', limit)
         if self.readuniversal:
             return self.decoded.find_newline_universal(limit)
         else:
-            if self.readtranslate:
-                # Newlines are already translated, only search for \n
-                newline = '\n'
-            else:
-                # Non-universal mode.
-                newline = self.readnl
+            # Non-universal mode.
+            newline = self.readnl
             if newline == '\r\n':
                 return self.decoded.find_crlf(limit)
             else:
