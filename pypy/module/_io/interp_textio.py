@@ -15,7 +15,8 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rutf8 import (check_utf8, next_codepoint_pos,
                                 codepoints_in_utf8, codepoints_in_utf8,
                                 Utf8StringBuilder)
-from rpython.rlib import rlocale
+from rpython.rlib import rlocale, jit
+from rpython.rlib.objectmodel import always_inline
 
 
 STATE_ZERO, STATE_OK, STATE_DETACHED = range(3)
@@ -87,7 +88,6 @@ class W_IncrementalNewlineDecoder(W_Root):
                         "decoder should return a string result")
 
         output, output_len = space.utf8_len_w(w_output)
-        output_len = len(output)
         if self.pendingcr and (final or output_len):
             output = '\r' + output
             self.pendingcr = False
@@ -110,7 +110,8 @@ class W_IncrementalNewlineDecoder(W_Root):
         # desired, all in one pass.
         seennl = self.seennl
 
-        if output.find('\r') < 0:
+        rpos = output.find('\r')
+        if rpos < 0:
             # If no \r, quick scan for a possible "\n" character.
             # (there's nothing else to be done, even when in translation mode)
             if output.find('\n') >= 0:
@@ -132,11 +133,12 @@ class W_IncrementalNewlineDecoder(W_Root):
                         i += 1
                     else:
                         seennl |= SEEN_CR
-        elif output.find('\r') >= 0:
+        else:
+            assert rpos >= 0
             # Translate!
             builder = StringBuilder(len(output))
             i = 0
-            while i < output_len:
+            while i < len(output):
                 c = output[i]
                 i += 1
                 if c == '\n':
@@ -145,6 +147,7 @@ class W_IncrementalNewlineDecoder(W_Root):
                     if i < len(output) and output[i] == '\n':
                         seennl |= SEEN_CRLF
                         i += 1
+                        output_len -= 1
                     else:
                         seennl |= SEEN_CR
                     builder.append('\n')
@@ -153,8 +156,7 @@ class W_IncrementalNewlineDecoder(W_Root):
             output = builder.build()
 
         self.seennl |= seennl
-        lgt = check_utf8(output, True)
-        return space.newutf8(output, lgt)
+        return space.newutf8(output, output_len)
 
     def reset_w(self, space):
         self.seennl = 0
@@ -493,6 +495,7 @@ class DecodeBuffer(object):
             scanned += 1
         return False
 
+    @always_inline
     def _advance_codepoint(self):
         # must only be called after checking self.exhausted()!
         self.pos = next_codepoint_pos(self.text, self.pos)
@@ -687,7 +690,7 @@ class W_TextIOWrapper(W_TextIOBase):
                         "I/O operation on uninitialized object")
 
     def _check_attached(self, space):
-        if self.state == STATE_DETACHED:
+        if jit.promote(self.state) == STATE_DETACHED:
             raise oefmt(space.w_ValueError,
                         "underlying buffer has been detached")
         self._check_init(space)
