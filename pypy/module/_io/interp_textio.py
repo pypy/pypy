@@ -332,8 +332,7 @@ class DecodeBuffer(object):
 
     def set(self, space, w_decoded):
         check_decoded(space, w_decoded)
-        self.ulen = space.len_w(w_decoded)
-        self.text = space.utf8_w(w_decoded)
+        self.text, self.ulen = space.utf8_len_w(w_decoded)
         self.pos = 0
         self.upos = 0
 
