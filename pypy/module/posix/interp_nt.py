@@ -30,7 +30,7 @@ eci = ExternalCompilationInfo(
     separate_module_sources=[separate_module_source])
 pypy_GetFinalPathNameByHandle = rffi.llexternal(
     'pypy_GetFinalPathNameByHandle',
-    [rffi.VOIDP, rwin32.HANDLE, rffi.CWCHARP, rwin32.DWORD, rwin32.DWORD],
+    [rffi.VOIDP, rwin32.HANDLE, rwin32.LPSTR, rwin32.DWORD, rwin32.DWORD],
     rwin32.DWORD, compilation_info=eci)
 
 
@@ -98,7 +98,8 @@ def make__getfinalpathname_impl(traits):
             raise LLNotImplemented("GetFinalPathNameByHandle not available on "
                                    "this platform")
 
-        hFile = win32traits.CreateFile(traits.as_str0(path), 0, 0, None,
+        hFile = win32traits.CreateFile(traits.as_str0(path), 0, 0,
+                                       lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
                                        win32traits.OPEN_EXISTING,
                                        win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                                        rwin32.NULL_HANDLE)
@@ -109,7 +110,7 @@ def make__getfinalpathname_impl(traits):
         try:
             usize = win32traits.GetFinalPathNameByHandle(
                 hFile,
-                lltype.nullptr(traits.CCHARP.TO),
+                rffi.cast(rwin32.LPSTR, 0),
                 rffi.cast(rwin32.DWORD, 0),
                 VOLUME_NAME_DOS)
             if usize == 0:
@@ -119,7 +120,7 @@ def make__getfinalpathname_impl(traits):
             with rffi.scoped_alloc_unicodebuffer(size + 1) as buf:
                 result = win32traits.GetFinalPathNameByHandle(
                     hFile,
-                    buf.raw,
+                    rffi.cast(rwin32.LPSTR, buf.raw),
                     usize,
                     VOLUME_NAME_DOS)
                 if result == 0:

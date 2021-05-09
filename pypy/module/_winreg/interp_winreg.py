@@ -125,7 +125,7 @@ but the handle is not closed.  You would call this function when you
 need the underlying win32 handle to exist beyond the lifetime of the
 handle object."""
         key = self.as_int()
-        self.hkey = rwin32.NULL_HANDLE
+        self.hkey = lltype.nullptr(rwin32.HKEY.TO)
         return space.newint(key)
 
 
@@ -200,7 +200,7 @@ closed when the hkey object is destroyed by Python."""
         if ret != 0:
             raiseWindowsError(space, ret, 'RegCloseKey')
     if isinstance(w_hkey, W_HKEY):
-        space.interp_w(W_HKEY, w_hkey).hkey = rwin32.NULL_HANDLE
+        space.interp_w(W_HKEY, w_hkey).hkey = lltype.nullptr(rwin32.HKEY.TO)
 
 
 def FlushKey(space, w_hkey):

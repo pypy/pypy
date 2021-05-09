@@ -56,8 +56,9 @@ if _WIN32:
     libraries = ('ws2_32',)
     calling_conv = 'win'
     header_lines = [
-        '#include <WinSock2.h>',
-        '#include <WS2tcpip.h>',
+        '#define WIN32_LEAN_AND_MEAN',
+        '#include <winsock2.h>',
+        '#include <Ws2tcpip.h>',
         # winsock2 defines AF_UNIX, but not sockaddr_un
         '#undef AF_UNIX',
         ]
@@ -135,6 +136,11 @@ class CConfig:
     WSAEAFNOSUPPORT = platform.DefinedConstantInteger('WSAEAFNOSUPPORT')
     EISCONN = platform.DefinedConstantInteger('EISCONN')
     WSAEISCONN = platform.DefinedConstantInteger('WSAEISCONN')
+    LPWSAOVERLAPPED = platform.SimpleType(
+        "LPWSAOVERLAPPED", rffi.CCHARP)
+    LPWSAOVERLAPPED_COMPLETION_ROUTINE = platform.SimpleType(
+        "LPWSAOVERLAPPED_COMPLETION_ROUTINE", rffi.CCHARP)
+    
 constant_names = '''
 AF_AAL5 AF_APPLETALK AF_ASH AF_ATMPVC AF_ATMSVC AF_AX25 AF_BLUETOOTH AF_BRIDGE
 AD_DECnet AF_ECONET AF_INET AF_INET6 AF_IPX AF_IRDA AF_KEY AF_LLC AF_NETBEUI
@@ -1192,8 +1198,13 @@ getaddrinfo = external('getaddrinfo', [CCHARP, CCHARP,
                         addrinfo_ptr,
                         lltype.Ptr(rffi.CArray(addrinfo_ptr))], rffi.INT)
 freeaddrinfo = external('freeaddrinfo', [addrinfo_ptr], lltype.Void)
-getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
-                       size_t, CCHARP, size_t, rffi.INT], rffi.INT)
+if _WIN32:
+    from rpython.rlib import rwin32
+    getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
+                           rwin32.DWORD, CCHARP, rwin32.DWORD, rffi.INT], rffi.INT)
+else:
+    getnameinfo = external('getnameinfo', [sockaddr_ptr, socklen_t, CCHARP,
+                           size_t, CCHARP, size_t, rffi.INT], rffi.INT)
 
 if sys.platform.startswith("openbsd") or sys.platform.startswith("darwin"):
     htonl = external('htonl', [rffi.UINT], rffi.UINT, releasegil=False, macro=True)
@@ -1270,8 +1281,11 @@ freeccharp = jit.dont_look_inside(rffi.llexternal("free_ptr_to_charp",
                                     [rffi.CCHARPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
 freesignedp = jit.dont_look_inside(rffi.llexternal("free_pointer_to_signedp",
                                     [rffi.SIGNEDPP],rffi.INT,save_err=SAVE_ERR,compilation_info=compilation_info))
-
-send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
+if WIN32:
+    send = external('send', [socketfd_type, rffi.CCHARP, rffi.INT, rffi.INT],
+                       rffi.INT, save_err=SAVE_ERR)
+else:
+    send = external('send', [socketfd_type, rffi.CCHARP, size_t, rffi.INT],
                        ssize_t, save_err=SAVE_ERR)
 sendto = external('sendto', [socketfd_type, rffi.VOIDP, size_t, rffi.INT,
                                     sockaddr_ptr, socklen_t], ssize_t,
@@ -1362,7 +1376,8 @@ elif WIN32:
                         [socketfd_type, rwin32.DWORD,
                          rffi.VOIDP, rwin32.DWORD,
                          rffi.VOIDP, rwin32.DWORD,
-                         rwin32.LPDWORD, rffi.VOIDP, rffi.VOIDP],
+                         rwin32.LPDWORD, cConfig.LPWSAOVERLAPPED,
+                         cConfig.LPWSAOVERLAPPED_COMPLETION_ROUTINE],
                         rffi.INT, save_err=SAVE_ERR)
 
     WSAPROTOCOL_INFOW = cConfig.WSAPROTOCOL_INFOW

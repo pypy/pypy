@@ -1371,6 +1371,9 @@ class _abstract_ptr(object):
                     # None is acceptable for any pointer
                     elif isinstance(ARG, Ptr) and a is None:
                         pass
+                    elif isinstance(a, int) and typeOf(a) is Signed:
+                        # 64-bit windows: allow silent casting bare int to signed
+                        pass
                     # Any pointer is convertible to void*
                     elif ARG is rffi.VOIDP and isinstance(typeOf(a), Ptr):
                         pass

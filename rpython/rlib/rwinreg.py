@@ -45,7 +45,7 @@ def external(name, args, result, **kwds):
     return rffi.llexternal(name, args, result, compilation_info=eci,
                            calling_conv='win', **kwds)
 
-HKEY = rwin32.HANDLE
+HKEY = rwin32.HKEY
 PHKEY = rffi.CArrayPtr(HKEY)
 REGSAM = rwin32.DWORD
 
@@ -84,7 +84,7 @@ def get_traits(suffix):
     RegCreateKeyEx = external(
         'RegCreateKeyEx' + suffix,
         [HKEY, strp, rwin32.DWORD, strp, rwin32.DWORD,
-         REGSAM, rffi.VOIDP, PHKEY, rwin32.LPDWORD],
+         REGSAM, rwin32.LPSECURITY_ATTRIBUTES, PHKEY, rwin32.LPDWORD],
         rffi.LONG)
 
     RegDeleteValue = external(

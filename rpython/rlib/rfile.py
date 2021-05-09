@@ -11,6 +11,7 @@ from rpython.rlib.rstring import StringBuilder
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rtyper.tool import rffi_platform as platform
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib._os_support import UNDERSCORE_ON_WIN32
 
 includes = ['stdio.h', 'sys/types.h']
 if os.name == "posix":
@@ -57,11 +58,11 @@ NEWLINE_CRLF = 4
 def llexternal(*args, **kwargs):
     return rffi.llexternal(*args, compilation_info=eci, **kwargs)
 
-c_fopen = llexternal('fopen', [rffi.CCHARP, rffi.CCHARP], FILEP,
+c_fopen = llexternal(UNDERSCORE_ON_WIN32 + 'fopen', [rffi.CCHARP, rffi.CCHARP], FILEP,
                      save_err=rffi.RFFI_SAVE_ERRNO)
 c_popen = llexternal('popen', [rffi.CCHARP, rffi.CCHARP], FILEP,
                      save_err=rffi.RFFI_SAVE_ERRNO)
-c_fdopen = llexternal(('_' if os.name == 'nt' else '') + 'fdopen',
+c_fdopen = llexternal(UNDERSCORE_ON_WIN32 + 'fdopen',
                       [rffi.INT, rffi.CCHARP], FILEP,
                       save_err=rffi.RFFI_SAVE_ERRNO)
 c_tmpfile = llexternal('tmpfile', [], FILEP,

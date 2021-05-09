@@ -134,6 +134,7 @@ def winexternal(name, args, result, **kwds):
 
 if WIN32:
     HANDLE = rffi.COpaquePtr(typedef='HANDLE')
+    HKEY = rffi.COpaquePtr(typedef='HKEY')
     assert rffi.cast(HANDLE, -1) == rffi.cast(HANDLE, -1)
 
     LPHANDLE = rffi.CArrayPtr(HANDLE)
@@ -258,11 +259,11 @@ if WIN32:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
         return handle
 
-    _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
+    _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTPTR_T, rffi.INT], rffi.INT)
 
     def open_osfhandle(handle, flags):
         from rpython.rlib.rposix import FdValidator
-        fd = _open_osfhandle(handle, flags)
+        fd = _open_osfhandle(rffi.cast(rffi.INTPTR_T, handle), flags)
         with FdValidator(fd):
             return fd
     

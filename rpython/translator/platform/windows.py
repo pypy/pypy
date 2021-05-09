@@ -174,7 +174,7 @@ class MsvcPlatform(Platform):
     if _find_executable('jom.exe'):
         make = 'jom.exe'
 
-    cflags = ('/MD', '/O2', '/FS', '/Zi')
+    cflags = ('/MD', '/O2', '/FS', '/Zi', '-D_CRT_SECURE_NO_WARNINGS')
     # allow >2GB address space, set stack to 3MB (1MB is too small)
     link_flags = ('/nologo', '/debug','/LARGEADDRESSAWARE',
                   '/STACK:3145728', '/MANIFEST:EMBED')
@@ -375,7 +375,6 @@ class MsvcPlatform(Platform):
             ('LINKFILES', eci.link_files),
             ('MASM', self.masm),
             ('MAKE', 'nmake.exe'),
-            ('_WIN32', '1'),
             ]
         if shared:
             definitions.insert(0, ('WTARGET', wtarget_name.basename))
@@ -503,6 +502,7 @@ class MsvcPlatform(Platform):
                    'echo #include "stdlib.h" >> $@.tmp',
                    'echo #include "windows.h" >> $@.tmp',
                    'echo int $(PYPY_MAIN_FUNCTION)(int, char*[]); >> $@.tmp',
+                   'echo #pragma warning(disable : 4100) >> $@.tmp',
                    'echo int WINAPI WinMain( >> $@.tmp',
                    'echo     HINSTANCE hInstance,      /* handle to current instance */ >> $@.tmp',
                    'echo     HINSTANCE hPrevInstance,  /* handle to previous instance */ >> $@.tmp',

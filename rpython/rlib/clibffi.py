@@ -45,14 +45,14 @@ if _WIN32:
     #include <stdio.h>
     #include <windows.h>
 
-    /* Get the module where the "fopen" function resides in */
+    /* Get the module where the "fopen_s" function resides in */
     RPY_EXTERN
     HMODULE pypy_get_libc_handle(void) {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
 
-        if( !VirtualQueryEx(GetCurrentProcess(), &fopen, &mi, sizeof(mi)) )
+        if( !VirtualQueryEx(GetCurrentProcess(), &fopen_s, &mi, sizeof(mi)) )
             return (HMODULE)0;
 
         GetModuleFileName((HMODULE)mi.AllocationBase, buf, 500);

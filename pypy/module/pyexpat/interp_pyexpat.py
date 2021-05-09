@@ -211,6 +211,7 @@ class CallbackData(W_Root):
 
 SETTERS = {}
 for index, (name, params) in enumerate(HANDLERS.items()):
+    print 'parsing HANDLER', name, params
     arg_names = ['arg%d' % (i,) for i in range(len(params))]
     warg_names = ['w_arg%d' % (i,) for i in range(len(params))]
 
@@ -235,10 +236,13 @@ for index, (name, params) in enumerate(HANDLERS.items()):
         elif ARG == rffi.CCHARP:
             converters.append(
                 'w_arg%d = parser.w_convert_charp(space, arg%d)' % (i, i))
+        elif ARG == rffi.CONST_CCHARP:
+            converters.append(
+                'w_arg%d = parser.w_convert_ccharp(space, arg%d)' % (i, i))
         elif ARG == INTERNED_CCHARP:
             converters.append(
                 'w_arg%d = parser.w_convert_interned(space, arg%d)' % (i, i))
-            ARG = rffi.CCHARP
+            ARG = rffi.CONST_CCHARP
         elif ARG == lltype.Ptr(XML_Content):
             converters.append(
                 'w_arg%d = parser.w_convert_model(space, arg%d)' % (i, i))
@@ -324,7 +328,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
     space = userdata.space
     parser = userdata.parser()
 
-    name = rffi.charp2str(name)
+    name = rffi.constcharp2str(name)
 
     try:
         parser.UnknownEncodingHandler(space, name, info)
@@ -337,7 +341,7 @@ def UnknownEncodingHandlerData_callback(ll_userdata, name, info):
         result = 1
     return rffi.cast(rffi.INT, result)
 callback_type = lltype.Ptr(lltype.FuncType(
-    [rffi.VOIDP, rffi.CCHARP, XML_Encoding_Ptr], rffi.INT))
+    [rffi.VOIDP, rffi.CONST_CCHARP, XML_Encoding_Ptr], rffi.INT))
 XML_SetUnknownEncodingHandler = expat_external(
     'XML_SetUnknownEncodingHandler',
     [XML_Parser, callback_type, rffi.VOIDP], lltype.Void)
@@ -378,7 +382,7 @@ XML_GetErrorCode = expat_external(
     'XML_GetErrorCode', [XML_Parser], rffi.INT)
 XML_ErrorString = expat_external(
     'XML_ErrorString', [rffi.INT],
-    rffi.CCHARP)
+    rffi.CONST_CCHARP)
 XML_GetCurrentLineNumber = expat_external(
     'XML_GetCurrentLineNumber', [XML_Parser], rffi.INT)
 XML_GetErrorLineNumber = XML_GetCurrentLineNumber
@@ -494,10 +498,16 @@ getting the advantage of providing document type information to the parser.
         else:
             return space.w_None
 
+    def w_convert_ccharp(self, space, data):
+        if data:
+            return self.w_convert(space, rffi.constcharp2str(data))
+        else:
+            return space.w_None
+
     def w_convert_interned(self, space, data):
         if not data:
             return space.w_None
-        w_data = self.w_convert_charp(space, data)
+        w_data = self.w_convert_ccharp(space, rffi.cast(rffi.CONST_CCHARP, data))
         if not self.w_intern:
             return w_data
 
@@ -711,7 +721,7 @@ information passed to the ExternalEntityRefHandler."""
     # Error management
 
     def set_error(self, space, code):
-        err = rffi.charp2strn(XML_ErrorString(code), 200)
+        err = rffi.constcharp2str(XML_ErrorString(code))[:200]
         lineno = XML_GetCurrentLineNumber(self.itself)
         colno = XML_GetCurrentColumnNumber(self.itself)
         msg = "%s: line %d, column %d" % (err, lineno, colno)
@@ -867,5 +877,5 @@ Return a new XML parser object."""
 def ErrorString(space, code):
     """ErrorString(errno) -> string
 Returns string error for given number."""
-    return space.newtext(rffi.charp2str(XML_ErrorString(code)))
+    return space.newtext(rffi.constcharp2str(XML_ErrorString(code)))
 

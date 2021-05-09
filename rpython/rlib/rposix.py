@@ -796,9 +796,14 @@ def getfullpathname(path):
             result = rstring.assert_str0(result)
             return result
 
-c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
-                    [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
-                    save_err=rffi.RFFI_SAVE_ERRNO)
+if _WIN32:
+    c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
+                        [rffi.CCHARP, rffi.INT], rffi.CCHARP,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
+else:
+    c_getcwd = external(UNDERSCORE_ON_WIN32 + 'getcwd',
+                        [rffi.CCHARP, rffi.SIZE_T], rffi.CCHARP,
+                        save_err=rffi.RFFI_SAVE_ERRNO)
 c_wgetcwd = external(UNDERSCORE_ON_WIN32 + 'wgetcwd',
                      [rffi.CWCHARP, rffi.SIZE_T], rffi.CWCHARP,
                      save_err=rffi.RFFI_SAVE_ERRNO)
@@ -808,6 +813,7 @@ def getcwd():
     bufsize = 256
     while True:
         buf = lltype.malloc(rffi.CCHARP.TO, bufsize, flavor='raw')
+        # bufsize is annotated as Unsigned
         res = c_getcwd(buf, bufsize)
         if res:
             break   # ok
@@ -1565,7 +1571,8 @@ def utime(path, times):
         path = traits.as_str0(path)
         hFile = win32traits.CreateFile(path,
                            win32traits.FILE_WRITE_ATTRIBUTES, 0,
-                           None, win32traits.OPEN_EXISTING,
+                           lltype.nullptr(rwin32.LPSECURITY_ATTRIBUTES.TO),
+                           win32traits.OPEN_EXISTING,
                            win32traits.FILE_FLAG_BACKUP_SEMANTICS,
                            rwin32.NULL_HANDLE)
         if hFile == rwin32.INVALID_HANDLE_VALUE:
@@ -1743,7 +1750,7 @@ def tmpnam():
 
 #___________________________________________________________________
 
-c_getpid = external('getpid', [], rffi.PID_T,
+c_getpid = external(UNDERSCORE_ON_WIN32 + 'getpid', [], rffi.PID_T,
                     releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)
 c_getppid = external('getppid', [], rffi.PID_T,
                      releasegil=False, save_err=rffi.RFFI_SAVE_ERRNO)

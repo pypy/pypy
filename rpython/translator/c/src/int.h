@@ -174,7 +174,7 @@
    to an unsigned integer, which is also what CPython's ord()
    does. */
 #define OP_CAST_UNICHAR_TO_INT(x,r)    r = ((unsigned int)(x))
-#define OP_CAST_INT_TO_UNICHAR(x,r)    r = (x)
+#define OP_CAST_INT_TO_UNICHAR(x,r)    r = ((wchar_t)(x))
 
 /* bool operations */
 
