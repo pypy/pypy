@@ -16,3 +16,10 @@ formatting of big numbers.
 Optimize dictionary operations in the JIT a bit more, making it possible to
 completely optimize away the creation of dictionaries in more situations (such
 as calling the ``dict.update`` method on known dicts).
+
+.. branch: bpo-35714
+
+Add special error messange for ``'\0'`` in ``rstruct.formatiterator``
+(bpo-35714)
+.. minor branches not worth to document
+.. branch: fix-checkmodule-2

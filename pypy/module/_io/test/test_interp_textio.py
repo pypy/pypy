@@ -57,6 +57,31 @@ def test_readline(space, data, mode):
             break
     assert txt.startswith(u''.join(lines))
 
+@given(data=st_readline())
+@settings(deadline=None, database=None)
+@example(data=(u'\n\r\n', [0, -1, 2, -1, 0, -1]))
+def test_readline_none(space, data):
+    txt, limits = data
+    w_stream = W_BytesIO(space)
+    w_stream.descr_init(space, space.newbytes(txt.encode('utf-8')))
+    w_textio = W_TextIOWrapper(space)
+    w_textio.descr_init(
+        space, w_stream,
+        encoding='utf-8', w_errors=space.newtext('surrogatepass'),
+        w_newline=space.w_None)
+    lines = []
+    for limit in limits:
+        w_line = w_textio.readline_w(space, space.newint(limit))
+        line = space.utf8_w(w_line).decode('utf-8')
+        if limit >= 0:
+            assert len(line) <= limit
+        if line:
+            lines.append(line)
+        elif limit:
+            break
+    output = txt.replace("\r\n", "\n").replace("\r", "\n")
+    assert output.startswith(u''.join(lines))
+
 @given(st.text())
 def test_read_buffer(text):
     buf = DecodeBuffer(text.encode('utf8'), len(text))

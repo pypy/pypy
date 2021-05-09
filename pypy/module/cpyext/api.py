@@ -47,9 +47,16 @@ from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from rpython.tool.cparser import CTypeSpace
 
 DEBUG_WRAPPER = True
+if sys.platform == 'win32':
+    dash = '_'
+    WIN32 = True
+else:
+    dash = ''
+    WIN32 = False
 
 pypydir = py.path.local(pypydir)
 include_dir = pypydir / 'module' / 'cpyext' / 'include'
+pc_dir = pypydir / 'module' / 'cpyext' / 'PC'
 parse_dir = pypydir / 'module' / 'cpyext' / 'parse'
 source_dir = pypydir / 'module' / 'cpyext' / 'src'
 translator_c_dir = py.path.local(cdir)
@@ -59,6 +66,8 @@ include_dirs = [
     translator_c_dir,
     udir,
     ]
+if WIN32:
+    include_dirs.insert(0, pc_dir)
 
 configure_eci = ExternalCompilationInfo(
         include_dirs=include_dirs,
@@ -91,14 +100,6 @@ assert CONST_WSTRING is not rffi.CWCHARP
 assert CONST_WSTRING == rffi.CWCHARP
 
 # FILE* interface
-
-if sys.platform == 'win32':
-    dash = '_'
-    WIN32 = True
-else:
-    dash = ''
-    WIN32 = False
-
 
 def fclose(fp):
     try:
@@ -139,6 +140,7 @@ Py_TPFLAGS_HEAPTYPE
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_MAX_NDIMS
 Py_CLEANUP_SUPPORTED PyBUF_READ
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_SIMPLE PyBUF_WRITE
+PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
@@ -190,6 +192,11 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
         numpy_include_dir = include_dir / '_numpypy' / 'numpy'
         numpy_headers = numpy_include_dir.listdir('*.h') + numpy_include_dir.listdir('*.inl')
         _copy_header_files(numpy_headers, numpy_dstdir)
+    if WIN32:
+        # Override pyconfig.h with the one for windows
+        PC_dir = pypydir / 'module' / 'cpyext' / 'PC'
+        headers = PC_dir.listdir('*.h')
+        _copy_header_files(headers, dstdir)
 
 
 class NotSpecified(object):

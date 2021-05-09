@@ -1,6 +1,7 @@
 from rpython.rlib import jit
 from rpython.rlib.buffer import SubBuffer
 from rpython.rlib.mutbuffer import MutableStringBuffer
+from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rstruct.error import StructError, StructOverflowError
 from rpython.rlib.rstruct.formatiterator import CalcSizeFormatIterator
 
@@ -44,7 +45,6 @@ def text_or_bytes_w(space, w_input):
 def calcsize(space, w_format):
     """Return size of C struct described by format string fmt."""
     format = text_or_bytes_w(space, w_format)
-    """Return size of C struct described by format string fmt."""
     return space.newint(_calcsize(space, format))
 
 
@@ -106,7 +106,7 @@ Write the packed bytes into the writable buffer buf starting at offset
                     "pack_into requires a buffer of at least %d bytes for "
                     "packing %d bytes at offset %d "
                     "(actual buffer size is %d)",
-                    size + offset,
+                    r_uint(size + offset),
                     size,
                     offset,
                     buflen)

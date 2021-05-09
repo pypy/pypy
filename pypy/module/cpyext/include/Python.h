@@ -16,8 +16,6 @@
 # define PyAPI_DATA(RTYPE) extern PyAPI_FUNC(RTYPE)
 # define Py_LOCAL_INLINE(type) static inline type
 #else
-# define MS_WIN32 1
-# define MS_WINDOWS 1
 # ifdef _MSC_VER
 #  include <crtdefs.h>
 # endif
@@ -71,7 +69,7 @@
 // #define PyExc_WindowsError PyExc_OSError
 
 #include "patchlevel.h"
-#include "pyconfig.h"
+#include <pyconfig.h>
 
 #include "object.h"
 #include "typeslots.h"

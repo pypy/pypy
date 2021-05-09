@@ -12,11 +12,21 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 
 - The new windows 64-bit builds improperly named c-extension modules
   with the same extension as the 32-bit build (issue 3443_)
+- Use the windows-specific ``PC/pyconfig.h`` rather than the posix one
 - A change to the python 3.7 ``sysconfig.get_config_var('LIBDIR')`` was wrong,
   leading to problems finding `libpypy3-c.so` for embedded PyPy (issue 3442_).
-- Two upstream (CPython) security patches were applied: `BPO 42988`_ to remove
-  ``pydoc.getfile`` and `BPO 43285`_ to not trust the ``PASV`` response in
-  ``ftplib``.
+- Instantiate ``distutils.command.install`` schema for PyPy-specific
+  ``implementation_lower``
+- Four upstream (CPython) security patches were applied: 
+  - `BPO 42988`_ to remove ``pydoc.getfile`` 
+  - `BPO 43285`_ to not trust the ``PASV`` response in ``ftplib``.
+  - `BPO 43075`_ to remove a possible ReDoS in urllib AbstractBasicAuthHandler
+  - `BPO 43882`_ to sanitize urls containing ASCII newline and tabs in
+    ``urllib.parse``
+
+- When assigning the full slice of a list, evaluate the rhs before clearing the
+  list (issue 3440_)
+- On Python2, ``PyUnicode_Contains`` accepts bytes as well as unicode.
 - Update the packaged sqlite3 to 3.35.5 on windows. While not a bugfix, this
   seems like an easy win.
 
@@ -81,6 +91,9 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 
 .. _3443: https://foss.heptapod.net/pypy/pypy/-/issues/3443
 .. _3442: https://foss.heptapod.net/pypy/pypy/-/issues/3442
+.. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
+.. _`BPO 43075`: https://bugs.python.org/issue43075
+.. _`BPO 43882`: https://bugs.python.org/issue43882
 
