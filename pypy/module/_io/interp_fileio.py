@@ -478,21 +478,28 @@ class W_FileIO(W_RawIOBase):
             self.output_slice(space, rwbuffer, 0, buf)
             return space.newint(len(buf))
         else:
-            # optimized case: reading more than 64 bytes into a rwbuffer
-            # with a valid raw address
-            while True:
-                got = c_read(self.fd, target_address, length)
-                keepalive_until_here(rwbuffer)
-                got = rffi.cast(lltype.Signed, got)
-                if got >= 0:
-                    return space.newint(got)
-                else:
-                    err = get_saved_errno()
-                    if err == errno.EAGAIN:
-                        return space.w_None
-                    e = OSError(err, "read failed")
-                    wrap_oserror(space, e, w_exception_class=space.w_IOError,
-                                 eintr_retry=True)
+            w_res = self._readinto_raw(space, target_address, length)
+            keepalive_until_here(rwbuffer)
+            return w_res
+
+    def _readinto_raw(self, space, target_address, length):
+        # optimized case: reading more than 64 bytes into a rwbuffer
+        # with a valid raw address
+
+        # caller is responsible for keeping the backing of target_address alive
+        # until after the call
+        while True:
+            got = c_read(self.fd, target_address, length)
+            got = rffi.cast(lltype.Signed, got)
+            if got >= 0:
+                return space.newint(got)
+            else:
+                err = get_saved_errno()
+                if err == errno.EAGAIN:
+                    return space.w_None
+                e = OSError(err, "read failed")
+                wrap_oserror(space, e, w_exception_class=space.w_IOError,
+                             eintr_retry=True)
 
     def readall_w(self, space):
         self._check_closed(space)
