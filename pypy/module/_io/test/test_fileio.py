@@ -228,6 +228,17 @@ class AppTestFileIO:
         a2 = bytearray(b'x' * 1024)
         assert f.readinto(a2) is None
 
+    def test_pipe_append(self):
+        import os
+        r, w = os.pipe()
+        try:
+            try:
+                f = open(w, 'a') # does not crash!
+            finally:
+                f.close()
+        finally:
+            os.close(r)
+
     def test_repr(self):
         import _io
         f = _io.FileIO(self.tmpfile, 'r')
