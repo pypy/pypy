@@ -23,3 +23,9 @@ implementation (issue 3436)
 
 .. branch: py3.7-bpo-30245
 Avoid overflow in ``struct.pack_into`` error message (BPO 30245)
+
+
+.. branch: py3.7-newtext-const-arg-caching
+
+Reduce memory allocations at runtime caused by interpreter-internal
+identifiers.
