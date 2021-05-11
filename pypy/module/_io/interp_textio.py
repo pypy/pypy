@@ -137,6 +137,8 @@ class W_IncrementalNewlineDecoder(W_Root):
             assert rpos >= 0
             # Translate!
             builder = StringBuilder(len(output))
+            if output.find("\n", 0, rpos) >= 0:
+                self.seennl |= SEEN_LF
             builder.append_slice(output, 0, rpos)
             i = rpos
             while i < len(output):
