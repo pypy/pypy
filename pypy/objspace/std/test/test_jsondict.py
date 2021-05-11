@@ -124,3 +124,10 @@ class AppTest(object):
         x.__dict__ = d
 
         x.foo = 'baz'  # used to segfault on pypy3
+
+        d = _pypyjson.loads(a)
+        x = Obj()
+        x.__dict__ = d
+        x.foo # used to segfault on pypy3
+
+
