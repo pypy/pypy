@@ -13,10 +13,13 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 - The new windows 64-bit builds improperly named c-extension modules
   with the same extension as the 32-bit build (issue 3443_)
 - Use the windows-specific ``PC/pyconfig.h`` rather than the posix one
+- Fix the return type for ``_Py_HashDouble`` which impacts 64-bit windows
 - A change to the python 3.7 ``sysconfig.get_config_var('LIBDIR')`` was wrong,
   leading to problems finding `libpypy3-c.so` for embedded PyPy (issue 3442_).
 - Instantiate ``distutils.command.install`` schema for PyPy-specific
   ``implementation_lower``
+- Delay thread-checking logic in greenlets until the thread is actually started
+  (continuation of issue 3441_)
 - Four upstream (CPython) security patches were applied: 
   - `BPO 42988`_ to remove ``pydoc.getfile`` 
   - `BPO 43285`_ to not trust the ``PASV`` response in ``ftplib``.
@@ -91,6 +94,7 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 
 .. _3443: https://foss.heptapod.net/pypy/pypy/-/issues/3443
 .. _3442: https://foss.heptapod.net/pypy/pypy/-/issues/3442
+.. _3441: https://foss.heptapod.net/pypy/pypy/-/issues/3441
 .. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
