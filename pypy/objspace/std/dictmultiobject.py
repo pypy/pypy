@@ -448,7 +448,7 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
-    def getitem(self, w_dict):
+    def getitem(self, w_dict, w_key):
         raise NotImplementedError
 
     def getitem_str(self, w_dict, key):
