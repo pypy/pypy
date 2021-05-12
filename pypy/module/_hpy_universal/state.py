@@ -28,22 +28,21 @@ class State(object):
     def __init__(self, space):
         "NOT_RPYTHON"
         self.space = space
-        self.uctx = lltype.nullptr(llapi.HPyContext.TO)
-        self.dctx = lltype.nullptr(llapi.HPyContext.TO)
-        self.u_handles = None  # universal handles
-        self.d_handles = None  # debug handles
-
-    @staticmethod
-    def get(space):
-        return space.fromcache(State)
+        self.uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
+        self.u_handles = handlemanager.HandleManager(self.uctx, space)
+        self.d_handles = handlemanager.DebugHandleManager(self.dctx, self.u_handles)
 
     @jit.dont_look_inside
     def setup(self, space):
         self.setup_uctx()
         self.setup_dctx()
-        self.u_handles = handlemanager.HandleManager(self.uctx, space)
-        self.d_handles = handlemanager.DebugHandleManager(self.dctx, self.u_handles)
         self.setup_bridge()
+
+    @staticmethod
+    def get(space):
+        return space.fromcache(State)
+
 
     def get_handle_manager(self, debug):
         if debug:
@@ -68,7 +67,6 @@ class State(object):
 
     def setup_uctx(self):
         space = self.space
-        self.uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.uctx.c_name = self.uctx_name()
 
         for name in CONTEXT_FIELDS:
@@ -104,7 +102,6 @@ class State(object):
 
     def setup_dctx(self):
         space = self.space
-        self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.dctx.c_name = self.dctx_name()
         rffi.setintfield(self.dctx, 'c_ctx_version', 1)
         self.dctx.c__private = llapi.cts.cast('void*', 0)

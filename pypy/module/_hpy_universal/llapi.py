@@ -506,6 +506,9 @@ typedef void (*HPyFunc_destroyfunc)(void *);
 HPyContext = cts.gettype('HPyContext')
 HPyContext.TO._hints['eci'] = eci
 
+# Hack required to allocate contexts statically:
+HPyContext.TO._hints['get_padding_drop'] = lambda d: [name for name in d if name.startswith('c__pad')]
+
 HPy_ssize_t = cts.gettype('HPy_ssize_t')
 
 # for practical reason, we use a primitive type to represent HPy almost
