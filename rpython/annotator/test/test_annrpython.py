@@ -4665,6 +4665,33 @@ class TestAnnotateTestCase:
         s = a.build_types(f, [int])
         assert isinstance(listitem(s), annmodel.SomeChar)
 
+    def test_union_of_methods_of_frozen(self):
+        class A(Freezing):
+            def foo(self):
+                return 42
+            def bar(self):
+                return 43
+        class B(A):
+            def foo(self):
+                return 44
+
+        a = A()
+        b = B()
+        def f(n):
+            x = a if n > 0 else b
+            return x.foo()
+        def g(n):
+            x = a if n > 0 else b
+            return x.bar()
+        ann = self.RPythonAnnotator()
+        with py.test.raises(AnnotatorError):
+            # a.foo and b.foo are different functions -> BOOM
+            s = ann.build_types(f, [int])
+
+        # a.bar and b.bar are the same function -> OK
+        s = ann.build_types(g, [int])
+        assert s.const == 43
+
 
 def g(n):
     return [0, 1, 2, n]
