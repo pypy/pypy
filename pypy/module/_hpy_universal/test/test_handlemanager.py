@@ -25,7 +25,7 @@ def test_fakespace(fakespace):
 
 @pytest.fixture
 def mgr(fakespace):
-    return HandleManager(None, fakespace)
+    return HandleManager(fakespace, None)
 
 class TestHandleManager(object):
 

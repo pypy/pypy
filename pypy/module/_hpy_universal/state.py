@@ -30,8 +30,8 @@ class State(object):
         self.space = space
         self.uctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
         self.dctx = lltype.malloc(llapi.HPyContext.TO, flavor='raw', immortal=True)
-        self.u_handles = handlemanager.HandleManager(self.uctx, space)
-        self.d_handles = handlemanager.DebugHandleManager(self.dctx, self.u_handles)
+        self.u_handles = handlemanager.HandleManager(space, self.uctx)
+        self.d_handles = handlemanager.DebugHandleManager(space, self.dctx, self.u_handles)
 
     @jit.dont_look_inside
     def setup(self, space):

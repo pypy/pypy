@@ -87,6 +87,10 @@ CONSTANTS = [
 ]
 
 class AbstractHandleManager(object):
+    def __init__(self, space, ctx, is_debug):
+        self.space = space
+        self.ctx = ctx
+        self.is_debug = is_debug
 
     def new(self, w_object):
         raise NotImplementedError
@@ -121,8 +125,8 @@ class AbstractHandleManager(object):
 
 class HandleManager(AbstractHandleManager):
 
-    def __init__(self, uctx, space):
-        self.ctx = uctx
+    def __init__(self, space, uctx):
+        AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
@@ -174,8 +178,8 @@ class HandleManager(AbstractHandleManager):
 
 class DebugHandleManager(AbstractHandleManager):
 
-    def __init__(self, dctx, u_handles):
-        self.ctx = dctx
+    def __init__(self, space, dctx, u_handles):
+        AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
         self.u_handles = u_handles
 
     def new(self, w_object):
