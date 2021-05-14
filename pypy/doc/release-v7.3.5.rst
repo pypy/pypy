@@ -26,6 +26,9 @@ We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
   - `BPO 43075`_ to remove a possible ReDoS in urllib AbstractBasicAuthHandler
   - `BPO 43882`_ to sanitize urls containing ASCII newline and tabs in
     ``urllib.parse``
+- Fix for json-specialized dicts (issue 3460_)
+- Specialize ``ByteBuffer.setslice`` which speeds up binary file reading by a
+  factor of 3
 
 - When assigning the full slice of a list, evaluate the rhs before clearing the
   list (issue 3440_)
@@ -96,6 +99,7 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 .. _3442: https://foss.heptapod.net/pypy/pypy/-/issues/3442
 .. _3441: https://foss.heptapod.net/pypy/pypy/-/issues/3441
 .. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
+.. _3460: https://foss.heptapod.net/pypy/pypy/-/issues/3460
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
 .. _`BPO 43075`: https://bugs.python.org/issue43075
