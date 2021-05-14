@@ -9,6 +9,12 @@ PyPy v7.3.5: release of 2.7 and 3.7
 .. _`PyPy blog`: https://pypy.org/blog
 
 We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
+PyPy 7.3.4 was the first release that runs on windows 64-bit, so that support
+is still "beta". We are releasing it in the hopes that we can garner momentum
+for its continued support, but are already aware of some problems, for instance
+it errors in the NumPy test suite (issue 3462_). Please help out with testing
+the releae and reporting successes and failures, financially supporting our
+ongoing work, and helping us find the source of these problems.
 
 - The new windows 64-bit builds improperly named c-extension modules
   with the same extension as the 32-bit build (issue 3443_)
@@ -100,6 +106,7 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 .. _3441: https://foss.heptapod.net/pypy/pypy/-/issues/3441
 .. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
 .. _3460: https://foss.heptapod.net/pypy/pypy/-/issues/3460
+.. _3462: https://foss.heptapod.net/pypy/pypy/-/issues/3462
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
 .. _`BPO 43075`: https://bugs.python.org/issue43075
