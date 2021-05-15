@@ -83,6 +83,7 @@ class Module(MixedModule):
         # use special module api to prevent a cell from being introduced
         self.space.builtin.setdictvalue_dont_introduce_cell(
             '__import__', self.w_import)
+        self.space.w_default_importlib_import = self.w_import
 
     def startup_at_translation_time_only(self, space):
         # Issue #2834

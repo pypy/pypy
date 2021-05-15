@@ -427,3 +427,55 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
     exec_code_module(space, w_mod, code_w, cpathname, cpathname, write_paths)
 
     return w_mod
+
+class FastPathGiveUp(Exception):
+    pass
+
+def _gcd_import(space, w_name):
+    # check sys.modules, if the module is already there and initialized, we can
+    # use it, otherwise fall back to importlib.__import__
+    w_modules = space.sys.get('modules')
+    try:
+        w_module = space.getitem(w_modules, w_name)
+    except OperationError as e:
+        if not e.match(space, space.w_KeyError):
+            raise
+        raise FastPathGiveUp
+
+    # to check whether a module is initialized, we can ask for
+    # module.__spec__._initializing, which should be False
+    try:
+        w_spec = space.getattr(w_module, space.newtext("__spec__"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        raise FastPathGiveUp
+    try:
+        w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        # we have no mod.__spec__._initializing, so it's probably a builtin
+        # module which we can assume is initalized
+    else:
+        if space.is_true(w_initializing):
+            raise FastPathGiveUp
+    return w_module
+
+def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
+        w_level):
+    level = space.int_w(w_level)
+    name = space.text_w(w_modulename) # could be passed unwrapped here from the caller
+    if level == 0 and not space.is_true(w_fromlist):
+        # fast path only for absolute imports without a "from" list, for now
+        try:
+            w_mod = _gcd_import(space, w_modulename)
+            dotindex = name.find(".")
+            if dotindex < 0:
+                # XXX why does importlib not do "return module" in this case?
+                return _gcd_import(space, w_modulename)
+            return _gcd_import(space, space.newtext(name[:dotindex]))
+        except FastPathGiveUp:
+            pass
+    return space.call_function(space.w_default_importlib_import, w_modulename, w_globals,
+                                w_locals, w_fromlist, w_level)

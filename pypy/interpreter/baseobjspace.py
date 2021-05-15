@@ -411,6 +411,8 @@ class ObjSpace(object):
     @not_rpython
     def __init__(self, config=None):
         "Basic initialization of objects."
+        self.w_default_importlib_import = None
+
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
