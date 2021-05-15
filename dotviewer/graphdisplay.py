@@ -69,7 +69,7 @@ class Display(object):
 class GraphDisplay(Display):
     STATUSBARFONT = FIXEDFONT
     ANIM_STEP = 0.03
-    KEY_REPEAT = (500, 30)
+    KEY_REPEAT = (500, 50)
     STATUSBAR_ALPHA = 0.75
     STATUSBAR_FGCOLOR = (255, 255, 80)
     STATUSBAR_BGCOLOR = (128, 0, 0)
@@ -297,7 +297,7 @@ class GraphDisplay(Display):
                     if e.key == K_ESCAPE:
                         return None
                     elif e.key == K_RETURN:
-                        return forcestr(text) # return encoded unicode
+                        return forceunicode(text) # return encoded unicode
                     elif e.key == K_BACKSPACE:
                         text = text[:-1]
                     elif e.unicode and ord(e.unicode) >= ord(' '):

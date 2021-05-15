@@ -1390,7 +1390,7 @@ class GraphRenderer:
     def findall(self, searchstr):
         """Return an iterator for all nodes and edges that contain a searchstr.
         """
-        for item in self.graphlayout.nodes.itervalues():
+        for item in self.graphlayout.nodes.values():
             if item.label and searchstr in item.label:
                 yield item
         for item in self.graphlayout.edges:
@@ -1495,12 +1495,12 @@ def record_to_nested_lists(s):
     try:
         # Python 2
         from HTMLParser import HTMLParser
+        unescape = HTMLParser().unescape
     except ImportError:
         # Python 3
-        from html.parser import HTMLParser
-    h = HTMLParser()
+        from html import unescape
     def delimit_string():
-        curr.append(h.unescape("".join(curr_string).strip("\n")))
+        curr.append(unescape("".join(curr_string).strip("\n")))
         del curr_string[:]
     curr = []
     stack = []
