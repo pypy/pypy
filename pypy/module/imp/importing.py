@@ -468,6 +468,9 @@ def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
     name = space.text_w(w_modulename) # could be passed unwrapped here from the caller
     if level == 0 and not space.is_true(w_fromlist):
         # fast path only for absolute imports without a "from" list, for now
+        # fromlist can be supported if we are importing from a module, not a
+        # package. to check that, look for the existance of __path__ attribute
+        # in w_mod
         try:
             w_mod = _gcd_import(space, w_modulename)
             dotindex = name.find(".")
