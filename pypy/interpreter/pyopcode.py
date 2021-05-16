@@ -1052,10 +1052,7 @@ class __extend__(pyframe.PyFrame):
         # the space.w_default_importlib_import attribute is written to in the
         # startup() method of _frozen_importlib
         w_default_import = space.w_default_importlib_import
-        # XXX only do the fast path when we are in a function, because
-        # otherwise interpreter initialization breaks in mysterious ways :-(
-        if (self.pycode.co_flags & pycode.CO_OPTIMIZED and
-                w_default_import is not None and
+        if (w_default_import is not None and
                 space.is_w(w_default_import, w_import)):
             w_obj = import_name_fast_path(space, w_modulename, w_globals,
                     w_locals, w_fromlist, w_flag)

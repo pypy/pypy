@@ -48,7 +48,6 @@ class Module(MixedModule):
             space, '_bootstrap', self.w_name, self.w_dict)
 
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
-        self.space.w_default_importlib_import = self.w_import
 
     @staticmethod
     def _cached_compile(space, name, source, *args):
