@@ -431,15 +431,15 @@ def load_compiled_module(space, w_modulename, w_mod, cpathname, magic,
 class FastPathGiveUp(Exception):
     pass
 
-def _gcd_import(space, w_name):
+def _gcd_import(space, name):
     # check sys.modules, if the module is already there and initialized, we can
     # use it, otherwise fall back to importlib.__import__
+
+    # NB: we don't get the importing lock here, but CPython has the same fast
+    # path
     w_modules = space.sys.get('modules')
-    try:
-        w_module = space.getitem(w_modules, w_name)
-    except OperationError as e:
-        if not e.match(space, space.w_KeyError):
-            raise
+    w_module = space.finditem_str(w_modules, name)
+    if w_module is None:
         raise FastPathGiveUp
 
     # to check whether a module is initialized, we can ask for
@@ -465,20 +465,32 @@ def _gcd_import(space, w_name):
 def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
         w_level):
     level = space.int_w(w_level)
-    name = space.text_w(w_modulename) # could be passed unwrapped here from the caller
-    if level == 0 and not space.is_true(w_fromlist):
+    if level == 0:
         # fast path only for absolute imports without a "from" list, for now
         # fromlist can be supported if we are importing from a module, not a
-        # package. to check that, look for the existance of __path__ attribute
+        # package. to check that, look for the existence of __path__ attribute
         # in w_mod
         try:
-            w_mod = _gcd_import(space, w_modulename)
-            dotindex = name.find(".")
-            if dotindex < 0:
-                # XXX why does importlib not do "return module" in this case?
-                return _gcd_import(space, w_modulename)
-            return _gcd_import(space, space.newtext(name[:dotindex]))
+            name = space.text_w(w_modulename)
+            w_mod = _gcd_import(space, name)
+            have_fromlist = space.is_true(w_fromlist)
+            if not have_fromlist:
+                dotindex = name.find(".")
+                if dotindex < 0:
+                    return w_mod
+                return _gcd_import(space, name[:dotindex])
         except FastPathGiveUp:
             pass
+        else:
+            assert have_fromlist
+            w_path = space.findattr(w_mod, space.newtext("__path__"))
+            if w_path is not None:
+                # hard case, a package! Call back into importlib
+                w_importlib = space.getbuiltinmodule('_frozen_importlib')
+                return space.call_method(w_importlib, "_handle_fromlist",
+                        w_mod, w_fromlist,
+                        space.w_default_importlib_import)
+            else:
+                return w_mod
     return space.call_function(space.w_default_importlib_import, w_modulename, w_globals,
                                 w_locals, w_fromlist, w_level)

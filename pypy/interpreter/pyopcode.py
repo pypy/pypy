@@ -1028,14 +1028,7 @@ class __extend__(pyframe.PyFrame):
         space = self.space
         w_modulename = self.getname_w(nameindex)
         w_fromlist = self.popvalue()
-
         w_flag = self.popvalue()
-        try:
-            if space.int_w(w_flag) == -1:
-                w_flag = None
-        except OperationError as e:
-            if e.async(space):
-                raise
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
@@ -1056,15 +1049,9 @@ class __extend__(pyframe.PyFrame):
                 space.is_w(w_default_import, w_import)):
             w_obj = import_name_fast_path(space, w_modulename, w_globals,
                     w_locals, w_fromlist, w_flag)
-            self.pushvalue(w_obj)
-            return
-
-        if w_flag is None:
-            w_obj = space.call_function(w_import, w_modulename, w_globals,
-                                        w_locals, w_fromlist)
         else:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
-                                        w_locals, w_fromlist, w_flag)
+                    w_locals, w_fromlist, w_flag)
 
         self.pushvalue(w_obj)
 
