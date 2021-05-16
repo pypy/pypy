@@ -342,3 +342,140 @@ def _gen_all_instr_tests(cls):
                 _gen_instr_test(mnemonic, instr_type, op_spec))
 
 _gen_all_instr_tests(TestCodeBuilder)
+
+
+class TestLoadImm(object):
+    def test_load_int_imm_single_addi(self):
+        rd = r.x5
+        imm = -42
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.ADDI(rd.value, r.zero.value, imm)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_single_lui(self):
+        rd = r.x5
+        imm = -8192
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0xffffe)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw(self):
+        rd = r.x5
+        imm = -8191
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0xffffe)
+        cb.ADDIW(rd.value, rd.value, 0x001)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw_i32_max(self):
+        rd = r.x5
+        imm = 0x7fffffff
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0x80000)
+        cb.ADDIW(rd.value, rd.value, -1)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw_i32_min(self):
+        rd = r.x5
+        imm = -0x80000000
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0x80000)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw_i32_next_min(self):
+        rd = r.x5
+        imm = -0x7fffffff
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0x80000)
+        cb.ADDIW(rd.value, rd.value, 1)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_addi_slli(self):
+        rd = r.x5
+        imm = -0x4100000000
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.ADDI(rd.value, r.zero.value, -0x41)
+        cb.SLLI(rd.value, rd.value, 32)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw_slli(self):
+        rd = r.x5
+        imm = 0x1234567900000000
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0x12345)
+        cb.ADDIW(rd.value, rd.value, 0x679)
+        cb.SLLI(rd.value, rd.value, 32)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out
+
+    def test_load_int_imm_lui_addiw_slli_addi(self):
+        rd = r.x5
+        imm = 0x01234567900007ff
+
+        cb = CodeBuilder()
+        cb.load_int_imm(rd.value, imm)
+        test_out = cb.hexdump()
+
+        cb = CodeBuilder()
+        cb.LUI(rd.value, 0x12345)
+        cb.ADDIW(rd.value, rd.value, 0x679)
+        cb.SLLI(rd.value, rd.value, 28)
+        cb.ADDI(rd.value, rd.value, 0x7ff)
+        ref_out = cb.hexdump()
+
+        assert ref_out == test_out

@@ -2,11 +2,19 @@
 
 from rpython.jit.backend.llsupport.asmmemmgr import BlockBuilderMixin
 from rpython.jit.backend.riscv import registers as r
+from rpython.jit.backend.riscv.arch import (
+    PC_REL_MAX, PC_REL_MIN, SINT12_IMM_MAX, SINT12_IMM_MIN)
 from rpython.jit.backend.riscv.instruction_builder import (
     gen_all_instr_assemblers)
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rtyper.lltypesystem import rffi
 from rpython.tool.udir import udir
+
+
+_SINT32_MIN = -2**31
+_SINT32_MAX = 2**31 - 1
+_SINT64_MIN = -2**63
+_SINT64_MAX = 2**63 - 1
 
 
 class AbstractRISCVBuilder(object):
@@ -40,11 +48,11 @@ class AbstractRISCVBuilder(object):
     def store_int(self, rs2, rs1, imm):
         self.SD(rs2, rs1, imm)
 
-    # Splits a pc-relative offset into an upper part for the auipc instruction
-    # and a lower part for the load/store/jalr instructions.
+    # Splits an immediate value (or a pc-relative offset) into an upper part
+    # for the auipc/lui instruction and a lower part for the
+    # load/store/jalr/addiw instructions.
     @staticmethod
-    def _split_pc_rel_offset(offset):
-        assert -2**31 - 2**11 <= offset <= 2**31 - 2**11 - 1
+    def split_imm32(offset):
         lower = offset & 0xfff
         if lower >= 0x800:
             lower -= 0x1000
@@ -54,16 +62,61 @@ class AbstractRISCVBuilder(object):
 
     # Load an XLEN-bit integer from pc-relative offset
     def load_int_pc_rel(self, rd, offset):
-        upper, lower = self._split_pc_rel_offset(offset)
+        assert PC_REL_MIN <= offset <= PC_REL_MAX
+        upper, lower = self.split_imm32(offset)
         self.AUIPC(rd, upper)
         self.load_int(rd, rd, lower)
 
     # Long jump (+/-2GB) to a pc-relative offset
     def jalr_pc_rel(self, rd, offset):
         assert int(rd) != 0
-        upper, lower = self._split_pc_rel_offset(offset)
+        assert PC_REL_MIN <= offset <= PC_REL_MAX
+        upper, lower = self.split_imm32(offset)
         self.AUIPC(rd, upper)
         self.JALR(rd, rd, lower)
+
+    # Load an integer constant to a register
+    def load_int_imm(self, rd, imm):
+        assert _SINT64_MIN <= imm <= _SINT64_MAX
+        self._load_int_imm(rd, imm)
+
+    def _load_int_imm(self, rd, imm):
+        if SINT12_IMM_MIN <= imm <= SINT12_IMM_MAX:
+            self.ADDI(rd, r.zero.value, imm)
+            return
+        elif _SINT32_MIN <= imm <= _SINT32_MAX:
+            upper, lower = self.split_imm32(imm)
+            self.LUI(rd, upper)
+            if lower:
+                self.ADDIW(rd, rd, lower)
+            return
+
+        # Implement trailing zeros with slli
+        shamt = 0
+        while imm & 0x1 == 0:
+            shamt += 1
+            imm >>= 1
+        if shamt:
+            self._load_int_imm(rd, imm)
+            self.SLLI(rd, rd, shamt)
+            return
+
+        # Split lower 12-bit
+        lower = imm & 0xfff
+        if lower >= 0x800:
+            lower -= 0x1000
+            imm += 0x1000
+
+        # Move trailing zeros to shamt
+        imm >>= 12
+        shamt = 12
+        while imm & 0x1 == 0:
+            shamt += 1
+            imm >>= 1
+
+        self._load_int_imm(rd, imm)
+        self.SLLI(rd, rd, shamt)
+        self.ADDI(rd, rd, lower)
 
 gen_all_instr_assemblers(AbstractRISCVBuilder)
 

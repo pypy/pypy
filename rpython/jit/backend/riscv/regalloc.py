@@ -4,9 +4,11 @@ from rpython.jit.backend.llsupport.regalloc import (
     BaseRegalloc, FrameManager, RegisterManager, TempVar,
     compute_vars_longevity)
 from rpython.jit.backend.riscv import registers as r
+from rpython.jit.backend.riscv.arch import (SINT12_IMM_MAX, SINT12_IMM_MIN)
 from rpython.jit.backend.riscv.locations import (
     ImmLocation, StackLocation, get_fp_offset)
-from rpython.jit.metainterp.history import (ConstInt, INT, REF)
+from rpython.jit.metainterp.history import (
+    Const, ConstInt, ConstPtr, INT, REF)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -91,6 +93,26 @@ class CoreRegisterManager(RISCVRegisterManager):
             return ImmLocation(val)
         raise NotImplementedError('imm type not supported')
 
+    def return_constant(self, v, forbidden_vars=[], selected_reg=None):
+        self._check_type(v)
+        if isinstance(v, Const):
+            if isinstance(v, ConstInt):
+                reg_type = INT
+            else:
+                assert isinstance(v, ConstPtr)
+                reg_type = REF
+
+            if v.value == 0 and selected_reg is None:
+                return r.zero
+
+            loc = self.get_scratch_reg(reg_type, forbidden_vars,
+                                       selected_reg=selected_reg)
+            immvalue = self.convert_to_imm(v)
+            self.assembler.load_imm(loc, immvalue)
+            return loc
+        return RISCVRegisterManager.return_constant(self, v, forbidden_vars,
+                                                    selected_reg)
+
     def get_scratch_reg(self, type=INT, forbidden_vars=[], selected_reg=None):
         assert type == INT or type == REF
         box = None
@@ -104,11 +126,9 @@ class CoreRegisterManager(RISCVRegisterManager):
         return reg
 
 
-SIGNED_IMM_MIN = -2048
-SIGNED_IMM_MAX = 2047
 
 def check_imm_arg(imm):
-    return imm >= SIGNED_IMM_MIN and imm <= SIGNED_IMM_MAX
+    return imm >= SINT12_IMM_MIN and imm <= SINT12_IMM_MAX
 
 def check_imm_box(arg):
     if isinstance(arg, ConstInt):

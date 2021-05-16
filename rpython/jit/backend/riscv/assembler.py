@@ -305,6 +305,14 @@ class AssemblerRISCV(OpAssembler):
     def _build_stack_check_slowpath(self):
         pass
 
+    def load_imm(self, loc, imm):
+        """Load an immediate value into a register"""
+        if loc.is_core_reg():
+            assert imm.is_imm()
+            self.mc.load_int_imm(loc.value, imm.value)
+        else:
+            assert 0, 'unsupported case'
+
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
         if prev_loc.is_imm():
@@ -317,7 +325,7 @@ class AssemblerRISCV(OpAssembler):
 
     def _mov_imm_to_loc(self, prev_loc, loc):
         if loc.is_core_reg():
-            self.mc.ADDI(loc.value, r.zero, prev_loc.value)
+            self.mc.load_int_imm(loc.value, prev_loc.value)
         else:
             assert 0, 'unsupported case'
 
