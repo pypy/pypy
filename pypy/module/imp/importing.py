@@ -456,7 +456,7 @@ def _gcd_import(space, name):
         if not e.match(space, space.w_AttributeError):
             raise
         # we have no mod.__spec__._initializing, so it's probably a builtin
-        # module which we can assume is initalized
+        # module which we can assume is initialized
     else:
         if space.is_true(w_initializing):
             raise FastPathGiveUp
