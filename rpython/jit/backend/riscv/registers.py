@@ -28,16 +28,64 @@ sp = x2  # Stack pointer (callee-saved but requires special treatment)
 gp = x3  # Global pointer (neither caller-saved nor callee-saved)
 tp = x4  # Thread pointer (neither caller-saved nor callee-saved)
 fp = x8  # Frame pointer (callee-saved)
+jfp = x9  # Pointer to RPython JITFrame (callee-saved)
+
+# Note: We keep the fp reigster according to the RISC-V calling convention with
+# `-fno-omit-frame-pointer` and reserve another callee-saved register (x9) as
+# the jfp register for JITFrame, so that stack unwinder or profilers can walk
+# through RPython loop/bridge.
 
 caller_saved_registers = [x1, x5, x6, x7, x10, x11, x12, x13, x14, x15, x16,
                           x17, x28, x29, x30, x31]
 
-callee_saved_registers_except_sp = [x8, x9, x18, x19, x20, x21, x22, x23, x24,
-                                    x25, x26, x27]
+# Note: Even though x1 (ra) register is not a callee-saved register, we must
+# restore the value before returning from the trace thus we include it here
+# (p.s. even though x1 is not an allocatable register, x1 can be overriden by
+# function calls.)
+callee_saved_registers_except_ra_sp_fp = [x9, x18, x19, x20, x21, x22, x23,
+                                          x24, x25, x26, x27]
+
+callee_saved_registers_except_sp = ([x1, x8]
+                                    + callee_saved_registers_except_ra_sp_fp)
 
 callee_saved_registers = [sp] + callee_saved_registers_except_sp
+
+argument_regs = [x10, x11, x12, x13, x14, x15, x16, x17]
+
+allocatable_registers = [x5, x6, x7, x10, x11, x12, x13, x14, x15, x16, x17,
+                         x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28,
+                         x29, x30, x31]
 
 caller_saved_fp_registers = [f0, f1, f2, f3, f4, f5, f6, f7, f10, f11, f12, f13,
                              f14, f15, f16, f17, f28, f29, f30, f31]
 callee_saved_fp_registers = [f8, f9, f18, f19, f20, f21, f22, f23, f24, f25,
                              f26, f27]
+
+if __name__ == '__main__':
+    assert set(registers) == \
+            set(caller_saved_registers + callee_saved_registers + [x0, x3, x4])
+    assert set(fp_registers) == \
+            set(caller_saved_fp_registers + callee_saved_fp_registers)
+
+    # Check whether there are duplicated registers in the lists.
+    assert len(set(allocatable_registers)) == len(allocatable_registers)
+
+    # fp (frame pointer) register must not be in the allocatable_registers.
+    assert fp not in allocatable_registers
+
+    # jfp (JITFrame pointer) must not be in the allocatable_registers.
+    assert jfp not in allocatable_registers
+
+    # jfp (JITFrame pointer) must be in callee_saved_registers so that it can
+    # be preserved across function calls when we don't have shadow stack (e.g.
+    # when we use boehm).
+    assert jfp in callee_saved_registers
+
+    print 'Core registers'
+    print '* Number of caller saved:', len(caller_saved_registers)
+    print '* Number of callee saved:', len(callee_saved_registers)
+    print '* Number of allocatable:', len(allocatable_registers)
+
+    print 'Floating point registers'
+    print '* Number of caller saved:', len(caller_saved_fp_registers)
+    print '* Number of callee saved:', len(callee_saved_fp_registers)
