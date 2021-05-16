@@ -14,11 +14,18 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.ADD(res.value, l0.value, l1.value)
 
+    def emit_op_float_add(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FADD_D(res.value, l0.value, l1.value)
+
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:
             [return_val] = arglocs
-            self.mc.store_int(return_val.value, r.jfp.value, base_ofs)
+            if return_val.is_fp_reg():
+                self.mc.store_float(return_val.value, r.jfp.value, base_ofs)
+            else:
+                self.mc.store_int(return_val.value, r.jfp.value, base_ofs)
 
         faildescrindex = self.get_gcref_from_faildescr(op.getdescr())
         self.store_jf_descr(faildescrindex)

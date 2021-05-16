@@ -48,6 +48,14 @@ class AbstractRISCVBuilder(object):
     def store_int(self, rs2, rs1, imm):
         self.SD(rs2, rs1, imm)
 
+    # Load an FLEN-bit float from imm(rs1)
+    def load_float(self, rd, rs1, imm):
+        self.FLD(rd, rs1, imm)
+
+    # Store an FLEN-bit float to imm(rs1)
+    def store_float(self, rs2, rs1, imm):
+        self.FSD(rs2, rs1, imm)
+
     # Splits an immediate value (or a pc-relative offset) into an upper part
     # for the auipc/lui instruction and a lower part for the
     # load/store/jalr/addiw instructions.
@@ -66,6 +74,13 @@ class AbstractRISCVBuilder(object):
         upper, lower = self.split_imm32(offset)
         self.AUIPC(rd, upper)
         self.load_int(rd, rd, lower)
+
+    # Load an FLEN-bit float from pc-relative offset
+    def load_float_pc_rel(self, rd, offset, scratch_reg=r.x31.value):
+        assert PC_REL_MIN <= offset <= PC_REL_MAX
+        upper, lower = self.split_imm32(offset)
+        self.AUIPC(scratch_reg, upper)
+        self.load_float(rd, scratch_reg, lower)
 
     # Long jump (+/-2GB) to a pc-relative offset
     def jalr_pc_rel(self, rd, offset):

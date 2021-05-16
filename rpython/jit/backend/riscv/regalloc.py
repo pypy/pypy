@@ -6,9 +6,10 @@ from rpython.jit.backend.llsupport.regalloc import (
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (SINT12_IMM_MAX, SINT12_IMM_MIN)
 from rpython.jit.backend.riscv.locations import (
-    ImmLocation, StackLocation, get_fp_offset)
+    ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
+from rpython.jit.codewriter import longlong
 from rpython.jit.metainterp.history import (
-    Const, ConstInt, ConstPtr, INT, REF)
+    Const, ConstFloat, ConstInt, ConstPtr, FLOAT, INT, REF)
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rtyper.lltypesystem import lltype, rffi
 
@@ -25,6 +26,13 @@ class TempPtr(TempVar):
 
     def __repr__(self):
         return "<TempPtr at %s>" % (id(self),)
+
+
+class TempFloat(TempVar):
+    type = FLOAT
+
+    def __repr__(self):
+        return "<TempFloat at %s>" % (id(self),)
 
 
 class RISCVFrameManager(FrameManager):
@@ -126,6 +134,44 @@ class CoreRegisterManager(RISCVRegisterManager):
         return reg
 
 
+class FloatRegisterManager(RISCVRegisterManager):
+    all_regs = r.allocatable_fp_registers
+    box_types = [FLOAT]
+    save_around_call_regs = r.caller_saved_fp_registers
+
+    def __init__(self, longevity, frame_manager=None, assembler=None):
+        RISCVRegisterManager.__init__(self, longevity, frame_manager,
+                                      assembler)
+
+    def call_result_location(self, v):
+        return r.f10
+
+    def convert_to_imm(self, c):
+        adr = self.assembler.datablockwrapper.malloc_aligned(8, 8)
+        x = c.getfloatstorage()
+        rffi.cast(rffi.CArrayPtr(longlong.FLOATSTORAGE), adr)[0] = x
+        return ConstFloatLoc(adr)
+
+    def return_constant(self, v, forbidden_vars=[], selected_reg=None):
+        self._check_type(v)
+        if isinstance(v, Const):
+            assert isinstance(v, ConstFloat)
+            loc = self.get_scratch_reg(FLOAT, forbidden_vars,
+                                       selected_reg=selected_reg)
+            immvalue = self.convert_to_imm(v)
+            self.assembler.load_imm(loc, immvalue)
+            return loc
+        return RISCVRegisterManager.return_constant(self, v, forbidden_vars,
+                                                    selected_reg)
+
+    def get_scratch_reg(self, type=FLOAT, forbidden_vars=[], selected_reg=None):
+        assert type == FLOAT
+        box = TempFloat()
+        reg = self.force_allocate_reg(box, forbidden_vars=forbidden_vars,
+                                      selected_reg=selected_reg)
+        self.temp_boxes.append(box)
+        return reg
+
 
 def check_imm_arg(imm):
     return imm >= SINT12_IMM_MIN and imm <= SINT12_IMM_MAX
@@ -142,6 +188,7 @@ class Regalloc(BaseRegalloc):
         self.assembler = assembler
         self.frame_manager = None
         self.rm = None
+        self.fprm = None
         #self.jump_target_descr = None
         #self.final_jump_op = None
 
@@ -157,6 +204,7 @@ class Regalloc(BaseRegalloc):
         self.longevity = longevity
 
         self.rm = CoreRegisterManager(longevity, self.fm, self.assembler)
+        self.fprm = FloatRegisterManager(longevity, self.fm, self.assembler)
         return operations
 
     def prepare_loop(self, inputargs, operations, looptoken, allgcrefs):
@@ -184,6 +232,16 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
 
+    def prepare_op_float_add(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        l0 = self.make_sure_var_in_reg(a0, boxes)
+        l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
     def prepare_op_finish(self, op):
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
@@ -193,18 +251,32 @@ class Regalloc(BaseRegalloc):
         return locs
 
     def loc(self, var):
-        return self.rm.loc(var)
+        if var.type == FLOAT:
+            return self.fprm.loc(var)
+        else:
+            return self.rm.loc(var)
 
     def make_sure_var_in_reg(self, var, forbidden_vars=[],
                              selected_reg=None, need_lower_byte=False):
-        return self.rm.make_sure_var_in_reg(var, forbidden_vars,
-                                            selected_reg, need_lower_byte)
+        if var.type == FLOAT:
+            return self.fprm.make_sure_var_in_reg(var, forbidden_vars,
+                                                  selected_reg, need_lower_byte)
+        else:
+            return self.rm.make_sure_var_in_reg(var, forbidden_vars,
+                                                selected_reg, need_lower_byte)
 
     def force_allocate_reg(self, var, forbidden_vars=[], selected_reg=None):
-        return self.rm.force_allocate_reg(var, forbidden_vars, selected_reg)
+        if var.type == FLOAT:
+            return self.fprm.force_allocate_reg(var, forbidden_vars,
+                                                selected_reg)
+        else:
+            return self.rm.force_allocate_reg(var, forbidden_vars, selected_reg)
 
     def possibly_free_var(self, var):
-        self.rm.possibly_free_var(var)
+        if var.type == FLOAT:
+            self.fprm.possibly_free_var(var)
+        else:
+            self.rm.possibly_free_var(var)
 
     def possibly_free_vars_for_op(self, op):
         for i in range(op.numargs()):
@@ -221,20 +293,25 @@ class Regalloc(BaseRegalloc):
 
     def free_temp_vars(self):
         self.rm.free_temp_vars()
+        self.fprm.free_temp_vars()
 
     def _check_invariants(self):
         self.rm._check_invariants()
+        self.fprm._check_invariants()
 
     def convert_to_imm(self, value):
         if isinstance(value, ConstInt):
             return self.rm.convert_to_imm(value)
-        raise NotImplementedError('imm type not supported')
+        else:
+            assert isinstance(value, ConstFloat)
+            return self.fprm.convert_to_imm(value)
 
     def position(self):
         return self.rm.position
 
     def next_instruction(self):
         self.rm.next_instruction()
+        self.fprm.next_instruction()
 
     def get_final_frame_depth(self):
         return self.frame_manager.get_frame_depth()

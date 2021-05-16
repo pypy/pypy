@@ -54,12 +54,13 @@ argument_regs = [x10, x11, x12, x13, x14, x15, x16, x17]
 
 allocatable_registers = [x5, x6, x7, x10, x11, x12, x13, x14, x15, x16, x17,
                          x18, x19, x20, x21, x22, x23, x24, x25, x26, x27, x28,
-                         x29, x30, x31]
+                         x29, x30]
 
 caller_saved_fp_registers = [f0, f1, f2, f3, f4, f5, f6, f7, f10, f11, f12, f13,
                              f14, f15, f16, f17, f28, f29, f30, f31]
 callee_saved_fp_registers = [f8, f9, f18, f19, f20, f21, f22, f23, f24, f25,
                              f26, f27]
+allocatable_fp_registers = caller_saved_fp_registers + callee_saved_fp_registers
 
 if __name__ == '__main__':
     assert set(registers) == \
@@ -69,6 +70,7 @@ if __name__ == '__main__':
 
     # Check whether there are duplicated registers in the lists.
     assert len(set(allocatable_registers)) == len(allocatable_registers)
+    assert len(set(allocatable_fp_registers)) == len(allocatable_fp_registers)
 
     # fp (frame pointer) register must not be in the allocatable_registers.
     assert fp not in allocatable_registers
@@ -81,6 +83,13 @@ if __name__ == '__main__':
     # when we use boehm).
     assert jfp in callee_saved_registers
 
+    # x31 must not be in the allocatable_registers because we want to use it as
+    # a scratch register.
+    #
+    # For example, we keep the address in x31 temporarily when we load constant
+    # floating point numbers to fp registers.
+    assert x31 not in allocatable_registers
+
     print 'Core registers'
     print '* Number of caller saved:', len(caller_saved_registers)
     print '* Number of callee saved:', len(callee_saved_registers)
@@ -89,3 +98,4 @@ if __name__ == '__main__':
     print 'Floating point registers'
     print '* Number of caller saved:', len(caller_saved_fp_registers)
     print '* Number of callee saved:', len(callee_saved_fp_registers)
+    print '* Number of allocatable:', len(allocatable_fp_registers)

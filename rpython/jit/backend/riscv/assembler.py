@@ -5,7 +5,7 @@ from rpython.jit.backend.llsupport.asmmemmgr import MachineDataBlockWrapper
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
-    ABI_STACK_ALIGN, JITFRAME_FIXED_SIZE, XLEN)
+    ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.codebuilder import InstrBuilder
 from rpython.jit.backend.riscv.opassembler import OpAssembler, asm_operations
 from rpython.jit.backend.riscv.regalloc import Regalloc, regalloc_operations
@@ -162,10 +162,14 @@ class AssemblerRISCV(OpAssembler):
         core_reg_begin = 0
         core_reg_size = XLEN * len(r.callee_saved_registers_except_ra_sp_fp)
 
+        fp_reg_begin = core_reg_begin + core_reg_size
+        fp_reg_begin = (fp_reg_begin + FLEN - 1) // FLEN * FLEN
+        fp_reg_size = FLEN * len(r.callee_saved_fp_registers)
+
         # fp = old_sp
         # frame_record[0 * XLEN] (or fp[-2 * XLEN]): fp (old)
         # frame_record[1 * XLEN] (or fp[-1 * XLEN]): ra
-        frame_record_begin = core_reg_begin + core_reg_size
+        frame_record_begin = fp_reg_begin + fp_reg_size
         frame_record_begin = (frame_record_begin + XLEN - 1) // XLEN * XLEN
         frame_record_size = 2 * XLEN
 
@@ -175,10 +179,10 @@ class AssemblerRISCV(OpAssembler):
 
         frame_record_begin = area_size - frame_record_size
 
-        return area_size, core_reg_begin, frame_record_begin
+        return area_size, core_reg_begin, fp_reg_begin, frame_record_begin
 
     def _push_callee_save_regs_to_stack(self, mc):
-        area_size, core_reg_begin, frame_record_begin = \
+        area_size, core_reg_begin, fp_reg_begin, frame_record_begin = \
                 self._calculate_callee_save_area_size()
 
         # Subtract stack pointer
@@ -191,10 +195,14 @@ class AssemblerRISCV(OpAssembler):
 
         for i, reg in enumerate(r.callee_saved_registers_except_ra_sp_fp):
             mc.store_int(reg.value, r.sp.value, i * XLEN + core_reg_begin)
+        for i, reg in enumerate(r.callee_saved_fp_registers):
+            mc.store_float(reg.value, r.sp.value, i * FLEN + fp_reg_begin)
 
     def _pop_callee_save_regs_from_stack(self, mc):
-        area_size, core_reg_begin, frame_record_begin = \
+        area_size, core_reg_begin, fp_reg_begin, frame_record_begin = \
                 self._calculate_callee_save_area_size()
+        for i, reg in enumerate(r.callee_saved_fp_registers):
+            mc.load_float(reg.value, r.sp.value, i * FLEN + fp_reg_begin)
         for i, reg in enumerate(r.callee_saved_registers_except_ra_sp_fp):
             mc.load_int(reg.value, r.sp.value, i * XLEN + core_reg_begin)
 
@@ -311,7 +319,10 @@ class AssemblerRISCV(OpAssembler):
             assert imm.is_imm()
             self.mc.load_int_imm(loc.value, imm.value)
         else:
-            assert 0, 'unsupported case'
+            assert loc.is_fp_reg() and imm.is_imm_float()
+            # TODO: Switch to pc-relative addressing
+            self.mc.load_int_imm(r.x31.value, imm.get_addr())
+            self.mc.load_float(loc.value, r.x31.value, 0)
 
     def regalloc_mov(self, prev_loc, loc):
         """Moves a value from a previous location to some other location"""
@@ -333,5 +344,7 @@ class AssemblerRISCV(OpAssembler):
         offset = prev_loc.value
         if loc.is_core_reg():
             self.mc.load_int(loc.value, r.jfp.value, offset)
+        elif loc.is_fp_reg():
+            self.mc.load_float(loc.value, r.jfp.value, offset)
         else:
             assert 0, 'unsupported case'
