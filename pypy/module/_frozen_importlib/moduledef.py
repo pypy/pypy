@@ -48,6 +48,7 @@ class Module(MixedModule):
             space, '_bootstrap', self.w_name, self.w_dict)
 
         self.w_import = space.wrap(interp_import.import_with_frames_removed)
+        self.space.w_default_importlib_import = self.w_import
 
     @staticmethod
     def _cached_compile(space, name, source, *args):
@@ -83,7 +84,6 @@ class Module(MixedModule):
         # use special module api to prevent a cell from being introduced
         self.space.builtin.setdictvalue_dont_introduce_cell(
             '__import__', self.w_import)
-        self.space.w_default_importlib_import = self.w_import
 
     def startup_at_translation_time_only(self, space):
         # Issue #2834
