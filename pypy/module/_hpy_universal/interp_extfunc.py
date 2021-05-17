@@ -1,8 +1,10 @@
+from rpython.rlib.objectmodel import import_from_mixin
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
-from pypy.interpreter.typedef import TypeDef, interp2app, interp_attrproperty
+from pypy.interpreter.typedef import TypeDef, interp_attrproperty
+from pypy.interpreter.gateway import (interp2app, interpindirect2app)
 from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi
@@ -15,8 +17,12 @@ SUPPORTED_SIGNATURES = (
     llapi.HPyFunc_O
 )
 
-class W_ExtensionFunction(W_Root):
+class W_AbstractExtensionFunction(W_Root):
     # XXX: should we have separate classes for each sig?
+    def descr_call(self, space, __args__):
+        raise NotImplementedError
+
+class W_ExtensionFunctionMixin(object):
     _immutable_fields_ = ["sig", "name"]
 
     def __init__(self, space, handles, name, sig, doc, cfuncptr, w_self):
@@ -126,15 +132,20 @@ class W_ExtensionFunction(W_Root):
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
+class W_ExtensionFunction(W_AbstractExtensionFunction):
+    import_from_mixin(W_ExtensionFunctionMixin)
+
+class W_ExtensionFunctionDebug(W_AbstractExtensionFunction):
+    import_from_mixin(W_ExtensionFunctionMixin)
 
 
-W_ExtensionFunction.typedef = TypeDef(
+W_AbstractExtensionFunction.typedef = TypeDef(
     'extension_function',
-    __call__ = interp2app(W_ExtensionFunction.descr_call),
-    __doc__ = interp_attrproperty('doc', cls=W_ExtensionFunction,
+    __call__ = interpindirect2app(W_AbstractExtensionFunction.descr_call),
+    __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionFunction,
                                   wrapfn="newtext_or_none"),
     )
-W_ExtensionFunction.typedef.acceptable_as_base_class = False
+W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
 
 class W_ExtensionMethod(W_ExtensionFunction):

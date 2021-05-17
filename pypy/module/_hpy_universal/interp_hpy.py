@@ -1,5 +1,6 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rdynload import dlopen, dlsym, DLOpenError
+from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
@@ -87,6 +88,7 @@ def load_version():
 HPY_VERSION, HPY_GIT_REV = load_version()
 
 
+@specialize.arg(4)
 def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
     handles = State.get(space).get_handle_manager(debug)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
@@ -122,7 +124,10 @@ def descr_load(space, name, path, debug=False):
         w_path = space.newfilename(path)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
-    return init_hpy_module(space, name, path, lib, debug, initptr)
+    if debug:
+        return init_hpy_module(space, name, path, lib, True, initptr)
+    else:
+        return init_hpy_module(space, name, path, lib, False, initptr)
 
 def descr_get_version(space):
     w_ver = space.newtext(HPY_VERSION)
