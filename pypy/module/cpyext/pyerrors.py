@@ -68,7 +68,7 @@ if os.name == 'nt':
     def PyErr_SetFromWindowsErr(space, err):
         PyErr_SetObject(space, space.w_OSError, space.newint(err))
 
-@cpython_api([], PyObject, result_borrowed=True)
+@cpython_api([], PyObject, result_borrowed=True, jit_can_look=True)
 def PyErr_Occurred(space):
     state = space.fromcache(State)
     operror = state.get_exception()

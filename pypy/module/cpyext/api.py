@@ -457,7 +457,8 @@ class ApiFunction(BaseApiFunction):
 
 DEFAULT_HEADER = 'pypy_decl.h'
 def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
-                gil=None, result_borrowed=False, result_is_ll=False):
+                gil=None, result_borrowed=False, result_is_ll=False,
+                jit_can_look=False):
     """
     Declares a function to be exported.
     - `argtypes`, `restype` are lltypes and describe the function signature.
@@ -477,7 +478,8 @@ def cpython_api(argtypes, restype, error=_NOT_SPECIFIED, header=DEFAULT_HEADER,
         #
         # XXX: should we @jit.dont_look_inside all the @cpython_api functions,
         # or we should only disable some of them?
-        func._jit_look_inside_ = False
+        if not jit_can_look:
+            func._jit_look_inside_ = False
         #
         api_function = ApiFunction(
             argtypes, restype, func,

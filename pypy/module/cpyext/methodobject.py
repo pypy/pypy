@@ -47,6 +47,7 @@ def cfunction_dealloc(space, py_obj):
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
+@jit.look_inside_iff(lambda space, __args__: __args__._jit_few_keywords)
 def w_kwargs_from_args(space, __args__):
     if __args__.keywords is None:
         return None
@@ -59,6 +60,7 @@ def w_kwargs_from_args(space, __args__):
         space.setitem(w_kwargs, space.newtext(key), w_obj)
     return w_kwargs
 
+@jit.look_inside_iff(lambda space, __args__: __args__._jit_few_keywords)
 def w_fastcall_args_from_args(space, __args__):
     # Similar to the above, but pack keys into a tuple and positional and
     # keyword arguments into a single tuple object (to be passed raw)
@@ -301,7 +303,7 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
-    _immutable_fields_ = ['offset[*]']
+    _immutable_fields_ = ['offset[*]', 'func', 'w_objclass']
 
     def __init__(self, space, w_type, method_name, doc, func, offset):
         self.space = space
@@ -311,6 +313,8 @@ class W_PyCWrapperObject(W_Root):
         self.offset = offset
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
+        # XXX is this allowed?
+        self.pto = as_pyobj(self.space, self.w_objclass)
 
     def descr_call(self, space, w_self, __args__):
         return self.call(space, w_self, __args__)
@@ -323,6 +327,7 @@ class W_PyCWrapperObject(W_Root):
         func_to_call = self.func
         if self.offset:
             pto = as_pyobj(self.space, self.w_objclass)
+            assert pto == self.pto
             # make ptr the equivalent of this, using the offsets
             #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
             if pto:

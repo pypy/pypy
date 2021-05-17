@@ -12,6 +12,8 @@ from pypy.module.cpyext.state import State
 from pypy.module.cpyext.pyerrors import PyErr_BadInternalCall
 from pypy.objspace.std.tupleobject import W_TupleObject
 
+from rpython.rlib import jit
+
 ##
 ## Implementation of PyTupleObject
 ## ===============================
@@ -117,6 +119,7 @@ def tuple_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
+@jit.look_inside_iff(lambda space, args_w: jit.isconstant(len(args_w)))
 def tuple_from_args_w(space, args_w):
     state = space.fromcache(State)
     n = len(args_w)
