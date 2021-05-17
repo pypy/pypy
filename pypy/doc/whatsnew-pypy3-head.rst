@@ -29,3 +29,8 @@ Avoid overflow in ``struct.pack_into`` error message (BPO 30245)
 
 Reduce memory allocations at runtime caused by interpreter-internal
 identifiers.
+
+.. branch: py3.7-import-speedup
+
+Speep up cached imports by re-implementing (a subset of) BPO-22557. This brings
+it very close to PyPy2 standards.

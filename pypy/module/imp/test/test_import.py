@@ -666,6 +666,8 @@ class AppTestImport(BaseFSEncodeTest):
                 foobarbazmod,)
         except ImportError:
             pass
+        finally:
+            del sys.modules['foobarbazmod']
 
     def test_del_from_sys_modules(self):
         try:

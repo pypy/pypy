@@ -16,7 +16,6 @@ class TestImport(BaseTestPyPyC):
         loop, = log.loops_by_id('import')
         assert loop.match_by_id('import', """
             guard_not_invalidated(descr=...)
-            p1 = force_token()
         """)
 
     def test_import_fast_path(self, tmpdir):
@@ -40,7 +39,7 @@ class TestImport(BaseTestPyPyC):
         for opname in log.opnames(loop.allops(opcode="IMPORT_NAME")):
             assert 'call' not in opname    # no call-like opcode
 
-    def test_import_fast_path(self, tmpdir):
+    def test_import_fast_path_package(self, tmpdir):
         print tmpdir
         pkg = tmpdir.join('mypkg').ensure(dir=True)
         subdir = pkg.join("sub").ensure(dir=True)
