@@ -40,12 +40,8 @@ class HPyAppTest(object):
 
     def _init(self, request, hpy_abi):
         state = self.space.fromcache(State)
-        if state.uctx:
-            # The bridge functions and the debug context are stored in globals
-            # but they need to match the current space, so we reinitialize them
-            # every time.
-            state.setup_bridge()
-            llapi.hpy_debug_set_ctx(state.dctx)
+        if state.was_already_setup():
+            state.reset()
         if self.space.config.objspace.usemodules.cpyext:
             from pypy.module import cpyext
             cpyext_include_dirs = cpyext.api.include_dirs

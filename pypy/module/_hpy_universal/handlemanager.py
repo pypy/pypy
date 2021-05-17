@@ -1,7 +1,18 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rlib.objectmodel import specialize, always_inline, we_are_translated
+from rpython.rtyper.annlowlevel import llhelper
+from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
+from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
+from pypy.module._hpy_universal.apiset import API, DEBUG
+
+@specialize.memo()
+def make_missing_function(space, name):
+    def missing_function():
+        print ("oops! calling the slot '%s', "
+               "which is not implemented" % (name,))
+        raise OperationError(space.w_NotImplementedError, space.newtext(name))
+    return missing_function
 
 CONSTANTS = [
     ('NULL', lambda space: None),
@@ -86,6 +97,10 @@ CONSTANTS = [
     ('ListType', lambda space: space.w_list),
 ]
 
+CONTEXT_FIELDS = unrolling_iterable(llapi.HPyContext.TO._names)
+CONSTANT_NAMES = unrolling_iterable([name for name, _ in CONSTANTS])
+DUMMY_FUNC = lltype.FuncType([], lltype.Void)
+
 class AbstractHandleManager(object):
     def __init__(self, space, ctx, is_debug):
         self.space = space
@@ -130,6 +145,50 @@ class HandleManager(AbstractHandleManager):
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
+
+    @staticmethod
+    @specialize.memo()
+    def ctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Universal ABI (PyPy backend)",
+                                   track_allocation=False)
+
+    def setup_ctx(self):
+        space = self.space
+        self.ctx.c_name = self.ctx_name()
+
+        for name in CONTEXT_FIELDS:
+            if name == 'c_ctx_version':
+                continue
+            if name.startswith('c_ctx_'):
+                # this is a function pointer: assign a default value so we get
+                # a reasonable error message if it's called without being
+                # assigned to something else
+                missing_function = make_missing_function(space, name)
+                funcptr = llhelper(lltype.Ptr(DUMMY_FUNC), missing_function)
+                setattr(self.ctx, name, rffi.cast(rffi.VOIDP, funcptr))
+        i = 0
+        for name in CONSTANT_NAMES:
+            if name != 'NULL':
+                h_struct = getattr(self.ctx, 'c_h_' + name)
+                h_struct.c__i = i
+            i = i + 1
+
+        for func in API.all_functions:
+            if func.cpyext and not space.config.objspace.hpy_cpyext_API:
+                # ignore cpyext functions if hpy_cpyext_API is False
+                continue
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(self.ctx, ctx_field, funcptr)
+
+        self.ctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
+        self.ctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
+        self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
+        self.ctx.c_ctx_Err_SetObject = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetObject)
+        self.ctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
+
 
     def new(self, w_object):
         if len(self.free_list) == 0:
@@ -181,6 +240,26 @@ class DebugHandleManager(AbstractHandleManager):
     def __init__(self, space, dctx, u_handles):
         AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
         self.u_handles = u_handles
+
+    @staticmethod
+    @specialize.memo()
+    def ctx_name():
+        # by using specialize.memo() this becomes a statically allocated
+        # charp, like a C string literal
+        return rffi.str2constcharp("HPy Debug Mode ABI (PyPy backend)",
+                                   track_allocation=False)
+
+    def setup_ctx(self):
+        space = self.space
+        self.ctx.c_name = self.ctx_name()
+        rffi.setintfield(self.ctx, 'c_ctx_version', 1)
+        self.ctx.c__private = llapi.cts.cast('void*', 0)
+        llapi.hpy_debug_ctx_init(self.ctx, self.u_handles.ctx)
+        for func in DEBUG.all_functions:
+            funcptr = rffi.cast(rffi.VOIDP, func.get_llhelper(space))
+            ctx_field = 'c_ctx_' + func.basename
+            setattr(self.ctx, ctx_field, funcptr)
+        llapi.hpy_debug_set_ctx(self.ctx)
 
     def new(self, w_object):
         uh = self.u_handles.new(w_object)
