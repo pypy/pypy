@@ -303,7 +303,7 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
-    _immutable_fields_ = ['offset[*]', 'func', 'w_objclass']
+    _immutable_fields_ = ['offset[*]', 'func', 'w_objclass', 'pto']
 
     def __init__(self, space, w_type, method_name, doc, func, offset):
         self.space = space
@@ -313,7 +313,6 @@ class W_PyCWrapperObject(W_Root):
         self.offset = offset
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
-        # XXX is this allowed?
         self.pto = as_pyobj(self.space, self.w_objclass)
 
     def descr_call(self, space, w_self, __args__):
@@ -326,20 +325,13 @@ class W_PyCWrapperObject(W_Root):
     def get_func_to_call(self):
         func_to_call = self.func
         if self.offset:
-            pto = as_pyobj(self.space, self.w_objclass)
-            assert pto == self.pto
             # make ptr the equivalent of this, using the offsets
             #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
-            if pto:
-                cptr = rffi.cast(rffi.CCHARP, pto)
-                for o in self.offset:
-                    ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
-                    cptr = rffi.cast(rffi.CCHARP, ptr)
-                func_to_call = rffi.cast(rffi.VOIDP, cptr)
-            else:
-                # Should never happen, assert to get a traceback
-                assert False, "failed to convert w_type %s to PyObject" % str(
-                                                              self.w_objclass)
+            cptr = rffi.cast(rffi.CCHARP, self.pto)
+            for o in self.offset:
+                ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
+                cptr = rffi.cast(rffi.CCHARP, ptr)
+            func_to_call = rffi.cast(rffi.VOIDP, cptr)
         assert func_to_call
         return func_to_call
 
