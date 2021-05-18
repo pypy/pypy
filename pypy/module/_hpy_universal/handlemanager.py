@@ -125,6 +125,7 @@ class AbstractHandleManager(object):
     def attach_release_callback(self, index, cb):
         raise NotImplementedError
 
+    @specialize.arg(0)
     def using(self, *w_objs):
         """
         context-manager to new/close one or more handles
@@ -133,9 +134,11 @@ class AbstractHandleManager(object):
         # depending on the number of w_objs. The idea is that the whole class is
         # optimized away and what's left is a series of calls to handles.new() and
         # handles.close()
-        # XXX: That doesn't work: __enter__ and __exit__ can't be inlined
-        UsingContextManager = make_UsingContextManager(len(w_objs))
-        return UsingContextManager(self, w_objs)
+        UsingContextManager = make_UsingContextManager(self, len(w_objs))
+        return UsingContextManager(w_objs)
+
+    def _freeze_(self):
+        return True
 
 
 class HandleManager(AbstractHandleManager):
@@ -301,13 +304,12 @@ class FreeNonMovingBuffer(HandleReleaseCallback):
 
 
 @specialize.memo()
-def make_UsingContextManager(N):
+def make_UsingContextManager(mgr, N):
     INDICES = unrolling_iterable(range(N))
     class UsingContextManager(object):
 
         @always_inline
-        def __init__(self, mgr, w_objects):
-            self.mgr = mgr
+        def __init__(self, w_objects):
             self.w_objects = w_objects
             self.handles = (0,) * N
 
@@ -315,7 +317,7 @@ def make_UsingContextManager(N):
         def __enter__(self):
             handles = ()
             for i in INDICES:
-                h = self.mgr.new(self.w_objects[i])
+                h = mgr.new(self.w_objects[i])
                 handles += (h,)
             self.handles = handles
 
@@ -334,6 +336,6 @@ def make_UsingContextManager(N):
         #@always_inline
         def __exit__(self, etype, evalue, tb):
             for i in INDICES:
-                self.mgr.close(self.handles[i])
+                mgr.close(self.handles[i])
 
     return UsingContextManager

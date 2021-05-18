@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc
 from rpython.rlib.debug import make_sure_not_resized
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
@@ -63,7 +64,8 @@ def _HPy_New(space, handles, ctx, h_type, data):
     return h
 
 
-def get_bases_from_params(space, handles, ctx, params):
+@specialize.arg(0)
+def get_bases_from_params(handles, params):
     KIND = llapi.cts.gettype('HPyType_SpecParam_Kind')
     params = rffi.cast(rffi.CArrayPtr(llapi.cts.gettype('HPyType_SpecParam')), params)
     if not params:
@@ -87,7 +89,7 @@ def get_bases_from_params(space, handles, ctx, params):
         elif p_kind == KIND.HPyType_SpecParam_BasesTuple:
             found_basestuple = True
             w_bases = handles.deref(p_h)
-            bases_w = space.unpackiterable(w_bases)
+            bases_w = handles.space.unpackiterable(w_bases)
         else:
             raise NotImplementedError('XXX write a test')
 
@@ -101,13 +103,16 @@ def get_bases_from_params(space, handles, ctx, params):
 
 @API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
-    return _hpytype_fromspec(space, handles, ctx, spec, params)
+    return _hpytype_fromspec(handles, spec, params)
 
 @DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
-    return _hpytype_fromspec(space, handles, ctx, spec, params)
+    return _hpytype_fromspec(handles, spec, params)
 
-def _hpytype_fromspec(space, handles, ctx, spec, params):
+@specialize.arg(0)
+def _hpytype_fromspec(handles, spec, params):
+    space = handles.space
+
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
     dotpos = specname.rfind('.')
@@ -121,7 +126,7 @@ def _hpytype_fromspec(space, handles, ctx, spec, params):
     if modname is not None:
         dict_w['__module__'] = space.newtext(modname)
 
-    bases_w = get_bases_from_params(space, handles, ctx, params)
+    bases_w = get_bases_from_params(handles, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
     w_result = _create_new_type(
@@ -132,10 +137,12 @@ def _hpytype_fromspec(space, handles, ctx, spec, params):
     if spec.c_legacy_slots:
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
-        add_slot_defs(space, handles, ctx, w_result, spec.c_defines)
+        add_slot_defs(handles, w_result, spec.c_defines)
     return handles.new(w_result)
 
-def add_slot_defs(space, handles, ctx, w_result, c_defines):
+@specialize.arg(0)
+def add_slot_defs(handles, w_result, c_defines):
+    space = handles.space
     p = c_defines
     i = 0
     HPyDef_Kind = llapi.cts.gettype('HPyDef_Kind')
@@ -164,7 +171,7 @@ def add_slot_defs(space, handles, ctx, w_result, c_defines):
             add_member(space, w_result, hpymember)
         elif kind == HPyDef_Kind.HPyDef_Kind_GetSet:
             hpygetset = llapi.cts.cast('_pypy_HPyDef_as_getset*', p[i]).c_getset
-            add_getset(space, handles, w_result, hpygetset)
+            add_getset(handles, w_result, hpygetset)
         else:
             raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
         i += 1
