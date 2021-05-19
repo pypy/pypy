@@ -1,4 +1,4 @@
-from rpython.rlib.objectmodel import import_from_mixin
+from rpython.rlib.objectmodel import import_from_mixin, specialize
 from rpython.rtyper.lltypesystem import lltype, rffi
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
@@ -25,6 +25,7 @@ class W_AbstractExtensionFunction(W_Root):
 class W_ExtensionFunctionMixin(object):
     _immutable_fields_ = ["sig", "name"]
 
+    @specialize.arg(2)
     def __init__(self, space, handles, name, sig, doc, cfuncptr, w_self):
         self.handles = handles
         self.w_self = w_self
@@ -147,10 +148,12 @@ W_AbstractExtensionFunction.typedef = TypeDef(
     )
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
+class W_AbstractExtensionMethod(W_AbstractExtensionFunction):
+    pass
 
-class W_ExtensionMethod(W_ExtensionFunction):
+class W_ExtensionMethodMixin(W_ExtensionFunctionMixin):
     def __init__(self, space, handles, name, sig, doc, cfuncptr, w_objclass):
-        W_ExtensionFunction.__init__(self, space, handles, name, sig, doc,
+        W_ExtensionFunctionMixin.__init__.__func__(self, space, handles, name, sig, doc,
                                      cfuncptr, space.w_None)
         self.w_objclass = w_objclass
 
@@ -174,11 +177,17 @@ class W_ExtensionMethod(W_ExtensionFunction):
         with self.handles.using(w_instance) as h_instance:
             return self.call(space, h_instance, __args__, skip_args=1)
 
-W_ExtensionMethod.typedef = TypeDef(
+class W_ExtensionMethod(W_AbstractExtensionMethod):
+    import_from_mixin(W_ExtensionMethodMixin)
+
+class W_ExtensionMethodDebug(W_AbstractExtensionMethod):
+    import_from_mixin(W_ExtensionMethodMixin)
+
+W_AbstractExtensionMethod.typedef = TypeDef(
     'method_descriptor_',
     __get__ = interp2app(descr_function_get),
-    __call__ = interp2app(W_ExtensionMethod.descr_call),
-    __doc__ = interp_attrproperty('doc', cls=W_ExtensionMethod,
+    __call__ = interpindirect2app(W_AbstractExtensionMethod.descr_call),
+    __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionMethod,
                                   wrapfn="newtext_or_none"),
     )
 W_ExtensionMethod.typedef.acceptable_as_base_class = False
