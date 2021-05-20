@@ -144,10 +144,12 @@ class AbstractHandleManager(object):
 class HandleManager(AbstractHandleManager):
 
     def __init__(self, space, uctx):
+        from .interp_extfunc import W_ExtensionFunction
         AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
         self.free_list = []
+        self.w_ExtensionFunction = W_ExtensionFunction
 
     @staticmethod
     @specialize.memo()
@@ -241,8 +243,10 @@ class HandleManager(AbstractHandleManager):
 class DebugHandleManager(AbstractHandleManager):
 
     def __init__(self, space, dctx, u_handles):
+        from .interp_extfunc import W_ExtensionFunctionDebug
         AbstractHandleManager.__init__(self, space, dctx, is_debug=True)
         self.u_handles = u_handles
+        self.w_ExtensionFunction = W_ExtensionFunctionDebug
 
     @staticmethod
     @specialize.memo()

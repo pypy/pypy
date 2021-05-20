@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import specialize
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
@@ -325,34 +326,46 @@ class W_wrap_init(W_SlotWrapper):
                 "Function returned an error result without setting an exception")
         return space.w_None
 
+_WRAPPER_CACHE = {}
 
+@specialize.memo()
+def get_tp_new_wrapper_cls(handles):
+    try:
+        return _WRAPPER_CACHE[handles, 'new']
+    except KeyError:
+        pass
 
-class W_tp_new_wrapper(W_ExtensionFunction):
-    """
-    Special case for HPy_tp_new. Note that is not NOT a SlotWrapper.
+    class W_tp_new_wrapper(handles.w_ExtensionFunction):
+        """
+        Special case for HPy_tp_new. Note that is not NOT a SlotWrapper.
 
-    This is the equivalent of CPython's tp_new_wrapper: the difference is that
-    CPython's tp_new_wrapper is a regular PyMethodDef which is wrapped inside
-    a PyCFunction, while here we have our own type.
-    """
+        This is the equivalent of CPython's tp_new_wrapper: the difference is that
+        CPython's tp_new_wrapper is a regular PyMethodDef which is wrapped inside
+        a PyCFunction, while here we have our own type.
+        """
 
-    def __init__(self, space, handles, cfuncptr, w_type):
-        W_ExtensionFunction.__init__(self, space, handles, '__new__',
-                                     llapi.HPyFunc_KEYWORDS,
-                                     None, cfuncptr, w_self=w_type)
+        def __init__(self, cfuncptr, w_type):
+            handles.w_ExtensionFunction.__init__(
+                self, handles.space, handles, '__new__',
+                llapi.HPyFunc_KEYWORDS, None, cfuncptr, w_self=w_type)
 
-    def call(self, space, h_self, __args__, skip_args=0):
-        assert skip_args == 0
-        # NOTE: h_self contains the type for which we are calling __new__, but
-        # here is ignored. In CPython's tp_new_wrapper it is only used to fish
-        # the ->tp_new to call, but here we already have the cfuncptr
-        #
-        # XXX: tp_new_wrapper does additional checks, we should write tests
-        # and implement the same checks
-        w_self = __args__.arguments_w[0]
-        with self.handles.using(w_self) as h_self:
-            return self.call_varargs_kw(space, h_self, __args__,
-                                        skip_args=1, has_keywords=True)
+        def call(self, space, h_self, __args__, skip_args=0):
+            assert space is handles.space
+            assert skip_args == 0
+            # NOTE: h_self contains the type for which we are calling __new__, but
+            # here is ignored. In CPython's tp_new_wrapper it is only used to fish
+            # the ->tp_new to call, but here we already have the cfuncptr
+            #
+            # XXX: tp_new_wrapper does additional checks, we should write tests
+            # and implement the same checks
+            w_self = __args__.arguments_w[0]
+            with handles.using(w_self) as h_self:
+                return self.call_varargs_kw(space, h_self, __args__,
+                                            skip_args=1, has_keywords=True)
+    if handles.is_debug:
+        W_tp_new_wrapper.__name__ += 'Debug'
+    _WRAPPER_CACHE[handles, 'new'] = W_tp_new_wrapper
+    return W_tp_new_wrapper
 
 
 # the following table shows how to map C-level slots into Python-level
@@ -444,12 +457,15 @@ SLOTS = unrolling_iterable([
     ])
 
 
-def fill_slot(space, handles, w_type, hpyslot):
+@specialize.arg(0)
+def fill_slot(handles, w_type, hpyslot):
+    space = handles.space
     slot_num = rffi.cast(lltype.Signed, hpyslot.c_slot)
     # special cases
     if slot_num == HPySlot_Slot.HPy_tp_new:
         # this is the moral equivalent of CPython's add_tp_new_wrapper
-        w_func = W_tp_new_wrapper(space, handles, hpyslot.c_impl, w_type)
+        cls = get_tp_new_wrapper_cls(handles)
+        w_func = cls(hpyslot.c_impl, w_type)
         w_type.setdictvalue(space, '__new__', w_func)
         return
     elif slot_num == HPySlot_Slot.HPy_tp_destroy:

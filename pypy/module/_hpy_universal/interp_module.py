@@ -45,11 +45,7 @@ def _hpymodule_create(handles, hpydef):
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             doc = get_doc(hpymeth.c_doc)
-            if handles.is_debug:
-                FuncClass = interp_extfunc.W_ExtensionFunctionDebug
-            else:
-                FuncClass = interp_extfunc.W_ExtensionFunction
-            w_extfunc = FuncClass(
+            w_extfunc = handles.w_ExtensionFunction(
                 space, handles, name, sig, doc, hpymeth.c_impl, w_mod)
             space.setattr(w_mod, space.newtext(w_extfunc.name), w_extfunc)
             i += 1

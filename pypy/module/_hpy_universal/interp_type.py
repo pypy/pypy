@@ -156,7 +156,7 @@ def add_slot_defs(handles, w_result, c_defines):
                 rbp = llapi.cts.cast('HPyFunc_releasebufferproc',
                                      hpyslot.c_impl)
             else:
-                fill_slot(space, handles, w_result, hpyslot)
+                fill_slot(handles, w_result, hpyslot)
         elif kind == HPyDef_Kind.HPyDef_Kind_Meth:
             hpymeth = p[i].c_meth
             name = rffi.constcharp2str(hpymeth.c_name)
