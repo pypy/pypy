@@ -4,7 +4,8 @@ from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.gateway import (interp2app, interpindirect2app)
+from pypy.interpreter.gateway import (
+    interp2app, interpindirect2app, unwrap_spec)
 from pypy.objspace.std.typeobject import W_TypeObject
 
 from pypy.module._hpy_universal import llapi
@@ -148,10 +149,15 @@ W_AbstractExtensionFunction.typedef = TypeDef(
     )
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
-class W_AbstractExtensionMethod(W_AbstractExtensionFunction):
+class W_AbstractExtensionMethod(W_Root):
     pass
 
-class W_ExtensionMethodMixin(W_ExtensionFunctionMixin):
+@unwrap_spec(w_method = W_AbstractExtensionMethod)
+def descr_ExtensionMethod_call(w_method, space, __args__):
+    return w_method.descr_call(space, __args__)
+
+class W_ExtensionMethodMixin(object):
+    import_from_mixin(W_ExtensionFunctionMixin)
     def __init__(self, space, handles, name, sig, doc, cfuncptr, w_objclass):
         W_ExtensionFunctionMixin.__init__.__func__(self, space, handles, name, sig, doc,
                                      cfuncptr, space.w_None)
@@ -186,8 +192,8 @@ class W_ExtensionMethodDebug(W_AbstractExtensionMethod):
 W_AbstractExtensionMethod.typedef = TypeDef(
     'method_descriptor_',
     __get__ = interp2app(descr_function_get),
-    __call__ = interpindirect2app(W_AbstractExtensionMethod.descr_call),
+    __call__ = interp2app(descr_ExtensionMethod_call),
     __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionMethod,
                                   wrapfn="newtext_or_none"),
     )
-W_ExtensionMethod.typedef.acceptable_as_base_class = False
+W_AbstractExtensionMethod.typedef.acceptable_as_base_class = False
