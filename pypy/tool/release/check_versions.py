@@ -32,6 +32,9 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.5rc3': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-19',
+                          },
                  '7.3.5rc2': {'python_version': ['3.7.10', '2.7.18'],
                            'date': '2021-05-05',
                           },

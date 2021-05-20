@@ -39,6 +39,8 @@ ongoing work, and helping us find the source of these problems.
 - When assigning the full slice of a list, evaluate the rhs before clearing the
   list (issue 3440_)
 - On Python2, ``PyUnicode_Contains`` accepts bytes as well as unicode.
+- Finish fixing ``_sqlite3`` - untested ``_reset()`` was missing an argument
+  (issue 3432_)
 - Update the packaged sqlite3 to 3.35.5 on windows. While not a bugfix, this
   seems like an easy win.
 
@@ -107,6 +109,7 @@ PyPy does support ARM 32 bit processors, but does not release binaries.
 .. _3440: https://foss.heptapod.net/pypy/pypy/-/issues/3440
 .. _3460: https://foss.heptapod.net/pypy/pypy/-/issues/3460
 .. _3462: https://foss.heptapod.net/pypy/pypy/-/issues/3462
+.. _3432: https://foss.heptapod.net/pypy/pypy/-/issues/3432
 .. _`BPO 42988`: https://bugs.python.org/issue42988
 .. _`BPO 43285`: https://bugs.python.org/issue43285
 .. _`BPO 43075`: https://bugs.python.org/issue43075
