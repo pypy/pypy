@@ -10,7 +10,7 @@ from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
 from .interp_module import get_doc
 from .interp_extfunc import W_ExtensionMethod, W_ExtensionMethodDebug
-from .interp_slot import fill_slot, W_wrap_getbuffer
+from .interp_slot import fill_slot, W_wrap_getbuffer, get_slot_cls
 from .interp_descr import add_member, add_getset
 from .interp_cpy_compat import attach_legacy_slots_to_type
 from rpython.rlib.rutf8 import surrogate_in_utf8
@@ -37,7 +37,7 @@ class W_HPyObject(W_ObjectObject):
 class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
-    
+
     def __init__(self, space, name, bases_w, dict_w, basicsize=0):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
@@ -180,9 +180,11 @@ def add_slot_defs(handles, w_result, c_defines):
             raise oefmt(space.w_ValueError, "Unspported HPyDef.kind: %d", kind)
         i += 1
     if rbp:
-       w_buffer_wrapper = w_result.getdictvalue(space, '__buffer__')
-       if w_buffer_wrapper and isinstance(w_buffer_wrapper, W_wrap_getbuffer):
-           w_buffer_wrapper.rbp = rbp
+        w_buffer_wrapper = w_result.getdictvalue(space, '__buffer__')
+        # XXX: this is horrible :-(
+        getbuffer_cls = get_slot_cls(handles, W_wrap_getbuffer)
+        if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
+            w_buffer_wrapper.rbp = rbp
 
 def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
     pos = surrogate_in_utf8(name)

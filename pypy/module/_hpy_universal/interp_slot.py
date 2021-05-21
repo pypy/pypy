@@ -1,7 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize
+from rpython.rlib.objectmodel import (specialize, import_from_mixin)
+
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.function import descr_function_get
@@ -9,18 +10,17 @@ from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
-from .interp_extfunc import W_ExtensionFunction
 from .buffer import HPyBuffer, HPY_BUFFER_FQ
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
 
+_WRAPPER_CACHE = {}
+
 class W_SlotWrapper(W_Root):
     _immutable_fields_ = ["slot"]
 
-    def __init__(self, space, handles, slot, method_name, cfuncptr, w_objclass):
-        self.handles = handles
-        self.ctx = handles.ctx
+    def __init__(self, slot, method_name, cfuncptr, w_objclass):
         self.slot = slot
         self.name = method_name
         self.cfuncptr = cfuncptr
@@ -78,7 +78,7 @@ W_SlotWrapper.typedef.acceptable_as_base_class = False
 # ~~~~~~~~~~ concrete W_SlotWrapper subclasses ~~~~~~~~~~~~~
 # these are the equivalent of the various functions wrap_* inside CPython's typeobject.c
 
-class W_wrap_binaryfunc(W_SlotWrapper):
+class W_wrap_binaryfunc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_binaryfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -88,29 +88,37 @@ class W_wrap_binaryfunc(W_SlotWrapper):
             h_result = func(self.ctx, h_self, h_other)
             return self.handles.consume(h_result)
 
-def make_cmp_wrapper(OP):
-    class W_wrap_richcmpfunc(W_SlotWrapper):
+@specialize.memo()
+def get_cmp_wrapper_cls(handles, methname, OP):
+    try:
+        return _WRAPPER_CACHE[handles, methname]
+    except KeyError:
+        pass
+    class wrapper(W_SlotWrapper):
         def call(self, space, __args__):
             func = llapi.cts.cast("HPyFunc_richcmpfunc", self.cfuncptr)
             self.check_args(space, __args__, 2)
             w_self = __args__.arguments_w[0]
             w_other = __args__.arguments_w[1]
-            with self.handles.using(w_self, w_other) as (h_self, h_other):
+            with handles.using(w_self, w_other) as (h_self, h_other):
                 # rffi doesn't allow casting to an enum, we need to use int
                 # instead
                 h_result = func(
-                    self.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
-                return self.handles.consume(h_result)
-    return W_wrap_richcmpfunc
+                    handles.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
+                return handles.consume(h_result)
+    suffix = '_d' if handles.is_debug else '_u'
+    wrapper.__name__ = 'W_wrap_richcmp%s%s' % (methname, suffix)
+    _WRAPPER_CACHE[handles, methname] = wrapper
+    return wrapper
 
 CMP_OPNAMES = ['eq', 'ne', 'lt', 'le', 'gt', 'ge']
 CMP_ENUM_VALUES = [
     getattr(HPy_RichCmpOp, 'HPy_%s' % opname.upper()) for opname in CMP_OPNAMES]
 CMP_SLOTS = unrolling_iterable([
-    ('__%s__' % opname, make_cmp_wrapper(opval))
+    ('__%s__' % opname, opval)
     for opname, opval in zip(CMP_OPNAMES, CMP_ENUM_VALUES)])
 
-class W_wrap_unaryfunc(W_SlotWrapper):
+class W_wrap_unaryfunc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_unaryfunc", self.cfuncptr)
         self.check_args(space, __args__, 1)
@@ -119,7 +127,7 @@ class W_wrap_unaryfunc(W_SlotWrapper):
             h_result = func(self.ctx, h_self)
             return self.handles.consume(h_result)
 
-class W_wrap_ternaryfunc(W_SlotWrapper):
+class W_wrap_ternaryfunc(object):
     def call(self, space, __args__):
         # Literaly quote of the corresponding CPython comment:
         #     Note: This wrapper only works for __pow__()
@@ -137,7 +145,7 @@ class W_wrap_ternaryfunc(W_SlotWrapper):
             h_result = func(self.ctx, h_self, h1, h2)
             return self.handles.consume(h_result)
 
-class W_wrap_indexargfunc(W_SlotWrapper):
+class W_wrap_indexargfunc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -148,7 +156,7 @@ class W_wrap_indexargfunc(W_SlotWrapper):
             h_result = func(self.ctx, h_self, idx)
             return self.handles.consume(h_result)
 
-class W_wrap_inquirypred(W_SlotWrapper):
+class W_wrap_inquirypred(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_inquiry", self.cfuncptr)
         self.check_args(space, __args__, 1)
@@ -161,7 +169,7 @@ class W_wrap_inquirypred(W_SlotWrapper):
                 #State.get(space).check_and_raise_exception(always=True)
             return space.newbool(bool(res))
 
-class W_wrap_lenfunc(W_SlotWrapper):
+class W_wrap_lenfunc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_lenfunc", self.cfuncptr)
         self.check_args(space, __args__, 1)
@@ -186,7 +194,7 @@ def sq_getindex(space, w_sequence, w_idx):
         idx += n
     return idx
 
-class W_wrap_sq_item(W_SlotWrapper):
+class W_wrap_sq_item(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeargfunc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -197,7 +205,7 @@ class W_wrap_sq_item(W_SlotWrapper):
             h_result = func(self.ctx, h_self, idx)
             return self.handles.consume(h_result)
 
-class W_wrap_sq_setitem(W_SlotWrapper):
+class W_wrap_sq_setitem(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
         self.check_args(space, __args__, 3)
@@ -211,7 +219,7 @@ class W_wrap_sq_setitem(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.w_None
 
-class W_wrap_sq_delitem(W_SlotWrapper):
+class W_wrap_sq_delitem(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_ssizeobjargproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -224,7 +232,7 @@ class W_wrap_sq_delitem(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.w_None
 
-class W_wrap_objobjproc(W_SlotWrapper):
+class W_wrap_objobjproc(object):
     def call(self, space, __args__):
         func = llapi.cts.cast("HPyFunc_objobjproc", self.cfuncptr)
         self.check_args(space, __args__, 2)
@@ -237,7 +245,7 @@ class W_wrap_objobjproc(W_SlotWrapper):
                 raise NotImplementedError('write a test')
             return space.newbool(bool(res))
 
-class W_wrap_getbuffer(W_SlotWrapper):
+class W_wrap_getbuffer(object):
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
 
     def call(self, space, __args__):
@@ -294,8 +302,8 @@ class W_wrap_getbuffer(W_SlotWrapper):
 ## wrap_descr_get(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_set(PyObject *self, PyObject *args, void *wrapped)
 ## wrap_descr_delete(PyObject *self, PyObject *args, void *wrapped)
-
-class W_wrap_init(W_SlotWrapper):
+ 
+class W_wrap_init(object):
     def call(self, space, __args__):
         with self.handles.using(__args__.arguments_w[0]) as h_self:
             n = len(__args__.arguments_w) - 1
@@ -326,7 +334,25 @@ class W_wrap_init(W_SlotWrapper):
                 "Function returned an error result without setting an exception")
         return space.w_None
 
-_WRAPPER_CACHE = {}
+@specialize.memo()
+def get_slot_cls(handles, mixin):
+    try:
+        return _WRAPPER_CACHE[handles, mixin]
+    except KeyError:
+        pass
+
+    _handles = handles
+    class wrapper(W_SlotWrapper):
+        import_from_mixin(mixin)
+        handles = _handles
+        ctx = _handles.ctx
+
+    if handles.is_debug:
+        wrapper.__name__ = mixin.__name__ + '_d'
+    else:
+        wrapper.__name__ = mixin.__name__ + '_u'
+    _WRAPPER_CACHE[handles, mixin] = wrapper
+    return wrapper
 
 @specialize.memo()
 def get_tp_new_wrapper_cls(handles):
@@ -472,8 +498,9 @@ def fill_slot(handles, w_type, hpyslot):
         w_type.tp_destroy = llapi.cts.cast('HPyFunc_destroyfunc', hpyslot.c_impl)
         return
     elif slot_num == HPySlot_Slot.HPy_tp_richcompare:
-        for methname, cls in CMP_SLOTS:
-            w_slot = cls(space, handles, slot_num, methname, hpyslot.c_impl, w_type)
+        for methname, opval in CMP_SLOTS:
+            cls = get_cmp_wrapper_cls(handles, methname, opval)
+            w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
         return
     elif slot_num == HPySlot_Slot.HPy_bf_releasebuffer:
@@ -481,12 +508,13 @@ def fill_slot(handles, w_type, hpyslot):
 
     # generic cases
     found = False
-    for slotname, methname, cls in SLOTS:
+    for slotname, methname, mixin in SLOTS:
         assert methname != '__xxx__' # sanity check
         n = getattr(HPySlot_Slot, 'HPy_' + slotname)
         if slot_num == n:
             found = True
-            w_slot = cls(space, handles, slot_num, methname, hpyslot.c_impl, w_type)
+            cls = get_slot_cls(handles, mixin)
+            w_slot = cls(slot_num, methname, hpyslot.c_impl, w_type)
             w_type.setdictvalue(space, methname, w_slot)
 
     if not found:
