@@ -5,6 +5,7 @@ from rpython.rlib.unroll import unrolling_iterable
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.apiset import API, DEBUG
+from .buffer import setup_hpybuffer
 
 @specialize.memo()
 def make_missing_function(space, name):
@@ -106,6 +107,7 @@ class AbstractHandleManager(object):
         self.space = space
         self.ctx = ctx
         self.is_debug = is_debug
+        setup_hpybuffer(self)
 
     def new(self, w_object):
         raise NotImplementedError
@@ -142,6 +144,7 @@ class AbstractHandleManager(object):
 
 
 class HandleManager(AbstractHandleManager):
+    cls_suffix = '_u'
 
     def __init__(self, space, uctx):
         from .interp_extfunc import W_ExtensionFunction
@@ -241,6 +244,7 @@ class HandleManager(AbstractHandleManager):
 
 
 class DebugHandleManager(AbstractHandleManager):
+    cls_suffix = '_d'
 
     def __init__(self, space, dctx, u_handles):
         from .interp_extfunc import W_ExtensionFunctionDebug

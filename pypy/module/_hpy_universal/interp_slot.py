@@ -9,8 +9,6 @@ from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi
-from pypy.module._hpy_universal.state import State
-from .buffer import HPyBuffer, HPY_BUFFER_FQ
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
@@ -274,8 +272,8 @@ class W_wrap_getbuffer(object):
                     format = rffi.charp2str(hpybuf.c_format)
                 else:
                     format = 'B'
-                view = HPyBuffer(
-                    space, self.ctx, self.handles, buf_ptr, size, w_obj,
+                view = self.handles.HPyBuffer(
+                    buf_ptr, size, w_obj,
                     itemsize=hpybuf.c_itemsize,
                     readonly=widen(hpybuf.c_readonly),
                     ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
@@ -283,7 +281,7 @@ class W_wrap_getbuffer(object):
                 if self.rbp:
                     # XXX: we're assuming w_self and w_obj have the same type!
                     view.releasebufferproc = self.rbp
-                    HPY_BUFFER_FQ.register_finalizer(view)
+                    self.handles.BUFFER_FQ.register_finalizer(view)
                 return view.wrap(space)
 
 
@@ -347,10 +345,7 @@ def get_slot_cls(handles, mixin):
         handles = _handles
         ctx = _handles.ctx
 
-    if handles.is_debug:
-        wrapper.__name__ = mixin.__name__ + '_d'
-    else:
-        wrapper.__name__ = mixin.__name__ + '_u'
+    wrapper.__name__ = mixin.__name__ + handles.cls_suffix
     _WRAPPER_CACHE[handles, mixin] = wrapper
     return wrapper
 
