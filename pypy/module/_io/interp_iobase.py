@@ -139,6 +139,14 @@ class W_IOBase(W_Root):
         finally:
             self.__IOBase_closed = True
 
+        self.may_unregister_rpython_finalizer_io(space)
+
+    def may_unregister_rpython_finalizer_io(self, space):
+        from rpython.rlib import rgc
+        if self.user_overridden_class:
+            return
+        rgc.may_ignore_finalizer(self)
+
     def needs_finalizer(self):
         # can return False if we know that the precise close() method
         # of this class will have no effect

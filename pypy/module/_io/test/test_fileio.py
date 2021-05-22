@@ -409,3 +409,33 @@ def test_flush_at_exit_IOError_and_ValueError():
         import sys; sys._keepalivesomewhereobscure = s
     """)
     space.finish() # the IOError has been ignored
+
+def test_close_unregisters_finalizer(space, monkeypatch):
+    from pypy.module._io.interp_iobase import W_IOBase
+    from rpython.rlib import rgc
+    calls = []
+    def may_ignore_finalizer(obj):
+        calls.append(obj)
+
+    monkeypatch.setattr(rgc, "may_ignore_finalizer", may_ignore_finalizer)
+
+    w_base = W_IOBase(space, add_to_autoflusher=False)
+    w_base.close_w(space)
+    assert calls == [w_base]
+
+    w_base.close_w(space)
+    assert calls == [w_base]
+
+    # user-defined subclass with __del__, we must not see a call to
+    # may_ignore_finalizer about it
+    space.appexec([], """():
+        import _io
+        class SubclassWithDel(_io._IOBase):
+            pass
+        s = SubclassWithDel()
+        s.close()
+    """)
+
+    assert calls == [w_base]
+
+
