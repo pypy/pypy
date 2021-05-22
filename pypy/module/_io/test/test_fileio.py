@@ -410,14 +410,21 @@ def test_flush_at_exit_IOError_and_ValueError():
     """)
     space.finish() # the IOError has been ignored
 
-def test_close_unregisters_finalizer(space, monkeypatch):
-    from pypy.module._io.interp_iobase import W_IOBase
+def monkeypatch_may_ignore_finalize(monkeypatch):
     from rpython.rlib import rgc
+    orig_func = rgc.may_ignore_finalizer
+
     calls = []
     def may_ignore_finalizer(obj):
         calls.append(obj)
+        return orig_func(obj)
 
     monkeypatch.setattr(rgc, "may_ignore_finalizer", may_ignore_finalizer)
+    return calls
+
+def test_close_unregisters_finalizer(space, monkeypatch):
+    from pypy.module._io.interp_iobase import W_IOBase
+    calls = monkeypatch_may_ignore_finalize(monkeypatch)
 
     w_base = W_IOBase(space, add_to_autoflusher=False)
     w_base.close_w(space)
@@ -428,25 +435,21 @@ def test_close_unregisters_finalizer(space, monkeypatch):
 
     # user-defined subclass with __del__, we must not see a call to
     # may_ignore_finalizer about it
-    space.appexec([], """():
+    w_s = space.appexec([], """():
         import _io
         class SubclassWithDel(_io._IOBase):
             pass
         s = SubclassWithDel()
         s.close()
+        return s
     """)
 
-    assert calls == [w_base]
+    assert w_s not in calls
 
 
 def test_close_unregisters_finalizer_fileio(space, monkeypatch):
     from pypy.module._io.interp_fileio import W_FileIO
-    from rpython.rlib import rgc
-    calls = []
-    def may_ignore_finalizer(obj):
-        calls.append(obj)
-
-    monkeypatch.setattr(rgc, "may_ignore_finalizer", may_ignore_finalizer)
+    calls = monkeypatch_may_ignore_finalize(monkeypatch)
 
     w_base = W_FileIO(space)
     w_base.close_w(space)
@@ -457,30 +460,21 @@ def test_close_unregisters_finalizer_fileio(space, monkeypatch):
 
     # user-defined subclass with __del__, we must not see a call to
     # may_ignore_finalizer about it
-    space.appexec([space.newtext(__file__)], """(fn):
+    w_s = space.appexec([space.newtext(__file__)], """(fn):
         import _io
         class SubclassWithDel(_io.FileIO):
             pass
         s = SubclassWithDel(fn)
         s.close()
+        return s
     """)
 
-    assert calls == [w_base]
+    assert w_s not in calls
 
 
 def test_close_unregisters_finalizer_open(space, monkeypatch):
     from rpython.rlib import rgc
-    calls = []
-    def may_ignore_finalizer(obj):
-        calls.append(obj)
-
-    # do it once to get all the initialization out of the way :-/
-    space.appexec([space.newtext(__file__)], """(fn):
-        f = open(fn, "r", encoding="utf-8")
-        f.close()
-    """)
-
-    monkeypatch.setattr(rgc, "may_ignore_finalizer", may_ignore_finalizer)
+    calls = monkeypatch_may_ignore_finalize(monkeypatch)
 
     w_f = space.appexec([space.newtext(__file__)], """(fn):
         f = open(fn, "r", encoding="utf-8")

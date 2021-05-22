@@ -378,7 +378,7 @@ class BufferedMixin:
                     if flush_operr:
                         e.chain_exceptions(space, flush_operr)
                     raise
-        self.may_unregister_rpython_finalizer_io(space)
+        self.maybe_unregister_rpython_finalizer_io(space)
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)

@@ -139,9 +139,9 @@ class W_IOBase(W_Root):
         finally:
             self.__IOBase_closed = True
 
-        self.may_unregister_rpython_finalizer_io(space)
+        self.maybe_unregister_rpython_finalizer_io(space)
 
-    def may_unregister_rpython_finalizer_io(self, space):
+    def maybe_unregister_rpython_finalizer_io(self, space):
         from rpython.rlib import rgc
         if self.user_overridden_class:
             return
