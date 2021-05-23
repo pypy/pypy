@@ -8,6 +8,7 @@ from pypy.interpreter.typedef import (
 from pypy.module._io.interp_fileio import W_FileIO
 from pypy.module._io.interp_textio import W_TextIOWrapper
 from pypy.module.posix import interp_posix
+from rpython.rlib import jit
 
 _WIN32 = sys.platform == 'win32'
 
@@ -20,6 +21,7 @@ class Cache:
 @unwrap_spec(mode='text', buffering=int,
              encoding="text_or_none", errors="text_or_none",
              newline="text_or_none", closefd=int)
+@jit.look_inside_iff(lambda space, w_file, mode, buffering, encoding, errors, newlines, closefd, w_opener: jit.isconstant(mode))
 def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
          newline=None, closefd=True, w_opener=None):
     from pypy.module._io.interp_bufferedio import (W_BufferedRandom,
