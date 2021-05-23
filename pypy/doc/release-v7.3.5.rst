@@ -2,12 +2,6 @@
 PyPy v7.3.5: release of 2.7 and 3.7
 ===================================
 
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 We are releasing a PyPy 7.3.5 with bugfixes for PyPy 7.3.4, released April 4.
 PyPy 7.3.4 was the first release that runs on windows 64-bit, so that support
 is still "beta". We are releasing it in the hopes that we can garner momentum

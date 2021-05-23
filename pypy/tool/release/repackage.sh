@@ -6,7 +6,7 @@ pmin=7  # python minor version
 maj=7
 min=3
 rev=5
-rc=rc3  # comment this line for actual release
+# rc=rc3  # comment this line for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
