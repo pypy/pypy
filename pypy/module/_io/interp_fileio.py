@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import c_read, get_saved_errno
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
+from rpython.rlib import jit
 from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
 from rpython.rlib.streamio import _setfd_binary
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -44,6 +45,7 @@ def _bad_mode(space):
     raise oefmt(space.w_ValueError,
                 "Must have exactly one of read/write/create/append mode")
 
+@jit.look_inside_iff(lambda space, mode: space.isconstant(mode))
 def decode_mode(space, mode):
     flags = 0
     rwa = False
