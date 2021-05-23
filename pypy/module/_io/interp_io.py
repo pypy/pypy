@@ -60,17 +60,6 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
         else:
             raise oefmt(space.w_ValueError, "invalid mode: %s", mode)
 
-    rawmode = ""
-    if reading:
-        rawmode += "r"
-    if writing:
-        rawmode += "w"
-    if creating:
-        rawmode += "x"
-    if appending:
-        rawmode += "a"
-    if updating:
-        rawmode += "+"
 
     if universal:
         if writing or appending or creating or updating:
@@ -91,6 +80,18 @@ def open(space, w_file, mode="r", buffering=-1, encoding=None, errors=None,
     if binary and newline is not None:
         raise oefmt(space.w_ValueError,
                     "binary mode doesn't take a newline argument")
+
+    rawmode = ""
+    if reading:
+        rawmode += "r"
+    if writing:
+        rawmode += "w"
+    if creating:
+        rawmode += "x"
+    if appending:
+        rawmode += "a"
+    if updating:
+        rawmode += "+"
 
     w_result = None
     try:
