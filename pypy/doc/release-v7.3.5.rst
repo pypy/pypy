@@ -20,16 +20,17 @@ ongoing work, and helping us find the source of these problems.
   ``implementation_lower``
 - Delay thread-checking logic in greenlets until the thread is actually started
   (continuation of issue 3441_)
-- Four upstream (CPython) security patches were applied: 
+- Four upstream (CPython) security patches were applied:
+
   - `BPO 42988`_ to remove ``pydoc.getfile`` 
   - `BPO 43285`_ to not trust the ``PASV`` response in ``ftplib``.
   - `BPO 43075`_ to remove a possible ReDoS in urllib AbstractBasicAuthHandler
   - `BPO 43882`_ to sanitize urls containing ASCII newline and tabs in
     ``urllib.parse``
+
 - Fix for json-specialized dicts (issue 3460_)
 - Specialize ``ByteBuffer.setslice`` which speeds up binary file reading by a
   factor of 3
-
 - When assigning the full slice of a list, evaluate the rhs before clearing the
   list (issue 3440_)
 - On Python2, ``PyUnicode_Contains`` accepts bytes as well as unicode.
