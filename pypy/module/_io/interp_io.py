@@ -89,15 +89,25 @@ def _open(space, w_file, mode, buffering, encoding, errors, newline, closefd,
 
     rawmode = ""
     if reading:
-        rawmode += "r"
-    if writing:
-        rawmode += "w"
-    if creating:
-        rawmode += "x"
-    if appending:
-        rawmode += "a"
-    if updating:
-        rawmode += "+"
+        rawmode = "r"
+        if updating:
+            rawmode = "r+"
+    elif writing:
+        rawmode = "w"
+        if updating:
+            rawmode = "w+"
+    elif creating:
+        rawmode = "x"
+        if updating:
+            rawmode = "x+"
+    elif appending:
+        rawmode = "a"
+        if updating:
+            rawmode = "a+"
+    else:
+        # error, will be raised from interp_fileio
+        if updating:
+            rawmode = "+"
 
     w_result = None
     try:
