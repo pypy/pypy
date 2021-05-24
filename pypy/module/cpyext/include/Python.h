@@ -63,11 +63,6 @@
 
 #include "pypy_macros.h"
 
-#define PyExc_EnvironmentError PyExc_OSError
-#define PyExc_IOError PyExc_OSError
-// TODO: fix windows support
-// #define PyExc_WindowsError PyExc_OSError
-
 #include "patchlevel.h"
 #include <pyconfig.h>
 
