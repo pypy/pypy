@@ -357,7 +357,7 @@ class W_FileIO(W_RawIOBase):
                                eintr_retry=False)
         return space.newint(pos)
 
-    def tell_w(self, space):
+    def _raw_tell(self, space):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, 0, 1)
@@ -365,6 +365,10 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                w_exception_class=space.w_IOError,
                                eintr_retry=False)
+        return pos
+
+    def tell_w(self, space):
+        pos = self._raw_tell(space)
         return space.newint(pos)
 
     def readable_w(self, space):
