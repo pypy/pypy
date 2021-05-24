@@ -45,7 +45,7 @@ def _bad_mode(space):
     raise oefmt(space.w_ValueError,
                 "Must have exactly one of read/write/create/append mode")
 
-@jit.look_inside_iff(lambda space, mode: space.isconstant(mode))
+@jit.look_inside_iff(lambda space, mode: jit.isconstant(mode))
 def decode_mode(space, mode):
     flags = 0
     rwa = False
