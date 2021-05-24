@@ -132,6 +132,25 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
+def _open_fd(space, w_name, flags):
+    from pypy.module.posix.interp_posix import dispatch_filename, fspath
+    w_path = fspath(space, w_name)
+    while True:
+        try:
+            fd = dispatch_filename(rposix.open)(
+                space, w_path, flags, 0666)
+            fd_is_own = True
+            break
+        except OSError as e:
+            wrap_oserror2(space, e, w_name,
+                          w_exception_class=space.w_IOError,
+                          eintr_retry=True)
+    try:
+         _open_inhcache.set_non_inheritable(fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_name,
+                            eintr_retry=False)
+    return fd
 
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
@@ -187,23 +206,8 @@ class W_FileIO(W_RawIOBase):
                                 "Cannot use closefd=False with file name")
 
                 if space.is_none(w_opener):
-                    from pypy.module.posix.interp_posix import dispatch_filename, fspath
-                    w_path = fspath(space, w_name)
-                    while True:
-                        try:
-                            self.fd = dispatch_filename(rposix.open)(
-                                space, w_path, flags, 0666)
-                            fd_is_own = True
-                            break
-                        except OSError as e:
-                            wrap_oserror2(space, e, w_name,
-                                          w_exception_class=space.w_IOError,
-                                          eintr_retry=True)
-                    try:
-                         _open_inhcache.set_non_inheritable(self.fd)
-                    except OSError as e:
-                        raise wrap_oserror2(space, e, w_name,
-                                            eintr_retry=False)
+                    self.fd = _open_fd(space, w_name, flags)
+                    fd_is_own = True
                 else:
                     w_fd = space.call_function(w_opener, w_name,
                                                space.newint(flags))
