@@ -191,7 +191,6 @@ class BasePosix(Platform):
             ('LINKFILES', eci.link_files),
             ('RPATH_FLAGS', self.get_rpath_flags(rel_libdirs)),
             ]
-
         if profopt==True and shared==True:
             definitions.append(('PROFOPT_TARGET', exe_name.basename))
 
@@ -206,13 +205,23 @@ class BasePosix(Platform):
         if detect_pax():
             postcompile_rule[2].append('attr -q -s pax.flags -V m $(BIN)')
 
+        if "gcc" in self.cc:
+            precompiled_header = headers_to_precompile[0].basename
+            pch = "%s.gch" % precompiled_header
+            extra_rules = [(pch, str(precompiled_header), '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)')]
+            m.definition('PRECOMPILEDHEADERS', [pch])
+            o_dependency = '%.c ' + pch
+        else:
+            pch = ""
+            extra_rules = []
+            o_dependency = '%.c'
         rules = [
             ('all', '$(DEFAULT_TARGET)', []),
             ('$(TARGET)', '$(OBJECTS)', ['$(CC_LINK) $(LDFLAGSEXTRA) -o $@ $(OBJECTS) $(LIBDIRS) $(LIBS) $(LINKFILES) $(LDFLAGS)', '$(MAKE) postcompile BIN=$(TARGET)']),
-            ('%.o', '%.c', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
+            ('%.o', o_dependency, '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.s', '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
             ('%.o', '%.cxx', '$(CXX) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)'),
-            ]
+        ] + extra_rules
 
         for rule in rules:
             m.rule(*rule)
