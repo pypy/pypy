@@ -21,5 +21,12 @@ as calling the ``dict.update`` method on known dicts).
 
 Add special error messange for ``'\0'`` in ``rstruct.formatiterator``
 (bpo-35714)
+
+.. branch: gcc-precompiled-header
+
+Speed up GCC compilation by using a pre-compiled header.
+
+
 .. minor branches not worth to document
 .. branch: fix-checkmodule-2
+
