@@ -783,6 +783,7 @@ class W_TextIOWrapper(W_TextIOBase):
             raise
         else:
             ret = space.call_method(self.w_buffer, "close")
+        self.maybe_unregister_rpython_finalizer_io(space)
         return ret
 
     def _dealloc_warn_w(self, space, w_source):

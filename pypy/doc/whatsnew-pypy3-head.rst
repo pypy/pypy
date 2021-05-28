@@ -34,3 +34,9 @@ identifiers.
 
 Speep up cached imports by re-implementing (a subset of) BPO-22557. This brings
 it very close to PyPy2 standards.
+
+.. branch: py3.7-ignore-finalizer-files-after-close
+
+Make creation and destruction of many files cheaper: don't call ``.__del__`` of
+streams that had their ``.close()`` method called (and aren't user defined
+classes).

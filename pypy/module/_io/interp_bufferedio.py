@@ -236,8 +236,14 @@ class BufferedMixin:
         W_IOBase._check_closed(self, space, message)
 
     def _raw_tell(self, space):
-        w_pos = space.call_method(self.w_raw, "tell")
-        pos = space.r_longlong_w(w_pos)
+        from pypy.module._io.interp_fileio import W_FileIO
+        if self._fast_closed_check:
+            w_raw = self.w_raw
+            assert isinstance(w_raw, W_FileIO)
+            pos = r_longlong(w_raw._raw_tell(space))
+        else:
+            w_pos = space.call_method(self.w_raw, "tell")
+            pos = space.r_longlong_w(w_pos)
         if pos < 0:
             raise oefmt(space.w_IOError,
                         "raw stream returned invalid position")
@@ -378,6 +384,7 @@ class BufferedMixin:
                     if flush_operr:
                         e.chain_exceptions(space, flush_operr)
                     raise
+        self.maybe_unregister_rpython_finalizer_io(space)
 
     def _dealloc_warn_w(self, space, w_source):
         space.call_method(self.w_raw, "_dealloc_warn", w_source)

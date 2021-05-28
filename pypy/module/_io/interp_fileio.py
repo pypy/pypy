@@ -7,6 +7,7 @@ from rpython.rlib.rarithmetic import r_longlong
 from rpython.rlib.rposix import c_read, get_saved_errno
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib import rposix
+from rpython.rlib import jit
 from rpython.rlib.rposix_stat import STAT_FIELD_TYPES
 from rpython.rlib.streamio import _setfd_binary
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -44,6 +45,7 @@ def _bad_mode(space):
     raise oefmt(space.w_ValueError,
                 "Must have exactly one of read/write/create/append mode")
 
+@jit.look_inside_iff(lambda space, mode: jit.isconstant(mode))
 def decode_mode(space, mode):
     flags = 0
     rwa = False
@@ -130,6 +132,25 @@ def new_buffersize(fd, currentsize):
             return currentsize + BIGCHUNK
     return currentsize + SMALLCHUNK
 
+def _open_fd(space, w_name, flags):
+    from pypy.module.posix.interp_posix import dispatch_filename, fspath
+    w_path = fspath(space, w_name)
+    while True:
+        try:
+            fd = dispatch_filename(rposix.open)(
+                space, w_path, flags, 0666)
+            fd_is_own = True
+            break
+        except OSError as e:
+            wrap_oserror2(space, e, w_name,
+                          w_exception_class=space.w_IOError,
+                          eintr_retry=True)
+    try:
+         _open_inhcache.set_non_inheritable(fd)
+    except OSError as e:
+        raise wrap_oserror2(space, e, w_name,
+                            eintr_retry=False)
+    return fd
 
 class W_FileIO(W_RawIOBase):
     def __init__(self, space):
@@ -185,23 +206,8 @@ class W_FileIO(W_RawIOBase):
                                 "Cannot use closefd=False with file name")
 
                 if space.is_none(w_opener):
-                    from pypy.module.posix.interp_posix import dispatch_filename, fspath
-                    w_path = fspath(space, w_name)
-                    while True:
-                        try:
-                            self.fd = dispatch_filename(rposix.open)(
-                                space, w_path, flags, 0666)
-                            fd_is_own = True
-                            break
-                        except OSError as e:
-                            wrap_oserror2(space, e, w_name,
-                                          w_exception_class=space.w_IOError,
-                                          eintr_retry=True)
-                    try:
-                         _open_inhcache.set_non_inheritable(self.fd)
-                    except OSError as e:
-                        raise wrap_oserror2(space, e, w_name,
-                                            eintr_retry=False)
+                    self.fd = _open_fd(space, w_name, flags)
+                    fd_is_own = True
                 else:
                     w_fd = space.call_function(w_opener, w_name,
                                                space.newint(flags))
@@ -351,7 +357,7 @@ class W_FileIO(W_RawIOBase):
                                eintr_retry=False)
         return space.newint(pos)
 
-    def tell_w(self, space):
+    def _raw_tell(self, space):
         self._check_closed(space)
         try:
             pos = os.lseek(self.fd, 0, 1)
@@ -359,6 +365,10 @@ class W_FileIO(W_RawIOBase):
             raise wrap_oserror(space, e,
                                w_exception_class=space.w_IOError,
                                eintr_retry=False)
+        return pos
+
+    def tell_w(self, space):
+        pos = self._raw_tell(space)
         return space.newint(pos)
 
     def readable_w(self, space):
