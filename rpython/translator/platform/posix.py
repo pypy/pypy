@@ -205,7 +205,7 @@ class BasePosix(Platform):
         if detect_pax():
             postcompile_rule[2].append('attr -q -s pax.flags -V m $(BIN)')
 
-        if "gcc" in self.cc:
+        if "gcc" in self.cc and headers_to_precompile:
             precompiled_header = headers_to_precompile[0].basename
             pch = "%s.gch" % precompiled_header
             extra_rules = [(pch, str(precompiled_header), '$(CC) $(CFLAGS) $(CFLAGSEXTRA) -o $@ -c $< $(INCLUDEDIRS)')]
