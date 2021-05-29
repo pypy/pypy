@@ -1427,14 +1427,13 @@ class AbstractUnwrappedStrategy(object):
         if len(storage) == 0:
             return []
         res = [None] * len(storage)
-        firstvalue = storage[0]
-        w_firstvalue = self.wrap(firstvalue)
-        res[0] = w_firstvalue
+        prevvalue = storage[0]
+        w_item = self.wrap(prevvalue)
+        res[0] = w_item
         for index in range(1, len(storage)):
             item = storage[index]
-            if self._quick_cmp(item, firstvalue):
-                w_item = w_firstvalue
-            else:
+            if not self._quick_cmp(item, prevvalue):
+                prevvalue = item
                 w_item = self.wrap(item)
             res[index] = w_item
         return res

@@ -433,55 +433,52 @@ class TestW_ListObject(object):
 
     def test_intlist_to_object_too_much_wrapping(self):
         w = self.space.wrap
-        intlist = W_ListObject(self.space, [w(1000000)] * 100)
-        assert isinstance(intlist.strategy, IntegerListStrategy)
-        intlist.setitem(0, self.space.w_None)
-        assert isinstance(intlist.strategy, ObjectListStrategy)
-        l = intlist.getitems()
-        for element in l[2:]:
-            assert element is l[1]
+        w_list = W_ListObject(self.space, [w(1000000)] * 100)
+        assert isinstance(w_list.strategy, IntegerListStrategy)
+        w_list.setitem(0, w(1))
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        assert len(set(l)) == 2
 
     def test_floatlist_to_object_too_much_wrapping(self):
         w = self.space.wrap
         for value in [11233.12, float('NaN')]:
-            intlist = W_ListObject(self.space, [w(value)] * 100)
-            assert isinstance(intlist.strategy, FloatListStrategy)
-            intlist.setitem(0, self.space.w_None)
-            assert isinstance(intlist.strategy, ObjectListStrategy)
-            l = intlist.getitems()
+            w_list = W_ListObject(self.space, [w(value)] * 100)
+            assert isinstance(w_list.strategy, FloatListStrategy)
+            w_list.setitem(0, self.space.w_None)
+            assert isinstance(w_list.strategy, ObjectListStrategy)
+            l = w_list.getitems()
             for element in l[2:]:
                 assert element is l[1]
 
     def test_intorfloatlist_to_object_too_much_wrapping(self):
         w = self.space.wrap
-        intlist = W_ListObject(self.space, [w(0), w(1.1)] * 100)
-        assert isinstance(intlist.strategy, IntOrFloatListStrategy)
-        intlist.setitem(0, self.space.w_None)
-        assert isinstance(intlist.strategy, ObjectListStrategy)
-        l = intlist.getitems()
-        for element in l[4::2]:
-            assert element is l[2]
-        # only every other element is shared, we could generalize this
-        # approach, but not trivial
-        assert l[1] is not l[3] # sadly
+        w_list = W_ListObject(self.space, [w(0)] * 100)
+        w_list.setitem(0, w(1.1))
+        assert isinstance(w_list.strategy, IntOrFloatListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
+        assert len(set(l)) == 2
 
     def test_byteslist_to_object_too_much_wrapping(self):
         w = self.space.wrap
-        intlist = W_ListObject(self.space, [self.space.newbytes(b"abc")] * 100)
-        assert isinstance(intlist.strategy, BytesListStrategy)
-        intlist.setitem(0, self.space.w_None)
-        assert isinstance(intlist.strategy, ObjectListStrategy)
-        l = intlist.getitems()
+        w_list = W_ListObject(self.space, [self.space.newbytes(b"abc")] * 100)
+        assert isinstance(w_list.strategy, BytesListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
         for element in l[2:]:
             assert element is l[1]
 
     def test_asciilist_to_object_too_much_wrapping(self):
         w = self.space.wrap
-        intlist = W_ListObject(self.space, [self.space.newutf8(b"abc", 3)] * 100)
-        assert isinstance(intlist.strategy, AsciiListStrategy)
-        intlist.setitem(0, self.space.w_None)
-        assert isinstance(intlist.strategy, ObjectListStrategy)
-        l = intlist.getitems()
+        w_list = W_ListObject(self.space, [self.space.newutf8(b"abc", 3)] * 100)
+        assert isinstance(w_list.strategy, AsciiListStrategy)
+        w_list.setitem(0, self.space.w_None)
+        assert isinstance(w_list.strategy, ObjectListStrategy)
+        l = w_list.getitems()
         for element in l[2:]:
             assert element is l[1]
 
