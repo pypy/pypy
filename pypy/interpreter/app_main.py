@@ -41,6 +41,7 @@ PyPy options and arguments:
 --info : print translation information about this PyPy executable
 -X faulthandler: attempt to display tracebacks when PyPy crashes
 -X dev: enable PyPy's "development mode"
+-X jit-off: turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME
 USAGE2 = """
@@ -640,6 +641,9 @@ def run_command_line(interactive,
                 faulthandler.enable(2)   # manually set to stderr
             except ValueError:
                 pass      # ignore "2 is not a valid file descriptor"
+    if 'pypyjit' in sys.builtin_module_names:
+        if 'jit-off' in sys._xoptions:
+            set_jit_option(None, "off")
 
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
@@ -841,7 +845,7 @@ def run_command_line(interactive,
                     with open(filename, 'rb') as f:
                         if f.read(4) != MAGIC_NUMBER:
                             raise RuntimeError("Bad magic number in .pyc file")
-                        if len(f.read(8)) != 8:
+                        if len(f.read(12)) != 12:
                             raise RuntimeError("Truncated .pyc file")
                         co = marshal.load(f)
                     if type(co) is not type((lambda:0).__code__):

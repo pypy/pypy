@@ -396,7 +396,7 @@ class Connection(object):
         for weakref in lst:
             statement = weakref()
             if statement is not None:
-                statement._reset()
+                statement._force_reset()
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -1136,10 +1136,11 @@ class Statement(object):
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            c_sql = _ffi.new("char[]", b"select 42")
+            c_sql = _ffi.new("char[]", b"select 42 where 42 = 23")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
+            self._valid = False
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
@@ -1267,7 +1268,7 @@ class Statement(object):
             raise ValueError("parameters are of unsupported type")
 
     def _get_description(self):
-        if self._is_dml:
+        if self._is_dml or not self._valid:
             return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):

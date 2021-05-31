@@ -6,9 +6,10 @@ Verify the versions.json file that describes the valid downloads.
 - the other fields should have valid values
 - the pypy_version should be in the repo tags
 
-Can be run as check_versions.py <filename>, by default will 
-download https://buildbot.pypy.org/pypy/versions.json and parse it
-
+By default will download https://buildbot.pypy.org/pypy/versions.json parse it, and
+check against the files in https://downloads.python.org/pypy/
+Can be run as check_versions.py <filename>, in which case it will check the files in
+https://buildbot.pypy.org/pypy/
 """
 
 import json
@@ -32,6 +33,18 @@ def assert_in(a, b):
 
 
 pypy_versions = {
+                 '7.3.5': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-23',
+                          },
+                 '7.3.5rc3': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-19',
+                          },
+                 '7.3.5rc2': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-05',
+                          },
+                 '7.3.5rc1': {'python_version': ['3.7.10', '2.7.18'],
+                           'date': '2021-05-02',
+                          },
                  '7.3.4': {'python_version': ['3.7.10', '2.7.18'],
                            'date': '2021-04-08',
                           },
@@ -85,7 +98,7 @@ arch_map={('aarch64', 'linux'): 'aarch64',
          }
 
 
-def check_versions(data):
+def check_versions(data, url):
     for d in data:
         assert_in(d['pypy_version'], pypy_versions)
         v = pypy_versions[d['pypy_version']]
@@ -106,9 +119,10 @@ def check_versions(data):
         if 'date' in d:
             assert_equal(d['date'], v['date'])
         for f in d['files']:
+            download_url = f['download_url']
             if 'rc' not in d['pypy_version']:
-                assert_in(f['filename'], f['download_url'])
-                assert_in(d['pypy_version'], f['download_url'])
+                assert_in(f['filename'], download_url)
+                assert_in(d['pypy_version'], download_url)
             assert_in(f['arch'], arches)
             assert_in(f['platform'], platforms)
             arch_plat = arch_map[(f['arch'], f['platform'])]
@@ -116,12 +130,14 @@ def check_versions(data):
                 if arch_plat == 'linux32':
                     # the nightly builds have a quirk in the linux32 file name
                     arch_plat = 'linux'
-                assert_in(arch_plat, f['download_url'])
+                assert_in(arch_plat, download_url)
             else:
-                assert_in(arch_plat, f['download_url'])
-                assert_in('.'.join(d['python_version'].split('.')[:2]), f['download_url'])
+                assert_in(arch_plat, download_url)
+                assert_in('.'.join(d['python_version'].split('.')[:2]), download_url)
+                if url:
+                    download_url = '/'.join((url, download_url.rsplit('/', 1)[1]))
             try:
-                r = request.urlopen(f['download_url'])
+                r = request.urlopen(download_url)
             except error.HTTPError as e:
                 raise ValueError(f"could not open {f['download_url']}") from None
             assert_equal(r.getcode(), 200)
@@ -131,9 +147,11 @@ if __name__ == '__main__':
         print(f'checking local file "{sys.argv[1]}"')
         with open(sys.argv[1]) as fid:
             data = json.loads(fid.read())
+        check_versions(data, 'https://buildbot.pypy.org/pypy')
     else:
         print('downloading versions.json')
         response = request.urlopen('https://buildbot.pypy.org/pypy/versions.json')
         assert_equal(response.getcode(), 200)
         data = json.loads(response.read())
-    check_versions(data)
+        check_versions(data, None)
+    print('ok')

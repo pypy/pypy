@@ -1,5 +1,5 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, next_pow2_m1
+     IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1
 
 from copy import copy
 import sys
@@ -486,11 +486,12 @@ def test_invert_bound_random(t1):
 
 @given(bound_with_contained_number)
 @example((IntUpperBound(-100), -sys.maxint-1))
+@example((ConstIntBound(-sys.maxint - 1), -sys.maxint-1))
+@example((IntBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
 def test_neg_bound_random(t1):
     b1, n1 = t1
     b2 = b1.neg_bound()
     if n1 != -sys.maxint - 1:
         assert b2.contains(-n1)
     else:
-        assert not b1.has_lower
         assert not b2.has_upper

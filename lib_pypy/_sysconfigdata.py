@@ -26,7 +26,13 @@ build_time_vars = {
     'AR': "ar",
     'ARFLAGS': "rc",
     'EXE': "",
-    'LIBDIR': os.path.join(mybase, 'lib'),
+    # This should point to where the libpypy3-c.so file lives, on CPython
+    # it points to "mybase/lib". But that would require rethinking the PyPy
+    # packaging process which copies pypy3 and libpypy3-c.so to the
+    # "mybase/bin" directory. Only when making a portable build (the default
+    # for the linux buildbots) is there even a "mybase/lib" created, even so
+    # the mybase/bin layout is left untouched.
+    'LIBDIR': os.path.join(mybase, 'bin'),
     'INCLUDEPY': os.path.join(mybase, 'include'),
     'LDLIBRARY': 'libpypy3-c.so'
 }

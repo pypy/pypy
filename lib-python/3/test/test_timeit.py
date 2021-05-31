@@ -255,7 +255,7 @@ class TestTimeit(unittest.TestCase):
 
     def test_main_milliseconds(self):
         s = self.run_main(seconds_per_increment=0.0055)
-        self.assertIn("100 loops, average of 7: 5.5 +-", s)
+        self.assertIn("50 loops, average of 7: 5.5 +-", s)
         self.assertIn("msec per loop", s)
 
     def test_main_microseconds(self):
@@ -298,6 +298,7 @@ class TestTimeit(unittest.TestCase):
         s = self.run_main(switches=['-v'])
         self.assertIn(dedent("""\
                 1 loops -> 1 secs
+
                 raw times: 1 1 1 1 1 1 1
                 1 loops, average of 7: 1 +- 0 sec per loop (using standard deviation)
             """), s)
@@ -305,31 +306,39 @@ class TestTimeit(unittest.TestCase):
     def test_main_very_verbose(self):
         s = self.run_main(seconds_per_increment=0.000_030, switches=['-vv'])
         self.assertIn(dedent("""\
-                1 loops -> 5e-05 secs
-                10 loops -> 0.0005 secs
-                100 loops -> 0.005 secs
-                1000 loops -> 0.05 secs
-                10000 loops -> 0.5 secs
-                raw times: 0.5 0.5 0.5 0.5 0.5 0.5 0.5
-                10000 loops, average of 7: 50 +- 0 usec per loop (using standard deviation)
+                1 loops -> 3e-05 secs
+                2 loops -> 6e-05 secs
+                5 loops -> 0.00015 secs
+                10 loops -> 0.0003 secs
+                20 loops -> 0.0006 secs
+                50 loops -> 0.0015 secs
+                100 loops -> 0.003 secs
+                200 loops -> 0.006 secs
+                500 loops -> 0.015 secs
+                1000 loops -> 0.03 secs
+                2000 loops -> 0.06 secs
+                5000 loops -> 0.15 secs
+                10000 loops -> 0.3 secs
+
+                raw times: 0.3 0.3 0.3 0.3 0.3 0.3 0.3
             """), s)
 
     def test_main_with_time_unit(self):
         unit_sec = self.run_main(seconds_per_increment=0.003,
                 switches=['-u', 'sec'])
-        self.assertIn("100 loops, average of 7: 0.002",
+        self.assertIn("100 loops, average of 7: 0.003",
                       unit_sec)
         self.assertIn("sec per loop",
                       unit_sec)
         unit_msec = self.run_main(seconds_per_increment=0.002,
                 switches=['-u', 'msec'])
-        self.assertIn("100 loops, average of 7: 2",
+        self.assertIn("200 loops, average of 7: 2",
                       unit_msec)
         self.assertIn("msec per loop",
                       unit_msec)
         unit_usec = self.run_main(seconds_per_increment=0.002,
                 switches=['-u', 'usec'])
-        self.assertIn("100 loops, average of 7: 2e+03",
+        self.assertIn("200 loops, average of 7: 2e+03",
                       unit_usec)
         self.assertIn("usec per loop",
                       unit_usec)

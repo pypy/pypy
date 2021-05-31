@@ -1033,3 +1033,13 @@ class TestNonReentrantLock:
         with lock:
             exc = py.test.raises(OperationError, "with lock: pass")
         assert exc.value.match(space, space.w_RuntimeError)
+
+    def test_fast_closed_check(self, space):
+        from pypy.module._io.interp_fileio import W_FileIO
+        from pypy.module._io.interp_bufferedio import W_BufferedRandom
+        tmpfile = udir.join('tmpfile')
+        tmpfile.write("a\nb\nc", mode='wb')
+        w_fn = space.appexec([space.newtext(str(tmpfile))], """(fn):
+            return open(fn, "rb")""")
+        assert w_fn._fast_closed_check == True
+

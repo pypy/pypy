@@ -1096,16 +1096,18 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
     Py_UNICODE buffer of the given size by ASCII digits 0--9
     according to their decimal value.  Return NULL if an exception
     occurs."""
-    result = rstring.UnicodeBuilder(size)
+    result = rutf8.Utf8StringBuilder(size)
     for i in range(size):
         ch = s[i]
-        if ord(ch) > 127:
+        ordch = ord(ch)
+        if ordch > 127:
             decimal = Py_UNICODE_TODECIMAL(space, ch)
             decimal = rffi.cast(lltype.Signed, decimal)
             if decimal >= 0:
-                ch = unichr(ord('0') + decimal)
-        result.append(ch)
-    return space.newtext(result.build())
+                ordch = ord('0') + decimal
+        result.append_code(ordch)
+    u = result.build()
+    return space.newtext(u, result.getlength())
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
@@ -1359,7 +1361,7 @@ def PyUnicode_FindChar(space, ref, ch, start, end, direction):
     ch = widen(ch)
     if ch > rutf8.MAXUNICODE:
         raise oefmt(space.w_ValueError, "character out of range")
-    w_ch = space.newtext(unichr(ch))
+    w_ch = space.newtext(rutf8.unichr_as_utf8(r_uint(ch)), 1)
     if rffi.cast(lltype.Signed, direction) > 0:
         w_pos = space.call_method(w_str, "find", w_ch,
                                   space.newint(start), space.newint(end))

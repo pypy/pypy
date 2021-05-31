@@ -193,12 +193,12 @@ int SSL_peek(SSL *, void *, int);
 X509 *SSL_get_certificate(const SSL *);
 X509 *SSL_get_peer_certificate(const SSL *);
 int SSL_get_ex_data_X509_STORE_CTX_idx(void);
+int SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm);
+int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
 
 /* Added in 1.0.2 */
 X509_VERIFY_PARAM *SSL_get0_param(SSL *);
 X509_VERIFY_PARAM *SSL_CTX_get0_param(SSL_CTX *ctx);
-int SSL_CTX_set1_param(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm);
-int SSL_set1_param(SSL *ssl, X509_VERIFY_PARAM *vpm);
 
 int SSL_use_certificate(SSL *, X509 *);
 int SSL_use_certificate_ASN1(SSL *, const unsigned char *, int);
@@ -573,6 +573,10 @@ ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
 """
 
 CUSTOMIZATIONS = """
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
+#error Python 3.7 requires OpenSSL >= 1.0.2
+#endif
+
 /* Added in 1.0.2 but we need it in all versions now due to the great
    opaquing. */
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102
@@ -668,8 +672,6 @@ static const long Cryptography_HAS_NEXTPROTONEG = 1;
 #if CRYPTOGRAPHY_OPENSSL_LESS_THAN_102 && !CRYPTOGRAPHY_LIBRESSL_27_OR_GREATER
 X509_VERIFY_PARAM *(*SSL_get0_param)(SSL *) = NULL;
 X509_VERIFY_PARAM *(*SSL_CTX_get0_param)(SSL_CTX *ctx) = NULL;
-int *(SSL_CTX_set1_param)(SSL_CTX *ctx, X509_VERIFY_PARAM *vpm) = NULL;
-int *(SSL_set1_param)(SSL *ssl, X509_VERIFY_PARAM *vpm) = NULL;
 #else
 #endif
 
@@ -722,10 +724,22 @@ static const long Cryptography_HAS_GET_SERVER_TMP_KEY = 0;
 long (*SSL_get_server_tmp_key)(SSL *, EVP_PKEY **) = NULL;
 #endif
 
+/* The setter functions were added in OpenSSL 1.1.0. The getter functions were
+   added in OpenSSL 1.1.1. */
 #if defined(SSL_CTRL_GET_MAX_PROTO_VERSION)
 static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 1;
 #else
 static const long Cryptography_HAS_CTRL_GET_MAX_PROTO_VERSION = 0;
+int (*SSL_CTX_get_min_proto_version)(SSL_CTX *ctx) = NULL;
+int (*SSL_CTX_get_max_proto_version)(SSL_CTX *ctx) = NULL;
+int (*SSL_get_min_proto_version)(SSL *ssl) = NULL;
+int (*SSL_get_max_proto_version)(SSL *ssl) = NULL;
+#endif
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+int (*SSL_CTX_set_min_proto_version)(SSL_CTX *ctx, int version) = NULL;
+int (*SSL_CTX_set_max_proto_version)(SSL_CTX *ctx, int version) = NULL;
+int (*SSL_set_min_proto_version)(SSL *ssl, int version) = NULL;
+int (*SSL_set_max_proto_version)(SSL *ssl, int version) = NULL;
 #endif
 
 static const long Cryptography_HAS_SSL_CTX_SET_CLIENT_CERT_ENGINE = 1;
@@ -749,6 +763,15 @@ static const long Cryptography_HAS_TLS_ST = 1;
 static const long Cryptography_HAS_TLS_ST = 0;
 static const long TLS_ST_BEFORE = 0;
 static const long TLS_ST_OK = 0;
+#endif
+
+/* SSLv23_method(), SSLv23_server_method() and SSLv23_client_method() were
+   deprecated and the preferred TLS_method(), TLS_server_method() and
+   TLS_client_method() functions were introduced in OpenSSL 1.1.0. */
+#if CRYPTOGRAPHY_OPENSSL_LESS_THAN_110
+#define TLS_method SSLv23_method
+#define TLS_server_method SSLv23_server_method
+#define TLS_client_method SSLv23_client_method
 #endif
 
 /* LibreSSL 2.9.1 added only the DTLS_*_method functions */

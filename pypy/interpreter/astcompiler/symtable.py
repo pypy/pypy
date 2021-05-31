@@ -224,7 +224,8 @@ class Scope(object):
                     self.free_vars.append(name)
             else:
                 if role_here & (SYM_BOUND | SYM_GLOBAL) and \
-                        self._hide_bound_from_nested_scopes:
+                        self._hide_bound_from_nested_scopes and \
+                        not role_here & SYM_NONLOCAL:
                     # This happens when a class level attribute or method has
                     # the same name as a free variable passing through the class
                     # scope.  We add the name to the class scope's list of free

@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -510,8 +510,10 @@ class __extend__(pyframe.PyFrame):
         self.locals_cells_stack_w[varindex] = w_newvalue
 
     def getfreevarname(self, index):
-        freevarnames = self.pycode.co_cellvars + self.pycode.co_freevars
-        return freevarnames[index]
+        pycode = self.pycode
+        if self.iscellvar(index):
+            return pycode.co_cellvars[index]
+        return pycode.co_freevars[index - len(pycode.co_cellvars)]
 
     def iscellvar(self, index):
         # is the variable given by index a cell or a free var?
@@ -905,8 +907,8 @@ class __extend__(pyframe.PyFrame):
         # fall-back
         w_value = self._load_global(varname)
         if w_value is None:
-            raise oefmt(self.space.w_NameError,
-                        "name %R is not defined", w_varname)
+            raise oefmt_name_error(self.space, w_varname,
+                        "name %R is not defined")
         self.pushvalue(w_value)
 
     @always_inline
@@ -921,8 +923,8 @@ class __extend__(pyframe.PyFrame):
     def _load_global_failed(self, w_varname):
         # CPython Issue #17032: The "global" in the "NameError: global
         # name 'x' is not defined" error message has been removed.
-        raise oefmt(self.space.w_NameError,
-                    "name %R is not defined", w_varname)
+        raise oefmt_name_error(self.space, w_varname,
+                    "name %R is not defined")
 
     @always_inline
     def LOAD_GLOBAL(self, nameindex, next_instr):
@@ -1023,18 +1025,11 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_result)
 
     def IMPORT_NAME(self, nameindex, next_instr):
+        from pypy.module.imp.importing import import_name_fast_path
         space = self.space
         w_modulename = self.getname_w(nameindex)
-        modulename = self.space.text_w(w_modulename)
         w_fromlist = self.popvalue()
-
         w_flag = self.popvalue()
-        try:
-            if space.int_w(w_flag) == -1:
-                w_flag = None
-        except OperationError as e:
-            if e.async(space):
-                raise
 
         w_import = self.get_builtin().getdictvalue(space, '__import__')
         if w_import is None:
@@ -1046,14 +1041,18 @@ class __extend__(pyframe.PyFrame):
             w_locals = d.w_locals
         if w_locals is None:            # CPython does this
             w_locals = space.w_None
-        w_modulename = space.newtext(modulename)
         w_globals = self.get_w_globals()
-        if w_flag is None:
-            w_obj = space.call_function(w_import, w_modulename, w_globals,
-                                        w_locals, w_fromlist)
+
+        # the space.w_default_importlib_import attribute is written to in the
+        # startup() method of _frozen_importlib
+        w_default_import = space.w_default_importlib_import
+        if (w_default_import is not None and
+                space.is_w(w_default_import, w_import)):
+            w_obj = import_name_fast_path(space, w_modulename, w_globals,
+                    w_locals, w_fromlist, w_flag)
         else:
             w_obj = space.call_function(w_import, w_modulename, w_globals,
-                                        w_locals, w_fromlist, w_flag)
+                    w_locals, w_fromlist, w_flag)
 
         self.pushvalue(w_obj)
 
@@ -1349,7 +1348,6 @@ class __extend__(pyframe.PyFrame):
         finally:
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
-
     @jit.unroll_safe
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -1721,13 +1719,15 @@ class __extend__(pyframe.PyFrame):
 
     @jit.unroll_safe
     def BUILD_STRING(self, itemcount, next_instr):
+        from rpython.rlib import rutf8
         space = self.space
-        lst = []
+        builder = rutf8.Utf8StringBuilder()
         for i in range(itemcount-1, -1, -1):
             w_item = self.peekvalue(i)
-            lst.append(space.utf8_w(w_item))
+            utf8, length = space.utf8_len_w(w_item)
+            builder.append_utf8(utf8, length)
         self.dropvalues(itemcount)
-        w_res = space.newtext(''.join(lst))
+        w_res = space.newutf8(builder.build(), builder.getlength())
         self.pushvalue(w_res)
 
     def _revdb_load_var(self, oparg):
