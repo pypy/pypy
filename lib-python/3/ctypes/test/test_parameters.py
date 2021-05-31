@@ -1,4 +1,4 @@
-import unittest, sys
+import unittest
 from ctypes.test import need_symbol
 import test.support
 
@@ -247,8 +247,8 @@ class SimpleTypesTestCase(unittest.TestCase):
         self.assertEqual(repr(c_double.from_param(1.5)), "<cparam 'd' (1.5)>")
         self.assertEqual(repr(c_double.from_param(1e300)), "<cparam 'd' (1e+300)>")
         self.assertRegex(repr(c_longdouble.from_param(1.5)), r"^<cparam ('d' \(1.5\)|'g' at 0x[A-Fa-f0-9]+)>$")
-        self.assertRegex(repr(c_char_p.from_param(b'hihi')), "^<cparam 'z' \(0x[A-Fa-f0-9]+\)>$")
-        self.assertRegex(repr(c_wchar_p.from_param('hihi')), "^<cparam 'Z' \(0x[A-Fa-f0-9]+\)>$")
+        self.assertRegex(repr(c_char_p.from_param(b'hihi')), r"^<cparam 'z' \(0x[A-Fa-f0-9]+\)>$")
+        self.assertRegex(repr(c_wchar_p.from_param('hihi')), r"^<cparam 'Z' \(0x[A-Fa-f0-9]+\)>$")
         self.assertRegex(repr(c_void_p.from_param(0x12)), r"^<cparam 'P' \(0x0*12\)>$")
 
 ################################################################
