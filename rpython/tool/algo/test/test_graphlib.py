@@ -244,8 +244,8 @@ class TestBadCase:
 
 @st.composite
 def edges(draw):
-    max_vertex = draw(st.integers(min_value=1, max_value=1000))
-    num_edges = draw(st.integers(min_value=1, max_value=max_vertex * 5))
+    max_vertex = draw(st.integers(min_value=1, max_value=200))
+    num_edges = draw(st.integers(min_value=max_vertex, max_value=max_vertex * 5))
     return make_edge_dict([Edge(draw(st.integers(min_value=0, max_value=max_vertex)),
                                 draw(st.integers(min_value=0, max_value=max_vertex))) for i in range(num_edges)])
 
