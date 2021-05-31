@@ -614,6 +614,9 @@ class DictStrategy(object):
         w_keys = self.w_keys(w_dict)
         return self.space.call_method(w_keys, '__reversed__')
 
+    def iterreversed(self, w_dict):
+        raise NotImplementedError
+
 _add_indirections()
 
 
