@@ -526,12 +526,12 @@ As of PyPy 7.3.5, PyPy supports Windows 64-bits. Since only on that platform
 ``sizeof(long) != sizeof(void *)``, and the underlying data type for RPython is
 ``long``, this proved to be challenging. It seems we have crossed that bridge,
 and welcome help in bringing the Windows version into parity with CPython. In
-particular, we still do not support windows-specific features like
-``winconsoleio``, windows audit events, ane the windows ``faulthandler``.
+particular, we still do not support Windows-specific features like
+``winconsoleio``, windows audit events, and the Windows ``faulthandler``.
 Performance may lag behind Linux64, and the ``wininstaller`` branch is still
 unfinished.
 
-Help is welcome.
+Help is welcome!
 
 How long will PyPy support Python2?
 -----------------------------------
