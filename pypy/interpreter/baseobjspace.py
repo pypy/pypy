@@ -563,10 +563,18 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['__pypy__']  # Install __pypy__ first for bootstrapping
+        # Install __pypy__ first for bootstrapping
+        modules = ['__pypy__']
+
+        # _frozen_importlib imports lib-python/3/importlib/__bootstrap_external,
+        # which imports many builtins. Make sure it is imported last
+        append__frozen_importlib = False
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:
+            if name == '_frozen_importlib':
+                append__frozen_importlib = True
+                continue
             if value and name not in modules:
                 modules.append(name)
 
@@ -574,7 +582,8 @@ class ObjSpace(object):
             for name in self.config.objspace.extmodules.split(','):
                 if name not in modules:
                     modules.append(name)
-
+        if append__frozen_importlib:
+            modules.append('_frozen_importlib')
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
