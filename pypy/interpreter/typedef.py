@@ -497,7 +497,7 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller
+from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
@@ -975,8 +975,8 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 
-SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
-SuspendedUnroller.typedef.acceptable_as_base_class = False
+SApplicationException.typedef = TypeDef("SApplicationException")
+SApplicationException.typedef.acceptable_as_base_class = False
 
 ## W_OperationError.typedef = TypeDef("OperationError",
 ##     __reduce__ = interp2app(W_OperationError.descr_reduce),

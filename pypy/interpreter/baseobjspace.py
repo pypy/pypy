@@ -725,6 +725,16 @@ class ObjSpace(object):
             self.default_compiler = compiler
             return compiler
 
+    def createnewcompiler(self):
+        "Factory function creating a compiler object."
+        try:
+            return self.default_newcompiler
+        except AttributeError:
+            from pypy.interpreter.pycompiler import PythonAstCompiler
+            compiler = PythonAstCompiler(self)
+            self.default_newcompiler = compiler
+            return compiler
+
     def createframe(self, code, w_globals, outer_func=None):
         "Create an empty PyFrame suitable for this code object."
         return self.FrameClass(self, code, w_globals, outer_func)

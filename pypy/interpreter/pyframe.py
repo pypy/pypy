@@ -22,7 +22,7 @@ from pypy.interpreter.nestedscope import Cell
 from pypy.tool import stdlib_opcode
 
 # Define some opcodes used
-for op in '''DUP_TOP POP_TOP SETUP_LOOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
+for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
@@ -94,9 +94,6 @@ class PyFrame(W_Root):
     # frame current virtualizable state as seen by the JIT
 
     def __init__(self, space, code, w_globals, outer_func):
-        if not we_are_translated():
-            assert type(self) == space.FrameClass, (
-                "use space.FrameClass(), not directly PyFrame()")
         self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.space = space
@@ -352,7 +349,7 @@ class PyFrame(W_Root):
         a generator or coroutine frame; in that case, w_arg_or_err
         is the input argument -or- an SApplicationException instance.
         """
-        from pypy.interpreter import pyopcode
+        from pypy.interpreter import pyopcode as pyopcode
         # the following 'assert' is an annotation hint: it hides from
         # the annotator all methods that are defined in PyFrame but
         # overridden in the {,Host}FrameClass subclasses of PyFrame.
@@ -404,10 +401,17 @@ class PyFrame(W_Root):
         assert self.locals_cells_stack_w[depth] is None
         self.valuestackdepth = depth + 1
 
+    def pushvalue_maybe_none(self, w_object):
+        depth = self.valuestackdepth
+        self.locals_cells_stack_w[depth] = w_object
+        self.valuestackdepth = depth + 1
+
     def assert_stack_index(self, index):
         if we_are_translated():
             return
-        assert self._check_stack_index(index)
+        if not self._check_stack_index(index):
+            import pdb; pdb.set_trace()
+            assert 0
 
     def _check_stack_index(self, index):
         code = self.pycode
@@ -693,6 +697,8 @@ class PyFrame(W_Root):
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
+        # XXX this is broken right now!
+
         try:
             new_lineno = space.int_w(w_new_lineno)
         except OperationError:
@@ -717,6 +723,9 @@ class PyFrame(W_Root):
         if not d.is_in_line_tracing:
             raise oefmt(space.w_ValueError,
                         "can only jump from a 'line' trace event")
+
+        raise oefmt(space.w_ValueError,
+                    "disabled at the moment!")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -785,7 +794,7 @@ class PyFrame(W_Root):
         while addr < len(code):
             assert addr & 1 == 0
             op = ord(code[addr])
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
                 blockstack.append(addr)
                 in_finally.append(False)
@@ -856,7 +865,7 @@ class PyFrame(W_Root):
             assert addr & 1 == 0
             op = ord(code[addr])
 
-            if op in (SETUP_LOOP, SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
+            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
                       SETUP_ASYNC_WITH):
                 delta_iblock += 1
             elif op == POP_BLOCK:

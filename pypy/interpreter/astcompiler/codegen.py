@@ -190,10 +190,22 @@ class __extend__(ast.DictComp):
 
 
 # These are frame blocks.
-F_BLOCK_LOOP = 0
-F_BLOCK_EXCEPT = 1
-F_BLOCK_FINALLY = 2
-F_BLOCK_FINALLY_END = 3
+fblock_kind_to_str = []
+for i, name in enumerate("F_WHILE_LOOP F_FOR_LOOP F_EXCEPT F_FINALLY_TRY F_FINALLY_TRY2 F_FINALLY_END F_WITH F_ASYNC_WITH F_HANDLER_CLEANUP".split()):
+    globals()[name] = i
+    fblock_kind_to_str.append(name)
+del name, i
+
+
+class FrameBlockInfo(object):
+    def __init__(self, kind, block, end):
+        self.kind = kind
+        self.block = block
+        self.end = end
+
+    def __repr__(self):
+        # for debugging
+        return "<FrameBlockInfo kind=%s block=%s end=%s>" % (fblock_kind_to_str[self.kind], self.block, self.end)
 
 
 class PythonCodeGenerator(assemble.PythonCodeMaker):
@@ -235,13 +247,63 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                          self.compile_info, qualname)
         return generator.assemble(), qualname
 
-    def push_frame_block(self, kind, block):
-        self.frame_blocks.append((kind, block))
+    def push_frame_block(self, kind, block, end=None):
+        self.frame_blocks.append(FrameBlockInfo(kind, block, end))
 
     def pop_frame_block(self, kind, block):
-        actual_kind, old_block = self.frame_blocks.pop()
-        assert actual_kind == kind and old_block is block, \
+        fblock = self.frame_blocks.pop()
+        assert fblock.kind == kind and fblock.block is block, \
             "mismatched frame blocks"
+
+    def unwind_fblock(self, fblock, preserve_tos):
+        kind = fblock.kind
+        if kind == F_FOR_LOOP:
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+            self.emit_op(ops.POP_TOP) # pop iterator
+        elif kind == F_WHILE_LOOP:
+            pass
+        elif kind == F_FINALLY_TRY:
+            self.emit_op(ops.POP_BLOCK)
+            self.emit_jump(ops.CALL_FINALLY, fblock.end)
+        elif kind == F_FINALLY_TRY2:
+            self.emit_op(ops.POP_BLOCK)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+                self.emit_op(ops.POP_TOP)
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+            else:
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+                self.emit_op(ops.POP_TOP)
+        elif kind == F_EXCEPT:
+            self.emit_op(ops.POP_BLOCK)
+        elif kind == F_HANDLER_CLEANUP:
+            if fblock.end:
+                self.emit_op(ops.POP_BLOCK)
+                self.emit_op(ops.POP_EXCEPT)
+                self.emit_jump(ops.CALL_FINALLY, fblock.end)
+            else:
+                self.emit_op(ops.POP_EXCEPT)
+        elif kind == F_FINALLY_END:
+            fblock.end = None
+            self.emit_op_arg(ops.POP_FINALLY, preserve_tos)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+            self.emit_op(ops.POP_TOP)
+        elif kind == F_WITH or kind == F_ASYNC_WITH:
+            self.emit_op(ops.POP_BLOCK)
+            if preserve_tos:
+                self.emit_op(ops.ROT_TWO)
+            self.emit_op(ops.BEGIN_FINALLY)
+            self.emit_op(ops.WITH_CLEANUP_START)
+            if kind == F_ASYNC_WITH:
+                self.emit_op(ops.GET_AWAITABLE)
+                self.load_const(self.space.w_None)
+                self.emit_op(ops.YIELD_FROM)
+            self.emit_op(ops.WITH_CLEANUP_FINISH)
+            self.emit_op_arg(ops.POP_FINALLY, 0)
+        else:
+            assert 0, "unreachable"
 
     def error(self, msg, node):
         raise SyntaxError(msg, node.lineno, node.col_offset,
@@ -561,10 +623,16 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Return(self, ret):
         self.update_position(ret.lineno, True)
-        if ret.value:
+        preserve_tos = ret.value is not None and not isinstance(ret.value, ast.Constant)
+        if preserve_tos:
             ret.value.walkabout(self)
-        else:
+        for i in range(len(self.frame_blocks) - 1, -1, -1):
+            fblock = self.frame_blocks[i]
+            self.unwind_fblock(fblock, preserve_tos)
+        if ret.value is None:
             self.load_const(self.space.w_None)
+        elif not preserve_tos:
+            ret.value.walkabout(self) # Constant
         self.emit_op(ops.RETURN_VALUE)
 
     def visit_Delete(self, delete):
@@ -595,43 +663,35 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def visit_Break(self, br):
         self.update_position(br.lineno, True)
-        for f_block in self.frame_blocks:
-            if f_block[0] == F_BLOCK_LOOP:
+        for i in range(len(self.frame_blocks) - 1, -1, -1):
+            fblock = self.frame_blocks[i]
+            self.unwind_fblock(fblock, False)
+            if fblock.kind == F_WHILE_LOOP or fblock.kind == F_FOR_LOOP:
+                assert fblock.end is not None
+                self.emit_jump(ops.JUMP_ABSOLUTE, fblock.end, True)
                 break
         else:
             self.error("'break' outside loop", br)
-        self.emit_op(ops.BREAK_LOOP)
 
     def visit_Continue(self, cont):
         self.update_position(cont.lineno, True)
-        if not self.frame_blocks:
+        for i in range(len(self.frame_blocks) - 1, -1, -1):
+            fblock = self.frame_blocks[i]
+            if fblock.kind == F_WHILE_LOOP or fblock.kind == F_FOR_LOOP:
+                assert fblock.end is not None
+                self.emit_jump(ops.JUMP_ABSOLUTE, fblock.block, True)
+                break
+            self.unwind_fblock(fblock, False)
+        else:
             self.error("'continue' not properly in loop", cont)
-        current_block, block = self.frame_blocks[-1]
-        # Continue cannot be in a finally block.
-        if current_block == F_BLOCK_LOOP:
-            self.emit_jump(ops.JUMP_ABSOLUTE, block, True)
-        elif current_block == F_BLOCK_EXCEPT or \
-                current_block == F_BLOCK_FINALLY:
-            for i in range(len(self.frame_blocks) - 2, -1, -1):
-                f_type, block = self.frame_blocks[i]
-                if f_type == F_BLOCK_LOOP:
-                    self.emit_jump(ops.CONTINUE_LOOP, block, True)
-                    break
-                if f_type == F_BLOCK_FINALLY_END:
-                    self.error("'continue' not supported inside 'finally' "
-                                   "clause", cont)
-            else:
-                self.error("'continue' not properly in loop", cont)
-        elif current_block == F_BLOCK_FINALLY_END:
-            self.error("'continue' not supported inside 'finally' clause", cont)
 
     def visit_For(self, fr):
         self.update_position(fr.lineno, True)
         start = self.new_block()
         cleanup = self.new_block()
         end = self.new_block()
-        self.emit_jump(ops.SETUP_LOOP, end)
-        self.push_frame_block(F_BLOCK_LOOP, start)
+        # self.emit_jump(ops.SETUP_LOOP, end)
+        self.push_frame_block(F_FOR_LOOP, start, end)
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
@@ -642,8 +702,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.visit_sequence(fr.body)
         self.emit_jump(ops.JUMP_ABSOLUTE, start, True)
         self.use_next_block(cleanup)
-        self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_LOOP, start)
+        self.pop_frame_block(F_FOR_LOOP, start)
         self.visit_sequence(fr.orelse)
         self.use_next_block(end)
 
@@ -651,57 +710,31 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if not self._check_async_function():
             self.error("'async for' outside async function", fr)
         self.update_position(fr.lineno, True)
-        b_try = self.new_block()
+        b_start = self.new_block()
         b_except = self.new_block()
         b_end = self.new_block()
-        b_after_try = self.new_block()
-        b_try_cleanup = self.new_block()
-        b_after_loop_else = self.new_block()
-
-        self.emit_jump(ops.SETUP_LOOP, b_end)
-        self.push_frame_block(F_BLOCK_LOOP, b_try)
 
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_AITER)
-        self.load_const(self.space.w_None)
-        self.emit_op(ops.YIELD_FROM)
 
-        self.use_next_block(b_try)
+        self.use_next_block(b_start)
+        self.push_frame_block(F_FOR_LOOP, b_start, b_end)
+
         # This adds another line, so each for iteration can be traced.
         self.lineno_set = False
         self.emit_jump(ops.SETUP_EXCEPT, b_except)
-        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
-
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        fr.target.walkabout(self)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
-        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
-
-        self.use_next_block(b_except)
-        self.emit_op(ops.DUP_TOP)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
-        self.emit_op_arg(ops.COMPARE_OP, 10)
-        self.emit_jump(ops.POP_JUMP_IF_TRUE, b_try_cleanup, True)
-        self.emit_op(ops.END_FINALLY)
-
-        self.use_next_block(b_after_try)
+        fr.target.walkabout(self)
         self.visit_sequence(fr.body)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_start, True)
+        self.pop_frame_block(F_FOR_LOOP, b_start)
 
-        self.use_next_block(b_try_cleanup)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
-        self.emit_op(ops.POP_TOP)
-
-        self.emit_op(ops.POP_BLOCK) # for SETUP_LOOP
-        self.pop_frame_block(F_BLOCK_LOOP, b_try)
-
-        self.use_next_block(b_after_loop_else)
+        # except block for errors from __anext__
+        self.use_next_block(b_except)
+        self.emit_op(ops.END_ASYNC_FOR)
         self.visit_sequence(fr.orelse)
 
         self.use_next_block(b_end)
@@ -716,9 +749,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             anchor = None
             if test_constant == optimize.CONST_NOT_CONST:
                 anchor = self.new_block()
-            self.emit_jump(ops.SETUP_LOOP, end)
             loop = self.new_block()
-            self.push_frame_block(F_BLOCK_LOOP, loop)
+            self.push_frame_block(F_WHILE_LOOP, loop, end)
             self.use_next_block(loop)
             if test_constant == optimize.CONST_NOT_CONST:
                 # Force another lineno to be set for tracing purposes.
@@ -728,22 +760,23 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_jump(ops.JUMP_ABSOLUTE, loop, True)
             if test_constant == optimize.CONST_NOT_CONST:
                 self.use_next_block(anchor)
-            self.emit_op(ops.POP_BLOCK)
-            self.pop_frame_block(F_BLOCK_LOOP, loop)
+            self.pop_frame_block(F_WHILE_LOOP, loop)
             self.visit_sequence(wh.orelse)
             self.use_next_block(end)
 
     def _visit_try_except(self, tr):
         self.update_position(tr.lineno, True)
+        body = self.new_block()
         exc = self.new_block()
         otherwise = self.new_block()
         end = self.new_block()
+        # XXX CPython uses SETUP_FINALLY here too
         self.emit_jump(ops.SETUP_EXCEPT, exc)
-        body = self.use_next_block()
-        self.push_frame_block(F_BLOCK_EXCEPT, body)
+        body = self.use_next_block(body)
+        self.push_frame_block(F_EXCEPT, body)
         self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_EXCEPT, body)
+        self.pop_frame_block(F_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
         for i, handler in enumerate(tr.handlers):
@@ -778,15 +811,15 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 # second try
                 self.emit_jump(ops.SETUP_FINALLY, cleanup_end)
                 cleanup_body = self.use_next_block()
-                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body, cleanup_end)
                 # second # body
                 self.visit_sequence(handler.body)
                 self.emit_op(ops.POP_BLOCK)
-                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.emit_op(ops.BEGIN_FINALLY)
+                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 # finally
-                self.load_const(self.space.w_None)
                 self.use_next_block(cleanup_end)
-                self.push_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                self.push_frame_block(F_FINALLY_END, cleanup_end)
                 # name = None
                 self.load_const(self.space.w_None)
                 self.name_op(handler.name, ast.Store)
@@ -794,16 +827,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 self.name_op(handler.name, ast.Del)
                 #
                 self.emit_op(ops.END_FINALLY)
-                self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup_end)
+                self.emit_op(ops.POP_EXCEPT)
+                self.pop_frame_block(F_FINALLY_END, cleanup_end)
             else:
                 self.emit_op(ops.POP_TOP)
                 self.emit_op(ops.POP_TOP)
                 cleanup_body = self.use_next_block()
-                self.push_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.push_frame_block(F_HANDLER_CLEANUP, cleanup_body)
                 self.visit_sequence(handler.body)
-                self.pop_frame_block(F_BLOCK_FINALLY, cleanup_body)
+                self.pop_frame_block(F_HANDLER_CLEANUP, cleanup_body)
+                self.emit_op(ops.POP_EXCEPT)
             #
-            self.emit_op(ops.POP_EXCEPT)
             self.emit_jump(ops.JUMP_FORWARD, end)
             self.use_next_block(next_except)
         self.emit_op(ops.END_FINALLY)   # this END_FINALLY will always re-raise
@@ -813,23 +847,50 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
     def _visit_try_finally(self, tr):
         self.update_position(tr.lineno, True)
+
+        body = self.new_block()
         end = self.new_block()
+        start = self.current_block
+
+        # compile finally block first
+        self.use_next_block(end)
+        self.push_frame_block(F_FINALLY_END, end, end)
+        self.visit_sequence(tr.finalbody)
+        self.emit_op(ops.END_FINALLY)
+        # we can find out whether the finally block was unwound by looking at
+        # the frame_block .end attribute, which is reset to None in
+        # unwind_fblock
+        unwound_finally = self.frame_blocks[-1].end is None
+        if unwound_finally:
+            self.emit_op(ops.POP_TOP)
+        self.pop_frame_block(F_FINALLY_END, end)
+
+        newcurblock = self.current_block
+        self.current_block = start
+        start.next_block = None
+
+        if unwound_finally:
+            # Pushes a placeholder for the value of "return" in the "try" block
+            # to balance the stack for "break", "continue" and "return" in the
+            # "finally" block.
+            self.load_const(self.space.w_None)
+            blocktype = F_FINALLY_TRY2
+        else:
+            blocktype = F_FINALLY_TRY
+
         self.emit_jump(ops.SETUP_FINALLY, end)
-        body = self.use_next_block()
-        self.push_frame_block(F_BLOCK_FINALLY, body)
+        self.use_next_block(body)
+        self.push_frame_block(blocktype, body, end)
         if tr.handlers:
             self._visit_try_except(tr)
         else:
             self.visit_sequence(tr.body)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_FINALLY, body)
-        # Indicates there was no exception.
-        self.load_const(self.space.w_None)
-        self.use_next_block(end)
-        self.push_frame_block(F_BLOCK_FINALLY_END, end)
-        self.visit_sequence(tr.finalbody)
-        self.emit_op(ops.END_FINALLY)
-        self.pop_frame_block(F_BLOCK_FINALLY_END, end)
+        self.emit_op(ops.BEGIN_FINALLY)
+        self.pop_frame_block(blocktype, body)
+        self.current_block.next_block = end
+        self.current_block = newcurblock
+
 
     def visit_Try(self, tr):
         if tr.finalbody:
@@ -1069,15 +1130,17 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         witem.context_expr.walkabout(self)
         if not is_async:
             self.emit_jump(ops.SETUP_WITH, cleanup)
+            fblock_kind = F_WITH
         else:
             self.emit_op(ops.BEFORE_ASYNC_WITH)
             self.emit_op(ops.GET_AWAITABLE)
             self.load_const(self.space.w_None)
             self.emit_op(ops.YIELD_FROM)
             self.emit_jump(ops.SETUP_ASYNC_WITH, cleanup)
+            fblock_kind = F_ASYNC_WITH
 
         self.use_next_block(body_block)
-        self.push_frame_block(F_BLOCK_FINALLY, body_block)
+        self.push_frame_block(fblock_kind, body_block, cleanup)
         if witem.optional_vars:
             witem.optional_vars.walkabout(self)
         else:
@@ -1087,10 +1150,11 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             self.handle_withitem(wih, pos + 1, is_async=is_async)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_FINALLY, body_block)
-        self.load_const(self.space.w_None)
+        self.emit_op(ops.BEGIN_FINALLY)
+        self.pop_frame_block(fblock_kind, body_block)
+
         self.use_next_block(cleanup)
-        self.push_frame_block(F_BLOCK_FINALLY_END, cleanup)
+        self.push_frame_block(F_FINALLY_END, cleanup)
         self.emit_op(ops.WITH_CLEANUP_START)
         if is_async:
             self.emit_op(ops.GET_AWAITABLE)
@@ -1098,7 +1162,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.emit_op(ops.YIELD_FROM)
         self.emit_op(ops.WITH_CLEANUP_FINISH)
         self.emit_op(ops.END_FINALLY)
-        self.pop_frame_block(F_BLOCK_FINALLY_END, cleanup)
+        self.pop_frame_block(F_FINALLY_END, cleanup)
 
     def visit_AsyncWith(self, wih):
         if not self._check_async_function():
@@ -1569,9 +1633,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(anchor)
 
     def _comp_async_generator(self, node, generators, gen_index):
-        b_try = self.new_block()
-        b_after_try = self.new_block()
-        b_try_cleanup = self.new_block()
+        b_start = self.new_block()
         b_except = self.new_block()
         b_if_cleanup = self.new_block()
         gen = generators[gen_index]
@@ -1579,28 +1641,19 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if gen_index > 0:
             gen.iter.walkabout(self)
             self.emit_op(ops.GET_AITER)
-            self.load_const(self.space.w_None)
-            self.emit_op(ops.YIELD_FROM)
-        self.use_next_block(b_try)
+
+        self.use_next_block(b_start)
+
         self.emit_jump(ops.SETUP_EXCEPT, b_except)
-        self.push_frame_block(F_BLOCK_EXCEPT, b_try)
+        # frame block not really used, we can't unwind it!
+        self.push_frame_block(F_EXCEPT, b_start)
 
         self.emit_op(ops.GET_ANEXT)
         self.load_const(self.space.w_None)
         self.emit_op(ops.YIELD_FROM)
-        gen.target.walkabout(self)
         self.emit_op(ops.POP_BLOCK)
-        self.pop_frame_block(F_BLOCK_EXCEPT, b_try)
-        self.emit_jump(ops.JUMP_FORWARD, b_after_try)
-
-        self.use_next_block(b_except)
-        self.emit_op(ops.DUP_TOP)
-        self.emit_op_name(ops.LOAD_GLOBAL, self.names, "StopAsyncIteration")
-        self.emit_op_arg(ops.COMPARE_OP, 10)
-        self.emit_jump(ops.POP_JUMP_IF_TRUE, b_try_cleanup, True)
-        self.emit_op(ops.END_FINALLY)
-
-        self.use_next_block(b_after_try)
+        gen.target.walkabout(self)
+        self.pop_frame_block(F_EXCEPT, b_start)
 
         if gen.ifs:
             for if_ in gen.ifs:
@@ -1612,14 +1665,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self._comp_generator(node, generators, gen_index)
         else:
             node.accept_comp_iteration(self, gen_index)
+
         self.use_next_block(b_if_cleanup)
-        self.emit_jump(ops.JUMP_ABSOLUTE, b_try, True)
-        self.use_next_block(b_try_cleanup)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_TOP)
-        self.emit_op(ops.POP_EXCEPT) # for SETUP_EXCEPT
-        self.emit_op(ops.POP_TOP)
+        self.emit_jump(ops.JUMP_ABSOLUTE, b_start, True)
+
+        self.use_next_block(b_except)
+        self.emit_op(ops.END_ASYNC_FOR)
 
     def _compile_comprehension(self, node, name, sub_scope):
         is_async_function = self.scope.is_coroutine
@@ -1640,8 +1691,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         first_comp.iter.walkabout(self)
         if first_comp.is_async:
             self.emit_op(ops.GET_AITER)
-            self.load_const(self.space.w_None)
-            self.emit_op(ops.YIELD_FROM)
         else:
             self.emit_op(ops.GET_ITER)
         self.emit_op_arg(ops.CALL_FUNCTION, 1)

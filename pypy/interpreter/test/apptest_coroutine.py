@@ -72,25 +72,6 @@ def test_StopAsyncIteration():
     else:
         assert False, "should have raised"
 
-
-def test_async_for_old_style():
-    class X:
-        def __aiter__(self):
-            return MyAIter()
-    class MyAIter:
-        def __await__(self):
-            return iter([20, 30])
-    async def f(x):
-        sum = 0
-        async for a in x:
-            sum += a
-            if sum > 100:
-                break
-        return sum
-    cr = f(X())
-    assert next(cr.__await__()) == 20
-
-
 def test_for_error_cause():
     class F:
         def __aiter__(self):

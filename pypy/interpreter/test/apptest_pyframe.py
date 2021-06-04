@@ -536,7 +536,6 @@ def test_trace_onliner_if():
     sys.settrace(None)
     firstlineno = onliners.__code__.co_firstlineno
     assert l == [(firstlineno + 0, 'call'),
-                    (firstlineno + 1, 'line'),
                     (firstlineno + 3, 'line'),
                     (firstlineno + 3, 'return')]
 
