@@ -12,3 +12,7 @@ Merge latest hpy
 .. branch: py3.8-reversed-dict
 
 Implement ``reversed(dict)``
+
+.. branch: py3.8-new-opcodes
+
+Implement new opcodes that CPython 3.8 uses
