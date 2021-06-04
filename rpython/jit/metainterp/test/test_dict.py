@@ -381,6 +381,20 @@ class DictTests:
         self.meta_interp(f, [100])
         self.check_simple_loop(call_may_force_i=0, call_i=0, new=0)
 
+    def test_loop_over_virtual_dict_gives_constants(self):
+        def fn(n):
+            d = self.newdict()
+            d[0] = n
+            d[1] = n
+            d2 = self.newdict()
+            d2[3] = n + 2
+            for key, value in d2.iteritems():
+                d[key] = value
+            return d[3]
+        res = self.interp_operations(fn, [0])
+        assert res == 2
+        self.check_operations_history(getinteriorfield_gc_i=0)
+
 
 class TestLLtype(DictTests, LLJitMixin):
     pass

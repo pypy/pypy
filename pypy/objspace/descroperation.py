@@ -1,5 +1,5 @@
 import operator
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, oefmt_attribute_error
 from pypy.interpreter.baseobjspace import ObjSpace
 from pypy.interpreter.function import Function, Method, FunctionWithFixedCode
 from pypy.interpreter.argument import Arguments
@@ -57,8 +57,8 @@ def dict_getitem(space):
 def raiseattrerror(space, w_obj, w_name, w_descr=None):
     # space.repr always returns an encodable string.
     if w_descr is None:
-        raise oefmt(space.w_AttributeError,
-                    "'%T' object has no attribute %R", w_obj, w_name)
+        raise oefmt_attribute_error(space,
+                    w_obj, w_name, "'%T' object has no attribute %R")
     else:
         raise oefmt(space.w_AttributeError,
                     "'%T' object attribute %R is read-only", w_obj, w_name)

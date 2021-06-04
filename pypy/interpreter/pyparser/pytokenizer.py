@@ -127,8 +127,7 @@ def generate_tokens(lines, flags):
     lnum = continued = 0
     namechars = NAMECHARS
     numchars = NUMCHARS
-    contstr, needcont = '', 0
-    contline = None
+    contstrs, needcont = [], False
     indents = [0]
     altindents = [0]
     last_comment = ''
@@ -147,7 +146,7 @@ def generate_tokens(lines, flags):
         pos, max = 0, len(line)
         switch_indents = 0
 
-        if contstr:
+        if contstrs:
             if not line:
                 raise TokenError(
                     "end of file (EOF) while scanning triple-quoted string literal",
@@ -156,24 +155,23 @@ def generate_tokens(lines, flags):
             endmatch = endDFA.recognize(line)
             if endmatch >= 0:
                 pos = end = endmatch
-                tok = Token(tokens.STRING, contstr + line[:end], strstart[0],
+                contstrs.append(line[:end])
+                tok = Token(tokens.STRING, "".join(contstrs), strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
-                contstr, needcont = '', 0
-                contline = None
+                contstrs, needcont = [], False
             elif (needcont and not line.endswith('\\\n') and
                                not line.endswith('\\\r\n')):
-                tok = Token(tokens.ERRORTOKEN, contstr + line, strstart[0],
+                contstrs.append(line)
+                tok = Token(tokens.ERRORTOKEN, "".join(contstrs), strstart[0],
                        strstart[1], line)
                 token_list.append(tok)
                 last_comment = ''
-                contstr = ''
-                contline = None
+                contstrs = []
                 continue
             else:
-                contstr = contstr + line
-                contline = contline + line
+                contstrs.append(line)
                 continue
 
         elif not parenstack and not continued:  # new statement
@@ -198,7 +196,7 @@ def generate_tokens(lines, flags):
                 # skip blank lines
                 continue
             if line[pos] == '#':
-                # check integrity of comment
+                # skip full-line comment, but still check that it is valid utf-8
                 if not verify_utf8(line):
                     raise bad_utf8("comment",
                                    line, lnum, pos, token_list, flags)
@@ -274,7 +272,7 @@ def generate_tokens(lines, flags):
                         switch_indents = 0
                     last_comment = ''
                 elif initial == '#':
-                    # check integrity of comment
+                    # skip comment, but still check that it is valid utf-8
                     if not verify_utf8(token):
                         raise bad_utf8("comment",
                                        line, lnum, start, token_list, flags)
@@ -295,8 +293,7 @@ def generate_tokens(lines, flags):
                         last_comment = ''
                     else:
                         strstart = (lnum, start, line)
-                        contstr = line[start:]
-                        contline = line
+                        contstrs = [line[start:]]
                         break
                 elif initial in single_quoted or \
                     token[:2] in single_quoted or \
@@ -305,8 +302,7 @@ def generate_tokens(lines, flags):
                         strstart = (lnum, start, line)
                         endDFA = (endDFAs[initial] or endDFAs[token[1]] or
                                    endDFAs[token[2]])
-                        contstr, needcont = line[start:], 1
-                        contline = line
+                        contstrs, needcont = [line[start:]], True
                         break
                     else:                                  # ordinary string
                         tok = Token(tokens.STRING, token, lnum, start, line)

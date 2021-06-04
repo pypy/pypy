@@ -14,6 +14,13 @@ extern "C" {
 #define PyExceptionInstance_Check(x)                                    \
     (PyObject_IsSubclass((PyObject *)Py_TYPE(x), PyExc_BaseException))
 
+#define PyExc_EnvironmentError PyExc_OSError
+#define PyExc_IOError PyExc_OSError
+
+#ifdef MS_WINDOWS
+#define PyExc_WindowsError PyExc_OSError
+#endif
+
 PyAPI_FUNC(PyObject *) PyErr_NewException(const char *name, PyObject *base, PyObject *dict);
 PyAPI_FUNC(PyObject *) PyErr_NewExceptionWithDoc(const char *name, const char *doc, PyObject *base, PyObject *dict);
 PyAPI_FUNC(PyObject *) PyErr_Format(PyObject *exception, const char *format, ...);

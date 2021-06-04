@@ -499,13 +499,13 @@ class CStandaloneBuilder(CBuilder):
         if self.translator.platform.name == 'msvc':
             mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -Od -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
             wildcards = '..\*.obj ..\*.pdb ..\*.lib ..\*.dll ..\*.manifest ..\*.exp *.pch'
-            cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)' % wildcards
+            cmd =  r'del /s %s $(DEFAULT_TARGET) $(TARGET) $(ASMFILES)' % wildcards
             mk.rule('clean', '',  cmd + ' *.gc?? ..\module_cache\*.gc??')
             mk.rule('clean_noprof', '', cmd)
         else:
             mk.rule('lldebug0','', '$(MAKE) CFLAGS="$(DEBUGFLAGS) -O0 -DMAX_STACK_SIZE=8192000 -DRPY_ASSERT -DRPY_LL_ASSERT" debug_target'),
-            mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES) *.gc?? ../module_cache/*.gc??')
-            mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(GCMAPFILES) $(ASMFILES)')
+            mk.rule('clean', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(ASMFILES) $(PRECOMPILEDHEADERS) *.gc?? ../module_cache/*.gc??')
+            mk.rule('clean_noprof', '', 'rm -f $(OBJECTS) $(DEFAULT_TARGET) $(TARGET) $(ASMFILES)')
 
         if self.config.translation.gcrootfinder == 'asmgcc':
             raise AssertionError("asmgcc not supported any more")
@@ -704,11 +704,7 @@ class SourceGenerator:
                     print >> fc, '/***********************************************************/'
                     print >> fc, '/***  Non-function Implementations                       ***/'
                     print >> fc
-                    print >> fc, '#include "common_header.h"'
-                    print >> fc, '#include "structdef.h"'
-                    print >> fc, '#include "forwarddecl.h"'
-                    print >> fc, '#include "preimpl.h"'
-                    print >> fc
+                    print >> fc, '#include "singleheader.h"'
                     print >> fc, '#include "src/g_include.h"'
                     print >> fc
                 print >> fc, MARKER
@@ -727,10 +723,7 @@ class SourceGenerator:
                     print >> fc, '/***********************************************************/'
                     print >> fc, '/***  Implementations                                    ***/'
                     print >> fc
-                    print >> fc, '#include "common_header.h"'
-                    print >> fc, '#include "structdef.h"'
-                    print >> fc, '#include "forwarddecl.h"'
-                    print >> fc, '#include "preimpl.h"'
+                    print >> fc, '#include "singleheader.h"'
                     print >> fc, '#define PYPY_FILE_NAME "%s"' % name
                     print >> fc, '#include "src/g_include.h"'
                     if self.database.reverse_debugger:
@@ -913,4 +906,16 @@ def gen_source(database, modulename, targetdir,
 
     eci = add_extra_files(database, eci)
     eci = eci.convert_sources_to_files()
+
+    # create singleheader.h, which combines common_header.h, structdef.h,
+    # forwarddecl.h and preimpl.h
+    singleheader = targetdir.join('singleheader.h')
+    with singleheader.open("w") as fs:
+        for fn in "common_header structdef forwarddecl preimpl".split():
+            fs.write("/*************** content of %s.h ***************/\n\n" % fn)
+            with targetdir.join(fn + ".h").open("r") as f:
+                fs.write(f.read())
+            fs.write("\n\n")
+    headers_to_precompile.insert(0, singleheader)
+
     return eci, filename, sg.getextrafiles(), headers_to_precompile

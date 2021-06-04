@@ -38,6 +38,14 @@ class TestW_LongObject:
                 w_obj = space.newlong_from_rarith_int(r(x))
                 assert space.bigint_w(w_obj).eq(rbigint.fromlong(x))
 
+    def test_int_mod_gives_int(self):
+        space = self.space
+        fromlong = lobj.W_LongObject.fromlong
+        x = fromlong(13)
+        y = space.newint(2)
+        z = space.mod(x, y)
+        assert space.eq_w(z, space.newint(1))
+        assert not isinstance(z, lobj.W_LongObject)
 
 class AppTestLong:
 
