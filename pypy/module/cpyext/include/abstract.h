@@ -13,6 +13,10 @@ extern "C" {
        */
 
 
+/* Call "callable" (which must support vectorcall) with positional arguments
+   "tuple" and keyword arguments "dict". "dict" may also be NULL */
+PyAPI_FUNC(PyObject *) PyVectorcall_Call(PyObject *callable, PyObject *tuple, PyObject *dict);
+
     /* new buffer API */
 
 #define PyObject_CheckBuffer(obj) \

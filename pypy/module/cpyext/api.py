@@ -655,6 +655,7 @@ SYMBOLS_C = [
     '_PyObject_GC_Malloc', '_PyObject_GC_New', '_PyObject_GC_NewVar',
     'PyObject_Init', 'PyObject_InitVar',
     'PyTuple_New', '_Py_Dealloc',
+    'PyVectorcall_Call',
 ]
 if sys.platform == "win32":
     SYMBOLS_C.append('Py_LegacyWindowsStdioFlag')
@@ -1560,6 +1561,7 @@ separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "typeobject.c",
                          source_dir / "tupleobject.c",
                          source_dir / "sliceobject.c",
+                         source_dir / "call.c",
                          ]
 if WIN32:
     separate_module_files.append(source_dir / "pythread_nt.c")

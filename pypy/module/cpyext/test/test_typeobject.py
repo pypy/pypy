@@ -1715,13 +1715,71 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return _PyObject_Vectorcall(func, stack, nargs, kwnames);
-             ''')])
+            ''')],
+            prologue="""
+                #include <stddef.h>
+                typedef struct {
+                    PyObject_HEAD
+                    vectorcallfunc vectorcall;
+                } MethodDescriptorObject;
+
+                static PyObject *
+                MethodDescriptor_vectorcall(PyObject *callable, PyObject *const *args,
+                                            size_t nargsf, PyObject *kwnames)
+                {
+                    /* True if using the vectorcall function in MethodDescriptorObject
+                     * but False for MethodDescriptor2Object */
+                    MethodDescriptorObject *md = (MethodDescriptorObject *)callable;
+                    return PyBool_FromLong(md->vectorcall != NULL);
+                }
+
+                static PyObject *
+                MethodDescriptor_new(PyTypeObject* type, PyObject* args, PyObject *kw)
+                {
+                    MethodDescriptorObject *op = (MethodDescriptorObject *)type->tp_alloc(type, 0);
+                    op->vectorcall = MethodDescriptor_vectorcall;
+                    return (PyObject *)op;
+                }
+
+                static PyObject *
+                func_descr_get(PyObject *func, PyObject *obj, PyObject *type)
+                {
+                    if (obj == Py_None || obj == NULL) {
+                        Py_INCREF(func);
+                        return func;
+                    }
+                    return PyMethod_New(func, obj);
+                }
+
+                static PyTypeObject MethodDescriptorBase_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "MethodDescriptorBase",
+                    sizeof(MethodDescriptorObject),
+                    .tp_new = MethodDescriptor_new,
+                    .tp_call = PyVectorcall_Call,
+                    .tp_vectorcall_offset = offsetof(MethodDescriptorObject, vectorcall),
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE |
+                                Py_TPFLAGS_METHOD_DESCRIPTOR | _Py_TPFLAGS_HAVE_VECTORCALL,
+                    .tp_descr_get = func_descr_get,
+                };
+            """,
+            more_init="""
+                if (PyType_Ready(&MethodDescriptorBase_Type) < 0)
+                    INITERROR;
+                Py_INCREF(&MethodDescriptorBase_Type);
+                PyModule_AddObject(mod, "MethodDescriptorBase", (PyObject *)&MethodDescriptorBase_Type);
+
+
+            """)
         def pyfunc(arg1, arg2):
             return [arg1, arg2]
         res = module.test_vectorcall(pyfunc, (1, 2), None)
         assert res == [1, 2]
         res = module.test_vectorcall(pyfunc, (1, 2), ("arg2", ))
         assert res == [1, 2]
+        method = module.MethodDescriptorBase()
+        res = module.test_vectorcall(method, (0, ), None)
+        assert res == True
 
 
 class AppTestHashable(AppTestCpythonExtensionBase):
