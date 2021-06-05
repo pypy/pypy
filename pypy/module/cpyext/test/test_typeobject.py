@@ -1680,6 +1680,47 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         obj = module.new_obj()
         assert type(obj).__doc__ is None
 
+    def test_vectorcall(self):
+        module = self.import_extension('foo', [
+            ("test_vectorcall", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args, *kwnames = NULL;
+                PyObject **stack;
+                Py_ssize_t nargs, nkw;
+
+                if (!PyArg_ParseTuple(args, "OOO", &func, &func_args, &kwnames)) {
+                    return NULL;
+                }
+                if (args == Py_None) {
+                    stack = NULL;
+                    nargs = 0;
+                }
+                else if (PyTuple_Check(args)) {
+                    stack = ((PyTupleObject *)func_args)->ob_item;
+                    nargs = PyTuple_GET_SIZE(func_args);
+                }
+                if (kwnames == Py_None) {
+                    kwnames = NULL;
+                }
+                else if (PyTuple_Check(kwnames)) {
+                    nkw = PyTuple_GET_SIZE(kwnames);
+                    if (nargs < nkw) {
+                        PyErr_SetString(PyExc_ValueError, "kwnames longer than args");
+                        return NULL;
+                    }
+                    nargs -= nkw;
+                }
+                else {
+                    PyErr_SetString(PyExc_TypeError, "kwnames must be None or a tuple");
+                    return NULL;
+                }
+                return _PyObject_Vectorcall(func, stack, nargs, kwnames);
+             ''')])
+        def pyfunc(arg1, arg2):
+            return [arg1, arg2]
+        res = module.test_vectorcall(pyfunc, (1, 2), None)
+        assert res == [1, 2]
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):

@@ -1,4 +1,4 @@
-/* Copy of Modules/_testcapimodule.c from CPython 3.3,
+/* Copy of Modules/_testcapimodule.c from CPython 3.8,
  * with things that PyPy doesn't support disabled.
  */
 /*

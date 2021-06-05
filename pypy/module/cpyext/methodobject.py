@@ -12,7 +12,8 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS,
     PyObject, bootstrap_function, cpython_api, generic_cpy_call,
-    CANNOT_FAIL, slot_function, cts, build_type_checkers)
+    CANNOT_FAIL, slot_function, cts, build_type_checkers,
+    PyObjectP, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
@@ -491,3 +492,13 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.newtext(name))
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+    args_w = [None] * n
+    for i in range(n):
+        args_w[i] = from_ref(space, py_args[i])
+    w_args = space.newtuple(args_w)
+    assert w_argnames is None
+    w_result = space.call(w_func, w_args)
+    return w_result
