@@ -495,10 +495,21 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
 
 @cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
 def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+
+    if w_argnames is None:
+        n_kwargs = -1
+    else:
+        n_kwargs = space.len_w(w_argnames)
     args_w = [None] * n
     for i in range(n):
         args_w[i] = from_ref(space, py_args[i])
     w_args = space.newtuple(args_w)
-    assert w_argnames is None
-    w_result = space.call(w_func, w_args)
+    if w_argnames is None:
+        w_kwargs = None
+    else:
+        w_kwargs = space.newdict()
+        for i in range(n_kwargs):
+            space.setitem(w_kwargs, space.getitem(w_argnames, space.newint(i)),
+                    from_ref(space, py_args[n + i]))
+    w_result = space.call(w_func, w_args, w_kwargs)
     return w_result

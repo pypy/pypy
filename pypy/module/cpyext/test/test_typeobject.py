@@ -1720,6 +1720,8 @@ class AppTestSlots(AppTestCpythonExtensionBase):
             return [arg1, arg2]
         res = module.test_vectorcall(pyfunc, (1, 2), None)
         assert res == [1, 2]
+        res = module.test_vectorcall(pyfunc, (1, 2), ("arg2", ))
+        assert res == [1, 2]
 
 
 class AppTestHashable(AppTestCpythonExtensionBase):
