@@ -12,6 +12,13 @@ extern "C" {
      the Python statement: del o[key].
        */
 
+#define PY_VECTORCALL_ARGUMENTS_OFFSET ((size_t)1 << (8 * sizeof(size_t) - 1))
+
+static inline Py_ssize_t
+PyVectorcall_NARGS(size_t n)
+{
+    return n & ~PY_VECTORCALL_ARGUMENTS_OFFSET;
+}
 
 /* Call "callable" (which must support vectorcall) with positional arguments
    "tuple" and keyword arguments "dict". "dict" may also be NULL */
