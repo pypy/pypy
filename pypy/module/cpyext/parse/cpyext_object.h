@@ -290,6 +290,8 @@ typedef struct _typeobject {
 
     destructor tp_finalize;
 
+    printfunc tp_print; // deprecated, but stays around for compatibility
+
     /* PyPy specific extra fields: make sure that they are ALWAYS at the end,
        for compatibility with CPython */
     long tp_pypy_flags;
