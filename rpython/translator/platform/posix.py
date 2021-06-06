@@ -2,7 +2,8 @@
 
 import py, os, sys
 
-from rpython.translator.platform import Platform, log, _run_subprocess
+from rpython.translator.platform import (
+    Platform, log, _run_subprocess, CompilationError)
 from rpython.config.support import detect_pax
 
 import rpython
@@ -91,6 +92,13 @@ class BasePosix(Platform):
                            "%s\n%s" % (lib, opt, out.rstrip(), err.rstrip()))
                 raise ValueError(msg)
         return result
+
+    def get_multiarch(self):
+        try:
+            ret = self.execute(self.cc, args=['--print-multiarch'])
+        except CompilationError:
+            return ''
+        return ret.out.strip()
 
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross-compilation i.e. ARM

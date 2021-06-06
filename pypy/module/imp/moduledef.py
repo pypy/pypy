@@ -11,6 +11,7 @@ class Module(MixedModule):
 
         'get_magic':       'interp_imp.get_magic',
         'get_tag':         'interp_imp.get_tag',
+        'get_multiarch':   'interp_imp.get_multiarch',
         'create_dynamic':  'interp_imp.create_dynamic',
         'create_builtin':  'interp_imp.create_builtin',
         'init_frozen':     'interp_imp.init_frozen',

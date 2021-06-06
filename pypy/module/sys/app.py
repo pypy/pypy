@@ -161,10 +161,15 @@ class sysflags(metaclass=structseqtype):
 null_sysflags = sysflags((0,)*13 + (False, 0))
 null__xoptions = {}
 
+implementation_dict = {
+    'name':       'pypy',
+    'version':    sys.version_info,
+    'hexversion': sys.hexversion,
+    'cache_tag':  _imp.get_tag(),
+}
 
-implementation = SimpleNamespace(
-    name='pypy',
-    version=sys.version_info,
-    hexversion=sys.hexversion,
-    cache_tag=_imp.get_tag(),
-    )
+multiarch = _imp.get_multiarch()
+if multiarch:
+    implementation_dict['_multiarch'] = multiarch
+
+implementation = SimpleNamespace(**implementation_dict)

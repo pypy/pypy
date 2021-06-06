@@ -825,7 +825,13 @@ class AppTestSysModulePortedFromCPython:
         finally:
             sys.set_coroutine_origin_tracking_depth(0)
 
-
+    def test_multiarch(self):
+        import sys
+        if sys.platform == 'linux':
+            multiarch = sys.implementation._multiarch
+            assert 'linux' in multiarch
+        else:
+            assert not sys.implemenation.hasattr('_multiarch')
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):
