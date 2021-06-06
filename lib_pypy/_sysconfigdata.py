@@ -34,7 +34,8 @@ build_time_vars = {
     # the mybase/bin layout is left untouched.
     'LIBDIR': os.path.join(mybase, 'bin'),
     'INCLUDEPY': os.path.join(mybase, 'include'),
-    'LDLIBRARY': 'libpypy3-c.so'
+    'LDLIBRARY': 'libpypy3-c.so',
+    'VERSION': '%d.%d' % sys.version_info[:2],
 }
 
 if find_executable("gcc"):
