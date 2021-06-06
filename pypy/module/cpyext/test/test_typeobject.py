@@ -1781,6 +1781,21 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_vectorcall(method, (0, ), None)
         assert res == True
 
+    def test_call_no_args(self):
+        module = self.import_extension('foo', [
+            ("test_callnoarg", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args, *kwnames = NULL;
+                PyObject **stack;
+                Py_ssize_t nargs, nkw;
+
+                if (!PyArg_ParseTuple(args, "O", &func)) {
+                    return NULL;
+                }
+                return _PyObject_CallNoArg(func);
+            ''')])
+        assert module.test_callnoarg(lambda : 4) == 4
+
 
 class AppTestHashable(AppTestCpythonExtensionBase):
     def test_unhashable(self):
