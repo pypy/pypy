@@ -1781,6 +1781,32 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_vectorcall(method, (0, ), None)
         assert res == True
 
+    def test_fastcall(self):
+        module = self.import_extension('foo', [
+            ("test_fastcall", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args = NULL;
+                PyObject **stack;
+                Py_ssize_t nargs, nkw;
+
+                if (!PyArg_ParseTuple(args, "OO", &func, &func_args)) {
+                    return NULL;
+                }
+                if (args == Py_None) {
+                    stack = NULL;
+                    nargs = 0;
+                }
+                else if (PyTuple_Check(args)) {
+                    stack = ((PyTupleObject *)func_args)->ob_item;
+                    nargs = PyTuple_GET_SIZE(func_args);
+                }
+                return _PyObject_FastCall(func, stack, nargs);
+            ''')])
+        def pyfunc(arg1, arg2):
+            return [arg1, arg2]
+        res = module.test_fastcall(pyfunc, (1, 2))
+        assert res == [1, 2]
+
     def test_call_no_args(self):
         module = self.import_extension('foo', [
             ("test_callnoarg", "METH_VARARGS",

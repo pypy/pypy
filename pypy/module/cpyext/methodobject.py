@@ -513,3 +513,7 @@ def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
                     from_ref(space, py_args[n + i]))
     w_result = space.call(w_func, w_args, w_kwargs)
     return w_result
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t], PyObject)
+def _PyObject_FastCall(space, w_func, py_args, n):
+    return _PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
