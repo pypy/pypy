@@ -1830,6 +1830,7 @@ test_widechar(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
 static PyObject *
 unicode_aswidechar(PyObject *self, PyObject *args)
 {
@@ -2032,6 +2033,7 @@ unicode_legacy_string(PyObject *self, PyObject *args)
 
     return u;
 }
+#endif // ifndef PYPY_VERSION
 
 static PyObject *
 getargs_w_star(PyObject *self, PyObject *args)
@@ -3434,6 +3436,9 @@ test_pytime_object_to_timespec(PyObject *self, PyObject *args)
     return Py_BuildValue("Nl", _PyLong_FromTime_t(sec), nsec);
 }
 
+
+#ifndef PYPY_VERSION
+
 static void
 slot_tp_del(PyObject *self)
 {
@@ -3512,6 +3517,8 @@ with_tp_del(PyObject *self, PyObject *args)
     return obj;
 }
 
+#endif
+
 static PyObject *
 without_gc(PyObject *Py_UNUSED(self), PyObject *obj)
 {
@@ -3589,6 +3596,8 @@ test_decref_doesnt_leak(PyObject *ob, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#ifndef PYPY_VERSION
+
 static PyObject *
 test_structseq_newtype_doesnt_leak(PyObject *Py_UNUSED(self),
                               PyObject *Py_UNUSED(args))
@@ -3613,6 +3622,8 @@ test_structseq_newtype_doesnt_leak(PyObject *Py_UNUSED(self),
 
     Py_RETURN_NONE;
 }
+
+#endif
 
 static PyObject *
 test_incref_decref_API(PyObject *ob, PyObject *Py_UNUSED(ignored))
@@ -3673,6 +3684,8 @@ test_pymem_alloc0(PyObject *self, PyObject *Py_UNUSED(ignored))
 
     Py_RETURN_NONE;
 }
+
+#ifndef PYPY_VERSION
 
 typedef struct {
     PyMemAllocatorEx alloc;
@@ -3992,6 +4005,9 @@ remove_mem_hooks(PyObject *self, PyObject *Py_UNUSED(ignored))
     Py_RETURN_NONE;
 }
 
+#endif // ifndef PYPY_VERSION
+
+
 PyDoc_STRVAR(docstring_empty,
 ""
 );
@@ -4047,6 +4063,9 @@ PyDoc_STRVAR(docstring_with_signature_with_defaults,
 "This docstring has a valid signature with parameters,\n"
 "and the parameters take defaults of varying types."
 );
+
+
+#ifndef PYPY_VERSION
 
 typedef struct {
     PyThread_type_lock start_event;
@@ -4288,6 +4307,8 @@ pymarshal_read_object_from_file(PyObject* self, PyObject *args)
     return Py_BuildValue("Nl", obj, pos);
 }
 
+#endif // ifndef PYPY_VERSION
+
 static PyObject*
 return_null_without_error(PyObject *self, PyObject *args)
 {
@@ -4443,6 +4464,7 @@ test_PyTime_AsMicroseconds(PyObject *self, PyObject *args)
     return _PyTime_AsNanosecondsObject(ms);
 }
 
+#ifndef PYPY_VERSION
 static PyObject*
 get_recursion_depth(PyObject *self, PyObject *args)
 {
@@ -4451,6 +4473,7 @@ get_recursion_depth(PyObject *self, PyObject *args)
     /* subtract one to ignore the frame of the get_recursion_depth() call */
     return PyLong_FromLong(tstate->recursion_depth - 1);
 }
+#endif // ifndef PYPY_VERSION
 
 static PyObject*
 pymem_buffer_overflow(PyObject *self, PyObject *args)
@@ -4500,6 +4523,7 @@ pymem_malloc_without_gil(PyObject *self, PyObject *args)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject*
 test_pymem_getallocatorsname(PyObject *self, PyObject *args)
 {
@@ -4573,6 +4597,7 @@ check_pyobject_freed_is_freed(PyObject *self, PyObject *Py_UNUSED(args))
     /* object memory is freed! */
     return test_pyobject_is_freed("check_pyobject_freed_is_freed", op);
 }
+#endif // ifndef PYPY_VERSION
 
 
 static PyObject*
@@ -4647,6 +4672,8 @@ tracemalloc_untrack(PyObject *self, PyObject *args)
     Py_RETURN_NONE;
 }
 
+
+#ifndef PYPY_VERSION
 static PyObject *
 tracemalloc_get_traceback(PyObject *self, PyObject *args)
 {
@@ -4700,6 +4727,7 @@ raise_SIGINT_then_send_None(PyObject *self, PyObject *args)
     raise(SIGINT);
     return _PyGen_Send(gen, Py_None);
 }
+#endif // ifndef PYPY_VERSION
 
 
 static int
@@ -4739,6 +4767,7 @@ test_pyobject_fastcall(PyObject *self, PyObject *args)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject *
 test_pyobject_fastcalldict(PyObject *self, PyObject *args)
 {
@@ -4764,6 +4793,7 @@ test_pyobject_fastcalldict(PyObject *self, PyObject *args)
 
     return _PyObject_FastCallDict(func, stack, nargs, kwargs);
 }
+#endif // ifndef PYPY_VERSION
 
 
 static PyObject *
@@ -4920,6 +4950,7 @@ test_pythread_tss_key_state(PyObject *self, PyObject *args)
 }
 
 
+#ifndef PYPY_VERSION
 static PyObject*
 new_hamt(PyObject *self, PyObject *args)
 {
@@ -5039,6 +5070,7 @@ decode_locale_ex(PyObject *self, PyObject *args)
     }
     return res;
 }
+#endif // ifndef PYPY_VERSION
 
 
 #ifdef Py_REF_DEBUG
@@ -5060,6 +5092,7 @@ negative_refcount(PyObject *self, PyObject *Py_UNUSED(args))
 #endif
 
 
+#ifndef PYPY_VERSION
 static PyObject*
 test_write_unraisable_exc(PyObject *self, PyObject *args)
 {
@@ -5083,6 +5116,7 @@ test_write_unraisable_exc(PyObject *self, PyObject *args)
     _PyErr_WriteUnraisableMsg(err_msg_utf8, obj);
     Py_RETURN_NONE;
 }
+#endif // ifndef PYPY_VERSION
 
 
 static PyObject*
@@ -5112,9 +5146,11 @@ static PyMethodDef TestMethods[] = {
     {"datetime_check_datetime",     datetime_check_datetime,     METH_VARARGS},
     {"datetime_check_delta",     datetime_check_delta,           METH_VARARGS},
     {"datetime_check_tzinfo",     datetime_check_tzinfo,         METH_VARARGS},
+#ifndef PYPY_VERSION
     {"make_timezones_capi",     make_timezones_capi,             METH_NOARGS},
     {"get_timezones_offset_zero",   get_timezones_offset_zero,   METH_NOARGS},
     {"get_timezone_utc_capi",    get_timezone_utc_capi,          METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"get_date_fromdate",        get_date_fromdate,              METH_VARARGS},
     {"get_datetime_fromdateandtime", get_datetime_fromdateandtime, METH_VARARGS},
     {"get_datetime_fromdateandtimeandfold", get_datetime_fromdateandtimeandfold, METH_VARARGS},
@@ -5125,16 +5161,20 @@ static PyMethodDef TestMethods[] = {
     {"get_datetime_fromtimestamp", get_datetime_fromtimestamp,   METH_VARARGS},
     {"test_list_api",           test_list_api,                   METH_NOARGS},
     {"test_dict_iteration",     test_dict_iteration,             METH_NOARGS},
+#ifndef PYPY_VERSION
     {"dict_getitem_knownhash",  dict_getitem_knownhash,          METH_VARARGS},
     {"dict_hassplittable",      dict_hassplittable,              METH_O},
+#endif // ifndef PYPY_VERSION
     {"test_lazy_hash_inheritance",      test_lazy_hash_inheritance,METH_NOARGS},
     {"test_long_api",           test_long_api,                   METH_NOARGS},
     {"test_xincref_doesnt_leak",test_xincref_doesnt_leak,        METH_NOARGS},
     {"test_incref_doesnt_leak", test_incref_doesnt_leak,         METH_NOARGS},
     {"test_xdecref_doesnt_leak",test_xdecref_doesnt_leak,        METH_NOARGS},
     {"test_decref_doesnt_leak", test_decref_doesnt_leak,         METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_structseq_newtype_doesnt_leak",
         test_structseq_newtype_doesnt_leak, METH_NOARGS},
+#endif
     {"test_incref_decref_API",  test_incref_decref_API,          METH_NOARGS},
     {"test_long_and_overflow",  test_long_and_overflow,          METH_NOARGS},
     {"test_long_as_double",     test_long_as_double,             METH_NOARGS},
@@ -5146,7 +5186,9 @@ static PyMethodDef TestMethods[] = {
     {"test_empty_argparse",     test_empty_argparse,             METH_NOARGS},
     {"parse_tuple_and_keywords", parse_tuple_and_keywords, METH_VARARGS},
     {"test_null_strings",       test_null_strings,               METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_string_from_format", (PyCFunction)test_string_from_format, METH_NOARGS},
+#endif // ifndef PYPY_VERSION
     {"test_with_docstring",     test_with_docstring,             METH_NOARGS,
      PyDoc_STR("This is a pretty normal docstring.")},
     {"test_string_to_double",   test_string_to_double,           METH_NOARGS},
@@ -5155,7 +5197,9 @@ static PyMethodDef TestMethods[] = {
     {"test_capsule", (PyCFunction)test_capsule, METH_NOARGS},
     {"test_from_contiguous", (PyCFunction)test_from_contiguous, METH_NOARGS},
 #if (defined(__linux__) || defined(__FreeBSD__)) && defined(__GNUC__)
+#ifndef PYPY_VERSION
     {"test_pep3118_obsolete_write_locks", (PyCFunction)test_pep3118_obsolete_write_locks, METH_NOARGS},
+#endif // ifndef PYPY_VERSION
 #endif
     {"getbuffer_with_null_view", getbuffer_with_null_view, METH_O},
     {"test_buildvalue_N",       test_buildvalue_N,               METH_NOARGS},
@@ -5219,6 +5263,7 @@ static PyMethodDef TestMethods[] = {
     {"test_u_code",             test_u_code,                     METH_NOARGS},
     {"test_Z_code",             test_Z_code,                     METH_NOARGS},
     {"test_widechar",           test_widechar,                   METH_NOARGS},
+#ifndef PYPY_VERSION
     {"unicode_aswidechar",      unicode_aswidechar,              METH_VARARGS},
     {"unicode_aswidecharstring",unicode_aswidecharstring,        METH_VARARGS},
     {"unicode_asucs4",          unicode_asucs4,                  METH_VARARGS},
@@ -5227,8 +5272,11 @@ static PyMethodDef TestMethods[] = {
     {"unicode_encodedecimal",   unicode_encodedecimal,           METH_VARARGS},
     {"unicode_transformdecimaltoascii", unicode_transformdecimaltoascii, METH_VARARGS},
     {"unicode_legacy_string",   unicode_legacy_string,           METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"_test_thread_state",      test_thread_state,               METH_VARARGS},
+#ifndef PYPY_VERSION
     {"_pending_threadfunc",     pending_threadfunc,              METH_VARARGS},
+#endif // ifndef PYPY_VERSION
 #ifdef HAVE_GETTIMEOFDAY
     {"profile_int",             profile_int,                     METH_NOARGS},
 #endif
@@ -5242,13 +5290,18 @@ static PyMethodDef TestMethods[] = {
     {"make_memoryview_from_NULL_pointer", make_memoryview_from_NULL_pointer,
      METH_NOARGS},
     {"crash_no_current_thread", crash_no_current_thread,         METH_NOARGS},
+#ifndef PYPY_VERSION
     {"run_in_subinterp",        run_in_subinterp,                METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"pytime_object_to_time_t", test_pytime_object_to_time_t,  METH_VARARGS},
     {"pytime_object_to_timeval", test_pytime_object_to_timeval,  METH_VARARGS},
     {"pytime_object_to_timespec", test_pytime_object_to_timespec,  METH_VARARGS},
+#ifndef PYPY_VERSION
     {"with_tp_del",             with_tp_del,                     METH_VARARGS},
+#endif
     {"create_cfunction",        create_cfunction,                METH_NOARGS},
     {"test_pymem_alloc0",       test_pymem_alloc0,               METH_NOARGS},
+#ifndef PYPY_VERSION
     {"test_pymem_setrawallocators",test_pymem_setrawallocators,  METH_NOARGS},
     {"test_pymem_setallocators",test_pymem_setallocators,        METH_NOARGS},
     {"test_pyobject_setallocators",test_pyobject_setallocators,  METH_NOARGS},
@@ -5256,6 +5309,7 @@ static PyMethodDef TestMethods[] = {
      PyDoc_STR("set_nomemory(start:int, stop:int = 0)")},
     {"remove_mem_hooks",        remove_mem_hooks,                METH_NOARGS,
      PyDoc_STR("Remove memory hooks.")},
+#endif // ifndef PYPY_VERSION
     {"no_docstring",
         (PyCFunction)test_with_docstring, METH_NOARGS},
     {"docstring_empty",
@@ -5282,6 +5336,7 @@ static PyMethodDef TestMethods[] = {
     {"docstring_with_signature_with_defaults",
         (PyCFunction)test_with_docstring, METH_NOARGS,
         docstring_with_signature_with_defaults},
+#ifndef PYPY_VERSION
     {"call_in_temporary_c_thread", call_in_temporary_c_thread, METH_O,
      PyDoc_STR("set_error_class(error_class) -> None")},
     {"pymarshal_write_long_to_file",
@@ -5296,6 +5351,7 @@ static PyMethodDef TestMethods[] = {
         pymarshal_read_last_object_from_file, METH_VARARGS},
     {"pymarshal_read_object_from_file",
         pymarshal_read_object_from_file, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"return_null_without_error",
         return_null_without_error, METH_NOARGS},
     {"return_result_with_error",
@@ -5309,23 +5365,31 @@ static PyMethodDef TestMethods[] = {
 #endif
     {"PyTime_AsMilliseconds", test_PyTime_AsMilliseconds, METH_VARARGS},
     {"PyTime_AsMicroseconds", test_PyTime_AsMicroseconds, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"get_recursion_depth", get_recursion_depth, METH_NOARGS},
+#endif // ifndef PYPY_VERSION
     {"pymem_buffer_overflow", pymem_buffer_overflow, METH_NOARGS},
     {"pymem_api_misuse", pymem_api_misuse, METH_NOARGS},
     {"pymem_malloc_without_gil", pymem_malloc_without_gil, METH_NOARGS},
+#ifndef PYPY_VERSION
     {"pymem_getallocatorsname", test_pymem_getallocatorsname, METH_NOARGS},
     {"check_pyobject_null_is_freed", check_pyobject_null_is_freed, METH_NOARGS},
     {"check_pyobject_uninitialized_is_freed", check_pyobject_uninitialized_is_freed, METH_NOARGS},
     {"check_pyobject_forbidden_bytes_is_freed", check_pyobject_forbidden_bytes_is_freed, METH_NOARGS},
     {"check_pyobject_freed_is_freed", check_pyobject_freed_is_freed, METH_NOARGS},
+#endif // ifndef PYPY_VERSION
     {"pyobject_malloc_without_gil", pyobject_malloc_without_gil, METH_NOARGS},
     {"tracemalloc_track", tracemalloc_track, METH_VARARGS},
     {"tracemalloc_untrack", tracemalloc_untrack, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"tracemalloc_get_traceback", tracemalloc_get_traceback, METH_VARARGS},
     {"dict_get_version", dict_get_version, METH_VARARGS},
     {"raise_SIGINT_then_send_None", raise_SIGINT_then_send_None, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"pyobject_fastcall", test_pyobject_fastcall, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"pyobject_vectorcall", test_pyobject_vectorcall, METH_VARARGS},
     {"pyvectorcall_call", test_pyvectorcall_call, METH_VARARGS},
     {"stack_pointer", stack_pointer, METH_NOARGS},
@@ -5336,14 +5400,18 @@ static PyMethodDef TestMethods[] = {
     {"get_mapping_values", get_mapping_values, METH_O},
     {"get_mapping_items", get_mapping_items, METH_O},
     {"test_pythread_tss_key_state", test_pythread_tss_key_state, METH_VARARGS},
+#ifndef PYPY_VERSION
     {"hamt", new_hamt, METH_NOARGS},
     {"bad_get", (PyCFunction)(void(*)(void))bad_get, METH_FASTCALL},
     {"EncodeLocaleEx", encode_locale_ex, METH_VARARGS},
     {"DecodeLocaleEx", decode_locale_ex, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
 #ifdef Py_REF_DEBUG
     {"negative_refcount", negative_refcount, METH_NOARGS},
 #endif
+#ifndef PYPY_VERSION
     {"write_unraisable_exc", test_write_unraisable_exc, METH_VARARGS},
+#endif // ifndef PYPY_VERSION
     {"pynumber_tobase", pynumber_tobase, METH_VARARGS},
     {"without_gc", without_gc, METH_O},
     {NULL, NULL} /* sentinel */
@@ -6135,6 +6203,7 @@ heapctypesubclasswithfinalizer_init(PyObject *self, PyObject *args, PyObject *kw
     return 0;
 }
 
+#ifndef PYPY_VERSION
 static void
 heapctypesubclasswithfinalizer_finalize(PyObject *self)
 {
@@ -6197,6 +6266,7 @@ static PyType_Spec HeapCTypeSubclassWithFinalizer_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_FINALIZE,
     HeapCTypeSubclassWithFinalizer_slots
 };
+#endif // ifndef PYPY_VERSION
 
 PyDoc_STRVAR(heapctypesetattr__doc__,
 "A heap type without GC, but with overridden __setattr__.\n\n"
@@ -6440,6 +6510,7 @@ PyInit__testcapi(void)
     if (subclass_with_finalizer_bases == NULL) {
         return NULL;
     }
+#ifndef PYPY_VERSION
     PyObject *HeapCTypeSubclassWithFinalizer = PyType_FromSpecWithBases(
         &HeapCTypeSubclassWithFinalizer_spec, subclass_with_finalizer_bases);
     if (HeapCTypeSubclassWithFinalizer == NULL) {
@@ -6449,6 +6520,7 @@ PyInit__testcapi(void)
     PyModule_AddObject(m, "HeapCTypeSubclassWithFinalizer", HeapCTypeSubclassWithFinalizer);
 
     PyState_AddModule(m, &_testcapimodule);
+#endif // ifndef PYPY_VERSION
     return m;
 }
 
