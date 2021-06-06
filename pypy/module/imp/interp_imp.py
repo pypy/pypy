@@ -31,8 +31,11 @@ def get_tag(space):
     Return the magic tag for .pyc files."""
     return space.newtext(importing.PYC_TAG)
 
+# For annotation, pre-build this as a global
+_multiarch = compiler.get_multiarch()
+
 def get_multiarch(space):
-    return space.newtext(compiler.get_multiarch())
+    return space.newtext(_multiarch)
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
