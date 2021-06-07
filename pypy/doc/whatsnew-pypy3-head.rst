@@ -40,3 +40,8 @@ it very close to PyPy2 standards.
 Make creation and destruction of many files cheaper: don't call ``.__del__`` of
 streams that had their ``.close()`` method called (and aren't user defined
 classes).
+
+.. branch: multiarch
+
+Add a ``sys.implementation._multiarch`` field like CPython on linux, darwin via
+``__pypy__.os._get_multiarch()``

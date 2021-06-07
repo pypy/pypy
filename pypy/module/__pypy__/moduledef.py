@@ -55,7 +55,8 @@ class IntOpModule(MixedModule):
 class OsModule(MixedModule):
     appleveldefs = {}
     interpleveldefs = {
-        'real_getenv': 'interp_os.real_getenv'
+        'real_getenv': 'interp_os.real_getenv',
+        '_get_multiarch': 'interp_os._get_multiarch',
     }
 
 
