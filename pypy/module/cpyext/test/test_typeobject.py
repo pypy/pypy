@@ -1807,6 +1807,43 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         res = module.test_fastcall(pyfunc, (1, 2))
         assert res == [1, 2]
 
+    def test_fastcalldict(self):
+        module = self.import_extension('foo', [
+            ("test_fastcalldict", "METH_VARARGS",
+             '''
+                PyObject *func, *func_args, *kwargs = NULL;
+                PyObject **stack;
+                Py_ssize_t nargs, nkw;
+
+                if (!PyArg_ParseTuple(args, "OOO", &func, &func_args, &kwargs)) {
+                    return NULL;
+                }
+                if (args == Py_None) {
+                    stack = NULL;
+                    nargs = 0;
+                }
+                else if (PyTuple_Check(args)) {
+                    stack = ((PyTupleObject *)func_args)->ob_item;
+                    nargs = PyTuple_GET_SIZE(func_args);
+                }
+                if (kwargs == Py_None) {
+                    kwargs = NULL;
+                }
+                else if (!PyDict_Check(kwargs)) {
+                    PyErr_SetString(PyExc_TypeError, "kwnames must be None or a dict");
+                    return NULL;
+                }
+                return _PyObject_FastCallDict(func, stack, nargs, kwargs);
+            ''')])
+        def pyfunc(arg1, arg2):
+            return [arg1, arg2]
+        res = module.test_fastcalldict(pyfunc, (1, 2), None)
+        assert res == [1, 2]
+        res = module.test_fastcalldict(pyfunc, (1, 2), {})
+        assert res == [1, 2]
+        res = module.test_fastcalldict(pyfunc, (1, ), {"arg2": 2})
+        assert res == [1, 2]
+
     def test_call_no_args(self):
         module = self.import_extension('foo', [
             ("test_callnoarg", "METH_VARARGS",

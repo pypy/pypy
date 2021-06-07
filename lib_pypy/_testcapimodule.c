@@ -4767,7 +4767,6 @@ test_pyobject_fastcall(PyObject *self, PyObject *args)
 }
 
 
-#ifndef PYPY_VERSION
 static PyObject *
 test_pyobject_fastcalldict(PyObject *self, PyObject *args)
 {
@@ -4793,7 +4792,6 @@ test_pyobject_fastcalldict(PyObject *self, PyObject *args)
 
     return _PyObject_FastCallDict(func, stack, nargs, kwargs);
 }
-#endif // ifndef PYPY_VERSION
 
 
 static PyObject *
@@ -5387,9 +5385,7 @@ static PyMethodDef TestMethods[] = {
     {"raise_SIGINT_then_send_None", raise_SIGINT_then_send_None, METH_VARARGS},
 #endif // ifndef PYPY_VERSION
     {"pyobject_fastcall", test_pyobject_fastcall, METH_VARARGS},
-#ifndef PYPY_VERSION
     {"pyobject_fastcalldict", test_pyobject_fastcalldict, METH_VARARGS},
-#endif // ifndef PYPY_VERSION
     {"pyobject_vectorcall", test_pyobject_vectorcall, METH_VARARGS},
     {"pyvectorcall_call", test_pyvectorcall_call, METH_VARARGS},
     {"stack_pointer", stack_pointer, METH_NOARGS},
