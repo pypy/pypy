@@ -6,6 +6,8 @@ The 'sys' module.
 from _structseq import structseqtype, structseqfield, SimpleNamespace
 import sys
 import _imp
+from __pypy__.os import _get_multiarch
+
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
@@ -168,7 +170,7 @@ implementation_dict = {
     'cache_tag':  _imp.get_tag(),
 }
 
-multiarch = _imp.get_multiarch()
+multiarch = _get_multiarch()
 if multiarch:
     implementation_dict['_multiarch'] = multiarch
 

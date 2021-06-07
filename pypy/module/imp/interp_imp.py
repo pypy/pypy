@@ -1,6 +1,5 @@
 from pypy.module.imp import importing
 from rpython.rlib import streamio
-from rpython.translator.platform import platform as compiler
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.pycode import PyCode
@@ -30,12 +29,6 @@ def get_tag(space):
     """get_tag() -> string
     Return the magic tag for .pyc files."""
     return space.newtext(importing.PYC_TAG)
-
-# For annotation, pre-build this as a global
-_multiarch = compiler.get_multiarch()
-
-def get_multiarch(space):
-    return space.newtext(_multiarch)
 
 def get_file(space, w_file, filename, filemode):
     if space.is_none(w_file):
