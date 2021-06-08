@@ -222,10 +222,17 @@ class AppTestAppSysTests:
         import sys
         assert type(sys.flags.dev_mode) is bool
 
+    def test_multiarch(self):
+        import sys
+        if sys.platform == 'linux':
+            multiarch = sys.implementation._multiarch
+            assert 'linux' in multiarch
+        else:
+            assert not sys.implemenation.hasattr('_multiarch')
+
     def test_audit(self):
         import sys
         sys.audit("os.chdir", "bla", 1, 2, 12) # does not crash
-
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
         "usemodules": ["struct"],
@@ -828,8 +835,6 @@ class AppTestSysModulePortedFromCPython:
                 sys.set_coroutine_origin_tracking_depth(-5)
         finally:
             sys.set_coroutine_origin_tracking_depth(0)
-
-
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):

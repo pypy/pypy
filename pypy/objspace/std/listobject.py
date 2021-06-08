@@ -1410,7 +1410,7 @@ class AbstractUnwrappedStrategy(object):
         res[0] = w_item
         for index in range(1, len(storage)):
             item = storage[index]
-            if not self._quick_cmp(item, prevvalue):
+            if jit.we_are_jitted() or not self._quick_cmp(item, prevvalue):
                 prevvalue = item
                 w_item = self.wrap(item)
             res[index] = w_item
