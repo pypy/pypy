@@ -6528,6 +6528,9 @@ PyInit__testcapi(void)
 /* Test the C API exposed when PY_SSIZE_T_CLEAN is not defined */
 
 #undef Py_BuildValue
+#ifdef PYPY_VERSION
+#define Py_BuildValue PyPy_BuildValue
+#endif
 PyAPI_FUNC(PyObject *) Py_BuildValue(const char *, ...);
 
 static PyObject *
