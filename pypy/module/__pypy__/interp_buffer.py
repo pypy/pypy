@@ -107,13 +107,16 @@ class W_PickleBuffer(W_Root):
     def __init__(self, space, w_obj):
         self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
 
+    def check(self, space):
+        if self.buf is None:
+            raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+
     def descr_raw(self, space):
         """
         Return a memoryview of the raw memory underlying this buffer.
         Will raise BufferError is the buffer isn't contiguous.
         """
-        if self.buf is None:
-            raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+        self.check(space)
         return self.buf.wrap(space)
 
     def descr_release(self, space):
@@ -123,6 +126,7 @@ class W_PickleBuffer(W_Root):
         self.buf = None
 
     def buffer_w(self, space, flags):
+        self.check(space)
         space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
 
