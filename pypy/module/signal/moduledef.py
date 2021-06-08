@@ -14,6 +14,7 @@ class Module(MixedModule):
         'SIG_IGN':             'space.wrap(interp_signal.SIG_IGN)',
         'default_int_handler': 'interp_signal.default_int_handler',
         'ItimerError':         'interp_signal.get_itimer_error(space)',
+        'valid_signals':       'interp_signal.valid_signals',
     }
 
     if os.name == 'posix':

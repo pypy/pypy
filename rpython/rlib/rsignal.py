@@ -113,6 +113,7 @@ c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)
     c_sigemptyset = external('sigemptyset', [c_sigset_t], rffi.INT)
+    c_sigfillset = external('sigfillset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,

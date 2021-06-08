@@ -272,6 +272,16 @@ class AppTestSignal:
             else:
                 raise AssertionError("did not raise!")
 
+    def test_valid_signals(self):
+        import signal
+        s = signal.valid_signals()
+        assert isinstance(s, set)
+        assert signal.Signals.SIGINT in s
+        assert signal.Signals.SIGALRM in s
+        assert 0 not in s
+        assert signal.NSIG not in s
+        assert len(s) < signal.NSIG
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])

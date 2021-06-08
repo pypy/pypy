@@ -436,3 +436,25 @@ def pthread_sigmask(space, how, w_signals):
             # if signals was unblocked, signal handlers have been called
             space.getexecutioncontext().checksignals()
             return _sigset_to_signals(space, previous)
+
+def valid_signals(space):
+    if WIN32:
+        # follow cpython
+        signals_w = [space.newint(SIGABRT), space.newint(SIGBREAK),
+                     space.newint(SIGFPE), space.newint(SIGILL),
+                     space.newint(SIGINT), space.newint(SIGSEGV),
+                     space.newint(SIGTERM),
+                    ]
+        return space.call_function(space.w_set, space.newtuple(signals_w))
+    else:     
+        mask = lltype.malloc(c_sigset_t.TO, flavor='raw')
+        try:
+            ret = c_sigemptyset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            ret = c_sigfillset(mask)
+            if ret != 0:
+                raise exception_from_saved_errno(space, space.w_OSError)
+            return _sigset_to_signals(space, mask)
+        finally:
+            lltype.free(mask, flavor='raw')
