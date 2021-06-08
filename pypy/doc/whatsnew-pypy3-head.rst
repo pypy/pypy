@@ -45,3 +45,8 @@ classes).
 
 Add a ``sys.implementation._multiarch`` field like CPython on linux, darwin via
 ``__pypy__.os._get_multiarch()``
+
+.. branch: sysconfigdata
+
+Add a ``lib_pypy/_sysconfigdata__*.py`` file like CPython on linux, darwin
+during packaging via ``sysconfig._generate_posix_vars()`` (issue 3483).

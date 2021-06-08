@@ -1,11 +1,15 @@
 import _imp
 import os
 import sys
+import struct
 from distutils.spawn import find_executable
 
 so_ext = _imp.extension_suffixes()[0]
 
 mybase = os.path.dirname(os.path.dirname(__file__))
+
+# FIXME: The compiler-specific values should be exported from the build,
+# perhaps via a special __pypy__._sysconfigdata module?
 
 build_time_vars = {
     # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
@@ -36,6 +40,10 @@ build_time_vars = {
     'INCLUDEPY': os.path.join(mybase, 'include'),
     'LDLIBRARY': 'libpypy3-c.so',
     'VERSION': '%d.%d' % sys.version_info[:2],
+    'LDVERSION': '%d.%d' % sys.version_info[:2],
+    'Py_DEBUG': 0,  # cpyext never uses this
+    'Py_ENABLE_SHARED': 1,  # cpyext never uses this
+    'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 
 if find_executable("gcc"):
@@ -48,22 +56,8 @@ if find_executable("gcc"):
         build_time_vars["CXX"] = "g++ -pthread"
 
 if sys.platform[:6] == "darwin":
-    # don't import platform - it imports subprocess -> threading.
-    # gevent-based projects need to be first to import threading and
-    # monkey-patch as early as possible in the lifetime of their process.
-    # https://foss.heptapod.net/pypy/pypy/-/issues/3269
-    _, _, _, _, machine = os.uname()
-    import struct
-    wordsize = struct.calcsize('P') # void* : 4 on 32bit, 8 on 64bit
-    if machine == 'i386':
-        if wordsize == 4:
-
-            arch = 'i386'
-        else:
-            arch = 'x86_64'
-    else:
-        # just a guess
-        arch = machine
+    # Fix this if we ever get M1 support
+    arch = 'x86_64'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     build_time_vars['LDSHARED'] = build_time_vars['CC'] + ' -shared -undefined dynamic_lookup'
     if "CXX" in build_time_vars:
