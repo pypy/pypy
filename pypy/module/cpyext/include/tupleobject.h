@@ -35,6 +35,10 @@ PyAPI_FUNC(PyObject *) PyTuple_Pack(Py_ssize_t, ...);
 		 PyType_FastSubclass(Py_TYPE(op), Py_TPFLAGS_TUPLE_SUBCLASS)
 #define PyTuple_CheckExact(op) (Py_TYPE(op) == &PyTuple_Type)
 
+#define _PyTuple_CAST(op) (assert(PyTuple_Check(op)), (PyTupleObject *)(op))
+#define _PyTuple_ITEMS(op) (_PyTuple_CAST(op)->ob_item)
+
+
 #ifdef __cplusplus
 }
 #endif

@@ -187,6 +187,9 @@ given type object has a specified feature.
 /* Set if the type allows subclassing */
 #define Py_TPFLAGS_BASETYPE (1L<<10)
 
+/* Set if the type implements the vectorcall protocol (PEP 590) */
+#define _Py_TPFLAGS_HAVE_VECTORCALL (1UL << 11)
+
 /* Set if the type is 'ready' -- fully initialized */
 #define Py_TPFLAGS_READY (1L<<12)
 
@@ -202,6 +205,9 @@ given type object has a specified feature.
 #else
 #define Py_TPFLAGS_HAVE_STACKLESS_EXTENSION 0
 #endif
+
+/* Objects behave like an unbound method */
+#define Py_TPFLAGS_METHOD_DESCRIPTOR (1UL << 17)
 
 /* Objects support type attribute cache */
 #define Py_TPFLAGS_HAVE_VERSION_TAG   (1L<<18)
@@ -402,6 +408,9 @@ PyAPI_FUNC(int) PyObject_CallFinalizerFromDealloc(PyObject *);
 #define _Py_DEC_REFTOTAL
 #define _Py_REF_DEBUG_COMMA
 #define _Py_CHECK_REFCNT(OP)    /* a semicolon */;
+
+typedef PyObject *(*vectorcallfunc)(PyObject *callable, PyObject *const *args,
+                                    size_t nargsf, PyObject *kwnames);
 
 /* PyPy internal ----------------------------------- */
 PyAPI_FUNC(int) PyPyType_Register(PyTypeObject *);

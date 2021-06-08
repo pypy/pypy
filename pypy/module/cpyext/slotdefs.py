@@ -850,7 +850,7 @@ def make_missing_slot(space, typedef, name, attr):
     return None
 
 missing_builtin_slots = [
-    'tp_print', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
+    'tp_vectorcall_offset', 'tp_compare', 'tp_getattr', 'tp_setattr', 'tp_setattro',
     'tp_finalize',
     'tp_richcompare', 'tp_del',
     'tp_as_number.c_nb_bool', 'tp_as_number.c_nb_coerce',

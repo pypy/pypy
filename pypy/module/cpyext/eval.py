@@ -85,6 +85,10 @@ def PyObject_CallObject(space, w_obj, w_arg):
     callable_object(*args)."""
     return space.call(w_obj, w_arg)
 
+@cpython_api([PyObject], PyObject)
+def _PyObject_CallNoArg(space, w_obj):
+    return space.call_function(w_obj)
+
 @cpython_api([PyObject, PyObject, PyObject], PyObject)
 def PyObject_Call(space, w_obj, w_args, w_kw):
     """
