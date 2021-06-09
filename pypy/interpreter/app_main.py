@@ -956,6 +956,8 @@ def setup_bootstrap_path(executable):
     # from this point on, we are free to use all the unicode stuff we want,
     # This is important for py3k
     sys.executable = executable
+    # This may be wrong on windows using a launcher?
+    sys._base_executable = executable
 
 @hidden_applevel
 def entry_point(executable, argv):
