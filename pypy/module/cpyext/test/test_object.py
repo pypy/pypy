@@ -262,7 +262,7 @@ class AppTestObject(AppTestCpythonExtensionBase):
             ("calloctest", "METH_NOARGS",
              """
                  PyObject *obj = PyObject_Calloc(1, sizeof(PyFloatObject));
-                 if (obj == NUL)
+                 if (obj == NULL)
                     return NULL;
                  obj = PyObject_Init(obj, &PyFloat_Type);
                  return obj;
