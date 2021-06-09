@@ -697,7 +697,6 @@ for encoder in [
          "utf_32_le_encode",
          "unicode_escape_encode",
          "raw_unicode_escape_encode",
-         "unicode_internal_encode",
         ]:
     make_encoder_wrapper(encoder)
 
@@ -1038,48 +1037,6 @@ def raw_unicode_escape_decode(space, w_string, errors="strict", w_final=None):
 
 # ____________________________________________________________
 # Unicode-internal
-
-@unwrap_spec(errors='text_or_none')
-def unicode_internal_decode(space, w_string, errors="strict"):
-    if errors is None:
-        errors = 'strict'
-    # special case for this codec: unicodes are returned as is
-    if space.isinstance_w(w_string, space.w_unicode):
-        return space.newtuple([w_string, space.len(w_string)])
-
-    string = space.charbuf_w(w_string)
-    space.warn(space.newtext("unicode_internal codec has been deprecated"),
-               space.w_DeprecationWarning)
-
-    if len(string) == 0:
-        return space.newtuple([space.newutf8('', 0),
-                               space.newint(0)])
-
-    final = True
-    state = space.fromcache(CodecState)
-    result, lgt = unicodehelper.str_decode_unicode_internal(
-        string, errors,
-        final, state.decode_error_handler)
-    return space.newtuple([space.newutf8(result, lgt),
-                           space.newint(len(string))])
-
-@unwrap_spec(errors='text_or_none')
-def unicode_internal_encode(space, w_uni, errors="strict"):
-    space.warn(space.newtext("unicode_internal codec has been deprecated"),
-               space.w_DeprecationWarning)
-    if errors is None:
-        errors = 'strict'
-    if space.isinstance_w(w_uni, space.w_unicode):
-        utf8 = space.utf8_w(w_uni)
-        state = space.fromcache(CodecState)
-        result = unicodehelper.utf8_encode_unicode_internal(
-            utf8, errors, state.encode_error_handler)
-        w_lgt = space.newint(space.len_w(w_uni))
-        return space.newtuple([space.newbytes(result), w_lgt])
-    else:
-        # special case for this codec: bytes are returned as is
-        string = space.charbuf_w(w_uni)
-        return space.newtuple([space.newbytes(string), space.newint(len(string))])
 
 # ____________________________________________________________
 # support for the "string escape" translation
