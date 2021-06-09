@@ -1898,6 +1898,7 @@ class TestEnum(unittest.TestCase):
             raise Exception('Exception not raised.')
 
     def test_missing_exceptions_reset(self):
+        import gc
         import weakref
         #
         class TestEnum(enum.Enum):
@@ -1926,6 +1927,7 @@ class TestEnum(unittest.TestCase):
         # The exception raised by Enum creates a reference loop and thus
         # Class2 instances will stick around until the next gargage collection
         # cycle, unlike Class1.
+        gc.collect()
         self.assertIs(class_1_ref(), None)
         self.assertIs(class_2_ref(), None)
 
