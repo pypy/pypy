@@ -341,6 +341,9 @@ class AppTestExc(object):
         assert e.characters_written == 3
         e.characters_written = 5
         assert e.characters_written == 5
+        del e.characters_written
+        with raises(AttributeError):
+            e.characters_written
 
     def test_errno_mapping(self):
         # The OSError constructor maps errnos to subclasses

@@ -678,6 +678,9 @@ class W_OSError(W_Exception):
     def descr_set_written(self, space, w_written):
         self.written = space.int_w(w_written)
 
+    def descr_del_written(self, space):
+        self.written = -1
+
 
 if hasattr(rwin32, 'build_winerror_to_errno'):
     WINERROR_TO_ERRNO, DEFAULT_WIN32_ERRNO = rwin32.build_winerror_to_errno()
@@ -705,7 +708,8 @@ W_OSError.typedef = TypeDef(
     filename = readwrite_attrproperty_w('w_filename', W_OSError),
     filename2= readwrite_attrproperty_w('w_filename2',W_OSError),
     characters_written = GetSetProperty(W_OSError.descr_get_written,
-                                        W_OSError.descr_set_written),
+                                        W_OSError.descr_set_written,
+                                        W_OSError.descr_del_written),
     **_winerror_property
     )
 
