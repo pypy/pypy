@@ -521,6 +521,16 @@ def test_method_eq():
     assert (c.m != c2.m) is True
     assert (c.m != c.m) is False
 
+def test_method_eq_bug():
+    # method equality is based on the identity of the underlying instances, not
+    # equality
+    class A:
+        def __eq__(self, other):
+            return True
+        def f(self): pass
+
+    assert A().f != A().f
+
 def test_method_hash():
     class C(object):
         def m(): pass
