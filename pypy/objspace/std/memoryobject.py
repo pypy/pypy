@@ -549,8 +549,7 @@ class W_MemoryView(W_Root):
             i -= 1
         return s
 
-    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
-    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
         """
         Return the data in the buffer as a str of hexadecimal numbers.
 
@@ -571,7 +570,8 @@ class W_MemoryView(W_Root):
         >>> value.hex(':', -2)
         'b901:ef'
         """
-        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring, unwrap_hex_sep_arguments
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         self._check_released(space)
         return _array_to_hexstring(space, self.view.as_readbuf(), 0, 1, self.getlength(),
                 sep=sep, bytes_per_sep=bytes_per_sep)

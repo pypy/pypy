@@ -481,8 +481,7 @@ class W_BytearrayObject(W_Root):
     def descr_copy(self, space):
         return self._new(self._data[self._offset:])
 
-    @unwrap_spec(bytes_per_sep=int)
-    def descr_hex(self, space, w_sep=None, bytes_per_sep=0):
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
         """
         Create a str of hexadecimal numbers from a bytearray object.
 
@@ -503,12 +502,7 @@ class W_BytearrayObject(W_Root):
         >>> value.hex(':', -2)
         'b901:ef'
         """
-        if w_sep is not None:
-            if not space.int_w(space.len(w_sep)) == 1:
-                raise oefmt(space.w_ValueError, "sep must be length 1.")
-            sep = space.text_w(w_sep)
-        else:
-            sep = None
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         data = self.getdata()
         return _array_to_hexstring(space, data, 0, 1, len(data), True,
                 sep=sep, bytes_per_sep=bytes_per_sep)
@@ -606,6 +600,21 @@ def _hexstring_to_array(space, s):
 HEXDIGITS = "0123456789abcdef"
 PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
+def unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep):
+    if w_sep is not None:
+        if not space.len_w(w_sep) == 1:
+            raise oefmt(space.w_ValueError, "sep must be length 1.")
+        sep = space.text_w(w_sep)
+        if w_bytes_per_sep is None:
+            bytes_per_sep = 1
+        else:
+            bytes_per_sep = space.int_w(w_bytes_per_sep)
+    else:
+        sep = None
+        bytes_per_sep = 0
+    return sep, bytes_per_sep
+
+
 @specialize.arg(5) # raw access
 def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=None, bytes_per_sep=0):
     from rpython.rlib.rutf8 import check_ascii, CheckError
@@ -616,8 +625,6 @@ def _array_to_hexstring(space, buf, start, step, length, rawaccess=False, sep=No
             raise oefmt(space.w_ValueError, "sep must be ASCII.")
         if len(sep) != 1:
             raise oefmt(space.w_ValueError, "sep must be length 1.")
-        if bytes_per_sep == 0:
-            bytes_per_sep = 1
     else:
         bytes_per_sep = 0
     hexstring = StringBuilder(length*2)

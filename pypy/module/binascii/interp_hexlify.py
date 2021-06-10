@@ -14,8 +14,8 @@ def _value2char(value):
         return chr((ord('a')-10) + value)
 _value2char._always_inline_ = True
 
-@unwrap_spec(data='bufferstr', bytes_per_sep=int)
-def hexlify(space, data, w_sep=None, bytes_per_sep=0):
+@unwrap_spec(data='bufferstr')
+def hexlify(space, data, w_sep=None, w_bytes_per_sep=None):
     '''Hexadecimal representation of binary data.
 
   sep
@@ -26,16 +26,13 @@ def hexlify(space, data, w_sep=None, bytes_per_sep=0):
 
 The return value is a bytes object.  This function is also
 available as "b2a_hex()".'''
-    from pypy.objspace.std.bytearrayobject import _array_to_hexstring
-    from pypy.interpreter.buffer import SimpleView, StringBuffer
-    if w_sep is not None:
-        if not space.int_w(space.len(w_sep)) == 1:
-            raise oefmt(space.w_ValueError, "sep must be length 1.")
-        sep = space.text_w(w_sep)
-    else:
-        sep = None
-    return _array_to_hexstring(space, StringBuffer(data), 0, 1,
-                               len(data), sep=sep, bytes_per_sep=bytes_per_sep)
+    from pypy.objspace.std.bytearrayobject import _array_to_hexstring, unwrap_hex_sep_arguments
+    from pypy.interpreter.buffer import StringBuffer
+    sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
+    w_res = _array_to_hexstring(space, StringBuffer(data), 0, 1,
+                                len(data), sep=sep, bytes_per_sep=bytes_per_sep)
+    # it's a string, need to turn it into a bytes
+    return space.newbytes(space.text_w(w_res))
 
 # ____________________________________________________________
 
