@@ -261,6 +261,7 @@ class TranslationDriver(SimpleTaskEngine):
 
     def _do(self, goal, func, *args, **kwds):
         title = func.task_title
+        import pdb;pdb.set_trace()
         if goal in self.done:
             self.log.info("already done: %s" % title)
             return
