@@ -432,6 +432,22 @@ class AppTestBinascii(object):
             assert self.binascii.hexlify(input) == expected
             assert self.binascii.b2a_hex(input) == expected
 
+    def test_hexlify_sep(self):
+        res = self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '.')
+        assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
+        with raises(ValueError):
+            self.binascii.hexlify(bytes([1, 2, 3]), "abc")
+        return
+        assert self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '?', 4) == \
+               "73616e?74612063?6c617573"
+        assert self.binascii.hexlify(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]), '?', -4) == \
+               "73616e74?6120636c?617573"
+        with raises(ValueError) as excinfo:
+            self.binascii.hexlify(bytes([1, 2, 3]), "ä")
+        assert "ASCII" in str(excinfo.value)
+        with raises(TypeError):
+            self.binascii.hexlify(bytes(), None, 1)
+
     def test_unhexlify(self):
         for input, expected in [
             (b"", b""),

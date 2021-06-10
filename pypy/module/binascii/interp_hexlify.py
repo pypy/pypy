@@ -1,4 +1,4 @@
-from pypy.interpreter.error import OperationError
+from pypy.interpreter.error import oefmt
 from pypy.interpreter.gateway import unwrap_spec
 from rpython.rlib.rstring import StringBuilder
 from rpython.rlib.rarithmetic import ovfcheck
@@ -14,19 +14,28 @@ def _value2char(value):
         return chr((ord('a')-10) + value)
 _value2char._always_inline_ = True
 
-@unwrap_spec(data='bufferstr')
-def hexlify(space, data):
+@unwrap_spec(data='bufferstr', bytes_per_sep=int)
+def hexlify(space, data, w_sep=None, bytes_per_sep=0):
     '''Hexadecimal representation of binary data.
-This function is also available as "hexlify()".'''
-    try:
-        newlength = ovfcheck(len(data) * 2)
-    except OverflowError:
-        raise OperationError(space.w_MemoryError, space.w_None)
-    res = StringBuilder(newlength)
-    for c in data:
-        res.append(_value2char(ord(c) >> 4))
-        res.append(_value2char(ord(c) & 0xf))
-    return space.newbytes(res.build())
+
+  sep
+    An optional single character or byte to separate hex bytes.
+  bytes_per_sep
+    How many bytes between separators.  Positive values count from the
+    right, negative values count from the left.
+
+The return value is a bytes object.  This function is also
+available as "b2a_hex()".'''
+    from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+    from pypy.interpreter.buffer import SimpleView, StringBuffer
+    if w_sep is not None:
+        if not space.int_w(space.len(w_sep)) == 1:
+            raise oefmt(space.w_ValueError, "sep must be length 1.")
+        sep = space.text_w(w_sep)
+    else:
+        sep = None
+    return _array_to_hexstring(space, StringBuffer(data), 0, 1,
+                               len(data), sep=sep, bytes_per_sep=bytes_per_sep)
 
 # ____________________________________________________________
 

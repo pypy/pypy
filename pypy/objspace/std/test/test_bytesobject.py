@@ -1010,7 +1010,6 @@ class AppTestBytesObject:
 
     def test_hex_sep(self):
         res = bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73]).hex('.')
-        print(res)
         assert res == "73.61.6e.74.61.20.63.6c.61.75.73"
         with raises(ValueError):
             bytes([1, 2, 3]).hex("abc")
