@@ -699,7 +699,7 @@ class W_BytesObject(W_AbstractBytesObject):
             right, negative values count from the left.
 
         Example:
-        >>> value = b'\xb9\x01\xef'
+        >>> value = b'\\xb9\\x01\\xef'
         >>> value.hex()
         'b901ef'
         >>> value.hex(':')

@@ -561,7 +561,7 @@ class W_MemoryView(W_Root):
             right, negative values count from the left.
 
         Example:
-        >>> value = memoryview(b'\xb9\x01\xef')
+        >>> value = memoryview(b'\\xb9\\x01\\xef')
         >>> value.hex()
         'b901ef'
         >>> value.hex(':')
