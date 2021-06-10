@@ -706,10 +706,14 @@ class BuiltinCode(Code):
     @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
+        from rpython.rlib import rutf8
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
         self.docstring = doc or func.__doc__
+        if self.docstring:
+            # check that it's utf-8
+            rutf8.check_utf8(self.docstring, False)
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
                                         getattr(self_type, '__name__', '*'))
