@@ -197,3 +197,8 @@ def test_unbound_local_after_del():
     raises(UnboundLocalError, "errorInOuter()")
     raises(NameError, "errorInInner()")
     """
+
+def test_new_cell():
+    import types
+    c = types.CellType(1)
+    assert c.cell_contents == 1

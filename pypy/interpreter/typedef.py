@@ -506,7 +506,7 @@ from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.generator import AsyncGenerator
 from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
-from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 
@@ -947,6 +947,7 @@ AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',
+    __new__      = interp2app(descr_new_cell),
     __lt__       = interp2app(Cell.descr__lt__),
     __eq__       = interp2app(Cell.descr__eq__),
     __hash__     = None,
@@ -958,8 +959,9 @@ Cell.typedef = TypeDef("cell",
         Cell.descr_set_cell_contents,
         Cell.descr_del_cell_contents,
         cls=Cell),
+
 )
-assert not Cell.typedef.acceptable_as_base_class  # no __new__
+Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("ellipsis",
     __new__ = interp2app(Ellipsis.descr_new_ellipsis),
