@@ -558,6 +558,15 @@ class AppTestInt(object):
         assert n == 1
         assert type(n) is int
 
+    def test_trunc_returns_index(self):
+        class Index:
+            def __index__(self):
+                return 17
+        class TruncReturnsIndex:
+            def __trunc__(self):
+                return Index()
+        assert int(TruncReturnsIndex()) == 17
+
     def test_int_before_string(self):
         class Integral(str):
             def __int__(self):
