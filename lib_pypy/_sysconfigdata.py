@@ -12,6 +12,7 @@ mybase = os.path.dirname(os.path.dirname(__file__))
 # perhaps via a special __pypy__._sysconfigdata module?
 
 build_time_vars = {
+    'ABIFLAGS': '',
     # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
     # ("ABI tag"-"platform tag") where this is ABI tag only. Wheel 0.34.2
     # depends on this value, so don't make it CPython compliant without
@@ -42,7 +43,7 @@ build_time_vars = {
     'VERSION': '%d.%d' % sys.version_info[:2],
     'LDVERSION': '%d.%d' % sys.version_info[:2],
     'Py_DEBUG': 0,  # cpyext never uses this
-    'Py_ENABLE_SHARED': 1,  # cpyext never uses this
+    'Py_ENABLE_SHARED': 0,  # if 1, will add python so to link like -lpython3.7
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 
