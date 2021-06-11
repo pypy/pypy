@@ -345,6 +345,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     if instr.size() != size:
                                         force_redo = True
                                     continue
+                        elif target.instructions and (
+                                op == ops.POP_JUMP_IF_FALSE or
+                                op == ops.POP_JUMP_IF_TRUE or
+                                op == ops.JUMP_IF_FALSE_OR_POP or
+                                op == ops.JUMP_IF_TRUE_OR_POP):
+                            target_op = target.instructions[0]
+                            if (target_op.opcode == ops.JUMP_ABSOLUTE or
+                                    target_op.opcode == ops.JUMP_FORWARD):
+                                target = target_op.jump[0]
+                                instr.jump = target, absolute
                         if absolute:
                             jump_arg = target.offset
                         else:

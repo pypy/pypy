@@ -2199,6 +2199,39 @@ class TestOptimizations:
         assert ops.JUMP_ABSOLUTE not in counts
         assert counts[ops.RETURN_VALUE] == 2
 
+    def test_forward_cond_jump_to_jump(self):
+        source1 = """def jumpymcjumpface():
+            if a:
+                if (c
+                    or d):
+                    foo()
+            else:
+                baz()
+        """
+        source2 = """def springer():
+                while a:
+                    # Intentionally use two-line expression to test issue37213.
+                    if (c
+                        or d):
+                        a = foo()
+        """
+        for source in source1, source2:
+            code, blocks = generate_function_code(source, self.space)
+            instrs = []
+            for block in blocks:
+                instrs.extend(block.instructions)
+            offset = 0
+            offsets = {}
+            for instr in instrs:
+                offsets[offset] = instr
+                offset += instr.size()
+            for instr in instrs:
+                if instr.opcode == ops.POP_JUMP_IF_FALSE:
+                    if instr.arg == offset: # points to end, return will be inserted later
+                        continue
+                    target = offsets[instr.arg]
+                    assert target.opcode != ops.JUMP_FORWARD and target.opcode != ops.JUMP_ABSOLUTE
+
     def test_const_fold_subscr(self):
         source = """def f():
         return (0, 1)[0]
