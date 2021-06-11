@@ -652,6 +652,9 @@ class AppTestMinMax:
         assert max(["100", "50", "30", "-200"], key=int) == "100"
         assert max("100", "50", "30", "-200", key=int) == "100"
 
+    def test_max_key_is_None_works(self):
+        assert max(1, 2, key=None) == 2
+
 
 try:
     from hypothesis import given, strategies, example

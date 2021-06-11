@@ -7,7 +7,8 @@ import sys
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import (
-    interp2app, interpindirect2app, unwrap_spec)
+    interp2app, interpindirect2app, unwrap_spec,
+    WrappedDefault)
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty_w
 from rpython.rlib import jit, rarithmetic
 from rpython.rlib.objectmodel import specialize
@@ -183,24 +184,11 @@ def min_max_multiple_args(space, args_w, w_key, implementation_of):
 
 @jit.unroll_safe     # the loop over kwds
 @specialize.arg(2)
-def min_max(space, args, implementation_of):
-    w_key = None
-    w_default = None
-    if bool(args.keywords):
-        kwds = args.keywords
-        for n in range(len(kwds)):
-            if kwds[n] == "key":
-                w_key = args.keywords_w[n]
-            elif kwds[n] == "default":
-                w_default = args.keywords_w[n]
-            else:
-                raise oefmt(space.w_TypeError,
-                            "%s() got unexpected keyword argument",
-                            implementation_of)
-    #
-    args_w = args.arguments_w
+def min_max(space, args_w, implementation_of, w_default, w_key):
+    if space.is_w(w_key, space.w_None):
+        w_key = None
     if len(args_w) > 1:
-        if w_default is not None:
+        if not space.is_w(w_default, space.w_None):
             raise oefmt(space.w_TypeError,
                 "Cannot specify a default for %s() with multiple "
                 "positional arguments", implementation_of)
@@ -213,7 +201,8 @@ def min_max(space, args, implementation_of):
                     "%s() expects at least one argument",
                     implementation_of)
 
-def max(space, __args__):
+@unwrap_spec(w_default=WrappedDefault(None), w_key=WrappedDefault(None))
+def max(space, args_w, __kwonly__, w_default=None, w_key=None):
     """max(iterable, *[, default=obj, key=func]) -> value
 max(arg1, arg2, *args, *[, key=func]) -> value
 
@@ -222,9 +211,10 @@ default keyword-only argument specifies an object to return if
 the provided iterable is empty.
 With two or more arguments, return the largest argument.
     """
-    return min_max(space, __args__, "max")
+    return min_max(space, args_w, "max", w_default, w_key)
 
-def min(space, __args__):
+@unwrap_spec(w_default=WrappedDefault(None), w_key=WrappedDefault(None))
+def min(space, args_w, __kwonly__, w_default=None, w_key=None):
     """min(iterable, *[, default=obj, key=func]) -> value
 min(arg1, arg2, *args, *[, key=func]) -> value
 
@@ -233,7 +223,7 @@ default keyword-only argument specifies an object to return if
 the provided iterable is empty.
 With two or more arguments, return the smallest argument.
     """
-    return min_max(space, __args__, "min")
+    return min_max(space, args_w, "min", w_default, w_key)
 
 
 
