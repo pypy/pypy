@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.objspace.std.memoryobject import BufferViewND
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
+from pypy.interpreter.typedef import make_weakref_descr
 
 class W_Bufferable(W_Root):
     def __init__(self, space):
@@ -138,5 +139,6 @@ W_PickleBuffer.typedef = TypeDef("PickleBuffer", None, None, 'read',
     __new__ = interp2app(descr_new_picklebuffer),
     raw = interp2app(W_PickleBuffer.descr_raw),
     release = interp2app(W_PickleBuffer.descr_release),
+    __weakref__=make_weakref_descr(W_PickleBuffer),
 )
 W_PickleBuffer.typedef.acceptable_as_base_class = False
