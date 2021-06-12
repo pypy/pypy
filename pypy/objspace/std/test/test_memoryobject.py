@@ -318,6 +318,26 @@ class AppTestMemoryView(object):
         raises(NotImplementedError, m.__getitem__, (slice(0,1,1), slice(0,1,2)))
         raises(NotImplementedError, m.__setitem__, (slice(0,1,1), slice(0,1,2)), 123)
 
+    def test_toreadonly(self):
+        b = bytearray(b"abc")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        assert m2.readonly
+        with raises(TypeError):
+            m2[0] = ord('x')
+        assert m2.tolist() == m.tolist()
+        m2.release()
+        assert len(m.tolist()) == 3 # does not crash
+
+    def test_toreadonly_slice_is_readonly(self):
+        b = bytearray(b"abcdefghi")
+        m = memoryview(b)
+        m[0] = ord("c")
+        m2 = m.toreadonly()
+        m3 = m2[1:4]
+        m3.readonly
+
 class AppTestCtypes(object):
     spaceconfig = dict(usemodules=['sys', '_rawffi'])
 
@@ -507,7 +527,7 @@ class AppTestMemoryViewMockBuffer(object):
 
 class AppTestMemoryViewMockBuffer(object):
     spaceconfig = dict(usemodules=['__pypy__'])
-        
+
     def test_cast_with_byteorder(self):
         import sys
         if '__pypy__' not in sys.modules:

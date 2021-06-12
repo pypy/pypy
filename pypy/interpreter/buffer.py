@@ -141,7 +141,7 @@ class BufferView(object):
         return self.value_from_bytes(space, data)
 
     def new_slice(self, start, step, slicelength):
-        return BufferSlice(self, start, step, slicelength)
+        return BufferSlice(self, start, step, slicelength, w_obj=self.w_obj)
 
     def setitem_w(self, space, idx, w_obj):
         offset = self.get_offset(space, 0, idx)
@@ -296,7 +296,7 @@ class SimpleView(RawBufferView_Base):
         if step == 1:
             return SimpleView(SubBuffer(self.data, start, slicelength), w_obj=self.w_obj)
         else:
-            return BufferSlice(self, start, step, slicelength)
+            return BufferSlice(self, start, step, slicelength, w_obj=self.w_obj)
 
     def setitem_w(self, space, idx, w_obj):
         idx = self.get_offset(space, 0, idx)
@@ -365,3 +365,56 @@ class BufferSlice(BufferView):
 
     def setitem_w(self, space, idx, w_obj):
         return self.parent.setitem_w(space, self.parent_index(idx), w_obj)
+
+
+# XXX not sure this is the right approach, maybe adding a copy to BufferView or
+# even a toreadonly would be a better approach
+
+class ReadonlyWrapper(BufferView):
+    def __init__(self, view):
+        self.view = view
+        self.readonly = True
+        self.w_obj = view.w_obj
+
+    def getlength(self):
+        return self.view.getlength()
+
+    def as_str(self):
+        return self.view.as_str()
+
+    def getbytes(self, start, size):
+        return self.view.getbytes(start, size)
+
+    def setbytes(self, start, string):
+        assert 0, "should be unreachable"
+
+    def get_raw_address(self):
+        return self.view.get_raw_address()
+
+    def as_readbuf(self):
+        return self.view.as_readbuf()
+
+    def as_writebuf(self):
+        return self.view.as_writebuf()
+
+    def getformat(self):
+        return self.view.getformat()
+
+    def getitemsize(self):
+        return self.view.getitemsize()
+
+    def getndim(self):
+        return self.view.getndim()
+
+    def getshape(self):
+        return self.view.getshape()
+
+    def getstrides(self):
+        return self.view.getstrides()
+
+    def releasebuffer(self):
+        return self.view.releasebuffer()
+
+    def new_slice(self, start, step, slicelength):
+        return ReadonlyWrapper(BufferSlice(self, start, step, slicelength, w_obj=self.w_obj))
+
