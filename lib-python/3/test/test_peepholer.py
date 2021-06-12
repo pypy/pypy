@@ -461,12 +461,14 @@ class TestTranforms(BytecodeTestCase):
                 self.assertFalse(instr.opname.startswith('BUILD_'))
             self.check_lnotab(code)
 
+    @cpython_only
     def test_in_literal_list(self):
         def containtest():
             return x in [a, b]
         self.assertEqual(count_instr_recursively(containtest, 'BUILD_LIST'), 0)
         self.check_lnotab(containtest)
 
+    @cpython_only
     def test_iterate_literal_list(self):
         def forloop():
             for x in [a, b]:
