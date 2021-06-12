@@ -187,14 +187,14 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                   ignore_errors=True)
     env = os.environ
     if sys.platform == 'win32':
-        # requires the repo pypy/externals to be located under pypy
         externals_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                         '..', '..', 'externals'))
-        assert os.path.exists(externals_path), externals_path
-        env = os.environ.copy()
-        env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
-        env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
-        env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
+        # Needed for buildbot builds. On conda this is not needed. 
+        if os.path.exists(externals_path):
+            env = os.environ.copy()
+            env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
+            env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
+            env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     else:
         env['CFLAGS'] = '-fPIC ' + env.get('CFLAGS', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
