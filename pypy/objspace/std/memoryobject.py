@@ -56,6 +56,7 @@ class W_MemoryView(W_Root):
     def __init__(self, view):
         assert isinstance(view, BufferView)
         self.view = view
+        self.w_obj = None
         self._hash = -1
         self.flags = 0
         self._init_flags()
@@ -87,7 +88,7 @@ class W_MemoryView(W_Root):
             return W_MemoryView.copy(w_object)
         view = space.buffer_w(w_object, space.BUF_FULL_RO)
         mv = view.wrap(space)
-        mv.obj = w_object
+        mv.w_obj = w_object
         return mv
 
     def _make_descr__cmp(name):
@@ -323,7 +324,10 @@ class W_MemoryView(W_Root):
 
     def w_get_obj(self, space):
         self._check_released(space)
-        return self.obj
+        if self.w_obj is None:
+            return space.w_None
+        else:
+            return self.w_obj
 
     def descr_repr(self, space):
         if self.view is None:
@@ -496,7 +500,7 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        return BufferView1D(view, newfmt, itemsize)
+        return BufferView1D(view, newfmt, itemsize, w_obj=self.w_obj)
 
     def get_native_fmtstr(self, fmt):
         lenfmt = len(fmt)
@@ -534,7 +538,7 @@ class W_MemoryView(W_Root):
                         "memoryview: product(shape) * itemsize != buffer size")
 
         strides = self._strides_from_shape(shape, itemsize)
-        return BufferViewND(view, ndim, shape, strides)
+        return BufferViewND(view, ndim, shape, strides, w_obj=self.w_obj)
 
     @staticmethod
     def _strides_from_shape(shape, itemsize):
@@ -710,7 +714,8 @@ class BufferView1D(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
 
-    def __init__(self, parent, format, itemsize):
+    def __init__(self, parent, format, itemsize, w_obj=None):
+        self.w_obj = w_obj
         self.parent = parent
         self.readonly = parent.readonly
         self.format = format
@@ -735,7 +740,8 @@ class BufferViewND(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
 
-    def __init__(self, parent, ndim, shape, strides):
+    def __init__(self, parent, ndim, shape, strides, w_obj=None):
+        self.w_obj = w_obj
         assert parent.getndim() == 1
         assert len(shape) == len(strides) == ndim
         self.parent = parent

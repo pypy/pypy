@@ -611,7 +611,7 @@ class BufferedMixin:
             w_size = w_raw._readinto_raw(space, target_address, length)
             keepalive_until_here(buffer)
         else:
-            w_view = SimpleView(SubBuffer(buffer, start, length)).wrap(space)
+            w_view = SimpleView(SubBuffer(buffer, start, length), w_obj=self).wrap(space)
             while True:
                 try:
                     w_size = space.call_method(self.w_raw, "readinto", w_view)

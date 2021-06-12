@@ -10,7 +10,7 @@ class BufferInterfaceNotFound(Exception):
 
 class BufferView(object):
     """Abstract base class for buffers."""
-    _attrs_ = ['readonly']
+    _attrs_ = ['readonly', 'w_obj']
     _immutable_ = True
 
     def getlength(self):
@@ -220,12 +220,13 @@ class RawBufferView(RawBufferView_Base):
     _attrs_ = ['readonly', 'data', 'fmt', 'itemsize']
     _immutable_ = True
 
-    def __init__(self, data, fmt, itemsize):
+    def __init__(self, data, fmt, itemsize, w_obj=None):
         assert isinstance(data, RawBuffer)
         self.data = data
         self.readonly = data.readonly
         self.fmt = fmt
         self.itemsize = itemsize
+        self.w_obj = w_obj
 
     def getformat(self):
         return self.fmt
@@ -246,7 +247,7 @@ class RawBufferView(RawBufferView_Base):
         if step == 1:
             n = self.itemsize
             newbuf = SubBuffer(self.data, start * n, slicelength * n)
-            return RawBufferView(newbuf, self.fmt, self.itemsize)
+            return RawBufferView(newbuf, self.fmt, self.itemsize, w_obj=self.w_obj)
         else:
             return BufferView.new_slice(self, start, step, slicelength)
 
@@ -255,9 +256,10 @@ class SimpleView(RawBufferView_Base):
     _attrs_ = ['readonly', 'data']
     _immutable_ = True
 
-    def __init__(self, data):
+    def __init__(self, data, w_obj=None):
         self.data = data
         self.readonly = self.data.readonly
+        self.w_obj = w_obj
 
     def getformat(self):
         return 'B'
@@ -292,7 +294,7 @@ class SimpleView(RawBufferView_Base):
 
     def new_slice(self, start, step, slicelength):
         if step == 1:
-            return SimpleView(SubBuffer(self.data, start, slicelength))
+            return SimpleView(SubBuffer(self.data, start, slicelength), w_obj=self.w_obj)
         else:
             return BufferSlice(self, start, step, slicelength)
 
@@ -305,7 +307,8 @@ class BufferSlice(BufferView):
     _immutable_ = True
     _attrs_ = ['parent', 'readonly', 'shape', 'strides', 'start', 'step']
 
-    def __init__(self, parent, start, step, length):
+    def __init__(self, parent, start, step, length, w_obj=None):
+        self.w_obj = w_obj
         self.parent = parent
         self.readonly = self.parent.readonly
         self.strides = parent.getstrides()[:]

@@ -27,7 +27,7 @@ class W_MMap(W_Root):
         write_required = bool(flags & space.BUF_WRITABLE)
         if write_required and readonly:
             raise oefmt(space.w_BufferError, "Object is not writable.")
-        return SimpleView(MMapBuffer(self.space, self.mmap, readonly))
+        return SimpleView(MMapBuffer(self.space, self.mmap, readonly), w_obj=self)
 
     def close(self):
         self.mmap.close()

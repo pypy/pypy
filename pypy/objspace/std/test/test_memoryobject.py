@@ -335,8 +335,9 @@ class AppTestCtypes(object):
 
 class MockBuffer(BufferView):
     def __init__(self, space, w_arr, w_dim, w_fmt, \
-                 w_itemsize, w_strides, w_shape):
+                 w_itemsize, w_strides, w_shape, w_obj=None):
         self.space = space
+        self.w_obj = w_obj
         self.w_arr = w_arr
         self.arr = []
         self.ndim = space.int_w(w_dim)
@@ -407,7 +408,8 @@ class W_MockArray(W_Root):
 
     def buffer_w(self, space, flags):
         return MockBuffer(space, self.w_list, self.w_dim, self.w_fmt, \
-                          self.w_size, self.w_strides, self.w_shape)
+                          self.w_size, self.w_strides, self.w_shape,
+                          w_obj=self)
 
 W_MockArray.typedef = TypeDef("MockArray", None, None, "read-write",
     __new__ = interp2app(W_MockArray.descr_new),
