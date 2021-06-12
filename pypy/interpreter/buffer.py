@@ -371,6 +371,7 @@ class BufferSlice(BufferView):
 # even a toreadonly would be a better approach
 
 class ReadonlyWrapper(BufferView):
+    _immutable_ = True
     def __init__(self, view):
         self.view = view
         self.readonly = True
