@@ -15,7 +15,7 @@ class MiniBuffer(W_Root):
         self.keepalive = keepalive
 
     def buffer_w(self, space, flags):
-        return SimpleView(self.buffer)
+        return SimpleView(self.buffer, w_obj=self)
 
     def descr_len(self, space):
         return space.newint(self.buffer.getlength())

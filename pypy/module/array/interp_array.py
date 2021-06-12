@@ -296,7 +296,7 @@ class W_ArrayBase(W_Root):
             lltype.free(oldbuffer, flavor='raw')
 
     def buffer_w(self, space, flags):
-        return ArrayView(ArrayBuffer(self), self.typecode, self.itemsize, False)
+        return ArrayView(ArrayBuffer(self), self.typecode, self.itemsize, False, w_obj=self)
 
     def descr_append(self, space, w_x):
         """ append(x)
@@ -949,7 +949,8 @@ class ArrayBuffer(RawBuffer):
 class ArrayView(BufferView):
     _immutable_ = True
 
-    def __init__(self, data, fmt, itemsize, readonly):
+    def __init__(self, data, fmt, itemsize, readonly, w_obj=None):
+        self.w_obj = w_obj
         self.data = data
         self.fmt = fmt
         self.itemsize = itemsize
@@ -996,7 +997,7 @@ class ArrayView(BufferView):
         if step == 1:
             n = self.itemsize
             newbuf = SubBuffer(self.data, start * n, slicelength * n)
-            return ArrayView(newbuf, self.fmt, self.itemsize, self.readonly)
+            return ArrayView(newbuf, self.fmt, self.itemsize, self.readonly, w_obj=self.w_obj)
         else:
             return BufferView.new_slice(self, start, step, slicelength)
 
