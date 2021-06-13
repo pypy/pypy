@@ -32,5 +32,6 @@ Only set VMPROF_APPLE on bsd-like when sys.platform is darwin
 
 .. minor branches not worth to document
 .. branch: fix-checkmodule-2
+.. branch: tiny-traceviewer-fix
 
 
