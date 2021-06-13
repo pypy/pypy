@@ -695,6 +695,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
     def _visit_annotations(self, func):
         args = func.args
         assert isinstance(args, ast.arguments)
+        if args.posonlyargs:
+            self._visit_arg_annotations(args.posonlyargs)
         if args.args:
             self._visit_arg_annotations(args.args)
         if args.vararg:

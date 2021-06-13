@@ -692,3 +692,10 @@ def test_posonly_annotations():
         pass
     print(posonlyfunc.__annotations__)
     assert posonlyfunc.__annotations__ == {"x": int}
+
+def global_inner_has_pos_only():
+    def f(x: int, /): ...
+    return f
+
+def test_posonly_annotations_crash():
+    assert global_inner_has_pos_only().__annotations__ == {"x": int}
