@@ -278,18 +278,13 @@ class PyFrame(W_Root):
             from pypy.interpreter.generator import Coroutine
             gen = Coroutine(self, name, qualname)
             ec = space.getexecutioncontext()
-            w_wrapper = ec.w_coroutine_wrapper_fn
             gen.capture_origin(ec)
         elif flags & pycode.CO_ASYNC_GENERATOR:
             from pypy.interpreter.generator import AsyncGenerator
             gen = AsyncGenerator(self, name, qualname)
-            ec = None
-            w_wrapper = None
         elif flags & pycode.CO_GENERATOR:
             from pypy.interpreter.generator import GeneratorIterator
             gen = GeneratorIterator(self, name, qualname)
-            ec = None
-            w_wrapper = None
         else:
             raise AssertionError("bad co_flags")
 
@@ -298,18 +293,6 @@ class PyFrame(W_Root):
         else:
             self.f_generator_nowref = gen
         w_gen = gen
-
-        if w_wrapper is not None:
-            if ec.in_coroutine_wrapper:
-                raise oefmt(space.w_RuntimeError,
-                            "coroutine wrapper %R attempted "
-                            "to recursively wrap %R",
-                            w_wrapper, self.getcode())
-            ec.in_coroutine_wrapper = True
-            try:
-                w_gen = space.call_function(w_wrapper, w_gen)
-            finally:
-                ec.in_coroutine_wrapper = False
         return w_gen
 
     def resume_execute_frame(self, w_arg_or_err):
