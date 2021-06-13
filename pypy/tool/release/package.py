@@ -328,10 +328,12 @@ def create_package(basedir, options, _fake=False):
     finally:
         os.chdir(old_dir)
     if options.targetdir:
-        print("Copying %s to %s" % (archive, options.targetdir))
-        shutil.copy(archive, options.targetdir)
-    else:
-        print("Ready in %s" % (builddir,))
+        tdir = os.path.normpath(options.targetdir)
+        adir = os.path.dirname(archive)
+        if tdir != adir:
+            print("Copying %s to %s" % (archive, options.targetdir))
+            shutil.copy(archive, options.targetdir)
+    print("Ready in %s" % (builddir,))
     return retval, builddir # for tests
 
 def package(*args, **kwds):
