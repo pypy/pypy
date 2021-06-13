@@ -24,3 +24,8 @@ def test_SimpleView_basic():
     assert view.getshape() == [10]
     assert view.getstrides() == [1]
     assert view.as_readbuf() is view.as_writebuf() is buf
+
+def test_SimpleView_basic_w_obj():
+    buf = RawByteBuffer(10)
+    view = SimpleView(buf, w_obj="fake obj")
+    assert view.w_obj == "fake obj"

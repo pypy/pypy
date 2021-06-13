@@ -445,7 +445,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return SimpleView(StringBuffer(self._value))
+        return SimpleView(StringBuffer(self._value), w_obj=self)
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer

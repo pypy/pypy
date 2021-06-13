@@ -52,7 +52,7 @@ class W_BytearrayObject(W_Root):
                            ''.join(self._data[self._offset:]))
 
     def buffer_w(self, space, flags):
-        return SimpleView(BytearrayBuffer(self))
+        return SimpleView(BytearrayBuffer(self), w_obj=self)
 
     def bytearray_list_of_chars_w(self, space):
         return self.getdata()

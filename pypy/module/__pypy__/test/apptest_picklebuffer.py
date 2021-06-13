@@ -30,3 +30,9 @@ def test_weakref():
     pb = None
     gc.collect()
     assert w() is None
+
+def test_memoryobject_picklebuffer_gives_obj_back():
+    b = b"abc"
+    pb = PickleBuffer(b)
+    m = memoryview(pb)
+    assert m.obj is b
