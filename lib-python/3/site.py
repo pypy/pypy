@@ -261,7 +261,7 @@ def _getuserbase():
 
     if os.name == "nt":
         base = os.environ.get("APPDATA") or "~"
-        return joinuser(base, _get_implementation())
+        return joinuser(base, "Python")
 
     if sys.platform == "darwin" and sys._framework:
         return joinuser("~", "Library", sys._framework,
@@ -274,15 +274,13 @@ def _getuserbase():
 def _get_path(userbase):
     version = sys.version_info
 
-    implementation = _get_implementation()
-    implementation_lower = implementation.lower()
     if os.name == 'nt':
-        return f'{userbase}\\{implementation}{version[0]}{version[1]}\\site-packages'
+        return f'{userbase}\\Python{version[0]}{version[1]}\\site-packages'
 
     if sys.platform == 'darwin' and sys._framework:
-        return f'{userbase}/lib/{implementation_lower}/site-packages'
+        return f'{userbase}/lib/python/site-packages'
 
-    return f'{userbase}/lib/{implementation_lower}{version[0]}.{version[1]}/site-packages'
+    return f'{userbase}/lib/python{version[0]}.{version[1]}/site-packages'
 
 
 def getuserbase():
@@ -344,9 +342,6 @@ def getsitepackages(prefixes=None):
             continue
         seen.add(prefix)
 
-        if is_pypy:
-            sitepackages.append(os.path.join(prefix, "site-packages"))
-            continue
         if os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
                                         "python%d.%d" % sys.version_info[:2],
