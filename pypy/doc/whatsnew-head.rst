@@ -26,7 +26,11 @@ Add special error messange for ``'\0'`` in ``rstruct.formatiterator``
 
 Speed up GCC compilation by using a pre-compiled header.
 
+.. branch: set-vmprof_apple-only-on-darwin
+
+Only set VMPROF_APPLE on bsd-like when sys.platform is darwin
 
 .. minor branches not worth to document
 .. branch: fix-checkmodule-2
+
 
