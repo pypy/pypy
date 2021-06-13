@@ -54,3 +54,6 @@ during packaging via ``sysconfig._generate_posix_vars()`` (issue 3483).
 Implement ``reversed(dict)``
 .. branch: py3.8-new-opcodes
 Implement new opcodes that CPython 3.8 uses
+
+.. branch: py3.8-buffer-gets-w_obj
+Refactor the buffer implementation to add a ``.w_obj`` field to ``BufferView``.
