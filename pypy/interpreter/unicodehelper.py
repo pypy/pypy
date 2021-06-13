@@ -1001,6 +1001,12 @@ def str_decode_utf_7(s, errors, final=False,
                 pos += 1
                 result.append('+')
                 outsize += 1
+            elif pos < len(s) and not _utf7_IS_BASE64(ord(s[pos])):
+                msg = "ill-formed sequence"
+                r, pos, rettype, s = errorhandler(errors, 'utf7', msg, s, pos-1, pos+1)
+                reslen = rutf8.check_utf8(r, True)
+                outsize += reslen
+                result.append(r)
             else: # begin base64-encoded section
                 inShift = 1
                 surrogate = 0

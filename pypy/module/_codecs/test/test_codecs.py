@@ -1320,6 +1320,7 @@ class AppTestPartialEvaluation:
             (b'a+2AE\xe1b', u'a\ufffdb'),
             (b'a+2AEA-b', u'a\ufffdb'),
             (b'a+2AH-b', u'a\ufffdb'),
+            (b'a+@b', 'a\ufffdb'),
         ]
         for raw, expected in tests:
             raises(UnicodeDecodeError, codecs.utf_7_decode, raw, 'strict', True)
