@@ -3005,3 +3005,53 @@ def sched_setparam(space, pid, w_param):
         wrap_oserror(space, e, eintr_retry=True)
     else:
         return space.newint(res)
+
+def splitdrive(p):
+    # copied from ntpath.py, but changed to move the sep to the root.
+    # where os.path.splitpath('c:\\abc\\def.txt')
+    # returns ('c:', '\\abc\\def.txt', we want ('c:\\', 'abc\\def.txt')
+    # and '//server/abc/xyz/def.txt' becomes
+    # ('//server/abc/', 'xyz/def.txt')
+    if len(p) >= 2:
+        if isinstance(p, bytes):
+            sep = b'\\'
+            altsep = b'/'
+            colon = b':'
+        else:
+            sep = '\\'
+            altsep = '/'
+            colon = ':'
+        normp = p.replace(altsep, sep)
+        if (normp[0:2] == sep*2) and (normp[2:3] != sep):
+            # is a UNC path:
+            # vvvvvvvvvvvvvvvvvvvvv drive letter or UNC path
+            # \\machine\mountpoint\directory\etc\...
+            #           directory  ^^^^^^^^^^^^^^
+            index = normp.find(sep, 2)
+            if index < 0:
+                return p[:0], p
+            index2 = normp.find(sep, index + 1)
+            # a UNC path can't have two slashes in a row
+            # (after the initial two)
+            if index2 == index + 1:
+                return p[:0], p
+            if index2 < 0:
+                index2 = len(p)
+            return p[:index2+1], p[index2+1:]
+        if normp[1:2] == colon and normp[2:3] == sep:
+            return p[:3], p[3:]
+        elif normp[1:2] == colon:
+            return p[:2], p[2:]
+    return p[:0], p    
+
+def _path_splitroot(space, w_path):
+    """Removes everything after the root on Win32."""
+
+    # ... which begs the question "what is a "root"?
+    # answer: from trial and error, it is almost-but-not-quite
+    # os.path.splitdrive
+    p = space.text_w(fspath(space, w_path))
+    ret0, ret1 = splitdrive(p)
+    #XXX what do we do when w_p is bytes?
+    return space.newtuple([space.newtext(ret0), space.newtext(ret1)])
+
