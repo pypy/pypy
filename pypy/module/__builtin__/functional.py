@@ -152,7 +152,7 @@ def min_max_sequence(space, w_sequence, w_key, w_default, implementation_of):
             has_item = True
             w_max_item = w_item
             w_max_val = w_compare_with
-    if not has_item:
+    if not has_item and not w_max_item:
         raise oefmt(space.w_ValueError, "arg is an empty sequence")
     return w_max_item
 
