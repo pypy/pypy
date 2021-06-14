@@ -207,6 +207,7 @@ class SimpleTypesTestCase(unittest.TestCase):
         with self.assertRaises(ZeroDivisionError):
             WorseStruct().__setstate__({}, b'foo')
 
+    @test.support.cpython_only
     def test_parameter_repr(self):
         from ctypes import (
             c_bool,

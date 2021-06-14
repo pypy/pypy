@@ -834,7 +834,7 @@ a = A()
         try:
             self.simple_test(source, None, None)
         except IndentationError as e:
-            assert e.msg == 'expected an indented block'
+            assert e.msg == 'expected an indented block after function definition on line 2'
         else:
             raise Exception("DID NOT RAISE")
 
@@ -1027,8 +1027,22 @@ a = A()
                 x += 1
                 def get(self):
                     return x
-            return c().get()"""
-        yield self.st, test, "f(3)", 4
+            return c().get(), x"""
+        yield self.st, test, "f(3)", (4, 4)
+
+    def test_nonlocal_class_nesting_bug(self):
+        test = """\
+def foo():
+    var = 0
+    class C:
+        def wrapper():
+            nonlocal var
+            var = 1
+        wrapper()
+        nonlocal var
+    return var
+"""
+        self.st(test, "foo()", 1)
 
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000

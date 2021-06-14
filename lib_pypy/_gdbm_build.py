@@ -11,30 +11,33 @@ ffi.cdef('''
 #define GDBM_NOLOCK ...
 #define GDBM_REPLACE ...
 
-void* gdbm_open(char *, int, int, int, void (*)());
-void gdbm_close(void*);
+typedef struct gdbm_file_info *GDBM_FILE;
+
+GDBM_FILE gdbm_open(const char *, int, int, int, void (*)(const char *));
 
 typedef struct {
     char *dptr;
     int   dsize;
 } datum;
 
-datum gdbm_fetch(void*, datum);
+datum gdbm_fetch(GDBM_FILE, datum);
 datum pygdbm_fetch(void*, char*, int);
-int gdbm_delete(void*, datum);
-int gdbm_store(void*, datum, datum, int);
-int gdbm_exists(void*, datum);
-int pygdbm_exists(void*, char*, int);
+int gdbm_delete(GDBM_FILE, datum);
+int gdbm_store(GDBM_FILE, datum, datum, int);
+int gdbm_exists(GDBM_FILE, datum);
+int pygdbm_exists(GDBM_FILE, char*, int);
+void pygdbm_close(GDBM_FILE);
 
-int gdbm_reorganize(void*);
+int gdbm_reorganize(GDBM_FILE);
 
-datum gdbm_firstkey(void*);
-datum gdbm_nextkey(void*, datum);
-void gdbm_sync(void*);
+datum gdbm_firstkey(GDBM_FILE);
+datum gdbm_nextkey(GDBM_FILE, datum);
+void gdbm_sync(GDBM_FILE);
 
-char* gdbm_strerror(int);
-int gdbm_errno;
+const char* gdbm_strerror(int);
+extern int gdbm_errno;
 
+/* Needed to release returned values */
 void free(void*);
 ''')
 
@@ -57,6 +60,14 @@ static datum pygdbm_fetch(GDBM_FILE gdbm_file, char *dptr, int dsize) {
 static int pygdbm_exists(GDBM_FILE gdbm_file, char *dptr, int dsize) {
     datum key = {dptr, dsize};
     return gdbm_exists(gdbm_file, key);
+}
+
+static void pygdbm_close(GDBM_FILE gdbm_file) {
+    /*
+     * In verison 17, void gdbm_close() became int gdbm_close()
+     * Work around that by wrapping the function
+     */
+    gdbm_close(gdbm_file);
 }
 ''', libraries=['gdbm'], **kwds)
 

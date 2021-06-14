@@ -97,6 +97,9 @@ Generally available functionality
   - ``strategy(dict or list or set)``: Return the underlying strategy currently
     used by the object
 
+  - ``list_get_physical_size(obj)``: Return the physical (ie overallocated
+    size) of the underlying list
+  
   - ``specialized_zip_2_lists``
   - ``locals_to_fast``
   - ``set_code_callback``
@@ -123,6 +126,8 @@ Generally available functionality
   - ``utf8content(u)``: Given a unicode string u, return it's internal byte
     representation.  Useful for debugging only.  
   - ``os.real_getenv(...)`` gets OS environment variables skipping python code
+  - ``os._get_multiarch(...)`` gets the platform-specific multiarch label put into
+    ``sys.implementation._multiarch``.
   - ``_pypydatetime`` provides base classes with correct C API interactions for
     the pure-python ``datetime`` stdlib module
 

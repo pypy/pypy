@@ -259,6 +259,64 @@ def break_cycles(vertices, edges):
                 remaining_edges[max_edge.source] = lst
     assert is_acyclic(vertices, remaining_edges)
 
+def compute_predecessors(vertices, edgedict):
+    result = {}
+    for node, edges in edgedict.iteritems():
+        for edge in edges:
+            result.setdefault(edge.target, set()).add(edge.source)
+    return result
+
+def remove_leaves(vertices, edgedict):
+    """ recursively remove all leaves in the graph, ie nodes that have no
+    outgoing edges. """
+    incoming = compute_predecessors(vertices, edgedict)
+    return remove_leaves_incoming(vertices, edgedict, incoming)
+
+def remove_leaves_incoming(vertices, edgedict, incoming, leaves=None):
+    """ helper function for remove_leaves, but useful on its own: incoming is
+    the result of compute_predecessors on the graph, can be re-used when
+    removing many leaves from the same graph, many times. when the optional
+    argument leaves is given, start removing things from those nodes. """
+    if leaves is None:
+        leaves = {source for source, edges in edgedict.iteritems()
+                    if len(edges) == 0}
+        for leave in leaves:
+            del edgedict[leave]
+            del vertices[leave]
+    while 1:
+        if not leaves:
+            break
+
+        new_leaves = set()
+        to_update = set()
+        to_update.update(*[incoming.get(leave, set()) for leave in leaves])
+        for vertex in to_update:
+            if vertex not in edgedict:
+                continue
+            edges = edgedict[vertex]
+            i = 0
+            while i < len(edges):
+                edge = edges[i]
+                if edge.target in leaves:
+                    del edges[i]
+                else:
+                    i += 1
+            if not edges:
+                new_leaves.add(vertex)
+        leaves = new_leaves
+
+        for leave in leaves:
+            del edgedict[leave]
+            del vertices[leave]
+
+
+def copy_edges(edges):
+    """ make a deep copy of edges """
+    result = {}
+    for key, value in edges.items():
+        result[key] = value[:]
+    return result
+
 
 def break_cycles_v(vertices, edges):
     """Enumerates a reasonably minimal set of vertices that must be removed to
@@ -278,6 +336,8 @@ def break_cycles_v(vertices, edges):
     # Ordering the cycles themselves nearest first maximizes the chances
     # that when breaking a nearby cycle - which must be broken in any
     # case - we remove a vertex and break some further cycles by chance.
+    edges = copy_edges(edges) # we mutate it
+    incoming = compute_predecessors(vertices, edges)
 
     v_depths = vertices
     progress = True
@@ -288,10 +348,15 @@ def break_cycles_v(vertices, edges):
             v_depths = compute_depths(roots, vertices, edges)
             assert len(v_depths) == len(vertices)  # ...so far.  We remove
             # from v_depths the vertices at which we choose to break cycles
+
+            # now that we computed the depths, we can remove all leaves,
+            # recursively. those won't contribute to cycles, but the all_cycles
+            # calls below otherwise try to walk into them repeatedly
+            remove_leaves_incoming(v_depths, edges, incoming)
         #print '%d inital roots' % (len(roots,))
         progress = False
         for root in roots:
-            if root in roots_finished:
+            if root in roots_finished or root not in v_depths:
                 continue
             cycles = all_cycles(root, v_depths, edges)
             log.dot()
@@ -306,6 +371,7 @@ def break_cycles_v(vertices, edges):
                 allcycles.append((cycledepth, cycle))
             allcycles.sort()
             # consider all cycles starting from the ones with smallest depth
+            removed = set()
             for _, cycle in allcycles:
                 try:
                     choices = [(v_depths[edge.source], edge.source)
@@ -316,9 +382,17 @@ def break_cycles_v(vertices, edges):
                     # break this cycle by removing the furthest vertex
                     max_depth, max_vertex = max(choices)
                     del v_depths[max_vertex]
+                    del edges[max_vertex]
                     yield max_vertex
+                    removed.add(max_vertex)
                     progress = True
-    assert is_acyclic(v_depths, edges)
+
+            # early exit when were done. it's quite fast if there are cycles
+            if is_acyclic(v_depths, edges):
+                return
+            # remove leaves, now that we have removed many cycles
+            # start removing leaves from the nodes that we just removed
+            remove_leaves_incoming(v_depths, edges, incoming, removed)
 
 
 def show_graph(vertices, edges):

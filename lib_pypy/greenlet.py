@@ -1,6 +1,7 @@
 import sys
 import __pypy__
 import _continuation
+import _contextvars
 
 __version__ = "0.4.13"
 
@@ -9,7 +10,7 @@ __version__ = "0.4.13"
 
 GREENLET_USE_GC = True
 GREENLET_USE_TRACING = True
-GREENLET_USE_CONTEXT_VARS = False
+GREENLET_USE_CONTEXT_VARS = True    # added in py3.7
 
 # ____________________________________________________________
 # Exceptions
@@ -43,11 +44,11 @@ class greenlet(_continulet):
     GreenletExit = GreenletExit
     __main = False
     __started = False
+    __context = None
 
     def __new__(cls, *args, **kwds):
         self = _continulet.__new__(cls)
-        self.parent = getcurrent()     # creates '_tls.thread_id' if needed
-        self.__thread_id = _tls.thread_id
+        self.parent = getcurrent()
         return self
 
     def __init__(self, run=None, parent=None):
@@ -55,7 +56,6 @@ class greenlet(_continulet):
             self.run = run
         if parent is not None:
             self.parent = parent
-            self.__thread_id = parent.__thread_id
 
     def switch(self, *args, **kwds):
         "Switch execution to this greenlet, optionally passing the values "
@@ -68,12 +68,20 @@ class greenlet(_continulet):
 
     def __switch(target, methodname, *baseargs):
         current = getcurrent()
-        if current.__thread_id is not target.__thread_id:
-            raise error("cannot switch to a different thread")
         #
         while not (target.__main or _continulet.is_pending(target)):
             # inlined __nonzero__ ^^^ in case it's overridden
             if not target.__started:
+                # check that 'target.parent' runs in the current thread,
+                # at least.  It can be changed arbitrarily afterwards in
+                # pypy greenlets, but too bad
+                parent1 = target.parent
+                while not parent1.__started:
+                    parent1 = parent1.parent
+                if parent1.__thread_id is not _tls.thread_id:
+                    raise error("cannot start greenlet because its 'parent'"
+                                " is running on a different thread")
+
                 if methodname == 'switch':
                     greenlet_func = _greenlet_start
                 else:
@@ -81,6 +89,7 @@ class greenlet(_continulet):
                 _continulet.__init__(target, greenlet_func, *baseargs)
                 methodname = 'switch'
                 baseargs = ()
+                target.__thread_id = _tls.thread_id
                 target.__started = True
                 break
             # already done, go to the parent instead
@@ -97,14 +106,23 @@ class greenlet(_continulet):
                     baseargs = (((e,), {}),)
                 except:
                     baseargs = sys.exc_info()[:2] + baseargs[2:]
+        else:
+            if target.__thread_id is not _tls.thread_id:
+                raise error("cannot switch to greenlet running in a"
+                            " different thread")
         #
         try:
             unbound_method = getattr(_continulet, methodname)
+            current.__context = __pypy__.get_contextvar_context()
             _tls.leaving = current
             args, kwds = unbound_method(current, *baseargs, to=target)
             _tls.current = current
+            __pypy__.set_contextvar_context(current.__context)
+            current.__context = None
         except:
             _tls.current = current
+            __pypy__.set_contextvar_context(current.__context)
+            current.__context = None
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('throw')
             _tls.leaving = None
@@ -142,6 +160,26 @@ class greenlet(_continulet):
         if not f:
             return None
         return f.f_back.f_back.f_back   # go past start(), __switch(), switch()
+
+    def __get_context(self):
+        if self is getcurrent():
+            return __pypy__.get_contextvar_context()
+        else:
+            # can't reliably detect if 'self' is the current greenlet running
+            # in another thread.  We might have race conditions between knowing
+            # if it is the case and actually reading 'self.__context'.  So we
+            # just ignore that case and return 'self.__context'.
+            return self.__context
+
+    def __set_context(self, nctx):
+        if nctx is not None and not isinstance(nctx, _contextvars.Context):
+            raise TypeError("greenlet context must be a "
+                            "contextvars.Context or None")
+        if self is getcurrent():
+            __pypy__.set_contextvar_context(nctx)
+        else:
+            self.__context = nctx     # same issue as __get_context()
+    gr_context = property(__get_context, __set_context)
 
 # ____________________________________________________________
 # Recent additions
@@ -187,6 +225,7 @@ def _green_create_main():
     _tls.current = None
     _tls.thread_id = object()
     gmain = greenlet.__new__(greenlet)
+    gmain._greenlet__thread_id = _tls.thread_id
     gmain._greenlet__main = True
     gmain._greenlet__started = True
     assert gmain.parent is None
@@ -198,6 +237,8 @@ def _greenlet_start(greenlet, args):
         args, kwds = args
         _tls.current = greenlet
         try:
+            __pypy__.set_contextvar_context(greenlet._greenlet__context)
+            greenlet._greenlet__context = None
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('switch')
             res = greenlet.run(*args, **kwds)
@@ -207,12 +248,15 @@ def _greenlet_start(greenlet, args):
             _continuation.permute(greenlet, greenlet.parent)
         return ((res,), None)
     finally:
+        greenlet._greenlet__context = __pypy__.get_contextvar_context()
         _tls.leaving = greenlet
 
 def _greenlet_throw(greenlet, exc, value, tb):
     try:
         _tls.current = greenlet
         try:
+            __pypy__.set_contextvar_context(greenlet._greenlet__context)
+            greenlet._greenlet__context = None
             if hasattr(_tls, 'trace'):
                 _run_trace_callback('throw')
             raise __pypy__.normalize_exc(exc, value, tb)
@@ -222,4 +266,5 @@ def _greenlet_throw(greenlet, exc, value, tb):
             _continuation.permute(greenlet, greenlet.parent)
         return ((res,), None)
     finally:
+        greenlet._greenlet__context = __pypy__.get_contextvar_context()
         _tls.leaving = greenlet

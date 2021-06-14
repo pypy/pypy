@@ -78,7 +78,8 @@ class W_AbstractLongObject(W_AbstractIntObject):
         return space.newint(_hash_long(space, self.asbigint()))
 
     def descr_str(self, space):
-        return space.newtext(self.asbigint().str())
+        res = self.asbigint().str()
+        return space.newutf8(res, len(res))
     descr_repr = descr_str
 
 
@@ -369,11 +370,11 @@ class W_LongObject(W_AbstractLongObject):
 
     def _int_mod(self, space, other):
         try:
-            z = self.num.int_mod(other)
+            z = self.num.int_mod_int_result(other)
         except ZeroDivisionError:
             raise oefmt(space.w_ZeroDivisionError,
                         "long division or modulo by zero")
-        return newlong(space, z)
+        return space.newint(z)
     descr_mod, descr_rmod = _make_descr_binop(_mod, _int_mod)
 
     def _divmod(self, space, w_other):

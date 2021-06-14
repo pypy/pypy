@@ -411,6 +411,8 @@ class ObjSpace(object):
     @not_rpython
     def __init__(self, config=None):
         "Basic initialization of objects."
+        self.w_default_importlib_import = None
+
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
@@ -667,10 +669,11 @@ class ObjSpace(object):
         
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
-        self.getbuiltinmodule('_frozen_importlib')
+        frozen_importlib = self.getbuiltinmodule('_frozen_importlib')
         self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
+        self.w_default_importlib_import = frozen_importlib.w_import
 
     @not_rpython
     def initialize(self):

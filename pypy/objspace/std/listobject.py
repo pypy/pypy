@@ -3,7 +3,7 @@
 Lists optimize their storage by holding certain primitive datatypes in
 unwrapped form. For more information:
 
-http://morepypy.blogspot.com/2011/10/more-compact-lists-with-list-strategies.html
+https://www.pypy.org/posts/2011/10/more-compact-lists-with-list-strategies-8229304944653956829.html
 
 """
 
@@ -405,6 +405,12 @@ class W_ListObject(W_Root):
         argument reverse. Argument must be unwrapped."""
         self.strategy.sort(self, reverse)
 
+    def physical_size(self):
+        """ return the physical (ie overallocated size) of the underlying list.
+        """
+        # exposed in __pypy__
+        return self.strategy.physical_size(self)
+
     # exposed to app-level
 
     @staticmethod
@@ -552,14 +558,30 @@ class W_ListObject(W_Root):
 
     def descr_setitem(self, space, w_index, w_any):
         if isinstance(w_index, W_SliceObject):
+            # special case for l[:] = l2
+            if (space.is_w(w_index.w_start, space.w_None) and
+                    space.is_w(w_index.w_stop, space.w_None) and
+                    space.is_w(w_index.w_step, space.w_None)):
+                # use the extend logic
+                if isinstance(w_any, W_ListObject):
+                    if space.is_w(self, w_any):
+                        return
+                    w_other = w_any
+                else:
+                    sequence_w = space.listview(w_any)
+                    w_other = W_ListObject(space, sequence_w)
+                self.clear(space)
+                w_other.copy_into(self)
+                return
+
             oldsize = self.length()
             start, stop, step, slicelength = w_index.indices4(space, oldsize)
             if isinstance(w_any, W_ListObject):
-                self.setslice(start, step, slicelength, w_any)
+                w_other = w_any
             else:
                 sequence_w = space.listview(w_any)
                 w_other = W_ListObject(space, sequence_w)
-                self.setslice(start, step, slicelength, w_other)
+            self.setslice(start, step, slicelength, w_other)
             return
 
         idx = space.getindex_w(w_index, space.w_IndexError, "list")
@@ -861,6 +883,9 @@ class ListStrategy(object):
     def is_empty_strategy(self):
         return False
 
+    def physical_size(self, w_list):
+        raise oefmt(self.space.w_ValueError, "can't get physical size of list")
+
 
 class EmptyListStrategy(ListStrategy):
     """EmptyListStrategy is used when a W_List withouth elements is created.
@@ -1020,6 +1045,9 @@ class EmptyListStrategy(ListStrategy):
 
     def is_empty_strategy(self):
         return True
+
+    def physical_size(self, w_list):
+        return 0
 
 
 class SizeListStrategy(EmptyListStrategy):
@@ -1304,6 +1332,10 @@ class AbstractUnwrappedStrategy(object):
     def unwrap(self, wrapped):
         raise NotImplementedError
 
+    def _quick_cmp(self, a, b):
+        """ do a quick comparison between two unwrapped elements. """
+        raise NotImplementedError("abstract base class")
+
     @staticmethod
     def unerase(storage):
         raise NotImplementedError("abstract base class")
@@ -1368,15 +1400,29 @@ class AbstractUnwrappedStrategy(object):
             raise
         return self.wrap(r)
 
-    @jit.look_inside_iff(lambda self, w_list:
-            jit.loop_unrolling_heuristic(w_list, w_list.length(),
-                                         UNROLL_CUTOFF))
     def getitems_copy(self, w_list):
-        return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+        storage = self.unerase(w_list.lstorage)
+        if len(storage) == 0:
+            return []
+        res = [None] * len(storage)
+        prevvalue = storage[0]
+        w_item = self.wrap(prevvalue)
+        res[0] = w_item
+        for index in range(1, len(storage)):
+            item = storage[index]
+            if jit.we_are_jitted() or not self._quick_cmp(item, prevvalue):
+                prevvalue = item
+                w_item = self.wrap(item)
+            res[index] = w_item
+        return res
 
-    @jit.unroll_safe
-    def getitems_unroll(self, w_list):
-        return [self.wrap(item) for item in self.unerase(w_list.lstorage)]
+    getitems_unroll = jit.unroll_safe(
+            func_with_new_name(getitems_copy, "getitems_unroll"))
+
+    getitems_copy = jit.look_inside_iff(lambda self, w_list:
+            jit.loop_unrolling_heuristic(w_list, w_list.length(),
+                                         UNROLL_CUTOFF))(getitems_copy)
+
 
     @jit.look_inside_iff(lambda self, w_list:
             jit.loop_unrolling_heuristic(w_list, w_list.length(),
@@ -1517,8 +1563,9 @@ class AbstractUnwrappedStrategy(object):
                     i -= 1
                 return
             else:
-                # Make a shallow copy to more easily handle the reversal case
-                w_list.reverse()
+                # other_items is items and step is < 0, therefore:
+                assert step == -1
+                items.reverse()
                 return
                 #other_items = list(other_items)
         for i in range(len2):
@@ -1587,6 +1634,11 @@ class AbstractUnwrappedStrategy(object):
     def reverse(self, w_list):
         self.unerase(w_list.lstorage).reverse()
 
+    def physical_size(self, w_list):
+        from rpython.rlib.objectmodel import list_get_physical_size
+        l = self.unerase(w_list.lstorage)
+        return list_get_physical_size(l)
+
 
 class ObjectListStrategy(ListStrategy):
     import_from_mixin(AbstractUnwrappedStrategy)
@@ -1599,9 +1651,24 @@ class ObjectListStrategy(ListStrategy):
     def wrap(self, item):
         return item
 
+    def _quick_cmp(self, a, b):
+        return a is b
+
     erase, unerase = rerased.new_erasing_pair("object")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    @jit.look_inside_iff(lambda self, w_list:
+            jit.loop_unrolling_heuristic(w_list, w_list.length(),
+                                         UNROLL_CUTOFF))
+    def getitems_copy(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return storage[:]
+
+    @jit.unroll_safe
+    def getitems_unroll(self, w_list):
+        storage = self.unerase(w_list.lstorage)
+        return storage[:]
 
     def is_correct_type(self, w_obj):
         return True
@@ -1635,6 +1702,9 @@ class IntegerListStrategy(ListStrategy):
 
     def unwrap(self, w_int):
         return plain_int_w(self.space, w_int)
+
+    def _quick_cmp(self, a, b):
+        return a == b
 
     erase, unerase = rerased.new_erasing_pair("integer")
     erase = staticmethod(erase)
@@ -1735,6 +1805,9 @@ class FloatListStrategy(ListStrategy):
     erase, unerase = rerased.new_erasing_pair("float")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
+
+    def _quick_cmp(self, a, b):
+        return longlong2float.float2longlong(a) == longlong2float.float2longlong(b)
 
     def is_correct_type(self, w_obj):
         return type(w_obj) is W_FloatObject
@@ -1849,6 +1922,9 @@ class IntOrFloatListStrategy(ListStrategy):
             floatval = self.space.float_w(w_int_or_float)
             return longlong2float.float2longlong(floatval)
 
+    def _quick_cmp(self, a, b):
+        return a == b
+
     erase, unerase = rerased.new_erasing_pair("longlong")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1949,6 +2025,9 @@ class BytesListStrategy(ListStrategy):
     def unwrap(self, w_string):
         return self.space.bytes_w(w_string)
 
+    def _quick_cmp(self, a, b):
+        return a is b
+
     erase, unerase = rerased.new_erasing_pair("bytes")
     erase = staticmethod(erase)
     unerase = staticmethod(unerase)
@@ -1981,6 +2060,9 @@ class AsciiListStrategy(ListStrategy):
 
     def unwrap(self, w_string):
         return self.space.utf8_w(w_string)
+
+    def _quick_cmp(self, a, b):
+        return a is b
 
     erase, unerase = rerased.new_erasing_pair("unicode")
     erase = staticmethod(erase)

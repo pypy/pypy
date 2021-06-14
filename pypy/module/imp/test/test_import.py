@@ -666,6 +666,8 @@ class AppTestImport(BaseFSEncodeTest):
                 foobarbazmod,)
         except ImportError:
             pass
+        finally:
+            del sys.modules['foobarbazmod']
 
     def test_del_from_sys_modules(self):
         try:
@@ -985,6 +987,20 @@ class TestPycStuff:
         s = a.build_types(f, [])
         assert isinstance(s, annmodel.SomeString)
         assert s.no_nul
+
+    def test_pyc_magic_changes2(self):
+        from pypy.tool import stdlib_opcode
+        from pypy.interpreter.pycode import default_magic
+        from hashlib import sha1
+        h = sha1()
+        # very simple test: hard-code the hash of pypy/stdlib_opcode.py and the
+        # default magic. if you change stdlib_opcode, please update the hash
+        # below, as well as incrementing the magic number in pycode.py
+        with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
+            h.update(f.read())
+        assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
+        assert default_magic == 0xa0d00f0
+
 
 
 def test_PYTHONPATH_takes_precedence(space):

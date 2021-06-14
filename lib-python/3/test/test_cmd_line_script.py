@@ -230,6 +230,7 @@ class CmdLineTest(unittest.TestCase):
                                script_dir, None,
                                importlib.machinery.SourceFileLoader)
 
+    @support.impl_detail # pypy doesn't support lone pyc files
     def test_script_compiled(self):
         with support.temp_dir() as script_dir:
             script_name = _make_test_script(script_dir, 'script')

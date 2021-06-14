@@ -10,8 +10,6 @@ syntax: glob
 .vscode
 __pycache__
 .venv
-.cache
-
 .cache/
 .gdb_history
 syntax: regexp
@@ -56,6 +54,7 @@ syntax: regexp
 ^rpython/translator/goal/target.+-c$
 ^rpython/translator/goal/.+\.exe$
 ^rpython/translator/goal/.+\.dll$
+^rpython/rlib/test/_hacked_rbigint.py$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/Makefile$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.guess$
 ^rpython/rlib/rvmprof/src/shared/libbacktrace/config.h$

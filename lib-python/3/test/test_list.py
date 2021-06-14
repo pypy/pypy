@@ -181,11 +181,11 @@ class ListTest(list_tests.CommonTest):
 
         list1 = [X()]
         list2 = [Y()]
-        self.assertTrue(list1 == list2)
+        list1 == list2 # does not segfault, result doesn't matter
 
         list3 = [Z()]
         list4 = [1]
-        self.assertFalse(list3 == list4)
+        list3 == list4 # does not segfault, result doesn't matter
 
     def test_count_index_remove_crashes(self):
         # bpo-38610: The count(), index(), and remove() methods were not

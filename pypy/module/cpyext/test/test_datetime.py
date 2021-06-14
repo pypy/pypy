@@ -5,7 +5,8 @@ from pypy.module.cpyext.test.test_api import BaseApiTest
 from pypy.module.cpyext.cdatetime import *
 from pypy.module.cpyext.cdatetime import (
     _PyDateTime_Import, _PyDateTime_FromDateAndTime, _PyDate_FromDate,
-    _PyTime_FromTime, _PyDelta_FromDelta)
+    _PyTime_FromTime, _PyDelta_FromDelta, _PyTime_FromTimeAndFold,
+    _PyDateTime_FromDateAndTimeAndFold)
 import datetime
 
 class TestDatetime(BaseApiTest):
@@ -35,11 +36,42 @@ class TestDatetime(BaseApiTest):
         assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
         assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
 
+        w_time = _PyTime_FromTimeAndFold(
+            space, 23, 15, 40, 123456, space.w_None, 0, date_api.c_TimeType)
+        assert space.unwrap(space.str(w_time)) == '23:15:40.123456'
+
+        assert PyTime_Check(space, w_time)
+        assert PyTime_CheckExact(space, w_time)
+
+        assert PyDateTime_TIME_GET_HOUR(space, w_time) == 23
+        assert PyDateTime_TIME_GET_MINUTE(space, w_time) == 15
+        assert PyDateTime_TIME_GET_SECOND(space, w_time) == 40
+        assert PyDateTime_TIME_GET_MICROSECOND(space, w_time) == 123456
+
+
     def test_datetime(self, space):
         date_api = _PyDateTime_Import(space)
         w_date = _PyDateTime_FromDateAndTime(
             space, 2010, 06, 03, 23, 15, 40, 123456, space.w_None,
             date_api.c_DateTimeType)
+        assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
+
+        assert PyDateTime_Check(space, w_date)
+        assert PyDateTime_CheckExact(space, w_date)
+        assert PyDate_Check(space, w_date)
+        assert not PyDate_CheckExact(space, w_date)
+
+        assert PyDateTime_GET_YEAR(space, w_date) == 2010
+        assert PyDateTime_GET_MONTH(space, w_date) == 6
+        assert PyDateTime_GET_DAY(space, w_date) == 3
+        assert PyDateTime_DATE_GET_HOUR(space, w_date) == 23
+        assert PyDateTime_DATE_GET_MINUTE(space, w_date) == 15
+        assert PyDateTime_DATE_GET_SECOND(space, w_date) == 40
+        assert PyDateTime_DATE_GET_MICROSECOND(space, w_date) == 123456
+
+        w_date = _PyDateTime_FromDateAndTimeAndFold(
+            space, 2010, 06, 03, 23, 15, 40, 123456, space.w_None,
+            0, date_api.c_DateTimeType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
 
         assert PyDateTime_Check(space, w_date)

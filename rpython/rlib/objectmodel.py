@@ -489,6 +489,37 @@ class Entry(ExtRegistryEntry):
         hop.exception_is_here()
         hop.gendirectcall(r_list.LIST._ll_resize_hint, v_list, v_sizehint)
 
+def list_get_physical_size(l):
+    """ try to get the physical size of an overallocated RPython list. will
+    return the regular length untranslated. """
+    return len(l)
+
+def ll_physical_size(l):
+    return len(l.items)
+
+class Entry(ExtRegistryEntry):
+    _about_ = list_get_physical_size
+
+    def compute_result_annotation(self, s_l):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_l):
+            pass # first argument is only None so far, but we
+                 # expect a generalization later
+        elif not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        return annmodel.SomeInteger(nonneg=True)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import FixedSizeListRepr, ListRepr
+        v_list, = hop.inputargs(*hop.args_r)
+        if isinstance(hop.args_r[0], ListRepr):
+            ll_func = ll_physical_size
+        else:
+            ll_func = v_list.concretetype.TO.ll_length
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_func, v_list)
+
+
 # ____________________________________________________________
 #
 # id-like functions.  The idea is that calling hash() or id() is not

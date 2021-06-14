@@ -561,3 +561,14 @@ def test_struct_with_bytes_as_format_string():
     struct.unpack(b"ii", b"X" * 8)
     assert struct.unpack_from(b"ii", b) == (45, 56)
     struct.Struct(b"ii")
+
+def test_boundary_error_message_with_large_offset():
+    # Test overflows cause by large offset and value size (bpo-30245)
+    expected = (
+        'pack_into requires a buffer of at least ' + str(sys.maxsize + 4) +
+        ' bytes for packing 4 bytes at offset ' + str(sys.maxsize) +
+        ' (actual buffer size is 10)'
+    )
+    exc = raises(struct.error, struct.pack_into,
+                 '<I', bytearray(10), sys.maxsize, 1)
+    assert str(exc.value) == expected

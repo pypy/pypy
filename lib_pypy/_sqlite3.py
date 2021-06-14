@@ -52,6 +52,8 @@ else:
 
 from _sqlite3_cffi import ffi as _ffi, lib as _lib
 
+_UNSUPPORTED_TYPE = object()
+
 exported_sqlite_symbols = [
     'SQLITE_ALTER_TABLE',
     'SQLITE_ANALYZE',
@@ -192,7 +194,7 @@ class _StatementCache(object):
             if len(self.cache) > self.maxcount:
                 self.cache.popitem(0)
         else:
-            if stat._in_use:
+            if stat._in_use_token:
                 stat = Statement(self.connection, sql)
                 self.cache[sql] = stat
         return stat
@@ -394,7 +396,7 @@ class Connection(object):
         for weakref in lst:
             statement = weakref()
             if statement is not None:
-                statement._reset()
+                statement._force_reset()
 
     @_check_thread_wrap
     @_check_closed_wrap
@@ -481,7 +483,7 @@ class Connection(object):
         if not self.in_transaction:
             return
 
-        self.__do_all_statements(Statement._reset, True)
+        self.__do_all_statements(Statement._force_reset, True)
 
         statement_star = _ffi.new('sqlite3_stmt **')
         ret = _lib.sqlite3_prepare_v2(self._db, b"ROLLBACK", -1,
@@ -787,12 +789,16 @@ class Cursor(object):
         con._check_thread()
         con._remember_cursor(self)
 
+        # if a statement is in use by self, it's ._in_use_token is set to
+        # self.__in_use_token. That way, we know whether the Statement is used
+        # by *self* in self.__del__ and can only reset it in that case.
+        self.__in_use_token = _InUseToken()
         self.__initialized = True
 
     def __del__(self):
         # Since statements are cached, they can outlive their parent cursor
         if self.__statement:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
 
     def close(self):
         if not self.__initialized:
@@ -800,7 +806,7 @@ class Cursor(object):
         self.__connection._check_thread()
         self.__connection._check_closed()
         if self.__statement:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
             self.__statement = None
         self.__closed = True
 
@@ -926,7 +932,7 @@ class Cursor(object):
                 pass
             self.__rowcount = -1
             if self.__statement:
-                self.__statement._reset()
+                self.__statement._reset(self.__in_use_token)
             self.__statement = self.__connection._statement_cache.get(sql)
 
             if self.__connection._begin_statement and self.__statement._is_dml:
@@ -934,7 +940,7 @@ class Cursor(object):
                     self.__connection._begin()
 
             for params in many_params:
-                self.__statement._set_params(params)
+                self.__statement._set_params(params, self.__in_use_token)
 
                 # Actually execute the SQL statement
 
@@ -966,13 +972,13 @@ class Cursor(object):
                     self.__next_row = self.__fetch_one_row()
                 elif ret == _lib.SQLITE_DONE:
                     if not multiple:
-                        self.__statement._reset()
+                        self.__statement._reset(self.__in_use_token)
                 else:
-                    self.__statement._reset()
+                    self.__statement._reset(self.__in_use_token)
                     raise self.__connection._get_exception(ret)
 
                 if multiple:
-                    self.__statement._reset()
+                    self.__statement._reset(self.__in_use_token)
         finally:
             self.__locked = False
         return self
@@ -1048,7 +1054,7 @@ class Cursor(object):
         if ret == _lib.SQLITE_ROW:
             self.__next_row = self.__fetch_one_row()
         else:
-            self.__statement._reset()
+            self.__statement._reset(self.__in_use_token)
             if ret != _lib.SQLITE_DONE:
                 raise self.__connection._get_exception(ret)
         return next_row
@@ -1101,6 +1107,8 @@ class Cursor(object):
     def setoutputsize(self, *args):
         pass
 
+class _InUseToken(object):
+    __slots__ = ()
 
 class Statement(object):
     _statement = None
@@ -1108,7 +1116,7 @@ class Statement(object):
     def __init__(self, connection, sql):
         self.__con = connection
 
-        self._in_use = False
+        self._in_use_token = None
 
         if not isinstance(sql, basestring):
             raise Warning("SQL is of wrong type. Must be string or unicode.")
@@ -1128,10 +1136,11 @@ class Statement(object):
 
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
-            c_sql = _ffi.new("char[]", b"select 42")
+            c_sql = _ffi.new("char[]", b"select 42 where 42 = 23")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
+            self._valid = False
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
@@ -1150,12 +1159,18 @@ class Statement(object):
         if self._statement:
             self.__con._finalize_raw_statement(self._statement)
             self._statement = None
-        self._in_use = False
+        self._in_use_token = None
 
-    def _reset(self):
-        if self._in_use and self._statement:
+    def _reset(self, token):
+        assert isinstance(token, _InUseToken)
+        if self._in_use_token is token and self._statement:
             _lib.sqlite3_reset(self._statement)
-            self._in_use = False
+            self._in_use_token = None
+
+    def _force_reset(self):
+        if self._in_use_token and self._statement:
+            _lib.sqlite3_reset(self._statement)
+            self._in_use_token = None
 
     if sys.version_info[0] < 3:
         def __check_decodable(self, param):
@@ -1202,11 +1217,12 @@ class Statement(object):
             rc = _lib.sqlite3_bind_blob(self._statement, idx, param,
                                         len(param), _SQLITE_TRANSIENT)
         else:
-            rc = -1
+            rc = _UNSUPPORTED_TYPE
         return rc
 
-    def _set_params(self, params):
-        self._in_use = True
+    def _set_params(self, params, token):
+        assert isinstance(token, _InUseToken)
+        self._in_use_token = token
 
         num_params_needed = _lib.sqlite3_bind_parameter_count(self._statement)
         if isinstance(params, (tuple, list)) or \
@@ -1223,9 +1239,11 @@ class Statement(object):
                                        (num_params_needed, num_params))
             for i in range(num_params):
                 rc = self.__set_param(i + 1, params[i])
-                if rc != _lib.SQLITE_OK:
+                if rc is _UNSUPPORTED_TYPE:
                     raise InterfaceError("Error binding parameter %d - "
                                          "probably unsupported type." % i)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__con._get_exception(rc)
         elif isinstance(params, dict):
             for i in range(1, num_params_needed + 1):
                 param_name = _lib.sqlite3_bind_parameter_name(self._statement, i)
@@ -1240,21 +1258,25 @@ class Statement(object):
                     raise ProgrammingError("You did not supply a value for "
                                            "binding %d." % i)
                 rc = self.__set_param(i, param)
-                if rc != _lib.SQLITE_OK:
+                if rc is _UNSUPPORTED_TYPE:
                     raise InterfaceError("Error binding parameter :%s - "
                                          "probably unsupported type." %
                                          param_name)
+                if rc != _lib.SQLITE_OK:
+                    raise self.__con._get_exception(rc)
         else:
             raise ValueError("parameters are of unsupported type")
 
     def _get_description(self):
-        if self._is_dml:
+        if self._is_dml or not self._valid:
             return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):
             name = _lib.sqlite3_column_name(self._statement, i)
             if name:
-                name = _ffi.string(name).decode('utf-8').split("[")[0].strip()
+                name = _ffi.string(name).decode('utf-8')
+                if self.__con._detect_types & PARSE_COLNAMES:
+                    name = name.split("[")[0].strip()
             desc.append((name, None, None, None, None, None, None))
         return desc
 
@@ -1275,9 +1297,14 @@ class Row(object):
         elif isinstance(item, slice):
             return self.values[item]
         else:
-            item = item.lower()
             for idx, desc in enumerate(self.description):
-                if desc[0].lower() == item:
+                # but to bug compatibility: CPython does case folding only for
+                # ascii chars
+                if desc[0] == item:
+                    return self.values[idx]
+                if not desc[0].isascii() or not item.isascii():
+                    continue
+                if desc[0].lower() == item.lower():
                     return self.values[idx]
             raise IndexError("No item with that key")
 

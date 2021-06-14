@@ -191,6 +191,13 @@ def split_one_loop(real_loops, guard_s, guard_content, lineno, no, allloops):
 MAX_LOOPS = 300
 LINE_CUTOFF = 300
 
+def fillappend(lst, elem, no):
+    there = len(lst)
+    assert there <= no
+    for _ in range(no - there):
+        lst.append(None)
+    lst.append(elem)
+
 def splitloops(loops):
     real_loops = []
     counter = 1
@@ -204,9 +211,9 @@ def splitloops(loops):
         m = re.match('# Loop (\d+)', firstline)
         if m:
             no = int(m.group(1))
-            assert len(real_loops) == no
+            assert len(real_loops) <= no
             _loop = FinalBlock(loop, None)
-            real_loops.append(_loop)
+            fillappend(real_loops, _loop, no)
             _loop.startlineno = counter
             _loop.loop_no = no
             allloops.append(_loop)

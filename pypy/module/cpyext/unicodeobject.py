@@ -11,8 +11,8 @@ from pypy.interpreter.unicodehelper import (
     utf8_encode_utf_32_helper, str_decode_latin_1, utf8_encode_latin_1)
 from pypy.objspace.std.unicodeobject import unicodedb
 from pypy.module.cpyext.api import (
-    CANNOT_FAIL, Py_ssize_t, Py_TPFLAGS_UNICODE_SUBCLASS, cpython_api,
-    bootstrap_function, CONST_STRING, INTP_real,
+    CANNOT_FAIL, Py_ssize_t, cpython_api,
+    bootstrap_function, CONST_STRING, INTP_real, Py_TPFLAGS_UNICODE_SUBCLASS,
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir,
     PyTypeObjectPtr)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
@@ -47,7 +47,6 @@ DEFAULT_ENCODING_SIZE = 100
 default_encoding = lltype.malloc(rffi.CCHARP.TO, DEFAULT_ENCODING_SIZE,
                                  flavor='raw', zero=True)
 
-
 WCHAR_KIND = 0
 _1BYTE_KIND = 1
 _2BYTE_KIND = 2
@@ -60,10 +59,29 @@ kind_to_name = {
     4: '_4BYTE_KIND',
     }
 
-def PyUnicode_Check(ref):
+# Backward compatibility: in PyPy7.3.4 this function became a C macro. But
+# since we do not change the API, we need to export this function from the
+# dll/so. This requires giving the mangled name here and special casing it in
+# mangle_name from api.py
+@cts.decl("int PyPyUnicode_Check(void * obj)", error=CANNOT_FAIL)
+def PyUnicode_Check(space, ref):
     if not ref:
         return False
+    ref = rffi.cast(PyObject, ref)
     return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
+
+# Backward compatibility: in PyPy7.3.4 this function became a C macro. But
+# since we do not change the API, we need to also export this function from the
+# dll/so. This requires giving the mangled name here and special casing it in
+# mangle_name from api.py
+@cts.decl("int PyPyUnicode_CheckExact(void * obj)", error=CANNOT_FAIL)
+def PyUnicode_CheckExact(space, ref):
+    if not ref:
+        return False
+    w_obj = from_ref(space, rffi.cast(PyObject, ref))
+    w_obj_type = space.type(w_obj)
+    return space.is_w(w_obj_type, space.w_unicode)
+ 
 
 def new_empty_unicode(space, length):
     """
@@ -447,7 +465,7 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
 def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     if not get_wbuffer(ref):
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
@@ -498,7 +516,7 @@ def PyUnicode_AsUnicode(space, ref):
 
 @cts.decl("char * PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize)")
 def PyUnicode_AsUTF8AndSize(space, ref, psize):
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         PyErr_BadArgument(space)
     if not get_ready(ref):
         res = _PyUnicode_Ready(space, ref)
@@ -557,7 +575,7 @@ def PyUnicode_GetDefaultEncoding(space):
     return default_encoding
 
 def _unicode_as_encoded_object(space, pyobj, llencoding, llerrors):
-    if not PyUnicode_Check(pyobj):
+    if not PyUnicode_Check(space, pyobj):
         PyErr_BadArgument(space)
 
     encoding = errors = None
@@ -595,7 +613,7 @@ def PyUnicode_AsUnicodeEscapeString(space, pyobj):
     """Encode a Unicode object using Unicode-Escape and return the result as Python
     string object.  Error handling is "strict". Return NULL if an exception was
     raised by the codec."""
-    if not PyUnicode_Check(pyobj):
+    if not PyUnicode_Check(space, pyobj):
         PyErr_BadArgument(space)
 
     w_unicode = from_ref(space, pyobj)
@@ -886,7 +904,7 @@ def make_conversion_functions(suffix, encoding, only_for_asstring=False):
         """Encode a Unicode object and return the result as Python
         string object.  Error handling is "strict".  Return NULL if an
         exception was raised by the codec."""
-        if not PyUnicode_Check(pyobj):
+        if not PyUnicode_Check(space, pyobj):
             PyErr_BadArgument(space)
         w_unicode = from_ref(space, pyobj)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
@@ -1078,16 +1096,18 @@ def PyUnicode_TransformDecimalToASCII(space, s, size):
     Py_UNICODE buffer of the given size by ASCII digits 0--9
     according to their decimal value.  Return NULL if an exception
     occurs."""
-    result = rstring.UnicodeBuilder(size)
+    result = rutf8.Utf8StringBuilder(size)
     for i in range(size):
         ch = s[i]
-        if ord(ch) > 127:
+        ordch = ord(ch)
+        if ordch > 127:
             decimal = Py_UNICODE_TODECIMAL(space, ch)
             decimal = rffi.cast(lltype.Signed, decimal)
             if decimal >= 0:
-                ch = unichr(ord('0') + decimal)
-        result.append(ch)
-    return space.newtext(result.build())
+                ordch = ord('0') + decimal
+        result.append_code(ordch)
+    u = result.build()
+    return space.newtext(u, result.getlength())
 
 @cpython_api([PyObject, PyObject], rffi.INT_real, error=-2)
 def PyUnicode_Compare(space, w_left, w_right):
@@ -1335,13 +1355,13 @@ def PyUnicode_New(space, size, maxchar):
 @cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
           Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
 def PyUnicode_FindChar(space, ref, ch, start, end, direction):
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         PyErr_BadArgument(space)
     w_str = from_ref(space, ref)
     ch = widen(ch)
     if ch > rutf8.MAXUNICODE:
         raise oefmt(space.w_ValueError, "character out of range")
-    w_ch = space.newtext(unichr(ch))
+    w_ch = space.newtext(rutf8.unichr_as_utf8(r_uint(ch)), 1)
     if rffi.cast(lltype.Signed, direction) > 0:
         w_pos = space.call_method(w_str, "find", w_ch,
                                   space.newint(start), space.newint(end))
@@ -1352,7 +1372,7 @@ def PyUnicode_FindChar(space, ref, ch, start, end, direction):
 
 @cts.decl("Py_UCS4 PyUnicode_ReadChar(PyObject *unicode, Py_ssize_t index)", error=-1)
 def PyUnicode_ReadChar(space, ref, index):
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         PyErr_BadArgument(space)
     if not get_ready(ref):
         PyErr_BadArgument(space)
@@ -1370,7 +1390,7 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     - ref must not have a RPython object
     - ref must not have been processed by _PyUnicode_Ready
     """
-    if not PyUnicode_Check(ref):
+    if not PyUnicode_Check(space, ref):
         PyErr_BadArgument(space)
     if index < 0 or index > get_len(ref):
         raise oefmt(space.w_IndexError, "string index out of range")

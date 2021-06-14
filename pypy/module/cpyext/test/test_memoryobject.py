@@ -71,7 +71,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  Py_DECREF(str);
 
                  ret = PyMemoryView_FromBuffer(&buf);
-                 if (((PyMemoryViewObject*)ret)->view.obj != buf.obj)
+                 if (((PyMemoryViewObject*)ret)->view.obj != NULL)
                  {
                     PyErr_SetString(PyExc_ValueError, "leaked ref");
                     Py_DECREF(ret);

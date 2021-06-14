@@ -1,94 +1,52 @@
-==========================
-What's new in PyPy3 7.3.3+
-==========================
+============================
+What's new in PyPy3.7 7.3.4+
+============================
 
-.. this is the revision after release-pypy3.6-v7.3.3
-.. startrev: a57ea1224248
+.. this is a revision shortly after release-pypy-7.3.4
+.. startrev: 9c11d242d78c
 
-.. branches merged to py3.6 and are not reported in the test. Re-enable
-    these lines for the release or when fixing the test
-    .. branch: py3.6-resync
+.. branch: hpy
 
-    .. branch: fix-crypt-py3-import
-
-    Fix bad merge of crypt cffi module
-
-    .. branch: issue3348
-
-    Fix utf_8_decode for final=False, error=ignore
-
-.. branch: py3.7-rsre
-
-Fix rsre module for python 3.7
-
-.. branch: incremental_decoder
-
-Fix utf_8_decode for final=False 
+Merge latest hpy
 
 
-.. branch: refactor-posonly
+.. branch: py3.7-errormsg-improvements
 
-Refactor how positional-only arguments are represented in signature objects,
-which brings it more in line with Python 3.8, and simplifies the code.
+Produce better error messages for IndentationErrors (showing statement and line
+that opened the block that is missing), AttributeErrors and NameErrors (showing
+suggestions which name could have been meant instead in case of typos). This
+follows the upcoming CPython 3.10 features.
 
-.. branch: const
+.. branch: distutils-implementation
+Instantiate the ``distutils.command.install`` schema for the python
+implementation (issue 3436)
 
-Change `char *`` to ``const char *`` in ``PyStructSequence_Field``,
-``PyStructSequence_Desc``, ``PyGetSetDef``, ``wrapperbase``
+.. branch: py3.7-bpo-30245
+Avoid overflow in ``struct.pack_into`` error message (BPO 30245)
 
-.. branch: win64-py3.7
 
-Merge win64 into this branch
+.. branch: py3.7-newtext-const-arg-caching
 
-.. branch: win64-cpyext
+Reduce memory allocations at runtime caused by interpreter-internal
+identifiers.
 
-Fix the cpyext module for win64
+.. branch: py3.7-import-speedup
 
-.. branch: py3.7-winreg
+Speep up cached imports by re-implementing (a subset of) BPO-22557. This brings
+it very close to PyPy2 standards.
 
-Fix various problems with ``winreg``: add ``REG_QWORD``, implement reflection
-on win64, (bpo-21151) preserve None passed as ``REG_BINARY``, (bpo-25778),
-truncate ``REG_SZ`` at first ``NULL``, use surrogatepass in ``UTF-16`` decoding
-(issue 3342).
+.. branch: py3.7-ignore-finalizer-files-after-close
 
-.. branch: py3.7-win64-hash
+Make creation and destruction of many files cheaper: don't call ``.__del__`` of
+streams that had their ``.close()`` method called (and aren't user defined
+classes).
 
-Prevent overflow in ``_hash_long`` on win64 using method from CPython, and
-speed it up.
+.. branch: multiarch
 
-.. branch: issue-3371
+Add a ``sys.implementation._multiarch`` field like CPython on linux, darwin via
+``__pypy__.os._get_multiarch()``
 
-Allow compiler to inherit flags from ``__future__.annotations``. Fixes
-``>>> x : X``
+.. branch: sysconfigdata
 
-.. branch: win32consoleio2
-
-Re-enable ``_io.win32console`` on windows
-
-.. branch: meth-fastcall
-
-Implement METH_FASTCALL
-
-.. branch: py3.7-win64-cpyext-longobject 
-
-Fix ``cpyext.longobject`` for win64
-
-.. branch: py3.7-big-sur-dyld-cache
-
-Fix loading system libraries with ctypes on macOS Big Sur. (issue 3314)
-
-.. branch: map-improvements-3.7
-
-Port map-improvements to py3.7
-
-.. branch: win64-hpy
-
-Enable _hpy_universal on win64
-
-.. branch: vendor/stdlib-3.7
-
-Update stdlib to 3.7.10
-
-.. branch: fix-issue-3181
-
-Fix ElementTree.extend not working on iterators (issue 3181 and bpo43399)
+Add a ``lib_pypy/_sysconfigdata__*.py`` file like CPython on linux, darwin
+during packaging via ``sysconfig._generate_posix_vars()`` (issue 3483).

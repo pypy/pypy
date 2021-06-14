@@ -362,9 +362,13 @@ class PyPyTarget(object):
         options = make_dict(config)
         wrapstr = 'space.wrap(%r)' % (options)  # import time
         SysModule.interpleveldefs['pypy_translation_info'] = wrapstr
-        if config.objspace.usemodules._cffi_backend:
+        
+        if 'compile' in driver._disabled:
+            driver.default_goal = 'source'
+        elif config.objspace.usemodules._cffi_backend:
             self.hack_for_cffi_modules(driver)
-
+        else:
+            driver.default_goal = 'compile' 
         return self.get_entry_point(config)
 
     def hack_for_cffi_modules(self, driver):
@@ -382,7 +386,7 @@ class PyPyTarget(object):
             ''' Use cffi to compile cffi interfaces to modules'''
             filename = join(pypydir, '..', 'lib_pypy', 'pypy_tools',
                                    'build_cffi_imports.py')
-            if sys.platform == 'darwin':
+            if sys.platform in ('darwin', 'linux', 'linux2'):
                 argv = [filename, '--embed-dependencies']
             else:
                 argv = [filename,]

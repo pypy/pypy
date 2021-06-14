@@ -5,10 +5,11 @@ from rpython.tool.udir import udir
 
 
 class AppTestImpModule:
-    # cpyext is required for _imp.create_dynamic()
+    # cpyext or _cffi_backend is required for _imp.create_dynamic()
+    # use _cffi_backend since it is difficult to import cpyext untranslated
     spaceconfig = {
-        'usemodules': ['binascii', 'imp', 'itertools', 'time', 'struct',
-                       'zipimport', 'cpyext'],
+        'usemodules': ['binascii', 'imp', 'time', 'struct',
+                       'zipimport', '_cffi_backend'],
     }
 
     def setup_class(cls):
@@ -99,6 +100,7 @@ class AppTestImpModule:
     def test_ext_suffixes(self):
         import _imp
         for suffix in _imp.extension_suffixes():
+            # print(suffix)
             assert suffix.endswith(('.pyd', '.so'))
 
     def test_obscure_functions(self):
