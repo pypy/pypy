@@ -317,16 +317,25 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.compare("", b"abc") == -1
         assert module.compare("abc", b"") == 1
 
-    def test_AsUTF8AndSize(self):
+    def test_As_AndSize(self):
         module = self.import_extension('foo', [
              ("utf8", "METH_O",
              """
                 Py_ssize_t size;
                 char *utf8 = PyUnicode_AsUTF8AndSize(args, &size);
                 return PyBytes_FromStringAndSize(utf8, size);
-             """)])
+             """),
+             ("unicode", "METH_O",
+             """
+                Py_ssize_t size;
+                wchar_t *buf = PyUnicode_AsUnicodeAndSize(args, &size);
+                return PyUnicode_FromUnicode(buf, size);
+             """),
+             ])
         assert module.utf8('xyz') == b'xyz'
         assert module.utf8('café') == 'café'.encode('utf-8')
+        assert module.unicode('np') == 'np'
+        assert module.unicode('café') == 'café'
 
     def test_ready(self):
         module = self.import_extension('foo', [
