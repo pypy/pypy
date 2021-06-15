@@ -92,12 +92,16 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
     handles = State.get(space).get_handle_manager(debug)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
-    h_module = initfunc_ptr(handles.ctx)
-    if not h_module:
-        raise oefmt(space.w_SystemError,
-            "initialization of %s failed without raising an exception",
-            name)
-    return handles.consume(h_module)
+    try:
+        h_module = initfunc_ptr(handles.ctx)
+        if not h_module:
+            raise oefmt(space.w_SystemError,
+                "initialization of %s failed without raising an exception",
+                name)
+        return handles.deref(h_module)
+    finally:
+        if h_module:
+            handles.close(h_module)
 
 def descr_load_from_spec(space, w_spec):
     name = space.text_w(space.getattr(w_spec, space.newtext("name")))
