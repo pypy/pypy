@@ -629,6 +629,7 @@ class AppTestMinMax:
         assert min([], default=None) == None
         raises(TypeError, min, 1, default=0)
         raises(TypeError, min, default=1)
+        raises(ValueError, min, [])
 
     def test_max(self):
         assert max(1, 2) == 2
@@ -647,6 +648,7 @@ class AppTestMinMax:
         assert max([], default=None) == None
         raises(TypeError, max, 1, default=0)
         raises(TypeError, max, default=1)
+        raises(ValueError, max, [])
 
     def test_max_list_and_key(self):
         assert max(["100", "50", "30", "-200"], key=int) == "100"
