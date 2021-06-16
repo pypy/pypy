@@ -12,7 +12,7 @@ from pypy.objspace.std.sliceobject import (W_SliceObject, unwrap_start_stop,
 from pypy.objspace.std.util import negate, IDTAG_SPECIAL, IDTAG_SHIFT
 from rpython.rlib import jit
 from rpython.rlib.debug import make_sure_not_resized
-from rpython.rlib.rarithmetic import intmask
+from rpython.rlib.rarithmetic import intmask, r_ulonglong, r_uint
 
 
 UNROLL_CUTOFF = 10
@@ -286,6 +286,18 @@ If the argument is a tuple, the return value is the same object.""",
 )
 W_AbstractTupleObject.typedef.flag_sequence_bug_compat = True
 
+if sys.maxint == 2 ** 31 - 1:
+    XXPRIME_1 = r_uint(2654435761)
+    XXPRIME_2 = r_uint(2246822519)
+    XXPRIME_5 = r_uint(374761393)
+    xxrotate = lambda x: ((x << 13) | (x >> 19)) # rotate left 13 bits
+    uhash_type = r_uint
+else:
+    XXPRIME_1 = r_ulonglong(11400714785074694791)
+    XXPRIME_2 = r_ulonglong(14029467366897019727)
+    XXPRIME_5 = r_ulonglong(2870177450012600261)
+    xxrotate = lambda x: ((x << 31) | (x >> 33)) # Rotate left 31 bits
+    uhash_type = r_ulonglong
 
 class W_TupleObject(W_AbstractTupleObject):
     _immutable_fields_ = ['wrappeditems[*]']
@@ -305,41 +317,54 @@ class W_TupleObject(W_AbstractTupleObject):
 
     def descr_hash(self, space):
         if _unroll_condition(self):
-            res = self._descr_hash_unroll(space)
+            acc = self._descr_hash_unroll(space)
         else:
-            res = self._descr_hash_jitdriver(space)
-        return space.newint(res)
+            acc = self._descr_hash_jitdriver(space)
+
+        # Add input length, mangled to keep the historical value of hash(())
+        acc += len(self.wrappeditems) ^ (XXPRIME_5 ^ uhash_type(3527539))
+        acc += (acc == uhash_type(-1)) * uhash_type(1546275796 + 1)
+        return space.newint(intmask(acc))
 
     @jit.unroll_safe
     def _descr_hash_unroll(self, space):
-        mult = 1000003
-        x = 0x345678
-        z = len(self.wrappeditems)
+        # Hash for tuples. This is a slightly simplified version of the xxHash
+        # non-cryptographic hash:
+        # - we do not use any parallellism, there is only 1 accumulator.
+        # - we drop the final mixing since this is just a permutation of the
+        #   output space: it does not help against collisions.
+        # - at the end, we mangle the length with a single constant.
+        # For the xxHash specification, see
+        # https://github.com/Cyan4973/xxHash/blob/master/doc/xxhash_spec.md
+
+        # Below are the official constants from the xxHash specification. Optimizing
+        # compilers should emit a single "rotate" instruction for the
+        # _PyHASH_XXROTATE() expansion. If that doesn't happen for some important
+        # platform, the macro could be changed to expand to a platform-specific rotate
+        # spelling instead.
+        acc = XXPRIME_5
         for w_item in self.wrappeditems:
-            y = space.hash_w(w_item)
-            x = (x ^ y) * mult
-            z -= 1
-            mult += 82520 + z + z
-        x += 97531
-        return intmask(x)
+            lane = uhash_type(space.hash_w(w_item))
+            acc += lane * XXPRIME_2
+            acc = xxrotate(acc)
+            acc *= XXPRIME_1
+        return acc
 
     def _descr_hash_jitdriver(self, space):
-        mult = 1000003
-        x = 0x345678
-        z = len(self.wrappeditems)
+        # see comments above
+        acc = XXPRIME_5
         w_type = space.type(self.wrappeditems[0])
         wrappeditems = self.wrappeditems
         i = 0
         while i < len(wrappeditems):
             hash_driver.jit_merge_point(w_type=w_type)
             w_item = wrappeditems[i]
-            y = space.hash_w(w_item)
-            x = (x ^ y) * mult
-            z -= 1
-            mult += 82520 + z + z
+            lane = uhash_type(space.hash_w(w_item))
+            acc += lane * XXPRIME_2
+            acc = xxrotate(acc)
+            acc *= XXPRIME_1
             i += 1
-        x += 97531
-        return intmask(x)
+        return acc
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):
