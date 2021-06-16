@@ -94,6 +94,7 @@ alias = {
     'Andrew Lawrence': ['andrew.lawrence@siemens.com', 'andrewjlawrence'],
     'Batuhan Taskaya': ['isidentical'],
     'Ondrej Baranovič': ['nulano'],
+    'Brad Kish': ['rtkbkish'],
     }
 
 alias_map = {}
