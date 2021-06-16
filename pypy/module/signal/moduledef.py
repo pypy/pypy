@@ -15,6 +15,7 @@ class Module(MixedModule):
         'default_int_handler': 'interp_signal.default_int_handler',
         'ItimerError':         'interp_signal.get_itimer_error(space)',
         'valid_signals':       'interp_signal.valid_signals',
+        'raise_signal':        'interp_signal.raise_signal',
     }
 
     if os.name == 'posix':
