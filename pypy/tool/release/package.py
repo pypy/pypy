@@ -175,6 +175,14 @@ def create_package(basedir, options, _fake=False):
             tgt = py.path.local(tgt)
             binaries.append((pypyw, tgt.new(purebasename=tgt.purebasename + 'w').basename, None))
             print("Picking %s" % str(pypyw))
+            binaries.append((pypyw, 'pythonw.exe', None))
+            print('Picking {} as pythonw.exe'.format(pypyw))
+            binaries.append((pypyw, 'pypyw.exe', None))
+            print('Picking {} as pypyw.exe'.format(pypyw))
+        binaries.append((src, 'python.exe', None))
+        print('Picking {} as python.exe'.format(src))
+        binaries.append((src, 'pypy.exe', None))
+        print('Picking {} as pypy.exe'.format(src))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
                       ('sqlite3.dll', lib_pypy)]
@@ -328,10 +336,12 @@ def create_package(basedir, options, _fake=False):
     finally:
         os.chdir(old_dir)
     if options.targetdir:
-        print("Copying %s to %s" % (archive, options.targetdir))
-        shutil.copy(archive, options.targetdir)
-    else:
-        print("Ready in %s" % (builddir,))
+        tdir = os.path.normpath(options.targetdir)
+        adir = os.path.dirname(archive)
+        if tdir != adir:
+            print("Copying %s to %s" % (archive, options.targetdir))
+            shutil.copy(archive, options.targetdir)
+    print("Ready in %s" % (builddir,))
     return retval, builddir # for tests
 
 def package(*args, **kwds):

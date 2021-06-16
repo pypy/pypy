@@ -191,18 +191,24 @@ if (lib.Cryptography_HAS_LOCKING_CALLBACKS and
     lib.Cryptography_setup_ssl_threads()
 lib.OpenSSL_add_all_algorithms()
 
+
+class ErrState():
+    ws = 0
+    c = 0
+    ssl = 0
+
+NO_ERROR = ErrState()
+
+
 def _PySSL_errno(failed, ssl, retcode):
-    class ErrState():
-        ws = 0
-        c = 0
-        ssl = 0
-    err = ErrState()
     if failed:
+        err = ErrState()
         if sys.platform == 'win32':
             err.ws = lib.WSAGetLastError()
         err.c = ffi.errno
         err.ssl = lib.SSL_get_error(ssl, retcode)
-    return err 
+        return err
+    return NO_ERROR 
 
 def check_signals():
     # nothing to do, we are on python level, signals are

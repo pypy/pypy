@@ -215,7 +215,7 @@ def WriteFile(handle, buffer, overlapped=False):
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             else:
-                return_WinError(IOError)
+                raise_WinError(IOError)
         return overlapped, err
     else:
         buf = _ffi.new("CHAR[]", bytes(buffer))
