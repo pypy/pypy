@@ -1760,6 +1760,7 @@ class TestAstBuilder:
                 all_args.append(args.vararg)
             if args.kwarg:
                 all_args.append(args.kwarg)
+            import pdb; pdb.set_trace()
             assert all([
                 eq_w(arg.type_comment, w(str(i)))
                 for i, arg in enumerate(all_args, 1)
@@ -1807,20 +1808,30 @@ class TestAstBuilder:
         fdef = self.get_ast(s).body[0]
         assert fdef.end_lineno == 5
         assert fdef.end_col_offset == 15
+        assert fdef.get_source_segment(s) == s
+
+        s = 'lambda a, b, *c: (a + b) * c'
+        fdef = self.get_ast(s).body[0].value
+        assert fdef.get_source_segment(s) == s
+        assert fdef.args.args[0].get_source_segment(s) == "a"
+        assert fdef.body.get_source_segment(s) == "(a + b) * c"
 
         s = '( ( ( a ) ) ) ( )'
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
+        assert fdef.get_source_segment(s) == s
 
         s = "a.b"
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
 
         s = "a[x:y]"
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
 
         s = "f(x for x in y)"
         tree = self.get_first_expr(s)
@@ -1829,6 +1840,7 @@ class TestAstBuilder:
         gen = tree.args[0]
         assert gen.end_col_offset == len(s) - 1
         assert gen.col_offset == 2
+        assert fdef.get_source_segment(s) == s
 
         s = "(x for x in y)"
         tree = self.get_first_expr(s)
@@ -1839,16 +1851,19 @@ class TestAstBuilder:
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
 
         s = "{x for x in y}"
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
 
         s = "{x: x+1 for x in y}"
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
 
     def test_binop_offset_bug(self):
         s = "1 + 2+3+4"

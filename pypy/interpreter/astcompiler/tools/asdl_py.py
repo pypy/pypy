@@ -232,7 +232,6 @@ class ASTNodeVisitor(ASDLVisitor):
         self.emit("@staticmethod", 1)
         self.emit("def from_object(space, w_node):", 1)
         for field in all_fields:
-            import pdb; pdb.set_trace()
             self.emit("w_%s = get_field(space, w_node, '%s', %s)" % (
                     field.name, field.name, field.opt), 2)
         for field in all_fields:
@@ -502,6 +501,29 @@ class AST(object):
         self.end_lineno = node_end.get_end_lineno()
         self.end_col_offset = node_end.get_end_column()
         return self
+
+    def get_source_segment(self, source):
+        lineno = self.lineno - 1 # both 0-based
+        end_lineno = self.end_lineno - 1
+        if lineno < 0:
+            return None
+        if end_lineno < 0:
+            return None
+        col_offset = self.col_offset
+        end_col_offset = self.end_col_offset
+        if col_offset < 0:
+            return None
+        if end_col_offset < 0:
+            return None
+        s = source.splitlines(True)
+        if lineno == end_lineno:
+            return s[lineno][col_offset:end_col_offset]
+        res = [s[lineno][col_offset:]]
+        for i in range(lineno+1, end_lineno):
+            res.append(s[i])
+        res.append(s[end_lineno][:end_col_offset])
+        return "".join(res)
+
 
 class NodeVisitorNotImplemented(Exception):
     pass
