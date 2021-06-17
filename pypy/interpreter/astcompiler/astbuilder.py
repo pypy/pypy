@@ -1073,8 +1073,10 @@ class ASTBuilder(object):
         for i in range(1, number_of_ops):
             op_node = binop_node.get_child(i * 2 + 1)
             op = operator_map(op_node.type)
-            sub_right = self.handle_expr(binop_node.get_child(i * 2 + 2))
+            right_node = binop_node.get_child(i * 2 + 2)
+            sub_right = self.handle_expr(right_node)
             result = build(ast.BinOp, result, op, sub_right, op_node)
+            result.copy_location(binop_node, right_node)
         return result
 
     def handle_factor(self, factor_node):

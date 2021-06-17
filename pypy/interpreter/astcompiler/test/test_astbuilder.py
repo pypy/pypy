@@ -1849,3 +1849,9 @@ class TestAstBuilder:
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+
+    def test_binop_offset_bug(self):
+        s = "1 + 2+3+4"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 0
+        assert tree.end_col_offset == len(s)
