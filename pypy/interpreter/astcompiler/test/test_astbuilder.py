@@ -1821,3 +1821,15 @@ class TestAstBuilder:
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
         assert tree.col_offset == 0
+
+        s = "f(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        gen = tree.args[0]
+        assert gen.end_col_offset == len(s) - 1
+        assert gen.col_offset == 2
+
+        s = "(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)

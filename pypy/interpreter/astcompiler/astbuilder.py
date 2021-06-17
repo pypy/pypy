@@ -1374,7 +1374,7 @@ class ASTBuilder(object):
             elif second_child.type == syms.yield_expr:
                 return self.handle_expr(second_child)
             result = self.handle_testlist_gexp(second_child)
-            return result
+            return result.copy_location(atom_node)
         elif first_child_type == tokens.LSQB:
             second_child = atom_node.get_child(1)
             if second_child.type == tokens.RSQB:
