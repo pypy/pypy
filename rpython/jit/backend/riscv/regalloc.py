@@ -181,6 +181,11 @@ def check_imm_box(arg):
         return check_imm_arg(arg.getint())
     return False
 
+def check_negative_imm_box(arg):
+    if isinstance(arg, ConstInt):
+        return check_imm_arg(-arg.getint())
+    return False
+
 
 class Regalloc(BaseRegalloc):
     def __init__(self, assembler):
@@ -224,6 +229,23 @@ class Regalloc(BaseRegalloc):
         elif imm_a0 and not imm_a1:
             l1 = self.convert_to_imm(a0)
             l0 = self.make_sure_var_in_reg(a1, boxes)
+        else:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
+    def prepare_op_int_sub(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        # int_sub immediate is lowered into addi with negative immediate, thus
+        # we have to check whether the negative immediate can be kept in
+        # simm12.
+        if check_negative_imm_box(a1):
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
         else:
             l0 = self.make_sure_var_in_reg(a0, boxes)
             l1 = self.make_sure_var_in_reg(a1, boxes)

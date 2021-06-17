@@ -14,6 +14,14 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.ADD(res.value, l0.value, l1.value)
 
+    def emit_op_int_sub(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.ADDI(res.value, l0.value, -l1.value)
+        else:
+            self.mc.SUB(res.value, l0.value, l1.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)
