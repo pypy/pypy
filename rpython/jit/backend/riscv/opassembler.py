@@ -26,6 +26,30 @@ class OpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.MUL(res.value, l0.value, l1.value)
 
+    def emit_op_int_and(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.ANDI(res.value, l0.value, l1.value)
+        else:
+            self.mc.AND(res.value, l0.value, l1.value)
+
+    def emit_op_int_or(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.ORI(res.value, l0.value, l1.value)
+        else:
+            self.mc.OR(res.value, l0.value, l1.value)
+
+    def emit_op_int_xor(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.XORI(res.value, l0.value, l1.value)
+        else:
+            self.mc.XOR(res.value, l0.value, l1.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)

@@ -218,7 +218,7 @@ class Regalloc(BaseRegalloc):
         self.possibly_free_vars(list(inputargs))
         return operations
 
-    def prepare_op_int_add(self, op):
+    def _prepare_op_int_commutative_binary_op(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
         imm_a0 = check_imm_box(a0)
@@ -236,6 +236,11 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
+
+    prepare_op_int_add = _prepare_op_int_commutative_binary_op
+    prepare_op_int_and = _prepare_op_int_commutative_binary_op
+    prepare_op_int_or  = _prepare_op_int_commutative_binary_op
+    prepare_op_int_xor = _prepare_op_int_commutative_binary_op
 
     def prepare_op_int_sub(self, op):
         boxes = op.getarglist()
