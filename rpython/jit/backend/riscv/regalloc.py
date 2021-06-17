@@ -279,6 +279,7 @@ class Regalloc(BaseRegalloc):
         return [l0, l1, res]
 
     prepare_op_int_mul = _prepare_op_int_mul_op
+    prepare_op_uint_mul_high = _prepare_op_int_mul_op
 
     def _prepare_op_int_shift_op(self, op):
         boxes = op.getarglist()

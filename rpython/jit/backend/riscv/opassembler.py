@@ -26,6 +26,10 @@ class OpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.MUL(res.value, l0.value, l1.value)
 
+    def emit_op_uint_mul_high(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.MULHU(res.value, l0.value, l1.value)
+
     def emit_op_int_and(self, op, arglocs):
         l0, l1, res = arglocs
         assert not l0.is_imm()
