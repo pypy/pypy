@@ -744,7 +744,7 @@ class ASTBuilder(object):
                 argname = name_node.get_value()
                 argname = self.new_identifier(argname)
                 self.check_forbidden_name(argname, name_node)
-                type_comment = None
+                type_comment = self.space.w_None
                 last_arg = build(ast.arg, argname, ann, type_comment, arg)
                 kwonly.append(last_arg)
                 i += 1
@@ -765,7 +765,7 @@ class ASTBuilder(object):
         ann = None
         if arg_node.num_children() == 3:
             ann = self.handle_expr(arg_node.get_child(2))
-        type_comment = None
+        type_comment = self.space.w_None
         return build(ast.arg, name, ann, type_comment, arg_node)
 
     def handle_stmt(self, stmt):
