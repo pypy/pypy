@@ -178,6 +178,7 @@ class AstValidator(ast.ASTVisitor):
             self._validate_expr(node.annotation)
 
     def visit_arguments(self, node):
+        self.visit_sequence(node.posonlyargs)
         self.visit_sequence(node.args)
         # XXX py3.5 missing if node.varargannotation:
         # XXX py3.5 missing     if not node.vararg:

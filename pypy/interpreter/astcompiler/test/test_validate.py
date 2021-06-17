@@ -41,21 +41,25 @@ class TestASTValidator:
         self.mod(m, "must have Load context", "eval")
 
     def _check_arguments(self, fac, check):
-        def arguments(args=None, vararg=None, kwonlyargs=None,
-                      kw_defaults=None, kwarg=None, defaults=None):
+        def arguments(args=None, posonlyargs=None, vararg=None,
+                      kwonlyargs=None, kwarg=None,
+                      defaults=None, kw_defaults=None):
             if args is None:
                 args = []
+            if posonlyargs is None:
+                posonlyargs = []
             if kwonlyargs is None:
                 kwonlyargs = []
             if defaults is None:
                 defaults = []
             if kw_defaults is None:
                 kw_defaults = []
-            args = ast.arguments(None, args, vararg, kwonlyargs,
+            args = ast.arguments(args, posonlyargs, vararg, kwonlyargs,
                                  kw_defaults, kwarg, defaults)
             return fac(args)
         args = [ast.arg("x", ast.Name("x", ast.Store, *POS), None, *POS)]
         check(arguments(args=args), "must have Load context")
+        check(arguments(posonlyargs=args), "must have Load context")
         check(arguments(kwonlyargs=args), "must have Load context")
         check(arguments(defaults=[ast.Constant(self.space.wrap(3), self.space.w_None, *POS)]),
                        "more positional defaults than args")
