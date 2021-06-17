@@ -50,6 +50,30 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.XOR(res.value, l0.value, l1.value)
 
+    def emit_op_int_lshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.SLLI(res.value, l0.value, l1.value)
+        else:
+            self.mc.SLL(res.value, l0.value, l1.value)
+
+    def emit_op_int_rshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.SRAI(res.value, l0.value, l1.value)
+        else:
+            self.mc.SRA(res.value, l0.value, l1.value)
+
+    def emit_op_uint_rshift(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.SRLI(res.value, l0.value, l1.value)
+        else:
+            self.mc.SRL(res.value, l0.value, l1.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)

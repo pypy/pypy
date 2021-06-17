@@ -4,7 +4,8 @@ from rpython.jit.backend.llsupport.regalloc import (
     BaseRegalloc, FrameManager, RegisterManager, TempVar,
     compute_vars_longevity)
 from rpython.jit.backend.riscv import registers as r
-from rpython.jit.backend.riscv.arch import (SINT12_IMM_MAX, SINT12_IMM_MIN)
+from rpython.jit.backend.riscv.arch import (
+    SHAMT_MAX, SINT12_IMM_MAX, SINT12_IMM_MIN)
 from rpython.jit.backend.riscv.locations import (
     ConstFloatLoc, ImmLocation, StackLocation, get_fp_offset)
 from rpython.jit.codewriter import longlong
@@ -186,6 +187,14 @@ def check_negative_imm_box(arg):
         return check_imm_arg(-arg.getint())
     return False
 
+def check_shamt_imm_arg(imm):
+    return imm >= 0 and imm <= SHAMT_MAX
+
+def check_shamt_imm_box(arg):
+    if isinstance(arg, ConstInt):
+        return check_shamt_imm_arg(arg.getint())
+    return False
+
 
 class Regalloc(BaseRegalloc):
     def __init__(self, assembler):
@@ -270,6 +279,24 @@ class Regalloc(BaseRegalloc):
         return [l0, l1, res]
 
     prepare_op_int_mul = _prepare_op_int_mul_op
+
+    def _prepare_op_int_shift_op(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        if check_shamt_imm_box(a1):
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
+        else:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
+    prepare_op_int_lshift = _prepare_op_int_shift_op
+    prepare_op_int_rshift = _prepare_op_int_shift_op
+    prepare_op_uint_rshift = _prepare_op_int_shift_op
 
     def prepare_op_float_add(self, op):
         boxes = op.getarglist()

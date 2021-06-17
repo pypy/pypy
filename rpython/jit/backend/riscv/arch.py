@@ -22,5 +22,8 @@ PC_REL_MAX = 2**31 - 2**11 - 1
 SINT12_IMM_MIN = -2**11
 SINT12_IMM_MAX = 2**11 - 1
 
+# Shift amount immediate range
+SHAMT_MAX = 8 * XLEN - 1
+
 # RISC-V ABI requires stack pointer to be aligned to 128-bit.
 ABI_STACK_ALIGN = 16
