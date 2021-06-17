@@ -546,3 +546,4 @@ from __future__ import generators""")
         msg = str(exc)
         assert msg == "Module constructor takes at most 2 positional argument"
 
+        raises(TypeError, ast.Module, 1, 2, type_ignores=3)

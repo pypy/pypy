@@ -140,8 +140,17 @@ def W_AST_init(space, w_self, __args__):
             w_field = fields_w[i]
             w_arg = args_w[i]
             space.setattr(w_self, w_field, w_arg)
+    # XXX bit wrong complexity but should be fine
     for field, w_value in kwargs_w.iteritems():
-        space.setattr(w_self, space.newtext(field), w_value)
+        found = len(args_w)
+        for i, w_field in enumerate(fields_w):
+            if space.text_w(w_field) == field:
+                found = i
+                break
+        if found < len(args_w):
+            raise oefmt(space.w_TypeError,
+                "%T got multiple values for argument %8",
+                w_self, field)
 
 
 W_AST.typedef = typedef.TypeDef("_ast.AST",
