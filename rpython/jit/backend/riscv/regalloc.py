@@ -254,6 +254,18 @@ class Regalloc(BaseRegalloc):
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
 
+    def _prepare_op_int_mul_op(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        l0 = self.make_sure_var_in_reg(a0, boxes)
+        l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
+    prepare_op_int_mul = _prepare_op_int_mul_op
+
     def prepare_op_float_add(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes

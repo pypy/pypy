@@ -22,6 +22,10 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.SUB(res.value, l0.value, l1.value)
 
+    def emit_op_int_mul(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.MUL(res.value, l0.value, l1.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)
