@@ -1855,3 +1855,8 @@ class TestAstBuilder:
         tree = self.get_first_expr(s)
         assert tree.col_offset == 0
         assert tree.end_col_offset == len(s)
+
+    def test_dotted_name_bug(self):
+        tree = self.get_ast('@a.b.c\ndef f(): pass')
+        attr_b = tree.body[0].decorator_list[0].value
+        assert attr_b.end_col_offset == 4

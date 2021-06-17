@@ -600,9 +600,11 @@ class ASTBuilder(object):
         base_value = self.new_identifier(dotted_name_node.get_child(0).get_value())
         name = build(ast.Name, base_value, ast.Load, dotted_name_node)
         for i in range(2, dotted_name_node.num_children(), 2):
-            attr = dotted_name_node.get_child(i).get_value()
+            attr_node = dotted_name_node.get_child(i)
+            attr = attr_node.get_value()
             attr = self.new_identifier(attr)
             name = build(ast.Attribute, name, attr, ast.Load, dotted_name_node)
+            name.copy_location(dotted_name_node, attr_node)
         return name
 
     def handle_arguments(self, arguments_node):
