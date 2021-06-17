@@ -1154,16 +1154,16 @@ class ASTBuilder(object):
         return ast.Slice(lower, upper, step)
 
     def handle_trailer(self, trailer_node, left_expr, start_node):
+        result = self._handle_trailer(trailer_node, left_expr)
+        return result.copy_location(start_node, trailer_node)
+
+    def _handle_trailer(self, trailer_node, left_expr):
         first_child = trailer_node.get_child(0)
         if first_child.type == tokens.LPAR:
             if trailer_node.num_children() == 2:
-
-                if trailer_node.flatten()[0].line.strip() == '( ( ( a ) ) ) ( )':
-                    import pdb; pdb.set_trace()
-
-                return build(ast.Call, left_expr, None, None, trailer_node).copy_location(start_node, trailer_node)
+                return build(ast.Call, left_expr, None, None, trailer_node)
             else:
-                return self.handle_call(trailer_node.get_child(1), left_expr).copy_location(start_node, trailer_node)
+                return self.handle_call(trailer_node.get_child(1), left_expr)
         elif first_child.type == tokens.DOT:
             attr = self.new_identifier(trailer_node.get_child(1).get_value())
             return build(ast.Attribute, left_expr, attr, ast.Load, trailer_node)

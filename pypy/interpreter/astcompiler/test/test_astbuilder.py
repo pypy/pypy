@@ -1811,4 +1811,13 @@ class TestAstBuilder:
         s = '( ( ( a ) ) ) ( )'
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
-        import pdb; pdb.set_trace()
+
+        s = "a.b"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "a[x:y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
