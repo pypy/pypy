@@ -145,6 +145,8 @@ class TestParseCommandLine:
         self.check(['-S', '-OV'], {}, output_contains='Python')
         self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
                    run_stdin=True, no_site=1)
+        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1)
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
@@ -227,6 +229,15 @@ class TestParseCommandLine:
                 {},
                 sys_argv=[''], run_stdin=True,
                 check_hash_based_pycs=val)
+
+    def test_jit_off(self, monkeypatch):
+        options = [None]
+        def set_jit_option(_, option, *args):
+            options[0] = option
+        from pypy.interpreter import app_main
+        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
+        self.check(['-X', 'jit-off'], {}, sys_argv=[''], run_stdin=True)
+        assert options == ["off"]
 
 class TestInteraction:
     """
@@ -1068,6 +1079,53 @@ class TestNonInteractive:
         assert status == 1
         assert data.startswith("15\\u20ac ('strict', 'backslashreplace')")
 
+    def test_consistent_sys_path_for_module_execution(self):
+        # This test case ensures that the following all give the same
+        # sys.path configuration:
+        #
+        #    ./python -sm script_pkg.__main__
+        #    ./python -sm script_pkg
+        #
+        # And that this fails as unable to find the package:
+        #    ./python -Im script_pkg
+        work_dir = _get_next_path(ext='')
+        script = textwrap.dedent("""
+            import sys
+            for d in sys.path:
+               print(d) 
+            """)
+        script_dir = work_dir / "script_pkg"
+        script_dir.ensure_dir()
+        (script_dir / '__main__.py').write(script)
+        env = os.environ.copy()
+        p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg.__main__"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        out_by_module = p.stdout.read().splitlines()
+        assert out_by_module[0] == str(work_dir)
+        assert script_dir not in out_by_module
+
+        p = subprocess.Popen([get_python3(), app_main, "-sm", "script_pkg"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        out_by_package = p.stdout.read().splitlines()
+        assert out_by_module == out_by_package
+
+        p = subprocess.Popen([get_python3(), app_main, "-Im", "script_pkg"],
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             cwd=str(work_dir))
+        res = p.wait()
+        stderr = p.stderr.read()
+        traceback_lines = stderr.decode().splitlines()
+        assert "No module named script_pkg" in traceback_lines[-1]
+ 
+    def test_error_msg(self):
+        data, status = self.run_with_status_code('does_not_exist.py')
+        assert "can't open file" in data
+        assert status == 2
+        
 
 @py.test.mark.skipif('config.getoption("runappdirect")')
 class AppTestAppMain:

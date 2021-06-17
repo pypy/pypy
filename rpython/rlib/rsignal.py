@@ -99,6 +99,7 @@ c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
+c_raise = external('raise', [rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':
     itimervalP = rffi.CArrayPtr(itimerval)
@@ -113,6 +114,7 @@ c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)
     c_sigemptyset = external('sigemptyset', [c_sigset_t], rffi.INT)
+    c_sigfillset = external('sigfillset', [c_sigset_t], rffi.INT)
     c_sigaddset = external('sigaddset', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigismember = external('sigismember', [c_sigset_t, rffi.INT], rffi.INT)
     c_sigwait = external('sigwait', [c_sigset_t, rffi.INTP], rffi.INT,

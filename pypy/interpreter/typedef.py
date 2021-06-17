@@ -497,7 +497,7 @@ def generic_new_descr(W_Type):
 from pypy.interpreter.eval import Code
 from pypy.interpreter.pycode import PyCode, CO_VARARGS, CO_VARKEYWORDS
 from pypy.interpreter.pyframe import PyFrame
-from pypy.interpreter.pyopcode import SuspendedUnroller
+from pypy.interpreter.pyopcode import SApplicationException
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import (Function, Method, StaticMethod,
     ClassMethod, BuiltinFunction, descr_function_get)
@@ -506,7 +506,7 @@ from pypy.interpreter.generator import GeneratorIterator, Coroutine
 from pypy.interpreter.generator import CoroutineWrapper, AIterWrapper
 from pypy.interpreter.generator import AsyncGenerator
 from pypy.interpreter.generator import AsyncGenASend, AsyncGenAThrow
-from pypy.interpreter.nestedscope import Cell
+from pypy.interpreter.nestedscope import Cell, descr_new_cell
 from pypy.interpreter.special import NotImplemented, Ellipsis
 
 
@@ -947,6 +947,7 @@ AsyncGenAThrow.typedef = TypeDef("async_generator_athrow",
 
 Cell.typedef = TypeDef("cell",
     __total_ordering__ = 'auto',
+    __new__      = interp2app(descr_new_cell),
     __lt__       = interp2app(Cell.descr__lt__),
     __eq__       = interp2app(Cell.descr__eq__),
     __hash__     = None,
@@ -958,8 +959,9 @@ Cell.typedef = TypeDef("cell",
         Cell.descr_set_cell_contents,
         Cell.descr_del_cell_contents,
         cls=Cell),
+
 )
-assert not Cell.typedef.acceptable_as_base_class  # no __new__
+Cell.typedef.acceptable_as_base_class = False
 
 Ellipsis.typedef = TypeDef("ellipsis",
     __new__ = interp2app(Ellipsis.descr_new_ellipsis),
@@ -975,8 +977,8 @@ NotImplemented.typedef = TypeDef("NotImplementedType",
 )
 NotImplemented.typedef.acceptable_as_base_class = False
 
-SuspendedUnroller.typedef = TypeDef("SuspendedUnroller")
-SuspendedUnroller.typedef.acceptable_as_base_class = False
+SApplicationException.typedef = TypeDef("SApplicationException")
+SApplicationException.typedef.acceptable_as_base_class = False
 
 ## W_OperationError.typedef = TypeDef("OperationError",
 ##     __reduce__ = interp2app(W_OperationError.descr_reduce),

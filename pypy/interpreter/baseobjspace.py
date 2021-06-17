@@ -411,6 +411,8 @@ class ObjSpace(object):
     @not_rpython
     def __init__(self, config=None):
         "Basic initialization of objects."
+        self.w_default_importlib_import = None
+
         self.fromcache = InternalSpaceCache(self).getorbuild
         self.threadlocals = ThreadLocals()
         # set recursion limit
@@ -561,10 +563,18 @@ class ObjSpace(object):
         except AttributeError:
             pass
 
-        modules = ['__pypy__']  # Install __pypy__ first for bootstrapping
+        # Install __pypy__ first for bootstrapping
+        modules = ['__pypy__']
+
+        # _frozen_importlib imports lib-python/3/importlib/__bootstrap_external,
+        # which imports many builtins. Make sure it is imported last
+        append__frozen_importlib = False
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:
+            if name == '_frozen_importlib':
+                append__frozen_importlib = True
+                continue
             if value and name not in modules:
                 modules.append(name)
 
@@ -572,7 +582,8 @@ class ObjSpace(object):
             for name in self.config.objspace.extmodules.split(','):
                 if name not in modules:
                     modules.append(name)
-
+        if append__frozen_importlib:
+            modules.append('_frozen_importlib')
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
@@ -667,10 +678,11 @@ class ObjSpace(object):
         
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')
-        self.getbuiltinmodule('_frozen_importlib')
+        frozen_importlib = self.getbuiltinmodule('_frozen_importlib')
         self.getbuiltinmodule('builtins')
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
+        self.w_default_importlib_import = frozen_importlib.w_import
 
     @not_rpython
     def initialize(self):
@@ -723,6 +735,16 @@ class ObjSpace(object):
             from pypy.interpreter.pycompiler import PythonAstCompiler
             compiler = PythonAstCompiler(self)
             self.default_compiler = compiler
+            return compiler
+
+    def createnewcompiler(self):
+        "Factory function creating a compiler object."
+        try:
+            return self.default_newcompiler
+        except AttributeError:
+            from pypy.interpreter.pycompiler import PythonAstCompiler
+            compiler = PythonAstCompiler(self)
+            self.default_newcompiler = compiler
             return compiler
 
     def createframe(self, code, w_globals, outer_func=None):

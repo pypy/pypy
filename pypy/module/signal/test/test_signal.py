@@ -272,6 +272,16 @@ class AppTestSignal:
             else:
                 raise AssertionError("did not raise!")
 
+    def test_valid_signals(self):
+        import signal
+        s = signal.valid_signals()
+        assert isinstance(s, set)
+        assert signal.Signals.SIGINT in s
+        assert signal.Signals.SIGALRM in s
+        assert 0 not in s
+        assert signal.NSIG not in s
+        assert len(s) < signal.NSIG
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])
@@ -369,3 +379,38 @@ class AppTestPThread:
         # Unblocking the 2 signals calls the C signal handler twice
         signal.pthread_sigmask(signal.SIG_UNBLOCK, (signum1, signum2))
         assert signal.sigpending() == set()
+
+    def test_raise_signal(self):
+        import types, os, _signal
+        signal = _signal   # the signal module to test
+        if not hasattr(signal, 'SIGUSR1'):
+            skip("requires SIGUSR1 in signal")
+        signum = signal.SIGUSR1
+
+        received = []
+        def myhandler(signum, frame):
+            assert isinstance(frame, types.FrameType)
+            received.append(signum)
+        signal.signal(signum, myhandler)
+
+        signal.raise_signal(signum)
+        # the signal should be delivered to the handler immediately
+        assert received == [signum]
+        del received[:]
+
+        signal.raise_signal(signum)
+        # the signal should be delivered to the handler immediately
+        assert received == [signum]
+        del received[:]
+
+        signal.signal(signum, signal.SIG_IGN)
+
+        signal.raise_signal(signum)
+        for i in range(10000):
+            # wait a bit - signal should not arrive
+            if received:
+                break
+        assert received == []
+
+        signal.signal(signum, signal.SIG_DFL)
+

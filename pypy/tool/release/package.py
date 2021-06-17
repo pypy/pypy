@@ -74,6 +74,26 @@ def get_python_ver(pypy_c, quiet=False):
              'import sysconfig as s; print(s.get_python_version())'], **kwds)
     return ver.strip()
     
+def generate_sysconfigdata(pypy_c, lib_pypy):
+    """Create a _sysconfigdata_*.py file that is platform specific and can be
+    parsed by non-python tools. Used in cross-platform package building and
+    when calling sysconfig.get_config_var
+    """
+    if ARCH == 'win32':
+        return
+    # this creates a _sysconfigdata_*.py file in some directory, the name
+    # of the directory is written into pybuilddir.txt
+    subprocess.check_call([str(pypy_c), '-m' 'sysconfig',
+                           '--generate-posix-vars'])
+    with open('pybuilddir.txt') as fid:
+        dirname = fid.read().strip()
+    assert os.path.exists(dirname)
+    sysconfigdata_names = os.listdir(dirname)
+    # what happens if there is more than one file?
+    assert len(sysconfigdata_names) == 1
+    shutil.copy(os.path.join(dirname, sysconfigdata_names[0]), lib_pypy)
+    shutil.rmtree(dirname)
+                
 
 def create_package(basedir, options, _fake=False):
     retval = 0
@@ -101,6 +121,7 @@ def create_package(basedir, options, _fake=False):
     if _fake:
         python_ver = '3.6'
     else:
+        generate_sysconfigdata(pypy_c, str(basedir.join('lib_pypy')))
         python_ver = get_python_ver(pypy_c)
     if not options.no_cffi:
         failures = create_cffi_import_libraries(

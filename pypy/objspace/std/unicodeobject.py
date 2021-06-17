@@ -1060,7 +1060,7 @@ class W_UnicodeObject(W_Root):
         builder = rutf8.Utf8StringBuilder(len(value))
         it = rutf8.Utf8StringPosIterator(value)
         uchar, _ = it.next()
-        codes = unicodedb.toupper_full(uchar)
+        codes = unicodedb.totitle_full(uchar)
         # can sometimes give more than one, like for omega-with-Ypogegrammeni, 8179
         for c in codes:
             builder.append_code(c)
@@ -1478,7 +1478,8 @@ def encode_object(space, w_obj, encoding, errors):
             return space.newbytes(w_obj._utf8)
         elif encoding == 'ascii':
             try:
-                rutf8.check_ascii(utf8)
+                if not (isinstance(w_obj, W_UnicodeObject) and w_obj.is_ascii()):
+                    rutf8.check_ascii(utf8)
             except rutf8.CheckError as a:
                 eh = unicodehelper.encode_error_handler(space)
                 eh(None, "ascii", "ordinal not in range(128)", utf8,
@@ -2194,4 +2195,5 @@ def _unicode_to_decimal_w(space, w_unistr):
     return result.build()
 
 _repr_function = rutf8.make_utf8_escape_function(
-    pass_printable=True, quotes=True, prefix='')
+    pass_printable=True, quotes=True, prefix='',
+    unicodedb=unicodedb)

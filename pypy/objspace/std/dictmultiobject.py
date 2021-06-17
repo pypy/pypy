@@ -339,6 +339,7 @@ class W_ModuleDictObject(W_DictMultiObject):
 
 
 
+# called below DictStrategy
 
 def _add_indirections():
     dict_methods = "getitem getitem_str setitem setdefault \
@@ -355,9 +356,8 @@ def _add_indirections():
         return f
 
     for method in dict_methods:
+        assert hasattr(DictStrategy, method)
         setattr(W_DictMultiObject, method, make_method(method))
-
-_add_indirections()
 
 
 app = applevel('''
@@ -449,9 +449,40 @@ class DictStrategy(object):
     def get_empty_storage(self):
         raise NotImplementedError
 
+    def getitem(self, w_dict, w_key):
+        raise NotImplementedError
+
+    def getitem_str(self, w_dict, key):
+        return w_dict.getitem(self.space.newtext(key))
+
+    def setitem(self, w_dict, w_key, w_value):
+        raise NotImplementedError
+
     def setitem_str(self, w_dict, key, w_value):
         w_dict.setitem(self.space.newtext(key), w_value)
 
+    def delitem(self, w_dict, w_key):
+        raise NotImplementedError
+
+    def length(self, w_dict):
+        raise NotImplementedError
+
+    def setdefault(self, w_dict, w_key, w_value):
+        # slow default implementation
+        w_result = self.getitem(w_dict, w_key)
+        if w_result is not None:
+            return w_result
+        self.setitem(w_dict, w_key, w_value)
+        return w_value
+
+    def iterkeys(self, w_dict):
+        raise NotImplementedError
+
+    def itervalues(self, w_dict):
+        raise NotImplementedError
+
+    def iteritems(self, w_dict):
+        raise NotImplementedError
 
     @jit.look_inside_iff(lambda self, w_dict:
                          w_dict_unrolling_heuristic(w_dict))
@@ -582,6 +613,12 @@ class DictStrategy(object):
         # fall-back if getiterreversed is not present
         w_keys = self.w_keys(w_dict)
         return self.space.call_method(w_keys, '__reversed__')
+
+    def iterreversed(self, w_dict):
+        raise NotImplementedError
+
+_add_indirections()
+
 
 class EmptyDictStrategy(DictStrategy):
     erase, unerase = rerased.new_erasing_pair("empty")

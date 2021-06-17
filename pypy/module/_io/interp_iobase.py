@@ -56,7 +56,7 @@ class W_IOBase(W_Root):
         # `__IOBase_closed` and call flush() by itself, but it is redundant
         # with whatever behaviour a non-trivial derived class will implement.
         self.space = space
-        self.w_dict = space.newdict(instance=True)
+        self.w_dict = None
         self.__IOBase_closed = False
         if add_to_autoflusher:
             get_autoflusher(space).add(self)
@@ -64,7 +64,14 @@ class W_IOBase(W_Root):
             self.register_finalizer(space)
 
     def getdict(self, space):
+        if self.w_dict is None:
+            self.w_dict = space.newdict(instance=True)
         return self.w_dict
+
+    def getdictvalue(self, space, attr):
+        if self.w_dict is None:
+            return None
+        return space.finditem_str(self.w_dict, attr)
 
     def _closed(self, space):
         # This gets the derived attribute, which is *not* __IOBase_closed
@@ -138,6 +145,14 @@ class W_IOBase(W_Root):
             space.call_method(self, "flush")
         finally:
             self.__IOBase_closed = True
+
+        self.maybe_unregister_rpython_finalizer_io(space)
+
+    def maybe_unregister_rpython_finalizer_io(self, space):
+        from rpython.rlib import rgc
+        if self.user_overridden_class:
+            return
+        rgc.may_ignore_finalizer(self)
 
     def needs_finalizer(self):
         # can return False if we know that the precise close() method

@@ -45,6 +45,7 @@ cffi_build_scripts = collections.OrderedDict([
     # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("_sha3", "_sha3/_sha3_build.py"),
     ("xx", None),    # for testing: 'None' should be completely ignored
+    ("_posixshmem", "_posixshmem_build.py" if sys.platform != "win32" else None),
     ])
 
 # for distribution, we may want to fetch dependencies not provided by

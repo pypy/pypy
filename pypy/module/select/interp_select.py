@@ -170,9 +170,9 @@ def _call_select(space, iwtd_w, owtd_w, ewtd_w,
             break     # normal path
         err = _c.geterrno()
         if err != errno.EINTR:
-            msg = _c.socket_strerror_unicode(err)
+            msg, length = _c.socket_strerror_utf8(err)
             raise OperationError(space.w_OSError, space.newtuple([
-                space.newint(err), space.newtext(msg)]))
+                space.newint(err), space.newtext(msg, length)]))
         # got EINTR, automatic retry
         space.getexecutioncontext().checksignals()
         if timeout > 0.0:

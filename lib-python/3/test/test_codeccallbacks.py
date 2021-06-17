@@ -1,3 +1,4 @@
+import test.support
 import codecs
 import html.entities
 import sys

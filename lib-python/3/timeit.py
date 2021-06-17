@@ -278,7 +278,7 @@ def main(args=None, *, _wrap_timer=None):
     repeat = default_repeat
     verbose = 0
     time_unit = None
-    units = {'msec': 1000.0, 'usec': 1000000.0, 'sec': 1}
+    units = {"nsec": 1e-9, "usec": 1e-6, "msec": 1e-3, "sec": 1.0}
     precision = 3
     for o, a in opts:
         if o in ("-n", "--number"):
@@ -289,7 +289,7 @@ def main(args=None, *, _wrap_timer=None):
             if a in units:
                 time_unit = a
             else:
-                print("Unrecognized unit. Please select usec, msec, or sec.",
+                print("Unrecognized unit. Please select nsec, usec, msec, or sec.",
                     file=sys.stderr)
                 return 2
         if o in ("-r", "--repeat"):

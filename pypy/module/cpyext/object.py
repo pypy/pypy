@@ -4,7 +4,7 @@ from pypy.module.cpyext.api import (
     cpython_api, generic_cpy_call, CANNOT_FAIL, Py_ssize_t,
     PyVarObject, size_t, slot_function, cts,
     Py_TPFLAGS_HEAPTYPE, Py_LT, Py_LE, Py_EQ, Py_NE, Py_GT,
-    Py_GE, CONST_STRING, FILEP, fwrite, c_only)
+    Py_GE, CONST_STRING, FILEP, fwrite, c_only, PY_SSIZE_T_MAX)
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, from_ref, incref, decref,
     get_typedescr, hack_for_result_often_existing_obj)
@@ -21,6 +21,14 @@ def PyObject_Malloc(space, size):
     # returns non-zero-initialized memory, like CPython
     return lltype.malloc(rffi.VOIDP.TO, size,
                          flavor='raw',
+                         add_memory_pressure=True)
+
+@cpython_api([size_t, size_t], rffi.VOIDP)
+def PyObject_Calloc(space, nelem, elsize):
+    if elsize != 0 and nelem > PY_SSIZE_T_MAX / elsize:
+        return lltype.nullptr(rffi.VOIDP.TO)
+    return lltype.malloc(rffi.VOIDP.TO, nelem * elsize,
+                         flavor='raw', zero=True,
                          add_memory_pressure=True)
 
 realloc = rffi.llexternal('realloc', [rffi.VOIDP, rffi.SIZE_T], rffi.VOIDP)
@@ -369,7 +377,7 @@ def PyObject_Hash(space, w_obj):
     This is the equivalent of the Python expression hash(o)."""
     return space.hash_w(w_obj)
 
-@cpython_api([rffi.DOUBLE], rffi.LONG, error=-1)
+@cpython_api([rffi.DOUBLE], lltype.Signed, error=-1)
 def _Py_HashDouble(space, v):
     return space.hash_w(space.newfloat(v))
 

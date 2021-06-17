@@ -1,6 +1,6 @@
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError, oefmt
-from pypy.interpreter.pyopcode import LoopBlock, SApplicationException, Yield
+from pypy.interpreter.pyopcode import SApplicationException, Yield
 from pypy.interpreter.pycode import CO_YIELD_INSIDE_TRY
 from pypy.interpreter.astcompiler import consts
 from rpython.rlib import jit, rgc, rweakref
@@ -287,11 +287,8 @@ return next yielded value or raise StopIteration."""
         # no point.
         if self.frame is not None:
             block = self.frame.lastblock
-            while block is not None:
-                if not isinstance(block, LoopBlock):
-                    self.descr_close()
-                    break
-                block = block.previous
+            if block is not None:
+                self.descr_close()
 
     def frame_is_finished(self):
         self.frame = None

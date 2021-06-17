@@ -615,6 +615,8 @@ class AppTestBytesArray:
         assert bytearray(
                 bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('?', 4) == \
                "73616e?74612063?6c617573"
+        res = bytearray(bytes([0x73,0x61,0x6e,0x74,0x61,0x20,0x63,0x6c,0x61,0x75,0x73])).hex('.', 0)
+        assert res == "73616e746120636c617573"
 
     def test_isascii(self):
         assert bytearray(b'hello world').isascii() is True

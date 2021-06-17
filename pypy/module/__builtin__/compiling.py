@@ -216,15 +216,12 @@ def build_class(space, w_func, w_name, __args__):
             e.get_w_value(space))
     if isinstance(w_cell, Cell) and isinstance(w_class, W_TypeObject):
         if w_cell.empty():
-            # will become an error in Python 3.7
-            space.warn(space.newtext(
-                "__class__ not set defining %s as %s . "
-                "Was __classcell__ propagated to type.__new__?" % (
-                    space.text_w(w_name),
-                    space.text_w(space.str(w_class))
-                )),
-                space.w_DeprecationWarning)
-            w_cell.set(w_class)
+            raise oefmt(space.w_RuntimeError,
+                "__class__ not set defining %S as %S. "
+                "Was __classcell__ propagated to type.__new__?",
+                    w_name,
+                    w_class)
+
         else:
             w_class_from_cell = w_cell.get()
             if not space.is_w(w_class, w_class_from_cell):

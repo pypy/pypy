@@ -94,8 +94,6 @@ class Module(MixedModule):
         'hash_info'             : 'system.get_hash_info(space)',
         'float_repr_style'      : 'system.get_float_repr_style(space)',
 
-        'get_coroutine_wrapper' : 'vm.get_coroutine_wrapper',
-        'set_coroutine_wrapper' : 'vm.set_coroutine_wrapper',
         'get_asyncgen_hooks'    : 'vm.get_asyncgen_hooks',
         'set_asyncgen_hooks'    : 'vm.set_asyncgen_hooks',
 

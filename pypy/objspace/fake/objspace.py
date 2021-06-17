@@ -46,7 +46,7 @@ class W_MyObject(W_Root):
         is_root(w_subtype)
 
     def buffer_w(self, space, flags):
-        return SimpleView(StringBuffer("foobar"))
+        return SimpleView(StringBuffer("foobar"), w_obj=self)
 
     def text_w(self, space):
         return NonConstant("foobar")

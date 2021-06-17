@@ -353,25 +353,6 @@ same value."""
         return space.new_interned_w_str(w_str)
     raise oefmt(space.w_TypeError, "intern() argument must be string.")
 
-def get_coroutine_wrapper(space):
-    "Return the wrapper for coroutine objects set by sys.set_coroutine_wrapper."
-    space.warn(space.newtext("get_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
-    ec = space.getexecutioncontext()
-    if ec.w_coroutine_wrapper_fn is None:
-        return space.w_None
-    return ec.w_coroutine_wrapper_fn
-
-def set_coroutine_wrapper(space, w_wrapper):
-    space.warn(space.newtext("set_coroutine_wrapper is deprecated"), space.w_DeprecationWarning)
-    "Set a wrapper for coroutine objects."
-    ec = space.getexecutioncontext()
-    if space.is_w(w_wrapper, space.w_None):
-        ec.w_coroutine_wrapper_fn = None
-    elif space.is_true(space.callable(w_wrapper)):
-        ec.w_coroutine_wrapper_fn = w_wrapper
-    else:
-        raise oefmt(space.w_TypeError, "callable expected, got %T", w_wrapper)
-
 def get_asyncgen_hooks(space):
     """get_asyncgen_hooks()
 

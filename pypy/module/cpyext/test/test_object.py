@@ -257,6 +257,20 @@ class AppTestObject(AppTestCpythonExtensionBase):
         assert type(x) is float
         assert x == -12.34
 
+    def test_object_calloc(self):
+        module = self.import_extension('foo', [
+            ("calloctest", "METH_NOARGS",
+             """
+                 PyObject *obj = PyObject_Calloc(1, sizeof(PyFloatObject));
+                 if (obj == NULL)
+                    return NULL;
+                 obj = PyObject_Init(obj, &PyFloat_Type);
+                 return obj;
+             """)])
+        x = module.calloctest()
+        assert type(x) is float
+        assert x == 0.0
+
     def test_object_realloc(self):
         if not self.runappdirect:
             skip('no untranslated support for realloc')

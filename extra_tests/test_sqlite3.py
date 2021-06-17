@@ -404,3 +404,21 @@ class TestBackup:
         result = con2.execute("SELECT key FROM foo ORDER BY key").fetchall()
         assert result[0][0] == 3
         assert result[1][0] == 4
+
+def test_reset_already_committed_statements_bug(con):
+    con.execute('''CREATE TABLE COMPANY
+             (ID INT PRIMARY KEY,
+             A INT);''')
+    con.execute("INSERT INTO COMPANY (ID, A) \
+          VALUES (1, 2)")
+    cursor = con.execute("SELECT id, a from COMPANY")
+    con.commit()
+    con.execute("DROP TABLE COMPANY")
+
+def test_empty_statement():
+    r = _sqlite3.connect(":memory:")
+    cur = r.cursor()
+    for sql in ["", " ", "/*comment*/"]:
+        r = cur.execute(sql)
+        assert r.description is None
+        assert cur.fetchall() == []

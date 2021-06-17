@@ -928,7 +928,12 @@ def _new_baseint(space, w_value, w_base=None):
         elif space.lookup(w_value, '__trunc__') is not None:
             w_obj = space.trunc(w_value)
             if not space.isinstance_w(w_obj, space.w_int):
-                w_obj = space.int(w_obj)
+                try:
+                    w_obj = space.int(w_obj)
+                except OperationError as e:
+                    if not e.match(space, space.w_TypeError):
+                        raise
+                    w_obj = space.index(w_obj)
             assert isinstance(w_obj, W_AbstractIntObject)
             return _ensure_baseint(space, w_obj)
         elif space.lookup(w_value, '__index__') is not None:

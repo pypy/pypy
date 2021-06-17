@@ -125,7 +125,7 @@ class W_BytesIO(W_BufferedIOBase):
 
     def getbuffer_w(self, space):
         self._check_closed(space)
-        return SimpleView(BytesIOBuffer(self)).wrap(space)
+        return SimpleView(BytesIOBuffer(self), w_obj=self).wrap(space)
 
     def getvalue_w(self, space):
         self._check_closed(space)

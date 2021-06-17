@@ -150,7 +150,7 @@ def hypot(space, args_w):
     result = _vector_norm(vec, max, found_nan)
     return space.newfloat(result)
 
-def dist(space, w_p, w_q):
+def dist(space, w_p, w_q, __posonly__=None):
     """
     Return the Euclidean distance between two points p and q.
 

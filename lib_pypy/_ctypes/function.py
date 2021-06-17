@@ -31,6 +31,7 @@ VALID_PARAMFLAGS = (
 
 WIN64 = sys.platform == 'win32' and sys.maxsize == 2**63 - 1
 
+CTYPES_MAX_ARGCOUNT = 1024
 
 def get_com_error(errcode, riid, pIunk):
     "Win32 specific: build a COM Error exception"
@@ -289,6 +290,8 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
     def __call__(self, *args, **kwargs):
         argtypes = self._argtypes_
         if self.callable is not None:
+            if len(args) > CTYPES_MAX_ARGCOUNT:
+                raise ArgumentError("too many arguments (%s), maximum is %s" % (len(args), CTYPES_MAX_ARGCOUNT))
             if len(args) == len(argtypes):
                 pass
             elif self._flags_ & _rawffi.FUNCFLAG_CDECL:

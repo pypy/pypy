@@ -60,6 +60,7 @@ def_op('ROT_TWO', 2)
 def_op('ROT_THREE', 3)
 def_op('DUP_TOP', 4)
 def_op('DUP_TOP_TWO', 5)
+#def_op('ROT_FOUR', 6) # not emitted by pypy
 
 def_op('NOP', 9)
 def_op('UNARY_POSITIVE', 10)
@@ -86,7 +87,8 @@ def_op('INPLACE_TRUE_DIVIDE', 29)
 def_op('GET_AITER', 50)
 def_op('GET_ANEXT', 51)
 def_op('BEFORE_ASYNC_WITH', 52)
-
+def_op('BEGIN_FINALLY', 53)
+def_op('END_ASYNC_FOR', 54)
 def_op('INPLACE_ADD', 55)
 def_op('INPLACE_SUBTRACT', 56)
 def_op('INPLACE_MULTIPLY', 57)
@@ -113,7 +115,6 @@ def_op('INPLACE_RSHIFT', 76)
 def_op('INPLACE_AND', 77)
 def_op('INPLACE_XOR', 78)
 def_op('INPLACE_OR', 79)
-def_op('BREAK_LOOP', 80)
 def_op('WITH_CLEANUP_START', 81)
 def_op('WITH_CLEANUP_FINISH', 82)
 
@@ -158,10 +159,8 @@ jabs_op('POP_JUMP_IF_TRUE', 115)     # ""
 
 name_op('LOAD_GLOBAL', 116)     # Index in name list
 
-jabs_op('CONTINUE_LOOP', 119)   # Target address
-jrel_op('SETUP_LOOP', 120)      # Distance to target address
 jrel_op('SETUP_EXCEPT', 121)    # ""
-jrel_op('SETUP_FINALLY', 122)   # ""
+jrel_op('SETUP_FINALLY', 122)   # Distance to target address
 
 def_op('LOAD_FAST', 124)        # Local variable number
 haslocal.append(124)
@@ -172,7 +171,6 @@ haslocal.append(126)
 
 def_op('RAISE_VARARGS', 130)    # Number of raise arguments (1, 2, or 3)
 def_op('CALL_FUNCTION', 131)    # #args
-
 def_op('MAKE_FUNCTION', 132)    # Flags
 def_op('BUILD_SLICE', 133)      # Number of items
 def_op('LOAD_CLOSURE', 135)
@@ -185,7 +183,6 @@ def_op('DELETE_DEREF', 138)
 hasfree.append(138)
 
 def_op('CALL_FUNCTION_KW', 141)  # #args + #kwargs
-
 def_op('CALL_FUNCTION_EX', 142)  # Flags
 
 jrel_op('SETUP_WITH', 143)
@@ -196,7 +193,6 @@ def_op('MAP_ADD', 147)
 
 def_op('LOAD_CLASSDEREF', 148)
 hasfree.append(148)
-
 
 def_op('EXTENDED_ARG', 144)
 EXTENDED_ARG = 144
@@ -215,6 +211,9 @@ def_op('BUILD_STRING', 157)
 
 #name_op('LOAD_METHOD', 160)
 def_op('CALL_METHOD', 161)
+
+jrel_op('CALL_FINALLY', 162)
+def_op('POP_FINALLY', 163)
 
 # pypy modification, experimental bytecode
 def_op('LOOKUP_METHOD', 201)          # Index in name list

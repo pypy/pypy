@@ -74,7 +74,7 @@ class BaseTestCompiler:
         # for now, we compile evalexpr with CPython's compiler but run
         # it with our own interpreter to extract the data from w_dict
         space = self.space
-        pyco_expr = space.createcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
+        pyco_expr = space.createnewcompiler().compile(evalexpr, '<evalexpr>', 'eval', 0)
         w_res = space.exec_(pyco_expr, w_dict, w_dict)
         res = space.text_w(space.repr(w_res))
         expected_repr = self.get_py3_repr(expected)
@@ -834,7 +834,7 @@ a = A()
         try:
             self.simple_test(source, None, None)
         except IndentationError as e:
-            assert e.msg == 'expected an indented block'
+            assert e.msg == 'expected an indented block after function definition on line 2'
         else:
             raise Exception("DID NOT RAISE")
 
@@ -1027,8 +1027,22 @@ a = A()
                 x += 1
                 def get(self):
                     return x
-            return c().get()"""
-        yield self.st, test, "f(3)", 4
+            return c().get(), x"""
+        yield self.st, test, "f(3)", (4, 4)
+
+    def test_nonlocal_class_nesting_bug(self):
+        test = """\
+def foo():
+    var = 0
+    class C:
+        def wrapper():
+            nonlocal var
+            var = 1
+        wrapper()
+        nonlocal var
+    return var
+"""
+        self.st(test, "foo()", 1)
 
     def test_lots_of_loops(self):
         source = "for x in y: pass\n" * 1000
@@ -1510,7 +1524,395 @@ gen = f()
 rest = 2, 3
 x: tuple = 1, *rest, 4
 """, "x", (1, 2, 3, 4))
-        
+
+    def test_newbytecode_for_loop(self):
+        func = """def f():
+    res = 0
+    for i in range(10):
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_newbytecode_for_loop_break(self):
+        func = """def f():
+    res = 0
+    for i in range(10000):
+        if i >= 10:
+            break
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_newbytecode_for_loop_continue(self):
+        func = """def f():
+    res = 0
+    for i in range(20):
+        if i >= 10:
+            continue
+        res += i
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_newbytecode_while_loop_break(self):
+        func = """def f():
+    res = 0
+    i = 0
+    while i < 10000:
+        if i >= 10:
+            break
+        res += i
+        i += 1
+    return res
+"""
+        yield self.st, func, "f()", 45
+
+    def test_newbytecode_for_loop_return(self):
+        func = """def f():
+    res = 0
+    for i in range(10000):
+        if i >= 10:
+            return res
+        res += i
+"""
+        yield self.st, func, "f()", 45
+
+    def test_newbytecode_finally(self):
+        func = """def f():
+    global a
+    try:
+        return
+    finally:
+        a = 5
+
+def g():
+    f()
+    return a
+"""
+        yield self.st, func, "g()", 5
+
+    def test_newbytecode_finally_exception(self):
+        func = """def f():
+    global a
+    try:
+        raise ValueError
+    finally:
+        a = 5
+
+def g():
+    try:
+        f()
+    except Exception:
+        pass
+    return a
+"""
+        yield self.st, func, "g()", 5
+
+    def test_newbytecode_break_in_except(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError:
+            break
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_break_in_except_named(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError as e:
+            break
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_return_in_except(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError:
+            return res
+        res += i
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_return_in_except_named(self):
+        func = """def g():
+    res = 0
+    for i in range(100):
+        try:
+            h(i)
+        except ValueError as e:
+            return res
+        res += i
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_return_in_except_body(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            return i
+        except:
+            pass
+    return res
+"""
+        yield self.st, func, "g()", 0
+
+    def test_newbytecode_continue_in_try_finally(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            continue
+        finally:
+            res += i
+    return res
+"""
+        yield self.st, func, "g()", 190
+
+    def test_newbytecode_continue_in_finally(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            h(i)
+        finally:
+            res += i
+            continue
+    return res
+
+def h(i):
+    if i >= 10:
+        raise ValueError
+"""
+        yield self.st, func, "g()", 190
+
+    def test_newbytecode_blocktype_try2(self):
+        func = """def g():
+    res = 0
+    for i in range(20):
+        try:
+            return res
+        finally:
+            res += i
+            if i < 10:
+                continue
+    return res
+"""
+        yield self.st, func, "g()", 45
+
+    def test_newbytecode_named_try_bug(self):
+        func = """def g():
+    try:
+        raise StopIteration
+    except StopIteration as e:
+        assert 1
+"""
+        self.st(func, "g()", None)
+
+    def test_newbytecode_with_basic(self):
+        func = """def g():
+        class ContextManager:
+            def __enter__(self, *args):
+                return self
+            def __exit__(self, *args):
+                pass
+
+        x = 0
+        with ContextManager():
+            x = 6
+        return x
+"""
+        self.st(func, "g()", 6)
+
+    def test_newbytecode_with_return(self):
+        func = """class ContextManager:
+    def __enter__(self, *args):
+        return self
+    def __exit__(self, *args):
+        pass
+
+def g():
+        with ContextManager():
+            return 8
+"""
+        self.st(func, "g()", 8)
+
+    def test_newbytecode_with_continue(self):
+        func = """def g():
+    class ContextManager:
+        def __enter__(self, *args):
+            return self
+        def __exit__(self, typ, val, tb):
+            nonlocal res
+            res += i
+    res = 0
+    for i in range(20):
+        with ContextManager() as b:
+            continue
+    return res
+"""
+        self.st(func, "g()", 190)
+
+    def test_newbytecode_async_for_break(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+
+    class MyAIter:
+        async def __anext__(self):
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+            if sum > 100:
+                break
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except StopIteration as e:
+        return e.value
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", 3 * 42)
+
+    def test_newbytecode_async_for(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+    class MyAIter:
+        count = 0
+        async def __anext__(self):
+            if self.count == 3:
+                raise StopAsyncIteration
+            self.count += 1
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except StopIteration as e:
+        assert e.value == 42 * 3
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", None)
+
+    def test_newbytecode_async_for_other_exception(self):
+        func = """def g():
+    class X:
+        def __aiter__(self):
+            return MyAIter()
+    class MyAIter:
+        count = 0
+        async def __anext__(self):
+            if self.count == 3:
+                1/0
+            self.count += 1
+            return 42
+    async def f(x):
+        sum = 0
+        async for a in x:
+            sum += a
+        return sum
+    cr = f(X())
+    try:
+        cr.send(None)
+    except ZeroDivisionError:
+        pass
+    else:
+        assert False, "should have raised"
+"""
+        self.st(func, "g()", None)
+
+    def test_newbytecode_async_genexpr(self):
+        func = """def g():
+    def run_async(coro):
+        buffer = []
+        result = None
+        while True:
+            try:
+                buffer.append(coro.send(None))
+            except StopIteration as ex:
+                result = ex.args[0] if ex.args else None
+                break
+        return buffer, result
+
+    async def f(it):
+        for i in it:
+            yield i
+
+    async def run_gen():
+        gen = (i + 1 async for i in f([10, 20]))
+        return [g + 100 async for g in gen]
+
+    assert run_async(run_gen()) == ([], [111, 121])
+"""
+        self.st(func, "g()", None)
+
+    def test_newbytecode_async_with(self):
+        func = """def g():
+    seen = []
+    class X:
+        async def __aenter__(self):
+            seen.append('aenter')
+        async def __aexit__(self, *args):
+            seen.append('aexit')
+    async def f(x):
+        async with x:
+            return 42
+    c = f(X())
+    try:
+        c.send(None)
+    except StopIteration as e:
+        assert e.value == 42
+    else:
+        assert False, "should have raised"
+    assert seen == ['aenter', 'aexit']
+"""
+        self.st(func, "g()", None)
+
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 
@@ -1796,6 +2198,39 @@ class TestOptimizations:
         assert ops.JUMP_FORWARD not in counts
         assert ops.JUMP_ABSOLUTE not in counts
         assert counts[ops.RETURN_VALUE] == 2
+
+    def test_forward_cond_jump_to_jump(self):
+        source1 = """def jumpymcjumpface():
+            if a:
+                if (c
+                    or d):
+                    foo()
+            else:
+                baz()
+        """
+        source2 = """def springer():
+                while a:
+                    # Intentionally use two-line expression to test issue37213.
+                    if (c
+                        or d):
+                        a = foo()
+        """
+        for source in source1, source2:
+            code, blocks = generate_function_code(source, self.space)
+            instrs = []
+            for block in blocks:
+                instrs.extend(block.instructions)
+            offset = 0
+            offsets = {}
+            for instr in instrs:
+                offsets[offset] = instr
+                offset += instr.size()
+            for instr in instrs:
+                if instr.opcode == ops.POP_JUMP_IF_FALSE:
+                    if instr.arg == offset: # points to end, return will be inserted later
+                        continue
+                    target = offsets[instr.arg]
+                    assert target.opcode != ops.JUMP_FORWARD and target.opcode != ops.JUMP_ABSOLUTE
 
     def test_const_fold_subscr(self):
         source = """def f():

@@ -581,9 +581,12 @@ def test():
         finally:
             continue       # 'continue' inside 'finally'
 
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_continue_in_nested_finally(self):
         space = self.space
@@ -596,9 +599,12 @@ def test():
                 continue       # 'continue' inside 'finally'
             except:
                 pass
+test()
         '''))
-        space.raises_w(space.w_SyntaxError, self.compiler.compile,
-                       snippet, '<tmp>', 'exec', 0)
+        code = self.compiler.compile(snippet, '<tmp>', 'exec', 0)
+        space = self.space
+        w_d = space.newdict()
+        space.exec_(code, w_d, w_d)
 
     def test_really_nested_stuff(self):
         space = self.space

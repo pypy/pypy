@@ -158,6 +158,66 @@ def _some_str(value):
 
 # --
 
+# -- PyPy extension: pure Python implementation of suggestions
+
+_MAX_DISTANCE = 3
+
+def _compute_suggestion_error(exc_value, tb):
+    wrong_name = exc_value.name
+    if isinstance(exc_value, AttributeError):
+        obj = exc_value.obj
+        d = dir(obj)
+    else:
+        assert isinstance(exc_value, NameError)
+        # find most recent frame
+        if tb is None:
+            return None
+        while tb.tb_next is not None:
+            tb = tb.tb_next
+        frame = tb.tb_frame
+        d = list(frame.f_locals) + list(frame.f_globals) + dir(__builtins__)
+    best_distance = len(wrong_name)
+    suggestion = None
+    for possible_name in d:
+        distance = _levenshtein_distance(wrong_name, possible_name)
+        if distance == 0 or distance > _MAX_DISTANCE:
+            continue
+        if distance < best_distance:
+            suggestion = possible_name
+            best_distance = distance
+    return suggestion
+
+def _levenshtein_distance(a, b):
+    if a == b:
+        return 0
+    if not a:
+        return len(b)
+    if not b:
+        return len(a)
+    row = list(range(1, len(a) + 1))
+    for bindex in range(len(b)):
+        bchar = b[bindex]
+        distance = result = bindex
+        for index in range(len(a)):
+            bdistance = distance if bchar == a[index] else distance + 1
+            distance = row[index]
+            if distance > result:
+                if bdistance > result:
+                    result += 1
+                else:
+                    result = bdistance
+            else:
+                if bdistance > distance:
+                    result = distance + 1
+                else:
+                    result = bdistance
+            row[index] = result
+    return result
+
+
+# --
+
+
 def print_exc(limit=None, file=None, chain=True):
     """Shorthand for 'print_exception(*sys.exc_info(), limit, file)'."""
     print_exception(*sys.exc_info(), limit=limit, file=file, chain=chain)
@@ -515,7 +575,8 @@ class TracebackException:
         if exc_type and issubclass(exc_type, SyntaxError):
             # Handle SyntaxError's specially
             self.filename = exc_value.filename
-            self.lineno = str(exc_value.lineno)
+            lno = exc_value.lineno
+            self.lineno = str(lno) if lno is not None else None
             self.text = exc_value.text
             self.offset = exc_value.offset
             self.msg = exc_value.msg
@@ -569,9 +630,12 @@ class TracebackException:
             return
 
         # It was a syntax error; show exactly where the problem was found.
-        filename = self.filename or "<string>"
-        lineno = str(self.lineno) or '?'
-        yield '  File "{}", line {}\n'.format(filename, lineno)
+        filename_suffix = ''
+        if self.lineno is not None:
+            yield '  File "{}", line {}\n'.format(
+                self.filename or "<string>", self.lineno)
+        elif self.filename is not None:
+            filename_suffix = ' ({})'.format(self.filename)
 
         badline = self.text
         offset = self.offset
@@ -585,7 +649,7 @@ class TracebackException:
                 caretspace = ((c.isspace() and c or ' ') for c in caretspace)
                 yield '    {}^\n'.format(''.join(caretspace))
         msg = self.msg or "<no detail available>"
-        yield "{}: {}\n".format(stype, msg)
+        yield "{}: {}{}\n".format(stype, msg, filename_suffix)
 
     def format(self, *, chain=True):
         """Format the exception.

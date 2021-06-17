@@ -188,6 +188,7 @@ corresponding Unix manual entries for more information on calls."""
                 '_getfinalpathname': 'interp_posix._getfinalpathname',
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
                 'set_handle_inheritable': 'interp_posix.set_handle_inheritable',
+                '_path_splitroot': 'interp_posix._path_splitroot',
         })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'

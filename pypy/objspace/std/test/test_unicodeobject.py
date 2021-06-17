@@ -125,11 +125,13 @@ class TestUnicodeObject:
             uniupper, = unicodedb.toupper_full(ch)
             assert chr(uniupper) == chr(ch).upper()
 
-    def test_latin1_encode_shortcut_ascii(self, monkeypatch):
+    def test_latin1_ascii_encode_shortcut_ascii(self, monkeypatch):
         from rpython.rlib import rutf8
         from pypy.objspace.std.unicodeobject import encode_object
         monkeypatch.setattr(rutf8, "check_ascii", None)
         w_b = encode_object(self.space, self.space.newutf8("abc", 3), "latin-1", "strict")
+        assert self.space.bytes_w(w_b) == "abc"
+        w_b = encode_object(self.space, self.space.newutf8("abc", 3), "ascii", "strict")
         assert self.space.bytes_w(w_b) == "abc"
 
 
@@ -373,7 +375,7 @@ class AppTestUnicodeString:
         # check that titlecased chars are lowered correctly
         # \u1ffc is the titlecased char
         assert (u'\u1ff3\u1ff3\u1ffc\u1ffc'.capitalize() ==
-                u'\u03a9\u0399\u1ff3\u1ff3\u1ff3')
+                u'\u1ffc\u1ff3\u1ff3\u1ff3')
         # check with cased non-letter chars
         assert (u'\u24c5\u24ce\u24c9\u24bd\u24c4\u24c3'.capitalize() ==
                 u'\u24c5\u24e8\u24e3\u24d7\u24de\u24dd')
@@ -386,6 +388,9 @@ class AppTestUnicodeString:
                 '\u019b\u1d00\u1d86\u0221\u1fb7')
         # cpython issue 17252 for i_dot
         assert u'h\u0130'.capitalize() == u'H\u0069\u0307'
+
+    def test_capitalize_bug_38(self):
+        assert 'ﬁnnish'.capitalize() == "Finnish"
 
     def test_changed_in_unicodedata_version_8(self):
         assert u'\u025C'.upper() == u'\uA7AB'
@@ -509,7 +514,7 @@ class AppTestUnicodeString:
     def test_repr(self):
         for ustr in ["", "a", "'", "\'", "\"", "\t", "\\", '',
                      'a', '"', '\'', '\"', '\t', '\\', "'''\"",
-                     chr(19), chr(2), '\u1234', '\U00101234']:
+                     chr(19), chr(2), '\u1234', '\U00101234', '\U0001f42a']:
             assert eval(repr(ustr)) == ustr
 
     def test_getnewargs(self):

@@ -1,5 +1,6 @@
-from rpython.rlib.rutf8 import Utf8StringIterator, Utf8StringBuilder
+from rpython.rlib.rutf8 import Utf8StringIterator, Utf8StringBuilder, unichr_as_utf8
 from rpython.rlib import objectmodel
+from rpython.rlib.rarithmetic import r_uint
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.gateway import unwrap_spec
@@ -29,7 +30,7 @@ class W_Reader(W_Root):
     @objectmodel.dont_inline
     def error(self, msg):
         space = self.space
-        msg = u'line %d: %s' % (self.line_num, msg)
+        msg = 'line %d: %s' % (self.line_num, msg)
         w_module = space.getbuiltinmodule('_csv')
         w_error = space.getattr(w_module, space.newtext('Error'))
         raise OperationError(w_error, space.newtext(msg))
@@ -37,7 +38,7 @@ class W_Reader(W_Root):
     def add_char(self, field_builder, c):
         assert field_builder is not None
         if field_builder.getlength() >= field_limit.limit:
-            raise self.error(u"field larger than field limit")
+            raise self.error("field larger than field limit")
         field_builder.append_code(c)
 
     def save_field(self, field_builder):
@@ -67,19 +68,19 @@ class W_Reader(W_Root):
                             (len(field_builder.build()) > 0 or
                              state == IN_QUOTED_FIELD)):
                         if dialect.strict:
-                            raise self.error(u"unexpected end of data")
+                            raise self.error("unexpected end of data")
                         else:
                             self.save_field(field_builder)
                             break
                 raise
             self.line_num += 1
             if space.isinstance_w(w_line, space.w_bytes):
-                raise self.error(u"iterator should return strings, not bytes "
-                                 u"(did you open the file in text mode?")
+                raise self.error("iterator should return strings, not bytes "
+                                 "(did you open the file in text mode?")
             line = space.utf8_w(w_line)
             for c in Utf8StringIterator(line):
                 if c == 0:
-                    raise self.error(u"line contains NULL byte")
+                    raise self.error("line contains NULL byte")
 
                 if state == START_RECORD:
                     if c == ord(u'\n') or c == ord(u'\r'):
@@ -182,14 +183,14 @@ class W_Reader(W_Root):
                         state = IN_FIELD
                     else:
                         # illegal
-                        raise self.error(u"'%s' expected after '%s'" % (
-                            unichr(dialect.delimiter), unichr(dialect.quotechar)))
+                        raise self.error("'%s' expected after '%s'" % (
+                            unichr_as_utf8(r_uint(dialect.delimiter)), unichr_as_utf8(r_uint(dialect.quotechar))))
 
                 elif state == EAT_CRNL:
                     if not (c == ord(u'\n') or c == ord(u'\r')):
-                        raise self.error(u"new-line character seen in unquoted "
-                                         u"field - do you need to open the file "
-                                         u"in universal-newline mode?")
+                        raise self.error("new-line character seen in unquoted "
+                                         "field - do you need to open the file "
+                                         "in universal-newline mode?")
 
             if state == IN_FIELD or state == QUOTE_IN_QUOTED_FIELD:
                 self.save_field(field_builder)

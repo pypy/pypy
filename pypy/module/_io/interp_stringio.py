@@ -176,7 +176,7 @@ class W_StringIO(W_TextIOBase):
 
     def descr_getstate(self, space):
         w_initialval = self.getvalue_w(space)
-        w_dict = space.call_method(self.w_dict, "copy")
+        w_dict = space.call_method(self.getdict(space), "copy")
         readnl = self.readnl
         if readnl is None:
             w_readnl = space.w_None
@@ -216,7 +216,7 @@ class W_StringIO(W_TextIOBase):
                     "fourth item of state should be a dict, got a %T", w_dict)
             # Alternatively, we could replace the internal dictionary
             # completely. However, it seems more practical to just update it.
-            space.call_method(self.w_dict, "update", w_dict)
+            space.call_method(self.getdict(space), "update", w_dict)
 
     def _check_closed(self, space, message=None):
         if self.state == CLOSED:

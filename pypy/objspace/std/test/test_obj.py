@@ -1,5 +1,5 @@
-from __future__ import with_statement
 from pypy.conftest import option
+import pytest
 
 class AppTestObject:
 
@@ -10,10 +10,7 @@ class AppTestObject:
         import sys
 
         space = cls.space
-        cls.w_cpython_behavior = space.wrap(not option.runappdirect)
-        cls.w_cpython_version = space.wrap(tuple(sys.version_info))
         cls.w_appdirect = space.wrap(option.runappdirect)
-        cls.w_cpython_apptest = space.wrap(option.runappdirect and not hasattr(sys, 'pypy_translation_info'))
 
         def w_unwrap_wrap_unicode(space, w_obj):
             return space.newutf8(space.utf8_w(w_obj), w_obj._length)
@@ -21,15 +18,6 @@ class AppTestObject:
         def w_unwrap_wrap_bytes(space, w_obj):
             return space.newbytes(space.bytes_w(w_obj))
         cls.w_unwrap_wrap_bytes = space.wrap(gateway.interp2app(w_unwrap_wrap_bytes))
-
-    def test_hash_builtin(self):
-        if not self.cpython_behavior:
-            skip("on pypy-c id == hash is not guaranteed")
-        if self.cpython_version >= (2, 7):
-            skip("on CPython >= 2.7, id != hash")
-        import sys
-        o = object()
-        assert (hash(o) & sys.maxsize) == (id(o) & sys.maxsize)
 
     def test_hash_method(self):
         o = object()
@@ -48,8 +36,6 @@ class AppTestObject:
         class X(object):
             pass
         x = X()
-        if self.cpython_behavior and self.cpython_version < (2, 7):
-            assert (hash(x) & sys.maxsize) == (id(x) & sys.maxsize)
         assert hash(x) == object.__hash__(x)
 
     def test_reduce_recursion_bug(self):
@@ -239,9 +225,8 @@ class AppTestObject:
         assert obj_items == sorted(object.__dir__(obj))
 
 
+    @pytest.mark.pypy_only
     def test_is_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert 1 is 1
         x = 1000000
         assert x + 1 is int(str(x + 1))
@@ -268,12 +253,15 @@ class AppTestObject:
         s = b"a"
         assert self.unwrap_wrap_bytes(s) is s
 
+    @pytest.mark.pypy_only
+    def test_is_by_value(self):
+        for typ in [int, float, complex]:
+            assert typ(42) is typ(42)
+
     def test_is_on_subclasses(self):
         for typ in [int, float, complex, str]:
             class mytyp(typ):
                 pass
-            if not self.cpython_apptest and typ is not str:
-                assert typ(42) is typ(42)
             assert mytyp(42) is not mytyp(42)
             assert mytyp(42) is not typ(42)
             assert typ(42) is not mytyp(42)
@@ -290,9 +278,8 @@ class AppTestObject:
             assert "43" is not x
             assert None is not x
 
+    @pytest.mark.pypy_only
     def test_id_on_primitives(self):
-        if self.cpython_apptest:
-            skip("cpython behaves differently")
         assert id(1) == (1 << 4) + 1
         class myint(int):
             pass

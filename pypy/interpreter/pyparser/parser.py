@@ -57,7 +57,8 @@ class Grammar(object):
         return True
 
 class DFA(object):
-    def __init__(self, symbol_id, states, first, grammar=None):
+    def __init__(self, grammar, symbol_id, states, first):
+        self.grammar = grammar
         self.symbol_id = symbol_id
         self.states = states
         self.first = self._first_to_string(first)
@@ -112,9 +113,11 @@ class Token(object):
 
 class Node(object):
 
-    __slots__ = ("type", 'grammar')
+    __slots__ = ("grammar", "type")
 
     def __init__(self, grammar, type):
+        assert grammar is None or isinstance(grammar, Grammar)
+        assert isinstance(type, int)
         self.grammar = grammar
         self.type = type
 
@@ -155,6 +158,19 @@ class Node(object):
             else:
                 child.flatten(res)
         return res
+
+    def view(self):
+        from dotviewer import graphclient
+        import pytest
+        r = ["digraph G {"]
+        self._dot(r)
+        r.append("}")
+        p = pytest.ensuretemp("pyparser").join("temp.dot")
+        p.write("\n".join(r))
+        graphclient.display_dot_file(str(p))
+
+    def _dot(self, result):
+        raise NotImplementedError("abstract base class")
 
 
 class Terminal(Node):
@@ -202,6 +218,10 @@ class Terminal(Node):
     def get_line(self):
         return self.line
 
+    def _dot(self, result):
+        result.append('%s [label="%r", shape=box];' % (id(self), self.value))
+
+
 class AbstractNonterminal(Node):
     __slots__ = ()
 
@@ -234,6 +254,13 @@ class AbstractNonterminal(Node):
                 return False
         return True
 
+    def _dot(self, result):
+        for i in range(self.num_children()):
+            child = self.get_child(i)
+            result.append('%s [label=%s, shape=box]' % (id(self), self.grammar.symbol_names[self.type]))
+            result.append('%s -> %s [label="%s"]' % (id(self), id(child), i))
+            child._dot(result)
+
 
 class Nonterminal(AbstractNonterminal):
     __slots__ = ("_children", )
@@ -244,7 +271,10 @@ class Nonterminal(AbstractNonterminal):
         self._children = children
 
     def __repr__(self):
-        return "Nonterminal(type=%s, children=%r)" % (self.grammar.symbol_names[self.type], self._children)
+        return "Nonterminal(type=%s, children=%r)" % (
+            self.grammar.symbol_names[self.type]
+                if self.grammar is not None else self.type,
+            self._children)
 
     def get_child(self, i):
         assert self._children is not None
@@ -264,7 +294,10 @@ class Nonterminal1(AbstractNonterminal):
         self._child = child
 
     def __repr__(self):
-        return "Nonterminal(type=%s, children=[%r])" % (self.grammar.symbol_names[self.type], self._child)
+        return "Nonterminal(type=%s, children=[%r])" % (
+            self.grammar.symbol_names[self.type]
+                if self.grammar is not None else self.type,
+            self._child)
 
     def get_child(self, i):
         assert i == 0 or i == -1
@@ -314,6 +347,25 @@ class StackEntry(object):
                     self.dfa.symbol_id, [node._child, child])
         else:
             self.node.append_child(child)
+
+    def view(self):
+        from dotviewer import graphclient
+        import pytest
+        r = ["digraph G {"]
+        self._dot(r)
+        r.append("}")
+        p = pytest.ensuretemp("pyparser").join("temp.dot")
+        p.write("\n".join(r))
+        graphclient.display_dot_file(str(p))
+
+    def _dot(self, result):
+        result.append('%s [label=%s, shape=box, color=white]' % (id(self), self.dfa.grammar.symbol_names[self.dfa.symbol_id]))
+        if self.next:
+            result.append('%s -> %s [label="next"]' % (id(self), id(self.next)))
+            self.next._dot(result)
+        if self.node:
+            result.append('%s -> %s [label="node"]' % (id(self), id(self.node)))
+            self.node._dot(result)
 
 
 class Parser(object):
@@ -392,7 +444,7 @@ class Parser(object):
 
     def shift(self, grammar, next_state, token):
         """Shift a non-terminal and prepare for the next state."""
-        new_node = Terminal.fromtoken(grammar, token)
+        new_node = Terminal.fromtoken(self.grammar, token)
         self.stack.node_append_child(new_node)
         self.stack.state = next_state
 

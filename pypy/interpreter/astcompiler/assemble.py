@@ -87,6 +87,8 @@ class Block(object):
     reaches the end of the block, it continues to next_block.
     """
 
+    _source = None
+
     marked = False
     have_return = False
     auto_inserted_return = False
@@ -215,7 +217,6 @@ class PythonCodeMaker(ast.ASTVisitor):
     def use_block(self, block):
         """Start emitting bytecode into block."""
         self.current_block = block
-        self.instrs = block.instructions
 
     def use_next_block(self, block=None):
         """Set this block as the next_block for the last and use it."""
@@ -238,7 +239,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
+            self.current_block.instructions.append(instr)
             if op == ops.RETURN_VALUE:
                 self.current_block.have_return = True
         return instr
@@ -250,7 +251,7 @@ class PythonCodeMaker(ast.ASTVisitor):
             instr.lineno = self.lineno
             self.lineno_set = True
         if not self.is_dead_code():
-            self.instrs.append(instr)
+            self.current_block.instructions.append(instr)
 
     def emit_op_name(self, op, container, name):
         """Emit an opcode referencing a name."""
@@ -344,6 +345,16 @@ class PythonCodeMaker(ast.ASTVisitor):
                                     if instr.size() != size:
                                         force_redo = True
                                     continue
+                        elif target.instructions and (
+                                op == ops.POP_JUMP_IF_FALSE or
+                                op == ops.POP_JUMP_IF_TRUE or
+                                op == ops.JUMP_IF_FALSE_OR_POP or
+                                op == ops.JUMP_IF_TRUE_OR_POP):
+                            target_op = target.instructions[0]
+                            if (target_op.opcode == ops.JUMP_ABSOLUTE or
+                                    target_op.opcode == ops.JUMP_FORWARD):
+                                target = target_op.jump[0]
+                                instr.jump = target, absolute
                         if absolute:
                             jump_arg = target.offset
                         else:
@@ -384,14 +395,17 @@ class PythonCodeMaker(ast.ASTVisitor):
                 raise StackDepthComputationError   # would-be-nice-not-to-have
         return self._max_depth
 
-    def _next_stack_depth_walk(self, nextblock, depth):
+    def _next_stack_depth_walk(self, nextblock, depth, source):
         if depth > nextblock.initial_depth:
             nextblock.initial_depth = depth
+            if not we_are_translated():
+                nextblock._source = source
 
     def _do_stack_depth_walk(self, block):
         depth = block.initial_depth
         if depth == -99:     # this block is never reached, skip
              return 0
+
         for instr in block.instructions:
             depth += _opcode_stack_effect(instr.opcode, instr.arg)
             if depth < 0:
@@ -414,7 +428,8 @@ class PythonCodeMaker(ast.ASTVisitor):
                 elif (jump_op == ops.SETUP_FINALLY or
                       jump_op == ops.SETUP_EXCEPT or
                       jump_op == ops.SETUP_WITH or
-                      jump_op == ops.SETUP_ASYNC_WITH):
+                      jump_op == ops.SETUP_ASYNC_WITH or
+                      jump_op == ops.CALL_FINALLY):
                     if jump_op == ops.SETUP_FINALLY:
                         target_depth += 4
                     elif jump_op == ops.SETUP_EXCEPT:
@@ -423,12 +438,14 @@ class PythonCodeMaker(ast.ASTVisitor):
                         target_depth += 3
                     elif jump_op == ops.SETUP_ASYNC_WITH:
                         target_depth += 3
+                    elif jump_op == ops.CALL_FINALLY:
+                        target_depth += 1
                     if target_depth > self._max_depth:
                         self._max_depth = target_depth
                 elif (jump_op == ops.JUMP_IF_TRUE_OR_POP or
                       jump_op == ops.JUMP_IF_FALSE_OR_POP):
                     depth -= 1
-                self._next_stack_depth_walk(instr.jump[0], target_depth)
+                self._next_stack_depth_walk(instr.jump[0], target_depth, (block, instr))
                 if jump_op == ops.JUMP_ABSOLUTE or jump_op == ops.JUMP_FORWARD:
                     # Nothing more can occur.
                     break
@@ -437,7 +454,7 @@ class PythonCodeMaker(ast.ASTVisitor):
                 break
         else:
             if block.next_block:
-                self._next_stack_depth_walk(block.next_block, depth)
+                self._next_stack_depth_walk(block.next_block, depth, (block, None))
         return depth
 
     def _build_lnotab(self, blocks):
@@ -605,9 +622,6 @@ _static_opcode_stack_effects = {
 
     ops.GET_ITER: 0,
     ops.FOR_ITER: 1,
-    ops.BREAK_LOOP: 0,
-    ops.CONTINUE_LOOP: 0,
-    ops.SETUP_LOOP: 0,
 
     ops.PRINT_EXPR: -1,
 
@@ -616,9 +630,11 @@ _static_opcode_stack_effects = {
     ops.LOAD_BUILD_CLASS: 1,
     ops.POP_BLOCK: 0,
     ops.POP_EXCEPT: -1,
+    ops.BEGIN_FINALLY: 4,
     ops.END_FINALLY: -4,     # assume always 4: we pretend that SETUP_FINALLY
                              # pushes 4.  In truth, it would only push 1 and
                              # the corresponding END_FINALLY only pops 1.
+    ops.POP_FINALLY: -4,     # same
     ops.SETUP_WITH: 1,
     ops.SETUP_FINALLY: 0,
     ops.SETUP_EXCEPT: 0,
@@ -658,6 +674,8 @@ _static_opcode_stack_effects = {
     ops.GET_AITER: 0,
     ops.GET_ANEXT: 1,
     ops.GET_YIELD_FROM_ITER: 0,
+    ops.END_ASYNC_FOR: -5, # this is really only -4, but it needs to be -5 to
+    # balance the SETUP_EXCEPT, which pretends to push +4
 
     ops.LOAD_CONST: 1,
 
@@ -679,6 +697,8 @@ _static_opcode_stack_effects = {
     ops.LOAD_REVDB_VAR: 1,
 
     ops.LOAD_CLASSDEREF: 1,
+
+    ops.CALL_FINALLY: 0,
 }
 
 

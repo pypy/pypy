@@ -445,7 +445,7 @@ class W_BytesObject(W_AbstractBytesObject):
 
     def buffer_w(self, space, flags):
         space.check_buf_flags(flags, True)
-        return SimpleView(StringBuffer(self._value))
+        return SimpleView(StringBuffer(self._value), w_obj=self)
 
     def descr_getbuffer(self, space, w_flags):
         #from pypy.objspace.std.bufferobject import W_Buffer
@@ -687,8 +687,7 @@ class W_BytesObject(W_AbstractBytesObject):
     def descr_upper(self, space):
         return W_BytesObject(self._value.upper())
 
-    @unwrap_spec(sep='text_or_none', bytes_per_sep=int)
-    def descr_hex(self, space, sep=None, bytes_per_sep=-1):
+    def descr_hex(self, space, w_sep=None, w_bytes_per_sep=None):
         """
         Create a str of hexadecimal numbers from a bytes object.
 
@@ -699,7 +698,7 @@ class W_BytesObject(W_AbstractBytesObject):
             right, negative values count from the left.
 
         Example:
-        >>> value = b'\xb9\x01\xef'
+        >>> value = b'\\xb9\\x01\\xef'
         >>> value.hex()
         'b901ef'
         >>> value.hex(':')
@@ -709,7 +708,8 @@ class W_BytesObject(W_AbstractBytesObject):
         >>> value.hex(':', -2)
         'b901:ef'
         """
-        from pypy.objspace.std.bytearrayobject import _array_to_hexstring
+        from pypy.objspace.std.bytearrayobject import _array_to_hexstring, unwrap_hex_sep_arguments
+        sep, bytes_per_sep = unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep)
         return _array_to_hexstring(space, StringBuffer(self._value), 0, 1,
                                    len(self._value), sep=sep, bytes_per_sep=bytes_per_sep)
 

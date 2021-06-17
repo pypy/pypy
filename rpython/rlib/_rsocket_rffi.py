@@ -65,7 +65,13 @@ if _WIN32:
         header_lines.extend([
             '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
+            '#ifdef _WIN64',
+            'typedef long long ssize_t;',
+            'typedef unsigned long long size_t;',
+            '#else',
             'typedef int ssize_t;',
+            'typedef unsigned int size_t;',
+            '#endif',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
             ])
@@ -1242,8 +1248,12 @@ socketgetsockopt = external('getsockopt', [socketfd_type, rffi.INT,
 socketsetsockopt = external('setsockopt', [socketfd_type, rffi.INT,
                                    rffi.INT, rffi.VOIDP, socklen_t], rffi.INT,
                             save_err=SAVE_ERR)
-socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
-                               rffi.INT], ssize_t, save_err=SAVE_ERR)
+if WIN32:
+    socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
+                                   rffi.INT], rffi.INT, save_err=SAVE_ERR)
+else:
+    socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
+                                   rffi.INT], ssize_t, save_err=SAVE_ERR)
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)

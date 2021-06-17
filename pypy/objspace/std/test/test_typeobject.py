@@ -1498,6 +1498,28 @@ class AppTestTypeObject:
         assert not hasattr(TestNoOrigBases, '__orig_bases__')
         """
 
+    def test_classcell_missing(self):
+        """
+        # Some metaclasses may not pass the original namespace to type.__new__
+        # We test that case here by forcibly deleting __classcell__
+        class Meta(type):
+            def __new__(cls, name, bases, namespace):
+                namespace.pop('__classcell__', None)
+                return super().__new__(cls, name, bases, namespace)
+
+        # The default case should continue to work without any errors
+        class WithoutClassRef(metaclass=Meta):
+            pass
+
+        # With zero-arg super() or an explicit __class__ reference, we expect
+        # __build_class__ to raise a RuntimeError complaining that
+        # __class__ was not set, and asking if __classcell__ was propagated
+        # to type.__new__.
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
+        """
 
 class AppTestWithMethodCacheCounter:
     spaceconfig = {"objspace.std.withmethodcachecounter": True}

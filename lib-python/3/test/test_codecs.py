@@ -1943,7 +1943,6 @@ class BasicUnicodeTest(unittest.TestCase, MixInCheckStateHandling):
                         self.assertEqual(decodedresult, s,
                                          "encoding=%r" % encoding)
 
-    @support.cpython_only
     def test_basics_capi(self):
         s = "abc123"  # all codecs should be able to encode these
         for encoding in all_unicode_encodings:
@@ -3293,12 +3292,15 @@ class LocaleCodecTest(unittest.TestCase):
                     encoded = self.encode(text, errors)
                     self.assertEqual(encoded, expected)
 
+    @support.cpython_only
     def test_encode_strict(self):
         self.check_encode_strings("strict")
 
+    @support.cpython_only
     def test_encode_surrogateescape(self):
         self.check_encode_strings("surrogateescape")
 
+    @support.cpython_only
     def test_encode_surrogatepass(self):
         try:
             self.encode('', 'surrogatepass')
@@ -3311,6 +3313,7 @@ class LocaleCodecTest(unittest.TestCase):
 
         self.check_encode_strings("surrogatepass")
 
+    @support.cpython_only
     def test_encode_unsupported_error_handler(self):
         with self.assertRaises(ValueError) as cm:
             self.encode('', 'backslashreplace')
@@ -3339,19 +3342,20 @@ class LocaleCodecTest(unittest.TestCase):
                 encoded2 = text.encode(self.ENCODING, 'surrogatepass')
                 if encoded2 != encoded:
                     strings.append(encoded2)
-
-        for encoded in strings:
-            with self.subTest(encoded=encoded):
-                try:
-                    expected = encoded.decode(self.ENCODING, errors)
-                except UnicodeDecodeError:
-                    with self.assertRaises(RuntimeError) as cm:
-                        self.decode(encoded, errors)
-                    errmsg = str(cm.exception)
-                    self.assertTrue(errmsg.startswith("decode error: "), errmsg)
-                else:
-                    decoded = self.decode(encoded, errors)
-                    self.assertEqual(decoded, expected)
+        if sys.implementation.name == 'cpython':
+            # cpython-only check for _Py_DecodeLocaleEx
+            for encoded in strings:
+                with self.subTest(encoded=encoded):
+                    try:
+                        expected = encoded.decode(self.ENCODING, errors)
+                    except UnicodeDecodeError:
+                        with self.assertRaises(RuntimeError) as cm:
+                            self.decode(encoded, errors)
+                        errmsg = str(cm.exception)
+                        self.assertTrue(errmsg.startswith("decode error: "), errmsg)
+                    else:
+                        decoded = self.decode(encoded, errors)
+                        self.assertEqual(decoded, expected)
 
     def test_decode_strict(self):
         self.check_decode_strings("strict")
@@ -3359,6 +3363,7 @@ class LocaleCodecTest(unittest.TestCase):
     def test_decode_surrogateescape(self):
         self.check_decode_strings("surrogateescape")
 
+    @support.cpython_only
     def test_decode_surrogatepass(self):
         try:
             self.decode(b'', 'surrogatepass')
@@ -3371,6 +3376,7 @@ class LocaleCodecTest(unittest.TestCase):
 
         self.check_decode_strings("surrogatepass")
 
+    @support.cpython_only
     def test_decode_unsupported_error_handler(self):
         with self.assertRaises(ValueError) as cm:
             self.decode(b'', 'backslashreplace')

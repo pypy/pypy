@@ -11,7 +11,6 @@ import string
 import sys
 from test import support
 import types
-import gc
 import unittest
 
 from collections import namedtuple, Counter, OrderedDict, _count_elements
@@ -1424,13 +1423,12 @@ class TestCollectionABCs(ABCTestCase):
                 return result
             def __repr__(self):
                 return "MySet(%s)" % repr(list(self))
-        s = MySet([5,43,2,1])
-        # changed from CPython: it was "s.pop() == 1" but I see
-        # nothing that guarantees a particular order here.  In the
-        # 'all_ordered_dicts' branch of PyPy (or with OrderedDict
-        # instead of sets), it consistently returns 5, but this test
-        # should not rely on this or any other order.
-        self.assert_(s.pop() in [5,43,2,1])
+        items = [5,43,2,1]
+        s = MySet(items)
+        r = s.pop()
+        self.assertEquals(len(s), len(items) - 1)
+        self.assertNotIn(r, s)
+        self.assertIn(r, items)
 
     def test_issue8750(self):
         empty = WithSet()

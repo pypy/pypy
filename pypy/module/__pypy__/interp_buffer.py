@@ -7,6 +7,7 @@ from pypy.interpreter.gateway import unwrap_spec, interp2app
 from pypy.objspace.std.memoryobject import BufferViewND
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, generic_new_descr
+from pypy.interpreter.typedef import make_weakref_descr
 
 class W_Bufferable(W_Root):
     def __init__(self, space):
@@ -85,14 +86,14 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                   shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
-                                                  shape, strides))
+                                                  shape, strides, w_obj=view.w_obj))
 
 class FormatBufferViewND(BufferViewND):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides',
                'format', 'itemsize']
-    def __init__(self, parent, itemsize, format, ndim, shape, strides):
-        BufferViewND.__init__(self, parent, ndim, shape, strides)
+    def __init__(self, parent, itemsize, format, ndim, shape, strides, w_obj=None):
+        BufferViewND.__init__(self, parent, ndim, shape, strides, w_obj=w_obj)
         self.format = format
         self.itemsize = itemsize
 
@@ -107,13 +108,16 @@ class W_PickleBuffer(W_Root):
     def __init__(self, space, w_obj):
         self.buf = space.buffer_w(w_obj, space.BUF_FULL_RO)
 
+    def check(self, space):
+        if self.buf is None:
+            raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+
     def descr_raw(self, space):
         """
         Return a memoryview of the raw memory underlying this buffer.
         Will raise BufferError is the buffer isn't contiguous.
         """
-        if self.buf is None:
-            raise oefmt(space.w_ValueError, 'operation forbidden on released PickleBuffer object')
+        self.check(space)
         return self.buf.wrap(space)
 
     def descr_release(self, space):
@@ -123,6 +127,7 @@ class W_PickleBuffer(W_Root):
         self.buf = None
 
     def buffer_w(self, space, flags):
+        self.check(space)
         space.check_buf_flags(flags, self.buf.readonly)
         return self.buf
 
@@ -134,5 +139,6 @@ W_PickleBuffer.typedef = TypeDef("PickleBuffer", None, None, 'read',
     __new__ = interp2app(descr_new_picklebuffer),
     raw = interp2app(W_PickleBuffer.descr_raw),
     release = interp2app(W_PickleBuffer.descr_release),
+    __weakref__=make_weakref_descr(W_PickleBuffer),
 )
 W_PickleBuffer.typedef.acceptable_as_base_class = False

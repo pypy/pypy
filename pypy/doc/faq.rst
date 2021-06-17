@@ -125,7 +125,7 @@ On which platforms does PyPy run?
 PyPy currently supports:
 
   * **x86** machines on most common operating systems
-    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32 bits, OpenBSD, FreeBSD),
+    (Linux 32/64 bits, Mac OS X 64 bits, Windows 32/64 bits, OpenBSD, FreeBSD),
   
   * 64-bit **AArch**, also known as ARM64,
 
@@ -519,20 +519,19 @@ git branch "B".  When commit #1 was made, was it in the branch "A" or "B"?
 completely deleted.)
 
 
-What is needed for Windows 64 support of PyPy?
+What is needed for better Windows 64 support of PyPy?
 -----------------------------------------------
 
-First, please note that the Windows 32 PyPy binary works just fine on Windows
-64. The only problem is that it only supports up to 4GB of heap per process.
+As of PyPy 7.3.5, PyPy supports Windows 64-bits. Since only on that platform
+``sizeof(long) != sizeof(void *)``, and the underlying data type for RPython is
+``long``, this proved to be challenging. It seems we have crossed that bridge,
+and welcome help in bringing the Windows version into parity with CPython. In
+particular, we still do not support Windows-specific features like
+``winconsoleio``, windows audit events, and the Windows ``faulthandler``.
+Performance may lag behind Linux64, and the ``wininstaller`` branch is still
+unfinished.
 
-As to real Windows 64 support: Currently we don't have an active PyPy developer
-whose main development platform is Windows. So if you are interested in getting
-Windows 64 support, we encourage you to volunteer `to make it happen`_! Another
-option would be to pay some PyPy developers to implement Windows 64 support,
-but so far there doesn't seem to be an overwhelming commercial interest in it.
-
-.. _`to make it happen`: windows.html#what-is-missing-for-a-full-64-bit-translation
-
+Help is welcome!
 
 How long will PyPy support Python2?
 -----------------------------------

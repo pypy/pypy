@@ -1,8 +1,8 @@
-/* Copied from CPython's Modules/_testmultiphase.c */
-/***************************************************/
 
 /* Testing module for multi-phase initialization of extension modules (PEP 489)
  */
+
+#include "Python.h"
 
 /* Example objects */
 typedef struct {
@@ -120,8 +120,8 @@ testexport_foo(PyObject *self, PyObject *args)
     return PyLong_FromLong(res);
 }
 
+#ifndef PYPY_VERSION
 /* Test that PyState registration fails  */
-
 PyDoc_STRVAR(call_state_registration_func_doc,
 "register_state(0): call PyState_FindModule()\n\
 register_state(1): call PyState_AddModule()\n\
@@ -159,7 +159,7 @@ call_state_registration_func(PyObject *mod, PyObject *args)
     }
     Py_RETURN_NONE;
 }
-
+#endif
 
 static PyType_Slot Str_Type_slots[] = {
     {Py_tp_base, NULL}, /* filled out in module exec function */
@@ -177,8 +177,10 @@ static PyType_Spec Str_Type_spec = {
 static PyMethodDef testexport_methods[] = {
     {"foo",             testexport_foo,         METH_VARARGS,
         testexport_foo_doc},
+#ifndef PYPY_VERSION
     {"call_state_registration_func",  call_state_registration_func,
         METH_VARARGS, call_state_registration_func_doc},
+#endif
     {NULL,              NULL}           /* sentinel */
 };
 

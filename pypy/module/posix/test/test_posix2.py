@@ -1698,6 +1698,13 @@ class AppTestNt(object):
         assert '\\' in nt._getfullpathname(path)
         assert type(nt._getfullpathname(b'C:')) is bytes
 
+    def test__path_splitroot(self):
+        nt = self.posix
+        ret = nt._path_splitroot(u'c:\\abc\\def.txt')
+        assert ret == (u'c:\\', u'abc\\def.txt') 
+        ret = nt._path_splitroot(u'//server/abc/xyz/def.txt')
+        assert ret == (u'//server/abc/', u'xyz/def.txt') 
+
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))

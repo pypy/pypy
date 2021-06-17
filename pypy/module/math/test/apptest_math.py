@@ -1,3 +1,4 @@
+import pytest
 import math
 
 def test_product():
@@ -66,3 +67,5 @@ def test_dist():
     from math import dist
     assert dist((1.0, 2.0, 3.0), (4.0, 2.0, -1.0)) == 5.0
     assert dist((1, 2, 3), (4, 2, -1)) == 5.0
+    with pytest.raises(TypeError):
+        math.dist(p=(1, 2, 3), q=(2, 3, 4)) # posonly args :-/

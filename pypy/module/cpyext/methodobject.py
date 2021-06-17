@@ -12,7 +12,8 @@ from pypy.module.cpyext.api import (
     CONST_STRING, METH_CLASS, METH_COEXIST, METH_KEYWORDS, METH_FASTCALL,
     METH_NOARGS, METH_O, METH_STATIC, METH_VARARGS,
     PyObject, bootstrap_function, cpython_api, generic_cpy_call,
-    CANNOT_FAIL, slot_function, cts, build_type_checkers)
+    CANNOT_FAIL, slot_function, cts, build_type_checkers,
+    PyObjectP, Py_ssize_t)
 from pypy.module.cpyext.pyobject import (
     decref, from_ref, make_ref, as_pyobj, make_typedescr)
 from pypy.module.cpyext.state import State
@@ -491,3 +492,37 @@ def Py_FindMethod(space, table, w_obj, name_ptr):
     if name == "__methods__":
         return space.newlist(method_list_w)
     raise OperationError(space.w_AttributeError, space.newtext(name))
+
+def argtuple_from_pyobject_array(space, py_args, n):
+    args_w = [None] * n
+    for i in range(n):
+        args_w[i] = from_ref(space, py_args[i])
+    return space.newtuple(args_w)
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+def _PyObject_Vectorcall(space, w_func, py_args, n, w_argnames):
+
+    if w_argnames is None:
+        n_kwargs = -1
+    else:
+        n_kwargs = space.len_w(w_argnames)
+    w_args = argtuple_from_pyobject_array(space, py_args, n)
+    if w_argnames is None:
+        w_kwargs = None
+    else:
+        w_kwargs = space.newdict()
+        for i in range(n_kwargs):
+            space.setitem(w_kwargs, space.getitem(w_argnames, space.newint(i)),
+                    from_ref(space, py_args[n + i]))
+    w_result = space.call(w_func, w_args, w_kwargs)
+    return w_result
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t], PyObject)
+def _PyObject_FastCall(space, w_func, py_args, n):
+    return _PyObject_Vectorcall(space, w_func, py_args, n, lltype.nullptr(PyObject.TO))
+
+@cpython_api([PyObject, PyObjectP, Py_ssize_t, PyObject], PyObject)
+def _PyObject_FastCallDict(space, w_func, py_args, n, w_kwargs):
+    w_args = argtuple_from_pyobject_array(space, py_args, n)
+    w_result = space.call(w_func, w_args, w_kwargs)
+    return w_result
