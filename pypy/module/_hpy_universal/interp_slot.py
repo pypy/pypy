@@ -383,8 +383,7 @@ def get_tp_new_wrapper_cls(handles):
             with handles.using(w_self) as h_self:
                 return self.call_varargs_kw(space, h_self, __args__,
                                             skip_args=1, has_keywords=True)
-    if handles.is_debug:
-        W_tp_new_wrapper.__name__ += 'Debug'
+    W_tp_new_wrapper.__name__ += handles.cls_suffix
     _WRAPPER_CACHE[handles, 'new'] = W_tp_new_wrapper
     return W_tp_new_wrapper
 

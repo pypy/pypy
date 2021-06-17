@@ -9,7 +9,6 @@ from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API, DEBUG
 from pypy.module._hpy_universal import llapi
 from .interp_module import get_doc
-from .interp_extfunc import W_ExtensionMethod, W_ExtensionMethodDebug
 from .interp_slot import fill_slot, W_wrap_getbuffer, get_slot_cls
 from .interp_descr import add_member, add_getset
 from .interp_cpy_compat import attach_legacy_slots_to_type
@@ -162,12 +161,8 @@ def add_slot_defs(handles, w_result, c_defines):
             name = rffi.constcharp2str(hpymeth.c_name)
             sig = rffi.cast(lltype.Signed, hpymeth.c_signature)
             doc = get_doc(hpymeth.c_doc)
-            if handles.is_debug:
-                MethodClass = W_ExtensionMethodDebug
-            else:
-                MethodClass = W_ExtensionMethod
-            w_extfunc = MethodClass(space, handles, name, sig, doc, hpymeth.c_impl,
-                                          w_result)
+            w_extfunc = handles.w_ExtensionMethod(
+                space, handles, name, sig, doc, hpymeth.c_impl, w_result)
             w_result.setdictvalue(
                 space, rffi.constcharp2str(hpymeth.c_name), w_extfunc)
         elif kind == HPyDef_Kind.HPyDef_Kind_Member:

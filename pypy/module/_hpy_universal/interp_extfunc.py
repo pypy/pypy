@@ -134,10 +134,10 @@ class W_ExtensionFunctionMixin(object):
         else:  # shouldn't happen!
             raise oefmt(space.w_RuntimeError, "unknown calling convention")
 
-class W_ExtensionFunction(W_AbstractExtensionFunction):
+class W_ExtensionFunction_u(W_AbstractExtensionFunction):
     import_from_mixin(W_ExtensionFunctionMixin)
 
-class W_ExtensionFunctionDebug(W_AbstractExtensionFunction):
+class W_ExtensionFunction_d(W_AbstractExtensionFunction):
     import_from_mixin(W_ExtensionFunctionMixin)
 
 
@@ -152,7 +152,7 @@ W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 class W_AbstractExtensionMethod(W_Root):
     pass
 
-@unwrap_spec(w_method = W_AbstractExtensionMethod)
+@unwrap_spec(w_method=W_AbstractExtensionMethod)
 def descr_ExtensionMethod_call(w_method, space, __args__):
     return w_method.descr_call(space, __args__)
 
@@ -183,10 +183,10 @@ class W_ExtensionMethodMixin(object):
         with self.handles.using(w_instance) as h_instance:
             return self.call(space, h_instance, __args__, skip_args=1)
 
-class W_ExtensionMethod(W_AbstractExtensionMethod):
+class W_ExtensionMethod_u(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
-class W_ExtensionMethodDebug(W_AbstractExtensionMethod):
+class W_ExtensionMethod_d(W_AbstractExtensionMethod):
     import_from_mixin(W_ExtensionMethodMixin)
 
 W_AbstractExtensionMethod.typedef = TypeDef(
