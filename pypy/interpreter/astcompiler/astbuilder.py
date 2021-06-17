@@ -1383,7 +1383,7 @@ class ASTBuilder(object):
                     second_child.get_child(1).type == tokens.COMMA:
                 elts = self.get_expression_list(second_child)
                 return build(ast.List, elts, ast.Load, atom_node)
-            return self.handle_listcomp(second_child)
+            return self.handle_listcomp(second_child).copy_location(atom_node)
         elif first_child_type == tokens.LBRACE:
             maker = atom_node.get_child(1)
             n_maker_children = maker.num_children()

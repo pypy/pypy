@@ -1833,3 +1833,19 @@ class TestAstBuilder:
         s = "(x for x in y)"
         tree = self.get_first_expr(s)
         assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "[x for x in y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "{x for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "{x: x+1 for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
