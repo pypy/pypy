@@ -1760,7 +1760,6 @@ class TestAstBuilder:
                 all_args.append(args.vararg)
             if args.kwarg:
                 all_args.append(args.kwarg)
-            import pdb; pdb.set_trace()
             assert all([
                 eq_w(arg.type_comment, w(str(i)))
                 for i, arg in enumerate(all_args, 1)
@@ -1875,3 +1874,21 @@ class TestAstBuilder:
         tree = self.get_ast('@a.b.c\ndef f(): pass')
         attr_b = tree.body[0].decorator_list[0].value
         assert attr_b.end_col_offset == 4
+
+    def test_get_source_segment(self):
+        s = "a + (b + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        # single line, no padding
+        assert tree.right.get_source_segment(s) == "(b + c)" # cpython doesn't think so?
+        assert tree.right.get_source_segment(s, padded=True) == "(b + c)"
+
+        # padding
+        s = "a + (b \n + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        assert tree.right.get_source_segment(s) == "(b \n + c)"
+        assert tree.right.get_source_segment(s, padded=True) == "    (b \n + c)"
+

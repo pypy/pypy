@@ -18,6 +18,30 @@ class __extend__(ast.AST):
     def set_context(self, space, ctx):
         raise AssertionError("should only be on expressions")
 
+    def get_source_segment(self, source, padded=False):
+        lineno = self.lineno - 1 # both 0-based
+        end_lineno = self.end_lineno - 1
+        if lineno < 0:
+            return None
+        if end_lineno < 0:
+            return None
+        col_offset = self.col_offset
+        end_col_offset = self.end_col_offset
+        if col_offset < 0:
+            return None
+        if end_col_offset < 0:
+            return None
+        s = source.splitlines(True)
+        if lineno == end_lineno:
+            return s[lineno][col_offset:end_col_offset]
+        first = s[lineno][col_offset:]
+        if padded:
+            first = " " * col_offset + first
+        res = [first]
+        for i in range(lineno+1, end_lineno):
+            res.append(s[i])
+        res.append(s[end_lineno][:end_col_offset])
+        return "".join(res)
 
 class __extend__(ast.expr):
 
