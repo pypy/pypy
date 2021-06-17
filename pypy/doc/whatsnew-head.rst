@@ -35,3 +35,7 @@ Only set VMPROF_APPLE on bsd-like when sys.platform is darwin
 .. branch: tiny-traceviewer-fix
 
 
+.. branch: dotviewer-python3
+
+Make dotviewer python3 compatible and add some features (like rudimentary
+record support).
