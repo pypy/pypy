@@ -30,7 +30,7 @@ def PyNumber_Check(space, w_obj):
     if w_obj is None:
         return 0
     if (space.lookup(w_obj, '__int__') or space.lookup(w_obj, '__float__') or
-        0): # XXX in py3.8: space.lookup(w_obj, '__index__')):
+            space.lookup(w_obj, '__index__')):
         return 1
     return 0
 
