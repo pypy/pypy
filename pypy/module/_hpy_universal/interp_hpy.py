@@ -41,17 +41,20 @@ from pypy.module._hpy_universal import (
 #
 # 2. init_hpy_module(debug=True) calls HPyInit_foo(dctx)
 #
-# 3. HPyInit_foo calls HPyModule_Create(), and since it's using a dctx it ends
-#    up calling interp_module.debug_HPyModule_Create
+# 3. HPyInit_foo calls HPyModule_Create(), which calls dctx->ctx_Module_Create.
+#    This function is a wrapper around interp_module.debug_HPyModule_Create(),
+#    created by the @DEBUG.func() decorator.
 #
-# 4. the important part happens inside _hpymodule_create(debug=True):
-#        handles = state.get_handle_manager(debug)
+# 4. The wrapper calls:
+#       handles = State.get(space).get_handle_manager(self.is_debug)
+#    and passes it to debug_HPyModule_Create()
 #    This means that depending on the value of debug, we get either
 #    HandleManager or DebugHandleManager. This handle manager is passed to
-#    W_ExtensionFunction.
+#    _hpymodule_create() which ends up creating instances of
+#    handles.w_ExtensionFunction (i.e. of W_ExtensionFunction_d)
 #
 # 5. When we call a function or a method, we ultimately end up in
-#    W_ExtensionFunction.call_{noargs,o,...}, which uses self.handles: so, the
+#    W_ExtensionFunction_{u,d}.call_{noargs,o,...}, which uses self.handles: so, the
 #    net result is that depending on the value of debug at point (1), we call
 #    the underlying C function with either dctx or uctx.
 #
@@ -64,7 +67,6 @@ from pypy.module._hpy_universal import (
 #    HandleManager/ctx: so the same applies for W_ExtensionMethod and
 #    W_SlotWrapper.
 
-# XXX: implement point 7!
 
 def startup(space, w_mod):
     """
