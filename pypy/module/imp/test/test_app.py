@@ -9,7 +9,7 @@ class AppTestImpModule:
     # use _cffi_backend since it is difficult to import cpyext untranslated
     spaceconfig = {
         'usemodules': ['binascii', 'imp', 'time', 'struct',
-                       'zipimport', '_cffi_backend'],
+                       '_cffi_backend'],
     }
 
     def setup_class(cls):
@@ -325,7 +325,6 @@ class AppTestImpModule:
         # for x in sys.path: for h in sys.path_hooks: h(x)
         # make sure x is properly encoded
         import sys
-        import zipimport #  installs a sys.path_hook
         if sys.getfilesystemencoding().lower() == 'utf-8':
             sys.path.insert(0, u'\xef')
         with raises(ImportError):

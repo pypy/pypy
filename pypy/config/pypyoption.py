@@ -35,7 +35,7 @@ default_modules.update([
 working_modules = default_modules.copy()
 working_modules.update([
     "_socket", "unicodedata", "mmap", "fcntl", "pwd",
-    "select", "zipimport", "_lsprof", "signal", "_rawffi", "termios",
+    "select", "_lsprof", "signal", "_rawffi", "termios",
     "zlib", "bz2", "_md5", "_minimal_curses",
     "itertools", "pyexpat", "cpyext", "array",
     "binascii", "_multiprocessing", '_warnings', "_collections",

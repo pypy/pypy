@@ -576,7 +576,6 @@ List of extension modules that we support:
     time
     token
     unicodedata
-    zipimport
     zlib
 
   When translated on Windows, a few Unix-only modules are skipped,
