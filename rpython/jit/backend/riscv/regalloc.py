@@ -187,6 +187,11 @@ def check_negative_imm_box(arg):
         return check_imm_arg(-arg.getint())
     return False
 
+def check_plus_one_imm_box(arg):
+    if isinstance(arg, ConstInt):
+        return check_imm_arg(arg.getint() + 1)
+    return False
+
 def check_shamt_imm_arg(imm):
     return imm >= 0 and imm <= SHAMT_MAX
 
@@ -298,6 +303,81 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_lshift = _prepare_op_int_shift_op
     prepare_op_int_rshift = _prepare_op_int_shift_op
     prepare_op_uint_rshift = _prepare_op_int_shift_op
+
+    def _gen_prepare_op_int_lt(swap_operands):
+        def _prepare_op_int_lt(self, op):
+            boxes = op.getarglist()
+
+            if swap_operands:
+                a1, a0 = boxes
+            else:
+                a0, a1 = boxes
+
+            if check_imm_box(a1):
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.convert_to_imm(a1)
+            else:
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.make_sure_var_in_reg(a1, boxes)
+
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op)
+            return [l0, l1, res]
+        return _prepare_op_int_lt
+
+    prepare_op_int_lt = _gen_prepare_op_int_lt(swap_operands=False)
+    prepare_op_int_gt = _gen_prepare_op_int_lt(swap_operands=True)
+
+    def _gen_prepare_op_int_le(swap_operands):
+        def _prepare_op_int_le(self, op):
+            boxes = op.getarglist()
+
+            if swap_operands:
+                a1, a0 = boxes
+            else:
+                a0, a1 = boxes
+
+            if check_plus_one_imm_box(a1):
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.convert_to_imm(a1)
+            elif check_imm_box(a0):
+                l0 = self.convert_to_imm(a0)
+                l1 = self.make_sure_var_in_reg(a1, boxes)
+            else:
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.make_sure_var_in_reg(a1, boxes)
+
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op)
+            return [l0, l1, res]
+        return _prepare_op_int_le
+
+    prepare_op_int_le = _gen_prepare_op_int_le(swap_operands=False)
+    prepare_op_int_ge = _gen_prepare_op_int_le(swap_operands=True)
+
+    def _prepare_op_int_commutative_compare_op(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        imm_a0 = check_imm_box(a0)
+        imm_a1 = check_imm_box(a1)
+        if not imm_a0 and imm_a1:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.convert_to_imm(a1)
+        elif imm_a0 and not imm_a1:
+            l1 = self.convert_to_imm(a0)
+            l0 = self.make_sure_var_in_reg(a1, boxes)
+        else:
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, l1, res]
+
+    prepare_op_int_eq = _prepare_op_int_commutative_compare_op
+    prepare_op_int_ne = _prepare_op_int_commutative_compare_op
 
     def prepare_op_float_add(self, op):
         boxes = op.getarglist()

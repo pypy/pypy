@@ -78,6 +78,57 @@ class OpAssembler(BaseAssembler):
         else:
             self.mc.SRL(res.value, l0.value, l1.value)
 
+    def _emit_op_int_lt(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.SLTI(res.value, l0.value, l1.value)
+        else:
+            self.mc.SLT(res.value, l0.value, l1.value)
+
+    emit_op_int_lt = _emit_op_int_lt
+    emit_op_int_gt = _emit_op_int_lt
+
+    def _emit_op_int_le(self, op, arglocs):
+        l0, l1, res = arglocs
+        if l1.is_imm():
+            self.mc.SLTI(res.value, l0.value, l1.value + 1)
+        else:
+            if l0.is_imm():
+                self.mc.SLTI(res.value, l1.value, l0.value)
+            else:
+                self.mc.SLT(res.value, l1.value, l0.value)
+            self.mc.XORI(res.value, res.value, 1)
+
+    emit_op_int_le = _emit_op_int_le
+    emit_op_int_ge = _emit_op_int_le
+
+    def emit_op_int_eq(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            if l1.value == 0:
+                self.mc.SEQZ(res.value, l0.value)
+            else:
+                self.mc.XORI(res.value, l0.value, l1.value)
+                self.mc.SEQZ(res.value, res.value)
+        else:
+            self.mc.XOR(res.value, l0.value, l1.value)
+            self.mc.SEQZ(res.value, res.value)
+
+    def emit_op_int_ne(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            if l1.value == 0:
+                self.mc.SNEZ(res.value, l0.value)
+            else:
+                self.mc.XORI(res.value, l0.value, l1.value)
+                self.mc.SNEZ(res.value, res.value)
+        else:
+            self.mc.XOR(res.value, l0.value, l1.value)
+            self.mc.SNEZ(res.value, res.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)
