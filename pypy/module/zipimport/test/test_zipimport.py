@@ -171,7 +171,7 @@ def get_file():
     def test_pyc(self):
         import sys, os
         self.writefile("uuu.pyc", self.get_pyc())
-        self.writefile("uuu.py", "def f(x): return x")
+        # self.writefile("uuu.py", "def f(x): return x")
         mod = __import__('uuu', globals(), locals(), [])
         expected = {
             '__doc__' : None,
