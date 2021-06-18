@@ -960,9 +960,9 @@ class date(dateinterop):
             _MONTHNAMES[self._month],
             self._day, self._year)
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         "Format using strftime()."
-        return _wrap_strftime(self, fmt, self.timetuple())
+        return _wrap_strftime(self, format, self.timetuple())
 
     def __format__(self, fmt):
         if not isinstance(fmt, str):
@@ -1456,7 +1456,7 @@ class time(timeinterop):
             raise ValueError(f'Invalid isoformat string: {time_string!r}')
 
 
-    def strftime(self, fmt):
+    def strftime(self, format):
         """Format using strftime().  The date part of the timestamp passed
         to underlying strftime should not be used.
         """
@@ -1465,7 +1465,7 @@ class time(timeinterop):
         timetuple = (1900, 1, 1,
                      self._hour, self._minute, self._second,
                      0, 1, -1)
-        return _wrap_strftime(self, fmt, timetuple)
+        return _wrap_strftime(self, format, timetuple)
 
     def __format__(self, fmt):
         if not isinstance(fmt, str):
@@ -2097,7 +2097,7 @@ class datetime(date):
             self._microsecond + other.microseconds,
         )
 
-        return datetime(result, tzinfo=self._tzinfo)
+        return type(self)(result, tzinfo=self._tzinfo)
 
     __radd__ = __add__
 
