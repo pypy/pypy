@@ -569,11 +569,16 @@ class ObjSpace(object):
         # _frozen_importlib imports lib-python/3/importlib/__bootstrap_external,
         # which imports many builtins. Make sure it is imported last
         append__frozen_importlib = False
+        # and zipimport even laster
+        append_zipimport = False
 
         # You can enable more modules by specifying --usemodules=xxx,yyy
         for name, value in self.config.objspace.usemodules:
             if name == '_frozen_importlib':
                 append__frozen_importlib = True
+                continue
+            if name == "zipimport":
+                append_zipimport = True
                 continue
             if value and name not in modules:
                 modules.append(name)
@@ -584,6 +589,8 @@ class ObjSpace(object):
                     modules.append(name)
         if append__frozen_importlib:
             modules.append('_frozen_importlib')
+        if append_zipimport:
+            modules.append('zipimport')
         self._builtinmodule_list = modules
         return self._builtinmodule_list
 
@@ -623,7 +630,7 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions'))
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions', 'zipimport'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname)
@@ -634,6 +641,7 @@ class ObjSpace(object):
         # force this value into the dict without unlazyfying everything
         self.setitem(self.sys.w_dict, self.newtext('builtin_module_names'),
                      w_builtin_module_names)
+
 
     def get_builtin_types(self):
         """Get a dictionary mapping the names of builtin types to the type
@@ -683,6 +691,10 @@ class ObjSpace(object):
         for mod in self.builtin_modules.values():
             mod.setup_after_space_initialization()
         self.w_default_importlib_import = frozen_importlib.w_import
+        # special-casing zipimport: it needs a lot of things already in place,
+        # so we even install it here!
+        self.install_mixedmodule('zipimport')
+        self.getbuiltinmodule('zipimport')
 
     @not_rpython
     def initialize(self):
