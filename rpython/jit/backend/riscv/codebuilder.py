@@ -40,6 +40,22 @@ class AbstractRISCVBuilder(object):
     def RET(self):
         self.JALR(r.zero.value, r.ra.value, 0)
 
+    # Set equal to zero
+    def SEQZ(self, rd, rs1):
+        self.SLTIU(rd, rs1, 1)
+
+    # Set not equal to zero
+    def SNEZ(self, rd, rs1):
+        self.SLTU(rd, r.zero.value, rs1)
+
+    # Set less than zero
+    def SLTZ(self, rd, rs1):
+        self.SLT(rd, rs1, r.zero.value)
+
+    # Set greater than zero
+    def SGTZ(self, rd, rs1):
+        self.SLT(rd, r.zero.value, rs1)
+
     # Load an XLEN-bit integer from imm(rs1)
     def load_int(self, rd, rs1, imm):
         self.LD(rd, rs1, imm)
