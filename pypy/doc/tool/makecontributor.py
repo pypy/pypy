@@ -13,7 +13,7 @@ import mercurial.ui
 ROOT = py.path.local(__file__).join('..', '..', '..', '..')
 author_re = re.compile('(.*) <.*>')
 pair_programming_re = re.compile(r'^\((.*?)\)')
-excluded = set(["pypy", "convert-repo"])
+excluded = set(["pypy", "convert-repo", "hgattic"])
 
 alias = {
     'Anders Chrigstrom': ['arre'],
@@ -95,6 +95,7 @@ alias = {
     'Batuhan Taskaya': ['isidentical'],
     'Ondrej Baranovič': ['nulano'],
     'Brad Kish': ['rtkbkish'],
+    'Michał Górny': ['mgorny']
     }
 
 alias_map = {}
@@ -153,9 +154,9 @@ def main(show_numbers):
     ## items.sort(key=operator.itemgetter(1), reverse=True)
     ## for name, n in items:
     ##     if show_numbers:
-    ##         print '%5d %s' % (n, name)
+    ##         print('%5d %s' % (n, name))
     ##     else:
-    ##         print name
+    ##         print(name)
 
     items = list(authors_count.items())
     items.sort(key=operator.itemgetter(1), reverse=True)
