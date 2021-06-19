@@ -492,7 +492,7 @@ class AppTestSreScanner:
     def test_no_pattern(self):
         import sre_compile, sre_parse
         sre_pattern = sre_compile.compile(
-            sre_parse.SubPattern(sre_parse.Pattern()))
+            sre_parse.SubPattern(sre_parse.State()))
         assert sre_pattern.scanner('s') is not None
 
 
