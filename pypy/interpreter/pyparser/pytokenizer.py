@@ -157,7 +157,7 @@ def generate_tokens(lines, flags):
                 pos = end = endmatch
                 contstrs.append(line[:end])
                 tok = Token(tokens.STRING, "".join(contstrs), strstart[0],
-                       strstart[1], line)
+                       strstart[1], line, lnum, end)
                 token_list.append(tok)
                 last_comment = ''
                 contstrs, needcont = [], False
@@ -215,7 +215,7 @@ def generate_tokens(lines, flags):
                     raise TabError(lnum, pos, line)
                 indents.append(column)
                 altindents.append(altcolumn)
-                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line))
+                token_list.append(Token(tokens.INDENT, line[:pos], lnum, 0, line, lnum, pos))
                 last_comment = ''
             else:
                 while column < indents[-1]:
@@ -257,7 +257,7 @@ def generate_tokens(lines, flags):
                 if (initial in numchars or \
                    (initial == '.' and token != '.' and token != '...')):
                     # ordinary number
-                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line))
+                    token_list.append(Token(tokens.NUMBER, token, lnum, start, line, lnum, end))
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
@@ -288,7 +288,7 @@ def generate_tokens(lines, flags):
                     if endmatch >= 0:                     # all on one line
                         pos = endmatch
                         token = line[start:pos]
-                        tok = Token(tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line, lnum, pos)
                         token_list.append(tok)
                         last_comment = ''
                     else:
@@ -305,7 +305,7 @@ def generate_tokens(lines, flags):
                         contstrs, needcont = [line[start:]], True
                         break
                     else:                                  # ordinary string
-                        tok = Token(tokens.STRING, token, lnum, start, line)
+                        tok = Token(tokens.STRING, token, lnum, start, line, lnum, pos)
                         token_list.append(tok)
                         last_comment = ''
                 elif (initial in namechars or              # ordinary name
@@ -320,13 +320,13 @@ def generate_tokens(lines, flags):
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
                     else:
-                        token_list.append(Token(tokens.NAME, token, lnum, start, line))
+                        token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     last_comment = ''
                 elif initial == '\\':                      # continued stmt
                     continued = 1
                 elif initial == '$':
                     token_list.append(Token(tokens.REVDBMETAVAR, token,
-                                       lnum, start, line))
+                                       lnum, start, line, lnum, pos))
                     last_comment = ''
                 else:
                     if initial in '([{':
@@ -350,7 +350,7 @@ def generate_tokens(lines, flags):
                         punct = python_opmap[token]
                     else:
                         punct = tokens.OP
-                    token_list.append(Token(punct, token, lnum, start, line))
+                    token_list.append(Token(punct, token, lnum, start, line, lnum, end))
                     last_comment = ''
             else:
                 start = whiteSpaceDFA.recognize(line, pos)

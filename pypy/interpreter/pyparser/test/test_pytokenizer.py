@@ -24,9 +24,9 @@ class TestTokenizer(object):
         line = "a+1"
         tks = tokenize(line)
         assert tks == [
-            Token(tokens.NAME, 'a', 1, 0, line),
-            Token(tokens.PLUS, '+', 1, 1, line),
-            Token(tokens.NUMBER, '1', 1, 2, line),
+            Token(tokens.NAME, 'a', 1, 0, line, 1, 1),
+            Token(tokens.PLUS, '+', 1, 1, line, 1, 2),
+            Token(tokens.NUMBER, '1', 1, 2, line, 1, 3),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.ENDMARKER, '', 2, 0, ''),
@@ -71,9 +71,9 @@ class TestTokenizer(object):
         line = "a = 5 # type: int"
         tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
         assert tks == [
-            Token(tokens.NAME, 'a', 1, 0, line),
-            Token(tokens.EQUAL, '=', 1, 2, line),
-            Token(tokens.NUMBER, '5', 1, 4, line),
+            Token(tokens.NAME, 'a', 1, 0, line, 1, 1),
+            Token(tokens.EQUAL, '=', 1, 2, line, 1, 3),
+            Token(tokens.NUMBER, '5', 1, 4, line, 1, 5),
             Token(tokens.TYPE_COMMENT, 'int', 1, 6, line),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
@@ -84,9 +84,9 @@ class TestTokenizer(object):
         line = "a = 5 # type: ignore@teyit"
         tks = tokenize(line, flags=consts.PyCF_TYPE_COMMENTS)
         assert tks == [
-            Token(tokens.NAME, 'a', 1, 0, line),
-            Token(tokens.EQUAL, '=', 1, 2, line),
-            Token(tokens.NUMBER, '5', 1, 4, line),
+            Token(tokens.NAME, 'a', 1, 0, line, 1, 1),
+            Token(tokens.EQUAL, '=', 1, 2, line, 1, 3),
+            Token(tokens.NUMBER, '5', 1, 4, line, 1, 5),
             Token(tokens.TYPE_IGNORE, '@teyit', 1, 6, line),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
@@ -97,11 +97,34 @@ class TestTokenizer(object):
         line = "a:=1"
         tks = tokenize(line)
         assert tks == [
-            Token(tokens.NAME, 'a', 1, 0, line),
-            Token(tokens.COLONEQUAL, ':=', 1, 1, line),
-            Token(tokens.NUMBER, '1', 1, 3, line),
+            Token(tokens.NAME, 'a', 1, 0, line, 1, 1),
+            Token(tokens.COLONEQUAL, ':=', 1, 1, line, 1, 3),
+            Token(tokens.NUMBER, '1', 1, 3, line, 1, 4),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.NEWLINE, '', 2, 0, '\n'),
             Token(tokens.ENDMARKER, '', 2, 0, ''),
             ]
 
+    def test_triple_quoted(self):
+        input = '''x = """
+hello
+content
+whatisthis""" + "a"'''
+        s = '''"""
+hello
+content
+whatisthis"""'''
+        tks = tokenize(input)
+        lines = input.splitlines(True)
+        assert tks[:3] == [
+            Token(tokens.NAME, 'x', 1, 0, lines[0], 1, 1),
+            Token(tokens.EQUAL, '=', 1, 2, lines[0], 1, 3),
+            Token(tokens.STRING, s, 1, 4, lines[3], 4, 13),
+        ]
+
+    def test_parenthesis_positions(self):
+        input = '( ( ( a ) ) ) ( )'
+        tks = tokenize(input)[:-3]
+        columns = [t.column for t in tks]
+        assert columns == [0, 2, 4, 6, 8, 10, 12, 14, 16]
+        assert [t.end_column - 1 for t in tks] == columns

@@ -1793,3 +1793,102 @@ class TestAstBuilder:
         assert isinstance(expr, ast.Constant)
         assert self.space.eq_w(expr.kind, self.space.wrap("u"))
 
+    def test_end_positions(self):
+        s = "a + b"
+        expr = self.get_first_expr(s)
+        assert expr.end_lineno == expr.lineno
+        assert expr.col_offset + len(s) == expr.end_col_offset
+
+        s = '''def func(x: int,
+         *args: str,
+         z: float = 0,
+         **kwargs: Any) -> bool:
+    return True'''
+        fdef = self.get_ast(s).body[0]
+        assert fdef.end_lineno == 5
+        assert fdef.end_col_offset == 15
+        assert fdef.get_source_segment(s) == s
+
+        s = 'lambda a, b, *c: (a + b) * c'
+        fdef = self.get_ast(s).body[0].value
+        assert fdef.get_source_segment(s) == s
+        assert fdef.args.args[0].get_source_segment(s) == "a"
+        assert fdef.body.get_source_segment(s) == "(a + b) * c"
+
+        s = '( ( ( a ) ) ) ( )'
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert fdef.get_source_segment(s) == s
+
+        s = "a.b"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "a[x:y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "f(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        gen = tree.args[0]
+        assert gen.end_col_offset == len(s) - 1
+        assert gen.col_offset == 2
+        assert fdef.get_source_segment(s) == s
+
+        s = "(x for x in y)"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+
+        s = "[x for x in y]"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "{x for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+        s = "{x: x+1 for x in y}"
+        tree = self.get_first_expr(s)
+        assert tree.end_col_offset == len(s)
+        assert tree.col_offset == 0
+        assert fdef.get_source_segment(s) == s
+
+    def test_binop_offset_bug(self):
+        s = "1 + 2+3+4"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 0
+        assert tree.end_col_offset == len(s)
+
+    def test_dotted_name_bug(self):
+        tree = self.get_ast('@a.b.c\ndef f(): pass')
+        attr_b = tree.body[0].decorator_list[0].value
+        assert attr_b.end_col_offset == 4
+
+    def test_get_source_segment(self):
+        s = "a + (b + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        # single line, no padding
+        assert tree.right.get_source_segment(s) == "(b + c)" # cpython doesn't think so?
+        assert tree.right.get_source_segment(s, padded=True) == "(b + c)"
+
+        # padding
+        s = "a + (b \n + c)"
+        tree = self.get_first_expr(s)
+        assert tree.get_source_segment(s) == s
+        assert tree.get_source_segment(s, padded=True) == s
+        assert tree.right.get_source_segment(s) == "(b \n + c)"
+        assert tree.right.get_source_segment(s, padded=True) == "    (b \n + c)"
+

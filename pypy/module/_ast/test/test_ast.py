@@ -512,6 +512,21 @@ from __future__ import generators""")
         mod = self.get_ast("a = 5")
         assert mod.body[0].type_comment is None
 
+    def test_type_comments_are_None_by_default(self):
+        mod = self.get_ast("a = 5 # type: int")
+        assert mod.body[0].type_comment is None
+
+        mod = self.get_ast("a = 5 # type: int")
+        assert mod.body[0].type_comment is None
+        mod = self.get_ast("""def fkwo(
+            a, # type: 1
+            *,
+            b  # type: 2
+        ):
+            pass
+        """)
+        assert mod.body[0].args.args[0].type_comment is None
+
     def test_ast_initalization(self):
         import _ast as ast
 
@@ -531,3 +546,4 @@ from __future__ import generators""")
         msg = str(exc)
         assert msg == "Module constructor takes at most 2 positional argument"
 
+        raises(TypeError, ast.Module, 1, 2, type_ignores=3)
