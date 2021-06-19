@@ -1912,6 +1912,25 @@ def g():
 """
         self.st(func, "g()", None)
 
+    def test_finally_lineno_wrong(self):
+        func = """def f(x): # 1
+    def f(func):
+        return func
+    return f
+
+@f(1)
+def finally_wrong_lineno():
+    try: # 8
+        print(1) # 9
+    finally:
+        print(2) # 11
+    print(3) # 12
+import dis
+co = finally_wrong_lineno.__code__
+linestarts = list(dis.findlinestarts(co))
+x = [lineno for addr, lineno in linestarts]
+    """
+        self.st(func, "x", [8, 9, 11, 12])
 
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}

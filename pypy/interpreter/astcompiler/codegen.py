@@ -848,8 +848,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.use_next_block(end)
 
     def _visit_try_finally(self, tr):
-        self.update_position(tr.lineno, True)
-
         body = self.new_block()
         end = self.new_block()
         start = self.current_block
@@ -866,6 +864,9 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         if unwound_finally:
             self.emit_op(ops.POP_TOP)
         self.pop_frame_block(F_FINALLY_END, end)
+
+        # try block
+        self.update_position(tr.lineno, True)
 
         newcurblock = self.current_block
         self.current_block = start
