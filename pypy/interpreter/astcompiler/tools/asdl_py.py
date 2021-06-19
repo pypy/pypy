@@ -584,6 +584,7 @@ def W_AST_init(space, w_self, __args__):
             raise oefmt(space.w_TypeError,
                 "%T got multiple values for argument %8",
                 w_self, field)
+        space.setattr(w_self, space.newtext(field), w_value)
 
 
 W_AST.typedef = typedef.TypeDef("_ast.AST",
