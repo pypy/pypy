@@ -1528,6 +1528,24 @@ class AppTestPosix:
         self.posix.RTLD_GLOBAL
         self.posix.RTLD_LOCAL
 
+    @py.test.mark.skipif("sys.platform != 'win32'")
+    def test_win_constants(self):
+        win_constants =['_LOAD_LIBRARY_SEARCH_DEFAULT_DIRS',
+                        '_LOAD_LIBRARY_SEARCH_APPLICATION_DIR',
+                        '_LOAD_LIBRARY_SEARCH_SYSTEM32',
+                        '_LOAD_LIBRARY_SEARCH_USER_DIRS',
+                        '_LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR',
+                       ]
+        for name in win_constants:
+            print(name, getattr(self.posix, name))
+
+    @py.test.mark.skipif("sys.platform != 'darwin'")
+    def test_darwin_constants(self):
+        darwin_constants =['_COPYFILE_DATA']
+        for name in darwin_constants:
+            getattr(self.posix, name)
+
+
     def test_error_message(self):
         import sys
         with raises(OSError) as e:

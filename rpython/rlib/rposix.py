@@ -237,7 +237,7 @@ def _errno_after(save_err):
             # ^^^ keep fork() up-to-date too, below
 if _WIN32:
     includes = ['io.h', 'sys/utime.h', 'sys/types.h', 'process.h', 'time.h',
-                'direct.h']
+                'direct.h', 'Windows.h']
     libraries = []
 else:
     if sys.platform.startswith(('darwin', 'netbsd', 'openbsd')):
@@ -1362,6 +1362,19 @@ def mkfifo(path, mode):
 def mknod(path, mode, dev):
     handle_posix_error('mknod', c_mknod(_as_bytes0(path), mode, dev))
 
+constants =[ # These are added to posix/nt
+             # windows
+             'LOAD_LIBRARY_SEARCH_DEFAULT_DIRS',
+             'LOAD_LIBRARY_SEARCH_APPLICATION_DIR',
+             'LOAD_LIBRARY_SEARCH_SYSTEM32',
+             'LOAD_LIBRARY_SEARCH_USER_DIRS',
+             'LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR',
+             # darwin
+             'COPYFILE_DATA',
+             # linux, darwin
+             'O_CLOEXEC',
+            ]
+darwin_constants = ['COPYFILE_DATA']
 if _WIN32:
     CreatePipe = external('CreatePipe', [rwin32.LPHANDLE,
                                          rwin32.LPHANDLE,
@@ -1373,7 +1386,13 @@ if _WIN32:
                                 rffi.INT)
     HAVE_PIPE2 = False
     HAVE_DUP3 = False
-    O_CLOEXEC = None
+    class CConfig:
+        _compilation_info_ = eci
+    for name in constants:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
+    config = rffi_platform.configure(CConfig)
+    for name in constants:
+        locals()[name] = config[name]
 else:
     INT_ARRAY_P = rffi.CArrayPtr(rffi.INT)
     c_pipe = external('pipe', [INT_ARRAY_P], rffi.INT,
@@ -1382,11 +1401,13 @@ else:
         _compilation_info_ = eci
         HAVE_PIPE2 = rffi_platform.Has('pipe2')
         HAVE_DUP3 = rffi_platform.Has('dup3')
-        O_CLOEXEC = rffi_platform.DefinedConstantInteger('O_CLOEXEC')
+    for name in constants:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
     config = rffi_platform.configure(CConfig)
+    for name in constants:
+        locals()[name] = config[name]
     HAVE_PIPE2 = config['HAVE_PIPE2']
     HAVE_DUP3 = config['HAVE_DUP3']
-    O_CLOEXEC = config['O_CLOEXEC']
     if HAVE_PIPE2:
         c_pipe2 = external('pipe2', [INT_ARRAY_P, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
