@@ -134,6 +134,10 @@ class W_SmallLongObject(W_AbstractLongObject):
         z = w_modulus.longlong
         if z == 0:
             raise oefmt(space.w_ValueError, "pow() 3rd argument cannot be 0")
+        if y < 0:
+            # don't implement with smalllong
+            self = _small2long(space, self)
+            return self.descr_pow(space, w_exponent, w_modulus)
         try:
             return _pow(space, x, y, z)
         except ValueError:
