@@ -22,7 +22,7 @@ class AppTestPyFrame:
 
     # test for the presence of the attributes, not functionality
 
-    def test_set_lineno_jump_out_of_block(self):
+    def test_set_lineno(self):
         import sys
         class JumpTracer:
             def __init__(self, function):
@@ -76,6 +76,30 @@ class AppTestPyFrame:
         jump_out_of_block_backwards.jump = (6, 1)
         jump_out_of_block_backwards.output = [1, 3, 5, 1, 3, 5, 6, 7]
         run_test(jump_out_of_block_backwards)
+
+
+        def jump_to_codeless_line(output):
+            output.append(1)
+            # Jumping to this line should skip to the next one.
+            output.append(3)
+        jump_to_codeless_line.jump = (1, 2)
+        jump_to_codeless_line.output = [3]
+        run_test(jump_to_codeless_line)
+
+        def jump_in_nested_finally(output):
+            try:
+                output.append(2)
+            finally:
+                output.append(4)
+                try:
+                    output.append(6)
+                finally:
+                    output.append(8)
+                output.append(9)
+        jump_in_nested_finally.jump = (4, 9)
+        jump_in_nested_finally.output = [2, 9]
+        run_test(jump_in_nested_finally)
+
 
     def test_f_back_hidden(self):
         if not hasattr(self, 'call_further'):

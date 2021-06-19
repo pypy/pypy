@@ -24,6 +24,7 @@ from pypy.tool import stdlib_opcode
 # Define some opcodes used
 for op in '''DUP_TOP POP_TOP SETUP_EXCEPT SETUP_FINALLY SETUP_WITH
 SETUP_ASYNC_WITH POP_BLOCK END_FINALLY WITH_CLEANUP_START YIELD_VALUE
+NOP FOR_ITER EXTENDED_ARG END_ASYNC_FOR LOAD_CONST
 '''.split():
     globals()[op] = stdlib_opcode.opmap[op]
 
@@ -680,7 +681,14 @@ class PyFrame(W_Root):
 
     def fset_f_lineno(self, space, w_new_lineno):
         "Change the line number of the instruction currently being executed."
-        # XXX this is broken right now!
+        def _get_arg(code, addr):
+            # read backwards for EXTENDED_ARG
+            oparg = ord(code[addr + 1])
+            if addr >= 2 and ord(code[addr - 2]) == EXTENDED_ARG:
+                oparg |= ord(code[addr - 1]) << 8
+                if addr >= 4 and ord(code[addr - 4]) == EXTENDED_ARG:
+                    raise ValueError("fix me please!")
+            return oparg
 
         try:
             new_lineno = space.int_w(w_new_lineno)
@@ -706,9 +714,6 @@ class PyFrame(W_Root):
         if not d.is_in_line_tracing:
             raise oefmt(space.w_ValueError,
                         "can only jump from a 'line' trace event")
-
-        raise oefmt(space.w_ValueError,
-                    "disabled at the moment!")
 
         line = self.pycode.co_firstlineno
         if new_lineno < line:
@@ -758,63 +763,68 @@ class PyFrame(W_Root):
         # You can't jump into or out of a 'finally' block because the 'try'
         # block leaves something on the stack for the END_FINALLY to clean
         # up.      So we walk the bytecode, maintaining a simulated blockstack.
-        # When we reach the old or new address and it's in a 'finally' block
-        # we note the address of the corresponding SETUP_FINALLY.  The jump
-        # is only legal if neither address is in a 'finally' block or
-        # they're both in the same one.  'blockstack' is a stack of the
-        # bytecode addresses of the SETUP_X opcodes, and 'in_finally' tracks
-        # whether we're in a 'finally' block at each blockstack level.
+        # 'blockstack' is a stack of the bytecode addresses of the starts of
+        # the 'finally' blocks
 
-        # PYPY NOTE: CPython (at least 3.5.2+) doesn't check except blocks,
-        # but that results in crashes.  But for now I'm going to follow the
-        # logic of CPython 3.6.9 exactly anyway, which is quite messy already.
+        # follow the logic of CPython 3.6.9 exactly, which is quite
+        # messy already. (it might have bugs though)
 
-        f_lasti_setup_addr = -1
-        new_lasti_setup_addr = -1
         blockstack = []     # current blockstack (addresses of SETUP_*)
-        in_finally = []     # list of flags "is this a finally block?"
+        prevop = NOP
+        delta_iblock = delta = 0
         addr = 0
         while addr < len(code):
             assert addr & 1 == 0
             op = ord(code[addr])
             if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
-                      SETUP_ASYNC_WITH):
-                blockstack.append(addr)
-                in_finally.append(False)
-            elif op == POP_BLOCK:
+                      SETUP_ASYNC_WITH, FOR_ITER):
+                oparg = _get_arg(code, addr)
+                target_addr = addr + oparg + 2
+                assert target_addr < len(code)
+                # Police block-jumping (you can't jump into the middle of a
+                # block) and ensure that the blockstack finishes up in a
+                # sensible state (by popping any blocks we're jumping out of).
+                # We look at all the blockstack operations between the current
+                # position and the new one, and keep track of how many blocks
+                # we drop out of on the way. By also keeping track of the
+                # lowest blockstack position we see, we can tell whether the
+                # jump goes into any blocks without coming out again - in that
+                # case we raise an exception below.
+                first_in = addr < self.last_instr and self.last_instr < target_addr
+                second_in = addr < new_lasti and new_lasti < target_addr
+                if not first_in and second_in:
+                    raise oefmt(space.w_ValueError,
+                        "can't jump into the middle of a block")
+                in_for_loop = op == FOR_ITER or ord(code[target_addr]) == END_ASYNC_FOR
+                if first_in and not second_in:
+                    if not delta_iblock:
+                        if in_for_loop:
+                            # Pop the iterators of any 'for' and 'async for' loop
+                            # we're jumping out of.
+                            delta += 1
+                        elif prevop == LOAD_CONST:
+                            # Pops None pushed before SETUP_FINALLY.
+                            delta += 1
+                    if not in_for_loop:
+                        delta_iblock += 1
+                if not in_for_loop:
+                    blockstack.append(target_addr)
+            elif op == END_FINALLY:
                 if len(blockstack) == 0:
                     raise oefmt(space.w_SystemError,
-                           "POP_BLOCK not properly nested in this bytecode")
-                setup_op = ord(code[blockstack[-1]])
-                if setup_op in (SETUP_FINALLY, SETUP_WITH, SETUP_ASYNC_WITH):
-                    in_finally[-1] = True
-                else:
-                    del blockstack[-1]
-            elif op == END_FINALLY:
-                # Ignore END_FINALLYs for SETUP_EXCEPTs - they exist
-                # in the bytecode but don't correspond to an actual
-                # 'finally' block.  (If len(blockstack) is 0, we must
-                # be seeing such an END_FINALLY.)
-                if len(blockstack) > 0:
-                    setup_op = ord(code[blockstack[-1]])
-                    if setup_op in (SETUP_FINALLY, SETUP_WITH, SETUP_ASYNC_WITH):
-                        del blockstack[-1]
-
-            # For the addresses we're interested in, see whether they're
-            # within a 'finally' block and if so, remember the address
-            # of the SETUP_FINALLY.
-            if addr == new_lasti or addr == self.last_instr:
-                setup_addr = -1
-                for i in xrange(len(blockstack) - 1, -1, -1):
-                    if in_finally[i]:
-                        setup_addr = blockstack[i]
-                        break
-
-                if setup_addr != -1:
-                    if addr == new_lasti:
-                        new_lasti_setup_addr = setup_addr
-                    if addr == self.last_instr:
-                        f_lasti_setup_addr = setup_addr
+                           "blocks not properly nested in this bytecode")
+                target_addr = blockstack.pop()
+                assert target_addr < addr
+                first_in = target_addr <= self.last_instr and self.last_instr <= addr
+                second_in = target_addr <= new_lasti and new_lasti <= addr
+                if first_in != second_in:
+                    op = ord(code[target_addr])
+                    raise oefmt(space.w_ValueError,
+                        "can't jump %s %s block",
+                        "into" if second_in else "out of",
+                        "an 'except'" if op == DUP_TOP or op == POP_TOP else
+                        "a 'finally'")
+            prevop = op
             addr += 2
 
         # Verify that the blockstack tracking code didn't get lost.
@@ -822,62 +832,23 @@ class PyFrame(W_Root):
             raise oefmt(space.w_SystemError,
                         "blocks not properly nested in this bytecode")
 
-        # After all that, are we jumping into / out of a 'finally' block?
-        if new_lasti_setup_addr != f_lasti_setup_addr:
-            raise oefmt(space.w_ValueError,
-                        "can't jump into or out of a 'finally' block "
-                        "(%d -> %d)",
-                        f_lasti_setup_addr, new_lasti_setup_addr)
-
         # now we know we're not jumping into or out of a place which
         # needs a SysExcInfoRestorer.  Check that we're not jumping
         # *into* a block, but only (potentially) out of some blocks.
 
-        # Police block-jumping (you can't jump into the middle of a block)
-        # and ensure that the blockstack finishes up in a sensible state (by
-        # popping any blocks we're jumping out of).  We look at all the
-        # blockstack operations between the current position and the new
-        # one, and keep track of how many blocks we drop out of on the way.
-        # By also keeping track of the lowest blockstack position we see, we
-        # can tell whether the jump goes into any blocks without coming out
-        # again - in that case we raise an exception below.
-
-        delta_iblock = min_delta_iblock = 0
-        addr = min_addr
-        while addr < max_addr:
-            assert addr & 1 == 0
-            op = ord(code[addr])
-
-            if op in (SETUP_EXCEPT, SETUP_FINALLY, SETUP_WITH,
-                      SETUP_ASYNC_WITH):
-                delta_iblock += 1
-            elif op == POP_BLOCK:
-                delta_iblock -= 1
-
-            min_delta_iblock = min(min_delta_iblock, delta_iblock)
-            addr += 2
-
-        # 'min_delta_iblock' is <= 0; its absolute value is the number of
-        # blocks we exit.  'go_iblock' is the delta number of blocks
-        # between the last_instr and the new_lasti, in this order.
-        if new_lasti > self.last_instr:
-            go_iblock = delta_iblock        # Forwards jump.
-        else:
-            go_iblock = -delta_iblock       # Backwards jump.
-
-        if go_iblock > min_delta_iblock:
-            raise oefmt(space.w_ValueError,
-                        "can't jump into the middle of a block")
-        assert go_iblock <= 0
-
         # Pop any blocks that we're jumping out of.
         from pypy.interpreter.pyopcode import FinallyBlock
-        for ii in range(-go_iblock):
+        for ii in range(delta_iblock):
             block = self.pop_block()
             block.cleanupstack(self)
             if (isinstance(block, FinallyBlock) and
                 ord(code[block.handlerposition]) == WITH_CLEANUP_START):
-                self.popvalue()     # Pop the exit function.
+                delta += 1 # Pop the exit function.
+
+        # fix stack depth
+        while delta > 0:
+            self.popvalue()
+            delta -= 1
 
         d.f_lineno = new_lineno
         assert new_lasti & 1 == 0
