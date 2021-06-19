@@ -453,11 +453,14 @@ class HTTPResponse:
             if status != CONTINUE:
                 break
             # skip the header from the 100 response
+            header_count = 0
             while True:
                 skip = self.fp.readline(_MAXLINE + 1)
                 if len(skip) > _MAXLINE:
                     raise LineTooLong("header line")
-                skip = skip.strip()
+                header_count += 1
+                if header_count > _MAXHEADERS:
+                    raise HTTPException("got more than %d headers" % _MAXHEADERS)
                 if not skip:
                     break
                 if self.debuglevel > 0:
