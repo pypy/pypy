@@ -1141,12 +1141,11 @@ class AppTestCompiler(object):
                 namespace.pop('__classcell__', None)
                 return super().__new__(cls, name, bases, namespace)
 
-        class WithClassRef(metaclass=Meta):
-            def f(self):
-                return __class__
+        with raises(RuntimeError):
+            class WithClassRef(metaclass=Meta):
+                def f(self):
+                    return __class__
 
-        # Check __class__ still gets set despite the warning
-        assert WithClassRef().f() is WithClassRef
         """
 
     def test_classcell_overwrite(self):
