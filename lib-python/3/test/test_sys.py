@@ -864,6 +864,7 @@ class SysModuleTest(unittest.TestCase):
             self.assertIn(stdout.rstrip(), {b'True', b''})
 
     @test.support.requires_type_collecting
+    @test.support.cpython_only
     def test_issue20602(self):
         # sys.flags and sys.float_info were wiped during shutdown.
         code = """if 1:
@@ -876,8 +877,10 @@ class SysModuleTest(unittest.TestCase):
             """
         rc, out, err = assert_python_ok('-c', code)
         out = out.splitlines()
-        self.assertIn(b'sys.flags', out[0])
-        self.assertIn(b'sys.float_info', out[1])
+        if out:
+            # PyPy will not print anything
+            self.assertIn(b'sys.flags', out[0])
+            self.assertIn(b'sys.float_info', out[1])
 
     @unittest.skipUnless(hasattr(sys, 'getandroidapilevel'),
                          'need sys.getandroidapilevel()')
