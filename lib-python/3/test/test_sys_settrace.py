@@ -838,6 +838,7 @@ class JumpTestCase(unittest.TestCase):
             output.append(11)
         output.append(12)
 
+    @support.cpython_only
     @jump_test(5, 11, [2, 4, 12])
     def test_jump_over_return_try_finally_in_finally_block(output):
         try:
@@ -1347,6 +1348,7 @@ class JumpTestCase(unittest.TestCase):
         async with asynctracecontext(output, 4):
             output.append(5)
 
+    @support.cpython_only
     @jump_test(5, 7, [2, 4], (ValueError, 'finally'))
     def test_no_jump_over_return_out_of_finally_block(output):
         try:
