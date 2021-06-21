@@ -40,6 +40,14 @@ class AbstractRISCVBuilder(object):
     def RET(self):
         self.JALR(r.zero.value, r.ra.value, 0)
 
+    # Bitwise not
+    def NOT(self, rd, rs1):
+        self.XORI(rd, rs1, -1)
+
+    # Integer negation (additive inverse)
+    def NEG(self, rd, rs1):
+        self.SUB(rd, r.zero.value, rs1)
+
     # Set equal to zero
     def SEQZ(self, rd, rs1):
         self.SLTIU(rd, rs1, 1)
