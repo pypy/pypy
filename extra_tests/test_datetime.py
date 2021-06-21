@@ -21,20 +21,18 @@ class timedelta_safe(datetime.timedelta):
     (datetime.datetime(2015, 6, 8, 12, 34, 56),
         "datetime.datetime(2015, 6, 8, 12, 34, 56)"),
     (datetime.time(12, 34, 56), "datetime.time(12, 34, 56)"),
-    (datetime.timedelta(1), "datetime.timedelta(1)"),
-    (datetime.timedelta(1, 2), "datetime.timedelta(1, 2)"),
-    (datetime.timedelta(1, 2, 3), "datetime.timedelta(1, 2, 3)"),
+    (datetime.timedelta(1), "datetime.timedelta(days=1)"),
+    (datetime.timedelta(1, 2), "datetime.timedelta(days=1, seconds=2)"),
+    (datetime.timedelta(1, 2, 3), "datetime.timedelta(days=1, seconds=2, microseconds=3)"),
     (date_safe(2015, 6, 8), "date_safe(2015, 6, 8)"),
     (datetime_safe(2015, 6, 8, 12, 34, 56),
         "datetime_safe(2015, 6, 8, 12, 34, 56)"),
     (time_safe(12, 34, 56), "time_safe(12, 34, 56)"),
-    (timedelta_safe(1), "timedelta_safe(1)"),
-    (timedelta_safe(1, 2), "timedelta_safe(1, 2)"),
-    (timedelta_safe(1, 2, 3), "timedelta_safe(1, 2, 3)"),
+    (timedelta_safe(1), "timedelta_safe(days=1)"),
+    (timedelta_safe(1, 2), "timedelta_safe(days=1, seconds=2)"),
+    (timedelta_safe(1, 2, 3), "timedelta_safe(days=1, seconds=2, microseconds=3)"),
 ])
 def test_repr(obj, expected):
-    # XXX: there's a discrepancy between datetime.py and CPython's _datetime
-    # for the repr() of Python-defined subclasses of datetime classes.
     assert repr(obj).endswith(expected)
 
 @pytest.mark.parametrize("obj", [
