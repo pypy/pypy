@@ -679,6 +679,8 @@ class W_OSError(W_Exception):
         self.written = space.int_w(w_written)
 
     def descr_del_written(self, space):
+        if self.written == -1:
+            raise oefmt(space.w_AttributeError, "characters_written")
         self.written = -1
 
 
