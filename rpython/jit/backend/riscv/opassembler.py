@@ -158,6 +158,22 @@ class OpAssembler(BaseAssembler):
             self.mc.XOR(res.value, l0.value, l1.value)
             self.mc.SNEZ(res.value, res.value)
 
+    def emit_op_int_is_true(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.SNEZ(res.value, l0.value)
+
+    def emit_op_int_neg(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.NEG(res.value, l0.value)
+
+    def emit_op_int_invert(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.NOT(res.value, l0.value)
+
+    def emit_op_int_is_zero(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.SEQZ(res.value, l0.value)
+
     def emit_op_float_add(self, op, arglocs):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)

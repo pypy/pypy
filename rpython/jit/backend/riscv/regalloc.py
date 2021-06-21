@@ -418,6 +418,20 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_eq = _prepare_op_int_commutative_compare_op
     prepare_op_int_ne = _prepare_op_int_commutative_compare_op
 
+    def _prepare_op_unary_op(self, op):
+        boxes = op.getarglist()
+        a0 = boxes[0]
+        l0 = self.make_sure_var_in_reg(a0, boxes)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, res]
+
+    prepare_op_int_is_true = _prepare_op_unary_op
+    prepare_op_int_neg = _prepare_op_unary_op
+    prepare_op_int_invert = _prepare_op_unary_op
+    prepare_op_int_is_zero = _prepare_op_unary_op
+
     def prepare_op_float_add(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
