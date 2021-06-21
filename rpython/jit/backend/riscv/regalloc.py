@@ -192,6 +192,14 @@ def check_plus_one_imm_box(arg):
         return check_imm_arg(arg.getint() + 1)
     return False
 
+def check_uint_le_rhs_imm_arg(imm):
+    return imm >= SINT12_IMM_MIN - 1 and imm <= SINT12_IMM_MAX - 1
+
+def check_uint_le_rhs_imm_box(arg):
+    if isinstance(arg, ConstInt):
+        return check_uint_le_rhs_imm_arg(arg.getint())
+    return False
+
 def check_shamt_imm_arg(imm):
     return imm >= 0 and imm <= SHAMT_MAX
 
@@ -329,6 +337,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_lt = _gen_prepare_op_int_lt(swap_operands=False)
     prepare_op_int_gt = _gen_prepare_op_int_lt(swap_operands=True)
 
+    prepare_op_uint_lt = prepare_op_int_lt
+    prepare_op_uint_gt = prepare_op_int_gt
+
     def _gen_prepare_op_int_le(swap_operands):
         def _prepare_op_int_le(self, op):
             boxes = op.getarglist()
@@ -356,6 +367,34 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_int_le = _gen_prepare_op_int_le(swap_operands=False)
     prepare_op_int_ge = _gen_prepare_op_int_le(swap_operands=True)
+
+    def _gen_prepare_op_uint_le(swap_operands):
+        def _prepare_op_uint_le(self, op):
+            boxes = op.getarglist()
+
+            if swap_operands:
+                a1, a0 = boxes
+            else:
+                a0, a1 = boxes
+
+            if check_uint_le_rhs_imm_box(a1):
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.convert_to_imm(a1)
+            elif check_imm_box(a0):
+                l0 = self.convert_to_imm(a0)
+                l1 = self.make_sure_var_in_reg(a1, boxes)
+            else:
+                l0 = self.make_sure_var_in_reg(a0, boxes)
+                l1 = self.make_sure_var_in_reg(a1, boxes)
+
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op)
+            return [l0, l1, res]
+        return _prepare_op_uint_le
+
+    prepare_op_uint_le = _gen_prepare_op_uint_le(swap_operands=False)
+    prepare_op_uint_ge = _gen_prepare_op_uint_le(swap_operands=True)
 
     def _prepare_op_int_commutative_compare_op(self, op):
         boxes = op.getarglist()

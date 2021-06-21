@@ -103,6 +103,35 @@ class OpAssembler(BaseAssembler):
     emit_op_int_le = _emit_op_int_le
     emit_op_int_ge = _emit_op_int_le
 
+    def _emit_op_uint_lt(self, op, arglocs):
+        l0, l1, res = arglocs
+        assert not l0.is_imm()
+        if l1.is_imm():
+            self.mc.SLTIU(res.value, l0.value, l1.value)
+        else:
+            self.mc.SLTU(res.value, l0.value, l1.value)
+
+    emit_op_uint_lt = _emit_op_uint_lt
+    emit_op_uint_gt = _emit_op_uint_lt
+
+    def _emit_op_uint_le(self, op, arglocs):
+        l0, l1, res = arglocs
+        if l1.is_imm():
+            if l1.value == -1:
+                # uint_le(x, -1) is always true.
+                self.mc.load_int_imm(res.value, 1)
+            else:
+                self.mc.SLTIU(res.value, l0.value, l1.value + 1)
+        else:
+            if l0.is_imm():
+                self.mc.SLTIU(res.value, l1.value, l0.value)
+            else:
+                self.mc.SLTU(res.value, l1.value, l0.value)
+            self.mc.XORI(res.value, res.value, 1)
+
+    emit_op_uint_le = _emit_op_uint_le
+    emit_op_uint_ge = _emit_op_uint_le
+
     def emit_op_int_eq(self, op, arglocs):
         l0, l1, res = arglocs
         assert not l0.is_imm()
