@@ -48,8 +48,11 @@ empty, returns start."""
         raise TypeError("sum() can't sum strings")
 
     # Avoiding isinstance here, since subclasses can override `+`
-    if type(start) in (list, tuple):
+    if type(start) is list:
         return _list_sum(sequence, start)
+
+    if type(start) is tuple:
+        return _tuple_sum(sequence, start)
 
     return _regular_sum(sequence, start)
 
@@ -65,19 +68,47 @@ def _regular_sum(sequence, start):
 
 
 def _list_sum(sequence, start):
-    # Specialization avoiding quadratic complexity for lists or tuples
+    # Specialization avoiding quadratic complexity for lists
     iterator = iter(sequence)
-    last = list(start)
 
+    try:
+        first = next(iterator)
+    except StopIteration:
+        return start
+
+    last = start + first
     for item in iterator:
-        if type(item) in (list, tuple):
+        if type(item) is list:
+            last += item
+        else:
+            # Non-trivial sum. Use _regular_sum.
+            return _regular_sum(iterator, last + item)
+
+    return last
+
+
+def _tuple_sum(sequence, start):
+    # Specialization avoiding quadratic complexity for tuples
+    iterator = iter(sequence)
+
+    try:
+        first = next(iterator)
+    except StopIteration:
+        return start
+
+    if type(first) is not tuple:
+        return _regular_sum(iterator, first + start)
+
+    last = list(start)
+    last.extend(first)
+    for item in iterator:
+        if type(item) is tuple:
             last.extend(item)
         else:
-            # Non-trivial sum. Cast back to original type and use regular_sum.
-            last = type(start)(last) + item
-            return _regular_sum(iterator, last)
+            # Non-trivial sum. Cast back to tuple and use regular_sum.
+            return _regular_sum(iterator, tuple(last) + item)
 
-    return type(start)(last)
+    return tuple(last)
 
 
 class _Cons(object):

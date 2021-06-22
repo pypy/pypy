@@ -226,7 +226,7 @@ class AppTestBuiltinApp:
                 return 42
         assert sum([Foo()], None) == 42
 
-    def test_sum_specialization(self):
+    def test_sum_fast_path(self):
         # Fast paths for expected behaviour
         start = []
         assert sum([[1, 2], [3]], start) == [1, 2, 3]
@@ -240,6 +240,7 @@ class AppTestBuiltinApp:
         assert sum([(3,)], (1, 2)) == (1, 2, 3)
         assert sum(([x + 1] for x in range(3)), []) == [1, 2, 3]
 
+    def test_sum_edge_cases(self):
         # Edge-cases
         assert sum([], []) == []
         assert sum(iter([]), []) == []
@@ -248,6 +249,7 @@ class AppTestBuiltinApp:
         assert sum([], start) is start
         assert sum([[]], start) is not start
 
+    def test_sum_type_errors(self):
         with raises(TypeError):
             sum([[]], ())
         with raises(TypeError):
@@ -255,7 +257,7 @@ class AppTestBuiltinApp:
         with raises(TypeError):
             sum([[], [], ()], [])
 
-
+    def test_sum_strange_objects(self):
         # All that follows should be rare, but needs care
         class TupleTail(object):
             def __radd__(self, other):
