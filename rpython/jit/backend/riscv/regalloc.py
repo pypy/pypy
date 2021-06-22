@@ -432,7 +432,7 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_invert = _prepare_op_unary_op
     prepare_op_int_is_zero = _prepare_op_unary_op
 
-    def prepare_op_float_add(self, op):
+    def _prepare_op_float_binary_op(self, op):
         boxes = op.getarglist()
         a0, a1 = boxes
         l0 = self.make_sure_var_in_reg(a0, boxes)
@@ -441,6 +441,11 @@ class Regalloc(BaseRegalloc):
         self.free_temp_vars()
         res = self.force_allocate_reg(op)
         return [l0, l1, res]
+
+    prepare_op_float_add = _prepare_op_float_binary_op
+    prepare_op_float_sub = _prepare_op_float_binary_op
+    prepare_op_float_mul = _prepare_op_float_binary_op
+    prepare_op_float_truediv = _prepare_op_float_binary_op
 
     def prepare_op_finish(self, op):
         if op.numargs() == 1:

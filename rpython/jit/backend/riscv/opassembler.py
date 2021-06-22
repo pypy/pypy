@@ -178,6 +178,18 @@ class OpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.FADD_D(res.value, l0.value, l1.value)
 
+    def emit_op_float_sub(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FSUB_D(res.value, l0.value, l1.value)
+
+    def emit_op_float_mul(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FMUL_D(res.value, l0.value, l1.value)
+
+    def emit_op_float_truediv(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FDIV_D(res.value, l0.value, l1.value)
+
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:
