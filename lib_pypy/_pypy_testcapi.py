@@ -61,7 +61,7 @@ def compile_shared(csource, modulename, output_dir):
     assert output_dir is not None
 
     from distutils.ccompiler import new_compiler
-    from distutils import log
+    from distutils import log, sysconfig
     log.set_verbosity(3)
 
     compiler = new_compiler()
@@ -72,6 +72,7 @@ def compile_shared(csource, modulename, output_dir):
         ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
         ccflags = ['-fPIC', '-Wimplicit-function-declaration']
+    sysconfig.customize_compiler(compiler)
     res = compiler.compile([os.path.join(thisdir, csource)],
                            include_dirs=[include_dir],
                            extra_preargs=ccflags,

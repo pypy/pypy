@@ -39,3 +39,7 @@ Only set VMPROF_APPLE on bsd-like when sys.platform is darwin
 
 Make dotviewer python3 compatible and add some features (like rudimentary
 record support).
+
+.. branch: specialize-sum
+
+Add specialization for sum(list) and sum(tuple)
