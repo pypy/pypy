@@ -64,6 +64,14 @@ class AbstractRISCVBuilder(object):
     def SGTZ(self, rd, rs1):
         self.SLT(rd, r.zero.value, rs1)
 
+    # Floating point negation (additive inverse)
+    def FNEG_D(self, rd, rs1):
+        self.FSGNJN_D(rd, rs1, rs1)
+
+    # Floating point absolute function
+    def FABS_D(self, rd, rs1):
+        self.FSGNJX_D(rd, rs1, rs1)
+
     # Load an XLEN-bit integer from imm(rs1)
     def load_int(self, rd, rs1, imm):
         self.LD(rd, rs1, imm)
