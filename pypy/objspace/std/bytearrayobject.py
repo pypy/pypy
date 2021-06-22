@@ -602,9 +602,12 @@ PY_SIZE_T_MAX = intmask(2**(rffi.sizeof(rffi.SIZE_T)*8-1)-1)
 
 def unwrap_hex_sep_arguments(space, w_sep, w_bytes_per_sep):
     if w_sep is not None:
-        if not space.len_w(w_sep) == 1:
-            raise oefmt(space.w_ValueError, "sep must be length 1.")
-        sep = space.text_w(w_sep)
+        if space.isinstance_w(w_sep, space.w_unicode):
+            sep = space.text_w(w_sep)
+        elif space.isinstance_w(w_sep, space.w_bytes):
+            sep = space.bytes_w(w_sep)
+        else:
+            raise oefmt(space.w_TypeError, "sep must be str of bytes")
         if w_bytes_per_sep is None:
             bytes_per_sep = 1
         else:
