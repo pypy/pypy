@@ -28,7 +28,7 @@ from types import AsyncGeneratorType, FunctionType
 from operator import neg
 from test.support import (
     EnvironmentVarGuard, TESTFN, check_warnings, swap_attr, unlink,
-    maybe_get_event_loop_policy, cpython_only)
+    maybe_get_event_loop_policy, cpython_only, check_impl_detail)
 from test.support.script_helper import assert_python_ok
 from unittest.mock import MagicMock, patch
 try:
@@ -1564,6 +1564,7 @@ class BuiltinTest(unittest.TestCase):
             z1 = zip(a, b)
             self.check_iter_pickle(z1, t, proto)
 
+    @cpython_only
     def test_zip_bad_iterable(self):
         exception = TypeError()
 

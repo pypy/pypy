@@ -431,6 +431,9 @@ class AppTestBuiltinApp:
         raises(TypeError, sorted, [], reverse=None)
         raises(TypeError, sorted, [], None)
 
+    def test_sorted_posonlyarg(self):
+        raises(TypeError, sorted, iterable=[])
+
     def test_reversed_simple_sequences(self):
         l = range(5)
         rev = reversed(l)
@@ -813,3 +816,6 @@ class AppTestGetattr:
         assert isinstance(getattr(a, '__eq__'), type(C()._m))
         a.__eq__ = 42
         assert a.__eq__ == 42
+
+    def test_pow_kwarg(self):
+        assert pow(base=5, exp=2, mod=14) == 11

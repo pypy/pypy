@@ -169,12 +169,14 @@ def ord(space, w_val):
     """Return the integer ordinal of a character."""
     return space.ord(w_val)
 
-@unwrap_spec(w_modulus = WrappedDefault(None))
-def pow(space, w_base, w_exponent, w_modulus):
-    """With two arguments, equivalent to ``base**exponent''.
-With three arguments, equivalent to ``(base**exponent) % modulus'',
-but much more efficient for large exponents."""
-    return space.pow(w_base, w_exponent, w_modulus)
+@unwrap_spec(w_mod=WrappedDefault(None))
+def pow(space, w_base, w_exp, w_mod):
+    """With two arguments, equivalent to ``base**exp''.
+With three arguments, equivalent to ``(base**exp) % mod''.
+
+Some types, such as ints, are able to use a more efficient algorithm when
+invoked using the three argument form."""
+    return space.pow(w_base, w_exp, w_mod)
 
 def repr(space, w_object):
     """Return a canonical string representation of the object.
