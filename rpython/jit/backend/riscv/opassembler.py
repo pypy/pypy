@@ -2,6 +2,7 @@
 
 from rpython.jit.backend.llsupport.assembler import BaseAssembler
 from rpython.jit.backend.riscv import registers as r
+from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
 from rpython.jit.metainterp.resoperation import rop
 
 
@@ -220,6 +221,14 @@ class OpAssembler(BaseAssembler):
     def emit_op_float_abs(self, op, arglocs):
         l0, res = arglocs
         self.mc.FABS_D(res.value, l0.value)
+
+    def emit_op_cast_float_to_int(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FCVT_L_D(res.value, l0.value, RTZ.value)
+
+    def emit_op_cast_int_to_float(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FCVT_D_L(res.value, l0.value, DYN.value)
 
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()

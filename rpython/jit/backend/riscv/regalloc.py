@@ -464,6 +464,8 @@ class Regalloc(BaseRegalloc):
 
     prepare_op_float_neg = _prepare_op_unary_op
     prepare_op_float_abs = _prepare_op_unary_op
+    prepare_op_cast_float_to_int = _prepare_op_unary_op
+    prepare_op_cast_int_to_float = _prepare_op_unary_op
 
     def prepare_op_finish(self, op):
         if op.numargs() == 1:
