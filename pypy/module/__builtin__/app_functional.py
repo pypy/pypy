@@ -46,12 +46,38 @@ of parameter 'start' (which defaults to 0).  When the sequence is
 empty, returns start."""
     if isinstance(start, basestring):
         raise TypeError("sum() can't sum strings")
+
+    # Avoiding isinstance here, since subclasses can override `+`
+    if type(start) in (list, tuple):
+        return _list_sum(sequence, start)
+
+    return _regular_sum(sequence, start)
+
+
+def _regular_sum(sequence, start):
+    # Default implementation for sum (no specialization)
     last = start
     for x in sequence:
         # Very intentionally *not* +=, that would have different semantics if
         # start was a mutable type, such as a list
         last = last + x
     return last
+
+
+def _list_sum(sequence, start):
+    # Specialization avoiding quadratic complexity for lists or tuples
+    iterator = iter(sequence)
+    last = list(start)
+
+    for item in iterator:
+        if type(item) in (list, tuple):
+            last.extend(item)
+        else:
+            # Non-trivial sum. Cast back to original type and use regular_sum.
+            last = type(start)(last) + item
+            return _regular_sum(iterator, last)
+
+    return type(start)(last)
 
 
 class _Cons(object):
