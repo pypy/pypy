@@ -240,8 +240,7 @@ class AppTestBuiltinApp:
         assert sum([(3,)], (1, 2)) == (1, 2, 3)
         assert sum(([x + 1] for x in range(3)), []) == [1, 2, 3]
 
-    def test_sum_edge_cases(self):
-        # Edge-cases
+    def test_sum_empty_edge_cases(self):
         assert sum([], []) == []
         assert sum(iter([]), []) == []
         assert sum([], ()) == ()
@@ -282,6 +281,30 @@ class AppTestBuiltinApp:
 
         assert sum([[1]], NotAList()) == "!"
         assert sum([[1], NotAList()], []) == "?"
+
+    def test_sum_first_object_edge_cases(self):
+        class X(list):
+            def __radd__(self, other):
+                return Y()
+
+        class Y(object):
+            calls = []
+
+            def __add__(self, other):
+                Y.calls.append("add")
+
+            def __iadd__(self, other):
+                Y.calls.append("iadd")
+
+        assert sum([X(), []], []) is None
+        assert Y.calls == ["add"]
+
+        class Z(tuple):
+            def __radd__(self, other):
+                return Y()
+
+        assert sum([Z(), []], []) is None
+        assert Y.calls == ["add", "add"]
 
     def test_type_selftest(self):
         assert type(type) is type

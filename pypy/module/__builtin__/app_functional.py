@@ -76,6 +76,9 @@ def _list_sum(sequence, start):
     except StopIteration:
         return start
 
+    if type(first) is not list:
+        return _regular_sum(iterator, start + first)
+
     last = start + first
     for item in iterator:
         if type(item) is list:
@@ -97,7 +100,7 @@ def _tuple_sum(sequence, start):
         return start
 
     if type(first) is not tuple:
-        return _regular_sum(iterator, first + start)
+        return _regular_sum(iterator, start + first)
 
     last = list(start)
     last.extend(first)
