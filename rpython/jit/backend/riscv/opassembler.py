@@ -190,6 +190,29 @@ class OpAssembler(BaseAssembler):
         l0, l1, res = arglocs
         self.mc.FDIV_D(res.value, l0.value, l1.value)
 
+    def _emit_op_float_lt(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FLT_D(res.value, l0.value, l1.value)
+
+    emit_op_float_lt = _emit_op_float_lt
+    emit_op_float_gt = _emit_op_float_lt
+
+    def _emit_op_float_le(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FLE_D(res.value, l0.value, l1.value)
+
+    emit_op_float_le = _emit_op_float_le
+    emit_op_float_ge = _emit_op_float_le
+
+    def emit_op_float_eq(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FEQ_D(res.value, l0.value, l1.value)
+
+    def emit_op_float_ne(self, op, arglocs):
+        l0, l1, res = arglocs
+        self.mc.FEQ_D(res.value, l0.value, l1.value)
+        self.mc.XORI(res.value, res.value, 1)
+
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:

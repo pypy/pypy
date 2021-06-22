@@ -432,20 +432,35 @@ class Regalloc(BaseRegalloc):
     prepare_op_int_invert = _prepare_op_unary_op
     prepare_op_int_is_zero = _prepare_op_unary_op
 
-    def _prepare_op_float_binary_op(self, op):
-        boxes = op.getarglist()
-        a0, a1 = boxes
-        l0 = self.make_sure_var_in_reg(a0, boxes)
-        l1 = self.make_sure_var_in_reg(a1, boxes)
-        self.possibly_free_vars_for_op(op)
-        self.free_temp_vars()
-        res = self.force_allocate_reg(op)
-        return [l0, l1, res]
+    def _gen_prepare_op_float_binary_op(swap_operands):
+        def _prepare_op_float_binary_op(self, op):
+            boxes = op.getarglist()
+            if swap_operands:
+                a1, a0 = boxes
+            else:
+                a0, a1 = boxes
+            l0 = self.make_sure_var_in_reg(a0, boxes)
+            l1 = self.make_sure_var_in_reg(a1, boxes)
+            self.possibly_free_vars_for_op(op)
+            self.free_temp_vars()
+            res = self.force_allocate_reg(op)
+            return [l0, l1, res]
+        return _prepare_op_float_binary_op
+
+    _prepare_op_float_binary_op = _gen_prepare_op_float_binary_op(False)
+    _prepare_op_float_binary_op_swapped = _gen_prepare_op_float_binary_op(True)
 
     prepare_op_float_add = _prepare_op_float_binary_op
     prepare_op_float_sub = _prepare_op_float_binary_op
     prepare_op_float_mul = _prepare_op_float_binary_op
     prepare_op_float_truediv = _prepare_op_float_binary_op
+
+    prepare_op_float_lt = _prepare_op_float_binary_op
+    prepare_op_float_le = _prepare_op_float_binary_op
+    prepare_op_float_gt = _prepare_op_float_binary_op_swapped
+    prepare_op_float_ge = _prepare_op_float_binary_op_swapped
+    prepare_op_float_eq = _prepare_op_float_binary_op
+    prepare_op_float_ne = _prepare_op_float_binary_op
 
     def prepare_op_finish(self, op):
         if op.numargs() == 1:
