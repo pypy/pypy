@@ -244,6 +244,17 @@ class AppTestBuiltinApp:
         assert sum([], []) == []
         assert sum(iter([]), []) == []
         assert sum([], ()) == ()
+        start = []
+        assert sum([], start) is start
+        assert sum([[]], start) is not start
+
+        with raises(TypeError):
+            sum([[]], ())
+        with raises(TypeError):
+            sum([()], [])
+        with raises(TypeError):
+            sum([[], [], ()], [])
+
 
         # All that follows should be rare, but needs care
         class TupleTail(object):
