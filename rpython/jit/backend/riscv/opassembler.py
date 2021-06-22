@@ -213,6 +213,14 @@ class OpAssembler(BaseAssembler):
         self.mc.FEQ_D(res.value, l0.value, l1.value)
         self.mc.XORI(res.value, res.value, 1)
 
+    def emit_op_float_neg(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FNEG_D(res.value, l0.value)
+
+    def emit_op_float_abs(self, op, arglocs):
+        l0, res = arglocs
+        self.mc.FABS_D(res.value, l0.value)
+
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:

@@ -462,6 +462,9 @@ class Regalloc(BaseRegalloc):
     prepare_op_float_eq = _prepare_op_float_binary_op
     prepare_op_float_ne = _prepare_op_float_binary_op
 
+    prepare_op_float_neg = _prepare_op_unary_op
+    prepare_op_float_abs = _prepare_op_unary_op
+
     def prepare_op_finish(self, op):
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))
