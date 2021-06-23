@@ -17,29 +17,39 @@ class TestStack(object):
 
     def test_push(self):
         s = Stack()
+        assert s.count() == 0
         with pytest.raises(AssertionError):
             s.push(100)
         s.reserve(4)
         s.push(100)
         s.push(101)
+        assert s.count() == 2
         assert s._items == [100, 101, 0, 0]
+        assert s.as_list() == [100, 101]
         s.push(102)
         s.push(103)
+        assert s.count() == 4
         assert s._items == [100, 101, 102, 103]
+        assert s.as_list() == [100, 101, 102, 103]
         with pytest.raises(AssertionError):
             s.push(104)
+        assert s.count() == 4
 
     def test_pop(self):
         s = Stack()
         s.reserve(4)
         s.push(100)
         s.push(101)
+        assert s.count() == 2
         assert s.pop() == 101
+        assert s.count() == 1
         assert s.pop() == 100
+        assert s.count() == 0
         assert s._items == [100, 101, 0, 0]
+        assert s.as_list() == []
         with pytest.raises(AssertionError):
             s.pop()
-
+        assert s.count() == 0
 
 
 class FakeSpace(object):
@@ -97,10 +107,10 @@ class TestHandleManager(object):
         h0 = mgr.new('hello')
         h1 = mgr.new('world')
         assert mgr.consume(h0) == 'hello'
-        assert mgr.free_list == [h0]
+        assert mgr.free_list.as_list() == [h0]
         h2 = mgr.new('hello2')
         assert h2 == h0
-        assert mgr.free_list == []
+        assert mgr.free_list.as_list() == []
 
     def test_dup(self, mgr):
         h0 = mgr.new('hello')

@@ -152,19 +152,23 @@ class Stack(object):
 
     def __init__(self):
         self._items = []
-        self._i = -1
+        self._count = 0
 
     def push(self, x):
-        i = self._i + 1
+        i = self._count
         ll_assert(i < len(self._items), 'not enough space in handlemanager.Stack')
         self._items[i] = x
-        self._i = i
+        self._count = i + 1
 
     def pop(self):
-        ll_assert(self._i >= 0, 'handlemanager.Stack is empty')
-        x = self._items[self._i]
-        self._i -= 1
+        i = self._count - 1
+        ll_assert(i >= 0, 'handlemanager.Stack is empty')
+        x = self._items[i]
+        self._count = i
         return x
+
+    def count(self):
+        return self._count
 
     def reserve(self, size):
         """
@@ -174,7 +178,9 @@ class Stack(object):
         if extra <= 0:
             return
         self._items += [0] * extra
-    
+
+    def as_list(self):
+        return self._items[:self._count]
 
 
 class HandleManager(AbstractHandleManager):
@@ -185,7 +191,8 @@ class HandleManager(AbstractHandleManager):
         AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
-        self.free_list = []
+        self.free_list = Stack()
+        self.free_list.reserve(len(self.handles_w))
         self.w_ExtensionFunction = W_ExtensionFunction_u
         self.w_ExtensionMethod = W_ExtensionMethod_u
 
@@ -234,9 +241,10 @@ class HandleManager(AbstractHandleManager):
 
 
     def new(self, w_object):
-        if len(self.free_list) == 0:
+        if self.free_list.count() == 0:
             index = len(self.handles_w)
             self.handles_w.append(w_object)
+            self.free_list.reserve(len(self.handles_w))
             self.release_callbacks.append(None)
         else:
             index = self.free_list.pop()
@@ -252,7 +260,7 @@ class HandleManager(AbstractHandleManager):
                 f.release(index, w_obj)
             self.release_callbacks[index] = None
         self.handles_w[index] = None
-        self.free_list.append(index)
+        self.free_list.push(index)
 
     def deref(self, index):
         assert index > 0
