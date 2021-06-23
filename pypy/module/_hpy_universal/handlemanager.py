@@ -146,17 +146,25 @@ class AbstractHandleManager(object):
 
 class Stack(object):
     """
-    A simple stack implemented using an RPython list, with the additional
-    guarantee that push() cannot raise.
+    A simple stack which does NOT grow automatically.
+
+    You can push() only if the number of items does not exceed the capacity.
+    The initial capacity is set by __init__ and can be incremented only by one
+    by calling increase_capacity().
+
+    The idea is that by doing that, we can guarantee that push() does not need
+    to reallocate any memory and that it never raises. This is essential to
+    implemente HandleManager.close(), since we need to push() a handle in the
+    free_list.
     """
 
-    def __init__(self):
-        self._items = []
+    def __init__(self, capacity):
+        self._items = [0] * capacity
         self._count = 0
 
     def push(self, x):
         i = self._count
-        ll_assert(i < len(self._items), 'not enough space in handlemanager.Stack')
+        ll_assert(i < self.capacity(), 'not enough capacity in handlemanager.Stack')
         self._items[i] = x
         self._count = i + 1
 
@@ -167,17 +175,14 @@ class Stack(object):
         self._count = i
         return x
 
+    def capacity(self):
+        return len(self._items)
+
     def count(self):
         return self._count
 
-    def reserve(self, size):
-        """
-        Make sure that the stack can contain at least size elements
-        """
-        extra = size - len(self._items)
-        if extra <= 0:
-            return
-        self._items += [0] * extra
+    def increase_capacity(self):
+        self._items.append(0)
 
     def as_list(self):
         return self._items[:self._count]
@@ -191,8 +196,7 @@ class HandleManager(AbstractHandleManager):
         AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
-        self.free_list = Stack()
-        self.free_list.reserve(len(self.handles_w))
+        self.free_list = Stack(capacity=len(self.handles_w))
         self.w_ExtensionFunction = W_ExtensionFunction_u
         self.w_ExtensionMethod = W_ExtensionMethod_u
 
@@ -244,7 +248,7 @@ class HandleManager(AbstractHandleManager):
         if self.free_list.count() == 0:
             index = len(self.handles_w)
             self.handles_w.append(w_object)
-            self.free_list.reserve(len(self.handles_w))
+            self.free_list.increase_capacity()
             self.release_callbacks.append(None)
         else:
             index = self.free_list.pop()

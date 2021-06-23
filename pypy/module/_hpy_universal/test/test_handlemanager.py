@@ -5,22 +5,21 @@ from pypy.module._hpy_universal.handlemanager import (
 
 class TestStack(object):
 
-    def test_reserve(self):
-        s = Stack()
-        assert len(s._items) == 0
-        s.reserve(10)
-        assert len(s._items) == 10
-        s.reserve(5)
-        assert len(s._items) == 10
-        s.reserve(12)
-        assert len(s._items) == 12
+    def test_capacity(self):
+        s = Stack(capacity=0)
+        assert s.capacity() == 0
+        s.increase_capacity()
+        assert s.capacity() == 1
+        s.increase_capacity()
+        assert s.capacity() == 2
 
     def test_push(self):
-        s = Stack()
+        s = Stack(capacity=0)
         assert s.count() == 0
         with pytest.raises(AssertionError):
             s.push(100)
-        s.reserve(4)
+        for i in range(4):
+            s.increase_capacity()
         s.push(100)
         s.push(101)
         assert s.count() == 2
@@ -36,8 +35,7 @@ class TestStack(object):
         assert s.count() == 4
 
     def test_pop(self):
-        s = Stack()
-        s.reserve(4)
+        s = Stack(capacity=4)
         s.push(100)
         s.push(101)
         assert s.count() == 2
