@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rlib.objectmodel import specialize, always_inline
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.debug import ll_assert
 from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.apiset import API, DEBUG
@@ -141,6 +142,39 @@ class AbstractHandleManager(object):
 
     def _freeze_(self):
         return True
+
+
+class Stack(object):
+    """
+    A simple stack implemented using an RPython list, with the additional
+    guarantee that push() cannot raise.
+    """
+
+    def __init__(self):
+        self._items = []
+        self._i = -1
+
+    def push(self, x):
+        i = self._i + 1
+        ll_assert(i < len(self._items), 'not enough space in handlemanager.Stack')
+        self._items[i] = x
+        self._i = i
+
+    def pop(self):
+        ll_assert(self._i >= 0, 'handlemanager.Stack is empty')
+        x = self._items[self._i]
+        self._i -= 1
+        return x
+
+    def reserve(self, size):
+        """
+        Make sure that the stack can contain at least size elements
+        """
+        extra = size - len(self._items)
+        if extra <= 0:
+            return
+        self._items += [0] * extra
+    
 
 
 class HandleManager(AbstractHandleManager):

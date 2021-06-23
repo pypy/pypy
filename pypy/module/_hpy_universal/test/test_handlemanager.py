@@ -1,5 +1,46 @@
 import pytest
-from pypy.module._hpy_universal.handlemanager import HandleManager, HandleReleaseCallback
+from pypy.module._hpy_universal.handlemanager import (
+    HandleManager, HandleReleaseCallback, Stack)
+
+
+class TestStack(object):
+
+    def test_reserve(self):
+        s = Stack()
+        assert len(s._items) == 0
+        s.reserve(10)
+        assert len(s._items) == 10
+        s.reserve(5)
+        assert len(s._items) == 10
+        s.reserve(12)
+        assert len(s._items) == 12
+
+    def test_push(self):
+        s = Stack()
+        with pytest.raises(AssertionError):
+            s.push(100)
+        s.reserve(4)
+        s.push(100)
+        s.push(101)
+        assert s._items == [100, 101, 0, 0]
+        s.push(102)
+        s.push(103)
+        assert s._items == [100, 101, 102, 103]
+        with pytest.raises(AssertionError):
+            s.push(104)
+
+    def test_pop(self):
+        s = Stack()
+        s.reserve(4)
+        s.push(100)
+        s.push(101)
+        assert s.pop() == 101
+        assert s.pop() == 100
+        assert s._items == [100, 101, 0, 0]
+        with pytest.raises(AssertionError):
+            s.pop()
+
+
 
 class FakeSpace(object):
     def __init__(self):
