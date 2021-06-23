@@ -257,7 +257,17 @@ class HandleManager(AbstractHandleManager):
         return index
 
     def close(self, index):
-        assert index > 0
+        """
+        NOTE: this is called by HPy_Close(), which is one of the few functions
+        which are allowed of be called when an HPy exception is set
+        (e.g. after calling HPyErr_SetString).
+
+        Since HPy exceptions are implemented as RPython exceptions, we are NOT
+        allowed to call anything which can raise here. So far, this is
+        accomplished by checking it manually, but eventually we should
+        probably add a @cannot_raise decorator or so.
+        """
+        ll_assert(index > 0, 'HandleManager.close: index > 0')
         if self.release_callbacks[index] is not None:
             w_obj = self.deref(index)
             for f in self.release_callbacks[index]:
@@ -342,7 +352,11 @@ class DebugHandleManager(AbstractHandleManager):
 class HandleReleaseCallback(object):
 
     def release(self, h, w_obj):
-        raise NotImplementedError
+        """
+        NOTE: because of the reasons explained by HandleManager.close, we are not
+        allowed to do anything which could raise.
+        """
+        ll_assert(False, 'HandleReleaseCallback.release: not implemented')
 
 
 class FreeNonMovingBuffer(HandleReleaseCallback):
