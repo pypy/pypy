@@ -36,6 +36,31 @@ class TestHandles(HPyDebugTest):
         assert leaks1 == ['a younger leak', 'world', 'hello']
         assert leaks2 == ['a younger leak']
 
+    def test_leak_from_method(self):
+        from hpy.universal import _debug
+        mod = self.make_module("""
+            HPyDef_METH(Dummy_leak, "leak", Dummy_leak_impl, HPyFunc_O)
+            static HPy Dummy_leak_impl(HPyContext ctx, HPy self, HPy arg) {
+                HPy_Dup(ctx, arg); // leak!
+                return HPy_Dup(ctx, ctx->h_None);
+            }
+            static HPyDef *Dummy_defines[] = {
+                &Dummy_leak,
+                NULL
+            };
+            static HPyType_Spec Dummy_spec = {
+                .name = "mytest.Dummy",
+                .defines = Dummy_defines,
+            };
+            @EXPORT_TYPE("Dummy", Dummy_spec)
+            @INIT
+       """)
+        gen = _debug.new_generation()
+        obj = mod.Dummy()
+        obj.leak("a")
+        leaks = [dh.obj for dh in _debug.get_open_handles(gen)]
+        assert leaks == ["a"]
+
     def test_DebugHandle_id(self):
         from hpy.universal import _debug
         mod = self.make_leak_module()
