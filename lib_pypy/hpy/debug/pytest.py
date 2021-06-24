@@ -12,7 +12,15 @@ from .leakdetector import LeakDetector
 # requires to write a full-fledged plugin. We might want to turn this into a
 # real plugin in the future, but for now I think this is enough.
 
-@pytest.fixture
+# pypy still uses a very ancient version of pytest, 2.9.2: pytest<3.x needs to
+# use @yield_fixture, which is deprecated in newer version of pytest (where
+# you can just use @fixture)
+if pytest.__version__ < '3':
+    fixture = pytest.yield_fixture
+else:
+    fixture = pytest.fixture
+
+@fixture
 def hpy_debug(request):
     """
     pytest fixture which makes it possible to control hpy.debug from within a test.
