@@ -56,19 +56,13 @@ INSTALL_SCHEMES = {
         },
     'nt': WINDOWS_SCHEME,
     'pypy': {
-        'purelib': '$base/site-packages',
-        'platlib': '$base/site-packages',
-        'headers': '$base/include/$dist_name',
+        'purelib': '$base/lib/python$py_version_short/site-packages',
+        'platlib': '$platbase/lib/python$py_version_short/site-packages',
+        'headers': '$base/include/python$py_version_short$abiflags/$dist_name',
         'scripts': '$base/bin',
         'data'   : '$base',
         },
-    'pypy_nt': {
-        'purelib': '$base/site-packages',
-        'platlib': '$base/site-packages',
-        'headers': '$base/include/$dist_name',
-        'scripts': '$base/Scripts',
-        'data'   : '$base',
-        },
+    'pypy_nt': WINDOWS_SCHEME,
     }
 
 # user site schemes
