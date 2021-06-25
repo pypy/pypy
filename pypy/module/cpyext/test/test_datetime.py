@@ -232,9 +232,7 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                 datetime.date.fromtimestamp(1430366400.0))
 
     def test_timezone_constructors(self):
-        # These tests are complicated by the fact that only tzinfo is
-        # present in the API, not the concrete timezone class.
-
+        # Testing that we can build timezones via the C api
         module = self.import_extension('foo', [
             ("new_timezone_fromoffset", "METH_NOARGS",
              """ PyDateTime_IMPORT;
@@ -252,15 +250,22 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(name);
                  return tzinfo;
              """),
+            ("utc_singleton_access", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 Py_INCREF(PyDateTime_TimeZone_UTC);
+                 return PyDateTime_TimeZone_UTC;
+             """),
         ], prologue='#include "datetime.h"\n')
         import datetime
-        # timezone tests
+
         one_hour = datetime.timedelta(hours=1)
         expected = datetime.timezone(one_hour)
         assert module.new_timezone_fromoffset() == expected
 
         expected = datetime.timezone(one_hour, "spam")
         assert module.new_timezone_fromoffset_and_name() == expected
+
+        assert module.utc_singleton_access() == datetime.timezone.utc
 
     def test_macros(self):
         module = self.import_extension('foo', [

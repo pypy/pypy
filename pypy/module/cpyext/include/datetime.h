@@ -10,6 +10,9 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
 
 #define PyDateTime_IMPORT (PyDateTimeAPI = _PyDateTime_Import())
 
+/* Macro for access to the UTC singleton */
+#define PyDateTime_TimeZone_UTC PyDateTimeAPI->TimeZone_UTC
+
 /* Macros for accessing constructors in a simplified fashion. */
 #define PyDate_FromDate(year, month, day) \
     PyDateTimeAPI->Date_FromDate(year, month, day, PyDateTimeAPI->DateType)

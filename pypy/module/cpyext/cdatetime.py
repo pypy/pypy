@@ -55,6 +55,10 @@ def _PyDateTime_Import(space):
     datetimeAPI.c_TZInfoType = rffi.cast(
         PyTypeObjectPtr, make_ref(space, w_type))
 
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+    w_utc = space.getattr(w_type, space.newtext("utc"))
+    datetimeAPI.c_TimeZone_UTC = make_ref(space, w_utc)
+
     datetimeAPI.c_Date_FromDate = llhelper(
         _PyDate_FromDate.api_func.functype,
         _PyDate_FromDate.api_func.get_wrapper(space))
