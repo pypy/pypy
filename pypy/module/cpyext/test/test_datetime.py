@@ -243,11 +243,24 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(delta);
                  return tzinfo;
              """),
+            ("new_timezone_fromoffset_and_name", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *delta = PyDelta_FromDSU(0, 60 * 60, 0);
+                 PyObject *name = PyUnicode_FromString("spam");
+                 PyObject *tzinfo = PyTimeZone_FromOffsetAndName(delta, name);
+                 Py_DECREF(delta);
+                 Py_DECREF(name);
+                 return tzinfo;
+             """),
         ], prologue='#include "datetime.h"\n')
         import datetime
         # timezone tests
-        expected = datetime.timezone(datetime.timedelta(hours=1))
+        one_hour = datetime.timedelta(hours=1)
+        expected = datetime.timezone(one_hour)
         assert module.new_timezone_fromoffset() == expected
+
+        expected = datetime.timezone(one_hour, "spam")
+        assert module.new_timezone_fromoffset_and_name() == expected
 
     def test_macros(self):
         module = self.import_extension('foo', [

@@ -34,6 +34,12 @@ PyAPI_DATA(PyDateTime_CAPI*) PyDateTimeAPI;
     PyDateTimeAPI->Delta_FromDelta(days, seconds, useconds, 1, \
         PyDateTimeAPI->DeltaType)
 
+#define PyTimeZone_FromOffset(offset) \
+    PyDateTimeAPI->TimeZone_FromTimeZone(offset, NULL)
+
+#define PyTimeZone_FromOffsetAndName(offset, name) \
+    PyDateTimeAPI->TimeZone_FromTimeZone(offset, name)
+
 #ifdef __cplusplus
 }
 #endif
