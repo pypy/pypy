@@ -82,6 +82,10 @@ def _PyDateTime_Import(space):
         _PyDate_FromTimestamp.api_func.functype,
         _PyDate_FromTimestamp.api_func.get_wrapper(space))
 
+    datetimeAPI.c_TimeZone_FromOffset = llhelper(
+        _PyTimeZone_FromOffset.api_func.functype,
+        _PyTimeZone_FromOffset.api_func.get_wrapper(space))
+
     state.datetimeAPI.append(datetimeAPI)
     return state.datetimeAPI[0]
 
@@ -268,7 +272,7 @@ def _PyDateTime_FromDateAndTimeAndFold(space, year, month, day,
     second = rffi.cast(lltype.Signed, second)
     usecond = rffi.cast(lltype.Signed, usecond)
     fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space, 
+    args = Arguments(space,
                     [space.newint(year), space.newint(month), space.newint(day),
                      space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
@@ -290,13 +294,13 @@ def _PyTime_FromTimeAndFold(space, hour, minute, second, usecond,
     second = rffi.cast(lltype.Signed, second)
     usecond = rffi.cast(lltype.Signed, usecond)
     fold = rffi.cast(lltype.Signed, fold)
-    args = Arguments(space, 
+    args = Arguments(space,
                     [space.newint(hour), space.newint(minute), space.newint(second),
                      space.newint(usecond), w_tzinfo],
                     keywords=['fold'],
                     keywords_w = [space.newint(fold)],
                 )
-                    
+
     return space.call_args(w_type, args)
 
 @cpython_api([PyObject], PyObject)
@@ -348,6 +352,24 @@ def _PyDelta_FromDelta(space, days, seconds, useconds, normalize, w_type):
     return space.call_function(
         w_type,
         space.newint(days), space.newint(seconds), space.newint(useconds))
+
+
+@cpython_api([PyObject], PyObject)
+def PyTimeZone_FromOffset(space, w_arg):
+    """Return a datetime.timezone object with an unnamed fixed offset
+    represented by the offset argument.
+    """
+    w_datetime = PyImport_Import(space, space.newtext("datetime"))
+    w_type = space.getattr(w_datetime, space.newtext("timezone"))
+    return _PyTimeZone_FromOffset(space, w_type, w_arg)
+
+@cpython_api([PyObject, PyObject], PyObject)
+def _PyTimeZone_FromOffset(space, w_type, w_arg):
+    """Implementation of timezone.offset that matches the signature for
+    PyDateTimeCAPI.TimeZone_FromOffset
+    """
+    return space.call_function(w_type, w_arg)
+
 
 # Accessors
 

@@ -23,6 +23,9 @@ typedef struct {
         PyObject*, int, PyTypeObject*);
     PyObject *(*Time_FromTimeAndFold)(int, int, int, int, PyObject*, int, PyTypeObject*);
 
+    /* constructors for timezones (py 3.7+) */
+    PyObject *(*TimeZone_FromOffset)(PyObject*, PyObject*);
+
 } PyDateTime_CAPI;
 
 typedef struct
