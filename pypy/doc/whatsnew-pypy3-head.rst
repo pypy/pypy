@@ -50,3 +50,11 @@ Add a ``sys.implementation._multiarch`` field like CPython on linux, darwin via
 
 Add a ``lib_pypy/_sysconfigdata__*.py`` file like CPython on linux, darwin
 during packaging via ``sysconfig._generate_posix_vars()`` (issue 3483).
+
+.. branch: hpy-0.0.2
+
+Update HPy backend to 0.0.2
+
+.. branch: implement_timezone_c_api
+
+Implement missing PyDateTimeAPI functions related to timezones (issue 3320)

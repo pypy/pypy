@@ -12,7 +12,7 @@ import datetime
 class TestDatetime(BaseApiTest):
     def test_date(self, space):
         date_api = _PyDateTime_Import(space)
-        w_date = _PyDate_FromDate(space, 2010, 06, 03, date_api.c_DateType)
+        w_date = _PyDate_FromDate(space, 2010, 6, 3, date_api.c_DateType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03'
 
         assert PyDate_Check(space, w_date)
@@ -52,7 +52,7 @@ class TestDatetime(BaseApiTest):
     def test_datetime(self, space):
         date_api = _PyDateTime_Import(space)
         w_date = _PyDateTime_FromDateAndTime(
-            space, 2010, 06, 03, 23, 15, 40, 123456, space.w_None,
+            space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
             date_api.c_DateTimeType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
 
@@ -70,7 +70,7 @@ class TestDatetime(BaseApiTest):
         assert PyDateTime_DATE_GET_MICROSECOND(space, w_date) == 123456
 
         w_date = _PyDateTime_FromDateAndTimeAndFold(
-            space, 2010, 06, 03, 23, 15, 40, 123456, space.w_None,
+            space, 2010, 6, 3, 23, 15, 40, 123456, space.w_None,
             0, date_api.c_DateTimeType)
         assert space.unwrap(space.str(w_date)) == '2010-06-03 23:15:40.123456'
 
@@ -212,7 +212,6 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
                  Py_DECREF(tsargs);
                  return rv;
              """),
-
         ], prologue='#include "datetime.h"\n')
         import datetime
         assert module.new_date() == datetime.date(2000, 6, 6)
@@ -231,6 +230,42 @@ class AppTestDatetime(AppTestCpythonExtensionBase):
 
         assert (module.new_date_fromtimestamp() ==
                 datetime.date.fromtimestamp(1430366400.0))
+
+    def test_timezone_constructors(self):
+        # Testing that we can build timezones via the C api
+        module = self.import_extension('foo', [
+            ("new_timezone_fromoffset", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *delta = PyDelta_FromDSU(0, 60 * 60, 0);
+                 PyObject *tzinfo = PyTimeZone_FromOffset(delta);
+                 Py_DECREF(delta);
+                 return tzinfo;
+             """),
+            ("new_timezone_fromoffset_and_name", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 PyObject *delta = PyDelta_FromDSU(0, 60 * 60, 0);
+                 PyObject *name = PyUnicode_FromString("spam");
+                 PyObject *tzinfo = PyTimeZone_FromOffsetAndName(delta, name);
+                 Py_DECREF(delta);
+                 Py_DECREF(name);
+                 return tzinfo;
+             """),
+            ("utc_singleton_access", "METH_NOARGS",
+             """ PyDateTime_IMPORT;
+                 Py_INCREF(PyDateTime_TimeZone_UTC);
+                 return PyDateTime_TimeZone_UTC;
+             """),
+        ], prologue='#include "datetime.h"\n')
+        import datetime
+
+        one_hour = datetime.timedelta(hours=1)
+        expected = datetime.timezone(one_hour)
+        assert module.new_timezone_fromoffset() == expected
+
+        expected = datetime.timezone(one_hour, "spam")
+        assert module.new_timezone_fromoffset_and_name() == expected
+
+        assert module.utc_singleton_access() == datetime.timezone.utc
 
     def test_macros(self):
         module = self.import_extension('foo', [
