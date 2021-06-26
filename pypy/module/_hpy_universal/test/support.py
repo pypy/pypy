@@ -6,6 +6,8 @@ from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from pypy.module._hpy_universal.llapi import BASE_DIR
 from pypy.module._hpy_universal.test._vendored import support as _support
 from pypy.module._hpy_universal._vendored.hpy.devel import HPyDevel
+from ..state import State
+from .. import llapi
 
 COMPILER_VERBOSE = False
 
@@ -17,16 +19,29 @@ class HPyAppTest(object):
     """
     spaceconfig = {'usemodules': ['_hpy_universal']}
 
+    def setup_class(cls):
+        if cls.runappdirect:
+            pytest.skip()
+
     @pytest.fixture
     def compiler(self):
         # see setup_method below
         return 'The fixture "compiler" is not used on pypy'
 
-    def setup_class(cls):
-        if cls.runappdirect:
-            pytest.skip()
+    # NOTE: HPyTest has already an initargs fixture, but it's ignored here
+    # because pypy is using an old pytest version which does not support
+    # @pytest.mark.usefixtures on classes. To work around the limitation, we
+    # redeclare initargs as autouse=True, so it's automatically used by all
+    # tests.
+    @pytest.fixture(params=['universal', 'debug'], autouse=True)
+    def initargs(self, request):
+        hpy_abi = request.param
+        self._init(request, hpy_abi)
 
-    def setup_method(self, meth):
+    def _init(self, request, hpy_abi):
+        state = self.space.fromcache(State)
+        if state.was_already_setup():
+            state.reset()
         if self.space.config.objspace.usemodules.cpyext:
             from pypy.module import cpyext
             cpyext_include_dirs = cpyext.api.include_dirs
@@ -37,7 +52,7 @@ class HPyAppTest(object):
         # make_module as the std HPyTest do. However, we don't have the space
         # yet, so it is much easier to prove make_module() here
         tmpdir = py.path.local.make_numbered_dir(rootdir=udir,
-                                                 prefix=meth.__name__ + '-',
+                                                 prefix=request.function.__name__ + '-',
                                                  keep=0)  # keep everything
 
         hpy_devel = HPyDevel(str(BASE_DIR))
@@ -57,10 +72,13 @@ class HPyAppTest(object):
             py_filename = compiler.compile_module(ExtensionTemplate,
                                                   source_template, name, extra_sources)
             so_filename = py_filename.replace(".py", ".hpy.so")
-            w_mod = space.appexec([space.newtext(so_filename), space.newtext(name)],
-                """(path, modname):
+            debug = hpy_abi == 'debug'
+            w_mod = space.appexec([space.newtext(so_filename),
+                                   space.newtext(name),
+                                   space.newbool(debug)],
+                """(path, modname, debug):
                     import _hpy_universal
-                    return _hpy_universal.load(modname, path)
+                    return _hpy_universal.load(modname, path, debug)
                 """
             )
             return w_mod
@@ -80,11 +98,25 @@ class HPyAppTest(object):
         self.w_supports_sys_executable = self.space.wrap(
             interp2app(supports_sys_executable))
 
-        self.w_compiler = self.space.appexec([], """():
-            class compiler:
-                hpy_abi = 'universal'
-            return compiler
-        """)
+        self.w_compiler = self.space.appexec([self.space.newtext(hpy_abi)],
+            """(abi):
+                class compiler:
+                    hpy_abi = abi
+                return compiler
+            """)
+
+class HPyDebugAppTest(HPyAppTest):
+
+    # override the initargs fixture to run the tests ONLY in debug mode, as
+    # done by upstream's HPyDebugTest
+    @pytest.fixture(autouse=True)
+    def initargs(self, request):
+        self._init(request, hpy_abi='debug')
+
+    # make self.make_leak_module() available to the tests. Note that this is
+    # code which will be run at applevel, and will call self.make_module,
+    # which is finally executed at interp-level (see descr_make_module above)
+    w_make_leak_module = _support.HPyDebugTest.make_leak_module
 
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
@@ -97,7 +129,3 @@ class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     def setup_class(cls):
         AppTestCpythonExtensionBase.setup_class.im_func(cls)
         HPyAppTest.setup_class.im_func(cls)
-
-    def setup_method(self, meth):
-        AppTestCpythonExtensionBase.setup_method(self, meth)
-        HPyAppTest.setup_method(self, meth)

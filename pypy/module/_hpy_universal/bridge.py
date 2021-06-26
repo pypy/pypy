@@ -43,4 +43,4 @@ _HPyBridge = llapi.cts.gettype('_HPyBridge')
 hpy_get_bridge = rffi.llexternal('hpy_get_bridge', [], lltype.Ptr(_HPyBridge),
                                  compilation_info=llapi.eci, _nowrapper=True)
 
-BRIDGE = APISet(llapi.cts, prefix='^hpy_', force_c_name=True)
+BRIDGE = APISet(llapi.cts, is_debug=False, prefix='^hpy_', force_c_name=True)

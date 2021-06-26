@@ -9,8 +9,9 @@ from pypy.module._hpy_universal import llapi
 
 class APISet(object):
 
-    def __init__(self, cts, prefix=r'^_?HPy_?', force_c_name=False):
+    def __init__(self, cts, is_debug, prefix=r'^_?HPy_?', force_c_name=False):
         self.cts = cts
+        self.is_debug = is_debug
         self.prefix = re.compile(prefix)
         self.force_c_name = force_c_name
         self.all_functions = []
@@ -96,6 +97,7 @@ class APISet(object):
                 'you might solve this by making sure that the module is imported '
                 'earlier')
         def decorate(fn):
+            from pypy.module._hpy_universal.state import State
             name, ll_functype, ll_errval = self.parse_signature(cdecl, error_value)
             if name != fn.__name__:
                 raise ValueError(
@@ -113,7 +115,8 @@ class APISet(object):
             def make_wrapper(space):
                 @llhelper_error_value(ll_errval)
                 def wrapper(*args):
-                    return fn(space, *args)
+                    handles = State.get(space).get_handle_manager(self.is_debug)
+                    return fn(space, handles, *args)
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
                 if self.force_c_name:
                     wrapper.c_name = fn.__name__
@@ -158,4 +161,5 @@ class APISet(object):
 
 
 
-API = APISet(llapi.cts)
+API = APISet(llapi.cts, is_debug=False)
+DEBUG = APISet(llapi.cts, is_debug=True)

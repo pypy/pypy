@@ -57,3 +57,10 @@ Implement new opcodes that CPython 3.8 uses
 
 .. branch: py3.8-buffer-gets-w_obj
 Refactor the buffer implementation to add a ``.w_obj`` field to ``BufferView``.
+.. branch: hpy-0.0.2
+
+Update HPy backend to 0.0.2
+
+.. branch: implement_timezone_c_api
+
+Implement missing PyDateTimeAPI functions related to timezones (issue 3320)

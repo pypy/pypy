@@ -3,44 +3,43 @@ from rpython.rlib.objectmodel import newlist_hint
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import handles
 
 class W_Tracker(W_Root):
     def __init__(self, size):
-        self.handles = newlist_hint(size)
+        self.hlist = newlist_hint(size)
 
     def add(self, h):
-        self.handles.append(h)
+        self.hlist.append(h)
 
     def forget_all(self):
-        self.handles = []
+        self.hlist = []
 
-    def close(self, space):
-        for h in self.handles:
-            handles.close(space, h)
+    def close(self, handles):
+        for h in self.hlist:
+            handles.close(h)
 
 @API.func("HPyTracker HPyTracker_New(HPyContext ctx, HPy_ssize_t size)", error_value=0)
-def HPyTracker_New(space, ctx, size):
+def HPyTracker_New(space, handles, ctx, size):
     w_tracker = W_Tracker(size)
-    return handles.new(space, w_tracker)
+    return handles.new(w_tracker)
 
 @API.func("int HPyTracker_Add(HPyContext ctx, HPyTracker ht, HPy h)",
           error_value=API.int(-1))
-def HPyTracker_Add(space, ctx, ht, h):
-    w_tracker = handles.deref(space, ht)
+def HPyTracker_Add(space, handles, ctx, ht, h):
+    w_tracker = handles.deref(ht)
     assert isinstance(w_tracker, W_Tracker)
     w_tracker.add(h)
     return API.int(0)
 
 @API.func("void HPyTracker_ForgetAll(HPyContext ctx, HPyTracker ht)")
-def HPyTracker_ForgetAll(space, ctx, ht):
-    w_tracker = handles.deref(space, ht)
+def HPyTracker_ForgetAll(space, handles, ctx, ht):
+    w_tracker = handles.deref(ht)
     assert isinstance(w_tracker, W_Tracker)
     w_tracker.forget_all()
 
 @API.func("void HPyTracker_Close(HPyContext ctx, HPyTracker ht)")
-def HPyTracker_Close(space, ctx, ht):
-    w_tracker = handles.deref(space, ht)
+def HPyTracker_Close(space, handles, ctx, ht):
+    w_tracker = handles.deref(ht)
     assert isinstance(w_tracker, W_Tracker)
-    w_tracker.close(space)
-    handles.close(space, ht)
+    w_tracker.close(handles)
+    handles.close(ht)

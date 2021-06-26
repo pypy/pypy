@@ -1,0 +1,14 @@
+- in PyPy, we can't use "from test.support" because the package "test" doesn't
+  exist.
+
+- in HPy, we can't use "from ..support" because when you run `pytest
+  test/debug/test_handles.py`, it doesn't have any known parent package.
+
+diff --git a/pypy/module/_hpy_universal/test/_vendored/debug/test_handles.py b/pypy/module/_hpy_universal/test/_vendored/debug/test_handles.py
+--- a/pypy/module/_hpy_universal/test/_vendored/debug/test_handles.py
++++ b/pypy/module/_hpy_universal/test/_vendored/debug/test_handles.py
+@@ -1,4 +1,4 @@
+-from test.support import HPyDebugTest
++from ..support import HPyDebugTest
+ 
+ class TestHandles(HPyDebugTest):
