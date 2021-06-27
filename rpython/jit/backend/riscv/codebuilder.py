@@ -76,6 +76,30 @@ class AbstractRISCVBuilder(object):
     def FABS_D(self, rd, rs1):
         self.FSGNJX_D(rd, rs1, rs1)
 
+    # Branch if equal to zero
+    def BEQZ(self, rs1, offset):
+        self.BEQ(rs1, r.zero.value, offset)
+
+    # Branch if not equal to zero
+    def BNEZ(self, rs1, offset):
+        self.BNE(rs1, r.zero.value, offset)
+
+    # Branch if less than or equal to zero
+    def BLEZ(self, rs1, offset):
+        self.BGE(r.zero.value, rs1, offset)
+
+    # Branch if greater than or equal to to zero
+    def BGEZ(self, rs1, offset):
+        self.BGE(rs1, r.zero.value, offset)
+
+    # Branch if less than zero
+    def BLTZ(self, rs1, offset):
+        self.BLT(rs1, r.zero.value, offset)
+
+    # Branch if greater than zero
+    def BGTZ(self, rs1, offset):
+        self.BLT(r.zero.value, rs1, offset)
+
     # Load an XLEN-bit integer from imm(rs1)
     def load_int(self, rd, rs1, imm):
         self.LD(rd, rs1, imm)
