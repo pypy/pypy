@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 
-from rpython.jit.backend.llsupport.assembler import BaseAssembler
+from rpython.jit.backend.llsupport.assembler import BaseAssembler, GuardToken
+from rpython.jit.backend.llsupport.gcmap import allocate_gcmap
 from rpython.jit.backend.riscv import registers as r
+from rpython.jit.backend.riscv.arch import JITFRAME_FIXED_SIZE
 from rpython.jit.backend.riscv.rounding_modes import DYN, RTZ
+from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.resoperation import rop
 
 
@@ -229,6 +232,52 @@ class OpAssembler(BaseAssembler):
     def emit_op_cast_int_to_float(self, op, arglocs):
         l0, res = arglocs
         self.mc.FCVT_D_L(res.value, l0.value, DYN.value)
+
+    def _build_guard_token(self, op, frame_depth, arglocs, offset):
+        descr = op.getdescr()
+        assert isinstance(descr, AbstractFailDescr)
+
+        gcmap = allocate_gcmap(self, frame_depth, JITFRAME_FIXED_SIZE)
+        faildescrindex = self.get_gcref_from_faildescr(descr)
+        return GuardToken(self.cpu, gcmap, descr,
+                          failargs=op.getfailargs(), fail_locs=arglocs,
+                          guard_opnum=op.getopnum(), frame_depth=frame_depth,
+                          faildescrindex=faildescrindex)
+
+    def _emit_pending_guard(self, op, arglocs):
+        pos = self.mc.get_relative_pos()
+        guardtok = self._build_guard_token(op, arglocs[0].value, arglocs[1:],
+                                           pos)
+        guardtok.offset = pos
+        self.pending_guards.append(guardtok)
+        if guardtok.guard_not_invalidated():
+            self.mc.NOP()
+        else:
+            self.mc.EBREAK()
+
+    def emit_op_guard_true(self, op, arglocs):
+        l0 = arglocs[0]
+        self.mc.BNEZ(l0.value, 8)
+        self._emit_pending_guard(op, arglocs[1:])
+
+    emit_op_guard_nonnull = emit_op_guard_true
+
+    def emit_op_guard_false(self, op, arglocs):
+        l0 = arglocs[0]
+        self.mc.BEQZ(l0.value, 8)
+        self._emit_pending_guard(op, arglocs[1:])
+
+    emit_op_guard_isnull = emit_op_guard_false
+
+    def emit_op_guard_value(self, op, arglocs):
+        l0 = arglocs[0]
+        l1 = arglocs[1]
+        if l0.is_fp_reg():
+            self.mc.FEQ_D(r.x31.value, l0.value, l1.value)
+            self.mc.BNEZ(r.x31.value, 8)
+        else:
+            self.mc.BEQ(l0.value, l1.value, 8)
+        self._emit_pending_guard(op, arglocs[2:])
 
     def _emit_op_same_as(self, op, arglocs):
         l0, res = arglocs

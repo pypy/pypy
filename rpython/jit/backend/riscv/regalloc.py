@@ -467,6 +467,56 @@ class Regalloc(BaseRegalloc):
     prepare_op_cast_float_to_int = _prepare_op_unary_op
     prepare_op_cast_int_to_float = _prepare_op_unary_op
 
+    def _prepare_guard_arglocs(self, op):
+        arglocs = [None] * (len(op.getfailargs()) + 1)
+        arglocs[0] = ImmLocation(self.frame_manager.get_frame_depth())
+        failargs = op.getfailargs()
+        for i in range(len(failargs)):
+            if failargs[i]:
+                arglocs[i + 1] = self.loc(failargs[i])
+        return arglocs
+
+    def _prepare_op_guard_unary_op(self, op):
+        boxes = op.getarglist()
+        a0 = boxes[0]
+        l0 = self.make_sure_var_in_reg(a0, boxes)
+
+        # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+        # `free_temp_vars` here because `_prepare_guard_arglocs` still need the
+        # mapping between boxes and locations for `op.getfailargs()`.
+        #
+        # For example:
+        #
+        #    [i0, i1, i2]
+        #    i3 = int_add(i0, i1)
+        #    guard_value(i3, i2, descr=...) [i3]
+        #    finish(descr=...)
+        #
+        # If we call `possibly_free_vars_for_op` here, `i3` will be freed, but
+        # we still need it as failargs and the `self.loc(failargs[i])` in
+        # `_prepare_guard_arglocs` will associate a random free frame slot,
+        # which will result in incorrect result.
+        #
+        # Just don't call these two functions. The callsite in `assembler.py`
+        # will call these two functions for us.
+
+        guard_arglocs = self._prepare_guard_arglocs(op)
+        return [l0] + guard_arglocs
+
+    prepare_op_guard_true    = _prepare_op_guard_unary_op
+    prepare_op_guard_false   = _prepare_op_guard_unary_op
+    prepare_op_guard_nonnull = _prepare_op_guard_unary_op
+    prepare_op_guard_isnull  = _prepare_op_guard_unary_op
+
+    def prepare_op_guard_value(self, op):
+        boxes = op.getarglist()
+        a0, a1 = boxes
+        l0 = self.make_sure_var_in_reg(a0, boxes)
+        l1 = self.make_sure_var_in_reg(a1, boxes)
+        # Note[#dont_free_vars]: Do not call `possibly_free_vars_for_op` or
+        # `free_temp_vars`.
+        return [l0, l1] + self._prepare_guard_arglocs(op)
+
     def _prepare_op_same_as(self, op):
         boxes = op.getarglist()
         a0 = boxes[0]

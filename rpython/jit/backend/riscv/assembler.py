@@ -7,21 +7,24 @@ from rpython.jit.backend.riscv import registers as r
 from rpython.jit.backend.riscv.arch import (
     ABI_STACK_ALIGN, FLEN, JITFRAME_FIXED_SIZE, XLEN)
 from rpython.jit.backend.riscv.codebuilder import InstrBuilder
+from rpython.jit.backend.riscv.instruction_util import check_simm21_arg
 from rpython.jit.backend.riscv.opassembler import OpAssembler, asm_operations
 from rpython.jit.backend.riscv.regalloc import Regalloc, regalloc_operations
 from rpython.jit.codewriter.effectinfo import EffectInfo
+from rpython.jit.metainterp.history import AbstractFailDescr
 from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.debug import debug_print, debug_start, debug_stop
 from rpython.rlib.jit import AsmInfo
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rtyper.lltypesystem import rffi
+from rpython.rtyper.lltypesystem import lltype, rffi
 
 
 class AssemblerRISCV(OpAssembler):
     def __init__(self, cpu, translate_support_code=False):
         OpAssembler.__init__(self, cpu, translate_support_code)
+        self.failure_recovery_code = [0, 0, 0, 0]
 
     def assemble_loop(self, jd_id, unique_id, logger, loopname, inputargs,
                       operations, looptoken, log):
@@ -218,17 +221,121 @@ class AssemblerRISCV(OpAssembler):
         # Add (restore) stack pointer
         mc.ADDI(r.sp.value, r.sp.value, area_size)
 
+    def _push_all_regs_to_jitframe(self, mc, ignored_regs, withfloats,
+                                   callee_only=False):
+        # Push general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = r.caller_saved_registers
+        else:
+            regs = r.registers_except_zero
+
+        if not ignored_regs:
+            for reg in regs:
+                mc.store_int(reg.value, r.jfp.value,
+                             base_ofs + reg.value * XLEN)
+        else:
+            for reg in ignored_regs:
+                assert reg.is_core_reg()
+            for reg in regs:
+                if reg in ignored_regs:
+                    continue
+                mc.store_int(reg.value, r.jfp.value,
+                             base_ofs + reg.value * XLEN)
+
+        if withfloats:
+            # Push floating point registers
+            ofs = base_ofs + len(r.registers) * XLEN
+            for reg in r.fp_registers:
+                mc.store_float(reg.value, r.jfp.value, ofs + reg.value * FLEN)
+
+    def _pop_all_regs_from_jitframe(self, mc, ignored_regs, withfloats,
+                                    callee_only=False):
+        # Pop general purpose registers
+        base_ofs = self.cpu.get_baseofs_of_frame_field()
+        if callee_only:
+            regs = r.caller_saved_registers
+        else:
+            regs = r.registers_except_zero
+
+        if not ignored_regs:
+            for reg in regs:
+                mc.load_int(reg.value, r.jfp.value,
+                            base_ofs + reg.value * XLEN)
+        else:
+            for reg in ignored_regs:
+                assert reg.is_core_reg()
+            for reg in regs:
+                if reg in ignored_regs:
+                    continue
+                mc.load_int(reg.value, r.jfp.value,
+                            base_ofs + reg.value * XLEN)
+
+        if withfloats:
+            # Pop floating point registers
+            ofs = base_ofs + len(r.registers) * XLEN
+            for reg in r.fp_registers:
+                mc.load_float(reg.value, r.jfp.value, ofs + reg.value * FLEN)
+
     def store_jf_descr(self, descrindex):
         scratch_reg = r.x31
         ofs = self.cpu.get_ofs_of_frame_field('jf_descr')
         self.load_from_gc_table(scratch_reg.value, descrindex)
         self.mc.store_int(scratch_reg.value, r.jfp.value, ofs)
 
+    def push_gcmap(self, mc, gcmap, store=True):
+        # Set gcmap address to jf_gcmap field.
+
+        # rpython/jit/backend/llsupport/callbuilder.py passes a `store`
+        # argument as keyword args. For RISC-V backend, we only support
+        # `store=True` version.
+        assert store
+
+        scratch_reg = r.x31
+        new_gcmap_adr = rffi.cast(lltype.Signed, gcmap)
+        mc.load_int_imm(scratch_reg.value, new_gcmap_adr)
+
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store_int(scratch_reg.value, r.jfp.value, ofs)
+
+    def pop_gcmap(self, mc):
+        # Clear gcmap address from jf_gcmap field.
+        ofs = self.cpu.get_ofs_of_frame_field('jf_gcmap')
+        mc.store_int(r.x0.value, r.jfp.value, ofs)
+
+    def generate_quick_failure(self, guardtok):
+        startpos = self.mc.get_relative_pos()
+        faildescrindex, target = self.store_info_on_descr(startpos, guardtok)
+
+        self.store_jf_descr(faildescrindex)
+        self.push_gcmap(self.mc, guardtok.gcmap)
+        assert target
+        self.mc.jal_abs(r.zero.value, target)
+        return startpos
+
     def write_pending_failure_recoveries(self):
-        pass
+        for guardtok in self.pending_guards:
+            guardtok.pos_recovery_stub = self.generate_quick_failure(guardtok)
 
     def process_pending_guards(self, rawstart):
-        assert not self.pending_guards
+        clt = self.current_clt
+        for guardtok in self.pending_guards:
+            descr = guardtok.faildescr
+            assert isinstance(descr, AbstractFailDescr)
+
+            failure_recovery_pos = rawstart + guardtok.pos_recovery_stub
+            descr.adr_jump_offset = failure_recovery_pos
+            relative_offset = guardtok.pos_recovery_stub - guardtok.offset
+            guard_pos = rawstart + guardtok.offset
+
+            if guardtok.guard_not_invalidated():
+                clt.invalidate_positions.append((guard_pos, relative_offset))
+            else:
+                # Patch the guard jump to the stub
+                assert check_simm21_arg(relative_offset)
+                mc = InstrBuilder()
+                mc.J(relative_offset)
+                mc.copy_to_raw_memory(guard_pos)
 
     def fixup_target_tokens(self, rawstart):
         for targettoken in self.target_tokens_currently_compiling:
@@ -296,7 +403,17 @@ class AssemblerRISCV(OpAssembler):
         return rawstart
 
     def _build_failure_recovery(self, exc, withfloats=False):
-        pass
+        mc = InstrBuilder()
+        self._push_all_regs_to_jitframe(mc, [], withfloats)
+
+        if exc:
+            # TODO: Support exception handling
+            pass
+
+        self._call_footer(mc)
+
+        rawstart = mc.materialize(self.cpu, [])
+        self.failure_recovery_code[exc + 2 * withfloats] = rawstart
 
     def _build_wb_slowpath(self, withcards, withfloats=False, for_frame=False):
         """Build write barrier slow path"""
