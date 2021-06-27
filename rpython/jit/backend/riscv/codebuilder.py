@@ -154,6 +154,12 @@ class AbstractRISCVBuilder(object):
         self.AUIPC(rd, upper)
         self.JALR(rd, rd, lower)
 
+    # Absolute jump
+    def jal_abs(self, rd, abs_addr):
+        scratch_reg = r.x31
+        self.load_int_imm(scratch_reg.value, abs_addr)
+        self.JALR(rd, scratch_reg.value, 0)
+
     # Load an integer constant to a register
     def load_int_imm(self, rd, imm):
         assert _SINT64_MIN <= imm <= _SINT64_MAX
