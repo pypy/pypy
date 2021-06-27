@@ -24,6 +24,10 @@ class AbstractRISCVBuilder(object):
         self.writechar(chr((word >> 16) & 0xff))
         self.writechar(chr((word >> 24) & 0xff))
 
+    # NOP
+    def NOP(self):
+        self.ADDI(r.zero.value, r.zero.value, 0)
+
     # Move register
     def MV(self, rd, rs1):
         self.ADDI(rd, rs1, 0)
