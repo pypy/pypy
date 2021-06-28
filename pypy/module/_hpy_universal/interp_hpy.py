@@ -92,9 +92,13 @@ HPY_VERSION, HPY_GIT_REV = load_version()
 
 @specialize.arg(4)
 def init_hpy_module(space, name, origin, lib, debug, initfunc_ptr):
-    handles = State.get(space).get_handle_manager(debug)
+    state = space.fromcache(State)
+    handles = state.get_handle_manager(debug)
     initfunc_ptr = rffi.cast(llapi.HPyInitFunc, initfunc_ptr)
     h_module = initfunc_ptr(handles.ctx)
+    error = state.clear_exception()
+    if error:
+        raise error
     if not h_module:
         raise oefmt(space.w_SystemError,
             "initialization of %s failed without raising an exception",
