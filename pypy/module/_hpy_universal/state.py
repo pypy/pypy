@@ -62,3 +62,19 @@ class State(object):
         """
         self.setup_bridge()
         llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+
+    def set_exception(self, operror):
+        self.clear_exception()
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = operror
+
+    def clear_exception(self):
+        """Clear the current exception state, and return the operror."""
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
+        ec.cpyext_operror = None
+        return operror
+
+    def get_exception(self):
+        ec = self.space.getexecutioncontext()
+        return ec.cpyext_operror
