@@ -14,7 +14,8 @@ class TestHook:
 
     def __exit__(self, *a):
         self.close()
-        __pypy__._testing_clear_audithooks()
+        if getattr(__pypy__, '_testing_clear_audithooks'):
+            __pypy__._testing_clear_audithooks()
 
     def close(self):
         self.closed = True
@@ -50,7 +51,8 @@ def test_two_hooks():
         assert l[-1] == (2, "test", ())
         assert l[-2] == (1, "test", ())
     finally:
-        __pypy__._testing_clear_audithooks()
+        if getattr(__pypy__, '_testing_clear_audithooks'):
+            __pypy__._testing_clear_audithooks()
 
 def test_block_add_hook():
     # Raising an exception should prevent a new hook from being added,
