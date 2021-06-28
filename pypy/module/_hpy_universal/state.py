@@ -2,6 +2,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, not_rpython
 
+from pypy.interpreter.error import oefmt
+
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal import handlemanager
 from pypy.module._hpy_universal.bridge import BRIDGE, hpy_get_bridge
@@ -78,3 +80,12 @@ class State(object):
     def get_exception(self):
         ec = self.space.getexecutioncontext()
         return ec.cpyext_operror
+
+    def raise_current_exception(self):
+        operror = self.clear_exception()
+        if operror:
+            raise operror
+        else:
+            raise oefmt(self.space.w_SystemError,
+                        "Function returned an error result without setting an "
+                        "exception")

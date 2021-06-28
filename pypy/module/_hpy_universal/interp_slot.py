@@ -9,6 +9,7 @@ from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi
+from .state import State
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
@@ -213,9 +214,9 @@ class W_wrap_sq_setitem(object):
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(self.ctx, h_self, idx, h_value)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.w_None
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
 
 class W_wrap_sq_delitem(object):
     def call(self, space, __args__):
@@ -239,9 +240,9 @@ class W_wrap_objobjproc(object):
         with self.handles.using(w_self, w_key) as (h_self, h_key):
             res = func(self.ctx, h_self, h_key)
             res = widen(res)
-            if res == -1:
-                raise NotImplementedError('write a test')
-            return space.newbool(bool(res))
+        if res == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.newbool(bool(res))
 
 class W_wrap_getbuffer(object):
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
@@ -252,37 +253,36 @@ class W_wrap_getbuffer(object):
         w_self = __args__.arguments_w[0]
         w_flags = __args__.arguments_w[1]
         flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
-        with self.handles.using(w_self) as h_self:
-            with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
+        with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
+            with self.handles.using(w_self) as h_self:
                 res = func(self.ctx, h_self, hpybuf, flags)
-                if widen(res) < 0:
-                    raise oefmt(space.w_BufferError,
-                        "HPy_bf_getbuffer slot failed without setting an exception")
-                buf_ptr = hpybuf.c_buf
-                w_obj = self.handles.consume(hpybuf.c_obj.c__i)
-                size = hpybuf.c_len
-                ndim = widen(hpybuf.c_ndim)
-                shape = None
-                if hpybuf.c_shape:
-                    shape = [hpybuf.c_shape[i] for i in range(ndim)]
-                strides = None
-                if hpybuf.c_strides:
-                    strides = [hpybuf.c_strides[i] for i in range(ndim)]
-                if hpybuf.c_format:
-                    format = rffi.charp2str(hpybuf.c_format)
-                else:
-                    format = 'B'
-                view = self.handles.HPyBuffer(
-                    buf_ptr, size, w_obj,
-                    itemsize=hpybuf.c_itemsize,
-                    readonly=widen(hpybuf.c_readonly),
-                    ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
-                    strides=strides)
-                if self.rbp:
-                    # XXX: we're assuming w_self and w_obj have the same type!
-                    view.releasebufferproc = self.rbp
-                    self.handles.BUFFER_FQ.register_finalizer(view)
-                return view.wrap(space)
+            if widen(res) < 0:
+                space.fromcache(State).raise_current_exception()
+            buf_ptr = hpybuf.c_buf
+            w_obj = self.handles.consume(hpybuf.c_obj.c__i)
+            size = hpybuf.c_len
+            ndim = widen(hpybuf.c_ndim)
+            shape = None
+            if hpybuf.c_shape:
+                shape = [hpybuf.c_shape[i] for i in range(ndim)]
+            strides = None
+            if hpybuf.c_strides:
+                strides = [hpybuf.c_strides[i] for i in range(ndim)]
+            if hpybuf.c_format:
+                format = rffi.charp2str(hpybuf.c_format)
+            else:
+                format = 'B'
+            view = self.handles.HPyBuffer(
+                buf_ptr, size, w_obj,
+                itemsize=hpybuf.c_itemsize,
+                readonly=widen(hpybuf.c_readonly),
+                ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
+                strides=strides)
+            if self.rbp:
+                # XXX: we're assuming w_self and w_obj have the same type!
+                view.releasebufferproc = self.rbp
+                self.handles.BUFFER_FQ.register_finalizer(view)
+            return view.wrap(space)
 
 
 # remaining wrappers to write
