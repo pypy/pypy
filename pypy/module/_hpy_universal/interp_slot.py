@@ -85,7 +85,9 @@ class W_wrap_binaryfunc(object):
         w_other = __args__.arguments_w[1]
         with self.handles.using(w_self, w_other) as (h_self, h_other):
             h_result = func(self.ctx, h_self, h_other)
-            return self.handles.consume(h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
 
 @specialize.memo()
 def get_cmp_wrapper_cls(handles, methname, OP):
@@ -104,7 +106,9 @@ def get_cmp_wrapper_cls(handles, methname, OP):
                 # instead
                 h_result = func(
                     handles.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
-                return handles.consume(h_result)
+            if not h_result:
+                space.fromcache(State).raise_current_exception()
+            return handles.consume(h_result)
     suffix = '_d' if handles.is_debug else '_u'
     wrapper.__name__ = 'W_wrap_richcmp%s%s' % (methname, suffix)
     _WRAPPER_CACHE[handles, methname] = wrapper
@@ -124,7 +128,9 @@ class W_wrap_unaryfunc(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self)
-            return self.handles.consume(h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
 
 class W_wrap_ternaryfunc(object):
     def call(self, space, __args__):
@@ -142,7 +148,9 @@ class W_wrap_ternaryfunc(object):
             w2 = __args__.arguments_w[2]
         with self.handles.using(w_self, w1, w2) as (h_self, h1, h2):
             h_result = func(self.ctx, h_self, h1, h2)
-            return self.handles.consume(h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
 
 class W_wrap_indexargfunc(object):
     def call(self, space, __args__):
@@ -153,7 +161,9 @@ class W_wrap_indexargfunc(object):
         idx = space.int_w(space.index(w_idx))
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
-            return self.handles.consume(h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
 
 class W_wrap_inquirypred(object):
     def call(self, space, __args__):
@@ -163,10 +173,9 @@ class W_wrap_inquirypred(object):
         with self.handles.using(w_self) as h_self:
             res = func(self.ctx, h_self)
             res = rffi.cast(lltype.Signed, res)
-            if res == -1:
-                raise NotImplementedError('write a test')
-                #State.get(space).check_and_raise_exception(always=True)
-            return space.newbool(bool(res))
+        if res == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.newbool(bool(res))
 
 class W_wrap_lenfunc(object):
     def call(self, space, __args__):
@@ -175,9 +184,9 @@ class W_wrap_lenfunc(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.newint(result)
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.newint(result)
 
 def sq_getindex(space, w_sequence, w_idx):
     """
@@ -202,7 +211,9 @@ class W_wrap_sq_item(object):
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
-            return self.handles.consume(h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
+        return self.handles.consume(h_result)
 
 class W_wrap_sq_setitem(object):
     def call(self, space, __args__):
@@ -227,9 +238,9 @@ class W_wrap_sq_delitem(object):
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self, idx, llapi.HPy_NULL)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.w_None
+        if widen(result) == -1:
+            space.fromcache(State).raise_current_exception()
+        return space.w_None
 
 class W_wrap_objobjproc(object):
     def call(self, space, __args__):
@@ -327,9 +338,7 @@ class W_wrap_init(object):
                     for i in range(n):
                         self.handles.close(args_h[i])
         if rffi.cast(lltype.Signed, result) < 0:
-            # If we're here, it means no exception was set
-            raise oefmt(space.w_SystemError,
-                "Function returned an error result without setting an exception")
+            space.fromcache(State).raise_current_exception()
         return space.w_None
 
 @specialize.memo()
