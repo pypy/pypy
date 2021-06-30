@@ -38,27 +38,19 @@ class W_ExtensionFunctionMixin(object):
         self.doc = doc
         self.cfuncptr = cfuncptr
 
-    def check_exception(self, space, h_result):
-        state = space.fromcache(State)
-        error = state.clear_exception()
-        if error:
-            raise error
-        elif not h_result:
-            raise oefmt(space.w_SystemError,
-                        "Function returned a NULL result without setting "
-                        "an exception")
-
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
         h_result = func(self.handles.ctx, h_self)
-        self.check_exception(space, h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
             h_result = func(self.handles.ctx, h_self, h_arg)
-        self.check_exception(space, h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
@@ -85,7 +77,8 @@ class W_ExtensionFunctionMixin(object):
                 for i in range(n):
                     self.handles.close(args_h[i])
 
-        self.check_exception(space, h_result)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_varargs(self, space, h_self, args_h, n):
