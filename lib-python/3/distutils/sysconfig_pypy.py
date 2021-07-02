@@ -47,14 +47,31 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
     containing standard Python library modules; otherwise, return the
     directory for site-specific modules.
 
-    If 'prefix' is supplied, use it instead of sys.prefix or
-    sys.exec_prefix -- i.e., ignore 'plat_specific'.
+    If 'prefix' is supplied, use it instead of sys.base_prefix or
+    sys.base_exec_prefix -- i.e., ignore 'plat_specific'.
     """
     if prefix is None:
-        prefix = PREFIX
-    if standard_lib:
-        return os.path.join(prefix, "lib-python", sys.version[0])
-    return os.path.join(prefix, 'site-packages')
+        if standard_lib:
+            prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
+        else:
+            prefix = plat_specific and EXEC_PREFIX or PREFIX
+
+    if os.name == "posix":
+        libpython = os.path.join(prefix,
+                                 "lib", "python" + get_python_version())
+        if standard_lib:
+            return libpython
+        else:
+            return os.path.join(libpython, "site-packages")
+    elif os.name == "nt":
+        if standard_lib:
+            return os.path.join(prefix, "Lib")
+        else:
+            return os.path.join(prefix, "Lib", "site-packages")
+    else:
+        raise DistutilsPlatformError(
+            "I don't know where Python installs its library "
+            "on platform '%s'" % os.name)
 
 
 _config_vars = None
@@ -190,6 +207,9 @@ def customize_compiler(compiler):
             linker_so=ldshared,
             linker_exe=cc,
             archiver=archiver)
+
+        if 'RANLIB' in os.environ and 'ranlib' in compiler.executables:
+            compiler.set_executables(ranlib=os.environ['RANLIB'])
 
         compiler.shared_lib_extension = shlib_suffix
 
