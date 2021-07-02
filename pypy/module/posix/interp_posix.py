@@ -2303,12 +2303,15 @@ def confname_w(space, w_name, namespace):
     return num
 
 def sysconf(space, w_name):
-    num = confname_w(space, w_name, os.sysconf_names)
+    num = confname_w(space, w_name, rposix.sysconf_names)
     try:
         res = os.sysconf(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newint(res)
+
+def sysconf_names():
+    return rposix.sysconf_names
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
@@ -2321,7 +2324,7 @@ def fpathconf(space, fd, w_name):
 
 @unwrap_spec(path=path_or_fd(allow_fd=hasattr(os, 'fpathconf')))
 def pathconf(space, path, w_name):
-    num = confname_w(space, w_name, os.pathconf_names)
+    num = confname_w(space, w_name, rposix.pathconf_names)
     if path.as_fd != -1:
         try:
             res = os.fpathconf(path.as_fd, num)
@@ -2334,13 +2337,19 @@ def pathconf(space, path, w_name):
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
     return space.newint(res)
 
+def pathconf_names():
+    return rposix.pathconf_names
+
 def confstr(space, w_name):
-    num = confname_w(space, w_name, os.confstr_names)
+    num = confname_w(space, w_name, rposix.confstr_names)
     try:
         res = os.confstr(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newtext(res)
+
+def confstr_names():
+    return rposix.confstr_names
 
 @unwrap_spec(
     uid=c_uid_t, gid=c_gid_t,

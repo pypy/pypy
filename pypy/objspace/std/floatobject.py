@@ -515,7 +515,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         rhs = w_rhs.floatval
         if rhs == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(self.floatval / rhs)
 
     def descr_rdiv(self, space, w_lhs):
@@ -524,7 +524,7 @@ class W_FloatObject(W_Root):
             return space.w_NotImplemented
         selfval = self.floatval
         if selfval == 0.0:
-            raise oefmt(space.w_ZeroDivisionError, "float division")
+            raise oefmt(space.w_ZeroDivisionError, "float division by zero")
         return W_FloatObject(w_lhs.floatval / selfval)
 
     def descr_floordiv(self, space, w_rhs):

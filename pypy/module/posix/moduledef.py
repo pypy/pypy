@@ -134,15 +134,15 @@ corresponding Unix manual entries for more information on calls."""
         interpleveldefs['uname'] = 'interp_posix.uname'
     if hasattr(os, 'sysconf'):
         interpleveldefs['sysconf'] = 'interp_posix.sysconf'
-        interpleveldefs['sysconf_names'] = 'space.wrap(os.sysconf_names)'
+        interpleveldefs['sysconf_names'] = 'space.wrap(interp_posix.sysconf_names())'
     if hasattr(os, 'fpathconf'):
         interpleveldefs['fpathconf'] = 'interp_posix.fpathconf'
-        interpleveldefs['pathconf_names'] = 'space.wrap(os.pathconf_names)'
+        interpleveldefs['pathconf_names'] = 'space.wrap(interp_posix.pathconf_names())'
     if hasattr(os, 'pathconf'):
         interpleveldefs['pathconf'] = 'interp_posix.pathconf'
     if hasattr(os, 'confstr'):
         interpleveldefs['confstr'] = 'interp_posix.confstr'
-        interpleveldefs['confstr_names'] = 'space.wrap(os.confstr_names)'
+        interpleveldefs['confstr_names'] = 'space.wrap(interp_posix.confstr_names())'
     if hasattr(os, 'ttyname'):
         interpleveldefs['ttyname'] = 'interp_posix.ttyname'
     if hasattr(os, 'getloadavg'):
