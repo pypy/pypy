@@ -450,6 +450,12 @@ def string_parse_literal(astbuilder, atom_node):
     if not fmode and len(joined_pieces) == 1:   # <= the common path
         return joined_pieces[0]   # ast.Constant or FormattedValue
 
+    astbuilder.check_feature(
+        fmode,
+        version=6,
+        msg="Format strings are only supported in Python 3.6 and greater",
+        n=atom_node
+    )
     # with more than one piece, it is a combination of ast.Constant[str]
     # and FormattedValue pieces --- if there is a bytes value, then we got
     # an invalid mixture of bytes and unicode literals
