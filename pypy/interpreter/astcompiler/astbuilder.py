@@ -540,9 +540,9 @@ class ASTBuilder(object):
     def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None, posnode=None):
         self.check_feature(
             is_async,
-            5,
-            "Async functions are only supported in Python 3.5 and greater",
-            funcdef_node
+            version=5,
+            msg="Async functions are only supported in Python 3.5 and greater",
+            n=funcdef_node
         )
         if posnode is None:
             posnode = funcdef_node
@@ -864,9 +864,9 @@ class ASTBuilder(object):
             operator = augassign_operator_map[op_str]
             self.check_feature(
                 operator is ast.MatMult,
-                5,
-                "The '@' operator is only supported in Python 3.5 and greater",
-                stmt
+                version=5,
+                msg="The '@' operator is only supported in Python 3.5 and greater",
+                n=stmt
             )
             return build(ast.AugAssign, target_expr, operator, value_expr,
                                  stmt)
@@ -876,7 +876,7 @@ class ASTBuilder(object):
                 condition=True,
                 version=6,
                 msg="Variable annotation syntax is only supported in Python 3.6 and greater",
-                stmt
+                n=stmt
             )
             target = stmt.get_child(0)
             target_expr = self.handle_testlist(target)
@@ -1106,9 +1106,9 @@ class ASTBuilder(object):
         op = operator_map(binop_node.get_child(1).type)
         self.check_feature(
             operator is ast.MatMult,
-            5,
-            "The '@' operator is only supported in Python 3.5 and greater",
-            binop_node
+            version=5,
+            msg="The '@' operator is only supported in Python 3.5 and greater",
+            n=binop_node
         )
         result = build(ast.BinOp, left, op, right, binop_node)
         number_of_ops = (binop_node.num_children() - 1) / 2
@@ -1117,9 +1117,9 @@ class ASTBuilder(object):
             op = operator_map(op_node.type)
             self.check_feature(
                 operator is ast.MatMult,
-                5,
-                "The '@' operator is only supported in Python 3.5 and greater",
-                binop_node
+                version=5,
+                msg="The '@' operator is only supported in Python 3.5 and greater",
+                n=binop_node
             )
             right_node = binop_node.get_child(i * 2 + 2)
             sub_right = self.handle_expr(right_node)
@@ -1420,10 +1420,9 @@ class ASTBuilder(object):
         elif first_child_type == tokens.NUMBER:
             self.check_feature(
                 "_" in first_child.get_value(),
-                6,
-                "Underscores in numeric literals are only "
-                "supported in Python 3.6 and greater",
-                atom_node
+                version=6,
+                msg="Underscores in numeric literals are only supported in Python 3.6 and greater",
+                n=atom_node
             )
             num_value = self.parse_number(first_child.get_value())
             return build(ast.Constant, num_value, self.space.w_None, atom_node)
@@ -1528,9 +1527,9 @@ class ASTBuilder(object):
             is_async = comp_node.get_child(0).type == tokens.ASYNC
             self.check_feature(
                 is_async,
-                6,
-                "Async comprehensions are only supported in Python 3.6 and greater",
-                comp_node
+                version=6,
+                msg="Async comprehensions are only supported in Python 3.6 and greater",
+                n=comp_node
             )
             comp_node = comp_node.get_child(int(is_async))
             assert comp_node.type == syms.sync_comp_for
