@@ -498,6 +498,12 @@ class ASTBuilder(object):
         return ast.withitem(test, target)
 
     def handle_with_stmt(self, with_node, is_async):
+        self.check_feature(
+            is_async,
+            version=5,
+            msg="Async with statements are only supported in Python 3.5 and greater",
+            n=with_node
+        )
         body = self.handle_suite(with_node.get_child(-1))
         type_comment, has_type_comment = self.handle_type_comment(with_node.get_child(-2))
         num_children = with_node.num_children() - has_type_comment
