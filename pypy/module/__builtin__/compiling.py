@@ -30,8 +30,10 @@ in addition to any features explicitly specified.
     # only allow default value of _feature_version for now
     # we need to support the keyword argument, the ast module passes it (set to
     # -1, usually)
-    if _feature_version != -1:
-        raise oefmt(space.w_ValueError, "_feature_version only accepts -1 for now")
+    if _feature_version >= 0 and (flags & consts.PyCF_ONLY_AST):
+        feature_version = _feature_version
+    else:
+        feature_version = -1
 
     ec = space.getexecutioncontext()
     if flags & ~(ec.compiler.compiler_flags | consts.PyCF_ONLY_AST |
@@ -76,7 +78,7 @@ in addition to any features explicitly specified.
                                   "string, bytes or AST", flags)
 
     if only_ast:
-        node = ec.compiler.compile_to_ast(source, filename, mode, flags)
+        node = ec.compiler.compile_to_ast(source, filename, mode, flags, feature_version)
         return node.to_object(space)
     else:
         return ec.compiler.compile(source, filename, mode, flags,

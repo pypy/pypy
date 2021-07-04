@@ -1,8 +1,10 @@
 from pypy.interpreter.error import OperationError
 from pypy.interpreter.pyparser import future, parser, pytokenizer, pygram, error
 from pypy.interpreter.astcompiler import consts
+from pypy.module.sys.version import CPYTHON_VERSION
 from rpython.rlib import rstring
 
+CPYTHON_MINOR_VERSION = CPYTHON_VERSION[1]
 
 def recode_to_utf8(space, bytes, encoding):
     if encoding == 'utf-8':
@@ -75,8 +77,12 @@ class CompileInfo(object):
     """
 
     def __init__(self, filename, mode="exec", flags=0, future_pos=(0, 0),
-                 hidden_applevel=False, optimize=0):
+                 hidden_applevel=False, optimize=0, feature_version=-1):
         assert optimize >= 0
+        if feature_version == -1:
+            feature_version = CPYTHON_MINOR_VERSION
+        if feature_version < 7:
+            flags |= consts.PyCF_ASYNC_HACKS
         rstring.check_str0(filename)
         self.filename = filename
         self.mode = mode
@@ -85,6 +91,7 @@ class CompileInfo(object):
         self.optimize = optimize
         self.last_future_import = future_pos
         self.hidden_applevel = hidden_applevel
+        self.feature_version = feature_version
 
 
 _targets = {
