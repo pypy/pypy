@@ -145,7 +145,7 @@ class ASTBuilder(object):
                           filename=self.compile_info.filename)
 
     def check_feature(self, condition, version, msg, n):
-        if condition and self.compile_info.feature_version < min_available_version:
+        if condition and self.compile_info.feature_version < version:
             return self.error(msg, n)
 
     def deprecation_warn(self, msg, n):
@@ -1105,7 +1105,7 @@ class ASTBuilder(object):
         right = self.handle_expr(binop_node.get_child(2))
         op = operator_map(binop_node.get_child(1).type)
         self.check_feature(
-            operator is ast.MatMult,
+            op is ast.MatMult,
             version=5,
             msg="The '@' operator is only supported in Python 3.5 and greater",
             n=binop_node
@@ -1116,7 +1116,7 @@ class ASTBuilder(object):
             op_node = binop_node.get_child(i * 2 + 1)
             op = operator_map(op_node.type)
             self.check_feature(
-                operator is ast.MatMult,
+                op is ast.MatMult,
                 version=5,
                 msg="The '@' operator is only supported in Python 3.5 and greater",
                 n=binop_node
