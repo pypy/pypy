@@ -132,7 +132,7 @@ def generate_tokens(lines, flags):
     altindents = [0]
     last_comment = ''
     parenstack = []
-    async_hacks = False # check for feature_version
+    async_hacks = flags & consts.PyCF_ASYNC_HACKS
     async_def = False
     async_def_nl = False
     async_def_indent = 0
