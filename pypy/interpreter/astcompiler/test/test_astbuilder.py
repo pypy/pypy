@@ -17,11 +17,13 @@ class TestAstBuilder:
     def setup_class(cls):
         cls.parser = pyparse.PythonParser(cls.space)
 
-    def get_ast(self, source, p_mode=None, flags=None):
+    def get_ast(self, source, p_mode=None, flags=None, with_async_hacks=False):
         if p_mode is None:
             p_mode = "exec"
         if flags is None:
             flags = consts.CO_FUTURE_WITH_STATEMENT
+        if with_async_hacks:
+            flags |= consts.PyCF_ASYNC_HACKS
         info = pyparse.CompileInfo("<test>", p_mode, flags)
         tree = self.parser.parse_source(source, info)
         ast_node = ast_from_node(self.space, tree, info, self.parser)
@@ -1426,8 +1428,9 @@ class TestAstBuilder:
         assert isinstance(expr.right, ast.Name)
         # imatmul is tested earlier search for @=
     
-    def test_asyncFunctionDef(self):
-        mod = self.get_ast("async def f():\n await something()")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncFunctionDef(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n await something()", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1446,8 +1449,9 @@ class TestAstBuilder:
         assert func.id == 'something'
         assert func.ctx == ast.Load
     
-    def test_asyncFor(self):
-        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncFor(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n async for e in i: 1\n else: 2", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1466,8 +1470,9 @@ class TestAstBuilder:
         assert isinstance(asyncfor.orelse[0], ast.Expr)
         assert isinstance(asyncfor.orelse[0].value, ast.Constant)
     
-    def test_asyncWith(self):
-        mod = self.get_ast("async def f():\n async with a as b: 1")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncWith(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n async with a as b: 1", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1486,8 +1491,9 @@ class TestAstBuilder:
         assert isinstance(asyncwith.body[0], ast.Expr)
         assert isinstance(asyncwith.body[0].value, ast.Constant)
 
-    def test_asyncYield(self):
-        mod = self.get_ast("async def f():\n yield 5")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncYield(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n yield 5", with_async_hacks=with_async_hacks)
         assert isinstance(mod, ast.Module)
         assert len(mod.body) == 1
         asyncdef = mod.body[0]
@@ -1500,14 +1506,37 @@ class TestAstBuilder:
         assert isinstance(expr.value, ast.Yield)
         assert isinstance(expr.value.value, ast.Constant)
 
-    def test_asyncComp(self):
-        mod = self.get_ast("async def f():\n [i async for b in c]")
+    @pytest.mark.parametrize('with_async_hacks', [False, True])
+    def test_asyncComp(self, with_async_hacks):
+        mod = self.get_ast("async def f():\n [i async for b in c]", with_async_hacks=with_async_hacks)
         asyncdef = mod.body[0]
         expr = asyncdef.body[0]
         comp = expr.value.generators[0]
         assert comp.target.id == 'b'
         assert comp.iter.id == 'c'
         assert comp.is_async is True
+
+    def test_without_async_hacks(self):
+        with pytest.raises(SyntaxError):
+            self.get_ast("await = 1", with_async_hacks=False)
+
+        mod = self.get_ast("await x()", with_async_hacks=False)
+        assert isinstance(mod.body[0].value, ast.Await)
+
+        mod = self.get_ast("async for x in y: pass", with_async_hacks=False)
+        assert isinstance(mod.body[0], ast.AsyncFor)
+
+    def test_with_async_hacks(self):
+        mod = self.get_ast("await = 1", with_async_hacks=True)
+        assert isinstance(mod.body[0], ast.Assign)
+        assert isinstance(mod.body[0].targets[0], ast.Name)
+        assert mod.body[0].targets[0].id == "await"
+
+        with pytest.raises(SyntaxError):
+            self.get_ast("await x()", with_async_hacks=True)
+
+        with pytest.raises(SyntaxError):
+            self.get_ast("await x()", with_async_hacks=True)
 
     def test_decode_error_in_string_literal(self):
         input = "u'\\x'"
