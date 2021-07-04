@@ -144,6 +144,10 @@ class ASTBuilder(object):
         raise SyntaxError(msg, ast_node.lineno, ast_node.col_offset,
                           filename=self.compile_info.filename)
 
+    def check_feature(self, condition, version, msg, n):
+        if condition and self.compile_info.feature_version < min_available_version:
+            return self.error(msg, n)
+
     def deprecation_warn(self, msg, n):
         from pypy.module._warnings.interp_warnings import warn_explicit
         space = self.space
@@ -420,6 +424,12 @@ class ASTBuilder(object):
             return self.space.w_None, False
 
     def handle_for_stmt(self, for_node, is_async):
+        self.check_feature(
+            is_async,
+            version=5,
+            msg="Async for loops are only supported in Python 3.5 and greater",
+            n=for_node
+        )
         target_node = for_node.get_child(1)
         target_as_exprlist = self.handle_exprlist(target_node, ast.Store)
         if target_node.num_children() == 1:
@@ -522,6 +532,12 @@ class ASTBuilder(object):
             body, decorators, classdef_node)
 
     def handle_funcdef_impl(self, funcdef_node, is_async, decorators=None, posnode=None):
+        self.check_feature(
+            is_async,
+            5,
+            "Async functions are only supported in Python 3.5 and greater",
+            funcdef_node
+        )
         if posnode is None:
             posnode = funcdef_node
         name_node = funcdef_node.get_child(1)
@@ -840,10 +856,22 @@ class ASTBuilder(object):
                 value_expr = self.handle_expr(value_child)
             op_str = stmt.get_child(1).get_child(0).get_value()
             operator = augassign_operator_map[op_str]
+            self.check_feature(
+                operator is ast.MatMult,
+                5,
+                "The '@' operator is only supported in Python 3.5 and greater",
+                stmt
+            )
             return build(ast.AugAssign, target_expr, operator, value_expr,
                                  stmt)
         elif stmt.get_child(1).type == syms.annassign:
             # Variable annotation (PEP 526), which may or may not include assignment.
+            self.check_feature(
+                condition=True,
+                version=6,
+                msg="Variable annotation syntax is only supported in Python 3.6 and greater",
+                stmt
+            )
             target = stmt.get_child(0)
             target_expr = self.handle_testlist(target)
             simple = 0
@@ -1070,11 +1098,23 @@ class ASTBuilder(object):
         left = self.handle_expr(binop_node.get_child(0))
         right = self.handle_expr(binop_node.get_child(2))
         op = operator_map(binop_node.get_child(1).type)
+        self.check_feature(
+            operator is ast.MatMult,
+            5,
+            "The '@' operator is only supported in Python 3.5 and greater",
+            binop_node
+        )
         result = build(ast.BinOp, left, op, right, binop_node)
         number_of_ops = (binop_node.num_children() - 1) / 2
         for i in range(1, number_of_ops):
             op_node = binop_node.get_child(i * 2 + 1)
             op = operator_map(op_node.type)
+            self.check_feature(
+                operator is ast.MatMult,
+                5,
+                "The '@' operator is only supported in Python 3.5 and greater",
+                binop_node
+            )
             right_node = binop_node.get_child(i * 2 + 2)
             sub_right = self.handle_expr(right_node)
             result = build(ast.BinOp, result, op, sub_right, op_node)
@@ -1099,6 +1139,12 @@ class ASTBuilder(object):
         start = 0
         num_ch = atom_node.num_children()
         if atom_node.get_child(0).type == tokens.AWAIT:
+            self.check_feature(
+                condition=True,
+                version=5,
+                msg="Await expressions are only supported in Python 3.5 and greater",
+                n=atom_node
+            )
             start = 1
         start_node = atom_node.get_child(start)
         atom_expr = self.handle_atom(start_node)
@@ -1366,6 +1412,13 @@ class ASTBuilder(object):
             return fstring.string_parse_literal(self, atom_node)
         #
         elif first_child_type == tokens.NUMBER:
+            self.check_feature(
+                "_" in first_child.get_value(),
+                6,
+                "Underscores in numeric literals are only "
+                "supported in Python 3.6 and greater",
+                atom_node
+            )
             num_value = self.parse_number(first_child.get_value())
             return build(ast.Constant, num_value, self.space.w_None, atom_node)
         elif first_child_type == tokens.ELLIPSIS:
@@ -1467,6 +1520,12 @@ class ASTBuilder(object):
         comps = []
         for i in range(fors_count):
             is_async = comp_node.get_child(0).type == tokens.ASYNC
+            self.check_feature(
+                is_async,
+                6,
+                "Async comprehensions are only supported in Python 3.6 and greater",
+                comp_node
+            )
             comp_node = comp_node.get_child(int(is_async))
             assert comp_node.type == syms.sync_comp_for
             for_node = comp_node.get_child(1)
