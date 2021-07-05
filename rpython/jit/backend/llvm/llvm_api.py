@@ -1,12 +1,12 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 
 class LLVMAPI:
     def __init__(self, debug=False):
         self.debug = debug #disable in prod to prevent castings and comparisons of returned values
         self.define_types()
         self.initialise_api()
-        self.initialise_jit()
 
     def define_types(self):
         """
@@ -19,7 +19,6 @@ class LLVMAPI:
         self.Void = lltype.Void
         self.VoidPtr = rffi.VOIDP
         self.VoidPtrPtr = rffi.VOIDPP
-        self.Enum = lltype.Unsigned
         self.ModuleRef = self.VoidPtr
         self.TypeRef = self.VoidPtr
         self.TypeRefPtr = self.VoidPtrPtr
@@ -30,6 +29,7 @@ class LLVMAPI:
         self.BasicBlockRef = self.VoidPtr
         self.BuilderRef = self.VoidPtr
         self.TargetDataRef = self.VoidPtr
+        self.Enum = lltype.Signed
         self.Bool = lltype.Signed #LLVMBOOL is typedefed to int32
         self.Str = rffi.CONST_CCHARP
         self.VerifierFailureAction = self.Enum
@@ -49,21 +49,26 @@ class LLVMAPI:
         self.JITTargetMachineBuilderRef = self.VoidPtr
         self.TargetMachineRef = self.VoidPtr
         self.TargetRef = self.VoidPtr
+        self.PassManagerRef = self.VoidPtr
+        self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
+        self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed))
 
     def initialise_api(self):
         header_files = ["Core","Target","Analysis","DataTypes",
                         "Error","ErrorHandling","ExternC",
-                        "Initialization","Orc","TargetMachine","Types"]
+                        "Initialization","Orc","TargetMachine","Types",
+                        "LLJIT"]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
-        cflags = ["""-I/usr/lib/llvm/11/include -D_GNU_SOURCE
+        cflags = ["""-I/usr/lib/llvm/12/include -D_GNU_SOURCE
                     -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
-                    -D__STDC_LIMIT_MACROS"""] #know this should be in the includes arg, but llvm is weird and only works this way (by my testing anyway)
+                    -D__STDC_LIMIT_MACROS"""] #know this should be in the includes arg, but llvm is weird and only works this way
         path = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/llvm_wrapper/" #TODO: get real path
-        info = ExternalCompilationInfo(includes=llvm_c+[path+"wrapper.h"],
-                                       libraries=["LLVM-11","wrapper"],
-                                       include_dirs=["/usr/lib/llvm/11/lib64",
-                                                     "/usr/lib/llvm/11/include",path],
-                                       library_dirs=["/usr/lib/llvm/11/lib64",path],
+        path2 = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
+        info = ExternalCompilationInfo(includes=llvm_c+[path2+"wrapper.h"],
+                                       libraries=["LLVM-12","wrapper"],
+                                       include_dirs=["/usr/lib/llvm/12/lib64",
+                                                     "/usr/lib/llvm/12/include",path],
+                                       library_dirs=["/usr/lib/llvm/12/lib64",path],
                                        compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
 
         self.CreateModule = rffi.llexternal("LLVMModuleCreateWithNameInContext",
@@ -114,7 +119,7 @@ class LLVMAPI:
         self.DisposeBuilder = rffi.llexternal("LLVMDisposeBuilder",
                                               [self.BuilderRef], self.Void,
                                               compilation_info=info)
-        self.DiposeModule = rffi.llexternal("LLVMDisposeModule",
+        self.DisposeModule = rffi.llexternal("LLVMDisposeModule",
                                             [self.ModuleRef], self.Void,
                                             compilation_info=info)
         self.IntType = rffi.llexternal("LLVMIntTypeInContext",
@@ -143,7 +148,7 @@ class LLVMAPI:
                                           self.ValueRef, self.ValueRef,
                                           self.Str], self.ValueRef,
                                           compilation_info=info)
-        self.BuildICmp = rffi.llexternal("BuildICmp",
+        self.BuildICmp = rffi.llexternal("LLVMBuildICmp",
                                          [self.BuilderRef, lltype.Signed,
                                           self.ValueRef, self.ValueRef,
                                           self.Str], self.ValueRef,
@@ -192,227 +197,432 @@ class LLVMAPI:
                                                        self.ThreadSafeContextRef,
                                                          compilation_info=info)
         self.GetContext = rffi.llexternal("LLVMOrcThreadSafeContextGetContext",
-                                                         [self.ThreadSafeContextRef],
-                                                       self.ContextRef,
-                                                         compilation_info=info)
+                                          [self.ThreadSafeContextRef],
+                                          self.ContextRef,
+                                          compilation_info=info)
         self.LLJITLookup = rffi.llexternal("LLJITLookup",
-                                                         [self.LLJITRef,
-                                                          self.Str], self.JITTargetAddress,
-                                                         compilation_info=info)
+                                           [self.LLJITRef,
+                                            self.Str], self.JITTargetAddress,
+                                           compilation_info=info)
         self.LLJITAddModule = rffi.llexternal("LLVMOrcLLJITAddLLVMIRModule",
-                                                         [self.LLJITRef,
-                                                          self.JITDylibRef,
-                                                          self.ThreadSafeModuleRef],
-                                                        self.ErrorRef,
-                                                         compilation_info=info)
+                                              [self.LLJITRef,
+                                               self.JITDylibRef,
+                                               self.ThreadSafeModuleRef],
+                                              self.ErrorRef,
+                                              compilation_info=info)
         self.LLJITGetMainJITDylib = rffi.llexternal("LLVMOrcLLJITGetMainJITDylib",
-                                                         [self.LLJITRef],
-                                                        self.JITDylibRef,
-                                                         compilation_info=info)
+                                                    [self.LLJITRef],
+                                                    self.JITDylibRef,
+                                                    compilation_info=info)
         self.LLJITGetExecutionSession = rffi.llexternal("LLVMOrcExecutionSessionRef",
-                                                         [self.LLJITRef],
+                                                        [self.LLJITRef],
                                                         self.ExecutionSessionRef,
-                                                         compilation_info=info)
-        self.CreateLLJIT = rffi.llexternal("CreateLLJIT",
-                                                        [self.LLJITBuilderRef],
-                                                        self.LLJITRef,
                                                         compilation_info=info)
+        self.CreateLLJIT = rffi.llexternal("CreateLLJIT",
+                                           [self.LLJITBuilderRef],
+                                           self.LLJITRef,
+                                           compilation_info=info)
         self.CreateLLJITBuilder = rffi.llexternal("LLVMOrcCreateLLJITBuilder",
                                                          [self.Void],
                                                         self.LLJITBuilderRef,
                                                          compilation_info=info)
         self.CreatePassManager = rffi.llexternal("LLVMCreatePassManager",
-                                                         [self.Void],
-                                                        self.PassManagerRef,
-                                                         compilation_info=info)
+                                                 [self.Void],
+                                                 self.PassManagerRef,
+                                                 compilation_info=info)
         self.RunPassManager = rffi.llexternal("LLVMRunPassManager",
-                                                         [self.PassManagerRef,
-                                                          self.ModuleRef], self.Bool,
-                                                         compilation_info=info)
+                                              [self.PassManagerRef,
+                                               self.ModuleRef], self.Bool,
+                                              compilation_info=info)
         self.LLJITBuilderSetJITTargetMachineBuilder = rffi.llexternal("LLVMOrcLLJITBuilderSetJITTargetMachineBuilder",
-                                                         [self.LLJITBuilderRef,
-                                                          self.JITTargetMachineBuilderRef],
-                                                        self.Void,
-                                                         compilation_info=info)
-        self.JITTargetMachineBuilderCreateFromTargetMachine = rffi.llexternal("JITTargetMachineBuilderCreateFromTargetMachine",
-                                                         [self.TargetMachineRef],
-                                                        self.JITTargetMachineBuilderRef,
-                                                        compilation_info=info)
+                                                                      [self.LLJITBuilderRef,
+                                                                       self.JITTargetMachineBuilderRef],
+                                                                      self.Void,
+                                                                      compilation_info=info)
+        self.JITTargetMachineBuilderCreateFromTargetMachine = rffi.llexternal("LLVMOrcJITTargetMachineBuilderCreateFromTargetMachine",
+                                                                              [self.TargetMachineRef],
+                                                                              self.JITTargetMachineBuilderRef,
+                                                                              compilation_info=info)
         self.GetHostCPUName = rffi.llexternal("LLVMGetHostCPUName",
-                                                         [self.Void],
-                                                        self.Str,
-                                                        compilation_info=info)
+                                              [self.Void],
+                                              self.Str,
+                                              compilation_info=info)
         self.GetHostCPUFeatures = rffi.llexternal("LLVMGetHostCPUFeatures",
-                                                         [self.Void],
-                                                        self.Str,
-                                                        compilation_info=info)
+                                                  [self.Void],
+                                                  self.Str,
+                                                  compilation_info=info)
         self.GetHostCPUFeatures = rffi.llexternal("LLVMGetHostCPUFeatures",
-                                                         [self.Void],
-                                                        self.Str,
-                                                        compilation_info=info)
+                                                  [self.Void],
+                                                  self.Str,
+                                                  compilation_info=info)
         self.CreateTargetMachine = rffi.llexternal("LLVMCreateTargetMachine",
-                                                         [self.TargetRef,
-                                                          self.Str, self.Str,
-                                                          self.Str, self.Enum,
-                                                          self.Enum, self.Enum],
-                                                        self.TargetMachineRef,
-                                                        compilation_info=info)
+                                                   [self.TargetRef,
+                                                    self.Str, self.Str,
+                                                    self.Str, self.Enum,
+                                                    self.Enum, self.Enum],
+                                                   self.TargetMachineRef,
+                                                   compilation_info=info)
         self.GetTarget = rffi.llexternal("GetTargetFromTriple",
-                                                         [self.Str],
-                                                        self.TargetRef,
-                                                        compilation_info=info)
+                                         [self.Str],
+                                         self.TargetRef,
+                                         compilation_info=info)
         self.CreateTargetDataLayout = rffi.llexternal("LLVMCreateTargetDataLayout",
-                                                         [self.TargetMachineRef],
-                                                        self.TargetDataRef,
-                                                        compilation_info=info)
+                                                      [self.TargetMachineRef],
+                                                      self.TargetDataRef,
+                                                      compilation_info=info)
         self.GetTargetTriple = rffi.llexternal("LLVMGetDefaultTargetTriple",
-                                                         [self.Void],
-                                                         self.Str,
-                                                        compilation_info=info)
-        self.GetParam =  rffi.llexternal("LLVMGetParam",[self.ValueRef, lltype.Signed],
-                                                        self.ValueRef,
-                                                        compilation_info=info)
-        self.PositionBuilderBefore =  rffi.llexternal("LLVMPositionBuilderBefore",
+                                               [self.Void],
+                                               self.Str,
+                                               compilation_info=info)
+        self.GetParam = rffi.llexternal("LLVMGetParam",
+                                         [self.ValueRef, lltype.Signed],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.PositionBuilderBefore = rffi.llexternal("LLVMPositionBuilderBefore",
                                                       [self.BuilderRef,
                                                        self.BasicBlockRef],
                                                       self.Void,
-                                                        compilation_info=info)
-        self.EraseInstruction =  rffi.llexternal("LLVMInstructionEraseFromParent",
+                                                      compilation_info=info)
+        self.EraseInstruction = rffi.llexternal("LLVMInstructionEraseFromParent",
                                                  [self.ValueRef],
                                                  self.Void,
                                                  compilation_info=info)
-        self.GetFirstInstruction =  rffi.llexternal("LLVMGetFirstInstruction",
-                                                 [self.BasicBlockRef],
-                                                 self.ValueRef,
-                                                 compilation_info=info)
-        self.CloneModule =  rffi.llexternal("LLVMCloneModule",
+        self.GetFirstInstruction = rffi.llexternal("LLVMGetFirstInstruction",
+                                                    [self.BasicBlockRef],
+                                                    self.ValueRef,
+                                                    compilation_info=info)
+        self.CloneModule = rffi.llexternal("LLVMCloneModule",
                                             [self.ModuleRef],
                                             self.ModuleRef,
                                             compilation_info=info)
-        self.TypeOf =  rffi.llexternal("LLVMTypeOf",
-                                      [self.ValueRef],
-                                      self.TypeRef,
-                                      compilation_info=info)
-        self.VoidType =  rffi.llexternal("LLVMVoidTypeInContext",
-                                      [self.ContextRef],
-                                      self.TypeRef,
-                                      compilation_info=info)
-        self.StructType =  rffi.llexternal("LLVMStructTypeInContext",
-                                      [self.ContextRef, self.TypeRefPtr,
-                                       lltype.Unsigned, self.Bool],
-                                      self.TypeRef,
-                                      compilation_info=info)
-        self.ArrayType =  rffi.llexternal("LLVMArrayType",
-                                      [self.TypeRef, lltype.Unsigned],
-                                      self.TypeRef,
-                                      compilation_info=info)
-        self.PointerType =  rffi.llexternal("LLVMPointerType",
-                                      [self.TypeRef, lltype.Unsigned],
-                                      self.TypeRef,
-                                      compilation_info=info)
-        self.BuildStructGEP =  rffi.llexternal("LLVMBuildStructGEP2",
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, lltype.Unsigned,
-                                       self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildGEP =  rffi.llexternal("LLVMBuildGEP2",
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, self.ValueRefPtr,
-                                       lltype.Unsigned, self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildGEP1D =  rffi.llexternal("BuildGEP1D", #wrappers for common cases so can avoid rffi malloc each call
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, self.ValueRef,
-                                       self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildGEP2D =  rffi.llexternal("BuildGEP2D",
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, self.ValueRef,
-                                       self.ValueRef, self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildGEP3D =  rffi.llexternal("BuildGEP3D",
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, self.ValueRef,
-                                       self.ValueRef, self.ValueRef,
-                                       self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildLoad =  rffi.llexternal("LLVMBuildLoad2",
-                                      [self.BuilderRef, self.TypeRef,
-                                       self.ValueRef, self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildStore =  rffi.llexternal("LLVMBuildStore",
-                                      [self.BuilderRef, self.ValueRef,
-                                       self.ValueRef],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildBitCast =  rffi.llexternal("LLVMBuildBitCast",
-                                      [self.BuilderRef, self.ValueRef,
-                                       self.TypeRef, self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.BuildIntToPtr =  rffi.llexternal("LLVMBuildIntToPtr",
-                                      [self.BuilderRef, self.ValueRef,
-                                       self.TypeRef, self.Str],
-                                      self.ValueRef,
-                                      compilation_info=info)
-        self.WriteBitcodeToFile =  rffi.llexternal("LLVMWriteBitcodeToFile",
+        self.TypeOf = rffi.llexternal("LLVMTypeOf",
+                                       [self.ValueRef],
+                                       self.TypeRef,
+                                       compilation_info=info)
+        self.VoidType = rffi.llexternal("LLVMVoidTypeInContext",
+                                         [self.ContextRef],
+                                         self.TypeRef,
+                                         compilation_info=info)
+        self.StructType = rffi.llexternal("LLVMStructTypeInContext",
+                                           [self.ContextRef, self.TypeRefPtr,
+                                            lltype.Unsigned, self.Bool],
+                                           self.TypeRef,
+                                           compilation_info=info)
+        self.ArrayType = rffi.llexternal("LLVMArrayType",
+                                          [self.TypeRef, lltype.Unsigned],
+                                          self.TypeRef,
+                                          compilation_info=info)
+        self.PointerType = rffi.llexternal("LLVMPointerType",
+                                            [self.TypeRef, lltype.Unsigned],
+                                            self.TypeRef,
+                                            compilation_info=info)
+        self.BuildStructGEP = rffi.llexternal("LLVMBuildStructGEP2",
+                                               [self.BuilderRef, self.TypeRef,
+                                                self.ValueRef, lltype.Unsigned,
+                                                self.Str],
+                                               self.ValueRef,
+                                               compilation_info=info)
+        self.BuildGEP = rffi.llexternal("LLVMBuildGEP2",
+                                         [self.BuilderRef, self.TypeRef,
+                                          self.ValueRef, self.ValueRefPtr,
+                                          lltype.Unsigned, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.BuildGEP1D = rffi.llexternal("BuildGEP1D", #wrappers for common cases so can avoid rffi malloc each call
+                                           [self.BuilderRef, self.TypeRef,
+                                            self.ValueRef, self.ValueRef,
+                                            self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildGEP2D = rffi.llexternal("BuildGEP2D",
+                                           [self.BuilderRef, self.TypeRef,
+                                            self.ValueRef, self.ValueRef,
+                                            self.ValueRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildGEP3D = rffi.llexternal("BuildGEP3D",
+                                           [self.BuilderRef, self.TypeRef,
+                                            self.ValueRef, self.ValueRef,
+                                            self.ValueRef, self.ValueRef,
+                                            self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildLoad = rffi.llexternal("LLVMBuildLoad2",
+                                          [self.BuilderRef, self.TypeRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildStore = rffi.llexternal("LLVMBuildStore",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.ValueRef],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildBitCast = rffi.llexternal("LLVMBuildBitCast",
+                                             [self.BuilderRef, self.ValueRef,
+                                              self.TypeRef, self.Str],
+                                             self.ValueRef,
+                                             compilation_info=info)
+        self.BuildIntToPtr = rffi.llexternal("LLVMBuildIntToPtr",
+                                              [self.BuilderRef, self.ValueRef,
+                                               self.TypeRef, self.Str],
+                                              self.ValueRef,
+                                              compilation_info=info)
+        self.BuildPtrToInt = rffi.llexternal("LLVMBuildPtrToInt",
+                                              [self.BuilderRef, self.ValueRef,
+                                               self.TypeRef, self.Str],
+                                              self.ValueRef,
+                                              compilation_info=info)
+        self.WriteBitcodeToFile = rffi.llexternal("LLVMWriteBitcodeToFile",
                                                    [self.ModuleRef, self.Str],
                                                    self.ValueRef,
                                                    compilation_info=info)
-        self.BuildAlloca =  rffi.llexternal("LLVMBuildAlloca",
-                                                   [self.BuilderRef, self.TypeRef],
-                                                   self.Str,
+        self.BuildAlloca = rffi.llexternal("LLVMBuildAlloca",
+                                            [self.BuilderRef, self.TypeRef,
+                                             self.Str],
+                                            self.ValueRef,
+                                            compilation_info=info)
+        self.PositionBuilderBefore = rffi.llexternal("LLVMPositionBuilderBefore",
+                                                      [self.BuilderRef, self.ValueRef],
+                                                      self.Void,
+                                                      compilation_info=info)
+        self.GetFirstInstruction = rffi.llexternal("LLVMGetFirstInstruction",
+                                                    [self.BasicBlockRef],
+                                                    self.ValueRef,
+                                                    compilation_info=info)
+        self.BuildMemCpy = rffi.llexternal("LLVMBuildMemCpy",
+                                            [self.BuilderRef, self.ValueRef,
+                                             lltype.Unsigned, self.ValueRef,
+                                             lltype.Unsigned, self.ValueRef],
+                                            self.ValueRef,
+                                            compilation_info=info)
+        self.CreatePassManager = rffi.llexternal("LLVMCreatePassManager",
+                                                  [self.Void],
+                                                  self.PassManagerRef,
+                                                  compilation_info=info)
+        self.RunPassManager = rffi.llexternal("LLVMRunPassManager",
+                                               [self.PassManagerRef,
+                                                self.ModuleRef],
+                                               self.Bool,
+                                               compilation_info=info)
+        self.AddInstructionCombiningPass = rffi.llexternal("LLVMAddInstructionCombiningPass",
+                                                            [self.PassManagerRef],
+                                                            self.Void,
+                                                            compilation_info=info)
+        self.AddReassociatePass = rffi.llexternal("LLVMAddReassociatePass",
+                                                   [self.PassManagerRef],
+                                                   self.Void,
                                                    compilation_info=info)
+        self.AddGVNPass = rffi.llexternal("LLVMAddGVNPass",
+                                           [self.PassManagerRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.AddCFGSimplificationPass = rffi.llexternal("LLVMAddCFGSimplificationPass",
+                                           [self.PassManagerRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.AddPromoteMemoryToRegisterPass = rffi.llexternal("LLVMAddPromoteMemoryToRegisterPass",
+                                                               [self.PassManagerRef],
+                                                               self.Void,
+                                                               compilation_info=info)
+        self.AddPromoteMemoryToRegisterPass = rffi.llexternal("LLVMAddPromoteMemoryToRegisterPass",
+                                                               [self.PassManagerRef],
+                                                               self.Void,
+                                                               compilation_info=info)
+        self.AddIndVarSimplifyPass = rffi.llexternal("LLVMAddIndVarSimplifyPass",
+                                                      [self.PassManagerRef],
+                                                      self.Void,
+                                                      compilation_info=info)
+        self.AddScalarReplAggregatesPass = rffi.llexternal("LLVMAddScalarReplAggregatesPass",
+                                                            [self.PassManagerRef],
+                                                            self.Void,
+                                                            compilation_info=info)
+        self.AddScalarReplAggregatesPass = rffi.llexternal("LLVMAddScalarReplAggregatesPass",
+                                                            [self.PassManagerRef],
+                                                            self.Void,
+                                                            compilation_info=info)
+        self.GetSubtypes = rffi.llexternal("LLVMGetSubtypes",
+                                            [self.TypeRef, self.TypeRefPtr],
+                                            self.Void,
+                                            compilation_info=info)
+        self.DeleteBasicBlock = rffi.llexternal("LLVMDeleteBasicBlock",
+                                                 [self.BasicBlockRef],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.BuildZExt = rffi.llexternal("LLVMBuildZExt",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.TypeRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.SizeOf = rffi.llexternal("GetSizeOf",
+                                       [self.TypeRef],
+                                       lltype.SignedLongLong,
+                                       compilation_info=info)
+        self.DeleteBasicBlock = rffi.llexternal("LLVMDeleteBasicBlock",
+                                       [self.BasicBlockRef],
+                                       lltype.Void,
+                                       compilation_info=info)
+        self.DisposeLLJIT = rffi.llexternal("LLVMOrcDisposeLLJIT",
+                                       [self.LLJITRef],
+                                       self.ErrorRef,
+                                       compilation_info=info)
+        self.GetErrorMessage = rffi.llexternal("LLVMGetErrorMessage",
+                                                [self.ErrorRef],
+                                                self.Str,
+                                                compilation_info=info)
+        self.FloatType = rffi.llexternal("LLVMDoubleTypeInContext",
+                                          [self.ContextRef],
+                                          self.TypeRef,
+                                          compilation_info=info)
+        self.SingleFloatType = rffi.llexternal("LLVMFloatTypeInContext",
+                                                [self.ContextRef],
+                                                self.TypeRef,
+                                                compilation_info=info)
+        self.ConstFloat = rffi.llexternal("LLVMConstReal",
+                                            [self.TypeRef, lltype.Float],
+                                            self.ValueRef,
+                                            compilation_info=info)
+        self.BuildFAdd = rffi.llexternal("LLVMBuildFAdd",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.PrintValue = rffi.llexternal("LLVMPrintValueToString",
+                                           [self.ValueRef],
+                                           self.Str,
+                                           compilation_info=info)
+        self.BuildSub = rffi.llexternal("LLVMBuildSub",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRef, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.BuildFSub = rffi.llexternal("LLVMBuildFSub",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildMul = rffi.llexternal("LLVMBuildMul",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRef, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.BuildFMul = rffi.llexternal("LLVMBuildFMul",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildFMul = rffi.llexternal("LLVMBuildFMul",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildFDiv = rffi.llexternal("LLVMBuildFDiv",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildAnd = rffi.llexternal("LLVMBuildAnd",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRef, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.BuildOr = rffi.llexternal("LLVMBuildOr",
+                                        [self.BuilderRef, self.ValueRef,
+                                         self.ValueRef, self.Str],
+                                        self.ValueRef,
+                                        compilation_info=info)
+        self.BuildXor = rffi.llexternal("LLVMBuildXor",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRef, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.BuildFNeg = rffi.llexternal("LLVMBuildFNeg",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildLShl = rffi.llexternal("LLVMBuildShl",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildURShl = rffi.llexternal("LLVMBuildLShl",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.ValueRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildRShl = rffi.llexternal("LLVMBuildAShl",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.BuildSExt = rffi.llexternal("LLVMBuildSExt",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.TypeRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
+        self.SetJITEnums = rffi.llexternal("SetJITEnums",
+                                            [lltype.Ptr(self.JITEnums)],
+                                            self.Void,
+                                            compilation_info=info)
+        self.SetCmpEnums = rffi.llexternal("SetCmpEnums",
+                                            [lltype.Ptr(self.CmpEnums)],
+                                            self.Void,
+                                            compilation_info=info)
+        self.getResultElementType = rffi.llexternal("getResultElementType",
+                                                     [self.ValueRef],
+                                                     self.TypeRef,
+                                                     compilation_info=info)
+        self.DumpValue = rffi.llexternal("LLVMDumpValue",
+                                         [self.ValueRef],
+                                         self.Void,
+                                         compilation_info=info)
+        self.removeIncomingValue = rffi.llexternal("removeIncomingValue",
+                                                   [self.ValueRef,
+                                                    self.BasicBlockRef],
+                                                   self.ValueRef,
+                                                   compilation_info=info)
+        self.removePredecessor = rffi.llexternal("removePredecessor",
+                                                 [self.BasicBlockRef,
+                                                  self.BasicBlockRef],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.getFirstNonPhi = rffi.llexternal("getFirstNonPhi",
+                                              [self.BasicBlockRef],
+                                              self.Void,
+                                              compilation_info=info)
+        self.splitBasicBlockAtPhi = rffi.llexternal("splitBasicBlockAtPhi",
+                                               [self.BasicBlockRef],
+                                               self.BasicBlockRef,
+                                               compilation_info=info)
+        self.getTerminator = rffi.llexternal("getTerminator",
+                                             [self.BasicBlockRef],
+                                             self.ValueRef,
+                                             compilation_info=info)
+        self.DumpModule = rffi.llexternal("LLVMDumpModule",
+                                          [self.ModuleRef],
+                                          self.Void,
+                                          compilation_info=info)
+        self.dumpBasicBlock = rffi.llexternal("dumpBasicBlock",
+                                              [self.ModuleRef],
+                                              self.Void,
+                                              compilation_info=info)
+        self.getIncomingValueForBlock = rffi.llexternal("getIncomingValueForBlock",
+                                                        [self.ValueRef,
+                                                         self.BasicBlockRef],
+                                                        self.ValueRef,
+                                                        compilation_info=info)
+        self.GetLastInstruction = rffi.llexternal("LLVMGetLastInstruction",
+                                                    [self.BasicBlockRef],
+                                                     self.ValueRef,
+                                                     compilation_info=info)
 
-    def initialise_jit(self):
-        if self.debug:
-            if self.InitializeNativeTarget(None): #returns 0 on success
-                raise Exception("Native Target Failed To Initialise")
-            if self.InitializeNativeAsmPrinter(None):
-                raise Exception("Native Asmebly Printer Failed To Initialise")
-        else:
-            self.InitializeNativeTarget(None)
-            self.InitializeNativeAsmPrinter(None)
-
-        """
-        commented code needs LLVM 12 to run
-        """
-
-        #cpu_name = self.GetHostCPUName(None) #kept as C-string types
-        #cpu_features = self.GetHostCPUFeatures(None)
-        #triple = self.GetTargetTriple(None)
-        #target = self.GetTarget(triple)
-        #if self.debug and target._obj._getitem(0) == 0: #pointer is NULL
-        #    raise Exception("Get Target From Triple Failed")
-        #opt_level = DefinedConstantInteger("LLVMCodeGenLevelAggressive")
-        #reloc_mode = DefinedConstantInteger("LLVMRelocDefault")
-        #code_model = DefinedConstantInteger("LLVMCodeModelJITDefault")
-        #target_machine = self.CreateTargetMachine(target, triple, cpu_name,
-        #                                          cpu_features, opt_level,
-        #                                          reloc_mode, code_model)
-        #jit_target_machine_builder = self.JITTargetMachineBuilderCreateFromTargetMachine(
-        #                                    target_machine)
-
-
-        jit_builder = self.CreateLLJITBuilder(None)
-        if self.debug and jit_builder._cast_to_int() == 0:
-            raise Exception("JIT Builder is Null")
-
-        #self.LLJITBuilderSetJITTargetMachineBuilder(jit_builder,
-        #                                            jit_target_machine_builder)
-
-        #data_layout = self.CreateTargetDataLayout(target_machine)
-        #self.SetModuleDataLayout(self.Module, data_layout)
-
-        self.LLJIT = self.CreateLLJIT(jit_builder)
-        if self.debug and self.LLJIT._cast_to_int() == 0:
-            raise Exception("Failed To Create JIT")
-        self.DyLib = self.LLJITGetMainJITDylib(self.LLJIT)
-        if self.debug and self.DyLib._cast_to_int() == 0:
-            raise Exception("DyLib is Null")
+class CString:
+    """
+    we have to pass a cstring to nearly every llvm function, can keep
+    memory usage down by having the GC free them asap
+    (without ugly explicit calls to free everywhere)
+    """
+    def __init__(self, string):
+        self.ptr = str2constcharp(string)
+    def __del__(self):
+        lltype.free(self.ptr, flavor='raw')

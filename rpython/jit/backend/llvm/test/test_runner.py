@@ -11,3 +11,4 @@ class TestLLVM(LLtypeBackendTest):
         cpu = LLVM_CPU(rtyper=None, stats=FakeStats())
         cpu.setup_once()
         return cpu
+

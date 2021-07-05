@@ -1,4 +1,5 @@
 #include "wrapper.h"
+#include "wrapper_cpp.h"
 
 LLVMBool InitializeNativeTarget(void)	{
 	return LLVMInitializeNativeTarget();
@@ -54,50 +55,72 @@ void AddIncoming(LLVMValueRef phi, LLVMValueRef val, LLVMBasicBlockRef block){
 	LLVMAddIncoming(phi, &val, &block, 1);
 }
 
-LLVMValueRef BuildICmp(LLVMBuilderRef builder, int op, LLVMValueRef lhs, LLVMValueRef rhs, char *name){
-	LLVMIntPredicate pred;
-	switch (op){ //hack because I couldn't be bothered to get enums working through the rffi for now
-		case 1:
-			pred = LLVMIntEQ;
-			break;
-		case 2:
-			pred = LLVMIntNE;
-			break;
-		case 3:
-			pred = LLVMIntUGT;
-			break;
-		case 4:
-			pred = LLVMIntUGE;
-			break;
-		case 5:
-			pred = LLVMIntULE;
-			break;
-		case 6:
-			pred = LLVMIntSGT;
-			break;
-		case 7:
-			pred = LLVMIntSGE;
-			break;
-		case 8:
-			pred = LLVMIntSLT;
-			break;
-		case 9:
-			pred = LLVMIntSLE;
-			break;
-	}
-	return LLVMBuildICmp(builder, pred, lhs, rhs, name);
+long GetSizeOf(LLVMTypeRef typ){
+	LLVMValueRef size_llvm = LLVMSizeOf(typ);
+	char *size_str = LLVMPrintValueToString(size_llvm);
+	long size = atol(size_str);
+	LLVMDisposeMessage(size_str);
+	return size;
 }
 
-LLVMValueRef BuildGEP1D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx, char *name){
-	return LLVMBuildGEP2(builder, typ, ptr, &indx, 1, name);
+void SetJITEnums(struct JITEnums *enums){
+	enums->codegenlevel = LLVMCodeGenLevelAggressive;
+	enums->reloc = LLVMRelocDefault;
+	enums->codemodel = LLVMCodeModelJITDefault;
 }
 
-LLVMValueRef BuildGEP2D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx1, LLVMValueRef indx2, char *name){
-	LLVMValueRef arr[] = {indx1, indx2};
-	return LLVMBuildGEP2(builder, typ, ptr, arr, 2, name);
+void SetCmpEnums(struct CmpEnums *enums){
+	enums->inteq = LLVMIntEQ;
+	enums->intne = LLVMIntNE;
+	enums->intugt = LLVMIntUGT;
+	enums->intuge = LLVMIntUGE;
+	enums->intult = LLVMIntULT;
+	enums->intule = LLVMIntULE;
+	enums->intsgt = LLVMIntSGT;
+	enums->intsge = LLVMIntSGE;
+	enums->intslt = LLVMIntSLT;
+	enums->intsle = LLVMIntSLE;
+	enums->realeq = LLVMRealOEQ;
+	enums->realne = LLVMRealONE;
+	enums->realgt = LLVMRealOGT;
+	enums->realge = LLVMRealOGE;
+	enums->reallt = LLVMRealOLT;
+	enums->realle = LLVMRealOLE;
+	enums->realord = LLVMRealORD;
 }
 
-LLVMValueRef BuildGEP3D(LLVMBuilderRef builder, LLVMTypeRef typ, LLVMValueRef ptr, LLVMValueRef indx1, LLVMValueRef indx2, LLVMValueRef indx3, char *name){
-	LLVMValueRef arr[] = {indx1, indx2, indx3};
-	return LLVMBuildGEP2(builder, typ, ptr, arr, 3, name);
+LLVMTypeRef getResultElementType(LLVMValueRef gep_instr){
+	return getResultElementType_wrapper(gep_instr);
+}
+
+LLVMValueRef removeIncomingValue(LLVMValueRef phi, LLVMBasicBlockRef block){
+	return removeIncomingValue_wrapper(phi, block);
+}
+
+void removePredecessor(LLVMBasicBlockRef current, LLVMBasicBlockRef pred){
+	removePredecessor_wrapper(current, pred);
+}
+
+LLVMValueRef getFirstNonPhi(LLVMBasicBlockRef block){
+	return getFirstNonPhi_wrapper(block);
+}
+
+LLVMBasicBlockRef splitBasicBlockAtPhi(LLVMBasicBlockRef block){
+	return splitBasicBlockAtPhi_wrapper(block);
+}
+
+LLVMValueRef getTerminator(LLVMBasicBlockRef block){
+	return getTerminator_wrapper(block);
+}
+
+void dumpModule(LLVMModuleRef mod){
+	dumpModule_wrapper(mod);
+}
+
+void dumpBasicBlock(LLVMBasicBlockRef block){
+	dumpBasicBlock_wrapper(block);
+}
+
+LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block){
+	return getIncomingValueForBlock_wrapper(phi, block);
 }
