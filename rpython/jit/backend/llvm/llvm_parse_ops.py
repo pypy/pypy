@@ -135,22 +135,20 @@ class LLVMOpDispatcher:
         self.llvm.EraseInstruction(branch)
         failargs = op.getfailargs()
         num_failargs = len(failargs)
-        for i in range(num_failargs):
-            cast = self.llvm.GetLastInstruction(current_block)
-            self.llvm.EraseInstruction(cast)
         self.llvm.PositionBuilderAtEnd(self.builder, current_block)
         self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
         self.llvm.PositionBuilderAtEnd(self.builder, bridge)
-        failargs_llvm = self.llvm_failargs[op]
-        for c, arg in enumerate(inputargs):
-            self.ssa_vars[arg] = failargs_llvm[c]
+        for c, arg in enumerate(inputargs,1):
+            phi = self.bailout_phis[c]
+            value = self.llvm.getIncomingValueForBlock(phi, current_block)
+            self.ssa_vars[arg] = value
         if num_failargs == self.max_failargs:
             self.max_failargs = 0
             for guard in self.guards:
                 self.max_failargs = max(len(guard.getfailargs()), self.max_failargs)
             if self.max_failargs < num_failargs:
-                for i in range(self.max_failargs, num_failargs, -1):
-                    phi = self.bailout_phis[i]
+                for i in range(self.max_failargs, num_failargs):
+                    phi = self.bailout_phis[-1]
                     self.bailout_phis.pop()
                     self.llvm.EraseInstruction(phi)
         self.llvm.removePredecessor(self.bailout, current_block)
@@ -343,7 +341,6 @@ class LLVMOpDispatcher:
                 raise Exception("Unimplemented opcode: "+str(op.opnum))
 
         self.populate_bailout()
-        self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
@@ -394,9 +391,6 @@ class LLVMOpDispatcher:
         self.guards.add(op)
         current_block = self.llvm.GetInsertBlock(self.builder)
         failargs = op.getfailargs()
-        self.llvm_failargs[op] = [self.ssa_vars[arg] for arg in failargs]
-        uncast_failargs = [self.uncast(arg, self.ssa_vars[arg])
-                           for arg in failargs]
         self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
         num_failargs = len(failargs)
         if num_failargs > self.max_failargs:
@@ -412,7 +406,9 @@ class LLVMOpDispatcher:
                                              r_uint(descr_addr), 1)
         self.llvm.AddIncoming(self.bailout_phis[0], descr_addr_llvm, current_block)
         for i in range(1,num_failargs+1):
-            self.llvm.AddIncoming(self.bailout_phis[i], uncast_failargs[i-1], current_block)
+            arg = failargs[i-1]
+            uncast_arg = self.uncast(arg, self.ssa_vars[arg])
+            self.llvm.AddIncoming(self.bailout_phis[i], uncast_arg, current_block)
         self.llvm.PositionBuilderAtEnd(self.builder, current_block)
         cstring = CString("resume")
         resume = self.llvm.AppendBasicBlock(self.cpu.context,
