@@ -49,15 +49,21 @@ check_dirty() {
 }
 
 check_version_status() {
-    # check that the version in hpy/devel/version.py corresponds to the one
-    # given by git
-    revgit=$(git -C "$HPY" rev-parse --short HEAD)
+    # we want to make sure that all possible sources git revision and/or
+    # reported version match. In particular:
+    #
+    #  - hpy.devel.version.__git_revision__ should match the revision reported by git
+    #  - hpy.devel.version.__version__ should match hpy.devel.dist-info/METADATA
 
     pushd "$HPY/hpy/devel" > /dev/null
-    revpy=$(python -c 'import version;print(version.__git_revision__)')
+    sha_py=$(python -c 'import version;print(version.__git_revision__)')
+    ver_py=$(python -c 'import version;print(version.__version__)')
     popd > /dev/null
 
-    if [ "$revgit" != "$revpy" ]
+    sha_git=$(git -C "$HPY" rev-parse --short HEAD)
+    ver_dist=$(grep '^Version:' "$HPY/hpy.devel.dist-info/METADATA" | cut -d ' ' -f 2)
+
+    if [ "$sha_git -- $ver_dist" != "$sha_py -- $ver_py" ] 
     then
         if [ "$FORCE_VERSION" = true ]
         then
@@ -66,14 +72,18 @@ check_version_status() {
             admonition="${RED}ERROR${RESET}"
         fi
 
-        echo -e "${admonition} hpy/devel/version.py seems to be outdated"
-        echo "  revision reported by git describe: $revgit"
-        echo "  revision in hpy/devel/version.py:  $revpy"
+        echo -e "${admonition} hpy/devel/version.py and/or hpy.devel.dist-info is outdated:"
+        echo
+        echo "  revision reported by git describe: $sha_git"
+        echo "  revision in hpy/devel/version.py:  $sha_py"
+        echo
+        echo "  version in hpy.devel.dist-info/METADATA: $ver_dist"
+        echo "  version in hpy/devel/version.py:         $ver_py"
         echo
 
         if [ "$FORCE_VERSION" != true ]
         then
-            echo "Please run setup.py build in the hpy repo"
+            echo "Please run setup.py dist_info in the hpy repo"
             exit 1
         fi
     fi
@@ -127,6 +137,7 @@ myrsync -a --delete ${HPY}/test/* test/_vendored/
 myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
 rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
 myrsync -a --delete ${HPY}/hpy/devel/ ${BASEDIR}/lib_pypy/hpy/devel/
+myrsync -a --delete ${HPY}/hpy.devel.dist-info ${BASEDIR}/lib_pypy/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"
