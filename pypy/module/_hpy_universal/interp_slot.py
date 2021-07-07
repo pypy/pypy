@@ -84,7 +84,7 @@ class W_wrap_binaryfunc(object):
         w_other = __args__.arguments_w[1]
         with self.handles.using(w_self, w_other) as (h_self, h_other):
             h_result = func(self.ctx, h_self, h_other)
-            return self.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
 @specialize.memo()
 def get_cmp_wrapper_cls(handles, methname, OP):
@@ -103,7 +103,7 @@ def get_cmp_wrapper_cls(handles, methname, OP):
                 # instead
                 h_result = func(
                     handles.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
-                return handles.consume(h_result)
+            return handles.consume(h_result)
     suffix = '_d' if handles.is_debug else '_u'
     wrapper.__name__ = 'W_wrap_richcmp%s%s' % (methname, suffix)
     _WRAPPER_CACHE[handles, methname] = wrapper
@@ -123,7 +123,7 @@ class W_wrap_unaryfunc(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self)
-            return self.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
 class W_wrap_ternaryfunc(object):
     def call(self, space, __args__):
@@ -141,7 +141,7 @@ class W_wrap_ternaryfunc(object):
             w2 = __args__.arguments_w[2]
         with self.handles.using(w_self, w1, w2) as (h_self, h1, h2):
             h_result = func(self.ctx, h_self, h1, h2)
-            return self.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
 class W_wrap_indexargfunc(object):
     def call(self, space, __args__):
@@ -152,7 +152,7 @@ class W_wrap_indexargfunc(object):
         idx = space.int_w(space.index(w_idx))
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
-            return self.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
 class W_wrap_inquirypred(object):
     def call(self, space, __args__):
@@ -161,11 +161,11 @@ class W_wrap_inquirypred(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             res = func(self.ctx, h_self)
-            res = rffi.cast(lltype.Signed, res)
-            if res == -1:
-                raise NotImplementedError('write a test')
-                #State.get(space).check_and_raise_exception(always=True)
-            return space.newbool(bool(res))
+        res = rffi.cast(lltype.Signed, res)
+        if res == -1:
+            raise NotImplementedError('write a test')
+            #State.get(space).check_and_raise_exception(always=True)
+        return space.newbool(bool(res))
 
 class W_wrap_lenfunc(object):
     def call(self, space, __args__):
@@ -174,9 +174,9 @@ class W_wrap_lenfunc(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.newint(result)
+        if widen(result) == -1:
+            raise NotImplementedError('write a test')
+        return space.newint(result)
 
 def sq_getindex(space, w_sequence, w_idx):
     """
@@ -201,7 +201,7 @@ class W_wrap_sq_item(object):
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
-            return self.handles.consume(h_result)
+        return self.handles.consume(h_result)
 
 class W_wrap_sq_setitem(object):
     def call(self, space, __args__):
@@ -213,9 +213,9 @@ class W_wrap_sq_setitem(object):
         w_value = __args__.arguments_w[2]
         with self.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(self.ctx, h_self, idx, h_value)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.w_None
+        if widen(result) == -1:
+            raise NotImplementedError('write a test')
+        return space.w_None
 
 class W_wrap_sq_delitem(object):
     def call(self, space, __args__):
@@ -226,9 +226,9 @@ class W_wrap_sq_delitem(object):
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self, idx, llapi.HPy_NULL)
-            if widen(result) == -1:
-                raise NotImplementedError('write a test')
-            return space.w_None
+        if widen(result) == -1:
+            raise NotImplementedError('write a test')
+        return space.w_None
 
 class W_wrap_objobjproc(object):
     def call(self, space, __args__):
@@ -238,10 +238,10 @@ class W_wrap_objobjproc(object):
         w_key = __args__.arguments_w[1]
         with self.handles.using(w_self, w_key) as (h_self, h_key):
             res = func(self.ctx, h_self, h_key)
-            res = widen(res)
-            if res == -1:
-                raise NotImplementedError('write a test')
-            return space.newbool(bool(res))
+        res = widen(res)
+        if res == -1:
+            raise NotImplementedError('write a test')
+        return space.newbool(bool(res))
 
 class W_wrap_getbuffer(object):
     rbp = llapi.cts.cast('HPyFunc_releasebufferproc', 0)
@@ -252,37 +252,37 @@ class W_wrap_getbuffer(object):
         w_self = __args__.arguments_w[0]
         w_flags = __args__.arguments_w[1]
         flags = rffi.cast(rffi.INT_real, space.int_w(w_flags))
-        with self.handles.using(w_self) as h_self:
-            with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
+        with lltype.scoped_alloc(llapi.cts.gettype('HPy_buffer')) as hpybuf:
+            with self.handles.using(w_self) as h_self:
                 res = func(self.ctx, h_self, hpybuf, flags)
-                if widen(res) < 0:
-                    raise oefmt(space.w_BufferError,
-                        "HPy_bf_getbuffer slot failed without setting an exception")
-                buf_ptr = hpybuf.c_buf
-                w_obj = self.handles.consume(hpybuf.c_obj.c__i)
-                size = hpybuf.c_len
-                ndim = widen(hpybuf.c_ndim)
-                shape = None
-                if hpybuf.c_shape:
-                    shape = [hpybuf.c_shape[i] for i in range(ndim)]
-                strides = None
-                if hpybuf.c_strides:
-                    strides = [hpybuf.c_strides[i] for i in range(ndim)]
-                if hpybuf.c_format:
-                    format = rffi.charp2str(hpybuf.c_format)
-                else:
-                    format = 'B'
-                view = self.handles.HPyBuffer(
-                    buf_ptr, size, w_obj,
-                    itemsize=hpybuf.c_itemsize,
-                    readonly=widen(hpybuf.c_readonly),
-                    ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
-                    strides=strides)
-                if self.rbp:
-                    # XXX: we're assuming w_self and w_obj have the same type!
-                    view.releasebufferproc = self.rbp
-                    self.handles.BUFFER_FQ.register_finalizer(view)
-                return view.wrap(space)
+            if widen(res) < 0:
+                raise oefmt(space.w_BufferError,
+                    "HPy_bf_getbuffer slot failed without setting an exception")
+            buf_ptr = hpybuf.c_buf
+            w_obj = self.handles.consume(hpybuf.c_obj.c__i)
+            size = hpybuf.c_len
+            ndim = widen(hpybuf.c_ndim)
+            shape = None
+            if hpybuf.c_shape:
+                shape = [hpybuf.c_shape[i] for i in range(ndim)]
+            strides = None
+            if hpybuf.c_strides:
+                strides = [hpybuf.c_strides[i] for i in range(ndim)]
+            if hpybuf.c_format:
+                format = rffi.charp2str(hpybuf.c_format)
+            else:
+                format = 'B'
+            view = self.handles.HPyBuffer(
+                buf_ptr, size, w_obj,
+                itemsize=hpybuf.c_itemsize,
+                readonly=widen(hpybuf.c_readonly),
+                ndim=widen(hpybuf.c_ndim), format=format, shape=shape,
+                strides=strides)
+            if self.rbp:
+                # XXX: we're assuming w_self and w_obj have the same type!
+                view.releasebufferproc = self.rbp
+                self.handles.BUFFER_FQ.register_finalizer(view)
+            return view.wrap(space)
 
 
 # remaining wrappers to write
