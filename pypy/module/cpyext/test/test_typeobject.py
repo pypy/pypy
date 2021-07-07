@@ -760,11 +760,12 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         class F(float):
             def __int__(self):
                 return 666
-        # as long as issue 2248 is not fixed, 'expected' is 666 on pypy,
-        # but it should be -12.  This test is not concerned about that,
-        # but only about getting the same answer with module.nb_int().
         expected = float.__int__(F(-12.3))
         assert module.nb_int(float, F(-12.3)) == expected
+        assert module.nb_int(F, F(-12.3)) == 666
+        class A:
+            pass
+        raises(TypeError, module.nb_int, A, A())
 
     def test_nb_float(self):
         module = self.import_extension('foo', [

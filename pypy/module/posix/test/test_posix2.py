@@ -1662,6 +1662,15 @@ class AppTestPosix:
         with raises(OSError):
             posix.execv("notepad", (' ',))
 
+    def test_execve_invalid_env(self):
+        import sys
+        os = self.posix
+        args = ['notepad', '-c', 'pass']
+        newenv = os.environ.copy()
+        newenv["FRUIT=VEGETABLE"] = "cabbage"
+        with raises(ValueError):
+            os.execve(args[0], args, newenv)
+
 
 @py.test.mark.skipif("sys.platform != 'win32'")
 class AppTestNt(object):

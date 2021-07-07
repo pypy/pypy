@@ -59,6 +59,23 @@ class AppTestModuleObject(AppTestCpythonExtensionBase):
             )])
         assert module.check_mod_getstate()
 
+    def test___file__(self):
+        module = self.import_extension('foo', [
+            ("check___file__", "METH_NOARGS",
+             """
+                PyObject * f = PyUnicode_InternFromString("__file__");
+                PyObject *result = PyObject_GetItem(pyx_d, f);
+                Py_XINCREF(result);
+                Py_DECREF(f);
+                return result;
+             """
+            )], prologue="""
+            static PyObject * pyx_d;
+            """, more_init="""
+            pyx_d = PyModule_GetDict(mod);
+            """)
+        assert 'foo' in module.check___file__()
+
 
 class AppTestMultiPhase(AppTestCpythonExtensionBase):
     def test_basic(self):

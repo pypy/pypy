@@ -2632,13 +2632,6 @@ array_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
 
 
 static PyObject *
-switch_multiply(void)
-{
-    Arraytype.tp_as_number->nb_multiply = array_base_multiply;
-    Py_RETURN_NONE;
-};
-
-static PyObject *
 getitem(PyObject* self, PyObject * args) {
     PyObject * obj;
     int i;
@@ -3027,7 +3020,6 @@ passthrough(PyObject *self, PyObject* args) {
 static PyMethodDef a_methods[] = {
     {"_array_reconstructor", array_reconstructor, METH_VARARGS,
      PyDoc_STR("Internal. Used for pickling support.")},
-    {"switch_multiply",   (PyCFunction)switch_multiply, METH_NOARGS, NULL},
     {"readbuffer_as_string",   (PyCFunction)readbuffer_as_string, METH_VARARGS, NULL},
     {"get_releasebuffer_cnt",   (PyCFunction)get_releasebuffer_cnt, METH_NOARGS, NULL},
     {"create_and_release_buffer",   (PyCFunction)create_and_release_buffer, METH_O, NULL},

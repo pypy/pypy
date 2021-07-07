@@ -302,14 +302,11 @@ class W_PyCWrapperObject(W_Root):
     """
     Abstract class; for concrete subclasses, see slotdefs.py
     """
-    _immutable_fields_ = ['offset[*]']
-
-    def __init__(self, space, w_type, method_name, doc, func, offset):
+    def __init__(self, space, w_type, method_name, doc, func):
         self.space = space
         self.method_name = method_name
         self.doc = doc
         self.func = func
-        self.offset = offset
         assert isinstance(w_type, W_TypeObject)
         self.w_objclass = w_type
 
@@ -319,25 +316,8 @@ class W_PyCWrapperObject(W_Root):
     def call(self, space, w_self, __args__):
         raise NotImplementedError
 
-    @jit.unroll_safe
     def get_func_to_call(self):
-        func_to_call = self.func
-        if self.offset:
-            pto = as_pyobj(self.space, self.w_objclass)
-            # make ptr the equivalent of this, using the offsets
-            #func_to_call = rffi.cast(rffi.VOIDP, ptr.c_tp_as_number.c_nb_multiply)
-            if pto:
-                cptr = rffi.cast(rffi.CCHARP, pto)
-                for o in self.offset:
-                    ptr = rffi.cast(rffi.VOIDPP, rffi.ptradd(cptr, o))[0]
-                    cptr = rffi.cast(rffi.CCHARP, ptr)
-                func_to_call = rffi.cast(rffi.VOIDP, cptr)
-            else:
-                # Should never happen, assert to get a traceback
-                assert False, "failed to convert w_type %s to PyObject" % str(
-                                                              self.w_objclass)
-        assert func_to_call
-        return func_to_call
+        return self.func
 
     def check_args(self, __args__, arity):
         length = len(__args__.arguments_w)
