@@ -53,7 +53,7 @@ check_version_status() {
     # reported version match. In particular:
     #
     #  - hpy.devel.version.__git_revision__ should match the revision reported by git
-    #  - hpy.devel.version.__version__ should match hpy.devel.dist-info/METADATA
+    #  - hpy.devel.version.__version__ should match hpy.dist-info/METADATA
 
     pushd "$HPY/hpy/devel" > /dev/null
     sha_py=$(python -c 'import version;print(version.__git_revision__)')
@@ -61,7 +61,7 @@ check_version_status() {
     popd > /dev/null
 
     sha_git=$(git -C "$HPY" rev-parse --short HEAD)
-    ver_dist=$(grep '^Version:' "$HPY/hpy.devel.dist-info/METADATA" | cut -d ' ' -f 2)
+    ver_dist=$(grep '^Version:' "$HPY/hpy.dist-info/METADATA" | cut -d ' ' -f 2)
 
     if [ "$sha_git -- $ver_dist" != "$sha_py -- $ver_py" ] 
     then
@@ -72,13 +72,13 @@ check_version_status() {
             admonition="${RED}ERROR${RESET}"
         fi
 
-        echo -e "${admonition} hpy/devel/version.py and/or hpy.devel.dist-info is outdated:"
+        echo -e "${admonition} hpy/devel/version.py and/or hpy.dist-info is outdated:"
         echo
         echo "  revision reported by git describe: $sha_git"
         echo "  revision in hpy/devel/version.py:  $sha_py"
         echo
-        echo "  version in hpy.devel.dist-info/METADATA: $ver_dist"
-        echo "  version in hpy/devel/version.py:         $ver_py"
+        echo "  version in hpy.dist-info/METADATA: $ver_dist"
+        echo "  version in hpy/devel/version.py:   $ver_py"
         echo
 
         if [ "$FORCE_VERSION" != true ]
@@ -137,7 +137,7 @@ myrsync -a --delete ${HPY}/test/* test/_vendored/
 myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
 rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
 myrsync -a --delete ${HPY}/hpy/devel/ ${BASEDIR}/lib_pypy/hpy/devel/
-myrsync -a --delete ${HPY}/hpy.devel.dist-info ${BASEDIR}/lib_pypy/
+myrsync -a --delete ${HPY}/hpy.dist-info ${BASEDIR}/lib_pypy/
 apply_patches
 
 echo -e "${YELLOW}GIT status${RESET} of $HPY"
