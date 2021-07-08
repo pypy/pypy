@@ -1,3 +1,4 @@
+import sys
 import os.path
 import functools
 from pathlib import Path
@@ -10,6 +11,7 @@ from setuptools.command.build_ext import build_ext
 # NOTE: this file is also imported by PyPy tests, so it must be compatible
 # with both Python 2.7 and Python 3.x
 
+DEFAULT_HPY_ABI = 'cpython' if sys.implementation.name == 'cpython' else 'universal'
 
 class HPyDevel:
     """ Extra sources for building HPy extensions with hpy.devel. """
@@ -91,9 +93,9 @@ def handle_hpy_ext_modules(dist, attr, hpy_ext_modules):
     assert attr == 'hpy_ext_modules'
 
     # add a global option --hpy-abi to setup.py
-    dist.__class__.hpy_abi = 'cpython'
+    dist.__class__.hpy_abi = DEFAULT_HPY_ABI
     dist.__class__.global_options += [
-        ('hpy-abi=', None, 'Specify the HPy ABI mode (default: cpython)')
+        ('hpy-abi=', None, 'Specify the HPy ABI mode (default: %s)' % DEFAULT_HPY_ABI)
     ]
     hpydevel = HPyDevel()
     hpydevel.fix_distribution(dist)
