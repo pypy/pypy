@@ -612,9 +612,14 @@ class LLVMAPI:
                                                         self.ValueRef,
                                                         compilation_info=info)
         self.GetLastInstruction = rffi.llexternal("LLVMGetLastInstruction",
-                                                    [self.BasicBlockRef],
-                                                     self.ValueRef,
-                                                     compilation_info=info)
+                                                  [self.BasicBlockRef],
+                                                  self.ValueRef,
+                                                  compilation_info=info)
+        self.BuildPtrDiff = rffi.llexternal("LLVMBuildPtrDiff",
+                                            [self.BuilderRef, self.ValueRef,
+                                             self.ValueRef, self.Str],
+                                            self.ValueRef,
+                                            compilation_info=info)
 
 class CString:
     """

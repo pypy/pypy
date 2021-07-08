@@ -142,6 +142,37 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_float = None
         self.cpu.done_with_this_frame_descr_void = None
 
+    def test_llvm(self):
+        cpu = self.cpu
+        S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
+        sizedescr = cpu.sizeof(S)
+        looptoken = JitCellToken()
+        loop = parse("""
+        []
+        r1 = new(descr=sizedescr)
+        finish(r1, descr=faildescr)
+        """, namespace={"faildescr": BasicFinalDescr(1), "sizedescr": sizedescr})
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken)
+        fail = self.cpu.get_latest_descr(deadframe)
+        res = self.cpu.get_ref_value(deadframe, 0)
+        print(fail, res)
+        exit(1)
+        #r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
+        #r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
+        #assert r1 != r2
+        #xdescr = cpu.fielddescrof(S, 'x')
+        #ydescr = cpu.fielddescrof(S, 'y')
+        #self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
+                                                 #InputArgInt(150)],
+                               #'void', descr=ydescr)
+        #self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
+                                                 #InputArgInt(190)],
+                               #'void', descr=xdescr)
+        #s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
+        #assert s.x == chr(190)
+        #assert s.y == chr(150)
+
     def test_compile_linear_loop(self):
         loop = parse("""
         [i0]
