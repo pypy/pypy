@@ -89,8 +89,8 @@ class LLVMOpDispatcher:
             return self.llvm.BuildIntToPtr(self.builder, llvm_val,
                                            self.cpu.llvm_void_ptr, cstring.ptr)
 
-    #need to put signed ints back in the jitframe
     def uncast(self, arg, llvm_val):
+    #need to put signed ints back in the jitframe
         if arg.type == 'i':
             return llvm_val
         elif arg.type == 'f':
@@ -228,8 +228,8 @@ class LLVMOpDispatcher:
             elif op.opnum == 33:
                 self.parse_int_mul(op)
 
-            #elif op.opnum == 34:
-            #    self.parse_uint_mul_high(op)
+            elif op.opnum == 34:
+                self.parse_uint_mul_high(op)
 
             elif op.opnum == 35:
                 self.parse_int_and(op)
@@ -356,6 +356,31 @@ class LLVMOpDispatcher:
 
             elif op.opnum == 160:
                 self.parse_new(op)
+
+            elif op.opnum == 161:
+                self.parse_new_with_vtable(op)
+
+            elif op.opnum == 162:
+                self.parse_new_array(op)
+
+            elif op.opnum == 163:
+                self.parse_new_array(op) #TODO: boehm zero inits by default, other gc might not
+
+            elif op.opnum == 164:
+                self.parse_newstr(op)
+
+            elif op.opnum == 165:
+                self.parse_newunicode(op)
+
+            elif op.opnum == 166:
+                self.parse_force_token(op)
+
+            elif op.opnum == 168: #167 doesn't reach backend
+                self.parse_strhash(op)
+
+            elif op.opnum == 169:
+                self.parse_unicodehash(op)
+
 
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op.opnum))
@@ -489,6 +514,60 @@ class LLVMOpDispatcher:
         cstring = CString("int_mul_res")
         self.ssa_vars[op] = self.llvm.BuildMul(self.builder, lhs, rhs,
                                                cstring.ptr)
+
+    def parse_uint_mul_high(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        lhs = args[0]
+        rhs = args[1]
+        cstring = CString("uint_mul_res")
+        shift = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                   r_uint(self.cpu.word/2), 0)
+        mask_tmp = (1 << self.cpu.word/2) - 1
+        mask = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                  r_uint(mask_tmp), 0)
+        cstring = CString("a_high")
+        a_high = self.llvm.BuildURShl(self.builder, lhs, shift, cstring.ptr)
+        cstring = CString("a_low")
+        a_low = self.llvm.BuildAnd(self.builder, lhs, mask, cstring.ptr)
+        cstring = CString("b_high")
+        b_high = self.llvm.BuildURShl(self.builder, rhs, shift, cstring.ptr)
+        cstring = CString("b_low")
+        b_low = self.llvm.BuildAnd(self.builder, rhs, mask, cstring.ptr)
+        cstring = CString("res_low_low")
+        res_low_low = self.llvm.BuildMul(self.builder, a_low, b_low,
+                                         cstring.ptr)
+        cstring = CString("res_low_high")
+        res_low_high = self.llvm.BuildMul(self.builder, a_low, b_high,
+                                          cstring.ptr)
+        cstring = CString("res_high_low")
+        res_high_low = self.llvm.BuildMul(self.builder, a_high, b_low,
+                                          cstring.ptr)
+        cstring = CString("res_high_high")
+        res_high_high = self.llvm.BuildMul(self.builder, a_high, b_high,
+                                           cstring.ptr)
+        cstring = CString("res")
+        res_1 = self.llvm.BuildURShl(self.builder, res_low_low, shift,
+                                     cstring.ptr)
+        res_2 = self.llvm.BuildAdd(self.builder, res_1, res_high_low,
+                                   cstring.ptr)
+        res_3 = self.llvm.BuildAdd(self.builder, res_2, res_low_high,
+                                   cstring.ptr)
+        cstring = CString("cmp")
+        one = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(1), 0)
+        cnd = self.llvm.BuildICmp(self.builder, self.intule, res_3, res_1,
+                                  cstring.ptr)
+        cstring = CString("borrow")
+        borrow_1 = self.llvm.BuildSelect(self.builder, cnd, one, self.zero,
+                                       cstring.ptr)
+        borrow_2 = self.llvm.BuildShl(self.builder, borrow_1, shift,
+                                      cstring.ptr)
+        cstring = CString("res")
+        res_4 = self.llvm.BuildURShl(self.builder, res_3, shift, cstring.ptr)
+        res_5 = self.llvm.BuildAdd(self.builder, res_4, borrow_2, cstring.ptr)
+        cstring = CString("uint_mul_high_res")
+        self.ssa_vars[op] = self.llvm.BuildAdd(self.builder, res_5,
+                                               res_high_high, cstring.ptr)
+
 
     def parse_int_and(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
@@ -692,6 +771,42 @@ class LLVMOpDispatcher:
         self.ssa_vars[op] = self.llvm.BuildIntToPtr(self.builder, llvm_ptr,
                                                     self.cpu.llvm_void_ptr,
                                                     cstring.ptr)
+
+    def parse_new_with_vtable(self, op):
+        descr = op.getdescr()
+        ptr = self.cpu.bh_new_with_vtable(descr)._cast_to_int()
+        llvm_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(ptr), 0)
+        cstring = CString("new_res")
+        self.ssa_vars[op] = self.llvm.BuildIntToPtr(self.builder, llvm_ptr,
+                                                    self.cpu.llvm_void_ptr,
+                                                    cstring.ptr)
+
+    def parse_new_array(self, op):
+        size = self.parse_args(op.getarglist())[0]
+        descr = op.getdescr()
+        ptr = self.cpu.bh_new_array(size, descr)._cast_to_int()
+        llvm_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, r_uint(ptr), 0)
+        cstring = CString("new_res")
+        self.ssa_vars[op] = self.llvm.BuildIntToPtr(self.builder, llvm_ptr,
+                                                    self.cpu.llvm_void_ptr,
+                                                    cstring.ptr)
+
+    def parse_newstr(self, op):
+        pass
+
+    def parse_newunicode(self, op):
+        pass
+
+    def parse_force_token(self, op):
+        self.ssa_vars[op] = self.jitframe.struct
+
+    def parse_strhash(self, op):
+        arg = self.parse_args(op.getarglist())[0]
+        func_ptr = compute_unique_id(self.cpu.bh_strhash)
+
+
+    def parse_unicodehash(self, op):
+        pass
 
 class LLVMArray:
     def __init__(self, dispatcher, elem_type, elem_counts, depth, caller_block,

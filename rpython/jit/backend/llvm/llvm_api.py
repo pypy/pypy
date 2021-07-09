@@ -620,6 +620,12 @@ class LLVMAPI:
                                              self.ValueRef, self.Str],
                                             self.ValueRef,
                                             compilation_info=info)
+        self.BuildSelect = rffi.llexternal("LLVMBuildSelect",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.ValueRef, self.ValueRef,
+                                            self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
 
 class CString:
     """

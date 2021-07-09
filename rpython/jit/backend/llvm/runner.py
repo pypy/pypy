@@ -68,6 +68,7 @@ class LLVM_CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='trace', logger=None):
+        self.assembler.refresh_jit()
         cstring = CString(name)
         module = self.llvm.CreateModule(cstring.ptr, self.context)
         self.llvm.SetModuleDataLayout(module, self.assembler.data_layout)
