@@ -50,6 +50,7 @@ class LLVMAPI:
         self.TargetMachineRef = self.VoidPtr
         self.TargetRef = self.VoidPtr
         self.PassManagerRef = self.VoidPtr
+        self.MetadataRef = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
         self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed))
 
@@ -545,12 +546,12 @@ class LLVMAPI:
                                            self.ValueRef, self.Str],
                                           self.ValueRef,
                                           compilation_info=info)
-        self.BuildURShl = rffi.llexternal("LLVMBuildLShl",
+        self.BuildURShl = rffi.llexternal("LLVMBuildLShr",
                                            [self.BuilderRef, self.ValueRef,
                                             self.ValueRef, self.Str],
                                            self.ValueRef,
                                            compilation_info=info)
-        self.BuildRShl = rffi.llexternal("LLVMBuildAShl",
+        self.BuildRShl = rffi.llexternal("LLVMBuildAShr",
                                           [self.BuilderRef, self.ValueRef,
                                            self.ValueRef, self.Str],
                                           self.ValueRef,
@@ -620,12 +621,67 @@ class LLVMAPI:
                                              self.ValueRef, self.Str],
                                             self.ValueRef,
                                             compilation_info=info)
+        self.BuildFNeg = rffi.llexternal("LLVMBuildFNeg",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
         self.BuildSelect = rffi.llexternal("LLVMBuildSelect",
                                            [self.BuilderRef, self.ValueRef,
                                             self.ValueRef, self.ValueRef,
                                             self.Str],
                                            self.ValueRef,
                                            compilation_info=info)
+        self.MDString = rffi.llexternal("LLVMMDStringInContext2",
+                                        [self.ContextRef, self.Str,
+                                         lltype.Unsigned],
+                                        self.MetadataRef,
+                                        compilation_info=info)
+        self.MetadataAsValue = rffi.llexternal("LLVMMetadataAsValue",
+                                               [self.ContextRef,
+                                                self.MetadataRef],
+                                               self.ValueRef,
+                                               compilation_info=info)
+        self.GetMDKindID = rffi.llexternal("LLVMGetMDKindIDInContext",
+                                           [self.ContextRef, self.Str,
+                                            lltype.Unsigned],
+                                           lltype.Unsigned,
+                                           compilation_info=info)
+        self.SetMetadata = rffi.llexternal("LLVMSetMetadata",
+                                           [self.ValueRef, lltype.Unsigned,
+                                            self.ValueRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.BuildNeg = rffi.llexternal("LLVMBuildNeg",
+                                        [self.BuilderRef, self.ValueRef,
+                                         self.Str],
+                                        self.ValueRef,
+                                        compilation_info=info)
+        self.BuildNSWMul = rffi.llexternal("LLVMBuildNSWMul",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.ValueRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildNUWMul = rffi.llexternal("LLVMBuildNUWMul",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.ValueRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildIsNull = rffi.llexternal("LLVMBuildIsNull",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildIsNotNull = rffi.llexternal("LLVMBuildIsNotNull",
+                                              [self.BuilderRef, self.ValueRef,
+                                               self.Str],
+                                              self.ValueRef,
+                                              compilation_info=info)
+        self.BuildNeg = rffi.llexternal("LLVMBuildNeg",
+                                        [self.BuilderRef, self.ValueRef,
+                                         self.Str],
+                                        self.ValueRef,
+                                        compilation_info=info)
 
 class CString:
     """

@@ -1,7 +1,6 @@
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU, jitframe
 from rpython.jit.backend.model import CPUTotalTracker
 from rpython.rtyper.lltypesystem import rffi, lltype
-from rpython.rtyper.lltypesystem.lltype import r_uint
 from rpython.jit.backend.llvm.llvm_api import LLVMAPI, CString
 from rpython.jit.backend.llvm.llvm_parse_ops import LLVMOpDispatcher
 from rpython.jit.backend.llvm.assembler import LLVMAssembler
@@ -23,22 +22,25 @@ class LLVM_CPU(AbstractLLCPU):
         self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.WORD = 8
-        self.llvm_int_type = self.llvm.IntType(self.context, r_uint(self.WORD*8))
+        cstring = CString("hot_code")
+        self.kind_id = self.llvm.GetMDKindID(self.context, cstring.ptr, 8)
+        self.llvm_bool_type = self.llvm.IntType(self.context, 1)
+        self.llvm_int_type = self.llvm.IntType(self.context, self.WORD*8)
         self.llvm_float_type = self.llvm.FloatType(self.context)
         self.llvm_single_float_type = self.llvm.SingleFloatType(self.context)
-        self.llvm_indx_type = self.llvm.IntType(self.context, r_uint(self.WORD*4)) #llvm only allows signed 32bit ints for indecies (for some reason)
-        self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, r_uint(0))
-        self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, r_uint(8)), r_uint(0)) #llvm doesn't have void*, represents as i8*
+        self.llvm_indx_type = self.llvm.IntType(self.context, self.WORD*4) #llvm only allows signed 32bit ints for indecies (for some reason)
+        self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, 0)
+        self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, 8), 0) #llvm doesn't have void*, represents as i8*
 
     def decl_jitframe(self, num_args):
-        arg_array = self.llvm.ArrayType(self.llvm_int_type, r_uint(num_args+1)) #+1 for python metadata in element 0
+        arg_array = self.llvm.ArrayType(self.llvm_int_type, num_args+1) #+1 for python metadata in element 0
         jitframe_subtypes = [self.llvm_void_ptr, self.llvm_int_type,
                                self.llvm_void_ptr, self.llvm_void_ptr,
                                self.llvm_void_ptr, self.llvm_void_ptr,
                                self.llvm_void_ptr, arg_array]
         elem_array = rffi.CArray(self.llvm.TypeRef)
-        elem_count = r_uint(8)
-        packed = r_uint(0)
+        elem_count = 8
+        packed = 0
         elem_types = lltype.malloc(elem_array, n=elem_count, flavor='raw')
         for c, typ in enumerate(jitframe_subtypes):
             elem_types.__setitem__(c, typ)
@@ -74,14 +76,14 @@ class LLVM_CPU(AbstractLLCPU):
         self.llvm.SetModuleDataLayout(module, self.assembler.data_layout)
         builder = self.llvm.CreateBuilder(self.context) #TODO: look at moving to init
         jitframe_type, jitframe_subtypes = self.decl_jitframe(len(inputargs))
-        jitframe_ptr = self.llvm.PointerType(jitframe_type, r_uint(0))
+        jitframe_ptr = self.llvm.PointerType(jitframe_type, 0)
         arg_array = rffi.CArray(self.llvm.TypeRef)
         arg_types = lltype.malloc(arg_array, n=2, flavor='raw')
         arg_types.__setitem__(0, jitframe_ptr)
         arg_types.__setitem__(1, self.llvm_void_ptr)
         signature = self.llvm.FunctionType(jitframe_ptr,
                                            arg_types,
-                                           r_uint(2), 0)
+                                           2, 0)
         lltype.free(arg_types, flavor='raw')
         cstring = CString("trace")
         trace = self.llvm.AddFunction(module, cstring.ptr, signature)
