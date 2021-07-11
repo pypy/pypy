@@ -185,7 +185,9 @@ def create_package(basedir, options, _fake=False):
         print('Picking {} as pypy.exe'.format(src))
         # Can't rename a DLL
         win_extras = [('lib' + POSIX_EXE + '-c.dll', None),
-                      ('sqlite3.dll', lib_pypy)]
+                      ('sqlite3.dll', lib_pypy),
+                      ('libffi-7.dll', None),
+                     ]
         if not options.no__tkinter:
             tkinter_dir = lib_pypy.join('_tkinter')
             win_extras += [('tcl86t.dll', tkinter_dir), ('tk86t.dll', tkinter_dir)]
