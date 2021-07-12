@@ -105,21 +105,11 @@ elif _MINGW:
 else:
     USE_C_LIBFFI_MSVC = True
     # libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
-    if not _WIN64:
-        asm_ifc = 'win32.c'
-    else:
-        asm_ifc = 'win64.asm'
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
         libraries = ['kernel32', 'libffi-7'],
-        # include_dirs = [libffidir, cdir],
         separate_module_sources = separate_module_sources,
         post_include_bits = post_include_bits,
-        # separate_module_files = [libffidir.join('ffi.c'),
-        #                          libffidir.join('prep_cif.c'),
-        #                          libffidir.join(asm_ifc),
-        #                          libffidir.join('pypy_ffi.c'),
-        #                          ],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
