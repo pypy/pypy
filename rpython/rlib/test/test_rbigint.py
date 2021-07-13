@@ -1564,7 +1564,11 @@ def test_hypothesis_small_shift(methname):
     # run the TestHypothesis in a subprocess with a smaller SHIFT value
     # the idea is that this finds hopefully finds edge cases more easily
     import subprocess, os
-    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+    env = os.environ.copy()
+    env['PYTHONPATH'] = os.getcwd()
+    p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname],
+                         stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                         shell=True, env=env)
     stdout, stderr = p.communicate()
     print stdout
     print stderr
