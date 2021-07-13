@@ -5,7 +5,12 @@ import sys, os
 import math
 from random import random, randint, sample
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    print 'cwd', os.getcwd()
+    print 'sys.path', sys.path
+    raise
 
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
