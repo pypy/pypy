@@ -63,9 +63,37 @@ if os.name == 'nt':
             ret = _set_thread_local_invalid_parameter_handler(_handler);
             /*fprintf(stdout, "exiting, setting %p returning %p\\n", old_handler, ret);*/
         }
+        RPY_EXTERN size_t wrap_write(int fd, const void* data, size_t count)
+        {
+            _invalid_parameter_handler old = enter_suppress_iph();
+            if (count > 32767 && _isatty(fd)) {
+                // CPython Issue #11395, PyPy Issue #2636: the Windows console
+                // returns an error (12: not enough space error) on writing into
+                // stdout if stdout mode is binary and the length is greater than
+                // 66,000 bytes (or less, depending on heap usage).  Can't easily
+                // test that, because we need 'fd' to be non-redirected...
+                count = 32767;
+            }
+            else if (count > 0x7fffffff)
+            {
+                count = 0x7fffffff;
+            }
+            size_t ret = _write(fd, data, count);
+            exit_suppress_iph(old);
+            return ret;
+        }
+        RPY_EXTERN size_t wrap_read(int fd, const void* buffer, size_t buffer_size)
+        {
+            _invalid_parameter_handler old = enter_suppress_iph();
+            size_t ret = _read(fd, buffer, buffer_size);
+            exit_suppress_iph(old);
+            return ret;
+        }
     ''',]
     post_include_bits=['RPY_EXTERN void* enter_suppress_iph();',
                        'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                       'RPY_EXTERN size_t wrap_write(int, const void*, size_t);',
+                       'RPY_EXTERN size_t wrap_read(int, const void*, size_t);',
                       ]
 else:
     separate_module_sources = []
@@ -234,17 +262,6 @@ if os.name == 'nt':
         def __exit__(self, *args):
             c_exit_suppress_iph(self.invalid_param_hndlr)
 
-    def _bound_for_write(fd, count):
-        if count > 32767 and c_isatty(fd):
-            # CPython Issue #11395, PyPy Issue #2636: the Windows console
-            # returns an error (12: not enough space error) on writing into
-            # stdout if stdout mode is binary and the length is greater than
-            # 66,000 bytes (or less, depending on heap usage).  Can't easily
-            # test that, because we need 'fd' to be non-redirected...
-            count = 32767
-        elif count > 0x7fffffff:
-            count = 0x7fffffff
-        return count
 else:
     class SuppressIPH(object):
 
@@ -258,9 +275,6 @@ else:
             pass
 
     SuppressIPH_del = SuppressIPH
-
-    def _bound_for_write(fd, count):
-        return count
 
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
@@ -447,10 +461,18 @@ def open(path, flags, mode):
         fd = c_open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
 
-c_read = external(UNDERSCORE_ON_WIN32 + 'read',
+if os.name == 'nt':
+    c_read = external('wrap_read',
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+    c_write = external('wrap_write',
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+else:
+    c_read = external(UNDERSCORE_ON_WIN32 + 'read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO)
-c_write = external(UNDERSCORE_ON_WIN32 + 'write',
+    c_write = external('c_write',
                    [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
@@ -461,21 +483,18 @@ c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
 def read(fd, count):
     if count < 0:
         raise OSError(errno.EINVAL, None)
-    with SuppressIPH():
-        with rffi.scoped_alloc_buffer(count) as buf:
-            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
-            got = handle_posix_error('read', c_read(fd, void_buf, count))
-            return buf.str(got)
+    with rffi.scoped_alloc_buffer(count) as buf:
+        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+        got = handle_posix_error('read', c_read(fd, void_buf, count))
+        return buf.str(got)
 
 @replace_os_function('write')
 @signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
     count = len(data)
-    with SuppressIPH():
-        count = _bound_for_write(fd, count)
-        with rffi.scoped_nonmovingbuffer(data) as buf:
-            ret = c_write(fd, buf, count)
-            return handle_posix_error('write', ret)
+    with rffi.scoped_nonmovingbuffer(data) as buf:
+        ret = c_write(fd, buf, count)
+        return handle_posix_error('write', ret)
 
 @replace_os_function('close')
 @signature(types.int(), returns=types.any())
