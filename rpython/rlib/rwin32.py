@@ -251,8 +251,8 @@ if WIN32:
     _get_osfhandle = rffi.llexternal('_get_osfhandle', [rffi.INT], rffi.INTP)
 
     def get_osfhandle(fd):
-        from rpython.rlib.rposix import FdValidator
-        with FdValidator(fd):
+        from rpython.rlib.rposix import SuppressIPH
+        with SuppressIPH():
             handle = rffi.cast(HANDLE, _get_osfhandle(fd))
         if handle == INVALID_HANDLE_VALUE:
             raise WindowsError(ERROR_INVALID_HANDLE, "Invalid file handle")
@@ -261,9 +261,9 @@ if WIN32:
     _open_osfhandle = rffi.llexternal('_open_osfhandle', [rffi.INTP, rffi.INT], rffi.INT)
 
     def open_osfhandle(handle, flags):
-        from rpython.rlib.rposix import FdValidator
+        from rpython.rlib.rposix import SuppressIPH
         fd = _open_osfhandle(handle, flags)
-        with FdValidator(fd):
+        with SuppressIPH():
             return fd
     
     wcsncpy_s = rffi.llexternal('wcsncpy_s', 

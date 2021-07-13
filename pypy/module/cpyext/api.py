@@ -31,7 +31,7 @@ from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import FdValidator
+from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module.exceptions import interp_exceptions
@@ -100,27 +100,27 @@ else:
 
 def fclose(fp):
     try:
-        with FdValidator(c_fileno(fp)):
+        with SuppressIPH():
             return c_fclose(fp)
     except IOError:
         return -1
 
 def fwrite(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _feof(fp)
 
 _ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
 def ferror(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
