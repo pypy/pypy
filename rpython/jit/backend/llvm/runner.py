@@ -26,6 +26,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.kind_id = self.llvm.GetMDKindID(self.context, cstring.ptr, 8)
         self.llvm_bool_type = self.llvm.IntType(self.context, 1)
         self.llvm_int_type = self.llvm.IntType(self.context, self.WORD*8)
+        self.llvm_wide_int = self.llvm.IntType(self.context, self.WORD*16) #for overflow checks
         self.llvm_float_type = self.llvm.FloatType(self.context)
         self.llvm_single_float_type = self.llvm.SingleFloatType(self.context)
         self.llvm_indx_type = self.llvm.IntType(self.context, self.WORD*4) #llvm only allows signed 32bit ints for indecies (for some reason)

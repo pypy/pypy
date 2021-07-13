@@ -682,6 +682,11 @@ class LLVMAPI:
                                          self.Str],
                                         self.ValueRef,
                                         compilation_info=info)
+        self.BuildTrunc = rffi.llexternal("LLVMBuildTrunc",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.TypeRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
 
 class CString:
     """

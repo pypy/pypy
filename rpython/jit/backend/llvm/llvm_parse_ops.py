@@ -12,6 +12,10 @@ class LLVMOpDispatcher:
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
         self.jitframe_subtypes = jitframe_subtypes
+        self.max_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
+                                          2**(self.cpu.WORD*8-1)-1, 1)
+        self.min_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
+                                          -2**(self.cpu.WORD*8-1), 1)
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
@@ -27,7 +31,9 @@ class LLVMOpDispatcher:
         cstring = CString("bailout")
         self.bailout = self.llvm.AppendBasicBlock(self.cpu.context,
                                                   self.func, cstring.ptr)
-        self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1) #not really a bool just i1
+        self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
+        self.true = self.llvm.ConstInt(self.cpu.llvm_bool_type, 1, 0)
+        self.false = self.llvm.ConstInt(self.cpu.llvm_bool_type, 0, 0)
 
     def setCmpEnums(self):
         enums = lltype.malloc(self.llvm.CmpEnums, flavor='raw')
@@ -181,9 +187,15 @@ class LLVMOpDispatcher:
         self.llvm.DeleteBasicBlock(block)
 
     def init_inputargs(self, inputargs):
+        cstring = CString("overflow_flag")
+        self.overflow = self.llvm.BuildAlloca(self.builder,
+                                              self.cpu.llvm_bool_type,
+                                              cstring.ptr)
+        self.llvm.BuildStore(self.builder, self.false, self.overflow)
         self.jitframe = LLVMStruct(self, self.jitframe_subtypes, 2,
                                    self.entry, self.jitframe,
                                    self.jitframe_type)
+
         indecies_array = rffi.CArray(self.llvm.ValueRef)
         indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
         for c, arg in enumerate(inputargs,1):
@@ -228,6 +240,14 @@ class LLVMOpDispatcher:
             elif op.opnum == 14:
                 resume_block = self.setup_guard(op)
                 self.parse_guard_isnull(op, resume_block)
+
+            elif op.opnum == 22:
+                resume_block = self.setup_guard(op)
+                self.parse_guard_no_overflow(op, resume_block)
+
+            elif op.opnum == 23:
+                resume_block = self.setup_guard(op)
+                self.parse_guard_overflow(op, resume_block)
 
             elif op.opnum == 31:
                 self.parse_int_add(op)
@@ -400,6 +420,15 @@ class LLVMOpDispatcher:
             elif op.opnum == 169:
                 self.parse_unicodehash(op)
 
+            elif op.opnum == 246:
+                self.parse_int_ovf(op, "+")
+
+            elif op.opnum == 247:
+                self.parse_int_ovf(op, "-")
+
+            elif op.opnum == 248:
+                self.parse_int_ovf(op, "*")
+
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
@@ -488,8 +517,11 @@ class LLVMOpDispatcher:
 
     def parse_guard_false(self, op, resume):
         cnd = self.ssa_vars[op.getarglist()[0]]
-        branch = self.llvm.BuildCondBr(self.builder, cnd, self.bailout, resume)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
+        cstring = CString("cnd_flipped")
+        cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
+                                         cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, self.bailout, resume)
+        self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
     def parse_guard_value(self, op, resume):
@@ -540,6 +572,26 @@ class LLVMOpDispatcher:
             zero = self.llvm.ConstFloat(self.cpu.llvm_float_type, float(0))
             cnd = self.llvm.BuildFCmp(self.builder, self.realeq, arg, zero,
                                       cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
+        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
+        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+
+    def parse_guard_no_overflow(self, op, resume):
+        cstring = CString("overflow_flag")
+        cnd = self.llvm.BuildLoad(self.builder, self.cpu.llvm_bool_type,
+                                  self.overflow, cstring.ptr)
+        cstring = CString("overflow_flag_flipped")
+        cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
+                                         cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, self.bailout,
+                                       resume)
+        self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
+        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+
+    def parse_guard_overflow(self, op, resume):
+        cstring = CString("overflow_flag")
+        cnd = self.llvm.BuildLoad(self.builder, self.cpu.llvm_bool_type,
+                                  self.overflow, cstring.ptr)
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
         self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
@@ -876,12 +928,52 @@ class LLVMOpDispatcher:
         self.ssa_vars[op] = self.jitframe.struct
 
     def parse_strhash(self, op):
-        arg = self.parse_args(op.getarglist())[0]
         func_ptr = compute_unique_id(self.cpu.bh_strhash)
 
 
     def parse_unicodehash(self, op):
         pass
+
+    def parse_int_ovf(self, op, binop):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        lhs = args[0]
+        rhs = args[1]
+
+        cstring = CString("lhs_wide")
+        lhs_wide = self.llvm.BuildSExt(self.builder, lhs,
+                                       self.cpu.llvm_wide_int, cstring.ptr)
+        cstring = CString("rhs_wide")
+        rhs_wide = self.llvm.BuildSExt(self.builder, rhs,
+                                       self.cpu.llvm_wide_int, cstring.ptr)
+
+        if binop == "+":
+            cstring = CString("overflow_add")
+            res = self.llvm.BuildAdd(self.builder, lhs_wide, rhs_wide,
+                                     cstring.ptr)
+        elif binop == "-":
+            cstring = CString("overflow_sub")
+            res = self.llvm.BuildSub(self.builder, lhs_wide, rhs_wide,
+                                     cstring.ptr)
+        elif binop == "*":
+            cstring = CString("overflow_mul")
+            res = self.llvm.BuildMul(self.builder, lhs_wide, rhs_wide,
+                                     cstring.ptr)
+
+        cstring = CString("max_flag")
+        max_flag = self.llvm.BuildICmp(self.builder, self.intsgt, res,
+                                       self.max_int, cstring.ptr)
+        cstring = CString("min_flag")
+        min_flag = self.llvm.BuildICmp(self.builder, self.intslt, res,
+                                       self.min_int, cstring.ptr)
+
+        cstring = CString("overflow_check")
+        check = self.llvm.BuildOr(self.builder, max_flag, min_flag, cstring.ptr)
+        self.llvm.BuildStore(self.builder, check, self.overflow)
+
+        cstring = CString("int_add_ovf_res")
+        self.ssa_vars[op] = self.llvm.BuildTrunc(self.builder, res,
+                                                 self.cpu.llvm_int_type,
+                                                 cstring.ptr)
 
 class LLVMArray:
     def __init__(self, dispatcher, elem_type, elem_counts, depth, caller_block,

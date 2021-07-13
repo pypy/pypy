@@ -153,10 +153,13 @@ class BaseBackendTest(Runner):
         sizedescr = cpu.sizeof(S)
         looptoken = JitCellToken()
         loop = parse("""
-        [i0]
-        i1 = int_neg(i0)
-        finish(i1, descr=finaldescr)
+        [i0, i1]
+        i2 = int_add_ovf(i0, i1)
+        guard_no_overflow(descr=faildescr)[i2]
+        finish(i2, descr=finaldescr)
         """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2)})
+        print(loop.operations[0])
+        print(loop.operations[0].opnum)
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
