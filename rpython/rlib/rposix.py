@@ -469,10 +469,10 @@ if os.name == 'nt':
                    [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
 else:
-    c_read = external(UNDERSCORE_ON_WIN32 + 'read',
+    c_read = external('read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO)
-    c_write = external('c_write',
+    c_write = external('write',
                    [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
