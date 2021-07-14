@@ -1,4 +1,5 @@
-
+import sys
+import pytest
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.jit.backend.llsupport.codemap import CodemapStorage, \
      CodemapBuilder, unpack_traceback, find_codemap_at_addr
@@ -26,6 +27,7 @@ def test_register_codemap():
     #
     codemap.free()
 
+@pytest.mark.skipif(sys.platform=='win32', reason='codemap unused, and long/Signed confusion on win64')
 def test_free_with_alignment():
     codemap = CodemapStorage()
     codemap.setup()
