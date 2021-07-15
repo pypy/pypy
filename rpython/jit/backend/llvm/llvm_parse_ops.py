@@ -12,10 +12,6 @@ class LLVMOpDispatcher:
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
         self.jitframe_subtypes = jitframe_subtypes
-        self.max_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
-                                          2**(self.cpu.WORD*8-1)-1, 1)
-        self.min_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
-                                          -2**(self.cpu.WORD*8-1), 1)
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
@@ -25,17 +21,31 @@ class LLVMOpDispatcher:
         self.llvm_failargs = {} #map guards to llvm values their failargs map to at point of parsing
         self.guards = set() #keep track of seen guards for later
         self.max_failargs = 0 #track max number of failargs seen
-        self.setCmpEnums()
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
         self.jitframe = self.llvm.GetParam(self.func, 0)
         cstring = CString("bailout")
         self.bailout = self.llvm.AppendBasicBlock(self.cpu.context,
                                                   self.func, cstring.ptr)
+        self.define_constants()
+
+    def define_constants(self):
         self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
         self.true = self.llvm.ConstInt(self.cpu.llvm_bool_type, 1, 0)
         self.false = self.llvm.ConstInt(self.cpu.llvm_bool_type, 0, 0)
+        self.max_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
+                                          2**(self.cpu.WORD*8-1)-1, 1)
+        self.min_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
+                                          -2**(self.cpu.WORD*8-1), 1)
+        self.fabs_intrinsic = self.define_function([self.cpu.llvm_float_type],
+                                                   self.cpu.llvm_float_type,
+                                                   "llvm.fabs.f64")
+        self.stackmap_intrinsic = self.define_function(
+            [self.cpu.llvm_int_type, self.cpu.llvm_indx_type],
+            self.cpu.llvm_void_type, "llvm.intrinsic.stackmap", variadic=True
+            )
+        self.set_pred_enums()
 
-    def setCmpEnums(self):
+    def set_pred_enums(self):
         enums = lltype.malloc(self.llvm.CmpEnums, flavor='raw')
         self.llvm.SetCmpEnums(enums)
         self.inteq = enums.inteq
@@ -56,6 +66,18 @@ class LLVMOpDispatcher:
         self.realle = enums.realle
         self.realord = enums.realord
         lltype.free(enums, flavor='raw')
+
+    def define_function(self, param_types, ret_type, name, variadic=False): #takes llvm types
+        param_array = rffi.CArray(self.llvm.TypeRef)
+        parameters = lltype.malloc(param_array, n=len(param_types),
+                                   flavor='raw')
+        for c, typ in enumerate(param_types):
+            parameters.__setitem__(c, typ)
+        signature = self.llvm.FunctionType(ret_type, parameters,
+                                           len(param_types),
+                                           1 if variadic else 0)
+        cstring = CString(name)
+        return self.llvm.AddFunction(self.module, cstring.ptr, signature)
 
     def create_metadata(self, string):
         cstring = CString(string)
@@ -297,8 +319,8 @@ class LLVMOpDispatcher:
             elif op.opnum == 46:
                 self.parse_float_neg(op)
 
-            #elif op.opnum == 47:
-            #    self.parse_float_abs(op)
+            elif op.opnum == 47:
+                self.parse_float_abs(op)
 
             elif op.opnum == 48:
                 self.parse_float_to_int(op)
@@ -433,7 +455,8 @@ class LLVMOpDispatcher:
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
         self.populate_bailout()
-        self.llvm.DumpModule(self.module)
+        if self.cpu.debug:
+            self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
@@ -520,7 +543,7 @@ class LLVMOpDispatcher:
         cstring = CString("cnd_flipped")
         cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
                                          cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, self.bailout, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, resume, self.bailout)
         self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
@@ -553,7 +576,7 @@ class LLVMOpDispatcher:
     def parse_guard_nonnull(self, op, resume):
         arg, typ = self.parse_args(op.getarglist())[0]
         cstring = CString("guard_nonnull_res")
-        if typ != 'f': #isnotnull is generic on int and ptr but not float
+        if typ != 'f': #IsNotNull is generic on int and ptr but not float
             cnd = self.llvm.BuildIsNotNull(self.builder, arg, cstring.ptr)
         else:
             zero = self.llvm.ConstFloat(self.cpu.llvm_float_type, float(0))
@@ -583,8 +606,8 @@ class LLVMOpDispatcher:
         cstring = CString("overflow_flag_flipped")
         cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
                                          cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, self.bailout,
-                                       resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, resume,
+                                       self.bailout)
         self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
@@ -767,9 +790,19 @@ class LLVMOpDispatcher:
                                                 cstring.ptr)
 
     def parse_float_neg(self, op):
-        arg = self.parse_args(op.getarglist())[0]
+        arg = self.parse_args(op.getarglist())[0][0]
         cstring = CString("float_neg_res")
         self.ssa_vars[op] = self.llvm.BuildFNeg(self.builder, arg, cstring.ptr)
+
+    def parse_float_abs(self, op):
+        arg = self.parse_args(op.getarglist())[0][0]
+        arg_array_type = rffi.CArray(self.llvm.ValueRef)
+        arg_array = lltype.malloc(arg_array_type, n=1, flavor='raw')
+        arg_array.__setitem__(0, arg)
+        cstring = CString("float_abs_res")
+        self.ssa_vars[op] = self.llvm.BuildCall(self.builder,
+                                                self.fabs_intrinsic,
+                                                arg_array, 1, cstring.ptr)
 
     def parse_float_to_int(self, op):
         arg = self.parse_args(op.getarglist())[0][0]

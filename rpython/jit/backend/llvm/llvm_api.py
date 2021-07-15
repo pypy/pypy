@@ -687,6 +687,16 @@ class LLVMAPI:
                                            self.TypeRef, self.Str],
                                           self.ValueRef,
                                           compilation_info=info)
+        self.BuildCall = rffi.llexternal("LLVMBuildCall",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRefPtr, lltype.Unsigned,
+                                          self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
+        self.VoidType = rffi.llexternal("LLVMVoidTypeInContext",
+                                        [self.ContextRef],
+                                        self.TypeRef,
+                                        compilation_info=info)
 
 class CString:
     """

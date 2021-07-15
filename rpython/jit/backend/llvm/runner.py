@@ -24,6 +24,9 @@ class LLVM_CPU(AbstractLLCPU):
         self.WORD = 8
         cstring = CString("hot_code")
         self.kind_id = self.llvm.GetMDKindID(self.context, cstring.ptr, 8)
+        self.define_types()
+
+    def define_types(self):
         self.llvm_bool_type = self.llvm.IntType(self.context, 1)
         self.llvm_int_type = self.llvm.IntType(self.context, self.WORD*8)
         self.llvm_wide_int = self.llvm.IntType(self.context, self.WORD*16) #for overflow checks
@@ -31,6 +34,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.llvm_single_float_type = self.llvm.SingleFloatType(self.context)
         self.llvm_indx_type = self.llvm.IntType(self.context, self.WORD*4) #llvm only allows signed 32bit ints for indecies (for some reason)
         self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, 0)
+        self.llvm_void_type = self.llvm.VoidType(self.context)
         self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, 8), 0) #llvm doesn't have void*, represents as i8*
 
     def decl_jitframe(self, num_args):
