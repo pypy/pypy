@@ -1,9 +1,11 @@
 Metadata-Version: 2.1
 Name: hpy
-Version: 0.0.2rc4
+Version: 0.0.2
 Summary: A better C API for Python
-Home-page: UNKNOWN
-License: UNKNOWN
+Home-page: https://hpyproject.org
+Author: The HPy team
+Author-email: hpy-dev@python.org
+License: MIT
 Platform: UNKNOWN
 Description-Content-Type: text/markdown
 Provides-Extra: dev
