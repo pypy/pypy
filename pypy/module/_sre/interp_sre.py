@@ -450,14 +450,9 @@ class W_SRE_Pattern(W_Root):
         # when escaping things)
         if not searchcontext(space, ctx, pattern):
             w_typ = space.type(w_string)
-            if w_typ is space.w_unicode:
-                return w_string, 0
-            if space.issubtype_w(w_typ, space.w_unicode):
-                return space.add(w_string, space.newutf8('', 0)), 0
-            if w_typ is space.w_bytes:
-                return w_string, 0
-            if space.issubtype_w(w_typ, space.w_bytes):
-                return space.add(w_string, space.newbytes('')), 0
+            if w_typ is not space.w_unicode and w_typ is not space.w_bytes:
+                w_string = slice_w(space, ctx, ctx.ZERO, ctx_end, space.w_None)
+            return w_string, 0
 
         # XXX this is a bit of a mess, but it improves performance a lot
         sublist_w = strbuilder = None
