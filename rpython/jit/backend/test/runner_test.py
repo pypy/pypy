@@ -153,14 +153,15 @@ class BaseBackendTest(Runner):
         sizedescr = cpu.sizeof(S)
         looptoken = JitCellToken()
         loop = parse("""
-        [f0]
-        f1 = float_abs(f0)
-        finish(f1, descr=finaldescr)
+        [i0]
+        i1 = int_add(i0, 1)
+        guard_value(i1, 2, descr=faildescr)[i1]
+        finish(i1, descr=finaldescr)
         """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2)})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, -1.0)
+        deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
-        res = self.cpu.get_float_value(deadframe, 0)
+        res = self.cpu.get_int_value(deadframe, 0)
         print(fail, res)
         exit(1)
         #r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
@@ -604,6 +605,8 @@ class BaseBackendTest(Runner):
                                           InputArgInt(num1)],
                                          'int', descr=calldescr)
             assert res == num + num1
+            continue
+
             # then, try it with the dynamic calldescr
             dyn_calldescr = cpu._calldescr_dynamic_for_tests(
                 [ffi_type, ffi_type], ffi_type)

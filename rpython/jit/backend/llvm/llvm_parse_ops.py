@@ -1,5 +1,8 @@
+from rpython.jit.metainterp.history import ConstInt
+from rpython.jit.metainterp.support import ptr2int
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rtyper.lltypesystem import rffi, lltype
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.backend.llvm.llvm_api import CString
 
 class LLVMOpDispatcher:
@@ -41,7 +44,7 @@ class LLVMOpDispatcher:
                                                    "llvm.fabs.f64")
         self.stackmap_intrinsic = self.define_function(
             [self.cpu.llvm_int_type, self.cpu.llvm_indx_type],
-            self.cpu.llvm_void_type, "llvm.intrinsic.stackmap", variadic=True
+            self.cpu.llvm_void_type, "llvm.experimental.stackmap", variadic=True
             )
         self.set_pred_enums()
 
@@ -67,22 +70,62 @@ class LLVMOpDispatcher:
         self.realord = enums.realord
         lltype.free(enums, flavor='raw')
 
-    def define_function(self, param_types, ret_type, name, variadic=False): #takes llvm types
-        param_array = rffi.CArray(self.llvm.TypeRef)
-        parameters = lltype.malloc(param_array, n=len(param_types),
-                                   flavor='raw')
-        for c, typ in enumerate(param_types):
-            parameters.__setitem__(c, typ)
+    def get_func_ptr(self, func, arg_types, ret_type):
+        #takes rpython types
+        FPTR = lltype.Ptr(lltype.FuncType(arg_types, ret_type))
+        func_ptr = llhelper(FPTR, func)
+        return ConstInt(ptr2int(func_ptr))
+
+    def define_function(self, param_types, ret_type, name, variadic=False):
+        #takes llvm types
+        parameters = self.rpython_array(param_types, self.llvm.TypeRef)
         signature = self.llvm.FunctionType(ret_type, parameters,
                                            len(param_types),
                                            1 if variadic else 0)
+        lltype.free(parameters, flavor='raw')
         cstring = CString(name)
         return self.llvm.AddFunction(self.module, cstring.ptr, signature)
+
+    def call_function(self, func_int_ptr, ret_type, arg_types, args,
+                      res_name, void=False):
+        #takes llvm types
+        arg_num = len(args)
+        arg_types = self.rpython_array(arg_types, self.llvm.TypeRef)
+        func_type = self.llvm.FunctionType(ret_type, arg_types,
+                                           arg_num, 0)
+
+        func_ptr_type = self.llvm.PointerType(func_type, 0)
+        cstring = CString("func_ptr")
+        func = self.llvm.BuildIntToPtr(self.builder, func_int_ptr,
+                                       func_ptr_type, cstring.ptr)
+        arg_array = self.rpython_array(args, self.llvm.ValueRef)
+
+        if not void:
+            cstring = CString(res_name)
+            res =  self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
+                                       cstring.ptr)
+        else:
+            cstring = CString("")
+            self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
+                                cstring.ptr)
+
+        lltype.free(arg_array, flavor='raw')
+        lltype.free(arg_types, flavor='raw')
+        if not void:
+            return res
+
 
     def create_metadata(self, string):
         cstring = CString(string)
         mdstr = self.llvm.MDString(self.cpu.context, cstring.ptr, len(string))
         return self.llvm.MetadataAsValue(self.cpu.context, mdstr)
+
+    def rpython_array(self, args, elem_type):
+        arg_array_type = rffi.CArray(elem_type)
+        arg_array = lltype.malloc(arg_array_type, n=len(args), flavor='raw')
+        for c, arg in enumerate(args):
+            arg_array.__setitem__(c, arg)
+        return arg_array
 
     def parse_args(self, args):
         llvm_args = []
@@ -125,7 +168,7 @@ class LLVMOpDispatcher:
     #need to put signed ints back in the jitframe
         if arg.type == 'i':
             cstring = CString("uncast_res")
-            return self.llvm.BuildZExt(self.builder, llvm_val, #FIXME: not sure if we can always get away with unsigned ext
+            return self.llvm.BuildSExt(self.builder, llvm_val, #TODO: look into what happens when val is i1
                                        self.cpu.llvm_int_type, cstring.ptr)
         elif arg.type == 'f':
             cstring = CString("uncast_res")
@@ -167,6 +210,19 @@ class LLVMOpDispatcher:
                 dummy_value = self.llvm.ConstInt(self.cpu.context,
                                                  0, 0)
                 self.llvm.AddIncoming(self.bailout_phis[indx], dummy_value, block)
+            #arg_array_type = rffi.CArray(self.llvm.ValueRef)
+            #arg_array = lltype.malloc(arg_array_type, n=(2+len(failargs)), flavor='raw')
+            #ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
+            #shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
+            #arg_array.__setitem__(0, ID)
+            #arg_array.__setitem__(1, shadow_bytes)
+            #for c, failarg in enumerate(failargs, 2):
+                #arg_array.__setitem__(c, self.ssa_vars[failarg])
+            #cstring = CString("")
+            #self.llvm.BuildCall(self.builder, self.stackmap_intrinsic,
+                                #arg_array, 2+len(failargs), cstring.ptr)
+            #lltype.free(arg_array, flavor='raw')
+
         if self.max_failargs > 0:
             descr = self.bailout_phis[0]
             self.exit_trace(self.bailout_phis[1:], descr)
@@ -442,14 +498,26 @@ class LLVMOpDispatcher:
             elif op.opnum == 169:
                 self.parse_unicodehash(op)
 
+            elif op.opnum == 213:
+                self.parse_call(op, 'r')
+
+            elif op.opnum == 214:
+                self.parse_call(op, 'f')
+
+            elif op.opnum == 215:
+                self.parse_call(op, 'i')
+
+            elif op.opnum == 216:
+                self.parse_call(op, 'n')
+
             elif op.opnum == 246:
-                self.parse_int_ovf(op, "+")
+                self.parse_int_ovf(op, '+')
 
             elif op.opnum == 247:
-                self.parse_int_ovf(op, "-")
+                self.parse_int_ovf(op, '-')
 
             elif op.opnum == 248:
-                self.parse_int_ovf(op, "*")
+                self.parse_int_ovf(op, '*')
 
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
@@ -803,6 +871,7 @@ class LLVMOpDispatcher:
         self.ssa_vars[op] = self.llvm.BuildCall(self.builder,
                                                 self.fabs_intrinsic,
                                                 arg_array, 1, cstring.ptr)
+        lltype.free(arg_array, flavor='raw')
 
     def parse_float_to_int(self, op):
         arg = self.parse_args(op.getarglist())[0][0]
@@ -944,15 +1013,32 @@ class LLVMOpDispatcher:
     def parse_new_array(self, op):
         size = self.parse_args(op.getarglist())[0]
         descr = op.getdescr()
-        ptr = self.cpu.bh_new_array(size, descr)._cast_to_int()
-        llvm_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, ptr, 0)
-        cstring = CString("new_res")
-        self.ssa_vars[op] = self.llvm.BuildIntToPtr(self.builder, llvm_ptr,
-                                                    self.cpu.llvm_void_ptr,
-                                                    cstring.ptr)
+        arg_types = [lltype.Signed, lltype.Ptr]
+        ret_type = lltype.Ptr
+        func_ptr = self.get_func_ptr(self.cpu.bh_new_array, arg_types, ret_type)
+        arg_types_llvm = [self.cpu.llvm_int_type, self.cpu.llvm_void_ptr]
+        ret_type_llvm = self.cpu.llvm_void_ptr
+        descr_int = self.llvm.ConstInt(self.cpu.llvm_int_type, ptr2int(descr), 0)
+        cstring = CString("descr")
+        descr_llvm = self.llvm.BuildIntToPtr(self.builder, descr_int,
+                                             self.cpu.llvm_void_ptr,
+                                             cstring.ptr)
+        args = [size, descr_llvm]
+        self.ssa_vars[op] = self.call_function(func_ptr, ret_type_llvm,
+                                               arg_types_llvm, args,
+                                               "new_array_res")
 
     def parse_newstr(self, op):
-        pass
+        length = self.parse_args(op.getarglist())[0]
+        arg_types = [lltype.Signed]
+        ret_type = lltype.Ptr
+        func_ptr = self.get_func_ptr(self.cpu.bh_newstr, arg_types, ret_type)
+        arg_types_llvm = [self.cpu.llvm_int_type]
+        ret_type_llvm = self.cpu.llvm_void_ptr
+        args = [length]
+        self.ssa_vars[op] = self.call_function(func_ptr, ret_type_llvm,
+                                               arg_types_llvm, args,
+                                               "newstr_res")
 
     def parse_newunicode(self, op):
         pass
@@ -963,9 +1049,37 @@ class LLVMOpDispatcher:
     def parse_strhash(self, op):
         func_ptr = compute_unique_id(self.cpu.bh_strhash)
 
-
     def parse_unicodehash(self, op):
         pass
+
+    def parse_call(self, op, ret):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        print(op.getarglist()[2].getvalue())
+        print(op.getarglist()[2].type)
+        func_int_ptr = args[0]
+        params = args[1:]
+        call_descr = op.getdescr()
+        print(call_descr.result_size)
+        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
+        elif ret == 'f': ret_type = self.cpu.llvm_float_type
+        elif ret == 'i': ret_type = self.cpu.llvm_int_type
+        elif ret == 'n': ret_type = self.cpu.llvm_void_type
+
+        arg_types = []
+        for typ in call_descr.arg_classes:
+            if typ == 'i':
+                arg_types.append(self.cpu.llvm_int_type)
+            elif typ == 'f':
+                arg_types.append(self.cpu.llvm_float_type)
+            elif typ == 'r':
+                arg_types.append(self.cpu.llvm_void_ptr)
+            elif typ == 'L':
+                arg_types.append(self.cpu.llvm_float_type)
+            elif typ == 'S':
+                arg_types.append(self.cpu.llvm_single_float_type)
+
+        self.call_function(func_int_ptr, ret_type, arg_types, params,
+                           "call_res", void = ret == 'n')
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]

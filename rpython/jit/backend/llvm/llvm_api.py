@@ -51,6 +51,8 @@ class LLVMAPI:
         self.TargetRef = self.VoidPtr
         self.PassManagerRef = self.VoidPtr
         self.MetadataRef = self.VoidPtr
+        self.ExecutionSessionRef = self.VoidPtr
+        self.ObjectLayerRef = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
         self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed))
 
@@ -697,6 +699,14 @@ class LLVMAPI:
                                         [self.ContextRef],
                                         self.TypeRef,
                                         compilation_info=info)
+        self.GetExecutionSession = rffi.llexternal("LLVMOrcLLJITGetExecutionSession",
+                                        [self.LLJITRef],
+                                        self.ExecutionSessionRef,
+                                        compilation_info=info)
+        self.CreateObjectLinkingLayer = rffi.llexternal(
+            "LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManager",
+            [self.ExecutionSessionRef], self.ObjectLayerRef,
+            compilation_info=info)
 
 class CString:
     """

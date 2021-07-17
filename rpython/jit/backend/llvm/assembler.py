@@ -1,7 +1,6 @@
 from rpython.jit.backend.model import CompiledLoopToken
 from rpython.jit.backend.llsupport.assembler import BaseAssembler
-from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.tool.rffi_platform import DefinedConstantString
+from rpython.rtyper.lltypesystem import lltype
 from rpython.jit.backend.llvm.llvm_api import CString
 from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem.rffi import constcharp2str
@@ -13,9 +12,9 @@ class LLVMAssembler(BaseAssembler):
         self.debug = cpu.debug
         self.llvm.InitializeNativeTarget(None)
         self.llvm.InitializeNativeAsmPrinter(None)
-        self.LLJIT, self.DyLib, self.data_layout = self.initialise_jit()
         self.pass_manager = self.llvm.CreatePassManager(None)
         self.add_opt_passes()
+        self.initialise_jit()
 
     def initialise_jit(self):
         jit_builder = self.llvm.CreateLLJITBuilder(None)
@@ -34,19 +33,21 @@ class LLVMAssembler(BaseAssembler):
                                                        cpu_features, opt_level,
                                                        reloc_mode, code_model)
         lltype.free(enums, flavor='raw')
-        data_layout = self.llvm.CreateTargetDataLayout(target_machine)
+        self.data_layout = self.llvm.CreateTargetDataLayout(target_machine)
         jit_target_machine_builder = self.llvm.JITTargetMachineBuilderCreateFromTargetMachine(
                                             target_machine)
         self.llvm.LLJITBuilderSetJITTargetMachineBuilder(jit_builder,
                                                          jit_target_machine_builder)
 
-        LLJIT = self.llvm.CreateLLJIT(jit_builder)
-        if self.debug and LLJIT._cast_to_int() == 0:
+        self.LLJIT = self.llvm.CreateLLJIT(jit_builder)
+        if self.debug and self.LLJIT._cast_to_int() == 0:
             raise Exception("Failed To Create JIT")
-        DyLib = self.llvm.LLJITGetMainJITDylib(LLJIT)
-        if self.debug and DyLib._cast_to_int() == 0:
+        self.DyLib = self.llvm.LLJITGetMainJITDylib(self.LLJIT)
+        if self.debug and self.DyLib._cast_to_int() == 0:
             raise Exception("DyLib is Null")
-        return (LLJIT, DyLib, data_layout)
+        exec_session = self.llvm.GetExecutionSession(self.LLJIT)
+        self.object_layer = self.llvm.CreateObjectLinkingLayer(exec_session)
+
 
     def jit_compile(self, module, looptoken, inputargs, dispatcher, is_bridge=False):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
@@ -87,7 +88,7 @@ class LLVMAssembler(BaseAssembler):
 
     def refresh_jit(self):
         self.llvm.DisposeLLJIT(self.LLJIT)
-        self.LLJIT, self.DyLib, self.data_layout = self.initialise_jit()
+        self.initialise_jit()
 
     def add_opt_passes(self):
         self.llvm.AddInstructionCombiningPass(self.pass_manager)
