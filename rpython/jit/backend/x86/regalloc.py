@@ -127,7 +127,7 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
 
 class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
     # xmm15 reserved for scratch use
-    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm4]
+    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
 
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
