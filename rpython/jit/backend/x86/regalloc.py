@@ -1327,10 +1327,10 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         if IS_X86_64:
             tmpreg = X86_64_SCRATCH_REG
             if WIN64:
-                xmmtmp = X86_64_XMM_SCRATCH_REG
-            else:
                 # XXX perhaps use this for all_regs and do xmmtmp = None?
                 xmmtmp = xmm5
+            else:
+                xmmtmp = X86_64_XMM_SCRATCH_REG
         else:
             tmpreg = None
             xmmtmp = None
