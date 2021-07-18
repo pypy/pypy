@@ -154,7 +154,7 @@ if WORD == 4:
     xmm_reg_mgr_cls = X86XMMRegisterManager
 elif WORD == 8:
     gpr_reg_mgr_cls = X86_64_RegisterManager
-    if WINe4:
+    if WIN64:
         xmm_reg_mgr_cls = X86_64_WIN_XMMRegisterManager
     else:
         xmm_reg_mgr_cls = X86_64_XMMRegisterManager
