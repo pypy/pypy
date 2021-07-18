@@ -6,7 +6,7 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.jit.metainterp.history import AbstractDescr
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.rfile import create_file
-from rpython.rlib.rposix import FdValidator
+from rpython.rlib.rposix import SuppressIPH
 
 class FakeCallAssemblerLoopToken(AbstractDescr):
     def __init__(self, target):
@@ -57,7 +57,7 @@ class TestLogger(object):
         # code may use different runtime libraries (win32 visual2008 vs.
         # visual2019 for instance
         rfile = create_file(str(file), 'wb')
-        with FdValidator(rfile.fileno()):
+        with SuppressIPH():
             jl.jitlog_init(rfile.fileno())
             logger.start_new_trace(metainterp_sd, jd_name='jdname')
             log_trace = logger.log_trace(jl.MARK_TRACE, None, None)
@@ -131,7 +131,7 @@ class TestLogger(object):
         # code may use different runtime libraries (win32 visual2008 vs.
         # visual2019 for instance
         rfile = create_file(str(file), 'wb')
-        with FdValidator(rfile.fileno()):
+        with SuppressIPH():
             jl.jitlog_init(rfile.fileno())
             logger.start_new_trace(metainterp_sd, jd_name='jdname')
             log_trace = logger.log_trace(jl.MARK_TRACE, None, None)

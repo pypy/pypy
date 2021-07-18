@@ -17,7 +17,10 @@ class HPyAppTest(object):
     Base class for HPy app tests. This is used as a mixin, and individual
     subclasses are created by conftest.make_hpy_apptest
     """
-    spaceconfig = {'usemodules': ['_hpy_universal']}
+    spaceconfig = {
+        'usemodules': ['_hpy_universal'],
+        'objspace.hpy_cpyext_API': False,
+    }
 
     def setup_class(cls):
         if cls.runappdirect:

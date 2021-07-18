@@ -64,3 +64,7 @@ Update HPy backend to 0.0.2
 .. branch: implement_timezone_c_api
 
 Implement missing PyDateTimeAPI functions related to timezones (issue 3320)
+
+.. branch: libffi-win64
+
+Use libffi v3.3 like CPython instead of the very old ``libffi_msvc`` on windows
