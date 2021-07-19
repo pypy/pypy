@@ -454,7 +454,7 @@ class CallDescr(AbstractDescr):
     ffi_flags = 1
 
     def __init__(self, arg_classes, result_type, result_signed, result_size,
-                 extrainfo=None, ffi_flags=1):
+                 extrainfo=None, ffi_flags=1, ARGS=None):
         """
             'arg_classes' is a string of characters, one per argument:
                 'i', 'r', 'f', 'L', 'S'
@@ -475,6 +475,9 @@ class CallDescr(AbstractDescr):
         # makes sense on Windows as it's the one for all the C functions
         # we are compiling together with the JIT.  On non-Windows platforms
         # it is just ignored anyway.
+        if ARGS is not None:
+            # added for LLVM backend which requires specific bit widths of args
+            self.arg_types = ARGS
         if result_type == 'v':
             result_flag = FLAG_VOID
         elif result_type == 'i':
@@ -668,7 +671,7 @@ def get_call_descr(gccache, ARGS, RESULT, extrainfo=None):
         calldescr = cache[key]
     except KeyError:
         calldescr = CallDescr(arg_classes, result_type, result_signed,
-                              result_size, extrainfo)
+                              result_size, extrainfo, ARGS=ARGS)
         calldescr.create_call_stub(gccache.rtyper, RESULT_ERASED)
         cache[key] = calldescr
     assert repr(calldescr.result_size) == repr(result_size)

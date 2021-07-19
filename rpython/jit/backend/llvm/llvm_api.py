@@ -53,6 +53,8 @@ class LLVMAPI:
         self.MetadataRef = self.VoidPtr
         self.ExecutionSessionRef = self.VoidPtr
         self.ObjectLayerRef = self.VoidPtr
+        self.MemoryManagerFactoryFunction = self.VoidPtr
+        self.ObjectLinkingLayerCreatorFunction = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
         self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed))
 
@@ -60,7 +62,7 @@ class LLVMAPI:
         header_files = ["Core","Target","Analysis","DataTypes",
                         "Error","ErrorHandling","ExternC",
                         "Initialization","Orc","TargetMachine","Types",
-                        "LLJIT"]
+                        "LLJIT","OrcEE"]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
         cflags = ["""-I/usr/lib/llvm/12/include -D_GNU_SOURCE
                     -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
@@ -704,9 +706,15 @@ class LLVMAPI:
                                         self.ExecutionSessionRef,
                                         compilation_info=info)
         self.CreateObjectLinkingLayer = rffi.llexternal(
-            "LLVMOrcCreateRTDyldObjectLinkingLayerWithSectionMemoryManager",
-            [self.ExecutionSessionRef], self.ObjectLayerRef,
+            "LLVMOrcCreateRTDyldObjectLinkingLayer",
+            [self.ExecutionSessionRef, self.MemoryManagerFactoryFunction,
+             self.VoidPtr],
+            self.ObjectLayerRef,
             compilation_info=info)
+        self.SetObjectLinkingLayerCreator = rffi.llexternal(
+            "LLVMOrcLLJITBuilderSetObjectLinkingLayerCreator",
+            [self.LLJITBuilderRef, self.ObjectLinkingLayerCreatorFunction,
+             self.VoidPtr], self.Void, compilation_info=info)
 
 class CString:
     """

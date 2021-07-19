@@ -154,14 +154,13 @@ class BaseBackendTest(Runner):
         looptoken = JitCellToken()
         loop = parse("""
         [i0]
-        i1 = int_add(i0, 1)
-        guard_value(i1, 2, descr=faildescr)[i1]
-        finish(i1, descr=finaldescr)
+        r0 = newstr(i0)
+        finish(r0, descr=finaldescr)
         """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2)})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 1)
         fail = self.cpu.get_latest_descr(deadframe)
-        res = self.cpu.get_int_value(deadframe, 0)
+        res = self.cpu.get_ref_value(deadframe, 0)
         print(fail, res)
         exit(1)
         #r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
@@ -605,7 +604,6 @@ class BaseBackendTest(Runner):
                                           InputArgInt(num1)],
                                          'int', descr=calldescr)
             assert res == num + num1
-            continue
 
             # then, try it with the dynamic calldescr
             dyn_calldescr = cpu._calldescr_dynamic_for_tests(
@@ -648,6 +646,8 @@ class BaseBackendTest(Runner):
             assert abs(longlong.getrealfloat(res) - 7.5) < 0.0001
 
     def test_call_many_arguments(self):
+        import time
+        time.sleep(1000000)
         # Test calling a function with a large number of arguments (more than
         # 6, which will force passing some arguments on the stack on 64-bit)
 
