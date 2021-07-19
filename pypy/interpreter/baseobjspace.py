@@ -300,42 +300,26 @@ class W_Root(object):
                     "expected %s, got %T object", expected, self)
 
     def int(self, space):
-        # This is the equivalent of _PyLong_FromNbIndexOrNbInt
         from pypy.objspace.std.intobject import W_AbstractIntObject
-        w_impl = space.lookup(self, '__index__')
-        if w_impl:
-            w_result = space.get_and_call_function(w_impl, self)
+        w_impl = space.lookup(self, '__int__')
+        if w_impl is None:
+            self._typed_unwrap_error(space, "integer")
+        w_result = space.get_and_call_function(w_impl, self)
 
-            if space.is_w(space.type(w_result), space.w_int):
-                return w_result
-            if not space.isinstance_w(w_result, space.w_int):
-                raise oefmt(space.w_TypeError,
-                    "__index__ returned non-int (type '%T')", w_result)
+        if space.is_w(space.type(w_result), space.w_int):
+            assert isinstance(w_result, W_AbstractIntObject)
+            return w_result
+        if space.isinstance_w(w_result, space.w_int):
             assert isinstance(w_result, W_AbstractIntObject)
             tp = space.type(w_result).name
             space.warn(space.newtext(
-                "__index__ returned non-int (type %s).  "
+                "__int__ returned non-int (type %s).  "
                 "The ability to return an instance of a strict subclass of int "
                 "is deprecated, and may be removed in a future version of "
                 "Python." % (tp,)), space.w_DeprecationWarning)
             return w_result
-        # Old path: use __int__ but warn
-        w_impl = space.lookup(self, '__int__')
-        if w_impl:
-            w_result = space.get_and_call_function(w_impl, self)
-            if not space.isinstance_w(w_result, space.w_int):
-                raise oefmt(space.w_TypeError,
+        raise oefmt(space.w_TypeError,
                     "__int__ returned non-int (type '%T')", w_result)
-            assert isinstance(w_result, W_AbstractIntObject)
-            tp = space.type(w_result).name
-            space.warn(space.newtext(
-                "an integer is required (got type %s).  "
-                "Implicit conversion to integers using __int__ is deprecated, "
-                "and may be removed in a future version of Python." % (tp,)),
-                space.w_DeprecationWarning)
-            return w_result
-        
-        self._typed_unwrap_error(space, "integer")
 
     def ord(self, space):
         raise oefmt(space.w_TypeError,
