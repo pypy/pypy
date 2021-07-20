@@ -39,71 +39,9 @@ class CConstantErrno(CConstant):
         ll2ctypes.TLS.errno = value
 
 if os.name == 'nt':
-    if platform.name == 'msvc':
-        includes=['errno.h','stdio.h', 'stdlib.h']
-    else:
-        includes=['errno.h','stdio.h', 'stdint.h']
+    includes=['errno.h','stdio.h', 'stdlib.h']
     separate_module_sources =['''
         /* Lifted completely from CPython 3 Modules/posixmodule.c */
-        #if defined _MSC_VER && _MSC_VER >= 1400 && _MSC_VER < 1900
-        #include <malloc.h> /* for _msize */
-        typedef struct {
-            intptr_t osfhnd;
-            char osfile;
-        } my_ioinfo;
-        extern __declspec(dllimport) char * __pioinfo[];
-        #define IOINFO_L2E 5
-        #define IOINFO_ARRAY_ELTS   (1 << IOINFO_L2E)
-        #define IOINFO_ARRAYS 64
-        #define _NHANDLE_           (IOINFO_ARRAYS * IOINFO_ARRAY_ELTS)
-        #define FOPEN 0x01
-        #define _NO_CONSOLE_FILENO (intptr_t)-2
-
-        /* This function emulates what the windows CRT
-            does to validate file handles */
-        RPY_EXTERN int
-        _PyVerify_fd(int fd)
-        {
-            const int i1 = fd >> IOINFO_L2E;
-            const int i2 = fd & ((1 << IOINFO_L2E) - 1);
-
-            static size_t sizeof_ioinfo = 0;
-
-            /* Determine the actual size of the ioinfo structure,
-             * as used by the CRT loaded in memory
-             */
-            if (sizeof_ioinfo == 0 && __pioinfo[0] != NULL) {
-                sizeof_ioinfo = _msize(__pioinfo[0]) / IOINFO_ARRAY_ELTS;
-            }
-            if (sizeof_ioinfo == 0) {
-                /* This should not happen... */
-                goto fail;
-            }
-
-            /* See that it isn't a special CLEAR fileno */
-                if (fd != _NO_CONSOLE_FILENO) {
-                /* Microsoft CRT would check that 0<=fd<_nhandle but we can't do that.  Instead
-                 * we check pointer validity and other info
-                 */
-                if (0 <= i1 && i1 < IOINFO_ARRAYS && __pioinfo[i1] != NULL) {
-                    /* finally, check that the file is open */
-                    my_ioinfo* info = (my_ioinfo*)(__pioinfo[i1] + i2 * sizeof_ioinfo);
-                    if (info->osfile & FOPEN) {
-                        return 1;
-                    }
-                }
-            }
-          fail:
-            errno = EBADF;
-            return 0;
-        }
-        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
-        RPY_EXTERN void exit_suppress_iph(void* handle) {};
-        #elif defined _MSC_VER
-        RPY_EXTERN int _PyVerify_fd(int fd)
-        {
-            return 1;
-        }
         static void __cdecl _Py_silent_invalid_parameter_handler(
             wchar_t const* expression,
             wchar_t const* function,
@@ -125,19 +63,37 @@ if os.name == 'nt':
             ret = _set_thread_local_invalid_parameter_handler(_handler);
             /*fprintf(stdout, "exiting, setting %p returning %p\\n", old_handler, ret);*/
         }
-
-        #else
-        RPY_EXTERN int _PyVerify_fd(int fd)
+        RPY_EXTERN size_t wrap_write(int fd, const void* data, size_t count)
         {
-            return 1;
+            _invalid_parameter_handler old = enter_suppress_iph();
+            if (count > 32767 && _isatty(fd)) {
+                // CPython Issue #11395, PyPy Issue #2636: the Windows console
+                // returns an error (12: not enough space error) on writing into
+                // stdout if stdout mode is binary and the length is greater than
+                // 66,000 bytes (or less, depending on heap usage).  Can't easily
+                // test that, because we need 'fd' to be non-redirected...
+                count = 32767;
+            }
+            else if (count > 0x7fffffff)
+            {
+                count = 0x7fffffff;
+            }
+            size_t ret = _write(fd, data, count);
+            exit_suppress_iph(old);
+            return ret;
         }
-        RPY_EXTERN void* enter_suppress_iph(void) {return (void*)NULL;};
-        RPY_EXTERN void exit_suppress_iph(void* handle) {};
-        #endif
+        RPY_EXTERN size_t wrap_read(int fd, const void* buffer, size_t buffer_size)
+        {
+            _invalid_parameter_handler old = enter_suppress_iph();
+            size_t ret = _read(fd, buffer, buffer_size);
+            exit_suppress_iph(old);
+            return ret;
+        }
     ''',]
-    post_include_bits=['RPY_EXTERN int _PyVerify_fd(int);',
-                       'RPY_EXTERN void* enter_suppress_iph();',
+    post_include_bits=['RPY_EXTERN void* enter_suppress_iph();',
                        'RPY_EXTERN void exit_suppress_iph(void* handle);',
+                       'RPY_EXTERN size_t wrap_write(int, const void*, size_t);',
+                       'RPY_EXTERN size_t wrap_read(int, const void*, size_t);',
                       ]
 else:
     separate_module_sources = []
@@ -270,10 +226,6 @@ def external(name, args, result, compilation_info=eci, **kwds):
 
 if os.name == 'nt':
     # is_valid_fd is useful only on MSVC9, and should be deprecated. With it
-    # we can replace FdValidator with SuppressIPH
-    is_valid_fd = jit.dont_look_inside(external("_PyVerify_fd", [rffi.INT],
-        rffi.INT, compilation_info=errno_eci,
-        ))
     c_enter_suppress_iph = jit.dont_look_inside(external("enter_suppress_iph",
                                   [], rffi.VOIDP, compilation_info=errno_eci))
     c_exit_suppress_iph = jit.dont_look_inside(external("exit_suppress_iph",
@@ -285,24 +237,6 @@ if os.name == 'nt':
     c_exit_suppress_iph_del = jit.dont_look_inside(external("exit_suppress_iph",
                                   [rffi.VOIDP], lltype.Void, releasegil=False,
                                   compilation_info=errno_eci))
-
-    @enforceargs(int)
-    def _validate_fd(fd):
-        if not is_valid_fd(fd):
-            from errno import EBADF
-            raise OSError(EBADF, 'Bad file descriptor')
-
-    class FdValidator(object):
-
-        def __init__(self, fd):
-            _validate_fd(fd)
-
-        def __enter__(self):
-            self.invalid_param_hndlr = c_enter_suppress_iph()
-            return self
-
-        def __exit__(self, *args):
-            c_exit_suppress_iph(self.invalid_param_hndlr)
 
     class SuppressIPH_del(object):
 
@@ -328,29 +262,7 @@ if os.name == 'nt':
         def __exit__(self, *args):
             c_exit_suppress_iph(self.invalid_param_hndlr)
 
-    def _bound_for_write(fd, count):
-        if count > 32767 and c_isatty(fd):
-            # CPython Issue #11395, PyPy Issue #2636: the Windows console
-            # returns an error (12: not enough space error) on writing into
-            # stdout if stdout mode is binary and the length is greater than
-            # 66,000 bytes (or less, depending on heap usage).  Can't easily
-            # test that, because we need 'fd' to be non-redirected...
-            count = 32767
-        elif count > 0x7fffffff:
-            count = 0x7fffffff
-        return count
 else:
-    class FdValidator(object):
-
-        def __init__(self, fd):
-            pass
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *args):
-            pass
-
     class SuppressIPH(object):
 
         def __init__(self):
@@ -364,14 +276,11 @@ else:
 
     SuppressIPH_del = SuppressIPH
 
-    def _bound_for_write(fd, count):
-        return count
-
 def closerange(fd_low, fd_high):
     # this behaves like os.closerange() from Python 2.6.
     for fd in xrange(fd_low, fd_high):
         try:
-            with FdValidator(fd):
+            with SuppressIPH():
                 os.close(fd)
         except OSError:
             pass
@@ -519,7 +428,7 @@ def handle_posix_error(name, result):
     return result
 
 def _dup(fd, inheritable=True):
-    with FdValidator(fd):
+    with SuppressIPH():
         if inheritable:
             res = c_dup(fd)
         else:
@@ -533,7 +442,7 @@ def dup(fd, inheritable=True):
 
 @replace_os_function('dup2')
 def dup2(fd, newfd, inheritable=True):
-    with FdValidator(fd):
+    with SuppressIPH():
         if inheritable:
             res = c_dup2(fd, newfd)
         else:
@@ -552,10 +461,18 @@ def open(path, flags, mode):
         fd = c_open(_as_bytes0(path), flags, mode)
     return handle_posix_error('open', fd)
 
-c_read = external(UNDERSCORE_ON_WIN32 + 'read',
+if os.name == 'nt':
+    c_read = external('wrap_read',
+                  [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                  save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+    c_write = external('wrap_write',
+                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
+                   save_err=rffi.RFFI_SAVE_ERRNO, compilation_info=errno_eci)
+else:
+    c_read = external('read',
                   [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                   save_err=rffi.RFFI_SAVE_ERRNO)
-c_write = external(UNDERSCORE_ON_WIN32 + 'write',
+    c_write = external('write',
                    [rffi.INT, rffi.VOIDP, POSIX_SIZE_T], POSIX_SSIZE_T,
                    save_err=rffi.RFFI_SAVE_ERRNO)
 c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
@@ -566,26 +483,23 @@ c_close = external(UNDERSCORE_ON_WIN32 + 'close', [rffi.INT], rffi.INT,
 def read(fd, count):
     if count < 0:
         raise OSError(errno.EINVAL, None)
-    with FdValidator(fd):
-        with rffi.scoped_alloc_buffer(count) as buf:
-            void_buf = rffi.cast(rffi.VOIDP, buf.raw)
-            got = handle_posix_error('read', c_read(fd, void_buf, count))
-            return buf.str(got)
+    with rffi.scoped_alloc_buffer(count) as buf:
+        void_buf = rffi.cast(rffi.VOIDP, buf.raw)
+        got = handle_posix_error('read', c_read(fd, void_buf, count))
+        return buf.str(got)
 
 @replace_os_function('write')
 @signature(types.int(), types.any(), returns=types.any())
 def write(fd, data):
     count = len(data)
-    with FdValidator(fd):
-        count = _bound_for_write(fd, count)
-        with rffi.scoped_nonmovingbuffer(data) as buf:
-            ret = c_write(fd, buf, count)
-            return handle_posix_error('write', ret)
+    with rffi.scoped_nonmovingbuffer(data) as buf:
+        ret = c_write(fd, buf, count)
+        return handle_posix_error('write', ret)
 
 @replace_os_function('close')
 @signature(types.int(), returns=types.any())
 def close(fd):
-    with FdValidator(fd):
+    with SuppressIPH():
         handle_posix_error('close', c_close(fd))
 
 c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
@@ -594,7 +508,7 @@ c_lseek = external('_lseeki64' if _WIN32 else 'lseek',
 
 @replace_os_function('lseek')
 def lseek(fd, pos, how):
-    with FdValidator(fd):
+    with SuppressIPH():
         if SEEK_SET is not None:
             if how == 0:
                 how = SEEK_SET
@@ -680,18 +594,17 @@ else:
 
 @replace_os_function('ftruncate')
 def ftruncate(fd, length):
-    with FdValidator(fd):
+    with SuppressIPH():
         handle_posix_error('ftruncate', c_ftruncate(fd, length))
 
 @replace_os_function('fsync')
 def fsync(fd):
-    with FdValidator(fd):
+    with SuppressIPH():
         handle_posix_error('fsync', c_fsync(fd))
 
 @replace_os_function('fdatasync')
 def fdatasync(fd):
-    with FdValidator(fd):
-        handle_posix_error('fdatasync', c_fdatasync(fd))
+    handle_posix_error('fdatasync', c_fdatasync(fd))
 
 def sync():
     c_sync()
@@ -758,8 +671,7 @@ def chdir(path):
 
 @replace_os_function('fchdir')
 def fchdir(fd):
-    with FdValidator(fd):
-        handle_posix_error('fchdir', c_fchdir(fd))
+    handle_posix_error('fchdir', c_fchdir(fd))
 
 @replace_os_function('access')
 @specialize.argtype(0)
@@ -1214,7 +1126,7 @@ c_isatty = external(UNDERSCORE_ON_WIN32 + 'isatty', [rffi.INT], rffi.INT)
 
 @replace_os_function('isatty')
 def isatty(fd):
-    with FdValidator(fd):
+    with SuppressIPH():
         return c_isatty(fd) != 0
     return False
 

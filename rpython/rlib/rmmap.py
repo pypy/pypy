@@ -660,7 +660,7 @@ class MMap(object):
             res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, + start)),
                                  rffi.cast(size_t, end),
                                  rffi.cast(rffi.INT, flags))
-            if res == 0:
+            if rffi.cast(lltype.Signed, res) == 0:
                 return
             errno = rposix.get_saved_errno()
             raise OSError(errno, os.strerror(errno))

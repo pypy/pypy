@@ -149,7 +149,8 @@ class TestPosixFunction:
         arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
         data = rposix.system(arg)
         assert data == 0
-        assert file(filename).read().strip() == '2'
+        with file(filename) as f:
+            assert f.read().strip() == '2'
         os.unlink(filename)
 
 

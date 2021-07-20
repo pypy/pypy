@@ -338,6 +338,7 @@ gcd(int a, int b)
     return a;
 }
 
+static
 int ratecv(char* rv, char* cp, size_t len, int size,
            int nchannels, int inrate, int outrate,
            int* state_d, int* prev_i, int* cur_i,
@@ -400,6 +401,7 @@ int ratecv(char* rv, char* cp, size_t len, int size,
     }
 }
 
+static
 void tostereo(char* rv, char* cp, size_t len, int size,
               double fac1, double fac2)
 {
@@ -432,6 +434,7 @@ void tostereo(char* rv, char* cp, size_t len, int size,
     }
 }
 
+static
 void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
 {
     int i;
@@ -470,6 +473,7 @@ void add(char* rv, char* cp1, char* cp2, size_t len1, int size)
     }
 }
 
+static
 void lin2adcpm(unsigned char* ncp, unsigned char* cp, size_t len,
                size_t size, int* state)
 {
@@ -555,6 +559,7 @@ void lin2adcpm(unsigned char* ncp, unsigned char* cp, size_t len,
 }
 
 
+static
 void adcpm2lin(unsigned char* ncp, unsigned char* cp, size_t len,
                size_t size, int* state)
 {

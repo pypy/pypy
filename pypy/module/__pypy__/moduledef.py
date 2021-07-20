@@ -119,6 +119,7 @@ class Module(MixedModule):
         'pyos_inputhook'            : 'interp_magic.pyos_inputhook',
         'newmemoryview'             : 'interp_buffer.newmemoryview',
         'utf8content'               : 'interp_magic.utf8content',
+        'list_get_physical_size'    : 'interp_magic.list_get_physical_size',
     }
     if sys.platform == 'win32':
         interpleveldefs['get_console_cp'] = 'interp_magic.get_console_cp'

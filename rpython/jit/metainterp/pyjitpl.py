@@ -474,8 +474,8 @@ class MIFrame(object):
     def opimpl_new_array_clear(self, lengthbox, itemsizedescr):
         return self.metainterp.execute_new_array_clear(itemsizedescr, lengthbox)
 
-    @specialize.arg(1)
-    def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr):
+    @specialize.arg(1, 5)
+    def _do_getarrayitem_gc_any(self, op, arraybox, indexbox, arraydescr, typ):
         tobox = self.metainterp.heapcache.getarrayitem(
                 arraybox, indexbox, arraydescr)
         if tobox:
@@ -484,12 +484,26 @@ class MIFrame(object):
             self.metainterp.staticdata.profiler.count_ops(rop.GETARRAYITEM_GC_I, Counters.HEAPCACHED_OPS)
             resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
                                         op, arraydescr, arraybox, indexbox)
-            if op == 'i':
-                assert resvalue == tobox.getint()
-            elif op == 'r':
-                assert resvalue == tobox.getref_base()
-            elif op == 'f':
-                assert resvalue == tobox.getfloat()
+            if typ == 'i':
+                if resvalue != tobox.getint():
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_I, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_I failed", resvalue, tobox.getint()
+                    assert 0
+            elif typ == 'r':
+                if resvalue != tobox.getref_base():
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_R, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_R failed", resvalue, tobox.getref_base()
+                    assert 0
+            elif typ == 'f':
+                if not ConstFloat(resvalue).same_constant(tobox.constbox()):
+                    self.metainterp._record_helper_nonpure_varargs(rop.GETARRAYITEM_GC_F, resvalue, arraydescr, [arraybox, indexbox])
+                    self.metainterp.staticdata.logger_noopt.log_loop_from_trace(self.metainterp.history.trace, self.metainterp.box_names_memo)
+                    print "assertion in GETARRAYITEM_GC_F failed", resvalue, tobox.getfloat()
+                    assert 0
+            else:
+                assert 0, "unreachable"
             return tobox
         resop = self.execute_with_descr(op, arraydescr, arraybox, indexbox)
         self.metainterp.heapcache.getarrayitem_now_known(
@@ -499,17 +513,17 @@ class MIFrame(object):
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_i(self, arraybox, indexbox, arraydescr):
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_I, arraybox,
-                                            indexbox, arraydescr)
+                                            indexbox, arraydescr, 'i')
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_r(self, arraybox, indexbox, arraydescr):
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_R, arraybox,
-                                            indexbox, arraydescr)
+                                            indexbox, arraydescr, 'r')
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_f(self, arraybox, indexbox, arraydescr):
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_F, arraybox,
-                                            indexbox, arraydescr)
+                                            indexbox, arraydescr, 'f')
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_raw_i(self, arraybox, indexbox, arraydescr):
@@ -531,7 +545,7 @@ class MIFrame(object):
                                       arraybox, indexbox)
             return executor.wrap_constant(val)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_I,
-                                            arraybox, indexbox, arraydescr)
+                                            arraybox, indexbox, arraydescr, 'i')
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_f_pure(self, arraybox, indexbox, arraydescr):
@@ -543,7 +557,7 @@ class MIFrame(object):
                                       arraybox, indexbox)
             return executor.wrap_constant(resval)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_F,
-                                            arraybox, indexbox, arraydescr)
+                                            arraybox, indexbox, arraydescr, 'f')
 
     @arguments("box", "box", "descr")
     def opimpl_getarrayitem_gc_r_pure(self, arraybox, indexbox, arraydescr):
@@ -555,7 +569,7 @@ class MIFrame(object):
                                       arraybox, indexbox)
             return executor.wrap_constant(val)
         return self._do_getarrayitem_gc_any(rop.GETARRAYITEM_GC_PURE_R,
-                                            arraybox, indexbox, arraydescr)
+                                            arraybox, indexbox, arraydescr, 'r')
 
     @arguments("box", "box", "box", "descr")
     def _opimpl_setarrayitem_gc_any(self, arraybox, indexbox, itembox,
@@ -711,16 +725,43 @@ class MIFrame(object):
 
     @arguments("box", "box", "descr")
     def opimpl_getinteriorfield_gc_i(self, array, index, descr):
-        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_I, descr,
-                                       array, index)
+        return self._opimpl_getinteriorfield_gc_any(
+            rop.GETINTERIORFIELD_GC_I, array,
+            index, descr, 'i')
     @arguments("box", "box", "descr")
     def opimpl_getinteriorfield_gc_r(self, array, index, descr):
-        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_R, descr,
-                                       array, index)
+        return self._opimpl_getinteriorfield_gc_any(
+            rop.GETINTERIORFIELD_GC_R, array,
+            index, descr, 'r')
     @arguments("box", "box", "descr")
     def opimpl_getinteriorfield_gc_f(self, array, index, descr):
-        return self.execute_with_descr(rop.GETINTERIORFIELD_GC_F, descr,
-                                       array, index)
+        return self._opimpl_getinteriorfield_gc_any(
+            rop.GETINTERIORFIELD_GC_F, array,
+            index, descr, 'f')
+
+    @specialize.arg(1, 5)
+    def _opimpl_getinteriorfield_gc_any(self, opnum, arraybox, indexbox, descr, typ):
+        # use the getarrayitem heapcache methods, they work also for interior fields
+        tobox = self.metainterp.heapcache.getarrayitem(
+                arraybox, indexbox, descr)
+        if tobox:
+            # sanity check: see whether the current interior field value
+            # corresponds to what the cache thinks the value is
+            self.metainterp.staticdata.profiler.count_ops(opnum, Counters.HEAPCACHED_OPS)
+            resvalue = executor.execute(self.metainterp.cpu, self.metainterp,
+                                        opnum, descr, arraybox, indexbox)
+            if typ == 'i':
+                assert resvalue == tobox.getint()
+            elif typ == 'r':
+                assert resvalue == tobox.getref_base()
+            elif typ == 'f':
+                # need to be careful due to NaNs etc
+                assert ConstFloat(resvalue).same_constant(tobox.constbox())
+            return tobox
+        resop = self.execute_with_descr(opnum, descr, arraybox, indexbox)
+        self.metainterp.heapcache.getarrayitem_now_known(
+                arraybox, indexbox, resop, descr)
+        return resop
 
     @specialize.arg(1, 4)
     def _opimpl_getfield_gc_any_pureornot(self, opnum, box, fielddescr, type):
@@ -2428,6 +2469,8 @@ class MetaInterp(object):
     def execute_setinteriorfield_gc(self, descr, array, index, value):
         self.execute_and_record(rop.SETINTERIORFIELD_GC, descr,
                                 array, index, value)
+        # use setarrayitem heapcache method, works for interior fields too
+        self.heapcache.setarrayitem(array, index, value, descr)
 
     def execute_raw_store(self, arraydescr, addrbox, offsetbox, valuebox):
         self.execute_and_record(rop.RAW_STORE, arraydescr,

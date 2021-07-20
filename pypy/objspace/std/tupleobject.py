@@ -298,9 +298,10 @@ class W_TupleObject(W_AbstractTupleObject):
 
     def descr_hash(self, space):
         if _unroll_condition(self):
-            return self._descr_hash_unroll(space)
+            res = self._descr_hash_unroll(space)
         else:
-            return self._descr_hash_jitdriver(space)
+            res = self._descr_hash_jitdriver(space)
+        return space.newint(res)
 
     @jit.unroll_safe
     def _descr_hash_unroll(self, space):
@@ -313,7 +314,7 @@ class W_TupleObject(W_AbstractTupleObject):
             z -= 1
             mult += 82520 + z + z
         x += 97531
-        return space.newint(intmask(x))
+        return intmask(x)
 
     def _descr_hash_jitdriver(self, space):
         mult = 1000003
@@ -331,7 +332,7 @@ class W_TupleObject(W_AbstractTupleObject):
             mult += 82520 + z + z
             i += 1
         x += 97531
-        return space.newint(intmask(x))
+        return intmask(x)
 
     def descr_eq(self, space, w_other):
         if not isinstance(w_other, W_AbstractTupleObject):

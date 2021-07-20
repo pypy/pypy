@@ -498,7 +498,10 @@ class JSONDecoder(W_Root):
             # may be a surrogate pair
             return self.decode_escape_sequence_unicode(i, stringbuilder)
         else:
-            self._raise("Invalid \\escape: %s (char %d)", ch, i-1)
+            if ch <= ' ':
+                self._raise("Invalid \\escape: (char %d)", i-2)
+            else:
+                self._raise("Invalid \\escape: %s (char %d)", ch, i-2)
         return i
 
     def _get_int_val_from_hex4(self, i):

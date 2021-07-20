@@ -1,12 +1,14 @@
 import sys
+
 from rpython.rlib.objectmodel import specialize
+from rpython.rlib import jit
+from rpython.rlib.debug import check_nonneg
 from pypy.interpreter import gateway
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, make_weakref_descr
 from pypy.interpreter.typedef import GetSetProperty
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from pypy.interpreter.error import OperationError, oefmt
-from rpython.rlib.debug import check_nonneg
 
 
 # A `dequeobject` is composed of a doubly-linked list of `block` nodes.
@@ -49,6 +51,11 @@ class Block(object):
 
 class Lock(object):
     pass
+
+
+def get_printable_location(tp):
+    return "deque._find [%s]" % (tp.getname(tp.space), )
+find_jmp = jit.JitDriver(greens=['tp'], reds='auto', name='deque._find', get_printable_location=get_printable_location)
 
 # ------------------------------------------------------------
 
@@ -243,25 +250,33 @@ class W_Deque(W_Root):
         self.modified()
         return w_obj
 
-    def remove(self, w_x):
-        "Remove first occurrence of value."
+    def _find(self, w_x):
         space = self.space
         block = self.leftblock
         index = self.leftindex
         lock = self.getlock()
+        tp = space.type(w_x)
         for i in range(self.len):
+            find_jmp.jit_merge_point(tp=tp)
             w_item = block.data[index]
             equal = space.eq_w(w_item, w_x)
             self.checklock(lock)
             if equal:
-                self.del_item(i)
-                return
+                return i
             # Advance the block/index pair
             index += 1
             if index >= BLOCKLEN:
                 block = block.rightlink
                 index = 0
-        raise oefmt(space.w_ValueError, "deque.remove(x): x not in deque")
+        return -1
+
+    def remove(self, w_x):
+        "Remove first occurrence of value."
+        i = self._find(w_x)
+        if i < 0:
+            raise oefmt(self.space.w_ValueError,
+                        "deque.remove(x): x not in deque")
+        self.del_item(i)
 
     def reverse(self):
         "Reverse *IN PLACE*."

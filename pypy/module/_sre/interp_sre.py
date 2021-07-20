@@ -421,7 +421,7 @@ class W_SRE_Pattern(W_Root):
             return w_item, n
 
 def sub_get_printable_location(filter_is_callable, use_builder, filter_type, pattern):
-    s = str(pattern)
+    s = str(pattern.pattern)
     if len(s) > 120:
         s = s[:110] + '...'
     if use_builder == '\x00':
@@ -439,7 +439,7 @@ sub_jitdriver = jit.JitDriver(
 
 
 def split_get_printable_location(num_groups, ctx_type, pattern):
-    s = str(pattern)
+    s = str(pattern.pattern)
     if len(s) > 120:
         s = s[:110] + '...'
 
