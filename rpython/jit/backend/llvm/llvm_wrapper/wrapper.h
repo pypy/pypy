@@ -3,7 +3,9 @@
 #include <llvm-c/Target.h>
 #include <llvm-c/TargetMachine.h>
 #include <llvm-c/Orc.h>
+#include <llvm-c/OrcEE.h>
 #include <llvm-c/Analysis.h>
+#include <llvm-c/ExecutionEngine.h>
 #include <llvm-c/Core.h>
 #include <llvm-c/LLJIT.h>
 #include <stdlib.h>

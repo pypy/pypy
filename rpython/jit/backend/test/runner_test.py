@@ -2429,8 +2429,10 @@ class LLtypeBackendTest(BaseBackendTest):
             [i0, i1, i2, i3, i4, i5, i6, f0, f1]
             cond_call(i1, ConstClass(func_ptr), %s)
             guard_false(i0, descr=faildescr) [i1, i2, i3, i4, i5, i6, f0, f1]
+            finish(i1, descr=finaldescr)
             ''' % ', '.join(['i%d' % (j + 2) for j in range(i)] + ["descr=calldescr"])
             loop = parse(ops, namespace={'faildescr': BasicFailDescr(),
+                                         'finaldescr': BasicFinalDescr(),
                                          'func_ptr': func_ptr,
                                          'calldescr': calldescr})
             looptoken = JitCellToken()

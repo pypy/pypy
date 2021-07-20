@@ -28,6 +28,8 @@ class LLVM_CPU(AbstractLLCPU):
 
     def define_types(self):
         self.llvm_bool_type = self.llvm.IntType(self.context, 1)
+        self.llvm_char_type = self.llvm.IntType(self.context, self.WORD)
+        self.llvm_short_type = self.llvm.IntType(self.context, self.WORD*2)
         self.llvm_int_type = self.llvm.IntType(self.context, self.WORD*8)
         self.llvm_wide_int = self.llvm.IntType(self.context, self.WORD*16) #for overflow checks
         self.llvm_float_type = self.llvm.FloatType(self.context)

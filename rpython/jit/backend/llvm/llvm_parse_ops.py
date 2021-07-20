@@ -197,7 +197,7 @@ class LLVMOpDispatcher:
         self.bailout_phis = []
         cstring = CString("descr_phi")
         descr_phi = self.llvm.BuildPhi(self.builder, self.cpu.llvm_int_type,
-                                     cstring.ptr)
+                                       cstring.ptr)
         self.bailout_phis.append(descr_phi)
         self.llvm.PositionBuilderAtEnd(self.builder, self.entry)
 
@@ -276,6 +276,7 @@ class LLVMOpDispatcher:
         self.overflow = self.llvm.BuildAlloca(self.builder,
                                               self.cpu.llvm_bool_type,
                                               cstring.ptr)
+        self.local_vars_size += 1
         self.llvm.BuildStore(self.builder, self.false, self.overflow)
         self.jitframe = LLVMStruct(self, self.jitframe_subtypes, 2,
                                    self.entry, self.jitframe,
@@ -517,6 +518,15 @@ class LLVMOpDispatcher:
             elif op.opnum == 216:
                 self.parse_call(op, 'n')
 
+            elif op.opnum == 217:
+                self.parse_cond_call(op)
+
+            elif op.opnum == 218:
+                self.parse_cond_call_value(op, "r")
+
+            elif op.opnum == 219:
+                self.parse_cond_call_value(op, "i")
+
             elif op.opnum == 246:
                 self.parse_int_ovf(op, '+')
 
@@ -525,6 +535,7 @@ class LLVMOpDispatcher:
 
             elif op.opnum == 248:
                 self.parse_int_ovf(op, '*')
+
 
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
@@ -1017,7 +1028,7 @@ class LLVMOpDispatcher:
                                                     self.cpu.llvm_void_ptr,
                                                     cstring.ptr)
 
-    def parse_new_array(self, op):
+    def parse_new_array(self, op): #FIXME
         num_elem = self.parse_args(op.getarglist())[0][0]
         func = self.cpu.gc_ll_descr.malloc_array
         FPTR = self.cpu.gc_ll_descr.malloc_array_FUNCPTR
@@ -1032,7 +1043,21 @@ class LLVMOpDispatcher:
         itemsize_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, itemsize, 0)
         ofs_length_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, ofs_length, 0)
 
-        ret_type = self.cpu.llvm_void_ptr
+        # presumberly if we give more type information to llvm the optimiser
+        # works better
+        if array_descr.is_array_of_structs():
+            # can't represent structs specifically
+            ret_type = self.cpu.llvm_void_ptr
+        else:
+            if array_descr.is_array_of_primitives():
+                if array_descr.is_array_of_floats():
+                    if itemsize == 8: elem_type = self.cpu.llvm_float_type
+                    elif itemsize == 4: elem_type = self.cpu.llvm_single_float_type
+                else:
+                    elem_type = self.llvm.IntType(self.cpu.context, itemsize*8)
+            else:
+                elem_type = self.cpu.llvm_void_ptr
+            ret_type = self.llvm.ArrayType(elem_type, num_elem)
         arg_types = [self.cpu.llvm_int_type] * 4
         args = [basesize_llvm, itemsize_llvm, num_elem, ofs_length_llvm]
 
@@ -1050,7 +1075,8 @@ class LLVMOpDispatcher:
         func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                                func_int_ptr, 0)
 
-        arg_types_llvm = [self.cpu.llvm_int_type]
+        str_type = self.llvm.ArrayType(self.cpu.llvm_char_type, length)
+        arg_types_llvm = [str_type]
         ret_type_llvm = self.cpu.llvm_void_ptr
         args = [length]
         self.ssa_vars[op] = self.call_function(func_int_ptr_llvm, ret_type_llvm,
@@ -1069,7 +1095,40 @@ class LLVMOpDispatcher:
     def parse_unicodehash(self, op):
         pass
 
+
     # Won't work when call descr is dynamic and args are any int type
+    def get_arg_types(self, call_descr, params):
+        arg_types = []
+        for c, typ in enumerate(call_descr.arg_classes):
+            if typ == 'i':
+                arg_type = call_descr.arg_types[c]
+                if arg_type is lltype.Signed:
+                    arg_types.append(self.cpu.llvm_int_type)
+                elif arg_type is rffi.INT:
+                    llvm_type = self.cpu.llvm_indx_type #indx_type = 32bits
+                    arg_types.append(llvm_type)
+                    cstring = CString("trunced_arg")
+                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
+                                                     llvm_type, cstring.ptr)
+                elif arg_type is rffi.SHORT:
+                    llvm_type = self.cpu.llvm_short_type
+                    arg_types.append(llvm_type)
+                    cstring = CString("trunced_arg")
+                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
+                                                     llvm_type, cstring.ptr)
+                elif arg_type is rffi.CHAR:
+                    llvm_type = self.cpu.llvm_char_type
+                    arg_types.append(llvm_type)
+                    cstring = CString("trunced_arg")
+                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
+                                                     llvm_type, cstring.ptr)
+            elif typ == 'f': arg_types.append(self.cpu.llvm_float_type)
+            elif typ == 'r': arg_types.append(self.cpu.llvm_void_ptr)
+            elif typ == 'L': arg_types.append(self.cpu.llvm_float_type)
+            elif typ == 'S': arg_types.append(self.cpu.llvm_single_float_type)
+        return arg_types
+
+
     def parse_call(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         func_int_ptr = args[0]
@@ -1081,38 +1140,7 @@ class LLVMOpDispatcher:
         elif ret == 'i': ret_type = self.llvm.IntType(self.cpu.context,
                                                       self.cpu.WORD*call_descr.
                                                       result_size)
-
-        arg_types = []
-        for c, typ in enumerate(call_descr.arg_classes):
-            if typ == 'i':
-                arg_type = call_descr.arg_types[c]
-                if arg_type is lltype.Signed:
-                    arg_types.append(self.cpu.llvm_int_type)
-                elif arg_type is rffi.INT:
-                    llvm_type = self.llvm.IntType(self.cpu.context,
-                                                  self.cpu.WORD*4)
-                    arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
-                elif arg_type is rffi.SHORT:
-                    llvm_type = self.llvm.IntType(self.cpu.context,
-                                                  self.cpu.WORD*2)
-                    arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
-                elif arg_type is rffi.CHAR:
-                    llvm_type = self.llvm.IntType(self.cpu.context,
-                                                  self.cpu.WORD)
-                    arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
-            elif typ == 'f': arg_types.append(self.cpu.llvm_float_type)
-            elif typ == 'r': arg_types.append(self.cpu.llvm_void_ptr)
-            elif typ == 'L': arg_types.append(self.cpu.llvm_float_type)
-            elif typ == 'S': arg_types.append(self.cpu.llvm_single_float_type)
+        arg_types = self.get_arg_types(call_descr, params)
 
         if ret != 'n':
             self.ssa_vars[op] = self.call_function(func_int_ptr, ret_type,
@@ -1122,6 +1150,66 @@ class LLVMOpDispatcher:
             self.call_function(func_int_ptr, ret_type,
                                 arg_types, params,
                                 "call_res", void = True)
+
+    def parse_cond_call(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        cnd = args[0]
+        func_int_ptr = args[1]
+        params = args[2:]
+        call_descr = op.getdescr()
+        arg_types = self.get_arg_types(call_descr, params)
+        ret_type = self.cpu.llvm_void_type
+
+        cstring = CString("cond_call_cmp")
+        cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.zero,
+                                  cstring.ptr)
+        cstring = CString("call_block")
+        call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                cstring.ptr)
+        cstring = CString("resume_block")
+        resume_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                  cstring.ptr)
+        self.llvm.BuildCondBr(self.builder, cmp, call_block, resume_block)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, call_block)
+        self.call_function(func_int_ptr, ret_type, arg_types, params, "",
+                           void = True)
+        self.llvm.BuildBr(self.builder, resume_block)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
+
+    def parse_cond_call_value(self, op, ret):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        cnd = args[0]
+        func_int_ptr = args[1]
+        params = args[2:]
+        call_descr = op.getdescr()
+        arg_types = self.get_arg_types(call_descr, params)
+        if ret == 'i': ret_type = self.cpu.llvm_int_type
+        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
+
+        cstring = CString("cond_call_cmp")
+        cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd, self.zero,
+                                  cstring.ptr)
+        cstring = CString("call_block")
+        call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                cstring.ptr)
+        cstring = CString("resume_block")
+        resume_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                  cstring.ptr)
+
+        self.llvm.BuildCondBr(self.builder, cmp, call_block, resume_block)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, call_block)
+        call_res = self.call_function(func_int_ptr, ret_type, arg_types, params,
+                                      "call_res")
+        self.llvm.BuildBr(self.builder, resume_block)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
+        # if cmp == 0 then call was never made, otherwise it was
+        cstring = CString("cond_call_value_res")
+        self.ssa_vars[op] = self.llvm.BuildSelect(self.builder, cmp, cmp,
+                                                  call_res, cstring.ptr)
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
