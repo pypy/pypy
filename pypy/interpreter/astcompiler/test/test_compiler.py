@@ -1,6 +1,7 @@
 from __future__ import division
 import py, sys
 from pytest import raises
+import pytest
 from pypy.interpreter.astcompiler import codegen, astbuilder, symtable, optimize
 from pypy.interpreter.pyparser import pyparse
 from pypy.interpreter.pyparser.test import expressions
@@ -1030,6 +1031,7 @@ a = A()
             return c().get(), x"""
         yield self.st, test, "f(3)", (4, 4)
 
+    @pytest.mark.xfail
     def test_nonlocal_class_nesting_bug(self):
         test = """\
 def foo():
