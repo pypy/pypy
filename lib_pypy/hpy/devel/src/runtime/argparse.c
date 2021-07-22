@@ -132,7 +132,7 @@ parse_err_fmt(const char *fmt, const char **err_fmt)
 
 
 static void
-set_error(HPyContext ctx, HPy exc, const char *err_fmt, const char *msg) {
+set_error(HPyContext *ctx, HPy exc, const char *err_fmt, const char *msg) {
     char err_buf[_ERR_STRING_MAX_LENGTH];
     if (err_fmt == NULL) {
         snprintf(err_buf, _ERR_STRING_MAX_LENGTH, "function %.256s", msg);
@@ -148,7 +148,7 @@ set_error(HPyContext ctx, HPy exc, const char *err_fmt, const char *msg) {
 
 
 static int
-parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp, const char **fmt, va_list *vl, const char *err_fmt)
+parse_item(HPyContext *ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp, const char **fmt, va_list *vl, const char *err_fmt)
 {
     switch (*(*fmt)++) {
 
@@ -405,8 +405,8 @@ parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp,
  *    The option exists only to support releasing temporary storage used by
  *    future format string codes (e.g. for character strings).
  */
-HPyAPI_RUNTIME_FUNC(int)
-HPyArg_Parse(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
+HPyAPI_HELPER int
+HPyArg_Parse(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
 {
     const char *fmt1 = fmt;
     const char *err_fmt = NULL;
@@ -534,8 +534,8 @@ HPyArg_Parse(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const
  *     when the `O` format is used. In future other new format string codes
  *     (e.g. for character strings) may also require it.
  */
-HPyAPI_RUNTIME_FUNC(int)
-HPyArg_ParseKeywords(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
+HPyAPI_HELPER int
+HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
                      const char *fmt, const char *keywords[], ...)
 {
     const char *fmt1 = fmt;

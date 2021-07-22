@@ -1,5 +1,5 @@
 #include "src/precommondefs.h"
-#include "universal/hpy.h"
+#include "hpy.h"
 
 /* One note about bridge functions which receive arguments of type HPy: in C,
  * HPy is defined as:

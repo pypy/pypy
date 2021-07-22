@@ -7,7 +7,7 @@
 #endif
 
 #include <stdio.h>
-#include "universal/hpy.h"
+#include "hpy.h"
 #include "hpyerr.h"
 #include "bridge.h"
 

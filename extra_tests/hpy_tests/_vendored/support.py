@@ -27,14 +27,20 @@ class DefaultExtensionTemplate(object):
     };
 
     HPy_MODINIT(%(name)s)
-    static HPy init_%(name)s_impl(HPyContext ctx)
+    static HPy init_%(name)s_impl(HPyContext *ctx)
     {
-        HPy m;
+        HPy m = HPy_NULL;
         m = HPyModule_Create(ctx, &moduledef);
         if (HPy_IsNull(m))
-            return HPy_NULL;
+            goto MODINIT_ERROR;
         %(init_types)s
         return m;
+
+        MODINIT_ERROR:
+
+        if (!HPy_IsNull(m))
+            HPy_Close(ctx, m);
+        return HPy_NULL;
     }
     """)
 
@@ -99,26 +105,21 @@ class DefaultExtensionTemplate(object):
         self.legacy_methods = pymethoddef
 
     def EXPORT_TYPE(self, name, spec):
-        i = len(self.type_table)
         src = """
-            HPy {h} = HPyType_FromSpec(ctx, &{spec}, NULL);
-            if (HPy_IsNull({h}))
-                return HPy_NULL;
-            if (HPy_SetAttr_s(ctx, m, {name}, {h}) != 0)
-                return HPy_NULL;
-            HPy_Close(ctx, {h});
+            if (!HPyHelpers_AddType(ctx, m, {name}, &{spec}, NULL)) {{
+                goto MODINIT_ERROR;
+            }}
             """
         src = reindent(src, 4)
         self.type_table.append(src.format(
-            h = 'h_type_%d' % i,
-            name = name,
-            spec = spec))
+            name=name,
+            spec=spec))
 
     def EXTRA_INIT_FUNC(self, func):
         src = """
             {func}(ctx, m);
             if (HPyErr_Occurred(ctx))
-                return HPy_NULL;
+                goto MODINIT_ERROR;
             """
         src = reindent(src, 4)
         self.type_table.append(src.format(func=func))
@@ -161,7 +162,7 @@ class ExtensionCompiler:
             filename.write(source, mode='wb')
         else:
             filename.write(source)
-        return str(filename)
+        return name + '.c'
 
     def compile_module(self, ExtensionTemplate, main_src, name, extra_sources):
         """
@@ -174,14 +175,29 @@ class ExtensionCompiler:
             extra_filename = self._expand(ExtensionTemplate, 'extmod_%d' % i, src)
             sources.append(extra_filename)
         #
-        compile_args = [
-            '-g', '-O0',
-            '-Wfatal-errors',    # stop after one error (unrelated to warnings)
-            '-Werror',           # turn warnings into errors (all, for now)
-        ]
-        link_args = [
-            '-g',
-        ]
+        if sys.platform == 'win32':
+            # not strictly true, could be mingw
+            compile_args = [
+                '/Od',
+                '/WX',               # turn warnings into errors (all, for now)
+                # '/Wall',           # this is too aggresive, makes windows itself fail
+                '/Zi',
+                '-D_CRT_SECURE_NO_WARNINGS', # something about _snprintf and _snprintf_s
+                '/FS',               # Since the tests run in parallel
+            ]
+            link_args = [
+                '/DEBUG',
+                '/LTCG',
+            ]
+        else:
+            compile_args = [
+                '-g', '-O0',
+                '-Wfatal-errors',    # stop after one error (unrelated to warnings)
+                '-Werror',           # turn warnings into errors (all, for now)
+            ]
+            link_args = [
+                '-g',
+            ]
         #
         ext = Extension(
             name,
@@ -316,7 +332,7 @@ class HPyDebugTest(HPyTest):
         # for convenience
         return self.make_module("""
             HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
-            static HPy leak_impl(HPyContext ctx, HPy self, HPy arg)
+            static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 HPy_Dup(ctx, arg); // leak!
                 return HPy_Dup(ctx, ctx->h_None);
@@ -366,7 +382,9 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
     hpy_devel.fix_distribution(dist)
 
     old_level = distutils.log.set_threshold(0) or 0
+    old_dir = os.getcwd()
     try:
+        os.chdir(tmpdir)
         distutils.log.set_verbosity(compiler_verbose)
         dist.run_command('build_ext')
         cmd_obj = dist.get_command_obj('build_ext')
@@ -376,6 +394,7 @@ def _build(tmpdir, ext, hpy_devel, hpy_abi, compiler_verbose=0, debug=None):
         assert len(sonames) == 1, 'build_ext is not supposed to return multiple DLLs'
         soname = sonames[0]
     finally:
+        os.chdir(old_dir)
         distutils.log.set_threshold(old_level)
 
     return soname

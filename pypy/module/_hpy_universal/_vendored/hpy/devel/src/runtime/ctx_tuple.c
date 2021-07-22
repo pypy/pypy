@@ -8,7 +8,7 @@
 
 
 _HPy_HIDDEN HPy
-ctx_Tuple_FromArray(HPyContext ctx, HPy items[], HPy_ssize_t n)
+ctx_Tuple_FromArray(HPyContext *ctx, HPy items[], HPy_ssize_t n)
 {
     PyObject *res = PyTuple_New(n);
     if (!res)

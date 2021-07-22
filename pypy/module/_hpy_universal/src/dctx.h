@@ -1,5 +1,5 @@
 #include "src/precommondefs.h"
-#include <universal/hpy.h>
+#include <hpy.h>
 
 RPY_EXPORTED HPyContext pypy_hpy_debug_get_ctx(HPyContext uctx);
 RPY_EXPORTED int pypy_hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx);

@@ -1,5 +1,5 @@
 #include "src/precommondefs.h"
-#include "universal/hpy.h"
+#include "hpy.h"
 
 RPY_EXTERN void pypy_HPy_FatalError(HPyContext ctx, const char *message);
 RPY_EXTERN int pypy_HPyErr_Occurred(HPyContext ctx);

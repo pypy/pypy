@@ -39,7 +39,7 @@ eci = ExternalCompilationInfo(
 
 cts = CTypeSpace()
 cts.headers.append('stdint.h')
-cts.parse_source(INCLUDE_DIR.join('common', 'autogen_hpyslot.h').read())
+cts.parse_source(INCLUDE_DIR.join('hpy', 'autogen_hpyslot.h').read())
 
 # NOTE: the following C source is NOT seen by the C compiler during
 # translation: it is used only as a nice way to declare the lltype.* types
