@@ -93,9 +93,9 @@ class LLVMOpDispatcher:
         cstring = CString(name)
         return self.llvm.AddFunction(self.module, cstring.ptr, signature)
 
-    def call_function(self, func_int_ptr, ret_type, arg_types, args,
-                      res_name, void=False):
-        #takes llvm types
+    def call_function(self, func_int_ptr, ret_type, arg_types, args, res_name):
+        # takes llvm types
+        # pass res_name = "" when returning void
         arg_num = len(args)
         arg_types = self.rpython_array(arg_types, self.llvm.TypeRef)
         func_type = self.llvm.FunctionType(ret_type, arg_types,
@@ -107,19 +107,13 @@ class LLVMOpDispatcher:
                                        func_ptr_type, cstring.ptr)
         arg_array = self.rpython_array(args, self.llvm.ValueRef)
 
-        if not void:
-            cstring = CString(res_name)
-            res =  self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
-                                       cstring.ptr)
-        else:
-            cstring = CString("")
-            self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
-                                cstring.ptr)
+        cstring = CString(res_name)
+        res =  self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
+                                   cstring.ptr)
 
         lltype.free(arg_array, flavor='raw')
         lltype.free(arg_types, flavor='raw')
-        if not void:
-            return res
+        return res
 
 
     def create_metadata(self, string):
@@ -1148,8 +1142,7 @@ class LLVMOpDispatcher:
                                                    "call_res")
         else:
             self.call_function(func_int_ptr, ret_type,
-                                arg_types, params,
-                                "call_res", void = True)
+                                arg_types, params, "")
 
     def parse_cond_call(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
@@ -1172,8 +1165,7 @@ class LLVMOpDispatcher:
         self.llvm.BuildCondBr(self.builder, cmp, call_block, resume_block)
 
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
-        self.call_function(func_int_ptr, ret_type, arg_types, params, "",
-                           void = True)
+        self.call_function(func_int_ptr, ret_type, arg_types, params, "")
         self.llvm.BuildBr(self.builder, resume_block)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
@@ -1188,18 +1180,8 @@ class LLVMOpDispatcher:
         if ret == 'i': ret_type = self.cpu.llvm_int_type
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
 
-        if ret == 'r': # if func returns r then condition is r
-            cstring = CString("cmp_cast")
-            cnd_cast = self.llvm.BuildPtrToInt(self.builder, cnd,
-                                               self.cpu.llvm_int_type,
-                                               cstring.ptr)
-            cstring = CString("cond_call_cmp")
-            cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd_cast, self.zero,
-                                      cstring.ptr)
-        else:
-            cstring = CString("cond_call_cmp")
-            cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd, self.zero,
-                                      cstring.ptr)
+        cstring = CString("cmp")
+        cmp = self.llvm.BuildIsNull(self.builder, cnd, cstring.ptr)
 
         cstring = CString("call_block")
         call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
