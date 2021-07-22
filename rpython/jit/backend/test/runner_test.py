@@ -143,24 +143,32 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_void = None
 
     def test_llvm(self):
+        called = []
+        def func_int(*args):
+            called.append(args)
+            return len(args) * 100 + 1000
         cpu = self.cpu
         #u1_box, U_box, _ = self.alloc_instance(self.U)
         #u2_box, U_box, _ = self.alloc_instance(self.U)
         #r = self.execute_operation(rop.PTR_EQ, [u1_box,
         #                                        clone(u1_box)], 'int')
         #print(r)
+        FUNC = self.FuncType([lltype.Signed] * 2, lltype.Signed)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
         sizedescr = cpu.sizeof(S)
         looptoken = JitCellToken()
         loop = parse("""
-        [i0]
-        r0 = newstr(i0)
-        finish(r0, descr=finaldescr)
-        """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2)})
+        [i0, i1]
+        i2 = cond_call_value_i(i0, ConstClass(func_ptr), i1, descr=calldescr)
+        finish(i2, descr=finaldescr)
+        """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2), "func_ptr": func_ptr, "calldescr": calldescr})
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, 1)
+        deadframe = self.cpu.execute_token(looptoken, 0, 1)
         fail = self.cpu.get_latest_descr(deadframe)
-        res = self.cpu.get_ref_value(deadframe, 0)
+        res = self.cpu.get_int_value(deadframe, 0)
         print(fail, res)
         exit(1)
         #r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)

@@ -1188,16 +1188,25 @@ class LLVMOpDispatcher:
         if ret == 'i': ret_type = self.cpu.llvm_int_type
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
 
-        cstring = CString("cond_call_cmp")
-        cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd, self.zero,
-                                  cstring.ptr)
+        if ret == 'r': # if func returns r then condition is r
+            cstring = CString("cmp_cast")
+            cnd_cast = self.llvm.BuildPtrToInt(self.builder, cnd,
+                                               self.cpu.llvm_int_type,
+                                               cstring.ptr)
+            cstring = CString("cond_call_cmp")
+            cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd_cast, self.zero,
+                                      cstring.ptr)
+        else:
+            cstring = CString("cond_call_cmp")
+            cmp = self.llvm.BuildICmp(self.builder, self.inteq, cnd, self.zero,
+                                      cstring.ptr)
+
         cstring = CString("call_block")
         call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                 cstring.ptr)
         cstring = CString("resume_block")
         resume_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                   cstring.ptr)
-
         self.llvm.BuildCondBr(self.builder, cmp, call_block, resume_block)
 
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
@@ -1206,10 +1215,12 @@ class LLVMOpDispatcher:
         self.llvm.BuildBr(self.builder, resume_block)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
-        # if cmp == 0 then call was never made, otherwise it was
-        cstring = CString("cond_call_value_res")
-        self.ssa_vars[op] = self.llvm.BuildSelect(self.builder, cmp, cmp,
-                                                  call_res, cstring.ptr)
+        phi_type = ret_type
+        cstring = CString("cond_phi")
+        phi = self.llvm.BuildPhi(self.builder, phi_type, cstring.ptr)
+        self.llvm.AddIncoming(phi, call_res, call_block)
+        self.llvm.AddIncoming(phi, cnd, self.entry)
+        self.ssa_vars[op] = phi
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
