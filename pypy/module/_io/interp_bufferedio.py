@@ -384,6 +384,7 @@ class BufferedMixin:
                     if flush_operr:
                         e.chain_exceptions(space, flush_operr)
                     raise
+        self.buffer = None # free buffer memory
         self.maybe_unregister_rpython_finalizer_io(space)
 
     def _dealloc_warn_w(self, space, w_source):
