@@ -1167,6 +1167,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
                                           descr=body_info.fail_descr)
 
+    resumekey = body_info.fail_descr
+    assert isinstance(resumekey, ResumeGuardDescr)
+
     # assert False
 
     # compiling loop body
