@@ -534,27 +534,25 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
-    # Search from index 1 because on Windows starting '=' is allowed for
-    # defining hidden environment variables.
     if _WIN32:
-        if len(name) == 0 or '=' in name[1:]:
+        if len(name) == 0 or '=' in name:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
+        if len(name) > _MAX_ENV:
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d bytes",
+                        _MAX_ENV)
+        if not objectmodel.we_are_translated() and value == '':
+            # special case: on Windows, _putenv("NAME=") really means that
+            # we want to delete NAME.  So that's what the os.environ[name]=''
+            # below will do after translation.  But before translation, it
+            # will cache the environment value '' instead of <missing> and
+            # then return that.  We need to avoid that.
+            del os.environ[name]
+            return
     else:
         if '=' in name:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
-    if _WIN32 and len(name) > _MAX_ENV:
-        raise oefmt(space.w_ValueError,
-                    "the environment variable is longer than %d bytes",
-                    _MAX_ENV)
-    if _WIN32 and not objectmodel.we_are_translated() and value == '':
-        # special case: on Windows, _putenv("NAME=") really means that
-        # we want to delete NAME.  So that's what the os.environ[name]=''
-        # below will do after translation.  But before translation, it
-        # will cache the environment value '' instead of <missing> and
-        # then return that.  We need to avoid that.
-        del os.environ[name]
-        return
     try:
         os.environ[name] = value
     except OSError as e:
