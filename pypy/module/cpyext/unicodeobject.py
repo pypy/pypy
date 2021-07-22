@@ -152,8 +152,6 @@ def unicode_dealloc(space, py_obj):
         lltype.free(get_wbuffer(py_obj), flavor="raw")
     if has_utf8_memory(py_obj):
         lltype.free(get_utf8(py_obj), flavor="raw")
-    if not get_compact(py_obj) and get_data(py_obj):
-        lltype.free(get_data(py_obj), flavor="raw")
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 
@@ -167,7 +165,12 @@ def has_wbuffer_memory(py_obj):
         return cts.cast('void *', ptr) != get_data(py_obj)
 
 def get_compact_ascii(py_obj):
-    return get_ascii(py_obj) and get_compact(py_obj)
+    a = get_ascii(py_obj)
+    if not a:
+        return False
+    if not get_compact(py_obj):
+        assert False, "ascii but not compact PyUnicodeObject"
+    return True
 
 def has_utf8_memory(py_obj):
     if get_compact_ascii(py_obj):
@@ -230,10 +233,14 @@ def set_utf8(py_obj, buf):
     py_obj.c_utf8 = buf
 
 def get_wsize(py_obj):
+    if get_compact_ascii(py_obj):
+        return get_len(py_obj)
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     return py_obj.c_wstr_length
 
 def set_wsize(py_obj, value):
+    if get_ascii(py_obj):
+        assert False, "don't set_wsize on a compact ascii unicode"
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     py_obj.c_wstr_length = value
 
@@ -247,8 +254,20 @@ def get_data(py_obj):
             struct_size = rffi.sizeof(PyCompactUnicodeObject)
         data = rffi.ptradd(rffi.cast(rffi.CCHARP, py_obj), struct_size)
         return cts.cast('void *', data)
-    py_obj = cts.cast('PyUnicodeObject*', py_obj)
-    return py_obj.c_data
+    else:
+        py_obj = cts.cast('PyUnicodeObject*', py_obj)
+        return py_obj.c_data
+
+def set_data_compact(py_obj, p_data, size):
+    if get_ascii(py_obj):
+        PyASCIIObject = cts.gettype('PyASCIIObject')
+        struct_size = rffi.sizeof(PyASCIIObject)
+    else:
+        PyCompactUnicodeObject = cts.gettype('PyCompactUnicodeObject')
+        struct_size = rffi.sizeof(PyCompactUnicodeObject)
+    data = rffi.ptradd(rffi.cast(rffi.CCHARP, py_obj), struct_size)
+    for i in range(size):
+        data[i] = p_data[i]
 
 def set_data(py_obj, p_data):
     py_obj = cts.cast('PyUnicodeObject*', py_obj)
@@ -382,23 +401,21 @@ def _readify(space, py_obj, value):
                     "Character U+%s is not in range [U+0000; U+10ffff]",
                     '%x' % maxchar)
     if maxchar < 256:
-        if maxchar < 128:
-            ucs1_data = cts.cast('void *', rffi.str2charp(value))
-        else:
-            # value is encoded as latin-1, not ascii
-            s = utf8_encode_latin_1(value, 'strict', None)
-            ucs1_data = cts.cast('void *', rffi.str2charp(s))
-        set_data(py_obj, ucs1_data)
-        set_kind(py_obj, _1BYTE_KIND)
+        # Do this before the compact format overwrites the
+        # PyCompactUnicodeObject.c_wstr_length
         set_len(py_obj, get_wsize(py_obj))
+        set_compact(py_obj, 1)
+        set_kind(py_obj, _1BYTE_KIND)
+        set_utf8(py_obj, cts.cast('char *', 0))
+        set_utf8_len(py_obj, 0)
         if maxchar < 128:
             set_ascii(py_obj, 1)
-            set_utf8(py_obj, cts.cast('char *', get_data(py_obj)))
-            set_utf8_len(py_obj, get_wsize(py_obj))
-        else:
+            set_data_compact(py_obj, value, len(value))
+        if maxchar >= 128:
             set_ascii(py_obj, 0)
-            set_utf8(py_obj, cts.cast('char *', 0))
-            set_utf8_len(py_obj, 0)
+            # re-encode as latin-1
+            value = utf8_encode_latin_1(value, 'strict', None)
+            set_data_compact(py_obj, value, len(value))
     elif maxchar < 65536:
         ucs2_data = cts.cast('void *', 0)
         if rffi.sizeof(lltype.UniChar) == 2:
@@ -468,6 +485,7 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     if not PyUnicode_Check(space, ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
     if not get_wbuffer(ref):
+        # compact ascii for instance
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
         u = space.utf8_w(w_unicode)
         lgt = space.len_w(w_unicode)
@@ -477,7 +495,8 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
         else:
             wbuf = rffi.utf82wcharp(u, lgt)
         set_wbuffer(ref, wbuf)
-        set_wsize(ref, lgt)
+        if not get_compact_ascii(ref):
+            set_wsize(ref, lgt)
     if psize:
         psize[0] = get_wsize(ref)
     return get_wbuffer(ref)
@@ -507,9 +526,6 @@ def utf82wcharp_ex(utf8, unilen, track_allocation=True):
     return w
 utf82wcharp_ex._annenforceargs_ = [str, int, bool]
 
-
-
-
 @cts.decl("Py_UNICODE * PyUnicode_AsUnicode(PyObject *unicode)")
 def PyUnicode_AsUnicode(space, ref):
     return PyUnicode_AsUnicodeAndSize(space, ref, cts.cast('Py_ssize_t *', 0))
@@ -521,7 +537,13 @@ def PyUnicode_AsUTF8AndSize(space, ref, psize):
     if not get_ready(ref):
         res = _PyUnicode_Ready(space, ref)
 
-    if not get_utf8(ref):
+    if get_compact_ascii(ref):
+        if psize:
+            psize[0] = get_len(ref)
+        return cts.cast('char *', get_data(ref))
+    ret = get_utf8(ref)
+    if not ret:
+        # Happens the first time through for compact, non-ascii
         # Copy unicode buffer
         w_unicode = from_ref(space, ref)
         w_encoded = unicodeobject.encode_object(space, w_unicode, "utf-8",
@@ -529,9 +551,10 @@ def PyUnicode_AsUTF8AndSize(space, ref, psize):
         s = space.bytes_w(w_encoded)
         set_utf8(ref, rffi.str2charp(s))
         set_utf8_len(ref, len(s))
+        ret = get_utf8(ref)
     if psize:
         psize[0] = get_utf8_len(ref)
-    return get_utf8(ref)
+    return ret
 
 @cts.decl("char * PyUnicode_AsUTF8(PyObject *unicode)")
 def PyUnicode_AsUTF8(space, ref):
@@ -847,7 +870,7 @@ def PyUnicode_InternFromString(space, s):
     object that has been interned, or a new ("owned") reference to an
     earlier interned string object with the same value.
     """
-    w_str = PyUnicode_FromString(space, s)
+    w_str = space.newtext(rffi.charp2str(s))
     return space.new_interned_w_str(w_str)
 
 @cpython_api([CONST_STRING, Py_ssize_t], PyObject, result_is_ll=True)
