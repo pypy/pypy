@@ -535,7 +535,14 @@ def _convertenviron(space, w_env):
 def putenv(space, name, value):
     """Change or add an environment variable."""
     if _WIN32:
-        if len(name) == 0 or '=' in name:
+        # Search from index 1 because on Windows starting '=' is allowed
+        # in general (see os.chdir which sets '=D:' for chdir(r'D:\temp')
+        # However it is a bit pointless here since the putenv system call
+        # hides the key/value.
+        # GetEnvironmentVariable/SetEnvironmentVariable will expose them,
+        # and as is mentioned in https://github.com/python/cpython/pull/2325#discussion_r674746677,
+        # someday the syscall may change to SetEnvironmentVariable here.
+        if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
         if len(name) > _MAX_ENV:
             raise oefmt(space.w_ValueError,
