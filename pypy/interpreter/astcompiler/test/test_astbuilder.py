@@ -1527,11 +1527,12 @@ class TestAstBuilder:
         assert exc.lineno == 2
         assert exc.offset == 6
 
-    @pytest.mark.xfail
     def test_fstring_lineno(self):
         mod = self.get_ast('x=1\nf"{    x + 1}"')
         assert mod.body[1].value.values[0].value.lineno == 2
         assert mod.body[1].value.values[0].value.col_offset == 7
+        assert mod.body[1].value.values[0].value.end_lineno == 2
+        assert mod.body[1].value.values[0].value.end_col_offset == 12
 
     def test_wrong_async_def_col_offset(self):
         mod = self.get_ast("async def f():\n pass")
@@ -1871,6 +1872,12 @@ class TestAstBuilder:
         assert tree.col_offset == 0
         assert tree.end_col_offset == len(s)
 
+    def test_binop_paren_bug(self):
+        s = "(    1 + 2)"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 5
+        assert tree.end_col_offset == len(s) - 1
+
     def test_dotted_name_bug(self):
         tree = self.get_ast('@a.b.c\ndef f(): pass')
         attr_b = tree.body[0].decorator_list[0].value
@@ -1882,14 +1889,14 @@ class TestAstBuilder:
         assert tree.get_source_segment(s) == s
         assert tree.get_source_segment(s, padded=True) == s
         # single line, no padding
-        assert tree.right.get_source_segment(s) == "(b + c)" # cpython doesn't think so?
-        assert tree.right.get_source_segment(s, padded=True) == "(b + c)"
+        assert tree.right.get_source_segment(s) == "b + c"
+        assert tree.right.get_source_segment(s, padded=True) == "b + c"
 
         # padding
         s = "a + (b \n + c)"
         tree = self.get_first_expr(s)
         assert tree.get_source_segment(s) == s
         assert tree.get_source_segment(s, padded=True) == s
-        assert tree.right.get_source_segment(s) == "(b \n + c)"
-        assert tree.right.get_source_segment(s, padded=True) == "    (b \n + c)"
+        assert tree.right.get_source_segment(s) == "b \n + c"
+        assert tree.right.get_source_segment(s, padded=True) == "     b \n + c"
 

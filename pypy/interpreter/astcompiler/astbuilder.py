@@ -1377,8 +1377,8 @@ class ASTBuilder(object):
                 return build(ast.Tuple, None, ast.Load, atom_node)
             elif second_child.type == syms.yield_expr:
                 return self.handle_expr(second_child)
-            result = self.handle_testlist_gexp(second_child)
-            return result.copy_location(atom_node)
+            result = self.handle_testlist_gexp(second_child, atom_node)
+            return result
         elif first_child_type == tokens.LSQB:
             second_child = atom_node.get_child(1)
             if second_child.type == tokens.RSQB:
@@ -1420,10 +1420,11 @@ class ASTBuilder(object):
         else:
             raise AssertionError("unknown atom")
 
-    def handle_testlist_gexp(self, gexp_node):
+    def handle_testlist_gexp(self, gexp_node, atom_node=None):
         if gexp_node.num_children() > 1 and \
                 gexp_node.get_child(1).type == syms.comp_for:
-            return self.handle_genexp(gexp_node)
+            result = self.handle_genexp(gexp_node)
+            return result.copy_location(atom_node)
         return self.handle_testlist(gexp_node)
 
     def count_comp_fors(self, comp_node):

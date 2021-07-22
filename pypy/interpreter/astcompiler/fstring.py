@@ -84,7 +84,9 @@ class FixPosVisitor(ast.GenericASTVisitor):
         if isinstance(node, ast.stmt) or isinstance(node, ast.expr):
             if node.lineno == 1:
                 node.col_offset += self.column_offset
+                node.end_col_offset += self.column_offset
             node.lineno += self.line_offset
+            node.end_lineno += self.line_offset
 
 
 def unexpected_end_of_string(astbuilder, atom_node):
