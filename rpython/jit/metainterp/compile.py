@@ -16,6 +16,7 @@ from rpython.jit.metainterp.resoperation import (
 from rpython.jit.metainterp.history import (TreeLoop, JitCellToken,
     TargetToken, AbstractFailDescr, ConstInt)
 from rpython.jit.metainterp import history, jitexc
+from rpython.jit.metainterp.logger import Logger
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.resume import (
     PENDINGFIELDSP, ResumeDataDirectReader)
@@ -138,6 +139,29 @@ class UnrolledLoopData(CompileData):
         opt = UnrollOptimizer(metainterp_sd, jitdriver_sd, optimizations)
         return opt.optimize_peeled_loop(
             self.trace, self.celltoken, self.state, self.call_pure_results)
+
+class SimpleSplitCompileData(CompileData):
+
+    def __init__(self, trace, resumestorage=None,
+                 call_pure_results=None, enable_opts=None,
+                 inline_short_preamble=False,
+                 split_at=None, guard_at=None,
+                 body_token=None, bridge_token=None):
+        self.trace = trace
+        self.resumestorage = resumestorage
+        self.call_pure_results = call_pure_results
+        self.enable_opts = enable_opts
+        self.inline_short_preamble = inline_short_preamble
+        self.split_at = split_at
+        self.guard_at = guard_at
+        self.body_token = body_token
+        self.bridge_token = bridge_token
+
+    def split(self, metainterp_sd, jitdriver_sd, optimizations, ops, inputargs):
+        from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
+        opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations,
+                            split_at=self.split_at, guard_at=self.guard_at)
+        return opt.split(self.trace, ops, inputargs, self.body_token, self.bridge_token)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     from rpython.conftest import option
@@ -264,7 +288,7 @@ def compile_loop(metainterp, greenkey, start, inputargs, jumpargs,
     enable_opts = jitdriver_sd.warmstate.enable_opts
     jitcell_token = make_jitcell_token(jitdriver_sd)
     cut_at = history.get_trace_position()
-    history.record(rop.JUMP, jumpargs, None, descr=jitcell_token)
+    history.record(rop.JUMP, jumpargs, None, descr=jitcell_token) # XXX
     if start != (0, 0, 0):
         trace = trace.cut_trace_from(start, inputargs)
     if not use_unroll:
@@ -1019,7 +1043,7 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-
+    import pdb; pdb.set_trace()
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     if isinstance(resumekey, ResumeAtPositionDescr):
@@ -1069,6 +1093,106 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     new_trace.inputargs = info.renamed_inputargs
     metainterp.retrace_needed(new_trace, info)
     return None
+
+def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
+                            ends_with_jump=False):
+    """
+    Try to execute a baseline (or method)  JIT compilation by splitting
+    a given trace generated from a method-traversal interpreter
+    """
+    metainterp_sd = metainterp.staticdata
+    jitdriver_sd = metainterp.jitdriver_sd
+    if isinstance(resumekey, ResumeAtPositionDescr):
+        inline_short_preamble = False
+    else:
+        inline_short_preamble = True
+    inputargs = metainterp.history.inputargs[:]
+    trace = metainterp.history.trace
+    jitdriver_sd = metainterp.jitdriver_sd
+    enable_opts = jitdriver_sd.warmstate.enable_opts
+    call_pure_results = metainterp.call_pure_results
+    resumestorage = resumekey.get_resumestorage()
+
+    trace.tracing_done()
+    metainterp_sd.jitlog.start_new_trace(metainterp_sd,
+        faildescr=resumekey, entry_bridge=False,
+        jd_name=jitdriver_sd.jitdriver.name)
+
+    if ends_with_jump:
+        data = BridgeCompileData(trace, runtime_boxes, resumestorage,
+                                 call_pure_results=call_pure_results,
+                                 enable_opts=enable_opts,
+                                 inline_short_preamble=inline_short_preamble)
+    else:
+        data = SimpleCompileData(trace, resumestorage,
+                                 call_pure_results=call_pure_results,
+                                 enable_opts=enable_opts)
+    try:
+        info, newops = data.optimize_trace(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
+    except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
+        # XXX I am fairly convinced that optimize_bridge cannot actually raise
+        # InvalidLoop
+        debug_print('InvalidLoop in compile_trace_and_split')
+        return None
+
+    debug_print('Loop before splitting')
+    metainterp_sd.logger_noopt.log_loop(info.inputargs, newops)
+
+    body_jitcell_token = make_jitcell_token(jitdriver_sd)
+    body_token = TargetToken(body_jitcell_token,
+                             original_jitcell_token=body_jitcell_token)
+
+    bridge_jitcell_token = make_jitcell_token(jitdriver_sd)
+    bridge_token = TargetToken(bridge_jitcell_token,
+                               original_jitcell_token=bridge_jitcell_token)
+    data = SimpleSplitCompileData(trace, resumestorage,
+                                  call_pure_results=call_pure_results,
+                                  enable_opts=enable_opts,
+                                  split_at="emit_jump", guard_at="is_true",
+                                  body_token=body_token, bridge_token=bridge_token)
+
+    try:
+        (body_info, body_ops), (bridge_info, bridge_ops) = data.split(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
+            newops, info.inputargs)
+    except InvalidLoop:
+        metainterp_sd.jitlog.trace_aborted()
+        debug_print('InvalidLoop in splitting a trace')
+        return None
+
+    debug_print('Loop after splitting')
+    metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
+    metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+                                          descr=body_info.fail_descr)
+
+    # assert False
+
+    # compiling loop body
+    body = create_empty_loop(metainterp)
+    body.original_jitcell_token = body_jitcell_token
+    body.inputargs = body_info.inputargs
+    body_start_label = ResOperation(rop.LABEL, body_info.inputargs,
+                                    descr=body_token)
+    body.operations = [body_start_label] + body_ops
+    body_faildescr_= body_info.fail_descr
+    if not we_are_translated():
+        body.check_consistency()
+    send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, body, "loop",
+                         body_info.inputargs, metainterp.box_names_memo)
+    record_loop_or_bridge(metainterp_sd, body)
+
+    # compiling bridge
+    bridge = create_empty_loop(metainterp)
+    body.original_jitcell_token = bridge_token
+    bridge.inputargs = bridge_info.inputargs
+    bridge_start_label = ResOperation(rop.LABEL, bridge_info.inputargs,
+                                      descr=bridge_token)
+    bridge.operations = [bridge_start_label] + bridge_ops
+    resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
+
+    return body_token
 
 # ____________________________________________________________
 

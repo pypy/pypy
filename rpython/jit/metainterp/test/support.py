@@ -67,6 +67,7 @@ def _get_jitcodes(testself, CPUClass, func, values,
 
     class FakeJitDriver:
         name = 'fakejitdriver'
+        threaded_code_gen = False
 
     class FakeJitDriverSD:
         num_green_args = 0

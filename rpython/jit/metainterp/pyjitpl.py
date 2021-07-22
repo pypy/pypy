@@ -1381,7 +1381,10 @@ class MIFrame(object):
             assert len(self.metainterp.framestack) >= 2
             old_frame = self.metainterp.framestack[-1]
             try:
-                self.metainterp.finishframe(None, leave_portal_frame=False)
+                import pdb; pdb.set_trace()
+                live_arg_boxes = greenboxes + redboxes
+                self.metainterp.finishframe(None, leave_portal_frame=False,
+                                            live_arg_boxes=live_arg_boxes)
             except ChangeFrame:
                 pass
             frame = self.metainterp.framestack[-1]
@@ -2112,6 +2115,8 @@ class MetaInterp(object):
         self.aborted_tracing_jitdriver = None
         self.aborted_tracing_greenkey = None
 
+        self.threaded_code_gen = jitdriver_sd.jitdriver.threaded_code_gen
+
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
         self.retracing_from = self.potential_retrace_position
@@ -2177,7 +2182,7 @@ class MetaInterp(object):
         frame.cleanup_registers()
         self.free_frames_list.append(frame)
 
-    def finishframe(self, resultbox, leave_portal_frame=True):
+    def finishframe(self, resultbox, leave_portal_frame=True, live_arg_boxes=None):
         # handle a non-exceptional return from the current frame
         self.last_exc_value = lltype.nullptr(rclass.OBJECT)
         self.popframe(leave_portal_frame=leave_portal_frame)
@@ -2187,7 +2192,7 @@ class MetaInterp(object):
             raise ChangeFrame
         else:
             try:
-                self.compile_done_with_this_frame(resultbox)
+                self.compile_done_with_this_frame(resultbox, live_arg_boxes)
             except SwitchToBlackhole as stb:
                 self.aborted_tracing(stb.reason)
             sd = self.staticdata
@@ -2809,8 +2814,8 @@ class MetaInterp(object):
             self.staticdata.log('cancelled: we already have a token now')
             raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
         target_token = compile.compile_loop(
-            self, greenkey, start, original_boxes[num_green_args:],
-            live_arg_boxes[num_green_args:], use_unroll=use_unroll)
+            self, greenkey, start, inputargs=original_boxes[num_green_args:],
+            jumpargs=live_arg_boxes[num_green_args:], use_unroll=use_unroll)
         if target_token is not None:
             assert isinstance(target_token, TargetToken)
             self.jitdriver_sd.warmstate.attach_procedure_to_interp(
@@ -2840,7 +2845,7 @@ class MetaInterp(object):
             self.history.cut(cut_at)  # pop the jump
         self.raise_if_successful(live_arg_boxes, target_token)
 
-    def compile_done_with_this_frame(self, exitbox):
+    def compile_done_with_this_frame(self, exitbox, live_arg_boxes=None):
         self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2860,7 +2865,15 @@ class MetaInterp(object):
         else:
             assert False
         self.history.record(rop.FINISH, exits, None, descr=token)
-        target_token = compile.compile_trace(self, self.resumekey, exits)
+        if not self.threaded_code_gen:
+            target_token = compile.compile_trace(self, self.resumekey, exits)
+        else:
+            # XXX: special entry point of executing threaded code generation
+            # execute compile_threaded_code in the case of threaded code gen
+            num_green_args = self.jitdriver_sd.num_green_args
+            greenkey = live_arg_boxes[:num_green_args]
+            target_token = compile.compile_trace_and_split(self, greenkey,
+                                                           self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
 

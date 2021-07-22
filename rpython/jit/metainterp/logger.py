@@ -47,6 +47,13 @@ class Logger(object):
             logops = self._log_operations(inputargs, operations, ops_offset,
                                           memo)
             debug_stop("jit-log-rewritten-loop")
+        elif type == "threadedcode":
+            debug_start("jit-log-threadedcode-loop")
+            debug_print("# Loop (threaded code)", number, '(%s)' % name, ":",
+                        "noopt", "with", len(operations), "ops")
+            logops = self._log_operations(inputargs, operations, ops_offset,
+                                          memo)
+            debug_stop("jit-log-threadedcode-loop")
         elif number == -2:
             debug_start("jit-log-compiling-loop")
             logops = self._log_operations(inputargs, operations, ops_offset,
