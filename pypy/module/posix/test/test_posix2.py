@@ -1217,9 +1217,11 @@ class AppTestEnvironment(object):
 
     def test_putenv_invalid_name(self):
         import os, sys
-        raises(ValueError, os.putenv, "=foo", "xxx")
         if sys.platform.startswith('win'):
+            raises(OSError, os.putenv, "=foo", "xxx")
             raises(ValueError, os.putenv, "foo=bar", "xxx")
+        else:
+            raises(ValueError, os.putenv, "=foo", "xxx")
 
 
 class AppTestPosixUnicode:
