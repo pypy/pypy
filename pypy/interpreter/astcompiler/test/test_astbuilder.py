@@ -1584,7 +1584,7 @@ class TestAstBuilder:
         args = func.args
         assert eq_w(args.args[0].type_comment, w("List[int]"))
         assert eq_w(args.args[1].type_comment, w("int"))
-        assert args.args[2].type_comment is None
+        assert self.space.is_none(args.args[2].type_comment)
 
     def test_type_comments_func_body(self):
         eq_w, w = self.space.eq_w, self.space.wrap
