@@ -72,8 +72,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 PyObject* s = PyObject_Str(args);
                 return PyLong_FromLong(PyUnicode_GetLength(s));
              """)])
-        print(module.strlen(True))
         assert module.strlen(True) == 4
+        assert module.strlen('a' * 40) == 40
 
     def test_intern_inplace(self):
         module = self.import_extension('foo', [

@@ -14,11 +14,11 @@ from pypy.module.cpyext.api import (
     CANNOT_FAIL, Py_ssize_t, cpython_api,
     bootstrap_function, CONST_STRING, INTP_real, Py_TPFLAGS_UNICODE_SUBCLASS,
     CONST_WSTRING, Py_CLEANUP_SUPPORTED, slot_function, cts, parse_dir,
-    PyTypeObjectPtr)
+    PyTypeObjectPtr, PyVarObject)
 from pypy.module.cpyext.pyerrors import PyErr_BadArgument
 from pypy.module.cpyext.pyobject import (
     PyObject, PyObjectP, decref, make_ref, from_ref, track_reference,
-    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj)
+    make_typedescr, get_typedescr, as_pyobj, pyobj_has_w_obj, BaseCpyTypedescr)
 from pypy.module.cpyext.bytesobject import PyBytes_Check, PyBytes_FromObject
 from pypy.module._codecs.interp_codecs import (
     CodecState, latin_1_decode, utf_16_decode, utf_32_decode)
@@ -39,6 +39,7 @@ def init_unicodeobject(space):
     make_typedescr(space.w_unicode.layout.typedef,
                    basestruct=PyUnicodeObject.TO,
                    attach=unicode_attach,
+                   alloc=unicode_alloc,
                    dealloc=unicode_dealloc,
                    realize=unicode_realize)
 
@@ -146,6 +147,13 @@ def unicode_realize(space, py_obj):
     track_reference(space, py_obj, w_obj)
     return w_obj
 
+def unicode_alloc(typedescr, space, w_type, itemcount):
+    # This could be optimized since it will allocate sizeof(PyUnicodeObject) +
+    # itemcount when it could do the trick in PyUnicode_New to use a different
+    # struct size.
+    # In any case, leave room for a null terminating character
+    return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount + 1)
+
 @slot_function([PyObject], lltype.Void)
 def unicode_dealloc(space, py_obj):
     if has_wbuffer_memory(py_obj):
@@ -169,7 +177,8 @@ def get_compact_ascii(py_obj):
     if not a:
         return False
     if not get_compact(py_obj):
-        assert False, "ascii but not compact PyUnicodeObject"
+        print "ascii but not compact PyUnicodeObject"
+        assert False
     return True
 
 def has_utf8_memory(py_obj):
@@ -234,13 +243,14 @@ def set_utf8(py_obj, buf):
 
 def get_wsize(py_obj):
     if get_compact_ascii(py_obj):
-        return get_len(py_obj)
+        assert False, "don't set_wsize on a compact ascii unicode"
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     return py_obj.c_wstr_length
 
 def set_wsize(py_obj, value):
-    if get_ascii(py_obj):
-        assert False, "don't set_wsize on a compact ascii unicode"
+    if get_compact_ascii(py_obj):
+        print "don't set_wsize on a compact ascii unicode"
+        assert False
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     py_obj.c_wstr_length = value
 
@@ -254,9 +264,8 @@ def get_data(py_obj):
             struct_size = rffi.sizeof(PyCompactUnicodeObject)
         data = rffi.ptradd(rffi.cast(rffi.CCHARP, py_obj), struct_size)
         return cts.cast('void *', data)
-    else:
-        py_obj = cts.cast('PyUnicodeObject*', py_obj)
-        return py_obj.c_data
+    py_obj = cts.cast('PyUnicodeObject*', py_obj)
+    return py_obj.c_data
 
 def set_data_compact(py_obj, p_data, size):
     if get_ascii(py_obj):
@@ -268,6 +277,7 @@ def set_data_compact(py_obj, p_data, size):
     data = rffi.ptradd(rffi.cast(rffi.CCHARP, py_obj), struct_size)
     for i in range(size):
         data[i] = p_data[i]
+    data[size] = '\x00'
 
 def set_data(py_obj, p_data):
     py_obj = cts.cast('PyUnicodeObject*', py_obj)
@@ -403,7 +413,11 @@ def _readify(space, py_obj, value):
     if maxchar < 256:
         # Do this before the compact format overwrites the
         # PyCompactUnicodeObject.c_wstr_length
-        set_len(py_obj, get_wsize(py_obj))
+        alloc_len = get_wsize(py_obj)
+        pyvarobj = rffi.cast(PyVarObject, py_obj)
+        itemcount = pyvarobj.c_ob_size
+
+        set_len(py_obj, alloc_len)
         set_compact(py_obj, 1)
         set_kind(py_obj, _1BYTE_KIND)
         set_utf8(py_obj, cts.cast('char *', 0))
@@ -411,7 +425,7 @@ def _readify(space, py_obj, value):
         if maxchar < 128:
             set_ascii(py_obj, 1)
             set_data_compact(py_obj, value, len(value))
-        if maxchar >= 128:
+        else:
             set_ascii(py_obj, 0)
             # re-encode as latin-1
             value = utf8_encode_latin_1(value, 'strict', None)
@@ -1321,16 +1335,19 @@ def PyUnicode_New(space, size, maxchar):
 
     is_ascii = False
     is_sharing = False
+    is_compact = False
     maxchar = widen(maxchar)
     struct_size = rffi.sizeof(PyCompactUnicodeObject)
     if maxchar < 128:
         kind = _1BYTE_KIND
         char_size = 1
         is_ascii = True
+        is_compact = True
         struct_size = rffi.sizeof(PyASCIIObject)
     elif maxchar < 256:
         kind = _1BYTE_KIND
         char_size = 1
+        is_compact = True
     elif maxchar < 65536:
         kind = _2BYTE_KIND
         char_size = 2
@@ -1362,14 +1379,16 @@ def PyUnicode_New(space, size, maxchar):
                         add_memory_pressure=True)
     pyobj = rffi.cast(PyObject, buf)
     pyobj.c_ob_refcnt = 1
+    pyvarobj = rffi.cast(PyVarObject, pyobj)
+    pyvarobj.c_ob_size = size
     #pyobj.c_ob_pypy_link remains null for now
     pyobj.c_ob_type = pytype
 
+    set_compact(pyobj, is_compact)
+    set_ascii(pyobj, is_ascii)
     set_len(pyobj, size)
     set_kind(pyobj, kind)
-    set_compact(pyobj, True)
     set_ready(pyobj, True)
-    set_ascii(pyobj, is_ascii)
     if is_sharing:
         set_wsize(pyobj, size)
         set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
