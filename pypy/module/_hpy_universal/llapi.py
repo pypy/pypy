@@ -280,9 +280,9 @@ struct _HPyContext_s {
     void * ctx_Dump;
 } _struct_HPyContext_s;
 
-typedef struct _HPyContext_s *HPyContext;
+typedef struct _HPyContext_s HPyContext;
 
-typedef HPy (*HPyInitFunc)(HPyContext ctx);
+typedef HPy (*HPyInitFunc)(HPyContext *ctx);
 typedef int HPyFunc_Signature;
 
 /* hpydef.h */
@@ -465,45 +465,45 @@ typedef struct {
 
 /* autogen_hpyfunc_declare.h */
 
-typedef HPy (*HPyFunc_noargs)(HPyContext ctx, HPy self);
-typedef HPy (*HPyFunc_o)(HPyContext ctx, HPy self, HPy arg);
-typedef HPy (*HPyFunc_varargs)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs);
-typedef HPy (*HPyFunc_keywords)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
-typedef HPy (*HPyFunc_unaryfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_binaryfunc)(HPyContext ctx, HPy, HPy);
-typedef HPy (*HPyFunc_ternaryfunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_inquiry)(HPyContext ctx, HPy);
-typedef HPy_ssize_t (*HPyFunc_lenfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_ssizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t);
-typedef HPy (*HPyFunc_ssizessizeargfunc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t);
-typedef int (*HPyFunc_ssizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy);
-typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
-typedef int (*HPyFunc_objobjargproc)(HPyContext ctx, HPy, HPy, HPy);
-typedef void (*HPyFunc_freefunc)(HPyContext ctx, void *);
-typedef HPy (*HPyFunc_getattrfunc)(HPyContext ctx, HPy, char *);
-typedef HPy (*HPyFunc_getattrofunc)(HPyContext ctx, HPy, HPy);
-typedef int (*HPyFunc_setattrfunc)(HPyContext ctx, HPy, char *, HPy);
-typedef int (*HPyFunc_setattrofunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef HPy (*HPyFunc_reprfunc)(HPyContext ctx, HPy);
-typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_richcmpfunc)(HPyContext ctx, HPy, HPy, int);
-typedef HPy (*HPyFunc_getiterfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_iternextfunc)(HPyContext ctx, HPy);
-typedef HPy (*HPyFunc_descrgetfunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_descrsetfunc)(HPyContext ctx, HPy, HPy, HPy);
-typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
-typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
-typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
-typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
-typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
-typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
+typedef HPy (*HPyFunc_noargs)(HPyContext *ctx, HPy self);
+typedef HPy (*HPyFunc_o)(HPyContext *ctx, HPy self, HPy arg);
+typedef HPy (*HPyFunc_varargs)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs);
+typedef HPy (*HPyFunc_keywords)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_unaryfunc)(HPyContext *ctx, HPy);
+typedef HPy (*HPyFunc_binaryfunc)(HPyContext *ctx, HPy, HPy);
+typedef HPy (*HPyFunc_ternaryfunc)(HPyContext *ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_inquiry)(HPyContext *ctx, HPy);
+typedef HPy_ssize_t (*HPyFunc_lenfunc)(HPyContext *ctx, HPy);
+typedef HPy (*HPyFunc_ssizeargfunc)(HPyContext *ctx, HPy, HPy_ssize_t);
+typedef HPy (*HPyFunc_ssizessizeargfunc)(HPyContext *ctx, HPy, HPy_ssize_t, HPy_ssize_t);
+typedef int (*HPyFunc_ssizeobjargproc)(HPyContext *ctx, HPy, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_ssizessizeobjargproc)(HPyContext *ctx, HPy, HPy_ssize_t, HPy_ssize_t, HPy);
+typedef int (*HPyFunc_objobjargproc)(HPyContext *ctx, HPy, HPy, HPy);
+typedef void (*HPyFunc_freefunc)(HPyContext *ctx, void *);
+typedef HPy (*HPyFunc_getattrfunc)(HPyContext *ctx, HPy, char *);
+typedef HPy (*HPyFunc_getattrofunc)(HPyContext *ctx, HPy, HPy);
+typedef int (*HPyFunc_setattrfunc)(HPyContext *ctx, HPy, char *, HPy);
+typedef int (*HPyFunc_setattrofunc)(HPyContext *ctx, HPy, HPy, HPy);
+typedef HPy (*HPyFunc_reprfunc)(HPyContext *ctx, HPy);
+typedef HPy_hash_t (*HPyFunc_hashfunc)(HPyContext *ctx, HPy);
+typedef HPy (*HPyFunc_richcmpfunc)(HPyContext *ctx, HPy, HPy, int);
+typedef HPy (*HPyFunc_getiterfunc)(HPyContext *ctx, HPy);
+typedef HPy (*HPyFunc_iternextfunc)(HPyContext *ctx, HPy);
+typedef HPy (*HPyFunc_descrgetfunc)(HPyContext *ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_descrsetfunc)(HPyContext *ctx, HPy, HPy, HPy);
+typedef int (*HPyFunc_initproc)(HPyContext *ctx, HPy self, HPy *args, HPy_ssize_t nargs, HPy kw);
+typedef HPy (*HPyFunc_getter)(HPyContext *ctx, HPy, void *);
+typedef int (*HPyFunc_setter)(HPyContext *ctx, HPy, HPy, void *);
+typedef int (*HPyFunc_objobjproc)(HPyContext *ctx, HPy, HPy);
+typedef int (*HPyFunc_getbufferproc)(HPyContext *ctx, HPy, HPy_buffer *, int);
+typedef void (*HPyFunc_releasebufferproc)(HPyContext *ctx, HPy, HPy_buffer *);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 
 # HACK! We manually assign _hints['eci'] to ensure that the eci is included in
 # the translation, else common_header.h does not include hpy.h. A more proper
 # solution probably involves telling CTypeSpace which eci the types come from?
-HPyContext = cts.gettype('HPyContext')
+HPyContext = cts.gettype('HPyContext*')
 HPyContext.TO._hints['eci'] = eci
 
 # Hack required to allocate contexts statically:
