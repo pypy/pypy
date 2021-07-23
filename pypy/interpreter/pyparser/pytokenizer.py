@@ -333,11 +333,11 @@ def generate_tokens(lines, flags):
                     # so recognize them unconditionally.
                     if not async_hacks or async_def:
                         if token == 'async':
-                            token_list.append(Token(tokens.ASYNC, token, lnum, start, line, end))
+                            token_list.append(Token(tokens.ASYNC, token, lnum, start, line, lnum, end))
                         elif token == 'await':
-                            token_list.append(Token(tokens.AWAIT, token, lnum, start, line, end))
+                            token_list.append(Token(tokens.AWAIT, token, lnum, start, line, lnum, end))
                         else:
-                            token_list.append(Token(tokens.NAME, token, lnum, start, line, end))
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     elif token == 'async':                 # async token, look ahead
                         #ahead token
                         if pos < max:
@@ -349,11 +349,11 @@ def generate_tokens(lines, flags):
                             if ahead_token == 'def':
                                 async_def = True
                                 async_def_indent = indents[-1]
-                                token_list.append(Token(tokens.ASYNC, token, lnum, start, line, end))
+                                token_list.append(Token(tokens.ASYNC, token, lnum, start, line, lnum, end))
                             else:
-                                token_list.append(Token(tokens.NAME, token, lnum, start, line, end))
+                                token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                         else:
-                            token_list.append(Token(tokens.NAME, token, lnum, start, line, end))
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     else:
                         token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     last_comment = ''
