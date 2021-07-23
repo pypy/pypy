@@ -32,6 +32,7 @@ eci = ExternalCompilationInfo(
         DEBUG_DIR.join('debug_handles.c'),
         DEBUG_DIR.join('_debugmod.c'),
         DEBUG_DIR.join('autogen_debug_wrappers.c'),
+        DEBUG_DIR.join('dhqueue.c'),
         BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
         # </debug mode>
     ],
