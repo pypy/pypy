@@ -1168,9 +1168,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                           descr=body_info.fail_descr)
 
     resumekey = body_info.fail_descr
-    assert isinstance(resumekey, ResumeGuardDescr)
 
-    # assert False
+    if not we_are_translated():
+        assert isinstance(resumekey, ResumeGuardDescr)
 
     # compiling loop body
     body = create_empty_loop(metainterp)
@@ -1188,11 +1188,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
 
     # compiling bridge
     bridge = create_empty_loop(metainterp)
-    body.original_jitcell_token = bridge_token
+    bridge.original_jitcell_token = bridge_token
     bridge.inputargs = bridge_info.inputargs
-    bridge_start_label = ResOperation(rop.LABEL, bridge_info.inputargs,
-                                      descr=bridge_token)
-    bridge.operations = [bridge_start_label] + bridge_ops
+    bridge.operations = bridge_ops
     resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
 
     return body_token
