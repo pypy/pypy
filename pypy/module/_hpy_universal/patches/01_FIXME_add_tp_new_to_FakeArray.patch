@@ -10,7 +10,7 @@ diff --git a/pypy/module/_hpy_universal/test/_vendored/test_slots.py b/pypy/modu
              } FakeArrayObject;
  
 +            HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
-+            static HPy new_fakearray_impl(HPyContext ctx, HPy cls, HPy *args,
++            static HPy new_fakearray_impl(HPyContext *ctx, HPy cls, HPy *args,
 +                                          HPy_ssize_t nargs, HPy kw)
 +            {
 +                if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))
@@ -43,7 +43,7 @@ diff --git a/extra_tests/hpy_tests/_vendored/test_slots.py b/extra_tests/hpy_tes
              } FakeArrayObject;
  
 +            HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
-+            static HPy new_fakearray_impl(HPyContext ctx, HPy cls, HPy *args,
++            static HPy new_fakearray_impl(HPyContext *ctx, HPy cls, HPy *args,
 +                                          HPy_ssize_t nargs, HPy kw)
 +            {
 +                if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))

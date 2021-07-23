@@ -45,7 +45,7 @@ class W_HPyTypeObject(W_TypeObject):
         self.basicsize = basicsize
 
 
-@API.func("void *_HPy_Cast(HPyContext ctx, HPy h)")
+#@API.func("void *_HPy_Cast(HPyContext *ctx, HPy h)")
 def _HPy_Cast(space, handles, ctx, h):
     w_obj = handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
@@ -53,7 +53,7 @@ def _HPy_Cast(space, handles, ctx, h):
         raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
     return w_obj.hpy_data
 
-@API.func("HPy _HPy_New(HPyContext ctx, HPy h_type, void **data)")
+@API.func("HPy _HPy_New(HPyContext *ctx, HPy h_type, void **data)")
 def _HPy_New(space, handles, ctx, h_type, data):
     w_type = handles.deref(h_type)
     w_result = _create_instance(space, w_type)
@@ -100,11 +100,11 @@ def get_bases_from_params(handles, params):
     # return a copy of bases_w to ensure that it's a not-resizable list
     return make_sure_not_resized(bases_w[:])
 
-@API.func("HPy HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
+@API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
     return _hpytype_fromspec(handles, spec, params)
 
-@DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
+@DEBUG.func("HPy debug_HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)", func_name='HPyType_FromSpec')
 def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
     return _hpytype_fromspec(handles, spec, params)
 
@@ -213,7 +213,7 @@ def _create_instance(space, w_type):
         w_result.register_finalizer(space)
     return w_result
 
-@API.func("HPy HPyType_GenericNew(HPyContext ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
+@API.func("HPy HPyType_GenericNew(HPyContext *ctx, HPy type, HPy *args, HPy_ssize_t nargs, HPy kw)")
 def HPyType_GenericNew(space, handles, ctx, h_type, args, nargs, kw):
     w_type = handles.deref(h_type)
     w_result = _create_instance(space, w_type)

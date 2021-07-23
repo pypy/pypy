@@ -218,6 +218,8 @@ struct _HPyContext_s {
     void * ctx_Err_Occurred;
     void * ctx_Err_NoMemory;
     void * ctx_Err_Clear;
+    void * ctx_Err_NewException;
+    void * ctx_Err_NewExceptionWithDoc;
     void * ctx_IsTrue;
     void * ctx_Type_FromSpec;
     void * ctx_Type_GenericNew;
@@ -235,7 +237,9 @@ struct _HPyContext_s {
     void * ctx_SetItem_s;
     void * ctx_Type;
     void * ctx_TypeCheck;
-    void * ctx_Cast;
+    void * ctx_Is;
+    void * ctx_AsStruct;
+    void * ctx_AsStructLegacy;
     void * ctx_New;
     void * ctx_Repr;
     void * ctx_Str;
@@ -262,6 +266,7 @@ struct _HPyContext_s {
     void * ctx_Dict_New;
     void * ctx_Tuple_Check;
     void * ctx_Tuple_FromArray;
+    void * ctx_Import_ImportModule;
     void * ctx_FromPyObject;
     void * ctx_AsPyObject;
     void * ctx_CallRealFunctionFromTrampoline;
@@ -410,7 +415,8 @@ typedef struct {
     const char* name;
     int basicsize;
     int itemsize;
-    unsigned int flags;
+    unsigned long flags;
+    int legacy;
     void *legacy_slots; // PyType_Slot *
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
     const char* doc;    /* UTF-8 doc string or NULL */
@@ -430,10 +436,13 @@ typedef struct {
 
 /* All types are dynamically allocated */
 #define _Py_TPFLAGS_HEAPTYPE (1UL << 9)
+#define _Py_TPFLAGS_HAVE_VERSION_TAG (1UL << 18)
+#define HPy_TPFLAGS_DEFAULT (_Py_TPFLAGS_HEAPTYPE | _Py_TPFLAGS_HAVE_VERSION_TAG)
+
+#define HPy_TPFLAGS_INTERNAL_PURE (1UL << 8)
 
 /* Set if the type allows subclassing */
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)
-#define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
 
 /* macros.h */
 
