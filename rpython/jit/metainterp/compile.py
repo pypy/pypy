@@ -1043,7 +1043,6 @@ def compile_trace(metainterp, resumekey, runtime_boxes, ends_with_jump=False):
     #
     # Attempt to use optimize_bridge().  This may return None in case
     # it does not work -- i.e. none of the existing old_loop_tokens match.
-    import pdb; pdb.set_trace()
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
     if isinstance(resumekey, ResumeAtPositionDescr):
