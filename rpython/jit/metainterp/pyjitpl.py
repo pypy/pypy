@@ -1381,7 +1381,6 @@ class MIFrame(object):
             assert len(self.metainterp.framestack) >= 2
             old_frame = self.metainterp.framestack[-1]
             try:
-                import pdb; pdb.set_trace()
                 live_arg_boxes = greenboxes + redboxes
                 self.metainterp.finishframe(None, leave_portal_frame=False,
                                             live_arg_boxes=live_arg_boxes)
