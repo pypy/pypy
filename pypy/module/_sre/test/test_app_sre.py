@@ -1172,3 +1172,12 @@ class AppTestUnicodeExtra:
         # after 200 bytes
         assert repr(pattern) == "re.compile(%s)" % (repr(s)[:200],)
 
+class AppTestSreClasses:
+    def test_match_inheritance(self):
+        import re
+
+        with raises(TypeError) as error:
+            class T(re.Match):
+                pass
+
+        assert str(error.value) == "type 're.Match' is not an acceptable base type"
