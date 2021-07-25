@@ -228,7 +228,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.qualname = qualname + '.<locals>'
         else:
             self.qualname = qualname
-        self.allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
 
     def _compile(self, tree):
@@ -1889,6 +1889,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             return
         self.error("Unknown character ('$NUM' is only valid in the "
                    "reverse-debugger)", node)
+
+    @property
+    def allow_top_level_await(self):
+        return (
+            self._allow_top_level_await
+            and isinstance(self.scope, symtable.ModuleScope)
+        )
 
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
