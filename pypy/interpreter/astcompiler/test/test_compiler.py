@@ -2011,28 +2011,38 @@ class AppTestCompiler:
         compile(ast, '', 'exec')
 
     def test_warn_yield(self):
-        import warnings
-        d = {}
-        # this is fine! it warns, but warning is ignored
-        exec("x = [(yield 42) for i in range(10)]", d)
+        # These are OK!
+        compile("def g(): [x for x in [(yield 1)]]", "<test case>", "exec")
+        compile("def g(): [x for x in [(yield from ())]]", "<test case>", "exec")
 
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", DeprecationWarning)
-            d = {}
-            # if DeprecationWarning is an error, it's turned into a SyntaxError
-            with raises(SyntaxError) as info:
-                exec("x = [(yield 42) for i in j]", d)
-            print(str(info.value))
-            assert str(info.value).startswith("'yield' inside list comprehension")
-            with raises(SyntaxError) as info:
-                exec("x = ((yield 42) for i in j)", d)
-            assert str(info.value).startswith("'yield' inside generator expression")
-            with raises(SyntaxError) as info:
-                exec("x = {(yield 42) for i in j}", d)
-            assert str(info.value).startswith("'yield' inside set comprehension")
-            with raises(SyntaxError) as info:
-                exec("x = {(yield 42): blub for i in j}", d)
-            assert str(info.value).startswith("'yield' inside dict comprehension")
+        def check(snippet, error_msg):
+            try:
+                compile(snippet, "<test case>", "exec")
+            except SyntaxError as exc:
+                assert exc.msg == error_msg
+            else:
+                assert False, snippet
+
+        check("def g(): [(yield x) for x in ()]",
+              "'yield' inside list comprehension")
+        check("def g(): [x for x in () if not (yield x)]",
+              "'yield' inside list comprehension")
+        check("def g(): [y for x in () for y in [(yield x)]]",
+              "'yield' inside list comprehension")
+        check("def g(): {(yield x) for x in ()}",
+              "'yield' inside set comprehension")
+        check("def g(): {(yield x): x for x in ()}",
+              "'yield' inside dict comprehension")
+        check("def g(): {x: (yield x) for x in ()}",
+              "'yield' inside dict comprehension")
+        check("def g(): ((yield x) for x in ())",
+              "'yield' inside generator expression")
+        check("def g(): [(yield from x) for x in ()]",
+              "'yield' inside list comprehension")
+        check("class C: [(yield x) for x in ()]",
+              "'yield' inside list comprehension")
+        check("[(yield x) for x in ()]",
+              "'yield' inside list comprehension")
 
     def test_syntax_warnings_missing_comma(self):
         import warnings
