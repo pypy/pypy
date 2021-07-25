@@ -63,9 +63,9 @@ class __extend__(ast.expr):
         if d is None:
             d = "%r" % (self,)
         if ctx == ast.Del:
-            msg = "can't delete %s" % (d,)
+            msg = "cannot delete %s" % (d,)
         else:
-            msg = "can't assign to %s" % (d,)
+            msg = "cannot assign to %s" % (d,)
         raise UnacceptableExpressionContext(self, msg)
 
 
