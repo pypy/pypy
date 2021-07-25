@@ -653,7 +653,10 @@ class AsyncGenASend(AsyncGenABase):
     def do_throw(self, w_type, w_val, w_tb):
         space = self.space
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited __anext__()/asend()")
+            )
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
