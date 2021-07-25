@@ -601,7 +601,7 @@ class Method(W_Root):
     def descr_method_hash(self):
         space = self.space
         w_result = space.hash(self.w_function)
-        w_result = space.xor(w_result, space.hash(self.w_instance))
+        w_result = space.xor(w_result, space.id(self.w_instance))
         return w_result
 
     def descr_method__reduce__(self, space):
