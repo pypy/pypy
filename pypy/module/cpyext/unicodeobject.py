@@ -94,7 +94,7 @@ def new_empty_unicode(space, length):
     called.  Refcount of the result is 1.
     """
     typedescr = get_typedescr(space.w_unicode.layout.typedef)
-    py_obj = typedescr.allocate(space, space.w_unicode)
+    py_obj = typedescr.allocate(space, space.w_unicode, itemcount=length)
 
     buflen = length + 1
     set_wsize(py_obj, length)
@@ -1396,14 +1396,20 @@ def PyUnicode_New(space, size, maxchar):
     #pyobj.c_ob_pypy_link remains null for now
     pyobj.c_ob_type = pytype
 
-    set_compact(pyobj, is_compact)
-    set_ascii(pyobj, is_ascii)
     set_len(pyobj, size)
     set_kind(pyobj, kind)
-    set_ready(pyobj, True)
+    set_compact(pyobj, is_compact)
+    if is_compact:
+        set_ascii(pyobj, is_ascii)
+    else:
+        unicode_size = rffi.sizeof(PyUnicodeObject.TO)
+        data = rffi.ptradd(rffi.cast(rffi.CCHARP, pyobj), unicode_size)
+        set_data(pyobj, cts.cast('void *', data)) 
     if is_sharing:
-        set_wsize(pyobj, size)
         set_wbuffer(pyobj, rffi.cast(rffi.CWCHARP, get_data(pyobj)))
+    if not is_ascii:
+        set_wsize(pyobj, size)
+    set_ready(pyobj, True)
     return pyobj
 
 @cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
