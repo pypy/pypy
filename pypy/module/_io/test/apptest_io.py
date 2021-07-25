@@ -228,6 +228,17 @@ def test_attributes(tempfile):
             assert g.name == f.fileno()
             assert g.raw.name == f.fileno()
 
+def test_buffer_warning(tempfile):
+    import warnings
+
+    with warnings.catch_warnings(record=True) as collector:
+        warnings.simplefilter("always")
+        with _io.open(tempfile, "wb", buffering=1) as f:
+            ...
+
+    assert len(collector) == 1
+    assert isinstance(collector[0].message, DeprecationWarning)
+
 def test_opener(tempfile):
     import os
     with _io.open(tempfile, "w") as f:
