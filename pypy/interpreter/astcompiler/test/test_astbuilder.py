@@ -869,7 +869,7 @@ class TestAstBuilder:
                 input = template % (expr,)
                 with pytest.raises(SyntaxError) as excinfo:
                     self.get_ast(input)
-                assert excinfo.value.msg == "can't %s %s" % (ctx_type, type_str)
+                assert excinfo.value.msg == "cannot %s %s" % (ctx_type, type_str)
 
     def test_assignment_to_forbidden_names(self):
         invalid = (
@@ -917,7 +917,7 @@ class TestAstBuilder:
         input = "f(lambda x: x[0] = y)"
         with pytest.raises(SyntaxError) as excinfo:
             self.get_ast(input)
-        assert excinfo.value.msg == "lambda cannot contain assignment"
+        assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
 
     def test_ifexp(self):
         ifexp = self.get_first_expr("x if y else g")
@@ -1110,7 +1110,7 @@ class TestAstBuilder:
         input = "f(%s)" % (many_args,)
         self.get_ast(input) # doesn't crash any more
         exc = pytest.raises(SyntaxError, self.get_ast, "f((a+b)=c)").value
-        assert exc.msg == "keyword can't be an expression"
+        assert exc.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated: 'a'"
 
