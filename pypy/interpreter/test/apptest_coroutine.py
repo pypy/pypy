@@ -856,7 +856,7 @@ def test_runtime_warning_origin_tracking():
     assert str(w).endswith("foobaz' was never awaited")
     assert "test_runtime_warning_origin_tracking" in str(w)
 
-def test_await_multiple_times_same_coro():
+def test_await_multiple_times_same_gen():
     async def async_iterate():
         yield 1
         yield 2
@@ -867,6 +867,10 @@ def test_await_multiple_times_same_coro():
         await nxt
         with pytest.raises(RuntimeError):
             await nxt
-        await it.aclose()  # prevent unfinished iterator warning
+
+        coro = it.aclose()
+        await coro
+        with pytest.raises(RuntimeError):
+            await coro
 
     run_async(run())
