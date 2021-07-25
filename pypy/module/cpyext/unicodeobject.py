@@ -118,10 +118,6 @@ def unicode_realize(space, py_obj):
     be modified after this call. Can raise in wcharpsize2utf8
     """
     if not get_wbuffer(py_obj):
-        if not get_compact(py_obj):
-            fatalerror(
-                "internal cpyext error: realizing a non-compact unicode "
-                "object with wbuffer == null")
         data = cts.cast('char *', get_data(py_obj))
         size = get_len(py_obj)
         kind = get_kind(py_obj)
@@ -148,7 +144,6 @@ def unicode_realize(space, py_obj):
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
     track_reference(space, py_obj, w_obj)
-    print 'unicode_realize', py_obj, w_obj
     return w_obj
 
 def unicode_alloc(typedescr, space, w_type, itemcount):
@@ -180,9 +175,6 @@ def get_compact_ascii(py_obj):
     a = get_ascii(py_obj)
     if not a:
         return False
-    if not get_compact(py_obj):
-        print "ascii but not compact PyUnicodeObject"
-        assert False
     return True
 
 def has_utf8_memory(py_obj):
@@ -246,15 +238,10 @@ def set_utf8(py_obj, buf):
     py_obj.c_utf8 = buf
 
 def get_wsize(py_obj):
-    if get_compact_ascii(py_obj):
-        assert False, "don't get_wsize on a compact ascii unicode"
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     return py_obj.c_wstr_length
 
 def set_wsize(py_obj, value):
-    if get_compact_ascii(py_obj):
-        print "don't set_wsize on a compact ascii unicode"
-        assert False
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     py_obj.c_wstr_length = value
 
