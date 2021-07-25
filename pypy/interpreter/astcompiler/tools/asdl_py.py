@@ -582,7 +582,7 @@ def W_AST_init(space, w_self, __args__):
                 break
         if found < len(args_w):
             raise oefmt(space.w_TypeError,
-                "%T got multiple values for argument %8",
+                "%T got multiple values for argument '%8'",
                 w_self, field)
         space.setattr(w_self, space.newtext(field), w_value)
 
