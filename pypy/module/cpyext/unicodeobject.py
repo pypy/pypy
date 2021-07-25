@@ -247,7 +247,7 @@ def set_utf8(py_obj, buf):
 
 def get_wsize(py_obj):
     if get_compact_ascii(py_obj):
-        assert False, "don't set_wsize on a compact ascii unicode"
+        assert False, "don't get_wsize on a compact ascii unicode"
     py_obj = cts.cast('PyCompactUnicodeObject*', py_obj)
     return py_obj.c_wstr_length
 
@@ -518,6 +518,8 @@ def get_maybe_create_wbuffer(space, ref):
             wbuf = utf82wcharp_ex(u, lgt)
         else:
             wbuf = rffi.utf82wcharp(u, lgt)
+        if lgt != get_len(ref):
+            raise oefmt(space.w_SystemError, "inconsistent length")
         set_wbuffer(ref, wbuf)
         if not get_compact_ascii(ref):
             set_wsize(ref, lgt)
@@ -1341,6 +1343,7 @@ def PyUnicode_AsUCS4Copy(space, ref):
 def PyUnicode_New(space, size, maxchar):
     PyASCIIObject = cts.gettype('PyASCIIObject')
     PyCompactUnicodeObject = cts.gettype('PyCompactUnicodeObject')
+    PyCompactUnicodeObject = cts.gettype('PyCompactUnicodeObject')
 
     is_ascii = False
     is_sharing = False
@@ -1453,6 +1456,8 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     ch = r_uint(ch)
     if ch > rutf8.MAXUNICODE:
         raise oefmt(space.w_ValueError, "character out of range")
+    if get_compact(ref):
+        raise oefmt(space.w_SystemError, "Cannot modify compact via PyUnicode_WriteChar")
     utf8 = get_utf8(ref)
     as_str = rffi.charp2str(utf8)
     start = 0
