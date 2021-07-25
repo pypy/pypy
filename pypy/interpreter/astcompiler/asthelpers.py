@@ -172,15 +172,15 @@ class __extend__(ast.List):
 
 
 class __extend__(ast.Dict):
-    _type_name = "dict"
+    _type_name = "dict display"
 
 
 class __extend__(ast.Set):
-    _type_name = "set"
+    _type_name = "set display"
 
 
 class __extend__(ast.JoinedStr, ast.FormattedValue):
-    _type_name = "str"
+    _type_name = "f-string expression"
 
 
 class __extend__(ast.Compare):
