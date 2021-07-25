@@ -2165,13 +2165,45 @@ class AppTestCompiler:
             try:
                 code = compile(
                     textwrap.dedent(statement),
-                    '<testcast>',
+                    '<test case>',
                     'exec'
                 )
             except SyntaxError as exc:
                 pass
             else:
                 assert False, "this case shouldn't compile: %s" % statement
+
+    def test_top_level_async_invalid_cases(self):
+        import _ast
+        import textwrap
+
+        statements = [
+            """def f():  await arange(10)\n""",
+            """def f():  [x async for x in arange(10)]\n""",
+            """def f():  [await x async for x in arange(10)]\n""",
+            """def f():
+                   async for i in arange(1):
+                       a = 1
+            """,
+            """def f():
+                   async with asyncio.Lock() as l:
+                       a = 1
+            """,
+        ]
+
+        for flags in [0, _ast.PyCF_ALLOW_TOP_LEVEL_AWAIT]:
+            for statement in statements:
+                try:
+                    code = compile(
+                        textwrap.dedent(statement),
+                        '<test case>',
+                        'exec',
+                        flags=flags
+                    )
+                except SyntaxError as exc:
+                    pass
+                else:
+                    assert False, "this case shouldn't compile: %s" % statement
 
     def test_top_level_async_ensure_generator(self):
         import _ast
@@ -2187,7 +2219,7 @@ class AppTestCompiler:
 
         code = compile(
             source,
-            '<testcast>',
+            '<test case>',
             'exec',
             flags=_ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
         )
