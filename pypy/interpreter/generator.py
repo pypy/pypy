@@ -624,7 +624,10 @@ class AsyncGenASend(AsyncGenABase):
     def do_send(self, w_arg_or_err):
         space = self.space
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited __anext__()/asend()")
+            )
 
         # We think that the code should look like this:
         #if self.w_value_to_send is not None:
