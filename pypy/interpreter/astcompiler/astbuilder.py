@@ -1269,12 +1269,9 @@ class ASTBuilder(object):
                 else:
                     # a keyword argument
                     keyword_expr = self.handle_expr(expr_node)
-                    if isinstance(keyword_expr, ast.Lambda):
-                        self.error("lambda cannot contain assignment",
-                                   expr_node)
-                    elif not isinstance(keyword_expr, ast.Name):
-                        self.error("keyword can't be an expression",
-                                   expr_node)
+                    if not isinstance(keyword_expr, ast.Name):
+                        self.error('expression cannot contain assignment, '
+                                   'perhaps you meant "=="?', expr_node)
                     keyword = keyword_expr.id
                     if keyword in used_keywords:
                         self.error("keyword argument repeated: '%s'" % keyword, expr_node)
