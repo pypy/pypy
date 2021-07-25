@@ -226,6 +226,11 @@ class TestASTValidator:
         e = ast.Expr(ast.Name("x", ast.Store, *POS), *POS)
         self.stmt(e, "must have Load context")
 
+    def test_name(self):
+        for name in ("True", "False", "None"):
+            e = ast.Name(name, ast.Load, *POS)
+            self.expr(e, "can't be used with '%s' constant" % name)
+
     def test_boolop(self):
         b = ast.BoolOp(ast.And, [], *POS)
         self.expr(b, "less than 2 values")
