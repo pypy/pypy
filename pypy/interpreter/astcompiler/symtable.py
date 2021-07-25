@@ -629,13 +629,8 @@ class SymtableBuilder(ast.GenericASTVisitor):
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space
-            try:
-                space.warn(space.newtext(msg), space.w_DeprecationWarning)
-            except OperationError as e:
-                # ok, it's actually an exception! turn it into a syntax error
-                if not e.match(space, space.w_DeprecationWarning):
-                    raise
-                raise SyntaxError(msg, node.lineno, node.col_offset)
+            raise SyntaxError(msg, node.lineno, node.col_offset)
+
         new_scope.is_generator |= isinstance(node, ast.GeneratorExp)
 
     def visit_ListComp(self, listcomp):
