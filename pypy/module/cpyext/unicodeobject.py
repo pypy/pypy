@@ -60,6 +60,9 @@ kind_to_name = {
     4: '_4BYTE_KIND',
     }
 
+def pyunicode_check(ref):
+    return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
+
 # Backward compatibility: in PyPy7.3.4 this function became a C macro. But
 # since we do not change the API, we need to export this function from the
 # dll/so. This requires giving the mangled name here and special casing it in
@@ -69,7 +72,7 @@ def PyUnicode_Check(space, ref):
     if not ref:
         return False
     ref = rffi.cast(PyObject, ref)
-    return (widen(ref.c_ob_type.c_tp_flags) & Py_TPFLAGS_UNICODE_SUBCLASS) != 0
+    return pyunicode_check(ref)
 
 # Backward compatibility: in PyPy7.3.4 this function became a C macro. But
 # since we do not change the API, we need to also export this function from the
@@ -145,6 +148,7 @@ def unicode_realize(space, py_obj):
     w_obj = space.allocate_instance(unicodeobject.W_UnicodeObject, w_type)
     w_obj.__init__(s_utf8, lgt)
     track_reference(space, py_obj, w_obj)
+    print 'unicode_realize', py_obj, w_obj
     return w_obj
 
 def unicode_alloc(typedescr, space, w_type, itemcount):
@@ -496,8 +500,14 @@ def PyUnicode_FromKindAndData(space, kind, data, size):
 def PyUnicode_AsUnicodeAndSize(space, ref, psize):
     """Return a read-only pointer to the Unicode object's internal Py_UNICODE
     buffer, NULL if unicode is not a Unicode object."""
-    if not PyUnicode_Check(space, ref):
+    if not pyunicode_check(ref):
         raise oefmt(space.w_TypeError, "expected unicode object")
+    ret = get_maybe_create_wbuffer(space, ref)
+    if psize:
+        psize[0] = get_len(ref)
+    return ret
+
+def get_maybe_create_wbuffer(space, ref):
     if not get_wbuffer(ref):
         # compact ascii for instance
         w_unicode = from_ref(space, rffi.cast(PyObject, ref))
@@ -511,8 +521,6 @@ def PyUnicode_AsUnicodeAndSize(space, ref, psize):
         set_wbuffer(ref, wbuf)
         if not get_compact_ascii(ref):
             set_wsize(ref, lgt)
-    if psize:
-        psize[0] = get_wsize(ref)
     return get_wbuffer(ref)
 
 def utf82wcharp_ex(utf8, unilen, track_allocation=True):
@@ -546,7 +554,8 @@ def PyUnicode_AsUnicode(space, ref):
 
 @cts.decl("char * PyUnicode_AsUTF8AndSize(PyObject *unicode, Py_ssize_t *psize)")
 def PyUnicode_AsUTF8AndSize(space, ref, psize):
-    if not PyUnicode_Check(space, ref):
+    if not pyunicode_check(ref):
+        # PyUnicode_Check failed
         PyErr_BadArgument(space)
     if not get_ready(ref):
         res = _PyUnicode_Ready(space, ref)
@@ -583,8 +592,8 @@ def PyUnicode_AsWideChar(space, ref, buf, size):
     string may or may not be 0-terminated.  It is the responsibility of the caller
     to make sure that the wchar_t string is 0-terminated in case this is
     required by the application."""
-    c_buffer = PyUnicode_AsUnicode(space, ref)
-    c_length = get_wsize(ref)
+    c_buffer = get_maybe_create_wbuffer(space, ref)
+    c_length = get_len(ref)
 
     # If possible, try to copy the 0-termination as well
     if size > c_length:
@@ -612,7 +621,7 @@ def PyUnicode_GetDefaultEncoding(space):
     return default_encoding
 
 def _unicode_as_encoded_object(space, pyobj, llencoding, llerrors):
-    if not PyUnicode_Check(space, pyobj):
+    if not pyunicode_check(pyobj):
         PyErr_BadArgument(space)
 
     encoding = errors = None
@@ -650,7 +659,7 @@ def PyUnicode_AsUnicodeEscapeString(space, pyobj):
     """Encode a Unicode object using Unicode-Escape and return the result as Python
     string object.  Error handling is "strict". Return NULL if an exception was
     raised by the codec."""
-    if not PyUnicode_Check(space, pyobj):
+    if not pyunicode_check(pyobj):
         PyErr_BadArgument(space)
 
     w_unicode = from_ref(space, pyobj)
@@ -941,7 +950,7 @@ def make_conversion_functions(suffix, encoding, only_for_asstring=False):
         """Encode a Unicode object and return the result as Python
         string object.  Error handling is "strict".  Return NULL if an
         exception was raised by the codec."""
-        if not PyUnicode_Check(space, pyobj):
+        if not pyunicode_check(pyobj):
             PyErr_BadArgument(space)
         w_unicode = from_ref(space, pyobj)
         return unicodeobject.encode_object(space, w_unicode, encoding, "strict")
@@ -1397,7 +1406,7 @@ def PyUnicode_New(space, size, maxchar):
 @cts.decl("""Py_ssize_t PyUnicode_FindChar(PyObject *str, Py_UCS4 ch, 
           Py_ssize_t start, Py_ssize_t end, int direction)""", error=-1)
 def PyUnicode_FindChar(space, ref, ch, start, end, direction):
-    if not PyUnicode_Check(space, ref):
+    if not pyunicode_check(ref):
         PyErr_BadArgument(space)
     w_str = from_ref(space, ref)
     ch = widen(ch)
@@ -1414,7 +1423,7 @@ def PyUnicode_FindChar(space, ref, ch, start, end, direction):
 
 @cts.decl("Py_UCS4 PyUnicode_ReadChar(PyObject *unicode, Py_ssize_t index)", error=-1)
 def PyUnicode_ReadChar(space, ref, index):
-    if not PyUnicode_Check(space, ref):
+    if not pyunicode_check(ref):
         PyErr_BadArgument(space)
     if not get_ready(ref):
         PyErr_BadArgument(space)
@@ -1432,7 +1441,7 @@ def PyUnicode_WriteChar(space, ref, index, ch):
     - ref must not have a RPython object
     - ref must not have been processed by _PyUnicode_Ready
     """
-    if not PyUnicode_Check(space, ref):
+    if not pyunicode_check(ref):
         PyErr_BadArgument(space)
     if index < 0 or index > get_len(ref):
         raise oefmt(space.w_IndexError, "string index out of range")
