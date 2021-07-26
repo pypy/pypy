@@ -335,16 +335,16 @@ class DebugHandleManager(AbstractHandleManager):
         return llapi.hpy_debug_open_handle(self.ctx, uh)
 
     def close(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
         self.u_handles.close(uh)
 
     def deref(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         return self.u_handles.deref(uh)
 
     def consume(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
         return self.u_handles.consume(uh)
 

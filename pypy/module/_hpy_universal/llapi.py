@@ -13,7 +13,7 @@ DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug'
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
-    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
+    includes=["hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
         cdir,                       # for precommondefs.h
         INCLUDE_DIR,                # for universal/hpy.h
@@ -592,7 +592,7 @@ hpy_debug_open_handle = rffi.llexternal(
     compilation_info=eci, _nowrapper=True)
 
 hpy_debug_unwrap_handle = rffi.llexternal(
-    'pypy_hpy_debug_unwrap_handle', [HPy], HPy,
+    'pypy_hpy_debug_unwrap_handle', [HPyContext, HPy], HPy,
     compilation_info=eci, _nowrapper=True)
 
 hpy_debug_close_handle = rffi.llexternal(
