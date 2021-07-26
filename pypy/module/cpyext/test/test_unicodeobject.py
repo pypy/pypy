@@ -626,6 +626,55 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.is_compact_ascii('abc')
         assert not module.is_compact_ascii(u'000\x80')
         assert module.get_compact_data('abc') == 'abc'
+
+    def test_subclass(self):
+        module = self.import_extension('gcc', [
+            ('is_ascii', "METH_O",
+             '''
+                if (!PyUnicode_Check(args)) {
+                    Py_RETURN_FALSE;
+                }
+                if (PyUnicode_IS_ASCII(args)) {
+                    Py_RETURN_TRUE;
+                }
+                Py_RETURN_FALSE;
+             '''),
+            ('is_compact', "METH_O",
+             '''
+                if (!PyUnicode_Check(args)) {
+                    Py_RETURN_FALSE;
+                }
+                if (PyUnicode_IS_COMPACT(args)) {
+                    Py_RETURN_TRUE;
+                }
+                Py_RETURN_FALSE;
+             '''),
+            ], prologue="""
+                #include <Python.h>
+                PyTypeObject PyUnicodeSubtype = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "foo.unicode_",               /* tp_name*/
+                    sizeof(PyUnicodeObject),      /* tp_basicsize*/
+                    0                             /* tp_itemsize */
+                    };
+
+            """, more_init = '''
+                PyUnicodeSubtype.tp_alloc = NULL;
+                PyUnicodeSubtype.tp_free = NULL;
+
+                PyUnicodeSubtype.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
+                PyUnicodeSubtype.tp_itemsize = sizeof(char);
+                PyUnicodeSubtype.tp_base = &PyUnicode_Type;
+                if (PyType_Ready(&PyUnicodeSubtype) < 0) INITERROR;
+                PyModule_AddObject(mod, "subtype",
+                                   (PyObject *)&PyUnicodeSubtype); 
+            ''')
+
+        a = module.subtype('abc')
+        assert module.is_ascii(a) is True
+        assert module.is_compact(a) is False
+
  
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):

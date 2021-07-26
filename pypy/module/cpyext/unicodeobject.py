@@ -147,10 +147,11 @@ def unicode_realize(space, py_obj):
     return w_obj
 
 def unicode_alloc(typedescr, space, w_type, itemcount):
-    # This could be optimized since it will allocate sizeof(PyUnicodeObject) +
-    # itemcount when it could do the trick in PyUnicode_New to use a different
-    # struct size.
-    # In any case, leave room for a null terminating character
+    if not w_type is space.w_unicode:
+        # subclass, will not use compact format, so no need for extra space
+        return BaseCpyTypedescr.allocate(typedescr, space, w_type, 1)
+    # This could be optimized: PyUnicodeObject is 80 bytes, PyASCIIObject
+    # is 48. In any case, leave room for a NULL char
     return BaseCpyTypedescr.allocate(typedescr, space, w_type, itemcount + 1)
 
 @slot_function([PyObject], lltype.Void)
@@ -393,6 +394,8 @@ def _PyUnicode_Ready(space, py_obj):
     return _readify(space, py_obj, space.utf8_w(w_obj))
 
 def _readify(space, py_obj, value):
+    PyUnicode_Type = rffi.cast(cts.gettype('PyTypeObject*'),
+                               make_ref(space, space.w_unicode))
     maxchar = 0
     for c in rutf8.Utf8StringIterator(value):
         if c > maxchar:
@@ -401,26 +404,37 @@ def _readify(space, py_obj, value):
                 raise oefmt(space.w_ValueError,
                     "Character U+%s is not in range [U+0000; U+10ffff]",
                     '%x' % maxchar)
+    use_compact = (py_obj.c_ob_type == PyUnicode_Type)
     if maxchar < 256:
         # Do this before the compact format overwrites the
         # PyCompactUnicodeObject.c_wstr_length
         alloc_len = get_wsize(py_obj)
-        pyvarobj = rffi.cast(PyVarObject, py_obj)
-        itemcount = pyvarobj.c_ob_size
-
+        if use_compact:
+            pyvarobj = rffi.cast(PyVarObject, py_obj)
+            itemcount = pyvarobj.c_ob_size
+            set_compact(py_obj, 1)
         set_len(py_obj, alloc_len)
-        set_compact(py_obj, 1)
         set_kind(py_obj, _1BYTE_KIND)
         set_utf8(py_obj, cts.cast('char *', 0))
         set_utf8_len(py_obj, 0)
         if maxchar < 128:
             set_ascii(py_obj, 1)
-            set_data_compact(py_obj, value, len(value))
+            if use_compact:
+                set_data_compact(py_obj, value, len(value))
+            else:
+                ucs1_data = cts.cast('void *', rffi.str2charp(value))
+                set_data(py_obj, ucs1_data)
+                set_utf8(py_obj, cts.cast('char *', get_data(py_obj)))
+                set_utf8_len(py_obj, get_wsize(py_obj))
         else:
             set_ascii(py_obj, 0)
             # re-encode as latin-1
             value = utf8_encode_latin_1(value, 'strict', None)
-            set_data_compact(py_obj, value, len(value))
+            if use_compact:
+                set_data_compact(py_obj, value, len(value))
+            else:
+                ucs1_data = cts.cast('void *', rffi.str2charp(value))
+                set_data(py_obj, ucs1_data)
     elif maxchar < 65536:
         ucs2_data = cts.cast('void *', 0)
         if rffi.sizeof(lltype.UniChar) == 2:
@@ -656,12 +670,13 @@ def PyUnicode_AsUnicodeEscapeString(space, pyobj):
 
 @cpython_api([CONST_WSTRING, Py_ssize_t], PyObject, result_is_ll=True)
 def PyUnicode_FromUnicode(space, wchar_p, length):
-    """Create a Unicode Object from the Py_UNICODE buffer u of the given size. u
-    may be NULL which causes the contents to be undefined. It is the user's
-    responsibility to fill in the needed data.  The buffer is copied into the new
-    object. If the buffer is not NULL, the return value might be a shared object.
-    Therefore, modification of the resulting Unicode object is only allowed when u
-    is NULL."""
+    """Create a legacy (non-compact) Unicode Object from the Py_UNICODE
+    buffer wchar_p of the given size. wchar_p may be NULL which causes the
+    contents to be undefined. It is the user's responsibility to fill in
+    the needed data.  The buffer is copied into the data field of the
+    PyUnicodeObject. If the buffer is not NULL, the return value might be a
+    shared object.  Therefore, modification of the resulting Unicode object
+    is only allowed when u is NULL."""
     if length < 0:
         length = 0
     if wchar_p:
