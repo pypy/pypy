@@ -76,7 +76,7 @@ class LLVM_CPU(AbstractLLCPU):
         os.system("rm ir-dmp.ll")
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
-                     unique_id=0, log=True, name='trace', logger=None):
+                     unique_id=0, log=True, name='trace', logger=None, test_descr=None):
         self.assembler.refresh_jit()
         cstring = CString(name)
         module = self.llvm.CreateModule(cstring.ptr, self.context)

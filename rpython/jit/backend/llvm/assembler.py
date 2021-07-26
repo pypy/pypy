@@ -6,10 +6,11 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem.rffi import constcharp2str
 
 class LLVMAssembler(BaseAssembler):
-    def __init__(self, cpu):
+    def __init__(self, cpu, optimise=False):
         self.cpu = cpu
         self.llvm = cpu.llvm
         self.debug = cpu.debug
+        self.optimise = optimise
         self.llvm.InitializeNativeTarget(None)
         self.llvm.InitializeNativeAsmPrinter(None)
         self.pass_manager = self.llvm.CreatePassManager(None)
@@ -66,7 +67,8 @@ class LLVMAssembler(BaseAssembler):
         clt.frame_info = frame_info
 
         module_copy = self.llvm.CloneModule(module) #if we want to mutate module later to patch in a bridge we have to pass a copy to be owned by LLVM's JIT
-        self.llvm.RunPassManager(self.pass_manager, module_copy)
+        if not self.debug or self.optimise:
+            self.llvm.RunPassManager(self.pass_manager, module_copy)
         if self.debug:
             self.cpu.write_ir(module_copy, "opt")
         ctx = self.cpu.thread_safe_context

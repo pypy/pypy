@@ -1,4 +1,5 @@
 import ctypes
+from rpython.jit.metainterp.test.test_executor import FakeFieldDescr
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.support import ptr2int
 from rpython.rlib.objectmodel import compute_unique_id
@@ -9,7 +10,8 @@ from rpython.jit.backend.llsupport import gc
 from rpython.jit.backend.llvm.llvm_api import CString
 
 class LLVMOpDispatcher:
-    def __init__(self, cpu, builder, module, entry, func, jitframe_type, jitframe_subtypes):
+    def __init__(self, cpu, builder, module, entry, func, jitframe_type, jitframe_subtypes, test_descr=None):
+        self.test_descr = test_descr
         self.cpu = cpu
         self.builder = builder
         self.module = module
@@ -22,6 +24,8 @@ class LLVMOpDispatcher:
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
         self.descr_phis = {} #map label descrs to phi values
+        self.structs = {} #map struct descrs to LLVMStruct instances
+        self.arrays = {} #map array descrs to LLVMStruct instances
         self.descr_blocks = {} #map label and guard descrs to their blocks
         self.descr_guards = {} #map guard descrs to llvm instructions
         self.llvm_failargs = {} #map guards to llvm values their failargs map to at point of parsing
@@ -72,6 +76,74 @@ class LLVMOpDispatcher:
         self.realle = enums.realle
         self.realord = enums.realord
         lltype.free(enums, flavor='raw')
+
+    def get_struct_from_subtypes(self, subtypes):
+        types_array_type = rffi.CArray(self.llvm.TypeRef)
+        packed = 0
+        elem_count = len(subtypes)
+        types_array = lltype.malloc(types_array_type,
+                                    n=elem_count, flavor='raw')
+        for c, elem in enumerate(subtypes):
+            types_array.__setitem__(c, elem)
+        struct_type = self.llvm.StructType(self.cpu.context, types_array,
+                                           elem_count, packed)
+        lltype.free(types_array, flavor='raw')
+        return struct_type
+
+    def construct_llvm_struct_type(self, fielddescrs, llvm_types, depth):
+        for fielddescr in fielddescrs:
+            flag = fielddescr.flag
+            if flag == 'S' or flag == 'U':
+                size = fielddescr.field_size
+                llvm_types.append(self.llvm.IntType(self.cpu.context,
+                                                    size*self.cpu.WORD))
+            elif flag == 'F':
+                llvm_types.append(self.cpu.llvm_float_type)
+            elif flag == 'P':
+                llvm_types.append(self.cpu.llvm_void_ptr)
+            elif flag == 'X':
+                sizedescr = self.cpu.sizeof(fielddescr)
+
+
+    def parse_struct_descr_to_llvm(self, sizedescr, struct_ptr):
+        try:
+            return self.structs[sizedescr]
+        except KeyError:
+            llvm_types = []
+            for fielddescr in sizedescr.all_fielddescrs:
+                flag = fielddescr.flag
+                if flag == 'S' or flag == 'U':
+                    size = fielddescr.field_size
+                    llvm_types.append(self.llvm.IntType(self.cpu.context,
+                                                        size*self.cpu.WORD))
+                elif flag == 'F':
+                    llvm_types.append(self.cpu.llvm_float_type)
+                elif flag == 'P':
+                    llvm_types.append(self.cpu.llvm_void_ptr)
+                else:
+                    print(flag)
+                    raise Exception("unknwon flag type")
+
+            struct_type = self.get_struct_from_subtypes(llvm_types)
+            struct_ptr_type = self.llvm.PointerType(struct_type, 0)
+
+            cstring = CString("struct")
+            struct = self.llvm.BuildPointerCast(self.builder, struct_ptr,
+                                                struct_ptr_type, cstring.ptr)
+
+            llvm_struct = LLVMStruct(self, llvm_types, 1, struct=struct,
+                                     struct_type=struct_type)
+            self.structs[sizedescr] = llvm_struct
+            return llvm_struct
+
+    def parse_array_descr_to_llvm(self, arraydescr, array_ptr):
+        try:
+            return self.arrays[arraydescr]
+        except KeyError:
+            flag = arraydescr.flag
+            if flag != 'X':
+                self.depth
+
 
     def get_func_ptr(self, func, arg_types, ret_type):
         #takes rpython types
@@ -154,8 +226,12 @@ class LLVMOpDispatcher:
         return llvm_args
 
     def cast_arg(self, arg, llvm_val):
-        if arg.type == 'i':
-            return llvm_val #already int
+        if arg.type == 'i': #FIXME: can turn this back into direct return
+            return llvm_val
+            # cstring = CString("arg")
+            # return self.llvm.BuildIntCast(self.builder, llvm_val,
+            #                               self.cpu.llvm_int_type, 0,
+            #                               cstring.ptr)
         if arg.type == 'f':
             cstring = CString("arg")
             return self.llvm.BuildBitCast(self.builder, llvm_val,
@@ -273,8 +349,8 @@ class LLVMOpDispatcher:
         self.local_vars_size += 1
         self.llvm.BuildStore(self.builder, self.false, self.overflow)
         self.jitframe = LLVMStruct(self, self.jitframe_subtypes, 2,
-                                   self.entry, self.jitframe,
-                                   self.jitframe_type)
+                                   struct=self.jitframe,
+                                   struct_type=self.jitframe_type)
 
         indecies_array = rffi.CArray(self.llvm.ValueRef)
         indecies = lltype.malloc(indecies_array, n=3, flavor='raw')
@@ -473,6 +549,15 @@ class LLVMOpDispatcher:
             elif op.opnum == 116:
                 self.parse_ptr_ne(op)
 
+            elif op.opnum == 153:
+                self.parse_getfield_gc(op) #r
+
+            elif op.opnum == 154:
+                self.parse_getfield_gc(op) #f
+
+            elif op.opnum == 155:
+                self.parse_getfield_gc(op) #r
+
             elif op.opnum == 160:
                 self.parse_new(op)
 
@@ -494,11 +579,16 @@ class LLVMOpDispatcher:
             elif op.opnum == 166:
                 self.parse_force_token(op)
 
-            elif op.opnum == 168: #167 doesn't reach backend
+            #167 doesn't reach backend
+
+            elif op.opnum == 168:
                 self.parse_strhash(op)
 
             elif op.opnum == 169:
                 self.parse_unicodehash(op)
+
+            elif op.opnum == 183:
+                self.parse_setfield_gc(op)
 
             elif op.opnum == 213:
                 self.parse_call(op, 'r')
@@ -1004,14 +1094,34 @@ class LLVMOpDispatcher:
         self.ssa_vars[op] = self.llvm.BuildICmp(self.builder, self.intne,
                                                 res, self.zero, cstring.ptr)
 
+    def parse_getfield_gc(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        struct = args[0]
+        value = self.llvm.ConstInt(self.cpu.llvm_int_type, 1, 0) #simulate the value llvm would normally read from input
+        fielddescr = op.getdescr()
+        sizedescr = fielddescr.get_parent_descr()
+        llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
+
+        field_type = self.cpu.llvm_char_type
+        cstring = CString("value_cast")
+        value = self.llvm.BuildIntCast(self.builder, value, field_type,
+                                       1, cstring.ptr)
+
+        llvm_struct.set_elem(value, fielddescr.index)
+
+        self.ssa_vars[op] = value
+
+
     def parse_new(self, op):
         descr = op.getdescr()
         ptr = self.cpu.bh_new(descr)._cast_to_int()
-        llvm_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type, ptr, 0)
-        cstring = CString("new_res")
-        self.ssa_vars[op] = self.llvm.BuildIntToPtr(self.builder, llvm_ptr,
-                                                    self.cpu.llvm_void_ptr,
-                                                    cstring.ptr)
+        llvm_ptr_int = self.llvm.ConstInt(self.cpu.llvm_int_type, ptr, 0)
+        cstring = CString("llvm_ptr")
+        llvm_ptr = self.llvm.BuildIntToPtr(self.builder, llvm_ptr_int,
+                                           self.cpu.llvm_void_ptr,
+                                           cstring.ptr)
+        llvm_struct = self.parse_struct_descr_to_llvm(descr, llvm_ptr)
+        self.ssa_vars[op] = llvm_struct.struct
 
     def parse_new_with_vtable(self, op):
         descr = op.getdescr()
@@ -1022,41 +1132,45 @@ class LLVMOpDispatcher:
                                                     self.cpu.llvm_void_ptr,
                                                     cstring.ptr)
 
-    def parse_new_array(self, op): #FIXME
+    def new_array_wrapper(self, length, descr_int):
+        descr = ctypes.cast(descr_int, ctypes.py_object).value
+        return self.cpu.bh_new_array(length, descr)
+
+    def parse_new_array(self, op):
         num_elem = self.parse_args(op.getarglist())[0][0]
-        func = self.cpu.gc_ll_descr.malloc_array
-        FPTR = self.cpu.gc_ll_descr.malloc_array_FUNCPTR
-        func_int = self.func_ptr_to_int(func, FPTR)
-        func_int_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, func_int, 0)
+        arg_types = [lltype.Signed] * 2
+        ret_type = llmemory.GCREF
+        func_int_ptr = self.get_func_ptr(self.new_array_wrapper, arg_types,
+                                         ret_type)
+        func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                               func_int_ptr, 0)
         array_descr = op.getdescr()
-
-        basesize = array_descr.basesize
         itemsize = array_descr.itemsize
-        ofs_length = 0 # assuming this is fine
-        basesize_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, basesize, 0)
-        itemsize_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, itemsize, 0)
-        ofs_length_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, ofs_length, 0)
 
-        # presumberly if we give more type information to llvm the optimiser
+        # presumerbly if we give more type information to llvm the optimiser
         # works better
         if array_descr.is_array_of_structs():
             # can't represent structs specifically
-            ret_type = self.cpu.llvm_void_ptr
+            ret_type_llvm = self.cpu.llvm_void_ptr
         else:
             if array_descr.is_array_of_primitives():
                 if array_descr.is_array_of_floats():
                     if itemsize == 8: elem_type = self.cpu.llvm_float_type
-                    elif itemsize == 4: elem_type = self.cpu.llvm_single_float_type
+                    else: elem_type = self.cpu.llvm_single_float_type
                 else:
                     elem_type = self.llvm.IntType(self.cpu.context, itemsize*8)
             else:
                 elem_type = self.cpu.llvm_void_ptr
-            ret_type = self.llvm.ArrayType(elem_type, num_elem)
-        arg_types = [self.cpu.llvm_int_type] * 4
-        args = [basesize_llvm, itemsize_llvm, num_elem, ofs_length_llvm]
+            ret_type_llvm = self.llvm.PointerType(elem_type, 0)
 
-        self.ssa_vars[op] = self.call_function(func_int_llvm, ret_type,
-                                               arg_types, args, "new_array_res")
+        arg_types_llvm = [self.cpu.llvm_int_type] * 2
+        descr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                        compute_unique_id(array_descr), 0)
+        args = [num_elem, descr_int]
+
+        self.ssa_vars[op] = self.call_function(func_int_ptr_llvm, ret_type_llvm,
+                                               arg_types_llvm, args,
+                                               "new_array_res")
 
 
     def parse_newstr(self, op):
@@ -1069,8 +1183,7 @@ class LLVMOpDispatcher:
         func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                                func_int_ptr, 0)
 
-        str_type = self.llvm.ArrayType(self.cpu.llvm_char_type, length)
-        arg_types_llvm = [str_type]
+        arg_types_llvm = [lltype.Signed]
         ret_type_llvm = self.cpu.llvm_void_ptr
         args = [length]
         self.ssa_vars[op] = self.call_function(func_int_ptr_llvm, ret_type_llvm,
@@ -1089,6 +1202,38 @@ class LLVMOpDispatcher:
     def parse_unicodehash(self, op):
         pass
 
+    def parse_setfield_gc(self, op): #assumes pypy structs are 1D
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        struct = args[0]
+        value = args[1]
+        fielddescr = op.getdescr()
+        sizedescr = fielddescr.get_parent_descr()
+        llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
+
+        field_type = self.cpu.llvm_char_type
+        cstring = CString("value_cast")
+        value = self.llvm.BuildIntCast(self.builder, value, field_type,
+                                       1, cstring.ptr)
+
+        llvm_struct.set_elem(value, fielddescr.index)
+
+        # if fielddescr.flag == 'S':
+        #     field_type = llvm_struct.subtypes[fielddescr.index]
+        #     cstring = CString("value_cast")
+        #     value = self.llvm.BuildIntCast(self.builder, value, field_type,
+        #                                    1, cstring.ptr)
+        # elif fielddescr.flag == 'U':
+        #     field_type = llvm_struct.subtypes[fielddescr.index]
+        #     cstring = CString("value_cast")
+        #     value = self.llvm.BuildIntCast(self.builder, value, field_type,
+        #                                    0, cstring.ptr)
+
+        # x = self.llvm.BuildLoad(self.builder, self.cpu.llvm_char_type, ptr, cstring.ptr)
+        # uncast_value = self.llvm.BuildZExt(self.builder, x, self.cpu.llvm_int_type, cstring.ptr)
+        # self.jitframe.set_elem(uncast_value, 7, 1)
+        # descr = self.llvm.ConstInt(self.cpu.llvm_int_type, compute_unique_id(self.test_descr), 0)
+        # self.jitframe.set_elem(descr, 1)
+        # self.llvm.BuildRet(self.builder, self.jitframe.struct)
 
     # Won't work when call descr is dynamic and args are any int type
     def get_arg_types(self, call_descr, params):
@@ -1323,7 +1468,7 @@ class LLVMArray:
         lltype.free(self.indecies_array, flavor='raw')
 
 class LLVMStruct:
-    def __init__(self, dispatcher, subtypes, depth, caller_block,
+    def __init__(self, dispatcher, subtypes, depth, caller_block=None,
                  struct=None, struct_type=None):
         self.dispatcher = dispatcher
         self.builder = self.dispatcher.builder
@@ -1338,26 +1483,13 @@ class LLVMStruct:
         index = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 1)
         self.indecies_array.__setitem__(0, index) #held struct is actually a pointer to the array, will always needs to be deref'ed at indx 0 first
         if struct_type is None:
-            self.struct_type = self.get_struct_type()
+            self.struct_type = dispatcher.get_struct_from_subtypes(subtypes)
         else:
             self.struct_type = struct_type
         if struct is None:
             self.struct = self.allocate_struct(dispatcher.entry, caller_block)
         else:
             self.struct = struct
-
-    def get_struct_type(self):
-        types_array_type = rffi.CArray(self.llvm.TypeRef)
-        packed = 0
-        types_array = lltype.malloc(types_array_type,
-                                    n=self.elem_count, flavor='raw')
-        for c, elem in enumerate(self.subtypes):
-            types_array.__setitem__(c, elem)
-        struct_type = self.llvm.StructType(self.cpu.context, types_array,
-                                           self.elem_count,
-                                           packed)
-        lltype.free(types_array, flavor='raw')
-        return struct_type
 
     def allocate_struct(self, entry, caller_block):
         """

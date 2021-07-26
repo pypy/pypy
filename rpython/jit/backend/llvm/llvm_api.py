@@ -67,8 +67,8 @@ class LLVMAPI:
         cflags = ["""-I/usr/lib/llvm/12/include -D_GNU_SOURCE
                     -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
                     -D__STDC_LIMIT_MACROS"""] #know this should be in the includes arg, but llvm is weird and only works this way
-        path = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/llvm_wrapper/" #TODO: get real path
-        path2 = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
+        path2 = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/llvm_wrapper/" #TODO: get real path
+        path = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
         info = ExternalCompilationInfo(includes=llvm_c+[path2+"wrapper.h"],
                                        libraries=["LLVM-12","wrapper"],
                                        include_dirs=["/usr/lib/llvm/12/lib64",
@@ -705,6 +705,17 @@ class LLVMAPI:
                                         [self.LLJITRef],
                                         self.ExecutionSessionRef,
                                         compilation_info=info)
+        self.BuildIntCast = rffi.llexternal("LLVMBuildIntCast2",
+                                            [self.BuilderRef, self.ValueRef,
+                                             self.TypeRef, self.Bool,
+                                             self.Str],
+                                            self.ValueRef,
+                                            compilation_info=info)
+        self.BuildPointerCast = rffi.llexternal("LLVMBuildPointerCast",
+                                                [self.BuilderRef, self.ValueRef,
+                                                 self.TypeRef, self.Str],
+                                                self.ValueRef,
+                                                compilation_info=info)
         self.CreateObjectLinkingLayer = rffi.llexternal(
             "LLVMOrcCreateRTDyldObjectLinkingLayer",
             [self.ExecutionSessionRef, self.MemoryManagerFactoryFunction,
