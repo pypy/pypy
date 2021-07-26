@@ -224,7 +224,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Check for the equal sign (debugging expr)
     if s[i] == '=':
         astbuilder.check_feature(
-            fmode,
+            condition=True,
             version=8,
             msg="f-string: self documenting expressions are only supported in Python 3.8 and greater",
             n=atom_node
