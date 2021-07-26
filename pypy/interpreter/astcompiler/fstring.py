@@ -223,6 +223,12 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
 
     # Check for the equal sign (debugging expr)
     if s[i] == '=':
+        astbuilder.check_feature(
+            fmode,
+            version=8,
+            msg="f-string: self documenting expressions are only supported in Python 3.8 and greater",
+            n=atom_node
+        )
         i += 1
         if i >= len(s):
             unexpected_end_of_string(astbuilder, atom_node)

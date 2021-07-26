@@ -1605,14 +1605,6 @@ class TestAstBuilder:
         func = self.get_first_typed_stmt(source)
         assert eq_w(func.type_comment, w("() -> int"))
 
-        source = textwrap.dedent("""\
-        def foo(): # type: () -> str
-            # type: () -> int
-            pass
-        """)
-        func = self.get_first_typed_stmt(source)
-        assert eq_w(func.type_comment, w("() -> int"))
-
     def test_type_comments_statements(self):
         eq_w, w = self.space.eq_w, self.space.wrap
         asyncdef = textwrap.dedent("""\
@@ -1795,6 +1787,31 @@ class TestAstBuilder:
                 eq_w(arg.type_comment, w(str(i)))
                 for i, arg in enumerate(all_args, 1)
             ])
+
+    def test_double_type_comment(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            tree = self.get_ast(textwrap.dedent("""\
+            def foo():  # type: () -> int
+                # type: () -> str
+                return test
+            """), flags=consts.PyCF_TYPE_COMMENTS)
+        assert excinfo.value.msg.startswith("Cannot have two type comments on def")
+
+    def test_invalid_type_comments(self):
+        def check_both_ways(source):
+            self.get_ast(source) # this is fine, no type_comments
+            with pytest.raises(SyntaxError):
+                self.get_ast(source, flags=consts.PyCF_TYPE_COMMENTS)
+
+        check_both_ways("pass  # type: int\n")
+        check_both_ways("foo()  # type: int\n")
+        check_both_ways("x += 1  # type: int\n")
+        check_both_ways("while True:  # type: int\n  continue\n")
+        check_both_ways("while True:\n  continue  # type: int\n")
+        check_both_ways("try:  # type: int\n  pass\nfinally:\n  pass\n")
+        check_both_ways("try:\n  pass\nfinally:  # type: int\n  pass\n")
+        check_both_ways("pass  # type: ignorewhatever\n")
+        check_both_ways("pass  # type: ignoreé\n")
 
     def test_walrus(self):
         mod = self.get_ast("(a := 1)")

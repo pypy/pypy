@@ -559,6 +559,12 @@ class ASTBuilder(object):
         suite += has_type_comment
         body, possible_type_comment = self.handle_typed_suite(funcdef_node.get_child(suite))
         if not self.space.is_none(possible_type_comment):
+            if not self.space.is_none(type_comment):
+                raise SyntaxError(
+                    "Cannot have two type comments on def",
+                    funcdef_node.get_lineno(),
+                    funcdef_node.get_column()
+                )
             type_comment = possible_type_comment
         assert len(body)
         if is_async:

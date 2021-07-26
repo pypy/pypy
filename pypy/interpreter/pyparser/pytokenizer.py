@@ -57,9 +57,16 @@ def handle_type_comment(token, flags, lnum, start, line):
     ):
         return None
 
+    # A TYPE_IGNORE is "type: ignore" followed by the end of the token
+    # or anything ASCII and non-alphanumeric. */
+
     # Leading whitespace is ignored
     type_decl = sub_tokens[1].lstrip()
-    if type_decl.startswith(TYPE_IGNORE):
+    following_char = type_decl[len(TYPE_IGNORE):]
+    if type_decl.startswith(TYPE_IGNORE) and (
+        following_char == '' or
+        ord(following_char[0]) < 0x80 and not following_char[0].isalnum()
+    ):
         tok_type = tokens.TYPE_IGNORE
         type_decl = type_decl[len(TYPE_IGNORE):]
     else:
