@@ -214,7 +214,8 @@ class PythonParser(parser.Parser):
                     next_token_seen = token
                     # Special handling for TYPE_IGNOREs
                     if token.token_type == pygram.tokens.TYPE_IGNORE:
-                        self.type_ignores.append(token)
+                        if token not in self.type_ignores:
+                            self.type_ignores.append(token)
                     elif self.add_token(token):
                         break
                     last_token_seen = token
