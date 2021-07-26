@@ -558,3 +558,29 @@ from __future__ import generators""")
 
         tree_35 = self.get_ast("await = x", feature_version=5)
         assert tree_35.body[0].targets[0].id == 'await'
+
+    def test_ast_feature_version_with_type_comments(self):
+
+        import ast
+        import textwrap
+
+        ignores = textwrap.dedent("""\
+        def foo():
+            pass  # type: ignore
+
+        def bar():
+            x = 1  # type: ignore
+
+        def baz():
+            pass  # type: ignore[excuse]
+            pass  # type: ignore=excuse
+            pass  # type: ignore [excuse]
+            x = 1  # type: ignore whatever
+        """)
+
+        for version in range(9):
+            tree_1 = ast.parse(ignores, type_comments=True, feature_version=version)
+            tree_2 = ast.parse(ignores, type_comments=True, feature_version=(3, version))
+
+            assert len(tree_1.type_ignores) == 6
+            assert len(tree_2.type_ignores) == 6

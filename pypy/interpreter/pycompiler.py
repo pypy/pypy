@@ -158,6 +158,7 @@ class PythonAstCompiler(PyCodeCompiler):
 
     def _compile_to_ast(self, source, info):
         space = self.space
+        self.parser.reset()
         try:
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info,

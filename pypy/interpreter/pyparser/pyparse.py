@@ -110,6 +110,9 @@ class PythonParser(parser.Parser):
         self.future_flags = future_flags
         self.type_ignores = []
 
+    def reset(self):
+        self.type_ignores = []
+
     def parse_source(self, bytessrc, compile_info):
         """Main entry point for parsing Python source.
 
@@ -214,8 +217,7 @@ class PythonParser(parser.Parser):
                     next_token_seen = token
                     # Special handling for TYPE_IGNOREs
                     if token.token_type == pygram.tokens.TYPE_IGNORE:
-                        if token not in self.type_ignores:
-                            self.type_ignores.append(token)
+                        self.type_ignores.append(token)
                     elif self.add_token(token):
                         break
                     last_token_seen = token
