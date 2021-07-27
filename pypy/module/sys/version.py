@@ -55,11 +55,11 @@ def _make_version_template(PYPY_VERSION=PYPY_VERSION):
     ver = "%d.%d.%d" % (PYPY_VERSION[0], PYPY_VERSION[1], PYPY_VERSION[2])
     if PYPY_VERSION[3] != "final":
         ver = ver + "-%s%d" %(PYPY_VERSION[3], PYPY_VERSION[4])
-    template = "%d.%d.%d (%s, %s, %s)\n[PyPy %s with %%s]" % (
+    template = "%d.%d.%d | packaged by conda-forge | (%s, %s, %s)\n[PyPy %s with %%s]" % (
         CPYTHON_VERSION[0],
         CPYTHON_VERSION[1],
         CPYTHON_VERSION[2],
-        get_repo_version_info(root=pypyroot)[1],
+        get_repo_version_info(root=pypyroot)[1][:8],
         date,
         time,
         ver)
