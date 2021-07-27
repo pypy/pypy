@@ -1365,6 +1365,7 @@ def PyUnicode_New(space, size, maxchar):
     elif maxchar < 65536:
         kind = _2BYTE_KIND
         char_size = 2
+        struct_size = rffi.sizeof(PyUnicodeObject.TO)
         if rffi.sizeof(lltype.UniChar) == 2:
             is_sharing = True
     else:
@@ -1373,6 +1374,7 @@ def PyUnicode_New(space, size, maxchar):
                         "invalid maximum character passed to PyUnicode_New")
         kind = _4BYTE_KIND
         char_size = 4
+        struct_size = rffi.sizeof(PyUnicodeObject.TO)
         if rffi.sizeof(lltype.UniChar) == 4:
             is_sharing = True
 
