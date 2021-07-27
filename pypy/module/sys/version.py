@@ -63,6 +63,8 @@ def _make_version_template(PYPY_VERSION=PYPY_VERSION):
         date,
         time,
         ver)
+    # TODO: work out how to get CondaEcosystemGetWarnings() from
+    # rpython/translator/c/src/entrypoint.c
     assert template.count('%') == 1     # only for the "%s" near the end
     return template
 _VERSION_TEMPLATE = _make_version_template()
