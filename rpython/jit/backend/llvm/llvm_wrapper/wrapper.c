@@ -124,13 +124,3 @@ void dumpBasicBlock(LLVMBasicBlockRef block){
 LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block){
 	return getIncomingValueForBlock_wrapper(phi, block);
 }
-
-LLVMMCJITMemoryManagerRef CustomMemoryManager(void *Ctx){
-	return LLVMCreateSimpleMCJITMemoryManager(Ctx,
-											  )
-}
-
-LLVMOrcObjectLayerRef ObjectLinkingLayerCreator(void *Ctx, LLVMOrcExecutionSessionRef ES,
-												const char *Triple){
-	return LLVMOrcCreate
-}

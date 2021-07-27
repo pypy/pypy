@@ -72,8 +72,8 @@ class LLVMAPI:
         info = ExternalCompilationInfo(includes=llvm_c+[path2+"wrapper.h"],
                                        libraries=["LLVM-12","wrapper"],
                                        include_dirs=["/usr/lib/llvm/12/lib64",
-                                                     "/usr/lib/llvm/12/include",path],
-                                       library_dirs=["/usr/lib/llvm/12/lib64",path],
+                                                     "/usr/lib/llvm/12/include",path, path2],
+                                       library_dirs=["/usr/lib/llvm/12/lib64",path, path2],
                                        compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
 
         self.CreateModule = rffi.llexternal("LLVMModuleCreateWithNameInContext",

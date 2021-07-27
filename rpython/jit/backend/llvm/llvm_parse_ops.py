@@ -8,6 +8,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.jit.backend.llsupport import gc
 from rpython.jit.backend.llvm.llvm_api import CString
+from rpython.jit.backend.llvm.guards import PhiNodeImpl
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type, jitframe_subtypes, test_descr=None):
@@ -23,20 +24,14 @@ class LLVMOpDispatcher:
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
-        self.descr_phis = {} #map label descrs to phi values
         self.structs = {} #map struct descrs to LLVMStruct instances
         self.arrays = {} #map array descrs to LLVMStruct instances
-        self.descr_blocks = {} #map label and guard descrs to their blocks
-        self.descr_guards = {} #map guard descrs to llvm instructions
-        self.llvm_failargs = {} #map guards to llvm values their failargs map to at point of parsing
-        self.guards = set() #keep track of seen guards for later
-        self.max_failargs = 0 #track max number of failargs seen
-        self.llvm.PositionBuilderAtEnd(builder, self.entry)
+        self.labels = {} #map label descrs to their blocks
+        self.descr_phis = {} #map label descrs to phi values
+        self.guard_handler = PhiNodeImpl(self)
         self.jitframe = self.llvm.GetParam(self.func, 0)
-        cstring = CString("bailout")
-        self.bailout = self.llvm.AppendBasicBlock(self.cpu.context,
-                                                  self.func, cstring.ptr)
         self.define_constants()
+        self.llvm.PositionBuilderAtEnd(builder, self.entry)
 
     def define_constants(self):
         self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
@@ -144,7 +139,6 @@ class LLVMOpDispatcher:
             if flag != 'X':
                 self.depth
 
-
     def get_func_ptr(self, func, arg_types, ret_type):
         #takes rpython types
         FPTR = lltype.Ptr(lltype.FuncType(arg_types, ret_type))
@@ -186,7 +180,6 @@ class LLVMOpDispatcher:
         lltype.free(arg_array, flavor='raw')
         lltype.free(arg_types, flavor='raw')
         return res
-
 
     def create_metadata(self, string):
         cstring = CString(string)
@@ -245,8 +238,9 @@ class LLVMOpDispatcher:
     #need to put signed ints back in the jitframe
         if arg.type == 'i':
             cstring = CString("uncast_res")
-            return self.llvm.BuildSExt(self.builder, llvm_val, #TODO: look into what happens when val is i1
-                                       self.cpu.llvm_int_type, cstring.ptr)
+            return self.llvm.BuildIntCast(self.builder, llvm_val,
+                                          self.cpu.llvm_int_type, 1,
+                                          cstring.ptr)
         elif arg.type == 'f':
             cstring = CString("uncast_res")
             return self.llvm.BuildBitCast(self.builder, llvm_val,
@@ -261,85 +255,6 @@ class LLVMOpDispatcher:
         for i in range(len(args)):
             self.jitframe.set_elem(args[i], 7, i+1)
         self.llvm.BuildRet(self.builder, self.jitframe.struct)
-
-    def init_bailout(self):
-        self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
-        self.bailout_phis = []
-        cstring = CString("descr_phi")
-        descr_phi = self.llvm.BuildPhi(self.builder, self.cpu.llvm_int_type,
-                                       cstring.ptr)
-        self.bailout_phis.append(descr_phi)
-        self.llvm.PositionBuilderAtEnd(self.builder, self.entry)
-
-    def populate_bailout(self):
-        if len(self.guards) == 0: #is linear loop
-            self.llvm.DeleteBasicBlock(self.bailout)
-            return
-        self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
-        for guard in self.guards:
-            failargs = guard.getfailargs()
-            num_failargs = len(failargs)
-            descr = guard.getdescr()
-            block = self.descr_blocks[descr]
-            for i in range(self.max_failargs-num_failargs):
-                #how far we got + extra phi node we're currently at + 1 for descr phi + 1 for 0 indexing
-                indx = num_failargs+i+2
-                dummy_value = self.llvm.ConstInt(self.cpu.context,
-                                                 0, 0)
-                self.llvm.AddIncoming(self.bailout_phis[indx], dummy_value, block)
-            #arg_array_type = rffi.CArray(self.llvm.ValueRef)
-            #arg_array = lltype.malloc(arg_array_type, n=(2+len(failargs)), flavor='raw')
-            #ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
-            #shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
-            #arg_array.__setitem__(0, ID)
-            #arg_array.__setitem__(1, shadow_bytes)
-            #for c, failarg in enumerate(failargs, 2):
-                #arg_array.__setitem__(c, self.ssa_vars[failarg])
-            #cstring = CString("")
-            #self.llvm.BuildCall(self.builder, self.stackmap_intrinsic,
-                                #arg_array, 2+len(failargs), cstring.ptr)
-            #lltype.free(arg_array, flavor='raw')
-
-        if self.max_failargs > 0:
-            descr = self.bailout_phis[0]
-            self.exit_trace(self.bailout_phis[1:], descr)
-        else:
-            descr = self.bailout_phis[0]
-            self.jitframe.set_elem(descr, 1)
-            self.llvm.BuildRet(self.builder, self.jitframe.struct)
-
-    def patch_guard(self, faildescr, inputargs):
-        branch, op, cnd, resume = self.descr_guards[faildescr]
-        self.guards.remove(op)
-        cstring = CString("bridge")
-        bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                            cstring.ptr)
-        self.llvm.PositionBuilderBefore(self.builder, branch)
-        current_block = self.llvm.GetInsertBlock(self.builder)
-        self.llvm.EraseInstruction(branch)
-        failargs = op.getfailargs()
-        num_failargs = len(failargs)
-        self.llvm.PositionBuilderAtEnd(self.builder, current_block)
-        self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
-        self.llvm.PositionBuilderAtEnd(self.builder, bridge)
-        for c, arg in enumerate(inputargs,1):
-            phi = self.bailout_phis[c]
-            value = self.llvm.getIncomingValueForBlock(phi, current_block)
-            self.ssa_vars[arg] = value
-        if num_failargs == self.max_failargs:
-            self.max_failargs = 0
-            for guard in self.guards:
-                self.max_failargs = max(len(guard.getfailargs()), self.max_failargs)
-            if self.max_failargs < num_failargs:
-                for i in range(self.max_failargs, num_failargs):
-                    phi = self.bailout_phis[-1]
-                    self.bailout_phis.pop()
-                    self.llvm.EraseInstruction(phi)
-        self.llvm.removePredecessor(self.bailout, current_block)
-        block = self.llvm.splitBasicBlockAtPhi(self.bailout)
-        terminator = self.llvm.getTerminator(self.bailout)
-        self.llvm.EraseInstruction(terminator)
-        self.llvm.DeleteBasicBlock(block)
 
     def init_inputargs(self, inputargs):
         cstring = CString("overflow_flag")
@@ -363,9 +278,8 @@ class LLVMOpDispatcher:
     def dispatch_ops(self, inputargs, ops, faildescr=None):
         if faildescr is None:
             self.init_inputargs(inputargs)
-            self.init_bailout()
         else: #is bridge
-            self.patch_guard(faildescr, inputargs)
+            self.guard_handler.patch_guard(faildescr, inputargs)
 
         for op in ops:
             if op.opnum == 1:
@@ -378,32 +292,34 @@ class LLVMOpDispatcher:
                 self.parse_label(op)
 
             elif op.opnum == 7:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_true(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_true(op, resume, bailout)
 
             elif op.opnum == 8:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_false(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_false(op, resume, bailout)
 
-            elif op.opnum == 11: #9 and 10 are vect ops
-                resume_block = self.setup_guard(op)
-                self.parse_guard_value(op, resume_block)
+            # ops 9 and 10 are vect ops
+
+            elif op.opnum == 11:
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_value(op, resume, bailout)
 
             elif op.opnum == 13:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_nonnull(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_nonnull(op, resume, bailout)
 
             elif op.opnum == 14:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_isnull(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_isnull(op, resume, bailout)
 
             elif op.opnum == 22:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_no_overflow(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_no_overflow(op, resume, bailout)
 
             elif op.opnum == 23:
-                resume_block = self.setup_guard(op)
-                self.parse_guard_overflow(op, resume_block)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_overflow(op, resume, bailout)
 
             elif op.opnum == 31:
                 self.parse_int_add(op)
@@ -624,14 +540,14 @@ class LLVMOpDispatcher:
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
-        self.populate_bailout()
+        self.guard_handler.finalise_bailout()
         if self.cpu.debug:
             self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
         descr = op.getdescr()
-        target_block = self.descr_blocks[descr]
+        target_block = self.labels[descr]
         phis = self.descr_phis[descr]
 
         c = 0
@@ -658,6 +574,7 @@ class LLVMOpDispatcher:
         loop_header = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                  cstring.ptr)
         self.llvm.BuildBr(self.builder, loop_header) #llvm requires explicit branching even for fall through
+
         self.llvm.PositionBuilderAtEnd(self.builder, loop_header)
         phis = []
         arg_list = op.getarglist()
@@ -670,54 +587,24 @@ class LLVMOpDispatcher:
             self.ssa_vars[rpy_val] = phi
             phis.append(phi)
             c += 1
+
         self.descr_phis[descr] = phis
-        self.descr_blocks[descr] = loop_header
+        self.labels[descr] = loop_header
 
-    def setup_guard(self, op):
-        self.guards.add(op)
-        current_block = self.llvm.GetInsertBlock(self.builder)
-        failargs = op.getfailargs()
-        self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
-        num_failargs = len(failargs)
-        if num_failargs > self.max_failargs:
-            for i in range(num_failargs - self.max_failargs):
-                cstring = CString("bailout_phi")
-                phi = self.llvm.BuildPhi(self.builder, self.cpu.llvm_int_type,
-                                         cstring.ptr)
-                self.bailout_phis.append(phi)
-            self.max_failargs = num_failargs
-        descr = op.getdescr()
-        descr_addr = compute_unique_id(descr) #TODO: look into making more efficient
-        descr_addr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                             descr_addr, 1)
-        self.llvm.AddIncoming(self.bailout_phis[0], descr_addr_llvm, current_block)
-        for i in range(1,num_failargs+1):
-            arg = failargs[i-1]
-            uncast_arg = self.uncast(arg, self.ssa_vars[arg])
-            self.llvm.AddIncoming(self.bailout_phis[i], uncast_arg, current_block)
-        self.llvm.PositionBuilderAtEnd(self.builder, current_block)
-        cstring = CString("resume")
-        resume = self.llvm.AppendBasicBlock(self.cpu.context,
-                                            self.func, cstring.ptr)
-        self.descr_blocks[descr] = current_block
-        return resume
-
-    def parse_guard_true(self, op, resume):
+    def parse_guard_true(self, op, resume, bailout):
         cnd = self.ssa_vars[op.getarglist()[0]]
-        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_false(self, op, resume):
+    def parse_guard_false(self, op, resume, bailout):
         cnd = self.ssa_vars[op.getarglist()[0]]
         cstring = CString("cnd_flipped")
         cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
                                          cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_value(self, op, resume):
+    def parse_guard_value(self, op, resume, bailout):
         args = op.getarglist()
         val = self.ssa_vars[args[0]]
         typ = args[1].type
@@ -739,11 +626,10 @@ class LLVMOpDispatcher:
                                               cstring.ptr)
             cnd = self.llvm.BuildICmp(self.builder, self.inteq, int_ptr, const,
                                       cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_nonnull(self, op, resume):
+    def parse_guard_nonnull(self, op, resume, bailout):
         arg, typ = self.parse_args(op.getarglist())[0]
         cstring = CString("guard_nonnull_res")
         if typ != 'f': #IsNotNull is generic on int and ptr but not float
@@ -752,11 +638,10 @@ class LLVMOpDispatcher:
             zero = self.llvm.ConstFloat(self.cpu.llvm_float_type, float(0))
             cnd = self.llvm.BuildFCmp(self.builder, self.realne, arg, zero,
                                       cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_isnull(self, op, resume):
+    def parse_guard_isnull(self, op, resume, bailout):
         arg, typ = self.parse_args(op.getarglist())[0]
         cstring = CString("guard_isnull_res")
         if typ != 'f':
@@ -765,11 +650,10 @@ class LLVMOpDispatcher:
             zero = self.llvm.ConstFloat(self.cpu.llvm_float_type, float(0))
             cnd = self.llvm.BuildFCmp(self.builder, self.realeq, arg, zero,
                                       cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_no_overflow(self, op, resume):
+    def parse_guard_no_overflow(self, op, resume, bailout):
         cstring = CString("overflow_flag")
         cnd = self.llvm.BuildLoad(self.builder, self.cpu.llvm_bool_type,
                                   self.overflow, cstring.ptr)
@@ -777,17 +661,15 @@ class LLVMOpDispatcher:
         cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
                                          cstring.ptr)
         branch = self.llvm.BuildCondBr(self.builder, cnd_flipped, resume,
-                                       self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd_flipped, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+                                       bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_overflow(self, op, resume):
+    def parse_guard_overflow(self, op, resume, bailout):
         cstring = CString("overflow_flag")
         cnd = self.llvm.BuildLoad(self.builder, self.cpu.llvm_bool_type,
                                   self.overflow, cstring.ptr)
-        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, self.bailout)
-        self.descr_guards[op.getdescr()] = (branch, op, cnd, resume)
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
     def parse_int_add(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
