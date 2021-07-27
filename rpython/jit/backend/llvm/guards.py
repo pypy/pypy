@@ -11,6 +11,7 @@ class GuardHandlerBase:
         self.debug = dispatcher.debug
         self.func = dispatcher.func
         self.jitframe = dispatcher.jitframe
+        self.ssa_vars = dispatcher.ssa_vars
 
     def setup_guard(self, op):
         """
@@ -43,11 +44,10 @@ class GuardHandlerBase:
 class BlockPerGuardImpl(GuardHandlerBase):
     """
     Most basic guard implementation of creating a new bailout block for
-    every observed guard, where stores of each failarg into the jitframe
-    are hardcoded in each block. Will cause code explosion with a large
-    number of guards, but is the simplest to implement and maintain, and has
-    little overhead on pypy's side specifically, even if it likely slows down
-    LLVM.
+    every guard, where stores of each failarg into the jitframe are hardcoded
+    in each block. Will cause code explosion with a large number of guards,
+    but is the simplest to implement and maintain, and has little overhead
+    on pypy's side specifically (but still slows down LLVM).
     """
     def __init__(self):
         self.bailouts = {} #map guards to their bailout blocks
@@ -71,8 +71,8 @@ class BlockPerGuardImpl(GuardHandlerBase):
         descr = op.getdescr()
         self.llvm.PositionBuilderAtEnd(bailout)
 
-        self.llvm_failargs[descr] = [self.dispatcher.ssa_vars[arg]
-                                     if arg is not None else arg
+        self.llvm_failargs[descr] = [self.ssa_vars[arg]
+                                     if arg is not None else None
                                      for arg in failargs]
         uncast_failargs = [self.dispatcher.uncast(arg, llvm_arg)
                            for arg, llvm_arg in
@@ -82,7 +82,7 @@ class BlockPerGuardImpl(GuardHandlerBase):
                                         compute_unique_id(descr), 0)
         self.dispatcher.exit_trace(uncast_failargs, descr_llvm)
 
-        self.guard_keys[descr] = (op, resume, cnd, branch)
+        self.guard_keys[descr] = (resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(resume)
 
     def populate_bailouts(self):
@@ -90,14 +90,15 @@ class BlockPerGuardImpl(GuardHandlerBase):
         return
 
     def patch_guard(self, faildescr, inputargs):
-        op, resume, cnd, branch = self.guard_keys[faildescr]
+        resume, cnd, branch = self.guard_keys[faildescr]
         llvm_failargs = self.llvm_failargs[faildescr]
         bailout = self.bailouts[faildescr]
 
         self.llvm.PosoitionBuilderBefore(self.builder, branch)
         self.llvm.EraseInstruction(branch)
         cstring = CString("bridge")
-        bridge = self.llvm.AppendBasicBlock(self.builder, cstring.ptr)
+        bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                            cstring.ptr)
         self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
 
         self.llvm.DeleteBasicBlock(bailout)
@@ -105,7 +106,7 @@ class BlockPerGuardImpl(GuardHandlerBase):
         llvm_failargs_no_holes = [arg for arg in llvm_failargs
                                   if arg is not None]
         for c, arg in enumerate(inputargs):
-            self.dispatcher.ssa_vars[arg] = llvm_failargs_no_holes[c]
+            self.ssa_vars[arg] = llvm_failargs_no_holes[c]
 
         self.llvm.PositionBuilderAtEnd(self.builder, bridge)
 
@@ -126,19 +127,21 @@ class PhiNodeImpl(GuardHandlerBase):
         self.llvm_failargs = {} #map guards to llvm values their failargs map to at point of parsing
         self.guards = set() #keep track of seen guards for later
         self.max_failargs = 0 #track max number of failargs seen
-        cstring = CString("bailout")
-        self.bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                                  cstring.ptr)
-        self.init_bailout()
+        self.bailout = self.init_bailout()
 
     def init_bailout(self):
-        self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
+        cstring = CString("bailout")
+        bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                  cstring.ptr)
+        self.llvm.PositionBuilderAtEnd(self.builder, bailout)
         self.bailout_phis = []
         cstring = CString("descr_phi")
         descr_phi = self.llvm.BuildPhi(self.builder, self.cpu.llvm_int_type,
                                        cstring.ptr)
         self.bailout_phis.append(descr_phi)
+
         self.llvm.PositionBuilderAtEnd(self.builder, self.dispatcher.entry)
+        return bailout
 
     def setup_guard(self, op):
         self.guards.add(op)
@@ -175,7 +178,7 @@ class PhiNodeImpl(GuardHandlerBase):
         for i in range(1,num_failargs+1):
             arg = failargs[i-1]
             uncast_arg = self.dispatcher.uncast(arg,
-                                                self.dispatcher.ssa_vars[arg])
+                                                self.ssa_vars[arg])
             self.llvm.AddIncoming(self.bailout_phis[i], uncast_arg, current_block)
 
         self.guard_keys[op.getdescr()] = (op, resume, cnd, branch)
@@ -222,7 +225,7 @@ class PhiNodeImpl(GuardHandlerBase):
         for c, arg in enumerate(inputargs,1):
             phi = self.bailout_phis[c]
             value = self.llvm.getIncomingValueForBlock(phi, current_block)
-            self.dispatcher.ssa_vars[arg] = value
+            self.ssa_vars[arg] = value
         if num_failargs == self.max_failargs:
             self.max_failargs = 0
             for guard in self.guards:
@@ -240,15 +243,131 @@ class PhiNodeImpl(GuardHandlerBase):
 
         self.llvm.PositionBuilderAtEnd(self.builder, bridge)
 
-            #arg_array_type = rffi.CArray(self.llvm.ValueRef)
-            #arg_array = lltype.malloc(arg_array_type, n=(2+len(failargs)), flavor='raw')
-            #ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
-            #shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
-            #arg_array.__setitem__(0, ID)
-            #arg_array.__setitem__(1, shadow_bytes)
-            #for c, failarg in enumerate(failargs, 2):
-                #arg_array.__setitem__(c, self.ssa_vars[failarg])
-            #cstring = CString("")
-            #self.llvm.BuildCall(self.builder, self.stackmap_intrinsic,
-                                #arg_array, 2+len(failargs), cstring.ptr)
-            #lltype.free(arg_array, flavor='raw')
+    class StackmapImpl(GuardHandlerBase):
+        """
+        Branch all guards to a single bailout block which makes a call to the
+        LLVM stackmap intrinsic taking every seen failarg as arguments.
+        Bailout block then calls back to the runtime which parses out the
+        memory locations of the failargs in the live binary and stores them
+        in the jitframe itself. Minimal overhead and no code explosion,
+        however the stackmap intrinsic is both still experimental and may
+        interfere with the optimiser (although *shouldn't* do in our case).
+        """
+        def __init__(self):
+            self.failarg_index = 0
+            self.failarg_order = {} #map of llvm failarg values to tuple of index and ref count
+            self.llvm_failargs = {}
+            self.guard_blocks = {}
+            self.guard_keys = {}
+            self.bailout = self.init_bailout()
+
+        def init_bailout(self):
+            cstring = CString("bailout")
+            bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                 cstring.ptr)
+            self.llvm.PositionBuilderAtEnd(self.builder, bailout)
+
+            cstring = CString("descr_phi")
+            self.descr_phi = self.llvm.BuildPhi(self.builder,
+                                                self.cpu.llvm_int_type,
+                                                cstring.ptr)
+
+            self.llvm.PositionBuilderAtEnd(self.builder, self.dispatcher.entry)
+            return bailout
+
+        def setup_guard(self, op):
+            current_block = self.llvm.GetInsertBlock(self.builder)
+            descr = op.getdescr()
+            self.guard_blocks[descr] = current_block
+
+            cstring = CString("resume")
+            resume = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                cstring.ptr)
+
+            return (resume, self.bailout)
+
+        def finalise_guard(self, op, resume, cnd, branch):
+            descr = op.getdescr()
+            current_block = self.guard_blocks[descr]
+
+            for arg in op.getfailargs():
+                if arg is not None:
+                    llvm_arg = self.ssa_vars[arg]
+                    if llvm_arg not in self.failarg_order:
+                        self.failarg_order[llvm_arg] = (self.failarg_index, 0)
+                        self.failarg_index += 1
+                    else:
+                        index, ref_count = self.failarg_order[llvm_arg]
+                        self.failarg_order[llvm_arg] = (index, ref_count+1)
+                        self.llvm_failargs[descr].append(llvm_arg)
+                else:
+                    self.llvm_failargs[descr].append(None)
+
+            llvm_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                            compute_unique_id(descr), 0)
+            self.llvm.AddIncoming(self.descr_phi, llvm_descr, current_block)
+
+            self.guard_keys[descr] = (op, resume, cnd, branch)
+            self.llvm.PositionBuilderAtEnd(self.builder, resume)
+
+        def runtime_callback(self):
+            raise NotImplementedError
+
+        def finalise_bailout(self):
+            self.llvm.PositionBuilderAtEnd(self.bailout)
+
+            ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
+            shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
+            args = [ID, shadow_bytes]+list(self.failarg_order.keys())
+            arg_array = self.dispatcher.rpython_array(args, self.llvm.ValueRef)
+
+            cstring = CString("")
+            self.llvm.BuildCall(self.builder,
+                                self.dispatcher.stackmap_intrinsic,
+                                arg_array, self.failarg_index, cstring.ptr)
+            lltype.free(arg_array, flavor='raw')
+
+            arg_types = []
+            ret_type = lltype.Void
+            func_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
+                                                        arg_types, ret_type)
+            func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                   func_int_ptr, 0)
+            ret_type_llvm = self.cpu.llvm_void_type
+            self.dispatcher.call_function(func_int_ptr_llvm, ret_type_llvm,
+                                          arg_types, [], "")
+
+            self.jitframe.set_elem(self.descr_phi, 1)
+            self.llvm.BuildRet(self.builder, self.jitframe.struct)
+
+        def patch_guard(self, faildescr, inputargs):
+            op, resume, cnd, branch = self.guard_keys[faildescr]
+            current_block = self.guard_blocks[faildescr]
+            llvm_failargs = self.llvm_failargs[faildescr]
+
+            self.llvm.PosoitionBuilderBefore(self.builder, branch)
+            self.llvm.EraseInstruction(branch)
+            cstring = CString("bridge")
+            bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                cstring.ptr)
+            self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
+
+            self.llvm.removePredecessor(self.bailout, current_block)
+            block = self.llvm.splitBasicBlockAtPhi(self.bailout)
+            terminator = self.llvm.getTerminator(self.bailout)
+            self.llvm.EraseInstruction(terminator)
+            self.llvm.DeleteBasicBlock(block)
+
+            failargs = [arg for arg in op.getarglist() if arg is not None]
+            for arg in failargs:
+                index, ref_count = self.failarg_order[self.ssa_vars[arg]]
+                if ref_count == 1: #no longer a failarg and doesn't need to be stackmapped
+                    del self.failarg_order[self.ssa_vars[arg]]
+                else:
+                    self.failarg_order[self.ssa_vars[arg]] = (index, ref_count-1)
+            llvm_failargs_no_holes = [arg for arg in llvm_failargs
+                                      if arg is not None]
+            for c, arg in enumerate(inputargs):
+                self.ssa_vars[arg] = llvm_failargs_no_holes[c]
+
+            self.llvm.PositionBuilderAtEnd(self.builder, bridge)
