@@ -523,12 +523,13 @@ class AppTest(object):
             ('["spam":', "Unexpected ':' when decoding array", 7),
             ('[{]', "Key name must be string at char", 2),
             ('{"a": 1 "b": 2}', "Unexpected '\"' when decoding object", 8),
-            ('"\\X"', "Invalid \\escape: X (char 1)"),
-            ('"\\ "', "Invalid \\escape: (char 1)"),
-            ('"\\', "Invalid \\escape: (char 1)"),
+            ('"\\X"', "Invalid \\escape: X (char 1)", 1),
+            ('"\\ "', "Invalid \\escape: (char 1)", 1),
+            ('"\\', "Invalid \\escape: (char 1)", 1),
         ]
         for inputtext, errmsg, errpos in test_cases:
             exc = raises(ValueError, _pypyjson.loads, inputtext)
+            print(exc.value.args, (errmsg, inputtext, errpos))
             assert exc.value.args == (errmsg, inputtext, errpos)
 
     def test_keys_reuse(self):
