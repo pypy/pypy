@@ -231,6 +231,8 @@ class TestParseCommandLine:
                 check_hash_based_pycs=val)
 
     def test_jit_off(self, monkeypatch):
+        # skip if untranslated
+        get_python3()
         options = [None]
         def set_jit_option(_, option, *args):
             options[0] = option

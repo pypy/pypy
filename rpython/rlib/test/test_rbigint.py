@@ -5,7 +5,12 @@ import sys, os
 import math
 from random import random, randint, sample
 
-import pytest
+try:
+    import pytest
+except ImportError:
+    print 'cwd', os.getcwd()
+    print 'sys.path', sys.path
+    raise
 
 from rpython.rlib import rbigint as lobj
 from rpython.rlib.rarithmetic import r_uint, r_longlong, r_ulonglong, intmask, LONG_BIT
@@ -1564,8 +1569,11 @@ def test_hypothesis_small_shift(methname):
     # run the TestHypothesis in a subprocess with a smaller SHIFT value
     # the idea is that this finds hopefully finds edge cases more easily
     import subprocess, os
+    # The cwd on the buildbot is actually in rpython
+    # Add the pypy basedir so we get the local pytest
     env = os.environ.copy()
-    env['PYTHONPATH'] = os.getcwd()
+    parent = os.path.dirname
+    env['PYTHONPATH'] = parent(parent(parent(parent(__file__))))
     p = subprocess.Popen([sys.executable, os.path.abspath(__file__), methname],
                          stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                          shell=True, env=env)
