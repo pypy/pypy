@@ -406,11 +406,6 @@ typedef struct {
 
 /* hpytype.h */
 
-struct _HPyObject_head_s {
-    HPy_ssize_t _reserved0;
-    void *_reserved1;
-};
-
 typedef struct {
     const char* name;
     int basicsize;
@@ -547,7 +542,7 @@ HPyFunc_O        = 4
 
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
-SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
+HPy_TPFLAGS_INTERNAL_PURE = (1 << 8)
 
 # HPy API functions which are implemented directly in C
 pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',

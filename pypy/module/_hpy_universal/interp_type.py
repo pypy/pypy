@@ -1,8 +1,8 @@
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import rgc
+from rpython.rlib.rarithmetic import widen
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import specialize
-from pypy.interpreter.argument import Arguments
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
@@ -28,9 +28,7 @@ class W_HPyObject(W_ObjectObject):
     @rgc.must_be_light_finalizer
     def __del__(self):
         if self.hpy_data:
-            # see the comment inside _create_instance for why this is needed
-            c_obj = rffi.ptradd(self.hpy_data, llapi.SIZEOF_HPyObject_HEAD)
-            lltype.free(c_obj , flavor='raw')
+            lltype.free(self.hpy_data, flavor='raw')
             self.hpy_data = lltype.nullptr(rffi.VOIDP.TO)
 
 class W_HPyTypeObject(W_TypeObject):
@@ -45,8 +43,16 @@ class W_HPyTypeObject(W_TypeObject):
         self.basicsize = basicsize
 
 
-#@API.func("void *_HPy_Cast(HPyContext *ctx, HPy h)")
-def _HPy_Cast(space, handles, ctx, h):
+@API.func("void *HPy_AsStruct(HPyContext *ctx, HPy h)")
+def HPy_AsStruct(space, handles, ctx, h):
+    w_obj = handles.deref(h)
+    if not isinstance(w_obj, W_HPyObject):
+        # XXX: write a test for this
+        raise oefmt(space.w_TypeError, "Object of type '%T' is not a valid HPy object.", w_obj)
+    return w_obj.hpy_data
+
+@API.func("void *HPy_AsStructLegacy(HPyContext *ctx, HPy h)")
+def HPy_AsStructLegacy(space, handles, ctx, h):
     w_obj = handles.deref(h)
     if not isinstance(w_obj, W_HPyObject):
         # XXX: write a test for this
@@ -100,6 +106,16 @@ def get_bases_from_params(handles, params):
     # return a copy of bases_w to ensure that it's a not-resizable list
     return make_sure_not_resized(bases_w[:])
 
+def check_legacy_consistent(space, spec):
+    if spec.c_legacy_slots and not widen(spec.c_legacy):
+        raise oefmt(space.w_TypeError,
+                    "cannot specify .legacy_slots without setting .legacy=true")
+    if spec.c_flags & llapi.HPy_TPFLAGS_INTERNAL_PURE:
+        raise oefmt(space.w_TypeError,
+                    "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
+                    " set .legacy=true instead")
+
+
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
     return _hpytype_fromspec(handles, spec, params)
@@ -111,6 +127,7 @@ def debug_HPyType_FromSpec(space, handles, ctx, spec, params):
 @specialize.arg(0)
 def _hpytype_fromspec(handles, spec, params):
     space = handles.space
+    check_legacy_consistent(space, spec)
 
     dict_w = {}
     specname = rffi.constcharp2str(spec.c_name)
@@ -195,20 +212,8 @@ def _create_instance(space, w_type):
     assert isinstance(w_type, W_HPyTypeObject)
     w_result = space.allocate_instance(W_HPyObject, w_type)
     w_result.space = space
-    basicsize = w_type.basicsize
-    #
-    # ad explained by the comment at the top of hpytype.h, user-defined
-    # structs begin with HPyObject_HEAD to reserve some space. However, in
-    # PyPy we don't need that space so we just pretend to allocate it by
-    # malloc()ing LESS bytes than requested, and returning a pointer allocate
-    # LESS bytes than requested, so ensure that the offsets for user-defined
-    # fields are still correct.  Obviously, dereferencing the first
-    # SIZEOF_HPyObject_HEAD bytes of it will be undefined behavior, but this
-    # should never happen, unless the user accesses the fields called
-    # "_reserved0" and "_reserved1"
-    c_obj = lltype.malloc(rffi.VOIDP.TO, basicsize - llapi.SIZEOF_HPyObject_HEAD,
-                          zero=True, flavor='raw')
-    w_result.hpy_data = rffi.ptradd(c_obj, -llapi.SIZEOF_HPyObject_HEAD)
+    w_result.hpy_data = lltype.malloc(
+        rffi.VOIDP.TO, w_type.basicsize, zero=True, flavor='raw')
     if w_type.tp_destroy:
         w_result.register_finalizer(space)
     return w_result
