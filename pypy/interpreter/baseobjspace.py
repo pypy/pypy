@@ -303,7 +303,9 @@ class W_Root(object):
         from pypy.objspace.std.intobject import W_AbstractIntObject
         w_impl = space.lookup(self, '__int__')
         if w_impl is None:
-            self._typed_unwrap_error(space, "integer")
+            w_impl = space.lookup(self, '__index__')
+            if w_impl is None:
+                    self._typed_unwrap_error(space, "integer")
         w_result = space.get_and_call_function(w_impl, self)
 
         if space.is_w(space.type(w_result), space.w_int):
