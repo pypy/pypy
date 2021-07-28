@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 class AppTestBinascii(object):
     spaceconfig = dict(usemodules=['binascii'])
@@ -69,7 +70,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_uu, bogus + b'  \r\n')
         #
         assert self.binascii.a2b_uu(u"!6") == b"X"
-        raises(UnicodeEncodeError, self.binascii.a2b_uu, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_uu, u"caf\xe9")
 
     def test_b2a_uu(self):
         for input, expected in [
@@ -130,7 +131,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_base64, bogus)
         #
         assert self.binascii.a2b_base64(u"Yg==\n") == b"b"
-        raises(UnicodeEncodeError, self.binascii.a2b_base64, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_base64, u"caf\xe9")
 
     def test_b2a_base64(self):
         for newline in (True, False, None):
@@ -177,7 +178,7 @@ class AppTestBinascii(object):
             assert self.binascii.a2b_qp(input, header=True) == expected
         #
         assert self.binascii.a2b_qp(u"a_b", header=True) == b"a b"
-        raises(UnicodeEncodeError, self.binascii.a2b_qp, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_qp, u"caf\xe9")
 
     def test_b2a_qp(self):
         for input, flags, expected in [
@@ -261,7 +262,7 @@ class AppTestBinascii(object):
             raises(self.binascii.Error, self.binascii.a2b_hqx, bogus)
         #
         assert self.binascii.a2b_hqx("AAA:") == (b"]u", 1)
-        raises(UnicodeEncodeError, self.binascii.a2b_hqx, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_hqx, u"caf\xe9")
 
     def test_b2a_hqx(self):
         for input, expected in [
@@ -472,7 +473,7 @@ class AppTestBinascii(object):
             assert self.binascii.a2b_hex(input) == expected
             assert self.binascii.unhexlify(input.decode('ascii')) == expected
             assert self.binascii.a2b_hex(input.decode('ascii')) == expected
-        raises(UnicodeEncodeError, self.binascii.a2b_hex, u"caf\xe9")
+        raises(ValueError, self.binascii.a2b_hex, u"caf\xe9")
 
     def test_errors(self):
         binascii = self.binascii
