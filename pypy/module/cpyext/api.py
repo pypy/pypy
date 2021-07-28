@@ -126,23 +126,6 @@ def ferror(fp):
     with FdValidator(c_fileno(fp)):
         return _ferror(fp)
 
-if WIN32:
-    eci = ExternalCompilationInfo(
-            post_include_bits=['int CondaEcosystemModifyDllSearchPath(int, int);']
-    )
-    _DllSearchPath = rffi.llexternal('CondaEcosystemModifyDllSearchPath',
-                                   [rffi.INT, rffi.INT], rffi.INT,
-                                   compilation_info=eci,
-                                   )
-    if we_are_translated():
-        def _ModifyDllSearchPath(add_windows_directory, add_cwd):
-            print 'calling "CondaEcosystemModifyDllSearchPath"'
-            _DllSearchPath(add_windows_directory, add_cwd)
-    else:
-        def _ModifyDllSearchPath(add_windows_directory, add_cwd):
-            print 'not calling "CondaEcosystemModifyDllSearchPath"'
-            pass
-
 pypy_decl = 'pypy_decl.h'
 udir.join(pypy_decl).write("/* Will be filled later */\n")
 udir.join('pypy_structmember_decl.h').write("/* Will be filled later */\n")
@@ -1256,6 +1239,7 @@ def attach_c_functions(space, eci, prefix):
         _, setter = rffi.CExternVariable(rffi.SIGNED, c_name, eci_flags,
                                          _nowrapper=True, c_type='int')
         state.C.flag_setters[attr] = setter
+        
 
 def init_function(func):
     INIT_FUNCTIONS.append(func)
@@ -1751,7 +1735,6 @@ def create_extension_module(space, w_spec):
         try:
             if WIN32:
                 # Allow other DLLs in the same directory with "path"
-                _DllSearchPath(1, 1)
                 dll = rdynload.dlopenex(ll_libname)
             else:
                 dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
