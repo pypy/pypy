@@ -39,6 +39,23 @@ class extra_AppTestCPythonCompatibility:
 class extra_AppTestExtraCPythonCompatibility:
     USE_CPYEXT = True
 
+# test/_vendored/test_hpy_legacy.py
+class extra_AppTestLegacyType:
+    USE_CPYEXT = True
+
+class extra_AppTestCustomLegacyFeatures:
+    USE_CPYEXT = True
+
+# test/_vendored/test_slots_legacy.py
+class extra_AppTestLegacySlots:
+    USE_CPYEXT = True
+
+class extra_AppTestCustomLegacySlotsFeatures:
+    USE_CPYEXT = True
+
+class extra_AppTestLegacySqSlots:
+    USE_CPYEXT = True
+
 # ========================================================================
 # pytest hooks to automatically generate AppTests from HPy vendored tests
 # ========================================================================
