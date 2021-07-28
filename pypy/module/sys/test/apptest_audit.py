@@ -14,7 +14,7 @@ class TestHook:
 
     def __exit__(self, *a):
         self.close()
-        if getattr(__pypy__, '_testing_clear_audithooks'):
+        if hasattr(__pypy__, '_testing_clear_audithooks'):
             __pypy__._testing_clear_audithooks()
 
     def close(self):
@@ -51,7 +51,7 @@ def test_two_hooks():
         assert l[-1] == (2, "test", ())
         assert l[-2] == (1, "test", ())
     finally:
-        if getattr(__pypy__, '_testing_clear_audithooks'):
+        if hasattr(__pypy__, '_testing_clear_audithooks'):
             __pypy__._testing_clear_audithooks()
 
 def test_block_add_hook():
