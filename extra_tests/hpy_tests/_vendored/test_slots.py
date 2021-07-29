@@ -275,7 +275,7 @@ class TestSlots(HPyTest):
             @TYPE_STRUCT_END
 
             HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
-            static HPy new_fakearray_impl(HPyContext ctx, HPy cls, HPy *args,
+            static HPy new_fakearray_impl(HPyContext *ctx, HPy cls, HPy *args,
                                           HPy_ssize_t nargs, HPy kw)
             {
                 if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))
