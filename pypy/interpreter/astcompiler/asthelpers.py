@@ -162,26 +162,20 @@ class __extend__(ast.DictComp):
     _type_name = "dict"
 
 
-class __extend__(ast.Dict, ast.Set):
-
-    _description = "literal"
-
-
 class __extend__(ast.List):
     _type_name = "list"
 
-
 class __extend__(ast.Dict):
-    _type_name = "dict display"
-
+    _description = "dict display"
+    _type_name = "dict"
 
 class __extend__(ast.Set):
-    _type_name = "set display"
-
+    _description = "set display"
+    _type_name = "set"
 
 class __extend__(ast.JoinedStr, ast.FormattedValue):
-    _type_name = "f-string expression"
-
+    _description = "f-string expression"
+    _type_name = "str"
 
 class __extend__(ast.Compare):
 
