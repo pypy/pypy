@@ -81,6 +81,19 @@ class Module(W_Root):
         w_dict = self.getdict(space)
         return space.finditem_str(w_dict, '__spec__')
 
+    def is_initializing(self, space):
+        w_spec = self.get_spec(space)
+        if not space.is_none(w_spec):
+            try:
+                w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+            except OperationError as e:
+                if not e.match(self, self.w_AttributeError):
+                    raise
+            else:
+                return w_initializing
+
+        return space.w_False
+
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         Module.__init__(module, space, None)
