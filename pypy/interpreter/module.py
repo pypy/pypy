@@ -77,6 +77,10 @@ class Module(W_Root):
     def getdict(self, space):
         return self.w_dict
 
+    def get_spec(self, space):
+        w_dict = self.getdict(space)
+        return space.finditem_str(w_dict, '__spec__')
+
     def descr_module__new__(space, w_subtype, __args__):
         module = space.allocate_instance(Module, w_subtype)
         Module.__init__(module, space, None)
