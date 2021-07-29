@@ -1060,7 +1060,6 @@ class __extend__(pyframe.PyFrame):
             if not e.match(space, space.w_AttributeError):
                 raise
             w_pkgname = space.newtext("<unknown module name>")
-            w_pkgpath = w_module.get_file(space)
             try:
                 w_pkgname = space.getattr(
                     w_module, space.newtext('__name__'))
@@ -1068,7 +1067,14 @@ class __extend__(pyframe.PyFrame):
                     (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
             except OperationError:
-                if space.is_true(w_module.is_initializing(space)):
+                try:
+                    w_pkgpath = space.getattr(w_module, space.newtext('__file__'))
+                except OperationError:
+                    if not e.match(space, space.w_AttributeError):
+                        raise
+                    w_pkgpath = space.newtext("unknown location")
+
+                if space.is_true(self.is_module_initializing(w_module)):
                     format_str = (
                         "cannot import name %R from partially initialized module %R "
                         "(most likely due to a circular import) (%S)"
@@ -1079,6 +1085,23 @@ class __extend__(pyframe.PyFrame):
                 raise oefmt(
                     space.w_ImportError, format_str, w_name, w_pkgname, w_pkgpath)
 
+    def is_module_initializing(self, w_module):
+        space = self.space
+        try:
+            w_spec = space.getattr(w_module, space.newtext('__spec__'))
+        except OperationError as e:
+            if not e.match(space, space.w_AttributeError):
+                raise
+            return space.w_False
+
+        try:
+            w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+        except OperationError as e:
+            if e.match(space, space.w_AttributeError):
+                return space.w_False
+            raise
+        else:
+            return w_initializing
 
     def YIELD_VALUE(self, oparg, next_instr):
         if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
