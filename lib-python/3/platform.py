@@ -1140,9 +1140,9 @@ _ironpython26_sys_version_parser = re.compile(
 )
 
 _pypy_sys_version_parser = re.compile(
-    r'([\w.+]+)\s*'
+    r'([\w.+]+)[^(]*'
     r'\(#?([^,]+),\s*([\w ]+),\s*([\w :]+)\)\s*'
-    r'\[PyPy [^\]]+\]?')
+    r'\[PyPy [^\]]+with ([^\]]*)\]?')
 
 _sys_version_cache = {}
 
@@ -1213,8 +1213,7 @@ def _sys_version(sys_version=None):
         if match is None:
             raise ValueError("failed to parse PyPy sys.version: %s" %
                              repr(sys_version))
-        version, buildno, builddate, buildtime = match.groups()
-        compiler = ""
+        version, buildno, builddate, buildtime, compiler = match.groups()
 
     else:
         # CPython
@@ -1246,7 +1245,7 @@ def _sys_version(sys_version=None):
         version = '.'.join(l)
 
     # Build and cache the result
-    result = (name, version, branch, revision, buildno, builddate, compiler)
+    result = (name, version, branch, revision[:8], buildno, builddate, compiler)
     _sys_version_cache[sys_version] = result
     return result
 
