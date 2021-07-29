@@ -1059,6 +1059,8 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
+            w_pkgname = space.newtext("<unknown module name>")
+            w_pkgpath = w_module.get_file(space)
             try:
                 w_pkgname = space.getattr(
                     w_module, space.newtext('__name__'))
@@ -1066,8 +1068,16 @@ class __extend__(pyframe.PyFrame):
                     (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
                 return space.getitem(space.sys.get('modules'), w_fullname)
             except OperationError:
+                if space.is_true(w_module.is_initializing(space)):
+                    format_str = (
+                        "cannot import name %R from partially initialized module %R "
+                        "(most likely due to a circular import) (%S)"
+                    )
+                else:
+                    format_str = "cannot import name %R from %R (%S)"
+
                 raise oefmt(
-                    space.w_ImportError, "cannot import name %R", w_name)
+                    space.w_ImportError, format_str, w_name, w_pkgname, w_pkgpath)
 
 
     def YIELD_VALUE(self, oparg, next_instr):

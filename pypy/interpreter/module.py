@@ -81,6 +81,10 @@ class Module(W_Root):
         w_dict = self.getdict(space)
         return space.finditem_str(w_dict, '__spec__')
 
+    def get_file(self, space):
+        w_dict = self.getdict(space)
+        return space.finditem_str(w_dict, '__file__')
+
     def is_initializing(self, space):
         w_spec = self.get_spec(space)
         if not space.is_none(w_spec):
