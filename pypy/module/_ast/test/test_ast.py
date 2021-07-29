@@ -10,9 +10,9 @@ class AppTestAST:
     def setup_class(cls):
         cls.w_ast = cls.space.getbuiltinmodule('_ast')
 
-    def w_get_ast(self, source, mode="exec", flags=0):
+    def w_get_ast(self, source, mode="exec", flags=0, feature_version=-1):
         ast = self.ast
-        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST | flags)
+        mod = compile(source, "<test>", mode, ast.PyCF_ONLY_AST | flags, _feature_version=feature_version)
         assert isinstance(mod, ast.mod)
         return mod
 
@@ -547,3 +547,40 @@ from __future__ import generators""")
         assert msg == "Module constructor takes at most 2 positional argument"
 
         raises(TypeError, ast.Module, 1, 2, type_ignores=3)
+
+    def test_ast_feature_version(self):
+        raises(SyntaxError, self.get_ast, "await = x")
+        raises(SyntaxError, self.get_ast, "await = x", feature_version=9)
+        raises(SyntaxError, self.get_ast, "await = x", feature_version=-1)
+
+        tree_36 = self.get_ast("await = x", feature_version=6)
+        assert tree_36.body[0].targets[0].id == 'await'
+
+        tree_35 = self.get_ast("await = x", feature_version=5)
+        assert tree_35.body[0].targets[0].id == 'await'
+
+    def test_ast_feature_version_with_type_comments(self):
+
+        import ast
+        import textwrap
+
+        ignores = textwrap.dedent("""\
+        def foo():
+            pass  # type: ignore
+
+        def bar():
+            x = 1  # type: ignore
+
+        def baz():
+            pass  # type: ignore[excuse]
+            pass  # type: ignore=excuse
+            pass  # type: ignore [excuse]
+            x = 1  # type: ignore whatever
+        """)
+
+        for version in range(9):
+            tree_1 = ast.parse(ignores, type_comments=True, feature_version=version)
+            tree_2 = ast.parse(ignores, type_comments=True, feature_version=(3, version))
+
+            assert len(tree_1.type_ignores) == 6
+            assert len(tree_2.type_ignores) == 6

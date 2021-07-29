@@ -198,12 +198,11 @@ def test_build_class():
     )
 
 def test_compile_feature_version():
-    """ check the undocumented _feature_version argument to compile. for now,
-    only allow -1. """
-
     co = compile('1+2', '?', 'eval', _feature_version=-1)
     assert eval(co) == 3
-    with raises(ValueError):
-        compile('1+2', '?', 'eval', _feature_version=6)
+
+    co = compile('1+2', '?', 'eval', _feature_version=8)
+    assert eval(co) == 3
+
 
 

@@ -152,12 +152,13 @@ class PythonAstCompiler(PyCodeCompiler):
             raise OperationError(self.space.w_ValueError,
                                  self.space.newtext(e.message))
 
-    def compile_to_ast(self, source, filename, mode, flags):
-        info = pyparse.CompileInfo(filename, mode, flags)
+    def compile_to_ast(self, source, filename, mode, flags, feature_version):
+        info = pyparse.CompileInfo(filename, mode, flags, feature_version=feature_version)
         return self._compile_to_ast(source, info)
 
     def _compile_to_ast(self, source, info):
         space = self.space
+        self.parser.reset()
         try:
             parse_tree = self.parser.parse_source(source, info)
             mod = astbuilder.ast_from_node(space, parse_tree, info,

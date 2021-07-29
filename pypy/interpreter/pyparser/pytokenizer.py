@@ -57,9 +57,16 @@ def handle_type_comment(token, flags, lnum, start, line):
     ):
         return None
 
+    # A TYPE_IGNORE is "type: ignore" followed by the end of the token
+    # or anything ASCII and non-alphanumeric. */
+
     # Leading whitespace is ignored
     type_decl = sub_tokens[1].lstrip()
-    if type_decl.startswith(TYPE_IGNORE):
+    following_char = type_decl[len(TYPE_IGNORE):]
+    if type_decl.startswith(TYPE_IGNORE) and (
+        following_char == '' or
+        ord(following_char[0]) < 0x80 and not following_char[0].isalnum()
+    ):
         tok_type = tokens.TYPE_IGNORE
         type_decl = type_decl[len(TYPE_IGNORE):]
     else:
@@ -132,6 +139,10 @@ def generate_tokens(lines, flags):
     altindents = [0]
     last_comment = ''
     parenstack = []
+    async_hacks = flags & consts.PyCF_ASYNC_HACKS
+    async_def = False
+    async_def_nl = False
+    async_def_indent = 0
 
     # make the annotator happy
     endDFA = DUMMY_DFA
@@ -228,6 +239,10 @@ def generate_tokens(lines, flags):
                     raise TokenIndentationError(err, line, lnum, column+1, token_list)
                 if altcolumn != altindents[-1]:
                     raise TabError(lnum, pos, line)
+            if async_def_nl and async_def_indent >= indents[-1]:
+                async_def = False
+                async_def_nl = False
+                async_def_indent = 0
 
         else:                                  # continued statement
             if not line:
@@ -261,6 +276,8 @@ def generate_tokens(lines, flags):
                     last_comment = ''
                 elif initial in '\r\n':
                     if not parenstack:
+                        if async_def:
+                            async_def_nl = True
                         tok = Token(tokens.NEWLINE, last_comment, lnum, start, line)
                         token_list.append(tok)
 
@@ -319,6 +336,31 @@ def generate_tokens(lines, flags):
                         # be used in identifiers
                         raise TokenError("invalid character in identifier",
                                          line, lnum, start + 1, token_list)
+                    # inside 'async def' function or no async_hacks
+                    # so recognize them unconditionally.
+                    if not async_hacks or async_def:
+                        if token == 'async':
+                            token_list.append(Token(tokens.ASYNC, token, lnum, start, line, lnum, end))
+                        elif token == 'await':
+                            token_list.append(Token(tokens.AWAIT, token, lnum, start, line, lnum, end))
+                        else:
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
+                    elif token == 'async':                 # async token, look ahead
+                        #ahead token
+                        if pos < max:
+                            async_end = pseudoDFA.recognize(line, pos)
+                            assert async_end >= 3
+                            async_start = async_end - 3
+                            assert async_start >= 0
+                            ahead_token = line[async_start:async_end]
+                            if ahead_token == 'def':
+                                async_def = True
+                                async_def_indent = indents[-1]
+                                token_list.append(Token(tokens.ASYNC, token, lnum, start, line, lnum, end))
+                            else:
+                                token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
+                        else:
+                            token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     else:
                         token_list.append(Token(tokens.NAME, token, lnum, start, line, lnum, end))
                     last_comment = ''

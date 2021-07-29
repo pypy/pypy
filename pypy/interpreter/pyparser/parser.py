@@ -463,3 +463,7 @@ class Parser(object):
             self.stack.node_append_child(node)
         else:
             self.root = node
+
+    def reset(self):
+        """Reset the state-bound data"""
+

@@ -13,9 +13,9 @@ class TestPythonParser:
     def setup_class(self):
         self.parser = pyparse.PythonParser(self.space)
 
-    def parse(self, source, mode="exec", info=None):
+    def parse(self, source, mode="exec", info=None, flags=0):
         if info is None:
-            info = pyparse.CompileInfo("<test>", mode)
+            info = pyparse.CompileInfo("<test>", mode, flags=flags)
         return self.parser.parse_source(source, info)
 
     def test_with_and_as(self):
@@ -260,6 +260,32 @@ if 1:
         self.parse('''def foo():
         async with a:
             pass''')
+
+    def test_async_await_hacks(self):
+        def parse(source):
+            return self.parse(source, flags=consts.PyCF_ASYNC_HACKS)
+
+        # legal syntax
+        parse("async def coro(): await func")
+
+        # legal syntax for 3.6<=
+        parse("async = 1")
+        parse("await = 1")
+        parse("def async(): pass")
+        parse("def await(): pass")
+        parse("""async def foo():
+    async for a in b:
+        pass""")
+
+        # illegal syntax for 3.6<=
+        with pytest.raises(SyntaxError):
+            parse("await x")
+        with pytest.raises(SyntaxError):
+            parse("async for a in b: pass")
+        with pytest.raises(SyntaxError):
+            parse("def foo(): async for a in b: pass")
+        with pytest.raises(SyntaxError):
+            parse("def foo(): async for a in b: pass")
 
     def test_number_underscores(self):
         VALID_UNDERSCORE_LITERALS = [
