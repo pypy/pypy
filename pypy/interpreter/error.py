@@ -649,10 +649,6 @@ def get_operr_withname_error_class2(valuefmt, errorclsname):
                     if errorclsname == "AttributeError":
                         w_value = W_AttributeError(space)
                         w_value.descr_init(space, [w_msg], None, self.x0, self.x1)
-                    elif errorclsname == "ImportError":
-                        w_value = W_ImportError(space)
-                        args = Arguments(space, [w_msg], ['name', 'path'], [self.x1, self.x2])
-                        w_value.descr_init(space, args)
                     else:
                         assert errorclsname == "NameError"
                         w_value = W_NameError(space)
@@ -692,15 +688,6 @@ def oefmt_name_error(space, w_name, valuefmt, *args):
 
     cls, strings = get_operr_withname_error_class(valuefmt, "NameError")
     return cls(space.w_NameError, strings, *(w_name, ) + args)
-
-@specialize.arg(5)
-def oefmt_import_error(space, w_name, w_pkgname, w_pkgpath, valuefmt, *args):
-    """ Like oefmt, but always raises w_ImportError, passing w_pkgpath and
-    w_name to its constructor. the valuefmt needs at least one fmt characters
-    for this argument. """
-
-    cls, strings = get_operr_withname_error_class(valuefmt, "ImportError")
-    return cls(space.w_ImportError, strings, *(w_name, w_pkgname, w_pkgpath) + args)
 
 # ____________________________________________________________
 

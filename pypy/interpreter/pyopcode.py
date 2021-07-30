@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, oefmt_import_error
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -1073,18 +1073,24 @@ class __extend__(pyframe.PyFrame):
             w_pkgpath = get_path(space, w_module)
             if space.is_true(is_module_initializing(space, w_module)):
                 format_str = (
-                    "cannot import name %R from partially initialized module %R "
-                    "(most likely due to a circular import) (%S)"
+                    "cannot import name %r from partially initialized module %r "
+                    "(most likely due to a circular import) (%s)"
                 )
             else:
-                format_str = "cannot import name %R from %R (%S)"
+                format_str = "cannot import name %r from %r (%s)"
 
-            raise oefmt_import_error(
+            msg = space.newtext(
+                format_str % (
+                    space.utf8_w(w_name),
+                    space.utf8_w(w_pkgname),
+                    space.utf8_w(w_pkgpath)
+                )
+            )
+            raise raise_import_error(
                 space,
-                w_name,
+                msg,
                 w_pkgname,
                 w_pkgpath,
-                format_str,
             )
 
     def YIELD_VALUE(self, oparg, next_instr):
