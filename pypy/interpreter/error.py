@@ -693,6 +693,7 @@ def oefmt_name_error(space, w_name, valuefmt, *args):
     cls, strings = get_operr_withname_error_class(valuefmt, "NameError")
     return cls(space.w_NameError, strings, *(w_name, ) + args)
 
+@specialize.arg(5)
 def oefmt_import_error(space, w_name, w_pkgname, w_pkgpath, valuefmt, *args):
     """ Like oefmt, but always raises w_ImportError, passing w_pkgpath and
     w_name to its constructor. the valuefmt needs at least one fmt characters
