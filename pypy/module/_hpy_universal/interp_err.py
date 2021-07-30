@@ -1,7 +1,7 @@
 from rpython.rlib.nonconst import NonConstant
 from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.rlib.objectmodel import we_are_translated
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import OperationError, oefmt, new_exception_class
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.bridge import BRIDGE
 from pypy.module._hpy_universal import llapi
@@ -84,3 +84,20 @@ def HPyErr_NoMemory(space, handles, ctx):
     if NonConstant(False):
         return -42
     raise OperationError(space.w_MemoryError, space.w_None)
+
+@API.func("HPy HPyErr_NewException(HPyContext *ctx, const char *name, HPy base, HPy dict)")
+def HPyErr_NewException(space, handles, ctx, c_name, h_base, h_dict):
+    name = rffi.constcharp2str(c_name)
+    if '.' not in name:
+        raise oefmt(space.w_SystemError,
+            "PyErr_NewException: name must be module.class")
+    if h_base:
+        w_base = handles.deref(h_base)
+    else:
+        w_base = space.w_Exception
+    if h_dict:
+        w_dict = handles.deref(h_base)
+    else:
+        w_dict = None
+
+    return handles.new(new_exception_class(space, name, w_base, w_dict))
