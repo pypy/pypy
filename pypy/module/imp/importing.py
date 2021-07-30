@@ -497,7 +497,7 @@ def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
 
 def get_spec(space, w_module):
     try:
-        w_spec = space.getattr(w_module, space.newtext('__spec__'))
+        return space.getattr(w_module, space.newtext('__spec__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise

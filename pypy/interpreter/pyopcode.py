@@ -1071,24 +1071,18 @@ class __extend__(pyframe.PyFrame):
             from pypy.module.imp.importing import is_module_initializing, get_path
 
             w_pkgpath = get_path(space, w_module)
+            args = (space.utf8_w(w_name), space.utf8_w(w_pkgname), space.utf8_w(w_pkgpath))
             if space.is_true(is_module_initializing(space, w_module)):
-                format_str = (
-                    "cannot import name %r from partially initialized module %r "
-                    "(most likely due to a circular import) (%s)"
+                msg = (
+                    "cannot import name '%s' from partially initialized module '%s' "
+                    "(most likely due to a circular import) (%s)" % args
                 )
             else:
-                format_str = "cannot import name %r from %r (%s)"
+                msg = "cannot import name '%s' from '%s' (%s)" % args
 
-            msg = space.newtext(
-                format_str % (
-                    space.utf8_w(w_name),
-                    space.utf8_w(w_pkgname),
-                    space.utf8_w(w_pkgpath)
-                )
-            )
             raise raise_import_error(
                 space,
-                msg,
+                space.newtext(msg),
                 w_pkgname,
                 w_pkgpath,
             )

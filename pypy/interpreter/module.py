@@ -129,6 +129,7 @@ class Module(W_Root):
 
     def descr_getattribute(self, space, w_attr):
         from pypy.objspace.descroperation import object_getattribute
+        from pypy.module.imp.importing import is_module_initializing
         try:
             return space.call_function(object_getattribute(space), self, w_attr)
         except OperationError as e:
