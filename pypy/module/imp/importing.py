@@ -494,3 +494,35 @@ def import_name_fast_path(space, w_modulename, w_globals, w_locals, w_fromlist,
                 return w_mod
     return space.call_function(space.w_default_importlib_import, w_modulename, w_globals,
                                 w_locals, w_fromlist, w_level)
+
+def get_spec(space, w_module):
+    try:
+        w_spec = space.getattr(w_module, space.newtext('__spec__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return space.w_None
+
+def is_module_initializing(space, w_module):
+    w_spec = get_spec(space, w_module)
+    if space.is_none(w_spec):
+        return space.w_False
+
+    try:
+        w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+
+        return space.w_False
+    else:
+        return w_initializing
+
+def get_path(space, w_module):
+    try:
+        return space.getattr(w_module, space.newtext('__file__'))
+    except OperationError as e:
+        if not e.match(space, space.w_AttributeError):
+            raise
+        return space.newtext("unknown location")
+

@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, oefmt_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -1059,49 +1059,33 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            w_pkgname = space.newtext("<unknown module name>")
-            try:
-                w_pkgname = space.getattr(
-                    w_module, space.newtext('__name__'))
-                w_fullname = space.newtext(b'%s.%s' %
-                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
-                return space.getitem(space.sys.get('modules'), w_fullname)
-            except OperationError:
-                try:
-                    w_pkgpath = space.getattr(w_module, space.newtext('__file__'))
-                except OperationError:
-                    if not e.match(space, space.w_AttributeError):
-                        raise
-                    w_pkgpath = space.newtext("unknown location")
 
-                if space.is_true(self.is_module_initializing(w_module)):
-                    format_str = (
-                        "cannot import name %R from partially initialized module %R "
-                        "(most likely due to a circular import) (%S)"
-                    )
-                else:
-                    format_str = "cannot import name %R from %R (%S)"
-
-                raise oefmt(
-                    space.w_ImportError, format_str, w_name, w_pkgname, w_pkgpath)
-
-    def is_module_initializing(self, w_module):
-        space = self.space
+        w_pkgname = space.newtext("<unknown module name>")
         try:
-            w_spec = space.getattr(w_module, space.newtext('__spec__'))
-        except OperationError as e:
-            if not e.match(space, space.w_AttributeError):
-                raise
-            return space.w_False
+            w_pkgname = space.getattr(
+                w_module, space.newtext('__name__'))
+            w_fullname = space.newtext(b'%s.%s' %
+                (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
+            return space.getitem(space.sys.get('modules'), w_fullname)
+        except OperationError:
+            from pypy.module.imp.importing import is_module_initializing, get_path
 
-        try:
-            w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
-        except OperationError as e:
-            if e.match(space, space.w_AttributeError):
-                return space.w_False
-            raise
-        else:
-            return w_initializing
+            w_pkgpath = get_path(space, w_module)
+            if space.is_true(is_module_initializing(space, w_module)):
+                format_str = (
+                    "cannot import name %R from partially initialized module %R "
+                    "(most likely due to a circular import) (%S)"
+                )
+            else:
+                format_str = "cannot import name %R from %R (%S)"
+
+            raise oefmt_import_error(
+                space,
+                w_name,
+                w_pkgname,
+                w_pkgpath,
+                format_str,
+            )
 
     def YIELD_VALUE(self, oparg, next_instr):
         if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
