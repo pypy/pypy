@@ -2077,7 +2077,25 @@ app = gateway.applevel(r'''
             skip_leading_underscores = True
         else:
             skip_leading_underscores = False
+
+        module_name = module.__name__
         for name in all:
+            if not isinstance(name, str):
+                if skip_leading_underscores:
+                    container = "__dict__"
+                    accessor = "Key"
+                else:
+                    container = "__all__"
+                    accessor = "Item"
+
+                raise TypeError(
+                    "%s in %s.%s must be str, not %s" % (
+                        accessor,
+                        module_name,
+                        container,
+                        type(name).__name__
+                    )
+                )
             if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)
