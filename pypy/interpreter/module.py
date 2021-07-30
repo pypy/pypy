@@ -143,6 +143,13 @@ class Module(W_Root):
             if w_name is None:
                 raise oefmt(space.w_AttributeError,
                     "module has no attribute %R", w_attr)
+            elif space.is_true(is_module_initializing(space, self)):
+                raise oefmt(space.w_AttributeError,
+                    "partially initialized "
+                    "module %R has no attribute %R "
+                    "(most likely due to a circular import)",
+                    w_name, w_attr
+                )
             else:
                 raise oefmt(space.w_AttributeError,
                     "module %R has no attribute %R", w_name, w_attr)
