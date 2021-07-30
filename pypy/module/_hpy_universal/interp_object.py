@@ -224,6 +224,13 @@ def HPy_TypeCheck(space, handles, ctx, h_obj, h_type):
     assert space.isinstance_w(w_type, space.w_type)
     return API.int(space.issubtype_w(space.type(w_obj), w_type))
 
+@API.func("int HPy_Is(HPyContext *ctx, HPy obj, HPy other)",
+          error_value='CANNOT_FAIL')
+def HPy_Is(space, handles, ctx, h_obj, h_other):
+    w_obj = handles.deref(h_obj)
+    w_other = handles.deref(h_other)
+    return API.int(space.is_w(w_obj, w_other))
+
 @API.func("void _HPy_Dump(HPyContext *ctx, HPy h)")
 def _HPy_Dump(space, handles, ctx, h_obj):
     # this is a debugging helper meant to be called from gdb. As such, we
