@@ -2079,6 +2079,9 @@ app = gateway.applevel(r'''
             skip_leading_underscores = False
 
         module_name = module.__name__
+        if not isinstance(module_name, str):
+            raise TypeError("module __name__ must be a string, not %s", type(module_name).__name__)
+
         for name in all:
             if not isinstance(name, str):
                 if skip_leading_underscores:
