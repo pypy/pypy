@@ -639,8 +639,7 @@ def get_operr_withname_error_class2(valuefmt, errorclsname):
         basecls, _ = get_operr_class(valuefmt)
         class OpErrFmtWithNameError(basecls):
             def get_w_value(self, space):
-                from pypy.interpreter.argument import Arguments
-                from pypy.module.exceptions.interp_exceptions import W_AttributeError, W_NameError, W_ImportError
+                from pypy.module.exceptions.interp_exceptions import W_AttributeError, W_NameError
                 w_value = self._w_value
                 if w_value is None:
                     value, lgt = self._compute_value(space)
@@ -688,7 +687,6 @@ def oefmt_name_error(space, w_name, valuefmt, *args):
 
     cls, strings = get_operr_withname_error_class(valuefmt, "NameError")
     return cls(space.w_NameError, strings, *(w_name, ) + args)
-
 # ____________________________________________________________
 
 # Utilities

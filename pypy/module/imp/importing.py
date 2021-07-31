@@ -503,10 +503,9 @@ def get_spec(space, w_module):
             raise
         return space.w_None
 
-def is_module_initializing(space, w_module):
-    w_spec = get_spec(space, w_module)
+def is_spec_initializing(space, w_spec):
     if space.is_none(w_spec):
-        return space.w_False
+        return False
 
     try:
         w_initializing = space.getattr(w_spec, space.newtext("_initializing"))
@@ -514,9 +513,9 @@ def is_module_initializing(space, w_module):
         if not e.match(space, space.w_AttributeError):
             raise
 
-        return space.w_False
+        return False
     else:
-        return w_initializing
+        return space.is_true(w_initializing)
 
 def get_path(space, w_module):
     try:
