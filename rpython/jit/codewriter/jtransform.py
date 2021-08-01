@@ -1680,6 +1680,12 @@ class Transformer(object):
         c_index = Constant(jd.index, lltype.Signed)
         return SpaceOperation('loop_header', [c_index], None)
 
+    def handle_jit_marker__threaded_code_header(self, op, jitdriver):
+        jd = self.callcontrol.jitdriver_sd_from_jitdriver(jitdriver)
+        assert jd is not None
+        c_index = Constant(jd.index, lltype.Signed)
+        return SpaceOperation('threaded_code_header', [c_index], None)
+
     # a 'can_enter_jit' in the source graph becomes a 'loop_header'
     # operation in the transformed graph, as its only purpose in
     # the transformed graph is to detect loops.

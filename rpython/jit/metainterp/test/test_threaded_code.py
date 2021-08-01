@@ -338,31 +338,11 @@ class BasicTests:
                                 get_printable_location=opcode_to_string,
                                 threaded_code_gen=True)
 
-        # ideal case
-        def compiled_test(frame):
-            while True:
-                frame.nop()
-                frame.dup()
-                if frame.is_true():
-                    # true branch
-                    frame.const_int(1)
-                    frame.sub()
-                else:
-                    return frame.pop()
-
-
-
-
         def interp(x):
             # set_param(myjitdriver, 'threshold', 100)
             tstack = TStack(-100, None)
             pc = 0
-            bytecode = [NOP,
-                        DUP,
-                        JUMP_IF, 6,
-                        JUMP, 11,
-                        CONST, 1, SUB, JUMP, 1, EXIT]
-
+            bytecode = [ NOP, DUP, JUMP_IF, 6, JUMP, 11, CONST, 1, SUB, JUMP, 1, EXIT ]
             frame = Frame(bytecode)
             frame.push(x)
             while True:
@@ -417,6 +397,129 @@ class BasicTests:
 
         interp.oopspec = 'jit.not_in_trace()'
         res = self.meta_interp(interp, [10])
+
+    def test_minilang_stack_2(self):
+        @dont_look_inside
+        def lt(lhs, rhs):
+            if lhs < rhs:
+                return 1
+            else:
+                return 0
+
+        @dont_look_inside
+        def add(x, y):
+            return x + y
+
+        @dont_look_inside
+        def sub(x, y):
+            return x - y
+
+        @dont_look_inside
+        def is_true(x):
+            return x > 0
+
+        @dont_look_inside
+        def emit_jump(x, y, z):
+            return x
+
+        @dont_look_inside
+        def emit_ret(x, y):
+            return x
+
+        ADD = 0
+        SUB = 1
+        LT = 2
+        JUMP = 3
+        JUMP_IF = 4
+        EXIT = 5
+        DUP = 6
+        CONST = 7
+        THREADED_ENTER = 100
+        NOP = -100
+        inst_set = {
+            0: "ADD",
+            1: "SUB",
+            2: "LT",
+            3: "JUMP",
+            4: "JUMP_IF",
+            5: "EXIT",
+            6: "DUP",
+            7: "CONST",
+            100: "THREADED_ENTER",
+            -100: "NOP"
+        }
+        def opcode_to_string(pc, bytecode, tstack):
+            op = bytecode[pc]
+            name = inst_set.get(op)
+            return "%s: %s, tstack top: %s" % (pc, name, tstack.pc)
+
+        myjitdriver = JitDriver(greens=['pc', 'bytecode', 'tstack'], reds=['frame'],
+                                get_printable_location=opcode_to_string,
+                                threaded_code_gen=True)
+
+        def interp(x):
+            tstack = TStack(-100, None)
+            pc = 0
+            bytecode = [ THREADED_ENTER, DUP, JUMP_IF, 6, JUMP, 11, CONST, 1, SUB, JUMP, 1, EXIT ]
+            frame = Frame(bytecode)
+            frame.push(x)
+            while True:
+                myjitdriver.jit_merge_point(pc=pc, bytecode=bytecode, tstack=tstack, frame=frame)
+                op = bytecode[pc]
+                pc += 1
+                if op == CONST:
+                    v = int(bytecode[pc])
+                    frame.cont_int(v)
+                    pc += 1
+                elif op == DUP:
+                    frame.dup()
+                elif op == ADD:
+                    frame.add()
+                elif op == SUB:
+                    frame.sub()
+                elif op == JUMP:
+                    t = int(bytecode[pc])
+                    if we_are_jitted():
+                        if t_is_empty(tstack):
+                            pc = t
+                        else:
+                            pc, tstack = tstack.t_pop()
+                            pc = emit_jump(pc, t, None)
+                    else:
+                        # if t < pc:
+                        #     myjitdriver.can_enter_jit(pc=t, bytecode=bytecode, tstack=tstack, frame=frame)
+                        pc = t
+                elif op == JUMP_IF:
+                    t = int(bytecode[pc])
+                    if frame.is_true():
+                        if we_are_jitted():
+                            pc += 1
+                            tstack = t_push(pc, tstack)
+                        #else:
+                            # if t < pc:
+                            #     myjitdriver.can_enter_jit(pc=t, bytecode=bytecode, tstack=tstack, frame=frame)
+                        pc = t
+                    else:
+                        if we_are_jitted():
+                            tstack = t_push(t, tstack)
+                        pc += 1
+                elif op == EXIT:
+                    if we_are_jitted():
+                        if t_is_empty(tstack):
+                            return frame.pop()
+                        else:
+                            pc, tstack = tstack.t_pop()
+                            pc = emit_ret(pc, None)
+                    else:
+                        return frame.pop()
+                elif op == THREADED_ENTER:
+                    myjitdriver.threaded_code_header()
+
+        interp.oopspec = 'jit.not_in_trace()'
+        res = self.meta_interp(interp, [10])
+
+
+
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass

@@ -753,6 +753,10 @@ class JitDriver(object):
         # special-cased by ExtRegistryEntry
         pass
 
+    def threaded_code_header(self):
+        "An entry point to start threaded code generation"
+        pass
+
     def inline(self, call_jit_merge_point):
         assert False, "@inline off: see skipped failures in test_warmspot."
         #
