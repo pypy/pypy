@@ -74,3 +74,20 @@ void dumpModule(LLVMModuleRef mod);
 void dumpBasicBlock(LLVMBasicBlockRef block);
 
 LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block);
+
+struct Ctx{
+	uint8_t *stackmap;
+	unsigned section_count;
+	uint8_t **section_addrs;
+	size_t *section_sizes;
+	LLVMMCJITMemoryManagerRef memory_manager;
+};
+
+struct Stackmap{
+    char type;
+    char reserved_1;
+    short size;
+    short regnum;
+    short reserved_2;
+    int offset;
+};

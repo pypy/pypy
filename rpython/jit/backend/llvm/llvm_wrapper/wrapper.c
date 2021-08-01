@@ -1,5 +1,6 @@
 #include "wrapper.h"
 #include "wrapper_cpp.h"
+#include <bits/types.h>
 
 LLVMBool InitializeNativeTarget(void)	{
 	return LLVMInitializeNativeTarget();
@@ -123,4 +124,59 @@ void dumpBasicBlock(LLVMBasicBlockRef block){
 
 LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block){
 	return getIncomingValueForBlock_wrapper(phi, block);
+}
+
+uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){
+	return 0;
+}
+
+uint8_t *data_section_callback(void *Opaque, uintptr_t Size, unsigned Alingment, unsigned SectionID, const char *SectionName, LLVMBool IsReadOnly){
+	printf("%s\n", SectionName);
+	return 0;
+}
+
+LLVMBool finalize_memory_callback(void *Opaque, char **ErrMsg){
+	return 0;
+}
+
+void memory_manager_destroy_callback(void *Opaque){
+	//TODO: this is probably where you should refresh JIT objects
+	struct Ctx *ctx = (struct Ctx *)Opaque;
+	int i;
+	void *addr;
+
+	for (i=0; i < ctx->section_count; i++){
+		addr = ctx->section_addrs[i];
+		size = ctx->section_sizes[i];
+		munmap(addr, size);
+	}
+
+	LLVMDisposeMCJITMemoryManager(ctx->memory_manager);
+}
+
+LLVMMCJITMemoryManagerRef memory_manager(void *Opaque){
+	LLVMMCJITMemoryManager MM = LLVMCreateSimpleMCJITMemoryManager(Opaque,
+																   allocate_code_section_callback,
+																   data_section_callback,
+																   finalize_memory_callback,
+																   memory_manager_destroy_callback);
+	struct Ctx *ctx = (struct Ctx *)Opaque;
+	ctx->memory_manager = MM;
+	ctx->section_count = 0;
+	ctx->section_addrs = calloc(64, sizeof(uint8_t *));
+	ctx->section_sizes = calloc(64, sizeof(size_t));
+	return MM;
+}
+
+LLVMOrcObjectLayerRef create_linking_layer(void *Opaque, LLVMOrcExecutionSessionRef ES, const char *Triple){
+	return LLVMOrcCreateRTDyldObjectLinkingLayer(ES, memory_manager, Opaque);
+}
+
+size_t parse_stackmap(unsigned index, Stackmap *stackmap){
+	Stackmap location = stackmap[index];
+
+	switch (location.type){
+		case 1:
+
+	}
 }

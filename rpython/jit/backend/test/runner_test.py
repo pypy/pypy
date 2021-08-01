@@ -142,6 +142,19 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_float = None
         self.cpu.done_with_this_frame_descr_void = None
 
+    def test_getfield_raw(self):
+        cpu = self.cpu
+        RS = lltype.Struct('S', ('x', lltype.Char))  #, ('y', lltype.Ptr(A)))
+        descrfld_rx = cpu.fielddescrof(RS, 'x')
+        rs = lltype.malloc(RS, immortal=True)
+        rs.x = '?'
+        # res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
+        #                              'void', descr=fielddescr)
+        x = self.execute_operation(rop.GETFIELD_GC_I, [InputArgRef(rs)],
+                                   'int', descr=descrfld_rx)
+        #x = cpu.bh_getfield_raw_i(ptr2int(rs), descrfld_rx)
+        assert x == ord('?')
+
     def test_llvm(self):
         called = []
         def func_int(*args):
@@ -2636,51 +2649,51 @@ class LLtypeBackendTest(BaseBackendTest):
         [i0, i1]
         p3 = force_token()
         i2 = call_may_force_i(ConstClass(func_ptr), p3, i1, descr=calldescr)
-        guard_not_forced(descr=faildescr) [i1, i2, i0]
-        finish(i2, descr=finaldescr)
-        """, namespace=locals())
-        looptoken = JitCellToken()
-        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-        deadframe = self.cpu.execute_token(looptoken, 20, 0)
-        fail = self.cpu.get_latest_descr(deadframe)
-        assert fail.identifier == 0
-        assert self.cpu.get_int_value(deadframe, 0) == 42
-        assert values == []
+            guard_not_forced(descr=faildescr) [i1, i2, i0]
+            finish(i2, descr=finaldescr)
+            """, namespace=locals())
+            looptoken = JitCellToken()
+            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+            deadframe = self.cpu.execute_token(looptoken, 20, 0)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 0
+            assert self.cpu.get_int_value(deadframe, 0) == 42
+            assert values == []
 
-        deadframe = self.cpu.execute_token(looptoken, 10, 1)
-        fail = self.cpu.get_latest_descr(deadframe)
-        assert fail.identifier == 1
-        assert self.cpu.get_int_value(deadframe, 0) == 1
-        assert self.cpu.get_int_value(deadframe, 1) == 42
-        assert self.cpu.get_int_value(deadframe, 2) == 10
-        assert values == [1, 10]
-        assert self.cpu.get_savedata_ref(deadframe) == random_gcref
+            deadframe = self.cpu.execute_token(looptoken, 10, 1)
+            fail = self.cpu.get_latest_descr(deadframe)
+            assert fail.identifier == 1
+            assert self.cpu.get_int_value(deadframe, 0) == 1
+            assert self.cpu.get_int_value(deadframe, 1) == 42
+            assert self.cpu.get_int_value(deadframe, 2) == 10
+            assert values == [1, 10]
+            assert self.cpu.get_savedata_ref(deadframe) == random_gcref
 
-    def test_force_operations_returning_float(self):
-        if not self.cpu.supports_floats:
-            py.test.skip("requires floats")
-        values = []
-        def maybe_force(token, flag):
-            if flag:
-                deadframe = self.cpu.force(token)
-                values.append(self.cpu.get_int_value(deadframe, 0))
-                values.append(self.cpu.get_int_value(deadframe, 2))
-                self.cpu.set_savedata_ref(deadframe, random_gcref)
-            return 42.5
+        def test_force_operations_returning_float(self):
+            if not self.cpu.supports_floats:
+                py.test.skip("requires floats")
+            values = []
+            def maybe_force(token, flag):
+                if flag:
+                    deadframe = self.cpu.force(token)
+                    values.append(self.cpu.get_int_value(deadframe, 0))
+                    values.append(self.cpu.get_int_value(deadframe, 2))
+                    self.cpu.set_savedata_ref(deadframe, random_gcref)
+                return 42.5
 
-        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
-        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
-        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                         EffectInfo.MOST_GENERAL)
-        cpu = self.cpu
-        faildescr = BasicFailDescr(1)
-        finaldescr = BasicFinalDescr(0)
-        loop = parse("""
-        [i0, i1]
-        p3 = force_token()
-        f2 = call_may_force_f(ConstClass(func_ptr), p3, i1, descr=calldescr)
-        guard_not_forced(descr=faildescr) [i1, f2, i0]
+            FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
+            func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+            funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                            EffectInfo.MOST_GENERAL)
+            cpu = self.cpu
+            faildescr = BasicFailDescr(1)
+            finaldescr = BasicFinalDescr(0)
+            loop = parse("""
+            [i0, i1]
+            p3 = force_token()
+            f2 = call_may_force_f(ConstClass(func_ptr), p3, i1, descr=calldescr)
+            guard_not_forced(descr=faildescr) [i1, f2, i0]
         finish(f2, descr=finaldescr)
         """, namespace=locals())
         looptoken = JitCellToken()

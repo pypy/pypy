@@ -11,7 +11,8 @@ from rpython.jit.backend.llvm.llvm_api import CString
 from rpython.jit.backend.llvm.guards import PhiNodeImpl
 
 class LLVMOpDispatcher:
-    def __init__(self, cpu, builder, module, entry, func, jitframe_type, jitframe_subtypes, test_descr=None):
+    def __init__(self, cpu, builder, module, entry, func, jitframe_type,
+                 jitframe_subtypes, gcdescr, test_descr=None):
         self.test_descr = test_descr
         self.cpu = cpu
         self.builder = builder
@@ -21,6 +22,7 @@ class LLVMOpDispatcher:
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
         self.jitframe_subtypes = jitframe_subtypes
+        self.gcdescr = gcdescr
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
@@ -483,8 +485,8 @@ class LLVMOpDispatcher:
             elif op.opnum == 162:
                 self.parse_new_array(op)
 
-            elif op.opnum == 163:
-                self.parse_new_array(op) #TODO: boehm zero inits by default, other gc might not
+            elif op.opnum == 163: #boehm inits to 0 by default
+                self.parse_new_array(op)
 
             elif op.opnum == 164:
                 self.parse_newstr(op)
@@ -535,7 +537,6 @@ class LLVMOpDispatcher:
 
             elif op.opnum == 248:
                 self.parse_int_ovf(op, '*')
-
 
             else: #TODO: take out as this may prevent jump table optimisation
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
@@ -993,16 +994,23 @@ class LLVMOpDispatcher:
 
         self.ssa_vars[op] = value
 
-
     def parse_new(self, op):
-        descr = op.getdescr()
-        ptr = self.cpu.bh_new(descr)._cast_to_int()
-        llvm_ptr_int = self.llvm.ConstInt(self.cpu.llvm_int_type, ptr, 0)
-        cstring = CString("llvm_ptr")
-        llvm_ptr = self.llvm.BuildIntToPtr(self.builder, llvm_ptr_int,
-                                           self.cpu.llvm_void_ptr,
-                                           cstring.ptr)
-        llvm_struct = self.parse_struct_descr_to_llvm(descr, llvm_ptr)
+        sizedescr = op.getdescr()
+        arg_types = [lltype.Signed]
+        ret_type = llmemory.GCREF
+        func_int_ptr = self.get_func_ptr(self.gcdescr.malloc_fn_ptr, arg_types,
+                                         ret_type)
+        func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                               func_int_ptr, 0)
+
+        ret_type_llvm = self.cpu.llvm_void_ptr
+        arg_types_llvm = [self.cpu.llvm_int_type]
+        args = self.llvm.ConstInt(self.cpu.llvm_int_type, sizedescr.size, 0)
+
+        struct = self.call_function(func_int_ptr_llvm, ret_type_llvm,
+                                    arg_types_llvm, args,
+                                    "new_array_res")
+        llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
         self.ssa_vars[op] = llvm_struct.struct
 
     def parse_new_with_vtable(self, op):

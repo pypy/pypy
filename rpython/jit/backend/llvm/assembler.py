@@ -46,8 +46,6 @@ class LLVMAssembler(BaseAssembler):
         self.DyLib = self.llvm.LLJITGetMainJITDylib(self.LLJIT)
         if self.debug and self.DyLib._cast_to_int() == 0:
             raise Exception("DyLib is Null")
-        #exec_session = self.llvm.GetExecutionSession(self.LLJIT)
-        #self.object_layer = self.llvm.CreateObjectLinkingLayer(exec_session)
 
 
     def jit_compile(self, module, looptoken, inputargs, dispatcher, is_bridge=False):

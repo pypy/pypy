@@ -1,6 +1,9 @@
+from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.backend.llvm.llvm_api import CString
+from rpython.jit.backend.llsupport.jitframe import JITFRAMEPTR
+import ctypes
 
 class GuardHandlerBase:
     def __init__(self, dispatcher):
@@ -310,8 +313,27 @@ class PhiNodeImpl(GuardHandlerBase):
             self.guard_keys[descr] = (op, resume, cnd, branch)
             self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
-        def runtime_callback(self):
-            raise NotImplementedError
+        def runtime_callback(self, descr_int_ptr, jitframe_ptr):
+            descr = ctypes.cast(descr_int_ptr, ctypes.py_object).value
+            jitframe = lltype.cast_opaque_ptr(JITFRAMEPTR, jitframe_ptr)
+            llvm_failargs = self.llvm_failargs[descr]
+            indices = [self.failarg_order[arg][0] for arg in llvm_failargs]
+
+            Stackmap = lltype.Struct("Stackmap",
+                ("type", lltype.Char), ("reserved_1", lltype.Char),
+                ("size", lltype.Short), ("regnum", lltype.Short),
+                ("reserved_2", lltype.Short), ("offset", rffi.INT)
+            )
+            Locations = lltype.Array()
+            #define this struct in wrapper.c and write a function that takes the stackmap addr and
+            #index to return the value as needed in C
+
+            for c, index in enumerate(indices): #TODO: not sure if rpython level requires 1 elem offset
+                failarg = self.parse_stackmap(index, stackmap)
+                #remember to cast failarg
+                jitframe.jf_frame[c] = failarg
+
+            jitframe.jf_descr = cast_instance_to_gcref(descr)
 
         def finalise_bailout(self):
             self.llvm.PositionBuilderAtEnd(self.bailout)
@@ -329,13 +351,15 @@ class PhiNodeImpl(GuardHandlerBase):
 
             arg_types = []
             ret_type = lltype.Void
-            func_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
+            callback_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
                                                         arg_types, ret_type)
-            func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                                   func_int_ptr, 0)
+            callback_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                   callback_int_ptr, 0)
+            arg_types_llvm = [self.cpu.llvm_int_type, self.cpu.llvm_void_ptr]
+            args_llvm = [self.descr_phi, self.jitframe.struct]
             ret_type_llvm = self.cpu.llvm_void_type
-            self.dispatcher.call_function(func_int_ptr_llvm, ret_type_llvm,
-                                          arg_types, [], "")
+            self.dispatcher.call_function(callback_int_ptr_llvm, ret_type_llvm,
+                                          arg_types_llvm, args_llvm, "")
 
             self.jitframe.set_elem(self.descr_phi, 1)
             self.llvm.BuildRet(self.builder, self.jitframe.struct)

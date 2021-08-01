@@ -75,6 +75,11 @@ class LLVM_CPU(AbstractLLCPU):
         os.system("cat ir-dmp.ll")
         os.system("rm ir-dmp.ll")
 
+    def set_debug(self, value):
+        previous_value = self.debug
+        self.debug = value
+        return previous_value
+
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='trace', logger=None, test_descr=None):
         self.assembler.refresh_jit()
@@ -133,11 +138,11 @@ class LLVM_CPU(AbstractLLCPU):
         return deadframe
 
     def get_latest_descr(self, deadframe):
+        #TODO: wait why can't we use the llmodel method here again?
         deadframe = lltype.cast_opaque_ptr(jitframe.JITFRAMEPTR, deadframe)
         descr = deadframe.jf_descr
-        descr_addr = rffi.cast(lltype.Signed, descr)
-        descr = ctypes.cast(descr_addr, ctypes.py_object).value
-        return descr
+        return history.AbstractDescr.show(self, descr)
+
 
 fail_descr_rd_locs = [rffi.cast(rffi.USHORT, 0)]
 history.BasicFailDescr.rd_locs = fail_descr_rd_locs
