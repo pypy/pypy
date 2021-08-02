@@ -5,14 +5,14 @@ from rpython.jit.metainterp.support import ptr2int
 from rpython.rlib.objectmodel import compute_unique_id
 from rpython.rlib.jit_libffi import types
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from rpython.rtyper.annlowlevel import llhelper
+from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.jit.backend.llsupport import gc
 from rpython.jit.backend.llvm.llvm_api import CString
-from rpython.jit.backend.llvm.guards import PhiNodeImpl
+from rpython.jit.backend.llvm.guards import PhiNodeImpl, BlockPerGuardImpl
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type,
-                 jitframe_subtypes, gcdescr, test_descr=None):
+                 jitframe_subtypes, test_descr=None):
         self.test_descr = test_descr
         self.cpu = cpu
         self.builder = builder
@@ -22,7 +22,6 @@ class LLVMOpDispatcher:
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
         self.jitframe_subtypes = jitframe_subtypes
-        self.gcdescr = gcdescr
         self.args_size = 0
         self.local_vars_size = 0
         self.ssa_vars = {} #map pypy ssa vars to llvm objects
@@ -30,9 +29,9 @@ class LLVMOpDispatcher:
         self.arrays = {} #map array descrs to LLVMStruct instances
         self.labels = {} #map label descrs to their blocks
         self.descr_phis = {} #map label descrs to phi values
-        self.guard_handler = PhiNodeImpl(self)
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
+        self.guard_handler = BlockPerGuardImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
 
     def define_constants(self):
@@ -205,7 +204,7 @@ class LLVMOpDispatcher:
                     llvm_args.append([val, typ])
                 elif arg.type == 'f':
                     typ = self.cpu.llvm_float_type
-                    val = self.llvm.ConstFloat(typ, float(arg.getvalue()))
+                    val = self.llvm.ConstFloat(typ, arg.getvalue())
                     llvm_args.append([val, typ])
                 elif arg.type == 'r':
                     int_typ = self.cpu.llvm_int_type
@@ -565,6 +564,7 @@ class LLVMOpDispatcher:
             uncast = self.uncast(arg, self.ssa_vars[arg])
             uncast_args.append(uncast)
         descr = compute_unique_id(op.getdescr())
+        #print(cast_instance_to_gcref(op.getdescr())._cast_to_int())
         descr = self.llvm.ConstInt(self.cpu.llvm_int_type, descr, 0)
         self.exit_trace(uncast_args, descr)
 
@@ -990,25 +990,27 @@ class LLVMOpDispatcher:
         value = self.llvm.BuildIntCast(self.builder, value, field_type,
                                        1, cstring.ptr)
 
-        llvm_struct.set_elem(value, fielddescr.index)
+        value = llvm_struct.get_elem(fielddescr.index)
 
         self.ssa_vars[op] = value
 
+    def malloc_wrapper(self, size):
+        # rffi functions don't play nice with LLMV
+        return self.cpu.gc_ll_descr.malloc_fn_ptr(size)
+
     def parse_new(self, op):
         sizedescr = op.getdescr()
-        arg_types = [lltype.Signed]
         ret_type = llmemory.GCREF
-        func_int_ptr = self.get_func_ptr(self.gcdescr.malloc_fn_ptr, arg_types,
-                                         ret_type)
+        arg_types = [lltype.Signed]
+        func_int_ptr = self.get_func_ptr(self.malloc_wrapper, arg_types, ret_type)
         func_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                                func_int_ptr, 0)
+        ret_type = self.cpu.llvm_void_ptr
+        arg_types = [self.cpu.llvm_int_type]
+        args = [self.llvm.ConstInt(self.cpu.llvm_int_type, sizedescr.size, 0)]
 
-        ret_type_llvm = self.cpu.llvm_void_ptr
-        arg_types_llvm = [self.cpu.llvm_int_type]
-        args = self.llvm.ConstInt(self.cpu.llvm_int_type, sizedescr.size, 0)
-
-        struct = self.call_function(func_int_ptr_llvm, ret_type_llvm,
-                                    arg_types_llvm, args,
+        struct = self.call_function(func_int_ptr_llvm, ret_type,
+                                    arg_types, args,
                                     "new_array_res")
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
         self.ssa_vars[op] = llvm_struct.struct
@@ -1100,23 +1102,18 @@ class LLVMOpDispatcher:
         sizedescr = fielddescr.get_parent_descr()
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
 
-        field_type = self.cpu.llvm_char_type
-        cstring = CString("value_cast")
-        value = self.llvm.BuildIntCast(self.builder, value, field_type,
-                                       1, cstring.ptr)
+        if fielddescr.flag == 'S':
+            field_type = llvm_struct.subtypes[fielddescr.index]
+            cstring = CString("value_cast")
+            value = self.llvm.BuildIntCast(self.builder, value, field_type,
+                                           1, cstring.ptr)
+        elif fielddescr.flag == 'U':
+            field_type = llvm_struct.subtypes[fielddescr.index]
+            cstring = CString("value_cast")
+            value = self.llvm.BuildIntCast(self.builder, value, field_type,
+                                           0, cstring.ptr)
 
         llvm_struct.set_elem(value, fielddescr.index)
-
-        # if fielddescr.flag == 'S':
-        #     field_type = llvm_struct.subtypes[fielddescr.index]
-        #     cstring = CString("value_cast")
-        #     value = self.llvm.BuildIntCast(self.builder, value, field_type,
-        #                                    1, cstring.ptr)
-        # elif fielddescr.flag == 'U':
-        #     field_type = llvm_struct.subtypes[fielddescr.index]
-        #     cstring = CString("value_cast")
-        #     value = self.llvm.BuildIntCast(self.builder, value, field_type,
-        #                                    0, cstring.ptr)
 
         # x = self.llvm.BuildLoad(self.builder, self.cpu.llvm_char_type, ptr, cstring.ptr)
         # uncast_value = self.llvm.BuildZExt(self.builder, x, self.cpu.llvm_int_type, cstring.ptr)

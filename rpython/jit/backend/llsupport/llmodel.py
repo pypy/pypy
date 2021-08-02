@@ -318,6 +318,8 @@ class AbstractLLCPU(AbstractCPU):
                 if not self.translate_support_code:
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
+            from rpython.rtyper.annlowlevel import cast_gcref_to_instance
+            #print(rffi.cast(jitframe.JITFRAMEPTR, ll_frame).jf_frame._get_obj().getitem(0))
             return ll_frame
         return execute_token
 
@@ -414,7 +416,8 @@ class AbstractLLCPU(AbstractCPU):
 
     def _decode_pos(self, deadframe, index):
         descr = self.get_latest_descr(deadframe)
-        return rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
+        res = rffi.cast(lltype.Signed, descr.rd_locs[index]) * WORD
+        return res
 
     @specialize.arg(2)
     def get_value_direct(self, deadframe, tp, index):

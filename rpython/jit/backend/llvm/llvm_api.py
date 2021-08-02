@@ -1,6 +1,7 @@
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
+from pypy import pypydir
 
 class LLVMAPI:
     def __init__(self, debug=False):
@@ -12,9 +13,7 @@ class LLVMAPI:
         """
         LLVM uses polymorphic types which C can't represent,
         so LLVM-C doesn't define them with concrete/primitive types.
-        As such we have to refer to most of them with void pointers,
-        but as the LLVM API also manages memory deallocation for us,
-        this is likely the simplest choice anyway.
+        As such most LLVM types are just void pointers.
         """
         self.Void = lltype.Void
         self.VoidPtr = rffi.VOIDP
@@ -30,7 +29,7 @@ class LLVMAPI:
         self.BuilderRef = self.VoidPtr
         self.TargetDataRef = self.VoidPtr
         self.Enum = lltype.Signed
-        self.Bool = lltype.Signed #LLVMBOOL is typedefed to int32
+        self.Bool = rffi.INT #LLVMBOOL is typedefed to i32
         self.Str = rffi.CONST_CCHARP
         self.VerifierFailureAction = self.Enum
         self.RealPredicate = self.Enum
@@ -67,8 +66,8 @@ class LLVMAPI:
         cflags = ["""-I/usr/lib/llvm/12/include -D_GNU_SOURCE
                     -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
                     -D__STDC_LIMIT_MACROS"""] #know this should be in the includes arg, but llvm is weird and only works this way
-        path2 = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/llvm_wrapper/" #TODO: get real path
-        path = "/home/muke/Programming/Project/pypy/rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
+        path2 = pypydir+"/../rpython/jit/backend/llvm/llvm_wrapper/"
+        path = pypydir+"/../rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
         info = ExternalCompilationInfo(includes=llvm_c+[path2+"wrapper.h"],
                                        libraries=["LLVM-12","wrapper"],
                                        include_dirs=["/usr/lib/llvm/12/lib64",
@@ -479,13 +478,13 @@ class LLVMAPI:
                                           self.TypeRef,
                                           compilation_info=info)
         self.SingleFloatType = rffi.llexternal("LLVMFloatTypeInContext",
-                                                [self.ContextRef],
-                                                self.TypeRef,
-                                                compilation_info=info)
+                                               [self.ContextRef],
+                                               self.TypeRef,
+                                               compilation_info=info)
         self.ConstFloat = rffi.llexternal("LLVMConstReal",
-                                            [self.TypeRef, lltype.Float],
-                                            self.ValueRef,
-                                            compilation_info=info)
+                                          [self.TypeRef, lltype.Float],
+                                          self.ValueRef,
+                                          compilation_info=info)
         self.BuildFAdd = rffi.llexternal("LLVMBuildFAdd",
                                           [self.BuilderRef, self.ValueRef,
                                            self.ValueRef, self.Str],

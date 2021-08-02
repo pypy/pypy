@@ -11,7 +11,7 @@ class GuardHandlerBase:
         self.llvm = dispatcher.llvm
         self.builder = dispatcher.builder
         self.cpu = dispatcher.cpu
-        self.debug = dispatcher.debug
+        self.debug = self.cpu.debug
         self.func = dispatcher.func
         self.jitframe = dispatcher.jitframe
         self.ssa_vars = dispatcher.ssa_vars
@@ -52,7 +52,8 @@ class BlockPerGuardImpl(GuardHandlerBase):
     but is the simplest to implement and maintain, and has little overhead
     on pypy's side specifically (but still slows down LLVM).
     """
-    def __init__(self):
+    def __init__(self, dispatcher):
+        GuardHandlerBase.__init__(self, dispatcher)
         self.bailouts = {} #map guards to their bailout blocks
         self.guard_keys = {}
         self.llvm_failargs = {} #map descrs to a snapshot of their llvm failargs
@@ -72,7 +73,8 @@ class BlockPerGuardImpl(GuardHandlerBase):
         bailout = self.bailouts[op]
         failargs = op.getfailargs()
         descr = op.getdescr()
-        self.llvm.PositionBuilderAtEnd(bailout)
+        self.llvm.PositionBuilderAtEnd(self.builder, bailout)
+
 
         self.llvm_failargs[descr] = [self.ssa_vars[arg]
                                      if arg is not None else None
@@ -83,26 +85,40 @@ class BlockPerGuardImpl(GuardHandlerBase):
                            if arg is not None]
         descr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                         compute_unique_id(descr), 0)
+        # ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
+        # shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
+        # args = [ID, shadow_bytes]+uncast_failargs
+        # arg_array = self.dispatcher.rpython_array(args, self.llvm.ValueRef)
+
+        # cstring = CString("")
+        # self.llvm.BuildCall(self.builder,
+        #                     self.dispatcher.stackmap_intrinsic,
+        #                     arg_array, len(args), cstring.ptr)
+        # lltype.free(arg_array, flavor='raw')
+
         self.dispatcher.exit_trace(uncast_failargs, descr_llvm)
 
-        self.guard_keys[descr] = (resume, cnd, branch)
-        self.llvm.PositionBuilderAtEnd(resume)
+        self.guard_keys[descr] = (op, resume, cnd, branch)
+        self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
     def populate_bailouts(self):
         # This impl doesn't need to do anything at this step
         return
 
-    def patch_guard(self, faildescr, inputargs):
-        resume, cnd, branch = self.guard_keys[faildescr]
-        llvm_failargs = self.llvm_failargs[faildescr]
-        bailout = self.bailouts[faildescr]
+    def finalise_bailout(self):
+        return
 
-        self.llvm.PosoitionBuilderBefore(self.builder, branch)
-        self.llvm.EraseInstruction(branch)
+    def patch_guard(self, faildescr, inputargs):
+        op, resume, cnd, branch = self.guard_keys[faildescr]
+        llvm_failargs = self.llvm_failargs[faildescr]
+        bailout = self.bailouts[op]
+
+        self.llvm.PositionBuilderBefore(self.builder, branch)
         cstring = CString("bridge")
         bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                             cstring.ptr)
         self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
+        self.llvm.EraseInstruction(branch)
 
         self.llvm.DeleteBasicBlock(bailout)
 
@@ -124,7 +140,8 @@ class PhiNodeImpl(GuardHandlerBase):
     Current impl cannot handle bridges that use failargs that aren't i64, or
     holes in failargs.
     """
-    def __init__(self):
+    def __init__(self, dispatcher):
+        GuardHandlerBase.__init__(self, dispatcher)
         self.guard_blocks = {} #map guard descrs to their blocks
         self.guard_keys = {} #map guard descrs to unique info
         self.llvm_failargs = {} #map guards to llvm values their failargs map to at point of parsing
@@ -212,7 +229,7 @@ class PhiNodeImpl(GuardHandlerBase):
             self.llvm.BuildRet(self.builder, self.jitframe.struct)
 
     def patch_guard(self, faildescr, inputargs):
-        branch, op, cnd, resume = self.guard_keys[faildescr]
+        op, resume, cnd, branch = self.guard_keys[faildescr]
         self.guards.remove(op)
         cstring = CString("bridge")
         bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,

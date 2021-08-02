@@ -156,20 +156,18 @@ class BaseBackendTest(Runner):
         assert x == ord('?')
 
     def test_llvm(self):
-        called = []
-        def func_int(*args):
-            called.append(args)
-            return len(args) * 100 + 1000
-        cpu = self.cpu
-        U = lltype.Struct('U', ('z', lltype.Char))
-        S = lltype.GcStruct('S', ('x', U), ('y', lltype.Char))
-        sizedescr = cpu.sizeof(S)
-        r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
-        xdescr = cpu.fielddescrof(S, 'x')
-        ydescr = cpu.fielddescrof(S, 'y')
-        print(sizedescr.get_type_id())
-        print(cpu.sizeof(S.x).get_all_fielddescrs())
-        exit(1)
+        # called = []
+        # def func_int(*args):
+        #     called.append(args)
+        #     return len(args) * 100 + 1000
+        # cpu = self.cpu
+        # S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
+        # sizedescr = cpu.sizeof(S)
+        # r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
+        # xdescr = cpu.fielddescrof(S, 'x')
+        # ydescr = cpu.fielddescrof(S, 'y')
+        # print(sizedescr.get_type_id())
+        # print(cpu.sizeof(S.x).get_all_fielddescrs())
 
         #u1_box, U_box, _ = self.alloc_instance(self.U)
         #u2_box, U_box, _ = self.alloc_instance(self.U)
@@ -180,9 +178,9 @@ class BaseBackendTest(Runner):
         #func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
         #calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
                                          #EffectInfo.MOST_GENERAL)
-        s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        looptoken = JitCellToken()
-        #loop = parse("""
+        # s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
+        # looptoken = JitCellToken()
+        # #loop = parse("""
         #[r0, i0]
         #setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
         #finish(i0, descr=finaldescr)
@@ -1349,6 +1347,7 @@ class BaseBackendTest(Runner):
         r = random.Random()
         r.seed(seed)
         for nb_args in range(50):
+            print(nb_args)
             print 'Passing %d arguments around...' % nb_args
             #
             inputargs = []
@@ -1466,6 +1465,7 @@ class BaseBackendTest(Runner):
         assert fail.identifier == 2
         res = self.cpu.get_float_value(deadframe, 0)
         assert longlong.getrealfloat(res) == 8.5
+        #print(rffi.cast(jitframe.JITFRAMEPTR, deadframe).jf_frame._get_obj().getitem(1))
         for i in range(1, len(loop.inputargs)):
             got = longlong.getrealfloat(self.cpu.get_float_value(
                 deadframe, i))
@@ -2085,23 +2085,22 @@ class LLtypeBackendTest(BaseBackendTest):
         assert r1 != r2
         xdescr = cpu.fielddescrof(S, 'x')
         ydescr = cpu.fielddescrof(S, 'y')
-        r0 = InputArgRef(r1)
-        print(r0.getref_base())
-        i0 = InputArgInt(150)
-        print(i0.getint())
-        s = lltype.malloc(S)
-        self.execute_operation(rop.SETFIELD_GC, [r0,
-                                                 i0],
+        s, S_box, descr = self.alloc_instance(S)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), s.getref_base())
+        self.execute_operation(rop.SETFIELD_GC,
+                               [InputArgRef(r1),
+                                InputArgInt(150)],
                                'void', descr=ydescr)
-        self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
-                                                 InputArgInt(190)],
+        self.execute_operation(rop.SETFIELD_GC,
+                               [InputArgRef(s),
+                                InputArgInt(190)],
                                'void', descr=xdescr)
-        x = self.execute_operation(rop.GETFIELD_GC_I, [InputArgRef(r1)],
-                                   'int', descr=xdescr)
-        print(x)
-        s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        #assert s.x == chr(190)
-        assert s.y == chr(150)
+        # x = self.execute_operation(rop.GETFIELD_GC_I, [InputArgRef(r1)],
+        #                            'int', descr=xdescr)
+        # print(x)
+        #s = lltype.cast_opaque_ptr(lltype.Ptr(S), s)
+        assert s.x == chr(190)
+        #assert s.y == chr(150)
 
     def test_new_with_vtable(self):
         cpu = self.cpu
@@ -2649,25 +2648,25 @@ class LLtypeBackendTest(BaseBackendTest):
         [i0, i1]
         p3 = force_token()
         i2 = call_may_force_i(ConstClass(func_ptr), p3, i1, descr=calldescr)
-            guard_not_forced(descr=faildescr) [i1, i2, i0]
-            finish(i2, descr=finaldescr)
-            """, namespace=locals())
-            looptoken = JitCellToken()
-            self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-            deadframe = self.cpu.execute_token(looptoken, 20, 0)
-            fail = self.cpu.get_latest_descr(deadframe)
-            assert fail.identifier == 0
-            assert self.cpu.get_int_value(deadframe, 0) == 42
-            assert values == []
+        guard_not_forced(descr=faildescr) [i1, i2, i0]
+        finish(i2, descr=finaldescr)
+        """, namespace=locals())
+        looptoken = JitCellToken()
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        deadframe = self.cpu.execute_token(looptoken, 20, 0)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 0
+        assert self.cpu.get_int_value(deadframe, 0) == 42
+        assert values == []
 
-            deadframe = self.cpu.execute_token(looptoken, 10, 1)
-            fail = self.cpu.get_latest_descr(deadframe)
-            assert fail.identifier == 1
-            assert self.cpu.get_int_value(deadframe, 0) == 1
-            assert self.cpu.get_int_value(deadframe, 1) == 42
-            assert self.cpu.get_int_value(deadframe, 2) == 10
-            assert values == [1, 10]
-            assert self.cpu.get_savedata_ref(deadframe) == random_gcref
+        deadframe = self.cpu.execute_token(looptoken, 10, 1)
+        fail = self.cpu.get_latest_descr(deadframe)
+        assert fail.identifier == 1
+        assert self.cpu.get_int_value(deadframe, 0) == 1
+        assert self.cpu.get_int_value(deadframe, 1) == 42
+        assert self.cpu.get_int_value(deadframe, 2) == 10
+        assert values == [1, 10]
+        assert self.cpu.get_savedata_ref(deadframe) == random_gcref
 
         def test_force_operations_returning_float(self):
             if not self.cpu.supports_floats:
