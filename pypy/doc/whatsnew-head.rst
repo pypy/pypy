@@ -43,3 +43,9 @@ record support).
 .. branch: specialize-sum
 
 Add specialization for sum(list) and sum(tuple)
+
+.. branch: win64-xmm-registers
+
+Set non-volatile xmm registers in the JIT for windows 64-bit calling
+conventions. Fixes a bug where the JIT was not restoring registers when
+returning from a call
