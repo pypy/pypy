@@ -170,9 +170,6 @@ def find_can_enter_jit(graphs):
 def find_loop_headers(graphs):
     return _find_jit_marker(graphs, 'loop_header')
 
-def find_threaded_code_header(graphs):
-    return _find_jit_marker(graphs, 'threaded_code_header')
-
 def find_jit_merge_points(graphs):
     results = _find_jit_marker(graphs, 'jit_merge_point')
     if not results:
@@ -770,8 +767,7 @@ class WarmRunnerDesc(object):
             sublists[jd.jitdriver] = jd, []
             jd.no_loop_header = True
         #
-        loop_headers = find_loop_headers(self.translator.graphs) + \
-            find_threaded_code_header(self.translator.graphs)
+        loop_headers = find_loop_headers(self.translator.graphs)
         for graph, block, index in loop_headers:
             op = block.operations[index]
             jitdriver = op.args[1].value
