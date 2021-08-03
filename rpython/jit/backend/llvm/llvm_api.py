@@ -2,6 +2,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
 from rpython.rtyper.lltypesystem.rffi import str2constcharp, constcharp2str
 from pypy import pypydir
+import os
 
 class LLVMAPI:
     def __init__(self, debug=False):
@@ -63,17 +64,21 @@ class LLVMAPI:
                         "Initialization","Orc","TargetMachine","Types",
                         "LLJIT","OrcEE"]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
-        cflags = ["""-I/usr/lib/llvm/12/include -D_GNU_SOURCE
-                    -D__STDC_CONSTANT_MACROS -D__STDC_FORMAT_MACROS
-                    -D__STDC_LIMIT_MACROS"""] #know this should be in the includes arg, but llvm is weird and only works this way
-        path2 = pypydir+"/../rpython/jit/backend/llvm/llvm_wrapper/"
-        path = pypydir+"/../rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
+        cflags = [os.popen("llvm-config --cflags").read().strip()]
+        ldflags = os.popen("llvm-config --ldflags").read().strip()[2:]
+        libs = [lib[2:] for lib in os.popen("llvm-config --libs all")
+                .read().strip().split()]
+        libs.append("wrapper")
+        include_dir = cflags[0].split()[0][2:]
+        path = pypydir+"/../rpython/jit/backend/llvm/llvm_wrapper/"
+        path2 = pypydir+"/../rpython/jit/backend/llvm/" #wrapper libs need to be in the same directory as the python file, don't ask why
+
         info = ExternalCompilationInfo(includes=llvm_c+[path2+"wrapper.h"],
-                                       libraries=["LLVM-12","wrapper"],
-                                       include_dirs=["/usr/lib/llvm/12/lib64",
-                                                     "/usr/lib/llvm/12/include",path, path2],
-                                       library_dirs=["/usr/lib/llvm/12/lib64",path, path2],
-                                       compile_extra=cflags, link_extra=cflags) #TODO: make this platform independant (rather than hardcoding the output of llvm-config for my system)
+                                       libraries=libs,
+                                       include_dirs=[ldflags, include_dir,
+                                                     path, path2],
+                                       library_dirs=[ldflags, path, path2],
+                                       compile_extra=cflags, link_extra=cflags)
 
         self.CreateModule = rffi.llexternal("LLVMModuleCreateWithNameInContext",
                                             [self.Str, self.ContextRef], self.ModuleRef,
