@@ -3,7 +3,7 @@ from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.history import (
     ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp)
-from rpython.jit.metainterp import compile, jitprof
+from rpython.jit.metainterp import compile, jitprof, history
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimizer, Optimization, BasicLoopInfo)
 from rpython.jit.metainterp.optimizeopt.intutils import (
@@ -17,6 +17,10 @@ from rpython.jit.metainterp.resoperation import (
     InputArgFloat, InputArgVector, GuardResOp)
 
 from pprint import pprint
+
+class mark(object):
+    JUMP = "emit_jump"
+    RET = "emit_ret"
 
 class TraceSplitInfo(BasicLoopInfo):
     """ A state after splitting the trace, containing the following:
@@ -97,6 +101,46 @@ class TraceSplitOpt(object):
 
         return (TraceSplitInfo(body_token, body_label, inputs, None, descr_to_attach), ops_body), \
             (TraceSplitInfo(bridge_token, bridge_label, inputs_bridge, None, None), ops_bridge)
+
+    def find_cut_points_with_ops(self, trace, oplist, inputargs, body_token):
+        dic = {}
+        for i in range(len(oplist)):
+            op = oplist[i]
+            if op.getopnum() in (rop.CALL_I, rop.CALL_N, rop.CALL_F, rop.CALL_N):
+                arg = op.getarg(0)
+                name = self._get_name_from_arg(arg)
+                assert name is not None
+
+                if name.find(mark.JUMP) != -1:
+                    jump_op = ResOperation(rop.JUMP, inputargs, body_token)
+                    dic[i] = (mark.JUMP, jump_op)
+                elif name.find(mark.RET) != -1:
+                    jd_no = self.jitdriver_sd.index
+                    result_type = self.jitdriver_sd.result_type
+                    sd = self.metainterp_sd
+                    if result_type == history.VOID:
+                        exits = []
+                        token = sd.done_with_this_frame_descr_void
+                    elif result_type == history.INT:
+                        exits = [op.getarg(2)]
+                        token = sd.done_with_this_frame_descr_int
+                    elif result_type == history.REF:
+                        exits = [op.getarg(2)]
+                        token = sd.done_with_this_frame_descr_ref
+                    elif result_type == history.FLOAT:
+                        exits = [op.getarg(2)]
+                        token = sd.done_with_this_frame_descr_float
+                    else:
+                        assert False
+
+                    # host-stack style
+                    ret_ops = [
+                        ResOperation(rop.LEAVE_PORTAL_FRAME, [ConstInt(jd_no)], None),
+                        ResOperation(rop.FINISH, exits, token)
+                    ]
+
+                    dic[i] = (mark.RET, ret_ops)
+        return dic
 
     def invent_failargs(self, inputs, ops_body, ops_bridge, bridge_token):
         newops_body, newops_bridge, inputs_bridge = [], [], []

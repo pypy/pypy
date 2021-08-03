@@ -13,11 +13,12 @@ from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import (
     JitCellToken, BasicFinalDescr, BasicFailDescr, ConstInt, INT, Stats, get_const_ptr_for_string)
-from rpython.jit.metainterp import compile, executor, pyjitpl
+from rpython.jit.metainterp import compile, executor, pyjitpl, history
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
 from rpython.jit.metainterp.support import ptr2int
 from rpython.jit.metainterp.optimizeopt.intdiv import magic_numbers
+from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
 from rpython.jit.metainterp.test.test_resume import (
     ResumeDataFakeReader, MyMetaInterp)
 from rpython.jit.metainterp.optimizeopt.test import test_util, test_dependency
@@ -67,6 +68,7 @@ def merge_dicts(*dict_args):
 
 class FakeMetaInterpStaticData(object):
     all_descrs = []
+    done_with_this_frame_descr_ref = compile.DoneWithThisFrameDescrRef()
 
     def __init__(self, cpu):
         self.cpu = cpu
@@ -100,6 +102,10 @@ class FakeMetaInterp(object):
     cpu = FakeCPU()
     staticdata = FakeMetaInterpStaticData(cpu)
 
+class FakeJitDriverSD(object):
+    result_type = history.REF
+    index = 0
+
 class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
     enable_opts = "intbounds:rewrite:string:earlyforce:pure:heap"
@@ -123,12 +129,13 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
     emit_jump_if_descr = cpu.calldescrof(FPTR2.TO, (lltype.Signed, lltype.Signed), lltype.Signed,
                                          EffectInfo.MOST_GENERAL)
 
-    def emit_jump_if(x, y, z):
+    def emit_ret(x, y):
         return x
-    FPTR3 = Ptr(FuncType([lltype.Signed, lltype.Signed, lltype.Signed], lltype.Signed))
-    emit_jump_ptr = llhelper(FPTR3, emit_jump_if)
-    emit_jump_descr = cpu.calldescrof(FPTR2.TO, (lltype.Signed, lltype.Signed), lltype.Signed,
+    FPTR3 = Ptr(FuncType([lltype.Signed, lltype.Char], lltype.Signed))
+    emit_ret_ptr = llhelper(FPTR3, emit_ret)
+    emit_ret_descr = cpu.calldescrof(FPTR2.TO, (lltype.Signed, lltype.Char), lltype.Signed,
                                       EffectInfo.MOST_GENERAL)
+
 
     def func(x):
         return x
@@ -152,6 +159,7 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
     metainterp = FakeMetaInterp()
     metainterp_sd = FakeMetaInterpStaticData(cpu)
     metainterp.staticdata = metainterp_sd
+    jitdriver_sd = FakeJitDriverSD()
 
     def optimize(self, ops, call_pure_results=None):
         loop = self.parse(ops)
@@ -163,8 +171,12 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
         compile_data = compile.SimpleCompileData(
             trace, call_pure_results=call_pure_results,
             enable_opts=self.enable_opts)
-        info, ops = compile_data.optimize_trace(self.metainterp_sd, None, {})
+        info, ops = compile_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         return trace, info, ops, token
+
+    def optimize_and_make_data(self, ops, call_pure_results=None):
+        trace, info, ops, token = self.optimize(ops, call_pure_results)
+        return TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd)
 
     def optimize_and_split(self, ops, split_at, guard_at, call_pure_results=None, split_func=None):
         trace, info, ops, token = self.optimize(ops, call_pure_results)
@@ -254,6 +266,29 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
 class TestOptTraceSplit(BaseTestTraceSplit):
 
+    def test_find_cut_points_with_ops(self):
+        ops = """
+        [p0]
+        debug_merge_point(0, 0, '24: RET 1')
+        p33 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
+        i36 = call_i(ConstClass(emit_ret_ptr), 10, p33, descr=emit_ret_descr)
+        debug_merge_point(0, 0, '10: CONST_INT 1')
+        call_n(ConstClass(func_ptr), p0, 11, descr=calldescr)
+        debug_merge_point(0, 0, '12: RET 1')
+        p42 = call_r(ConstClass(func_ptr), p0, 13, descr=calldescr)
+        leave_portal_frame(0)
+        finish(p42, descr=<DoneWithThisFrameDescrRef object at 0x55cf88b4f8c0>)
+        """
+
+        setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
+        setattr(self.jitdriver_sd, "index", 0)
+        trace, info, ops, token = self.optimize(ops, call_pure_results=None)
+        opt = TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd)
+        dic = opt.find_cut_points_with_ops(trace, ops, info.inputargs, token)
+        assert len(dic.keys()) == 1
+        assert dic.keys()[0] == 2
+
+
     def test_trace_split_real_trace_1(self):
         ops = """
         [p0]
@@ -312,3 +347,52 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         """
 
         self.assert_equal_split(ops, body, bridge, split_at="emit_jump", guard_at="is_true")
+
+    def test_trace_split_real_trace_2(self ):
+        ops ="""
+        [p0]
+        debug_merge_point(0, 0, '3: DUP1 1')
+        call_n(ConstClass(func_ptr), p0, 4, descr=calldescr)
+        debug_merge_point(0, 0, '5: CONST_INT 2')
+        call_n(ConstClass(func_ptr), p0, 6, descr=calldescr)
+        debug_merge_point(0, 0, '7: LT ')
+        call_n(ConstClass(func_ptr), p0, 8, descr=calldescr)
+        debug_merge_point(0, 0, '8: JUMP_IF 14')
+        p13 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
+        i15 = call_i(ConstClass(is_true_ptr), p0, p13, descr=istruedescr)
+        guard_true(i15, descr=<Guard0x7f6886462068>) [i15, p0]
+        guard_value(i19, 14, descr=<Guard0x7f6886460260>) [i19, p0]
+        debug_merge_point(0, 0, '14: DUP1 1')
+        call_n(ConstClass(Frame.tla_DUP1), p0, 15, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f68864602c0>) [p0]
+        debug_merge_point(0, 0, '16: DUP1 2')
+        call_n(ConstClass(Frame.tla_DUP1), p0, 17, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f6886460320>) [p0]
+        debug_merge_point(0, 0, '18: CONST_INT 1')
+        call_n(ConstClass(Frame.tla_CONST_INT), p0, 19, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f6886460380>) [p0]
+        debug_merge_point(0, 0, '20: SUB ')
+        call_n(ConstClass(Frame.tla_SUB), p0, 21, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f68864603e0>) [p0]
+        debug_merge_point(0, 0, '21: CALL 3')
+        call_may_force_n(ConstClass(Frame.tla_CALL), p0, 22, ConstPtr(ptr31), descr=<Callv 0 rir EF=7>)
+        guard_not_forced(descr=<Guard0x7f6886460440>) [p0]
+        guard_no_exception(descr=<Guard0x7f68864620b0>) [p0]
+        p32 = getfield_gc_r(p0, descr=<FieldP interp_tc.Frame.inst_bytecode 8>)
+        guard_value(p32, ConstPtr(ptr33), descr=<Guard0x7f68864620f8>) [p0]
+        debug_merge_point(0, 0, '23: ADD ')
+        call_n(ConstClass(Frame.tla_ADD), p0, 24, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f68864604a0>) [p0]
+        debug_merge_point(0, 0, '24: RET 1')
+        i38 = call_i(ConstClass(emit_ret), 10, p0, descr=<Calli 8 ir EF=2>)
+        guard_value(i38, 10, descr=<Guard0x7f6886460500>) [i38, p0]
+        debug_merge_point(0, 0, '10: CONST_INT 1')
+        call_n(ConstClass(Frame.tla_CONST_INT), p0, 11, descr=<Callv 0 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f6886460560>) [p0]
+        debug_merge_point(0, 0, '12: JUMP 24')
+        debug_merge_point(0, 0, '24: RET 1')
+        p44 = call_r(ConstClass(Frame.tla_RET), p0, 25, descr=<Callr 8 ri EF=5>)
+        guard_no_exception(descr=<Guard0x7f68864605c0>) [p44]
+        leave_portal_frame(0)
+        finish(p44, descr=<DoneWithThisFrameDescrRef object at 0x55c0fa2d98e0>)
+        """
