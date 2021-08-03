@@ -96,8 +96,29 @@ def HPyErr_NewException(space, handles, ctx, c_name, h_base, h_dict):
     else:
         w_base = space.w_Exception
     if h_dict:
-        w_dict = handles.deref(h_base)
+        w_dict = handles.deref(h_dict)
     else:
         w_dict = None
+
+    return handles.new(new_exception_class(space, name, w_base, w_dict))
+
+@API.func("HPy HPyErr_NewExceptionWithDoc("
+    "HPyContext *ctx, const char *name, const char* doc, HPy base, HPy dict)")
+def HPyErr_NewExceptionWithDoc(space, handles, ctx, c_name, c_doc, h_base, h_dict):
+    name = rffi.constcharp2str(c_name)
+    if '.' not in name:
+        raise oefmt(space.w_SystemError,
+            "PyErr_NewException: name must be module.class")
+    if h_base:
+        w_base = handles.deref(h_base)
+    else:
+        w_base = space.w_Exception
+    if h_dict:
+        w_dict = handles.deref(h_dict)
+    else:
+        w_dict = space.newdict()
+    if c_doc:
+        doc = rffi.constcharp2str(c_doc)
+        space.setitem_str(w_dict, "__doc__", space.newtext(doc))
 
     return handles.new(new_exception_class(space, name, w_base, w_dict))
