@@ -64,9 +64,9 @@ class LLVMAPI:
                         "Initialization","Orc","TargetMachine","Types",
                         "LLJIT","OrcEE"]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
-        cflags = [os.popen("llvm-config --cflags").read().strip()]
-        ldflags = os.popen("llvm-config --ldflags").read().strip()[2:]
-        libs = [lib[2:] for lib in os.popen("llvm-config --libs all")
+        cflags = [os.popen("llvm13-config --cflags").read().strip()]
+        ldflags = os.popen("llvm13-config --ldflags").read().strip()[2:]
+        libs = [lib[2:] for lib in os.popen("llvm13-config --libs all")
                 .read().strip().split()]
         libs.append("wrapper")
         include_dir = cflags[0].split()[0][2:]
