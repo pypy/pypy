@@ -47,6 +47,9 @@ def HPyBytes_FromStringAndSize(space, handles, ctx, char_p, length):
             space.w_ValueError,
             "NULL char * passed to HPyBytes_FromStringAndSize"
         )
+    if length < 0:
+        raise oefmt(space.w_SystemError,
+                    "Negative size passed to PyBytes_FromStringAndSize")
     s = rffi.constcharpsize2str(char_p, length)
     w_bytes = space.newbytes(s)
     return handles.new(w_bytes)
