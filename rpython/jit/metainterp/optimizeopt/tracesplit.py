@@ -102,6 +102,25 @@ class TraceSplitOpt(object):
         return (TraceSplitInfo(body_token, body_label, inputs, None, descr_to_attach), ops_body), \
             (TraceSplitInfo(bridge_token, bridge_label, inputs_bridge, None, None), ops_bridge)
 
+    def split_ops(self, trace, oplist, inputs, body_token):
+        data = self.find_cut_points_with_ops(trace, oplist, inputs, body_token)
+        splitted = []
+        oplist_to_split = oplist
+
+        split_range = []
+        keys = data.keys()
+        for i in range(len(keys)):
+            if i == 0:
+                split_range.append((-1, keys[i]))
+            else:
+                split_range.append((keys[i-1], keys[i]))
+        split_range.append((keys[-1], len(oplist)))
+
+        for (m, n) in split_range:
+            splitted.append(oplist[m+1:n+1])
+
+        return splitted
+
     def find_cut_points_with_ops(self, trace, oplist, inputargs, body_token):
         dic = {}
         for i in range(len(oplist)):
