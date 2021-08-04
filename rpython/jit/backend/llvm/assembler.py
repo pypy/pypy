@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem.rffi import constcharp2str
 
 class LLVMAssembler(BaseAssembler):
-    def __init__(self, cpu, optimise=True):
+    def __init__(self, cpu, optimise=False):
         self.cpu = cpu
         self.llvm = cpu.llvm
         self.debug = cpu.debug
@@ -82,6 +82,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString("trace")
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
+        # import pdb
+        # pdb.set_trace()
+        # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr

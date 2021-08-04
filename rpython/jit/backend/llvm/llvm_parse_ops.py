@@ -8,7 +8,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.rtyper.annlowlevel import llhelper, cast_instance_to_gcref
 from rpython.jit.backend.llsupport import gc
 from rpython.jit.backend.llvm.llvm_api import CString
-from rpython.jit.backend.llvm.guards import PhiNodeImpl, BlockPerGuardImpl
+from rpython.jit.backend.llvm.guards import *
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type,
@@ -541,8 +541,8 @@ class LLVMOpDispatcher:
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
         self.guard_handler.finalise_bailout()
-        if self.cpu.debug:
-            self.llvm.DumpModule(self.module)
+        #if self.cpu.debug:
+        #    self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)

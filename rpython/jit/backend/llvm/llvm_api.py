@@ -730,6 +730,19 @@ class LLVMAPI:
             "LLVMOrcLLJITBuilderSetObjectLinkingLayerCreator",
             [self.LLJITBuilderRef, self.ObjectLinkingLayerCreatorFunction,
              self.VoidPtr], self.Void, compilation_info=info)
+        self.AppendInlineAsm = rffi.llexternal("LLVMAppendModuleInlineAsm",
+                                               [self.ModuleRef, self.Str,
+                                                lltype.Unsigned],
+                                               self.Void,
+                                               compilation_info=info)
+        self.ConstString = rffi.llexternal("LLVMConstStringInContext",
+                                           [self.ContextRef, self.Str,
+                                            lltype.Unsigned, self.Bool],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.create_breakpoint = rffi.llexternal("create_breakpoint", [],
+                                                 self.Void,
+                                                 compilation_info=info)
 
 class CString:
     """

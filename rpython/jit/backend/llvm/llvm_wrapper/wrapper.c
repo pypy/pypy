@@ -126,6 +126,12 @@ LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block)
 	return getIncomingValueForBlock_wrapper(phi, block);
 }
 
+void create_breakpoint(){
+	asm volatile (
+		"int $3\n"
+	);
+}
+
 //below code uses LLVM 13
 /* uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){ */
 /* 	return 0; */
