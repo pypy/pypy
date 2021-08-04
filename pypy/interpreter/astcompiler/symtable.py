@@ -624,8 +624,7 @@ class SymtableBuilder(ast.GenericASTVisitor):
         for item in list(consider):
             item.walkabout(self)
         self.pop_scope()
-        # http://bugs.python.org/issue10544: a DeprecationWarning from 3.7 on,
-        # 3.8 will forbid it
+        # http://bugs.python.org/issue10544: this became an error in 3.8
         if new_scope.is_generator:
             msg = "'yield' inside %s" % kind
             space = self.space

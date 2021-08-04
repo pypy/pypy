@@ -1080,7 +1080,7 @@ class __extend__(pyframe.PyFrame):
             else:
                 msg = "cannot import name '%s' from '%s' (%s)" % args
 
-            raise raise_import_error(
+            raise_import_error(
                 space,
                 space.newtext(msg),
                 w_pkgname,
