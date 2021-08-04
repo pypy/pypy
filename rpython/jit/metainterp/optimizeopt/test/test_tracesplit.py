@@ -268,32 +268,6 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
 class TestOptTraceSplit(BaseTestTraceSplit):
 
-    def test_find_cut_points_with_ops(self):
-        setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
-        setattr(self.jitdriver_sd, "index", 0)
-
-        ops = """
-        [p0]
-        debug_merge_point(0, 0, '11: JUMP 0')
-        i23 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, descr=emit_jump_descr)
-        debug_merge_point(0, 0, '24: RET 1')
-        p33 = call_r(ConstClass(func_ptr), p0, 25, descr=calldescr)
-        i36 = call_i(ConstClass(emit_ret_ptr), 10, p33, descr=emit_ret_descr)
-        debug_merge_point(0, 0, '10: CONST_INT 1')
-        call_n(ConstClass(func_ptr), p0, 11, descr=calldescr)
-        debug_merge_point(0, 0, '12: RET 1')
-        p42 = call_r(ConstClass(func_ptr), p0, 13, descr=calldescr)
-        leave_portal_frame(0)
-        finish(p42, descr=<DoneWithThisFrameDescrRef object at 0x55cf88b4f8c0>)
-        """
-
-        trace, info, ops, token = self.optimize(ops, call_pure_results=None)
-        opt = TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd)
-        dic = opt.find_cut_points_with_ops(trace, ops, info.inputargs, token)
-        assert len(dic.keys()) == 2
-        assert dic.keys()[0] == 1
-        assert dic.keys()[1] == 4
-
     def test_split_ops(self):
         setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
         setattr(self.jitdriver_sd, "index", 0)
@@ -315,14 +289,20 @@ class TestOptTraceSplit(BaseTestTraceSplit):
 
         trace, info, ops, token = self.optimize(ops, call_pure_results=None)
         opt = TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd)
+
+        dic = opt.find_cut_points_with_ops(trace, ops, info.inputargs, token)
+        assert len(dic.keys()) == 2
+        assert dic.keys()[0] == 1
+        assert dic.keys()[1] == 4
+
         splitted = opt.split_ops(trace, ops, info.inputargs, token)
         assert len(splitted) == 3
 
         for i in range(len(splitted)):
             ops = splitted[i]
             assert ops[0].opnum == rop.DEBUG_MERGE_POINT
-            if i != len(splitted) - 1:
-                assert ops[-1].opnum == rop.CALL_I
+            if i == 0:
+                assert ops[-1].opnum == rop.JUMP
             else:
                 assert ops[-1].opnum == rop.FINISH
 

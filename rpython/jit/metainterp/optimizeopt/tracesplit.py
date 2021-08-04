@@ -97,7 +97,7 @@ class TraceSplitOpt(object):
         # ops_bridge = self.copy_from_body_to_bridge(ops_body, ops_bridge)
 
         body_label = ResOperation(rop.LABEL, inputs, descr=body_token)
-        bridge_label = ResOperation(rop.LABEL, inputs_bridge, descr=bridge_token)
+        bridge_label = ResOperation(rop.LABE4L, inputs_bridge, descr=bridge_token)
 
         return (TraceSplitInfo(body_token, body_label, inputs, None, descr_to_attach), ops_body), \
             (TraceSplitInfo(bridge_token, bridge_label, inputs_bridge, None, None), ops_bridge)
@@ -105,7 +105,6 @@ class TraceSplitOpt(object):
     def split_ops(self, trace, oplist, inputs, body_token):
         data = self.find_cut_points_with_ops(trace, oplist, inputs, body_token)
         splitted = []
-        oplist_to_split = oplist
 
         split_range = []
         keys = data.keys()
@@ -116,8 +115,15 @@ class TraceSplitOpt(object):
                 split_range.append((keys[i-1], keys[i]))
         split_range.append((keys[-1], len(oplist)))
 
-        for (m, n) in split_range:
-            splitted.append(oplist[m+1:n+1])
+        for (key_p, key_c) in split_range:
+            if split_range.index((key_p, key_c)) == len(split_range) - 1:
+                res = oplist[key_p+1:key_c+1]
+            else:
+                ops = oplist[key_p+1:key_c+1]
+                del ops[-1]
+                mark, invented_ops = data.get(key_c)
+                res = ops + invented_ops
+            splitted.append(res)
 
         return splitted
 
@@ -132,7 +138,7 @@ class TraceSplitOpt(object):
 
                 if name.find(mark.JUMP) != -1:
                     jump_op = ResOperation(rop.JUMP, inputargs, body_token)
-                    dic[i] = (mark.JUMP, jump_op)
+                    dic[i] = (mark.JUMP, [jump_op])
                 elif name.find(mark.RET) != -1:
                     jd_no = self.jitdriver_sd.index
                     result_type = self.jitdriver_sd.result_type
