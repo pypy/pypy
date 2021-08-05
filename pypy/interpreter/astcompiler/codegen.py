@@ -228,7 +228,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             self.qualname = qualname + '.<locals>'
         else:
             self.qualname = qualname
-        self.allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
+        self._allow_top_level_await = compile_info.flags & consts.PyCF_ALLOW_TOP_LEVEL_AWAIT
         self._compile(tree)
 
     def _compile(self, tree):
@@ -1681,7 +1681,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         is_async_comprehension = self.symbols.find_scope(node).is_coroutine
         if is_async_comprehension and not is_async_function:
             if not isinstance(node, ast.GeneratorExp):
-                if self.allow_top_level_await:
+                if self.allows_top_level_await():
                     self.is_async_seen = True
                 else:
                     self.error("asynchronous comprehension outside of "
@@ -1890,6 +1890,12 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.error("Unknown character ('$NUM' is only valid in the "
                    "reverse-debugger)", node)
 
+    def allows_top_level_await(self):
+        return (
+            self._allow_top_level_await
+            and isinstance(self.scope, symtable.ModuleScope)
+        )
+
 
 class TopLevelCodeGenerator(PythonCodeGenerator):
 
@@ -1919,9 +1925,10 @@ class TopLevelCodeGenerator(PythonCodeGenerator):
         return flags
 
     def _check_async_function(self):
-        if self.allow_top_level_await:
+        top_level = self.allows_top_level_await()
+        if top_level:
             self.is_async_seen = True
-        return self.allow_top_level_await
+        return top_level
 
 
 class AbstractFunctionCodeGenerator(PythonCodeGenerator):

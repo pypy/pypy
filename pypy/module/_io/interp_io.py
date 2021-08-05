@@ -86,6 +86,13 @@ def _open(space, w_file, mode, buffering, encoding, errors, newline, closefd,
     if binary and newline is not None:
         raise oefmt(space.w_ValueError,
                     "binary mode doesn't take a newline argument")
+    if binary and buffering == 1:
+        space.warn(
+            space.newtext(
+                "line buffering (buffering=1) isn't supported in "
+                "binary mode, the default buffer size will be used"
+            ), space.w_DeprecationWarning
+        )
 
     rawmode = ""
     if reading:

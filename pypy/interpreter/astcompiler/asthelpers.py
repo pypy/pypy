@@ -63,9 +63,9 @@ class __extend__(ast.expr):
         if d is None:
             d = "%r" % (self,)
         if ctx == ast.Del:
-            msg = "can't delete %s" % (d,)
+            msg = "cannot delete %s" % (d,)
         else:
-            msg = "can't assign to %s" % (d,)
+            msg = "cannot assign to %s" % (d,)
         raise UnacceptableExpressionContext(self, msg)
 
 
@@ -162,26 +162,20 @@ class __extend__(ast.DictComp):
     _type_name = "dict"
 
 
-class __extend__(ast.Dict, ast.Set):
-
-    _description = "literal"
-
-
 class __extend__(ast.List):
     _type_name = "list"
 
-
 class __extend__(ast.Dict):
+    _description = "dict display"
     _type_name = "dict"
 
-
 class __extend__(ast.Set):
+    _description = "set display"
     _type_name = "set"
 
-
 class __extend__(ast.JoinedStr, ast.FormattedValue):
+    _description = "f-string expression"
     _type_name = "str"
-
 
 class __extend__(ast.Compare):
 

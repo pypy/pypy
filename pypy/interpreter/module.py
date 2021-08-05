@@ -129,6 +129,7 @@ class Module(W_Root):
 
     def descr_getattribute(self, space, w_attr):
         from pypy.objspace.descroperation import object_getattribute
+        from pypy.module.imp.importing import is_spec_initializing
         try:
             return space.call_function(object_getattribute(space), self, w_attr)
         except OperationError as e:
@@ -139,9 +140,17 @@ class Module(W_Root):
             if w_getattr is not None:
                 return space.call_function(w_getattr, w_attr)
             w_name = space.finditem(self.w_dict, space.newtext('__name__'))
+            w_spec = space.finditem(self.w_dict, space.newtext('__spec__'))
             if w_name is None:
                 raise oefmt(space.w_AttributeError,
                     "module has no attribute %R", w_attr)
+            elif w_spec is not None and is_spec_initializing(space, w_spec):
+                raise oefmt(space.w_AttributeError,
+                    "partially initialized "
+                    "module %R has no attribute %R "
+                    "(most likely due to a circular import)",
+                    w_name, w_attr
+                )
             else:
                 raise oefmt(space.w_AttributeError,
                     "module %R has no attribute %R", w_name, w_attr)

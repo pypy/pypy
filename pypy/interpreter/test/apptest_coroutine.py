@@ -382,16 +382,13 @@ def test_async_yield_explicit_asend_used_several_times():
     assert r == -3
     e = raises(StopIteration, gs.send, "cont2")
     assert e.value.args == (-5,)
-    e = raises(StopIteration, gs.send, None)
-    assert e.value.args == ()
-    e = raises(StopIteration, gs.send, None)
-    assert e.value.args == ()
+    e = raises(RuntimeError, gs.send, None)
+    e = raises(RuntimeError, gs.send, None)
     #
     gs = g.asend("foo")
     e = raises(StopIteration, gs.send, None)
     assert e.value.args == (-6,)
-    e = raises(StopIteration, gs.send, "bar")
-    assert e.value.args == ()
+    e = raises(RuntimeError, gs.send, "bar")
 
 def test_async_yield_asend_notnone_throw():
     async def f():
@@ -425,7 +422,7 @@ def test_async_yield_athrow_send_after_exception():
 
     athrow_coro = ag().athrow(ValueError)
     raises(ValueError, athrow_coro.send, None)
-    raises(StopIteration, athrow_coro.send, None)
+    raises(RuntimeError, athrow_coro.send, None)
 
 def test_async_yield_athrow_throw():
     async def ag():
@@ -616,8 +613,8 @@ def test_async_anext_close():
     an.close()
     try:
         next(an)
-    except StopIteration as e:
-        assert e.value is None
+    except RuntimeError:
+        pass
     else:
         assert False, "didn't raise"
 
@@ -856,3 +853,21 @@ def test_runtime_warning_origin_tracking():
     assert str(w).endswith("foobaz' was never awaited")
     assert "test_runtime_warning_origin_tracking" in str(w)
 
+def test_await_multiple_times_same_gen():
+    async def async_iterate():
+        yield 1
+        yield 2
+
+    async def run():
+        it = async_iterate()
+        nxt = it.__anext__()
+        await nxt
+        with pytest.raises(RuntimeError):
+            await nxt
+
+        coro = it.aclose()
+        await coro
+        with pytest.raises(RuntimeError):
+            await coro
+
+    run_async(run())

@@ -624,7 +624,10 @@ class AsyncGenASend(AsyncGenABase):
     def do_send(self, w_arg_or_err):
         space = self.space
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited __anext__()/asend()")
+            )
 
         # We think that the code should look like this:
         #if self.w_value_to_send is not None:
@@ -650,7 +653,10 @@ class AsyncGenASend(AsyncGenABase):
     def do_throw(self, w_type, w_val, w_tb):
         space = self.space
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited __anext__()/asend()")
+            )
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)
@@ -671,7 +677,10 @@ class AsyncGenAThrow(AsyncGenABase):
         # XXX FAR MORE COMPLICATED IN CPYTHON
         space = self.space
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited aclose()/athrow()")
+            )
 
         if self.state == self.ST_INIT:
             if not space.is_w(w_arg_or_err, space.w_None):
@@ -709,7 +718,10 @@ class AsyncGenAThrow(AsyncGenABase):
             raise OperationError(self.space.w_RuntimeError,
                 space.newtext("can't do async_generator.athrow().throw()"))
         if self.state == self.ST_CLOSED:
-            raise OperationError(space.w_StopIteration, space.w_None)
+            raise OperationError(
+                self.space.w_RuntimeError,
+                self.space.newtext("cannot reuse already awaited aclose()/athrow()")
+            )
         try:
             w_value = self.async_gen.throw(w_type, w_val, w_tb)
             return self.unwrap_value(w_value)

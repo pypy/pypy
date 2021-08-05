@@ -162,6 +162,10 @@ class AstValidator(ast.ASTVisitor):
         if not seq:
             raise ValidationError("empty %s on %s" % (what, owner))
 
+    def _validate_name(self, name):
+        if name in ("None", "True", "False"):
+            raise ValidationError("Name node can't be used with '%s' constant" % name)
+
     def visit_Interactive(self, node):
         self._validate_stmts(node.body)
 
@@ -347,7 +351,7 @@ class AstValidator(ast.ASTVisitor):
     # Expressions
 
     def visit_Name(self, node):
-        pass
+        self._validate_name(node.id)
 
     def visit_Constant(self, node):
         validate_constant(self.space, node.value)

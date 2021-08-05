@@ -15,7 +15,7 @@ from pypy.interpreter import (
     gateway, function, eval, pyframe, pytraceback, pycode
 )
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error
+from pypy.interpreter.error import OperationError, oefmt, oefmt_name_error, raise_import_error
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.pycode import PyCode, BytecodeCorruption
 from pypy.tool.stdlib_opcode import bytecode_spec
@@ -1059,16 +1059,33 @@ class __extend__(pyframe.PyFrame):
         except OperationError as e:
             if not e.match(space, space.w_AttributeError):
                 raise
-            try:
-                w_pkgname = space.getattr(
-                    w_module, space.newtext('__name__'))
-                w_fullname = space.newtext(b'%s.%s' %
-                    (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
-                return space.getitem(space.sys.get('modules'), w_fullname)
-            except OperationError:
-                raise oefmt(
-                    space.w_ImportError, "cannot import name %R", w_name)
 
+        w_pkgname = space.newtext("<unknown module name>")
+        try:
+            w_pkgname = space.getattr(
+                w_module, space.newtext('__name__'))
+            w_fullname = space.newtext(b'%s.%s' %
+                (space.utf8_w(w_pkgname), space.utf8_w(w_name)))
+            return space.getitem(space.sys.get('modules'), w_fullname)
+        except OperationError:
+            from pypy.module.imp.importing import is_spec_initializing, get_path, get_spec
+
+            w_pkgpath = get_path(space, w_module)
+            args = (space.utf8_w(w_name), space.utf8_w(w_pkgname), space.utf8_w(w_pkgpath))
+            if is_spec_initializing(space, get_spec(space, w_module)):
+                msg = (
+                    "cannot import name '%s' from partially initialized module '%s' "
+                    "(most likely due to a circular import) (%s)" % args
+                )
+            else:
+                msg = "cannot import name '%s' from '%s' (%s)" % args
+
+            raise_import_error(
+                space,
+                space.newtext(msg),
+                w_pkgname,
+                w_pkgpath,
+            )
 
     def YIELD_VALUE(self, oparg, next_instr):
         if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
@@ -2060,7 +2077,28 @@ app = gateway.applevel(r'''
             skip_leading_underscores = True
         else:
             skip_leading_underscores = False
+
+        module_name = module.__name__
+        if not isinstance(module_name, str):
+            raise TypeError("module __name__ must be a string, not %s", type(module_name).__name__)
+
         for name in all:
+            if not isinstance(name, str):
+                if skip_leading_underscores:
+                    container = "__dict__"
+                    accessor = "Key"
+                else:
+                    container = "__all__"
+                    accessor = "Item"
+
+                raise TypeError(
+                    "%s in %s.%s must be str, not %s" % (
+                        accessor,
+                        module_name,
+                        container,
+                        type(name).__name__
+                    )
+                )
             if skip_leading_underscores and name and name[0] == '_':
                 continue
             into_locals[name] = getattr(module, name)
