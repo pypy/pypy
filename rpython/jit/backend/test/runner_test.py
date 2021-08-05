@@ -142,73 +142,24 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_float = None
         self.cpu.done_with_this_frame_descr_void = None
 
-    def test_getfield_raw(self):
-        cpu = self.cpu
-        RS = lltype.Struct('S', ('x', lltype.Char))  #, ('y', lltype.Ptr(A)))
-        descrfld_rx = cpu.fielddescrof(RS, 'x')
-        rs = lltype.malloc(RS, immortal=True)
-        rs.x = '?'
-        # res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
-        #                              'void', descr=fielddescr)
-        x = self.execute_operation(rop.GETFIELD_GC_I, [InputArgRef(rs)],
-                                   'int', descr=descrfld_rx)
-        #x = cpu.bh_getfield_raw_i(ptr2int(rs), descrfld_rx)
-        assert x == ord('?')
-
     def test_llvm(self):
-        # called = []
-        # def func_int(*args):
-        #     called.append(args)
-        #     return len(args) * 100 + 1000
-        # cpu = self.cpu
-        # S = lltype.GcStruct('S', ('x', lltype.Char), ('y', lltype.Char))
-        # sizedescr = cpu.sizeof(S)
-        # r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
-        # xdescr = cpu.fielddescrof(S, 'x')
-        # ydescr = cpu.fielddescrof(S, 'y')
-        # print(sizedescr.get_type_id())
-        # print(cpu.sizeof(S.x).get_all_fielddescrs())
-
-        #u1_box, U_box, _ = self.alloc_instance(self.U)
-        #u2_box, U_box, _ = self.alloc_instance(self.U)
-        #r = self.execute_operation(rop.PTR_EQ, [u1_box,
-        #                                        clone(u1_box)], 'int')
-        #print(r)
-        #FUNC = self.FuncType([lltype.Signed] * 2, lltype.Signed)
-        #func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
-        #calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                         #EffectInfo.MOST_GENERAL)
-        # s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        # looptoken = JitCellToken()
-        # #loop = parse("""
-        #[r0, i0]
-        #setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
-        #finish(i0, descr=finaldescr)
-        #""", namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2),
-        #                "fielddescr": xdescr, "ptr": s})
-        # self.cpu.compile_loop([i0, r0], ops, looptoken)
-        # deadframe = self.cpu.execute_token(looptoken, s, 190)
-        # fail = self.cpu.get_latest_descr(deadframe)
-        # res = self.cpu.get_int_value(deadframe, 0)
-        # print(fail, res)
-        # assert s.x == chr(190)
-        #exit(1)
-        r1 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
-        r2 = self.execute_operation(rop.NEW, [], 'ref', descr=sizedescr)
-        assert r1 != r2
+        called = []
+        def func_int(*args):
+            called.append(args)
+            return len(args) * 100 + 1000
+        FUNC = self.FuncType([lltype.Signed] * 2, lltype.Signed)
+        func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                         EffectInfo.MOST_GENERAL)
         s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        s.y = lltype.cast_primitive(lltype.Char, 150)
-        xdescr = cpu.fielddescrof(S, 'x')
-        ydescr = cpu.fielddescrof(S, 'y')
-        i1 = self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
-                                                 InputArgInt(150)],
-                               'int', descr=ydescr)
-        i2 = self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
-                                                 InputArgInt(190)],
-                               'int', descr=xdescr)
-        print(i1, i2)
-        assert s.x == chr(190)
-        assert s.y == chr(150)
+        looptoken = JitCellToken()
+        loop = parse("""
+        [r0, i0]
+        setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
+        finish(i0, descr=finaldescr)
+        """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2),
+                       "fielddescr": xdescr, "ptr": s})
+        self.cpu.compile_loop([i0, r0], ops, looptoken)
 
     def test_compile_linear_loop(self):
         loop = parse("""
@@ -766,9 +717,11 @@ class BaseBackendTest(Runner):
 
 
     def test_field_basic(self):
-        t_box, T_box, d = self.alloc_instance(self.T)
+        t_box, T_box, descr = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
+        import pdb
+        pdb.set_trace()
         #
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
                                      'void', descr=fielddescr)
@@ -2085,22 +2038,17 @@ class LLtypeBackendTest(BaseBackendTest):
         assert r1 != r2
         xdescr = cpu.fielddescrof(S, 'x')
         ydescr = cpu.fielddescrof(S, 'y')
-        s, S_box, descr = self.alloc_instance(S)
-        s = lltype.cast_opaque_ptr(lltype.Ptr(S), s.getref_base())
         self.execute_operation(rop.SETFIELD_GC,
                                [InputArgRef(r1),
                                 InputArgInt(150)],
                                'void', descr=ydescr)
         self.execute_operation(rop.SETFIELD_GC,
-                               [InputArgRef(s),
+                               [InputArgRef(r1),
                                 InputArgInt(190)],
                                'void', descr=xdescr)
-        # x = self.execute_operation(rop.GETFIELD_GC_I, [InputArgRef(r1)],
-        #                            'int', descr=xdescr)
-        # print(x)
-        #s = lltype.cast_opaque_ptr(lltype.Ptr(S), s)
+        s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
         assert s.x == chr(190)
-        #assert s.y == chr(150)
+        assert s.y == chr(150)
 
     def test_new_with_vtable(self):
         cpu = self.cpu

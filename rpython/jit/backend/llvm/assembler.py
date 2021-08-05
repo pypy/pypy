@@ -47,7 +47,6 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and self.DyLib._cast_to_int() == 0:
             raise Exception("DyLib is Null")
 
-
     def jit_compile(self, module, looptoken, inputargs, dispatcher, is_bridge=False):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         if is_bridge:
@@ -82,9 +81,6 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString("trace")
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
-        # import pdb
-        # pdb.set_trace()
-        # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr

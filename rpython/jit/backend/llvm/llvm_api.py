@@ -51,6 +51,7 @@ class LLVMAPI:
         self.TargetRef = self.VoidPtr
         self.PassManagerRef = self.VoidPtr
         self.MetadataRef = self.VoidPtr
+        self.MetadataRefPtr = self.VoidPtrPtr
         self.ExecutionSessionRef = self.VoidPtr
         self.ObjectLayerRef = self.VoidPtr
         self.MemoryManagerFactoryFunction = self.VoidPtr
@@ -743,6 +744,15 @@ class LLVMAPI:
         self.create_breakpoint = rffi.llexternal("create_breakpoint", [],
                                                  self.Void,
                                                  compilation_info=info)
+        self.ValueAsMetadata = rffi.llexternal("LLVMValueAsMetadata",
+                                               [self.ValueRef],
+                                               self.MetadataRef,
+                                               compilation_info=info)
+        self.MDNode = rffi.llexternal("LLVMMDNodeInContext2",
+                                      [self.ContextRef, self.MetadataRefPtr,
+                                       lltype.Unsigned],
+                                      self.MetadataRef,
+                                      compilation_info=info)
 
 class CString:
     """
@@ -752,5 +762,6 @@ class CString:
     """
     def __init__(self, string):
         self.ptr = str2constcharp(string)
+        self.len = len(string)
     def __del__(self):
         lltype.free(self.ptr, flavor='raw')

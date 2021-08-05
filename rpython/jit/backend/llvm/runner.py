@@ -23,8 +23,6 @@ class LLVM_CPU(AbstractLLCPU):
         self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.WORD = 8
-        cstring = CString("hot_code")
-        self.kind_id = self.llvm.GetMDKindID(self.context, cstring.ptr, 8)
         self.define_types()
 
     def define_types(self):
@@ -51,7 +49,7 @@ class LLVM_CPU(AbstractLLCPU):
         packed = 0
         elem_types = lltype.malloc(elem_array, n=elem_count, flavor='raw')
         for c, typ in enumerate(jitframe_subtypes):
-            elem_types.__setitem__(c, typ)
+            elem_types[c] = typ
         jitframe_type = self.llvm.StructType(self.context, elem_types,
                                                elem_count, packed)
         lltype.free(elem_types, flavor='raw')
@@ -92,8 +90,8 @@ class LLVM_CPU(AbstractLLCPU):
         jitframe_ptr = self.llvm.PointerType(jitframe_type, 0)
         arg_array = rffi.CArray(self.llvm.TypeRef)
         arg_types = lltype.malloc(arg_array, n=2, flavor='raw')
-        arg_types.__setitem__(0, jitframe_ptr)
-        arg_types.__setitem__(1, self.llvm_void_ptr)
+        arg_types[0] = jitframe_ptr
+        arg_types[1] = self.llvm_void_ptr
         signature = self.llvm.FunctionType(jitframe_ptr, arg_types, 2, 0)
         lltype.free(arg_types, flavor='raw')
         cstring = CString("trace")
@@ -132,6 +130,10 @@ class LLVM_CPU(AbstractLLCPU):
                 types.append(lltype.Signed)
             elif type(arg) == float:
                 types.append(lltype.Float)
+            elif type(arg) == lltype._ptr:
+                types.append(arg._TYPE)
+            else:
+                raise Exception("Unknown type: ", type(arg))
         return types
 
     def execute_token(self, looptoken, *ARGS):

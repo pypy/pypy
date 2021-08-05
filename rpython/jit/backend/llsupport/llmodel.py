@@ -319,7 +319,6 @@ class AbstractLLCPU(AbstractCPU):
                     LLInterpreter.current_interpreter = prev_interpreter
             #llop.debug_print(lltype.Void, "<<<< Back")
             from rpython.rtyper.annlowlevel import cast_gcref_to_instance
-            #print(rffi.cast(jitframe.JITFRAMEPTR, ll_frame).jf_frame._get_obj().getitem(0))
             return ll_frame
         return execute_token
 

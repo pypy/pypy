@@ -15,6 +15,31 @@ class GuardHandlerBase:
         self.func = dispatcher.func
         self.jitframe = dispatcher.jitframe
         self.ssa_vars = dispatcher.ssa_vars
+        self.guard_weights, self.prof_kind_id = self.define_metadata()
+
+    def define_metadata(self):
+        cstring = CString("prof")
+        prof_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                  cstring.ptr, cstring.len)
+        cstring = CString("branch_weights")
+        branch_weights = self.llvm.MDString(self.cpu.context,
+                                            cstring.ptr, cstring.len)
+
+        weight1 = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, 100, 0)) # true
+        weight2 = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)) # false
+        mds = self.dispatcher.rpython_array(
+            [branch_weights, weight1, weight2], self.llvm.MetadataRef)
+        guard_weights = self.llvm.MDNode(self.cpu.context, mds, 3)
+        guard_weights_value = self.llvm.MetadataAsValue(self.cpu.context,
+                                                        guard_weights)
+
+        return (guard_weights_value, prof_kind_id)
+
+    def set_guard_weights(self, brinst):
+        # Tell the optimiser to always speculate that we stay in hot code
+        self.llvm.SetMetadata(brinst, self.prof_kind_id, self.guard_weights)
 
     def setup_guard(self, op):
         """
@@ -85,18 +110,9 @@ class BlockPerGuardImpl(GuardHandlerBase):
                            if arg is not None]
         descr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                         compute_unique_id(descr), 0)
-        # ID = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
-        # shadow_bytes = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)
-        # args = [ID, shadow_bytes]+uncast_failargs
-        # arg_array = self.dispatcher.rpython_array(args, self.llvm.ValueRef)
-
-        # cstring = CString("")
-        # self.llvm.BuildCall(self.builder,
-        #                     self.dispatcher.stackmap_intrinsic,
-        #                     arg_array, len(args), cstring.ptr)
-        # lltype.free(arg_array, flavor='raw')
-
         self.dispatcher.exit_trace(uncast_failargs, descr_llvm)
+
+        self.set_guard_weights(branch)
 
         self.guard_keys[descr] = (op, resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
@@ -200,6 +216,8 @@ class PhiNodeImpl(GuardHandlerBase):
             uncast_arg = self.dispatcher.uncast(arg,
                                                 self.ssa_vars[arg])
             self.llvm.AddIncoming(self.bailout_phis[i], uncast_arg, current_block)
+
+        self.set_guard_weights(branch)
 
         self.guard_keys[op.getdescr()] = (op, resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
@@ -460,10 +478,11 @@ class RuntimeCallbackImpl(GuardHandlerBase):
 
         for arg in op.getfailargs():
             if arg is not None:
-                llvm_arg = self.ssa_vars[arg]
-                if llvm_arg._cast_to_adr() not in self.failarg_order:
+                llvm_arg = self.ssa_vars[arg]._cast_to_adr()
+                if llvm_arg not in self.failarg_order:
                     self.failarg_order[llvm_arg] = (self.failarg_index, 0)
                     self.failarg_index += 1
+                    self.llvm_failargs[descr] = [llvm_arg]
                 else:
                     index, ref_count = self.failarg_order[llvm_arg]
                     self.failarg_order[llvm_arg] = (index, ref_count+1)
@@ -474,6 +493,8 @@ class RuntimeCallbackImpl(GuardHandlerBase):
         llvm_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                         compute_unique_id(descr), 0)
         self.llvm.AddIncoming(self.descr_phi, llvm_descr, current_block)
+
+        self.set_guard_weights(branch)
 
         self.guard_keys[descr] = (op, resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
@@ -489,26 +510,29 @@ class RuntimeCallbackImpl(GuardHandlerBase):
             failarg = failargs[index]
             jitframe.jf_frame[c] = rffi.cast(lltype.Signed, failarg)
 
-        jitframe.jf_descr = cast_instance_to_gcref(descr)
+        jitframe.jf_descr = rffi.cast(llmemory.GCREF, descr_int_ptr)
 
     def finalise_bailout(self):
-        self.llvm.PositionBuilderAtEnd(self.bailout)
+        self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
+        llvm_failargs = [arg.ptr for arg in self.failarg_order.keys()]
 
-        arg_types = []
+        arg_types = [lltype.Signed, JITFRAMEPTR]
+        # what's a little undefined behavior between friends?
+        arg_types += [lltype.Signed] * len(llvm_failargs)
         ret_type = lltype.Void
         callback_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
                                                         arg_types, ret_type)
         callback_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                                    callback_int_ptr, 0)
-        llvm_failargs = list(self.failarg_order.keys())
-        arg_types_llvm = [self.cpu.llvm_int_type, self.cpu.llvm_void_ptr]
+        arg_types_llvm = [self.cpu.llvm_int_type,
+                          self.llvm.PointerType(self.dispatcher.jitframe_type, 0)]
         arg_types_llvm += [self.llvm.TypeOf(arg) for arg in llvm_failargs]
-        args_llvm = [self.descr_phi, self.jitframe.struct] + llvm_failargs
+        args_llvm = [self.descr_phi, self.jitframe] + llvm_failargs
         ret_type_llvm = self.cpu.llvm_void_type
         self.dispatcher.call_function(callback_int_ptr_llvm, ret_type_llvm,
                                       arg_types_llvm, args_llvm, "")
 
-        self.llvm.BuildRet(self.builder, self.jitframe.struct)
+        self.llvm.BuildRet(self.builder, self.jitframe)
 
     def patch_guard(self, faildescr, inputargs):
         op, resume, cnd, branch = self.guard_keys[faildescr]

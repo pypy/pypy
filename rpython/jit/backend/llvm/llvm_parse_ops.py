@@ -80,7 +80,7 @@ class LLVMOpDispatcher:
         types_array = lltype.malloc(types_array_type,
                                     n=elem_count, flavor='raw')
         for c, elem in enumerate(subtypes):
-            types_array.__setitem__(c, elem)
+            types_array[c] = elem
         struct_type = self.llvm.StructType(self.cpu.context, types_array,
                                            elem_count, packed)
         lltype.free(types_array, flavor='raw')
@@ -99,7 +99,6 @@ class LLVMOpDispatcher:
                 llvm_types.append(self.cpu.llvm_void_ptr)
             elif flag == 'X':
                 sizedescr = self.cpu.sizeof(fielddescr)
-
 
     def parse_struct_descr_to_llvm(self, sizedescr, struct_ptr):
         try:
@@ -191,7 +190,7 @@ class LLVMOpDispatcher:
         arg_array_type = rffi.CArray(elem_type)
         arg_array = lltype.malloc(arg_array_type, n=len(args), flavor='raw')
         for c, arg in enumerate(args):
-            arg_array.__setitem__(c, arg)
+            arg_array[c] = arg
         return arg_array
 
     def parse_args(self, args):
@@ -541,8 +540,8 @@ class LLVMOpDispatcher:
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
         self.guard_handler.finalise_bailout()
-        #if self.cpu.debug:
-        #    self.llvm.DumpModule(self.module)
+        if self.cpu.debug:
+           self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
@@ -851,7 +850,7 @@ class LLVMOpDispatcher:
         arg = self.parse_args(op.getarglist())[0][0]
         arg_array_type = rffi.CArray(self.llvm.ValueRef)
         arg_array = lltype.malloc(arg_array_type, n=1, flavor='raw')
-        arg_array.__setitem__(0, arg)
+        arg_array[0] = arg
         cstring = CString("float_abs_res")
         self.ssa_vars[op] = self.llvm.BuildCall(self.builder,
                                                 self.fabs_intrinsic,
@@ -980,22 +979,14 @@ class LLVMOpDispatcher:
     def parse_getfield_gc(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         struct = args[0]
-        value = self.llvm.ConstInt(self.cpu.llvm_int_type, 1, 0) #simulate the value llvm would normally read from input
         fielddescr = op.getdescr()
         sizedescr = fielddescr.get_parent_descr()
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
 
-        field_type = self.cpu.llvm_char_type
-        cstring = CString("value_cast")
-        value = self.llvm.BuildIntCast(self.builder, value, field_type,
-                                       1, cstring.ptr)
-
-        value = llvm_struct.get_elem(fielddescr.index)
-
-        self.ssa_vars[op] = value
+        self.ssa_vars[op] = llvm_struct.get_elem(fielddescr.index)
 
     def malloc_wrapper(self, size):
-        # rffi functions don't play nice with LLMV
+        # llexternal functions don't play nice with LLMV
         return self.cpu.gc_ll_descr.malloc_fn_ptr(size)
 
     def parse_new(self, op):
@@ -1316,7 +1307,7 @@ class LLVMArray:
         self.llvm.PositionBuilderBefore(self.builder, instr)
         index = self.llvm.ConstInt(self.cpu.llvm_indx_type,
                                    0, 1)
-        self.indecies_array.__setitem__(0, index) #held array is actually a pointer to the array, will always needs to be deref'ed at indx 0 first
+        self.indecies_array[0] = index #held array is actually a pointer to the array, will always needs to be deref'ed at indx 0 first
         cstring = CString("array")
         array = self.llvm.BuildAlloca(self.builder, self.array_type,
                                       cstring.ptr) #TODO: check for stack overflow
@@ -1344,7 +1335,7 @@ class LLVMArray:
         for i in range(len(indecies)):
             index = self.llvm.ConstInt(self.cpu.llvm_indx_type,
                                        indecies[i], 1)
-            self.indecies_array.__setitem__(i+1, index)
+            self.indecies_array[i+1] = index
         cstring = CString("array_elem_ptr")
         ptr = self.llvm.BuildGEP(self.builder, self.array_type,
                                  self.array, self.indecies_array,
@@ -1368,7 +1359,7 @@ class LLVMStruct:
         self.indecies_array = lltype.malloc(indecies, n=self.depth+1,
                                             flavor='raw')
         index = self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 1)
-        self.indecies_array.__setitem__(0, index) #held struct is actually a pointer to the array, will always needs to be deref'ed at indx 0 first
+        self.indecies_array[0] = index #held struct is actually a pointer to the array, will always needs to be deref'ed at indx 0 first
         if struct_type is None:
             self.struct_type = dispatcher.get_struct_from_subtypes(subtypes)
         else:
@@ -1412,7 +1403,7 @@ class LLVMStruct:
         for i in range(len(indecies)):
             index = self.llvm.ConstInt(self.cpu.llvm_indx_type,
                                        indecies[i], 1)
-            self.indecies_array.__setitem__(i+1, index)
+            self.indecies_array[i+1] = index
         cstring = CString("struct_elem_ptr")
         ptr = self.llvm.BuildGEP(self.builder, self.struct_type,
                                  self.struct, self.indecies_array,
