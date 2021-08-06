@@ -34,6 +34,20 @@ app = gateway.applevel('''
 "NOT_RPYTHON"
 from _structseq import structseqtype, structseqfield
 class version_info(metaclass=structseqtype):
+    __module__ = 'sys'
+    name = 'sys.version_info'
+
+    major        = structseqfield(0, "Major release number")
+    minor        = structseqfield(1, "Minor release number")
+    micro        = structseqfield(2, "Patch release number")
+    releaselevel = structseqfield(3,
+                       "'alpha', 'beta', 'candidate', or 'release'")
+    serial       = structseqfield(4, "Serial release number")
+
+class pypy_version_info:
+    __metaclass__ = structseqtype
+    __module__ = 'sys'
+    name = 'sys.pypy_version_info'
 
     major        = structseqfield(0, "Major release number")
     minor        = structseqfield(1, "Minor release number")
@@ -80,7 +94,7 @@ def get_hexversion(space):
 
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
-    w_version_info = app.wget(space, "version_info")
+    w_version_info = app.wget(space, "pypy_version_info")
     # run at translation time
     return space.call_function(w_version_info, space.wrap(ver))
 
