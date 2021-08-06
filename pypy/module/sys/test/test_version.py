@@ -13,6 +13,11 @@ class AppTestVersion:
         import sys
         assert str(sys.pypy_version_info).startswith('sys.pypy_version_info')
 
+    def test_sys_implementation(self):
+        import sys
+        print(sys.implementation)
+        assert 'pypy_version_info' in str(sys.implementation)
+
 def test_get_version():
     from pypy.module.sys import version
     res = version._make_version_template(PYPY_VERSION=(2,5,0, "final", 1))

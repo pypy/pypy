@@ -165,7 +165,7 @@ null__xoptions = {}
 
 implementation_dict = {
     'name':       'pypy',
-    'version':    sys.version_info,
+    'version':    sys.pypy_version_info,
     'hexversion': sys.hexversion,
     'cache_tag':  _imp.get_tag(),
 }

@@ -44,8 +44,7 @@ class version_info(metaclass=structseqtype):
                        "'alpha', 'beta', 'candidate', or 'release'")
     serial       = structseqfield(4, "Serial release number")
 
-class pypy_version_info:
-    __metaclass__ = structseqtype
+class pypy_version_info(metaclass=structseqtype):
     __module__ = 'sys'
     name = 'sys.pypy_version_info'
 
@@ -94,9 +93,9 @@ def get_hexversion(space):
 
 def get_pypy_version_info(space):
     ver = PYPY_VERSION
-    w_version_info = app.wget(space, "pypy_version_info")
+    w_pypy_version_info = app.wget(space, "pypy_version_info")
     # run at translation time
-    return space.call_function(w_version_info, space.wrap(ver))
+    return space.call_function(w_pypy_version_info, space.wrap(ver))
 
 def get_subversion_info(space):
     # run at translation time
