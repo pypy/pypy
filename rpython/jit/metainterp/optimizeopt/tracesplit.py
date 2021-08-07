@@ -41,13 +41,14 @@ class TraceSplitInfo(BasicLoopInfo):
 
     * target_token - generated target token for a bridge ("false" branch)
     * label_op - label operations
+    * inputargs - input arguments
+    * fail_descr - used in the case of a bridge trace; for attaching
     """
     def __init__(self, target_token, label_op, inputargs,
                  quasi_immutable_deps, fail_descr=None):
         self.target_token = target_token
         self.label_op = label_op
         self.inputargs = inputargs
-        self.quasi_immutable_deps = quasi_immutable_deps
         self.fail_descr = fail_descr
 
     def final(self):
@@ -100,7 +101,7 @@ class TraceSplitOpt(object):
 
                     jump_op = ResOperation(rop.JUMP, inputargs, token)
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, fdescr)
                     t_lst.append((info, current_ops + [jump_op]))
                     current_ops = []
                 elif name.find(mark.RET) != -1:
@@ -137,7 +138,7 @@ class TraceSplitOpt(object):
                         token = compile.make_jitcell_token(self.jitdriver_sd)
 
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, fdescr)
                     t_lst.append((info, current_ops + ret_ops))
                     current_ops = []
                 elif name.find(mark.IS_TRUE) != -1:
@@ -155,7 +156,7 @@ class TraceSplitOpt(object):
                     token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
 
                 label = ResOperation(rop.LABEL, inputargs, token)
-                info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                info = TraceSplitInfo(token, label, inputargs, fdescr)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []
