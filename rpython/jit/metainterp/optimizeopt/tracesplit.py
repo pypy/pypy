@@ -44,8 +44,7 @@ class TraceSplitInfo(BasicLoopInfo):
     * inputargs - input arguments
     * fail_descr - used in the case of a bridge trace; for attaching
     """
-    def __init__(self, target_token, label_op, inputargs,
-                 quasi_immutable_deps, fail_descr=None):
+    def __init__(self, target_token, label_op, inputargs, fail_descr=None):
         self.target_token = target_token
         self.label_op = label_op
         self.inputargs = inputargs
@@ -91,17 +90,17 @@ class TraceSplitOpt(object):
                 name = self._get_name_from_arg(op.getarg(0))
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
+                    fdescr = None
                     if first_cut:
-                        fdescr = None
                         first_cut = False
                     else:
-                        descr = fdescr_stack.pop()
+                        fdescr = fdescr_stack.pop()
                         jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
                         token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
 
                     jump_op = ResOperation(rop.JUMP, inputargs, token)
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
                     t_lst.append((info, current_ops + [jump_op]))
                     current_ops = []
                 elif name.find(mark.RET) != -1:
@@ -130,15 +129,15 @@ class TraceSplitOpt(object):
                         ResOperation(rop.FINISH, exits, token)
                     ]
 
+                    fdescr = None
                     if first_cut:
-                        fdescr = None
                         first_cut = False
                     else:
-                        descr = fdescr_stack.pop()
+                        fdescr = fdescr_stack.pop()
                         token = compile.make_jitcell_token(self.jitdriver_sd)
 
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
                     t_lst.append((info, current_ops + ret_ops))
                     current_ops = []
                 elif name.find(mark.IS_TRUE) != -1:
@@ -156,7 +155,7 @@ class TraceSplitOpt(object):
                     token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
 
                 label = ResOperation(rop.LABEL, inputargs, token)
-                info = TraceSplitInfo(token, label, inputargs, fdescr)
+                info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []

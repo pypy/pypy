@@ -1155,9 +1155,8 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     debug_print('Loop after splitting')
     metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
     metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-                                          descr=body_info.fail_descr)
-
-    resumekey = body_info.fail_descr
+                                          descr=bridge_info.fail_descr)
+    resumekey = bridge_info.fail_descr
 
     if not we_are_translated():
         assert isinstance(resumekey, ResumeGuardDescr)
@@ -1178,7 +1177,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
 
     # compiling bridge
     bridge = create_empty_loop(metainterp)
-    bridge.original_jitcell_token = bridge_token
+    bridge.original_jitcell_token = bridge_info.token
     bridge.inputargs = bridge_info.inputargs
     bridge.operations = bridge_ops
     resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
