@@ -753,6 +753,10 @@ class LLVMAPI:
                                        lltype.Unsigned],
                                       self.MetadataRef,
                                       compilation_info=info)
+        self.SetTarget = rffi.llexternal("LLVMSetTarget",
+                                         [self.ModuleRef, self.Str],
+                                         self.Void, compilation_info=info)
+
 
 class CString:
     """

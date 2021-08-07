@@ -720,8 +720,6 @@ class BaseBackendTest(Runner):
         t_box, T_box, descr = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
-        import pdb
-        pdb.set_trace()
         #
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
                                      'void', descr=fielddescr)
@@ -804,6 +802,7 @@ class BaseBackendTest(Runner):
 
     def test_passing_guard_class(self):
         t_box, T_box, d = self.alloc_instance(self.T)
+        print(dir(T_box))
         #null_box = ConstPtr(lltype.cast_opaque_ptr(llmemory.GCREF, lltype.nullptr(T)))
         self.execute_operation(rop.GUARD_CLASS, [t_box, T_box], 'void')
         assert not self.guard_failed

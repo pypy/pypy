@@ -85,6 +85,7 @@ class LLVM_CPU(AbstractLLCPU):
         cstring = CString(name)
         module = self.llvm.CreateModule(cstring.ptr, self.context)
         self.llvm.SetModuleDataLayout(module, self.assembler.data_layout)
+        self.llvm.SetTarget(module, self.assembler.triple)
         builder = self.llvm.CreateBuilder(self.context) #TODO: look at moving to init
         jitframe_type, jitframe_subtypes = self.decl_jitframe(len(inputargs))
         jitframe_ptr = self.llvm.PointerType(jitframe_type, 0)

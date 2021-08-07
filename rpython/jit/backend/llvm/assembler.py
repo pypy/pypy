@@ -22,17 +22,18 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and jit_builder._cast_to_int() == 0:
             raise Exception("JIT Builder is Null")
         cpu_name = self.llvm.GetHostCPUName(None)
-        cpu_features = self.llvm.GetHostCPUFeatures(None)
-        triple = self.llvm.GetTargetTriple(None)
-        target = self.llvm.GetTarget(triple)
+        self.cpu_features = self.llvm.GetHostCPUFeatures(None)
+        self.triple = self.llvm.GetTargetTriple(None)
+        target = self.llvm.GetTarget(self.triple)
         enums = lltype.malloc(self.llvm.JITEnums, flavor='raw')
         self.llvm.SetJITEnums(enums)
         opt_level = enums.codegenlevel
         reloc_mode = enums.reloc
         code_model = enums.codemodel
-        target_machine = self.llvm.CreateTargetMachine(target, triple, cpu_name,
-                                                       cpu_features, opt_level,
-                                                       reloc_mode, code_model)
+        target_machine = self.llvm.CreateTargetMachine(
+            target, self.triple, cpu_name, self.cpu_features,
+            opt_level, reloc_mode, code_model
+        )
         lltype.free(enums, flavor='raw')
         self.data_layout = self.llvm.CreateTargetDataLayout(target_machine)
         jit_target_machine_builder = self.llvm.JITTargetMachineBuilderCreateFromTargetMachine(

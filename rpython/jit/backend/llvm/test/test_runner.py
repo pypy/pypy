@@ -12,3 +12,4 @@ class TestLLVM(LLtypeBackendTest):
         cpu.setup_once()
         return cpu
 
+    #def test_gc_load(self):
