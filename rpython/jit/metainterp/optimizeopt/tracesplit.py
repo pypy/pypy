@@ -4,6 +4,7 @@ from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.history import (
     ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp)
 from rpython.jit.metainterp import compile, jitprof, history
+from rpython.jit.metainterp.history import TargetToken
 from rpython.jit.metainterp.optimizeopt.optimizer import (
     Optimizer, Optimization, BasicLoopInfo)
 from rpython.jit.metainterp.optimizeopt.intutils import (
@@ -21,6 +22,19 @@ from pprint import pprint
 class mark(object):
     JUMP = "emit_jump"
     RET = "emit_ret"
+    IS_TRUE = "is_true"
+
+    @staticmethod
+    def is_pseudo_jump(name):
+        return name.find(mark.JUMP) != -1
+
+    @staticmethod
+    def is_pseudo_ret(name):
+        return name.find(mark.RET) != -1
+
+    @staticmethod
+    def is_pseudo_op(name):
+        return name.find(mark.JUMP) != -1 or name.find(mark.RET) != -1
 
 class TraceSplitInfo(BasicLoopInfo):
     """ A state after splitting the trace, containing the following:
@@ -42,104 +56,55 @@ class TraceSplitInfo(BasicLoopInfo):
 class TraceSplitOpt(object):
 
     def __init__(self, metainterp_sd, jitdriver_sd, optimizations=None,
-                 resumekey=None, split_at=None, guard_at=None):
+                 resumekey=None):
         self.metainterp_sd = metainterp_sd
         self.jitdriver_sd = jitdriver_sd
         self.optimizations = optimizations
         self.resumekey = resumekey
-        self.split_at = split_at
-        self.guard_at = guard_at
 
-    def split(self, trace, oplist, inputs, body_token, bridge_token):
-        """ For threaded code: splitting the given oplist into the two --
-        the body and bridge oplists.
-        """
-        cut_at = 0
-        last_op = None
-        newops = []
+    def split_ops(self, trace, ops, inputargs, token):
+        "Threaded code: splitting the given ops into several op lists"
+        t_lst = []
+        current_ops = []
         pseudo_ops = []
-        for i in range(len(oplist)):
-            op = oplist[i]
-            if op.getopnum() in (rop.CALL_I, rop.CALL_R, rop.CALL_F, rop.CALL_N):
-                arg = op.getarg(0)
-                name = self._get_name_from_arg(arg)
-                assert name is not None
 
-                if name.find(self.split_at) != -1:
-                    # recording pseudo operations like call_i(ConstClass(emit_jump), ..)
-                    # or call_i(ConstClass(emit_ret) ..) to remove guard operations
-                    # for checking this pseudo op
-                    pseudo_ops.append(op)
-                    if self.split_at.find("jump"):
-                        last_op = ResOperation(rop.JUMP, inputs, body_token)
-                        cut_at = i
-                else:
-                    newops.append(op)
-            elif op.is_guard():
-                can_be_recorded = True
-                for arg in op.getarglist():
-                    if arg in pseudo_ops:
-                        can_be_recorded = False
-                        break
-                if can_be_recorded:
-                    newops.append(op)
-            else:
-                newops.append(op)
+        first_cut = True
+        fdescr_stack = []
 
-        assert last_op is not None
+        ops = self.remove_guards(ops)
+        for op in ops:
+            if op.is_guard():
+                if self._is_guard_marked(op, ops, mark.IS_TRUE):
+                    descr = op.getdescr()
+                    fdescr_stack.append(descr)
 
-        ops_body = newops[:cut_at] + [last_op]
-        ops_bridge = newops[cut_at:]
+                    failargs = op.getfailargs()
+                    newfailargs = []
+                    for farg in failargs:
+                        if not farg in pseudo_ops:
+                            newfailargs.append(farg)
+                    op.setfailargs(newfailargs)
 
-        ops_body, ops_bridge, inputs_bridge, descr_to_attach = self.invent_failargs(
-            inputs, ops_body, ops_bridge, bridge_token)
-
-        # ops_bridge = self.copy_from_body_to_bridge(ops_body, ops_bridge)
-
-        body_label = ResOperation(rop.LABEL, inputs, descr=body_token)
-        bridge_label = ResOperation(rop.LABE4L, inputs_bridge, descr=bridge_token)
-
-        return (TraceSplitInfo(body_token, body_label, inputs, None, descr_to_attach), ops_body), \
-            (TraceSplitInfo(bridge_token, bridge_label, inputs_bridge, None, None), ops_bridge)
-
-    def split_ops(self, trace, oplist, inputs, body_token):
-        data = self.find_cut_points_with_ops(trace, oplist, inputs, body_token)
-        splitted = []
-
-        split_range = []
-        keys = data.keys()
-        for i in range(len(keys)):
-            if i == 0:
-                split_range.append((-1, keys[i]))
-            else:
-                split_range.append((keys[i-1], keys[i]))
-        split_range.append((keys[-1], len(oplist)))
-
-        for (key_p, key_c) in split_range:
-            if split_range.index((key_p, key_c)) == len(split_range) - 1:
-                res = oplist[key_p+1:key_c+1]
-            else:
-                ops = oplist[key_p+1:key_c+1]
-                del ops[-1]
-                mark, invented_ops = data.get(key_c)
-                res = ops + invented_ops
-            splitted.append(res)
-
-        return splitted
-
-    def find_cut_points_with_ops(self, trace, oplist, inputargs, body_token):
-        dic = {}
-        for i in range(len(oplist)):
-            op = oplist[i]
-            if op.getopnum() in (rop.CALL_I, rop.CALL_N, rop.CALL_F, rop.CALL_N):
-                arg = op.getarg(0)
-                name = self._get_name_from_arg(arg)
-                assert name is not None
-
+                current_ops.append(op)
+            elif rop.is_plain_call(op.getopnum()):
+                name = self._get_name_from_arg(op.getarg(0))
                 if name.find(mark.JUMP) != -1:
-                    jump_op = ResOperation(rop.JUMP, inputargs, body_token)
-                    dic[i] = (mark.JUMP, [jump_op])
+                    pseudo_ops.append(op)
+                    if first_cut:
+                        fdescr = None
+                        first_cut = False
+                    else:
+                        descr = fdescr_stack.pop()
+                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                        token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
+
+                    jump_op = ResOperation(rop.JUMP, inputargs, token)
+                    label = ResOperation(rop.LABEL, inputargs, token)
+                    info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                    t_lst.append((info, current_ops + [jump_op]))
+                    current_ops = []
                 elif name.find(mark.RET) != -1:
+                    pseudo_ops.append(op)
                     jd_no = self.jitdriver_sd.index
                     result_type = self.jitdriver_sd.result_type
                     sd = self.metainterp_sd
@@ -164,49 +129,63 @@ class TraceSplitOpt(object):
                         ResOperation(rop.FINISH, exits, token)
                     ]
 
-                    dic[i] = (mark.RET, ret_ops)
-        return dic
+                    if first_cut:
+                        fdescr = None
+                        first_cut = False
+                    else:
+                        descr = fdescr_stack.pop()
+                        token = compile.make_jitcell_token(self.jitdriver_sd)
 
-    def invent_failargs(self, inputs, ops_body, ops_bridge, bridge_token):
-        newops_body, newops_bridge, inputs_bridge = [], [], []
-        descr_to_attach = None
-        for i in range(len(ops_body)):
-            op = ops_body[i]
+                    label = ResOperation(rop.LABEL, inputargs, token)
+                    info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                    t_lst.append((info, current_ops + ret_ops))
+                    current_ops = []
+                elif name.find(mark.IS_TRUE) != -1:
+                    pseudo_ops.append(op)
+                    current_ops.append(op)
+                else:
+                    current_ops.append(op)
+            elif op.getopnum() == rop.FINISH:
+                if first_cut:
+                    fdescr = None
+                    first_cut = False
+                else:
+                    fdescr = fdescr_stack.pop()
+                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                    token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
+
+                label = ResOperation(rop.LABEL, inputargs, token)
+                info = TraceSplitInfo(token, label, inputargs, None, fdescr)
+                current_ops.append(op)
+                t_lst.append((info, current_ops))
+                current_ops = []
+                break
+            else:
+                current_ops.append(op)
+
+        return t_lst
+
+    def remove_guards(self, oplist):
+        "Remove guard_ops assosiated with pseudo ops"
+        pseudo_ops = []
+        for op in oplist:
+            if self._is_pseudo_op(op):
+                pseudo_ops.append(op)
+
+        newops = []
+        for op in oplist:
+            can_be_recorded = True
             if op.is_guard():
-                arg = op.getarg(0)
-                if self._has_marker(ops_body, arg, self.guard_at):
-                    # setting up inputargs for the bridge_ops
-                    failargs = op.getfailargs()
-                    descr_to_attach = op.getdescr()
-                    inputs_bridge, new_failargs, newops_bridge = self._invent_failargs(
-                        inputs, ops_bridge, failargs)
-                    op.setfailargs(new_failargs)
-                    ops_body[i] = op
-                    break
-        return ops_body, newops_bridge, inputs_bridge, descr_to_attach
+                for arg in op.getarglist():
+                    if arg in pseudo_ops:
+                        can_be_recorded = False
+                        break
+                if can_be_recorded:
+                    newops.append(op)
+            else:
+                newops.append(op)
 
-    def _invent_failargs(self, inputs, oplist, failargs):
-        newfargs = []
-        for arg in failargs:
-            for i in range(len(oplist)):
-                op = oplist[i]
-                oparglist = op.getarglist()
-                if arg in oparglist:
-                    if arg not in newfargs:
-                        newfargs.append(arg)
-
-        assert len(newfargs) == len(inputs)
-
-        for farg, input in zip(newfargs, inputs):
-            for op in oplist:
-                args = op.getarglist()
-                if farg in args:
-                    i = args.index(farg)
-                    op.setarg(i, input)
-                    n = oplist.index(op)
-                    oplist[n] = op
-
-        return inputs, newfargs, oplist
+        return newops
 
     def copy_from_body_to_bridge(self, ops_body, ops_bridge):
 
@@ -233,13 +212,32 @@ class TraceSplitOpt(object):
                 return True
         return False
 
+    def _is_pseudo_op(self, op):
+        if rop.is_plain_call(op.getopnum()):
+            arg = op.getarg(0)
+            name = self._get_name_from_arg(arg)
+
+            return mark.is_pseudo_op(name)
+        return False
+
     def _get_name_from_arg(self, arg):
-        marker = self.metainterp_sd
         box = arg.getvalue()
         if isinstance(box, AddressAsInt):
-            return str(box.adr.ptr)
+            res = str(box.adr.ptr)
         else:
-            return self.metainterp_sd.get_name_from_address(box)
+            res = self.metainterp_sd.get_name_from_address(box)
+        assert res is not None
+        return res
+
+    def _is_guard_marked(self, guard_op, ops, mark):
+        "Check if the guard_op is marked"
+        assert guard_op.is_guard()
+        guard_args = guard_op.getarglist()
+        for op in ops:
+            if rop.is_plain_call(op.getopnum()) and op in guard_args:
+                name = self._get_name_from_arg(op.getarg(0))
+                return name.find(mark) != -1
+        return False
 
     def _has_marker(self, oplist, arg, marker):
         metainterp_sd = self.metainterp_sd

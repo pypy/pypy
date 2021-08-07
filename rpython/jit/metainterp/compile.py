@@ -145,23 +145,18 @@ class SimpleSplitCompileData(CompileData):
     def __init__(self, trace, resumestorage=None,
                  call_pure_results=None, enable_opts=None,
                  inline_short_preamble=False,
-                 split_at=None, guard_at=None,
-                 body_token=None, bridge_token=None):
+                 body_token=None):
         self.trace = trace
         self.resumestorage = resumestorage
         self.call_pure_results = call_pure_results
         self.enable_opts = enable_opts
         self.inline_short_preamble = inline_short_preamble
-        self.split_at = split_at
-        self.guard_at = guard_at
         self.body_token = body_token
-        self.bridge_token = bridge_token
 
     def split(self, metainterp_sd, jitdriver_sd, optimizations, ops, inputargs):
         from rpython.jit.metainterp.optimizeopt.tracesplit import TraceSplitOpt
-        opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations,
-                            split_at=self.split_at, guard_at=self.guard_at)
-        return opt.split(self.trace, ops, inputargs, self.body_token, self.bridge_token)
+        opt = TraceSplitOpt(metainterp_sd, jitdriver_sd, optimizations)
+        return opt.split_ops(self.trace, ops, inputargs, self.body_token)
 
 def show_procedures(metainterp_sd, procedure=None, error=None):
     from rpython.conftest import option
@@ -1143,14 +1138,10 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     body_token = TargetToken(body_jitcell_token,
                              original_jitcell_token=body_jitcell_token)
 
-    bridge_jitcell_token = make_jitcell_token(jitdriver_sd)
-    bridge_token = TargetToken(bridge_jitcell_token,
-                               original_jitcell_token=bridge_jitcell_token)
     data = SimpleSplitCompileData(trace, resumestorage,
                                   call_pure_results=call_pure_results,
                                   enable_opts=enable_opts,
-                                  split_at="emit_jump", guard_at="is_true",
-                                  body_token=body_token, bridge_token=bridge_token)
+                                  body_token=body_token)
 
     try:
         (body_info, body_ops), (bridge_info, bridge_ops) = data.split(
