@@ -1144,9 +1144,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                   body_token=body_token)
 
     try:
-        (body_info, body_ops), (bridge_info, bridge_ops) = data.split(
-            metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
-            newops, info.inputargs)
+        splitted = data.split(metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
+                              newops, info.inputargs)
+        (body_info, body_ops), bridges = splitted[0], splitted[1:]
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
         debug_print('InvalidLoop in splitting a trace')
@@ -1154,12 +1154,6 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
 
     debug_print('Loop after splitting')
     metainterp_sd.logger_noopt.log_loop(body_info.inputargs, body_ops)
-    metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-                                          descr=bridge_info.fail_descr)
-    resumekey = bridge_info.fail_descr
-
-    if not we_are_translated():
-        assert isinstance(resumekey, ResumeGuardDescr)
 
     # compiling loop body
     body = create_empty_loop(metainterp)
@@ -1168,7 +1162,6 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     body_start_label = ResOperation(rop.LABEL, body_info.inputargs,
                                     descr=body_token)
     body.operations = [body_start_label] + body_ops
-    body_faildescr_= body_info.fail_descr
     if not we_are_translated():
         body.check_consistency()
     send_loop_to_backend(greenkey, jitdriver_sd, metainterp_sd, body, "loop",
@@ -1176,11 +1169,17 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     record_loop_or_bridge(metainterp_sd, body)
 
     # compiling bridge
-    bridge = create_empty_loop(metainterp)
-    bridge.original_jitcell_token = bridge_info.token
-    bridge.inputargs = bridge_info.inputargs
-    bridge.operations = bridge_ops
-    resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
+    metainterp.resumekey_original_loop_token = body_token
+    for (bridge_info, bridge_ops) in bridges:
+        metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
+                                              descr=bridge_info.fail_descr)
+        bridge = create_empty_loop(metainterp)
+        bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
+        bridge.inputargs = bridge_info.inputargs
+        bridge.operations = bridge_ops
+        resumekey = bridge_info.fail_descr
+        assert isinstance(resumekey, ResumeGuardDescr)
+        resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
 
     return body_token
 
