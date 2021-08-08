@@ -143,23 +143,30 @@ class BaseBackendTest(Runner):
         self.cpu.done_with_this_frame_descr_void = None
 
     def test_llvm(self):
-        called = []
-        def func_int(*args):
-            called.append(args)
-            return len(args) * 100 + 1000
-        FUNC = self.FuncType([lltype.Signed] * 2, lltype.Signed)
-        func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
-        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                         EffectInfo.MOST_GENERAL)
-        s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        looptoken = JitCellToken()
-        loop = parse("""
-        [r0, i0]
-        setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
-        finish(i0, descr=finaldescr)
-        """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2),
-                       "fielddescr": xdescr, "ptr": s})
-        self.cpu.compile_loop([i0, r0], ops, looptoken)
+        a_box, A = self.alloc_array_of(rffi.SHORT, 342)
+        A = lltype.Ptr(A)
+        b_box, B = self.alloc_array_of(A, 3)
+        arraydescr = self.cpu.arraydescrof(B)
+        import pdb
+        pdb.set_trace()
+        assert False
+        # called = []
+        # def func_int(*args):
+        #     called.append(args)
+        #     return len(args) * 100 + 1000
+        # FUNC = self.FuncType([lltype.Signed] * 2, lltype.Signed)
+        # func_ptr = llhelper(lltype.Ptr(FUNC), func_int)
+        # calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+        #                                  EffectInfo.MOST_GENERAL)
+        # s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
+        # looptoken = JitCellToken()
+        # loop = parse("""
+        # [r0, i0]
+        # setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
+        # finish(i0, descr=finaldescr)
+        # """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2),
+        #                "fielddescr": xdescr, "ptr": s})
+        # self.cpu.compile_loop([i0, r0], ops, looptoken)
 
     def test_compile_linear_loop(self):
         loop = parse("""

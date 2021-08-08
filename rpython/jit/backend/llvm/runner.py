@@ -133,6 +133,8 @@ class LLVM_CPU(AbstractLLCPU):
                 types.append(lltype.Float)
             elif type(arg) == lltype._ptr:
                 types.append(arg._TYPE)
+            elif type(arg) == llmemory.AddressAsInt:
+                types.append(arg.lltype())
             else:
                 raise Exception("Unknown type: ", type(arg))
         return types
