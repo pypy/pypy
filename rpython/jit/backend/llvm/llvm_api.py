@@ -333,30 +333,11 @@ class LLVMAPI:
                                                self.ValueRef,
                                                compilation_info=info)
         self.BuildGEP = rffi.llexternal("LLVMBuildGEP2",
-                                         [self.BuilderRef, self.TypeRef,
-                                          self.ValueRef, self.ValueRefPtr,
-                                          lltype.Unsigned, self.Str],
-                                         self.ValueRef,
-                                         compilation_info=info)
-        self.BuildGEP1D = rffi.llexternal("BuildGEP1D", #wrappers for common cases so can avoid rffi malloc each call
-                                           [self.BuilderRef, self.TypeRef,
-                                            self.ValueRef, self.ValueRef,
-                                            self.Str],
-                                           self.ValueRef,
-                                           compilation_info=info)
-        self.BuildGEP2D = rffi.llexternal("BuildGEP2D",
-                                           [self.BuilderRef, self.TypeRef,
-                                            self.ValueRef, self.ValueRef,
-                                            self.ValueRef, self.Str],
-                                           self.ValueRef,
-                                           compilation_info=info)
-        self.BuildGEP3D = rffi.llexternal("BuildGEP3D",
-                                           [self.BuilderRef, self.TypeRef,
-                                            self.ValueRef, self.ValueRef,
-                                            self.ValueRef, self.ValueRef,
-                                            self.Str],
-                                           self.ValueRef,
-                                           compilation_info=info)
+                                        [self.BuilderRef, self.TypeRef,
+                                         self.ValueRef, self.ValueRefPtr,
+                                         lltype.Unsigned, self.Str],
+                                        self.ValueRef,
+                                        compilation_info=info)
         self.BuildLoad = rffi.llexternal("LLVMBuildLoad2",
                                           [self.BuilderRef, self.TypeRef,
                                            self.ValueRef, self.Str],
@@ -756,6 +737,14 @@ class LLVMAPI:
         self.SetTarget = rffi.llexternal("LLVMSetTarget",
                                          [self.ModuleRef, self.Str],
                                          self.Void, compilation_info=info)
+        self.PrintTypeToString = rffi.llexternal("LLVMPrintTypeToString",
+                                                 [self.TypeRef],
+                                                 self.Str,
+                                                 compilation_info=info)
+        self.DumpType = rffi.llexternal("LLVMDumpType",
+                                        [self.TypeRef],
+                                        self.Void,
+                                        compilation_info=info)
 
 
 class CString:
