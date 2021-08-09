@@ -64,6 +64,7 @@ class TraceSplitOpt(object):
 
     def split_ops(self, trace, ops, inputargs, token):
         "Threaded code: splitting the given ops into several op lists"
+
         t_lst = []
         current_ops = []
         pseudo_ops = []
@@ -134,7 +135,8 @@ class TraceSplitOpt(object):
                         first_cut = False
                     else:
                         fdescr = fdescr_stack.pop()
-                        token = compile.make_jitcell_token(self.jitdriver_sd)
+                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                        token = TargetToken(jitcell_token, original_jitcell_token=token)
 
                     label = ResOperation(rop.LABEL, inputargs, token)
                     info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
@@ -152,7 +154,7 @@ class TraceSplitOpt(object):
                 else:
                     fdescr = fdescr_stack.pop()
                     jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                    token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
+                    token = TargetToken(jitcell_token, original_jitcell_token=token.original_jitcell_token)
 
                 label = ResOperation(rop.LABEL, inputargs, token)
                 info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
