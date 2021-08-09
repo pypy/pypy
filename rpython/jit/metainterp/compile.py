@@ -1137,6 +1137,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     body_jitcell_token = make_jitcell_token(jitdriver_sd)
     body_token = TargetToken(body_jitcell_token,
                              original_jitcell_token=body_jitcell_token)
+    body_jitcell_token.target_tokens = [body_token]
 
     data = SimpleSplitCompileData(trace, resumestorage,
                                   call_pure_results=call_pure_results,
@@ -1169,7 +1170,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     record_loop_or_bridge(metainterp_sd, body)
 
     # compiling bridge
-    metainterp.resumekey_original_loop_token = body_token
+    metainterp.resumekey_original_loop_token = body_jitcell_token
     for (bridge_info, bridge_ops) in bridges:
         metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
                                               descr=bridge_info.fail_descr)
@@ -1179,7 +1180,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         bridge.operations = bridge_ops
         resumekey = bridge_info.fail_descr
         assert isinstance(resumekey, ResumeGuardDescr)
-        resumekey.compile_and_attach(metainterp, bridge, bridge_info.inputargs)
+        resumekey.compile_and_attach(metainterp, bridge, inputargs)
 
     return body_token
 
