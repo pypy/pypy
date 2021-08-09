@@ -1239,31 +1239,34 @@ class LLVMOpDispatcher:
 
     def parse_new_array(self, op):
         num_elem = self.parse_args(op.getarglist())[0][0]
-        array_descr = op.getdescr()
-        itemsize = array_descr.itemsize
-        basesize = array_descr.basesize
+        arraydescr = op.getdescr()
+        itemsize = arraydescr.itemsize
+        basesize = arraydescr.basesize
+        lendescr = arraydescr.lendescr
 
-        if array_descr.is_array_of_structs():
-            ret_type_llvm = self.cpu.llvm_void_ptr
-        else:
-            if array_descr.is_array_of_primitives():
-                if array_descr.is_array_of_floats():
-                    if itemsize == 8: elem_type = self.cpu.llvm_float_type
-                    else: elem_type = self.cpu.llvm_single_float_type
-                else:
-                    elem_type = self.llvm.IntType(self.cpu.context, itemsize*8)
-            else:
-                elem_type = self.cpu.llvm_void_ptr
-            ret_type_llvm = self.llvm.PointerType(elem_type, 0)
+        itemsize_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, itemsize, 0)
+        basesize_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, basesize, 0)
+        cstring = CString("size")
+        size_1 = self.llvm.BuildMul(self.builder, itemsize_llvm, num_elem,
+                                    cstring.ptr)
+        size = self.llvm.BuildMul(self.builder, size_1, basesize_llvm,
+                                  cstring.ptr)
 
-        arg_types_llvm = [self.cpu.llvm_int_type] * 2
-        descr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                        compute_unique_id(array_descr), 0)
-        args = [num_elem, descr_int]
+        arg_types_llvm = [self.cpu.llvm_int_type]
+        args = [size]
+        ret_type_llvm = self.cpu.llvm_void_ptr
+        array = self.call_function(self.malloc_ptr, ret_type_llvm,
+                                   arg_types_llvm, args,
+                                   "new_array_res")
 
-        self.ssa_vars[op] = self.call_function(self.malloc_ptr, ret_type_llvm,
-                                               arg_types_llvm, args,
-                                               "new_array_res")
+        llvm_array = self.parse_array_descr_to_llvm(arraydescr, array)
+
+        if lendescr is not None:
+            offset = lendescr.offset
+            offset_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, offset, 0)
+            llvm_array.set_elem(num_elem, offset_llvm)
+
+        self.ssa_vars[op] = llvm_array.array
 
 
     def parse_newstr(self, op):
