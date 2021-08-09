@@ -2,6 +2,7 @@ import math
 import sys
 
 import py
+import pytest
 import weakref
 
 from rpython.rlib import rgc
@@ -73,7 +74,7 @@ class Frame:
         return self.stack[self.sp]
 
     @dont_look_inside
-    def cont_int(self, pc):
+    def const_int(self, pc):
         v = self.bytecode[pc]
         self.push(v)
 
@@ -173,6 +174,8 @@ class BasicTests:
         res = self.meta_interp(interp, [20, 2])
 
 
+    @pytest.mark.skip(reason="currently the case that red variables are"
+                      "number cannot work correctly")
     def test_minilang_num_1(self):
 
         @dont_look_inside
@@ -350,18 +353,17 @@ class BasicTests:
                 else:
                     return frame.pop()
 
-
-
-
         def interp(x):
-            # set_param(myjitdriver, 'threshold', 100)
             tstack = TStack(-100, None)
             pc = 0
-            bytecode = [NOP,
-                        DUP,
-                        JUMP_IF, 6,
-                        JUMP, 11,
-                        CONST, 1, SUB, JUMP, 1, EXIT]
+            bytecode = [ NOP,
+                         DUP,
+                         JUMP_IF, 6,
+                         JUMP, 11,
+                         CONST, 1,
+                         SUB,
+                         JUMP, 1,
+                         EXIT ]
 
             frame = Frame(bytecode)
             frame.push(x)
@@ -371,7 +373,7 @@ class BasicTests:
                 pc += 1
                 if op == CONST:
                     v = int(bytecode[pc])
-                    frame.cont_int(v)
+                    frame.const_int(v)
                     pc += 1
                 elif op == DUP:
                     frame.dup()
@@ -416,7 +418,7 @@ class BasicTests:
                         return frame.pop()
 
         interp.oopspec = 'jit.not_in_trace()'
-        res = self.meta_interp(interp, [10])
+        res = self.meta_interp(interp, [50])
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
