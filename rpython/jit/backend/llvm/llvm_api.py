@@ -745,6 +745,16 @@ class LLVMAPI:
                                         [self.TypeRef],
                                         self.Void,
                                         compilation_info=info)
+        self.FloatTrunc = rffi.llexternal("LLVMBuildFPTrunc",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.TypeRef, self.Str],
+                                          self.Str,
+                                          compilation_info=info)
+        self.FloatExt = rffi.llexternal("LLVMBuildFPExt",
+                                        [self.BuilderRef, self.ValueRef,
+                                         self.TypeRef, self.Str],
+                                        self.Str,
+                                        compilation_info=info)
 
 
 class CString:

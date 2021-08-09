@@ -636,8 +636,6 @@ class BaseBackendTest(Runner):
             assert abs(longlong.getrealfloat(res) - 7.5) < 0.0001
 
     def test_call_many_arguments(self):
-        import time
-        time.sleep(1000000)
         # Test calling a function with a large number of arguments (more than
         # 6, which will force passing some arguments on the stack on 64-bit)
 
@@ -2071,6 +2069,8 @@ class LLtypeBackendTest(BaseBackendTest):
         self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
                                                  InputArgInt(150)],
                                'void', descr=descr2)
+        # import pdb
+        # pdb.set_trace()
         self.execute_operation(rop.SETFIELD_GC, [InputArgRef(r1),
                                                  InputArgInt(190)],
                                'void', descr=descr1)
