@@ -80,7 +80,6 @@ class TestTokenizer(object):
             Token(tokens.ENDMARKER, '', 2, 0, ''),
         ]
 
-    @pytest.mark.xfail
     def test_type_comment_bug(self):
         lines = ['# type: int\n', '']
         pytokenizer.generate_tokens(lines, flags=consts.PyCF_TYPE_COMMENTS)
