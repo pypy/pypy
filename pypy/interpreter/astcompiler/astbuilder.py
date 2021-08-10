@@ -1117,6 +1117,7 @@ class ASTBuilder(object):
             n=binop_node
         )
         result = build(ast.BinOp, left, op, right, binop_node)
+        result.copy_location(binop_node.get_child(0), binop_node.get_child(2))
         number_of_ops = (binop_node.num_children() - 1) / 2
         for i in range(1, number_of_ops):
             op_node = binop_node.get_child(i * 2 + 1)

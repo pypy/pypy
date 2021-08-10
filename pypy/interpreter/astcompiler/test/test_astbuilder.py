@@ -1918,6 +1918,16 @@ class TestAstBuilder:
         assert tree.col_offset == 0
         assert tree.end_col_offset == len(s)
 
+        parent_binop = self.get_first_expr('4+5+6+7')
+        child_binop = parent_binop.left
+        grandchild_binop = child_binop.left
+        assert parent_binop.col_offset == 0
+        assert parent_binop.end_col_offset == 7
+        assert child_binop.col_offset == 0
+        assert child_binop.end_col_offset == 5
+        assert grandchild_binop.col_offset == 0
+        assert grandchild_binop.end_col_offset == 3
+
     def test_binop_paren_bug(self):
         s = "(    1 + 2)"
         tree = self.get_first_expr(s)
