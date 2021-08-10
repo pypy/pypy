@@ -1934,6 +1934,18 @@ class TestAstBuilder:
         assert tree.col_offset == 5
         assert tree.end_col_offset == len(s) - 1
 
+    def test_tuple_pos_bug(self):
+        s = "(a, bccccccccccccccccccccc)"
+        tree = self.get_first_expr(s)
+        assert tree.col_offset == 0
+        assert tree.end_col_offset == len(s)
+
+    def test_tuple_assign_pos_bug(self):
+        s = "(a, b) = c"
+        tree = self.get_ast(s)
+        assert tree.body[0].targets[0].col_offset == 0
+        assert tree.body[0].targets[0].end_col_offset == 6
+
     def test_dotted_name_bug(self):
         tree = self.get_ast('@a.b.c\ndef f(): pass')
         attr_b = tree.body[0].decorator_list[0].value

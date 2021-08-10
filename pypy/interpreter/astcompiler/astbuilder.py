@@ -950,12 +950,15 @@ class ASTBuilder(object):
         return [self.handle_expr(tests.get_child(i))
                 for i in range(0, tests.num_children(), 2)]
 
-    def handle_testlist(self, tests):
+    def handle_testlist(self, tests, atom_node=None):
         if tests.num_children() == 1:
             return self.handle_expr(tests.get_child(0))
         else:
             elts = self.get_expression_list(tests)
-            return build(ast.Tuple, elts, ast.Load, tests)
+            result = build(ast.Tuple, elts, ast.Load, tests)
+            if atom_node:
+                result.copy_location(atom_node)
+            return result
 
     def handle_expr(self, expr_node):
         # Loop until we return something.
@@ -1486,7 +1489,7 @@ class ASTBuilder(object):
                 gexp_node.get_child(1).type == syms.comp_for:
             result = self.handle_genexp(gexp_node)
             return result.copy_location(atom_node)
-        return self.handle_testlist(gexp_node)
+        return self.handle_testlist(gexp_node, atom_node)
 
     def count_comp_fors(self, comp_node):
         count = 0
