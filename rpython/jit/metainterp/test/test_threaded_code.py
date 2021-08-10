@@ -418,7 +418,7 @@ class BasicTests:
                         return frame.pop()
 
         interp.oopspec = 'jit.not_in_trace()'
-        res = self.meta_interp(interp, [50])
+        res = self.meta_interp(interp, [20])
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass

@@ -12,7 +12,7 @@ from rpython.jit.backend.llgraph import runner
 from rpython.jit.metainterp.jitprof import EmptyProfiler
 from rpython.jit.metainterp.optimize import InvalidLoop
 from rpython.jit.metainterp.history import (
-    JitCellToken, BasicFinalDescr, BasicFailDescr, ConstInt, INT, Stats, get_const_ptr_for_string)
+    JitCellToken, TargetToken, BasicFinalDescr, BasicFailDescr, ConstInt, INT, Stats, get_const_ptr_for_string)
 from rpython.jit.metainterp import compile, executor, pyjitpl, history
 from rpython.jit.metainterp.resoperation import (
     rop, ResOperation, InputArgInt, OpHelpers, InputArgRef)
@@ -163,13 +163,12 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
     metainterp.staticdata = metainterp_sd
     jitdriver_sd = FakeJitDriverSD()
 
-
-
     def optimize(self, ops, call_pure_results=None):
         loop = self.parse(ops)
-        token = JitCellToken()
+        jitcell_token = JitCellToken()
         if loop.operations[-1].getopnum() == rop.JUMP:
-            loop.operations[-1].setdescr(token)
+            loop.operations[-1].setdescr(jitcell_token)
+        token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
