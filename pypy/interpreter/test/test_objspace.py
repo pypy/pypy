@@ -381,6 +381,18 @@ class TestObjSpace:
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('g')))
         assert not space.isabstractmethod_w(space.getattr(w_B, space.wrap('h')))
 
+    def test_unicode_not_in_typed_unwrap_errors(self):
+        space = self.space
+        for meth in space.text_w, space.utf8_w, space.convert_to_w_unicode:
+            with raises(OperationError) as excinfo:
+                meth(space.newint(1))
+            exc = excinfo.value
+            exc.normalize_exception(space)
+            w_exc = exc.get_w_value(space)
+            assert space.text_w(space.str(excinfo.value.get_w_value(space))) == \
+                    'expected str, got int object'
+
+
 class TestModuleMinimal:
     def test_sys_exists(self):
         assert self.space.sys

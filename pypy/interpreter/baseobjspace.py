@@ -250,13 +250,13 @@ class W_Root(object):
         self._typed_unwrap_error(space, "bytes")
 
     def text_w(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def utf8_w(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def convert_to_w_unicode(self, space):
-        self._typed_unwrap_error(space, "unicode")
+        self._typed_unwrap_error(space, "str")
 
     def bytearray_list_of_chars_w(self, space):
         self._typed_unwrap_error(space, "bytearray")
@@ -1681,7 +1681,7 @@ class ObjSpace(object):
         """
         assert w_obj is not None
         if not self.isinstance_w(w_obj, self.w_unicode):
-            w_obj._typed_unwrap_error(self, "unicode")
+            w_obj._typed_unwrap_error(self, "str")
         return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
