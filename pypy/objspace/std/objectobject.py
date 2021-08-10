@@ -133,8 +133,10 @@ def descr__new__(space, w_type, __args__):
     if _excess_args(__args__):
         tp_new = space.lookup_in_type(w_type, '__new__')
         tp_init = space.lookup_in_type(w_type, '__init__')
-        if (space.is_w(tp_init, _object_init(space))
-                or not _same_static_method(space, tp_new, _object_new(space))):
+        if not _same_static_method(space, tp_new, _object_new(space)):
+            raise oefmt(space.w_TypeError,
+                    "object.__new__() takes exactly one argument (the type to instantiate)")
+        if space.is_w(tp_init, _object_init(space)):
             raise oefmt(space.w_TypeError,
                         "%s() takes no arguments", w_type.name)
     if w_type.is_abstract():

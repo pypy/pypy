@@ -409,6 +409,16 @@ class AppTestObject:
             A().__init__(1)
         assert "A.__init__() takes exactly one argument (the instance to initialize)" in str(excinfo.value)
 
+        class D:
+            def __new__(cls, *args, **kwargs):
+                super().__new__(cls, *args, **kwargs)
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+        with raises(TypeError) as excinfo:
+            D(3)
+        assert 'object.__new__() takes exactly one argument (the type to instantiate)' in str(excinfo.value)
+
+
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
     space = objspace.StdObjSpace()
