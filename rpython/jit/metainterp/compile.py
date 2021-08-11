@@ -1179,7 +1179,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         bridge.inputargs = bridge_info.inputargs
         bridge.operations = bridge_ops
         resumekey = bridge_info.fail_descr
-        assert isinstance(resumekey, ResumeGuardDescr)
+        assert isinstance(resumekey, AbstractResumeGuardDescr)
         resumekey.compile_and_attach(metainterp, bridge, inputargs)
 
     return body_token
