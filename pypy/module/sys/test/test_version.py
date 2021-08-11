@@ -15,8 +15,30 @@ class AppTestVersion:
 
     def test_sys_implementation(self):
         import sys
-        print(sys.implementation)
         assert 'pypy_version_info' in str(sys.implementation)
+
+    def test_implementation(self):
+        import sys
+        levels = {'alpha': 0xA, 'beta': 0xB, 'candidate': 0xC, 'final': 0xF}
+
+        assert hasattr(sys.implementation, 'name')
+        assert hasattr(sys.implementation, 'version')
+        assert hasattr(sys.implementation, 'hexversion')
+        assert hasattr(sys.implementation, 'cache_tag')
+
+        version = sys.implementation.version
+        assert version[:2] == (version.major, version.minor)
+
+        hexversion = (version.major << 24 | version.minor << 16 |
+                      version.micro << 8 | levels[version.releaselevel] << 4 |
+                      version.serial << 0)
+        assert sys.implementation.hexversion == hexversion
+
+        # PEP 421 requires that .name be lower case.
+        pypy = sys.implementation.name.lower()
+        assert sys.implementation.name == pypy
+
+
 
 def test_get_version():
     from pypy.module.sys import version
