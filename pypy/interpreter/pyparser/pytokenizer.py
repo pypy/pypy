@@ -283,7 +283,11 @@ def generate_tokens(lines, flags):
 
                         # Shift the indent token to the next line
                         # when it is followed by a type_comment.
-                        if switch_indents == 2:
+                        if (
+                            switch_indents == 2
+                            and len(token_list) >= 3
+                            and token_list[-3].token_type == tokens.INDENT
+                        ):
                             indent = token_list.pop(-3)
                             token_list.append(indent)
                         switch_indents = 0
