@@ -1017,7 +1017,7 @@ class TestPycStuff:
         with open(stdlib_opcode.__file__.rstrip("c"), "rb") as f:
             h.update(f.read())
         assert h.hexdigest() == 'e7480938678ad1eb61dfcc30ef6088059b8ad182'
-        assert default_magic == 0xa0d00f0
+        assert default_magic == 0xa0d0100
 
 
 
