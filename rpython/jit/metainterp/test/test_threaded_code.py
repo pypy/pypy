@@ -74,8 +74,7 @@ class Frame:
         return self.stack[self.sp]
 
     @dont_look_inside
-    def const_int(self, pc):
-        v = self.bytecode[pc]
+    def const_int(self, v):
         self.push(v)
 
     @dont_look_inside
@@ -103,9 +102,9 @@ class Frame:
         y = self.pop()
         x = self.pop()
         if x < y:
-            self.push(1)
-        else:
             self.push(0)
+        else:
+            self.push(1)
 
     @dont_look_inside
     def is_true(self):
@@ -312,24 +311,24 @@ class BasicTests:
         def emit_ret(x, y):
             return x
 
-        ADD = 0
-        SUB = 1
-        LT = 2
-        JUMP = 3
-        JUMP_IF = 4
-        EXIT = 5
-        DUP = 6
-        CONST = 7
+        ADD = 10
+        SUB = 11
+        LT = 12
+        JUMP = 13
+        JUMP_IF = 14
+        EXIT = 15
+        DUP = 16
+        CONST = 17
         NOP = -100
         inst_set = {
-            0: "ADD",
-            1: "SUB",
-            2: "LT",
-            3: "JUMP",
-            4: "JUMP_IF",
-            5: "EXIT",
-            6: "DUP",
-            7: "CONST",
+            10: "ADD",
+            11: "SUB",
+            12: "LT",
+            13: "JUMP",
+            14: "JUMP_IF",
+            15: "EXIT",
+            16: "DUP",
+            17: "CONST",
             -100: "NOP"
         }
         def opcode_to_string(pc, bytecode, tstack):
@@ -358,8 +357,10 @@ class BasicTests:
             pc = 0
             bytecode = [ NOP,
                          DUP,
-                         JUMP_IF, 6,
-                         JUMP, 11,
+                         CONST, 1,
+                         LT,
+                         JUMP_IF, 9,
+                         JUMP, 14,
                          CONST, 1,
                          SUB,
                          JUMP, 1,
@@ -381,6 +382,8 @@ class BasicTests:
                     frame.add()
                 elif op == SUB:
                     frame.sub()
+                elif op == LT:
+                    frame.lt()
                 elif op == JUMP:
                     t = int(bytecode[pc])
                     if we_are_jitted():
@@ -418,7 +421,7 @@ class BasicTests:
                         return frame.pop()
 
         interp.oopspec = 'jit.not_in_trace()'
-        res = self.meta_interp(interp, [20])
+        res = self.meta_interp(interp, [50])
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
