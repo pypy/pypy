@@ -74,6 +74,7 @@ class TraceSplitOpt(object):
 
         ops = self.remove_guards(ops)
         for op in ops:
+            opnum = op.getopnum()
             if op.is_guard():
                 if self._is_guard_marked(op, ops, mark.IS_TRUE):
                     descr = op.getdescr()
@@ -87,7 +88,7 @@ class TraceSplitOpt(object):
                     op.setfailargs(newfailargs)
 
                 current_ops.append(op)
-            elif rop.is_plain_call(op.getopnum()):
+            elif rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
                 name = self._get_name_from_arg(op.getarg(0))
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
@@ -242,9 +243,11 @@ class TraceSplitOpt(object):
         assert guard_op.is_guard()
         guard_args = guard_op.getarglist()
         for op in ops:
-            if rop.is_plain_call(op.getopnum()) and op in guard_args:
-                name = self._get_name_from_arg(op.getarg(0))
-                return name.find(mark) != -1
+            opnum = op.getopnum()
+            if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
+                if op in guard_args:
+                    name = self._get_name_from_arg(op.getarg(0))
+                    return name.find(mark) != -1
         return False
 
     def _has_marker(self, oplist, arg, marker):
