@@ -155,8 +155,10 @@ def descr__init__(space, w_obj, __args__):
         w_type = space.type(w_obj)
         tp_new = space.lookup_in_type(w_type, '__new__')
         tp_init = space.lookup_in_type(w_type, '__init__')
-        if (_same_static_method(space, tp_new, _object_new(space))
-                or not space.is_w(tp_init, _object_init(space))):
+        if not space.is_w(tp_init, _object_init(space)):
+            raise oefmt(space.w_TypeError,
+                        "object.__init__() takes exactly one argument (the instance to initialize)")
+        elif _same_static_method(space, tp_new, _object_new(space)):
             raise oefmt(space.w_TypeError,
                         "%T.__init__() takes exactly one argument (the instance to initialize)",
                         w_obj)

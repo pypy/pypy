@@ -418,6 +418,22 @@ class AppTestObject:
             D(3)
         assert 'object.__new__() takes exactly one argument (the type to instantiate)' in str(excinfo.value)
 
+        # Class that only overrides __init__
+        class E:
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+
+        error_msg = 'object.__init__() takes exactly one argument (the instance to initialize)'
+
+        with raises(TypeError) as excinfo:
+            E().__init__(42)
+        print(excinfo.value)
+        assert error_msg in str(excinfo.value)
+
+        with raises(TypeError) as excinfo:
+            object.__init__(E(), 42)
+        print(excinfo.value)
+        assert error_msg in str(excinfo.value)
 
 def test_isinstance_shortcut():
     from pypy.objspace.std import objspace
