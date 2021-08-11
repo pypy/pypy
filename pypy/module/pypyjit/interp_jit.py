@@ -22,17 +22,9 @@ from pypy.interpreter.gateway import interp2app
 from opcode import opmap
 
 
-PyFrame._virtualizable_ = ['last_instr', 'pycode',
-                           'valuestackdepth',
-                           'locals_cells_stack_w[*]',
-                           'debugdata',
-                           'lastblock',
-                           'w_globals',
-                           ]
-
 JUMP_ABSOLUTE = opmap['JUMP_ABSOLUTE']
 
-def get_printable_location(next_instr, is_being_profiled, bytecode):
+def get_printable_location(next_instr, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     from pypy.interpreter.pytraceback import offset2lineno
     bytecode_name = opcode_method_names[ord(bytecode.co_code[next_instr])]
@@ -41,13 +33,13 @@ def get_printable_location(next_instr, is_being_profiled, bytecode):
         bytecode.co_name, bytecode.co_filename, bytecode.co_firstlineno,
         lineno, next_instr, bytecode_name)
 
-def get_unique_id(next_instr, is_being_profiled, bytecode):
+def get_unique_id(next_instr, bytecode):
     from rpython.rlib import rvmprof
     return rvmprof.get_unique_id(bytecode)
 
 @jl.returns(jl.MP_FILENAME, jl.MP_LINENO,
             jl.MP_SCOPE, jl.MP_INDEX, jl.MP_OPCODE)
-def get_location(next_instr, is_being_profiled, bytecode):
+def get_location(next_instr, bytecode):
     from pypy.tool.stdlib_opcode import opcode_method_names
     from pypy.interpreter.pytraceback import offset2lineno
     bcindex = ord(bytecode.co_code[next_instr])
@@ -61,13 +53,12 @@ def get_location(next_instr, is_being_profiled, bytecode):
     return (bytecode.co_filename, line,
             name, intmask(next_instr), opname)
 
-def should_unroll_one_iteration(next_instr, is_being_profiled, bytecode):
+def should_unroll_one_iteration(next_instr, bytecode):
     return (bytecode.co_flags & (CO_COROUTINE | CO_GENERATOR)) != 0
 
 class PyPyJitDriver(JitDriver):
     reds = ['frame', 'ec']
-    greens = ['next_instr', 'is_being_profiled', 'pycode']
-    virtualizables = ['frame']
+    greens = ['next_instr', 'pycode']
 
 pypyjitdriver = PyPyJitDriver(get_printable_location = get_printable_location,
                               get_location = get_location,
@@ -82,19 +73,15 @@ class __extend__(PyFrame):
     def dispatch(self, pycode, next_instr, ec):
         self = hint(self, access_directly=True)
         next_instr = r_uint(next_instr)
-        is_being_profiled = self.get_is_being_profiled()
         try:
             while True:
                 pypyjitdriver.jit_merge_point(ec=ec,
                     frame=self, next_instr=next_instr, pycode=pycode,
-                    is_being_profiled=is_being_profiled)
+                    )
                 co_code = pycode.co_code
-                self.valuestackdepth = hint(self.valuestackdepth, promote=True)
                 next_instr = self.handle_bytecode(co_code, next_instr, ec)
-                is_being_profiled = self.get_is_being_profiled()
         except Yield:
             w_result = self.popvalue()
-            jit.hint(self, force_virtualizable=True)
             return w_result
         except Return:
             return self.popvalue()
@@ -114,7 +101,7 @@ class __extend__(PyFrame):
         #
         pypyjitdriver.can_enter_jit(frame=self, ec=ec, next_instr=jumpto,
                                  pycode=self.getcode(),
-                                 is_being_profiled=self.get_is_being_profiled())
+                                 )
         return jumpto
 
 def _get_adapted_tick_counter():
@@ -212,27 +199,27 @@ itself, you can directly set sys.settrace(g).
 )
 W_NotFromAssembler.typedef.acceptable_as_base_class = False
 
-@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, w_pycode=PyCode)
 @dont_look_inside
-def get_jitcell_at_key(space, next_instr, is_being_profiled, w_pycode):
+def get_jitcell_at_key(space, next_instr, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     return space.newbool(bool(jit_hooks.get_jitcell_at_key(
-       'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)))
+       'pypyjit', r_uint(next_instr), ll_pycode)))
 
-@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, w_pycode=PyCode)
 @dont_look_inside
-def dont_trace_here(space, next_instr, is_being_profiled, w_pycode):
+def dont_trace_here(space, next_instr, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.dont_trace_here(
-        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
+        'pypyjit', r_uint(next_instr), ll_pycode)
     return space.w_None
 
-@unwrap_spec(next_instr=int, is_being_profiled=int, w_pycode=PyCode)
+@unwrap_spec(next_instr=int, w_pycode=PyCode)
 @dont_look_inside
-def trace_next_iteration(space, next_instr, is_being_profiled, w_pycode):
+def trace_next_iteration(space, next_instr, w_pycode):
     ll_pycode = cast_instance_to_gcref(w_pycode)
     jit_hooks.trace_next_iteration(
-        'pypyjit', r_uint(next_instr), int(bool(is_being_profiled)), ll_pycode)
+        'pypyjit', r_uint(next_instr), ll_pycode)
     return space.w_None
 
 @unwrap_spec(hash=r_uint)

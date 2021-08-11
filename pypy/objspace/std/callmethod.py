@@ -22,6 +22,7 @@ from pypy.objspace.std.mapdict import LOOKUP_METHOD_mapdict, \
 # See pypy.objspace.std.objspace for where these functions are used from.
 
 
+@jit.dont_look_inside
 def LOOKUP_METHOD(f, nameindex, *ignored):
     from pypy.objspace.std.typeobject import MutableCell
     #   stack before                 after
@@ -82,7 +83,7 @@ def LOOKUP_METHOD(f, nameindex, *ignored):
     f.pushvalue(w_value)
     f.pushvalue_none()
 
-@jit.unroll_safe
+@jit.dont_look_inside
 def CALL_METHOD(f, oparg, *ignored):
     # opargs contains the arg, and kwarg count, excluding the implicit 'self'
     n_args = oparg
@@ -97,7 +98,7 @@ def CALL_METHOD(f, oparg, *ignored):
         f.dropvalues(n_args + 2)
     f.pushvalue(w_result)
 
-@jit.unroll_safe
+@jit.dont_look_inside
 def CALL_METHOD_KW(f, n_arguments, *ignored):
     from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     # opargs contains the arg + kwarg count, excluding the implicit 'self'

@@ -25,6 +25,7 @@ CANNOT_CATCH_MSG = ("catching classes that don't inherit from BaseException "
 
 @not_rpython
 def unaryoperation(operationname):
+    @jit.dont_look_inside
     def opimpl(self, *ignored):
         operation = getattr(self.space, operationname)
         w_1 = self.popvalue()
@@ -36,6 +37,7 @@ def unaryoperation(operationname):
 
 @not_rpython
 def binaryoperation(operationname):
+    @jit.dont_look_inside
     def opimpl(self, *ignored):
         operation = getattr(self.space, operationname)
         w_2 = self.popvalue()
@@ -480,12 +482,13 @@ class __extend__(pyframe.PyFrame):
     ##  See also nestedscope.py for the rest.
     ##
 
+    @jit.dont_look_inside
     def NOP(self, oparg, next_instr):
         # annotation-time check: if it fails, it means that the decoding
         # of oparg failed to produce an integer which is annotated as non-neg
         check_nonneg(oparg)
 
-    @always_inline
+    @jit.dont_look_inside
     def LOAD_FAST(self, varindex, next_instr):
         # access a local variable directly
         w_value = self.locals_cells_stack_w[varindex]
@@ -500,10 +503,12 @@ class __extend__(pyframe.PyFrame):
                     "local variable '%s' referenced before assignment",
                     varname)
 
+    @jit.dont_look_inside
     def LOAD_CONST(self, constindex, next_instr):
         w_const = self.getconstant_w(constindex)
         self.pushvalue(w_const)
 
+    @jit.dont_look_inside
     def STORE_FAST(self, varindex, next_instr):
         w_newvalue = self.popvalue()
         assert w_newvalue is not None
@@ -519,6 +524,7 @@ class __extend__(pyframe.PyFrame):
         # is the variable given by index a cell or a free var?
         return index < len(self.pycode.co_cellvars)
 
+    @jit.dont_look_inside
     def LOAD_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         cell = self._getcell(varindex)
@@ -529,6 +535,7 @@ class __extend__(pyframe.PyFrame):
         else:
             self.pushvalue(w_value)
 
+    @jit.dont_look_inside
     def LOAD_CLASSDEREF(self, varindex, next_instr):
         # like LOAD_DEREF but used in class bodies
         space = self.space
@@ -541,12 +548,14 @@ class __extend__(pyframe.PyFrame):
         else:
             self.pushvalue(w_value)
 
+    @jit.dont_look_inside
     def STORE_DEREF(self, varindex, next_instr):
         # nested scopes: access a variable through its cell object
         w_newvalue = self.popvalue()
         cell = self._getcell(varindex)
         cell.set(w_newvalue)
 
+    @jit.dont_look_inside
     def DELETE_DEREF(self, varindex, next_instr):
         cell = self._getcell(varindex)
         try:
@@ -567,20 +576,24 @@ class __extend__(pyframe.PyFrame):
                         "free variable '%s' referenced before assignment"
                         " in enclosing scope", varname)
 
+    @jit.dont_look_inside
     def LOAD_CLOSURE(self, varindex, next_instr):
         # nested scopes: access the cell object
         w_value = self._getcell(varindex)
         self.pushvalue(w_value)
 
+    @jit.dont_look_inside
     def POP_TOP(self, oparg, next_instr):
         self.popvalue()
 
+    @jit.dont_look_inside
     def ROT_TWO(self, oparg, next_instr):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
         self.pushvalue(w_1)
         self.pushvalue(w_2)
 
+    @jit.dont_look_inside
     def ROT_THREE(self, oparg, next_instr):
         w_1 = self.popvalue()
         w_2 = self.popvalue()
@@ -589,13 +602,16 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_3)
         self.pushvalue(w_2)
 
+    @jit.dont_look_inside
     def DUP_TOP(self, oparg, next_instr):
         w_1 = self.peekvalue()
         self.pushvalue(w_1)
 
+    @jit.dont_look_inside
     def DUP_TOP_TWO(self, oparg, next_instr):
         self.dupvalues(2)
 
+    @jit.dont_look_inside
     def DUP_TOPX(self, itemcount, next_instr):
         assert 1 <= itemcount <= 5, "limitation of the current interpreter"
         self.dupvalues(itemcount)
@@ -606,6 +622,7 @@ class __extend__(pyframe.PyFrame):
     UNARY_CONVERT  = unaryoperation("repr")
     UNARY_INVERT   = unaryoperation("invert")
 
+    @jit.dont_look_inside
     def BINARY_POWER(self, oparg, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
@@ -626,6 +643,7 @@ class __extend__(pyframe.PyFrame):
     BINARY_XOR = binaryoperation("xor")
     BINARY_OR  = binaryoperation("or_")
 
+    @jit.dont_look_inside
     def INPLACE_POWER(self, oparg, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
@@ -647,6 +665,7 @@ class __extend__(pyframe.PyFrame):
     INPLACE_XOR = binaryoperation("inplace_xor")
     INPLACE_OR  = binaryoperation("inplace_or")
 
+    @jit.dont_look_inside
     def STORE_SUBSCR(self, oparg, next_instr):
         "obj[subscr] = newvalue"
         w_subscr = self.popvalue()
@@ -654,16 +673,19 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         self.space.setitem(w_obj, w_subscr, w_newvalue)
 
+    @jit.dont_look_inside
     def DELETE_SUBSCR(self, oparg, next_instr):
         "del obj[subscr]"
         w_subscr = self.popvalue()
         w_obj = self.popvalue()
         self.space.delitem(w_obj, w_subscr)
 
+    @jit.dont_look_inside
     def PRINT_EXPR(self, oparg, next_instr):
         w_expr = self.popvalue()
         print_expr(self.space, w_expr)
 
+    @jit.dont_look_inside
     def PRINT_ITEM_TO(self, oparg, next_instr):
         w_stream = self.popvalue()
         w_item = self.popvalue()
@@ -671,6 +693,7 @@ class __extend__(pyframe.PyFrame):
             w_stream = sys_stdout(self.space)   # grumble grumble special cases
         print_item_to(self.space, self._printable_object(w_item), w_stream)
 
+    @jit.dont_look_inside
     def PRINT_ITEM(self, oparg, next_instr):
         w_item = self.popvalue()
         print_item(self.space, self._printable_object(w_item))
@@ -681,22 +704,27 @@ class __extend__(pyframe.PyFrame):
             w_obj = space.str(w_obj)
         return w_obj
 
+    @jit.dont_look_inside
     def PRINT_NEWLINE_TO(self, oparg, next_instr):
         w_stream = self.popvalue()
         if self.space.is_w(w_stream, self.space.w_None):
             w_stream = sys_stdout(self.space)   # grumble grumble special cases
         print_newline_to(self.space, w_stream)
 
+    @jit.dont_look_inside
     def PRINT_NEWLINE(self, oparg, next_instr):
         print_newline(self.space)
 
+    @jit.dont_look_inside
     def BREAK_LOOP(self, oparg, next_instr):
         return self.unrollstack_and_jump(SBreakLoop.singleton)
 
+    @jit.dont_look_inside
     def CONTINUE_LOOP(self, startofloop, next_instr):
         unroller = SContinueLoop(startofloop)
         return self.unrollstack_and_jump(unroller)
 
+    @jit.dont_look_inside
     def RAISE_VARARGS(self, nbargs, next_instr):
         space = self.space
         if nbargs > 2:
@@ -731,6 +759,7 @@ class __extend__(pyframe.PyFrame):
             operror.set_traceback(tb)
         raise operror
 
+    @jit.dont_look_inside
     def LOAD_LOCALS(self, oparg, next_instr):
         self.pushvalue(self.getorcreatedebug().w_locals)
 
@@ -756,11 +785,13 @@ class __extend__(pyframe.PyFrame):
 
         code.exec_code(space, w_globals, w_locals)
 
+    @jit.dont_look_inside
     def POP_EXCEPT(self, oparg, next_instr):
         block = self.pop_block()
         assert isinstance(block, SysExcInfoRestorer)
         block.cleanupstack(self)   # restores ec.sys_exc_operror
 
+    @jit.dont_look_inside
     def POP_BLOCK(self, oparg, next_instr):
         block = self.pop_block()
         block.pop_block(self)  # the block knows how to clean up the value stack
@@ -817,6 +848,7 @@ class __extend__(pyframe.PyFrame):
             block = block.previous
         return False
 
+    @jit.dont_look_inside
     def LOAD_BUILD_CLASS(self, oparg, next_instr):
         w_build_class = self.get_builtin().getdictvalue(
             self.space, '__build_class__')
@@ -824,12 +856,14 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(self.space.w_ImportError, "__build_class__ not found")
         self.pushvalue(w_build_class)
 
+    @jit.dont_look_inside
     def STORE_NAME(self, varindex, next_instr):
         varname = self.getname_u(varindex)
         w_newvalue = self.popvalue()
         self.space.setitem_str(self.getorcreatedebug().w_locals, varname,
                                w_newvalue)
 
+    @jit.dont_look_inside
     def DELETE_NAME(self, varindex, next_instr):
         w_varname = self.getname_w(varindex)
         try:
@@ -841,12 +875,13 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(self.space.w_NameError,
                         "name %R is not defined", w_varname)
 
+    @jit.dont_look_inside
     def UNPACK_SEQUENCE(self, itemcount, next_instr):
         w_iterable = self.popvalue()
         items = self.space.fixedview_unroll(w_iterable, itemcount)
         self.pushrevvalues(itemcount, items)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def UNPACK_EX(self, oparg, next_instr):
         "a, *b, c = range(10)"
         left = oparg & 0xFF
@@ -872,6 +907,7 @@ class __extend__(pyframe.PyFrame):
             self.pushvalue(items[i])
             i -= 1
 
+    @jit.dont_look_inside
     def STORE_ATTR(self, nameindex, next_instr):
         "obj.attributename = newvalue"
         w_attributename = self.getname_w(nameindex)
@@ -879,21 +915,25 @@ class __extend__(pyframe.PyFrame):
         w_newvalue = self.popvalue()
         self.space.setattr(w_obj, w_attributename, w_newvalue)
 
+    @jit.dont_look_inside
     def DELETE_ATTR(self, nameindex, next_instr):
         "del obj.attributename"
         w_attributename = self.getname_w(nameindex)
         w_obj = self.popvalue()
         self.space.delattr(w_obj, w_attributename)
 
+    @jit.dont_look_inside
     def STORE_GLOBAL(self, nameindex, next_instr):
         varname = self.getname_u(nameindex)
         w_newvalue = self.popvalue()
         self.space.setitem_str(self.get_w_globals(), varname, w_newvalue)
 
+    @jit.dont_look_inside
     def DELETE_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         self.space.delitem(self.get_w_globals(), w_varname)
 
+    @jit.dont_look_inside
     def LOAD_NAME(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         varname = self.space.text_w(w_varname)
@@ -925,7 +965,7 @@ class __extend__(pyframe.PyFrame):
         raise oefmt_name_error(self.space, w_varname,
                     "name %R is not defined")
 
-    @always_inline
+    @jit.dont_look_inside
     def LOAD_GLOBAL(self, nameindex, next_instr):
         w_varname = self.getname_w(nameindex)
         w_value = self._load_global(self.space.text_w(w_varname))
@@ -933,6 +973,7 @@ class __extend__(pyframe.PyFrame):
             self._load_global_failed(w_varname)
         self.pushvalue(w_value)
 
+    @jit.dont_look_inside
     def DELETE_FAST(self, varindex, next_instr):
         if self.locals_cells_stack_w[varindex] is None:
             varname = self.getlocalvarname(varindex)
@@ -941,22 +982,26 @@ class __extend__(pyframe.PyFrame):
                         varname)
         self.locals_cells_stack_w[varindex] = None
 
+    @jit.dont_look_inside
     def SETUP_ANNOTATIONS(self, oparg, next_instr):
         w_locals = self.getorcreatedebug().w_locals
         if not self.space.finditem_str(w_locals, '__annotations__'):
             w_annotations = self.space.newdict()
             self.space.setitem_str(w_locals, '__annotations__', w_annotations)
 
+    @jit.dont_look_inside
     def BUILD_TUPLE(self, itemcount, next_instr):
         items = self.popvalues(itemcount)
         w_tuple = self.space.newtuple(items)
         self.pushvalue(w_tuple)
 
+    @jit.dont_look_inside
     def BUILD_LIST(self, itemcount, next_instr):
         items = self.popvalues_mutable(itemcount)
         w_list = self.space.newlist(items)
         self.pushvalue(w_list)
 
+    @jit.dont_look_inside
     def BUILD_LIST_FROM_ARG(self, _, next_instr):
         space = self.space
         # this is a little dance, because list has to be before the
@@ -971,7 +1016,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(space.newlist([], sizehint=length_hint))
         self.pushvalue(last_val)
 
-    @always_inline
+    @jit.dont_look_inside
     def LOAD_ATTR(self, nameindex, next_instr):
         "obj.attributename"
         w_obj = self.popvalue()
@@ -994,6 +1039,7 @@ class __extend__(pyframe.PyFrame):
             raise oefmt(space.w_TypeError, CANNOT_CATCH_MSG)
         return space.newbool(space.exception_match(w_1, w_2))
 
+    @jit.dont_look_inside
     def COMPARE_OP(self, testnum, next_instr):
         w_2 = self.popvalue()
         w_1 = self.popvalue()
@@ -1023,6 +1069,7 @@ class __extend__(pyframe.PyFrame):
             raise BytecodeCorruption("bad COMPARE_OP oparg")
         self.pushvalue(w_result)
 
+    @jit.dont_look_inside
     def IMPORT_NAME(self, nameindex, next_instr):
         from pypy.module.imp.importing import import_name_fast_path
         space = self.space
@@ -1055,12 +1102,14 @@ class __extend__(pyframe.PyFrame):
 
         self.pushvalue(w_obj)
 
+    @jit.dont_look_inside
     def IMPORT_STAR(self, oparg, next_instr):
         w_module = self.popvalue()
         w_locals = self.getdictscope()
         import_all_from(self.space, w_module, w_locals)
         self.setdictscope(w_locals)
 
+    @jit.dont_look_inside
     def IMPORT_FROM(self, nameindex, next_instr):
         w_name = self.getname_w(nameindex)
         w_module = self.peekvalue()
@@ -1084,6 +1133,7 @@ class __extend__(pyframe.PyFrame):
                     space.w_ImportError, "cannot import name %R", w_name)
 
 
+    @jit.dont_look_inside
     def YIELD_VALUE(self, oparg, next_instr):
         if self.getcode().co_flags & pycode.CO_ASYNC_GENERATOR:
             from pypy.interpreter.generator import AsyncGenValueWrapper
@@ -1127,6 +1177,7 @@ class __extend__(pyframe.PyFrame):
             self.w_yielding_from = w_yf
             raise Yield
 
+    @jit.dont_look_inside
     def YIELD_FROM(self, oparg, next_instr):
         # Unlike CPython, we handle this not by repeating the same
         # bytecode over and over until the inner iterator is exhausted.
@@ -1154,22 +1205,26 @@ class __extend__(pyframe.PyFrame):
             self._revdb_jump_backward(jumpto)
         return jumpto
 
+    @jit.dont_look_inside
     def JUMP_FORWARD(self, jumpby, next_instr):
         next_instr += jumpby
         return next_instr
 
+    @jit.dont_look_inside
     def POP_JUMP_IF_FALSE(self, target, next_instr):
         w_value = self.popvalue()
         if not self.space.is_true(w_value):
             return target
         return next_instr
 
+    @jit.dont_look_inside
     def POP_JUMP_IF_TRUE(self, target, next_instr):
         w_value = self.popvalue()
         if self.space.is_true(w_value):
             return target
         return next_instr
 
+    @jit.dont_look_inside
     def JUMP_IF_FALSE_OR_POP(self, target, next_instr):
         w_value = self.peekvalue()
         if not self.space.is_true(w_value):
@@ -1177,6 +1232,7 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
+    @jit.dont_look_inside
     def JUMP_IF_TRUE_OR_POP(self, target, next_instr):
         w_value = self.peekvalue()
         if self.space.is_true(w_value):
@@ -1184,11 +1240,13 @@ class __extend__(pyframe.PyFrame):
         self.popvalue()
         return next_instr
 
+    @jit.dont_look_inside
     def GET_ITER(self, oparg, next_instr):
         w_iterable = self.popvalue()
         w_iterator = self.space.iter(w_iterable)
         self.pushvalue(w_iterator)
 
+    @jit.dont_look_inside
     def FOR_ITER(self, jumpby, next_instr):
         w_iterator = self.peekvalue()
         try:
@@ -1222,21 +1280,25 @@ class __extend__(pyframe.PyFrame):
                 operr.has_any_traceback()):
             self.space.getexecutioncontext().exception_trace(self, operr)
 
+    @jit.dont_look_inside
     def SETUP_LOOP(self, offsettoend, next_instr):
         block = LoopBlock(self.valuestackdepth,
                           next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
+    @jit.dont_look_inside
     def SETUP_EXCEPT(self, offsettoend, next_instr):
         block = ExceptBlock(self.valuestackdepth,
                             next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
+    @jit.dont_look_inside
     def SETUP_FINALLY(self, offsettoend, next_instr):
         block = FinallyBlock(self.valuestackdepth,
                              next_instr + offsettoend, self.lastblock)
         self.lastblock = block
 
+    @jit.dont_look_inside
     def SETUP_WITH(self, offsettoend, next_instr):
         w_manager = self.peekvalue()
         w_enter = self.space.lookup(w_manager, "__enter__")
@@ -1253,6 +1315,7 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
         self.pushvalue(w_result)
 
+    @jit.dont_look_inside
     def WITH_CLEANUP_START(self, oparg, next_instr):
         # see comment in END_FINALLY for stack state
         w_unroller = self.popvalue()
@@ -1276,6 +1339,7 @@ class __extend__(pyframe.PyFrame):
         self.pushvalue(w_res)
         # in the stack now:  [w_res, w_unroller-or-w_None..]
 
+    @jit.dont_look_inside
     def WITH_CLEANUP_FINISH(self, oparg, next_instr):
         w_suppress = self.popvalue()
         w_unroller = self.peekvalue()
@@ -1320,6 +1384,7 @@ class __extend__(pyframe.PyFrame):
             w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
 
+    @jit.dont_look_inside
     def CALL_FUNCTION(self, oparg, next_instr):
         # Only positional arguments
         nargs = oparg & 0xff
@@ -1330,7 +1395,7 @@ class __extend__(pyframe.PyFrame):
             self.dropvalues(nargs + 1)
         self.pushvalue(w_result)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def CALL_FUNCTION_KW(self, n_arguments, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         space = self.space
@@ -1357,6 +1422,7 @@ class __extend__(pyframe.PyFrame):
             w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
 
+    @jit.dont_look_inside
     def CALL_FUNCTION_EX(self, has_kwarg, next_instr):
         w_kwargs = None
         if has_kwarg:
@@ -1372,7 +1438,7 @@ class __extend__(pyframe.PyFrame):
             w_result = self.space.call_args(w_function, args)
         self.pushvalue(w_result)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def MAKE_FUNCTION(self, oparg, next_instr):
         space = self.space
         w_qualname = self.popvalue()
@@ -1409,6 +1475,7 @@ class __extend__(pyframe.PyFrame):
                                kw_defs_w, freevars, w_ann, qualname=qualname)
         self.pushvalue(fn)
 
+    @jit.dont_look_inside
     def BUILD_SLICE(self, numargs, next_instr):
         if numargs == 3:
             w_step = self.popvalue()
@@ -1421,22 +1488,26 @@ class __extend__(pyframe.PyFrame):
         w_slice = self.space.newslice(w_start, w_end, w_step)
         self.pushvalue(w_slice)
 
+    @jit.dont_look_inside
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
         v = self.peekvalue(oparg - 1)
         self.space.call_method(v, 'append', w)
 
+    @jit.dont_look_inside
     def SET_ADD(self, oparg, next_instr):
         w_value = self.popvalue()
         w_set = self.peekvalue(oparg - 1)
         self.space.call_method(w_set, 'add', w_value)
 
+    @jit.dont_look_inside
     def MAP_ADD(self, oparg, next_instr):
         w_key = self.popvalue()
         w_value = self.popvalue()
         w_dict = self.peekvalue(oparg - 1)
         self.space.setitem(w_dict, w_key, w_value)
 
+    @jit.dont_look_inside
     def SET_LINENO(self, lineno, next_instr):
         pass
 
@@ -1445,6 +1516,7 @@ class __extend__(pyframe.PyFrame):
     CALL_METHOD = CALL_FUNCTION
     CALL_METHOD_KW = CALL_FUNCTION_KW
 
+    @jit.dont_look_inside
     def MISSING_OPCODE(self, oparg, next_instr):
         ofs = self.last_instr
         c = self.pycode.co_code[ofs]
@@ -1452,7 +1524,7 @@ class __extend__(pyframe.PyFrame):
         raise BytecodeCorruption("unknown opcode, ofs=%d, code=%d, name=%s" %
                                  (ofs, ord(c), name) )
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_MAP(self, itemcount, next_instr):
         w_dict = self.space.newdict()
         for i in range(itemcount-1, -1, -1):
@@ -1462,7 +1534,7 @@ class __extend__(pyframe.PyFrame):
         self.dropvalues(2 * itemcount)
         self.pushvalue(w_dict)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_CONST_KEY_MAP(self, itemcount, next_instr):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
         # the reason why we don't use space.fixedview here is that then the
@@ -1477,7 +1549,7 @@ class __extend__(pyframe.PyFrame):
         self.dropvalues(itemcount)
         self.pushvalue(w_dict)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_SET(self, itemcount, next_instr):
         w_set = self.space.newset()
         for i in range(itemcount-1, -1, -1):
@@ -1486,7 +1558,7 @@ class __extend__(pyframe.PyFrame):
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_SET_UNPACK(self, itemcount, next_instr):
         space = self.space
         w_set = space.newset()
@@ -1496,7 +1568,7 @@ class __extend__(pyframe.PyFrame):
         self.dropvalues(itemcount)
         self.pushvalue(w_set)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_TUPLE_UNPACK(self, itemcount, next_instr):
         l = []
         for i in range(itemcount-1, -1, -1):
@@ -1505,7 +1577,7 @@ class __extend__(pyframe.PyFrame):
         self.popvalues(itemcount)
         self.pushvalue(self.space.newtuple(l[:]))
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_LIST_UNPACK(self, itemcount, next_instr):
         space = self.space
         w_sum = space.newlist([], sizehint=itemcount)
@@ -1515,9 +1587,11 @@ class __extend__(pyframe.PyFrame):
         self.popvalues(itemcount)
         self.pushvalue(w_sum)
 
+    @jit.dont_look_inside
     def BUILD_MAP_UNPACK(self, itemcount, next_instr):
         self._build_map_unpack(itemcount, with_call=False)
 
+    @jit.dont_look_inside
     def BUILD_MAP_UNPACK_WITH_CALL(self, oparg, next_instr):
         num_maps = oparg # XXX CPython generates better error messages
         self._build_map_unpack(num_maps, with_call=True)
@@ -1562,6 +1636,7 @@ class __extend__(pyframe.PyFrame):
                     w_key)
             space.call_method(w_set, 'update', w_item)
 
+    @jit.dont_look_inside
     def GET_YIELD_FROM_ITER(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         from pypy.interpreter.generator import GeneratorIterator, Coroutine
@@ -1578,6 +1653,7 @@ class __extend__(pyframe.PyFrame):
             w_iterator = self.space.iter(w_iterable)
             self.settopvalue(w_iterator)
 
+    @jit.dont_look_inside
     def GET_AWAITABLE(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
         from pypy.interpreter.generator import Coroutine
@@ -1591,6 +1667,7 @@ class __extend__(pyframe.PyFrame):
                             "coroutine is being awaited already")
         self.pushvalue(w_iter)
 
+    @jit.dont_look_inside
     def SETUP_ASYNC_WITH(self, offsettoend, next_instr):
         res = self.popvalue()
         block = FinallyBlock(self.valuestackdepth,
@@ -1598,6 +1675,7 @@ class __extend__(pyframe.PyFrame):
         self.lastblock = block
         self.pushvalue(res)
 
+    @jit.dont_look_inside
     def BEFORE_ASYNC_WITH(self, oparg, next_instr):
         space = self.space
         w_manager = self.peekvalue()
@@ -1612,6 +1690,7 @@ class __extend__(pyframe.PyFrame):
         w_result = space.get_and_call_function(w_enter, w_manager)
         self.pushvalue(w_result)
 
+    @jit.dont_look_inside
     def GET_AITER(self, oparg, next_instr):
         from pypy.interpreter.generator import AIterWrapper, get_awaitable_iter
 
@@ -1650,6 +1729,7 @@ class __extend__(pyframe.PyFrame):
                 space.w_DeprecationWarning)
         self.pushvalue(w_awaitable)
 
+    @jit.dont_look_inside
     def GET_ANEXT(self, oparg, next_instr):
         from pypy.interpreter.generator import get_awaitable_iter
 
@@ -1677,6 +1757,7 @@ class __extend__(pyframe.PyFrame):
             raise new_error
         self.pushvalue(w_awaitable)
 
+    @jit.dont_look_inside
     def FORMAT_VALUE(self, oparg, next_instr):
         from pypy.interpreter.astcompiler import consts
         space = self.space
@@ -1699,7 +1780,7 @@ class __extend__(pyframe.PyFrame):
         w_res = space.format(w_value, w_spec)
         self.pushvalue(w_res)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def BUILD_STRING(self, itemcount, next_instr):
         from rpython.rlib import rutf8
         space = self.space
@@ -1718,6 +1799,7 @@ class __extend__(pyframe.PyFrame):
         w_var = load_metavar(oparg)
         self.pushvalue(w_var)
 
+    @jit.dont_look_inside
     def LOAD_REVDB_VAR(self, oparg, next_instr):
         if self.space.reverse_debugging:
             self._revdb_load_var(oparg)

@@ -97,7 +97,6 @@ class PyFrame(W_Root):
         if not we_are_translated():
             assert type(self) == space.FrameClass, (
                 "use space.FrameClass(), not directly PyFrame()")
-        self = hint(self, access_directly=True, fresh_virtualizable=True)
         assert isinstance(code, pycode.PyCode)
         self.space = space
         self.pycode = code

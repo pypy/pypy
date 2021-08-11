@@ -2,6 +2,7 @@
 
 import operator
 
+from rpython.rlib import jit
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.tool.sourcetools import func_renamer
 
@@ -13,7 +14,8 @@ from pypy.objspace.std.listobject import W_ListObject
 
 class BaseFrame(PyFrame):
     """These opcodes are always overridden."""
-
+    
+    @jit.dont_look_inside
     def LIST_APPEND(self, oparg, next_instr):
         w = self.popvalue()
         v = self.peekvalue(oparg - 1)
@@ -34,6 +36,7 @@ def _intshortcut(spaceopname):
     int_op = getattr(W_IntObject, 'descr_' + opname)
 
     @func_renamer(funcprefix + spaceopname.upper())
+    @jit.dont_look_inside
     def opimpl(self, oparg, next_instr):
         space = self.space
         space_op = getattr(space, spaceopname)
@@ -60,6 +63,7 @@ int_BINARY_SUBTRACT = _intshortcut('sub')
 int_INPLACE_SUBTRACT = _intshortcut('inplace_sub')
 
 
+@jit.dont_look_inside
 def list_BINARY_SUBSCR(self, oparg, next_instr):
     space = self.space
     w_2 = self.popvalue()
