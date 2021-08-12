@@ -282,6 +282,10 @@ class AppTestSignal:
         assert signal.NSIG not in s
         assert len(s) < signal.NSIG
 
+    def test_strsignal(self):
+        import signal
+        assert signal.strsignal(signal.Signals.SIGSEGV) == "Segmentation fault"
+
 
 class AppTestSignalSocket:
     spaceconfig = dict(usemodules=['signal', '_socket'])

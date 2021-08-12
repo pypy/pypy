@@ -477,3 +477,16 @@ def raise_signal(space, signalnum):
     c_raise(signalnum)
 
 
+@unwrap_spec(signalnum=int)
+def strsignal(space, signalnum):
+    '''Return the system description of the given signal.
+    The return values can be such as "Interrupt", "Segmentation fault", etc.
+    Returns None if the signal is not recognized.'''
+    from rpython.rlib import rsignal
+    import pdb; pdb.set_trace()
+    res = rsignal.strsignal(signalnum)
+    if res is None:
+        return space.w_None
+    return space.newtext(res)
+
+

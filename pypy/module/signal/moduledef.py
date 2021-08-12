@@ -16,6 +16,7 @@ class Module(MixedModule):
         'ItimerError':         'interp_signal.get_itimer_error(space)',
         'valid_signals':       'interp_signal.valid_signals',
         'raise_signal':        'interp_signal.raise_signal',
+        'strsignal':           'interp_signal.strsignal',
     }
 
     if os.name == 'posix':
