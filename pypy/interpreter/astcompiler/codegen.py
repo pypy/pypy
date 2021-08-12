@@ -1799,10 +1799,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             )
         ):
             return None
-        elif type(sub) not in (
-            ast.Constant, ast.Set, ast.SetComp,
-            ast.GeneratorExp, ast.Lambda
-        ):
+        elif (type(sub) is not ast.Constant and type(sub) is not ast.Set and
+              type(sub) is not ast.SetComp and
+              type(sub) is not ast.GeneratorExp and
+              type(sub) is not ast.Lambda):
             return None
 
         misc.syntax_warning(
@@ -1834,13 +1834,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         ):
             return None
 
-        if type(sub) not in (
-            ast.Constant,
-            ast.Tuple,
-            ast.List,
-            ast.ListComp,
-            ast.JoinedStr,
-            ast.FormattedValue
+        if (
+            type(sub) is not ast.Constant and
+            type(sub) is not ast.Tuple and
+            type(sub) is not ast.List and
+            type(sub) is not ast.ListComp and
+            type(sub) is not ast.JoinedStr and
+            type(sub) is not ast.FormattedValue
         ):
             return None
 
