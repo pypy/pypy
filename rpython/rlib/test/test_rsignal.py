@@ -79,3 +79,5 @@ def test_raise():
     rsignal.pypysig_default(rsignal.SIGUSR1)
     check(-1)
 
+def test_strsignal():
+    assert rsignal.strsignal(rsignal.SIGSEGV) == "Segmentation fault"
