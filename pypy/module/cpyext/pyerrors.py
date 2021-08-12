@@ -64,9 +64,11 @@ def PyErr_SetNone(space, w_type):
     PyErr_SetObject(space, w_type, space.w_None)
 
 if os.name == 'nt':
-    @cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL)
+    # For some reason CPython returns a (PyObject*)NULL
+    @cpython_api([rffi.INT_real], PyObject, error=CANNOT_FAIL)
     def PyErr_SetFromWindowsErr(space, err):
         PyErr_SetObject(space, space.w_OSError, space.newint(err))
+        return rffi.cast(PyObject, 0)
 
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
