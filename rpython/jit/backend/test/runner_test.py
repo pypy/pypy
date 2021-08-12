@@ -147,9 +147,6 @@ class BaseBackendTest(Runner):
         A = lltype.Ptr(A)
         b_box, B = self.alloc_array_of(A, 3)
         arraydescr = self.cpu.arraydescrof(B)
-        import pdb
-        pdb.set_trace()
-        assert False
         # called = []
         # def func_int(*args):
         #     called.append(args)
@@ -470,7 +467,6 @@ class BaseBackendTest(Runner):
     def test_int_operations(self):
         from rpython.jit.metainterp.test.test_executor import get_int_tests
         for opnum, boxargs, retvalue in get_int_tests():
-            print opnum
             res = self.execute_operation(opnum, boxargs, 'int')
             assert res == retvalue
 
@@ -4800,6 +4796,7 @@ class LLtypeBackendTest(BaseBackendTest):
             deadframe = self.cpu.execute_token(looptoken,
                                                rffi.cast(lltype.Signed, p), 16)
             result = self.cpu.get_int_value(deadframe, 0)
+            print(result, value)
             assert result == rffi.cast(lltype.Signed, value)
             rawstorage.free_raw_storage(p)
 

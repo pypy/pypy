@@ -14,9 +14,10 @@ class LLVM_CPU(AbstractLLCPU):
                  translate_support_code=False, gcdescr=None, debug=True):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
+        self.supports_floats = True
+        self.supports_singlefloats = True
         self.tracker = CPUTotalTracker()
         self.debug = debug
-        self.supports_floats = True
         self.llvm = LLVMAPI()
         self.assembler = LLVMAssembler(self)
         self.thread_safe_context = self.llvm.CreateThreadSafeContext(None)
@@ -78,6 +79,10 @@ class LLVM_CPU(AbstractLLCPU):
         previous_value = self.debug
         self.debug = value
         return previous_value
+
+    def malloc_wrapper(self, size):
+        # llexternal functions don't play nice with LLMV
+        return self.gc_ll_descr.malloc_fn_ptr(size)
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='trace', logger=None, test_descr=None):

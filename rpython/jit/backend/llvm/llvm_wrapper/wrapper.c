@@ -132,6 +132,23 @@ void create_breakpoint(){
 	);
 }
 
+void add_function_attribute(LLVMValueRef func, char *attribute, unsigned strlen,
+							LLVMContextRef ctx){
+	unsigned val = LLVMGetEnumAttributeKindForName(attribute, strlen);
+	LLVMAttributeRef attr = LLVMCreateEnumAttribute(ctx, val, 0);
+	LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, attr);
+}
+
+void add_function_string_attribute(LLVMValueRef func, char *key, char *value,
+								   LLVMContextRef ctx){
+	unsigned key_len = (unsigned)strlen(key);
+	unsigned value_len = (unsigned)strlen(value);
+
+	LLVMAttributeRef attr = LLVMCreateStringAttribute(ctx, key, key_len, value,
+													  value_len);
+	LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, attr);
+}
+
 //below code uses LLVM 13
 /* uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){ */
 /* 	return 0; */

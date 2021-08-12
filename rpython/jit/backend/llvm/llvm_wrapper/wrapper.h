@@ -12,6 +12,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
+#include <string.h>
 
 LLVMBool InitializeNativeTarget(void);
 

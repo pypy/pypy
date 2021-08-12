@@ -755,6 +755,37 @@ class LLVMAPI:
                                          self.TypeRef, self.Str],
                                         self.Str,
                                         compilation_info=info)
+        self.add_function_attribute = rffi.llexternal("add_function_attribute",
+                                                      [self.ValueRef, self.Str,
+                                                       lltype.Unsigned,
+                                                       self.ContextRef],
+                                                      self.Void,
+                                                      compilation_info=info)
+        self.add_function_string_attribute = rffi.llexternal("add_function_string_attribute",
+                                                             [self.ValueRef, self.Str,
+                                                              self.Str, self.ContextRef],
+                                                             self.Void,
+                                                             compilation_info=info)
+        self.BuildFPToSI = rffi.llexternal("LLVMBuildFPToSI",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.TypeRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildFPToUI = rffi.llexternal("LLVMBuildFPToUI",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.TypeRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildSIToFP = rffi.llexternal("LLVMBuildSIToFP",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.TypeRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.BuildUIToFP = rffi.llexternal("LLVMBuildUIToFP",
+                                           [self.BuilderRef, self.ValueRef,
+                                            self.TypeRef, self.Str],
+                                           self.ValueRef,
+                                           compilation_info=info)
 
 
 class CString:

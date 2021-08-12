@@ -21,7 +21,7 @@ class LLVMAssembler(BaseAssembler):
         jit_builder = self.llvm.CreateLLJITBuilder(None)
         if self.debug and jit_builder._cast_to_int() == 0:
             raise Exception("JIT Builder is Null")
-        cpu_name = self.llvm.GetHostCPUName(None)
+        self.cpu_name = self.llvm.GetHostCPUName(None)
         self.cpu_features = self.llvm.GetHostCPUFeatures(None)
         self.triple = self.llvm.GetTargetTriple(None)
         target = self.llvm.GetTarget(self.triple)
@@ -31,7 +31,7 @@ class LLVMAssembler(BaseAssembler):
         reloc_mode = enums.reloc
         code_model = enums.codemodel
         target_machine = self.llvm.CreateTargetMachine(
-            target, self.triple, cpu_name, self.cpu_features,
+            target, self.triple, self.cpu_name, self.cpu_features,
             opt_level, reloc_mode, code_model
         )
         lltype.free(enums, flavor='raw')
@@ -82,6 +82,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString("trace")
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
+        # import pdb
+        # pdb.set_trace()
+        # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr

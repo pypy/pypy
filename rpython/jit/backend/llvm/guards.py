@@ -100,7 +100,6 @@ class BlockPerGuardImpl(GuardHandlerBase):
         descr = op.getdescr()
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
 
-
         self.llvm_failargs[descr] = [self.ssa_vars[arg]
                                      if arg is not None else None
                                      for arg in failargs]
