@@ -1329,10 +1329,12 @@ class ASTBuilder(object):
                     args.append(self.handle_genexp(argument))
                 else:
                     # a keyword argument
-                    keyword_expr = self.handle_expr(expr_node)
-                    if not isinstance(keyword_expr, ast.Name):
+                    tks = expr_node.flatten()
+                    if len(tks) != 1 or tks[0].type != tokens.NAME:
                         self.error('expression cannot contain assignment, '
                                    'perhaps you meant "=="?', expr_node)
+
+                    keyword_expr = self.handle_expr(expr_node)
                     keyword = keyword_expr.id
                     if keyword in used_keywords:
                         self.error("keyword argument repeated: '%s'" % keyword, expr_node)
