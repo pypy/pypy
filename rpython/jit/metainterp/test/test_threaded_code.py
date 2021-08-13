@@ -331,12 +331,12 @@ class BasicTests:
             17: "CONST",
             -100: "NOP"
         }
-        def opcode_to_string(pc, bytecode, tstack):
+        def opcode_to_string(pc, entry_state, bytecode, tstack):
             op = bytecode[pc]
             name = inst_set.get(op)
             return "%s: %s, tstack top: %s" % (pc, name, tstack.pc)
 
-        myjitdriver = JitDriver(greens=['pc', 'bytecode', 'tstack'], reds=['frame'],
+        myjitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['frame'],
                                 get_printable_location=opcode_to_string,
                                 threaded_code_gen=True)
 
@@ -355,6 +355,7 @@ class BasicTests:
         def interp(x):
             tstack = TStack(-100, None)
             pc = 0
+            entry_state = pc, tstack
             bytecode = [ NOP,
                          DUP,
                          CONST, 1,
@@ -369,7 +370,8 @@ class BasicTests:
             frame = Frame(bytecode)
             frame.push(x)
             while True:
-                myjitdriver.jit_merge_point(pc=pc, bytecode=bytecode, tstack=tstack, frame=frame)
+                myjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                            frame=frame)
                 op = bytecode[pc]
                 pc += 1
                 if op == CONST:
@@ -394,7 +396,9 @@ class BasicTests:
                             pc = emit_jump(pc, t, None)
                     else:
                         if t < pc:
-                            myjitdriver.can_enter_jit(pc=t, bytecode=bytecode, tstack=tstack, frame=frame)
+                            entry_state = t, tstack
+                            myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                      frame=frame)
                         pc = t
                 elif op == JUMP_IF:
                     t = int(bytecode[pc])
@@ -404,7 +408,9 @@ class BasicTests:
                             tstack = t_push(pc, tstack)
                         else:
                             if t < pc:
-                                myjitdriver.can_enter_jit(pc=t, bytecode=bytecode, tstack=tstack, frame=frame)
+                                entry_state = t, tstack
+                                myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                          frame=frame)
                         pc = t
                     else:
                         if we_are_jitted():
@@ -413,7 +419,10 @@ class BasicTests:
                 elif op == EXIT:
                     if we_are_jitted():
                         if t_is_empty(tstack):
-                            return frame.pop()
+                            pc = emit_ret(pc, None)
+                            pc, tstack = entry_state
+                            myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                      frame=frame)
                         else:
                             pc, tstack = tstack.t_pop()
                             pc = emit_ret(pc, None)
