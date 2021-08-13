@@ -881,8 +881,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         newcurblock = self.current_block
         self.current_block = start
-        if start is not None: # dead code
-            start.next_block = None
+        start.next_block = None
 
         if unwound_finally:
             # Pushes a placeholder for the value of "return" in the "try" block
@@ -903,8 +902,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.emit_op(ops.BEGIN_FINALLY)
         self.pop_frame_block(blocktype, body)
-        if self.current_block is not None: # dead code
-            self.current_block.next_block = end
+        self.current_block.next_block = end
         self.current_block = newcurblock
 
 

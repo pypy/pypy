@@ -188,6 +188,7 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.compile_info = compile_info
         self.first_block = self.new_block()
         self.current_block = self.first_block
+        self._is_dead_code = False
         self.names = {}
         self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
@@ -222,18 +223,14 @@ class PythonCodeMaker(ast.ASTVisitor):
         """Set this block as the next_block for the last and use it."""
         if block is None:
             block = self.new_block()
-        if self.current_block is not None: # otherwise we're in dead code
-            self.current_block.next_block = block
+        self.current_block.next_block = block
         self.use_block(block)
         return block
 
     def is_dead_code(self):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
-        # currently only True after a RETURN_VALUE.
-        if self.current_block is None:
-            return True
-        return self.current_block.have_return
+        return self._is_dead_code or self.current_block.have_return
 
     def all_dead_code(self):
         return DeadCode(self)
@@ -547,14 +544,13 @@ class PythonCodeMaker(ast.ASTVisitor):
 class DeadCode(object):
     def __init__(self, codegen):
         self.codegen = codegen
-        self.block = None
 
     def __enter__(self, *args):
-        self.block = self.codegen.current_block
-        self.codegen.current_block = None
+        self.old_value = self.codegen._is_dead_code
+        self.codegen._is_dead_code = True
 
     def __exit__(self, *args):
-        self.codegen.current_block = self.block
+        self.codegen._is_dead_code = self.old_value
 
 
 
