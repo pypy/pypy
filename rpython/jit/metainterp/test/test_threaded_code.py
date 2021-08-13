@@ -15,7 +15,7 @@ from rpython.rlib import rerased
 from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
     loop_invariant, elidable, promote, jit_debug, assert_green,
     AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_exact_class)
+    isconstant, isvirtual, set_param, record_exact_class, not_in_trace)
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
@@ -56,7 +56,6 @@ def t_push(pc, next):
     memoization[key] = result
     return result
 
-
 class Frame:
     def __init__(self, bytecode):
         self.stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
@@ -72,6 +71,15 @@ class Frame:
     def pop(self):
         self.sp -= 1
         return self.stack[self.sp]
+
+    @dont_look_inside
+    def duplicate(self):
+        return self.stack, self.sp
+
+    @not_in_trace
+    def restore(self, stack, sp):
+        self.stack = stack
+        self.sp = sp
 
     @dont_look_inside
     def const_int(self, v):
@@ -355,7 +363,6 @@ class BasicTests:
         def interp(x):
             tstack = TStack(-100, None)
             pc = 0
-            entry_state = pc, tstack
             bytecode = [ NOP,
                          DUP,
                          CONST, 1,
@@ -369,6 +376,7 @@ class BasicTests:
 
             frame = Frame(bytecode)
             frame.push(x)
+            entry_state = pc, tstack, (frame.duplicate())
             while True:
                 myjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                             frame=frame)
@@ -396,7 +404,7 @@ class BasicTests:
                             pc = emit_jump(pc, t, None)
                     else:
                         if t < pc:
-                            entry_state = t, tstack
+                            entry_state = t, tstack, frame.duplicate()
                             myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
                         pc = t
@@ -408,7 +416,7 @@ class BasicTests:
                             tstack = t_push(pc, tstack)
                         else:
                             if t < pc:
-                                entry_state = t, tstack
+                                entry_state = t, tstack, frame.duplicate()
                                 myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                           frame=frame)
                         pc = t
@@ -419,13 +427,19 @@ class BasicTests:
                 elif op == EXIT:
                     if we_are_jitted():
                         if t_is_empty(tstack):
-                            pc = emit_ret(pc, None)
-                            pc, tstack = entry_state
+                            v = frame.pop()
+                            pc = emit_ret(pc, v)
+                            pc, tstack, (stack, sp) = entry_state
+                            frame.restore(stack, sp)
                             myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
+                            # v = frame.pop()
+                            # pc, frame, tstack = entry_state
+                            # return v
                         else:
                             pc, tstack = tstack.t_pop()
-                            pc = emit_ret(pc, None)
+                            v = frame.pop()
+                            pc = emit_ret(pc, v)
                     else:
                         return frame.pop()
 
