@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem.rffi import constcharp2str
 
 class LLVMAssembler(BaseAssembler):
-    def __init__(self, cpu, optimise=False):
+    def __init__(self, cpu, optimise=True):
         self.cpu = cpu
         self.llvm = cpu.llvm
         self.debug = cpu.debug
@@ -48,7 +48,8 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and self.DyLib._cast_to_int() == 0:
             raise Exception("DyLib is Null")
 
-    def jit_compile(self, module, looptoken, inputargs, dispatcher, is_bridge=False):
+    def jit_compile(self, module, looptoken, inputargs, dispatcher,
+                    jitframe_depth, is_bridge=False):
         clt = CompiledLoopToken(self.cpu, looptoken.number)
         if is_bridge:
             clt.compiling_a_bridge()
@@ -58,7 +59,7 @@ class LLVMAssembler(BaseAssembler):
         locs = [self.cpu.WORD*i for i in range(len(inputargs))]
         clt._ll_initial_locs = locs
         frame_info = lltype.malloc(jitframe.JITFRAMEINFO, flavor='raw')
-        frame_info.jfi_frame_depth = len(inputargs)
+        frame_info.jfi_frame_depth = jitframe_depth
         frame_size = dispatcher.args_size + self.cpu.WORD
         + dispatcher.local_vars_size #args+ret addr+vars
         frame_info.jfi_frame_size = frame_size

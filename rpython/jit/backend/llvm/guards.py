@@ -1,9 +1,7 @@
 from rpython.rtyper.annlowlevel import cast_instance_to_gcref
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
-from rpython.rlib.objectmodel import compute_unique_id
 from rpython.jit.backend.llvm.llvm_api import CString
 from rpython.jit.backend.llsupport.jitframe import JITFRAMEPTR
-import ctypes
 
 class GuardHandlerBase:
     def __init__(self, dispatcher):
@@ -98,18 +96,25 @@ class BlockPerGuardImpl(GuardHandlerBase):
         bailout = self.bailouts[op]
         failargs = op.getfailargs()
         descr = op.getdescr()
+        self.dispatcher.jitframe_depth = max(
+            len(failargs), self.dispatcher.jitframe_depth
+        )
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
 
         self.llvm_failargs[descr] = [self.ssa_vars[arg]
                                      if arg is not None else None
                                      for arg in failargs]
+        zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
         uncast_failargs = [self.dispatcher.uncast(arg, llvm_arg)
+                           if arg is not None else zero
                            for arg, llvm_arg in
-                           zip(failargs, self.llvm_failargs[descr])
-                           if arg is not None]
-        descr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                        compute_unique_id(descr), 0)
-        self.dispatcher.exit_trace(uncast_failargs, descr_llvm)
+                           zip(failargs, self.llvm_failargs[descr])]
+        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = descr
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 0)
+        self.cpu.descr_token_cnt += 1
+
+        self.dispatcher.exit_trace(uncast_failargs, descr_token)
 
         self.set_guard_weights(branch)
 
@@ -194,6 +199,9 @@ class PhiNodeImpl(GuardHandlerBase):
         descr = op.getdescr()
         current_block = self.guard_blocks[descr]
         failargs = op.getfailargs()
+        self.dispatcher.jitframe_depth = max(
+            len(failargs), self.dispatcher.jitframe_depth
+        )
         self.llvm.PositionBuilderAtEnd(self.builder, self.bailout)
 
         num_failargs = len(failargs)
@@ -205,10 +213,11 @@ class PhiNodeImpl(GuardHandlerBase):
                 self.bailout_phis.append(phi)
             self.max_failargs = num_failargs
 
-        descr_addr = compute_unique_id(descr)
-        descr_addr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                             descr_addr, 1)
-        self.llvm.AddIncoming(self.bailout_phis[0], descr_addr_llvm, current_block)
+        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = descr
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 0)
+        self.cpu.descr_token_cnt += 1
+        self.llvm.AddIncoming(self.bailout_phis[0], descr_token, current_block)
 
         for i in range(1,num_failargs+1):
             arg = failargs[i-1]
@@ -326,8 +335,12 @@ class StackmapImpl(GuardHandlerBase):
     def finalise_guard(self, op, resume, cnd, branch):
         descr = op.getdescr()
         current_block = self.guard_blocks[descr]
+        failargs = op.getfailargs()
+        self.dispatcher.jitframe_depth = max(
+            len(failargs), self.dispatcher.jitframe_depth
+        )
 
-        for arg in op.getfailargs():
+        for arg in failargs:
             if arg is not None:
                 llvm_arg = self.ssa_vars[arg]
                 if llvm_arg not in self.failarg_order:
@@ -340,15 +353,17 @@ class StackmapImpl(GuardHandlerBase):
             else:
                 self.llvm_failargs[descr].append(None)
 
-        llvm_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                        compute_unique_id(descr), 0)
-        self.llvm.AddIncoming(self.descr_phi, llvm_descr, current_block)
+        self.cpu.descr_tokens[descr] = self.cpu.descr_token_cnt
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                        self.cpu.descr_token_cnt, 0)
+        self.cpu.descr_token_cnt += 1
+        self.llvm.AddIncoming(self.descr_phi, descr_token, current_block)
 
         self.guard_keys[descr] = (op, resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
-    def runtime_callback(self, descr_int_ptr, jitframe_ptr):
-        descr = ctypes.cast(descr_int_ptr, ctypes.py_object).value
+    def runtime_callback(self, descr_token, jitframe_ptr):
+        descr = self.cpu.descr_tokens[descr_token]
         jitframe = lltype.cast_opaque_ptr(JITFRAMEPTR, jitframe_ptr)
         llvm_failargs = self.llvm_failargs[descr]
         indices = [self.failarg_order[arg][0] for arg in llvm_failargs]
@@ -474,8 +489,12 @@ class RuntimeCallbackImpl(GuardHandlerBase):
     def finalise_guard(self, op, resume, cnd, branch):
         descr = op.getdescr()
         current_block = self.guard_blocks[descr]
+        failargs = op.getfailargs()
+        self.dispatcher.jitframe_depth = max(
+            len(failargs), self.dispatcher.jitframe_depth
+        )
 
-        for arg in op.getfailargs():
+        for arg in failargs:
             if arg is not None:
                 llvm_arg = self.ssa_vars[arg]._cast_to_adr()
                 if llvm_arg not in self.failarg_order:
@@ -489,17 +508,19 @@ class RuntimeCallbackImpl(GuardHandlerBase):
             else:
                 self.llvm_failargs[descr].append(None)
 
-        llvm_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                        compute_unique_id(descr), 0)
-        self.llvm.AddIncoming(self.descr_phi, llvm_descr, current_block)
+        self.cpu.descr_tokens[descr] = self.cpu.descr_token_cnt
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                        self.cpu.descr_token_cnt, 0)
+        self.cpu.descr_token_cnt += 1
+        self.llvm.AddIncoming(self.descr_phi, descr_token, current_block)
 
         self.set_guard_weights(branch)
 
         self.guard_keys[descr] = (op, resume, cnd, branch)
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
-    def runtime_callback(self, descr_int_ptr, jitframe_ptr, *failargs):
-        descr = ctypes.cast(descr_int_ptr, ctypes.py_object).value
+    def runtime_callback(self, descr_token, jitframe_ptr, *failargs):
+        descr = self.cpu.descr_tokens[descr_token]
         jitframe = lltype.cast_opaque_ptr(JITFRAMEPTR, jitframe_ptr)
 
         llvm_failargs = self.llvm_failargs[descr]
