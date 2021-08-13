@@ -652,9 +652,13 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         test_constant = if_.test.as_constant_truth(
             self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            with self.all_dead_code():
+                self.visit_sequence(if_.body)
             self.visit_sequence(if_.orelse)
         elif test_constant == optimize.CONST_TRUE:
             self.visit_sequence(if_.body)
+            with self.all_dead_code():
+                self.visit_sequence(if_.orelse)
         else:
             if if_.orelse:
                 otherwise = self.new_block()
@@ -750,6 +754,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.update_position(wh.lineno, True)
         test_constant = wh.test.as_constant_truth(self.space, self.compile_info)
         if test_constant == optimize.CONST_FALSE:
+            with self.all_dead_code():
+                self.visit_sequence(wh.body)
             self.visit_sequence(wh.orelse)
         else:
             end = self.new_block()
@@ -875,7 +881,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
 
         newcurblock = self.current_block
         self.current_block = start
-        start.next_block = None
+        if start is not None: # dead code
+            start.next_block = None
 
         if unwound_finally:
             # Pushes a placeholder for the value of "return" in the "try" block
@@ -896,7 +903,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.emit_op(ops.POP_BLOCK)
         self.emit_op(ops.BEGIN_FINALLY)
         self.pop_frame_block(blocktype, body)
-        self.current_block.next_block = end
+        if self.current_block is not None: # dead code
+            self.current_block.next_block = end
         self.current_block = newcurblock
 
 

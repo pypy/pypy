@@ -1934,6 +1934,31 @@ x = [lineno for addr, lineno in linestarts]
     """
         self.st(func, "x", [8, 9, 11, 12])
 
+    def test_error_in_dead_code(self):
+        self.error_test("if 0: break", SyntaxError)
+        self.error_test("while 0: continue", SyntaxError)
+
+class TestDeadCodeGetsRemoved(TestCompiler):
+    # check that there is no code emitted when putting all kinds of code into an "if 0:" block
+    def simple_test(self, source, evalexpr, expected):
+        from pypy.tool import dis3
+        c = py.code.Source(source)
+        source = "if 0:\n" + str(c.indent())
+
+        space = self.space
+        code = compile_with_astcompiler(source, 'exec', space)
+        dis3.dis(code)
+        assert len(code.co_code) == 4 # load None, return
+        assert len(code.co_consts_w) == 1
+
+    st = simple_test
+
+    def error_test(self, *args):
+        pass
+
+    test_fstring_encoding = test_fstring_encoding_r = test_kwonly = \
+        test_no_indent = test_many_args = test_var_annot_rhs = lambda self: None
+
 class TestCompilerRevDB(BaseTestCompiler):
     spaceconfig = {"translation.reverse_debugger": True}
 
@@ -2636,3 +2661,4 @@ class TestHugeStackDepths:
         source = "(lambda **args: args)(" + ", ".join(["s%s=None" % i for i in range(200)]) + ")\n"
         w_res = self.run_and_check_stacksize(source)
         assert self.space.unwrap(w_res) == dict.fromkeys(["s" + str(i) for i in range(200)])
+
