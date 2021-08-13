@@ -1937,6 +1937,7 @@ x = [lineno for addr, lineno in linestarts]
     def test_error_in_dead_code(self):
         self.error_test("if 0: break", SyntaxError)
         self.error_test("while 0: continue", SyntaxError)
+        self.error_test("if 0:\n if 0:\n  [x async for x in b]", SyntaxError)
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
