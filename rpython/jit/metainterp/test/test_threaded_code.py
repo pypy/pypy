@@ -73,15 +73,6 @@ class Frame:
         return self.stack[self.sp]
 
     @dont_look_inside
-    def duplicate(self):
-        return self.stack, self.sp
-
-    @not_in_trace
-    def restore(self, stack, sp):
-        self.stack = stack
-        self.sp = sp
-
-    @dont_look_inside
     def const_int(self, v):
         self.push(v)
 
@@ -360,6 +351,19 @@ class BasicTests:
                 else:
                     return frame.pop()
 
+        saved_stack = [0] * 10
+        saved_sp = 0
+
+        @not_in_trace
+        def save_state(frame):
+            saved_stack = frame.stack
+            saved_sp = frame.sp
+
+        @not_in_trace
+        def restore_state(frame):
+            frame.stack = saved_stack
+            frame.sp = saved_sp
+
         def interp(x):
             tstack = TStack(-100, None)
             pc = 0
@@ -376,7 +380,7 @@ class BasicTests:
 
             frame = Frame(bytecode)
             frame.push(x)
-            entry_state = pc, tstack, (frame.duplicate())
+            entry_state = pc, tstack
             while True:
                 myjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                             frame=frame)
@@ -404,7 +408,8 @@ class BasicTests:
                             pc = emit_jump(pc, t, None)
                     else:
                         if t < pc:
-                            entry_state = t, tstack, frame.duplicate()
+                            entry_state = t, tstack
+                            save_state(frame)
                             myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
                         pc = t
@@ -416,7 +421,8 @@ class BasicTests:
                             tstack = t_push(pc, tstack)
                         else:
                             if t < pc:
-                                entry_state = t, tstack, frame.duplicate()
+                                entry_state = t, tstack
+                                save_state(frame)
                                 myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                           frame=frame)
                         pc = t
@@ -429,8 +435,8 @@ class BasicTests:
                         if t_is_empty(tstack):
                             v = frame.pop()
                             pc = emit_ret(pc, v)
-                            pc, tstack, (stack, sp) = entry_state
-                            frame.restore(stack, sp)
+                            pc, tstack = entry_state
+                            restore_state(frame)
                             myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
                             # v = frame.pop()
