@@ -56,6 +56,7 @@ class LLVMAPI:
         self.ObjectLayerRef = self.VoidPtr
         self.MemoryManagerFactoryFunction = self.VoidPtr
         self.ObjectLinkingLayerCreatorFunction = self.VoidPtr
+        self.ResourceTrackerRef = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
         self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed), ('uno', lltype.Signed))
 
@@ -121,8 +122,8 @@ class LLVMAPI:
                                         self.ValueRef, compilation_info=info)
         self.VerifyModule = rffi.llexternal("VerifyModule",
                                             [self.ModuleRef],
-                                        self.Bool,
-                                        compilation_info=info)
+                                            self.Bool,
+                                            compilation_info=info)
         self.DisposeMessage = rffi.llexternal("LLVMDisposeMessage",
                                               [self.Str], self.Void,
                                               compilation_info=info)
@@ -214,9 +215,9 @@ class LLVMAPI:
                                            [self.LLJITRef,
                                             self.Str], self.JITTargetAddress,
                                            compilation_info=info)
-        self.LLJITAddModule = rffi.llexternal("LLVMOrcLLJITAddLLVMIRModule",
+        self.LLJITAddModule = rffi.llexternal("LLVMOrcLLJITAddLLVMIRModuleWithRT",
                                               [self.LLJITRef,
-                                               self.JITDylibRef,
+                                               self.ResourceTrackerRef,
                                                self.ThreadSafeModuleRef],
                                               self.ErrorRef,
                                               compilation_info=info)
@@ -861,6 +862,27 @@ class LLVMAPI:
         self.AddDCEPass = rffi.llexternal("LLVMAddDCEPass",
                                        [self.PassManagerRef],
                                        self.Void,
+                                       compilation_info=info)
+        self.PositionBuilder = rffi.llexternal("LLVMPositionBuilder",
+                                       [self.BuilderRef, self.BasicBlockRef,
+                                        self.ValueRef],
+                                       self.Void,
+                                       compilation_info=info)
+        self.GetNextInstruction = rffi.llexternal("LLVMGetNextInstruction",
+                                       [self.ValueRef],
+                                       self.ValueRef,
+                                       compilation_info=info)
+        self.CreateResourceTracker = rffi.llexternal("LLVMOrcJITDylibCreateResourceTracker",
+                                       [self.JITDylibRef],
+                                       self.ResourceTrackerRef,
+                                       compilation_info=info)
+        self.ReleaseResourceTracker = rffi.llexternal("LLVMOrcReleaseResourceTracker",
+                                       [self.ResourceTrackerRef],
+                                       self.Void,
+                                       compilation_info=info)
+        self.ResourceTrackerRemove = rffi.llexternal("LLVMOrcResourceTrackerRemove",
+                                       [self.ResourceTrackerRef],
+                                       self.ErrorRef,
                                        compilation_info=info)
 
 

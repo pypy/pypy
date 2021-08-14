@@ -11,6 +11,7 @@ class LLVMAssembler(BaseAssembler):
         self.llvm = cpu.llvm
         self.debug = cpu.debug
         self.optimise = optimise
+        self.resource_trackers = {} #map looptokens to resource trackers
         self.llvm.InitializeNativeTarget(None)
         self.llvm.InitializeNativeAsmPrinter(None)
         self.pass_manager = self.llvm.CreatePassManager(None)
@@ -54,6 +55,14 @@ class LLVMAssembler(BaseAssembler):
         if is_bridge:
             clt.compiling_a_bridge()
             self.cpu.tracker.total_compiled_loops -= 1 #hack to undo clt init function
+            # old_resource_tracker = self.resource_trackers[looptoken]
+            # failure = self.llvm.ResourceTrackerRemove(old_resource_tracker)
+            # if self.debug and failure._cast_to_int():
+            #     print(constcharp2str(self.llvm.GetErrorMessage(failure)))
+            #     raise Exception("Failed to remove old resource tracker")
+            # del self.resource_trackers[looptoken]
+        # resource_tracker = self.llvm.CreateResourceTracker(self.DyLib)
+        # self.resource_trackers[looptoken] = resource_tracker
         looptoken.compiled_loop_token = clt
         clt._debug_nbargs = dispatcher.args_size/self.cpu.WORD
         locs = [self.cpu.WORD*i for i in range(len(inputargs))]
@@ -75,7 +84,7 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and thread_safe_module._cast_to_int() == 0:
             raise Exception("TSM is Null")
         failure = self.llvm.LLJITAddModule(self.LLJIT,
-                                           self.DyLib,
+                                           resource_tracker,
                                            thread_safe_module) #looking up a symbol in a module added to the LLVM Orc JIT invokes JIT compilation of the whole module
         if self.debug and failure._cast_to_int():
             print(constcharp2str(self.llvm.GetErrorMessage(failure)))
@@ -83,9 +92,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString("trace")
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
-        import pdb
-        pdb.set_trace()
-        self.llvm.create_breakpoint()
+        # import pdb
+        # pdb.set_trace()
+        # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr

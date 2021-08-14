@@ -519,6 +519,10 @@ class LLVMOpDispatcher:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_overflow(op, resume, bailout)
 
+            elif op.opnum == 24:
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_not_forced(op, resume, bailout)
+
             elif op.opnum == 31:
                 self.parse_int_add(op)
 
@@ -732,22 +736,8 @@ class LLVMOpDispatcher:
             elif op.opnum == 163: #boehm inits to 0 by default
                 self.parse_new_array(op)
 
-            elif op.opnum == 164:
-                self.parse_newstr(op)
-
-            elif op.opnum == 165:
-                self.parse_newunicode(op)
-
-            elif op.opnum == 166:
+            elif op.opnum == 167:
                 self.parse_force_token(op)
-
-            #167 doesn't reach backend
-
-            elif op.opnum == 168:
-                self.parse_strhash(op)
-
-            elif op.opnum == 169:
-                self.parse_unicodehash(op)
 
             elif op.opnum == 176:
                 self.parse_setarrayitem_gc(op)
@@ -784,6 +774,30 @@ class LLVMOpDispatcher:
 
             elif op.opnum == 219:
                 self.parse_cond_call_value(op, "i")
+
+            elif op.opnum == 220:
+                self.parse_call_assembler(op, 'r')
+
+            elif op.opnum == 221:
+                self.parse_call_assembler(op, 'f')
+
+            elif op.opnum == 222:
+                self.parse_call_assembler(op, 'i')
+
+            elif op.opnum == 223:
+                self.parse_call_assembler(op, 'n')
+
+            elif op.opnum == 224:
+                self.parse_call_may_force(op, "r")
+
+            elif op.opnum == 225:
+                self.parse_call_may_force(op, "f")
+
+            elif op.opnum == 226:
+                self.parse_call_may_force(op, "i")
+
+            elif op.opnum == 227:
+                self.parse_call_may_force(op, "n")
 
             elif op.opnum == 246:
                 self.parse_int_ovf(op, '+')
@@ -1043,6 +1057,27 @@ class LLVMOpDispatcher:
         cstring = CString("overflow_flag")
         cnd = self.llvm.BuildLoad(self.builder, self.cpu.llvm_bool_type,
                                   self.overflow, cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
+
+    def parse_guard_not_forced(self, op, resume, bailout):
+        force_descr = op.getdescr()
+        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = force_descr
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 0)
+        current_block = self.llvm.GetInsertBlock(self.builder)
+
+        self.llvm.PositionBuilderBefore(self.builder, self.may_force_marker)
+        force_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 2)
+        self.jitframe.set_elem(force_token, 2)
+        self.cpu.descr_token_cnt += 1
+        self.llvm.PositionBuilderAtEnd(self.builder, current_block)
+
+        jf_descr = self.jitframe.get_elem(1) #reads out token
+        cstring = CString("guard_not_forced")
+        cnd = self.llvm.BuildICmp(self.builder, self.intne, jf_descr,
+                                  descr_token, cstring.ptr)
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
@@ -1957,7 +1992,12 @@ class LLVMOpDispatcher:
                     params[c] = self.llvm.BuildTrunc(self.builder, params[c],
                                                      llvm_type, cstring.ptr)
             elif typ == 'f': arg_types.append(self.cpu.llvm_float_type)
-            elif typ == 'r': arg_types.append(self.cpu.llvm_void_ptr)
+            elif typ == 'r':
+                cstring = CString("cast_ptr")
+                params[c] = self.llvm.BuildPointerCast(self.builder, params[c],
+                                                       self.cpu.llvm_void_ptr,
+                                                       cstring.ptr)
+                arg_types.append(self.cpu.llvm_void_ptr)
             elif typ == 'L': arg_types.append(self.cpu.llvm_float_type)
             elif typ == 'S': arg_types.append(self.cpu.llvm_single_float_type)
         return arg_types
@@ -2043,6 +2083,57 @@ class LLVMOpDispatcher:
         self.llvm.AddIncoming(phi, call_res, call_block)
         self.llvm.AddIncoming(phi, cnd, self.entry)
         self.ssa_vars[op] = phi
+
+    def parse_call_assembler(self, op, ret):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        looptoken = op.getdescr()
+        func_int_ptr = looptoken._ll_function_addr
+        func_int_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                          func_int_ptr, 0)
+        params = args
+        call_descr = looptoken.outermost_jitdriver_sd.portal_calldescr
+        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
+        elif ret == 'f': ret_type = self.cpu.llvm_float_type
+        elif ret == 'n': ret_type = self.cpu.llvm_void_type
+        elif ret == 'i': ret_type = self.llvm.IntType(self.cpu.context,
+                                                      self.cpu.WORD*call_descr.
+                                                      result_size)
+        arg_types = self.get_arg_types(call_descr, params)
+
+        if ret != 'n':
+            res = self.call_function(func_int_ptr, ret_type,
+                                                   arg_types, params,
+                                                   "call_res")
+            self.ssa_vars[op] = res
+        else:
+            res = self.call_function(func_int_ptr, ret_type,
+                               arg_types, params, "")
+
+        self.may_force_marker = res
+
+    def parse_call_may_force(self, op, ret):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        func_int_ptr = args[0]
+        params = args[1:]
+        call_descr = op.getdescr()
+        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
+        elif ret == 'f': ret_type = self.cpu.llvm_float_type
+        elif ret == 'n': ret_type = self.cpu.llvm_void_type
+        elif ret == 'i': ret_type = self.llvm.IntType(self.cpu.context,
+                                                      self.cpu.WORD*call_descr.
+                                                      result_size)
+        arg_types = self.get_arg_types(call_descr, params)
+
+        if ret != 'n':
+            res = self.call_function(func_int_ptr, ret_type,
+                                                   arg_types, params,
+                                                   "call_res")
+            self.ssa_vars[op] = res
+        else:
+            res = self.call_function(func_int_ptr, ret_type,
+                               arg_types, params, "")
+
+        self.may_force_marker = res
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]

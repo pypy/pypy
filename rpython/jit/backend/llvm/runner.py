@@ -22,7 +22,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.descr_tokens = {} #map descrs to token values that llvm uses
-        self.descr_token_cnt = 0
+        self.descr_token_cnt = 1 #start at 1 because memory is initailised to 0
         self.WORD = 8
         self.define_types()
 
@@ -42,7 +42,7 @@ class LLVM_CPU(AbstractLLCPU):
     def decl_jitframe(self, num_args):
         arg_array = self.llvm.ArrayType(self.llvm_int_type, num_args+1) #+1 for python metadata in element 0
         jitframe_subtypes = [self.llvm_void_ptr, self.llvm_int_type,
-                               self.llvm_void_ptr, self.llvm_void_ptr,
+                               self.llvm_int_type, self.llvm_void_ptr,
                                self.llvm_void_ptr, self.llvm_void_ptr,
                                self.llvm_void_ptr, arg_array]
         elem_array = rffi.CArray(self.llvm.TypeRef)
@@ -100,7 +100,9 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types[1] = self.llvm_void_ptr
         signature = self.llvm.FunctionType(jitframe_ptr, arg_types, 2, 0)
         lltype.free(arg_types, flavor='raw')
-        cstring = CString("trace")
+        # if name == 'trace':
+        #     name += str(self.tracker.total_compiled_loops)
+        cstring = CString(name)
         trace = self.llvm.AddFunction(module, cstring.ptr, signature)
         cstring = CString("entry")
         entry = self.llvm.AppendBasicBlock(self.context, trace,
@@ -118,7 +120,7 @@ class LLVM_CPU(AbstractLLCPU):
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher,
-                                   dispatcher.jitframe_depth)
+                                   dispatcher.jitframe_depth, name)
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
         self.assembler.refresh_jit()
