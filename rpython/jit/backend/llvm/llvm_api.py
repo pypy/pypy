@@ -57,7 +57,7 @@ class LLVMAPI:
         self.MemoryManagerFactoryFunction = self.VoidPtr
         self.ObjectLinkingLayerCreatorFunction = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
-        self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed))
+        self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed), ('uno', lltype.Signed))
 
     def initialise_api(self):
         header_files = ["Core","Target","Analysis","DataTypes",
@@ -786,6 +786,10 @@ class LLVMAPI:
                                             self.TypeRef, self.Str],
                                            self.ValueRef,
                                            compilation_info=info)
+        self.AddAggressiveInstCombinerPass = rffi.llexternal("LLVMAddAggressiveInstCombinerPass",
+                                                             [self.PassManagerRef],
+                                                             self.Void,
+                                                             compilation_info=info)
 
 
 class CString:

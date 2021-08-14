@@ -151,6 +151,7 @@ class LLVMOpDispatcher:
         self.reallt = enums.reallt
         self.realle = enums.realle
         self.realord = enums.realord
+        self.uno = enums.uno
         lltype.free(enums, flavor='raw')
 
     def get_array_elem_type(self, arraydescr, array_ptr, depth):
@@ -581,11 +582,11 @@ class LLVMOpDispatcher:
             elif op.opnum == 51:
                 self.parse_single_float_to_float(op)
 
-            elif op.opnum == 52: #float_to_longlong - int is already word len
-                self.parse_float_to_int(op)
+            elif op.opnum == 52:
+                self.parse_float_bytes_to_long(op)
 
             elif op.opnum == 53:
-                self.parse_int_to_float(op)
+                self.parse_long_bytes_to_float(op)
 
             elif op.opnum == 91:
                 self.parse_int_cmp(op, self.intslt)
@@ -797,8 +798,8 @@ class LLVMOpDispatcher:
                 raise Exception("Unimplemented opcode: "+str(op)+"\n Opnum: "+str(op.opnum))
 
         self.guard_handler.finalise_bailout()
-        # if self.cpu.debug:
-        #    self.llvm.DumpModule(self.module)
+        if self.cpu.debug:
+           self.llvm.DumpModule(self.module)
 
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
@@ -1070,17 +1071,13 @@ class LLVMOpDispatcher:
                                                cstring.ptr)
 
     def parse_uint_mul_high(self, op):
-        """
-        see jit/metainterp/optimizeopt/intdiv.py for a more readable version
-        of this, but note that it differs slightly as this version was changed
-        to match the output of clang at O3
-        """
+        # see jit/metainterp/optimizeopt/intdiv.py for a more readable version
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
         shift = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                   self.cpu.WORD/2, 0)
-        mask_tmp = (1 << self.cpu.WORD/2) - 1
+                                   self.cpu.WORD*4, 0)
+        mask_tmp = (1 << self.cpu.WORD*4) - 1
         mask = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                   mask_tmp, 0)
 
@@ -1094,38 +1091,43 @@ class LLVMOpDispatcher:
         b_low = self.llvm.BuildAnd(self.builder, rhs, mask, cstring.ptr)
 
         cstring = CString("res_low_low")
-        res_low_low = self.llvm.BuildNUWMul(self.builder, a_low, b_low,
-                                            cstring.ptr)
+        res_low_low = self.llvm.BuildMul(self.builder, a_low, b_low,
+                                         cstring.ptr)
         cstring = CString("res_low_high")
-        res_low_high = self.llvm.BuildNUWMul(self.builder, a_low, b_high,
-                                             cstring.ptr)
+        res_low_high = self.llvm.BuildMul(self.builder, a_low, b_high,
+                                          cstring.ptr)
         cstring = CString("res_high_low")
-        res_high_low = self.llvm.BuildNUWMul(self.builder, a_high, b_low,
+        res_high_low = self.llvm.BuildMul(self.builder, a_high, b_low,
                                           cstring.ptr)
         cstring = CString("res_high_high")
         res_high_high = self.llvm.BuildMul(self.builder, a_high, b_high,
                                            cstring.ptr)
 
         cstring = CString("res")
-        res_1 = self.llvm.BuildURShl(self.builder, res_low_low, shift,
+        res_1_tmp = self.llvm.BuildURShl(self.builder, res_low_low, shift,
                                      cstring.ptr)
-        res_2 = self.llvm.BuildAdd(self.builder, res_low_high, res_high_low,
+        res_1 = self.llvm.BuildAdd(self.builder, res_1_tmp, res_high_low,
                                    cstring.ptr)
-        res_3 = self.llvm.BuildAdd(self.builder, res_2, res_1, cstring.ptr)
+        res_2 = self.llvm.BuildAdd(self.builder, res_1, res_low_high,
+                                   cstring.ptr)
 
-        cstring = CString("cmp")
-        cnd = self.llvm.BuildICmp(self.builder, self.intugt, res_3, res_1,
-                                  cstring.ptr)
-        sixteen = self.llvm.ConstInt(self.cpu.llvm_int_type, 16, 0)
+        cstring = CString("borrow_cnd")
+        borrow_cnd = self.llvm.BuildICmp(self.builder, self.intult,
+                                         res_2, res_1, cstring.ptr)
+        one = self.llvm.ConstInt(self.cpu.llvm_int_type, 1, 0)
+        cstring = CString("shifted")
+        shifted = self.llvm.BuildLShl(self.builder, one, shift,
+                                      cstring.ptr)
+        zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 0)
         cstring = CString("borrow")
-        borrow = self.llvm.BuildSelect(self.builder, cnd, self.zero, sixteen,
-                                         cstring.ptr)
+        borrow = self.llvm.BuildSelect(self.builder, borrow_cnd,
+                                       shifted, zero, cstring.ptr)
+
         cstring = CString("res")
-        res_4 = self.llvm.BuildURShl(self.builder, res_3, shift, cstring.ptr)
-        res_5 = self.llvm.BuildAdd(self.builder, res_4, res_high_high, cstring.ptr)
-        cstring = CString("uint_mul_high_res")
-        self.ssa_vars[op] = self.llvm.BuildAdd(self.builder, res_5,
-                                                borrow, cstring.ptr)
+        res_3 = self.llvm.BuildURShl(self.builder, res_2, shift, cstring.ptr)
+        res_4 = self.llvm.BuildAdd(self.builder, res_3, borrow, cstring.ptr)
+        self.ssa_vars[op] = self.llvm.BuildAdd(self.builder, res_4,
+                                               res_high_high, cstring.ptr)
 
     def parse_int_and(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
@@ -1252,6 +1254,20 @@ class LLVMOpDispatcher:
                                                   float_to_unsigned,
                                                   cstring.ptr)
 
+    def parse_float_bytes_to_long(self, op):
+        arg = self.parse_args(op.getarglist())[0][0]
+        cstring = CString("float_bytes_to_long_res")
+        self.ssa_vars[op] = self.llvm.BuildBitCast(self.builder, arg,
+                                                   self.cpu.llvm_int_type,
+                                                   cstring.ptr)
+
+    def parse_long_bytes_to_float(self, op):
+        arg = self.parse_args(op.getarglist())[0][0]
+        cstring = CString("float_bytes_to_long_res")
+        self.ssa_vars[op] = self.llvm.BuildBitCast(self.builder, arg,
+                                                   self.cpu.llvm_float_type,
+                                                   cstring.ptr)
+
     def parse_int_to_float(self, op):
         arg = self.parse_args(op.getarglist())[0][0]
         cstring = CString("float_to_int_res")
@@ -1300,9 +1316,28 @@ class LLVMOpDispatcher:
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         lhs = args[0]
         rhs = args[1]
+
         cstring = CString("float_cmp_res")
-        self.ssa_vars[op] = self.llvm.BuildFCmp(self.builder, pred, lhs, rhs,
-                                                cstring.ptr)
+        cmp = self.llvm.BuildFCmp(self.builder, pred, lhs, rhs,
+                                  cstring.ptr)
+
+        if pred == self.realeq:
+            cstring = CString("is_nan")
+            is_nan = self.llvm.BuildFCmp(self.builder, self.uno, lhs, rhs,
+                                         cstring.ptr)
+            cstring = CString("float_cmp_res")
+            cmp = self.llvm.BuildSelect(self.builder, is_nan, self.false, cmp,
+                                        cstring.ptr)
+        elif pred == self.realne:
+            cstring = CString("is_nan")
+            is_nan = self.llvm.BuildFCmp(self.builder, self.uno, lhs, rhs,
+                                         cstring.ptr)
+            cstring = CString("float_cmp_res")
+            cmp = self.llvm.BuildSelect(self.builder, is_nan, self.true, cmp,
+                                        cstring.ptr)
+
+        self.ssa_vars[op] = cmp
+
 
     def parse_int_is_zero(self, op):
         arg = self.parse_args(op.getarglist())[0][0]

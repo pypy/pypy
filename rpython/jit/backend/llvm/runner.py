@@ -1,4 +1,3 @@
-from rpython.rtyper import annlowlevel
 from rpython.jit.backend.llsupport.llmodel import AbstractLLCPU, jitframe
 from rpython.jit.backend.model import CPUTotalTracker
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory

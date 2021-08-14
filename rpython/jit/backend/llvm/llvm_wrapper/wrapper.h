@@ -56,6 +56,7 @@ struct CmpEnums{
     int64_t reallt;
     int64_t realle;
     int64_t realord;
+    int64_t uno;
 };
 
 LLVMTypeRef getResultElementType(LLVMValueRef gep_instr);

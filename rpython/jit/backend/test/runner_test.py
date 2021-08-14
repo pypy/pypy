@@ -1677,6 +1677,7 @@ class BaseBackendTest(Runner):
                                             longlong.getfloatstorage(test2))
                                     deadframe = self.cpu.execute_token(
                                         looptoken, *args)
+                                    print(args, opguard, opname)
                                     fail = self.cpu.get_latest_descr(deadframe)
                                     #
                                     expected = compare(test1, test2)
@@ -2015,6 +2016,7 @@ class LLtypeBackendTest(BaseBackendTest):
         assert res == longlong2float.float2longlong(2.5)
 
         bytes = longlong2float.float2longlong(2.5)
+        print(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT)
         res = self.execute_operation(rop.CONVERT_LONGLONG_BYTES_TO_FLOAT,
                                      [boxlonglong(bytes)], 'float')
         assert longlong.getrealfloat(res) == 2.5

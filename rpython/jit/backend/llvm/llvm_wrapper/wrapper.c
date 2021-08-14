@@ -88,6 +88,7 @@ void SetCmpEnums(struct CmpEnums *enums){
 	enums->reallt = LLVMRealOLT;
 	enums->realle = LLVMRealOLE;
 	enums->realord = LLVMRealORD;
+	enums->uno = LLVMRealUNO;
 }
 
 LLVMTypeRef getResultElementType(LLVMValueRef gep_instr){
