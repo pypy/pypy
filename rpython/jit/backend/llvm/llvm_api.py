@@ -403,7 +403,7 @@ class LLVMAPI:
                                                    [self.PassManagerRef],
                                                    self.Void,
                                                    compilation_info=info)
-        self.AddGVNPass = rffi.llexternal("LLVMAddGVNPass",
+        self.AddGVNPass = rffi.llexternal("LLVMAddNewGVNPass",
                                            [self.PassManagerRef],
                                            self.Void,
                                            compilation_info=info)
@@ -790,6 +790,78 @@ class LLVMAPI:
                                                              [self.PassManagerRef],
                                                              self.Void,
                                                              compilation_info=info)
+        self.AddInstructionCombiningPass = rffi.llexternal("LLVMAddInstructionCombiningPass",
+                                                           [self.PassManagerRef],
+                                                           self.Void,
+                                                           compilation_info=info)
+        self.AddLoopVectorizePass = rffi.llexternal("LLVMAddLoopVectorizePass",
+                                                    [self.PassManagerRef],
+                                                    self.Void,
+                                                    compilation_info=info)
+        self.AddSLPVectorizePass = rffi.llexternal("LLVMAddSLPVectorizePass",
+                                                   [self.PassManagerRef],
+                                                   self.Void,
+                                                   compilation_info=info)
+        self.AddScalarizerPass = rffi.llexternal("LLVMAddScalarizerPass",
+                                                 [self.PassManagerRef],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.AddMergedLoadStoreMotionPass = rffi.llexternal("LLVMAddMergedLoadStoreMotionPass",
+                                                            [self.PassManagerRef],
+                                                            self.Void,
+                                                            compilation_info=info)
+        self.AddInstructionSimplifyPass = rffi.llexternal("LLVMAddInstructionSimplifyPass",
+                                                          [self.PassManagerRef],
+                                                          self.Void,
+                                                          compilation_info=info)
+        self.AddJumpThreadingPass = rffi.llexternal("LLVMAddJumpThreadingPass",
+                                                    [self.PassManagerRef],
+                                                    self.Void,
+                                                    compilation_info=info)
+        self.AddLICMPass = rffi.llexternal("LLVMAddLICMPass",
+                                           [self.PassManagerRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.AddLoopIdiomPass = rffi.llexternal("LLVMAddLoopIdiomPass",
+                                           [self.PassManagerRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.AddLoopUnswitchPass = rffi.llexternal("LLVMAddLoopUnswitchPass",
+                                                   [self.PassManagerRef],
+                                                   self.Void,
+                                                   compilation_info=info)
+        self.AddEarlyCSEPass = rffi.llexternal("LLVMAddEarlyCSEPass",
+                                               [self.PassManagerRef],
+                                               self.Void,
+                                               compilation_info=info)
+        self.AddSCCPPass = rffi.llexternal("LLVMAddSCCPPass",
+                                           [self.PassManagerRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.AddCorrelatedValuePropagationPass = rffi.llexternal("LLVMAddCorrelatedValuePropagationPass",
+                                                                 [self.PassManagerRef],
+                                                                 self.Void,
+                                                                 compilation_info=info)
+        self.AddTypeBasedAliasAnalysisPass = rffi.llexternal("LLVMAddTypeBasedAliasAnalysisPass",
+                                                             [self.PassManagerRef],
+                                                             self.Void,
+                                                             compilation_info=info)
+        self.AddScopedNoAliasAAPass = rffi.llexternal("LLVMAddScopedNoAliasAAPass",
+                                                      [self.PassManagerRef],
+                                                      self.Void,
+                                                      compilation_info=info)
+        self.AddBasicAliasAnalysisPass = rffi.llexternal("LLVMAddBasicAliasAnalysisPass",
+                                                         [self.PassManagerRef],
+                                                         self.Void,
+                                                         compilation_info=info)
+        self.AddUnifyFunctionExitNodesPass = rffi.llexternal("LLVMAddUnifyFunctionExitNodesPass",
+                                                             [self.PassManagerRef],
+                                                             self.Void,
+                                                             compilation_info=info)
+        self.AddDCEPass = rffi.llexternal("LLVMAddDCEPass",
+                                       [self.PassManagerRef],
+                                       self.Void,
+                                       compilation_info=info)
 
 
 class CString:

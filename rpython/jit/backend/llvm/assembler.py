@@ -83,9 +83,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString("trace")
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
-        # import pdb
-        # pdb.set_trace()
-        # self.llvm.create_breakpoint()
+        import pdb
+        pdb.set_trace()
+        self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr
@@ -95,9 +95,26 @@ class LLVMAssembler(BaseAssembler):
         self.initialise_jit()
 
     def add_opt_passes(self):
-        self.llvm.AddInstructionCombiningPass(self.pass_manager)
+        self.llvm.AddTypeBasedAliasAnalysisPass(self.pass_manager)
+        self.llvm.AddScopedNoAliasAAPass(self.pass_manager)
+        self.llvm.AddUnifyFunctionExitNodesPass(self.pass_manager)
+        self.llvm.AddCFGSimplificationPass(self.pass_manager)
         self.llvm.AddReassociatePass(self.pass_manager)
         self.llvm.AddGVNPass(self.pass_manager)
+        self.llvm.AddInstructionCombiningPass(self.pass_manager)
+        self.llvm.AddInstructionSimplifyPass(self.pass_manager)
+        self.llvm.AddCorrelatedValuePropagationPass(self.pass_manager)
+        self.llvm.AddMergedLoadStoreMotionPass(self.pass_manager)
+        self.llvm.AddSCCPPass(self.pass_manager)
+        self.llvm.AddDCEPass(self.pass_manager)
         self.llvm.AddScalarReplAggregatesPass(self.pass_manager)
         self.llvm.AddIndVarSimplifyPass(self.pass_manager)
+        self.llvm.AddLICMPass(self.pass_manager)
+        self.llvm.AddLoopUnswitchPass(self.pass_manager)
+        self.llvm.AddLICMPass(self.pass_manager)
+        self.llvm.AddLoopUnswitchPass(self.pass_manager)
         self.llvm.AddCFGSimplificationPass(self.pass_manager)
+        self.llvm.AddLoopIdiomPass(self.pass_manager)
+        self.llvm.AddAggressiveInstCombinerPass(self.pass_manager)
+        self.llvm.AddLoopVectorizePass(self.pass_manager)
+        self.llvm.AddSLPVectorizePass(self.pass_manager)
