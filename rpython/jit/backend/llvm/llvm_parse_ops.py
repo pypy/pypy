@@ -526,7 +526,7 @@ class LLVMOpDispatcher:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_overflow(op, resume, bailout)
 
-            elif op.opnum == 24:
+            elif op.opnum == 24 or op.opnum == 25:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_not_forced(op, resume, bailout)
 
