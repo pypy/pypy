@@ -12,6 +12,7 @@ class LLVM_CPU(AbstractLLCPU):
                  translate_support_code=False, gcdescr=None, debug=True):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
+        self.is_llvm = True
         self.supports_floats = True
         self.supports_singlefloats = True
         self.tracker = CPUTotalTracker()
@@ -22,6 +23,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.context = self.llvm.GetContext(self.thread_safe_context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.descr_tokens = {} #map descrs to token values that llvm uses
+        self.force_tokens = {}
         self.descr_token_cnt = 1 #start at 1 because memory is initailised to 0
         self.WORD = 8
         self.define_types()
@@ -79,6 +81,18 @@ class LLVM_CPU(AbstractLLCPU):
         previous_value = self.debug
         self.debug = value
         return previous_value
+
+    def force(self, force_token):
+        deadframe_addr = self.read_int_at_mem(force_token, 0, self.WORD, 0)
+        deadframe = rffi.cast(jitframe.JITFRAMEPTR, deadframe_addr)
+        force_descr = deadframe.jf_force_descr
+        force_descr_token = rffi.cast(lltype.Signed, force_descr)
+        num_failargs = self.force_tokens[force_descr_token]
+        for i in range(1, num_failargs+1):
+            failarg = self.read_int_at_mem(force_token, self.WORD*i,
+                                           self.WORD, 0)
+            self.set_int_value(deadframe, i-1, failarg)
+        deadframe.jf_descr = force_descr
 
     def malloc_wrapper(self, size):
         # llexternal functions don't play nice with LLMV

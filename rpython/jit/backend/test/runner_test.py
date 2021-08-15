@@ -156,14 +156,17 @@ class BaseBackendTest(Runner):
         # calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
         #                                  EffectInfo.MOST_GENERAL)
         # s = lltype.cast_opaque_ptr(lltype.Ptr(S), r1)
-        # looptoken = JitCellToken()
-        # loop = parse("""
-        # [r0, i0]
-        # setfield_gc(ConstPtr(r0), i0, descr=fielddescr)
-        # finish(i0, descr=finaldescr)
-        # """, namespace={"faildescr": BasicFailDescr(1), "sizedescr": sizedescr, "finaldescr": BasicFinalDescr(2),
-        #                "fielddescr": xdescr, "ptr": s})
-        # self.cpu.compile_loop([i0, r0], ops, looptoken)
+        looptoken = JitCellToken()
+        loop = parse("""
+        [i0, i1]
+        p1 = force_token()
+        guard_not_forced(descr=faildescr) [i0, i1]
+        i2 = int_add(i0, i1)
+        i3 = int_add(i0, i1)
+        finish(i0, descr=finaldescr)
+        """, namespace={"faildescr": BasicFailDescr(1), "finaldescr": BasicFinalDescr(2)})
+        self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
+        exit(1)
 
     def test_compile_linear_loop(self):
         loop = parse("""
@@ -2688,8 +2691,9 @@ class LLtypeBackendTest(BaseBackendTest):
         assert fail.identifier == 0
         frame = self.cpu.get_ref_value(deadframe, 0)
         # actually, we should get the same pointer in 'frame' and 'deadframe'
-        # but it is not the case on LLGraph
-        if not getattr(self.cpu, 'is_llgraph', False):
+        # but it is not the case on LLGraph or LLVM
+        if (not getattr(self.cpu, 'is_llgraph', False) and
+            not getattr(self.cpu, 'is_llvm', False)):
             assert frame == deadframe
         deadframe2 = self.cpu.force(frame)
         assert self.cpu.get_int_value(deadframe2, 0) == 30
@@ -2716,7 +2720,8 @@ class LLtypeBackendTest(BaseBackendTest):
         frame = self.cpu.get_ref_value(deadframe, 0)
         # actually, we should get the same pointer in 'frame' and 'deadframe'
         # but it is not the case on LLGraph
-        if not getattr(self.cpu, 'is_llgraph', False):
+        if (not getattr(self.cpu, 'is_llgraph', False) and
+            not getattr(self.cpu, 'is_llvm', False)):
             assert frame == deadframe
         deadframe2 = self.cpu.force(frame)
         x = self.cpu.get_float_value(deadframe2, 0)

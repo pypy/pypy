@@ -1,10 +1,11 @@
 from rpython.jit.metainterp.history import ConstInt
 from rpython.jit.metainterp.support import ptr2int
+from rpython.jit.metainterp.resoperation import rop
 from rpython.rlib.jit_libffi import types
 from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.jit.backend.llvm.guards import *
-from rpython.jit.backend.llsupport import gc
+from rpython.jit.backend.llsupport import gc, jitframe
 from rpython.jit.backend.llvm.llvm_api import CString
 
 class LLVMOpDispatcher:
@@ -119,8 +120,13 @@ class LLVMOpDispatcher:
                                             self.cpu.llvm_int_type,
                                             cstring.ptr)
             cstring = CString("result")
-            result = self.llvm.BuildSelect(self.builder, is_negative, sext_int,
-                                            zext_int, cstring.ptr)
+            if arg_type is self.cpu.llvm_bool_type:
+                result = self.llvm.BuildSelect(self.builder, is_negative, zext_int,
+                                               sext_int, cstring.ptr)
+            else:
+                result = self.llvm.BuildSelect(self.builder, is_negative, sext_int,
+                                               zext_int, cstring.ptr)
+
             self.llvm.BuildRet(self.builder, result)
 
             attributes = ["optnone", "noinline", "norecurse", "nounwind",
@@ -377,7 +383,6 @@ class LLVMOpDispatcher:
                 elif arg.type == 'r':
                     int_typ = self.cpu.llvm_int_type
                     const_val = arg.getvalue()._cast_to_int()
-                    #if const_val._cast_to_int() == 0: const_val = 0
                     int_val = self.llvm.ConstInt(int_typ, const_val, 0)
                     typ = self.cpu.llvm_void_ptr
                     cstring = CString("ptr_arg")
@@ -468,7 +473,9 @@ class LLVMOpDispatcher:
         else: #is bridge
             self.guard_handler.patch_guard(faildescr, inputargs)
 
-        for op in ops:
+        self.operations = ops
+
+        for c, op in enumerate(self.operations):
             if op.opnum == 1:
                 self.parse_jump(op)
 
@@ -737,7 +744,7 @@ class LLVMOpDispatcher:
                 self.parse_new_array(op)
 
             elif op.opnum == 167:
-                self.parse_force_token(op)
+                self.parse_force_token(op, c)
 
             elif op.opnum == 176:
                 self.parse_setarrayitem_gc(op)
@@ -1064,23 +1071,12 @@ class LLVMOpDispatcher:
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
     def parse_guard_not_forced(self, op, resume, bailout):
-        force_descr = op.getdescr()
-        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = force_descr
-        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                         self.cpu.descr_token_cnt, 0)
-        current_block = self.llvm.GetInsertBlock(self.builder)
-
-        self.llvm.PositionBuilderBefore(self.builder, self.may_force_marker)
-        force_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                         self.cpu.descr_token_cnt, 2)
-        self.jitframe.set_elem(force_token, 2)
-        self.cpu.descr_token_cnt += 1
-        self.llvm.PositionBuilderAtEnd(self.builder, current_block)
-
+        # assumes only one guard_not_force matches with each force_token
         jf_descr = self.jitframe.get_elem(1) #reads out token
         cstring = CString("guard_not_forced")
+        force_descr = self.jitframe.get_elem(2)
         cnd = self.llvm.BuildICmp(self.builder, self.intne, jf_descr,
-                                  descr_token, cstring.ptr)
+                                  force_descr, cstring.ptr)
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
@@ -1766,8 +1762,61 @@ class LLVMOpDispatcher:
     def parse_newunicode(self, op):
         pass
 
-    def parse_force_token(self, op):
-        self.ssa_vars[op] = self.jitframe.struct
+    def parse_force_token(self, op, c):
+        force_descr = None
+        failargs = None
+        for next_op in self.operations[c:]:
+            if (next_op.opnum == rop.GUARD_NOT_FORCED or
+                next_op.opnum == rop.GUARD_NOT_FORCED_2):
+                force_descr = next_op.getdescr()
+                failargs = next_op.getfailargs()
+                break
+        if not force_descr or not failargs:
+            raise Exception("Guard not force op not found")
+
+        num_failargs = len(failargs)
+        llvm_failargs = []
+        for c, arg in enumerate(failargs):
+            try:
+                value = self.uncast(arg, self.ssa_vars[arg])
+                llvm_failargs.append(value)
+            except KeyError: # is either hole or hasn't been computed yet
+                llvm_failargs.append(self.zero)
+
+        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = force_descr
+        force_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 0)
+        self.jitframe.set_elem(force_descr, 2)
+        self.cpu.force_tokens[self.cpu.descr_token_cnt] = num_failargs
+        self.cpu.descr_token_cnt += 1
+
+        size = self.cpu.WORD+(num_failargs*self.cpu.WORD)
+        size = self.llvm.ConstInt(self.cpu.llvm_int_type, size, 0)
+        args = self.rpython_array([size], self.llvm.ValueRef)
+        cstring = CString("ptr")
+        struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
+                                     cstring.ptr)
+
+        int_types = [self.cpu.llvm_int_type] * (num_failargs)
+        jitframe_ptr_type = self.llvm.PointerType(self.jitframe.struct_type, 0)
+        subtypes = [jitframe_ptr_type] + int_types
+        subtype_array = self.rpython_array(subtypes, self.llvm.TypeRef)
+        ForceTokenType = self.llvm.StructType(self.cpu.context,
+                                              subtype_array,
+                                              num_failargs+1, 0)
+        lltype.free(subtype_array, flavor='raw')
+        ptr_type = self.llvm.PointerType(ForceTokenType, 0)
+        cstring = CString("force_token")
+        struct = self.llvm.BuildPointerCast(self.builder, struct,
+                                            ptr_type, cstring.ptr)
+        force_token = LLVMStruct(self, subtypes, 1, struct = struct,
+                                 struct_type = ForceTokenType)
+
+        force_token.set_elem(self.jitframe.struct, 0)
+        for i in range(num_failargs):
+            force_token.set_elem(llvm_failargs[i], i+1)
+
+        self.ssa_vars[op] = force_token.struct
 
     def parse_strhash(self, op):
         pass
@@ -2100,13 +2149,14 @@ class LLVMOpDispatcher:
         self.llvm.AddIncoming(phi, cnd, self.entry)
         self.ssa_vars[op] = phi
 
+    # FIXME: won't work currently as backend's resource management can not
+    # hold two traces at once in memory
     def parse_call_assembler(self, op, ret):
-        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        params = [arg for arg, _ in self.parse_args(op.getarglist())]
         looptoken = op.getdescr()
         func_int_ptr = looptoken._ll_function_addr
         func_int_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                           func_int_ptr, 0)
-        params = args
         call_descr = looptoken.outermost_jitdriver_sd.portal_calldescr
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
         elif ret == 'f': ret_type = self.cpu.llvm_float_type
@@ -2124,8 +2174,6 @@ class LLVMOpDispatcher:
         else:
             res = self.call_function(func_int_ptr, ret_type,
                                arg_types, params, "")
-
-        self.may_force_marker = res
 
     def parse_call_may_force(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
@@ -2148,8 +2196,6 @@ class LLVMOpDispatcher:
         else:
             res = self.call_function(func_int_ptr, ret_type,
                                arg_types, params, "")
-
-        self.may_force_marker = res
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
