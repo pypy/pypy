@@ -215,7 +215,7 @@ def get_sys_executable():
 
 def print_help(*args):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     initstdio()
@@ -299,7 +299,7 @@ def fdopen(fd, mode, bufsize=-1):
 
 def setup_and_fix_paths(ignore_environment=False, **extra):
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()
@@ -321,7 +321,7 @@ def initstdio(encoding=None, unbuffered=False):
     if hasattr(sys, 'stdin'):
         return # already initialized
     if IS_WINDOWS:
-        pathsep = ';' 
+        pathsep = ';'
     else:
         pathsep = ':'
     getenv = get_getenv()
@@ -644,6 +644,20 @@ def run_command_line(interactive,
     if 'pypyjit' in sys.builtin_module_names:
         if 'jit-off' in sys._xoptions:
             set_jit_option(None, "off")
+
+    pycache_prefix = sys._xoptions.get('pycache_prefix', None)
+    if pycache_prefix is True:
+        # "-Xpycache_prefix"
+        pass
+    elif pycache_prefix is not None:
+        # "-Xpycache_prefix=" or "-Xpycache_prefix=something"
+        if pycache_prefix:
+            sys.pycache_prefix = pycache_prefix
+    elif readenv:
+        # only if no "-Xpycache_prefix at all"
+        pycache_prefix = getenv('PYTHONPYCACHEPREFIX')
+        if pycache_prefix:    
+            sys.pycache_prefix = pycache_prefix
 
     mainmodule = type(sys)('__main__')
     mainmodule.__loader__ = sys.__loader__
