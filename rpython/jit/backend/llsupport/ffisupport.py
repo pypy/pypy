@@ -21,7 +21,8 @@ def get_call_descr_dynamic(cpu, cif_description, extrainfo):
         result_size = intmask(ffi_result.c_size)
     argkinds = ''.join(argkinds)
     return CallDescr(argkinds, reskind, is_ffi_type_signed(ffi_result),
-                     result_size, extrainfo, ffi_flags=cif_description.abi)
+                     result_size, extrainfo, ffi_flags=cif_description.abi,
+                     ARGS=[int(arg.c_size) for arg in cif_description.atypes])
 
 def get_ffi_type_kind(cpu, ffi_type):
     from rpython.rlib.jit_libffi import types

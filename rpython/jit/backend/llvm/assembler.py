@@ -11,7 +11,7 @@ class LLVMAssembler(BaseAssembler):
         self.llvm = cpu.llvm
         self.debug = cpu.debug
         self.optimise = optimise
-        self.resource_trackers = {} #map looptokens to resource trackers
+        self.last_resource_tracker = None
         self.llvm.InitializeNativeTarget(None)
         self.llvm.InitializeNativeAsmPrinter(None)
         self.pass_manager = self.llvm.CreatePassManager(None)
@@ -51,19 +51,19 @@ class LLVMAssembler(BaseAssembler):
 
     def jit_compile(self, module, looptoken, inputargs, dispatcher,
                     jitframe_depth, is_bridge=False):
-        clt = CompiledLoopToken(self.cpu, looptoken.number)
+        if self.last_resource_tracker is not None:
+            failure = self.llvm.ResourceTrackerRemove(self.last_resource_tracker)
+            if self.debug and failure._cast_to_int():
+                print(constcharp2str(self.llvm.GetErrorMessage(failure)))
+                raise Exception("Failed to remove old resource tracker")
         if is_bridge:
+            clt = looptoken.compiled_loop_token
             clt.compiling_a_bridge()
-            self.cpu.tracker.total_compiled_loops -= 1 #hack to undo clt init function
-            # old_resource_tracker = self.resource_trackers[looptoken]
-            # failure = self.llvm.ResourceTrackerRemove(old_resource_tracker)
-            # if self.debug and failure._cast_to_int():
-            #     print(constcharp2str(self.llvm.GetErrorMessage(failure)))
-            #     raise Exception("Failed to remove old resource tracker")
-            # del self.resource_trackers[looptoken]
-        # resource_tracker = self.llvm.CreateResourceTracker(self.DyLib)
-        # self.resource_trackers[looptoken] = resource_tracker
-        looptoken.compiled_loop_token = clt
+        else:
+            clt = CompiledLoopToken(self.cpu, looptoken.number)
+            looptoken.compiled_loop_token = clt
+        resource_tracker = self.llvm.CreateResourceTracker(self.DyLib)
+        self.last_resource_tracker = resource_tracker
         clt._debug_nbargs = dispatcher.args_size/self.cpu.WORD
         locs = [self.cpu.WORD*i for i in range(len(inputargs))]
         clt._ll_initial_locs = locs
@@ -98,10 +98,6 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and addr == 0:
             raise Exception("trace Function is Null")
         looptoken._ll_function_addr = addr
-
-    def refresh_jit(self):
-        self.llvm.DisposeLLJIT(self.LLJIT)
-        self.initialise_jit()
 
     def add_opt_passes(self):
         self.llvm.AddTypeBasedAliasAnalysisPass(self.pass_manager)

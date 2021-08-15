@@ -34,7 +34,7 @@ class LLVM_CPU(AbstractLLCPU):
         self.llvm_wide_int = self.llvm.IntType(self.context, self.WORD*16) #for overflow checks
         self.llvm_float_type = self.llvm.FloatType(self.context) #DoubleTypeInContext
         self.llvm_single_float_type = self.llvm.SingleFloatType(self.context)
-        self.llvm_indx_type = self.llvm.IntType(self.context, self.WORD*4) #llvm only allows signed 32bit ints for indecies (for some reason)
+        self.llvm_indx_type = self.llvm.IntType(self.context, self.WORD*4) #llvm only allows signed 32bit ints for indecies (for some reason, and only sometimes)
         self.llvm_int_ptr = self.llvm.PointerType(self.llvm_int_type, 0)
         self.llvm_void_type = self.llvm.VoidType(self.context)
         self.llvm_void_ptr = self.llvm.PointerType(self.llvm.IntType(self.context, 8), 0) #llvm doesn't have void*, represents as i8*
@@ -85,13 +85,12 @@ class LLVM_CPU(AbstractLLCPU):
         return self.gc_ll_descr.malloc_fn_ptr(size)
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
-                     unique_id=0, log=True, name='trace', logger=None, test_descr=None):
-        self.assembler.refresh_jit()
-        cstring = CString(name)
+                     unique_id=0, log=True, name='trace', logger=None):
+        cstring = CString('hot_code')
         module = self.llvm.CreateModule(cstring.ptr, self.context)
         self.llvm.SetModuleDataLayout(module, self.assembler.data_layout)
         self.llvm.SetTarget(module, self.assembler.triple)
-        builder = self.llvm.CreateBuilder(self.context) #TODO: look at moving to init
+        builder = self.llvm.CreateBuilder(self.context)
         jitframe_type, jitframe_subtypes = self.decl_jitframe(len(inputargs))
         jitframe_ptr = self.llvm.PointerType(jitframe_type, 0)
         arg_array = rffi.CArray(self.llvm.TypeRef)
@@ -100,8 +99,6 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types[1] = self.llvm_void_ptr
         signature = self.llvm.FunctionType(jitframe_ptr, arg_types, 2, 0)
         lltype.free(arg_types, flavor='raw')
-        # if name == 'trace':
-        #     name += str(self.tracker.total_compiled_loops)
         cstring = CString(name)
         trace = self.llvm.AddFunction(module, cstring.ptr, signature)
         cstring = CString("entry")
@@ -120,10 +117,9 @@ class LLVM_CPU(AbstractLLCPU):
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher,
-                                   dispatcher.jitframe_depth, name)
+                                   dispatcher.jitframe_depth)
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
-        self.assembler.refresh_jit()
         dispatcher = self.dispatchers[looptoken]
         dispatcher.dispatch_ops(inputargs, operations, faildescr=faildescr)
         if self.debug:

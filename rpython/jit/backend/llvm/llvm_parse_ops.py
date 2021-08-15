@@ -119,8 +119,8 @@ class LLVMOpDispatcher:
                                             self.cpu.llvm_int_type,
                                             cstring.ptr)
             cstring = CString("result")
-            result = self.llvm.BuildSelect(self.builder, is_negative, zext_int,
-                                            sext_int, cstring.ptr)
+            result = self.llvm.BuildSelect(self.builder, is_negative, sext_int,
+                                            zext_int, cstring.ptr)
             self.llvm.BuildRet(self.builder, result)
 
             attributes = ["optnone", "noinline", "norecurse", "nounwind",
@@ -869,14 +869,17 @@ class LLVMOpDispatcher:
 
     def parse_guard_true(self, op, resume, bailout):
         cnd = self.ssa_vars[op.getarglist()[0]]
+        cstring = CString("cnd")
+        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
+                                     0, cstring.ptr)
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
     def parse_guard_false(self, op, resume, bailout):
         cnd = self.ssa_vars[op.getarglist()[0]]
         cstring = CString("cnd")
-        cnd = self.llvm.BuildTrunc(self.builder, cnd, self.cpu.llvm_bool_type,
-                                   cstring.ptr)
+        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
+                                     0, cstring.ptr)
         cstring = CString("cnd_flipped")
         cnd_flipped = self.llvm.BuildXor(self.builder, cnd, self.true,
                                          cstring.ptr)
@@ -1965,41 +1968,48 @@ class LLVMOpDispatcher:
 
         llvm_struct.set_elem(value, index)
 
-    # Won't work for dynamic call descr with int arg types
     def get_arg_types(self, call_descr, params):
         arg_types = []
         for c, typ in enumerate(call_descr.arg_classes):
             if typ == 'i':
                 arg_type = call_descr.arg_types[c]
-                if arg_type is lltype.Signed:
+                if type(arg_type) is int:
+                    int_type = self.llvm.IntType(self.cpu.context,
+                                                 arg_type*self.cpu.WORD)
+                    arg_types.append(int_type)
+                    cstring = CString("arg_cast")
+                    params[c] = self.llvm.BuildIntCast(self.builder, params[c],
+                                                       int_type, 1, cstring.ptr)
+                elif arg_type is lltype.Signed:
                     arg_types.append(self.cpu.llvm_int_type)
                 elif arg_type is rffi.INT:
                     llvm_type = self.cpu.llvm_indx_type #indx_type = 32bits
                     arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
+                    cstring = CString("arg_cast")
+                    params[c] = self.llvm.BuildIntCast(self.builder, params[c],
+                                                       llvm_type, 1, cstring.ptr)
                 elif arg_type is rffi.SHORT:
                     llvm_type = self.cpu.llvm_short_type
                     arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
+                    cstring = CString("arg_cast")
+                    params[c] = self.llvm.BuildIntCast(self.builder, params[c],
+                                                       llvm_type, 1, cstring.ptr)
                 elif arg_type is rffi.CHAR:
                     llvm_type = self.cpu.llvm_char_type
                     arg_types.append(llvm_type)
-                    cstring = CString("trunced_arg")
-                    params[c] = self.llvm.BuildTrunc(self.builder, params[c],
-                                                     llvm_type, cstring.ptr)
-            elif typ == 'f': arg_types.append(self.cpu.llvm_float_type)
+                    cstring = CString("arg_cast")
+                    params[c] = self.llvm.BuildIntCast(self.builder, params[c],
+                                                       llvm_type, 1, cstring.ptr)
+                else: raise Exception("Unknown int arg type")
+            elif typ == 'f' or typ == 'L': arg_types.append(self.cpu.llvm_float_type)
             elif typ == 'r':
                 cstring = CString("cast_ptr")
                 params[c] = self.llvm.BuildPointerCast(self.builder, params[c],
                                                        self.cpu.llvm_void_ptr,
                                                        cstring.ptr)
                 arg_types.append(self.cpu.llvm_void_ptr)
-            elif typ == 'L': arg_types.append(self.cpu.llvm_float_type)
             elif typ == 'S': arg_types.append(self.cpu.llvm_single_float_type)
+            else: raise Exception("Unknown arg type")
         return arg_types
 
 
@@ -2033,6 +2043,9 @@ class LLVMOpDispatcher:
         arg_types = self.get_arg_types(call_descr, params)
         ret_type = self.cpu.llvm_void_type
 
+        cstring = CString("cnd")
+        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
+                                     0, cstring.ptr)
         cstring = CString("cond_call_cmp")
         cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.zero,
                                   cstring.ptr)
@@ -2060,6 +2073,9 @@ class LLVMOpDispatcher:
         if ret == 'i': ret_type = self.cpu.llvm_int_type
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
 
+        cstring = CString("cnd")
+        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
+                                     0, cstring.ptr)
         cstring = CString("cmp")
         cmp = self.llvm.BuildIsNull(self.builder, cnd, cstring.ptr)
 
