@@ -2627,31 +2627,31 @@ class LLtypeBackendTest(BaseBackendTest):
         assert values == [1, 10]
         assert self.cpu.get_savedata_ref(deadframe) == random_gcref
 
-        def test_force_operations_returning_float(self):
-            if not self.cpu.supports_floats:
-                py.test.skip("requires floats")
-            values = []
-            def maybe_force(token, flag):
-                if flag:
-                    deadframe = self.cpu.force(token)
-                    values.append(self.cpu.get_int_value(deadframe, 0))
-                    values.append(self.cpu.get_int_value(deadframe, 2))
-                    self.cpu.set_savedata_ref(deadframe, random_gcref)
-                return 42.5
+    def test_force_operations_returning_float(self):
+        if not self.cpu.supports_floats:
+            py.test.skip("requires floats")
+        values = []
+        def maybe_force(token, flag):
+            if flag:
+                deadframe = self.cpu.force(token)
+                values.append(self.cpu.get_int_value(deadframe, 0))
+                values.append(self.cpu.get_int_value(deadframe, 2))
+                self.cpu.set_savedata_ref(deadframe, random_gcref)
+            return 42.5
 
-            FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
-            func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
-            funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
-            calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
-                                            EffectInfo.MOST_GENERAL)
-            cpu = self.cpu
-            faildescr = BasicFailDescr(1)
-            finaldescr = BasicFinalDescr(0)
-            loop = parse("""
-            [i0, i1]
-            p3 = force_token()
-            f2 = call_may_force_f(ConstClass(func_ptr), p3, i1, descr=calldescr)
-            guard_not_forced(descr=faildescr) [i1, f2, i0]
+        FUNC = self.FuncType([llmemory.GCREF, lltype.Signed], lltype.Float)
+        func_ptr = llhelper(lltype.Ptr(FUNC), maybe_force)
+        funcbox = self.get_funcbox(self.cpu, func_ptr).constbox()
+        calldescr = self.cpu.calldescrof(FUNC, FUNC.ARGS, FUNC.RESULT,
+                                        EffectInfo.MOST_GENERAL)
+        cpu = self.cpu
+        faildescr = BasicFailDescr(1)
+        finaldescr = BasicFinalDescr(0)
+        loop = parse("""
+        [i0, i1]
+        p3 = force_token()
+        f2 = call_may_force_f(ConstClass(func_ptr), p3, i1, descr=calldescr)
+        guard_not_forced(descr=faildescr) [i1, f2, i0]
         finish(f2, descr=finaldescr)
         """, namespace=locals())
         looptoken = JitCellToken()

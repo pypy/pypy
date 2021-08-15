@@ -85,14 +85,19 @@ class LLVM_CPU(AbstractLLCPU):
     def force(self, force_token):
         deadframe_addr = self.read_int_at_mem(force_token, 0, self.WORD, 0)
         deadframe = rffi.cast(jitframe.JITFRAMEPTR, deadframe_addr)
-        force_descr = deadframe.jf_force_descr
-        force_descr_token = rffi.cast(lltype.Signed, force_descr)
+        deadframe = deadframe.resolve()
+        force_descr_token = rffi.cast(lltype.Signed, deadframe.jf_force_descr)
         num_failargs = self.force_tokens[force_descr_token]
-        for i in range(1, num_failargs+1):
-            failarg = self.read_int_at_mem(force_token, self.WORD*i,
+        deadframe.jf_descr = rffi.cast(llmemory.GCREF, force_descr_token)
+        descr = self.gc_ll_descr.getframedescrs(self).arraydescr
+        ofs = self.unpack_arraydescr(descr)
+        for i in range(num_failargs):
+            failarg = self.read_int_at_mem(force_token, self.WORD*(i+1),
                                            self.WORD, 0)
-            self.set_int_value(deadframe, i-1, failarg)
-        deadframe.jf_descr = force_descr
+            self.write_int_at_mem(deadframe, ofs+(self.WORD*i), self.WORD,
+                                  failarg)
+
+        return deadframe
 
     def malloc_wrapper(self, size):
         # llexternal functions don't play nice with LLMV
