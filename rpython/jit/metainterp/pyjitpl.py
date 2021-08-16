@@ -2660,7 +2660,15 @@ class MetaInterp(object):
             # Found!  Compile it as a loop.
             # raises in case it works -- which is the common case
             self.history.trace.tracing_done()
-            if self.partial_trace:
+            if self.threaded_code_gen:
+                target_token = self.compile_threaded_code(
+                    original_boxes, live_arg_boxes, start)
+                self.raise_if_successful(live_arg_boxes, target_token)
+                self.cancel_count += 1
+                if self.cancelled_too_many_times():
+                    self.staticdata.log('cancelled too many times!')
+                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
+            elif self.partial_trace:
                 target_token = self.compile_retrace(
                     original_boxes, live_arg_boxes, start)
                 self.raise_if_successful(live_arg_boxes, target_token)
@@ -2844,6 +2852,20 @@ class MetaInterp(object):
         finally:
             self.history.cut(cut_at)  # pop the jump
         self.raise_if_successful(live_arg_boxes, target_token)
+
+    def compile_threaded_code(self, original_boxes, live_arg_boxes, start):
+        num_green_args = self.jitdriver_sd.num_green_args
+        greenkey = original_boxes[:num_green_args]
+        runtime_args = original_boxes[num_green_args:]
+        target_token = compile.compile_trace_and_split(
+            self, greenkey, self.resumekey, runtime_args)
+        if target_token is not None:
+            assert isinstance(target_token, TargetToken)
+            self.jitdriver_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+            self.staticdata.stats.add_jitcell_token(
+                target_token.targeting_jitcell_token)
+        return target_token
 
     def compile_done_with_this_frame(self, exitbox, live_arg_boxes=None, greenkey=None):
         self.store_token_in_vable()

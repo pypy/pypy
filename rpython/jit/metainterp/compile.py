@@ -1107,7 +1107,6 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     call_pure_results = metainterp.call_pure_results
     resumestorage = resumekey.get_resumestorage()
 
-    trace.tracing_done()
     metainterp_sd.jitlog.start_new_trace(metainterp_sd,
         faildescr=resumekey, entry_bridge=False,
         jd_name=jitdriver_sd.jitdriver.name)
