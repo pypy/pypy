@@ -910,6 +910,22 @@ class LLVMAPI:
                                                                  self.JITDylibRef],
                                                                 rffi.CHAR,
                                                                 compilation_info=info)
+        self.AddLoopRotatePass = rffi.llexternal("LLVMAddLoopRotatePass",
+                                                 [self.PassManagerRef],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.AddLoopSimplifyPass = rffi.llexternal("AddLoopSimplifyPass",
+                                                   [self.PassManagerRef],
+                                                   self.Void,
+                                                   compilation_info=info)
+        self.AddLoopStrengthReducePass = rffi.llexternal("AddLoopStrengthReducePass",
+                                                         [self.PassManagerRef],
+                                                         self.Void,
+                                                         compilation_info=info)
+        self.AddInferFunctionAttrsPass = rffi.llexternal("AddInferFunctionAttrsPass",
+                                                         [self.PassManagerRef],
+                                                         self.Void,
+                                                         compilation_info=info)
 
 
 

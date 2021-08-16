@@ -158,6 +158,18 @@ void AddDynamicLibrarySearchGenerator(LLVMOrcLLJITRef lljit, LLVMOrcJITDylibRef 
 	LLVMOrcJITDylibAddGenerator(dylib, definition_generator);
 }
 
+void AddLoopSimplifyPass(LLVMPassManagerRef pass_manager){
+	AddLoopSimplifyPass_wrapper(pass_manager);
+}
+
+void AddInferFunctionAttrsPass(LLVMPassManagerRef pass_manager){
+	AddInferFunctionAttrsPass_wrapper(pass_manager);
+}
+
+void AddLoopStrengthReducePass(LLVMPassManagerRef pass_manager){
+	AddLoopStrengthReducePass_wrapper(pass_manager);
+}
+
 //below code uses LLVM 13
 /* uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){ */
 /* 	return 0; */

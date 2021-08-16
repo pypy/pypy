@@ -5,6 +5,24 @@
 #include <llvm/IR/Module.h>
 #include <llvm/ADT/APInt.h>
 #include <llvm/Support/raw_ostream.h>
+#include "llvm/Transforms/Utils/LoopSimplify.h"
+#include <llvm/IR/PassManager.h>
+#include "llvm/Transforms/Scalar.h"
+#include "llvm-c/Initialization.h"
+#include "llvm-c/Transforms/Scalar.h"
+#include "llvm/Analysis/BasicAliasAnalysis.h"
+#include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/ScopedNoAliasAA.h"
+#include "llvm/Analysis/TypeBasedAliasAnalysis.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/LegacyPassManager.h"
+#include "llvm/IR/Verifier.h"
+#include "llvm/InitializePasses.h"
+#include "llvm/Transforms/Scalar/GVN.h"
+#include "llvm/Transforms/Scalar/Scalarizer.h"
+#include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
+#include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
+#include "llvm/Transforms/IPO/FunctionAttrs.h"
 #include <cstddef>
 #include <sys/types.h>
 #include <stdio.h>
@@ -63,6 +81,20 @@ extern "C"{
         PHINode *phi_node = cast<PHINode>(unwrap(phi));
         return wrap(phi_node->getIncomingValueForBlock(basic_block));
     }
+
+    void AddLoopSimplifyPass_wrapper(LLVMPassManagerRef pass_manager){
+        unwrap(pass_manager)->add(llvm::createLoopSimplifyCFGPass());
+    }
+
+    void AddLoopStrengthReducePass_wrapper(LLVMPassManagerRef pass_manager){
+        unwrap(pass_manager)->add(llvm::createLoopStrengthReducePass());
+    }
+
+    void AddInferFunctionAttrsPass_wrapper(LLVMPassManagerRef pass_manager){
+        unwrap(pass_manager)->add(llvm::createPostOrderFunctionAttrsLegacyPass());
+    }
+
+
 #ifdef __cplusplus
 }
 #endif

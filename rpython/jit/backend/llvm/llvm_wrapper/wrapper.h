@@ -77,6 +77,12 @@ void dumpBasicBlock(LLVMBasicBlockRef block);
 
 LLVMValueRef getIncomingValueForBlock(LLVMValueRef phi, LLVMBasicBlockRef block);
 
+void AddInferFunctionAttrsPass(LLVMPassManagerRef pass_manager);
+
+void AddLoopStrengthReducePass(LLVMPassManagerRef pass_manager);
+
+void AddLoopSimplifyPass(LLVMPassManagerRef pass_manager);
+
 struct Ctx{
 	uint8_t *stackmap;
 	unsigned section_count;

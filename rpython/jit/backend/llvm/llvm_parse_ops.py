@@ -1302,13 +1302,16 @@ class LLVMOpDispatcher:
         self.ssa_vars[op] = self.llvm.BuildURShl(self.builder, lhs, rhs,
                                                  cstring.ptr)
 
-    def parse_int_sext(self, op): #TODO: look into what pypy is passing, likely not a type
-        args = [arg for arg, _ in self.parse_args(op.getarglist())]
-        lhs = args[0]
-        rhs = args[1]
-        cstring = CString("int_sext_res")
-        self.ssa_vars[op] = self.llvm.BuildSExt(self.builder, lhs, rhs,
-                                                cstring.ptr)
+    def parse_int_sext(self, op):
+        # args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        # num = args[0]
+        # num_bytes = args[1]
+
+        # int_type = self.llvm.IntType(self.cpu.context, num_bytes*self.cpu.WORD)
+        # cstring = CString("int_sext_res")
+        # self.ssa_vars[op] = self.llvm.BuildSExt(self.builder, num, int_type,
+        #                                         cstring.ptr)
+        raise Exception("Unimplemented")
 
     def parse_float_add(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]

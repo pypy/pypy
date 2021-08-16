@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=$(shell llvm-config --cflags) $(shell llvm-config --ldflags) $(shell llvm-config --libs) -fPIC -shared -O3 -flto -L . -lcppwrapper 
+CFLAGS=$(shell llvm-config --cflags) $(shell llvm-config --ldflags) $(shell llvm-config --libs all) -fPIC -shared -O3 -flto -L . -lcppwrapper 
 
 IDIR=.
 _DEPS = wrapper.h 

@@ -21,6 +21,12 @@ extern "C"{
     void dumpBasicBlock_wrapper(LLVMBasicBlockRef block);
 
     LLVMValueRef getIncomingValueForBlock_wrapper(LLVMValueRef phi, LLVMBasicBlockRef block);
+
+    void AddInferFunctionAttrsPass_wrapper(LLVMPassManagerRef pass_manager);
+
+    void AddLoopSimplifyPass_wrapper(LLVMPassManagerRef pass_manager);
+
+    void AddLoopStrengthReducePass_wrapper(LLVMPassManagerRef pass_manager);
 #ifdef __cplusplus
 }
 #endif
