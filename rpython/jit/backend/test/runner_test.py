@@ -1199,7 +1199,7 @@ class BaseBackendTest(Runner):
         assert r == 5
         u_box = self.alloc_unicode(u"hello\u1234")
         r = self.execute_operation(rop.SAME_AS_R, [wrap_constant(u_box.getref_base())], 'ref')
-        assert r.getref_base() == u_box.getref_base()
+        assert r == u_box.getref_base()
         r = self.execute_operation(rop.SAME_AS_R, [u_box], 'ref')
         assert r == u_box.getref_base()
 
@@ -2158,18 +2158,13 @@ class LLtypeBackendTest(BaseBackendTest):
         looptoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
         deadframe = self.cpu.execute_token(looptoken, 1)
-        import pdb
-        pdb.set_trace()
         assert self.cpu.get_ref_value(deadframe, 0) == xptr
         excvalue = self.cpu.grab_exc_value(deadframe)
         assert not excvalue
         deadframe = self.cpu.execute_token(looptoken, 0)
         assert self.cpu.get_int_value(deadframe, 0) == 1
         excvalue = self.cpu.grab_exc_value(deadframe)
-        # this has to be wrong?
-        #assert not excvalue
-        # should be this
-        assert excvalue == xptr
+        assert not excvalue
 
         ytp = lltype.malloc(rclass.OBJECT_VTABLE, immortal=True)
         ytp.subclassrange_min = 2

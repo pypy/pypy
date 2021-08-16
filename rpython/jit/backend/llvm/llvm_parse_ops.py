@@ -488,6 +488,7 @@ class LLVMOpDispatcher:
         self.operations = ops
 
         for c, op in enumerate(self.operations):
+            print(op)
             if op.opnum == 1:
                 self.parse_jump(op)
 
@@ -527,8 +528,13 @@ class LLVMOpDispatcher:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_nonnull_class(op, resume, bailout)
 
+            elif op.opnum == 20:
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_no_guard_exception(op, resume, bailout)
+
             elif op.opnum == 21:
-                self.parse_guard_exception(op)
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_exception(op, resume, bailout)
 
             elif op.opnum == 22:
                 resume, bailout = self.guard_handler.setup_guard(op)
@@ -780,6 +786,9 @@ class LLVMOpDispatcher:
             elif op.opnum == 184:
                 self.parse_zero_array(op)
 
+            elif op.opnum == 193:
+                pass
+
             elif op.opnum == 213:
                 self.parse_call(op, 'r')
 
@@ -1023,62 +1032,96 @@ class LLVMOpDispatcher:
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_guard_exception(self, op):
-        # guard_exception has no descr so we have to work outside the handler
-        int_ptr = self.parse_args(op.getarglist())[0][0]
-        failargs = op.getfailargs()
-        cstring = CString("ptr")
-        ptr = self.llvm.BuildIntToPtr(self.builder, int_ptr,
-                                      self.cpu.llvm_void_ptr, cstring.ptr)
-        exception_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                           self.cpu.pos_exc_value(), 0)
-        cstring = CString("exception")
-        exception = self.llvm.BuildIntToPtr(self.builder, exception_int,
-                                            self.cpu.llvm_void_ptr, cstring.ptr)
-        cstring = CString("bailout")
-        bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                             cstring.ptr)
-        cstring = CString("resume")
-        resume = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                             cstring.ptr)
-
-        cstring = CString("vtable")
-        vtable = self.llvm.BuildLoad(self.builder, self.cpu.llvm_void_ptr,
-                                     ptr, cstring.ptr)
-        exception_vtable_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                                  self.cpu.pos_exception(), 0)
+    def parse_no_guard_exception(self, op, resume, bailout):
+        exception_vtable_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                       self.cpu.pos_exception(),
+                                                       0)
+        ptr_ptr_type = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
+        cstring = CString("exception_vtable_addr")
+        exception_vtable_addr = self.llvm.BuildIntToPtr(self.builder,
+                                                        exception_vtable_addr_int,
+                                                        ptr_ptr_type, cstring.ptr)
         cstring = CString("exception_vtable")
-        exception_vtable = self.llvm.BuildIntToPtr(self.builder,
-                                                   exception_vtable_int,
-                                                   self.cpu.llvm_void_ptr,
-                                                   cstring.ptr)
+        exception_vtable = self.llvm.BuildLoad(self.builder,
+                                               self.cpu.llvm_void_ptr,
+                                               exception_vtable_addr,
+                                               cstring.ptr)
+
+        exception_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                self.cpu.pos_exc_value(), 0)
+        cstring = CString("exception_addr")
+        exception_addr = self.llvm.BuildIntToPtr(self.builder, exception_addr_int,
+                                                 ptr_ptr_type, cstring.ptr)
+        cstring = CString("exception")
+        exception = self.llvm.BuildLoad(self.builder, self.cpu.llvm_void_ptr,
+                                        exception_addr, cstring.ptr)
+
+        cstring = CString("null_ptr")
+        null_ptr = self.llvm.BuildIntToPtr(self.builder, self.zero,
+                                           self.cpu.llvm_void_ptr,
+                                           cstring.ptr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_vtable_addr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_addr)
+
         cstring = CString("guard_exception")
-        ptr_diff = self.llvm.BuildPtrDiff(self.builder, vtable,
-                                          exception_vtable, cstring.ptr)
+        ptr_diff = self.llvm.BuildPtrDiff(self.builder, exception_vtable,
+                                          null_ptr, cstring.ptr)
         cstring = CString("cnd")
-        cnd = self.llvm.BuildICmp(self.builder, self.intne, ptr_diff,
+        cnd = self.llvm.BuildICmp(self.builder, self.inteq, ptr_diff,
                                   self.zero, cstring.ptr)
-        self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
 
         self.llvm.PositionBuilderAtEnd(self.builder, bailout)
-        self.jitframe_depth = max(
-            len(failargs), self.jitframe_depth
-        )
-        llvm_failargs = [self.ssa_vars[arg]
-                         if arg is not None else None
-                         for arg in failargs]
-        zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
-        uncast_failargs = [self.uncast(arg, llvm_arg)
-                           if arg is not None else zero
-                           for arg, llvm_arg in
-                           zip(failargs, llvm_failargs)]
-
         self.jitframe.set_elem(exception, 5)
-        for i in range(len(uncast_failargs)):
-            self.jitframe.set_elem(uncast_failargs[i], 7, i+1)
-        self.llvm.BuildRet(self.builder, self.jitframe.struct)
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+    def parse_guard_exception(self, op, resume, bailout):
+        vtable_int = self.parse_args(op.getarglist())[0][0]
+        cstring = CString("ptr")
+        vtable = self.llvm.BuildIntToPtr(self.builder, vtable_int,
+                                         self.cpu.llvm_void_ptr, cstring.ptr)
+        exception_vtable_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                       self.cpu.pos_exception(),
+                                                       0)
+        ptr_ptr_type = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
+        cstring = CString("exception_vtable_addr")
+        exception_vtable_addr = self.llvm.BuildIntToPtr(self.builder,
+                                                        exception_vtable_addr_int,
+                                                        ptr_ptr_type, cstring.ptr)
+        cstring = CString("exception_vtable")
+        exception_vtable = self.llvm.BuildLoad(self.builder,
+                                               self.cpu.llvm_void_ptr,
+                                               exception_vtable_addr,
+                                               cstring.ptr)
+
+        exception_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                self.cpu.pos_exc_value(), 0)
+        cstring = CString("exception_addr")
+        exception_addr = self.llvm.BuildIntToPtr(self.builder, exception_addr_int,
+                                                 ptr_ptr_type, cstring.ptr)
+        cstring = CString("exception")
+        exception = self.llvm.BuildLoad(self.builder, self.cpu.llvm_void_ptr,
+                                        exception_addr, cstring.ptr)
+
+        cstring = CString("null_ptr")
+        null_ptr = self.llvm.BuildIntToPtr(self.builder, self.zero,
+                                           self.cpu.llvm_void_ptr,
+                                           cstring.ptr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_vtable_addr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_addr)
+
+        cstring = CString("guard_exception")
+        ptr_diff = self.llvm.BuildPtrDiff(self.builder, exception_vtable,
+                                          vtable, cstring.ptr)
+        cstring = CString("cnd")
+        cnd = self.llvm.BuildICmp(self.builder, self.inteq, ptr_diff,
+                                  self.zero, cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, bailout)
+        self.jitframe.set_elem(exception, 5)
+
+        self.guard_handler.finalise_guard(op, resume, cnd, branch)
         self.ssa_vars[op] = exception
 
     def parse_guard_no_overflow(self, op, resume, bailout):

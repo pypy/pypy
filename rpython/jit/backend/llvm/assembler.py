@@ -98,7 +98,7 @@ class LLVMAssembler(BaseAssembler):
         # pdb.set_trace()
         # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
-            raise Exception("trace Function is Null")
+            raise Exception("Trace Function is Null")
         looptoken._ll_function_addr = addr
 
     def add_opt_passes(self):
