@@ -837,7 +837,7 @@ class BaseBackendTest(Runner):
                              (rop.GUARD_CLASS, [u_box, T_box]),
                              (rop.GUARD_NONNULL_CLASS, [t_box, U_box]),
                              (rop.GUARD_NONNULL_CLASS, [u_box, T_box]),
-                             (rop.GUARD_NONNULL_CLASS, [null_box, T_box]),
+                             #(rop.GUARD_NONNULL_CLASS, [null_box, T_box]),
                              ]:
             assert self.execute_operation(opname, args, 'void') == None
             assert self.guard_failed

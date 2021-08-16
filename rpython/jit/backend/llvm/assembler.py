@@ -6,7 +6,7 @@ from rpython.jit.backend.llsupport import jitframe
 from rpython.rtyper.lltypesystem.rffi import constcharp2str
 
 class LLVMAssembler(BaseAssembler):
-    def __init__(self, cpu, optimise=False):
+    def __init__(self, cpu, optimise=True):
         self.cpu = cpu
         self.llvm = cpu.llvm
         self.debug = cpu.debug

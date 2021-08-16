@@ -29,6 +29,7 @@ class LLVMOpDispatcher:
         self.arrays = {} #map array descrs to LLVMStruct instances
         self.labels = {} #map label descrs to their blocks
         self.descr_phis = {} #map label descrs to phi values
+        self.forced = False
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
         self.guard_handler = BlockPerGuardImpl(self)
@@ -389,6 +390,12 @@ class LLVMOpDispatcher:
                     int_typ = self.cpu.llvm_int_type
                     const_val = arg.getvalue()._cast_to_int()
                     int_val = self.llvm.ConstInt(int_typ, const_val, 0)
+                    # if arg.nonnull():
+                    #     int_typ = self.cpu.llvm_int_type
+                    #     const_val = arg.getvalue()._cast_to_int()
+                    #     int_val = self.llvm.ConstInt(int_typ, const_val, 0)
+                    # else:
+                    #     int_val = self.zero
                     typ = self.cpu.llvm_void_ptr
                     cstring = CString("ptr_arg")
                     val = self.llvm.BuildIntToPtr(self.builder, int_val,
@@ -818,6 +825,15 @@ class LLVMOpDispatcher:
             elif op.opnum == 227:
                 self.parse_call(op, "n")
 
+            elif op.opnum == 232:
+                self.parse_call_release_gil(op, "f")
+
+            elif op.opnum == 233:
+                self.parse_call_release_gil(op, "i")
+
+            elif op.opnum == 234:
+                self.parse_call_release_gil(op, "n")
+
             elif op.opnum == 246:
                 self.parse_int_ovf(op, '+')
 
@@ -986,8 +1002,9 @@ class LLVMOpDispatcher:
         is_null = self.llvm.BuildIsNull(self.builder, struct, cstring.ptr)
 
         cstring = CString("struct_cast")
+        void_ptr_ptr = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
         struct_cast = self.llvm.BuildPointerCast(self.builder, struct,
-                                                 self.cpu.llvm_void_ptr,
+                                                 void_ptr_ptr,
                                                  cstring.ptr)
         cstring = CString("vtable")
         struct_vtable = self.llvm.BuildLoad(self.builder,
@@ -1084,7 +1101,15 @@ class LLVMOpDispatcher:
 
     def parse_guard_not_forced(self, op, resume, bailout):
         # assumes only one guard_not_force matches with each force_token
-        jf_descr = self.jitframe.get_elem(1) #reads out token
+        if self.forced:
+            jf_descr = self.jitframe.get_elem(1) #reads out token
+            self.forced = False
+        else:
+            descr = op.getdescr()
+            self.cpu.descr_tokens[self.cpu.descr_token_cnt] = descr
+            jf_descr = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                          self.cpu.descr_token_cnt, 0)
+            self.cpu.descr_token_cnt += 1
         cstring = CString("guard_not_forced")
         force_descr = self.jitframe.get_elem(2)
         cnd = self.llvm.BuildICmp(self.builder, self.intne, jf_descr,
@@ -1775,6 +1800,7 @@ class LLVMOpDispatcher:
         pass
 
     def parse_force_token(self, op, c):
+        self.forced = True
         force_descr = None
         failargs = None
         for next_op in self.operations[c:]:
@@ -2111,9 +2137,21 @@ class LLVMOpDispatcher:
         arg_types = self.get_arg_types(call_descr, params)
 
         if ret != 'n':
-            self.ssa_vars[op] = self.call_function(func_int_ptr, ret_type,
-                                                   arg_types, params,
-                                                   "call_res")
+            res = self.call_function(func_int_ptr, ret_type,
+                                     arg_types, params,
+                                     "call_res")
+            if ret == 'i' and call_descr.result_size < 8:
+                signed = 1 if call_descr.result_flag == 'S' else 0
+                cstring = CString("res_cast")
+                res = self.llvm.BuildIntCast(self.builder, res,
+                                             self.cpu.llvm_int_type, signed,
+                                             cstring.ptr)
+            if ret == 'f' and call_descr.result_size == 4:
+                cstring = CString("res_cast")
+                res = self.llvm.FloatExt(self.builder, res,
+                                         self.cpu.llvm_float_type,
+                                         cstring.ptr)
+            self.ssa_vars[op] = res
         else:
             self.call_function(func_int_ptr, ret_type,
                                 arg_types, params, "")
@@ -2131,7 +2169,7 @@ class LLVMOpDispatcher:
         cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
                                      0, cstring.ptr)
         cstring = CString("cond_call_cmp")
-        cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.zero,
+        cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.false,
                                   cstring.ptr)
         cstring = CString("call_block")
         call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
@@ -2157,9 +2195,6 @@ class LLVMOpDispatcher:
         if ret == 'i': ret_type = self.cpu.llvm_int_type
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
 
-        cstring = CString("cnd")
-        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
-                                     0, cstring.ptr)
         cstring = CString("cmp")
         cmp = self.llvm.BuildIsNull(self.builder, cnd, cstring.ptr)
 
@@ -2174,6 +2209,12 @@ class LLVMOpDispatcher:
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
         call_res = self.call_function(func_int_ptr, ret_type, arg_types, params,
                                       "call_res")
+        if ret == 'i' and call_descr.result_size < 8:
+            signed = 1 if call_descr.result_flag == 'S' else 0
+            cstring = CString("res_cast")
+            call_res = self.llvm.BuildIntCast(self.builder, call_res,
+                                              self.cpu.llvm_int_type, signed,
+                                              cstring.ptr)
         self.llvm.BuildBr(self.builder, resume_block)
 
         self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
@@ -2209,6 +2250,27 @@ class LLVMOpDispatcher:
         else:
             res = self.call_function(func_int_ptr, ret_type,
                                arg_types, params, "")
+
+    def parse_call_release_gil(self, op, ret):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        func_int_ptr = args[1]
+        params = args[2:]
+        call_descr = op.getdescr()
+        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
+        elif ret == 'f': ret_type = self.cpu.llvm_float_type
+        elif ret == 'n': ret_type = self.cpu.llvm_void_type
+        elif ret == 'i': ret_type = self.llvm.IntType(self.cpu.context,
+                                                      self.cpu.WORD*call_descr.
+                                                      result_size)
+        arg_types = self.get_arg_types(call_descr, params)
+
+        if ret != 'n':
+            self.ssa_vars[op] = self.call_function(func_int_ptr, ret_type,
+                                                   arg_types, params,
+                                                   "call_res")
+        else:
+            self.call_function(func_int_ptr, ret_type,
+                                arg_types, params, "")
 
     def parse_int_ovf(self, op, binop):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
