@@ -2292,10 +2292,10 @@ class LLVMOpDispatcher:
         ret_type = self.cpu.llvm_void_type
 
         cstring = CString("cnd")
-        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_bool_type,
+        cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_int_type,
                                      0, cstring.ptr)
         cstring = CString("cond_call_cmp")
-        cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.false,
+        cmp = self.llvm.BuildICmp(self.builder, self.intne, cnd, self.zero,
                                   cstring.ptr)
         cstring = CString("call_block")
         call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
@@ -2379,6 +2379,7 @@ class LLVMOpDispatcher:
 
     def parse_call_release_gil(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        errno = args[0]
         func_int_ptr = args[1]
         params = args[2:]
         call_descr = op.getdescr()
@@ -2391,9 +2392,22 @@ class LLVMOpDispatcher:
         arg_types = self.get_arg_types(call_descr, params)
 
         if ret != 'n':
-            self.ssa_vars[op] = self.call_function(func_int_ptr, ret_type,
-                                                   arg_types, params,
-                                                   "call_res")
+            res = self.call_function(func_int_ptr, ret_type,
+                                     arg_types, params,
+                                     "call_res")
+            if ret == 'i' and call_descr.result_size < 8:
+                signed = 1 if call_descr.result_flag == 'S' else 0
+                cstring = CString("res_cast")
+                res = self.llvm.BuildIntCast(self.builder, res,
+                                             self.cpu.llvm_int_type, signed,
+                                             cstring.ptr)
+            if ret == 'f' and call_descr.result_size == 4:
+                cstring = CString("res_cast")
+                res = self.llvm.FloatExt(self.builder, res,
+                                         self.cpu.llvm_float_type,
+                                         cstring.ptr)
+
+            self.ssa_vars[op] = res
         else:
             self.call_function(func_int_ptr, ret_type,
                                 arg_types, params, "")
