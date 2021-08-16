@@ -1683,7 +1683,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
 
     def test_vectorcall(self):
         module = self.import_extension('foo', [
-            ("test_vectorcall", "METH_VARARGS",
+            ("pyobject_vectorcall", "METH_VARARGS",
              '''
                 PyObject *func, *func_args, *kwnames = NULL;
                 PyObject **stack;
@@ -1716,7 +1716,30 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     return NULL;
                 }
                 return _PyObject_Vectorcall(func, stack, nargs, kwnames);
-            ''')],
+            '''),
+            ("pyvectorcall_call", "METH_VARARGS",
+             # taken from _testcapimodule.c
+             '''
+                PyObject *func;
+                PyObject *argstuple;
+                PyObject *kwargs = NULL;
+
+                if (!PyArg_ParseTuple(args, "OO|O", &func, &argstuple, &kwargs)) {
+                    return NULL;
+                }
+
+                if (!PyTuple_Check(argstuple)) {
+                    PyErr_SetString(PyExc_TypeError, "args must be a tuple");
+                    return NULL;
+                }
+                if (kwargs != NULL && !PyDict_Check(kwargs)) {
+                    PyErr_SetString(PyExc_TypeError, "kwargs must be a dict");
+                    return NULL;
+                }
+
+                return PyVectorcall_Call(func, argstuple, kwargs);
+             '''),
+            ],
             prologue="""
                 #include <stddef.h>
                 typedef struct {
@@ -1763,24 +1786,141 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                                 Py_TPFLAGS_METHOD_DESCRIPTOR | _Py_TPFLAGS_HAVE_VECTORCALL,
                     .tp_descr_get = func_descr_get,
                 };
+
+                static PyTypeObject MethodDescriptorDerived_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "MethodDescriptorDerived",
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+                };
+
+                typedef struct {
+                    MethodDescriptorObject base;
+                    vectorcallfunc vectorcall;
+                } MethodDescriptor2Object;
+
+                static PyObject *
+                MethodDescriptor2_new(PyTypeObject* type, PyObject* args, PyObject *kw)
+                {
+                    MethodDescriptor2Object *op = PyObject_New(MethodDescriptor2Object, type);
+                    op->base.vectorcall = NULL;
+                    op->vectorcall = MethodDescriptor_vectorcall;
+                    return (PyObject *)op;
+                }
+
+                static PyTypeObject MethodDescriptor2_Type = {
+                    PyVarObject_HEAD_INIT(NULL, 0)
+                    "MethodDescriptor2",
+                    sizeof(MethodDescriptor2Object),
+                    .tp_new = MethodDescriptor2_new,
+                    .tp_call = PyVectorcall_Call,
+                    .tp_vectorcall_offset = offsetof(MethodDescriptor2Object, vectorcall),
+                    .tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | _Py_TPFLAGS_HAVE_VECTORCALL,
+                };
+
+
             """,
             more_init="""
                 if (PyType_Ready(&MethodDescriptorBase_Type) < 0)
                     INITERROR;
                 Py_INCREF(&MethodDescriptorBase_Type);
-                PyModule_AddObject(mod, "MethodDescriptorBase", (PyObject *)&MethodDescriptorBase_Type);
+                PyModule_AddObject(mod, "MethodDescriptorBase",
+                                   (PyObject *)&MethodDescriptorBase_Type);
+                MethodDescriptorDerived_Type.tp_base = &MethodDescriptorBase_Type;
+                if (PyType_Ready(&MethodDescriptorDerived_Type) < 0)
+                    INITERROR;
+                Py_INCREF(&MethodDescriptorDerived_Type);
+                PyModule_AddObject(mod, "MethodDescriptorDerived",
+                                   (PyObject *)&MethodDescriptorDerived_Type);
 
-
+                MethodDescriptor2_Type.tp_base = &MethodDescriptorBase_Type;
+                if (PyType_Ready(&MethodDescriptor2_Type) < 0)
+                    return NULL;
+                Py_INCREF(&MethodDescriptor2_Type);
+                PyModule_AddObject(mod, "MethodDescriptor2", (PyObject *)&MethodDescriptor2_Type);
             """)
         def pyfunc(arg1, arg2):
             return [arg1, arg2]
-        res = module.test_vectorcall(pyfunc, (1, 2), None)
+
+        def testfunction(self):
+            """some doc"""
+            return self
+
+        def testfunction_kw(self, **kw):
+            """some doc"""
+            return self
+
+        res = module.pyobject_vectorcall(pyfunc, (1, 2), None)
         assert res == [1, 2]
-        res = module.test_vectorcall(pyfunc, (1, 2), ("arg2", ))
+        res = module.pyobject_vectorcall(pyfunc, (1, 2), ("arg2", ))
         assert res == [1, 2]
         method = module.MethodDescriptorBase()
-        res = module.test_vectorcall(method, (0, ), None)
+        res = module.pyobject_vectorcall(method, (0, ), None)
         assert res == True
+
+        calls = [(len, (range(42),), {}, 42),
+                 (list.append, ([], 0), {}, None),
+                 ([].append, (0,), {}, None),
+                 (sum, ([36],), {"start":6}, 42),
+                 (testfunction, (42,), {}, 42),
+                 (testfunction_kw, (42,), {"kw":None}, 42),
+                 (module.MethodDescriptorBase(), (0,), {}, True),
+                 (module.MethodDescriptorDerived(), (0,), {}, True),
+                 (module.MethodDescriptor2(), (0,), {}, False)]
+
+        from types import MethodType
+        from functools import partial
+
+        def vectorcall(func, *args, **kwargs):
+            if kwargs:
+                args = args + tuple(kwargs.values())
+            kwnames = tuple(kwargs.keys())
+            return module.pyobject_vectorcall(func, args, kwnames)
+
+        for (func, args, kwargs, expected) in calls:
+            print(func, args, kwargs, expected)
+            if not kwargs:
+                assert expected == module.pyvectorcall_call(func, args)
+            assert expected == module.pyvectorcall_call(func, args, kwargs)
+
+        # Add derived classes (which do not support vectorcall directly,
+        # but do support all other ways of calling).
+
+        class MethodDescriptorHeap(module.MethodDescriptorBase):
+            pass
+
+        class MethodDescriptorOverridden(module.MethodDescriptorBase):
+            def __call__(self, n):
+                return 'new'
+
+        class SuperBase:
+            def __call__(self, *args):
+                return super().__call__(*args)
+
+        class MethodDescriptorSuper(SuperBase, module.MethodDescriptorBase):
+            def __call__(self, *args):
+                return super().__call__(*args)
+
+        calls += [
+            (dict.update, ({},), {"key":True}, None),
+            ({}.update, ({},), {"key":True}, None),
+            (MethodDescriptorHeap(), (0,), {}, True),
+            (MethodDescriptorOverridden(), (0,), {}, 'new'),
+            (MethodDescriptorSuper(), (0,), {}, True),
+        ]
+
+        for (func, args, kwargs, expected) in calls:
+            args1 = args[1:]
+            meth = MethodType(func, args[0])
+            wrapped = partial(func)
+            if not kwargs:
+                assert expected == func(*args)
+                assert expected == module.pyobject_vectorcall(func, args, None)
+                assert expected == meth(*args1)
+                assert expected == wrapped(*args)
+            assert expected == func(*args, **kwargs)
+            assert expected == vectorcall(func, *args, **kwargs)
+            assert expected == meth(*args1, **kwargs)
+            assert expected == wrapped(*args, **kwargs)
 
     def test_fastcall(self):
         module = self.import_extension('foo', [
