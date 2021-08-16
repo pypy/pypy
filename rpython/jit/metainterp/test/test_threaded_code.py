@@ -57,8 +57,11 @@ def t_push(pc, next):
     return result
 
 class Frame:
+
+    size = 10
+
     def __init__(self, bytecode):
-        self.stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        self.stack = [0] * Frame.size
         self.sp = 0
         self.bytecode = bytecode
 
@@ -71,6 +74,13 @@ class Frame:
     def pop(self):
         self.sp -= 1
         return self.stack[self.sp]
+
+    def copy(self):
+        l = [0] * len(self.stack)
+        x = self.sp
+        for i in range(len(self.stack)):
+            l[i] = self.stack[i]
+        return  l, x
 
     @dont_look_inside
     def const_int(self, v):
@@ -351,17 +361,20 @@ class BasicTests:
                 else:
                     return frame.pop()
 
-        saved_stack = [0] * 10
+        saved_stack = [0] * Frame.size
         saved_sp = 0
 
         @not_in_trace
         def save_state(frame):
-            saved_stack = frame.stack
+            stack = frame.stack
             saved_sp = frame.sp
+            for i in range(len(stack)):
+                saved_stack[i] = stack[i]
 
         @not_in_trace
         def restore_state(frame):
-            frame.stack = saved_stack
+            for i in range(Frame.size):
+                frame.stack[i] = saved_stack[i]
             frame.sp = saved_sp
 
         def interp(x):
@@ -450,7 +463,7 @@ class BasicTests:
                         return frame.pop()
 
         interp.oopspec = 'jit.not_in_trace()'
-        res = self.meta_interp(interp, [50])
+        res = self.meta_interp(interp, [100])
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
