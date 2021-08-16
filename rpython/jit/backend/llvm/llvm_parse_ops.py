@@ -488,7 +488,6 @@ class LLVMOpDispatcher:
         self.operations = ops
 
         for c, op in enumerate(self.operations):
-            print(op)
             if op.opnum == 1:
                 self.parse_jump(op)
 
@@ -530,7 +529,7 @@ class LLVMOpDispatcher:
 
             elif op.opnum == 20:
                 resume, bailout = self.guard_handler.setup_guard(op)
-                self.parse_no_guard_exception(op, resume, bailout)
+                self.parse_guard_no_exception(op, resume, bailout)
 
             elif op.opnum == 21:
                 resume, bailout = self.guard_handler.setup_guard(op)
@@ -786,8 +785,20 @@ class LLVMOpDispatcher:
             elif op.opnum == 184:
                 self.parse_zero_array(op)
 
+            elif op.opnum == 191:
+                pass # noop
+
             elif op.opnum == 193:
-                pass
+                pass # noop
+
+            elif op.opnum == 208:
+                self.parse_save_exception(op)
+
+            elif op.opnum == 209:
+                self.parse_save_exc_class(op)
+
+            elif op.opnum == 210:
+                self.parse_restore_exception(op)
 
             elif op.opnum == 213:
                 self.parse_call(op, 'r')
@@ -1032,7 +1043,7 @@ class LLVMOpDispatcher:
         branch = self.llvm.BuildCondBr(self.builder, cnd, resume, bailout)
         self.guard_handler.finalise_guard(op, resume, cnd, branch)
 
-    def parse_no_guard_exception(self, op, resume, bailout):
+    def parse_guard_no_exception(self, op, resume, bailout):
         exception_vtable_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                                        self.cpu.pos_exception(),
                                                        0)
@@ -2165,6 +2176,78 @@ class LLVMOpDispatcher:
             else: raise Exception("Unknown arg type")
         return arg_types
 
+    def parse_save_exception(self, op):
+        ptr_ptr_type = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
+        exception_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                self.cpu.pos_exc_value(), 0)
+        cstring = CString("exception_addr")
+        exception_addr = self.llvm.BuildIntToPtr(self.builder, exception_addr_int,
+                                                 ptr_ptr_type, cstring.ptr)
+        cstring = CString("exception")
+        exception = self.llvm.BuildLoad(self.builder, self.cpu.llvm_void_ptr,
+                                        exception_addr, cstring.ptr)
+
+        cstring = CString("null_ptr")
+        null_ptr = self.llvm.BuildIntToPtr(self.builder, self.zero,
+                                           self.cpu.llvm_void_ptr,
+                                           cstring.ptr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_addr)
+
+        self.ssa_vars[op] = exception
+
+    def parse_save_exc_class(self, op):
+        ptr_ptr_type = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
+        exception_vtable_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                       self.cpu.pos_exception(),
+                                                       0)
+        cstring = CString("exception_vtable_addr")
+        exception_vtable_addr = self.llvm.BuildIntToPtr(self.builder,
+                                                        exception_vtable_addr_int,
+                                                        ptr_ptr_type, cstring.ptr)
+        cstring = CString("exception_vtable_ptr")
+        exception_vtable_ptr = self.llvm.BuildLoad(self.builder,
+                                                   self.cpu.llvm_void_ptr,
+                                                   exception_vtable_addr,
+                                                   cstring.ptr)
+        cstring = CString("exception_vtable")
+        exception_vtable = self.llvm.BuildPtrToInt(self.builder,
+                                                   exception_vtable_ptr,
+                                                   self.cpu.llvm_int_type,
+                                                   cstring.ptr)
+
+        cstring = CString("null_ptr")
+        null_ptr = self.llvm.BuildIntToPtr(self.builder, self.zero,
+                                           self.cpu.llvm_void_ptr,
+                                           cstring.ptr)
+        self.llvm.BuildStore(self.builder, null_ptr, exception_vtable_addr)
+
+        self.ssa_vars[op] = exception_vtable
+
+    def parse_restore_exception(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        vtable = args[0]
+        exception = args[1]
+        ptr_ptr_type = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
+        cstring = CString("vtable")
+        vtable = self.llvm.BuildIntToPtr(self.builder, vtable,
+                                         self.cpu.llvm_void_ptr,
+                                         cstring.ptr)
+
+        exception_vtable_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                       self.cpu.pos_exception(),
+                                                       0)
+        cstring = CString("exception_vtable_addr")
+        exception_vtable_addr = self.llvm.BuildIntToPtr(self.builder,
+                                                        exception_vtable_addr_int,
+                                                        ptr_ptr_type, cstring.ptr)
+        exception_addr_int = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                self.cpu.pos_exc_value(), 0)
+        cstring = CString("exception_addr")
+        exception_addr = self.llvm.BuildIntToPtr(self.builder, exception_addr_int,
+                                                 ptr_ptr_type, cstring.ptr)
+
+        self.llvm.BuildStore(self.builder, vtable, exception_vtable_addr)
+        self.llvm.BuildStore(self.builder, exception, exception_addr)
 
     def parse_call(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
