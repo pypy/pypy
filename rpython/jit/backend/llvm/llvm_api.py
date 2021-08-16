@@ -56,6 +56,8 @@ class LLVMAPI:
         self.ObjectLayerRef = self.VoidPtr
         self.MemoryManagerFactoryFunction = self.VoidPtr
         self.ObjectLinkingLayerCreatorFunction = self.VoidPtr
+        self.DefinitionGeneratorRef = self.VoidPtr
+        self.DefinitionGeneratorRefPtr = self.VoidPtrPtr
         self.ResourceTrackerRef = self.VoidPtr
         self.JITEnums = lltype.Struct('JITEnums', ('codegenlevel', lltype.Signed), ('reloc', lltype.Signed), ('codemodel', lltype.Signed))
         self.CmpEnums = lltype.Struct('CmpEnums', ('inteq', lltype.Signed), ('intne', lltype.Signed), ('intugt', lltype.Signed), ('intuge', lltype.Signed), ('intult', lltype.Signed), ('intule', lltype.Signed), ('intsgt', lltype.Signed), ('intsge', lltype.Signed), ('intslt', lltype.Signed), ('intsle', lltype.Signed), ('realeq', lltype.Signed), ('realne', lltype.Signed), ('realgt', lltype.Signed), ('realge', lltype.Signed), ('reallt', lltype.Signed), ('realle', lltype.Signed),('realord', lltype.Signed), ('uno', lltype.Signed))
@@ -512,6 +514,11 @@ class LLVMAPI:
                                            self.ValueRef, self.Str],
                                           self.ValueRef,
                                           compilation_info=info)
+        self.BuildUDiv = rffi.llexternal("LLVMBuildUDiv",
+                                          [self.BuilderRef, self.ValueRef,
+                                           self.ValueRef, self.Str],
+                                          self.ValueRef,
+                                          compilation_info=info)
         self.BuildAnd = rffi.llexternal("LLVMBuildAnd",
                                          [self.BuilderRef, self.ValueRef,
                                           self.ValueRef, self.Str],
@@ -884,6 +891,26 @@ class LLVMAPI:
                                        [self.ResourceTrackerRef],
                                        self.ErrorRef,
                                        compilation_info=info)
+        self.CreateDynamicLibrarySearchGenerator = rffi.llexternal("LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess",
+                                       [self.DefinitionGeneratorRefPtr,
+                                        rffi.CHAR, self.VoidPtr,
+                                        self.VoidPtr],
+                                       self.ErrorRef,
+                                       compilation_info=info)
+        self.JITDylibAddGenerator = rffi.llexternal("LLVMOrcJITDylibAddGenerator",
+                                                    [self.JITDylibRef,
+                                                     self.DefinitionGeneratorRef],
+                                                    self.Void,
+                                                    compilation_info=info)
+        self.GetGlobalPrefix = rffi.llexternal("LLVMOrcLLJITGetGlobalPrefix",
+                                               [self.LLJITRef], rffi.CHAR,
+                                               compilation_info=info)
+        self.AddDynamicLibrarySearchGenerator = rffi.llexternal("AddDynamicLibrarySearchGenerator",
+                                                                [self.LLJITRef,
+                                                                 self.JITDylibRef],
+                                                                rffi.CHAR,
+                                                                compilation_info=info)
+
 
 
 class CString:

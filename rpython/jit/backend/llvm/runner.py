@@ -100,7 +100,7 @@ class LLVM_CPU(AbstractLLCPU):
         return deadframe
 
     def malloc_wrapper(self, size):
-        # llexternal functions don't play nice with LLMV
+        # llexternal functions don't play nice with LLVM
         return self.gc_ll_descr.malloc_fn_ptr(size)
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,

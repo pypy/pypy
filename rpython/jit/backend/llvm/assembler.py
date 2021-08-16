@@ -49,6 +49,8 @@ class LLVMAssembler(BaseAssembler):
         if self.debug and self.DyLib._cast_to_int() == 0:
             raise Exception("DyLib is Null")
 
+        self.llvm.AddDynamicLibrarySearchGenerator(self.LLJIT, self.DyLib)
+
     def jit_compile(self, module, looptoken, inputargs, dispatcher,
                     jitframe_depth, is_bridge=False):
         if self.last_resource_tracker is not None:

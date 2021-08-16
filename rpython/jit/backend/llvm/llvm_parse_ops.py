@@ -48,7 +48,12 @@ class LLVMOpDispatcher:
         self.stackmap_intrinsic = self.define_function(
             [self.cpu.llvm_int_type, self.cpu.llvm_indx_type],
             self.cpu.llvm_void_type, "llvm.experimental.stackmap", variadic=True
-            )
+        )
+        self.memset_intrinsic = self.define_function(
+            [self.cpu.llvm_void_ptr, self.cpu.llvm_char_type,
+             self.cpu.llvm_int_type, self.cpu.llvm_bool_type],
+            self.cpu.llvm_void_type, "llvm.memset.p0i8.i64"
+        )
         self.set_pred_enums()
         self.defined_int_extend_funcs = {}
         self.malloc = self.define_function([self.cpu.llvm_int_type],
@@ -526,7 +531,11 @@ class LLVMOpDispatcher:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_overflow(op, resume, bailout)
 
-            elif op.opnum == 24 or op.opnum == 25:
+            elif op.opnum == 24:
+                resume, bailout = self.guard_handler.setup_guard(op)
+                self.parse_guard_not_forced(op, resume, bailout)
+
+            elif op.opnum == 25:
                 resume, bailout = self.guard_handler.setup_guard(op)
                 self.parse_guard_not_forced(op, resume, bailout)
 
@@ -761,6 +770,9 @@ class LLVMOpDispatcher:
             elif op.opnum == 183:
                 self.parse_setfield_gc(op)
 
+            elif op.opnum == 184:
+                self.parse_zero_array(op)
+
             elif op.opnum == 213:
                 self.parse_call(op, 'r')
 
@@ -795,16 +807,16 @@ class LLVMOpDispatcher:
                 self.parse_call_assembler(op, 'n')
 
             elif op.opnum == 224:
-                self.parse_call_may_force(op, "r")
+                self.parse_call(op, "r")
 
             elif op.opnum == 225:
-                self.parse_call_may_force(op, "f")
+                self.parse_call(op, "f")
 
             elif op.opnum == 226:
-                self.parse_call_may_force(op, "i")
+                self.parse_call(op, "i")
 
             elif op.opnum == 227:
-                self.parse_call_may_force(op, "n")
+                self.parse_call(op, "n")
 
             elif op.opnum == 246:
                 self.parse_int_ovf(op, '+')
@@ -2017,6 +2029,29 @@ class LLVMOpDispatcher:
 
         llvm_struct.set_elem(value, index)
 
+    def parse_zero_array(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        array = args[0]
+        index = args[1]
+        length = args[2]
+        arraydescr = op.getdescr()
+        lendescr_offset = arraydescr.lendescr.offset
+        llvm_array = self.parse_array_descr_to_llvm(arraydescr, array)
+        itemsize = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                      arraydescr.itemsize, 0)
+
+        cstring = CString("index")
+        index = self.llvm.BuildUDiv(self.builder, index, itemsize, cstring.ptr)
+        dst = llvm_array.get_ptr(lendescr_offset+1, index)
+        cstring = CString("dst")
+        dst = self.llvm.BuildPointerCast(self.builder, dst,
+                                         self.cpu.llvm_void_ptr, cstring.ptr)
+        zero = self.llvm.ConstInt(self.cpu.llvm_char_type, 0, 0)
+        args = self.rpython_array([dst, zero, length, self.false], self.llvm.ValueRef)
+        cstring = CString("")
+        self.llvm.BuildCall(self.builder, self.memset_intrinsic, args, 4,
+                            cstring.ptr)
+
     def get_arg_types(self, call_descr, params):
         arg_types = []
         for c, typ in enumerate(call_descr.arg_classes):
@@ -2158,28 +2193,6 @@ class LLVMOpDispatcher:
         func_int_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type,
                                           func_int_ptr, 0)
         call_descr = looptoken.outermost_jitdriver_sd.portal_calldescr
-        if ret == 'r': ret_type = self.cpu.llvm_void_ptr
-        elif ret == 'f': ret_type = self.cpu.llvm_float_type
-        elif ret == 'n': ret_type = self.cpu.llvm_void_type
-        elif ret == 'i': ret_type = self.llvm.IntType(self.cpu.context,
-                                                      self.cpu.WORD*call_descr.
-                                                      result_size)
-        arg_types = self.get_arg_types(call_descr, params)
-
-        if ret != 'n':
-            res = self.call_function(func_int_ptr, ret_type,
-                                                   arg_types, params,
-                                                   "call_res")
-            self.ssa_vars[op] = res
-        else:
-            res = self.call_function(func_int_ptr, ret_type,
-                               arg_types, params, "")
-
-    def parse_call_may_force(self, op, ret):
-        args = [arg for arg, _ in self.parse_args(op.getarglist())]
-        func_int_ptr = args[0]
-        params = args[1:]
-        call_descr = op.getdescr()
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
         elif ret == 'f': ret_type = self.cpu.llvm_float_type
         elif ret == 'n': ret_type = self.cpu.llvm_void_type
@@ -2395,7 +2408,7 @@ class LLVMStruct:
                                            indecies[i], 1)
             else:
                 index = self.llvm.BuildIntCast(self.builder, index,
-                                               self.cpu.llvm_int_type, 1,
+                                               self.cpu.llvm_indx_type, 1,
                                                cstring.ptr)
             self.indecies_array[i+1] = index
         cstring = CString("struct_elem_ptr")

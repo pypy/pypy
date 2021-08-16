@@ -150,6 +150,14 @@ void add_function_string_attribute(LLVMValueRef func, char *key, char *value,
 	LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, attr);
 }
 
+void AddDynamicLibrarySearchGenerator(LLVMOrcLLJITRef lljit, LLVMOrcJITDylibRef dylib){
+	LLVMOrcDefinitionGeneratorRef definition_generator;
+	char global_prefix = LLVMOrcLLJITGetGlobalPrefix(lljit);
+	LLVMOrcCreateDynamicLibrarySearchGeneratorForProcess(&definition_generator,
+														  global_prefix, NULL, NULL);
+	LLVMOrcJITDylibAddGenerator(dylib, definition_generator);
+}
+
 //below code uses LLVM 13
 /* uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){ */
 /* 	return 0; */
