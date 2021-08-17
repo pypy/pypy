@@ -1687,7 +1687,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              '''
                 PyObject *func, *func_args, *kwnames = NULL;
                 PyObject **stack;
-                Py_ssize_t nargs, nkw;
+                Py_ssize_t nargs;
 
                 if (!PyArg_ParseTuple(args, "OOO", &func, &func_args, &kwnames)) {
                     return NULL;
@@ -1704,7 +1704,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
                     kwnames = NULL;
                 }
                 else if (PyTuple_Check(kwnames)) {
-                    nkw = PyTuple_GET_SIZE(kwnames);
+                    Py_ssize_t nkw = PyTuple_GET_SIZE(kwnames);
                     if (nargs < nkw) {
                         PyErr_SetString(PyExc_ValueError, "kwnames longer than args");
                         return NULL;
@@ -1928,7 +1928,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              '''
                 PyObject *func, *func_args = NULL;
                 PyObject **stack;
-                Py_ssize_t nargs, nkw;
+                Py_ssize_t nargs;
 
                 if (!PyArg_ParseTuple(args, "OO", &func, &func_args)) {
                     return NULL;
@@ -1954,7 +1954,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              '''
                 PyObject *func, *func_args, *kwargs = NULL;
                 PyObject **stack;
-                Py_ssize_t nargs, nkw;
+                Py_ssize_t nargs;
 
                 if (!PyArg_ParseTuple(args, "OOO", &func, &func_args, &kwargs)) {
                     return NULL;
@@ -1991,7 +1991,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
              '''
                 PyObject *func, *func_args, *kwnames = NULL;
                 PyObject **stack;
-                Py_ssize_t nargs, nkw;
+                Py_ssize_t nargs;
 
                 if (!PyArg_ParseTuple(args, "O", &func)) {
                     return NULL;
