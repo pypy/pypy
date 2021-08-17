@@ -21,6 +21,7 @@ class UnrollOptimizer(Optimizer):
         Optimizer.__init__(self, metainterp_sd, jitdriver_sd, optimizations)
         self.optunroll = OptUnroll()
         self.optunroll.optimizer = self
+        self.resumestorage = None
 
     def force_op_from_preamble(self, preamble_op):
         if isinstance(preamble_op, PreambleOp):
@@ -196,6 +197,8 @@ class UnrollOptimizer(Optimizer):
             deserialize_optimizer_knowledge(self,
                                             resumestorage, frontend_inputargs,
                                             trace.inputargs)
+            self.resumestorage = resumestorage
+
         info, ops = self.propagate_all_forward(trace,
             call_pure_results, False)
         jump_op = info.jump_op

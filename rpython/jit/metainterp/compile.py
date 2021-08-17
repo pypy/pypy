@@ -837,10 +837,11 @@ class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
 
 class ResumeGuardDescr(AbstractResumeGuardDescr):
     _attrs_ = ('rd_numb', 'rd_consts', 'rd_virtuals',
-               'rd_pendingfields', 'status')
+               'rd_pendingfields', 'rd_depth', 'status')
     rd_numb = lltype.nullptr(NUMBERING)
     rd_consts = None
     rd_virtuals = None
+    rd_depth = -1
     rd_pendingfields = lltype.nullptr(PENDINGFIELDSP.TO)
 
     def copy_all_attributes_from(self, other):
@@ -850,6 +851,7 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
         self.rd_pendingfields = other.rd_pendingfields
         self.rd_virtuals = other.rd_virtuals
         self.rd_numb = other.rd_numb
+        self.rd_depth = other.rd_depth
         # we don't copy status
         if other.rd_vector_info:
             self.rd_vector_info = other.rd_vector_info.clone()
@@ -867,6 +869,13 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
 
     def get_resumestorage(self):
         return self
+
+    def inc_depth(self, parent):
+        if parent is None:
+            self.rd_depth = 0
+        else:
+            self.rd_depth = parent.rd_depth + 1
+
 
 class ResumeGuardExcDescr(ResumeGuardDescr):
     pass
@@ -924,6 +933,8 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
             resumedescr = ResumeGuardCopiedDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardDescr()
+            if opnum == rop.GUARD_VALUE:
+                resumedescr.inc_depth(optimizer.resumestorage)
     return resumedescr
 
 class ResumeGuardForcedDescr(ResumeGuardDescr):

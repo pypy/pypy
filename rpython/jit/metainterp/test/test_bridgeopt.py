@@ -11,6 +11,7 @@ from rpython.jit.metainterp.optimizeopt.bridgeopt import deserialize_optimizer_k
 from rpython.jit.metainterp.resoperation import InputArgRef, InputArgInt
 from rpython.jit.metainterp.resume import NumberingState
 from rpython.jit.metainterp.resumecode import unpack_numbering
+from rpython.jit.metainterp.compile import ResumeGuardDescr
 from rpython.jit.metainterp.optimizeopt.info import InstancePtrInfo
 
 from hypothesis import strategies, given
@@ -400,7 +401,7 @@ class TestOptBridge(LLJitMixin):
                 self.map_ = map_
 
         maps = [Map() for i in range(10)]
-        instances = [Instance(map) for i in range(10) for map in maps]
+        instances = [Instance(map) for i in range(20) for map in maps]
 
         def f():
             y = len(instances) - 1
@@ -414,3 +415,20 @@ class TestOptBridge(LLJitMixin):
         # This is not the final number, but we
         # want it to be lower than the real result.
         self.check_trace_count(10)
+
+def test_guard_depth_increase():
+    parent = ResumeGuardDescr()
+    parent.inc_depth(None)
+    assert parent.rd_depth == 0
+
+    child_1 = ResumeGuardDescr()
+    child_1.inc_depth(parent)
+    assert child_1.rd_depth == 1
+
+    child_2 = ResumeGuardDescr()
+    child_2.inc_depth(child_1)
+    assert child_2.rd_depth == 2
+
+    new = ResumeGuardDescr()
+    new.copy_all_attributes_from(child_2)
+    assert new.rd_depth == 2
