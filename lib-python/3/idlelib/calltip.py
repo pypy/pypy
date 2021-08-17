@@ -168,7 +168,7 @@ def get_argspec(ob):
 
     # On pypy more stuff passes isinstance(ob_call, types.MethodType) than on cpython
     # so first filter some objects that should be used directly before considering ob_call
-    if isinstance(ob, type) or isinstance(ob, types.FunctionType):
+    if isinstance(ob, (type, types.FunctionType, types.MethodType)):
         fob = ob
     elif isinstance(ob_call, types.MethodType):
         fob = ob_call
