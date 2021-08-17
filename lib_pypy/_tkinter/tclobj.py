@@ -127,7 +127,7 @@ def FromObj(app, value):
         buf = tklib.Tcl_GetUnicode(value)
         length = tklib.Tcl_GetCharLength(value)
         buf = tkffi.buffer(tkffi.cast("char*", buf), length*2)[:]
-        return buf.decode('utf-16')
+        return buf.decode('utf-16', 'surrogatepass')
 
     return Tcl_Obj(value)
 
@@ -157,7 +157,7 @@ def AsObj(value):
             argv[i] = AsObj(value[i])
         return tklib.Tcl_NewListObj(len(value), argv)
     if isinstance(value, str):
-        encoded = value.encode('utf-16')[2:]
+        encoded = value.encode('utf-16', 'surrogatepass')[2:]
         buf = tkffi.new("char[]", encoded)
         inbuf = tkffi.cast("Tcl_UniChar*", buf)
         return tklib.Tcl_NewUnicodeObj(inbuf, len(encoded)//2)
