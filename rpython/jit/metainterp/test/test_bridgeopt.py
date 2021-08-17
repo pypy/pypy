@@ -388,3 +388,29 @@ class TestOptBridge(LLJitMixin):
         res = self.meta_interp(f, [6, 32, 16])
         self.check_trace_count(3)
         self.check_resops(call_r=1)
+
+    def test_too_many_bridges(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y'])
+
+        class Map(object):
+            pass
+
+        class Instance(object):
+            def __init__(self, map_):
+                self.map_ = map_
+
+        maps = [Map() for i in range(10)]
+        instances = [Instance(map) for i in range(10) for map in maps]
+
+        def f():
+            y = len(instances) - 1
+            while y >= 0:
+                myjitdriver.jit_merge_point(y=y)
+                instance = instances[y]
+                jit.promote(instance.map_)
+                y -= 1
+
+        self.meta_interp(f, [])
+        # This is not the final number, but we
+        # want it to be lower than the real result.
+        self.check_trace_count(10)
