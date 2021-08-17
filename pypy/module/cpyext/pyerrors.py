@@ -65,7 +65,8 @@ def PyErr_SetNone(space, w_type):
 
 if os.name == 'nt':
     # For some reason CPython returns a (PyObject*)NULL
-    @cpython_api([rffi.INT_real], PyObject, error=CANNOT_FAIL)
+    # This confuses the annotator, so set result_is_ll
+    @cpython_api([rffi.INT_real], PyObject, error=CANNOT_FAIL, result_is_ll=True)
     def PyErr_SetFromWindowsErr(space, err):
         PyErr_SetObject(space, space.w_OSError, space.newint(err))
         return rffi.cast(PyObject, 0)
