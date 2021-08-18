@@ -463,7 +463,7 @@ class TclTest(unittest.TestCase):
         self.assertEqual(passValue('str\x00ing\u20ac'), 'str\x00ing\u20ac')
         self.assertEqual(passValue('str\x00ing\U0001f4bb'),
                          'str\x00ing\U0001f4bb')
-        if sys.platform != 'win32':
+        if sys.platform != 'win32' and sys.implementation.name != 'pypy':
             self.assertEqual(passValue('<\udce2\udc82\udcac>'),
                              '<\u20ac>')
             self.assertEqual(passValue('<\udced\udca0\udcbd\udced\udcb2\udcbb>'),
@@ -527,7 +527,7 @@ class TclTest(unittest.TestCase):
         check('string\xbd')
         check('string\u20ac')
         check('string\U0001f4bb')
-        if sys.platform != 'win32':
+        if sys.platform != 'win32' and sys.implementation.name != 'pypy':
             check('<\udce2\udc82\udcac>', '<\u20ac>')
             check('<\udced\udca0\udcbd\udced\udcb2\udcbb>', '<\U0001f4bb>')
         check('')
