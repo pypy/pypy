@@ -1989,7 +1989,7 @@ class AppTestSlots(AppTestCpythonExtensionBase):
         module = self.import_extension('foo', [
             ("test_callnoarg", "METH_VARARGS",
              '''
-                PyObject *func, *func_args, *kwnames = NULL;
+                PyObject *func, *kwnames = NULL;
                 PyObject **stack;
                 Py_ssize_t nargs;
 
