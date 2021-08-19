@@ -1022,6 +1022,7 @@ class _SSLContext(object):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
         self._sni_cb = None
+        self._msg_cb = None
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
@@ -1485,10 +1486,27 @@ class _SSLContext(object):
         if not callable(cb):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
-        self._sni_cb = ServernameCallback(cb, self)
+        self._sni_cb = GenericCallback(cb, self)
         self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
         lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
+
+    @property
+    def _msg_callback(self):
+        return self._msg_cb
+
+    @_msg_callback.setter
+    def _msg_callback(self, arg, userdata=None):
+        # userdata is unused
+        if arg is None:
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+        if not callable(arg):
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+            raise TypeError('not a callable object')
+        self._msg_cb = arg
+        lib.SSL_CTX_set_msg_callback(self.ctx, _msg_callback)
 
     def cert_store_stats(self):
         store = lib.SSL_CTX_get_cert_store(self.ctx)
@@ -1737,12 +1755,46 @@ if HAS_SNI:
             # TODO gil state release?
             return lib.SSL_TLSEXT_ERR_OK
 
-class ServernameCallback(object):
+@ffi.callback("void(int, int, int, const void*, size_t, SSL*, void*)")
+def _msg_callback(write_p, version, content_type, buf, length, ssl, arg):
+    ssl_obj = ffi.from_handle(lib.SSL_get_app_data(ssl))
+    cbuf = ffi.cast('const char *', buf)
+    assert isinstance(ssl_obj, _SSLSocket)
+    if ssl_obj.ctx._msg_cb is None:
+        return
+    if ssl_obj.owner:
+        ssl_socket = ssl_obj.owner
+    elif getattr(ssl_obj, 'Socket', None):
+        ssl_socket = ssl_obj.Socket
+    else:
+        ssl_socket = ssl_obj
+    # assume that OpenSSL verifies all payload and buf len is of sufficient
+    # length
+    if content_type == lib.SSL3_RT_CHANGE_CIPHER_SPEC:
+        msg_type = lib.SSL3_MT_CHANGE_CIPHER_SPEC
+    elif content_type == lib.SSL3_RT_ALERT:
+        # byte 0: level
+        # byte 1: alert type
+        msg_type = ord(cbuf[1]);
+    elif content_type == lib.SSL3_RT_HANDSHAKE:
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_HEADER:
+        # frame header encodes version in bytes 1..2
+        version = ord(cbuf[1]) << 8 | ord(cbuf[2])
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_INNER_CONTENT_TYPE:
+        msg_type = ord(cbuf[0])
+    else:
+        # never SSL3_RT_APPLICATION_DATA
+        msg_type = -1;
+    res = ssl_obj.ctx._msg_cb(ssl_socket, 'write' if write_p != 0 else 'read',
+                              version, content_type, msg_type,
+                              bytes(ffi.buffer(cbuf, length)))
+
+class GenericCallback(object):
     def __init__(self, callback, ctx):
         self.callback = callback
         self.ctx = ctx
-
-SERVERNAME_CALLBACKS = weakref.WeakValueDictionary()
 
 def _asn1obj2py(obj):
     nid = lib.OBJ_obj2nid(obj)

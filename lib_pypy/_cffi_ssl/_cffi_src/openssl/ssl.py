@@ -142,6 +142,22 @@ static const long TLS_ST_OK;
 
 static const long OPENSSL_NPN_NEGOTIATED;
 
+static const long SSL3_VERSION;
+static const long TLS1_VERSION;
+static const long TLS1_1_VERSION;
+static const long TLS1_2_VERSION;
+
+static const long SSL3_RT_CHANGE_CIPHER_SPEC;
+static const long SSL3_RT_ALERT;
+static const long SSL3_RT_HANDSHAKE;
+static const long SSL3_RT_APPLICATION_DATA;
+static const long DTLS1_RT_HEARTBEAT;
+
+static const long SSL3_RT_HEADER;
+static const long SSL3_RT_INNER_CONTENT_TYPE;
+
+static const long SSL3_MT_CHANGE_CIPHER_SPEC;
+
 typedef ... SSL_METHOD;
 typedef ... SSL_CTX;
 
@@ -575,7 +591,14 @@ int SSL_set_num_tickets(SSL *s, size_t num_tickets);
 size_t SSL_get_num_tickets(const SSL *s);
 int SSL_CTX_set_num_tickets(SSL_CTX *ctx, size_t num_tickets);
 size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
-
+void SSL_CTX_set_msg_callback(SSL_CTX *ctx,
+                              void (*cb) (int write_p, int version,
+                                          int content_type, const void *buf,
+                                          size_t len, SSL *ssl, void *arg));
+void SSL_set_msg_callback(SSL *ssl,
+                          void (*cb) (int write_p, int version,
+                                      int content_type, const void *buf,
+                                      size_t len, SSL *ssl, void *arg));
 """
 
 CUSTOMIZATIONS = """
