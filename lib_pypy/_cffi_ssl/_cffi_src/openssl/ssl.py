@@ -570,6 +570,12 @@ int SSL_get_min_proto_version(SSL *ssl);
 int SSL_get_max_proto_version(SSL *ssl);
 
 ASN1_OCTET_STRING *a2i_IPADDRESS(const char *ipasc);
+
+int SSL_set_num_tickets(SSL *s, size_t num_tickets);
+size_t SSL_get_num_tickets(const SSL *s);
+int SSL_CTX_set_num_tickets(SSL_CTX *ctx, size_t num_tickets);
+size_t SSL_CTX_get_num_tickets(const SSL_CTX *ctx);
+
 """
 
 CUSTOMIZATIONS = """

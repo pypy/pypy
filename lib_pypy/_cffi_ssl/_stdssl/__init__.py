@@ -1103,6 +1103,22 @@ class _SSLContext(object):
             lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
 
+    if OPENSSL_VERSION_NUMBER > 0x10101000:
+        @property
+        def num_tickets(self):
+            return lib.SSL_CTX_get_num_tickets(self.ctx)
+
+        @num_tickets.setter
+        def num_tickets(self, arg, userdata=None):
+            # userdata is unused
+            num = int(arg)
+            if num < 0:
+                raise ValueError('value must be non-negative')
+            if self.protocol not in (PROTOCOL_TLS_SERVER,):
+                raise ValueError("SSLContext is not a server context")
+            if lib.SSL_CTX_set_num_tickets(self.ctx, num) != 1:
+                raise ValueError("failed to set num tickets")
+
     @property
     def options(self):
         return lib.SSL_CTX_get_options(self.ctx)
@@ -1417,14 +1433,19 @@ class _SSLContext(object):
                 loaded += 1
 
             err = lib.ERR_peek_last_error()
-            if (ca_file_type == lib.SSL_FILETYPE_ASN1 and
+            if loaded == 0:
+                if ca_file_type == lib.SSL_FILETYPE_PEM:
+                    msg = "no start line: cadata does not contain a certificate"
+                else:
+                    msg = "not enough data: cadata does not contain a certificate";
+                raise ssl_error(msg)
+            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
                 loaded > 0 and
                 lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
                 lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
-                  loaded > 0 and
                   lib.ERR_GET_LIB(err) == lib.ERR_LIB_PEM and
                   lib.ERR_GET_REASON(err) == lib.PEM_R_NO_START_LINE):
                 # EOF PEM file, not an error
