@@ -170,6 +170,14 @@ void AddLoopStrengthReducePass(LLVMPassManagerRef pass_manager){
 	AddLoopStrengthReducePass_wrapper(pass_manager);
 }
 
+void AddTargetLibraryInfoPass(LLVMPassManagerRef pass_manager, char *triple){
+	AddTargetLibraryInfoPass_wrapper(pass_manager, triple);
+}
+
+void AddTargetTransformationInfoPass(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine){
+	AddTargetTransformationInfoPass_wrapper(pass_manager, target_machine);
+}
+
 //below code uses LLVM 13
 /* uint8_t *allocate_code_section_callback(void *Opaque, uintptr_t Size, unsigned Alignment, unsigned SectionID, const char *SectionName){ */
 /* 	return 0; */

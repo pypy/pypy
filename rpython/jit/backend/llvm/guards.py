@@ -27,9 +27,9 @@ class GuardHandlerBase:
             self.llvm.ConstInt(self.cpu.llvm_indx_type, 100, 0)) # true
         weight2 = self.llvm.ValueAsMetadata(
             self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)) # false
-        mds = self.dispatcher.rpython_array(
+        self.mds = self.dispatcher.rpython_array(
             [branch_weights, weight1, weight2], self.llvm.MetadataRef)
-        guard_weights = self.llvm.MDNode(self.cpu.context, mds, 3)
+        guard_weights = self.llvm.MDNode(self.cpu.context, self.mds, 3)
         guard_weights_value = self.llvm.MetadataAsValue(self.cpu.context,
                                                         guard_weights)
 
@@ -66,6 +66,9 @@ class GuardHandlerBase:
         instruction builder at the start of the new block
         """
         raise NotImplementedError
+
+    def __del__(self):
+        lltype.free(self.mds, flavor='raw')
 
 class BlockPerGuardImpl(GuardHandlerBase):
     """

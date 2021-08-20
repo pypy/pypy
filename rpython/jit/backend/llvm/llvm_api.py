@@ -67,6 +67,11 @@ class LLVMAPI:
                         "Error","ErrorHandling","ExternC",
                         "Initialization","Orc","TargetMachine","Types",
                         "LLJIT","OrcEE"]
+        header_files += ["Transforms/"+f for f in ("AggressiveInstCombine",
+                                                   "IPO", "InstCombine",
+                                                   "PassManagerBuilder",
+                                                   "Scalar", "Utils",
+                                                   "Vectorize")]
         llvm_c = ["llvm-c/"+f+".h" for f in header_files]
         cflags = [os.popen("llvm-config --cflags").read().strip()]
         ldflags = os.popen("llvm-config --ldflags").read().strip()[2:]
@@ -926,6 +931,19 @@ class LLVMAPI:
                                                          [self.PassManagerRef],
                                                          self.Void,
                                                          compilation_info=info)
+        self.AddTargetAnalysisPasses = rffi.llexternal("AddTargetTransformationInfoPass",
+                                                       [self.PassManagerRef,
+                                                        self.TargetMachineRef],
+                                                       self.Void,
+                                                       compilation_info=info)
+        self.AddTargetLibraryInfoPass = rffi.llexternal("AddTargetLibraryInfoPass",
+                                                        [self.PassManagerRef,
+                                                         self.Str], self.Void,
+                                                        compilation_info=info)
+        self.DisposePassManager = rffi.llexternal("LLVMDisposePassManager",
+                                                  [self.PassManagerRef],
+                                                  self.Void,
+                                                  compilation_info=info)
 
 
 

@@ -4,7 +4,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.jit.backend.llvm.llvm_api import LLVMAPI, CString
 from rpython.jit.backend.llvm.llvm_parse_ops import LLVMOpDispatcher
 from rpython.jit.backend.llvm.assembler import LLVMAssembler
-from rpython.jit.metainterp import history
+from rpython.jit.metainterp import history, compile
 import os
 
 class LLVM_CPU(AbstractLLCPU):
@@ -135,8 +135,10 @@ class LLVM_CPU(AbstractLLCPU):
         fail_descr_rd_locs = [rffi.cast(rffi.USHORT, i)
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
+        compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
+        looptoken.name = name
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher,
-                                   dispatcher.jitframe_depth)
+                                   dispatcher.jitframe_depth, name)
 
     def compile_bridge(self, faildescr, inputargs, operations, looptoken):
         dispatcher = self.dispatchers[looptoken]
@@ -147,9 +149,12 @@ class LLVM_CPU(AbstractLLCPU):
         fail_descr_rd_locs = [rffi.cast(rffi.USHORT, i)
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
+        compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
+        name = looptoken.name
         self.assembler.jit_compile(dispatcher.module, looptoken,
                                    inputargs, dispatcher,
-                                   dispatcher.jitframe_depth, is_bridge=True)
+                                   dispatcher.jitframe_depth,
+                                   name, is_bridge=True)
 
     def parse_arg_types(self, *ARGS):
         types = []

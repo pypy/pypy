@@ -10,6 +10,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm-c/Initialization.h"
 #include "llvm-c/Transforms/Scalar.h"
+#include "llvm-c/TargetMachine.h"
 #include "llvm/Analysis/BasicAliasAnalysis.h"
 #include "llvm/Analysis/Passes.h"
 #include "llvm/Analysis/ScopedNoAliasAA.h"
@@ -23,6 +24,12 @@
 #include "llvm/Transforms/Scalar/SimpleLoopUnswitch.h"
 #include "llvm/Transforms/Utils/UnifyFunctionExitNodes.h"
 #include "llvm/Transforms/IPO/FunctionAttrs.h"
+#include <llvm/ADT/Triple.h>
+#include <llvm/Analysis/TargetLibraryInfo.h>
+#include <llvm/Analysis/TargetTransformInfo.h>
+#include <llvm/IR/DataLayout.h>
+#include <llvm/Support/TargetRegistry.h>
+#include <llvm/Target/TargetMachine.h>
 #include <cstddef>
 #include <sys/types.h>
 #include <stdio.h>
@@ -83,6 +90,7 @@ extern "C"{
     }
 
     void AddLoopSimplifyPass_wrapper(LLVMPassManagerRef pass_manager){
+        unwrap(pass_manager)->add(llvm::createLoopInstSimplifyPass());
         unwrap(pass_manager)->add(llvm::createLoopSimplifyCFGPass());
     }
 
@@ -94,6 +102,14 @@ extern "C"{
         unwrap(pass_manager)->add(llvm::createPostOrderFunctionAttrsLegacyPass());
     }
 
+    void AddTargetLibraryInfoPass_wrapper(LLVMPassManagerRef pass_manager, char* triple){
+        unwrap(pass_manager)->add(new TargetLibraryInfoWrapperPass(Triple(triple)));
+    }
+
+    void AddTargetTransformationInfoPass_wrapper(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine){
+        TargetMachine *TM = reinterpret_cast<TargetMachine *>(target_machine);
+        unwrap(pass_manager)->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
+    }
 
 #ifdef __cplusplus
 }

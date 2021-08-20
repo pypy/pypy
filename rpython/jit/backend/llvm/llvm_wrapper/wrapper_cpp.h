@@ -1,4 +1,5 @@
 #include <llvm-c/Core.h>
+#include <llvm-c/TargetMachine.h>
 #include <sys/types.h>
 
 #ifdef __cplusplus
@@ -27,6 +28,10 @@ extern "C"{
     void AddLoopSimplifyPass_wrapper(LLVMPassManagerRef pass_manager);
 
     void AddLoopStrengthReducePass_wrapper(LLVMPassManagerRef pass_manager);
+
+    void AddTargetLibraryInfoPass_wrapper(LLVMPassManagerRef pass_manager, char* triple);
+
+    void AddTargetTransformationInfoPass_wrapper(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine);
 #ifdef __cplusplus
 }
 #endif

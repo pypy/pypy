@@ -10,8 +10,7 @@ from rpython.jit.backend.llvm.llvm_api import CString
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type,
-                 jitframe_subtypes, test_descr=None):
-        self.test_descr = test_descr
+                 jitframe_subtypes):
         self.cpu = cpu
         self.builder = builder
         self.module = module
@@ -368,11 +367,11 @@ class LLVMOpDispatcher:
         return self.llvm.MetadataAsValue(self.cpu.context, mdstr)
 
     def rpython_array(self, args, elem_type):
-        arg_array_type = rffi.CArray(elem_type)
-        arg_array = lltype.malloc(arg_array_type, n=len(args), flavor='raw')
+        array_type = rffi.CArray(elem_type)
+        array = lltype.malloc(array_type, n=len(args), flavor='raw')
         for c, arg in enumerate(args):
-            arg_array[c] = arg
-        return arg_array
+            array[c] = arg
+        return array
 
     def parse_args(self, args, llvm_types=False):
         llvm_args = []
@@ -1652,6 +1651,7 @@ class LLVMOpDispatcher:
         cstring = CString("array_elem_ptr")
         ptr = self.llvm.BuildGEP(self.builder, self.cpu.llvm_char_type,
                                  array, indecies, 1, cstring.ptr)
+        lltype.free(indecies, flavor='raw')
 
         # find the real type of the array and cast before loading
         elem_type, _ = self.get_array_elem_type(arraydescr, array, 1)
@@ -1774,28 +1774,26 @@ class LLVMOpDispatcher:
 
     def parse_new(self, op):
         sizedescr = op.getdescr()
-        ret_type = llmemory.GCREF
-        arg_types = [lltype.Signed]
 
         size = self.llvm.ConstInt(self.cpu.llvm_int_type, sizedescr.size, 0)
         args = self.rpython_array([size], self.llvm.ValueRef)
         cstring = CString("new_res")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        lltype.free(args, flavor='raw')
 
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct, plain=True)
         self.ssa_vars[op] = llvm_struct.struct
 
     def parse_new_with_vtable(self, op):
         sizedescr = op.getdescr()
-        ret_type = llmemory.GCREF
-        arg_types = [lltype.Signed]
 
         size = self.llvm.ConstInt(self.cpu.llvm_int_type, sizedescr.size, 0)
         args = self.rpython_array([size], self.llvm.ValueRef)
         cstring = CString("new_res")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        lltype.free(args, flavor='raw')
 
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
 
@@ -1840,6 +1838,7 @@ class LLVMOpDispatcher:
         cstring = CString("new_res")
         array = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        lltype.free(args, flavor='raw')
 
         llvm_array = self.parse_array_descr_to_llvm(arraydescr, array)
 
@@ -1891,6 +1890,7 @@ class LLVMOpDispatcher:
         cstring = CString("ptr")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        lltype.free(args, flavor='raw')
 
         int_types = [self.cpu.llvm_int_type] * (num_failargs)
         jitframe_ptr_type = self.llvm.PointerType(self.jitframe.struct_type, 0)
@@ -2017,6 +2017,7 @@ class LLVMOpDispatcher:
         cstring = CString("array_elem_ptr")
         ptr = self.llvm.BuildGEP(self.builder, self.cpu.llvm_char_type,
                                  array, indecies, 1, cstring.ptr)
+        lltype.free(args, flavor='raw')
 
         # find the real type of the array and cast before loading
         elem_type, _ = self.get_array_elem_type(arraydescr, array, 1)
@@ -2134,6 +2135,7 @@ class LLVMOpDispatcher:
         cstring = CString("")
         self.llvm.BuildCall(self.builder, self.memset_intrinsic, args, 4,
                             cstring.ptr)
+        lltype.free(args, flavor='raw')
 
     def get_arg_types(self, call_descr, params):
         arg_types = []
@@ -2147,7 +2149,7 @@ class LLVMOpDispatcher:
                     cstring = CString("arg_cast")
                     params[c] = self.llvm.BuildIntCast(self.builder, params[c],
                                                        int_type, 1, cstring.ptr)
-                elif arg_type is lltype.Signed:
+                elif arg_type is lltype.Signed or lltype.Unsigned:
                     arg_types.append(self.cpu.llvm_int_type)
                 elif arg_type is rffi.INT:
                     llvm_type = self.cpu.llvm_indx_type #indx_type = 32bits
@@ -2167,7 +2169,7 @@ class LLVMOpDispatcher:
                     cstring = CString("arg_cast")
                     params[c] = self.llvm.BuildIntCast(self.builder, params[c],
                                                        llvm_type, 1, cstring.ptr)
-                else: raise Exception("Unknown int arg type")
+                else: raise Exception("Unknown int arg type: "+str(arg_type))
             elif typ == 'f' or typ == 'L': arg_types.append(self.cpu.llvm_float_type)
             elif typ == 'r':
                 cstring = CString("cast_ptr")

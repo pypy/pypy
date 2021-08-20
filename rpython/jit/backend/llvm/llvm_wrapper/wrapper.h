@@ -83,6 +83,10 @@ void AddLoopStrengthReducePass(LLVMPassManagerRef pass_manager);
 
 void AddLoopSimplifyPass(LLVMPassManagerRef pass_manager);
 
+void AddTargetLibraryInfoPass(LLVMPassManagerRef pass_manager, char *triple);
+
+void AddTargetTransformationInfoPass(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine);
+
 struct Ctx{
 	uint8_t *stackmap;
 	unsigned section_count;
