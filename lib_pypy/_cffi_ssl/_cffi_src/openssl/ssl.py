@@ -176,6 +176,7 @@ typedef struct {
     const char *name;
     unsigned long id;
 } SRTP_PROTECTION_PROFILE;
+static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT;
 """
 
 FUNCTIONS = """
@@ -934,5 +935,11 @@ int (*SSL_read_early_data)(SSL *, void *, size_t, size_t *) = NULL;
 int (*SSL_CTX_set_max_early_data)(SSL_CTX *, uint32_t) = NULL;
 #else
 static const long Cryptography_HAS_TLSv1_3 = 1;
+#endif
+
+#ifdef X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
+static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 1;
+#else
+static const long Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT = 0;
 #endif
 """
