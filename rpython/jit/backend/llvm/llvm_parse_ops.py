@@ -486,6 +486,7 @@ class LLVMOpDispatcher:
 
         self.operations = ops
 
+
         for c, op in enumerate(self.operations):
             if op.opnum == 1:
                 self.parse_jump(op)
@@ -1720,7 +1721,6 @@ class LLVMOpDispatcher:
         else: index = fielddescr.index; plain=True
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct,
                                                       plain=plain)
-
         value = llvm_struct.get_elem(index)
 
         if fielddescr.flag == 'S':

@@ -136,11 +136,13 @@ class LLVM_CPU(AbstractLLCPU):
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
         compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
+        compile.ResumeGuardCopiedDescr.rd_locs = fail_descr_rd_locs
         looptoken.name = name
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher,
                                    dispatcher.jitframe_depth, name)
 
-    def compile_bridge(self, faildescr, inputargs, operations, looptoken):
+    def compile_bridge(self, faildescr, inputargs, operations, looptoken,
+                       jd_id=0, unique_id=0, log=True, name='trace', logger=None):
         dispatcher = self.dispatchers[looptoken]
         dispatcher.dispatch_ops(inputargs, operations, faildescr=faildescr)
         if self.debug:
@@ -150,6 +152,7 @@ class LLVM_CPU(AbstractLLCPU):
                               for i in range(dispatcher.jitframe_depth)]
         history.BasicFailDescr.rd_locs = fail_descr_rd_locs
         compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
+        compile.ResumeGuardCopiedDescr.rd_locs = fail_descr_rd_locs
         name = looptoken.name
         self.assembler.jit_compile(dispatcher.module, looptoken,
                                    inputargs, dispatcher,

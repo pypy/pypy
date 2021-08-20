@@ -66,6 +66,35 @@ class BasicTests:
         res = self.interp_operations(f, [8, 98])
         assert res == 110
 
+    def test_llvm(self):
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        def f(x, y):
+            res = []
+            while y > 0:
+                myjitdriver.can_enter_jit(x=x, y=y, res=res)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                res.append(x*y)
+                y -= 1
+            return res
+        res = self.meta_interp(f, [6, 7])
+        print(res)
+        exit(1)
+        #assert res[4] == 4*4
+        self.check_trace_count(1)
+        self.check_resops({'jump': 1, 'int_gt': 2, 'int_add': 2,
+                           'guard_true': 2, 'int_sub': 2})
+
+        if self.basic:
+            found = 0
+            for op in get_stats().get_all_loops()[0]._all_operations():
+                if op.getopname() == 'guard_true':
+                    liveboxes = op.getfailargs()
+                    assert len(liveboxes) == 3
+                    for box in liveboxes:
+                        assert box.type == 'i'
+                    found += 1
+            assert found == 2
+
     def test_loop_1(self):
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
         def f(x, y):

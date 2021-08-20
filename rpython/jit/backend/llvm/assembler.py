@@ -96,9 +96,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString(name)
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
-        # import pdb
-        # pdb.set_trace()
-        # self.llvm.create_breakpoint()
+        import pdb
+        pdb.set_trace()
+        self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("Trace Function is Null")
         looptoken._ll_function_addr = addr
@@ -110,7 +110,6 @@ class LLVMAssembler(BaseAssembler):
         self.llvm.AddScopedNoAliasAAPass(self.pass_manager)
         self.llvm.AddTypeBasedAliasAnalysisPass(self.pass_manager)
         self.llvm.AddInferFunctionAttrsPass(self.pass_manager)
-        self.llvm.AddUnifyFunctionExitNodesPass(self.pass_manager)
         self.llvm.AddCFGSimplificationPass(self.pass_manager)
         self.llvm.AddScalarReplAggregatesPass(self.pass_manager)
         self.llvm.AddEarlyCSEPass(self.pass_manager)
