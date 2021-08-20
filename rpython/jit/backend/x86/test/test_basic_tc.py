@@ -16,5 +16,5 @@ class Jit386Mixin(support.LLJitMixin):
 
 class TestBasic(Jit386Mixin, test_threaded_code.BasicTests):
     # for the individual tests see
-    # ====> ../../../metainterp/test/test_ajit.py
+    # ====> ../../../metainterp/test/test_threaded_code.py
     pass
