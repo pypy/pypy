@@ -67,17 +67,27 @@ class BasicTests:
         assert res == 110
 
     def test_llvm(self):
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res'])
+        import time
+        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'res2'])
         def f(x, y):
             res = []
+            res2 = [i for i in range(x+1)]
             while y > 0:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res)
+                myjitdriver.can_enter_jit(x=x, y=y, res=res, res2=res2)
+                myjitdriver.jit_merge_point(x=x, y=y, res=res, res2=res2)
+                while x > 0:
+                    myjitdriver.can_enter_jit(x=x, y=y, res=res, res2=res2)
+                    res2[x-1] = res2[x]*y
+                    x -= 1
+                x = y
                 res.append(x*y)
                 y -= 1
-            return res
+
+            return (res, res2)
+        time1 = time.time()
         res = self.meta_interp(f, [6, 7])
-        print(res)
+        time2 = time.time()
+        print("runtime: "+str(time2-time1))
         exit(1)
         #assert res[4] == 4*4
         self.check_trace_count(1)

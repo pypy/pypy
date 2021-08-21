@@ -189,47 +189,57 @@ class LLVMOpDispatcher:
         return (elem_type, depth)
 
     def parse_array_descr_to_llvm(self, arraydescr, array_ptr):
+        new_array = False
         try:
-            llvm_array = self.arrays[arraydescr]
-            array_ptr_type = self.llvm.PointerType(llvm_array.array_type, 0)
+            llvm_array = self.structs[arraydescr]
+            array_ptr_type = self.llvm.PointerType(llvm_array.struct_type, 0)
+        except KeyError:
+            try:
+                llvm_array = self.arrays[arraydescr]
+                array_ptr_type = self.llvm.PointerType(llvm_array.array_type, 0)
+            except KeyError:
+                new_array = True
+
+        if not new_array:
             cstring = CString("array")
             array_ptr = self.llvm.BuildPointerCast(self.builder, array_ptr,
                                                    array_ptr_type, cstring.ptr)
             llvm_array.change_object(array_ptr)
-            return array_ptr
-
-        except KeyError:
-            depth = 1 if arraydescr.lendescr is None else 2
-            elem_type, depth = self.get_array_elem_type(arraydescr, array_ptr,
-                                                        depth)
-            array_type = self.llvm.ArrayType(elem_type, 0)
-
-            if arraydescr.lendescr is not None:
-                inlined_array_type = array_type
-                array_type = self.get_llvm_struct_type([self.cpu.llvm_int_type,
-                                                        inlined_array_type])
-                array_ptr_type = self.llvm.PointerType(array_type, 0)
-                cstring = CString("array")
-                array_ptr = self.llvm.BuildPointerCast(self.builder, array_ptr,
-                                                       array_ptr_type,
-                                                       cstring.ptr)
-
-                arg_types = [self.cpu.llvm_int_type, inlined_array_type]
-                llvm_array = LLVMStruct(self, arg_types, depth,
-                                        struct=array_ptr,
-                                        struct_type=array_type)
-
-                self.arrays[arraydescr] = llvm_array
-            else:
-                array_ptr_type = self.llvm.PointerType(array_type, 0)
-                cstring = CString("array")
-                array_ptr = self.llvm.BuildPointerCast(self.builder, array_ptr,
-                                                       array_ptr_type,
-                                                       cstring.ptr)
-                llvm_array = LLVMArray(self, elem_type, depth, array=array_ptr,
-                                       array_type=array_type)
-
             return llvm_array
+
+        depth = 1 if arraydescr.lendescr is None else 2
+        elem_type, depth = self.get_array_elem_type(arraydescr, array_ptr,
+                                                    depth)
+        array_type = self.llvm.ArrayType(elem_type, 0)
+
+        if arraydescr.lendescr is not None:
+            inlined_array_type = array_type
+            array_type = self.get_llvm_struct_type([self.cpu.llvm_int_type,
+                                                    inlined_array_type])
+            array_ptr_type = self.llvm.PointerType(array_type, 0)
+            cstring = CString("array")
+            array_ptr = self.llvm.BuildPointerCast(self.builder, array_ptr,
+                                                   array_ptr_type,
+                                                   cstring.ptr)
+
+            arg_types = [self.cpu.llvm_int_type, inlined_array_type]
+            llvm_array = LLVMStruct(self, arg_types, depth,
+                                    struct=array_ptr,
+                                    struct_type=array_type)
+
+            self.structs[arraydescr] = llvm_array
+        else:
+            array_ptr_type = self.llvm.PointerType(array_type, 0)
+            cstring = CString("array")
+            array_ptr = self.llvm.BuildPointerCast(self.builder, array_ptr,
+                                                   array_ptr_type,
+                                                   cstring.ptr)
+            llvm_array = LLVMArray(self, elem_type, depth, array=array_ptr,
+                                   array_type=array_type)
+
+            self.arrays[arraydescr] = llvm_array
+
+        return llvm_array
 
     def get_llvm_field_types(self, fielddescrs):
         llvm_types = []
