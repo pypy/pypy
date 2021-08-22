@@ -79,15 +79,6 @@ class TestExceptions(BaseApiTest):
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
 
-    def test_WriteUnraisable(self, space, api, capfd):
-        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
-        w_where = space.wrap("location")
-        api.PyErr_WriteUnraisable(w_where)
-        space.call_method(space.sys.get('stderr'), "flush")
-        out, err = capfd.readouterr()
-        msg = err.strip().replace('\r', '')
-        assert msg == "Exception ignored in: 'location'\nValueError: message"
-
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
         assert not api.PyOS_InterruptOccurred()
@@ -594,3 +585,30 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
 
         raises(IndexError, module.raises)
+
+    def test_WriteUnraisable(self):
+        # Use work-around since cpyext does not set the app-level exc_info
+        # until exiting the c-extenstion module function
+        module = self.import_extension('foo', [
+            ("unraisable", "METH_O",
+             '''
+                PyErr_SetString(PyExc_ValueError, "message");
+                /* args is "location" */
+                PyErr_WriteUnraisable(args);
+                PyErr_Clear();
+                Py_RETURN_NONE;
+             '''),
+            ])
+        import sys
+        import io, sys
+        old = sys.stderr 
+        sys.stderr = io.StringIO()
+        module.unraisable('location')
+        output = sys.stderr.getvalue()
+        sys.stderr = sys.__stderr__
+        msg = output.strip().replace('\r', '').splitlines()
+        print(msg)
+        assert msg[0] == "Exception ignored in: 'location'"
+        assert msg[-1] == "ValueError: message"
+
+
