@@ -137,7 +137,7 @@ class W_ExternPython(W_CData):
         try:
             w_args = self.prepare_args_tuple(ll_args)
             w_res = space.call(self.w_callable, w_args)
-            extra_line = "Trying to convert the result back to C:\n"
+            extra_line = ", trying to convert the result back to C"
             self.convert_result(ll_res, w_res)
         except OperationError as e:
             self.handle_applevel_exception(e, ll_res, extra_line)
@@ -166,7 +166,7 @@ class W_ExternPython(W_CData):
 
     def print_error(self, operr, extra_line):
         space = self.space
-        operr.write_unraisable(space, "cffi callback ", self.w_callable,
+        operr.write_unraisable(space, "from cffi callback", self.w_callable,
                                with_traceback=True, extra_line=extra_line)
 
     @jit.dont_look_inside
