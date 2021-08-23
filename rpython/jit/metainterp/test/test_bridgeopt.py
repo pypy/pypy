@@ -404,6 +404,7 @@ class TestOptBridge(LLJitMixin):
         instances = [Instance(map) for i in range(20) for map in maps]
 
         def f():
+            jit.set_param(myjitdriver, 'max_promotes', 1)
             y = len(instances) - 1
             while y >= 0:
                 myjitdriver.jit_merge_point(y=y)
@@ -412,9 +413,7 @@ class TestOptBridge(LLJitMixin):
                 y -= 1
 
         self.meta_interp(f, [])
-        # This is not the final number, but we
-        # want it to be lower than the real result.
-        self.check_trace_count(10)
+        self.check_trace_count(7)
 
 def test_guard_depth_increase():
     parent = ResumeGuardDescr()

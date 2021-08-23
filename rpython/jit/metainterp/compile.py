@@ -768,6 +768,26 @@ class AbstractResumeGuardDescr(ResumeDescr):
         increment = jitdriver_sd.warmstate.increment_trace_eagerness
         return jitcounter.tick(hash, increment)
 
+    def get_guard_value_constant(self, metainterp_sd, deadframe):
+        from rpython.jit.metainterp.history import ConstInt, ConstFloat, ConstPtr
+        index = intmask(self.status >> self.ST_SHIFT)
+        typetag = intmask(self.status & self.ST_TYPE_MASK)
+
+        # fetch the actual value of the guard_value, possibly turning
+        # it to an integer
+        if typetag == self.TY_INT:
+            return ConstInt(metainterp_sd.cpu.get_value_direct(deadframe, 'i',
+                                                        index))
+        elif typetag == self.TY_REF:
+            return ConstPtr(metainterp_sd.cpu.get_value_direct(deadframe, 'r',
+                                                        index))
+        elif typetag == self.TY_FLOAT:
+            floatval = metainterp_sd.cpu.get_value_direct(deadframe, 'f',
+                                                          index)
+            return ConstFloat(longlong.getfloatstorage(floatval))
+        else:
+            assert 0, typetag
+
     def start_compiling(self):
         # start tracing and compiling from this guard.
         self.status |= self.ST_BUSY_FLAG
@@ -813,6 +833,9 @@ class AbstractResumeGuardDescr(ResumeDescr):
             jitcounter = metainterp_sd.warmrunnerdesc.jitcounter
             hash = jitcounter.fetch_next_hash()
             self.status = hash & self.ST_SHIFT_MASK
+
+    def is_too_deep(self, warm_runner):
+        return False
 
 class ResumeGuardCopiedDescr(AbstractResumeGuardDescr):
     _attrs_ = ('status', 'prev')
@@ -869,6 +892,9 @@ class ResumeGuardDescr(AbstractResumeGuardDescr):
 
     def get_resumestorage(self):
         return self
+
+    def is_too_deep(self, warm_runner):
+        return self.rd_depth > warm_runner.max_promotes
 
     def inc_depth(self, parent):
         if parent is None:

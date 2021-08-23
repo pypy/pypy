@@ -1633,12 +1633,22 @@ class MIFrame(object):
         several ones and/or ones not near the beginning."""
         if isinstance(box, Const):
             return box     # no promotion needed, already a Const
-        else:
-            promoted_box = executor.constant_from_op(box)
-            self.metainterp.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
-                                           resumepc=orgpc)
-            self.metainterp.replace_box(box, promoted_box)
-            return promoted_box
+
+        promoted_box = executor.constant_from_op(box)
+        # If we are tracing a failed guard value for a bridge
+        # that is already too deep, we will stop promoting the
+        # ignore_promote_of constant.
+        ignore_promote_of = self.metainterp.ignore_promote_of
+        if (
+            ignore_promote_of is not None
+            and promoted_box.same_constant(ignore_promote_of)
+        ):
+            return box
+
+        self.metainterp.generate_guard(rop.GUARD_VALUE, box, [promoted_box],
+                                       resumepc=orgpc)
+        self.metainterp.replace_box(box, promoted_box)
+        return promoted_box
 
     def cls_of_box(self, box):
         return self.metainterp.cpu.cls_of_box(box)
@@ -2111,6 +2121,7 @@ class MetaInterp(object):
 
         self.aborted_tracing_jitdriver = None
         self.aborted_tracing_greenkey = None
+        self.ignore_promote_of = None
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
@@ -2545,6 +2556,15 @@ class MetaInterp(object):
         self.staticdata.profiler.start_tracing()
         key = resumedescr.get_resumestorage()
         assert isinstance(key, compile.ResumeGuardDescr)
+
+        # if there are too many connected bridges about the same
+        # promoted value, stop promoting it.
+        if resumedescr.is_too_deep(self.jitdriver_sd.warmstate):
+            debug_start('jit-tracing-deep-bridge')
+            self.ignore_promote_of = resumedescr.get_guard_value_constant(self.staticdata, deadframe)
+            debug_print('disabiling promotion of: ', self.ignore_promote_of.repr_rpython())
+            debug_stop('jit-tracing-deep-bridge')
+
         # store the resumekey.wref_original_loop_token() on 'self' to make
         # sure that it stays alive as long as this MetaInterp
         self.resumekey_original_loop_token = resumedescr.rd_loop_token.loop_token_wref()

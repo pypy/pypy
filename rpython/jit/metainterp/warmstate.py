@@ -308,6 +308,9 @@ class WarmEnterState(object):
             if self.warmrunnerdesc.memory_manager:
                 self.warmrunnerdesc.memory_manager.max_unroll_recursion = value
 
+    def set_param_max_promotes(self, value):
+        self.max_promotes = value
+
     def set_param_vec(self, ivalue):
         self.vec = bool(ivalue)
 
