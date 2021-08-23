@@ -1572,6 +1572,7 @@ class AppTestRecompiler:
             return n * 10
         with self.StdErrCapture() as f:
             res = lib.bar(321)
+        msg = f.getvalue()
         assert res is None
         assert "rom cffi callback %r" % (bar,) in msg
         assert "rying to convert the result back to C:\n" in msg
