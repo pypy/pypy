@@ -70,22 +70,22 @@ class BasicTests:
         import time
         myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'res2'])
         def f(x, y):
-            res = []
-            res2 = [i for i in range(x+1)]
-            while y > 0:
+            res = [i for i in range(y)]
+            res2 = [i for i in range(x)]
+            while y > 1:
                 myjitdriver.can_enter_jit(x=x, y=y, res=res, res2=res2)
                 myjitdriver.jit_merge_point(x=x, y=y, res=res, res2=res2)
-                while x > 0:
-                    myjitdriver.can_enter_jit(x=x, y=y, res=res, res2=res2)
-                    res2[x-1] = res2[x]*y
+                if x > 1:
+                    res2[x-2] = (x+y)*res2[x-1]
                     x -= 1
-                x = y
-                res.append(x*y)
-                y -= 1
-
+                else:
+                    x = y
+                    res[y-2] = (x*y)+res[y-1]
+                    y -= 1
             return (res, res2)
+
         time1 = time.time()
-        res = self.meta_interp(f, [6, 7])
+        res = self.meta_interp(f, [6, 5])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)

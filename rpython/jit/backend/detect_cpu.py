@@ -111,6 +111,7 @@ def autodetect():
 
 
 def getcpuclassname(backend_name="auto"):
+    #return "rpython.jit.backend.llvm.runner", "LLVM_CPU"
     if backend_name == "auto":
         backend_name = autodetect()
     backend_name = backend_name.replace('_', '-')

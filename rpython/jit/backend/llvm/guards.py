@@ -16,28 +16,27 @@ class GuardHandlerBase:
         self.guard_weights, self.prof_kind_id = self.define_metadata()
 
     def define_metadata(self):
-        cstring = CString("prof")
-        prof_kind_id = self.llvm.GetMDKindID(self.cpu.context,
-                                                  cstring.ptr, cstring.len)
-        cstring = CString("branch_weights")
+        cstring = CString("guard_weights")
         branch_weights = self.llvm.MDString(self.cpu.context,
                                             cstring.ptr, cstring.len)
 
-        weight1 = self.llvm.ValueAsMetadata(
+        weight_true = self.llvm.ValueAsMetadata(
             self.llvm.ConstInt(self.cpu.llvm_indx_type, 100, 0)) # true
-        weight2 = self.llvm.ValueAsMetadata(
+        weight_false = self.llvm.ValueAsMetadata(
             self.llvm.ConstInt(self.cpu.llvm_indx_type, 0, 0)) # false
         self.mds = self.dispatcher.rpython_array(
-            [branch_weights, weight1, weight2], self.llvm.MetadataRef)
+            [branch_weights, weight_true, weight_false], self.llvm.MetadataRef
+        )
         guard_weights = self.llvm.MDNode(self.cpu.context, self.mds, 3)
         guard_weights_value = self.llvm.MetadataAsValue(self.cpu.context,
                                                         guard_weights)
 
-        return (guard_weights_value, prof_kind_id)
+        return guard_weights_value
 
     def set_guard_weights(self, brinst):
         # Tell the optimiser to always speculate that we stay in hot code
-        self.llvm.SetMetadata(brinst, self.prof_kind_id, self.guard_weights)
+        self.llvm.SetMetadata(brinst, self.dispatcher.prof_kind_id,
+                              self.guard_weights)
 
     def setup_guard(self, op):
         """

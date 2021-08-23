@@ -33,6 +33,9 @@ class LLVMOpDispatcher:
         self.define_constants()
         self.guard_handler = BlockPerGuardImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
+        cstring = CString("prof")
+        self.prof_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                  cstring.ptr, cstring.len)
 
     def define_constants(self):
         self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
@@ -2318,7 +2321,24 @@ class LLVMOpDispatcher:
         cstring = CString("resume_block")
         resume_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                   cstring.ptr)
-        self.llvm.BuildCondBr(self.builder, cmp, call_block, resume_block)
+        branch = self.llvm.BuildCondBr(self.builder, cmp, call_block,
+                                       resume_block)
+
+        # set branch weights to assume we will rarely call the function
+        cstring = CString("cond_call_weights")
+        branch_weights = self.llvm.MDString(self.cpu.context,
+                                            cstring.ptr, cstring.len)
+        weight_true = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, 10, 0))
+        weight_false = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, 90, 0))
+        mds = self.rpython_array(
+            [branch_weights, weight_true, weight_false], self.llvm.MetadataRef
+        )
+        weights = self.llvm.MDNode(self.cpu.context, mds, 3)
+        weights_value = self.llvm.MetadataAsValue(self.cpu.context, weights)
+        self.llvm.SetMetadata(branch, self.prof_kind_id, weights_value)
+        lltype.free(mds, flavor='raw')
 
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
         self.call_function(func_int_ptr, ret_type, arg_types, params, "")
