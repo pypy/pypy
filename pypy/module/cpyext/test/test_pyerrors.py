@@ -79,15 +79,6 @@ class TestExceptions(BaseApiTest):
         assert "cpyext is cool" in err
         assert not api.PyErr_Occurred()
 
-    def test_WriteUnraisable(self, space, api, capfd):
-        api.PyErr_SetObject(space.w_ValueError, space.wrap("message"))
-        w_where = space.wrap("location")
-        api.PyErr_WriteUnraisable(w_where)
-        space.call_method(space.sys.get('stderr'), "flush")
-        out, err = capfd.readouterr()
-        msg = err.strip().replace('\r', '')
-        assert msg == "Exception ignored in: 'location'\nValueError: message"
-
     @pytest.mark.skipif(True, reason='not implemented yet')
     def test_interrupt_occurred(self, space, api):
         assert not api.PyOS_InterruptOccurred()
@@ -594,3 +585,71 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             ])
 
         raises(IndexError, module.raises)
+
+    def test_WriteUnraisable(self):
+        # Use work-around since cpyext does not set the app-level exc_info
+        # until exiting the c-extenstion module function
+        module = self.import_extension('foo', [
+            ("unraisable", "METH_O",
+             '''
+                PyErr_SetString(PyExc_ValueError, "message");
+                /* args is "location" */
+                PyErr_WriteUnraisable(args);
+                PyErr_Clear();
+                Py_RETURN_NONE;
+             '''),
+             ("unraisable_exc", "METH_VARARGS",
+             '''
+                PyObject *exc, *err_msg, *obj;
+                if (!PyArg_ParseTuple(args, "OOO", &exc, &err_msg, &obj)) {
+                    return NULL;
+                }
+
+                const char *err_msg_utf8;
+                if (err_msg != Py_None) {
+                    err_msg_utf8 = PyUnicode_AsUTF8(err_msg);
+                    if (err_msg_utf8 == NULL) {
+                        return NULL;
+                    }
+                }
+                else {
+                    err_msg_utf8 = NULL;
+                }
+
+                PyErr_SetObject((PyObject *)Py_TYPE(exc), exc);
+                _PyErr_WriteUnraisableMsg(err_msg_utf8, obj);
+                Py_RETURN_NONE;
+             '''),
+            ])
+        import sys
+        import io, sys
+        old = sys.stderr 
+        sys.stderr = io.StringIO()
+        module.unraisable('location')
+        output = sys.stderr.getvalue()
+        sys.stderr = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "Exception ignored in: 'location'"
+        assert msg[-1] == "ValueError: message"
+
+        # Taken from lib-python/3/test/audit-tests.py
+        def unraisablehook(hookargs):
+            pass
+
+        def hook(event, args):
+            if event == "sys.unraisablehook":
+                if args[0] != unraisablehook:
+                    raise ValueError("Expected {} == {}".format(args[0], unraisablehook))
+                print(event, repr(args[1].exc_value), args[1].err_msg)
+
+        old = sys.stdout 
+        sys.stdout = io.StringIO()
+        sys.addaudithook(hook)
+        sys.unraisablehook = unraisablehook
+        module.unraisable_exc(RuntimeError("nonfatal-error"), "sometext", None)
+        output = sys.stdout.getvalue()
+        sys.stdout = old
+        msg = output.strip().replace('\r', '').splitlines()
+        assert msg[0] == "sys.unraisablehook RuntimeError('nonfatal-error') Exception ignored sometext"
+ 
+

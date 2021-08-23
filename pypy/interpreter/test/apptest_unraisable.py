@@ -12,7 +12,7 @@ def test_simple():
             __pypy__.write_unraisable("testplace", e, None)
         output = stringio.getvalue()
         print(output)
-        assert "testplace None" in output
+        assert "testplace:" in output
         assert "Exception ignored in:" in output
         assert "ValueError" in output
     finally:

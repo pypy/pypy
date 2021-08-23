@@ -5090,7 +5090,6 @@ negative_refcount(PyObject *self, PyObject *Py_UNUSED(args))
 #endif
 
 
-#ifndef PYPY_VERSION
 static PyObject*
 test_write_unraisable_exc(PyObject *self, PyObject *args)
 {
@@ -5114,7 +5113,6 @@ test_write_unraisable_exc(PyObject *self, PyObject *args)
     _PyErr_WriteUnraisableMsg(err_msg_utf8, obj);
     Py_RETURN_NONE;
 }
-#endif // ifndef PYPY_VERSION
 
 
 static PyObject*

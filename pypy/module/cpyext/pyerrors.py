@@ -397,6 +397,26 @@ def PyErr_WriteUnraisable(space, where):
     if operror:
         operror.write_unraisable(space, where)
 
+@cpython_api([CONST_STRING, PyObject], lltype.Void)
+def _PyErr_WriteUnraisableMsg(space, where, w_obj):
+    """This utility function prints a warning message to sys.stderr when an
+    exception has been set but it is impossible for the interpreter to actually
+    raise the exception.  It is used, for example, when an exception occurs in
+    an __del__() method.
+
+    The function is called with a single argument obj that identifies the
+    context in which the unraisable exception occurred. The repr of obj will be
+    printed in the warning message."""
+
+    if not where:
+        where = ''
+    else:
+        where = rffi.charp2str(where)
+    state = space.fromcache(State)
+    operror = state.clear_exception()
+    if operror:
+        operror.write_unraisable(space, where, w_object=w_obj, with_traceback=True)
+
 @cpython_api([], lltype.Void)
 def PyErr_SetInterrupt(space):
     """This function simulates the effect of a SIGINT signal arriving --- the

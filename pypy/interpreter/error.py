@@ -269,11 +269,11 @@ class OperationError(Exception):
 
         if where:
             # Note: since Python 3.5, unraisable exceptions are always
-            # printed with a traceback.  Setting 'with_traceback=False'
-            # only asks for a different format, starting with the message
-            # "Exception Xxx ignored".
+            # printed with a traceback.  Setting 'with_traceback=True'
+            # only asks for a different format in _PyErr_WriteUnraisableMsg and
+            # _cffi_backend.ccallback's Handle_applevel_exception
             if with_traceback:
-                first_line = 'From %s' % (where, )
+                first_line = 'Exception ignored %s' % (where, )
             else:
                 first_line = 'Exception ignored in: %s' % (
                     where, )
@@ -297,6 +297,7 @@ class OperationError(Exception):
         else:
             if not space.is_none(w_hook):
                 try:
+                    space.audit("sys.unraisablehook", [w_hook, w_hook_args])
                     space.call_function(w_hook, w_hook_args)
                     return
                 except OperationError as e:
@@ -314,14 +315,15 @@ class OperationError(Exception):
                                  extra_line):
         if not first_line:
             first_line = "Exception ignored in:"
-        if w_object is None:
-            objrepr = ''
+        if w_object is None or w_object is space.w_None:
+            first_line = "%s" % (first_line,)
         else:
             try:
                 objrepr = space.text_w(space.repr(w_object))
             except OperationError:
                 objrepr = "<object repr() failed>"
-        first_line = "%s %s\n" % (first_line, objrepr)
+            first_line = "%s %s" % (first_line, objrepr)
+        extra_line += ':\n'
         try:
             space.appexec([space.newtext(first_line),
                            space.newtext(extra_line),

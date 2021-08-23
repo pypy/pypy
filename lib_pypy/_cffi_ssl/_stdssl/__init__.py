@@ -71,6 +71,8 @@ VERIFY_CRL_CHECK_CHAIN = lib.X509_V_FLAG_CRL_CHECK | lib.X509_V_FLAG_CRL_CHECK_A
 VERIFY_X509_STRICT = lib.X509_V_FLAG_X509_STRICT
 if lib.Cryptography_HAS_X509_V_FLAG_TRUSTED_FIRST:
     VERIFY_X509_TRUSTED_FIRST = lib.X509_V_FLAG_TRUSTED_FIRST
+if lib.Cryptography_HAS_X509_CHECK_FLAG_NEVER_CHECK_SUBJECT:
+    HOSTFLAG_NEVER_CHECK_SUBJECT = lib.X509_CHECK_FLAG_NEVER_CHECK_SUBJECT
 
 CERT_NONE = 0
 CERT_OPTIONAL = 1
@@ -1022,6 +1024,7 @@ class _SSLContext(object):
         self = object.__new__(cls)
         self.ctx = ffi.NULL
         self._sni_cb = None
+        self._msg_cb = None
         if protocol == PROTOCOL_TLSv1:
             method = lib.TLSv1_method()
         elif lib.Cryptography_HAS_TLSv1_1 and protocol == PROTOCOL_TLSv1_1:
@@ -1102,6 +1105,22 @@ class _SSLContext(object):
         if HAS_TLSv1_3:
             lib.SSL_CTX_set_post_handshake_auth(self.ctx, self.post_handshake_auth)
         return self
+
+    if OPENSSL_VERSION_NUMBER > 0x10101000:
+        @property
+        def num_tickets(self):
+            return lib.SSL_CTX_get_num_tickets(self.ctx)
+
+        @num_tickets.setter
+        def num_tickets(self, arg, userdata=None):
+            # userdata is unused
+            num = int(arg)
+            if num < 0:
+                raise ValueError('value must be non-negative')
+            if self.protocol not in (PROTOCOL_TLS_SERVER,):
+                raise ValueError("SSLContext is not a server context")
+            if lib.SSL_CTX_set_num_tickets(self.ctx, num) != 1:
+                raise ValueError("failed to set num tickets")
 
     @property
     def options(self):
@@ -1417,14 +1436,19 @@ class _SSLContext(object):
                 loaded += 1
 
             err = lib.ERR_peek_last_error()
-            if (ca_file_type == lib.SSL_FILETYPE_ASN1 and
+            if loaded == 0:
+                if ca_file_type == lib.SSL_FILETYPE_PEM:
+                    msg = "no start line: cadata does not contain a certificate"
+                else:
+                    msg = "not enough data: cadata does not contain a certificate";
+                raise ssl_error(msg)
+            elif (ca_file_type == lib.SSL_FILETYPE_ASN1 and
                 loaded > 0 and
                 lib.ERR_GET_LIB(err) == lib.ERR_LIB_ASN1 and
                 lib.ERR_GET_REASON(err) == lib.ASN1_R_HEADER_TOO_LONG):
                 # EOF ASN1 file, not an error
                 lib.ERR_clear_error()
             elif (ca_file_type == lib.SSL_FILETYPE_PEM and
-                  loaded > 0 and
                   lib.ERR_GET_LIB(err) == lib.ERR_LIB_PEM and
                   lib.ERR_GET_REASON(err) == lib.PEM_R_NO_START_LINE):
                 # EOF PEM file, not an error
@@ -1464,10 +1488,27 @@ class _SSLContext(object):
         if not callable(cb):
             lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, ffi.NULL)
             raise TypeError("not a callable object")
-        self._sni_cb = ServernameCallback(cb, self)
+        self._sni_cb = GenericCallback(cb, self)
         self._sni_cb_handle = sni_cb = ffi.new_handle(self._sni_cb)
         lib.SSL_CTX_set_tlsext_servername_callback(self.ctx, _servername_callback)
         lib.SSL_CTX_set_tlsext_servername_arg(self.ctx, sni_cb)
+
+    @property
+    def _msg_callback(self):
+        return self._msg_cb
+
+    @_msg_callback.setter
+    def _msg_callback(self, arg, userdata=None):
+        # userdata is unused
+        if arg is None:
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+        if not callable(arg):
+            lib.SSL_CTX_set_msg_callback(self.ctx, ffi.NULL)
+            self._msg_cb = None
+            raise TypeError('not a callable object')
+        self._msg_cb = arg
+        lib.SSL_CTX_set_msg_callback(self.ctx, _msg_callback)
 
     def cert_store_stats(self):
         store = lib.SSL_CTX_get_cert_store(self.ctx)
@@ -1716,12 +1757,46 @@ if HAS_SNI:
             # TODO gil state release?
             return lib.SSL_TLSEXT_ERR_OK
 
-class ServernameCallback(object):
+@ffi.callback("void(int, int, int, const void*, size_t, SSL*, void*)")
+def _msg_callback(write_p, version, content_type, buf, length, ssl, arg):
+    ssl_obj = ffi.from_handle(lib.SSL_get_app_data(ssl))
+    cbuf = ffi.cast('const char *', buf)
+    assert isinstance(ssl_obj, _SSLSocket)
+    if ssl_obj.ctx._msg_cb is None:
+        return
+    if ssl_obj.owner:
+        ssl_socket = ssl_obj.owner
+    elif getattr(ssl_obj, 'Socket', None):
+        ssl_socket = ssl_obj.Socket
+    else:
+        ssl_socket = ssl_obj
+    # assume that OpenSSL verifies all payload and buf len is of sufficient
+    # length
+    if content_type == lib.SSL3_RT_CHANGE_CIPHER_SPEC:
+        msg_type = lib.SSL3_MT_CHANGE_CIPHER_SPEC
+    elif content_type == lib.SSL3_RT_ALERT:
+        # byte 0: level
+        # byte 1: alert type
+        msg_type = ord(cbuf[1]);
+    elif content_type == lib.SSL3_RT_HANDSHAKE:
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_HEADER:
+        # frame header encodes version in bytes 1..2
+        version = ord(cbuf[1]) << 8 | ord(cbuf[2])
+        msg_type = ord(cbuf[0])
+    elif content_type == lib.SSL3_RT_INNER_CONTENT_TYPE:
+        msg_type = ord(cbuf[0])
+    else:
+        # never SSL3_RT_APPLICATION_DATA
+        msg_type = -1;
+    res = ssl_obj.ctx._msg_cb(ssl_socket, 'write' if write_p != 0 else 'read',
+                              version, content_type, msg_type,
+                              bytes(ffi.buffer(cbuf, length)))
+
+class GenericCallback(object):
     def __init__(self, callback, ctx):
         self.callback = callback
         self.ctx = ctx
-
-SERVERNAME_CALLBACKS = weakref.WeakValueDictionary()
 
 def _asn1obj2py(obj):
     nid = lib.OBJ_obj2nid(obj)
