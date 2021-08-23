@@ -5,7 +5,7 @@ from rpython.annotator.model import UnionError
 from rpython.rlib.jit import (hint, we_are_jitted, JitDriver, elidable_promote,
     JitHintError, oopspec, isconstant, conditional_call,
     elidable, unroll_safe, dont_look_inside, conditional_call_elidable,
-    enter_portal_frame, leave_portal_frame)
+    enter_portal_frame, leave_portal_frame, set_param)
 from rpython.rlib.rarithmetic import r_uint
 from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rtyper.lltypesystem import lltype
@@ -339,5 +339,13 @@ class TestJIT(BaseRtypingTest):
         def g():
             enter_portal_frame(1)
             leave_portal_frame()
+        t = Translation(g, [])
+        t.compile_c() # does not crash
+
+    def test_parameters_max_promotes(self):
+        from rpython.translator.interactive import Translation
+        def g():
+            set_param(None, 'max_promotes', 10)
+
         t = Translation(g, [])
         t.compile_c() # does not crash
