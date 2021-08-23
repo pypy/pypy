@@ -96,9 +96,9 @@ class LLVMAssembler(BaseAssembler):
         cstring = CString(name)
         addr = self.llvm.LLJITLookup(self.LLJIT,
                                      cstring.ptr)._cast_to_int()
-        import pdb
-        pdb.set_trace()
-        self.llvm.create_breakpoint()
+        # import pdb
+        # pdb.set_trace()
+        # self.llvm.create_breakpoint()
         if self.debug and addr == 0:
             raise Exception("Trace Function is Null")
         looptoken._ll_function_addr = addr

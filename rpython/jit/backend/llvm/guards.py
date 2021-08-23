@@ -13,7 +13,7 @@ class GuardHandlerBase:
         self.func = dispatcher.func
         self.jitframe = dispatcher.jitframe
         self.ssa_vars = dispatcher.ssa_vars
-        self.guard_weights, self.prof_kind_id = self.define_metadata()
+        self.guard_weights = self.define_metadata()
 
     def define_metadata(self):
         cstring = CString("guard_weights")

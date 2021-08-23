@@ -29,6 +29,7 @@ class LLVMOpDispatcher:
         self.labels = {} #map label descrs to their blocks
         self.descr_phis = {} #map label descrs to phi values
         self.forced = False
+        self.guard_follows = False
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
         self.guard_handler = BlockPerGuardImpl(self)
@@ -541,12 +542,20 @@ class LLVMOpDispatcher:
                 self.parse_guard_nonnull_class(op, resume, bailout)
 
             elif op.opnum == 20:
-                resume, bailout = self.guard_handler.setup_guard(op)
-                self.parse_guard_no_exception(op, resume, bailout)
+                if self.guard_follows:
+                    # we already parsed this op in a cond_call
+                    self.guard_follows = False
+                else:
+                    resume, bailout = self.guard_handler.setup_guard(op)
+                    self.parse_guard_no_exception(op, resume, bailout)
 
             elif op.opnum == 21:
-                resume, bailout = self.guard_handler.setup_guard(op)
-                self.parse_guard_exception(op, resume, bailout)
+                if self.guard_follows:
+                    # we already parsed this op in a cond_call
+                    self.guard_follows = False
+                else:
+                    resume, bailout = self.guard_handler.setup_guard(op)
+                    self.parse_guard_exception(op, resume, bailout)
 
             elif op.opnum == 22:
                 resume, bailout = self.guard_handler.setup_guard(op)
@@ -826,7 +835,7 @@ class LLVMOpDispatcher:
                 self.parse_call(op, 'n')
 
             elif op.opnum == 217:
-                self.parse_cond_call(op)
+                self.parse_cond_call(op, c)
 
             elif op.opnum == 218:
                 self.parse_cond_call_value(op, "r")
@@ -2300,7 +2309,7 @@ class LLVMOpDispatcher:
             self.call_function(func_int_ptr, ret_type,
                                 arg_types, params, "")
 
-    def parse_cond_call(self, op):
+    def parse_cond_call(self, op, c):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         cnd = args[0]
         func_int_ptr = args[1]
@@ -2308,6 +2317,15 @@ class LLVMOpDispatcher:
         call_descr = op.getdescr()
         arg_types = self.get_arg_types(call_descr, params)
         ret_type = self.cpu.llvm_void_type
+
+        next_op = self.operations[c+1]
+        if next_op.opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION):
+            self.guard_follows = True
+            resume, bailout = self.guard_handler.setup_guard(next_op)
+        else:
+            cstring = CString("resume")
+            resume = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                                cstring.ptr)
 
         cstring = CString("cnd")
         cnd = self.llvm.BuildIntCast(self.builder, cnd, self.cpu.llvm_int_type,
@@ -2318,11 +2336,9 @@ class LLVMOpDispatcher:
         cstring = CString("call_block")
         call_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
                                                 cstring.ptr)
-        cstring = CString("resume_block")
-        resume_block = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                                  cstring.ptr)
+
         branch = self.llvm.BuildCondBr(self.builder, cmp, call_block,
-                                       resume_block)
+                                       resume)
 
         # set branch weights to assume we will rarely call the function
         cstring = CString("cond_call_weights")
@@ -2342,9 +2358,16 @@ class LLVMOpDispatcher:
 
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
         self.call_function(func_int_ptr, ret_type, arg_types, params, "")
-        self.llvm.BuildBr(self.builder, resume_block)
+        if not self.guard_follows:
+            self.llvm.BuildBr(self.builder, resume)
 
-        self.llvm.PositionBuilderAtEnd(self.builder, resume_block)
+        if self.guard_follows:
+            if next_op.opnum == rop.GUARD_NO_EXCEPTION:
+                self.parse_guard_no_exception(next_op, resume, bailout)
+            elif next_op.opnum == rop.GUARD_EXCEPTION:
+                self.parse_guard_exception(next_op, resume, bailout)
+        else:
+            self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
     def parse_cond_call_value(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
