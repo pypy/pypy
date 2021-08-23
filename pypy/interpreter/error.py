@@ -316,7 +316,7 @@ class OperationError(Exception):
         if not first_line:
             first_line = "Exception ignored in:"
         if w_object is None or w_object is space.w_None:
-            first_line = "%s\n" % (first_line,)
+            first_line = "%s" % (first_line,)
         else:
             try:
                 objrepr = space.text_w(space.repr(w_object))

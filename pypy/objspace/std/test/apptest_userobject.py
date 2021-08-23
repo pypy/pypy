@@ -170,7 +170,7 @@ def test_del_exception():
         print('----\n%s----\n' % (x,))
         assert x.startswith('Exception ignored in: <function ')
         if traceback:
-            assert '>\nTraceback (most recent call last):\n  File "' in x
+            assert '>:\nTraceback (most recent call last):\n  File "' in x
             assert " in __del__\n" in x
             assert x.endswith("\nValueError: foo bar\n")
         else:
