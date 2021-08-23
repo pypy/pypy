@@ -400,6 +400,10 @@ class TestOptBridge(LLJitMixin):
             def __init__(self, map_):
                 self.map_ = map_
 
+        @jit.elidable
+        def get_map_id(map_):
+            return 1
+
         maps = [Map() for i in range(10)]
         instances = [Instance(map) for i in range(20) for map in maps]
 
@@ -409,10 +413,13 @@ class TestOptBridge(LLJitMixin):
             while y >= 0:
                 myjitdriver.jit_merge_point(y=y)
                 instance = instances[y]
-                jit.promote(instance.map_)
-                y -= 1
+                arg = jit.promote(instance.map_)
+                y -= get_map_id(arg)
 
         self.meta_interp(f, [])
+        # 2 general paths don't promote, so they get the
+        # call instructions.
+        self.check_resops(call_i=2)
         self.check_trace_count(7)
 
 def test_guard_depth_increase():
