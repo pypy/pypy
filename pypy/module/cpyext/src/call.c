@@ -1,4 +1,5 @@
 #include "Python.h"
+#include <signal.h>
 
 PyObject*
 _Py_CheckFunctionResult(PyObject *callable, PyObject *result, const char *where)
@@ -115,6 +116,16 @@ PyVectorcall_Call(PyObject *callable, PyObject *tuple, PyObject *kwargs)
      * the _Py_TPFLAGS_HAVE_VECTORCALL check */
     vectorcallfunc func;
     Py_ssize_t offset = Py_TYPE(callable)->tp_vectorcall_offset;
+    if (offset == 0) {
+        /* On PyPy, a PyMethodObject will not set tp_vectorcall_offset since
+         * it is an opaque PyObject. In this case, just make a regular call
+         * TODO: how do we detect an error situation?
+         */
+        if (Py_TYPE(callable)->tp_call) {
+            PyObject *result = Py_TYPE(callable)->tp_call(callable, tuple, kwargs);
+            return _Py_CheckFunctionResult(callable, result, NULL);
+        }
+    }
     if (offset <= 0) {
         PyErr_Format(PyExc_TypeError, "'%.200s' object does not support vectorcall",
                      Py_TYPE(callable)->tp_name);

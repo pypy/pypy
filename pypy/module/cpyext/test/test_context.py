@@ -25,7 +25,6 @@ class AppTestContext(AppTestCpythonExtensionBase):
             ("set", "METH_VARARGS",
              '''
                 PyObject *obj, *val;
-                const char *name;
                 if (!PyArg_ParseTuple(args, "OO:set", &obj, &val)) {
                     return NULL;
                 }
@@ -35,7 +34,6 @@ class AppTestContext(AppTestCpythonExtensionBase):
             ("get", "METH_VARARGS",
              '''
                 PyObject *obj, *def=NULL, *val;
-                const char *name;
                 if (!PyArg_ParseTuple(args, "O|O:get", &obj, &def)) {
                     return NULL;
                 }

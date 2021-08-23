@@ -15,3 +15,6 @@ def load_tests(*args):
             module = sys.modules[modname]
             suite.addTest(loader.loadTestsFromModule(module))
     return suite
+
+if __name__ == "__main__":
+    unittest.main(defaultTest="suite")

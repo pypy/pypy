@@ -773,6 +773,8 @@ def inherit_slots(space, pto, w_base):
                 pto_as.c_bf_getbuffer = base_as.c_bf_getbuffer
             if not pto_as.c_bf_releasebuffer:
                 pto_as.c_bf_releasebuffer = base_as.c_bf_releasebuffer
+        if pto.c_tp_vectorcall_offset == 0:
+            pto.c_tp_vectorcall_offset = base.c_tp_vectorcall_offset
     finally:
         decref(space, base_pyo)
 

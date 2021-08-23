@@ -632,7 +632,8 @@ class ObjSpace(object):
             self.setitem(self.builtin.w_dict, self.newtext(name), w_type)
 
         # install mixed modules
-        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions', 'zipimport'))
+        bootstrap_modules = set(('sys', 'imp', 'builtins', 'exceptions',
+                                 'zipimport', '_frozen_importlib'))
         for mixedname in self.get_builtinmodule_to_install():
             if mixedname not in bootstrap_modules:
                 self.install_mixedmodule(mixedname)
@@ -685,6 +686,9 @@ class ObjSpace(object):
         elif self.config.objspace.usemodules._cffi_backend:
             from pypy.module._cffi_backend import copy_includes
             copy_includes.main()
+        
+        # now we can setup _frozen_importlib, after the dll is installed
+        self.install_mixedmodule('_frozen_importlib')
         
         self.getbuiltinmodule('sys')
         self.getbuiltinmodule('_imp')

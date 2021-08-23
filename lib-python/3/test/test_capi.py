@@ -368,6 +368,7 @@ class CAPITest(unittest.TestCase):
         from _testcapi import MyList
         self.do_test_trashcan_python_class(MyList)
 
+    @support.cpython_only
     def do_test_trashcan_python_class(self, base):
         # Check that the trashcan mechanism works properly for a Python
         # subclass of a class using the trashcan (this specific test assumes
@@ -759,15 +760,19 @@ class PyMemDebugTests(unittest.TestCase):
         ''')
         assert_python_ok('-c', code, PYTHONMALLOC=self.PYTHONMALLOC)
 
+    @support.cpython_only
     def test_pyobject_null_is_freed(self):
         self.check_pyobject_is_freed('check_pyobject_null_is_freed')
 
+    @support.cpython_only
     def test_pyobject_uninitialized_is_freed(self):
         self.check_pyobject_is_freed('check_pyobject_uninitialized_is_freed')
 
+    @support.cpython_only
     def test_pyobject_forbidden_bytes_is_freed(self):
         self.check_pyobject_is_freed('check_pyobject_forbidden_bytes_is_freed')
 
+    @support.cpython_only
     def test_pyobject_freed_is_freed(self):
         self.check_pyobject_is_freed('check_pyobject_freed_is_freed')
 

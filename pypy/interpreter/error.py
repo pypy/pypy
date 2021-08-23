@@ -312,6 +312,8 @@ class OperationError(Exception):
     @staticmethod
     def write_unraisable_default(space, w_type, w_value, w_tb, first_line, w_object,
                                  extra_line):
+        if not first_line:
+            first_line = "Exception ignored in:"
         if w_object is None:
             objrepr = ''
         else:
