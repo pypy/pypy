@@ -4,6 +4,7 @@ indexed like a tuple but also exposes the st_xxx attributes.
 """
 
 import os, sys
+import collections
 
 from rpython.flowspace.model import Constant
 from rpython.flowspace.operation import op
@@ -82,6 +83,7 @@ STATVFS_FIELDS = [
     ("f_favail", lltype.Signed),
     ("f_flag", lltype.Signed),
     ("f_namemax", lltype.Signed),
+    ("f_fsid", lltype.Unsigned),
 ]
 
 @specialize.arg(1)
@@ -345,12 +347,12 @@ class __extend__(pairtype(StatvfsResultRepr, IntegerRepr)):
         index = s_int.const
         return r_sta.redispatch_getfield(hop, index)
 
-
 def make_statvfs_result(tup):
     args = tuple(
         lltype.cast_primitive(TYPE, value) for value, (name, TYPE) in
             zip(tup, STATVFS_FIELDS))
-    return os.statvfs_result(args)
+    # only used untranslated 
+    return statvfs_result(*args)
 
 class MakeStatvfsResultEntry(extregistry.ExtRegistryEntry):
     _about_ = make_statvfs_result
@@ -459,7 +461,7 @@ del _name, _TYPE
 
 STATVFS_FIELD_TYPES = dict(STATVFS_FIELDS)
 STATVFS_FIELD_NAMES = [name for name, tp in STATVFS_FIELDS]
-
+statvfs_result = collections.namedtuple('statvfs_result', STATVFS_FIELD_NAMES)
 
 def build_stat_result(st):
     # only for LL backends
@@ -514,7 +516,8 @@ def build_statvfs_result(st):
         st.c_f_ffree,
         st.c_f_favail,
         st.c_f_flag,
-        st.c_f_namemax
+        st.c_f_namemax,
+        st.c_f_fsid,
     ))
 
 
