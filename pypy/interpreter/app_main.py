@@ -911,6 +911,8 @@ def run_command_line(interactive,
             except ImportError:
                 pass
             else:
+                sys.stdout.flush()
+                sys.stderr.flush()
                 _signal.signal(_signal.SIGINT, _signal.SIG_DFL)
                 os.kill(os.getpid(), _signal.SIGINT);
                 assert 0, "should be unreachable"
@@ -932,7 +934,8 @@ def run_command_line(interactive,
             status = e.code
         else:
             status = not success
-
+    sys.stdout.flush()
+    sys.stderr.flush()
     return status
 
 def print_banner(copyright):
