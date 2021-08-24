@@ -27,6 +27,7 @@ from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.nestedscope import Cell
 from pypy.interpreter.module import Module
 from pypy.interpreter.function import StaticMethod
+from pypy.interpreter.pyparser import pygram
 from pypy.objspace.std.sliceobject import W_SliceObject
 from pypy.objspace.std.unicodeobject import encode_object
 from pypy.module.__builtin__.descriptor import W_Property
@@ -175,7 +176,7 @@ def copy_header_files(cts, dstdir, copy_numpy_headers):
     # XXX: 20 lines of code to recursively copy a directory, really??
     assert dstdir.check(dir=True)
     headers = include_dir.listdir('*.h') + include_dir.listdir('*.inl')
-    for name in ["pypy_macros.h"] + FUNCTIONS_BY_HEADER.keys():
+    for name in ["pypy_macros.h", "graminit.h"] + FUNCTIONS_BY_HEADER.keys():
         headers.append(udir.join(name))
     for path in cts.parsed_headers:
         headers.append(path)
@@ -1535,6 +1536,14 @@ static int PySlice_GetIndicesEx(PyObject *arg0, Py_ssize_t arg1,
 
     for header_name, header_decls in decls.iteritems():
         write_header(header_name, header_decls)
+
+    # generate graminit.h
+    graminit_h = udir.join('graminit.h')
+    graminit_h.write('/* Generated from pypy.interpreter.pyparser.pygram.syms */')
+    for attr in dir(pygram.syms):
+        val = getattr(pygram.syms, attr)
+        graminit_h.write('#define {} {}'.format(attr, val))
+    
 
 separate_module_files = [source_dir / "varargwrapper.c",
                          source_dir / "pyerrors.c",
