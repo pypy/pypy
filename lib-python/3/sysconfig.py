@@ -51,8 +51,10 @@ _INSTALL_SCHEMES = {
         'platstdlib': '{base}/lib-{implementation_lower}',
         'purelib': '{base}/site-packages',
         'platlib': '{base}/site-packages',
-        'include': '{installed_base}/include',
-        'platinclude': '{installed_base}/include',
+        'include':
+            '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
+        'platinclude':
+            '{installed_platbase}/include/{implementation_lower}{py_version_short}{abiflags}',
         'scripts': '{base}/bin',
         'data'   : '{base}',
         },

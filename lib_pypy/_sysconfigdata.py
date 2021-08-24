@@ -11,6 +11,8 @@ mybase = os.path.dirname(os.path.dirname(__file__))
 # FIXME: The compiler-specific values should be exported from the build,
 # perhaps via a special __pypy__._sysconfigdata module?
 
+pydot = '%d.%d' % sys.version_info[:2]
+
 build_time_vars = {
     'ABIFLAGS': '',
     # SOABI is PEP 3149 compliant, but CPython3 has so_ext.split('.')[1]
@@ -38,14 +40,17 @@ build_time_vars = {
     # for the linux buildbots) is there even a "mybase/lib" created, even so
     # the mybase/bin layout is left untouched.
     'LIBDIR': os.path.join(mybase, 'bin'),
-    'INCLUDEPY': os.path.join(mybase, 'include'),
     'LDLIBRARY': 'libpypy3-c.so',
-    'VERSION': '%d.%d' % sys.version_info[:2],
-    'LDVERSION': '%d.%d' % sys.version_info[:2],
+    'VERSION': pydot,
+    'LDVERSION': pydot,
     'Py_DEBUG': 0,  # cpyext never uses this
     'Py_ENABLE_SHARED': 0,  # if 1, will add python so to link like -lpython3.7
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
+if sys.platform == 'win32':
+    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
+else:
+    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'pypy' + pydot, 'include')
 
 if find_executable("gcc"):
     build_time_vars.update({

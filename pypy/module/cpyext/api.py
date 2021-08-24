@@ -1722,7 +1722,13 @@ def setup_library(space):
             deco(func.get_wrapper(space))
 
     setup_init_functions(eci, prefix)
-    trunk_include = pypydir.dirpath() / 'include'
+    if sys.platform == "win32":
+        trunk_include = pypydir.dirpath() / 'include'
+    else:
+        from pypy.module.sys import version
+        ver = version.CPYTHON_VERSION[:2]
+        trunk_include = pypydir.dirpath() / 'include' / 'pypy{}.{}'.format(*ver)
+        trunk_include.ensure(dir=True)
     copy_header_files(cts, trunk_include, use_micronumpy)
 
 
