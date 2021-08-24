@@ -1037,7 +1037,8 @@ class PendingSignalsTests(unittest.TestCase):
             signal.pthread_sigmask(signal.SIG_BLOCK, [signal.NSIG])
         with self.assertRaises(ValueError):
             signal.pthread_sigmask(signal.SIG_BLOCK, [0])
-        with self.assertRaises(ValueError):
+        # PyPy overflows, CPython turns the value into -1
+        with self.assertRaises(ValueError, OverflowError):
             signal.pthread_sigmask(signal.SIG_BLOCK, [1<<1000])
 
     @unittest.skipUnless(hasattr(signal, 'pthread_sigmask'),
