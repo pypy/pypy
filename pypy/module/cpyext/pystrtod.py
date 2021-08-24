@@ -63,7 +63,12 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
         result = rdtoa.dg_strtod(s, endptr)
         endpos = (rffi.cast(lltype.Signed, endptr[0]) -
                   rffi.cast(lltype.Signed, s))
-        if endpos == 0 or (not user_endptr and not endptr[0][0] == '\0'):
+        if endpos != 0 and not user_endptr and endptr[0][0] != '\0':
+            # Not all of s was converted
+            raise oefmt(space.w_ValueError,
+                        "could not convert string to float: '%s'",
+                        rffi.constcharp2str(s))
+        elif endpos == 0:
             low = rffi.constcharp2str(s).lower()
             sz = 0
             if len(low) < 3:
@@ -100,6 +105,11 @@ def PyOS_string_to_double(space, s, endptr, w_overflow_exception):
             # result is set to 0.0 for a parse_error in dtoa.c
             # if it changed, we must have sucessfully converted
             if result != 0.0:
+                if not user_endptr and sz != len(low):
+                    # Not all of s was converted
+                    raise oefmt(space.w_ValueError,
+                                "could not convert string to float: '%s'",
+                                rffi.constcharp2str(s))
                 if endptr:
                     endptr[0] = rffi.cast(rffi.CCHARP, rffi.ptradd(s, sz))
                 return result

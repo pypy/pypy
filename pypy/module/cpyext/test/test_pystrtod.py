@@ -2,6 +2,7 @@ import math
 
 from pypy.module.cpyext import pystrtod
 from pypy.module.cpyext.test.test_api import BaseApiTest, raises_w
+from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
 from rpython.rtyper.lltypesystem import rffi
 from rpython.rtyper.lltypesystem import lltype
 from pypy.module.cpyext.pystrtod import PyOS_string_to_double, INTP_real
@@ -184,3 +185,28 @@ class TestPyOS_double_to_string(BaseApiTest):
         assert '3.14' == rffi.charp2str(r)
         assert ptype == lltype.nullptr(INTP_real.TO)
         rffi.free_charp(r)
+
+class AppTestStringToDouble(AppTestCpythonExtensionBase):
+
+    def test_endswith_space(self):
+        module = self.import_extension('foo', [
+           ("test_convert", "METH_O",
+            '''
+                Py_ssize_t size;
+                const char *utf8 = PyUnicode_AsUTF8AndSize(args, &size);
+                double result = PyOS_string_to_double(utf8, NULL, NULL);
+                if (result == -1.0 && PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyFloat_FromDouble(result);
+                
+            '''),
+           ])
+        
+        for s in ('.123 ', 'inf ', 'nan ', '1e500 '):
+            try:
+                module.test_convert(s)
+            except ValueError as e:
+                pass
+            else:
+                assert False, 'did not raise'
