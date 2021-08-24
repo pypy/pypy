@@ -323,7 +323,10 @@ class OperationError(Exception):
             except OperationError:
                 objrepr = "<object repr() failed>"
             first_line = "%s %s" % (first_line, objrepr)
-        extra_line += ':\n'
+        if not extra_line:
+            extra_line = '\n'
+        else:
+            extra_line += ':\n'
         try:
             space.appexec([space.newtext(first_line),
                            space.newtext(extra_line),
