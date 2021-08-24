@@ -37,7 +37,7 @@ build_time_vars = {
     # "mybase/bin" directory. Only when making a portable build (the default
     # for the linux buildbots) is there even a "mybase/lib" created, even so
     # the mybase/bin layout is left untouched.
-    'LIBDIR': os.path.join(mybase, 'bin'),
+    'LIBDIR': os.path.join(mybase, 'lib'),
     'INCLUDEPY': os.path.join(mybase, 'include'),
     'LDLIBRARY': 'libpypy3-c.so',
     'VERSION': '%d.%d' % sys.version_info[:2],
