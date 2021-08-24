@@ -30,7 +30,7 @@ class structseqfield(object):
             return obj[self.index]
 
     def __set__(self, obj, value):
-        raise TypeError("readonly attribute")
+        raise AttributeError("readonly attribute")
 
 
 class structseqtype(type):
@@ -126,7 +126,7 @@ def structseq_setattr(self, attr, value):
         raise AttributeError("%r object has no attribute %r" % (
             self.__class__.__name__, attr))
     else:
-        raise TypeError("readonly attribute")
+        raise AttributeError("readonly attribute")
 
 def structseq_repr(self):
     fields = {}
