@@ -25,6 +25,7 @@ build_time_vars = {
     'OPT': "-DNDEBUG -O2",
     'CFLAGS': "-DNDEBUG -O2",
     'CCSHARED': "-fPIC",
+    'LDFLAGS': "-pthread -shared",
     'LDSHARED': "cc -pthread -shared",
     'EXT_SUFFIX': so_ext,
     'SHLIB_SUFFIX': ".so",
@@ -60,7 +61,8 @@ if sys.platform[:6] == "darwin":
     # Fix this if we ever get M1 support
     arch = 'x86_64'
     build_time_vars['CC'] += ' -arch %s' % (arch,)
-    build_time_vars['LDSHARED'] = build_time_vars['CC'] + ' -shared -undefined dynamic_lookup'
+    build_time_vars['LDFLAGS'] = ' -shared -undefined dynamic_lookup'
+    build_time_vars['LDSHARED'] = build_time_vars['CC'] + build_time_vars['LDFLAGS']
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
     build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'
