@@ -483,6 +483,8 @@ def strsignal(space, signalnum):
     The return values can be such as "Interrupt", "Segmentation fault", etc.
     Returns None if the signal is not recognized.'''
     from rpython.rlib import rsignal
+    if signalnum < 1 or signalnum > NSIG:
+        raise oefmt(space.w_ValueError, 'signal number out of range')
     res = rsignal.strsignal(signalnum)
     if res is None:
         return space.w_None
