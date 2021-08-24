@@ -1625,7 +1625,7 @@ class AppTestPosix:
         # minimal testing
         def test_memfd_create(self):
             os = self.posix
-            fd = os.memfd_create(b"abc")
+            fd = os.memfd_create("abc")
             try:
                 s = b"defghi?"
                 os.write(fd, s)
