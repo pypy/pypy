@@ -253,7 +253,8 @@ def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.newint(getattr(st, name))
-    w_tuple = space.newtuple(vals_w)
+    # f_fsid is not python2-compatible
+    w_tuple = space.newtuple(vals_w[:-1])
     w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.newtext('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 

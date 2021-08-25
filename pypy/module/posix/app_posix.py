@@ -78,7 +78,7 @@ class statvfs_result:
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
-    f_fsid = structseqfield(10)
+    # f_fsid = structseqfield(10)  # not python2 compatible
 
 # Capture file.fdopen at import time, as some code replaces
 # __builtins__.file with a custom function.
