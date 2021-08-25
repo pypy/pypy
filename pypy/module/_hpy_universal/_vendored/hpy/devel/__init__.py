@@ -59,7 +59,7 @@ class HPyDevel:
         base_build_ext = dist.cmdclass.get("build_ext", build_ext)
         orig_bdist_egg_write_stub = bdist_egg_mod.write_stub
 
-        assert True or ('setuptools.command.build_ext', 'build_ext') in [
+        assert ('setuptools.command.build_ext', 'build_ext') in [
             (c.__module__, c.__name__) for c in base_build_ext.__mro__
         ], (
             "dist.cmdclass['build_ext'] does not inherit from"
