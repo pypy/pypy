@@ -193,7 +193,7 @@ class AppTestAppSysTests:
         # sanity check
         assert sys.flags.optimize is not None
         # make sure the flags are read-only
-        exc = raises(TypeError, 'sys.flags.optimize = 3')
+        exc = raises(AttributeError, 'sys.flags.optimize = 3')
         assert 'readonly' in str(exc.value)
         raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
 
