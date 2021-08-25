@@ -11,9 +11,7 @@ def test_simple():
         except Exception as e:
             __pypy__.write_unraisable("testplace", e, None)
         output = stringio.getvalue()
-        print(output)
-        assert "testplace:" in output
-        assert "Exception ignored in:" in output
+        assert "Exception ignored in: testplace\n" in output
         assert "ValueError" in output
     finally:
         sys.stderr = oldstderr
