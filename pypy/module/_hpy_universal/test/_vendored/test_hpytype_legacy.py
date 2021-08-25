@@ -25,11 +25,13 @@ class LegacyPointTemplate(PointTemplate):
 
 
 class TestLegacyType(_TestType):
+    USE_CPYEXT = True
 
     ExtensionTemplate = LegacyPointTemplate
 
 
 class TestCustomLegacyFeatures(HPyTest):
+    USE_CPYEXT = True
 
     def test_legacy_methods(self):
         mod = self.make_module("""

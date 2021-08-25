@@ -6,16 +6,19 @@ from .test_slots import TestSlots as _TestSlots, TestSqSlots as _TestSqSlots
 
 
 class TestLegacySlots(_TestSlots):
+    USE_CPYEXT = True
 
     ExtensionTemplate = LegacyPointTemplate
 
 
 class TestLegacySqSlots(_TestSqSlots):
+    USE_CPYEXT = True
 
     ExtensionTemplate = LegacyPointTemplate
 
 
 class TestCustomLegacySlotsFeatures(HPyTest):
+    USE_CPYEXT = True
 
     def test_legacy_slots(self):
         mod = self.make_module("""
@@ -171,64 +174,6 @@ class TestCustomLegacySlotsFeatures(HPyTest):
             p.y_ro = 789
         assert p.x == 123
         assert p.y == 456
-
-    def test_legacy_slots_getsets(self):
-        mod = self.make_module("""
-            #include <Python.h>
-
-            typedef struct {
-                PyObject_HEAD
-                long x;
-                long y;
-            } PointObject;
-
-            HPyDef_SLOT(Point_new, Point_new_impl, HPy_tp_new)
-            static HPy Point_new_impl(HPyContext *ctx, HPy cls, HPy *args,
-                                      HPy_ssize_t nargs, HPy kw)
-            {
-                PointObject *point;
-                HPy h_point = HPy_New(ctx, cls, &point);
-                if (HPy_IsNull(h_point))
-                    return HPy_NULL;
-                point->x = 7;
-                point->y = 3;
-                return h_point;
-            }
-
-            static PyObject *z_get(PointObject *point, void *closure)
-            {
-                long z = point->x*10 + point->y + (long)(HPy_ssize_t)closure;
-                return PyLong_FromLong(z);
-            }
-
-            // legacy getsets
-            static PyGetSetDef legacy_getsets[] = {
-                {"z", (getter)z_get, NULL, NULL, (void *)2000},
-                {NULL}
-            };
-
-            static PyType_Slot legacy_slots[] = {
-                {Py_tp_getset, legacy_getsets},
-                {0, NULL}
-            };
-
-            static HPyDef *Point_defines[] = {
-                &Point_new,
-                NULL
-            };
-            static HPyType_Spec Point_spec = {
-                .name = "mytest.Point",
-                .basicsize = sizeof(PointObject),
-                .defines = Point_defines,
-                .legacy = true,
-                .legacy_slots = legacy_slots
-            };
-
-            @EXPORT_TYPE("Point", Point_spec)
-            @INIT
-        """)
-        p = mod.Point()
-        assert p.z == 2073
 
     def test_legacy_slots_fails_without_legacy(self):
         import pytest

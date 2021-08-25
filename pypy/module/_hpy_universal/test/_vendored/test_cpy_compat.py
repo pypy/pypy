@@ -2,6 +2,7 @@ from .support import HPyTest
 
 
 class TestCPythonCompatibility(HPyTest):
+    USE_CPYEXT = True
 
     # One note about the supports_refcounts() in the tests below: on
     # CPython, handles are actually implemented as INCREF/DECREF, so we can

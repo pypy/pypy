@@ -80,4 +80,4 @@ class TestExtra(HPyTest):
 
 class TestExtraCPythonCompatibility(HPyTest):
     # these tests are run with cpyext support, see conftest.py
-    pass
+    USE_CPYEXT = True
