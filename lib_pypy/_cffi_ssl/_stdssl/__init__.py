@@ -168,7 +168,7 @@ else:
 
 _PROTOCOL_NAMES = (name for name in dir(lib) if name.startswith('PROTOCOL_'))
 
-_IntEnum._convert('_SSLMethod', __name__,
+_IntEnum._convert_('_SSLMethod', __name__,
         lambda name: name.startswith('PROTOCOL_'))
 
 if HAS_TLS_UNIQUE:
