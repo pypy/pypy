@@ -213,6 +213,9 @@ def _unwrap_path(space, w_value, allow_fd=True, nullable=False):
             return _path_from_unicode(space, w_result)
         elif space.isinstance_w(w_result, space.w_bytes):
             return _path_from_bytes(space, w_result)
+        raise oefmt(space.w_TypeError,
+                "expected %S.__fspath__() to return str or bytes, not %T",
+                w_value, w_result)
 
     raise oefmt(space.w_TypeError,
         "illegal type for path parameter (should be "
@@ -1854,7 +1857,7 @@ def parse_utime_args(space, w_times, w_ns):
         mtime_s, mtime_ns = convert_seconds(space, times_w[1])
     else:
         args_w = space.fixedview(w_ns)
-        if len(args_w) != 2 or not space.isinstance_w(w_times, space.w_tuple):
+        if len(args_w) != 2 or not space.isinstance_w(w_ns, space.w_tuple):
             raise oefmt(space.w_TypeError,
                 "utime: 'ns' must be a tuple of two ints")
         atime_s, atime_ns = convert_ns(space, args_w[0])
