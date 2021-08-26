@@ -7,6 +7,7 @@ from rpython.rtyper.lltypesystem import rffi, lltype, llmemory
 from rpython.jit.backend.llvm.guards import *
 from rpython.jit.backend.llsupport import gc, jitframe
 from rpython.jit.backend.llvm.llvm_api import CString
+import sys
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type,
@@ -34,14 +35,17 @@ class LLVMOpDispatcher:
         self.define_constants()
         self.guard_handler = BlockPerGuardImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
-        cstring = CString("prof")
-        self.prof_kind_id = self.llvm.GetMDKindID(self.cpu.context,
-                                                  cstring.ptr, cstring.len)
 
     def define_constants(self):
         self.zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
         self.true = self.llvm.ConstInt(self.cpu.llvm_bool_type, 1, 0)
         self.false = self.llvm.ConstInt(self.cpu.llvm_bool_type, 0, 0)
+        cstring = CString("prof")
+        self.prof_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                  cstring.ptr, cstring.len)
+        cstring = CString("dereferenceable")
+        self.deref_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                   cstring.ptr, cstring.len)
         self.max_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
                                           2**(self.cpu.WORD*8-1)-1, 1)
         self.min_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
@@ -66,9 +70,26 @@ class LLVMOpDispatcher:
         self.define_malloc_wrapper()
         attributes = ["hot", "willreturn", "nounwind", "norecurse",
                       "nofree"]
-        self.set_attributes(self.func, attributes)
+        param_attributes = [("noalias", 1), ("nocapture", 1)]
+        self.set_attributes(self.func, attributes, param_attributes)
 
-    def set_attributes(self, func, attributes):
+    def set_branch_weights(self, branch, md_name, weight_true, weight_false):
+        cstring = CString(md_name)
+        branch_weights = self.llvm.MDString(self.cpu.context,
+                                            cstring.ptr, cstring.len)
+        weight_true_llvm = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, weight_true, 0))
+        weight_false_llvm = self.llvm.ValueAsMetadata(
+            self.llvm.ConstInt(self.cpu.llvm_indx_type, weight_false, 0))
+        mds = self.rpython_array(
+            [branch_weights, weight_true_llvm, weight_false_llvm], self.llvm.MetadataRef
+        )
+        weights = self.llvm.MDNode(self.cpu.context, mds, 3)
+        weights_value = self.llvm.MetadataAsValue(self.cpu.context, weights)
+        self.llvm.SetMetadata(branch, self.prof_kind_id, weights_value)
+        lltype.free(mds, flavor='raw')
+
+    def set_attributes(self, func, attributes, param_attributes=None):
         cpu_name = self.cpu.assembler.cpu_name
         cpu_features = self.cpu.assembler.cpu_features
         cstring = CString("target-cpu")
@@ -83,12 +104,60 @@ class LLVMOpDispatcher:
             self.llvm.add_function_attribute(func, cstring.ptr, cstring.len,
                                              self.cpu.context)
 
+        if param_attributes is not None:
+            for attr, index in param_attributes:
+                cstring = CString(attr)
+                self.llvm.add_param_attribute(func, cstring.ptr, cstring.len,
+                                              self.cpu.context, index)
+
+    def set_call_attributes(self, call, attributes=None, param_attributes=None,
+                            ret_attributes=None):
+        if attributes is not None:
+            for attr in attributes:
+                cstring = CString(attr)
+                kind = self.llvm.GetAttributeKindForName(cstring.ptr,
+                                                         cstring.len)
+                attribute = self.llvm.CreateEnumAttribute(self.cpu.context,
+                                                          kind, 0)
+                self.llvm.AddCallSiteAttribute(call, -1, attribute)
+
+        if param_attributes is not None:
+            for attr, index in param_attributes:
+                cstring = CString(attr)
+                kind = self.llvm.GetAttributeKindForName(cstring.ptr,
+                                                         cstring.len)
+                attribute = self.llvm.CreateEnumAttribute(self.cpu.context,
+                                                          kind, 0)
+                # note that param indecies are 1-indexed
+                self.llvm.AddCallSiteAttribute(call, index, attribute)
+
+        if ret_attributes is not None:
+            for attr in ret_attributes:
+                cstring = CString(attr)
+                kind = self.llvm.GetAttributeKindForName(cstring.ptr,
+                                                         cstring.len)
+                attribute = self.llvm.CreateEnumAttribute(self.cpu.context,
+                                                          kind, 0)
+                self.llvm.AddCallSiteAttribute(call, 0, attribute)
+
+    def print_error(self):
+        sys.stderr.write("Error: Cannot allocate memory")
+
+    def exit_wrapper(self):
+        exit(1)
+
     def define_malloc_wrapper(self):
         cstring = CString("entry")
         entry = self.llvm.AppendBasicBlock(self.cpu.context, self.malloc,
                                            cstring.ptr)
-        self.llvm.PositionBuilderAtEnd(self.builder, entry)
+        cstring = CString("success")
+        success = self.llvm.AppendBasicBlock(self.cpu.context, self.malloc,
+                                             cstring.ptr)
+        cstring = CString("error")
+        error = self.llvm.AppendBasicBlock(self.cpu.context, self.malloc,
+                                           cstring.ptr)
 
+        self.llvm.PositionBuilderAtEnd(self.builder, entry)
         size = self.llvm.GetParam(self.malloc, 0)
         func_int_ptr = self.get_func_ptr(self.cpu.malloc_wrapper,
                                          [lltype.Signed], llmemory.GCREF)
@@ -96,11 +165,29 @@ class LLVMOpDispatcher:
                                           func_int_ptr, 0)
         ptr = self.call_function(func_int_ptr_llvm, self.cpu.llvm_void_ptr,
                                  [self.cpu.llvm_int_type], [size], "ptr")
+        cstring = CString("malloc_is_not_null")
+        is_not_null = self.llvm.BuildIsNotNull(self.builder, ptr, cstring.ptr)
+        branch = self.llvm.BuildCondBr(self.builder, is_not_null, success, error)
+
+        self.llvm.PositionBuilderAtEnd(self.builder, error)
+        print_ptr = self.get_func_ptr(self.print_error, [lltype.Void],
+                                      lltype.Void)
+        print_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, print_ptr, 0)
+        self.call_function(print_ptr_llvm, self.cpu.llvm_void_type, [], [], "")
+        exit_ptr = self.get_func_ptr(self.exit_wrapper, [lltype.Void], lltype.Void)
+        exit_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, exit_ptr, 0)
+        self.call_function(exit_ptr_llvm, self.cpu.llvm_void_type,[], [], "")
+        # llvm doesn't know the above call is an exit so still need a terminator
         self.llvm.BuildRet(self.builder, ptr)
 
+        self.llvm.PositionBuilderAtEnd(self.builder, success)
+        self.llvm.BuildRet(self.builder, ptr)
+
+        self.set_branch_weights(branch, "malloc_error_weights", 100, 0)
         attributes = ["inaccessiblememonly", "willreturn", "nounwind",
-                      "norecurse"]
-        self.set_attributes(self.malloc, attributes)
+                      "norecurse", "speculatable"]
+        param_attributes = [("noalias", 0)]
+        self.set_attributes(self.malloc, attributes, param_attributes)
 
         self.llvm.PositionBuilderAtEnd(self.builder, self.entry)
 
@@ -139,7 +226,7 @@ class LLVMOpDispatcher:
             self.llvm.BuildRet(self.builder, result)
 
             attributes = ["optnone", "noinline", "norecurse", "nounwind",
-                            "willreturn"]
+                          "willreturn", "speculatable", "readnone"]
             self.set_attributes(func, attributes)
 
             self.defined_int_extend_funcs[arg_type._cast_to_adr()] = func
@@ -370,6 +457,9 @@ class LLVMOpDispatcher:
         cstring = CString(res_name)
         res =  self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
                                    cstring.ptr)
+
+        attributes = ["nounwind", "willreturn", "nofree", "norecurse"]
+        self.set_call_attributes(res, attributes=attributes)
 
         lltype.free(arg_array, flavor='raw')
         lltype.free(arg_types, flavor='raw')
@@ -1803,8 +1893,10 @@ class LLVMOpDispatcher:
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
         lltype.free(args, flavor='raw')
+        self.llvm.add_deref_ret_attribute(struct, sizedescr.size)
 
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct, plain=True)
+
         self.ssa_vars[op] = llvm_struct.struct
 
     def parse_new_with_vtable(self, op):
@@ -2341,20 +2433,7 @@ class LLVMOpDispatcher:
                                        resume)
 
         # set branch weights to assume we will rarely call the function
-        cstring = CString("cond_call_weights")
-        branch_weights = self.llvm.MDString(self.cpu.context,
-                                            cstring.ptr, cstring.len)
-        weight_true = self.llvm.ValueAsMetadata(
-            self.llvm.ConstInt(self.cpu.llvm_indx_type, 10, 0))
-        weight_false = self.llvm.ValueAsMetadata(
-            self.llvm.ConstInt(self.cpu.llvm_indx_type, 90, 0))
-        mds = self.rpython_array(
-            [branch_weights, weight_true, weight_false], self.llvm.MetadataRef
-        )
-        weights = self.llvm.MDNode(self.cpu.context, mds, 3)
-        weights_value = self.llvm.MetadataAsValue(self.cpu.context, weights)
-        self.llvm.SetMetadata(branch, self.prof_kind_id, weights_value)
-        lltype.free(mds, flavor='raw')
+        self.set_branch_weights(branch, "cond_call_weights", 10, 90)
 
         self.llvm.PositionBuilderAtEnd(self.builder, call_block)
         self.call_function(func_int_ptr, ret_type, arg_types, params, "")

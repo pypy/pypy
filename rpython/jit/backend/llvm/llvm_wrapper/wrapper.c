@@ -1,6 +1,7 @@
 #include "wrapper.h"
 #include "wrapper_cpp.h"
 #include <bits/types.h>
+#include <sys/types.h>
 
 LLVMBool InitializeNativeTarget(void)	{
 	return LLVMInitializeNativeTarget();
@@ -140,6 +141,13 @@ void add_function_attribute(LLVMValueRef func, char *attribute, unsigned strlen,
 	LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, attr);
 }
 
+void add_param_attribute(LLVMValueRef func, char *attribute, unsigned strlen,
+						 LLVMContextRef ctx, unsigned index){
+	unsigned val = LLVMGetEnumAttributeKindForName(attribute, strlen);
+	LLVMAttributeRef attr = LLVMCreateEnumAttribute(ctx, val, 0);
+	LLVMAddAttributeAtIndex(func, index, attr);
+}
+
 void add_function_string_attribute(LLVMValueRef func, char *key, char *value,
 								   LLVMContextRef ctx){
 	unsigned key_len = (unsigned)strlen(key);
@@ -148,6 +156,10 @@ void add_function_string_attribute(LLVMValueRef func, char *key, char *value,
 	LLVMAttributeRef attr = LLVMCreateStringAttribute(ctx, key, key_len, value,
 													  value_len);
 	LLVMAddAttributeAtIndex(func, LLVMAttributeFunctionIndex, attr);
+}
+
+void add_deref_ret_attribute(LLVMValueRef call, u_int64_t bytes){
+	add_deref_ret_attr(call, bytes);
 }
 
 void AddDynamicLibrarySearchGenerator(LLVMOrcLLJITRef lljit, LLVMOrcJITDylibRef dylib){

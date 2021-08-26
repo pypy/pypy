@@ -17,7 +17,8 @@ class LLVMAssembler(BaseAssembler):
         self.initialise_jit()
         self.pass_manager1 = self.llvm.CreatePassManager(None)
         self.pass_manager = self.llvm.CreatePassManager(None)
-        self.add_opt_passes()
+        self.add_O3_passes()
+        #self.add_opt_passes()
 
     def initialise_jit(self):
         jit_builder = self.llvm.CreateLLJITBuilder(None)
@@ -136,6 +137,12 @@ class LLVMAssembler(BaseAssembler):
         self.llvm.AddLoopVectorizePass(self.pass_manager)
         self.llvm.AddInstructionCombiningPass(self.pass_manager)
         self.llvm.AddSLPVectorizePass(self.pass_manager)
+
+    def add_O3_passes(self):
+        pass_manager_builder = self.llvm.PassManagerBuilderCreate(None)
+        self.llvm.SetOptLevel(pass_manager_builder, 3)
+        self.llvm.PopulatePassManager(pass_manager_builder, self.pass_manager)
+        self.llvm.PassManagerBuilderDispose(pass_manager_builder)
 
     def __del__(self):
         self.llvm.DisposePassManager(self.pass_manager)

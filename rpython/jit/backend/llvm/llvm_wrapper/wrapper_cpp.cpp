@@ -1,5 +1,6 @@
 #include "wrapper_cpp.h"
 #include <llvm/IR/Instruction.h>
+#include <llvm/IR/InstrTypes.h>
 #include <llvm/IR/Instructions.h>
 #include <llvm/IR/BasicBlock.h>
 #include <llvm/IR/Module.h>
@@ -109,6 +110,11 @@ extern "C"{
     void AddTargetTransformationInfoPass_wrapper(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine){
         TargetMachine *TM = reinterpret_cast<TargetMachine *>(target_machine);
         unwrap(pass_manager)->add(createTargetTransformInfoWrapperPass(TM->getTargetIRAnalysis()));
+    }
+
+    void add_deref_ret_attr(LLVMValueRef call_inst, u_int64_t bytes){
+        CallBase *call = reinterpret_cast<CallBase *>(call_inst);
+        call->addDereferenceableAttr(0, bytes);
     }
 
 #ifdef __cplusplus

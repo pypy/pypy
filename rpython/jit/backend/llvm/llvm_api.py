@@ -50,10 +50,12 @@ class LLVMAPI:
         self.TargetMachineRef = self.VoidPtr
         self.TargetRef = self.VoidPtr
         self.PassManagerRef = self.VoidPtr
+        self.PassManagerBuilderRef = self.VoidPtr
         self.MetadataRef = self.VoidPtr
         self.MetadataRefPtr = self.VoidPtrPtr
         self.ExecutionSessionRef = self.VoidPtr
         self.ObjectLayerRef = self.VoidPtr
+        self.AttributeRef = self.VoidPtr
         self.MemoryManagerFactoryFunction = self.VoidPtr
         self.ObjectLinkingLayerCreatorFunction = self.VoidPtr
         self.DefinitionGeneratorRef = self.VoidPtr
@@ -340,7 +342,7 @@ class LLVMAPI:
                                                 self.Str],
                                                self.ValueRef,
                                                compilation_info=info)
-        self.BuildGEP = rffi.llexternal("LLVMBuildGEP2",
+        self.BuildGEP = rffi.llexternal("LLVMBuildInBoundsGEP2",
                                         [self.BuilderRef, self.TypeRef,
                                          self.ValueRef, self.ValueRefPtr,
                                          lltype.Unsigned, self.Str],
@@ -774,6 +776,19 @@ class LLVMAPI:
                                                        self.ContextRef],
                                                       self.Void,
                                                       compilation_info=info)
+        self.add_param_attribute = rffi.llexternal("add_param_attribute",
+                                                   [self.ValueRef, self.Str,
+                                                    lltype.Unsigned, self.ContextRef,
+                                                    lltype.Unsigned], self.Void,
+                                                   compilation_info=info)
+        self.AddCallSiteAttribute = rffi.llexternal("LLVMAddCallSiteAttribute",
+                                                    [self.ValueRef, lltype.Signed,
+                                                    self.AttributeRef], self.Void,
+                                                   compilation_info=info)
+        self.SetTailCall = rffi.llexternal("LLVMSetTailCall",
+                                           [self.ValueRef, self.Bool],
+                                           self.Void,
+                                           compilation_info=info)
         self.add_function_string_attribute = rffi.llexternal("add_function_string_attribute",
                                                              [self.ValueRef, self.Str,
                                                               self.Str, self.ContextRef],
@@ -944,8 +959,39 @@ class LLVMAPI:
                                                   [self.PassManagerRef],
                                                   self.Void,
                                                   compilation_info=info)
-
-
+        self.PassManagerBuilderCreate = rffi.llexternal("LLVMPassManagerBuilderCreate",
+                                                        [self.Void],
+                                                        self.PassManagerBuilderRef,
+                                                        compilation_info=info)
+        self.SetOptLevel = rffi.llexternal("LLVMPassManagerBuilderSetOptLevel",
+                                           [self.PassManagerBuilderRef,
+                                            lltype.Unsigned],
+                                           self.Void,
+                                           compilation_info=info)
+        self.PopulatePassManager = rffi.llexternal("LLVMPassManagerBuilderPopulateModulePassManager",
+                                                   [self.PassManagerBuilderRef,
+                                                    self.PassManagerRef],
+                                                   self.Void,
+                                                   compilation_info=info)
+        self.PassManagerBuilderDispose = rffi.llexternal("LLVMPassManagerBuilderDispose",
+                                                         [self.PassManagerBuilderRef],
+                                                         self.Void,
+                                                         compilation_info=info)
+        self.GetAttributeKindForName = rffi.llexternal("LLVMGetEnumAttributeKindForName",
+                                                       [self.Str, lltype.Unsigned],
+                                                       lltype.Signed,
+                                                       compilation_info=info)
+        self.CreateEnumAttribute = rffi.llexternal("LLVMCreateEnumAttribute",
+                                                       [self.ContextRef,
+                                                        lltype.Signed,
+                                                        lltype.Signed],
+                                                       self.AttributeRef,
+                                                       compilation_info=info)
+        self.add_deref_ret_attribute = rffi.llexternal("add_deref_ret_attribute",
+                                                       [self.ValueRef,
+                                                        lltype.Signed],
+                                                       self.Void,
+                                                       compilation_info=info)
 
 class CString:
     """

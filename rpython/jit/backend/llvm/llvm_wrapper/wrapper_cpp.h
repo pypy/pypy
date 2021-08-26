@@ -32,6 +32,8 @@ extern "C"{
     void AddTargetLibraryInfoPass_wrapper(LLVMPassManagerRef pass_manager, char* triple);
 
     void AddTargetTransformationInfoPass_wrapper(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine);
+
+    void add_deref_ret_attr(LLVMValueRef func, u_int64_t bytes);
 #ifdef __cplusplus
 }
 #endif

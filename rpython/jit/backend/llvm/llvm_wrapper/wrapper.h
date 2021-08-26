@@ -87,6 +87,8 @@ void AddTargetLibraryInfoPass(LLVMPassManagerRef pass_manager, char *triple);
 
 void AddTargetTransformationInfoPass(LLVMPassManagerRef pass_manager, LLVMTargetMachineRef target_machine);
 
+void add_deref_ret_attribute(LLVMValueRef func, u_int64_t bytes);
+
 struct Ctx{
 	uint8_t *stackmap;
 	unsigned section_count;
