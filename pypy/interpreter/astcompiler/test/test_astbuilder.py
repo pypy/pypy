@@ -1968,3 +1968,9 @@ class TestAstBuilder:
         assert tree.right.get_source_segment(s) == "b \n + c"
         assert tree.right.get_source_segment(s, padded=True) == "     b \n + c"
 
+    def test_fstring_mismatch(self):
+        with pytest.raises(SyntaxError) as excinfo:
+            tree = self.get_ast("f'{((}')")
+        assert excinfo.value.msg == "unmatched ')'"
+
+

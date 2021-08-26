@@ -113,6 +113,7 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
     # Keep track of nesting level for braces/parens/brackets in
     # expressions.
     nested_depth = 0
+    parenstack = [''] * 200
 
     # Can only nest one level deep.
     if rec >= 2:
@@ -174,9 +175,11 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
             # Start looking for the end of the string.
             quote_char = ord(ch)
         elif ch in "[{(":
+            if nested_depth > len(parenstack):
+                astbuilder.error('f-string: too many nested parenthesis',
+                                 atom_node)
+            parenstack[nested_depth] = ch
             nested_depth += 1
-        elif nested_depth != 0 and ch in "]})":
-            nested_depth -= 1
         elif ch == '#':
             # Error: can't include a comment character, inside parens
             # or not.
@@ -198,6 +201,17 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
                     continue
             # Normal way out of this loop.
             break
+        elif ch in ']})':
+            if nested_depth == 0:
+                astbuilder.error("f-string: unmatched '%s'" % ch, atom_node)
+            nested_depth -=1
+            opening = parenstack[nested_depth]
+            if not ((opening == '(' and ch ==')') or
+                    (opening == '[' and ch ==']') or
+                    (opening == '{' and ch =='}')):
+                astbuilder.error("f-string: closing parenthesis '%s' "
+                                 "does not match opening parenthesis '%s'"
+                                 % (ch, opening), atom_node)
         #else:
         #   This isn't a conversion character, just continue.
         i += 1
@@ -210,7 +224,9 @@ def fstring_find_expr(astbuilder, fstr, atom_node, rec):
         astbuilder.error("f-string: unterminated string", atom_node)
 
     if nested_depth:
-        astbuilder.error("f-string: mismatched '(', '{' or '['", atom_node)
+        opening = parenstack[nested_depth - 1]
+        astbuilder.error("f-string: unmatched '%s'" % opening,
+                         atom_node)
 
     if i >= len(s):
         unexpected_end_of_string(astbuilder, atom_node)
