@@ -294,21 +294,6 @@ class BasicTests:
     def test_minilang_stack_1(self):
 
         @dont_look_inside
-        def lt(lhs, rhs):
-            if lhs < rhs:
-                return 1
-            else:
-                return 0
-
-        @dont_look_inside
-        def add(x, y):
-            return x + y
-
-        @dont_look_inside
-        def sub(x, y):
-            return x - y
-
-        @dont_look_inside
         def is_true(x):
             return x != 0
 
@@ -366,10 +351,9 @@ class BasicTests:
 
         @not_in_trace
         def save_state(frame):
-            stack = frame.stack
             saved_sp = frame.sp
-            for i in range(len(stack)):
-                saved_stack[i] = stack[i]
+            for i in range(Frame.size):
+                saved_stack[i] = frame.stack[i]
 
         @not_in_trace
         def restore_state(frame):
@@ -464,6 +448,9 @@ class BasicTests:
 
         interp.oopspec = 'jit.not_in_trace()'
         res = self.meta_interp(interp, [100])
+
+    def test_minilang_stack_2(self):
+        pass
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
