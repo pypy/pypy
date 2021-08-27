@@ -154,11 +154,8 @@ W_AbstractExtensionFunction.typedef = TypeDef(
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
 class W_AbstractExtensionMethod(W_Root):
-    pass
-
-@unwrap_spec(w_method=W_AbstractExtensionMethod)
-def descr_ExtensionMethod_call(w_method, space, __args__):
-    return w_method.descr_call(space, __args__)
+    def descr_call(self, space, __args__):
+        raise NotImplementedError
 
 class W_ExtensionMethodMixin(object):
     import_from_mixin(W_ExtensionFunctionMixin)
@@ -196,7 +193,7 @@ class W_ExtensionMethod_d(W_AbstractExtensionMethod):
 W_AbstractExtensionMethod.typedef = TypeDef(
     'method_descriptor_',
     __get__ = interp2app(descr_function_get),
-    __call__ = interp2app(descr_ExtensionMethod_call),
+    __call__ = interpindirect2app(W_AbstractExtensionMethod.descr_call),
     __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionMethod,
                                   wrapfn="newtext_or_none"),
     )
