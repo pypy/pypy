@@ -1,7 +1,7 @@
 from rpython.rlib import rgc, jit_hooks
 from pypy.interpreter.baseobjspace import W_Root
 from pypy.interpreter.typedef import TypeDef, interp_attrproperty
-from pypy.interpreter.gateway import unwrap_spec, interp2app
+from pypy.interpreter.gateway import unwrap_spec, interp2app, WrappedDefault
 from pypy.interpreter.error import oefmt, wrap_oserror
 from rpython.rlib.objectmodel import we_are_translated
 
@@ -112,10 +112,15 @@ def get_rpy_type_index(space, w_obj):
         raise missing_operation(space)
     return space.newint(index)
 
-def get_objects(space):
+@unwrap_spec(w_generation=WrappedDefault(None))
+def get_objects(space, w_generation=None):
     """Return a list of all app-level objects."""
+    if not space.is_w(w_generation, space.w_None):
+        raise oefmt(space.w_NotImplementedError,
+                 "get_objects(generation=None) accepts only None on PyPy")
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
+    space.audit('gc.get_objects', [space.newint(-1)])
     result_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     return space.newlist(result_w)
 
@@ -124,6 +129,7 @@ def get_referents(space, args_w):
     """
     if not rgc.has_gcflag_extra():
         raise missing_operation(space)
+    space.audit('gc.get_referents', args_w)
     result_w = []
     for w_obj in args_w:
         gcref = rgc.cast_instance_to_gcref(w_obj)
@@ -142,6 +148,7 @@ def get_referrers(space, args_w):
     # O(n) time as well, in theory, but I hope in practice the whole
     # thing takes much less than O(n^2).  We could re-add an algorithm
     # that visits most objects only once, if needed...
+    space.audit('gc.get_referrers', args_w)
     all_objects_w = rgc.do_get_objects(try_cast_gcref_to_w_root)
     result_w = []
     for w_obj in all_objects_w:

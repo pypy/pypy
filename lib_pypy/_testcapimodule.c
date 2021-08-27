@@ -5403,9 +5403,7 @@ static PyMethodDef TestMethods[] = {
 #ifdef Py_REF_DEBUG
     {"negative_refcount", negative_refcount, METH_NOARGS},
 #endif
-#ifndef PYPY_VERSION
     {"write_unraisable_exc", test_write_unraisable_exc, METH_VARARGS},
-#endif // ifndef PYPY_VERSION
     {"pynumber_tobase", pynumber_tobase, METH_VARARGS},
     {"without_gc", without_gc, METH_O},
     {NULL, NULL} /* sentinel */
