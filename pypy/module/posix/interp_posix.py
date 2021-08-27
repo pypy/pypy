@@ -306,8 +306,10 @@ If dir_fd is not None, it should be a file descriptor open to a directory,
   and path should be relative; path will then be relative to that directory.
 dir_fd may not be implemented on your platform.
   If it is unavailable, using it will raise a NotImplementedError."""
+
     if rposix.O_CLOEXEC is not None:
         flags |= rposix.O_CLOEXEC
+    space.audit("open", [w_path, space.w_None, space.newint(flags)])
     while True:
         try:
             if rposix.HAVE_OPENAT and dir_fd != DEFAULT_DIR_FD:
