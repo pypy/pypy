@@ -238,24 +238,6 @@ class OptimizingVisitor(ast.ASTVisitor):
                     return compare
         return unary
 
-    def visit_BoolOp(self, bop):
-        values = bop.values
-        we_are_and = bop.op == ast.And
-        i = 0
-        while i < len(values) - 1:
-            truth = values[i].as_constant_truth(self.space, self.compile_info)
-            if truth != CONST_NOT_CONST:
-                if (truth != CONST_TRUE) == we_are_and:
-                    del values[i + 1:]
-                    break
-                else:
-                    del values[i]
-            else:
-                i += 1
-        if len(values) == 1:
-            return values[0]
-        return bop
-
     def visit_Name(self, name):
         """Turn loading None, True, and False into a constant lookup."""
         if name.ctx == ast.Del:

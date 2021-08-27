@@ -1252,6 +1252,17 @@ class AppTestOptimizer(object):
             op = co[0]
             assert op == opcode.opmap["LOAD_CONST"]
 
+    def test_and_or_folding(self):
+        if not self.is_pypy():
+            return # pypy-only
+        def f1():
+            return True or 1 + x
+        assert len(f1.__code__.co_code) == 4 # load_const, return_value
+        def f2():
+            return 0 and 1 + x
+        assert len(f2.__code__.co_code) == 4 # load_const, return_value
+
+
     def test_tuple_constants(self):
         ns = {}
         exec("x = (1, 0); y = (1, 0)", ns)

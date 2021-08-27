@@ -1938,6 +1938,7 @@ x = [lineno for addr, lineno in linestarts]
         self.error_test("if 0: break", SyntaxError)
         self.error_test("while 0: continue", SyntaxError)
         self.error_test("if 0:\n if 0:\n  [x async for x in b]", SyntaxError)
+        self.error_test("[(i, j) for i in range(5) for j in range(5) if True or (i:=10)]", SyntaxError)
 
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block

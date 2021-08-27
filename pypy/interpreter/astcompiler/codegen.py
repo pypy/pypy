@@ -1255,10 +1255,27 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         else:
             instr = ops.JUMP_IF_TRUE_OR_POP
         end = self.new_block()
-        for value in op.values[:-1]:
-            value.walkabout(self)
-            self.emit_jump(instr, end, True)
-        op.values[-1].walkabout(self)
+        we_are_and = op.op == ast.And
+        last = len(op.values) - 1
+        for index in range(last):
+            value = op.values[index]
+            truth = value.as_constant_truth(
+                    self.space, self.compile_info)
+            if truth == optimize.CONST_NOT_CONST:
+                value.walkabout(self)
+                self.emit_jump(instr, end, True)
+                continue
+            if (truth != optimize.CONST_TRUE) == we_are_and:
+                last = index
+                with self.all_dead_code(): # error checking
+                    for i in range(index + 1, len(op.values)):
+                        op.values[i].walkabout(self)
+                break
+            else:
+                with self.all_dead_code(): # error checking
+                    value.walkabout(self)
+                continue
+        op.values[last].walkabout(self)
         self.use_next_block(end)
 
     def visit_Compare(self, comp):
