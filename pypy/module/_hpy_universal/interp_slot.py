@@ -172,7 +172,7 @@ class W_wrap_inquirypred(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             res = func(self.ctx, h_self)
-            res = rffi.cast(lltype.Signed, res)
+        res = rffi.cast(lltype.Signed, res)
         if res == -1:
             space.fromcache(State).raise_current_exception()
         return space.newbool(bool(res))
@@ -250,7 +250,7 @@ class W_wrap_objobjproc(object):
         w_key = __args__.arguments_w[1]
         with self.handles.using(w_self, w_key) as (h_self, h_key):
             res = func(self.ctx, h_self, h_key)
-            res = widen(res)
+        res = widen(res)
         if res == -1:
             space.fromcache(State).raise_current_exception()
         return space.newbool(bool(res))

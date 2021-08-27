@@ -1172,3 +1172,17 @@ class AppTestUnicodeExtra:
         # after 200 bytes
         assert repr(pattern) == "re.compile(%s)" % (repr(s)[:200],)
 
+    def test_subx_unusual_types_no_match(self):
+        # issue #3515
+        import re
+        result = re.sub(b"x", lambda x: 1/0, memoryview(b"yz"))
+        assert type(result) is bytes
+        assert result == b"yz"
+        class U(str): pass
+        result = re.sub(u"x", lambda x: 1/0, U(u"yz"))
+        assert type(result) is str
+        assert result == u"yz"
+        class B(bytes): pass
+        result = re.sub(b"x", lambda x: 1/0, B(b"yz"))
+        assert type(result) is bytes
+        assert result == b"yz"

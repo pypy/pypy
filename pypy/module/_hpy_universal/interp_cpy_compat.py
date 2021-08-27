@@ -134,7 +134,7 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum):
                 # XXX: we probably need to handle manually these slots
                 raise NotImplementedError("slot wrapper for slot %d" % num)
             funcptr = slotdef.c_pfunc
-            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, offset=[])
+            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr)
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:

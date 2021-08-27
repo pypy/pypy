@@ -84,11 +84,10 @@ def _get_hg_version(hgexe, root):
 
 
 def _get_hg_archive_version(path):
-    fp = open(path)
-    try:
-        data = dict(x.split(': ', 1) for x in fp.read().splitlines())
-    finally:
-        fp.close()
+    with open(path) as fp:
+        # reverse the order since there may be more than one tag
+        # and the latest tag will be first, so make it last instead
+        data = dict(x.split(': ', 1) for x in fp.read().splitlines()[::-1])
     if 'tag' in data:
         return data['tag'], data['node']
     else:

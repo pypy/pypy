@@ -130,6 +130,10 @@ def descr_load(space, name, path, debug=False):
         w_path = space.newfilename(path)
         raise raise_import_error(
             space, space.newtext(msg), space.newtext(name), w_path)
+    if space.config.objspace.hpy_cpyext_API:
+        # Ensure cpyext is initialised, since the extension might call cpyext
+        # functions
+        space.getbuiltinmodule('cpyext')
     if debug:
         return init_hpy_module(space, name, path, lib, True, initptr)
     else:

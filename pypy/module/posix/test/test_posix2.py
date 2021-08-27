@@ -246,6 +246,7 @@ class AppTestPosix:
             for field in [
                 'f_bsize', 'f_frsize', 'f_blocks', 'f_bfree', 'f_bavail',
                 'f_files', 'f_ffree', 'f_favail', 'f_flag', 'f_namemax',
+                'f_fsid',
             ]:
                 assert hasattr(st, field)
 
@@ -1632,6 +1633,15 @@ class AppTestPosix:
             posix.execv("notepad", ('',))
         with raises(OSError):
             posix.execv("notepad", (' ',))
+
+    def test_execve_invalid_env(self):
+        import sys
+        os = self.posix
+        args = ['notepad', '-c', 'pass']
+        newenv = os.environ.copy()
+        newenv["FRUIT=VEGETABLE"] = "cabbage"
+        with raises(ValueError):
+            os.execve(args[0], args, newenv)
 
 
 @py.test.mark.skipif("sys.platform != 'win32'")

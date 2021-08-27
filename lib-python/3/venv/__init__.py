@@ -259,9 +259,9 @@ class EnvBuilder:
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
             #
-            # PyPy extension: also copy the main library, not just the
+            # PyPy extension: also copy needed dlls, not just the
             # small executable
-            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
+            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib', 'libffi-7.dll']:
                 dest_library = os.path.join(binpath, libname)
                 src_library = os.path.join(os.path.dirname(context.executable),
                                            libname)

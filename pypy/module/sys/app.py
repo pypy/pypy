@@ -163,10 +163,26 @@ class sysflags(metaclass=structseqtype):
 null_sysflags = sysflags((0,)*13 + (False, 0))
 null__xoptions = {}
 
+# copied from version.py
+def tuple2hex(ver):
+    levels = {'alpha':     0xA,
+              'beta':      0xB,
+              'candidate': 0xC,
+              'final':     0xF,
+              }
+    subver = ver[4]
+    if not (0 <= subver <= 9):
+        subver = 0
+    return (ver[0] << 24   |
+            ver[1] << 16   |
+            ver[2] << 8    |
+            levels[ver[3]] << 4 |
+            subver)
+
 implementation_dict = {
     'name':       'pypy',
-    'version':    sys.version_info,
-    'hexversion': sys.hexversion,
+    'version':    sys.pypy_version_info,
+    'hexversion': tuple2hex(sys.pypy_version_info),
     'cache_tag':  _imp.get_tag(),
 }
 
