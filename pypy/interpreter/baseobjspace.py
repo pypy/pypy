@@ -568,7 +568,7 @@ class ObjSpace(object):
         # Install __pypy__ first for bootstrapping
         modules = ['__pypy__']
 
-        # _frozen_importlib imports lib-python/3/importlib/__bootstrap_external,
+        # _frozen_importlib imports lib-python/3/importlib/_bootstrap_external,
         # which imports many builtins. Make sure it is imported last
         append__frozen_importlib = False
         # and zipimport even laster
