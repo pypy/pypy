@@ -364,7 +364,7 @@ Python way, i.e. (use the exact binary name)::
 
     ./pypy3-c -m test.test_datetime
     # or
-    ./pypy3-c lib-python3/test/test_audit.py
+    ./pypy3-c lib-python/3/test/test_audit.py
 
 
 Tooling & Utilities
