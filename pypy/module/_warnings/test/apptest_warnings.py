@@ -5,8 +5,8 @@ import warnings
 import _warnings
 
 import io
+import os
 import sys
-import __pypy__
 
 def test_defaults():
     assert _warnings._onceregistry == {}
@@ -76,9 +76,9 @@ def test_ignore():
 
 def test_show_source_line():
     try:
-        from test.warning_tests import inner
+        from test.test_warnings.data.stacklevel import inner
     except ImportError:
-        skip('no test, -A on cpython?')
+        skip('no test, missing stdlib tests on cpython?')
     # With showarning() missing, make sure that output is okay.
     saved = warnings.showwarning
     try:
@@ -106,10 +106,6 @@ def test_filename_none():
 
 
 def test_warn_unicode():
-    if '__pypy__' not in sys.builtin_module_names:
-        # see bc4acc4caa28
-        pytest.skip("this checks that non-ascii warnings are not silently "
-                    "swallowed, like they are with CPython 2.7 (buggily?)")
     old = sys.stderr, warnings.showwarning
     try:
         class Grab:
@@ -153,7 +149,7 @@ def test_bad_category():
 def test_surrogate_in_filename():
     for filename in ("nonascii\xe9\u20ac", "surrogate\udc80"):
         try:
-            __pypy__.fsencode(filename)
+            os.fsencode(filename)
         except UnicodeEncodeError:
             continue
         _warnings.warn_explicit("text", UserWarning, filename, 1)
