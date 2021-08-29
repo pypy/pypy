@@ -342,7 +342,8 @@ class GetSetProperty(W_Root):
         Delete the value of the property from the given obj."""
         fdel = self.fdel
         if fdel is None:
-            raise oefmt(space.w_AttributeError, "cannot delete attribute")
+            raise oefmt(space.w_AttributeError,
+                        "can't delete %N.%s", w_obj, self.name)
         try:
             fdel(self, space, w_obj)
         except DescrMismatch:
@@ -684,7 +685,8 @@ Module.typedef = TypeDef("module",
 
 getset_func_doc = GetSetProperty(Function.fget_func_doc,
                                  Function.fset_func_doc,
-                                 Function.fdel_func_doc)
+                                 Function.fdel_func_doc,
+                                )
 
 # __module__ attribute lazily gets its value from the w_globals
 # at the time of first invocation. This is not 100% compatible but

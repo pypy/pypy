@@ -433,3 +433,10 @@ class AppTestTypeDef:
         e = raises(AttributeError, 'x.__globals__ = {}')
         if '__pypy__' in sys.builtin_module_names:
             assert str(e.value) == "readonly attribute '__globals__'"
+
+    def test_del_doc(self):
+        class X:
+            "hi there"
+        assert X.__doc__ == 'hi there'
+        exc = raises(AttributeError, 'del X.__doc__')
+        assert "can't delete X.__doc__" in str(exc.value)
