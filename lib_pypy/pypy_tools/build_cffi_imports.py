@@ -188,8 +188,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                   ignore_errors=True)
     env = os.environ
     if sys.platform == 'win32':
-        externals_path = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        '..', '..', 'externals'))
+        externals_path = os.path.abspath(basedir, 'externals')
         # Needed for buildbot builds. On conda this is not needed. 
         if os.path.exists(externals_path):
             env = os.environ.copy()
@@ -197,7 +196,10 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
             env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     else:
-        env['CFLAGS'] = '-fPIC ' + env.get('CFLAGS', '')
+        # normally, this would be correctly added by setuptools/distutils, but
+        # we moved this, and the ensurepip setuptools has not caught up yet
+        include_path = os.path.join(basedir, 'include', 'pypy%d.%d' % sys.version_info[:2])
+        env['CFLAGS'] = '-fPIC -I%s' % include_path + env.get('CFLAGS', '')
     status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'import setuptools'])
     if status  != 0:
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-m', 'ensurepip'])
@@ -295,7 +297,7 @@ if __name__ == '__main__':
     exename = join(os.getcwd(), args.exefile)
     basedir = exename
 
-    while not os.path.exists(join(basedir,'include')):
+    while not os.path.exists(join(basedir,'lib_pypy')):
         _basedir = os.path.dirname(basedir)
         if _basedir == basedir:
             raise ValueError('interpreter %s not inside pypy repo', 
