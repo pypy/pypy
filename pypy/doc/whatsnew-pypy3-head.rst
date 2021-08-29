@@ -74,3 +74,11 @@ Use libffi v3.3 like CPython instead of the very old ``libffi_msvc`` on windows
 When creating a PyUnicodeObject, use the compact form to store the data
 directly on the object and not via an additional buffer. This is used in
 pythran via _PyUnicode_COMPACT_DATA even though it is a "private" interface.
+
+.. branch: py3.8-errors-in-dead-code
+
+Raise ``SyntaxErrors`` even when they occur in dead code, eg like this::
+
+    if 0:
+        break # not in loop
+
