@@ -187,7 +187,8 @@ class PythonCodeMaker(ast.ASTVisitor):
         self.first_lineno = first_lineno
         self.compile_info = compile_info
         self.first_block = self.new_block()
-        self.use_block(self.first_block)
+        self.current_block = self.first_block
+        self._is_dead_code = False
         self.names = {}
         self.var_names = _iter_to_dict(scope.varnames)
         self.cell_vars = _make_index_dict_filter(scope.symbols,
@@ -229,8 +230,10 @@ class PythonCodeMaker(ast.ASTVisitor):
     def is_dead_code(self):
         """Return False if any code can be meaningfully added to the
         current block, or True if it would be dead code."""
-        # currently only True after a RETURN_VALUE.
-        return self.current_block.have_return
+        return self._is_dead_code or self.current_block.have_return
+
+    def all_dead_code(self):
+        return DeadCode(self)
 
     def emit_op(self, op):
         """Emit an opcode without an argument."""
@@ -294,6 +297,8 @@ class PythonCodeMaker(ast.ASTVisitor):
 
 
     def load_const(self, obj):
+        if self.is_dead_code():
+            return
         index = self.add_const(obj)
         self.emit_op_arg(ops.LOAD_CONST, index)
 
@@ -535,6 +540,18 @@ class PythonCodeMaker(ast.ASTVisitor):
                       free_names,
                       cell_names,
                       self.compile_info.hidden_applevel)
+
+class DeadCode(object):
+    def __init__(self, codegen):
+        self.codegen = codegen
+
+    def __enter__(self, *args):
+        self.old_value = self.codegen._is_dead_code
+        self.codegen._is_dead_code = True
+
+    def __exit__(self, *args):
+        self.codegen._is_dead_code = self.old_value
+
 
 
 def _list_from_dict(d, offset=0):

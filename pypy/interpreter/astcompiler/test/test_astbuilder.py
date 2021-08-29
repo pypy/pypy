@@ -1113,6 +1113,14 @@ class TestAstBuilder:
         assert exc.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
         exc = pytest.raises(SyntaxError, self.get_ast, "f(a=c, a=d)").value
         assert exc.msg == "keyword argument repeated: 'a'"
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f((x)=1)")
+        assert excinfo.value.msg == 'expression cannot contain assignment, perhaps you meant "=="?'
+        with pytest.raises(SyntaxError) as excinfo:
+            self.get_ast("f(True=1)")
+        assert excinfo.value.msg == 'cannot assign to True'
+        assert excinfo.value.offset == 2
+
 
     def test_attribute(self):
         attr = self.get_first_expr("x.y")
