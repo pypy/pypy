@@ -1141,8 +1141,8 @@ class AppTestSocketTCP:
         events = []
         def f(event, args):
             events.append((event, args))
-        sys.addaudithook(f)
         s = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+        sys.addaudithook(f)
         s.bind(('localhost', 0))
         assert len(events) == 1
         assert events[0][0] == 'socket.bind'
