@@ -294,10 +294,6 @@ class BasicTests:
     def test_minilang_stack_1(self):
 
         @dont_look_inside
-        def is_true(x):
-            return x != 0
-
-        @dont_look_inside
         def emit_jump(x, y, z):
             return x
 
@@ -305,14 +301,7 @@ class BasicTests:
         def emit_ret(x, y):
             return x
 
-        ADD = 10
-        SUB = 11
-        LT = 12
-        JUMP = 13
-        JUMP_IF = 14
-        EXIT = 15
-        DUP = 16
-        CONST = 17
+        ADD = 10; SUB = 11; LT = 12; JUMP = 13; JUMP_IF = 14; EXIT = 15; DUP = 16; CONST = 17
         NOP = -100
         inst_set = {
             10: "ADD",
@@ -436,9 +425,6 @@ class BasicTests:
                             restore_state(frame)
                             myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
                                                       frame=frame)
-                            # v = frame.pop()
-                            # pc, frame, tstack = entry_state
-                            # return v
                         else:
                             pc, tstack = tstack.t_pop()
                             v = frame.pop()
@@ -450,7 +436,138 @@ class BasicTests:
         res = self.meta_interp(interp, [100])
 
     def test_minilang_stack_2(self):
-        pass
+
+        @dont_look_inside
+        def emit_jump(x, y, z):
+            return x
+
+        @dont_look_inside
+        def emit_ret(x, y):
+            return x
+
+        ADD = 10; SUB = 11; LT = 12; JUMP = 13; JUMP_IF = 14;  EXIT = 15
+        DUP = 16; CONST = 17;  NOP = -100
+        inst_set = {
+            10: "ADD",
+            11: "SUB",
+            12: "LT",
+            13: "JUMP",
+            14: "JUMP_IF",
+            15: "EXIT",
+            16: "DUP",
+            17: "CONST",
+            -100: "NOP"
+        }
+
+        def opcode_to_string(pc, entry_state, bytecode, tstack):
+            op = bytecode[pc]
+            name = inst_set.get(op)
+            return "%s: %s, tstack top: %s" % (pc, name, tstack.pc)
+
+        myjitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'], reds=['frame'],
+                                get_printable_location=opcode_to_string,
+                                threaded_code_gen=True)
+
+        saved_stack = [0] * Frame.size
+        saved_sp = 0
+
+        @not_in_trace
+        def save_state(frame):
+            saved_sp = frame.sp
+            for i in range(Frame.size):
+                saved_stack[i] = frame.stack[i]
+
+        @not_in_trace
+        def restore_state(frame):
+            for i in range(Frame.size):
+                frame.stack[i] = saved_stack[i]
+            frame.sp = saved_sp
+
+        def interp(x):
+            tstack = TStack(-100, None)
+            pc = 0
+            bytecode = [ DUP,
+                         CONST, 0,
+                         LT,
+                         JUMP_IF, 8,
+                         JUMP, 13,
+                         CONST, 1,
+                         SUB,
+                         JUMP, 0,
+                         CONST, 1000,
+                         SUB,
+                         EXIT ]
+
+            frame = Frame(bytecode)
+            frame.push(x)
+            entry_state = pc, tstack
+            while True:
+                myjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                            frame=frame)
+                op = bytecode[pc]
+                pc += 1
+                if op == CONST:
+                    v = int(bytecode[pc])
+                    frame.const_int(v)
+                    pc += 1
+                elif op == DUP:
+                    frame.dup()
+                elif op == ADD:
+                    frame.add()
+                elif op == SUB:
+                    frame.sub()
+                elif op == LT:
+                    frame.lt()
+                elif op == JUMP:
+                    t = int(bytecode[pc])
+                    if we_are_jitted():
+                        if t_is_empty(tstack):
+                            pc = t
+                        else:
+                            pc, tstack = tstack.t_pop()
+                            pc = emit_jump(pc, t, None)
+                    else:
+                        if t < pc:
+                            entry_state = t, tstack
+                            save_state(frame)
+                            myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                      frame=frame)
+                        pc = t
+                elif op == JUMP_IF:
+                    t = int(bytecode[pc])
+                    if frame.is_true():
+                        if we_are_jitted():
+                            pc += 1
+                            tstack = t_push(pc, tstack)
+                        else:
+                            if t < pc:
+                                entry_state = t, tstack
+                                save_state(frame)
+                                myjitdriver.can_enter_jit(pc=t, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                          frame=frame)
+                        pc = t
+                    else:
+                        if we_are_jitted():
+                            tstack = t_push(t, tstack)
+                        pc += 1
+                elif op == EXIT:
+                    if we_are_jitted():
+                        if t_is_empty(tstack):
+                            v = frame.pop()
+                            pc = emit_ret(pc, v)
+                            pc, tstack = entry_state
+                            restore_state(frame)
+                            myjitdriver.can_enter_jit(pc=pc, entry_state=entry_state, bytecode=bytecode, tstack=tstack,
+                                                      frame=frame)
+                        else:
+                            pc, tstack = tstack.t_pop()
+                            v = frame.pop()
+                            pc = emit_ret(pc, v)
+                    else:
+                        return frame.pop()
+
+        interp.oopspec = 'jit.not_in_trace()'
+        res = self.meta_interp(interp, [100])
 
 class TestLLtype(BasicTests, LLJitMixin):
     pass
