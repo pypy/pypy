@@ -4478,7 +4478,8 @@ order (MRO) for bases """
         self.assertNotOrderable(l.__add__, l.__add__)
         self.assertEqual(l.__add__.__name__, '__add__')
         self.assertIs(l.__add__.__self__, l)
-        self.assertIs(l.__add__.__objclass__, list)
+        if sys.implementation.name != 'pypy':
+            self.assertIs(l.__add__.__objclass__, list)
         self.assertEqual(l.__add__.__doc__, list.__add__.__doc__)
         # hash([].__add__) should not be based on hash([])
         hash(l.__add__)
@@ -4497,7 +4498,9 @@ order (MRO) for bases """
         self.assertNotOrderable(l.append, l.append)
         self.assertEqual(l.append.__name__, 'append')
         self.assertIs(l.append.__self__, l)
-        # self.assertIs(l.append.__objclass__, list) --- could be added?
+        if sys.implementation.name != 'pypy':
+            pass
+            # self.assertIs(l.append.__objclass__, list) --- could be added?
         self.assertEqual(l.append.__doc__, list.append.__doc__)
         # hash([].append) should not be based on hash([])
         hash(l.append)
@@ -4510,7 +4513,8 @@ order (MRO) for bases """
         self.assertTrue(list.__add__ != list.__mul__)
         self.assertNotOrderable(list.__add__, list.__add__)
         self.assertEqual(list.__add__.__name__, '__add__')
-        self.assertIs(list.__add__.__objclass__, list)
+        if sys.implementation.name != 'pypy':
+            self.assertIs(list.__add__.__objclass__, list)
 
         # Testing objects of <type 'method_descriptor'>...
         self.assertTrue(list.append == list.append)
@@ -4519,7 +4523,8 @@ order (MRO) for bases """
         self.assertTrue(list.append != list.pop)
         self.assertNotOrderable(list.append, list.append)
         self.assertEqual(list.append.__name__, 'append')
-        self.assertIs(list.append.__objclass__, list)
+        if sys.implementation.name != 'pypy':
+            self.assertIs(list.append.__objclass__, list)
 
     def test_not_implemented(self):
         # Testing NotImplemented...
@@ -4883,7 +4888,8 @@ order (MRO) for bases """
         self.assertRegex(repr(method),
             r"<bound method qualname of <object object at .*>>")
 
-    @unittest.skipIf(_testcapi is None, 'need the _testcapi module')
+    @unittest.skipIf(_testcapi is None or not getattr(_testcapi, 'bad_get', None),
+                    'need the _testcapi module')
     def test_bpo25750(self):
         # bpo-25750: calling a descriptor (implemented as built-in
         # function with METH_FASTCALL) should not crash CPython if the
