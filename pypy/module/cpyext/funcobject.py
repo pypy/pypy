@@ -175,6 +175,7 @@ def PyCode_GetNumFree(space, w_co):
 @cpython_api([PyCodeObject, rffi.INT_real], rffi.INT_real, error=-1)
 def PyCode_Addr2Line(space, w_code, offset):
     from pypy.interpreter.pytraceback import offset2lineno
+    offset = rffi.cast(lltype.Signed, offset)
     co = space.interp_w(PyCode, w_code)
     if offset < 0:
         return -1
