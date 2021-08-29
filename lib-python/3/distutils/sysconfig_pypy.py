@@ -26,6 +26,9 @@ python_build = False
 def get_python_inc(plat_specific=0, prefix=None):
     if prefix is None:
         prefix = plat_specific and BASE_EXEC_PREFIX or BASE_PREFIX
+    if os.name == "posix":
+        python_dir = 'pypy' + get_python_version()
+        return os.path.join(prefix, "include", python_dir)
     return os.path.join(prefix, 'include')
 
 def get_python_version():

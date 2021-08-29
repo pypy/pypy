@@ -51,7 +51,7 @@ build_time_vars = {
 if sys.platform == 'win32':
     build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
 else:
-    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'pypy' + pydot, 'include')
+    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
 
 if find_executable("gcc"):
     build_time_vars.update({
