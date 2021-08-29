@@ -172,3 +172,12 @@ def PyCode_GetNumFree(space, w_co):
     co = space.interp_w(PyCode, w_co)
     return len(co.co_freevars)
 
+@cpython_api([PyCodeObject, rffi.INT_real], rffi.INT_real, error=-1)
+def PyCode_Addr2Line(space, w_code, offset):
+    from pypy.interpreter.pytraceback import offset2lineno
+    co = space.interp_w(PyCode, w_code)
+    if offset < 0:
+        return -1
+    if offset > len(co.co_code):
+        return -1
+    return offset2lineno(co, offset)
