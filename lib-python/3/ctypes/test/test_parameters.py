@@ -1,4 +1,5 @@
 import unittest
+import sys
 from ctypes.test import need_symbol
 import test.support
 

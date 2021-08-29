@@ -52,17 +52,16 @@ TYPEMAP = {
     'O' : ffi_type_pointer,
     'Z' : ffi_type_pointer,
     '?' : cast_type_to_ffitype(lltype.Bool),
+    'v' : ffi_type_sshort
 }
 TYPEMAP_PTR_LETTERS = "POszZ"
-TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?"
+TYPEMAP_NUMBER_LETTERS = "bBhHiIlLqQ?v"
 TYPEMAP_FLOAT_LETTERS = "fd" # XXX long doubles are not propperly supported in
                              # rpython, so we ignore then here
 
 if _MS_WINDOWS:
     TYPEMAP['X'] = ffi_type_pointer
-    TYPEMAP['v'] = ffi_type_sshort
     TYPEMAP_PTR_LETTERS += 'X'
-    TYPEMAP_NUMBER_LETTERS += 'v'
 
 def size_alignment(ffi_type):
     return intmask(ffi_type.c_size), intmask(ffi_type.c_alignment)
@@ -89,11 +88,11 @@ LL_TYPEMAP = {
     'O' : rffi.VOIDP,
     'P' : rffi.VOIDP,
     '?' : lltype.Bool,
+    'v' : rffi.SHORT
 }
 
 if _MS_WINDOWS:
     LL_TYPEMAP['X'] = rffi.CCHARP
-    LL_TYPEMAP['v'] = rffi.SHORT
 
 def letter2tp(space, key):
     from pypy.module._rawffi.interp_array import PRIMITIVE_ARRAY_TYPES
