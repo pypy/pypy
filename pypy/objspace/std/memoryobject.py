@@ -780,3 +780,41 @@ class BufferViewND(IndirectView):
 
     def getstrides(self):
         return self.strides
+
+    def getlength(self):
+        tot = 1
+        for i in range(self.ndim):
+            tot += self.shape[i]
+        return tot
+
+    def as_str(self):
+        from rpython.rlib.rstring import StringBuilder
+        nchunks = self.getlength()
+        res = StringBuilder(nchunks)
+        if self.ndim == 1:
+            itemsize = self.getitemsize()
+            stride = self.strides[0]
+            for i in range(0, nchunks):
+                res.append(self.getbytes(i * stride, itemsize))
+        else:
+            self._as_str_rec(res, 0, 0)
+        return res.build()
+
+    def _as_str_rec(self, res, start, idim):
+        dim = idim + 1
+        stride = self.strides[idim]
+        itemsize = self.getitemsize()
+        dimshape = self.shape[idim]
+        #
+        if dim >= self.ndim:
+            bytecount = (stride * dimshape)
+            for pos in range(start, start + bytecount, stride):
+                res.append(self.getbytes(pos, itemsize))
+            return 
+        items = [None] * dimshape
+        for i in range(dimshape):
+            self._as_str_rec(res, start, dim)
+            start += stride
+
+ 
+

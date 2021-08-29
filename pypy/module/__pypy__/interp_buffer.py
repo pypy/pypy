@@ -40,7 +40,33 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
     lgt = space.len_w(w_obj)
     old_size = w_obj.getitemsize()
     nbytes = lgt * old_size
-    if w_shape:
+    strides = []
+    if w_strides:
+        for w_v in space.listview(w_strides):
+            v = space.int_w(w_v)
+            strides.append(v)
+        if not w_shape and len(strides) != 1:
+            raise oefmt(space.w_ValueError,
+                  "strides must have a single value if shape not provided")
+    if w_shape and w_strides:
+        tot = 1
+        shape = []
+        i = 0
+        shape_w = space.listview(w_shape)
+        if len(shape_w) != len(strides):
+            raise oefmt(space.w_ValueError,
+                  "shape %s does not match strides %s",
+                  str(shape), str(strides))
+        for w_v in space.listview(w_shape):
+            v = space.int_w(w_v)
+            shape.append(v)
+            tot *= (v * strides[i])
+            i += 1
+        if tot * itemsize != nbytes:
+            raise oefmt(space.w_ValueError,
+                  "shape * strides/itemsize %s * %s/%d does not match obj len/itemsize %d/%d",
+                  str(shape), str(strides), itemsize, lgt, old_size)
+    elif w_shape:
         tot = 1
         shape = []
         for w_v in space.listview(w_shape):
@@ -61,23 +87,15 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                   itemsize, lgt, old_size)
         shape = [nbytes / itemsize,]
     ndim = len(shape)
-    if w_strides:
-        strides = []
-        for w_v in space.listview(w_strides):
-            v = space.int_w(w_v)
-            strides.append(v)
-        if not w_shape and len(strides) != 1:
-            raise oefmt(space.w_ValueError,
-                  "strides must have one value if shape not provided")
-        if len(strides) != ndim:
-            raise oefmt(space.w_ValueError,
-                  "shape %s does not match strides %s",
-                  str(shape), str(strides))
-    else:
+    if not w_strides:
         # start from the right, c-order layout
         strides = [itemsize] * ndim
         for v in range(ndim - 2, -1, -1):
             strides[v] = strides[v + 1] * shape[v + 1]
+    if len(strides) != ndim:
+        raise oefmt(space.w_ValueError,
+              "shape %s does not match strides %s",
+              str(shape), str(strides))
     # check that the strides are not too big
     for i in range(ndim):
         if strides[i] * shape[i] > nbytes:
