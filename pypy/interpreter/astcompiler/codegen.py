@@ -1274,7 +1274,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             else:
                 with self.all_dead_code(): # error checking
                     value.walkabout(self)
-                continue
         op.values[last].walkabout(self)
         self.use_next_block(end)
 

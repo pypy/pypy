@@ -1261,6 +1261,12 @@ class AppTestOptimizer(object):
         def f2():
             return 0 and 1 + x
         assert len(f2.__code__.co_code) == 4 # load_const, return_value
+        def f3():
+            return a or False or True or x
+        assert len(f3.__code__.co_code) == 8 # load_global, jump, load_const, return_value
+        def f4():
+            return a and True and 0 and x
+        assert len(f4.__code__.co_code) == 8 # load_global, jump, load_const, return_value
 
 
     def test_tuple_constants(self):
