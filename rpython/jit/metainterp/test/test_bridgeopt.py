@@ -422,6 +422,45 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(call_i=2)
         self.check_trace_count(7)
 
+    def test_too_many_bridges_guard_sharing(self):
+        myjitdriver = jit.JitDriver(greens=[], reds=['y'])
+
+        class Map(object):
+            pass
+
+        class Instance(object):
+            def __init__(self, counter, map_):
+                self.map_ = map_
+                self.counter = counter | 1
+
+        @jit.elidable
+        def get_map_id(map_):
+            return 1
+
+        maps = [Map() for i in range(10)]
+        instances = [Instance(i, map) for i in range(20) for map in maps]
+
+        def f():
+            jit.set_param(myjitdriver, 'max_promotes', 1)
+            y = len(instances) - 1
+            while y >= 0:
+                myjitdriver.jit_merge_point(y=y)
+                instance = instances[y]
+                # a shared guard that messes up things potentially
+                if instance.counter & 1:
+                    a = 1
+                else:
+                    a = 2
+                arg = jit.promote(instance.map_)
+                y -= get_map_id(arg)
+
+        self.meta_interp(f, [])
+        # 2 general paths don't promote, so they get the
+        # call instructions.
+        self.check_resops(call_i=2)
+        self.check_trace_count(7)
+
+
 def test_guard_depth_increase():
     parent = ResumeGuardDescr()
     parent.inc_depth(None)
