@@ -582,7 +582,7 @@ class Optimizer(Optimization):
         # but these should not be preceeded immediately by another guard.
         # Sadly, asserting this seems to fail in rare cases.  So instead,
         # we simply give up sharing.
-        if (opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION) and
+        if (opnum in (rop.GUARD_NO_EXCEPTION, rop.GUARD_EXCEPTION, rop.GUARD_VALUE) and
                 self._last_guard_op is not None and
                 self._last_guard_op.getopnum() != rop.GUARD_NOT_FORCED):
             self._last_guard_op = None
