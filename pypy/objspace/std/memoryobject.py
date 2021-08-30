@@ -791,7 +791,9 @@ class BufferViewND(IndirectView):
         from rpython.rlib.rstring import StringBuilder
         nchunks = self.getlength()
         res = StringBuilder(nchunks)
-        if self.ndim == 1:
+        if self.ndim == 0:
+            return self.parent.as_str()
+        elif self.ndim == 1:
             itemsize = self.getitemsize()
             stride = self.strides[0]
             for i in range(0, nchunks):

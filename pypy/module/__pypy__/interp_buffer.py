@@ -41,6 +41,7 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
     old_size = w_obj.getitemsize()
     nbytes = lgt * old_size
     strides = []
+    shape = []
     if w_strides:
         for w_v in space.listview(w_strides):
             v = space.int_w(w_v)
@@ -49,9 +50,6 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
             raise oefmt(space.w_ValueError,
                   "strides must have a single value if shape not provided")
     if w_shape and w_strides:
-        tot = 1
-        shape = []
-        i = 0
         shape_w = space.listview(w_shape)
         if len(shape_w) != len(strides):
             raise oefmt(space.w_ValueError,
@@ -60,15 +58,18 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
         for w_v in space.listview(w_shape):
             v = space.int_w(w_v)
             shape.append(v)
-            tot *= (v * strides[i])
-            i += 1
-        if tot * itemsize != nbytes:
+        tot = 1 
+        for i in range(len(strides) - 1, -1, -1):
+            if strides[i] % tot != 0:
+                raise oefmt(space.w_ValueError,
+                            "strides does not match shape, itemsize")
+            tot *= shape[i] * (strides[i] / tot)
+        if tot != nbytes:
             raise oefmt(space.w_ValueError,
-                  "shape * strides/itemsize %s * %s/%d does not match obj len/itemsize %d/%d",
+                  "shape * strides / itemsize %s * %s / %d does not match obj data %d * %d",
                   str(shape), str(strides), itemsize, lgt, old_size)
     elif w_shape:
         tot = 1
-        shape = []
         for w_v in space.listview(w_shape):
             v = space.int_w(w_v)
             shape.append(v)

@@ -37,7 +37,7 @@ class AppTestMinimal:
 
     def test_strided2d(self):
         from __pypy__ import newmemoryview
-        b = bytearray(b'abcdefghijkl' * 8)
+        b = bytearray(b'abcdefghijkl' * 2)
         m = newmemoryview(memoryview(b), itemsize=1, format='B', shape=[6, 2], strides=[4, 2])
         assert m.strides == (4, 2)
         assert m.shape == (6, 2)
