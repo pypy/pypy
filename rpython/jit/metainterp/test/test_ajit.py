@@ -69,8 +69,8 @@ class BasicTests:
     def test_monte_carlo(self):
         import time
         import random
-        from math import sqrt, pow
-        myjitdriver = JitDriver(greens = [], reds = ['i','n','x1','x2','y1','y2','r','x','y','s','res'])
+        import math
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
         def f(x1, x2, y1, y2, r, n):
             res = 0.0
             i = 0
@@ -78,11 +78,10 @@ class BasicTests:
             x = 0.0
             y = 0.0
             while i < n:
-                myjitdriver.can_enter_jit(x=x, y=y, x1=x1, x2=x2, y1=y1, y2=y2, s=s, n=n, i=i, res=res, r=r)
-                myjitdriver.jit_merge_point(x=x, y=y, x1=x1, x2=x2, y1=y1, y2=y2, s=s, n=n, i=i, res=res, r=r)
+                myjitdriver.jit_merge_point()
                 x = i
                 y = s
-                s = x*x+y*y
+                s = x
                 if s <= r:
                     res += s
                 i += 1
@@ -113,7 +112,7 @@ class BasicTests:
             return (res, res2)
 
         time1 = time.time()
-        res = self.meta_interp(f, [6000, 5000])
+        res = self.meta_interp(f, [60, 50])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)

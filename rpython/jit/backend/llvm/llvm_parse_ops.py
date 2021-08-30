@@ -376,6 +376,9 @@ class LLVMOpDispatcher:
             in_substruct = False
             depth = 1
 
+            if not plain: #we are a root class and have a vtable
+                llvm_subtypes.append(self.cpu.llvm_void_ptr)
+
             i = 0
             while i < len(fields):
                 current_sizedescr = fields[i].get_parent_descr()
@@ -392,21 +395,16 @@ class LLVMOpDispatcher:
                             in_substruct = False
                             llvm_struct = self.parse_struct_descr_to_llvm(
                                 last_sizedescr, struct_ptr)
-                            llvm_subtypes.append(llvm_struct.struct_type)
-                            depth = max(llvm_struct.depth + 1, depth)
-
+                            llvm_subtypes.extend(llvm_struct.subtypes)
                 if in_substruct: # reached end of struct
                     llvm_struct = self.parse_struct_descr_to_llvm(
                         current_sizedescr, struct_ptr)
-                    llvm_subtypes.append(llvm_struct.struct_type)
-                    depth = max(llvm_struct.depth + 1, depth)
+                    llvm_subtypes.extend(llvm_struct.subtypes)
                     break
+
                 subtypes.append(fields[i])
                 i += 1
             llvm_subtypes.extend(self.get_llvm_field_types(subtypes))
-
-            if depth == 1 and not plain: #we are a root class and have a vtable
-                llvm_subtypes.insert(0, self.cpu.llvm_void_ptr)
 
             struct_type = self.get_llvm_struct_type(llvm_subtypes)
             struct_ptr_type = self.llvm.PointerType(struct_type, 0)
@@ -1892,8 +1890,8 @@ class LLVMOpDispatcher:
         cstring = CString("new_res")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
-        lltype.free(args, flavor='raw')
         self.llvm.add_deref_ret_attribute(struct, sizedescr.size)
+        lltype.free(args, flavor='raw')
 
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct, plain=True)
 
@@ -1907,6 +1905,7 @@ class LLVMOpDispatcher:
         cstring = CString("new_res")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        self.llvm.add_deref_ret_attribute(struct, sizedescr.size)
         lltype.free(args, flavor='raw')
 
         llvm_struct = self.parse_struct_descr_to_llvm(sizedescr, struct)
@@ -1952,6 +1951,9 @@ class LLVMOpDispatcher:
         cstring = CString("new_res")
         array = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        # we won't know the full size until runtime but at least one elem
+        # will be dereferenceable, and that provides other information too
+        self.llvm.add_deref_ret_attribute(array, itemsize+basesize)
         lltype.free(args, flavor='raw')
 
         llvm_array = self.parse_array_descr_to_llvm(arraydescr, array)
@@ -1999,11 +2001,12 @@ class LLVMOpDispatcher:
         self.cpu.descr_token_cnt += 1
 
         size = self.cpu.WORD+(num_failargs*self.cpu.WORD)
-        size = self.llvm.ConstInt(self.cpu.llvm_int_type, size, 0)
-        args = self.rpython_array([size], self.llvm.ValueRef)
+        size_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type, size, 0)
+        args = self.rpython_array([size_llvm], self.llvm.ValueRef)
         cstring = CString("ptr")
         struct = self.llvm.BuildCall(self.builder, self.malloc, args, 1,
                                      cstring.ptr)
+        self.llvm.add_deref_ret_attribute(struct, size)
         lltype.free(args, flavor='raw')
 
         int_types = [self.cpu.llvm_int_type] * (num_failargs)

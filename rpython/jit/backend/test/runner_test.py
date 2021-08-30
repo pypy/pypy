@@ -724,7 +724,15 @@ class BaseBackendTest(Runner):
         t_box, T_box, descr = self.alloc_instance(self.T)
         fielddescr = self.cpu.fielddescrof(self.S, 'value')
         assert not fielddescr.is_pointer_field()
-        #
+
+        res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
+                                     'void', descr=fielddescr)
+        assert res is None
+        res = self.execute_operation(rop.GETFIELD_GC_I, [t_box],
+                                     'int', descr=fielddescr)
+        assert res == 39082
+
+        fielddescr = self.cpu.fielddescrof(self.T, 'value2')
         res = self.execute_operation(rop.SETFIELD_GC, [t_box, InputArgInt(39082)],
                                      'void', descr=fielddescr)
         assert res is None
@@ -1900,7 +1908,8 @@ class LLtypeBackendTest(BaseBackendTest):
                                   ('next', lltype.Ptr(S)),
                                   ('float', lltype.Float)))
     T = lltype.GcStruct('T', ('parent', S),
-                             ('next', lltype.Ptr(S)))
+                            ('value2', lltype.Signed),
+                            ('next', lltype.Ptr(S)))
     U = lltype.GcStruct('U', ('parent', T),
                              ('next', lltype.Ptr(S)))
 
