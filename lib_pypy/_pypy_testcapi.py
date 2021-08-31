@@ -67,7 +67,7 @@ def compile_shared(csource, modulename, output_dir):
     compiler = new_compiler()
     compiler.output_dir = output_dir
     # Compile .c file
-    include_dir = os.path.join(thisdir, '..', 'include')
+    include_dir = sysconfig.get_config_var('INCLUDEPY')
     if sys.platform == 'win32':
         ccflags = ['-D_CRT_SECURE_NO_WARNINGS']
     else:
