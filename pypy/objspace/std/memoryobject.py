@@ -784,8 +784,8 @@ class BufferViewND(IndirectView):
     def getlength(self):
         tot = 1
         for i in range(self.ndim):
-            tot += self.shape[i]
-        return tot
+            tot *= self.shape[i]
+        return tot * self.itemsize
 
     def as_str(self):
         from rpython.rlib.rstring import StringBuilder

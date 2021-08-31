@@ -59,3 +59,10 @@ class AppTestMinimal:
         buf = memoryview(obj)
         v = obj.data[2]
         assert buf[2] == v
+
+    def test_nbytes(self):
+        from __pypy__ import newmemoryview
+        b = bytearray(b'abcdefgh')
+        m = newmemoryview(memoryview(b), 8, '<d')
+        print(m.nbytes)
+        assert m.nbytes == 8
