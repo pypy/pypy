@@ -188,7 +188,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                   ignore_errors=True)
     env = os.environ
     if sys.platform == 'win32':
-        externals_path = os.path.abspath(basedir, 'externals')
+        externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
         # Needed for buildbot builds. On conda this is not needed. 
         if os.path.exists(externals_path):
             env = os.environ.copy()
