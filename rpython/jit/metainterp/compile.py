@@ -1144,8 +1144,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
                                   body_token=body_token)
 
     try:
-        splitted = data.split(metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
-                              newops, info.inputargs)
+        splitted = data.split(
+            metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
+            newops, info.inputargs)
         (body_info, body_ops), bridges = splitted[0], splitted[1:]
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
@@ -1172,12 +1173,12 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     metainterp.resumekey_original_loop_token = body_jitcell_token
     for (bridge_info, bridge_ops) in bridges:
         metainterp_sd.logger_noopt.log_bridge(bridge_info.inputargs, bridge_ops,
-                                              descr=bridge_info.fail_descr)
+                                              descr=bridge_info.faildescr)
         bridge = create_empty_loop(metainterp)
         bridge.original_jitcell_token = bridge_info.target_token.original_jitcell_token
         bridge.inputargs = bridge_info.inputargs
         bridge.operations = bridge_ops
-        resumekey = bridge_info.fail_descr
+        resumekey = bridge_info.faildescr
         assert isinstance(resumekey, AbstractResumeGuardDescr)
         resumekey.compile_and_attach(metainterp, bridge, inputargs)
 

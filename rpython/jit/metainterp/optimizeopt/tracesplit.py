@@ -42,13 +42,13 @@ class TraceSplitInfo(BasicLoopInfo):
     * target_token - generated target token for a bridge ("false" branch)
     * label_op - label operations
     * inputargs - input arguments
-    * fail_descr - used in the case of a bridge trace; for attaching
+    * faildescr - used in the case of a bridge trace; for attaching
     """
-    def __init__(self, target_token, label_op, inputargs, fail_descr=None):
+    def __init__(self, target_token, label_op, inputargs, faildescr=None):
         self.target_token = target_token
         self.label_op = label_op
         self.inputargs = inputargs
-        self.fail_descr = fail_descr
+        self.faildescr = faildescr
 
     def final(self):
         return True
@@ -104,7 +104,7 @@ class TraceSplitOpt(object):
 
                     jump_op = ResOperation(rop.JUMP, inputargs, token)
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
                     t_lst.append((info, current_ops + [jump_op]))
                     current_ops = []
                 elif name.find(mark.RET) != -1:
@@ -144,7 +144,7 @@ class TraceSplitOpt(object):
                                                    original_jitcell_token=original_jitcell_token)
 
                     label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
+                    info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
                     t_lst.append((info, current_ops + ret_ops))
                     current_ops = []
                 elif name.find(mark.IS_TRUE) != -1:
