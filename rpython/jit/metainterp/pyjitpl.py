@@ -1402,7 +1402,67 @@ class MIFrame(object):
         #
         args = [ConstInt(jd_index), ConstInt(portal_call_depth),
                 ConstInt(current_call_id)] + greenkey
-        self.metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
+        metainterp = self.metainterp
+        metainterp.history.record(rop.DEBUG_MERGE_POINT, args, None)
+        warmrunnerstate = jitdriver_sd.warmstate
+        if (metainterp.force_finish_trace and
+                (metainterp.history.length() > warmrunnerstate.trace_limit * 0.8 or
+                 metainterp.history.trace_tag_overflow_imminent())):
+            self._create_segmented_trace_and_blackhole()
+
+    def _create_segmented_trace_and_blackhole(self):
+        metainterp = self.metainterp
+        # close to the trace limit, in a trace we really shouldn't
+        # abort. finish it now
+        metainterp.generate_guard(rop.GUARD_ALWAYS_FAILS)
+        if we_are_translated():
+            llexception = jitexc.get_llexception(metainterp.cpu, AssertionError())
+        else:
+            # fish an AssertionError instance
+            llexception = jitexc._get_standard_error(metainterp.cpu.rtyper, AssertionError)
+
+        # add an unreachable finish that raises an AssertionError
+        exception_box = ConstInt(ptr2int(llexception.typeptr))
+        sd = metainterp.staticdata
+        token = sd.exit_frame_with_exception_descr_ref
+        metainterp.history.record(rop.FINISH, [exception_box], None, descr=token)
+
+        if (metainterp.current_merge_points and
+                isinstance(metainterp.resumekey, compile.ResumeFromInterpDescr)):
+            # making a loop. it's important to call compile_simple_loop to make
+            # sure that a label at the beginning is inserted, otherwise we
+            # cannot ever close the segmented loop later!
+            original_boxes, start = metainterp.current_merge_points[0]
+            jd_sd = metainterp.jitdriver_sd
+            greenkey = original_boxes[:jd_sd.num_green_args]
+            enable_opts = jd_sd.warmstate.enable_opts
+            cut_at = metainterp.history.get_trace_position()
+            fake_runtime_boxes = None
+            vinfo = jd_sd.virtualizable_info
+            if vinfo is not None:
+                # this is a hack! compile_simple_loop does not actually need
+                # the runtime boxes. the only thing it does is extract the
+                # virtualizable box. so pass it that way
+                fake_runtime_boxes = [None] * (jd_sd.index_of_virtualizable + 1)
+                fake_runtime_boxes[jd_sd.index_of_virtualizable] = \
+                        metainterp.virtualizable_boxes[-1]
+            target_token = compile.compile_simple_loop(
+                metainterp, greenkey, metainterp.history.trace,
+                fake_runtime_boxes, enable_opts, cut_at,
+                patch_jumpop_at_end=False)
+            jd_sd.warmstate.attach_procedure_to_interp(
+                greenkey, target_token.targeting_jitcell_token)
+
+        else:
+            target_token = compile.compile_trace(metainterp, metainterp.resumekey, [exception_box])
+            if target_token is not token:
+                compile.giveup()
+
+        # unlike basically any other trace that we can produce, we now need
+        # to blackhole back to the interpreter instead of jumping to some
+        # existing code, because we are at a really arbitrary place here!
+        raise SwitchToBlackhole(Counters.ABORT_SEGMENTED_TRACE)
+
 
     @arguments("box", "label")
     def opimpl_goto_if_exception_mismatch(self, vtablebox, next_exc_target):
@@ -2088,7 +2148,7 @@ class MetaInterp(object):
     last_exc_box = None
     _last_op = None
 
-    def __init__(self, staticdata, jitdriver_sd):
+    def __init__(self, staticdata, jitdriver_sd, force_finish_trace=False):
         self.staticdata = staticdata
         self.cpu = staticdata.cpu
         self.jitdriver_sd = jitdriver_sd
@@ -2111,6 +2171,11 @@ class MetaInterp(object):
 
         self.aborted_tracing_jitdriver = None
         self.aborted_tracing_greenkey = None
+
+        # set to true if we really should finish the trace
+        # with a GUARD_ALWAYS_FAILS (and an unreachable finish that raises
+        # AssertionError)
+        self.force_finish_trace = force_finish_trace
 
     def retrace_needed(self, trace, exported_state):
         self.partial_trace = trace
@@ -2469,7 +2534,8 @@ class MetaInterp(object):
 
     def blackhole_if_trace_too_long(self):
         warmrunnerstate = self.jitdriver_sd.warmstate
-        if (self.history.length() > warmrunnerstate.trace_limit or
+        length = self.history.length()
+        if (length > warmrunnerstate.trace_limit or
                 self.history.trace_tag_overflow()):
             jd_sd, greenkey_of_huge_function = self.find_biggest_function()
             self.staticdata.stats.record_aborted(greenkey_of_huge_function)
@@ -2483,7 +2549,37 @@ class MetaInterp(object):
                     jd_sd = self.jitdriver_sd
                     greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
                     warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+            else:
+                self.prepare_trace_segmenting()
             raise SwitchToBlackhole(Counters.ABORT_TOO_LONG)
+
+    def prepare_trace_segmenting(self):
+        warmrunnerstate = self.jitdriver_sd.warmstate
+        # huge function, not due to inlining. the next time we trace
+        # it, force a trace to be created
+        debug_start("jit-disableinlining")
+        debug_print("no inlinable function found!")
+        if self.current_merge_points:
+            # loop
+            jd_sd = self.jitdriver_sd
+            greenkey = self.current_merge_points[0][0][:jd_sd.num_green_args]
+            warmrunnerstate.JitCell.trace_next_iteration(greenkey)
+            jd_sd.warmstate.mark_force_finish_tracing(greenkey)
+            # bizarrely enough, this means *do trace here* ??!
+            jd_sd.warmstate.dont_trace_here(greenkey)
+            loc = jd_sd.warmstate.get_location_str(greenkey)
+            debug_print("force tracing loop next time", loc)
+        if not isinstance(self.resumekey, compile.ResumeFromInterpDescr):
+            # we're tracing a bridge. there are no bits left in
+            # ResumeGuardDescr to store that we should force a bridge
+            # creation the next time. therefore, set a flag on the loop
+            # token that will then apply to all bridges from that token
+            # (bit crude, but creating a segmented bridge is generally
+            # quite safe)
+            loop_token = self.resumekey_original_loop_token
+            loop_token.retraced_count |= loop_token.FORCE_BRIDGE_SEGMENTING
+            debug_print("enable bridge segmenting of base loop")
+        debug_stop("jit-disableinlining")
 
     def _interpret(self):
         # Execute the frames forward until we raise a DoneWithThisFrame,
