@@ -164,7 +164,23 @@ class TraceSplitOpt(object):
                                         original_jitcell_token=original_jitcell_token)
 
                 label = ResOperation(rop.LABEL, inputargs, token)
-                info = TraceSplitInfo(token, label, inputargs, fail_descr=fdescr)
+                info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
+                current_ops.append(op)
+                t_lst.append((info, current_ops))
+                current_ops = []
+                break
+            elif op.getopnum() == rop.JUMP:
+                if first_cut:
+                    fdescr = None
+                    first_cut = False
+                else:
+                    fdescr = fdescr_stack.pop()
+                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+                    original_jitcell_token = token.original_jitcell_token
+                    token = TargetToken(jitcell_token,
+                                        original_jitcell_token=original_jitcell_token)
+                label = ResOperation(rop.LABEL, inputargs, token)
+                info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []

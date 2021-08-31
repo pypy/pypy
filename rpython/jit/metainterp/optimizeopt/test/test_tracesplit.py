@@ -165,10 +165,10 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
 
     def optimize(self, ops, call_pure_results=None):
         loop = self.parse(ops)
-        jitcell_token = JitCellToken()
-        if loop.operations[-1].getopnum() == rop.JUMP:
-            loop.operations[-1].setdescr(jitcell_token)
+        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
         token = TargetToken(jitcell_token, original_jitcell_token=jitcell_token)
+        if loop.operations[-1].getopnum() == rop.JUMP:
+            loop.operations[-1].setdescr(token)
         call_pure_results = self._convert_call_pure_results(call_pure_results)
         trace = convert_loop_to_trace(loop, self.metainterp_sd)
         compile_data = compile.SimpleCompileData(
@@ -177,15 +177,27 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
         info, ops = compile_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         return trace, info, ops, token
 
-    def optimize_and_make_opt(self, ops, call_pure_results=None):
+    def assert_target_token(self, ops, call_pure_results=None):
         trace, info, ops, token = self.optimize(ops, call_pure_results)
-        return TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd)
+        data = compile.SimpleSplitCompileData(trace, None, enable_opts=self.enable_opts,
+                                              body_token=token)
+        splitted = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
+        (bodyinfo, bodyops), bridges = splitted[0], splitted[1:]
+        body_token = bodyinfo.target_token
+        bridge_tokens = []
+        for (bridgeinfo, bridgeops) in bridges:
+            bridge_token = bridgeinfo.target_token
+            assert body_token is not bridge_token
+            bridge_tokens.append(bridge_token)
 
     def optimize_and_split(self, ops, call_pure_results=None, split_func=None):
         trace, info, ops, token = self.optimize(ops, call_pure_results)
-        bridge_token = JitCellToken()
+        bridge_jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+        bridge_token = compile.make_jitcell_token(self.jitdriver_sd)
         data = compile.SimpleSplitCompileData(trace, None, enable_opts=self.enable_opts,
                                               body_token=token)
+
+        # TODO: currently bridges are return as a list
         (body_info, body_ops), (bridge_info, bridge_ops) = data.split(
             self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
 
@@ -396,3 +408,25 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         """
 
         self.assert_equal_split(ops, bodyops, bridgeops)
+
+    def test_trace_split_nested_branch_1(self):
+        setattr(self.metainterp_sd, "done_with_this_frame_descr_ref", compile.DoneWithThisFrameDescrRef())
+        setattr(self.jitdriver_sd, "index", 0)
+
+        ops = """
+        [p0]
+        call_n(ConstClass(func_ptr), p0, 1, descr=calldescr)
+        i1 = call_i(ConstClass(is_true_ptr), p0, 0, descr=istruedescr)
+        guard_true(i1, descr=<Guard0x7f6886462068>) [p0]
+        call_n(ConstClass(func_ptr), p0, 2, descr=calldescr)
+        i2 = call_i(ConstClass(is_true_ptr), p0, 2, descr=calldescr)
+        guard_true(i2, descr=<Guard0x7f6886462068>) [p0]
+        call_n(ConstClass(func_ptr), p0, 3, descr=calldescr)
+        i3 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, descr=emit_jump_descr)
+        call_n(ConstClass(func_ptr), p0, 4, descr=calldescr)
+        i4 = call_i(ConstClass(emit_jump_ptr), 6, 0, p0, descr=emit_jump_descr)
+        i5 = call_i(ConstClass(func_ptr), p0, descr=calldescr)
+        i6 = call_i(ConstClass(func_ptr), p0, descr=calldescr)
+        jump(p0)
+        """
+        self.assert_target_token(ops)
