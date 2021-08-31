@@ -1,9 +1,4 @@
-in here there are copies of the Lib/ directory of the CPython HG repository
-at http://hg.python.org/cpython/
+in here there are copies of the Lib/ directory of the CPython Git repository
+at https://github.com/python/cpython
 
-the outputs for hg id of each are:
-
-    2.7::
-        a06454b1afa1 (2.7) v2.7.13
-    3::
-4        v3.8.7 in git
+the output for git status is: v3.8.12
