@@ -17,9 +17,9 @@ three different interpreters:
 
   - PyPy3.8, which is an interpreter supporting the syntax and the features of
     Python 3.8, including the stdlib for CPython 3.8.12. Since this is our
-    first release of the interpreter, we relate to this as "beta" quality, If
-    you discover incompatibilites, please report them so we can gain confidence
-    in the version.
+    first release of the interpreter, we relate to this as "beta" quality. We
+    welcome testing of this version, if you discover incompatibilites, please
+    report them so we can gain confidence in the version.
 
 The interpreters are based on much the same codebase, thus the multiple
 release. This is a micro release, all APIs are compatible with the other 7.3
@@ -28,14 +28,25 @@ include:
 
   - We have merged a backend for HPy_, the better C-API interface. The backend
     implements version 0.0.2.
-  - Translation of PyPy, known to be slow, is now about 40% faster. On a modern
-    machine, PyPy3.8 can translate in about 20 minutes.
-  - PyPy windows 64 is now available on conda-forge_, along with over 500
+  - Translation of PyPy into a binary, known to be slow, is now about 40%
+    faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
+  - PyPy Windows 64 is now available on conda-forge_, along with over 500
     commonly used binary packages.
   - Speed improvements were made to ``io``, ``sum``, ``_ssl`` and more. These
     were done in response to user feedback.
   - The release of Python3.8 required a concerted effort. We were greatly
     helped by @isidentical (Batuhan Taskaya) and other new contributors.
+  - The 3.8 version of the release contains a beta-quality improvement to the
+    JIT, that we are trying to gain confidence in as well. The improvement
+    tries to better deal with situations where a lot of Python code from the
+    same function is turned into machine code, without any inlining. This kind
+    of situation can occur when Python code gets automatically generated, for
+    example by a string templating engine. Previously, this would prevent
+    compilation of the function and lead to very bad compilation times
+    regardless, leading to much worse performance in such situations than even
+    the interpreter. In the released 3.8 version we solve this problem by
+    chunking up the function into smaller pieces and compiling them step by
+    step.
 
 
 We recommend updating. You can find links to download the v7.3.6 releases here:
