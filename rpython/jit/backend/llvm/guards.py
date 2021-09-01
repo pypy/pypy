@@ -69,6 +69,7 @@ class GuardHandlerBase:
     def __del__(self):
         lltype.free(self.mds, flavor='raw')
 
+
 class BlockPerGuardImpl(GuardHandlerBase):
     """
     Most basic guard implementation of creating a new bailout block for
@@ -447,7 +448,7 @@ class StackmapImpl(GuardHandlerBase):
 
         self.llvm.PositionBuilderAtEnd(self.builder, bridge)
 
-class RuntimeCallbackImpl(GuardHandlerBase):
+class StackmapImpl(GuardHandlerBase):
     """
     Branch all guards to a single bailout block which passes all failargs
     to a runtime callback in order of first seen to last which the runtime
@@ -539,7 +540,8 @@ class RuntimeCallbackImpl(GuardHandlerBase):
         llvm_failargs = [arg.ptr for arg in self.failarg_order.keys()]
 
         arg_types = [lltype.Signed, JITFRAMEPTR]
-        # what's a little undefined behavior between friends?
+        # pretending all input args are i64 when they can be any scalar,
+        # but what's a little undefined behavior between friends?
         arg_types += [lltype.Signed] * len(llvm_failargs)
         ret_type = lltype.Void
         callback_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
@@ -583,6 +585,113 @@ class RuntimeCallbackImpl(GuardHandlerBase):
                 self.failarg_order[self.ssa_vars[arg]] = (index, ref_count-1)
         llvm_failargs_no_holes = [arg for arg in llvm_failargs
                                     if arg is not None]
+        for c, arg in enumerate(inputargs):
+            self.ssa_vars[arg] = llvm_failargs_no_holes[c]
+
+        self.llvm.PositionBuilderAtEnd(self.builder, bridge)
+
+
+class RuntimeCallBackImpl(GuardHandlerBase):
+    """
+    Branch to a basic block that calls back to runtime with guard's failargs,
+    runtime handles all the jitframe stores
+    """
+    def __init__(self, dispatcher):
+        GuardHandlerBase.__init__(self, dispatcher)
+        self.bailouts = {} #map guards to their bailout blocks
+        self.guard_keys = {}
+        self.llvm_failargs = {} #map descrs to a snapshot of their llvm failargs
+
+    def setup_guard(self, op):
+        cstring = CString("bailout")
+        bailout = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                             cstring.ptr)
+        cstring = CString("resume")
+        resume = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                             cstring.ptr)
+        self.bailouts[op] = bailout
+
+        return (resume, bailout)
+
+    def runtime_callback(self, descr_token, jitframe_ptr, *failargs):
+        jitframe = lltype.cast_opaque_ptr(JITFRAMEPTR, jitframe_ptr)
+        jitframe.jf_descr = rffi.cast(llmemory.GCREF, descr_token)
+
+        for i in range(len(failargs)):
+            jitframe.jf_frame[i] = failargs[i]
+
+    def finalise_guard(self, op, resume, cnd, branch):
+        bailout = self.bailouts[op]
+        failargs = op.getfailargs()
+        descr = op.getdescr()
+        self.dispatcher.jitframe_depth = max(
+            len(failargs), self.dispatcher.jitframe_depth
+        )
+
+        self.cpu.descr_tokens[self.cpu.descr_token_cnt] = descr
+        descr_token = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                         self.cpu.descr_token_cnt, 0)
+        self.cpu.descr_token_cnt += 1
+
+        self.llvm.PositionBuilderAtEnd(self.builder, bailout)
+        zero = self.llvm.ConstInt(self.cpu.llvm_int_type, 0, 1)
+        self.llvm_failargs[descr] = [self.ssa_vars[arg]
+                                     if arg is not None else None
+                                     for arg in failargs]
+        llvm_failargs = [self.dispatcher.uncast(arg, llvm_arg)
+                         if arg is not None else zero
+                         for arg, llvm_arg in
+                         zip(failargs, self.llvm_failargs[descr])]
+        arg_types = [lltype.Signed, JITFRAMEPTR]
+        # pretending all input args are i64 when they can be any scalar,
+        # but what's a little undefined behavior between friends?
+        # works fine for floats and refs but should probably check
+        # against ints smaller than word length
+        arg_types += [lltype.Signed] * len(llvm_failargs)
+        ret_type = lltype.Void
+        callback_int_ptr = self.dispatcher.get_func_ptr(self.runtime_callback,
+                                                        arg_types, ret_type)
+        callback_int_ptr_llvm = self.llvm.ConstInt(self.cpu.llvm_int_type,
+                                                   callback_int_ptr, 0)
+        arg_types_llvm = [self.cpu.llvm_int_type,
+                          self.llvm.PointerType(self.dispatcher.jitframe_type, 0)]
+        arg_types_llvm += [self.llvm.TypeOf(arg) for arg in llvm_failargs]
+        args_llvm = [descr_token, self.jitframe] + llvm_failargs
+        ret_type_llvm = self.cpu.llvm_void_type
+        call = self.dispatcher.call_function(callback_int_ptr_llvm,
+                                             ret_type_llvm, arg_types_llvm,
+                                             args_llvm, "")
+        attributes = ["inaccessiblemem_or_argmemonly"]
+        param_attributes = [("nocapture", 2), ("nonnull", 2), ("noundef", 2)]
+
+        self.dispatcher.set_call_attributes(call, attributes=attributes,
+                                       param_attributes=param_attributes)
+
+        self.llvm.BuildRet(self.builder, self.jitframe)
+
+        self.set_guard_weights(branch)
+        self.guard_keys[descr] = (op, resume, cnd, branch)
+        self.llvm.PositionBuilderAtEnd(self.builder, resume)
+
+    def finalise_bailout(self):
+        return
+
+    def patch_guard(self, faildescr, inputargs):
+        op, resume, cnd, branch = self.guard_keys[faildescr]
+        llvm_failargs = self.llvm_failargs[faildescr]
+        bailout = self.bailouts[op]
+
+        self.llvm.PositionBuilderBefore(self.builder, branch)
+        cstring = CString("bridge")
+        bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                            cstring.ptr)
+        self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
+        self.llvm.EraseInstruction(branch)
+
+        self.llvm.DeleteBasicBlock(bailout)
+
+        llvm_failargs_no_holes = [arg for arg in llvm_failargs
+                                  if arg is not None]
         for c, arg in enumerate(inputargs):
             self.ssa_vars[arg] = llvm_failargs_no_holes[c]
 

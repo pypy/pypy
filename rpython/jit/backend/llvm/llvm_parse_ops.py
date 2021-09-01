@@ -33,7 +33,7 @@ class LLVMOpDispatcher:
         self.guard_follows = False
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
-        self.guard_handler = BlockPerGuardImpl(self)
+        self.guard_handler = RuntimeCallBackImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
 
     def define_constants(self):
@@ -206,7 +206,7 @@ class LLVMOpDispatcher:
             zero = self.llvm.ConstInt(arg_type, 0, 1)
             cstring = CString("is_negative")
             is_negative = self.llvm.BuildICmp(self.builder, self.intslt,
-                                                llvm_val, zero, cstring.ptr)
+                                              llvm_val, zero, cstring.ptr)
             cstring = CString("zext_int")
             zext_int = self.llvm.BuildZExt(self.builder, llvm_val,
                                             self.cpu.llvm_int_type,
@@ -456,7 +456,7 @@ class LLVMOpDispatcher:
         res =  self.llvm.BuildCall(self.builder, func, arg_array, arg_num,
                                    cstring.ptr)
 
-        attributes = ["nounwind", "willreturn", "nofree", "norecurse"]
+        attributes = ["nounwind", "willreturn", "nofree", "norecurse", "nosync"]
         self.set_call_attributes(res, attributes=attributes)
 
         lltype.free(arg_array, flavor='raw')
