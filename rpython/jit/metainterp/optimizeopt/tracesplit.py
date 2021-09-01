@@ -140,8 +140,8 @@ class TraceSplitOpt(object):
                         fdescr = fdescr_stack.pop()
                         jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
                         original_jitcell_token = token.original_jitcell_token
-                        target_token = TargetToken(jitcell_token,
-                                                   original_jitcell_token=original_jitcell_token)
+                        token = TargetToken(jitcell_token,
+                                            original_jitcell_token=original_jitcell_token)
 
                     label = ResOperation(rop.LABEL, inputargs, token)
                     info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
