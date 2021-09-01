@@ -61,6 +61,8 @@ class TraceSplitOpt(object):
         self.jitdriver_sd = jitdriver_sd
         self.optimizations = optimizations
         self.resumekey = resumekey
+        self.first_cut = True
+        self.fdescr_stack = []
 
     def split_ops(self, trace, ops, inputargs, token):
         "Threaded code: splitting the given ops into several op lists"
@@ -69,8 +71,7 @@ class TraceSplitOpt(object):
         current_ops = []
         pseudo_ops = []
 
-        first_cut = True
-        fdescr_stack = []
+        self.fdescr_stack = [] # needs initialization
 
         ops = self.remove_guards(ops)
         for op in ops:
@@ -78,8 +79,7 @@ class TraceSplitOpt(object):
             if op.is_guard():
                 if self._is_guard_marked(op, ops, mark.IS_TRUE):
                     descr = op.getdescr()
-                    fdescr_stack.append(descr)
-
+                    self.fdescr_stack.append(descr)
                     failargs = op.getfailargs()
                     newfailargs = []
                     for farg in failargs:
@@ -92,16 +92,7 @@ class TraceSplitOpt(object):
                 name = self._get_name_from_arg(op.getarg(0))
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
-                    fdescr = None
-                    if first_cut:
-                        first_cut = False
-                    else:
-                        fdescr = fdescr_stack.pop()
-                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                        original_jitcell_token = token.original_jitcell_token
-                        token = TargetToken(jitcell_token,
-                                            original_jitcell_token=original_jitcell_token)
-
+                    fdescr, target_token = self._take_fdescr_and_gen_token(token)
                     jump_op = ResOperation(rop.JUMP, inputargs, token)
                     label = ResOperation(rop.LABEL, inputargs, token)
                     info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
@@ -133,18 +124,10 @@ class TraceSplitOpt(object):
                         ResOperation(rop.FINISH, exits, finishtoken)
                     ]
 
-                    fdescr = None
-                    if first_cut:
-                        first_cut = False
-                    else:
-                        fdescr = fdescr_stack.pop()
-                        jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                        original_jitcell_token = token.original_jitcell_token
-                        token = TargetToken(jitcell_token,
-                                            original_jitcell_token=original_jitcell_token)
+                    fdescr, target_token = self._take_fdescr_and_gen_token(token)
 
-                    label = ResOperation(rop.LABEL, inputargs, token)
-                    info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
+                    label = ResOperation(rop.LABEL, inputargs, target_token)
+                    info = TraceSplitInfo(target_token, label, inputargs, faildescr=fdescr)
                     t_lst.append((info, current_ops + ret_ops))
                     current_ops = []
                 elif name.find(mark.IS_TRUE) != -1:
@@ -153,34 +136,18 @@ class TraceSplitOpt(object):
                 else:
                     current_ops.append(op)
             elif op.getopnum() == rop.FINISH:
-                if first_cut:
-                    fdescr = None
-                    first_cut = False
-                else:
-                    fdescr = fdescr_stack.pop()
-                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                    original_jitcell_token = token.original_jitcell_token
-                    token = TargetToken(jitcell_token,
-                                        original_jitcell_token=original_jitcell_token)
+                fdescr, target_token = self._take_fdescr_and_gen_token(token)
 
-                label = ResOperation(rop.LABEL, inputargs, token)
-                info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
+                label = ResOperation(rop.LABEL, inputargs, target_token)
+                info = TraceSplitInfo(target_token, label, inputargs, faildescr=fdescr)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []
                 break
             elif op.getopnum() == rop.JUMP:
-                if first_cut:
-                    fdescr = None
-                    first_cut = False
-                else:
-                    fdescr = fdescr_stack.pop()
-                    jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-                    original_jitcell_token = token.original_jitcell_token
-                    token = TargetToken(jitcell_token,
-                                        original_jitcell_token=original_jitcell_token)
-                label = ResOperation(rop.LABEL, inputargs, token)
-                info = TraceSplitInfo(token, label, inputargs, faildescr=fdescr)
+                fdescr, target_token = self._take_fdescr_and_gen_token(token)
+                label = ResOperation(rop.LABEL, inputargs, target_token)
+                info = TraceSplitInfo(target_token, label, inputargs, faildescr=fdescr)
                 current_ops.append(op)
                 t_lst.append((info, current_ops))
                 current_ops = []
@@ -189,6 +156,18 @@ class TraceSplitOpt(object):
                 current_ops.append(op)
 
         return t_lst
+
+    def _take_fdescr_and_gen_token(self, token):
+        if self.first_cut:
+            self.first_cut = False
+            return None, token
+        else:
+            fdescr = self.fdescr_stack.pop()
+            jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
+            original_jitcell_token = token.original_jitcell_token
+            token = TargetToken(jitcell_token,
+                                original_jitcell_token=original_jitcell_token)
+            return fdescr, token
 
     def remove_guards(self, oplist):
         "Remove guard_ops assosiated with pseudo ops"
