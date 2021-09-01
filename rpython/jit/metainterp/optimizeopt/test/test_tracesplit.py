@@ -177,46 +177,69 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
         info, ops = compile_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         return trace, info, ops, token
 
-    def assert_target_token(self, ops, call_pure_results=None):
-        trace, info, ops, token = self.optimize(ops, call_pure_results)
-        data = compile.SimpleSplitCompileData(trace, None, enable_opts=self.enable_opts,
-                                              body_token=token)
-        splitted = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
-        (bodyinfo, bodyops), bridges = splitted[0], splitted[1:]
-        body_token = bodyinfo.target_token
-        bridge_tokens = []
-        for (bridgeinfo, bridgeops) in bridges:
-            bridge_token = bridgeinfo.target_token
-            assert body_token is not bridge_token
-            bridge_tokens.append(bridge_token)
-
     def optimize_and_split(self, ops, call_pure_results=None, split_func=None):
+        """
+        - ops: operations represented as a string
+        - call_pure_results
+        - split_func: where to split
+        """
         trace, info, ops, token = self.optimize(ops, call_pure_results)
-        bridge_jitcell_token = compile.make_jitcell_token(self.jitdriver_sd)
-        bridge_token = compile.make_jitcell_token(self.jitdriver_sd)
-        data = compile.SimpleSplitCompileData(trace, None, enable_opts=self.enable_opts,
+        data = compile.SimpleSplitCompileData(trace, None,
+                                              enable_opts=self.enable_opts,
                                               body_token=token)
 
-        # TODO: currently bridges are return as a list
-        (body_info, body_ops), (bridge_info, bridge_ops) = data.split(
-            self.metainterp_sd, self.jitdriver_sd, {}, ops, info.inputargs)
+        splitted = data.split(self.metainterp_sd, self.jitdriver_sd, {}, ops,
+                              info.inputargs)
+        (body_info, body_ops), bridges = splitted[0], splitted[1:]
 
-        body_label_op = ResOperation(rop.LABEL, body_info.inputargs)
+        body_label_op = ResOperation(rop.LABEL, body_info.inputargs,
+                                     descr=body_info.target_token)
         body_label_op.setdescr(token)
         body_loop = compile.create_empty_loop(self.metainterp)
         body_loop.inputargs = body_info.inputargs
         body_loop.operations = [body_label_op] + body_ops
 
-        bridge_label_op = ResOperation(rop.LABEL, bridge_info.inputargs)
-        bridge_label_op.setdescr(bridge_token)
-        bridge_loop = compile.create_empty_loop(self.metainterp)
-        bridge_loop.inputargs = info.inputargs
-        bridge_loop.operations = [bridge_label_op] + bridge_ops
-        return body_loop, bridge_loop
+        loops = [(body_info, body_loop)]
+        for (bridge_info, bridge_ops) in bridges:
+            bridge_token = bridge_info.target_token
+            bridge_label_op = ResOperation(rop.LABEL, bridge_info.inputargs)
+            bridge_label_op.setdescr(bridge_token)
+            bridge_loop = compile.create_empty_loop(self.metainterp)
+            bridge_loop.inputargs = info.inputargs
+            bridge_loop.operations = [bridge_label_op] + bridge_ops
+            loops.append((bridge_info, bridge_loop))
+
+        return loops
+
+    def _extract_fail_descr(self, ops):
+        fdescr_stack = []
+        for op in ops:
+            if rop.is_guard(op.getopnum()):
+                fdescr = op.getdescr()
+                assert isinstance(fdescr, compile.AbstractFailDescr)
+                fdescr_stack.append(fdescr)
+        return fdescr_stack
+
+    def assert_target_token(self, ops, call_pure_results=None):
+        loops = self.optimize_and_split(ops, call_pure_results)
+        original_loop, bridges = loops[0], loops[1:]
+        original_loop_info, original_loop = original_loop
+
+        fdescr_stack = self._extract_fail_descr(original_loop.operations)
+
+        for bridge_info, bridge_loop in bridges:
+            # ResumeGuardDescr is saved into a stack data structure
+            assert bridge_info.faildescr == fdescr_stack.pop()
+            bridge_loop.check_consistency(check_descr=False)
+            ops = bridge_loop.operations
+            assert isinstance(ops[0].getdescr(), history.TargetToken)
 
     def assert_equal_split(self, ops, bodyops, bridgeops,
                            call_pure_results=None):
-        body, bridge = self.optimize_and_split(ops, call_pure_results)
+        loops = self.optimize_and_split(ops, call_pure_results)
+        (body_info, body), (bridge_info, bridge) = loops[0], loops[1]
+        body.check_consistency(check_descr=False)
+        bridge.check_consistency(check_descr=False)
         body_exp_opts = parse(bodyops, namespace=self.namespace)
         body_exp = convert_old_style_to_targets(body_exp_opts, jump=True)
         bridge_exp_opts = parse(bridgeops, namespace=self.namespace)
