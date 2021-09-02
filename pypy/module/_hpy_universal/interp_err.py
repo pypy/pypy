@@ -3,9 +3,10 @@ from rpython.rtyper.lltypesystem import rffi, lltype, ll2ctypes
 from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal.bridge import BRIDGE
+#from pypy.module._hpy_universal.bridge import BRIDGE
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
+from .state import State
 
 ## HPy exceptions in PyPy
 ## ======================
@@ -36,41 +37,28 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 ## ~~~ @BRIDGE Functions ~~~
 ## These functions are called from hpyerr.c, and are used only in tests
 
-@BRIDGE.func("void _hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
-def _hpy_err_SetString(space, handles, ctx, h_exc_type, utf8):
+@API.func("void HPyErr_SetString(HPyContext ctx, HPy type, const char *message)")
+def HPyErr_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
     w_exc_type = handles.deref(h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
-@BRIDGE.func("void _hpy_err_SetObject(HPyContext ctx, HPy type, HPy value)")
-def _hpy_err_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
+@API.func("void HPyErr_SetObject(HPyContext ctx, HPy type, HPy value)")
+def HPyErr_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
     w_exc_type = handles.deref(h_exc_type)
     w_obj = handles.deref(h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
-@BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
-def hpy_err_Occurred_rpy(space, handles):
-    if we_are_translated():
-        # this function should never been called after translation. We can't
-        # simply put an assert else the annotator complains that the function
-        # returns Void, hack hack hack
-        if NonConstant(False):
-            return API.int(-42)
-        assert False
-    #
-    # this is a bit of a hack: it will never aim to be correct in 100% of
-    # cases, but since it's used only for tests, it's enough.  If an
-    # exception was raised by an HPy call, it must be stored in
-    # ll2ctypes._callback_exc_info, waiting to be properly re-raised as
-    # soon as we exit the C code, by
-    # ll2ctypes:get_ctypes_trampoline:invoke_via_ctypes
-    res = ll2ctypes._callback_exc_info is not None
-    return API.int(res)
+@API.func("int HPyErr_Occurred(HPyContext ctx)", error_value=API.int(-1))
+def HPyErr_Occurred(space, handles, ctx):
+    state = space.fromcache(State)
+    operror = state.get_exception()
+    return API.int(operror is not None)
 
-@BRIDGE.func("void hpy_err_Clear(void)")
-def hpy_err_Clear(space, handles):
-    assert not we_are_translated()
-    ll2ctypes._callback_exc_info = None
+@API.func("void HPyErr_Clear(HPyContext ctx)")
+def HPyErr_Clear(space, handles, ctx):
+    state = space.fromcache(State)
+    state.clear_exception()
 
 
 ## ~~~ API Functions ~~~~

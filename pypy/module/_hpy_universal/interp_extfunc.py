@@ -41,14 +41,16 @@ class W_ExtensionFunctionMixin(object):
     def call_noargs(self, space, h_self):
         func = llapi.cts.cast('HPyFunc_noargs', self.cfuncptr)
         h_result = func(self.handles.ctx, h_self)
-        # XXX check for exceptions
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_o(self, space, h_self, w_arg):
         with self.handles.using(w_arg) as h_arg:
             func = llapi.cts.cast('HPyFunc_o', self.cfuncptr)
             h_result = func(self.handles.ctx, h_self, h_arg)
-        # XXX check for exceptions
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_varargs_kw(self, space, h_self, __args__, skip_args, has_keywords):
@@ -75,6 +77,8 @@ class W_ExtensionFunctionMixin(object):
                 for i in range(n):
                     self.handles.close(args_h[i])
 
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
     def call_varargs(self, space, h_self, args_h, n):
@@ -150,11 +154,8 @@ W_AbstractExtensionFunction.typedef = TypeDef(
 W_AbstractExtensionFunction.typedef.acceptable_as_base_class = False
 
 class W_AbstractExtensionMethod(W_Root):
-    pass
-
-@unwrap_spec(w_method=W_AbstractExtensionMethod)
-def descr_ExtensionMethod_call(w_method, space, __args__):
-    return w_method.descr_call(space, __args__)
+    def descr_call(self, space, __args__):
+        raise NotImplementedError
 
 class W_ExtensionMethodMixin(object):
     import_from_mixin(W_ExtensionFunctionMixin)
@@ -192,7 +193,7 @@ class W_ExtensionMethod_d(W_AbstractExtensionMethod):
 W_AbstractExtensionMethod.typedef = TypeDef(
     'method_descriptor_',
     __get__ = interp2app(descr_function_get),
-    __call__ = interp2app(descr_ExtensionMethod_call),
+    __call__ = interpindirect2app(W_AbstractExtensionMethod.descr_call),
     __doc__ = interp_attrproperty('doc', cls=W_AbstractExtensionMethod,
                                   wrapfn="newtext_or_none"),
     )
