@@ -78,12 +78,12 @@ class LLVMAssembler(BaseAssembler):
         frame_info.jfi_frame_size = frame_size
         clt.frame_info = frame_info
 
-        module_copy = self.llvm.CloneModule(module) #if we want to mutate module later to patch in a bridge we have to pass a copy to be owned by LLVM's JIT
         if not self.debug or self.optimise:
-            self.llvm.RunPassManager(self.pass_manager1, module_copy)
-            self.llvm.RunPassManager(self.pass_manager, module_copy)
+            self.llvm.RunPassManager(self.pass_manager1, module)
+            self.llvm.RunPassManager(self.pass_manager, module)
         if self.debug:
-            self.cpu.write_ir(module_copy, "opt")
+            self.cpu.write_ir(module, "opt")
+        module_copy = self.llvm.CloneModule(module) #if we want to mutate module later to patch in a bridge we have to pass a copy to be owned by LLVM's JIT
         ctx = self.cpu.thread_safe_context
         thread_safe_module = self.llvm.CreateThreadSafeModule(module_copy, ctx)
         if self.debug and thread_safe_module._cast_to_int() == 0:

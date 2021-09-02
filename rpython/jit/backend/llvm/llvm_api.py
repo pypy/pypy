@@ -27,6 +27,7 @@ class LLVMAPI:
         self.ValueRefPtr = self.VoidPtrPtr
         self.GenericValueRef = self.VoidPtr
         self.BasicBlockRef = self.VoidPtr
+        self.BasicBlockRefPtr = self.VoidPtrPtr
         self.BuilderRef = self.VoidPtr
         self.TargetDataRef = self.VoidPtr
         self.Enum = lltype.Signed
@@ -992,6 +993,49 @@ class LLVMAPI:
                                                         lltype.Signed],
                                                        self.Void,
                                                        compilation_info=info)
+        self.CountBasicBlocks = rffi.llexternal("LLVMCountBasicBlocks",
+                                                [self.BasicBlockRef],
+                                                lltype.Unsigned,
+                                                compilation_info=info)
+        self.GetBasicBlocks = rffi.llexternal("LLVMGetBasicBlocks",
+                                              [self.ValueRef,
+                                               self.BasicBlockRefPtr],
+                                              self.Void,
+                                              compilation_info=info)
+        self.HasMetadata = rffi.llexternal("LLVMHasMetadata",
+                                           [self.ValueRef],
+                                           lltype.Signed,
+                                           compilation_info=info)
+        self.GetMetadata = rffi.llexternal("LLVMGetMetadata",
+                                           [self.ValueRef,
+                                            lltype.Unsigned],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.GetSuccessor = rffi.llexternal("LLVMGetSuccessor",
+                                           [self.ValueRef,
+                                            lltype.Unsigned],
+                                           self.ValueRef,
+                                           compilation_info=info)
+        self.SetSuccessor = rffi.llexternal("LLVMSetSuccessor",
+                                           [self.ValueRef,
+                                            lltype.Unsigned,
+                                            self.ValueRef],
+                                           self.Void,
+                                           compilation_info=info)
+        self.GetMDString = rffi.llexternal("LLVMGetMDString",
+                                           [self.ValueRef,
+                                            lltype.Unsigned],
+                                           self.Str,
+                                           compilation_info=info)
+        self.GetMDNodeOperands = rffi.llexternal("LLVMGetMDNodeOperands",
+                                                 [self.ValueRef,
+                                                  self.ValueRefPtr],
+                                                 self.Void,
+                                                 compilation_info=info)
+        self.ConstNull = rffi.llexternal("LLVMConstNull",
+                                         [self.TypeRef],
+                                         self.ValueRef,
+                                         compilation_info=info)
 
 class CString:
     """

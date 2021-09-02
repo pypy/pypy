@@ -33,7 +33,7 @@ class LLVMOpDispatcher:
         self.guard_follows = False
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
-        self.guard_handler = RuntimeCallBackImpl(self)
+        self.guard_handler = RuntimeCallbackImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
 
     def define_constants(self):
@@ -46,6 +46,12 @@ class LLVMOpDispatcher:
         cstring = CString("dereferenceable")
         self.deref_kind_id = self.llvm.GetMDKindID(self.cpu.context,
                                                    cstring.ptr, cstring.len)
+        cstring = CString("guard_mark")
+        self.guard_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                   cstring.ptr, cstring.len)
+        cstring = CString("bailout_mark")
+        self.bailout_kind_id = self.llvm.GetMDKindID(self.cpu.context,
+                                                      cstring.ptr, cstring.len)
         self.max_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
                                           2**(self.cpu.WORD*8-1)-1, 1)
         self.min_int = self.llvm.ConstInt(self.cpu.llvm_wide_int,
