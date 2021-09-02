@@ -17,7 +17,11 @@ SOURCE = """
 #include <fcntl.h>           /* For O_* constants */
 """
 
-_ffi.set_source("_posixshmem_cffi", SOURCE, libraries=['rt'])
+if sys.platform == 'darwin':
+    libraries = []
+else:
+    libraries=['rt']
+_ffi.set_source("_posixshmem_cffi", SOURCE, libraries=libraries)
 
 
 if __name__ == "__main__":
