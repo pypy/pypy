@@ -273,9 +273,20 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
 
     # collect code to emit for interp2app builtin frames based on unwrap_spec
 
-    def __init__(self):
+    def __init__(self, app_sig):
+        self.app_sig = app_sig
         UnwrapSpecEmit.__init__(self)
         self.run_args = []
+
+    def scope_starargs(self):
+        app_sig = self.app_sig
+        pos = app_sig.num_argnames() + app_sig.num_kwonlyargnames()
+        return "scope_w[%d]" % (pos, )
+
+    def scope_kwargs(self):
+        app_sig = self.app_sig
+        pos = app_sig.num_argnames() + app_sig.num_kwonlyargnames() + app_sig.has_vararg()
+        return "scope_w[%d]" % (pos, )
 
     def scopenext(self):
         return "scope_w[%d]" % self.succ()
@@ -301,13 +312,13 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit__Arguments(self, el):
         self.miniglobals['Arguments'] = Arguments
         self.run_args.append("Arguments.frompacked(space, %s, %s)"
-                             % (self.scopenext(), self.scopenext()))
+                             % (self.scope_starargs(), self.scope_kwargs()))
 
     def visit_args_w(self, el):
-        self.run_args.append("space.fixedview(%s)" % self.scopenext())
+        self.run_args.append("space.fixedview(%s)" % self.scope_starargs())
 
     def visit_w_args(self, el):
-        self.run_args.append(self.scopenext())
+        self.run_args.append(self.scope_starargs())
 
     def visit__object(self, typ):
         name = int_unwrapping_space_method(typ)
@@ -379,7 +390,7 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
     def visit_kwonly(self, typ):
         self.run_args.append("None")
 
-    def _make_unwrap_activation_class(self, unwrap_spec, cache={}):
+    def _make_unwrap_activation_class(self, unwrap_spec, app_sig, cache={}):
         try:
             key = tuple(unwrap_spec)
             activation_factory_cls, run_args = cache[key]
@@ -413,10 +424,10 @@ class UnwrapSpec_EmitRun(UnwrapSpecEmit):
             cache[key] = activation_cls, self.run_args
             return activation_cls
 
-    def make_activation(unwrap_spec, func):
-        emit = UnwrapSpec_EmitRun()
+    def make_activation(unwrap_spec, func, app_sig):
+        emit = UnwrapSpec_EmitRun(app_sig)
         emit.apply_over(unwrap_spec)
-        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec)
+        activation_uw_cls = emit._make_unwrap_activation_class(unwrap_spec, app_sig)
         return activation_uw_cls(func)
     make_activation = staticmethod(make_activation)
 
@@ -695,10 +706,14 @@ class BuiltinCode(Code):
     @not_rpython
     def __init__(self, func, unwrap_spec=None, self_type=None,
                  descrmismatch=None, doc=None):
+        from rpython.rlib import rutf8
         # 'implfunc' is the interpreter-level function.
         # Note that this uses a lot of (construction-time) introspection.
         Code.__init__(self, func.__name__)
         self.docstring = doc or func.__doc__
+        if self.docstring:
+            # check that it's utf-8
+            rutf8.check_utf8(self.docstring, False)
 
         self.identifier = "%s-%s-%s" % (func.__module__, func.__name__,
                                         getattr(self_type, '__name__', '*'))
@@ -757,7 +772,7 @@ class BuiltinCode(Code):
         else:
             self.maxargs = self.minargs
 
-        self.activation = UnwrapSpec_EmitRun.make_activation(unwrap_spec, func)
+        self.activation = UnwrapSpec_EmitRun.make_activation(unwrap_spec, func, self.sig)
         self._bltin = func
         self._unwrap_spec = unwrap_spec
 
@@ -1028,8 +1043,9 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
-    unwrap_spec['self'] = base_cls
-    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
+    unwrap_spec['self'] = 'self'
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f),
+                      self_type=base_cls)
 
 class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
@@ -1040,11 +1056,11 @@ class interp2app(W_Root):
 
     @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
-                as_classmethod=False, doc=None):
+                as_classmethod=False, doc=None, self_type=None):
 
         # f must be a function whose name does NOT start with 'app_'
-        self_type = None
         if hasattr(f, 'im_func'):
+            assert self_type in (None, f.im_class)
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):

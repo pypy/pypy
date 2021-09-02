@@ -428,7 +428,7 @@ def dlopen_w(space, w_filename, flags):
         autoclose = False
         #
     elif WIN32 and space.isinstance_w(w_filename, space.w_unicode):
-        fname = space.text_w(space.repr(w_filename))
+        fname = space.text_w(w_filename)
         utf8_name = space.utf8_w(w_filename)
         uni_len = space.len_w(w_filename)
         with rffi.scoped_utf82wcharp(utf8_name, uni_len) as ll_libname:

@@ -26,6 +26,9 @@ class Darwin(posix.BasePosix):
     DEFAULT_CC = 'clang'
     rpath_flags = ['-Wl,-rpath', '-Wl,@executable_path/']
 
+    def get_multiarch(self):
+        return 'darwin'
+
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross compiling on ARM, needs fixing if relevant for darwin
         if len(rel_libdirs) > 0:

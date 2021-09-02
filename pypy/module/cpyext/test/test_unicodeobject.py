@@ -72,8 +72,8 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 PyObject* s = PyObject_Str(args);
                 return PyLong_FromLong(PyUnicode_GetLength(s));
              """)])
-        print(module.strlen(True))
         assert module.strlen(True) == 4
+        assert module.strlen('a' * 40) == 40
 
     def test_intern_inplace(self):
         module = self.import_extension('foo', [
@@ -317,16 +317,25 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         assert module.compare("", b"abc") == -1
         assert module.compare("abc", b"") == 1
 
-    def test_AsUTF8AndSize(self):
+    def test_As_AndSize(self):
         module = self.import_extension('foo', [
              ("utf8", "METH_O",
              """
                 Py_ssize_t size;
                 char *utf8 = PyUnicode_AsUTF8AndSize(args, &size);
                 return PyBytes_FromStringAndSize(utf8, size);
-             """)])
+             """),
+             ("unicode", "METH_O",
+             """
+                Py_ssize_t size;
+                wchar_t *buf = PyUnicode_AsUnicodeAndSize(args, &size);
+                return PyUnicode_FromUnicode(buf, size);
+             """),
+             ])
         assert module.utf8('xyz') == b'xyz'
         assert module.utf8('café') == 'café'.encode('utf-8')
+        assert module.unicode('np') == 'np'
+        assert module.unicode('café') == u'café'
 
     def test_ready(self):
         module = self.import_extension('foo', [
@@ -425,6 +434,45 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         tz1 = time.tzname[1]
         assert module.lower(tz1) == tz1.lower()
 
+    def test_contains(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("contains", "METH_VARARGS",
+            """
+                PyObject *arg1 = PyTuple_GetItem(args, 0);
+                PyObject *arg2 = PyTuple_GetItem(args, 1);
+                int ret = PyUnicode_Contains(arg1, arg2);
+                if (ret < 0) {
+                    return NULL;
+                }
+                return PyLong_FromLong(ret);
+            """)])
+        s = u"abcabcabc"
+        assert module.contains(s, u"a") == 1
+        assert module.contains(s, u"e") == 0
+        try:
+            module.contains(s, 1)
+        except TypeError:
+            pass
+        else:
+            assert False
+        try:
+            module.contains(1, u"a")
+        except TypeError:
+            pass
+        else:
+            assert False
+        if sys.version_info < (3, 0):
+            assert module.contains(b'abcdef', b'e') == 1
+        else:
+            try:
+                module.contains(b'abcdef', b'e')
+            except TypeError:
+                pass
+            else:
+                assert False
+
+
     def test_UnicodeNew(self):
         module = self.import_extension('unicodenew', [
             ("make", "METH_VARARGS",
@@ -521,9 +569,9 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         indx = module.findchar(s, ord('d'), 0, -1, 0)
         assert indx == 3 
 
-    def test_tolist(self):
+    def test_totuple(self):
         module = self.import_extension('foo', [
-            ("to_list", "METH_O",
+            ("to_tuple", "METH_O",
             """
                 int i, len = PyUnicode_GET_LENGTH(args);
                 enum PyUnicode_Kind kind = PyUnicode_KIND(args);
@@ -557,8 +605,75 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
                 return retval;
             """),
             ])
-        print(module.to_list(u'000\x80'))
-        assert module.to_list(u'000\x80') == (48, 48, 48, 128)
+        for s in [u'000\x80', u'abc', u'späm', u'abcdefghij' *5 + 'z']:
+            print(module.to_tuple(s), tuple([ord(x) for x in s]))
+            assert module.to_tuple(s) == tuple([ord(x) for x in s])
+
+    def test_COMPACT(self):
+        module = self.import_extension('foo', [
+            ("is_compact_ascii", "METH_O",
+            """
+                int ret = PyUnicode_IS_COMPACT_ASCII(args);
+                return PyLong_FromLong(ret);
+            """),
+            ("get_compact_data", "METH_O",
+            """
+                char * val = _PyUnicode_COMPACT_DATA(args);
+                int len = PyUnicode_GET_LENGTH(args);
+                return PyUnicode_FromStringAndSize(val, len);
+            """),
+            ])
+        assert module.is_compact_ascii('abc')
+        assert not module.is_compact_ascii(u'000\x80')
+        assert module.get_compact_data('abc') == 'abc'
+
+    def test_subclass(self):
+        module = self.import_extension('gcc', [
+            ('is_ascii', "METH_O",
+             '''
+                if (!PyUnicode_Check(args)) {
+                    Py_RETURN_FALSE;
+                }
+                if (PyUnicode_IS_ASCII(args)) {
+                    Py_RETURN_TRUE;
+                }
+                Py_RETURN_FALSE;
+             '''),
+            ('is_compact', "METH_O",
+             '''
+                if (!PyUnicode_Check(args)) {
+                    Py_RETURN_FALSE;
+                }
+                if (PyUnicode_IS_COMPACT(args)) {
+                    Py_RETURN_TRUE;
+                }
+                Py_RETURN_FALSE;
+             '''),
+            ], prologue="""
+                #include <Python.h>
+                PyTypeObject PyUnicodeSubtype = {
+                    PyObject_HEAD_INIT(NULL)
+                    0,                            /* ob_size */
+                    "foo.unicode_",               /* tp_name*/
+                    sizeof(PyUnicodeObject),      /* tp_basicsize*/
+                    0                             /* tp_itemsize */
+                    };
+
+            """, more_init = '''
+                PyUnicodeSubtype.tp_alloc = NULL;
+                PyUnicodeSubtype.tp_free = NULL;
+
+                PyUnicodeSubtype.tp_flags = Py_TPFLAGS_DEFAULT|Py_TPFLAGS_BASETYPE;
+                PyUnicodeSubtype.tp_itemsize = sizeof(char);
+                PyUnicodeSubtype.tp_base = &PyUnicode_Type;
+                if (PyType_Ready(&PyUnicodeSubtype) < 0) INITERROR;
+                PyModule_AddObject(mod, "subtype",
+                                   (PyObject *)&PyUnicodeSubtype); 
+            ''')
+
+        a = module.subtype('abc')
+        assert module.is_ascii(a) is True
+        assert module.is_compact(a) is False
 
  
 class TestUnicode(BaseApiTest):
@@ -1151,15 +1266,6 @@ class TestUnicode(BaseApiTest):
         assert PyUnicode_Find(space, w_str, space.wrap(u"c"), 3, 7, -1) == 5
         assert PyUnicode_Find(space, w_str, space.wrap(u"c"), 0, 4, -1) == 2
         assert PyUnicode_Find(space, w_str, space.wrap(u"z"), 0, 4, -1) == -1
-
-    def test_contains(self, space):
-        w_str = space.wrap(u"abcabcd")
-        assert PyUnicode_Contains(space, w_str, space.wrap(u"a")) == 1
-        assert PyUnicode_Contains(space, w_str, space.wrap(u"e")) == 0
-        with raises_w(space, TypeError):
-            PyUnicode_Contains(space, w_str, space.wrap(1)) == -1
-        with raises_w(space, TypeError) as e:
-            PyUnicode_Contains(space, space.wrap(1), space.wrap(u"a")) == -1
 
     def test_split(self, space):
         w_str = space.wrap(u"a\nb\nc\nd")

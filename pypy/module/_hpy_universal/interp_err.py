@@ -4,7 +4,6 @@ from rpython.rlib.objectmodel import we_are_translated
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.module._hpy_universal.apiset import API
 from pypy.module._hpy_universal.bridge import BRIDGE
-from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 
@@ -38,19 +37,19 @@ from pypy.module._hpy_universal.interp_unicode import _maybe_utf8_to_w
 ## These functions are called from hpyerr.c, and are used only in tests
 
 @BRIDGE.func("void _hpy_err_SetString(HPyContext ctx, HPy type, const char *message)")
-def _hpy_err_SetString(space, ctx, h_exc_type, utf8):
+def _hpy_err_SetString(space, handles, ctx, h_exc_type, utf8):
     w_obj = _maybe_utf8_to_w(space, utf8)
-    w_exc_type = handles.deref(space, h_exc_type)
+    w_exc_type = handles.deref(h_exc_type)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("void _hpy_err_SetObject(HPyContext ctx, HPy type, HPy value)")
-def _hpy_err_SetObject(space, ctx, h_exc_type, h_exc_value):
-    w_exc_type = handles.deref(space, h_exc_type)
-    w_obj = handles.deref(space, h_exc_value)
+def _hpy_err_SetObject(space, handles, ctx, h_exc_type, h_exc_value):
+    w_exc_type = handles.deref(h_exc_type)
+    w_obj = handles.deref(h_exc_value)
     raise OperationError(w_exc_type, w_obj)
 
 @BRIDGE.func("int hpy_err_Occurred_rpy(void)", error_value=API.int(-1))
-def hpy_err_Occurred_rpy(space):
+def hpy_err_Occurred_rpy(space, handles):
     if we_are_translated():
         # this function should never been called after translation. We can't
         # simply put an assert else the annotator complains that the function
@@ -69,7 +68,7 @@ def hpy_err_Occurred_rpy(space):
     return API.int(res)
 
 @BRIDGE.func("void hpy_err_Clear(void)")
-def hpy_err_Clear(space):
+def hpy_err_Clear(space, handles):
     assert not we_are_translated()
     ll2ctypes._callback_exc_info = None
 
@@ -79,7 +78,7 @@ def hpy_err_Clear(space):
 ## implementation.
 
 @API.func("HPy HPyErr_NoMemory(HPyContext ctx)")
-def HPyErr_NoMemory(space, ctx):
+def HPyErr_NoMemory(space, handles, ctx):
     # hack to convince the annotator that this function returns an HPy (i.e.,
     # a Signed)
     if NonConstant(False):

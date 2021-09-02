@@ -264,6 +264,93 @@ class TestSlots(HPyTest):
         tmp **= 42
         assert tmp == (p, 'inplace_power', 42, None)
 
+    def test_buffer(self):
+        import pytest
+        import sys
+        mod = self.make_module("""
+            typedef struct {
+                HPyObject_HEAD
+                int exports;
+            } FakeArrayObject;
+
+            HPyDef_SLOT(FakeArray_new, new_fakearray_impl, HPy_tp_new)
+            static HPy new_fakearray_impl(HPyContext ctx, HPy cls, HPy *args,
+                                          HPy_ssize_t nargs, HPy kw)
+            {
+                if (!HPyArg_Parse(ctx, NULL, args, nargs, ""))
+                    return HPy_NULL;
+                FakeArrayObject *arr;
+                HPy h_arr = HPy_New(ctx, cls, &arr);
+                if (HPy_IsNull(h_arr))
+                    return HPy_NULL;
+                arr->exports = 0;
+                return h_arr;
+            }
+
+            static char static_mem[12] = {0,1,2,3,4,5,6,7,8,9,10,11};
+            static HPy_ssize_t _shape[1] = {12};
+            static HPy_ssize_t _strides[1] = {1};
+
+            HPyDef_SLOT(FakeArray_getbuffer, _getbuffer_impl, HPy_bf_getbuffer)
+            static int _getbuffer_impl(HPyContext ctx, HPy self, HPy_buffer* buf, int flags) {
+                FakeArrayObject *arr = HPy_CAST(ctx, FakeArrayObject, self);
+                if (arr->exports > 0) {
+                    buf->obj = HPy_NULL;
+                    HPyErr_SetString(ctx, ctx->h_BufferError,
+                               "only one buffer allowed");
+                    return -1;
+                }
+                arr->exports++;
+                buf->buf = static_mem;
+                buf->len = 12;
+                buf->itemsize = 1;
+                buf->readonly = 1;
+                buf->ndim = 1;
+                buf->format = "B";
+                buf->shape = _shape;
+                buf->strides = _strides;
+                buf->suboffsets = NULL;
+                buf->internal = NULL;
+                buf->obj = HPy_Dup(ctx, self);
+                return 0;
+            }
+
+            HPyDef_SLOT(FakeArray_releasebuffer, _relbuffer_impl, HPy_bf_releasebuffer)
+            static void _relbuffer_impl(HPyContext ctx, HPy h_obj, HPy_buffer* buf) {
+                FakeArrayObject *arr = HPy_CAST(ctx, FakeArrayObject, h_obj);
+                arr->exports--;
+            }
+
+            static HPyDef *FakeArray_defines[] = {
+                &FakeArray_new,
+                &FakeArray_getbuffer,
+                &FakeArray_releasebuffer,
+                NULL
+            };
+
+            static HPyType_Spec FakeArray_Spec = {
+                .name = "mytest.FakeArray",
+                .basicsize = sizeof(FakeArrayObject),
+                .defines = FakeArray_defines,
+            };
+
+            @EXPORT_TYPE("FakeArray", FakeArray_Spec)
+            @INIT
+        """)
+        arr = mod.FakeArray()
+        if self.supports_refcounts():
+            init_refcount = sys.getrefcount(arr)
+        with memoryview(arr) as mv:
+            with pytest.raises(BufferError):
+                mv2 = memoryview(arr)
+            if self.supports_refcounts():
+                assert sys.getrefcount(arr) == init_refcount + 1
+            for i in range(12):
+                assert mv[i] == i
+        if self.supports_refcounts():
+            assert sys.getrefcount(arr) == init_refcount
+        mv2 = memoryview(arr)  # doesn't raise
+
 
 class TestSqSlots(HPyTest):
 
@@ -401,6 +488,7 @@ class TestSqSlots(HPyTest):
                 HPy s = HPyUnicode_FromString(ctx, "sq_repeat");
                 HPy other = HPyLong_FromLong(ctx, t);
                 HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, other);
                 HPy_Close(ctx, s);
                 return res;
             }
@@ -412,6 +500,7 @@ class TestSqSlots(HPyTest):
                 HPy s = HPyUnicode_FromString(ctx, "sq_inplace_repeat");
                 HPy other = HPyLong_FromLong(ctx, t);
                 HPy res = HPyTuple_Pack(ctx, 3, self, s, other);
+                HPy_Close(ctx, other);
                 HPy_Close(ctx, s);
                 return res;
             }
@@ -451,3 +540,41 @@ class TestSqSlots(HPyTest):
         assert 43 not in p
         with pytest.raises(TypeError):
             'hello' in p
+
+    def test_tp_richcompare(self):
+        import pytest
+        mod = self.make_module("""
+            @DEFINE_PointObject
+            @DEFINE_Point_new
+
+            HPyDef_SLOT(Point_cmp, Point_cmp_impl, HPy_tp_richcompare);
+            static HPy Point_cmp_impl(HPyContext ctx, HPy self, HPy o, HPy_RichCmpOp op)
+            {
+                // XXX we should check the type of o
+                PointObject *p1 = HPy_CAST(ctx, PointObject, self);
+                PointObject *p2 = HPy_CAST(ctx, PointObject, o);
+                HPy_RETURN_RICHCOMPARE(ctx, p1->x, p2->x, op);
+            }
+
+            @EXPORT_POINT_TYPE(&Point_new, &Point_cmp)
+            @INIT
+        """)
+        p1 = mod.Point(10, 10)
+        p2 = mod.Point(20, 20)
+        assert p1 == p1
+        assert not p1 == p2
+        #
+        assert p1 != p2
+        assert not p1 != p1
+        #
+        assert p1 < p2
+        assert not p1 < p1
+        #
+        assert not p1 > p2
+        assert not p1 > p1
+        #
+        assert p1 <= p2
+        assert p1 <= p1
+        #
+        assert not p1 >= p2
+        assert p1 >= p1

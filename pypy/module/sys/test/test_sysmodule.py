@@ -193,7 +193,7 @@ class AppTestAppSysTests:
         # sanity check
         assert sys.flags.optimize is not None
         # make sure the flags are read-only
-        exc = raises(TypeError, 'sys.flags.optimize = 3')
+        exc = raises(AttributeError, 'sys.flags.optimize = 3')
         assert 'readonly' in str(exc.value)
         raises(AttributeError, 'sys.flags.not_a_sys_flag = 2')
 
@@ -221,6 +221,14 @@ class AppTestAppSysTests:
     def test_sys_flags_dev_mode_is_bool(self):
         import sys
         assert type(sys.flags.dev_mode) is bool
+
+    def test_multiarch(self):
+        import sys
+        if sys.platform == 'linux':
+            multiarch = sys.implementation._multiarch
+            assert 'linux' in multiarch
+        else:
+            assert not sys.implemenation.hasattr('_multiarch')
 
 class AppTestSysModulePortedFromCPython:
     spaceconfig = {
@@ -824,8 +832,6 @@ class AppTestSysModulePortedFromCPython:
                 sys.set_coroutine_origin_tracking_depth(-5)
         finally:
             sys.set_coroutine_origin_tracking_depth(0)
-
-
 
 class AppTestSysSettracePortedFromCpython(object):
     def test_sys_settrace(self):

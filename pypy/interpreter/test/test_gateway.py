@@ -168,6 +168,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 pass
 
+            def method_with_args(self, space, __args__):
+                pass
+
         class A(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 2)
@@ -178,6 +181,9 @@ class TestGateway:
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 2)
 
+            def method_with_args(self, space, __args__):
+                return space.wrap(42)
+
         class B(BaseA):
             def method(self, space, x):
                 return space.wrap(x + 1)
@@ -187,6 +193,9 @@ class TestGateway:
 
             def method_with_unwrap_spec(self, space, x):
                 return space.wrap(x + 1)
+
+            def method_with_args(self, space, __args__):
+                return space.wrap(43)
 
         class FakeTypeDef(object):
             rawdict = {}
@@ -220,6 +229,17 @@ class TestGateway:
             BaseA.method_with_unwrap_spec)
         w_e = space.wrap(meth_with_unwrap_spec)
         assert space.int_w(space.call_function(w_e, w_a, space.wrap(4))) == 4 + 2
+
+        meth_with_args = gateway.interpindirect2app(
+            BaseA.method_with_args)
+        w_f = space.wrap(meth_with_args)
+        assert space.int_w(space.call_function(w_f, w_a)) == 42
+        assert space.int_w(space.call_function(w_f, w_b,
+                                        space.wrap("ignored"))) == 43
+        # check that the optimization works even though we are using
+        # interpindirect2app:
+        assert isinstance(meth_with_args._code,
+                          gateway.BuiltinCodePassThroughArguments1)
 
     def test_interp2app_unwrap_spec(self):
         space = self.space
@@ -969,6 +989,15 @@ class TestGateway:
         w_g = space.wrap(gateway.interp2app_temp(g))
         w_res = space.call_function(w_g)
         assert space.eq_w(w_res, space.wrap(50))
+
+    def test_unwrap_spec_kwonly_with_starargs_bug(self):
+        space = self.space
+        @gateway.unwrap_spec(w_name=WrappedDefault(None), w_obj=WrappedDefault(None))
+        def init(w_a, space, args_w, __kwonly__, w_obj=None, w_name=None):
+            return space.newtuple([w_a, space.newtuple(args_w), w_obj, w_name])
+        w_g = space.wrap(gateway.interp2app_temp(init))
+        w_res = space.call_function(w_g, space.newint(1), space.newint(2))
+        assert space.eq_w(w_res, space.newtuple([space.newint(1), space.newtuple([space.newint(2)]), space.w_None, space.w_None]))
 
     def test_posonly_args(self):
         space = self.space

@@ -145,6 +145,8 @@ class TestParseCommandLine:
         self.check(['-S', '-OV'], {}, output_contains='Python')
         self.check(['--jit', 'off', '-S'], {}, sys_argv=[''],
                    run_stdin=True, no_site=1)
+        self.check(['-X', 'jit-off', '-S'], {}, sys_argv=[''],
+                   run_stdin=True, no_site=1)
         self.check(['-c', 'pass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass'], {}, sys_argv=['-c'], run_command='pass')
         self.check(['-cpass','x'], {}, sys_argv=['-c','x'], run_command='pass')
@@ -227,6 +229,17 @@ class TestParseCommandLine:
                 {},
                 sys_argv=[''], run_stdin=True,
                 check_hash_based_pycs=val)
+
+    def test_jit_off(self, monkeypatch):
+        # skip if untranslated
+        get_python3()
+        options = [None]
+        def set_jit_option(_, option, *args):
+            options[0] = option
+        from pypy.interpreter import app_main
+        monkeypatch.setattr(app_main, 'set_jit_option', set_jit_option, raising=False)
+        self.check(['-X', 'jit-off'], {}, sys_argv=[''], run_stdin=True)
+        assert options == ["off"]
 
 class TestInteraction:
     """

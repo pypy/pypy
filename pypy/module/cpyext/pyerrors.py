@@ -64,9 +64,12 @@ def PyErr_SetNone(space, w_type):
     PyErr_SetObject(space, w_type, space.w_None)
 
 if os.name == 'nt':
-    @cpython_api([rffi.INT_real], lltype.Void, error=CANNOT_FAIL)
+    # For some reason CPython returns a (PyObject*)NULL
+    # This confuses the annotator, so set result_is_ll
+    @cpython_api([rffi.INT_real], PyObject, error=CANNOT_FAIL, result_is_ll=True)
     def PyErr_SetFromWindowsErr(space, err):
         PyErr_SetObject(space, space.w_OSError, space.newint(err))
+        return rffi.cast(PyObject, 0)
 
 @cpython_api([], PyObject, result_borrowed=True)
 def PyErr_Occurred(space):
@@ -375,7 +378,7 @@ def PyTraceBack_Print(space, w_tb, w_file):
     return 0
 
 @cpython_api([PyObject], lltype.Void)
-def PyErr_WriteUnraisable(space, w_where):
+def PyErr_WriteUnraisable(space, where):
     """This utility function prints a warning message to sys.stderr when an
     exception has been set but it is impossible for the interpreter to actually
     raise the exception.  It is used, for example, when an exception occurs in
@@ -385,10 +388,14 @@ def PyErr_WriteUnraisable(space, w_where):
     context in which the unraisable exception occurred. The repr of obj will be
     printed in the warning message."""
 
+    if not where:
+        where = ''
+    else:
+        where = space.text_w(space.repr(from_ref(space, where)))
     state = space.fromcache(State)
     operror = state.clear_exception()
     if operror:
-        operror.write_unraisable(space, space.text_w(space.repr(w_where)))
+        operror.write_unraisable(space, where)
 
 @cpython_api([], lltype.Void)
 def PyErr_SetInterrupt(space):

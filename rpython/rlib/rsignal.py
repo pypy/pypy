@@ -99,6 +99,7 @@ c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
+c_raise = external('raise', [rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':
     itimervalP = rffi.CArrayPtr(itimerval)
@@ -109,6 +110,32 @@ if sys.platform != 'win32':
 
 c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
+
+HAVE_STRSIGNAL = rffi_platform.Has("strsignal")
+if HAVE_STRSIGNAL:
+    c_strsignal = external('strsignal', [rffi.INT], rffi.CCHARP)
+    def strsignal(signum):
+        res = c_strsignal(signum)
+        if not res:
+            return None
+        return rffi.charp2str(res)
+else:
+    def strsignal(signum):
+        # CPython does this too!
+        if signum == SIGINT:
+            return "Interrupt";
+        elif signum == SIGILL:
+            return "Illegal instruction";
+        elif signum == SIGABRT:
+            return "Aborted";
+        elif signum == SIGFPE:
+            return "Floating point exception";
+        elif signum == SIGSEGV:
+            return "Segmentation fault";
+        elif signum == SIGTERM:
+            return "Terminated";
+        return None
+
 
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)

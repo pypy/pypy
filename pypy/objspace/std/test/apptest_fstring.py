@@ -130,3 +130,11 @@ def test_backslashes_in_string_part():
     assert f'\\N{AMPERSAND}' == '\\Nspam'
     assert fr'\N{AMPERSAND}' == '\\Nspam'
     assert f'\\\N{AMPERSAND}' == '\\&'
+
+def test_truncation_crash():
+    test_str = "\ucafd"
+    # crashes!
+    assert f"{test_str:.1}" == test_str
+    test_str="0123456789012345678\u00F6"
+    assert f"{test_str:.20}" == test_str
+

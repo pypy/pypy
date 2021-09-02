@@ -8,7 +8,7 @@ class TestAPISet(object):
 
     @pytest.fixture
     def api(self):
-        return APISet(llapi.cts)
+        return APISet(llapi.cts, is_debug=False)
 
     def test_parse_signature(self, api):
         sig = 'HPy HPyNumber_Add(HPyContext ctx, HPy x, HPy y)'
@@ -53,13 +53,23 @@ class TestAPISet(object):
         assert _HPyFoo_Internal.basename == 'Foo_Internal'
 
     def test_llhelper(self, api):
+        class FakeState:
+            def get_handle_manager(self, *args):
+                return 'fake manager'
+
+        class FakeSpace:
+            @staticmethod
+            def fromcache(cls):
+                return FakeState()
+
         @api.func('double divide(long a, long b)', error_value=-1.0)
-        def divide(space, a, b):
-            assert space == 'MySpace'
+        def divide(space, handles, a, b):
+            assert space is fakespace
+            assert handles == 'fake manager'
             return float(a)/b
         #
-        space = 'MySpace'
-        lldivide = divide.get_llhelper(space)
+        fakespace = FakeSpace()
+        lldivide = divide.get_llhelper(fakespace)
         assert lldivide(5, 2) == 2.5
 
     def test_freeze(self, api):

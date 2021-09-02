@@ -215,7 +215,7 @@ def WriteFile(handle, buffer, overlapped=False):
             if err == ERROR_IO_PENDING:
                 overlapped.pending = 1
             else:
-                return_WinError(IOError)
+                raise_WinError(IOError)
         return overlapped, err
     else:
         buf = _ffi.new("CHAR[]", bytes(buffer))
@@ -413,6 +413,13 @@ def CloseHandle(handle):
     if not res:
         raise_WinError()
 
+def GetFileType(handle):
+    res = _kernel32.GetFileType(_int2handle(handle))
+
+    if res == FILE_TYPE_UNKNOWN and GetLastError() != 0:
+        raise_WinError()
+    return res
+
 def GetModuleFileName(module):
     buf = _ffi.new("wchar_t[]", _MAX_PATH)
     res = _kernel32.GetModuleFileNameW(_int2handle(module), buf, _MAX_PATH)
@@ -545,3 +552,10 @@ BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 CREATE_BREAKAWAY_FROM_JOB   = 0x01000000
 CREATE_DEFAULT_ERROR_MODE   = 0x04000000
 CREATE_NO_WINDOW            = 0x08000000
+
+FILE_TYPE_CHAR = 2
+FILE_TYPE_DISK = 1
+FILE_TYPE_PIPE = 3
+FILE_TYPE_REMOTE = 32768
+FILE_TYPE_UNKNOWN = 0
+

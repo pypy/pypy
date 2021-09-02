@@ -25,7 +25,7 @@ import abc
 import typing
 import weakref
 
-from test import mod_generics_cache
+from test import mod_generics_cache, support
 
 
 class BaseTestCase(TestCase):
@@ -2817,8 +2817,9 @@ class RETests(BaseTestCase):
             class A(typing.Match):
                 pass
 
-        self.assertEqual(str(ex.exception),
-                         "type 're.Match' is not an acceptable base type")
+        if support.check_impl_detail():
+            self.assertEqual(str(ex.exception),
+                             "type 're.Match' is not an acceptable base type")
 
 
 class AllTests(BaseTestCase):

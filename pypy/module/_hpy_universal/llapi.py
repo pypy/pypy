@@ -9,18 +9,31 @@ PYPYDIR = py.path.local(pypydir)
 SRC_DIR = PYPYDIR.join('module', '_hpy_universal', 'src')
 BASE_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'devel')
 INCLUDE_DIR = BASE_DIR.join('include')
+DEBUG_DIR = PYPYDIR.join('module', '_hpy_universal', '_vendored', 'hpy', 'debug', 'src')
 
 eci = ExternalCompilationInfo(
     compile_extra = ["-DHPY_UNIVERSAL_ABI"],
-    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h"],
+    includes=["universal/hpy.h", "hpyerr.h", "rffi_hacks.h", "dctx.h"],
     include_dirs=[
-        cdir,        # for precommondefs.h
-        INCLUDE_DIR, # for universal/hpy.h
-        SRC_DIR,     # for hpyerr.h
+        cdir,                       # for precommondefs.h
+        INCLUDE_DIR,                # for universal/hpy.h
+        SRC_DIR,                    # for hpyerr.h
+        DEBUG_DIR,                  # for debug_internal.h
+        DEBUG_DIR.join('include'),  # for hpy_debug.h
     ],
     separate_module_files=[
         SRC_DIR.join('bridge.c'),
         SRC_DIR.join('hpyerr.c'),
+        #
+        # <debug mode>
+        SRC_DIR.join('dctx.c'),
+        DEBUG_DIR.join('debug_ctx.c'),
+        DEBUG_DIR.join('debug_ctx_not_cpython.c'),
+        DEBUG_DIR.join('debug_handles.c'),
+        DEBUG_DIR.join('_debugmod.c'),
+        DEBUG_DIR.join('autogen_debug_wrappers.c'),
+        BASE_DIR.join('src', 'runtime', 'ctx_tracker.c'),
+        # </debug mode>
     ],
 )
 
@@ -57,11 +70,15 @@ typedef struct _HPyTracker_s {
 typedef HPy_ssize_t HPyTracker;
 
 struct _HPyContext_s {
+    const char *name; // used just to make debugging and testing easier
+    void *_private;   // used by implementations to store custom data
     int ctx_version;
     // Constants
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
+    struct _HPy_s h_NotImplemented;
+    struct _HPy_s h_Ellipsis;
     // Exceptions
     struct _HPy_s h_BaseException;
     struct _HPy_s h_Exception;
@@ -155,6 +172,7 @@ struct _HPyContext_s {
     void * ctx_Long_AsSsize_t;
     void * ctx_Float_FromDouble;
     void * ctx_Float_AsDouble;
+    void * ctx_Bool_FromLong;
     void * ctx_Length;
     void * ctx_Number_Check;
     void * ctx_Add;
@@ -214,6 +232,8 @@ struct _HPyContext_s {
     void * ctx_SetItem;
     void * ctx_SetItem_i;
     void * ctx_SetItem_s;
+    void * ctx_Type;
+    void * ctx_TypeCheck;
     void * ctx_Cast;
     void * ctx_New;
     void * ctx_Repr;
@@ -257,6 +277,7 @@ struct _HPyContext_s {
     void * ctx_Tracker_Add;
     void * ctx_Tracker_ForgetAll;
     void * ctx_Tracker_Close;
+    void * ctx_Dump;
 } _struct_HPyContext_s;
 
 typedef struct _HPyContext_s *HPyContext;
@@ -391,6 +412,7 @@ typedef struct {
     unsigned int flags;
     void *legacy_slots; // PyType_Slot *
     HPyDef **defines;   /* points to an array of 'HPyDef *' */
+    const char* doc;    /* UTF-8 doc string or NULL */
 } HPyType_Spec;
 
 typedef enum {
@@ -412,14 +434,34 @@ typedef struct {
 #define HPy_TPFLAGS_BASETYPE (1UL << 10)
 #define HPy_TPFLAGS_DEFAULT _Py_TPFLAGS_HEAPTYPE
 
+/* macros.h */
 
 /* Rich comparison opcodes */
-#define HPy_LT 0
-#define HPy_LE 1
-#define HPy_EQ 2
-#define HPy_NE 3
-#define HPy_GT 4
-#define HPy_GE 5
+typedef enum {
+    HPy_LT = 0,
+    HPy_LE = 1,
+    HPy_EQ = 2,
+    HPy_NE = 3,
+    HPy_GT = 4,
+    HPy_GE = 5,
+} HPy_RichCmpOp;
+
+/* hpyfunc.h */
+
+typedef struct {
+    void *buf;
+    struct _HPy_s obj;        /* owned reference */
+    HPy_ssize_t len;
+    HPy_ssize_t itemsize;
+    int readonly;
+    int ndim;
+    char *format;
+    HPy_ssize_t *shape;
+    HPy_ssize_t *strides;
+    HPy_ssize_t *suboffsets;
+    void *internal;
+} HPy_buffer;
+
 
 /* autogen_hpyfunc_declare.h */
 
@@ -453,6 +495,8 @@ typedef int (*HPyFunc_initproc)(HPyContext ctx, HPy self, HPy *args, HPy_ssize_t
 typedef HPy (*HPyFunc_getter)(HPyContext ctx, HPy, void *);
 typedef int (*HPyFunc_setter)(HPyContext ctx, HPy, HPy, void *);
 typedef int (*HPyFunc_objobjproc)(HPyContext ctx, HPy, HPy);
+typedef int (*HPyFunc_getbufferproc)(HPyContext, HPy, HPy_buffer *, int);
+typedef void (*HPyFunc_releasebufferproc)(HPyContext, HPy, HPy_buffer *);
 typedef void (*HPyFunc_destroyfunc)(void *);
 """)
 
@@ -461,6 +505,9 @@ typedef void (*HPyFunc_destroyfunc)(void *);
 # solution probably involves telling CTypeSpace which eci the types come from?
 HPyContext = cts.gettype('HPyContext')
 HPyContext.TO._hints['eci'] = eci
+
+# Hack required to allocate contexts statically:
+HPyContext.TO._hints['get_padding_drop'] = lambda d: [name for name in d if name.startswith('c__pad')]
 
 HPy_ssize_t = cts.gettype('HPy_ssize_t')
 
@@ -490,13 +537,6 @@ HPyFunc_O        = 4
 
 HPyType_SpecParam_Kind = cts.gettype('HPyType_SpecParam_Kind')
 
-HPy_LT = 0
-HPy_LE = 1
-HPy_EQ = 2
-HPy_NE = 3
-HPy_GT = 4
-HPy_GE = 5
-
 SIZEOF_HPyObject_HEAD = rffi.sizeof(cts.gettype('struct _HPyObject_head_s'))
 
 # HPy API functions which are implemented directly in C
@@ -523,3 +563,32 @@ pypy_HPyErr_Clear = rffi.llexternal('pypy_HPyErr_Clear',
                                     [HPyContext],
                                     lltype.Void,
                                     compilation_info=eci, _nowrapper=True)
+
+# debug mode
+hpy_debug_get_ctx = rffi.llexternal(
+    'pypy_hpy_debug_get_ctx', [HPyContext], HPyContext,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_ctx_init = rffi.llexternal(
+    'pypy_hpy_debug_ctx_init', [HPyContext, HPyContext], rffi.INT_real,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_set_ctx = rffi.llexternal(
+    'pypy_hpy_debug_set_ctx', [HPyContext], lltype.Void,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_open_handle = rffi.llexternal(
+    'pypy_hpy_debug_open_handle', [HPyContext, HPy], HPy,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_unwrap_handle = rffi.llexternal(
+    'pypy_hpy_debug_unwrap_handle', [HPy], HPy,
+    compilation_info=eci, _nowrapper=True)
+
+hpy_debug_close_handle = rffi.llexternal(
+    'pypy_hpy_debug_close_handle', [HPyContext, HPy], lltype.Void,
+    compilation_info=eci, _nowrapper=True)
+
+HPyInit__debug = rffi.llexternal(
+    'pypy_HPyInit__debug', [HPyContext], HPy,
+    compilation_info=eci, _nowrapper=True)

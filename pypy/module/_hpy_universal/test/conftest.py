@@ -1,5 +1,6 @@
 import sys
 import types
+import pytest
 
 # ================================
 # Customization of applevel tests
@@ -71,7 +72,9 @@ def make_hpy_apptest(collector, name, cls):
             pass
 
     """
-    from pypy.module._hpy_universal.test.support import HPyAppTest, HPyCPyextAppTest
+    from pypy.module._hpy_universal.test._vendored.support import HPyTest, HPyDebugTest
+    from pypy.module._hpy_universal.test.support import (HPyAppTest, HPyCPyextAppTest,
+                                                         HPyDebugAppTest)
     appname = 'App' + name
     #
     # if there is a global extra_AppTestFoo, copy its dictionary into the
@@ -94,8 +97,11 @@ def make_hpy_apptest(collector, name, cls):
     #
     # cpyext tests need a different base class
     use_cpyext = getattr(extra, 'USE_CPYEXT', False)
+    use_hpydebug = issubclass(cls, HPyDebugTest)
     if use_cpyext:
         bases = (HPyCPyextAppTest, cls)
+    elif use_hpydebug:
+        bases = (HPyDebugAppTest, cls)
     else:
         bases = (HPyAppTest, cls)
     #
@@ -103,3 +109,9 @@ def make_hpy_apptest(collector, name, cls):
     appcls = type(appname, bases, d)
     setattr(collector.obj, appname, appcls)
     return appname
+
+@pytest.fixture
+def hpy_debug():
+    # we don't want run the leak detector in applevel test, so we override
+    # this fixture to disable it
+    return None

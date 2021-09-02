@@ -13,7 +13,7 @@ only_pypy ="config.option.runappdirect and '__pypy__' not in sys.builtin_module_
 
 class TestMemoryViewObject(BaseApiTest):
     def test_frombuffer(self, space, api):
-        w_view = SimpleView(StringBuffer("hello")).wrap(space)
+        w_view = SimpleView(StringBuffer("hello"), w_obj=self).wrap(space)
         w_memoryview = api.PyMemoryView_FromObject(w_view)
         c_memoryview = rffi.cast(
             PyMemoryViewObject, make_ref(space, w_memoryview))
@@ -71,7 +71,7 @@ class AppTestPyBuffer_FillInfo(AppTestCpythonExtensionBase):
                  Py_DECREF(str);
 
                  ret = PyMemoryView_FromBuffer(&buf);
-                 if (((PyMemoryViewObject*)ret)->view.obj != buf.obj)
+                 if (((PyMemoryViewObject*)ret)->view.obj != NULL)
                  {
                     PyErr_SetString(PyExc_ValueError, "leaked ref");
                     Py_DECREF(ret);

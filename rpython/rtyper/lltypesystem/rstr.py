@@ -1029,19 +1029,19 @@ class LLHelpers(AbstractLLHelpers):
         strlen = len(chars)
         i = 0
         #XXX: only space is allowed as white space for now
-        while i < strlen and chars[i] == ' ':
+        while i < strlen and ord(chars[i]) == ord(' '):
             i += 1
         if not i < strlen:
             raise ValueError
         #check sign
         sign = 1
-        if chars[i] == '-':
+        if ord(chars[i]) == ord('-'):
             sign = -1
             i += 1
-        elif chars[i] == '+':
+        elif ord(chars[i]) == ord('+'):
             i += 1
         # skip whitespaces between sign and digits
-        while i < strlen and chars[i] == ' ':
+        while i < strlen and ord(chars[i]) == ord(' '):
             i += 1
         #now get digits
         val = 0
@@ -1063,7 +1063,7 @@ class LLHelpers(AbstractLLHelpers):
         if i == oldpos:
             raise ValueError # catch strings like '+' and '+  '
         #skip trailing whitespace
-        while i < strlen and chars[i] == ' ':
+        while i < strlen and ord(chars[i]) == ord(' '):
             i += 1
         if not i == strlen:
             raise ValueError

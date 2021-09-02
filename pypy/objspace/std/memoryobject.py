@@ -5,7 +5,7 @@ import operator
 
 from rpython.rlib.objectmodel import compute_hash
 from pypy.interpreter.baseobjspace import W_Root
-from pypy.interpreter.buffer import BufferView, SubBuffer
+from pypy.interpreter.buffer import BufferView, SubBuffer, ReadonlyWrapper
 from pypy.interpreter.error import OperationError, oefmt
 from pypy.interpreter.gateway import interp2app
 from pypy.interpreter.typedef import TypeDef, GetSetProperty,  make_weakref_descr
@@ -87,7 +87,6 @@ class W_MemoryView(W_Root):
             return W_MemoryView.copy(w_object)
         view = space.buffer_w(w_object, space.BUF_FULL_RO)
         mv = view.wrap(space)
-        mv.obj = w_object
         return mv
 
     def _make_descr__cmp(name):
@@ -120,12 +119,27 @@ class W_MemoryView(W_Root):
         return self.view.getlength()
 
     def descr_tobytes(self, space):
+        """Return the data in the buffer as a byte string. Order can be {'C', 'F', 'A'}.
+        When order is 'C' or 'F', the data of the original array is converted to C or
+        Fortran order. For contiguous views, 'A' returns an exact copy of the physical
+        memory. In particular, in-memory Fortran order is preserved. For non-contiguous
+        views, the data is converted to C first. order=None is the same as order='C'."""
         self._check_released(space)
         return space.newbytes(self.view.as_str())
 
     def descr_tolist(self, space):
+        'Return the data in the buffer as a list of elements.'
         self._check_released(space)
         return self.view.w_tolist(space)
+
+    def descr_toreadonly(self, space):
+        'Return a readonly version of the memoryview.'
+        self._check_released(space)
+        if self.view.readonly:
+            return W_MemoryView(self.view)
+        view = ReadonlyWrapper(self.view)
+        assert view.readonly
+        return W_MemoryView(view)
 
     def _start_from_tuple(self, space, w_tuple):
         from pypy.objspace.std.tupleobject import W_AbstractTupleObject
@@ -323,7 +337,10 @@ class W_MemoryView(W_Root):
 
     def w_get_obj(self, space):
         self._check_released(space)
-        return self.obj
+        if self.view.w_obj is None:
+            return space.w_None
+        else:
+            return self.view.w_obj
 
     def descr_repr(self, space):
         if self.view is None:
@@ -341,6 +358,7 @@ class W_MemoryView(W_Root):
         return space.newint(self._hash)
 
     def descr_release(self, space):
+        'Release the underlying buffer exposed by the memoryview object.'
         self.view = None
 
     def _check_released(self, space):
@@ -407,6 +425,7 @@ class W_MemoryView(W_Root):
         return False
 
     def descr_cast(self, space, w_format, w_shape=None):
+        'Cast a memoryview to a new format or shape.'
         self._check_released(space)
 
         if not space.isinstance_w(w_format, space.w_unicode):
@@ -496,7 +515,7 @@ class W_MemoryView(W_Root):
         if not newfmt:
             raise oefmt(space.w_RuntimeError,
                     "memoryview: internal error")
-        return BufferView1D(view, newfmt, itemsize)
+        return BufferView1D(view, newfmt, itemsize, w_obj=self.view.w_obj)
 
     def get_native_fmtstr(self, fmt):
         lenfmt = len(fmt)
@@ -534,7 +553,7 @@ class W_MemoryView(W_Root):
                         "memoryview: product(shape) * itemsize != buffer size")
 
         strides = self._strides_from_shape(shape, itemsize)
-        return BufferViewND(view, ndim, shape, strides)
+        return BufferViewND(view, ndim, shape, strides, w_obj=self.view.w_obj)
 
     @staticmethod
     def _strides_from_shape(shape, itemsize):
@@ -590,6 +609,7 @@ Create a new memoryview object which references the given object.
     hex         = interp2app(W_MemoryView.descr_hex),
     tobytes     = interp2app(W_MemoryView.descr_tobytes),
     tolist      = interp2app(W_MemoryView.descr_tolist),
+    toreadonly  = interp2app(W_MemoryView.descr_toreadonly),
     release     = interp2app(W_MemoryView.descr_release),
     format      = GetSetProperty(W_MemoryView.w_get_format),
     itemsize    = GetSetProperty(W_MemoryView.w_get_itemsize),
@@ -687,7 +707,8 @@ class BufferView1D(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'format', 'itemsize']
 
-    def __init__(self, parent, format, itemsize):
+    def __init__(self, parent, format, itemsize, w_obj=None):
+        self.w_obj = w_obj
         self.parent = parent
         self.readonly = parent.readonly
         self.format = format
@@ -712,7 +733,8 @@ class BufferViewND(IndirectView):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides']
 
-    def __init__(self, parent, ndim, shape, strides):
+    def __init__(self, parent, ndim, shape, strides, w_obj=None):
+        self.w_obj = w_obj
         assert parent.getndim() == 1
         assert len(shape) == len(strides) == ndim
         self.parent = parent

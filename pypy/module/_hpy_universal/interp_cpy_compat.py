@@ -15,18 +15,17 @@ from pypy.module.cpyext.api import PyTypeObjectPtr, cts as cpyts
 from pypy.module.cpyext import structmemberdefs
 #
 from pypy.module._hpy_universal.apiset import API
-from pypy.module._hpy_universal import handles
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.interp_descr import W_HPyMemberDescriptor
 
 @API.func("HPy HPy_FromPyObject(HPyContext ctx, void *obj)", cpyext=True)
-def HPy_FromPyObject(space, ctx, obj):
+def HPy_FromPyObject(space, handles, ctx, obj):
     w_obj = pyobject.from_ref(space, rffi.cast(pyobject.PyObject, obj))
-    return handles.new(space, w_obj)
+    return handles.new(w_obj)
 
 @API.func("void *HPy_AsPyObject(HPyContext ctx, HPy h)", cpyext=True)
-def HPy_AsPyObject(space, ctx, h):
-    w_obj = handles.deref(space, h)
+def HPy_AsPyObject(space, handles, ctx, h):
+    w_obj = handles.deref(h)
     pyobj = pyobject.make_ref(space, w_obj)
     return rffi.cast(rffi.VOIDP, pyobj)
 
@@ -135,7 +134,7 @@ def attach_legacy_slot(space, w_type, slotdef, slotnum):
                 # XXX: we probably need to handle manually these slots
                 raise NotImplementedError("slot wrapper for slot %d" % num)
             funcptr = slotdef.c_pfunc
-            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr, offset=[])
+            w_wrapper = wrapper_class(space, w_type, method_name, doc, funcptr)
             w_type.setdictvalue(space, method_name, w_wrapper)
             break
     else:

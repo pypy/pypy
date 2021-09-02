@@ -85,14 +85,14 @@ def newmemoryview(space, w_obj, itemsize, format, w_shape=None, w_strides=None):
                   shape, strides, nbytes)
     view = space.buffer_w(w_obj, 0)
     return space.newmemoryview(FormatBufferViewND(view, itemsize, format, ndim,
-                                                  shape, strides))
+                                                  shape, strides, w_obj=view.w_obj))
 
 class FormatBufferViewND(BufferViewND):
     _immutable_ = True
     _attrs_ = ['readonly', 'parent', 'ndim', 'shape', 'strides',
                'format', 'itemsize']
-    def __init__(self, parent, itemsize, format, ndim, shape, strides):
-        BufferViewND.__init__(self, parent, ndim, shape, strides)
+    def __init__(self, parent, itemsize, format, ndim, shape, strides, w_obj=None):
+        BufferViewND.__init__(self, parent, ndim, shape, strides, w_obj=w_obj)
         self.format = format
         self.itemsize = itemsize
 

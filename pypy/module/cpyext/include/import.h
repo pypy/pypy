@@ -18,8 +18,6 @@ PyAPI_FUNC(PyObject *) PyImport_ImportModuleLevel(
 #define PyImport_ImportModuleEx(n, g, l, f) \
     PyImport_ImportModuleLevel(n, g, l, f, 0)
 
-#endif
-
 #ifdef __cplusplus
 }
 #endif

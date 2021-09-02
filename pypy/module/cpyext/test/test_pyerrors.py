@@ -273,8 +273,10 @@ class AppTestFetch(AppTestCpythonExtensionBase):
 
         exc_info = raises(OSError, module.set_from_errno_special)
         assert exc_info.value.filename == "/path/to/%s" % (char, )
-        assert exc_info.value.errno == errno.EBADF
-        assert exc_info.value.strerror == os.strerror(errno.EBADF)
+        if self.runappdirect:
+            # untranslated the errno can get reset by the calls to ll2ctypes
+            assert exc_info.value.errno == errno.EBADF
+            assert exc_info.value.strerror == os.strerror(errno.EBADF)
 
     def test_SetFromErrnoWithFilename_NULL(self):
         import errno, os
@@ -578,3 +580,17 @@ class AppTestFetch(AppTestCpythonExtensionBase):
             t.join()
 
         assert not failures
+
+    def test_format(self):
+        module = self.import_extension('foo', [
+            ("raises", "METH_NOARGS",
+             '''
+                PyErr_Format(PyExc_IndexError,
+                        "v1 %ld is out of bounds "
+                        "for v2 %d with v3 %ld",
+                        4, 0, 4);
+                return NULL;
+             '''),
+            ])
+
+        raises(IndexError, module.raises)

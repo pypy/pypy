@@ -3,11 +3,12 @@ Implements HPy attribute descriptors, i.e members and getsets.
 """
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib.unroll import unrolling_iterable
+from rpython.rlib.objectmodel import import_from_mixin, specialize
 from pypy.interpreter.error import oefmt
 from pypy.interpreter.baseobjspace import DescrMismatch
 from pypy.interpreter.typedef import (
     GetSetProperty, TypeDef, interp_attrproperty, interp2app)
-from pypy.module._hpy_universal import llapi, handles
+from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
 
 ADDRESS = lltype.Signed
@@ -179,23 +180,38 @@ def add_member(space, w_type, hpymember):
 
 # ======== HPyDef_Kind_GetSet ========
 
-def getset_get(w_getset, space, w_self):
-    state = space.fromcache(State)
+def getset_get_u(w_getset, space, w_self):
+    handles = space.fromcache(State).u_handles
+    return _getset_get(handles, w_getset, w_self)
+
+def getset_get_d(w_getset, space, w_self):
+    handles = space.fromcache(State).d_handles
+    return _getset_get(handles, w_getset, w_self)
+
+@specialize.arg(0)
+def _getset_get(handles, w_getset, w_self):
     cfuncptr = w_getset.hpygetset.c_getter_impl
     func = llapi.cts.cast('HPyFunc_getter', cfuncptr)
-    with handles.using(space, w_self) as h_self:
-        h_result = func(state.ctx, h_self, w_getset.hpygetset.c_closure)
-    return handles.consume(space, h_result)
-    
-def getset_set(w_getset, space, w_self, w_value):
-    state = space.fromcache(State)
+    with handles.using(w_self) as h_self:
+        h_result = func(handles.ctx, h_self, w_getset.hpygetset.c_closure)
+    return handles.consume(h_result)
+
+def getset_set_u(w_getset, space, w_self, w_value):
+    handles = space.fromcache(State).u_handles
+    return _getset_set(handles, w_getset, w_self, w_value)
+
+def getset_set_d(w_getset, space, w_self, w_value):
+    handles = space.fromcache(State).d_handles
+    return _getset_set(handles, w_getset, w_self, w_value)
+
+@specialize.arg(0)
+def _getset_set(handles, w_getset, w_self, w_value):
     cfuncptr = w_getset.hpygetset.c_setter_impl
     func = llapi.cts.cast('HPyFunc_setter', cfuncptr)
-    with handles.using(space, w_self, w_value) as (h_self, h_value):
-        h_result = func(state.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
+    with handles.using(w_self, w_value) as (h_self, h_value):
+        h_result = func(handles.ctx, h_self, h_value, w_getset.hpygetset.c_closure)
         # XXX: write a test to check that we do the correct thing if
         # c_setter raises an exception
-
 
 class W_HPyGetSetProperty(GetSetProperty):
     def __init__(self, w_type, hpygetset):
@@ -207,14 +223,39 @@ class W_HPyGetSetProperty(GetSetProperty):
         if hpygetset.c_doc:
             doc = rffi.constcharp2str(hpygetset.c_doc)
         if hpygetset.c_getter_impl:
-            fget = getset_get
+            fget = getset_get_u
         if hpygetset.c_setter_impl:
-            fset = getset_set
+            fset = getset_set_u
             # XXX: write a test to check that 'del' works
             #fdel = ...
         GetSetProperty.__init__(self, fget, fset, fdel, doc,
                                 cls=None, use_closure=True,
-                                tag="hpy_getset", name=name)
+                                tag="hpy_getset_u", name=name)
+
+    def readonly_attribute(self, space):   # overwritten
+        raise NotImplementedError # XXX write a test
+        ## raise oefmt(space.w_AttributeError,
+        ##     "attribute '%s' of '%N' objects is not writable",
+        ##     self.name, self.w_type)
+
+class W_HPyGetSetPropertyDebug(GetSetProperty):
+    def __init__(self, w_type, hpygetset):
+        self.hpygetset = hpygetset
+        self.w_type = w_type
+        #
+        name = rffi.constcharp2str(hpygetset.c_name)
+        doc = fset = fget = fdel = None
+        if hpygetset.c_doc:
+            doc = rffi.constcharp2str(hpygetset.c_doc)
+        if hpygetset.c_getter_impl:
+            fget = getset_get_d
+        if hpygetset.c_setter_impl:
+            fset = getset_set_d
+            # XXX: write a test to check that 'del' works
+            #fdel = ...
+        GetSetProperty.__init__(self, fget, fset, fdel, doc,
+                                cls=None, use_closure=True,
+                                tag="hpy_getset_d", name=name)
 
     def readonly_attribute(self, space):   # overwritten
         raise NotImplementedError # XXX write a test
@@ -223,9 +264,14 @@ class W_HPyGetSetProperty(GetSetProperty):
         ##     self.name, self.w_type)
 
 
-
-def add_getset(space, w_type, hpygetset):
-    w_descr = W_HPyGetSetProperty(w_type, hpygetset)
+@specialize.arg(0)
+def add_getset(handles, w_type, hpygetset):
+    space = handles.space
+    if handles.is_debug:
+        GetSetClass = W_HPyGetSetPropertyDebug
+    else:
+        GetSetClass = W_HPyGetSetProperty
+    w_descr = GetSetClass(w_type, hpygetset)
     w_type.setdictvalue(space, w_descr.name, w_descr)
     #
     # the following is needed to ensure that we annotate getset_*, else

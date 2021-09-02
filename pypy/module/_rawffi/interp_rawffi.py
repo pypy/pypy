@@ -387,7 +387,7 @@ class W_DataInstance(W_Root):
         self._ll_buffer = self.ll_buffer
 
     def buffer_w(self, space, flags):
-        return SimpleView(RawFFIBuffer(self))
+        return SimpleView(RawFFIBuffer(self), w_obj=self)
 
     def getrawsize(self):
         raise NotImplementedError("abstract base class")

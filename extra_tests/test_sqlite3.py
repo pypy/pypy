@@ -414,3 +414,11 @@ def test_reset_already_committed_statements_bug(con):
     cursor = con.execute("SELECT id, a from COMPANY")
     con.commit()
     con.execute("DROP TABLE COMPANY")
+
+def test_empty_statement():
+    r = _sqlite3.connect(":memory:")
+    cur = r.cursor()
+    for sql in ["", " ", "/*comment*/"]:
+        r = cur.execute(sql)
+        assert r.description is None
+        assert cur.fetchall() == []

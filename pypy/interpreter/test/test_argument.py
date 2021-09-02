@@ -109,6 +109,9 @@ class DummySpace(object):
     def getitem(self, obj, key):
         return obj[key]
 
+    def finditem_str(self, obj, key):
+        return obj.get(key, None)
+
     def wrap(self, obj, lgt=-1):
         return obj
     newtext = wrap
@@ -612,6 +615,19 @@ class TestArgumentsNormal(object):
         assert l == [1, 2, 3, 4, 5, 6]
 
 
+    def test_kwonly_order_of_scope(self):
+        space = DummySpace()
+        # def __init__(self, *args, obj=None, name=None): ...
+        #                           |-> kwonly
+        sig = Signature(['self'], 'args', None, ['obj', 'name'], 0)
+
+        # __init__("fake_self", *("abc, ))
+        args = Arguments(space, ["abc"], [], [])
+        scope = args.parse_obj("fake_self", "__init__", sig, None, {"obj": 'None1', "name": 'None2'})
+        # *args always go last
+        assert scope == ['fake_self', 'None1', 'None2', ('abc', )]
+
+
 class TestErrorHandling(object):
     def test_missing_args(self):
         err = ArgErrMissing(['a'], True)
@@ -815,6 +831,7 @@ class TestErrorHandling(object):
 
 
 class AppTestArgument:
+    @pytest.mark.pypy_only
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
         assert str(exc.value) == "<lambda>() missing 1 required positional argument: 'a'"

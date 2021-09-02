@@ -964,7 +964,8 @@ if _WIN32:
         # started through main() instead of wmain()
         rwin32._wgetenv(u"")
         for key, value in rwin32._wenviron_items():
-            space.setitem(w_env, space.newtext(key), space.newtext(value))
+            space.setitem(w_env, space.newtext(key.encode("utf-8"), len(key)),
+                    space.newtext(value.encode("utf-8"), len(value)))
 
     @unwrap_spec(name=unicode, value=unicode)
     def putenv(space, name, value):
@@ -1674,7 +1675,14 @@ def _env2interp(space, w_env):
     w_keys = space.call_method(w_env, 'keys')
     for w_key in space.unpackiterable(w_keys):
         w_value = space.getitem(w_env, w_key)
-        env[space.fsencode_w(w_key)] = space.fsencode_w(w_value)
+        key = space.fsencode_w(w_key)
+        val = space.fsencode_w(w_value)
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables
+        if len(key) == 0 or '=' in key[1:]:
+            raise oefmt(space.w_ValueError,
+                "illegal environment variable name")
+        env[key] = val
     return env
 
 
@@ -2302,12 +2310,15 @@ def confname_w(space, w_name, namespace):
     return num
 
 def sysconf(space, w_name):
-    num = confname_w(space, w_name, os.sysconf_names)
+    num = confname_w(space, w_name, rposix.sysconf_names)
     try:
         res = os.sysconf(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newint(res)
+
+def sysconf_names():
+    return rposix.sysconf_names
 
 @unwrap_spec(fd=c_int)
 def fpathconf(space, fd, w_name):
@@ -2320,7 +2331,7 @@ def fpathconf(space, fd, w_name):
 
 @unwrap_spec(path=path_or_fd(allow_fd=hasattr(os, 'fpathconf')))
 def pathconf(space, path, w_name):
-    num = confname_w(space, w_name, os.pathconf_names)
+    num = confname_w(space, w_name, rposix.pathconf_names)
     if path.as_fd != -1:
         try:
             res = os.fpathconf(path.as_fd, num)
@@ -2333,13 +2344,19 @@ def pathconf(space, path, w_name):
             raise wrap_oserror2(space, e, path.w_path, eintr_retry=False)
     return space.newint(res)
 
+def pathconf_names():
+    return rposix.pathconf_names
+
 def confstr(space, w_name):
-    num = confname_w(space, w_name, os.confstr_names)
+    num = confname_w(space, w_name, rposix.confstr_names)
     try:
         res = os.confstr(num)
     except OSError as e:
         raise wrap_oserror(space, e, eintr_retry=False)
     return space.newtext(res)
+
+def confstr_names():
+    return rposix.confstr_names
 
 @unwrap_spec(
     uid=c_uid_t, gid=c_gid_t,
@@ -2508,9 +2525,8 @@ def device_encoding(space, fd):
     Return a string describing the encoding of the device if the output
     is a terminal; else return None.
     """
-    with rposix.FdValidator(fd):
-        if not (os.isatty(fd)):
-            return space.w_None
+    if not (os.isatty(fd)):
+        return space.w_None
     if _WIN32:
         if fd == 0:
             ccp = rwin32.GetConsoleCP()

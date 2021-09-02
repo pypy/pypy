@@ -45,9 +45,9 @@ def memory_attach(space, py_obj, w_obj, w_userdata=None):
     fill_Py_buffer(space, w_obj.view, view)
     try:
         view.c_buf = rffi.cast(rffi.VOIDP, w_obj.view.get_raw_address())
-        # not used in PyPy to keep something alive,
-        # but some c-extensions check the type without checking for NULL
-        view.c_obj = make_ref(space, space.w_None)
+        # In CPython, this is used to keep w_obj alive. We don't need that,
+        # but do it anyway for compatibility when checking mview.obj
+        view.c_obj = make_ref(space, w_obj)
         rffi.setintfield(view, 'c_readonly',
                          rffi.cast(rffi.INT_real, w_obj.view.readonly))
     except ValueError:
@@ -217,7 +217,8 @@ def PyMemoryView_FromBuffer(space, view):
     py_mem = rffi.cast(PyMemoryViewObject, py_obj)
     mview = py_mem.c_view
     mview.c_buf = view.c_buf
-    mview.c_obj = view.c_obj
+    # like CPython, do not take a reference to the object
+    mview.c_obj = rffi.cast(PyObject, 0)
     mview.c_len = view.c_len
     mview.c_itemsize = view.c_itemsize
     mview.c_readonly = view.c_readonly

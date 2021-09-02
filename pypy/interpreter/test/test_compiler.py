@@ -1,4 +1,5 @@
 # encoding: utf-8
+import pytest
 import py, sys
 from pypy.interpreter.pycompiler import PythonAstCompiler
 from pypy.interpreter.pycode import PyCode
@@ -342,6 +343,16 @@ class TestPythonAstCompiler:
             ex = e.value
             ex.normalize_exception(self.space)
             assert ex.match(self.space, self.space.w_SyntaxError)
+
+    def test_future_error_offset(self):
+        space = self.space
+        with pytest.raises(OperationError) as excinfo:
+            self.compiler.compile("from __future__ import bogus", "tmp", "exec", 0)
+        ex = excinfo.value
+        assert ex.match(space, space.w_SyntaxError)
+        ex.normalize_exception(space)
+        w_exc = ex.get_w_value(space)
+        assert space.int_w(w_exc.w_offset) == 1
 
     def test_globals_warnings(self):
         space = self.space

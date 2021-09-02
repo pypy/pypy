@@ -138,8 +138,7 @@ class Scope(object):
                 err = "no binding for nonlocal '%s' found" % (name,)
                 raise SyntaxError(err, self.lineno, self.col_offset)
             self.symbols[name] = SCOPE_FREE
-            if not self._hide_bound_from_nested_scopes:
-                self.free_vars.append(name)
+            self.free_vars.append(name)
             free[name] = None
             self.has_free = True
         elif flags & (SYM_BOUND | SYM_ANNOTATED):
@@ -211,7 +210,8 @@ class Scope(object):
                     self.free_vars.append(name)
             else:
                 if role_here & (SYM_BOUND | SYM_GLOBAL) and \
-                        self._hide_bound_from_nested_scopes:
+                        self._hide_bound_from_nested_scopes and \
+                        not role_here & SYM_NONLOCAL:
                     # This happens when a class level attribute or method has
                     # the same name as a free variable passing through the class
                     # scope.  We add the name to the class scope's list of free

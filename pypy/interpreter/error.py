@@ -596,6 +596,65 @@ def oefmt(w_type, valuefmt, *args):
     OpErrFmt, strings = get_operr_class(valuefmt)
     return OpErrFmt(w_type, strings, *args)
 
+
+_fmtcache_withname_error2 = {}
+
+def get_operr_withname_error_class2(valuefmt, errorclsname):
+    strings, formats = decompose_valuefmt(valuefmt)
+    try:
+        OpErrFmtWithNameError = _fmtcache_withname_error2[formats, errorclsname]
+    except KeyError:
+        basecls, _ = get_operr_class(valuefmt)
+        class OpErrFmtWithNameError(basecls):
+            def get_w_value(self, space):
+                from pypy.module.exceptions.interp_exceptions import W_AttributeError, W_NameError
+                w_value = self._w_value
+                if w_value is None:
+                    value, lgt = self._compute_value(space)
+                    # do the instantiation here, poking at the internals somewhat
+                    w_msg = space.newtext(value, lgt)
+                    if errorclsname == "AttributeError":
+                        w_value = W_AttributeError(space)
+                        w_value.descr_init(space, [w_msg], None, self.x0, self.x1)
+                    else:
+                        assert errorclsname == "NameError"
+                        w_value = W_NameError(space)
+                        w_value.descr_init(space, [w_msg], None, self.x0)
+                    self._w_value = w_value
+                return w_value
+        _fmtcache_withname_error2[formats, errorclsname] = OpErrFmtWithNameError
+    return OpErrFmtWithNameError, strings
+
+
+_fmtcache_withname_error = {}
+
+@specialize.memo()
+def get_operr_withname_error_class(valuefmt, errorclsname):
+    try:
+        return _fmtcache_withname_error[valuefmt, errorclsname]
+    except KeyError:
+        OpErrFmtWithNameError, strings = get_operr_withname_error_class2(valuefmt, errorclsname)
+        result = _fmtcache_withname_error[valuefmt, errorclsname] = OpErrFmtWithNameError, strings
+        return result
+
+
+@specialize.arg(3)
+def oefmt_attribute_error(space, w_obj, w_name, valuefmt, *args):
+    """ Like oefmt, but always raises w_AttributeError, passing w_obj and
+    w_name to its constructor. the valuefmt needs at least two fmt characters
+    for these two arguments. """
+
+    cls, strings = get_operr_withname_error_class(valuefmt, "AttributeError")
+    return cls(space.w_AttributeError, strings, *(w_obj, w_name) + args)
+
+@specialize.arg(3)
+def oefmt_name_error(space, w_name, valuefmt, *args):
+    """ Like oefmt, but always raises w_NameError, passing w_name to its
+    constructor. the valuefmt needs at least one fmt characters for this
+    argument. """
+
+    cls, strings = get_operr_withname_error_class(valuefmt, "NameError")
+    return cls(space.w_NameError, strings, *(w_name, ) + args)
 # ____________________________________________________________
 
 # Utilities

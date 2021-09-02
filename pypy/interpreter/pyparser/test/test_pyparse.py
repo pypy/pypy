@@ -110,7 +110,7 @@ stuff = "nothing"
 def f():
 pass"""
         exc = py.test.raises(IndentationError, parse, input).value
-        assert exc.msg == "expected an indented block"
+        assert exc.msg == "expected an indented block after function definition on line 2"
         assert exc.lineno == 3
         assert exc.text.startswith("pass")
         assert exc.offset == 1
@@ -122,6 +122,28 @@ pass"""
         assert exc.msg == "unindent does not match any outer indentation level"
         assert exc.lineno == 3
         assert exc.offset == 3
+
+        input = """
+if 1\
+        > 3:
+pass"""
+        exc = py.test.raises(IndentationError, parse, input).value
+        assert exc.msg == "expected an indented block after 'if' statement on line 2"
+        assert exc.lineno == 3
+        assert exc.text.startswith("pass")
+        assert exc.offset == 1
+
+        input = """
+if x > 1:
+    pass
+elif x < 1:
+pass"""
+        exc = py.test.raises(IndentationError, parse, input).value
+        assert exc.msg == "expected an indented block after 'elif' statement on line 4"
+        assert exc.lineno == 5
+        assert exc.text.startswith("pass")
+        assert exc.offset == 1
+
 
     def test_taberror(self):
         src = """

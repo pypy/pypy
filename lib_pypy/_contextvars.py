@@ -24,24 +24,26 @@ def get_context():
 class Context(metaclass=Unsubclassable):
 
     #_data: Map
-    #_prev_context: Optional[Context]
+    #_is_entered: bool
 
     def __init__(self):
         self._data = Map()
-        self._prev_context = None
+        self._is_entered = False
 
     def run(self, callable, *args, **kwargs):
-        if self._prev_context is not None:
+        if self._is_entered:
             raise RuntimeError(
                 f'cannot enter context: {self} is already entered')
 
-        self._prev_context = get_context()
+        # don't use get_context() here, to avoid creating a Context object
+        _prev_context = get_contextvar_context()
         try:
+            self._is_entered = True
             set_contextvar_context(self)
             return callable(*args, **kwargs)
         finally:
-            set_contextvar_context(self._prev_context)
-            self._prev_context = None
+            set_contextvar_context(_prev_context)
+            self._is_entered = False
 
     def copy(self):
         new = Context()
@@ -110,11 +112,13 @@ class ContextVar(metaclass=Unsubclassable):
         return self._name
 
     def get(self, default=_NO_DEFAULT):
-        context = get_context()
-        try:
-            return context[self]
-        except KeyError:
-            pass
+        # don't use get_context() here, to avoid creating a Context object
+        context = get_contextvar_context()
+        if context is not None:
+            try:
+                return context[self]
+            except KeyError:
+                pass
 
         if default is not _NO_DEFAULT:
             return default
@@ -159,7 +163,7 @@ class ContextVar(metaclass=Unsubclassable):
 
     @classmethod
     def __class_getitem__(self, key):
-        return None
+        return self
 
     def __repr__(self):
         default = ''

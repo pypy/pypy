@@ -6,6 +6,8 @@ The 'sys' module.
 from _structseq import structseqtype, structseqfield, SimpleNamespace
 import sys
 import _imp
+from __pypy__.os import _get_multiarch
+
 
 def excepthook(exctype, value, traceback):
     """Handle an exception by displaying it with a traceback on sys.stderr."""
@@ -161,10 +163,31 @@ class sysflags(metaclass=structseqtype):
 null_sysflags = sysflags((0,)*13 + (False, 0))
 null__xoptions = {}
 
+# copied from version.py
+def tuple2hex(ver):
+    levels = {'alpha':     0xA,
+              'beta':      0xB,
+              'candidate': 0xC,
+              'final':     0xF,
+              }
+    subver = ver[4]
+    if not (0 <= subver <= 9):
+        subver = 0
+    return (ver[0] << 24   |
+            ver[1] << 16   |
+            ver[2] << 8    |
+            levels[ver[3]] << 4 |
+            subver)
 
-implementation = SimpleNamespace(
-    name='pypy',
-    version=sys.version_info,
-    hexversion=sys.hexversion,
-    cache_tag=_imp.get_tag(),
-    )
+implementation_dict = {
+    'name':       'pypy',
+    'version':    sys.pypy_version_info,
+    'hexversion': tuple2hex(sys.pypy_version_info),
+    'cache_tag':  _imp.get_tag(),
+}
+
+multiarch = _get_multiarch()
+if multiarch:
+    implementation_dict['_multiarch'] = multiarch
+
+implementation = SimpleNamespace(**implementation_dict)

@@ -537,6 +537,8 @@ def _str_decode_utf8_slowpath(s, errors, final, errorhandler, allow_surrogates):
             pos += 4
 
     r = result.build()
+    # XXX can keep track of the resulting length without calling check_utf8
+    # here
     return r, rutf8.check_utf8(r, True), pos
 
 hexdigits = "0123456789ABCDEFabcdef"
