@@ -192,7 +192,7 @@ def create_fdopen_rfile(fd, mode="r", buffering=-1):
     newmode = _sanitize_mode(mode)
     ll_mode = rffi.str2charp(newmode)
     try:
-        with rposix.FdValidator(fd):
+        with rposix.SuppressIPH():
             ll_file = c_fdopen(fd, ll_mode)
         if not ll_file:
             errno = rposix.get_saved_errno()

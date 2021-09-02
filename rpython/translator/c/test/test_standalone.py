@@ -1180,6 +1180,26 @@ class TestStandalone(StandaloneTests):
         out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
         assert out1 != out2
 
+    def test_gcc_precompiled_header(self):
+        if sys.platform == 'win32':
+            py.test.skip("no win")
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            argv = argv[1:]
+            os.write(1, "argument count: " + str(len(argv)) + "\n")
+            for s in argv:
+                os.write(1, "   '" + str(s) + "'\n")
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        if "gcc" not in t.platform.cc:
+            py.test.skip("gcc only")
+        data = cbuilder.cmdexec('hi there')
+        assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
+
+        # check that the precompiled header was generated
+        assert cbuilder.targetdir.join("singleheader.h.gch").check()
+
 
 class TestThread(object):
     gcrootfinder = 'shadowstack'

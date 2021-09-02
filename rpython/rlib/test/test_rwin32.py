@@ -52,7 +52,7 @@ def test_get_osfhandle():
     fd = fid.fileno()
     rwin32.get_osfhandle(fd)
     fid.close()
-    # Somehow the FdValidator's c_enter_suppress_iph, which resolves
+    # Somehow the SuppressIPH's c_enter_suppress_iph, which resolves
     # to calling _set_thread_local_invalid_parameter_handler, does not work
     # untranslated. After translation it does work.
     # py.test.raises(OSError, rwin32.get_osfhandle, fd)

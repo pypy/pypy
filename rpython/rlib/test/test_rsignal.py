@@ -58,3 +58,26 @@ def test_compile_wakeup_fd():
     stderr = fn()
     assert stderr.endswith('Exception ignored when trying to write to the '
                            'signal wakeup fd: Errno %d\n' % errno.EBADF)
+
+
+def test_raise():
+    import os
+    check(-1)
+    check(-1)
+    for i in range(3):
+        rsignal.pypysig_setflag(rsignal.SIGUSR1)
+        rsignal.c_raise(rsignal.SIGUSR1)
+        check(rsignal.SIGUSR1)
+        check(-1)
+        check(-1)
+
+    rsignal.pypysig_ignore(rsignal.SIGUSR1)
+    rsignal.c_raise(rsignal.SIGUSR1)
+    check(-1)
+    check(-1)
+
+    rsignal.pypysig_default(rsignal.SIGUSR1)
+    check(-1)
+
+def test_strsignal():
+    assert rsignal.strsignal(rsignal.SIGSEGV) == "Segmentation fault"

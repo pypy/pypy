@@ -23,8 +23,8 @@ Contributors
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
-  Anders Chrigstrom
   Wim Lavrijsen
+  Anders Chrigstrom
   Eric van Riet Paap
   Dan Villiom Podlaski Christiansen
   Remi Meier
@@ -51,21 +51,22 @@ Contributors
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Daniel Roberts
   Stefano Rivera
+  Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
   stian
+  Batuhan Taskaya
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
   Alex Martelli
+  Ondrej Baranovič
   Spenser Bauman
   Michal Bendowski
-  Ondrej Baranovič
   Jan de Mooij
   Stefan Beyer
   Tyler Wade
@@ -88,7 +89,6 @@ Contributors
   Edd Barrett
   Marius Gedminas
   Laurence Tratt
-  Batuhan Taskaya
   Alexandre Fayolle
   Nicolas Truessel
   Simon Burton
@@ -96,6 +96,7 @@ Contributors
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
+  muke101
   Jeremy Thurgood
   Julian Berman
   Dario Bertini
@@ -121,16 +122,15 @@ Contributors
   Joannah Nanjekye
   Georg Brandl
   quejebo
-  muke101
   Bert Freudenberg
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
+  Michał Górny
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
   Dodan Mihai
-  Michał Górny
   Tim Felgentreff
   Eugene Oden
   Colin Valliant
@@ -176,6 +176,7 @@ Contributors
   Victor Stinner
   Andrews Medina
   Sebastian Pawluś
+  olliemath
   Stuart Williams
   Toby Watson
   Antoine Pitrou
@@ -201,6 +202,7 @@ Contributors
   Pauli Virtanen
   Mike Pavone
   Ricky Zhou
+  Yusuke Izawa
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -211,6 +213,8 @@ Contributors
   Reuben Cummings
   Robert Zaremba
   David C Ellis
+  cptpcrd
+  Felix C. Stegerman
   Jens-Uwe Mager
   Dan Stromberg
   Carl Meyer
@@ -244,7 +248,6 @@ Contributors
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
-  cptpcrd
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -273,7 +276,6 @@ Contributors
   Miro Hrončok
   Antoine Dupre
   Bernd Schoeller
-  olliemath
   Catalin Fierut
   Gustavo Niemeyer
   Andrew Thompson
@@ -332,6 +334,7 @@ Contributors
   Alex Orange
   alexprengere
   Dennis Sweeney
+  Kevin Lee
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -435,3 +438,5 @@ Contributors
   Chris AtLee
   Christoph Reiter
   Chris Burr
+  nimaje
+  Brad Kish

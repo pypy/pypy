@@ -31,7 +31,7 @@ from pypy.module.__builtin__.interp_classobj import W_ClassObject
 from pypy.module.micronumpy.base import W_NDimArray
 from pypy.module.__pypy__.interp_buffer import W_Bufferable
 from rpython.rlib.entrypoint import entrypoint_lowlevel
-from rpython.rlib.rposix import FdValidator
+from rpython.rlib.rposix import SuppressIPH
 from rpython.rlib.unroll import unrolling_iterable
 from rpython.rlib.objectmodel import specialize
 from pypy.module.exceptions import interp_exceptions
@@ -100,27 +100,27 @@ else:
 
 def fclose(fp):
     try:
-        with FdValidator(c_fileno(fp)):
+        with SuppressIPH():
             return c_fclose(fp)
     except IOError:
         return -1
 
 def fwrite(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fwrite(buf, sz, n, fp)
 
 def fread(buf, sz, n, fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return c_fread(buf, sz, n, fp)
 
 _feof = rffi.llexternal('feof', [FILEP], rffi.INT)
 def feof(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _feof(fp)
 
 _ferror = rffi.llexternal('ferror', [FILEP], rffi.INT)
 def ferror(fp):
-    with FdValidator(c_fileno(fp)):
+    with SuppressIPH():
         return _ferror(fp)
 
 pypy_decl = 'pypy_decl.h'
@@ -136,6 +136,7 @@ METH_NOARGS METH_VARARGS METH_KEYWORDS METH_O Py_TPFLAGS_HAVE_INPLACEOPS
 Py_TPFLAGS_HEAPTYPE Py_TPFLAGS_HAVE_CLASS Py_TPFLAGS_HAVE_NEWBUFFER
 Py_LT Py_LE Py_EQ Py_NE Py_GT Py_GE Py_TPFLAGS_CHECKTYPES Py_MAX_NDIMS
 PyBUF_FORMAT PyBUF_ND PyBUF_STRIDES PyBUF_WRITABLE PyBUF_READ PyBUF_WRITE
+PY_SSIZE_T_MAX PY_SSIZE_T_MIN
 """.split()
 
 for name in ('INT', 'LONG', 'LIST', 'TUPLE', 'UNICODE', 'DICT', 'BASE_EXC',
@@ -970,8 +971,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
     gil_release = (gil == "release" or gil == "around")
     pygilstate_ensure = (gil == "pygilstate_ensure")
     pygilstate_release = (gil == "pygilstate_release")
+    pygilstate_check = (gil == "pygilstate_check")
     assert (gil is None or gil_acquire or gil_release
-            or pygilstate_ensure or pygilstate_release)
+            or pygilstate_ensure or pygilstate_release or pygilstate_check)
     expected_nb_args = len(argtypesw) + pygilstate_ensure
 
     if isinstance(restype, lltype.Ptr) and error_value == 0:
@@ -1010,6 +1012,9 @@ def make_wrapper_second_level(space, argtypesw, restype,
             else:
                 rgil.acquire()
                 args += (pystate.PyGILState_UNLOCKED,)
+        elif pygilstate_check:
+            result = rgil.am_I_holding_the_GIL()
+            return rffi.cast(restype, result)
         else:
             if not rgil.am_I_holding_the_GIL():
                 no_gil_error(pname)

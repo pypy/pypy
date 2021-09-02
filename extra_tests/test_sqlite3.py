@@ -322,3 +322,11 @@ def test_close_in_del_ordering():
     gc.collect()
     gc.collect()
     assert SQLiteBackend.success
+
+def test_empty_statement():
+    r = _sqlite3.connect(":memory:")
+    cur = r.cursor()
+    for sql in ["", " ", "/*comment*/"]:
+        r = cur.execute(sql)
+        assert r.description is None
+        assert cur.fetchall() == []

@@ -3,15 +3,16 @@ from rpython.rtyper.test.tool import BaseRtypingTest
 from rpython.rlib.rstruct.runpack import runpack
 from rpython.rlib.rstruct import standardfmttable
 from rpython.rlib.rstruct.error import StructError
-from rpython.rlib.rarithmetic import LONG_BIT
+from rpython.rlib.rarithmetic import LONG_BIT, long_typecode
 import struct
 
 class TestRStruct(BaseRtypingTest):
     def test_unpack(self):
         import sys
         pad = '\x00' * (LONG_BIT//8-1)    # 3 or 7 null bytes
+        fmt = 's' + long_typecode + long_typecode
         def fn():
-            return runpack('sll', 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
+            return runpack(fmt, 'a'+pad+'\x03'+pad+'\x04'+pad)[1]
         result = 3 if sys.byteorder == 'little' else 3 << (LONG_BIT-8)
         assert fn() == result
         assert self.interpret(fn, []) == result

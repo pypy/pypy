@@ -61,6 +61,7 @@ class structseqtype(type):
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr
+        dict['__str__'] = structseq_repr
         dict['_name'] = dict.get('name', '')
         return type.__new__(metacls, classname, (tuple,), dict)
 

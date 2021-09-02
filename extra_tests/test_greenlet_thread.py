@@ -1,10 +1,10 @@
-import py
-try:
-    import thread, time
-    from lib_pypy import greenlet
-    #import greenlet
-except ImportError as e:
-    py.test.skip(e)
+import pytest
+import sys, time
+if sys.version_info < (3,):
+    import thread
+else:
+    import _thread as thread
+greenlet = pytest.importorskip('greenlet')
 
 
 class TestThread:
@@ -44,7 +44,7 @@ class TestThread:
         thread.start_new_thread(run_thread, ())
         lock.acquire()
         [g] = subs
-        py.test.raises(greenlet.error, g.switch)
+        pytest.raises(greenlet.error, g.switch)
 
     def test_noninited_greenlet_is_still_attached_to_thread(self):
         subs = []
@@ -60,9 +60,9 @@ class TestThread:
         thread.start_new_thread(run_thread, ())
         lock.acquire()
         [g] = subs
-        py.test.raises(greenlet.error, g.switch)
+        pytest.raises(greenlet.error, g.switch)
         g.__init__(lambda *args: None)
-        py.test.raises(greenlet.error, g.switch)
+        pytest.raises(greenlet.error, g.switch)
 
     def test_noninited_greenlet_change_thread_via_parent(self):
         subs = []
@@ -102,7 +102,7 @@ class TestThread:
         assert x == 42
 
     def test_started_greenlet_cannot_change_thread_via_parent(self):
-        py.test.skip("not implemented on PyPy")
+        pytest.skip("not implemented on PyPy")
         subs = []
         lock = thread.allocate_lock()
         lock.acquire()
@@ -119,12 +119,12 @@ class TestThread:
         thread.start_new_thread(run_thread, ())
         lock.acquire()
         [g] = subs
-        with py.test.raises(ValueError) as e:
+        with pytest.raises(ValueError) as e:
             g.parent = greenlet.getcurrent()
         assert str(e.value) == "parent cannot be on a different thread"
 
     def test_finished_greenlet_cannot_change_thread_via_parent(self):
-        py.test.skip("not implemented on PyPy")
+        pytest.skip("not implemented on PyPy")
         subs = []
         lock = thread.allocate_lock()
         lock.acquire()
@@ -140,6 +140,6 @@ class TestThread:
         thread.start_new_thread(run_thread, ())
         lock.acquire()
         [g] = subs
-        with py.test.raises(ValueError) as e:
+        with pytest.raises(ValueError) as e:
             g.parent = greenlet.getcurrent()
         assert str(e.value) == "parent cannot be on a different thread"

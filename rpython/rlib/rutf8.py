@@ -638,7 +638,25 @@ def codepoint_index_at_byte_position(utf8, storage, bytepos, num_codepoints):
     return result
 
 
-def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
+TABLE = '0123456789abcdef'
+
+def char_escape_helper(result, char):
+    if char >= 0x10000 or char < 0:
+        result.append("\\U")
+        zeros = 8
+    elif char >= 0x100:
+        result.append("\\u")
+        zeros = 4
+    else:
+        result.append("\\x")
+        zeros = 2
+    for i in range(zeros-1, -1, -1):
+        result.append(TABLE[(char >> (4 * i)) & 0x0f])
+
+def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None, unicodedb=None):
+    if pass_printable:
+        assert unicodedb is not None, "need to give unicodedb explicitly!"
+
     @jit.elidable
     def unicode_escape(s):
         size = len(s)
@@ -716,21 +734,6 @@ def make_utf8_escape_function(pass_printable=False, quotes=False, prefix=None):
         if quotes:
             result.append(chr(quote))
         return result.build()
-
-    TABLE = '0123456789abcdef'
-
-    def char_escape_helper(result, char):
-        if char >= 0x10000 or char < 0:
-            result.append("\\U")
-            zeros = 8
-        elif char >= 0x100:
-            result.append("\\u")
-            zeros = 4
-        else:
-            result.append("\\x")
-            zeros = 2
-        for i in range(zeros-1, -1, -1):
-            result.append(TABLE[(char >> (4 * i)) & 0x0f])
 
     return unicode_escape #, char_escape_helper
 

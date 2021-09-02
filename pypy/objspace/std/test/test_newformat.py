@@ -1,6 +1,5 @@
 # -*- encoding: utf-8 -*-
 """Test unicode/str's format method"""
-from __future__ import with_statement
 
 
 class BaseStringFormatTests:
@@ -229,6 +228,10 @@ class AppTestUnicodeFormat(BaseStringFormatTests):
 
     def test_padding_utf8_bug(self):
         assert format(unichr(228), "3") == unichr(228) + u"  "
+
+    def test_precision_utf8_bug(self):
+        u = b'\xc3\xa4'.decode("utf-8")
+        assert u.__format__(".1") == u
 
 class AppTestStringFormat(BaseStringFormatTests):
     def setup_class(cls):

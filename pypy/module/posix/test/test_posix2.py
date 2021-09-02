@@ -1218,7 +1218,7 @@ class AppTestEnvironment(object):
     def test_putenv_invalid_name(self):
         import os, sys
         if sys.platform.startswith('win'):
-            os.putenv("=hidden", "foo")
+            raises(OSError, os.putenv, "=foo", "xxx")
             raises(ValueError, os.putenv, "foo=bar", "xxx")
         else:
             raises(ValueError, os.putenv, "=foo", "xxx")

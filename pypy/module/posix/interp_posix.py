@@ -253,7 +253,8 @@ def build_statvfs_result(space, st):
     vals_w = [None] * len(rposix_stat.STATVFS_FIELDS)
     for i, (name, _) in STATVFS_FIELDS:
         vals_w[i] = space.newint(getattr(st, name))
-    w_tuple = space.newtuple(vals_w)
+    # f_fsid is not python2-compatible
+    w_tuple = space.newtuple(vals_w[:-1])
     w_statvfs_result = space.getattr(space.getbuiltinmodule(os.name), space.newtext('statvfs_result'))
     return space.call_function(w_statvfs_result, w_tuple)
 
@@ -534,27 +535,32 @@ def _convertenviron(space, w_env):
 @unwrap_spec(name='text0', value='text0')
 def putenv(space, name, value):
     """Change or add an environment variable."""
-    # Search from index 1 because on Windows starting '=' is allowed for
-    # defining hidden environment variables.
     if _WIN32:
+        # Search from index 1 because on Windows starting '=' is allowed
+        # in general (see os.chdir which sets '=D:' for chdir(r'D:\temp')
+        # However it is a bit pointless here since the putenv system call
+        # hides the key/value.
+        # GetEnvironmentVariable/SetEnvironmentVariable will expose them,
+        # and as is mentioned in https://github.com/python/cpython/pull/2325#discussion_r674746677,
+        # someday the syscall may change to SetEnvironmentVariable here.
         if len(name) == 0 or '=' in name[1:]:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
+        if len(name) > _MAX_ENV:
+            raise oefmt(space.w_ValueError,
+                        "the environment variable is longer than %d bytes",
+                        _MAX_ENV)
+        if not objectmodel.we_are_translated() and value == '':
+            # special case: on Windows, _putenv("NAME=") really means that
+            # we want to delete NAME.  So that's what the os.environ[name]=''
+            # below will do after translation.  But before translation, it
+            # will cache the environment value '' instead of <missing> and
+            # then return that.  We need to avoid that.
+            del os.environ[name]
+            return
     else:
         if '=' in name:
             raise oefmt(space.w_ValueError, "illegal environment variable name")
 
-    if _WIN32 and len(name) > _MAX_ENV:
-        raise oefmt(space.w_ValueError,
-                    "the environment variable is longer than %d bytes",
-                    _MAX_ENV)
-    if _WIN32 and not objectmodel.we_are_translated() and value == '':
-        # special case: on Windows, _putenv("NAME=") really means that
-        # we want to delete NAME.  So that's what the os.environ[name]=''
-        # below will do after translation.  But before translation, it
-        # will cache the environment value '' instead of <missing> and
-        # then return that.  We need to avoid that.
-        del os.environ[name]
-        return
     try:
         os.environ[name] = value
     except OSError as e:

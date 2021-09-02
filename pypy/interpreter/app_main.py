@@ -34,6 +34,7 @@ PyPy options and arguments:
 -X track-resources : track the creation of files and sockets and display
                      a warning if they are not closed explicitly
 -X faulthandler    : attempt to display tracebacks when PyPy crashes
+-X jit-off         : turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -278,9 +279,11 @@ def set_runtime_options(options, Xparam, *args):
         sys.pypy_set_track_resources(True)
     elif Xparam == 'faulthandler':
         run_faulthandler()
+    elif Xparam == 'jit-off':
+        set_jit_option(options, 'off')
     else:
         print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
-        print >> sys.stderr, '[options] can be: track-resources, faulthandler'
+        print >> sys.stderr, '[options] can be: track-resources, faulthandler, jit-off'
         raise SystemExit
 
 class CommandLineError(Exception):
