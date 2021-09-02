@@ -1043,8 +1043,9 @@ def interpindirect2app(unbound_meth, unwrap_spec=None):
     else:
         assert isinstance(unwrap_spec, dict)
         unwrap_spec = unwrap_spec.copy()
-    unwrap_spec['self'] = base_cls
-    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f))
+    unwrap_spec['self'] = 'self'
+    return interp2app(globals()['unwrap_spec'](**unwrap_spec)(f),
+                      self_type=base_cls)
 
 class interp2app(W_Root):
     """Build a gateway that calls 'f' at interp-level."""
@@ -1055,11 +1056,11 @@ class interp2app(W_Root):
 
     @not_rpython
     def __new__(cls, f, app_name=None, unwrap_spec=None, descrmismatch=None,
-                as_classmethod=False, doc=None):
+                as_classmethod=False, doc=None, self_type=None):
 
         # f must be a function whose name does NOT start with 'app_'
-        self_type = None
         if hasattr(f, 'im_func'):
+            assert self_type in (None, f.im_class)
             self_type = f.im_class
             f = f.im_func
         if not isinstance(f, types.FunctionType):
