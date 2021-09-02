@@ -5,6 +5,12 @@ PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
 ..
   Changelog up to commit 59269313db10
 
+.. note::
+  This is a pre-release announcement. When the release actually happens, it
+  will be announced on the `PyPy blog`_
+
+.. _`PyPy blog`: https://pypy.org/blog
+
 The PyPy team is proud to release version 7.3.6 of PyPy, which includes
 three different interpreters:
 
@@ -63,7 +69,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from **XXX** new contributors,
+previous release, we have accepted contributions from 6 new contributors,
 thanks for pitching in, and welcome to the project!
 
 If you are a python library maintainer and use C-extensions, please consider

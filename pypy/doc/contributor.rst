@@ -57,8 +57,8 @@ Contributors
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
-  stian
   Batuhan Taskaya
+  stian
   Jacob Hallen
   Jason Creighton
   Mark Young
@@ -73,6 +73,7 @@ Contributors
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  muke101
   Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
@@ -96,17 +97,17 @@ Contributors
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
-  muke101
   Jeremy Thurgood
   Julian Berman
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
   Mark Pearse
-  Andreas Stührk
   Tobias Pape
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
+  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -123,10 +124,10 @@ Contributors
   Georg Brandl
   quejebo
   Bert Freudenberg
+  Michał Górny
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
-  Michał Górny
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
@@ -165,6 +166,7 @@ Contributors
   Lucian Branescu Mihaila
   anatoly techtonik
   Mariano Anaya
+  olliemath
   Olivier Dormond
   Jared Grubb
   Karl Bartel
@@ -176,7 +178,6 @@ Contributors
   Victor Stinner
   Andrews Medina
   Sebastian Pawluś
-  olliemath
   Stuart Williams
   Toby Watson
   Antoine Pitrou
@@ -192,6 +193,7 @@ Contributors
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -201,8 +203,6 @@ Contributors
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
-  Ricky Zhou
-  Yusuke Izawa
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -277,6 +277,8 @@ Contributors
   Antoine Dupre
   Bernd Schoeller
   Catalin Fierut
+  nimaje
+  Pierre-Yves DAVID
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -438,5 +440,4 @@ Contributors
   Chris AtLee
   Christoph Reiter
   Chris Burr
-  nimaje
   Brad Kish
