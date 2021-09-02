@@ -144,50 +144,6 @@ class AbstractHandleManager(object):
         return True
 
 
-class Stack(object):
-    """
-    A simple stack which does NOT grow automatically.
-
-    You can push() only if the number of items does not exceed the capacity.
-    The initial capacity is set by __init__ and can be incremented only by one
-    by calling increase_capacity().
-
-    The idea is that by doing that, we can guarantee that push() does not need
-    to reallocate any memory and that it never raises. This is essential to
-    implemente HandleManager.close(), since we need to push() a handle in the
-    free_list.
-    """
-
-    def __init__(self, capacity):
-        self._items = [0] * capacity
-        self._count = 0
-
-    def push(self, x):
-        i = self._count
-        ll_assert(i < self.capacity(), 'not enough capacity in handlemanager.Stack')
-        self._items[i] = x
-        self._count = i + 1
-
-    def pop(self):
-        i = self._count - 1
-        ll_assert(i >= 0, 'handlemanager.Stack is empty')
-        x = self._items[i]
-        self._count = i
-        return x
-
-    def capacity(self):
-        return len(self._items)
-
-    def count(self):
-        return self._count
-
-    def increase_capacity(self):
-        self._items.append(0)
-
-    def as_list(self):
-        return self._items[:self._count]
-
-
 class HandleManager(AbstractHandleManager):
     cls_suffix = '_u'
 
@@ -196,7 +152,7 @@ class HandleManager(AbstractHandleManager):
         AbstractHandleManager.__init__(self, space, uctx, is_debug=False)
         self.handles_w = [build_value(space) for name, build_value in CONSTANTS]
         self.release_callbacks = [None] * len(self.handles_w)
-        self.free_list = Stack(capacity=len(self.handles_w))
+        self.free_list = []
         self.w_ExtensionFunction = W_ExtensionFunction_u
         self.w_ExtensionMethod = W_ExtensionMethod_u
 
@@ -238,17 +194,12 @@ class HandleManager(AbstractHandleManager):
             setattr(self.ctx, ctx_field, funcptr)
 
         self.ctx.c_ctx_FatalError = rffi.cast(rffi.VOIDP, llapi.pypy_HPy_FatalError)
-        self.ctx.c_ctx_Err_Occurred = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Occurred)
-        self.ctx.c_ctx_Err_SetString = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetString)
-        self.ctx.c_ctx_Err_SetObject = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_SetObject)
-        self.ctx.c_ctx_Err_Clear = rffi.cast(rffi.VOIDP, llapi.pypy_HPyErr_Clear)
 
 
     def new(self, w_object):
-        if self.free_list.count() == 0:
+        if len(self.free_list) == 0:
             index = len(self.handles_w)
             self.handles_w.append(w_object)
-            self.free_list.increase_capacity()
             self.release_callbacks.append(None)
         else:
             index = self.free_list.pop()
@@ -257,16 +208,6 @@ class HandleManager(AbstractHandleManager):
         return index
 
     def close(self, index):
-        """
-        NOTE: this is called by HPy_Close(), which is one of the few functions
-        which are allowed of be called when an HPy exception is set
-        (e.g. after calling HPyErr_SetString).
-
-        Since HPy exceptions are implemented as RPython exceptions, we are NOT
-        allowed to call anything which can raise here. So far, this is
-        accomplished by checking it manually, but eventually we should
-        probably add a @cannot_raise decorator or so.
-        """
         ll_assert(index > 0, 'HandleManager.close: index > 0')
         if self.release_callbacks[index] is not None:
             w_obj = self.deref(index)
@@ -274,7 +215,7 @@ class HandleManager(AbstractHandleManager):
                 f.release(index, w_obj)
             self.release_callbacks[index] = None
         self.handles_w[index] = None
-        self.free_list.push(index)
+        self.free_list.append(index)
 
     def deref(self, index):
         assert index > 0
@@ -352,10 +293,6 @@ class DebugHandleManager(AbstractHandleManager):
 class HandleReleaseCallback(object):
 
     def release(self, h, w_obj):
-        """
-        NOTE: because of the reasons explained by HandleManager.close, we are not
-        allowed to do anything which could raise.
-        """
         ll_assert(False, 'HandleReleaseCallback.release: not implemented')
 
 

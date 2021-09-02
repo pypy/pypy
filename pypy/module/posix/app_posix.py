@@ -92,6 +92,7 @@ class statvfs_result(metaclass=structseqtype):
     f_favail = structseqfield(7)
     f_flag = structseqfield(8)
     f_namemax = structseqfield(9)
+    f_fsid = structseqfield(10)
 
 
 class uname_result(metaclass=structseqtype):

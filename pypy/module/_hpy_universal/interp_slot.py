@@ -9,6 +9,7 @@ from pypy.interpreter.function import descr_function_get
 from pypy.interpreter.typedef import TypeDef, interp2app
 from pypy.objspace.std.typeobject import W_TypeObject
 from pypy.module._hpy_universal import llapi
+from .state import State
 
 HPySlot_Slot = llapi.cts.gettype('HPySlot_Slot')
 HPy_RichCmpOp = llapi.cts.gettype('HPy_RichCmpOp')
@@ -84,6 +85,8 @@ class W_wrap_binaryfunc(object):
         w_other = __args__.arguments_w[1]
         with self.handles.using(w_self, w_other) as (h_self, h_other):
             h_result = func(self.ctx, h_self, h_other)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
 @specialize.memo()
@@ -103,6 +106,8 @@ def get_cmp_wrapper_cls(handles, methname, OP):
                 # instead
                 h_result = func(
                     handles.ctx, h_self, h_other, rffi.cast(rffi.INT_real, OP))
+            if not h_result:
+                space.fromcache(State).raise_current_exception()
             return handles.consume(h_result)
     suffix = '_d' if handles.is_debug else '_u'
     wrapper.__name__ = 'W_wrap_richcmp%s%s' % (methname, suffix)
@@ -123,6 +128,8 @@ class W_wrap_unaryfunc(object):
         w_self = __args__.arguments_w[0]
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
 class W_wrap_ternaryfunc(object):
@@ -141,6 +148,8 @@ class W_wrap_ternaryfunc(object):
             w2 = __args__.arguments_w[2]
         with self.handles.using(w_self, w1, w2) as (h_self, h1, h2):
             h_result = func(self.ctx, h_self, h1, h2)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
 class W_wrap_indexargfunc(object):
@@ -152,6 +161,8 @@ class W_wrap_indexargfunc(object):
         idx = space.int_w(space.index(w_idx))
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
 class W_wrap_inquirypred(object):
@@ -163,8 +174,7 @@ class W_wrap_inquirypred(object):
             res = func(self.ctx, h_self)
         res = rffi.cast(lltype.Signed, res)
         if res == -1:
-            raise NotImplementedError('write a test')
-            #State.get(space).check_and_raise_exception(always=True)
+            space.fromcache(State).raise_current_exception()
         return space.newbool(bool(res))
 
 class W_wrap_lenfunc(object):
@@ -175,7 +185,7 @@ class W_wrap_lenfunc(object):
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self)
         if widen(result) == -1:
-            raise NotImplementedError('write a test')
+            space.fromcache(State).raise_current_exception()
         return space.newint(result)
 
 def sq_getindex(space, w_sequence, w_idx):
@@ -201,6 +211,8 @@ class W_wrap_sq_item(object):
         idx = sq_getindex(space, w_self, w_idx)
         with self.handles.using(w_self) as h_self:
             h_result = func(self.ctx, h_self, idx)
+        if not h_result:
+            space.fromcache(State).raise_current_exception()
         return self.handles.consume(h_result)
 
 class W_wrap_sq_setitem(object):
@@ -214,7 +226,7 @@ class W_wrap_sq_setitem(object):
         with self.handles.using(w_self, w_value) as (h_self, h_value):
             result = func(self.ctx, h_self, idx, h_value)
         if widen(result) == -1:
-            raise NotImplementedError('write a test')
+            space.fromcache(State).raise_current_exception()
         return space.w_None
 
 class W_wrap_sq_delitem(object):
@@ -227,7 +239,7 @@ class W_wrap_sq_delitem(object):
         with self.handles.using(w_self) as h_self:
             result = func(self.ctx, h_self, idx, llapi.HPy_NULL)
         if widen(result) == -1:
-            raise NotImplementedError('write a test')
+            space.fromcache(State).raise_current_exception()
         return space.w_None
 
 class W_wrap_objobjproc(object):
@@ -240,7 +252,7 @@ class W_wrap_objobjproc(object):
             res = func(self.ctx, h_self, h_key)
         res = widen(res)
         if res == -1:
-            raise NotImplementedError('write a test')
+            space.fromcache(State).raise_current_exception()
         return space.newbool(bool(res))
 
 class W_wrap_getbuffer(object):
@@ -256,8 +268,7 @@ class W_wrap_getbuffer(object):
             with self.handles.using(w_self) as h_self:
                 res = func(self.ctx, h_self, hpybuf, flags)
             if widen(res) < 0:
-                raise oefmt(space.w_BufferError,
-                    "HPy_bf_getbuffer slot failed without setting an exception")
+                space.fromcache(State).raise_current_exception()
             buf_ptr = hpybuf.c_buf
             w_obj = self.handles.consume(hpybuf.c_obj.c__i)
             size = hpybuf.c_len
@@ -327,9 +338,7 @@ class W_wrap_init(object):
                     for i in range(n):
                         self.handles.close(args_h[i])
         if rffi.cast(lltype.Signed, result) < 0:
-            # If we're here, it means no exception was set
-            raise oefmt(space.w_SystemError,
-                "Function returned an error result without setting an exception")
+            space.fromcache(State).raise_current_exception()
         return space.w_None
 
 @specialize.memo()

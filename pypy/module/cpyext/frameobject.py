@@ -19,6 +19,7 @@ PyFrameObjectFields = (PyObjectFields +
      ("f_globals", PyObject),
      ("f_locals", PyObject),
      ("f_lineno", rffi.INT),
+     ("f_back", PyFrameObject),
      ))
 cpython_struct("PyFrameObject", PyFrameObjectFields, PyFrameObjectStruct)
 
@@ -37,6 +38,11 @@ def frame_attach(space, py_obj, w_obj, w_userdata=None):
     py_frame.c_f_code = rffi.cast(PyCodeObject, make_ref(space, frame.pycode))
     py_frame.c_f_globals = make_ref(space, frame.get_w_globals())
     py_frame.c_f_locals = make_ref(space, frame.get_w_locals())
+    f_back = frame.get_f_back()
+    if f_back:
+        py_frame.c_f_back = rffi.cast(PyFrameObject, make_ref(space, f_back))
+    else:
+        py_frame.c_f_back = rffi.cast(PyFrameObject, 0)
     rffi.setintfield(py_frame, 'c_f_lineno', frame.getorcreatedebug().f_lineno)
 
 @slot_function([PyObject], lltype.Void)
@@ -46,6 +52,7 @@ def frame_dealloc(space, py_obj):
     decref(space, py_code)
     decref(space, py_frame.c_f_globals)
     decref(space, py_frame.c_f_locals)
+    decref(space, py_frame.c_f_back)
     from pypy.module.cpyext.object import _dealloc
     _dealloc(space, py_obj)
 

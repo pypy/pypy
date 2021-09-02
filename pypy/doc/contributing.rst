@@ -289,21 +289,15 @@ Running PyPy's unit tests
 -------------------------
 
 PyPy development always was and is still thoroughly test-driven.
-We use the flexible `py.test testing tool`_ which you can `install independently
-<https://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
+There are two modes of tests: those that run on top of RPython before
+translation (untranslated tests) and those that run on top of a translated
+``pypy`` (app tests). Since RPython is a dialect of Python2, the untranslated
+tests run with a python2 host. 
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
 
-    python pytest.py -h
-
-This is usually equivalent to using an installed version::
-
-    py.test -h
-
-If you encounter problems with the installed version
-make sure you have the correct version installed which
-you can find out with the ``--version`` switch.
+    python2 pytest.py -h
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
@@ -313,13 +307,10 @@ cases with `hypothesis`.
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
 
-    py.test pypy/interpreter/test/test_pyframe.py
+    python2 pytest.py pypy/interpreter/test/test_pyframe.py
 
     # or for running tests of a whole subdirectory
-    py.test pypy/interpreter/
-
-See `py.test usage and invocations`_ for some more generic info
-on how you can run tests.
+    python2 pytest.py pypy/interpreter/
 
 Beware trying to run "all" pypy tests by pointing to the root
 directory or even the top level subdirectory ``pypy``.  It takes
@@ -333,24 +324,23 @@ a hack that doesn't work in all cases and it is usually extremely slow:
 extract a minimal failing test of at most a few lines, and put it into one of
 our own tests in ``pypy/*/test/``.
 
-.. _py.test testing tool: https://pytest.org
-.. _py.test usage and invocations: https://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
 
-Testing After Translation
-^^^^^^^^^^^^^^^^^^^^^^^^^
+App level testing
+^^^^^^^^^^^^^^^^^
 
-While the usual invocation of `pytest` runs app-level tests on an untranslated
-PyPy that runs on top of CPython, we have a test extension to run tests
+While the usual invocation of `python2 pytest.py` runs app-level tests on an
+untranslated PyPy that runs on top of CPython, we have a test extension to run tests
 directly on the host python. This is very convenient for modules such as
 `cpyext`, to compare and contrast test results between CPython and PyPy.
 
-App-level tests run directly on the host interpreter when passing `-D` or
+App-level tests (ones whose file name start with ``apptest_`` not ``test_``)
+run directly on the host interpreter when passing `-D` or
 `--direct-apptest` to `pytest`::
 
     pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
 
-Mixed-level tests are invoked by using the `-A` or `--runappdirect` option to
+Mixed-level tests (the usual ones that start with ``test_``) are invoked by using the `-A` or `--runappdirect` option to
 `pytest`::
 
     python2 pytest.py -A pypy/module/cpyext/test
@@ -359,12 +349,22 @@ where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
 collection phase must be run with `python2` so untranslated tests are run
 with::
 
-    cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+    python2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
+
+Testing After Translation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you run translation, you will end up with a binary named ``pypy-c`` (or
+``pypy3-c`` for the Python3 branches) in the directory where you ran the
+translation.
 
 To run a test from the standard CPython regression test suite, use the regular
-Python way, i.e. (replace "pypy" with the exact binary name, if needed)::
+Python way, i.e. (use the exact binary name)::
 
-    pypy -m test.test_datetime
+    ./pypy3-c -m test.test_datetime
+    # or
+    ./pypy3-c lib-python/3/test/test_audit.py
 
 
 Tooling & Utilities
