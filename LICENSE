@@ -91,8 +91,8 @@ copyrighted by one or more of the following people and organizations:
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
-  stian
   Batuhan Taskaya
+  stian
   Jacob Hallen
   Jason Creighton
   Mark Young
@@ -107,6 +107,7 @@ copyrighted by one or more of the following people and organizations:
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  muke101
   Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
@@ -130,17 +131,17 @@ copyrighted by one or more of the following people and organizations:
   Konstantin Lopuhin
   Wenzhu Man
   John Witulski
-  muke101
   Jeremy Thurgood
   Julian Berman
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
   Mark Pearse
-  Andreas Stührk
   Tobias Pape
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
+  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -157,10 +158,10 @@ copyrighted by one or more of the following people and organizations:
   Georg Brandl
   quejebo
   Bert Freudenberg
+  Michał Górny
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
-  Michał Górny
   Oscar Nierstrasz
   Rami Chowdhury
   Stefan H. Muller
@@ -199,6 +200,7 @@ copyrighted by one or more of the following people and organizations:
   Lucian Branescu Mihaila
   anatoly techtonik
   Mariano Anaya
+  olliemath
   Olivier Dormond
   Jared Grubb
   Karl Bartel
@@ -210,7 +212,6 @@ copyrighted by one or more of the following people and organizations:
   Victor Stinner
   Andrews Medina
   Sebastian Pawluś
-  olliemath
   Stuart Williams
   Toby Watson
   Antoine Pitrou
@@ -226,6 +227,7 @@ copyrighted by one or more of the following people and organizations:
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -235,8 +237,6 @@ copyrighted by one or more of the following people and organizations:
   Faye Zhao
   Pauli Virtanen
   Mike Pavone
-  Ricky Zhou
-  Yusuke Izawa
   Alan McIntyre
   Alexander Sedov
   Alex Perry
@@ -311,6 +311,8 @@ copyrighted by one or more of the following people and organizations:
   Antoine Dupre
   Bernd Schoeller
   Catalin Fierut
+  nimaje
+  Pierre-Yves DAVID
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -472,6 +474,7 @@ copyrighted by one or more of the following people and organizations:
   Chris AtLee
   Christoph Reiter
   Chris Burr
+  Brad Kish
 
   Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden
