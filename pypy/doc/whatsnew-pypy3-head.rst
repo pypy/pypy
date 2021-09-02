@@ -68,3 +68,7 @@ Use libffi v3.3 like CPython instead of the very old ``libffi_msvc`` on windows
 When creating a PyUnicodeObject, use the compact form to store the data
 directly on the object and not via an additional buffer. This is used in
 pythran via _PyUnicode_COMPACT_DATA even though it is a "private" interface.
+
+.. branch: hpy-refactor-exceptions
+
+Use the cpyext error indicator to implement HPy exceptions
