@@ -191,6 +191,11 @@ def customize_compiler(compiler):
 
         compiler.shared_lib_extension = shlib_suffix
 
+def get_config_h_filename():
+    """Return full pathname of installed pyconfig.h file."""
+    inc_dir = get_python_inc(plat_specific=1)
+    return os.path.join(inc_dir, 'pyconfig.h')
+
 
 from .sysconfig_cpython import (
     parse_makefile, _variable_rx, expand_makefile_vars)
