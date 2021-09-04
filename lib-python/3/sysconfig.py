@@ -623,7 +623,9 @@ def get_config_vars(*args):
         # Always convert srcdir to an absolute path
         srcdir = _CONFIG_VARS.get('srcdir', _PROJECT_BASE)
         if os.name == 'posix':
-            if _PYTHON_BUILD:
+            if sys.implementation.name == 'pypy':
+                pass
+            elif _PYTHON_BUILD:
                 # If srcdir is a relative path (typically '.' or '..')
                 # then it should be interpreted relative to the directory
                 # containing Makefile.
