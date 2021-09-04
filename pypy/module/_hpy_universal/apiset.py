@@ -4,7 +4,8 @@ from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.tool.sourcetools import func_with_new_name
 from rpython.rlib.unroll import unrolling_iterable
-from rpython.rlib.objectmodel import specialize, llhelper_error_value
+from rpython.rlib.objectmodel import specialize
+from pypy.interpreter.error import OperationError
 from pypy.module._hpy_universal import llapi
 
 class APISet(object):
@@ -113,10 +114,14 @@ class APISet(object):
             # get_llhelper
             @specialize.memo()
             def make_wrapper(space):
-                @llhelper_error_value(ll_errval)
                 def wrapper(*args):
-                    handles = State.get(space).get_handle_manager(self.is_debug)
-                    return fn(space, handles, *args)
+                    state = space.fromcache(State)
+                    handles = state.get_handle_manager(self.is_debug)
+                    try:
+                        return fn(space, handles, *args)
+                    except OperationError as e:
+                        state.set_exception(e)
+                        return ll_errval
                 wrapper.__name__ = 'ctx_%s' % fn.__name__
                 if self.force_c_name:
                     wrapper.c_name = fn.__name__

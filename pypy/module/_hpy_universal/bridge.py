@@ -34,8 +34,6 @@ llapi.cts.parse_source("""
 typedef struct {
     void * hpy_err_Occurred_rpy;
     void * hpy_err_Clear;
-    void * _hpy_err_SetString;
-    void * _hpy_err_SetObject;
 } _HPyBridge;
 """)
 

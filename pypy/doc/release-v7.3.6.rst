@@ -3,7 +3,7 @@ PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
 =====================================================
 
 ..
-  Changelog up to commit 59269313db10
+  Changelog up to commit fae737d37616
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -153,6 +153,7 @@ Speedups and enhancements shared across versions
   function with signature ``'self, space, __args__'`` was missing the
   optimization for that signature, which works with ``interp2app()``.  It's
   used in ``_hpy_universal``.
+- Add an option to the packaging script to force non-portable packaging (issue 3538_)
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -227,6 +228,7 @@ Python 3.7 C-API
 .. _3514: https://foss.heptapod.net/pypy/pypy/-/issues/3514
 .. _3515: https://foss.heptapod.net/pypy/pypy/-/issues/3515
 .. _3531: https://foss.heptapod.net/pypy/pypy/-/issues/3531
+.. _3538: https://foss.heptapod.net/pypy/pypy/-/issues/3538
 .. _`bpo 22557`: https://bugs.python.org/issue22557
 .. _`bpo 44022`: https://bugs.python.org/issue44022
 .. _`bpo 43650`: https://bugs.python.org/issue43650

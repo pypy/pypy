@@ -2,6 +2,8 @@ from rpython.rtyper.lltypesystem import lltype, rffi
 from rpython.rlib import jit
 from rpython.rlib.objectmodel import specialize, not_rpython
 
+from pypy.interpreter.error import oefmt
+
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal import handlemanager
 from pypy.module._hpy_universal.bridge import BRIDGE, hpy_get_bridge
@@ -62,3 +64,28 @@ class State(object):
         """
         self.setup_bridge()
         llapi.hpy_debug_set_ctx(self.d_handles.ctx)
+
+    def set_exception(self, operror):
+        self.clear_exception()
+        ec = self.space.getexecutioncontext()
+        ec.cpyext_operror = operror
+
+    def clear_exception(self):
+        """Clear the current exception state, and return the operror."""
+        ec = self.space.getexecutioncontext()
+        operror = ec.cpyext_operror
+        ec.cpyext_operror = None
+        return operror
+
+    def get_exception(self):
+        ec = self.space.getexecutioncontext()
+        return ec.cpyext_operror
+
+    def raise_current_exception(self):
+        operror = self.clear_exception()
+        if operror:
+            raise operror
+        else:
+            raise oefmt(self.space.w_SystemError,
+                        "Function returned an error result without setting an "
+                        "exception")
