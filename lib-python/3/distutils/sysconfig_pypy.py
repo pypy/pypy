@@ -60,7 +60,7 @@ def get_python_lib(plat_specific=0, standard_lib=0, prefix=None):
     return os.path.join(prefix, 'site-packages')
 
 
-_config_vars = None
+_config_vars = {}
 
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
@@ -117,6 +117,9 @@ def get_config_var(name):
     returned by 'get_config_vars()'.  Equivalent to
     get_config_vars().get(name)
     """
+    if name == 'SO':
+        import warnings
+        warnings.warn('SO is deprecated, use EXT_SUFFIX', DeprecationWarning, 2)
     return get_config_vars().get(name)
 
 
@@ -149,11 +152,12 @@ def customize_compiler(compiler):
 
         if 'CC' in os.environ:
             newcc = os.environ['CC']
-            if ('LDSHARED' not in os.environ
+            if (sys.platform == 'darwin'
+                    and 'LDSHARED' not in os.environ
                     and ldshared.startswith(cc)):
-                # If CC is overridden, use that as the default
+                # On OS X, if CC is overridden, use that as the default
                 #       command for LDSHARED as well
-                ldshared = newcc + ' -pthread ' + ldshared[len(cc):]
+                ldshared = newcc + ldshared[len(cc):]
             cc = newcc
         if 'CXX' in os.environ:
             cxx = os.environ['CXX']
@@ -166,7 +170,7 @@ def customize_compiler(compiler):
         if 'LDFLAGS' in os.environ:
             ldshared = ldshared + ' ' + os.environ['LDFLAGS']
         if 'CFLAGS' in os.environ:
-            cflags = opt + ' ' + os.environ['CFLAGS']
+            cflags = cflags + ' ' + os.environ['CFLAGS']
             ldshared = ldshared + ' ' + os.environ['CFLAGS']
         if 'CPPFLAGS' in os.environ:
             cpp = cpp + ' ' + os.environ['CPPFLAGS']
