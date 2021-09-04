@@ -123,7 +123,7 @@ Contributors
   Joannah Nanjekye
   Georg Brandl
   quejebo
-  Bert Freudenberg
+  Vanessa Freudenberg
   Michał Górny
   Gerald Klix
   Wanja Saatkamp
