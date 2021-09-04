@@ -65,8 +65,7 @@ _config_vars = None
 def _init_posix():
     """Initialize the module as appropriate for POSIX systems."""
     from _sysconfigdata import build_time_vars
-    global _config_vars
-    _config_vars = build_time_vars
+    _config_vars.update(build_time_vars)
 
 
 def _init_nt():
@@ -84,8 +83,7 @@ def _init_nt():
     g['VERSION'] = get_python_version().replace(".", "")
     g['BINDIR'] = os.path.dirname(os.path.abspath(sys.executable))
 
-    global _config_vars
-    _config_vars = g
+    _config_vars.update(g)
 
 
 def get_config_vars(*args):
@@ -98,13 +96,10 @@ def get_config_vars(*args):
     With arguments, return a list of values that result from looking up
     each argument in the configuration variable dictionary.
     """
-    global _config_vars
-    if _config_vars is None:
+    if not _config_vars:
         func = globals().get("_init_" + os.name)
         if func:
             func()
-        else:
-            _config_vars = {}
 
         _config_vars['prefix'] = PREFIX
         _config_vars['exec_prefix'] = EXEC_PREFIX
