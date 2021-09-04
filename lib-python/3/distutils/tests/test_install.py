@@ -56,12 +56,12 @@ class InstallTestCase(support.TempdirManager,
             expected = os.path.normpath(expected)
             self.assertEqual(got, expected)
 
-        libdir = os.path.join(destination, "lib", "python")
+        libdir = os.path.join(destination, "lib", sys.implementation.name)
         check_path(cmd.install_lib, libdir)
         check_path(cmd.install_platlib, libdir)
         check_path(cmd.install_purelib, libdir)
         check_path(cmd.install_headers,
-                   os.path.join(destination, "include", "python", "foopkg"))
+                   os.path.join(destination, "include", sys.implementation.name, "foopkg"))
         check_path(cmd.install_scripts, os.path.join(destination, "bin"))
         check_path(cmd.install_data, destination)
 
