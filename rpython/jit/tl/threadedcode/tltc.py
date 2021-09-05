@@ -261,6 +261,7 @@ define_op("RET", True)
 define_op("DUP")
 define_op("NEWSTR", True)
 
+del define_op
 
 def get_printable_location(pc, bytecode, entry_state, tstack):
     op = ord(bytecode[pc])
@@ -308,6 +309,10 @@ class W_Frame:
         self.sp += 1
 
     @dont_look_inside
+    def is_true(self, w_x):
+        return w_x.is_true()
+
+    @dont_look_inside
     def pop(self):
         stackpos = self.sp - 1
         assert stackpos >= 0
@@ -327,8 +332,9 @@ class W_Frame:
         self.push(w_x)
 
     @dont_look_inside
-    def CONST_INT(self, x):
-        if isinstance(x, int):
+    def CONST_INT(self, pc):
+        if isinstance(pc, int):
+            x = ord(self.bytecode[pc])
             self.push(W_IntObject(x))
         else:
             raise OperationError
@@ -391,19 +397,27 @@ class W_Frame:
         w_x = self.pop()
         self.push(w_x.eq(w_y))
 
-    def interp(self, w_x, pc=0,
-               tstack=TStack(W_Object(), None)):
+    def interp(self, pc=0,
+               tstack=TStack(-100, None)):
+
         entry_state = pc, tstack
-        while pc < len(self.bytecode):
+        bytecode = self.bytecode
+
+        while pc < len(bytecode):
             jitdriver.jit_merge_point(pc=pc,
                                       bytecode=self.bytecode,
                                       entry_state=entry_state,
+                                      tstack=tstack,
                                       self=self)
-            opcode = ord(self.bytecode[pc])
+
+            opcode = ord(bytecode[pc])
             pc += 1
 
             if opcode == NOP:
                 pass
+            elif opcode == CONST_INT:
+                self.CONST_INT(pc)
+                pc += 1
             elif opcode == PUSH:
                 self.PUSH(pc)
             elif opcode == ADD:
@@ -414,64 +428,66 @@ class W_Frame:
                 self.MUL()
             elif opcode == DIV:
                 self.DIV()
-            elif opcode == RETURN:
-                return self.RETURN()
             elif opcode == JUMP:
-                t = int(bytecode[pc])
+                t = int(self.bytecode[pc])
                 if we_are_jitted():
                     if t_is_empty(tstack):
                         pc = t
                     else:
                         pc, tstack = tstack.t_pop()
-                        pc = emit_jump(pc, t, None)
+                        pc = emit_jump(pc, t)
                 else:
                     if t < pc:
                         entry_state = t, tstack
                         self.save_state()
-                        jitdriver.can_enter_jit(pc=t, entry_state=entry_state,
-                                                bytecode=self.bytecode, tstack=tstack,
+                        jitdriver.can_enter_jit(pc=t,
+                                                entry_state=entry_state,
+                                                bytecode=self.bytecode,
+                                                tstack=tstack,
                                                 self=self)
                     pc = t
+            elif opcode == JUMP_IF:
+                t = int(self.bytecode[pc])
+                if self.is_true():
+                    if we_are_jitted():
+                        pc += 1
+                        tstack = t_push(pc, tstack)
+                    else:
+                        if t < pc:
+                            entry_state = t, tstack
+                            self.save_state()
+                            jitdriver.can_enter_jit(pc=t,
+                                                    bytecode=self.bytecode,
+                                                    entry_state=entry_state,
+                                                    tstack=tstack,
+                                                    self=self)
+                        pc = t
+                else:
+                    if we_are_jitted():
+                        tstack = t_push(t, tstack)
+                    pc += 1
+            elif opcode == RETURN:
+                if we_are_jitted():
+                    if t_is_empty(tstack):
+                        w_x = self.pop()
+                        pc = emit_ret(pc, w_x)
+                        pc, tstack = entry_state
+                        self.restore_state()
+                        jitdriver.can_enter_jit(pc=pc,
+                                                bytecode=self.bytecode,
+                                                entry_state=entry_state,
+                                                tstack=tstack,
+                                                self=self)
+                    else:
+                        pc, tstack = tstack.t_pop()
+                        w_x = self.pop()
+                        pc = emit_ret(pc, w_x)
+                else:
+                    return self.pop()
 
 
-class TestW_Frame:
-
-    def test_add(self):
-        w_frame = W_Frame(None)
-        w_x = W_IntObject(123)
-        w_y = W_IntObject(456)
-        w_frame.push(w_x)
-        w_frame.push(w_y)
-        w_frame.ADD()
-        w_z = w_frame.pop()
-        assert w_z.intvalue == 123 + 456
-
-    def test_sub(self):
-        w_frame = W_Frame(None)
-        w_x = W_IntObject(123)
-        w_y = W_IntObject(456)
-        w_frame.push(w_x)
-        w_frame.push(w_y)
-        w_frame.SUB()
-        w_z = w_frame.pop()
-        assert w_z.intvalue == 123 - 456
-
-    def test_mul(self):
-        w_frame = W_Frame(None)
-        w_x = W_IntObject(123)
-        w_y = W_IntObject(456)
-        w_frame.push(w_x)
-        w_frame.push(w_y)
-        w_frame.MUL()
-        w_z = w_frame.pop()
-        assert w_z.intvalue == 123 * 456
-
-    def test_div(self):
-        w_frame = W_Frame(None)
-        w_x = W_IntObject(123)
-        w_y = W_IntObject(456)
-        w_frame.push(w_x)
-        w_frame.push(w_y)
-        w_frame.DIV()
-        w_z = w_frame.pop()
-        assert w_z.intvalue == 123 / 456
+def run(bytecode, w_arg):
+    w_frame = W_Frame(bytecode)
+    w_frame.push(w_arg)
+    res = w_frame.interp()
+    return res
