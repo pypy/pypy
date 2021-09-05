@@ -320,11 +320,9 @@ class CFuncPtr(_CData, metaclass=CFuncPtrType):
                 except SystemExit as e:
                     handle_system_exit(e)
                     raise
-            except:
-                exc_info = sys.exc_info()
-                traceback.print_tb(exc_info[2], file=sys.stderr)
-                print("%s: %s" % (exc_info[0].__name__, exc_info[1]),
-                      file=sys.stderr)
+            except Exception as e:
+                from __pypy__ import write_unraisable
+                write_unraisable('calling ctypes callback function', e, self.callable) 
                 return 0
             if self._restype_ is not None:
                 return res
