@@ -33,7 +33,7 @@ class LLVMOpDispatcher:
         self.guard_follows = False
         self.jitframe = self.llvm.GetParam(self.func, 0)
         self.define_constants()
-        self.guard_handler = RuntimeCallbackImpl(self)
+        self.guard_handler = BlockPerGuardImpl(self)
         self.llvm.PositionBuilderAtEnd(builder, self.entry)
 
     def define_constants(self):

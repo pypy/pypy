@@ -694,139 +694,143 @@ class RuntimeCallbackImpl(GuardHandlerBase):
                               bailout_mark_value)
         lltype.free(mds, flavor='raw')
 
-        #self.guard_keys[descr] = (op, resume, cnd, branch)
-        self.guard_keys[descr] = op
+        self.guard_keys[descr] = (op, resume, cnd, branch)
+        #self.guard_keys[descr] = op
         self.llvm.PositionBuilderAtEnd(self.builder, resume)
 
     def finalise_bailout(self):
         return
 
-    def patch_guard(self, faildescr, inputargs):
-        op = self.guard_keys[faildescr]
-        token = self.tokens[op]
-        num_failargs = len([arg for arg in op.getfailargs() if arg is not None])
-
-        num_basicblocks = self.llvm.CountBasicBlocks(self.func)
-        basicblock_array_type = rffi.CArray(self.llvm.BasicBlockRef)
-        basicblock_array = lltype.malloc(basicblock_array_type,
-                                         n=num_basicblocks, flavor='raw')
-        self.llvm.GetBasicBlocks(self.func, basicblock_array)
-
-        found = False
-        kind_id = self.dispatcher.guard_kind_id
-        node_operand_array_type = rffi.CArray(self.llvm.ValueRef)
-        node_operand_array = lltype.malloc(node_operand_array_type, n=1,
-                                           flavor='raw')
-        for block in basicblock_array:
-            branch = self.llvm.getTerminator(block)
-            if self.llvm.HasMetadata(branch):
-                metadata_node = self.llvm.GetMetadata(branch, kind_id)
-                if metadata_node._obj is None:
-                    continue
-                self.llvm.GetMDNodeOperands(metadata_node,
-                                            node_operand_array)
-                guard_mark = node_operand_array[0]
-                descr_token_string = rffi.constcharp2str(
-                    self.llvm.PrintValue(guard_mark)
-                )
-                descr_token = int(descr_token_string[2:-1])
-                # digits = len(str(self.cpu.descr_token_cnt-1))+1
-                # descr_token_string = self.llvm.GetMDString(guard_mark, digits)
-                # descr_token = int(rffi.constcharp2str(descr_token_string))
-                if descr_token == token:
-                    found = True
-                    break
-        if not found:
-            raise Exception("Unable to find matching guard instruction")
-
-        true_block = self.llvm.GetSuccessor(branch, 0)
-        false_block = self.llvm.GetSuccessor(branch, 1)
-        successor_blocks = [true_block, false_block]
-        found = False
-        kind_id = self.dispatcher.bailout_kind_id
-        for c, block in enumerate(successor_blocks):
-            terminator = self.llvm.getTerminator(block)
-            if self.llvm.HasMetadata(terminator):
-                metadata_node = self.llvm.GetMetadata(terminator, kind_id)
-                if metadata_node._obj is None:
-                    continue
-                self.llvm.GetMDNodeOperands(metadata_node,
-                                            node_operand_array)
-                bailout_mark = self.llvm.PrintValue(node_operand_array[0])
-                if rffi.constcharp2str(bailout_mark)[2:-1] == "bailout":
-                    block_indx = c
-                    found = True
-                    break
-        if not found:
-            raise Exception("Unable to find bailout block from guard")
-
-        cstring = CString("bridge")
-        bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
-                                            cstring.ptr)
-        self.llvm.SetSuccessor(branch, block_indx, bridge)
-        # null = self.llvm.ConstNull(self.cpu.llvm_int_type)
-        # self.llvm.SetMetadata(branch, self.dispatcher.prof_kind_id,
-        #                       null)
-        # self.llvm.SetMetadata(branch, self.dispatcher.guard_kind_id,
-        #                       null)
-        self.llvm.DeleteBasicBlock(successor_blocks[block_indx])
-
-        found_failargs = 0
-        llvm_failargs = []
-        kind_id = self.dispatcher.guard_kind_id
-        for block in basicblock_array:
-            if found_failargs == num_failargs:
-                break
-            current_inst = self.llvm.GetFirstInstruction(block)
-            last_inst = self.llvm.GetLastInstruction(block)
-            while current_inst is not last_inst and found_failargs != num_failargs:
-                current_inst = self.llvm.GetNextInstruction(current_inst)
-                if current_inst._obj is None:
-                    break
-                if self.llvm.HasMetadata(current_inst):
-                    metadata_node = self.llvm.GetMetadata(current_inst, kind_id)
-                    if metadata_node._obj is None:
-                        continue
-                    self.llvm.GetMDNodeOperands(metadata_node,
-                                                node_operand_array)
-                    guard_mark = node_operand_array[0]
-                    descr_token_string = rffi.constcharp2str(
-                        self.llvm.PrintValue(guard_mark)
-                    )
-                    descr_token = int(descr_token_string[2:-1])
-                    if descr_token == token:
-                        # self.llvm.SetMetadata(current_inst,
-                        #                       self.dispatcher.guard_kind_id,
-                        #                       self.dispatcher.zero)
-                        llvm_failargs.append(current_inst)
-                        found_failargs += 1
-        if found_failargs != num_failargs:
-            raise Exception("Unable to find all fail arguments")
-
-        lltype.free(node_operand_array, flavor='raw')
-
-        for c, arg in enumerate(inputargs):
-            self.ssa_vars[arg] = llvm_failargs[c]
-
-        self.llvm.PositionBuilderAtEnd(self.builder, bridge)
-
     # def patch_guard(self, faildescr, inputargs):
-    #     op, resume, cnd, branch = self.guard_keys[faildescr]
-    #     llvm_failargs = self.llvm_failargs[faildescr]
-    #     bailout = self.bailouts[op]
+    #     op = self.guard_keys[faildescr]
+    #     token = self.tokens[op]
+    #     num_failargs = len([arg for arg in op.getfailargs() if arg is not None])
 
-    #     self.llvm.PositionBuilderBefore(self.builder, branch)
+    #     num_basicblocks = self.llvm.CountBasicBlocks(self.func)
+    #     basicblock_array_type = rffi.CArray(self.llvm.BasicBlockRef)
+    #     basicblock_array = lltype.malloc(basicblock_array_type,
+    #                                      n=num_basicblocks, flavor='raw')
+    #     self.llvm.GetBasicBlocks(self.func, basicblock_array)
+
+    #     found = False
+    #     kind_id = self.dispatcher.guard_kind_id
+    #     node_operand_array_type = rffi.CArray(self.llvm.ValueRef)
+    #     node_operand_array = lltype.malloc(node_operand_array_type, n=1,
+    #                                        flavor='raw')
+    #     for block in basicblock_array:
+    #         branch = self.llvm.getTerminator(block)
+    #         if self.llvm.HasMetadata(branch):
+    #             metadata_node = self.llvm.GetMetadata(branch, kind_id)
+    #             if metadata_node._obj is None:
+    #                 continue
+    #             self.llvm.GetMDNodeOperands(metadata_node,
+    #                                         node_operand_array)
+    #             guard_mark = node_operand_array[0]
+    #             descr_token_string = rffi.constcharp2str(
+    #                 self.llvm.PrintValue(guard_mark)
+    #             )
+    #             descr_token = int(descr_token_string[2:-1])
+    #             # digits = len(str(self.cpu.descr_token_cnt-1))+1
+    #             # descr_token_string = self.llvm.GetMDString(guard_mark, digits)
+    #             # descr_token = int(rffi.constcharp2str(descr_token_string))
+    #             if descr_token == token:
+    #                 found = True
+    #                 break
+    #     if not found:
+    #         raise Exception("Unable to find matching guard instruction")
+
+    #     true_block = self.llvm.GetSuccessor(branch, 0)
+    #     false_block = self.llvm.GetSuccessor(branch, 1)
+    #     successor_blocks = [true_block, false_block]
+    #     found = False
+    #     kind_id = self.dispatcher.bailout_kind_id
+    #     for c, block in enumerate(successor_blocks):
+    #         terminator = self.llvm.getTerminator(block)
+    #         if self.llvm.HasMetadata(terminator):
+    #             metadata_node = self.llvm.GetMetadata(terminator, kind_id)
+    #             if metadata_node._obj is None:
+    #                 continue
+    #             self.llvm.GetMDNodeOperands(metadata_node,
+    #                                         node_operand_array)
+    #             bailout_mark = self.llvm.PrintValue(node_operand_array[0])
+    #             if rffi.constcharp2str(bailout_mark)[2:-1] == "bailout":
+    #                 block_indx = c
+    #                 found = True
+    #                 break
+    #     if not found:
+    #         raise Exception("Unable to find bailout block from guard")
+
     #     cstring = CString("bridge")
     #     bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
     #                                         cstring.ptr)
-    #     self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
-    #     self.llvm.EraseInstruction(branch)
+    #     self.llvm.SetSuccessor(branch, block_indx, bridge)
+    #     null = self.llvm.ConstNull(self.cpu.llvm_int_type)
+    #     null_md = self.llvm.ValueAsMetadata(null)
+    #     mds = self.dispatcher.rpython_array([null_md], self.llvm.MetadataRef)
+    #     null_node = self.llvm.MDNode(self.cpu.context, mds, 1)
+    #     null_node_md = self.llvm.MetadataAsValue(self.cpu.context, null_node)
+    #     self.llvm.SetMetadata(branch, self.dispatcher.prof_kind_id,
+    #                           null_node_md)
+    #     self.llvm.SetMetadata(branch, self.dispatcher.guard_kind_id,
+    #                           null_node_md)
+    #     self.llvm.DeleteBasicBlock(successor_blocks[block_indx])
 
-    #     self.llvm.DeleteBasicBlock(bailout)
+    #     found_failargs = 0
+    #     llvm_failargs = []
+    #     kind_id = self.dispatcher.guard_kind_id
+    #     for block in basicblock_array:
+    #         if found_failargs == num_failargs:
+    #             break
+    #         current_inst = self.llvm.GetFirstInstruction(block)
+    #         last_inst = self.llvm.GetLastInstruction(block)
+    #         while current_inst is not last_inst and found_failargs != num_failargs:
+    #             current_inst = self.llvm.GetNextInstruction(current_inst)
+    #             if current_inst._obj is None:
+    #                 break
+    #             if self.llvm.HasMetadata(current_inst):
+    #                 metadata_node = self.llvm.GetMetadata(current_inst, kind_id)
+    #                 if metadata_node._obj is None:
+    #                     continue
+    #                 self.llvm.GetMDNodeOperands(metadata_node,
+    #                                             node_operand_array)
+    #                 guard_mark = node_operand_array[0]
+    #                 descr_token_string = rffi.constcharp2str(
+    #                     self.llvm.PrintValue(guard_mark)
+    #                 )
+    #                 descr_token = int(descr_token_string[2:-1])
+    #                 if descr_token == token:
+    #                     # self.llvm.SetMetadata(current_inst,
+    #                     #                       self.dispatcher.guard_kind_id,
+    #                     #                       self.dispatcher.zero)
+    #                     llvm_failargs.append(current_inst)
+    #                     found_failargs += 1
+    #     if found_failargs != num_failargs:
+    #         raise Exception("Unable to find all fail arguments")
 
-    #     llvm_failargs_no_holes = [arg for arg in llvm_failargs
-    #                               if arg is not None]
+    #     lltype.free(node_operand_array, flavor='raw')
+
     #     for c, arg in enumerate(inputargs):
-    #         self.ssa_vars[arg] = llvm_failargs_no_holes[c]
+    #         self.ssa_vars[arg] = llvm_failargs[c]
 
     #     self.llvm.PositionBuilderAtEnd(self.builder, bridge)
+
+    def patch_guard(self, faildescr, inputargs):
+        op, resume, cnd, branch = self.guard_keys[faildescr]
+        llvm_failargs = self.llvm_failargs[faildescr]
+        bailout = self.bailouts[op]
+
+        self.llvm.PositionBuilderBefore(self.builder, branch)
+        cstring = CString("bridge")
+        bridge = self.llvm.AppendBasicBlock(self.cpu.context, self.func,
+                                            cstring.ptr)
+        self.llvm.BuildCondBr(self.builder, cnd, resume, bridge)
+        self.llvm.EraseInstruction(branch)
+
+        self.llvm.DeleteBasicBlock(bailout)
+
+        llvm_failargs_no_holes = [arg for arg in llvm_failargs
+                                  if arg is not None]
+        for c, arg in enumerate(inputargs):
+            self.ssa_vars[arg] = llvm_failargs_no_holes[c]
+
+        self.llvm.PositionBuilderAtEnd(self.builder, bridge)

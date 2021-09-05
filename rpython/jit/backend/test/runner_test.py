@@ -2497,8 +2497,8 @@ class LLtypeBackendTest(BaseBackendTest):
                                          'faildescr': BasicFailDescr()})
             looptoken = JitCellToken()
             self.cpu.compile_loop(loop.inputargs, loop.operations, looptoken)
-            # frame = self.cpu.execute_token(looptoken, arg1, arg2_if_false, 0, 0)
-            # assert called == []
+            frame = self.cpu.execute_token(looptoken, arg1, arg2_if_false, 0, 0)
+            assert called == []
             frame = self.cpu.execute_token(looptoken, arg1, arg2_if_true,
                                            67, 89)
             assert called == [(67, 89)]

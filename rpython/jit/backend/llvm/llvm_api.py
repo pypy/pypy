@@ -1036,6 +1036,18 @@ class LLVMAPI:
                                          [self.TypeRef],
                                          self.ValueRef,
                                          compilation_info=info)
+        self.seed = rffi.llexternal("seed",
+                                    [lltype.Unsigned],
+                                    lltype.Unsigned,
+                                    compilation_info=info)
+        self.next_double = rffi.llexternal("next_double",
+                                           [self.Void],
+                                           lltype.Float,
+                                           compilation_info=info)
+        self.sin = rffi.llexternal("sine",
+                                   [lltype.Float],
+                                   lltype.Float,
+                                   compilation_info=info)
 
 class CString:
     """

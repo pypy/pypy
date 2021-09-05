@@ -2,6 +2,25 @@
 #include "wrapper_cpp.h"
 #include <bits/types.h>
 #include <sys/types.h>
+#include <stdlib.h>
+#include <math.h>
+
+//for testing:
+
+void seed(unsigned seed){
+	srand(seed);
+}
+
+double next_double(){
+	return (double)rand()/RAND_MAX*2.0-1.0;
+}
+
+double sine(double theta){
+	return sin(theta);
+}
+
+
+//LLVM API:
 
 LLVMBool InitializeNativeTarget(void)	{
 	return LLVMInitializeNativeTarget();

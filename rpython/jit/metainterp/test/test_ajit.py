@@ -66,53 +66,210 @@ class BasicTests:
         res = self.interp_operations(f, [8, 98])
         assert res == 110
 
-    def test_monte_carlo(self):
+    def test_fft(self):
         import time
-        import random
         import math
+        from rpython.jit.backend.llvm.llvm_api import LLVMAPI
+        llvm = LLVMAPI()
         myjitdriver = JitDriver(greens = [], reds = 'auto')
-        def f(x1, x2, y1, y2, r, n):
-            res = 0.0
+        def f(N, cycles, logn1, pi):
+            twoN = 2*N
+            count = 0
+            data = [f for f in range(twoN)]
+            direction = -1
+            k = 1
+            n = N // 2
+            bit = 0
+            dual = 1
+            log = 0
+            nm1 = n - 1
             i = 0
-            s = 0.0
-            x = 0.0
-            y = 0.0
-            while i < n:
+            j = 0
+            k2 = n >> 1
+            logn = logn1
+            b = 0
+            b2 = 0
+            a = 1
+            w_real = 1.0
+            w_imag = 0.0
+            theta = 2.0 * direction * pi / (2.0 * float(dual))
+            s = llvm.sin(theta)
+            t = llvm.sin(theta / 2.0)
+            s2 = 2.0 * t * t
+            tmp_real = w_real - s * w_imag - s2 * w_real
+            tmp_imag = w_imag + s * w_real - s2 * w_imag
+            w_real = tmp_real
+            w_imag = tmp_imag
+            while count < cycles:
                 myjitdriver.jit_merge_point()
-                x = i
-                y = s
-                s = x
-                if s <= r:
-                    res += s
-                i += 1
-            return (res / n) * 4
+                if k < n:
+                    k *= 2
+                    log += 1
+                elif i < nm1:
+                    if k2 <= j:
+                        j -= k2
+                        k2 >>= 1
+                    else:
+                        ii = i << 1
+                        jj = j << 1
+                        k2 = n >> 1
+                        if i < j:
+                            tmp_real2 = data[ii]
+                            tmp_imag2 = data[ii + 1]
+                            data[ii] = data[jj]
+                            data[ii + 1] = data[jj + 1]
+                            data[jj] = tmp_real2
+                            data[jj + 1] = tmp_imag2
+                        j += k2
+                        i += 1
+                elif bit < logn:
+                    if b < n:
+                        i2 = 2 * b
+                        j2 = 2 * (b + dual)
+                        wd_real = data[j2]
+                        wd_imag = data[j2 + 1]
+                        data[j2] = data[i2] - wd_real
+                        data[j2 + 1] = data[i2 + 1] - wd_imag
+                        data[i2] += wd_real
+                        data[i2 + 1] += wd_imag
+                        b += (2*dual)
+                    elif a < dual:
+                        if b2 < n:
+                            i3 = 2 * (b2 + a)
+                            j3 = 2 * (b2 + a + dual)
+                            z1_real = data[j3]
+                            z1_imag = data[j3 + 1]
+                            wd_real = w_real * z1_real - w_imag * z1_imag
+                            wd_imag = w_real * z1_imag + w_imag * z1_real
+                            data[j3] = data[i3] - wd_real
+                            data[j3 + 1] = data[i3 + 1] - wd_imag
+                            data[i3] += wd_real
+                            data[i3 + 1] += wd_imag
+                            b2 += (2*dual)
+                        else:
+                            tmp_real = w_real - s * w_imag - s2 * w_real
+                            tmp_imag = w_imag + s * w_real - s2 * w_imag
+                            w_real = tmp_real
+                            w_imag = tmp_imag
+                            b2 = 0
+                            a += 1
+                    else:
+                        w_real = 1.0
+                        w_imag = 0.0
+                        theta = 2.0 * direction * pi / (2.0 * float(dual))
+                        s = llvm.sin(theta)
+                        t = llvm.sin(theta / 2.0)
+                        s2 = 2.0 * t * t
+                        bit += 1
+                        dual *= 2
+                        a = 1
+                        b = 0
+                else:
+                    logn = log
+                    k = 1
+                    i = 0
+                    j = 0
+                    n = N // 2
+                    bit = 0
+                    dual = 1
+                    log = 0
+                    count += 1
+
+        N = 4
+        cycles = 2
+        n = N // 2
+        log = 0
+        k = 1
+        while k < n:
+            k *= 2
+            log += 1
+        logn1 = log
+        pi = math.pi
+        time1 = time.time()
+        res = self.meta_interp(f, [N, cycles, logn1, pi])
+        time2 = time.time()
+        print("runtime: "+str(time2-time1))
+        exit(1)
+
+    def test_sor(self):
+        import time
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(omega, n, h, w):
+            G = [[0.0 for i in range(w)] for j in range(h)]
+            p = 0
+            y = 1
+            x = 1
+            while p < n:
+                myjitdriver.jit_merge_point()
+                if y < h - 1:
+                    if x < w - 1:
+                        G[x][y] = (omega * 0.25 * (G[x][y - 1] + G[x][y + 1] + G[x - 1][y]
+                                                   + G[x + 1][y])
+                                   + (1.0 - omega) * G[x][y])
+                        x += 1
+                    else:
+                        x = 1
+                        y += 1
+                else:
+                    y = 1
+                    p += 1
 
         time1 = time.time()
-        res = self.meta_interp(f, (0.0,1.0,0.0,1.0,1.0,1000000000))
+        res = self.meta_interp(f, [1.25, 1000000000, 8, 8])
+        time2 = time.time()
+        print("runtime: "+str(time2-time1))
+        exit(1)
+
+    def test_monte_carlo(self):
+        from rpython.jit.backend.llvm.llvm_api import LLVMAPI
+        llvm = LLVMAPI()
+        import time
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n):
+            seed = 113
+            llvm.seed(seed)
+            under_curve = 0
+            count = 0
+            while count < n:
+                myjitdriver.jit_merge_point()
+                x = llvm.next_double(None)
+                y = llvm.next_double(None)
+                if x * x + y * y <= 1.0:
+                    under_curve += 1
+                count += 1
+            return float(under_curve) / n * 4.0
+
+        time1 = time.time()
+        res = self.meta_interp(f, [1000000])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)
 
     def test_llvm(self):
         import time
-        myjitdriver = JitDriver(greens = [], reds = ['x', 'y', 'res', 'res2'])
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        from rpython.jit.backend.llvm.llvm_api import LLVMAPI
+        llvm = LLVMAPI()
         def f(x, y):
             res = [i for i in range(y)]
             res2 = [i for i in range(x)]
-            while y > 1:
-                myjitdriver.can_enter_jit(x=x, y=y, res=res, res2=res2)
-                myjitdriver.jit_merge_point(x=x, y=y, res=res, res2=res2)
-                if x > 1:
-                    res2[x-2] = (x+y)*res2[x-1]
-                    x -= 1
+
+            i = 0
+            j = 0
+
+            while i < y:
+                myjitdriver.jit_merge_point()
+                if j < x:
+                    res2[j-2] = (j+i)*res2[j-1]
+                    j += 1
                 else:
-                    x = y
-                    res[y-2] = (x*y)+res[y-1]
-                    y -= 1
+                    res[i-2] = (j*i)+res[i-1]
+                    j = 0
+                    i += 1
             return (res, res2)
 
         time1 = time.time()
-        res = self.meta_interp(f, [60, 50])
+        res = self.meta_interp(f, [6000, 500])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)
