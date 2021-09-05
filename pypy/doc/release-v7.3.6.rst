@@ -36,23 +36,31 @@ include:
     implements version 0.0.2.
   - Translation of PyPy into a binary, known to be slow, is now about 40%
     faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
-  - PyPy Windows 64 is now available on conda-forge_, along with over 500
-    commonly used binary packages.
+  - PyPy Windows 64 is now available on conda-forge_, along with over 580
+    commonly used binary packages. This new offering joins the more than 1000
+    conda packages for PyPy on Linux and macOS. Many thanks to the conda-forge
+    maintainers for pushing this forward over the past 18 months.
   - Speed improvements were made to ``io``, ``sum``, ``_ssl`` and more. These
     were done in response to user feedback.
+  - The 3.8 version of the release contains a beta-quality improvement to the
+    JIT. We now better handle situations where a lot of Python code from the
+    same function is turned into machine code, without any inlining. This can
+    happen when Python code gets automatically generated, for
+    example by a string templating engine. Previously, this would either fail
+    to compile or compile very slowly. Performance by the JIT could thus be
+    worse than even the non-JITted interpreter (issue 3402_).
+    In the released 3.8 version we solve this problem by breaking the
+    function into smaller chunks and compiling them step by step.
   - The release of Python3.8 required a concerted effort. We were greatly
     helped by @isidentical (Batuhan Taskaya) and other new contributors.
-  - The 3.8 version of the release contains a beta-quality improvement to the
-    JIT, that we are trying to gain confidence in as well. The improvement
-    tries to better deal with situations where a lot of Python code from the
-    same function is turned into machine code, without any inlining. This kind
-    of situation can occur when Python code gets automatically generated, for
-    example by a string templating engine. Previously, this would prevent
-    compilation of the function and lead to very bad compilation times
-    regardless, leading to much worse performance in such situations than even
-    the interpreter. In the released 3.8 version we solve this problem by
-    chunking up the function into smaller pieces and compiling them step by
-    step.
+  - The 3.8 package now uses the same layout as CPython, and many of the
+    PyPy-specific changes to ``sysconfig``, ``distutils.sysconfig``, and
+    ``distutils.commands.install.py`` have been removed. The ``stdlib`` now
+    is located in ``<base>/lib/pypy3.8`` on ``posix`` systems, and in
+    ``<base>/Lib`` on Windows. The include files on windows remain the same,
+    on ``posix`` they are in ``<base>/include/pypy3.8``. Note we still use the
+    ``pypy`` prefix to prevent mixing the files with CPython (which uses
+    ``python``.
 
 
 We recommend updating. You can find links to download the v7.3.6 releases here:
@@ -220,6 +228,7 @@ Python 3.7 C-API
 .. _3129: https://foss.heptapod.net/pypy/pypy/-/issues/3129
 .. _3353: https://foss.heptapod.net/pypy/pypy/-/issues/3353
 .. _3431: https://foss.heptapod.net/pypy/pypy/-/issues/3431
+.. _3402: https://foss.heptapod.net/pypy/pypy/-/issues/3402
 .. _3472: https://foss.heptapod.net/pypy/pypy/-/issues/3472
 .. _3483: https://foss.heptapod.net/pypy/pypy/-/issues/3483
 .. _3490: https://foss.heptapod.net/pypy/pypy/-/issues/3490
