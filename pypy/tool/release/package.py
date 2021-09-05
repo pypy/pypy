@@ -241,11 +241,11 @@ def create_package(basedir, options, _fake=False):
     else:
         target = pypydir.join('lib').join(IMPLEMENTATION)
     shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
-                    str(target))
+                    str(target),
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also build artifacts like cffi-generated
     # dynamic libs
-                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
