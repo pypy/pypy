@@ -1046,11 +1046,20 @@ if __name__ == '__main__':
         return os.path.abspath(s)
 
     def pypy_find_stdlib(s):
-        from os.path import abspath, join, dirname as dn
+        from os.path import abspath, join, exists, dirname as dn
         thisfile = abspath(__file__)
         root = dn(dn(dn(thisfile)))
-        return [join(root, 'lib-python', '3'),
-                join(root, 'lib_pypy')]
+        pre_build = join(root, 'lib-python', '3')
+        if sys.platform == 'win32':
+            post_build = join(root, 'Lib')
+        else:
+            post_build = join(root, 'lib', 'pypy3.8')
+        if exists(pre_build):
+            return [pre_build, join(root, 'lib_pypy')]
+        elif exists(post_build):
+            return [pre_build, join(root, 'lib_pypy')]
+        raise RuntimeError(
+                f"could not find stdlib in '{pre_build}' and '{post_build'}")
 
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always

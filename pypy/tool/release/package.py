@@ -38,6 +38,7 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
+IMPLEMENTATION = "pypy3.8"
 
 POSIX_EXE = 'pypy3'
 
@@ -235,11 +236,15 @@ def create_package(basedir, options, _fake=False):
     print('* Binaries:', [source.relto(str(basedir))
                           for source, target, target_dir in binaries])
 
+    if ARCH == 'win32':
+        target = pypydir.join('Lib')
+    else:
+        target = pypydir.join('lib').join(IMPLEMENTATION)
+    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
+                    str(target))
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also build artifacts like cffi-generated
     # dynamic libs
-    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
-                    str(pypydir.join('lib-python').join(STDLIB_VER)),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
