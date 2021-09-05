@@ -262,8 +262,9 @@ def create_package(basedir, options, _fake=False):
     with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
         LICENSE.write(license)
     #
-    spdir = pypydir.ensure('site-packages', dir=True)
-    shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
+    spdir = target.ensure('site-packages', dir=True)
+    shutil.copy(str(basedir.join('lib', IMPLEMENTATION, 'site-packages', 'README')),
+                str(spdir))
     #
     if ARCH == 'win32':
         bindir = pypydir
