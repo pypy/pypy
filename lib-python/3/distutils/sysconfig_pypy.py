@@ -10,6 +10,7 @@ available.
 
 import _imp
 import os
+import re
 import sys
 
 from distutils.errors import DistutilsPlatformError
