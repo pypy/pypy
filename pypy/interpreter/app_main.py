@@ -1059,7 +1059,7 @@ if __name__ == '__main__':
         elif exists(post_build):
             return [pre_build, join(root, 'lib_pypy')]
         raise RuntimeError(
-                f"could not find stdlib in '{pre_build}' and '{post_build'}")
+                "could not find stdlib in '{}' and '{}'".format(pre_build, post_build))
 
     def pypy_resolvedirof(s):
         # we ignore the issue of symlinks; for tests, the executable is always
