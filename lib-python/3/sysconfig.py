@@ -46,18 +46,6 @@ _INSTALL_SCHEMES = {
         'scripts': '{base}/bin',
         'data': '{base}',
         },
-    'pypy': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
-        'purelib': '{base}/site-packages',
-        'platlib': '{base}/site-packages',
-        'include':
-            '{installed_base}/include/{implementation_lower}{py_version_short}{abiflags}',
-        'platinclude':
-            '{installed_platbase}/include/{implementation_lower}{py_version_short}{abiflags}',
-        'scripts': '{base}/bin',
-        'data'   : '{base}',
-        },
     'nt': {
         'stdlib': '{installed_base}/Lib',
         'platstdlib': '{base}/Lib',
@@ -67,16 +55,6 @@ _INSTALL_SCHEMES = {
         'platinclude': '{installed_base}/Include',
         'scripts': '{base}/Scripts',
         'data': '{base}',
-        },
-    'pypy_nt': {
-        'stdlib': '{installed_base}/lib-{implementation_lower}',
-        'platstdlib': '{base}/lib-{implementation_lower}',
-        'purelib': '{base}/site-packages',
-        'platlib': '{base}/site-packages',
-        'include': '{installed_base}/include',
-        'platinclude': '{installed_base}/include',
-        'scripts': '{base}/Scripts',
-        'data'   : '{base}',
         },
     'nt_user': {
         'stdlib': '{userbase}/{implementation}{py_version_nodot}',
@@ -126,7 +104,7 @@ _USER_BASE = None
 # NOTE: site.py has copy of this function.
 # Sync it when modify this function.
 def _get_implementation():
-    if '__pypy__' in sys.builtin_module_names:
+    if sys.implementation.name == 'pypy':
         return 'PyPy'
     return 'Python'
 
@@ -213,13 +191,8 @@ def _expand_vars(scheme, vars):
 
 def _get_default_scheme():
     if os.name == 'posix':
-        if '__pypy__' in sys.builtin_module_names:
-            return 'pypy'
         # the default scheme for posix is posix_prefix
         return 'posix_prefix'
-    if os.name == 'nt':
-        if '__pypy__' in sys.builtin_module_names:
-            return 'pypy_nt'
     return os.name
 
 

@@ -75,7 +75,7 @@ import builtins
 import _sitebuiltins
 import io
 
-is_pypy = '__pypy__' in sys.builtin_module_names
+is_pypy = sys.implementation.name == 'pypy'
 
 # Prefixes for site-packages; add additional prefixes like /usr/local here
 PREFIXES = [sys.prefix, sys.exec_prefix]
@@ -345,12 +345,11 @@ def getsitepackages(prefixes=None):
             continue
         seen.add(prefix)
 
-        if is_pypy:
-            sitepackages.append(os.path.join(prefix, "site-packages"))
-            continue
+        implementation = _get_implementation().lower()
+        ver = sys.version_info
         if os.sep == '/':
             sitepackages.append(os.path.join(prefix, "lib",
-                                        "python%d.%d" % sys.version_info[:2],
+                                        f"{implementation}{ver[0]}.{ver[1]}",
                                         "site-packages"))
         else:
             sitepackages.append(prefix)
