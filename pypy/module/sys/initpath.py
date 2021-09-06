@@ -170,13 +170,9 @@ def compute_stdlib_path(state, prefix):
     importlist.append(lib_pypy)
     importlist.append(python_std_lib)
 
-    lib_tk = os.path.join(python_std_lib, 'lib-tk')
-    importlist.append(lib_tk)
-
     # List here the extra platform-specific paths.
-    if not _WIN32:
-        importlist.append(os.path.join(python_std_lib, 'plat-' + PLATFORM))
     if _MACOSX:
+        # Is this still desirable?
         platmac = os.path.join(python_std_lib, 'plat-mac')
         importlist.append(platmac)
         importlist.append(os.path.join(platmac, 'lib-scriptpackages'))

@@ -50,12 +50,6 @@ def test_compute_stdlib_path(tmpdir):
     # we get at least 'dirs', and maybe more (e.g. plat-linux2)
     assert path[:len(dirs)] == map(str, dirs)
 
-def test_include_libtk(tmpdir):
-    lib_pypy, lib_python = build_hierarchy(tmpdir)
-    lib_tk = lib_python.join('lib-tk')
-    path = compute_stdlib_path(None, str(tmpdir))
-    assert lib_tk in path
-
 def test_find_executable(tmpdir, monkeypatch):
     from pypy.module.sys import initpath
     tmpdir = py.path.local(os.path.realpath(str(tmpdir)))
