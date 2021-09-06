@@ -1,8 +1,8 @@
 import py
-from rpython.rlib.listsort import TimSort
+from rpython.rlib.listsort import TimSort, powerloop
 import random, os
 
-from hypothesis import given, strategies as st
+from hypothesis import given, strategies as st, example
 
 def makeset(lst):
     result = {}
@@ -54,3 +54,33 @@ def test_file():
         if fn.ext == '.py': 
             lines1 = fn.readlines()
             sorttest(lines1)
+
+
+def power(s1, n1, n2, n):
+    # from Tim's Python sketch code here: https://bugs.python.org/issue34561
+    assert s1 >= 0
+    assert n1 >= 1 and n2 >= 1
+    assert s1 + n1 + n2 <= n
+    # a = s1 + n1/2
+    # b = s1 + n1 + n2/2 = a + (n1 + n2)/2
+    a = 2*s1 + n1       # 2*a
+    b = a + n1 + n2     # 2*b
+    # Array length has d bits.  Max power is d:
+    #     b/n - a/n = (b-a)/n = (n1 + n2)/2/n >= 2/2/n = 1/n > 1/2**d
+    # So at worst b/n and a/n differ in bit 1/2**d.
+    # a and b have <= d+1 bits. Shift left by d-1 and divide by 2n =
+    # shift left by d-2 and divide by n.  Result is d - bit length of
+    # xor.  After the shift, the numerator has at most d+1 + d-2 = 2*d-1
+    # bits. Any value of d >= n.bit_length() can be used.
+    d = n.bit_length()  # or larger; smaller can fail
+    a = (a << (d-2)) // n
+    b = (b << (d-2)) // n
+    return d - (a ^ b).bit_length()
+
+
+@example(s1=0, n1=2, n2=2, moreitems=0)
+@given(st.integers(min_value=0), st.integers(min_value=2), st.integers(min_value=2), st.integers(min_value=0))
+def test_powerloop_equal_power(s1, n1, n2, moreitems):
+    n = s1 + n1 + n2 + moreitems
+    assert powerloop(s1, n1, n2, n) == power(s1, n1, n2, n)
+
