@@ -1057,7 +1057,7 @@ if __name__ == '__main__':
         if exists(pre_build):
             return [pre_build, join(root, 'lib_pypy')]
         elif exists(post_build):
-            return [pre_build, join(root, 'lib_pypy')]
+            return [post_build, join(root, 'lib_pypy')]
         raise RuntimeError(
                 "could not find stdlib in '{}' and '{}'".format(pre_build, post_build))
 
