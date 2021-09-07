@@ -199,7 +199,8 @@ def get_printable_location(pc, entry_state, bytecode, tstack):
 jitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
                       reds=['self'],
                       virtualizables=['self'],
-                      get_printable_location=get_printable_location)
+                      get_printable_location=get_printable_location,
+                      threaded_code_gen=True)
 
 class Frame(object):
     _virtualizable_ = ['stackpos', 'stack[*]']
