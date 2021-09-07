@@ -104,5 +104,5 @@ class TestLLType(LLJitMixin):
             w_result = interp(code, W_IntObject(intvalue))
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
-        res = self.meta_interp(interp_w, [100], listops=True)
+        res = self.meta_interp(interp_w, [42])
         assert res == -10

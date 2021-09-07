@@ -198,12 +198,10 @@ def get_printable_location(pc, entry_state, bytecode, tstack):
 
 jitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
                       reds=['self'],
-                      virtualizables=['self'],
                       get_printable_location=get_printable_location,
                       threaded_code_gen=True)
 
 class Frame(object):
-    _virtualizable_ = ['stackpos', 'stack[*]']
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
@@ -403,13 +401,24 @@ class Frame(object):
 
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
-                pc += 1
-                if self.is_true():
-                    if pc < target:
-                        pc = target
-                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
-                                                pc=pc, tstack=tstack, self=self)
+                if self.is_true(): # leave marker
+                    if we_are_jitted():
+                        pc += 1
+                        tstack = t_push(pc, tstack)
+                        if not target < pc:
+                            pc = target
+                    else:
+                        if target < pc:
+                            entry_state = target; self.save_state()
+                            jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                    pc=target, tstack=tstack, self=self)
 
+                        pc = target
+                else:
+                    if we_are_jitted():
+                        if not target < pc:
+                            tstack = t_push(target, tstack)
+                    pc += 1
 
             elif opcode == EXIT:
                 if we_are_jitted():
