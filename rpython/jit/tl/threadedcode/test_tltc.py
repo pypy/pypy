@@ -67,6 +67,7 @@ class TestW_Frame:
             tltc.RET, 1
         ]
         res = interp(code, W_IntObject(34))
+        assert res.intvalue == 34 + 12
 
     def test_simple_loop(self):
         code = [
@@ -80,6 +81,7 @@ class TestW_Frame:
             tltc.EXIT,
         ]
         res = interp(code, W_IntObject(100))
+        assert res.intvalue == 0
 
 
 from rpython.jit.metainterp.test.support import LLJitMixin
