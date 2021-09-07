@@ -16,7 +16,7 @@ class TestW_Frame:
         code = [
             tltc.CONST_INT, 123,
             tltc.ADD,
-            tltc.RETURN
+            tltc.EXIT
         ]
         res = interp(code, W_IntObject(123))
         assert res.intvalue == 123 + 123
@@ -25,7 +25,7 @@ class TestW_Frame:
         code = [
             tltc.CONST_INT, 123,
             tltc.SUB,
-            tltc.RETURN
+            tltc.EXIT
         ]
         res = interp(code, W_IntObject(234))
         assert res.intvalue == 234 - 123
@@ -34,7 +34,7 @@ class TestW_Frame:
         code = [
             tltc.CONST_INT, 123,
             tltc.MUL,
-            tltc.RETURN
+            tltc.EXIT
         ]
         res = interp(code, W_IntObject(234))
         assert res.intvalue == 234 * 123
@@ -43,7 +43,47 @@ class TestW_Frame:
         code = [
             tltc.CONST_INT, 123,
             tltc.DIV,
-            tltc.RETURN
+            tltc.EXIT
         ]
         res = interp(code, W_IntObject(234))
         assert res.intvalue == 234 / 123
+
+
+    def test_jump(self):
+        code = [
+            tltc.JUMP, 3,
+            tltc.ADD,
+            tltc.EXIT
+        ]
+        res = interp(code, W_IntObject(234))
+        assert res.intvalue == 234
+
+    def test_call(self):
+        code = [
+            tltc.CALL, 3,
+            tltc.EXIT,
+            tltc.CONST_INT, 12,
+            tltc.ADD,
+            tltc.RET, 1
+        ]
+        res = interp(code, W_IntObject(34))
+
+    def test_simple_loop(self):
+        code = [
+            tltc.DUP,
+            tltc.CONST_INT, 1,
+            tltc.LT,
+            tltc.JUMP_IF, 11,
+            tltc.CONST_INT, 1,
+            tltc.SUB,
+            tltc.JUMP, 0,
+            tltc.EXIT,
+        ]
+        res = interp(code, W_IntObject(100))
+
+
+from rpython.jit.metainterp.test.support import LLJitMixin
+
+class TestLLType(LLJitMixin):
+    def test_jit(self):
+        pass
