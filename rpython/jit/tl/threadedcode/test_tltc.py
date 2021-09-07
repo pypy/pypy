@@ -88,4 +88,19 @@ from rpython.jit.metainterp.test.support import LLJitMixin
 
 class TestLLType(LLJitMixin):
     def test_jit(self):
+        code = [
+            tltc.DUP,
+            tltc.CONST_INT, 1,
+            tltc.LT,
+            tltc.JUMP_IF, 11,
+            tltc.CONST_INT, 1,
+            tltc.SUB,
+            tltc.JUMP, 0,
+            tltc.EXIT,
+        ]
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+        res = self.meta_interp(interp_w, [42], listops=True)
         pass

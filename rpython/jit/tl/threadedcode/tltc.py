@@ -46,13 +46,13 @@ def t_push(pc, next):
 
 
 @dont_look_inside
-def emit_jump(*args):
-    return args[0]
+def emit_jump(pc, t):
+    return pc
 
 
 @dont_look_inside
-def emit_ret(*args):
-    return args[0]
+def emit_ret(pc, w_x):
+    return pc
 
 
 class Frame(object):
@@ -313,7 +313,7 @@ class W_Frame:
 
     @not_in_trace
     def save_state(self):
-        W_Frame.saved_sp = self.sp
+        self.saved_sp = self.sp
         for i in range(self.size):
             self.saved_stack[i] = self.stack[i]
 
@@ -502,7 +502,7 @@ class W_Frame:
                         pc = t
                     else:
                         pc, tstack = tstack.t_pop()
-                        pc = emit_jump(pc, t)
+                        emit_jump(pc, t)
                 else:
                     if t < pc:
                         entry_state = t, tstack
@@ -548,7 +548,7 @@ class W_Frame:
                     else:
                         pc, tstack = tstack.t_pop()
                         w_x = self.pop()
-                        pc = emit_ret(pc, w_x)
+                        emit_ret(pc, w_x)
                 else:
                     return self.pop()
             else:
