@@ -2191,8 +2191,7 @@ class MetaInterp(object):
             raise ChangeFrame
         else:
             try:
-                self.compile_done_with_this_frame(resultbox, live_arg_boxes,
-                                                  greenkey=self.resumekey.original_greenkey)
+                self.compile_done_with_this_frame(resultbox)
             except SwitchToBlackhole as stb:
                 self.aborted_tracing(stb.reason)
             sd = self.staticdata
@@ -2867,7 +2866,7 @@ class MetaInterp(object):
                 target_token.targeting_jitcell_token)
         return target_token
 
-    def compile_done_with_this_frame(self, exitbox, live_arg_boxes=None, greenkey=None):
+    def compile_done_with_this_frame(self, exitbox):
         self.store_token_in_vable()
         sd = self.staticdata
         result_type = self.jitdriver_sd.result_type
@@ -2887,13 +2886,7 @@ class MetaInterp(object):
         else:
             assert False
         self.history.record(rop.FINISH, exits, None, descr=token)
-        if not self.threaded_code_gen:
-            target_token = compile.compile_trace(self, self.resumekey, exits)
-        else:
-            # XXX: special entry point of executing threaded code generation
-            # execute compile_threaded_code in the case of threaded code gen
-            target_token = compile.compile_trace_and_split(self, greenkey,
-                                                           self.resumekey, exits)
+        target_token = compile.compile_trace(self, self.resumekey, exits)
         if target_token is not token:
             compile.giveup()
 

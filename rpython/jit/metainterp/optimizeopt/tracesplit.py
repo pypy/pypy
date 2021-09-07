@@ -164,7 +164,7 @@ class TraceSplitOpt(object):
                 break
             elif op.getopnum() == rop.JUMP:
                 # fdescr, target_token = self._take_fdescr_and_gen_token(token)
-                taret_token = self._create_token(token)
+                target_token = self._create_token(token)
                 label = ResOperation(rop.LABEL, inputargs, target_token)
                 info = TraceSplitInfo(target_token, label, inputargs, faildescr=self.resumekey)
                 current_ops.append(op)
@@ -242,11 +242,10 @@ class TraceSplitOpt(object):
         return False
 
     def _get_name_from_arg(self, arg):
+        assert isinstance(arg, ConstInt)
         box = arg.getvalue()
-        if isinstance(box, AddressAsInt):
-            res = str(box.adr.ptr)
-        else:
-            res = self.metainterp_sd.get_name_from_address(box)
+        assert isinstance(box, AddressAsInt)
+        res = str(box.adr.ptr)
         assert res is not None
         return res
 

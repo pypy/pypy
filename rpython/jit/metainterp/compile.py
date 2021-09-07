@@ -1096,10 +1096,6 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
     """
     metainterp_sd = metainterp.staticdata
     jitdriver_sd = metainterp.jitdriver_sd
-    if isinstance(resumekey, ResumeAtPositionDescr):
-        inline_short_preamble = False
-    else:
-        inline_short_preamble = True
     inputargs = metainterp.history.inputargs[:]
     trace = metainterp.history.trace
     jitdriver_sd = metainterp.jitdriver_sd
@@ -1111,15 +1107,9 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         faildescr=resumekey, entry_bridge=False,
         jd_name=jitdriver_sd.jitdriver.name)
 
-    if ends_with_jump:
-        data = BridgeCompileData(trace, runtime_boxes, resumestorage,
-                                 call_pure_results=call_pure_results,
-                                 enable_opts=enable_opts,
-                                 inline_short_preamble=inline_short_preamble)
-    else:
-        data = SimpleCompileData(trace, resumestorage,
-                                 call_pure_results=call_pure_results,
-                                 enable_opts=enable_opts)
+    data = SimpleCompileData(trace, resumestorage,
+                             call_pure_results=call_pure_results,
+                             enable_opts=enable_opts)
     try:
         info, newops = data.optimize_trace(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo)
