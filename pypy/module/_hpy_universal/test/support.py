@@ -64,8 +64,8 @@ class HPyAppTest(object):
                                               extra_include_dirs=cpyext_include_dirs)
         ExtensionTemplate = self.ExtensionTemplate
 
-        @unwrap_spec(source_template='text', name='text', w_extra_sources=W_Root)
-        def descr_make_module(space, source_template, name='mytest',
+        @unwrap_spec(main_src='text', name='text', w_extra_sources=W_Root)
+        def descr_make_module(space, main_src, name='mytest',
                               w_extra_sources=None):
             if w_extra_sources is None:
                 extra_sources = ()
@@ -73,7 +73,7 @@ class HPyAppTest(object):
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
             py_filename = compiler.compile_module(ExtensionTemplate,
-                                                  source_template, name, extra_sources)
+                                                  main_src, name, extra_sources)
             so_filename = py_filename.replace(".py", ".hpy.so")
             debug = hpy_abi == 'debug'
             w_mod = space.appexec([space.newtext(so_filename),
@@ -119,7 +119,7 @@ class HPyDebugAppTest(HPyAppTest):
     # make self.make_leak_module() available to the tests. Note that this is
     # code which will be run at applevel, and will call self.make_module,
     # which is finally executed at interp-level (see descr_make_module above)
-    w_make_leak_module = _support.HPyDebugTest.make_leak_module
+    #w_make_leak_module = _support.HPyDebugTest.make_leak_module
 
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
