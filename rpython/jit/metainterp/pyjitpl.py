@@ -2659,15 +2659,7 @@ class MetaInterp(object):
             # Found!  Compile it as a loop.
             # raises in case it works -- which is the common case
             self.history.trace.tracing_done()
-            if self.threaded_code_gen:
-                target_token = self.compile_threaded_code(
-                    original_boxes, live_arg_boxes, start)
-                self.raise_if_successful(live_arg_boxes, target_token)
-                self.cancel_count += 1
-                if self.cancelled_too_many_times():
-                    self.staticdata.log('cancelled too many times!')
-                    raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
-            elif self.partial_trace:
+            if self.partial_trace:
                 target_token = self.compile_retrace(
                     original_boxes, live_arg_boxes, start)
                 self.raise_if_successful(live_arg_boxes, target_token)
@@ -2677,9 +2669,13 @@ class MetaInterp(object):
                     self.staticdata.log('cancelled too many times!')
                     raise SwitchToBlackhole(Counters.ABORT_BAD_LOOP)
             else:
-                target_token = self.compile_loop(
-                    original_boxes, live_arg_boxes, start,
-                    use_unroll=can_use_unroll)
+                if self.threaded_code_gen:
+                    target_token = self.compile_threaded_code(
+                        original_boxes, live_arg_boxes, start)
+                else:
+                    target_token = self.compile_loop(
+                        original_boxes, live_arg_boxes, start,
+                        use_unroll=can_use_unroll)
                 self.raise_if_successful(live_arg_boxes, target_token)
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
