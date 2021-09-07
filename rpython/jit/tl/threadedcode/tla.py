@@ -1,12 +1,5 @@
-'''Toy language for threaded code generation'''
-
-import py
-from rpython.jit.tl.tlopcode import *
-from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
-    loop_invariant, elidable, promote, jit_debug, assert_green,
-    AssertGreenFailed, unroll_safe, current_trace_length, look_inside_iff,
-    isconstant, isvirtual, set_param, record_exact_class, not_in_trace)
-
+from rpython.rlib import jit
+from rpython.rlib.jit import JitDriver, we_are_jitted
 
 class TStack:
     _immutable_fields_ = ['pc', 'next']
@@ -25,17 +18,17 @@ class TStack:
 memoization = {}
 
 
-@elidable
+@jit.elidable
 def t_empty():
     return None
 
 
-@elidable
+@jit.elidable
 def t_is_empty(tstack):
     return tstack is None or tstack.pc == -100
 
 
-@elidable
+@jit.elidable
 def t_push(pc, next):
     key = pc, next
     if key in memoization:
@@ -45,84 +38,14 @@ def t_push(pc, next):
     return result
 
 
-@dont_look_inside
+@jit.dont_look_inside
 def emit_jump(pc, t):
     return pc
 
 
-@dont_look_inside
+@jit.dont_look_inside
 def emit_ret(pc, w_x):
     return pc
-
-
-class Frame(object):
-    size = 10
-
-    def __init__(self, bytecode):
-        self.stack = [0] * Frame.size
-        self.sp = 0
-        self.bytecode = bytecode
-
-    @dont_look_inside
-    def push(self, v):
-        self.stack[self.sp] = v
-        self.sp += 1
-
-    @dont_look_inside
-    def pop(self):
-        self.sp -= 1
-        return self.stack[self.sp]
-
-    def copy(self):
-        l = [0] * len(self.stack)
-        x = self.sp
-        for i in range(len(self.stack)):
-            l[i] = self.stack[i]
-        return  l, x
-
-    @dont_look_inside
-    def const_int(self, v):
-        self.push(v)
-
-    @dont_look_inside
-    def dup(self):
-        v = self.pop()
-        self.push(v)
-        self.push(v)
-
-    @dont_look_inside
-    def add(self):
-        y = self.pop()
-        x = self.pop()
-        z = x + y
-        self.push(z)
-
-    @dont_look_inside
-    def sub(self):
-        y = self.pop()
-        x = self.pop()
-        z = x - y
-        self.push(z)
-
-    @dont_look_inside
-    def lt(self):
-        y = self.pop()
-        x = self.pop()
-        if x < y:
-            self.push(0)
-        else:
-            self.push(1)
-
-    @dont_look_inside
-    def is_true(self):
-        return self.pop() != 0
-
-
-def char2int(c):
-    t = ord(c)
-    if t & 128:
-        t = -(-ord(c) & 0xff)
-    return t
 
 
 class W_Object:
@@ -139,29 +62,12 @@ class W_Object:
     def add(self, w_other):
         raise NotImplementedError
 
-    def eq(self, w_other):
-        raise NotImplementedError
-
-    def lt(self, w_other):
-        raise NotImplementedError
-
-    def le(self, w_other):
-        raise NotImplementedError
-
-    def gt(self, w_other):
-        raise NotImplementedError
-
-    def ge(self, w_other):
-        raise NotImplementedError
 
 
 class W_IntObject(W_Object):
 
     def __init__(self, intvalue):
         self.intvalue = intvalue
-
-    def __repr__(self):
-        return self.getrepr()
 
     def getrepr(self):
         return str(self.intvalue)
@@ -238,9 +144,6 @@ class W_StringObject(W_Object):
     def __init__(self, strvalue):
         self.strvalue = strvalue
 
-    def __repr__(self):
-        return self.getrepr()
-
     def getrepr(self):
         return self.strvalue
 
@@ -251,6 +154,7 @@ class W_StringObject(W_Object):
 class OperationError(Exception):
     pass
 
+# ____________________________________________________________
 
 OPNAMES = []
 HASARG = []
@@ -261,29 +165,29 @@ def define_op(name, has_arg=False):
     HASARG.append(has_arg)
 
 define_op("CONST_INT", True)
+define_op("DUP")
 define_op("POP")
-define_op("PUT")
-define_op("PICK")
+
+define_op("LT")
+define_op("EQ")
+
 define_op("ADD")
 define_op("SUB")
 define_op("MUL")
 define_op("DIV")
 
-define_op("EQ")
-define_op("LT")
-define_op("GT")
-
 define_op("EXIT")
-define_op("JUMP")
+define_op("JUMP", True)
 define_op("JUMP_IF", True)
+
 define_op("CALL", True)
 define_op("RET", True)
-define_op("DUP")
 define_op("NEWSTR", True)
 
-del define_op
 
-def get_printable_location(pc, bytecode, entry_state, tstack):
+# ____________________________________________________________
+
+def get_printable_location(pc, entry_state, bytecode, tstack):
     op = ord(bytecode[pc])
     name = OPNAMES[op]
     if HASARG[op]:
@@ -292,79 +196,60 @@ def get_printable_location(pc, bytecode, entry_state, tstack):
         arg = ''
     return "%s: %s %s" % (pc, name, arg)
 
-
-jitdriver = JitDriver(greens=['pc', 'bytecode', 'entry_state', 'tstack'],
+jitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
                       reds=['self'],
-                      get_printable_location=get_printable_location,
-                      threaded_code_gen=True)
+                      virtualizables=['self'],
+                      get_printable_location=get_printable_location)
 
-
-class W_Frame:
+class Frame(object):
+    _virtualizable_ = ['stackpos', 'stack[*]']
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
-        self.size = 8
-        self.stack = [None] * self.size
-        self.sp = 0
+        self.stack = [None] * 8
+        self.stackpos = 0
 
-        self.entry_state = None
-        self.saved_stack = [None] * self.size
-        self.saved_sp = 0
+        self.saved_stack = [None] * 8
+        self.saved_stackpos = 0
 
-    @not_in_trace
+    @jit.not_in_trace
     def save_state(self):
-        self.saved_sp = self.sp
-        for i in range(self.size):
+        self.saved_stackpos = self.stackpos
+        for i in range(len(self.stack)):
             self.saved_stack[i] = self.stack[i]
 
-    @not_in_trace
+    @jit.not_in_trace
     def restore_state(self):
-        for i in range(self.size):
+        for i in range(len(self.stack)):
             self.stack[i] = self.saved_stack[i]
-        self.sp = self.saved_sp
+        self.stackpos = self.saved_stackpos
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def push(self, w_x):
-        self.stack[self.sp] = w_x
-        self.sp += 1
+        self.stack[self.stackpos] = w_x
+        self.stackpos += 1
 
-    @dont_look_inside
+    @jit.dont_look_inside
+    def pop(self):
+        stackpos = self.stackpos - 1
+        assert stackpos >= 0
+        self.stackpos = stackpos
+        res = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return res
+
+    @jit.dont_look_inside
+    def drop(self, n):
+        for _ in range(n):
+            self.pop()
+
+    @jit.dont_look_inside
     def is_true(self):
         w_x = self.pop()
         res = w_x.is_true()
         return res
 
-    @dont_look_inside
-    def pop(self):
-        stackpos = self.sp - 1
-        assert stackpos >= 0
-        self.sp = stackpos
-        res = self.stack[stackpos]
-        self.stack[stackpos] = None
-        return res
-
-    @dont_look_inside
-    def drop(self, n):
-        for _ in range(n):
-            self.pop()
-
-    @dont_look_inside
-    def PUSH(self, pc):
-        x = char2int(self.bytecode[pc])
-        self.push(W_IntObject(x))
-
-    @dont_look_inside
-    def PICK(self, pc):
-        w_x = self.stack(-1 - char2int(self.bytecode[pc]))
-        self.push(w_x)
-
-    @dont_look_inside
-    def DUP(self):
-        w_x = self.pop()
-        self.push(w_x)
-        self.push(w_x)
-
-    @dont_look_inside
+    @jit.dont_look_inside
     def CONST_INT(self, pc):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
@@ -372,55 +257,61 @@ class W_Frame:
         else:
             raise OperationError
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def ADD(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.add(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def SUB(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.sub(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def MUL(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.mul(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def DIV(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.div(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def DUP(self):
         w_x = self.pop()
         self.push(w_x)
         self.push(w_x)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def LT(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.lt(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def GT(self):
         w_y = self.pop()
         w_x = self.pop()
         w_z = w_x.gt(w_y)
         self.push(w_z)
 
-    @dont_look_inside
+    @jit.dont_look_inside
+    def EQ(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        self.push(w_x.eq(w_y))
+
+    @jit.dont_look_inside
     def NE(self):
         w_y = self.pop()
         w_x = self.pop()
@@ -429,74 +320,73 @@ class W_Frame:
         else:
             self.push(W_IntObject(0))
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def RETURN(self):
         return self.pop()
 
-    @dont_look_inside
-    def EQ(self):
-        w_y = self.pop()
-        w_x = self.pop()
-        self.push(w_x.eq(w_y))
-
-    @dont_look_inside
+    @jit.dont_look_inside
     def CALL(self, t):
         res = self.interp(t)
         if res is not None:
             self.push(res)
 
-    @dont_look_inside
+    @jit.dont_look_inside
     def RET(self, n):
         self.drop(n-1)
         return self.pop()
 
-    def interp(self, pc=0,
-               tstack=TStack(-100, None)):
-
-        entry_state = pc, tstack
+    def interp(self, pc=0):
+        tstack = TStack(-100, None)
+        entry_state = 0
         bytecode = self.bytecode
 
         while pc < len(bytecode):
-            jitdriver.jit_merge_point(pc=pc,
-                                      bytecode=bytecode,
-                                      entry_state=entry_state,
-                                      tstack=tstack,
-                                      self=self)
-
+            jitdriver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
+                                      tstack=tstack, pc=pc, self=self)
             opcode = ord(bytecode[pc])
             pc += 1
 
-            if opcode == NOP:
-                pass
-            elif opcode == CONST_INT:
+            if opcode == CONST_INT:
                 self.CONST_INT(pc)
                 pc += 1
-            elif opcode == PUSH:
-                self.PUSH(pc)
+
+            elif opcode == POP:
+                self.pop()
+
             elif opcode == DUP:
                 self.DUP()
-            elif opcode == ADD:
-                self.ADD()
-            elif opcode == SUB:
-                self.SUB()
-            elif opcode == MUL:
-                self.MUL()
-            elif opcode == DIV:
-                self.DIV()
+
             elif opcode == LT:
                 self.LT()
+
             elif opcode == EQ:
                 self.EQ()
+
+            elif opcode == ADD:
+                self.ADD()
+
+            elif opcode == SUB:
+                self.SUB()
+
+            elif opcode == DIV:
+                self.DIV()
+
+            elif opcode == MUL:
+                self.MUL()
+
             elif opcode == CALL:
                 t = ord(bytecode[pc])
                 pc += 1
                 self.CALL(t)
+
             elif opcode == RET:
                 argnum = ord(bytecode[pc])
                 pc += 1
                 return self.RET(argnum)
+
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
+                pc += 1
                 if we_are_jitted():
                     if t_is_empty(tstack):
                         pc = t
@@ -505,58 +395,43 @@ class W_Frame:
                         emit_jump(pc, t)
                 else:
                     if t < pc:
-                        entry_state = t, tstack
-                        self.save_state()
-                        jitdriver.can_enter_jit(pc=t,
-                                                entry_state=entry_state,
-                                                bytecode=bytecode,
-                                                tstack=tstack,
-                                                self=self)
+                        entry_state = t; self.save_state()
+                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                pc=t, tstack=tstack, self=self)
                     pc = t
+
             elif opcode == JUMP_IF:
-                t = ord(bytecode[pc])
+                target = ord(bytecode[pc])
+                pc += 1
                 if self.is_true():
-                    if we_are_jitted():
-                        pc += 1
-                        tstack = t_push(pc, tstack)
-                    else:
-                        if t < pc:
-                            entry_state = t, tstack
-                            self.save_state()
-                            jitdriver.can_enter_jit(pc=t,
-                                                    bytecode=bytecode,
-                                                    entry_state=entry_state,
-                                                    tstack=tstack,
-                                                    self=self)
-                        pc = t
-                else:
-                    if we_are_jitted():
-                        tstack = t_push(t, tstack)
-                    pc += 1
+                    if pc < target:
+                        pc = target
+                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                pc=pc, tstack=tstack, self=self)
+
+
             elif opcode == EXIT:
                 if we_are_jitted():
                     if t_is_empty(tstack):
                         w_x = self.pop()
-                        pc = emit_ret(pc, w_x)
-                        pc, tstack = entry_state
-                        self.restore_state()
-                        jitdriver.can_enter_jit(pc=pc,
-                                                bytecode=bytecode,
-                                                entry_state=entry_state,
-                                                tstack=tstack,
-                                                self=self)
+                        emit_ret(pc, w_x)
+
+                        pc = entry_state;  self.restore_state()
+                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                pc=pc, tstack=tstack, self=self)
                     else:
                         pc, tstack = tstack.t_pop()
                         w_x = self.pop()
                         emit_ret(pc, w_x)
                 else:
                     return self.pop()
+
             else:
-                raise OperationError
+                assert False, 'Unknown opcode: %d' % opcode
 
 
 def run(bytecode, w_arg):
-    w_frame = W_Frame(bytecode)
-    w_frame.push(w_arg)
-    res = w_frame.interp()
-    return res
+    frame = Frame(bytecode)
+    frame.push(w_arg)
+    w_result = frame.interp()
+    return w_result

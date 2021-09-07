@@ -19,7 +19,8 @@ from rpython.rlib.jit import (JitDriver, we_are_jitted, hint, dont_look_inside,
 from rpython.rlib.longlong2float import float2longlong, longlong2float
 from rpython.rlib.rarithmetic import ovfcheck, is_valid_int, int_force_ge_zero
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.jit.tl.threadedcode.tltc import TStack, t_push, t_empty, t_is_empty, Frame
+from rpython.jit.tl.threadedcode.tla import TStack, t_push, t_empty, t_is_empty
+from rpython.jit.tl.threadedcode.frame import Frame
 
 
 def compile_threaded_code():
