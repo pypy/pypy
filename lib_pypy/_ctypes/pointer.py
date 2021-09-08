@@ -100,7 +100,7 @@ class _Pointer(_CData, metaclass=PointerType):
         return instance
 
     def setcontents(self, value):
-        if not isinstance(value, self._type_):
+        if not (isinstance(value, _CData) or isinstance(value, self._type_)):
             raise TypeError("expected %s instead of %s" % (
                 self._type_.__name__, type(value).__name__))
         self._objects = {keepalive_key(1):value}
@@ -197,4 +197,3 @@ def POINTER(cls):
 @builtinify
 def pointer(inst):
     return POINTER(type(inst))(inst)
-
