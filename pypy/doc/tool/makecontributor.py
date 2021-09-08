@@ -1,3 +1,4 @@
+# encoding: utf-8
 from __future__ import print_function
 # NOTE: run this script with LANG=en_US.UTF-8
 # works with pip install mercurial==3.0
@@ -46,7 +47,7 @@ alias = {
     'Eric van Riet Paap': ['ericvrp'],
     'Jacob Hallen': ['jacob', 'jakob', 'jacob hallen'],
     'Anders Lehmann': ['ale', 'anders'],
-    'Bert Freudenberg': ['bert'],
+    'Vanessa Freudenberg': ['bert'],
     'Boris Feigin': ['boris', 'boria'],
     'Valentino Volonghi': ['valentino', 'dialtone'],
     'Aurelien Campeas': ['aurelien', 'aureliene'],

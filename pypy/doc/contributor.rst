@@ -123,7 +123,7 @@ Contributors
   Joannah Nanjekye
   Georg Brandl
   quejebo
-  Bert Freudenberg
+  Vanessa Freudenberg
   Michał Górny
   Gerald Klix
   Wanja Saatkamp
@@ -318,6 +318,7 @@ Contributors
   afteryu
   Andrew Stepanov
   Radu Ciorba
+  Ian Clester
   Carl Bordum Hansen
   Paul Ganssle
   Michal Kuffa
