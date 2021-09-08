@@ -38,6 +38,7 @@ ARCH = get_arch()
 USE_ZIPFILE_MODULE = ARCH == 'win32'
 
 STDLIB_VER = "3"
+IMPLEMENTATION = "pypy3.8"
 
 POSIX_EXE = 'pypy3'
 
@@ -235,12 +236,16 @@ def create_package(basedir, options, _fake=False):
     print('* Binaries:', [source.relto(str(basedir))
                           for source, target, target_dir in binaries])
 
+    if ARCH == 'win32':
+        target = pypydir.join('Lib')
+    else:
+        target = pypydir.join('lib').join(IMPLEMENTATION)
+    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
+                    str(target),
+                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     # Careful: to copy lib_pypy, copying just the hg-tracked files
     # would not be enough: there are also build artifacts like cffi-generated
     # dynamic libs
-    shutil.copytree(str(basedir.join('lib-python').join(STDLIB_VER)),
-                    str(pypydir.join('lib-python').join(STDLIB_VER)),
-                    ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~'))
     shutil.copytree(str(basedir.join('lib_pypy')), str(lib_pypy),
                     ignore=ignore_patterns('.svn', 'py', '*.pyc', '*~',
                                            '*_cffi.c', '*.o', '*.pyd-*', '*.obj',
@@ -257,8 +262,9 @@ def create_package(basedir, options, _fake=False):
     with open(str(pypydir.join('LICENSE')), 'w') as LICENSE:
         LICENSE.write(license)
     #
-    spdir = pypydir.ensure('site-packages', dir=True)
-    shutil.copy(str(basedir.join('site-packages', 'README')), str(spdir))
+    spdir = target.ensure('site-packages', dir=True)
+    shutil.copy(str(basedir.join('lib', IMPLEMENTATION, 'site-packages', 'README')),
+                str(spdir))
     #
     if ARCH == 'win32':
         bindir = pypydir
@@ -391,7 +397,7 @@ def package(*args, **kwds):
                         default=(ARCH in ('darwin', 'aarch64', 'x86_64')),
                         help='whether to embed dependencies in CFFI modules '
                         '(default on OS X)')
-    parser.add_argument('--make-portable',
+    parser.add_argument('--make-portable', '--no-make-portable',
                         dest='make_portable',
                         action=NegateAction,
                         default=(ARCH in ('darwin',)),

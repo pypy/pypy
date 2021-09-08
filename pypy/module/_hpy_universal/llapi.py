@@ -545,25 +545,6 @@ pypy_HPy_FatalError = rffi.llexternal('pypy_HPy_FatalError',
                                       lltype.Void,
                                       compilation_info=eci, _nowrapper=True)
 
-pypy_HPyErr_Occurred = rffi.llexternal('pypy_HPyErr_Occurred', [HPyContext],
-                                       rffi.INT_real,
-                                       compilation_info=eci, _nowrapper=True)
-
-pypy_HPyErr_SetString = rffi.llexternal('pypy_HPyErr_SetString',
-                                        [HPyContext, HPy, rffi.CCHARP],
-                                        lltype.Void,
-                                        compilation_info=eci, _nowrapper=True)
-
-pypy_HPyErr_SetObject = rffi.llexternal('pypy_HPyErr_SetObject',
-                                        [HPyContext, HPy, HPy],
-                                        lltype.Void,
-                                        compilation_info=eci, _nowrapper=True)
-
-pypy_HPyErr_Clear = rffi.llexternal('pypy_HPyErr_Clear',
-                                    [HPyContext],
-                                    lltype.Void,
-                                    compilation_info=eci, _nowrapper=True)
-
 # debug mode
 hpy_debug_get_ctx = rffi.llexternal(
     'pypy_hpy_debug_get_ctx', [HPyContext], HPyContext,

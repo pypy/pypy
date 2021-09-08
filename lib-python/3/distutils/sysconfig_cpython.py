@@ -187,13 +187,14 @@ def customize_compiler(compiler):
                 _osx_support.customize_compiler(_config_vars)
                 _config_vars['CUSTOMIZED_OSX_COMPILER'] = 'True'
 
-        (cc, cxx, cflags, ccshared, ldshared, shlib_suffix, ar, ar_flags) = \
-            get_config_vars('CC', 'CXX', 'CFLAGS',
+        (cc, cxx, opt, cflags, ccshared, ldshared, shlib_suffix, ar, ar_flags) = \
+            get_config_vars('CC', 'CXX', 'OPT', 'CFLAGS',
                             'CCSHARED', 'LDSHARED', 'SHLIB_SUFFIX', 'AR', 'ARFLAGS')
 
         if 'CC' in os.environ:
             newcc = os.environ['CC']
-            if ('LDSHARED' not in os.environ
+            if (sys.platform == 'darwin'
+                    and 'LDSHARED' not in os.environ
                     and ldshared.startswith(cc)):
                 # On OS X, if CC is overridden, use that as the default
                 #       command for LDSHARED as well
@@ -287,6 +288,7 @@ def parse_config_h(fp, g=None):
             if m:
                 g[m.group(1)] = 0
     return g
+
 
 # Regexes needed for parsing Makefile (and similar syntaxes,
 # like old-style Setup files).
@@ -423,6 +425,7 @@ def expand_makefile_vars(s, vars):
         else:
             break
     return s
+
 
 _config_vars = None
 

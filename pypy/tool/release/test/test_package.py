@@ -27,8 +27,11 @@ class TestPackaging:
             _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
-        cpyver = '%d' % CPYTHON_VERSION[0]
-        assert prefix.join('lib-python', cpyver, 'test').check()
+        cpyver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
+        if sys.platform == 'win32':
+            assert prefix.join('lib', 'test').check()
+        else:
+            assert prefix.join('lib', cpyver, 'test').check()
         assert prefix.join(self.exe_name_in_archive).check()
         assert prefix.join('lib_pypy', 'syslog.py').check()
         assert not prefix.join('lib_pypy', 'py').check()
@@ -57,7 +60,10 @@ class TestPackaging:
         includedir = py.path.local(pypydir).dirpath().join('include')
         def check_include(name):
             if includedir.join(name).check(file=True):
-                member = '%s/include/%s' % (test, name)
+                if os.name == 'nt':
+                    member = '%s/include/%s' % (test, name)
+                else:
+                    member = '%s/include/%s/%s' % (test, cpyver, name)
                 if package.USE_ZIPFILE_MODULE:
                     assert zh.open(member)
                 else:

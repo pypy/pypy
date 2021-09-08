@@ -267,14 +267,15 @@ class HelperFunctionsTests(unittest.TestCase):
         site.PREFIXES = ['xoxo']
         dirs = site.getsitepackages()
         if check_impl_detail(pypy=True):
-            self.assertEqual(len(dirs), 1)
-            wanted = os.path.join('xoxo', 'site-packages')
-            self.assertEqual(dirs[0], wanted)
-        elif os.sep == '/':
+            implementation = 'pypy'
+        else:
+            implementation = 'python'
+        ver = sys.version_info
+        if os.sep == '/':
             # OS X, Linux, FreeBSD, etc
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'lib',
-                                  'python%d.%d' % sys.version_info[:2],
+                                  f'{implementations}{ver[0]}.{ver[1]}',
                                   'site-packages')
             self.assertEqual(dirs[0], wanted)
         else:

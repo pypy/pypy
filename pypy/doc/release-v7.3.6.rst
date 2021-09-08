@@ -3,7 +3,7 @@ PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
 =====================================================
 
 ..
-  Changelog up to commit 59269313db10
+  Changelog up to commit fae737d37616
 
 .. note::
   This is a pre-release announcement. When the release actually happens, it
@@ -36,23 +36,31 @@ include:
     implements version 0.0.2.
   - Translation of PyPy into a binary, known to be slow, is now about 40%
     faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
-  - PyPy Windows 64 is now available on conda-forge_, along with over 500
-    commonly used binary packages.
+  - PyPy Windows 64 is now available on conda-forge_, along with over 580
+    commonly used binary packages. This new offering joins the more than 1000
+    conda packages for PyPy on Linux and macOS. Many thanks to the conda-forge
+    maintainers for pushing this forward over the past 18 months.
   - Speed improvements were made to ``io``, ``sum``, ``_ssl`` and more. These
     were done in response to user feedback.
+  - The 3.8 version of the release contains a beta-quality improvement to the
+    JIT. We now better handle situations where a lot of Python code from the
+    same function is turned into machine code, without any inlining. This can
+    happen when Python code gets automatically generated, for
+    example by a string templating engine. Previously, this would either fail
+    to compile or compile very slowly. Performance by the JIT could thus be
+    worse than even the non-JITted interpreter (issue 3402_).
+    In the released 3.8 version we solve this problem by breaking the
+    function into smaller chunks and compiling them step by step.
   - The release of Python3.8 required a concerted effort. We were greatly
     helped by @isidentical (Batuhan Taskaya) and other new contributors.
-  - The 3.8 version of the release contains a beta-quality improvement to the
-    JIT, that we are trying to gain confidence in as well. The improvement
-    tries to better deal with situations where a lot of Python code from the
-    same function is turned into machine code, without any inlining. This kind
-    of situation can occur when Python code gets automatically generated, for
-    example by a string templating engine. Previously, this would prevent
-    compilation of the function and lead to very bad compilation times
-    regardless, leading to much worse performance in such situations than even
-    the interpreter. In the released 3.8 version we solve this problem by
-    chunking up the function into smaller pieces and compiling them step by
-    step.
+  - The 3.8 package now uses the same layout as CPython, and many of the
+    PyPy-specific changes to ``sysconfig``, ``distutils.sysconfig``, and
+    ``distutils.commands.install.py`` have been removed. The ``stdlib`` now
+    is located in ``<base>/lib/pypy3.8`` on ``posix`` systems, and in
+    ``<base>/Lib`` on Windows. The include files on windows remain the same,
+    on ``posix`` they are in ``<base>/include/pypy3.8``. Note we still use the
+    ``pypy`` prefix to prevent mixing the files with CPython (which uses
+    ``python``.
 
 
 We recommend updating. You can find links to download the v7.3.6 releases here:
@@ -69,7 +77,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from 6 new contributors,
+previous release, we have accepted contributions from 7 new contributors,
 thanks for pitching in, and welcome to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
@@ -153,6 +161,10 @@ Speedups and enhancements shared across versions
   function with signature ``'self, space, __args__'`` was missing the
   optimization for that signature, which works with ``interp2app()``.  It's
   used in ``_hpy_universal``.
+- Add an option to the packaging script to force non-portable packaging (issue
+  3538_)
+- Switch to "powersort" merging strategy by Munro and Wild instead the timsort
+  algorithm (`bpo 34561`_)
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -195,6 +207,7 @@ Python 3.7+ speedups and enhancements
   3502_)
 - Check env keys for ``'='`` when calling ``os.execve``
 - Add ``_winapi.GetFileType`` and ``FILE_TYPE_*`` values (issue 3531_)
+- Allow ``ctypes.POINTER()`` to cast `ctypes.array`` (issue 3546_)
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
@@ -219,6 +232,7 @@ Python 3.7 C-API
 .. _3129: https://foss.heptapod.net/pypy/pypy/-/issues/3129
 .. _3353: https://foss.heptapod.net/pypy/pypy/-/issues/3353
 .. _3431: https://foss.heptapod.net/pypy/pypy/-/issues/3431
+.. _3402: https://foss.heptapod.net/pypy/pypy/-/issues/3402
 .. _3472: https://foss.heptapod.net/pypy/pypy/-/issues/3472
 .. _3483: https://foss.heptapod.net/pypy/pypy/-/issues/3483
 .. _3490: https://foss.heptapod.net/pypy/pypy/-/issues/3490
@@ -227,6 +241,9 @@ Python 3.7 C-API
 .. _3514: https://foss.heptapod.net/pypy/pypy/-/issues/3514
 .. _3515: https://foss.heptapod.net/pypy/pypy/-/issues/3515
 .. _3531: https://foss.heptapod.net/pypy/pypy/-/issues/3531
+.. _3538: https://foss.heptapod.net/pypy/pypy/-/issues/3538
+.. _3546: https://foss.heptapod.net/pypy/pypy/-/issues/3546
 .. _`bpo 22557`: https://bugs.python.org/issue22557
 .. _`bpo 44022`: https://bugs.python.org/issue44022
 .. _`bpo 43650`: https://bugs.python.org/issue43650
+.. _`bpo 34561`: https://bugs.python.org/issue34561

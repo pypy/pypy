@@ -195,7 +195,6 @@ class OtherFileTests:
 
         # test that attempts to use line buffering in binary mode cause
         # a warning
-        import pdb; pdb.set_trace()
         with self.assertWarnsRegex(RuntimeWarning, 'line buffering'):
             self._checkBufferSize(1)
 

@@ -46,8 +46,9 @@ class CallbackTracbackTestCase(unittest.TestCase):
             self.assertIsInstance(cm.unraisable.exc_value, exc_type)
             if exc_msg is not None:
                 self.assertEqual(str(cm.unraisable.exc_value), exc_msg)
-            self.assertEqual(cm.unraisable.err_msg,
-                             "Exception ignored on calling ctypes "
+            # PyPy: make this a regexp
+            self.assertRegexpMatches(cm.unraisable.err_msg,
+                             "Exception ignored .* calling ctypes "
                              "callback function")
             self.assertIs(cm.unraisable.object, callback_func)
 
