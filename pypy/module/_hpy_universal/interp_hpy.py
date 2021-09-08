@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
@@ -29,6 +29,7 @@ from pypy.module._hpy_universal import (
     interp_cpy_compat,
     interp_type,
     interp_tracker,
+    interp_import,
     )
 
 # ~~~ Some info on the debug mode ~~~
