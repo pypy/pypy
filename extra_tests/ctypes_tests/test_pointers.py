@@ -90,3 +90,11 @@ def test_memoryview():
     assert struct.unpack('P', m1)[0] == addressof(x)
     m2 = memoryview(p2)
     assert struct.unpack('P', m2)[0] == addressof(p1)
+
+def test_pointer_from_array():
+    A = c_ubyte * 4
+    a = A(19, 72, 0, 23)
+    P = POINTER(c_ubyte)
+    p = P(a)
+    for i in range(len(a)):
+        assert p[i] == a[i]
