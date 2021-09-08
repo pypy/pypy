@@ -161,7 +161,10 @@ Speedups and enhancements shared across versions
   function with signature ``'self, space, __args__'`` was missing the
   optimization for that signature, which works with ``interp2app()``.  It's
   used in ``_hpy_universal``.
-- Add an option to the packaging script to force non-portable packaging (issue 3538_)
+- Add an option to the packaging script to force non-portable packaging (issue
+  3538_)
+- Switch to "powersort" merging strategy by Munro and Wild instead the timsort
+  algorithm (`bpo 34561`_)
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -243,3 +246,4 @@ Python 3.7 C-API
 .. _`bpo 22557`: https://bugs.python.org/issue22557
 .. _`bpo 44022`: https://bugs.python.org/issue44022
 .. _`bpo 43650`: https://bugs.python.org/issue43650
+.. _`bpo 34561`: https://bugs.python.org/issue34561
