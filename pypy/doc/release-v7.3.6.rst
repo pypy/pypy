@@ -77,7 +77,7 @@ We would also like to thank our contributors and encourage new people to join
 the project. PyPy has many layers and we need help with all of them: `PyPy`_
 and `RPython`_ documentation improvements, tweaking popular modules to run
 on PyPy, or general `help`_ with making RPython's JIT even better. Since the
-previous release, we have accepted contributions from 6 new contributors,
+previous release, we have accepted contributions from 7 new contributors,
 thanks for pitching in, and welcome to the project!
 
 If you are a python library maintainer and use C-extensions, please consider
@@ -204,6 +204,7 @@ Python 3.7+ speedups and enhancements
   3502_)
 - Check env keys for ``'='`` when calling ``os.execve``
 - Add ``_winapi.GetFileType`` and ``FILE_TYPE_*`` values (issue 3531_)
+- Allow ``ctypes.POINTER()`` to cast `ctypes.array`` (issue 3546_)
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
@@ -238,6 +239,7 @@ Python 3.7 C-API
 .. _3515: https://foss.heptapod.net/pypy/pypy/-/issues/3515
 .. _3531: https://foss.heptapod.net/pypy/pypy/-/issues/3531
 .. _3538: https://foss.heptapod.net/pypy/pypy/-/issues/3538
+.. _3546: https://foss.heptapod.net/pypy/pypy/-/issues/3546
 .. _`bpo 22557`: https://bugs.python.org/issue22557
 .. _`bpo 44022`: https://bugs.python.org/issue44022
 .. _`bpo 43650`: https://bugs.python.org/issue43650
