@@ -1,17 +1,11 @@
 from .support import HPyTest
 
-
-def unsigned_long_bits():
-    """ Return the number of bits in an unsigned long. """
-    import struct
-    unsigned_long_bytes = len(struct.pack('l', 0))
-    return 8 * unsigned_long_bytes
-
-
 class TestLong(HPyTest):
-
-    ULONG_BITS = unsigned_long_bits()
-    LONG_BITS = ULONG_BITS - 1
+    def unsigned_long_bits(self):
+        """ Return the number of bits in an unsigned long. """
+        import struct
+        unsigned_long_bytes = len(struct.pack('l', 0))
+        return 8 * unsigned_long_bytes
 
     def magic_int(self, v):
         """ Return an instance of a class that implements __int__
@@ -126,7 +120,7 @@ class TestLong(HPyTest):
             @INIT
         """)
         assert mod.f(45) == 45
-        assert mod.f(-1) == 2**self.ULONG_BITS - 1
+        assert mod.f(-1) == 2**self.unsigned_long_bits() - 1
         with pytest.raises(TypeError):
             mod.f("this is not a number")
         assert mod.f(self.magic_int(2)) == 2
