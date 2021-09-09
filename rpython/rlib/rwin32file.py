@@ -282,12 +282,6 @@ def make_win32_traits(traits):
             rwin32.BOOL,
             save_err=rffi.RFFI_SAVE_LASTERROR)
 
-        CloseFile = external(
-            'CloseFile',
-            [rwin32.HANDLE],
-            rwin32.DWORD,
-            save_err=rffi.RFFI_SAVE_LASTERROR)
-
         TagInfoSize = 2 * rffi.sizeof(rwin32.DWORD)
 
     return Win32Traits

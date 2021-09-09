@@ -787,7 +787,7 @@ if _WIN32:
             if fileType != traits.FILE_TYPE_DISK:
                 errcode = rwin32.GetLastError_saved()
                 if fileType == traits.FILE_TYPE_UNKNOWN and errcode != 0:
-                    traits.CloseFile(hFile)
+                    rwin32.CloseHandle(hFile)
                     raise WindowsError(errcode, "os_stat failed")
                 fileAttributes = widen(traits.GetFileAttributes(path))
                 st_mode = 0
@@ -801,7 +801,7 @@ if _WIN32:
                 elif fileType == traits.FILE_TYPE_PIPE:
                     # \\.\pipe\spam
                     st_mode = traits._S_IFIFO
-                traits.CloseFile(hFile)
+                rwin32.CloseHandle(hFile)
                 result = (st_mode,
                   0, 0, 0, 0, 0,
                   0,
@@ -823,21 +823,21 @@ if _WIN32:
                                     rwin32.DWORD, traits.FILE_ATTRIBUTE_NORMAL)
                         tagInfo.c_ReparseTag = rffi.cast(rwin32.DWORD, 0)
                     else:
-                        traits.CloseFile(hFile)
+                        rwin32.CloseHandle(hFile)
                         raise WindowsError(errcode, "os_stat failed")
                 elif widen(tagInfo.c_FileAttributes) & traits.FILE_ATTRIBUTE_REPARSE_POINT:
                     if IsReparseTagNameSurrogate(tagInfo.c_ReparseTag):
                         if isUnhandledTag:
                             # Traversing previously failed for either this
                             # link or its target.
-                            traits.CloseFile(hFile)
+                            rwin32.CloseHandle(hFile)
                             raise WindowsError(
                                 traits.ERROR_CANT_ACCESS_FILE,
                                 "os_stat failed")
                     # Traverse a non-link, but not if traversing already
                     # failed for an unhandled tag.
                     elif not isUnhandledTag:
-                        traits.CloseFile(hFile)
+                        rwin32.CloseHandle(hFile)
                         return win32_xstat_impl(traits, path, True, fileInfo, tagInfo)
 
         res = traits.GetFileInformationByHandle(hFile, fileInfo)
