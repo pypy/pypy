@@ -2680,7 +2680,7 @@ class MetaInterp(object):
                 # creation of the loop was cancelled!
                 self.cancel_count += 1
                 if self.cancelled_too_many_times():
-                    if can_use_unroll:
+                    if can_use_unroll and (not self.threaded_code_gen):
                         # try one last time without unrolling
                         target_token = self.compile_loop(
                             original_boxes, live_arg_boxes, start,
