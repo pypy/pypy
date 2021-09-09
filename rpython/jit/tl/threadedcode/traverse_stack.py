@@ -19,12 +19,12 @@ memoization = {}
 
 @jit.elidable
 def t_empty():
-    return None
+    return TStack(-42, None)
 
 
 @jit.elidable
 def t_is_empty(tstack):
-    return tstack is None or tstack.pc == -100
+    return tstack.pc == -42 and tstack.next is None
 
 
 @jit.elidable

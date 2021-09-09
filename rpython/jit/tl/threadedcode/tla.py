@@ -299,7 +299,7 @@ class Frame(object):
         return self.pop()
 
     def interp(self, pc=0):
-        tstack = TStack(-100, None)
+        tstack = t_empty()
         entry_state = 0
         bytecode = self.bytecode
 

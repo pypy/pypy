@@ -83,7 +83,7 @@ class BasicTests:
                                 get_printable_location=opcode_to_string,
                                 threaded_code_gen=True)
         def interp(x):
-            tstack = TStack(-100, None)
+            tstack = t_empty()
             pc = 0
             # bytecode = [NOP, JUMP_IF, 5, JUMP, 8, SUB, JUMP, 1, EXIT]
             bytecode = [NOP, SUB, JUMP_IF, 1, EXIT]
@@ -196,7 +196,7 @@ class BasicTests:
             frame.sp = saved_sp
 
         def interp(x):
-            tstack = TStack(-100, None)
+            tstack = t_empty()
             pc = 0
             bytecode = [ NOP,
                          DUP,
@@ -329,7 +329,7 @@ class BasicTests:
             frame.sp = saved_sp
 
         def interp(x):
-            tstack = TStack(-100, None)
+            tstack = t_empty()
             pc = 0
             bytecode = [ DUP,
                          CONST, 0,
