@@ -1,6 +1,8 @@
 import py
 import sys
 import re
+import pytest
+
 from rpython.rlib.rarithmetic import intmask
 from rpython.rlib.rarithmetic import LONG_BIT
 from rpython.rlib.rjitlog import rjitlog as jl
@@ -176,6 +178,9 @@ class BaseTestTraceSplit(test_dependency.DependencyBaseTest):
             enable_opts=self.enable_opts)
         info, ops = compile_data.optimize_trace(self.metainterp_sd, self.jitdriver_sd, {})
         return trace, info, ops, token
+
+    def create_opt(self):
+        return TraceSplitOpt(self.metainterp_sd, self.jitdriver_sd, {}, None)
 
     def split(self, ops, call_pure_results=None, split_func=None):
         trace, info, ops, token = self.optimize(ops, call_pure_results)
@@ -489,3 +494,46 @@ class TestOptTraceSplit(BaseTestTraceSplit):
         jump(p0)
         """
         self.assert_target_token(ops)
+
+
+    def test_remove_useless_guards(self):
+
+        ops = """
+        [p0]
+        i13 = call_i(ConstClass(emit_jump_ptr), 11, 0, descr=emit_jump_descr)
+        i15 = int_lt(i13, 15)
+        guard_true(i15, descr=<ResumeGuardDescr object at 0x7f46429a6230>) [i13, p0]
+        guard_value(i13, 11, descr=<ResumeGuardCopiedDescr object at 0x7f46429a8060>) [i13, p0]
+        call_n(ConstClass(func_ptr), p0, 12, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6288>) [p0]
+        call_n(ConstClass(func_ptr), p0, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a62e0>) [p0]
+        p21 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6338>) [p21, p0]
+        i24 = call_i(ConstClass(emit_ret_ptr), 0, p21, descr=emit_ret_descr)
+        i26 = int_lt(i24, 15)
+        guard_true(i26, descr=<ResumeGuardDescr object at 0x7f46429a6390>) [i24, p0]
+        guard_value(i24, 0, descr=<ResumeGuardCopiedDescr object at 0x7f46429a80a0>) [i24, p0]
+        jump(p0)
+        """
+
+        expected = """
+        [p0]
+        i13 = call_i(ConstClass(emit_jump_ptr), 11, 0, descr=emit_jump_descr)
+        call_n(ConstClass(func_ptr), p0, 12, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6288>) [p0]
+        call_n(ConstClass(func_ptr), p0, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a62e0>) [p0]
+        p21 = call_r(ConstClass(func_ptr), p0, descr=calldescr)
+        guard_no_exception(descr=<ResumeGuardExcDescr object at 0x7f46429a6338>) [p21, p0]
+        i24 = call_i(ConstClass(emit_ret_ptr), 0, p21, descr=emit_ret_descr)
+        jump(p0)
+        """
+
+        trace, info, ops, token = self.optimize(ops)
+        optimized = self.create_opt().remove_guards(ops)
+
+        exp = parse(expected, namespace=self.namespace)
+
+        for op1, op2 in zip(optimized, exp.operations):
+            assert op1.opnum == op2.opnum

@@ -1,4 +1,5 @@
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
+from rpython.rlib.rstring import find
 from rpython.rlib.rjitlog import rjitlog as jl
 from rpython.rlib.objectmodel import specialize, we_are_translated
 from rpython.jit.metainterp.history import (
@@ -17,7 +18,6 @@ from rpython.jit.metainterp.resoperation import (
     rop, OpHelpers, ResOperation, InputArgRef, InputArgInt,
     InputArgFloat, InputArgVector, GuardResOp)
 
-from pprint import pprint
 
 class mark(object):
     JUMP = "emit_jump"
@@ -103,7 +103,8 @@ class TraceSplitOpt(object):
 
                 current_ops.append(op)
             elif rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
-                name = self._get_name_from_arg(op.getarg(0))
+                arg = op.getarg(0)
+                name = self._get_name_from_arg(arg)
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
                     target_token = self._create_token(token)
@@ -196,14 +197,13 @@ class TraceSplitOpt(object):
         newops = []
         for op in oplist:
             can_be_recorded = True
-            if op.is_guard():
-                for arg in op.getarglist():
-                    if arg in pseudo_ops:
-                        can_be_recorded = False
-                        break
-                if can_be_recorded:
-                    newops.append(op)
-            else:
+            args = op.getarglist()
+            for arg in args:
+                if arg in pseudo_ops:
+                    can_be_recorded = False
+                    pseudo_ops.append(op)
+                    break
+            if can_be_recorded:
                 newops.append(op)
 
         return newops
@@ -234,20 +234,26 @@ class TraceSplitOpt(object):
         return False
 
     def _is_pseudo_op(self, op):
-        if rop.is_plain_call(op.getopnum()):
+        opnum = op.getopnum()
+        if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
             arg = op.getarg(0)
             name = self._get_name_from_arg(arg)
-
-            return mark.is_pseudo_op(name)
+            if name:
+                return mark.is_pseudo_op(name)
+            else:
+                return False
         return False
 
     def _get_name_from_arg(self, arg):
-        assert isinstance(arg, ConstInt)
-        box = arg.getvalue()
-        assert isinstance(box, AddressAsInt)
-        res = str(box.adr.ptr)
-        assert res is not None
-        return res
+        if isinstance(arg, ConstInt):
+            addr = arg.getaddr()
+            res = self.metainterp_sd.get_name_from_address(addr)
+            if res:
+                return res
+
+        # TODO: explore more precise way
+        return ''
+
 
     def _is_guard_marked(self, guard_op, ops, mark):
         "Check if the guard_op is marked"
@@ -258,7 +264,11 @@ class TraceSplitOpt(object):
             if rop.is_plain_call(opnum) or rop.is_call_may_force(opnum):
                 if op in guard_args:
                     name = self._get_name_from_arg(op.getarg(0))
-                    return name.find(mark) != -1
+                    end = len(name)
+                    if name is None:
+                        return False
+                    else:
+                        return name.find(mark) != -1
         return False
 
     def _has_marker(self, oplist, arg, marker):
