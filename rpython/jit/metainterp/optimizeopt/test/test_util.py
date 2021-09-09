@@ -509,7 +509,7 @@ class FakeMetaInterpStaticData(object):
         try:
             return "".join(addr.ptr.name.chars)
         except AttributeError:
-            return ""
+            return str(addr.ptr)
 
 class Info(object):
     def __init__(self, preamble, short_preamble=None, virtual_state=None):
@@ -539,8 +539,9 @@ class BaseTest(LLtypeMixin):
             res.operations.insert(-1, guard)
 
     @staticmethod
-    def assert_equal(optimized, expected, text_right=None):
-        assert len(optimized.inputargs) == len(expected.inputargs)
+    def assert_equal(optimized, expected, text_right=None, test_inputs=True):
+        if test_inputs:
+            assert len(optimized.inputargs) == len(expected.inputargs)
         remap = {}
         for box1, box2 in zip(optimized.inputargs, expected.inputargs):
             assert box1.type == box2.type
