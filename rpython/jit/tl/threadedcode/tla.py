@@ -355,7 +355,7 @@ class Frame(object):
                         pc = t
                     else:
                         pc, tstack = tstack.t_pop()
-                        emit_jump(pc, t)
+                    pc = emit_jump(pc, t)
                 else:
                     if t < pc:
                         entry_state = t; self.save_state()
@@ -369,8 +369,7 @@ class Frame(object):
                     if we_are_jitted():
                         pc += 1
                         tstack = t_push(pc, tstack)
-                        if not target < pc:
-                            pc = target
+                        pc = target
                     else:
                         if target < pc:
                             entry_state = target; self.save_state()
@@ -380,23 +379,21 @@ class Frame(object):
                         pc = target
                 else:
                     if we_are_jitted():
-                        if not target < pc:
-                            tstack = t_push(target, tstack)
+                        tstack = t_push(target, tstack)
                     pc += 1
 
             elif opcode == EXIT:
                 if we_are_jitted():
                     if t_is_empty(tstack):
                         w_x = self.pop()
-                        emit_ret(pc, w_x)
-
                         pc = entry_state;  self.restore_state()
+                        pc = emit_ret(pc, w_x)
                         jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                 pc=pc, tstack=tstack, self=self)
                     else:
                         pc, tstack = tstack.t_pop()
                         w_x = self.pop()
-                        emit_ret(pc, w_x)
+                        pc = emit_ret(pc, w_x)
                 else:
                     return self.pop()
 
@@ -406,6 +403,7 @@ class Frame(object):
 
 def run(bytecode, w_arg):
     frame = Frame(bytecode)
+    frame.push(w_arg)
     frame.push(w_arg)
     w_result = frame.interp()
     return w_result
