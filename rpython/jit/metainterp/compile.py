@@ -1137,6 +1137,7 @@ def compile_trace_and_split(metainterp, greenkey, resumekey, runtime_boxes,
         splitted = data.split(
             metainterp_sd, jitdriver_sd, metainterp.box_names_memo,
             newops, info.inputargs)
+        debug_print("splitted trace: len %d" % (len(splitted)))
         (body_info, body_ops), bridges = splitted[0], splitted[1:]
     except InvalidLoop:
         metainterp_sd.jitlog.trace_aborted()
