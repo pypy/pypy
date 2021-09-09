@@ -835,6 +835,22 @@ def _env2interp(space, w_env):
         env[space.text0_w(w_key)] = space.text0_w(w_value)
     return env
 
+def _env2interp(space, w_env):
+    env = {}
+    w_keys = space.call_method(w_env, 'keys')
+    for w_key in space.unpackiterable(w_keys):
+        w_value = space.getitem(w_env, w_key)
+        key = space.text0_w(w_key)
+        val = space.text0_w(w_value)
+        # Search from index 1 because on Windows starting '=' is allowed for
+        # defining hidden environment variables
+        if len(key) == 0 or '=' in key[1:]:
+            raise oefmt(space.w_ValueError,
+                "illegal environment variable name")
+        env[key] = val
+    return env
+
+
 @unwrap_spec(command='fsencode')
 def execve(space, command, w_args, w_env):
     """ execve(path, args, env)
