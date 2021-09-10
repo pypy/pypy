@@ -1783,3 +1783,73 @@ class AppTestFlags(AppTestCpythonExtensionBase):
             pass
         assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
         assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
+
+    def test_derived_tp_new(self):
+        noddy = self.import_extension('noddy', [
+           ("unused", "METH_NOARGS",
+            '''
+                Py_RETURN_TRUE;
+            ''')], prologue='''
+                typedef struct
+                {
+                    PyObject_HEAD
+                    int x;
+                } Noddy;
+
+                static PyObject *
+                Noddy_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+                {
+                    Noddy *self;
+                    printf("In Noddy_new\\n"); fflush(stdout);
+
+                    self = (Noddy *)type->tp_alloc(type, 0);
+                    if (self != NULL) {
+                        self->x = 42;
+                    }
+
+                    return (PyObject *)self;
+                }
+
+                static PyObject *
+                Noddy_value(Noddy *self)
+                {
+                    return PyLong_FromLong(self->x);
+                }
+
+                static PyMethodDef Noddy_methods[] = {
+                    {"value", (PyCFunction)Noddy_value, METH_NOARGS,
+                     "Return the value" },
+                    {NULL}  /* Sentinel */
+                };
+                #if PY_MAJOR_VERSION > 2
+                #define PyString_FromString PyUnicode_FromString
+                #endif
+            ''', more_init ='''
+                PyHeapTypeObject *heap_type = 
+                    (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
+                heap_type->ht_name = PyString_FromString("Noddy");
+                heap_type->ht_type.tp_name = "noddy.Noddy";
+                heap_type->ht_type.tp_new = Noddy_new;
+                heap_type->ht_type.tp_basicsize = sizeof(Noddy);
+                heap_type->ht_type.tp_methods = Noddy_methods;
+                heap_type->ht_type.tp_flags = 
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
+                //heap_type->ht_type = noddy_NoddyType;
+                if (PyType_Ready(&heap_type->ht_type) < 0)
+                    INITERROR;
+                Py_INCREF(heap_type);
+                PyModule_AddObject(mod, "Noddy", (PyObject *)heap_type);
+
+            ''')
+        class Mixin(object):
+            pass
+
+        class Derived(Mixin, noddy.Noddy):
+            def __init__(self):
+                Mixin.__init__(self)
+                noddy.Noddy.__init__(self)
+
+
+        b = Derived()
+        print(b.value())
+        assert b.value() == 42
