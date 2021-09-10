@@ -1784,7 +1784,7 @@ class AppTestFlags(AppTestCpythonExtensionBase):
         assert module.test_pypy_flags(float, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
         assert module.test_pypy_flags(MyFloat, Py_TPPYPYFLAGS_FLOAT_SUBCLASS) == 0
 
-    def test_derived_tp_new(self):
+    def test_fromspec(self):
         noddy = self.import_extension('noddy', [
            ("unused", "METH_NOARGS",
             '''
@@ -1825,20 +1825,22 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 #define PyString_FromString PyUnicode_FromString
                 #endif
             ''', more_init ='''
-                PyHeapTypeObject *heap_type = 
-                    (PyHeapTypeObject *) PyType_Type.tp_alloc(&PyType_Type, 0);
-                heap_type->ht_name = PyString_FromString("Noddy");
-                heap_type->ht_type.tp_name = "noddy.Noddy";
-                heap_type->ht_type.tp_new = Noddy_new;
-                heap_type->ht_type.tp_basicsize = sizeof(Noddy);
-                heap_type->ht_type.tp_methods = Noddy_methods;
-                heap_type->ht_type.tp_flags = 
-                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;
-                //heap_type->ht_type = noddy_NoddyType;
-                if (PyType_Ready(&heap_type->ht_type) < 0)
+                PyType_Slot slots[] = {
+                    { Py_tp_doc, "Noddy class" },
+                    { Py_tp_new, Noddy_new },
+                    { Py_tp_methods, Noddy_methods },
+                    { 0 },
+                };
+                PyType_Spec spec = { "noddy.Noddy", 
+                    sizeof(Noddy), 0,
+                    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE,
+                    slots, 
+                };
+                PyObject *heap_type = (PyObject *)PyType_FromSpec(&spec);
+                if (heap_type == NULL)
                     INITERROR;
                 Py_INCREF(heap_type);
-                PyModule_AddObject(mod, "Noddy", (PyObject *)heap_type);
+                PyModule_AddObject(mod, "Noddy", heap_type);
 
             ''')
         class Mixin(object):
@@ -1849,6 +1851,9 @@ class AppTestFlags(AppTestCpythonExtensionBase):
                 Mixin.__init__(self)
                 noddy.Noddy.__init__(self)
 
+        a = noddy.Noddy()
+        print(a.value())
+        assert a.value() == 42
 
         b = Derived()
         print(b.value())
