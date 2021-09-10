@@ -1,9 +1,17 @@
+import os
 import shutil
+import sys
 import textwrap
 
 from os.path import dirname, join, exists
 
-include = join(dirname(__file__), '..', '..', '..', 'include')
+from pypy.module.sys import version
+
+if sys.platform == 'win32':
+    include = join(dirname(__file__), '..', '..', '..', 'include')
+else:
+    cpyver = 'pypy{}.{}'.format(*version.CPYTHON_VERSION[:2])
+    include = join(dirname(__file__), '..', '..', '..', 'include', cpyver)
 assert exists(include)
 cpyext_include = join(dirname(__file__), '..', 'cpyext', 'include')
 

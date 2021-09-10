@@ -57,10 +57,13 @@ class TestPackaging:
 
         # the headers file could be not there, because they are copied into
         # trunk/include only during translation
-        includedir = py.path.local(pypydir).dirpath().join('include')
+        if sys.platform == 'win32':
+            includedir = py.path.local(pypydir).dirpath().join('include')
+        else:
+            includedir = py.path.local(pypydir).dirpath().join('include', cpyver)
         def check_include(name):
             if includedir.join(name).check(file=True):
-                if os.name == 'nt':
+                if sys.platform == 'win32':
                     member = '%s/include/%s' % (test, name)
                 else:
                     member = '%s/include/%s/%s' % (test, cpyver, name)
