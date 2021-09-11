@@ -15,16 +15,17 @@ class TStack:
 
 
 memoization = {}
+_T_EMPTY = TStack(-42, None)
 
 
 @jit.elidable
 def t_empty():
-    return TStack(-42, None)
+    return _T_EMPTY
 
 
 @jit.elidable
 def t_is_empty(tstack):
-    return tstack.pc == -42 and tstack.next is None
+    return tstack is _T_EMPTY
 
 
 @jit.elidable
