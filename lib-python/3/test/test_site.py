@@ -275,7 +275,7 @@ class HelperFunctionsTests(unittest.TestCase):
             # OS X, Linux, FreeBSD, etc
             self.assertEqual(len(dirs), 1)
             wanted = os.path.join('xoxo', 'lib',
-                                  f'{implementations}{ver[0]}.{ver[1]}',
+                                  f'{implementation}{ver[0]}.{ver[1]}',
                                   'site-packages')
             self.assertEqual(dirs[0], wanted)
         else:
