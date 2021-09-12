@@ -17,7 +17,7 @@ Process for upgrading the stdlib to a new cpython version
    2g. fix copies / renames manually by running `hg copy --after <from> <to>` for each copied file
 3. update stdlib-version.txt with the output of `git status` from the cpython repo
 4. commit
-5. update to py3.8
+5. update to py3.7
 6. create a integration branch for the new stdlib
    (just hg branch stdlib-$version)
 7. merge vendor/stdlib or vendor/stdlib-3-*
