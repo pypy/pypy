@@ -94,16 +94,6 @@ def PyCodec_Decode(space, object, encoding, errors):
     LookupError if no encoder can be found."""
     raise NotImplementedError
 
-@cpython_api([rffi.CCHARP], PyObject)
-def PyCodec_Encoder(space, encoding):
-    """Get an encoder function for the given encoding."""
-    raise NotImplementedError
-
-@cpython_api([rffi.CCHARP], PyObject)
-def PyCodec_Decoder(space, encoding):
-    """Get a decoder function for the given encoding."""
-    raise NotImplementedError
-
 @cpython_api([rffi.CCHARP, PyObject, rffi.CCHARP], PyObject)
 def PyCodec_StreamReader(space, encoding, stream, errors):
     """Get a StreamReader factory function for the given encoding."""
@@ -257,19 +247,6 @@ def PyDict_MergeFromSeq2(space, a, seq2, override):
             if override or key not in a:
                 a[key] = value
     """
-    raise NotImplementedError
-
-@cpython_api([rffi.INT_real], PyObject)
-def PyErr_SetFromWindowsErr(space, ierr):
-    """This is a convenience function to raise WindowsError. If called with
-    ierr of 0, the error code returned by a call to GetLastError()
-    is used instead.  It calls the Win32 function FormatMessage() to retrieve
-    the Windows description of error code given by ierr or GetLastError(),
-    then it constructs a tuple object whose first item is the ierr value and whose
-    second item is the corresponding error message (gotten from
-    FormatMessage()), and then calls PyErr_SetObject(PyExc_WindowsError,
-    object). This function always returns NULL. Availability: Windows.
-    Return value: always NULL."""
     raise NotImplementedError
 
 @cpython_api([PyObject, rffi.INT_real], PyObject)
@@ -1134,15 +1111,6 @@ def PyMarshal_ReadLastObjectFromFile(space, file):
     file.  Only use these variant if you are certain that you won't be reading
     anything else from the file.  On error, sets the appropriate exception
     (EOFError or TypeError) and returns NULL."""
-    raise NotImplementedError
-
-@cpython_api([PyObject, rffi.INT_real, lltype.Char], PyObject)
-def PyMemoryView_GetContiguous(space, obj, buffertype, order):
-    """Create a memoryview object to a contiguous chunk of memory (in either
-    'C' or 'F'ortran order) from an object that defines the buffer
-    interface. If memory is contiguous, the memoryview object points to the
-    original memory. Otherwise, a copy is made and the memoryview points to a
-    new bytes object."""
     raise NotImplementedError
 
 @cpython_api([], rffi.INT_real, error=-1)
