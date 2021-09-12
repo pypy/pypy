@@ -19,7 +19,7 @@ three different interpreters:
     backported security updates)
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.10.
+    Python 3.7, including the stdlib for CPython 3.7.12.
 
   - PyPy3.8, which is an interpreter supporting the syntax and the features of
     Python 3.8, including the stdlib for CPython 3.8.12. Since this is our
@@ -208,6 +208,7 @@ Python 3.7+ speedups and enhancements
 - Check env keys for ``'='`` when calling ``os.execve``
 - Add ``_winapi.GetFileType`` and ``FILE_TYPE_*`` values (issue 3531_)
 - Allow ``ctypes.POINTER()`` to cast `ctypes.array`` (issue 3546_)
+- Update the stdlib to v3.7.12
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
