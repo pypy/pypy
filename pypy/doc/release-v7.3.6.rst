@@ -36,7 +36,7 @@ include:
     implements version 0.0.2.
   - Translation of PyPy into a binary, known to be slow, is now about 40%
     faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
-  - PyPy Windows 64 is now available on conda-forge_, along with over 580
+  - PyPy Windows 64 is now available on conda-forge_, along with over 600
     commonly used binary packages. This new offering joins the more than 1000
     conda packages for PyPy on Linux and macOS. Many thanks to the conda-forge
     maintainers for pushing this forward over the past 18 months.
@@ -165,6 +165,7 @@ Speedups and enhancements shared across versions
   3538_)
 - Switch to "powersort" merging strategy by Munro and Wild instead the timsort
   algorithm (`bpo 34561`_)
+- Check env keys for ``'='`` when calling ``os.execve``
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -176,7 +177,7 @@ Python 3.7+ bugfixes
 --------------------
 - Fix MemoryError on zip.read in shutil._unpack_zipfile for large files `bpo
   43650`_ 
-- Fix some issues around the ``obj`` field of ``memoryview``s, and add missing
+- Fix some issues around the ``obj`` field of ``memoryview``, and add missing
   ``toreadonly``.
 - Fix ``re.sub()`` with no match and with unusual types of arguments (issue
   3515_)
@@ -205,7 +206,6 @@ Python 3.7+ speedups and enhancements
 - Support HPy 0.0.2
 - Use CPython list of consts in ``os.{confstr,pathconf,sysconf}_names`` (issue
   3502_)
-- Check env keys for ``'='`` when calling ``os.execve``
 - Add ``_winapi.GetFileType`` and ``FILE_TYPE_*`` values (issue 3531_)
 - Allow ``ctypes.POINTER()`` to cast `ctypes.array`` (issue 3546_)
 - Update the stdlib to v3.7.12
@@ -215,7 +215,7 @@ Python 3.7 C-API
 - Add PEP 495 c-api ``TimeAndFold`` datetime constructors (issue 2987_)
 - Allow ``NULL`` in ``PyErr_WriteUnraisable`` (issue 3353_)
 - Support ``*TimeZone*`` functions in datetime
-- Add slot functions so ``int(x)`` and ``float(x)` work properly where
+- Add slot functions so ``int(x)`` and ``float(x)`` work properly where
   ``x`` is a c-extension class
 - When creating a ``PyUnicodeObject``, use the compact form to store the data
   directly on the object and not via an additional buffer. This is used in
