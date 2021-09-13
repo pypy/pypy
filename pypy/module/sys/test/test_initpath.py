@@ -1,9 +1,8 @@
 import py
 import os.path
-from pypy.module.sys.initpath import (compute_stdlib_path, find_executable,
-                                      find_stdlib, resolvedirof,
-                                      pypy_init_home, pypy_init_free,
-                                      find_pyvenv_cfg)
+from pypy.module.sys.initpath import (compute_stdlib_path_sourcetree,
+    find_executable, find_stdlib, resolvedirof, pypy_init_home, pypy_init_free,
+    find_pyvenv_cfg)
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
 from rpython.rtyper.lltypesystem import rffi
 
@@ -41,13 +40,12 @@ def test_pypy_init_home():
     assert p
     s = rffi.charp2str(p)
     pypy_init_free(p)
-    print s
     assert os.path.exists(s)
 
 def test_compute_stdlib_path(tmpdir):
     dirs = build_hierarchy(tmpdir)
-    path = compute_stdlib_path(None, str(tmpdir))
-    # we get at least 'dirs', and maybe more (e.g. plat-linux2)
+    path = compute_stdlib_path_sourcetree(None, str(tmpdir))
+    # we get at least 'dirs'
     assert path[:len(dirs)] == map(str, dirs)
 
 def test_find_executable(tmpdir, monkeypatch):
