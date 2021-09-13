@@ -18,13 +18,13 @@ class State:
         self.setinitialpath(space)
 
     def setinitialpath(self, space):
-        from pypy.module.sys.initpath import compute_stdlib_path
+        from pypy.module.sys.initpath import compute_stdlib_path_sourcetree
         # This initial value for sys.prefix is normally overwritten
         # at runtime by initpath.py
         srcdir = os.path.dirname(pypydir)
         self.w_initial_prefix = space.newtext(srcdir)
         # Initialize the default path
-        path = compute_stdlib_path(self, srcdir)
+        path = compute_stdlib_path_sourcetree(self, srcdir)
         self.w_path = space.newlist([space.newfilename(p) for p in path])
 
 def get(space):

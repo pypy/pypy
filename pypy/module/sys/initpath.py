@@ -139,13 +139,41 @@ def _checkdir(path):
     if not stat.S_ISDIR(st[0]):
         raise OSError(errno.ENOTDIR, path)
 
+def _checkfile(path, fname):
+    pth = os.path.join(path, fname)
+    if not os.path.isfile(pth):
+        raise OSError(errno.EEXIST, pth)
 
-def compute_stdlib_path(state, prefix):
+def compute_stdlib_path_packaged(state, prefix):
+    """
+    Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
+    must at least contain a directory called ``lib/pypyX.Y`` and
+    another one called ``lib_pypy``. If they cannot be found, it raises
+    OSError. This version is called first, for packaged PyPy.
+    """
+    from pypy.module.sys.version import CPYTHON_VERSION
+    lib_pyzip = os.path.join(prefix, 'python%d%d.zip' % CPYTHON_VERSION[:2])
+    if os.path.isfile(lib_pyzip):
+        python_std_lib = lib_pyzip
+    else:
+        if _WIN32:
+            lib_python = os.path.join(prefix, 'Lib')
+        else:
+            dirname = 'pypy%d.%d' % CPYTHON_VERSION[:2]
+            lib_python = os.path.join(prefix, 'lib')
+            lib_python = os.path.join(lib_python, dirname)
+        python_std_lib = os.path.join(prefix, lib_python)
+        # In a source checkout, the directory will exist but site.py will not
+        # yet exist in it
+        _checkfile(python_std_lib, 'site.py')
+    return compute_lib_pypy_path(state, python_std_lib, prefix)
+
+def compute_stdlib_path_sourcetree(state, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
     must at least contain a directory called ``lib-python/X.Y`` and
     another one called ``lib_pypy``. If they cannot be found, it raises
-    OSError.
+    OSError. This version is called if compute_stdlib_path_packaged fails.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
     lib_pyzip = os.path.join(prefix, 'python%d%d.zip' % CPYTHON_VERSION[:2])
@@ -156,7 +184,9 @@ def compute_stdlib_path(state, prefix):
         lib_python = os.path.join(prefix, 'lib-python')
         python_std_lib = os.path.join(lib_python, dirname)
         _checkdir(python_std_lib)
+    return compute_lib_pypy_path(state, python_std_lib, prefix)
 
+def compute_lib_pypy_path(state, python_std_lib, prefix):
     lib_pypy = os.path.join(prefix, 'lib_pypy')
     _checkdir(lib_pypy)
 
@@ -185,9 +215,12 @@ def compute_stdlib_path_maybe(state, prefix):
     be found.
     """
     try:
-        return compute_stdlib_path(state, prefix)
+        return compute_stdlib_path_packaged(state, prefix)
     except OSError:
-        return None
+        try:
+            return compute_stdlib_path_sourcetree(state, prefix)
+        except OSError:
+            return None
 
 
 @unwrap_spec(executable='fsencode')
