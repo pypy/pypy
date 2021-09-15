@@ -67,6 +67,13 @@ class W_IntObject(W_Object):
         else:
             raise OperationError
 
+    def mod(self, w_other):
+        if isinstance(w_other, W_IntObject):
+            sum = self.intvalue % w_other.intvalue
+            return W_IntObject(sum)
+        else:
+            raise OperationError
+
     def eq(self, w_other):
         if isinstance(w_other, W_IntObject):
             if self.intvalue == w_other.intvalue:
@@ -139,6 +146,7 @@ define_op("ADD")
 define_op("SUB")
 define_op("MUL")
 define_op("DIV")
+define_op("MOD")
 
 define_op("EXIT")
 define_op("JUMP", True)
@@ -249,6 +257,13 @@ class Frame(object):
         self.push(w_z)
 
     @jit.dont_look_inside
+    def MOD(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.mod(w_y)
+        self.push(w_z)
+
+    @jit.dont_look_inside
     def DUP(self):
         w_x = self.pop()
         self.push(w_x)
@@ -336,6 +351,9 @@ class Frame(object):
 
             elif opcode == MUL:
                 self.MUL()
+
+            elif opcode == MOD:
+                self.MOD()
 
             elif opcode == CALL:
                 t = ord(bytecode[pc])
