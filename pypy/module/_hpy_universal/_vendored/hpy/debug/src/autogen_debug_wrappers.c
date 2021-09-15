@@ -517,9 +517,19 @@ DHPy debug_ctx_Unicode_AsUTF8String(HPyContext *dctx, DHPy h)
     return DHPy_open(dctx, HPyUnicode_AsUTF8String(get_info(dctx)->uctx, DHPy_unwrap(dctx, h)));
 }
 
+const char *debug_ctx_Unicode_AsUTF8AndSize(HPyContext *dctx, DHPy h, HPy_ssize_t *size)
+{
+    return HPyUnicode_AsUTF8AndSize(get_info(dctx)->uctx, DHPy_unwrap(dctx, h), size);
+}
+
 DHPy debug_ctx_Unicode_FromWideChar(HPyContext *dctx, const wchar_t *w, HPy_ssize_t size)
 {
     return DHPy_open(dctx, HPyUnicode_FromWideChar(get_info(dctx)->uctx, w, size));
+}
+
+DHPy debug_ctx_Unicode_DecodeFSDefault(HPyContext *dctx, const char *v)
+{
+    return DHPy_open(dctx, HPyUnicode_DecodeFSDefault(get_info(dctx)->uctx, v));
 }
 
 int debug_ctx_List_Check(HPyContext *dctx, DHPy h)

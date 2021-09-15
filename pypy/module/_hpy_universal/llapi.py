@@ -74,13 +74,11 @@ struct _HPyContext_s {
     const char *name; // used just to make debugging and testing easier
     void *_private;   // used by implementations to store custom data
     int ctx_version;
-    // Constants
     struct _HPy_s h_None;
     struct _HPy_s h_True;
     struct _HPy_s h_False;
     struct _HPy_s h_NotImplemented;
     struct _HPy_s h_Ellipsis;
-    // Exceptions
     struct _HPy_s h_BaseException;
     struct _HPy_s h_Exception;
     struct _HPy_s h_StopAsyncIteration;
@@ -134,7 +132,6 @@ struct _HPyContext_s {
     struct _HPy_s h_PermissionError;
     struct _HPy_s h_ProcessLookupError;
     struct _HPy_s h_TimeoutError;
-    // Warnings
     struct _HPy_s h_Warning;
     struct _HPy_s h_UserWarning;
     struct _HPy_s h_DeprecationWarning;
@@ -146,14 +143,12 @@ struct _HPyContext_s {
     struct _HPy_s h_UnicodeWarning;
     struct _HPy_s h_BytesWarning;
     struct _HPy_s h_ResourceWarning;
-    // Types
     struct _HPy_s h_BaseObjectType;
     struct _HPy_s h_TypeType;
     struct _HPy_s h_LongType;
     struct _HPy_s h_UnicodeType;
     struct _HPy_s h_TupleType;
     struct _HPy_s h_ListType;
-    // Context
     void * ctx_Module_Create;
     void * ctx_Dup;
     void * ctx_Close;
@@ -258,7 +253,9 @@ struct _HPyContext_s {
     void * ctx_Unicode_FromString;
     void * ctx_Unicode_Check;
     void * ctx_Unicode_AsUTF8String;
+    void * ctx_Unicode_AsUTF8AndSize;
     void * ctx_Unicode_FromWideChar;
+    void * ctx_Unicode_DecodeFSDefault;
     void * ctx_List_Check;
     void * ctx_List_New;
     void * ctx_List_Append;
@@ -285,6 +282,7 @@ struct _HPyContext_s {
     void * ctx_Tracker_Close;
     void * ctx_Dump;
 } _struct_HPyContext_s;
+
 
 typedef struct _HPyContext_s HPyContext;
 

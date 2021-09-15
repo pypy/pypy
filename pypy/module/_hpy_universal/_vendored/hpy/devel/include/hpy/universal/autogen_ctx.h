@@ -193,7 +193,9 @@ struct _HPyContext_s {
     HPy (*ctx_Unicode_FromString)(HPyContext *ctx, const char *utf8);
     int (*ctx_Unicode_Check)(HPyContext *ctx, HPy h);
     HPy (*ctx_Unicode_AsUTF8String)(HPyContext *ctx, HPy h);
+    const char *(*ctx_Unicode_AsUTF8AndSize)(HPyContext *ctx, HPy h, HPy_ssize_t *size);
     HPy (*ctx_Unicode_FromWideChar)(HPyContext *ctx, const wchar_t *w, HPy_ssize_t size);
+    HPy (*ctx_Unicode_DecodeFSDefault)(HPyContext *ctx, const char *v);
     int (*ctx_List_Check)(HPyContext *ctx, HPy h);
     HPy (*ctx_List_New)(HPyContext *ctx, HPy_ssize_t len);
     int (*ctx_List_Append)(HPyContext *ctx, HPy h_list, HPy h_item);

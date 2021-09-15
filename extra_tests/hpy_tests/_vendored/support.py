@@ -133,6 +133,7 @@ class Spec(object):
 
 class ExtensionCompiler:
     def __init__(self, tmpdir, hpy_devel, hpy_abi, compiler_verbose=False,
+                 ExtensionTemplate=DefaultExtensionTemplate,
                  extra_include_dirs=None):
         """
         hpy_devel is an instance of HPyDevel which specifies where to find
@@ -149,6 +150,7 @@ class ExtensionCompiler:
         self.hpy_devel = hpy_devel
         self.hpy_abi = hpy_abi
         self.compiler_verbose = compiler_verbose
+        self.ExtensionTemplate=ExtensionTemplate
         self.extra_include_dirs = extra_include_dirs
 
     def _expand(self, ExtensionTemplate, name, template):
@@ -217,7 +219,8 @@ class ExtensionCompiler:
                                 compiler_verbose=self.compiler_verbose)
         return so_filename
 
-    def make_module(self, ExtensionTemplate, main_src, name, extra_sources):
+    def make_module(self, main_src, ExtensionTemplate=None, name='mytest',
+                    extra_sources=()):
         """
         Compile & load a module. This is NOT a proper import: e.g.
         the module is not put into sys.modules.
@@ -225,8 +228,10 @@ class ExtensionCompiler:
         We don't want to unnecessarily modify the global state inside tests:
         if you are writing a test which needs a proper import, you should not
         use make_module but explicitly use compile_module and import it
-        manually as requied by your test.
+        manually as required by your test.
         """
+        if ExtensionTemplate is None:
+            ExtensionTemplate = self.ExtensionTemplate
         so_filename = self.compile_module(
             ExtensionTemplate, main_src, name, extra_sources)
         if self.hpy_abi == 'universal':
@@ -272,14 +277,12 @@ class HPyTest:
     ExtensionTemplate = DefaultExtensionTemplate
 
     @pytest.fixture()
-    def initargs(self, compiler, hpy_debug):
-        # compiler and hpy_debug are fixtures defined/imported by conftest.py.
-        # By using hpy_debug we enable leak detection in debug mode
+    def initargs(self, compiler):
         self.compiler = compiler
 
     def make_module(self, main_src, name='mytest', extra_sources=()):
         ExtensionTemplate = self.ExtensionTemplate
-        return self.compiler.make_module(ExtensionTemplate, main_src, name,
+        return self.compiler.make_module(main_src, ExtensionTemplate, name,
                                          extra_sources)
 
     def supports_refcounts(self):
@@ -327,19 +330,6 @@ class HPyDebugTest(HPyTest):
     @pytest.fixture(params=['debug'])
     def hpy_abi(self, request):
         return request.param
-
-    def make_leak_module(self):
-        # for convenience
-        return self.make_module("""
-            HPyDef_METH(leak, "leak", leak_impl, HPyFunc_O)
-            static HPy leak_impl(HPyContext *ctx, HPy self, HPy arg)
-            {
-                HPy_Dup(ctx, arg); // leak!
-                return HPy_Dup(ctx, ctx->h_None);
-            }
-            @EXPORT(leak)
-            @INIT
-        """)
 
 # the few functions below are copied and adapted from cffi/ffiplatform.py
 

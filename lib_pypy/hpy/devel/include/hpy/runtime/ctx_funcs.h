@@ -4,7 +4,6 @@
 // This file contains the prototypes for all the functions defined in
 // hpy/devel/src/runtime/ctx_*.c
 
-#include <Python.h>
 #include "hpy.h"
 
 // ctx_bytes.c

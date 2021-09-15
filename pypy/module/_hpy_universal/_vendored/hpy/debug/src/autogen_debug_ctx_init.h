@@ -114,7 +114,9 @@ DHPy debug_ctx_Bytes_FromStringAndSize(HPyContext *dctx, const char *v, HPy_ssiz
 DHPy debug_ctx_Unicode_FromString(HPyContext *dctx, const char *utf8);
 int debug_ctx_Unicode_Check(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_Unicode_AsUTF8String(HPyContext *dctx, DHPy h);
+const char *debug_ctx_Unicode_AsUTF8AndSize(HPyContext *dctx, DHPy h, HPy_ssize_t *size);
 DHPy debug_ctx_Unicode_FromWideChar(HPyContext *dctx, const wchar_t *w, HPy_ssize_t size);
+DHPy debug_ctx_Unicode_DecodeFSDefault(HPyContext *dctx, const char *v);
 int debug_ctx_List_Check(HPyContext *dctx, DHPy h);
 DHPy debug_ctx_List_New(HPyContext *dctx, HPy_ssize_t len);
 int debug_ctx_List_Append(HPyContext *dctx, DHPy h_list, DHPy h_item);
@@ -322,7 +324,9 @@ static inline void debug_ctx_init_fields(HPyContext *dctx, HPyContext *uctx)
     dctx->ctx_Unicode_FromString = &debug_ctx_Unicode_FromString;
     dctx->ctx_Unicode_Check = &debug_ctx_Unicode_Check;
     dctx->ctx_Unicode_AsUTF8String = &debug_ctx_Unicode_AsUTF8String;
+    dctx->ctx_Unicode_AsUTF8AndSize = &debug_ctx_Unicode_AsUTF8AndSize;
     dctx->ctx_Unicode_FromWideChar = &debug_ctx_Unicode_FromWideChar;
+    dctx->ctx_Unicode_DecodeFSDefault = &debug_ctx_Unicode_DecodeFSDefault;
     dctx->ctx_List_Check = &debug_ctx_List_Check;
     dctx->ctx_List_New = &debug_ctx_List_New;
     dctx->ctx_List_Append = &debug_ctx_List_Append;

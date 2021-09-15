@@ -418,8 +418,16 @@ HPyAPI_FUNC HPy HPyUnicode_AsUTF8String(HPyContext *ctx, HPy h) {
      return ctx->ctx_Unicode_AsUTF8String ( ctx, h ); 
 }
 
+HPyAPI_FUNC const char *HPyUnicode_AsUTF8AndSize(HPyContext *ctx, HPy h, HPy_ssize_t *size) {
+     return ctx->ctx_Unicode_AsUTF8AndSize ( ctx, h, size ); 
+}
+
 HPyAPI_FUNC HPy HPyUnicode_FromWideChar(HPyContext *ctx, const wchar_t *w, HPy_ssize_t size) {
      return ctx->ctx_Unicode_FromWideChar ( ctx, w, size ); 
+}
+
+HPyAPI_FUNC HPy HPyUnicode_DecodeFSDefault(HPyContext *ctx, const char *v) {
+     return ctx->ctx_Unicode_DecodeFSDefault ( ctx, v ); 
 }
 
 HPyAPI_FUNC int HPyList_Check(HPyContext *ctx, HPy h) {

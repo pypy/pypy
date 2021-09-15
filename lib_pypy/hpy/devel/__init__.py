@@ -59,15 +59,16 @@ class HPyDevel:
         base_build_ext = dist.cmdclass.get("build_ext", build_ext)
         orig_bdist_egg_write_stub = bdist_egg_mod.write_stub
 
-        assert ('setuptools.command.build_ext', 'build_ext') in [
-            (c.__module__, c.__name__) for c in base_build_ext.__mro__
-        ], (
-            "dist.cmdclass['build_ext'] does not inherit from"
-            " setuptools.command.build_ext.build_ext. The HPy build"
-            " system does not currently support any other build_ext"
-            " classes. If you are using distutils.commands.build_ext,"
-            " please use setuptools.commands.build_ext instead."
-        )
+        if isinstance(base_build_ext, type):
+            assert ('setuptools.command.build_ext', 'build_ext') in [
+                (c.__module__, c.__name__) for c in base_build_ext.__mro__
+            ], (
+                "dist.cmdclass['build_ext'] does not inherit from"
+                " setuptools.command.build_ext.build_ext. The HPy build"
+                " system does not currently support any other build_ext"
+                " classes. If you are using distutils.commands.build_ext,"
+                " please use setuptools.commands.build_ext instead."
+            )
 
         class build_hpy_ext(build_hpy_ext_mixin, base_build_ext, object):
             _base_build_ext = base_build_ext
