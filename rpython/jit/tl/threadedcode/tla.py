@@ -365,22 +365,24 @@ class Frame(object):
 
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
-                if self.is_true(): # leave marker
-                    if we_are_jitted():
+                if we_are_jitted():
+                    if self.is_true():
                         pc += 1
                         tstack = t_push(pc, tstack)
                         pc = target
                     else:
+                        tstack = t_push(target, tstack)
+                        pc += 1
+                else:
+                    if self.is_true():
                         if target < pc:
                             entry_state = target; self.save_state()
                             jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                     pc=target, tstack=tstack, self=self)
 
                         pc = target
-                else:
-                    if we_are_jitted():
-                        tstack = t_push(target, tstack)
-                    pc += 1
+                    else:
+                        pc += 1
 
             elif opcode == EXIT:
                 if we_are_jitted():
