@@ -60,6 +60,21 @@ class TestParseItem(HPyTest):
             "function unsigned byte integer is less than minimum"
         )
 
+    def test_s(self):
+        import pytest
+        mod = self.make_parse_item("s", "const char*", "HPyUnicode_FromString")
+        assert mod.f("hello HPy") == "hello HPy"
+        with pytest.raises(ValueError) as err:
+            mod.f(b"hello\0HPy".decode('utf-8'))
+        assert str(err.value) == (
+            "function embedded null character"
+        )
+        with pytest.raises(TypeError) as err:
+            mod.f(b"hello HPy")
+        assert str(err.value) == (
+            "function a str is required"
+        )
+
     def test_B(self):
         mod = self.make_parse_item("B", "char", "char_to_hpybytes")
         assert mod.f(0) == b"\x00"

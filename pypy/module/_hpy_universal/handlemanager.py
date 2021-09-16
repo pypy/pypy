@@ -240,6 +240,12 @@ class HandleManager(AbstractHandleManager):
         else:
             self.release_callbacks[index].append(cb)
 
+    def str2ownedptr(self, s, owner):
+        llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
+        cb = FreeNonMovingBuffer(llbuf, llstring, flag)
+        self.attach_release_callback(owner, cb)
+        return llbuf
+
 
 class DebugHandleManager(AbstractHandleManager):
     cls_suffix = '_d'

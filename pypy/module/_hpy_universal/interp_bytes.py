@@ -25,10 +25,7 @@ def HPyBytes_GET_SIZE(space, handles, ctx, h):
 def HPyBytes_AsString(space, handles, ctx, h):
     w_obj = handles.deref(h)
     s = space.bytes_w(w_obj)
-    llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
-    cb = FreeNonMovingBuffer(llbuf, llstring, flag)
-    handles.attach_release_callback(h, cb)
-    return llbuf
+    return handles.str2ownedptr(s, owner=h)
 
 @API.func("char *HPyBytes_AS_STRING(HPyContext *ctx, HPy h)")
 def HPyBytes_AS_STRING(space, handles, ctx, h):
