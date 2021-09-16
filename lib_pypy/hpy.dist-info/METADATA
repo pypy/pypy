@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hpy
-Version: 0.0.3.dev336+g6ab84fc
+Version: 0.0.3.dev341+g33c8692
 Summary: A better C API for Python
 Home-page: https://hpyproject.org
 Author: The HPy team
@@ -15,7 +15,7 @@ Requires-Dist: pytest-xdist ; extra == 'dev'
 HPy: a better API for Python
 ==================================
 
-[![Build Status](https://dev.azure.com/pyhandle/hpy/_apis/build/status/pyhandle.hpy?branchName=master)](https://dev.azure.com/pyhandle/hpy/_build/latest?definitionId=1&branchName=master)
+[![Build](https://github.com/hpyproject/hpy/actions/workflows/ci.yml/badge.svg)](https://github.com/hpyproject/hpy/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/hpy/badge/)](https://hpy.readthedocs.io/)
 
 **IRC channel** : #hpy on [libera.chat](https://libera.chat)
