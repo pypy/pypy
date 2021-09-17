@@ -1,6 +1,9 @@
 import sys
+import os
 import types
 import pytest
+
+THIS_DIR = os.path.dirname(__file__)
 
 # ================================
 # Customization of applevel tests
@@ -27,9 +30,6 @@ if sys.platform.startswith('linux') and sys.maxsize <= 2**31:
 # ========================================================================
 
 def pytest_pycollect_makeitem(collector, name, obj):
-    config = collector.config
-    if config.getoption('runappdirect') or config.getoption('direct_apptest'):
-        return
     from pypy.tool.pytest.apptest import AppClassCollector
     from pypy.module._hpy_universal.test._vendored.support import HPyTest
     if (collector.istestclass(obj, name) and
@@ -39,10 +39,13 @@ def pytest_pycollect_makeitem(collector, name, obj):
         return AppClassCollector(appname, parent=collector)
 
 def pytest_ignore_collect(path, config):
+    if (config.getoption('runappdirect') or config.getoption('direct_apptest')
+            or disable):
+        # workaround for pytest issue #2016 (fixed in 3.0.5)
+        if os.path.commonprefix([str(path), THIS_DIR]) == THIS_DIR:
+            return True
     if path == config.rootdir.join('pypy', 'module', '_hpy_universal', 'test',
                                    '_vendored', 'test_support.py'):
-        return True
-    if disable:
         return True
 
 def make_hpy_apptest(collector, name, cls):
