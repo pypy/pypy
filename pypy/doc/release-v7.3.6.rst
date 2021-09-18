@@ -43,14 +43,8 @@ include:
   - Speed improvements were made to ``io``, ``sum``, ``_ssl`` and more. These
     were done in response to user feedback.
   - The 3.8 version of the release contains a beta-quality improvement to the
-    JIT. We now better handle situations where a lot of Python code from the
-    same function is turned into machine code, without any inlining. This can
-    happen when Python code gets automatically generated, for
-    example by a string templating engine. Previously, this would either fail
-    to compile or compile very slowly. Performance by the JIT could thus be
-    worse than even the non-JITted interpreter (issue 3402_).
-    In the released 3.8 version we solve this problem by breaking the
-    function into smaller chunks and compiling them step by step.
+    JIT to better support `compiling huge Python functions`_ by breaking them
+    up into smaller pieces.
   - The release of Python3.8 required a concerted effort. We were greatly
     helped by @isidentical (Batuhan Taskaya) and other new contributors.
   - The 3.8 package now uses the same layout as CPython, and many of the
@@ -61,6 +55,8 @@ include:
     on ``posix`` they are in ``<base>/include/pypy3.8``. Note we still use the
     ``pypy`` prefix to prevent mixing the files with CPython (which uses
     ``python``.
+
+.. _`compiling huge Python functions`: https://www.pypy.org/posts/2021/09/jit-auto-generated-code.html
 
 
 We recommend updating. You can find links to download the v7.3.6 releases here:
