@@ -175,8 +175,8 @@ class BasicTests:
                     log = 0
                     count += 1
 
-        N = 4
-        cycles = 2
+        N = 512
+        cycles = 1000000
         n = N // 2
         log = 0
         k = 1
@@ -191,7 +191,63 @@ class BasicTests:
         print("runtime: "+str(time2-time1))
         exit(1)
 
+    def test_LU(self):
+        import time
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(N, M, cycles):
+            A = [[float(i) for i in range(1,N+1)] for j in range(M)]
+            pivot = [0 for i in range(N)]
+            count = 0
+            minNM = min(N, M)
+            j = 0
+            i = 1
+            k = 1
+            ii = 1
+            jj = 1
+            jp = j
+            t = abs(A[j][j])
+            while count < cycles:
+                myjitdriver.jit_merge_point()
+                if j < minNM:
+                    if i < M:
+                        ab = abs(A[i][j])
+                        if ab > t:
+                            jp = i
+                            t = ab
+                        i += 1
+                    elif j < M - 1 and k < M:
+                        recp = 1.0 / A[j][j]
+                        A[k][j] *= recp
+                        k += 1
+                    elif j < minNM - 1 and ii < M:
+                        if jj < M:
+                            A[ii][jj] -= A[ii][j] * A[j][jj]
+                            jj += 1
+                        else:
+                            ii += 1
+                            jj = j + 1
+                    else:
+                        jp = j
+                        t = abs(A[j][j])
+                        pivot[j] = jp
+                        if A[jp][j] == 0:
+                            raise Exception("zero pivot")
+                        if jp != j:
+                            A[j], A[jp] = A[jp], A[j]
+                        j += 1
+                        i = j + 1
+                        ii = j + 1
+                        k = j + 1
+                count += 1
+
+        time1 = time.time()
+        res = self.meta_interp(f, [16, 16, 100000])
+        time2 = time.time()
+        print("runtime: "+str(time2-time1))
+        exit(1)
+
     def test_sor(self):
+        #llvm wins but llvm wins more the worse cache is (8x8 over 256x256)
         import time
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         def f(omega, n, h, w):
@@ -215,32 +271,122 @@ class BasicTests:
                     p += 1
 
         time1 = time.time()
-        res = self.meta_interp(f, [1.25, 1000000000, 8, 8])
+        res = self.meta_interp(f, [1.25, 50, 8, 8])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)
 
+    # def test_sor_flattened(self):
+    #     #llvm wins but llvm wins more the worse cache is (8x8 over 256x256)
+    #     from rpython.jit.backend.llvm.test.rpython_scimark import Array2D
+    #     import time
+    #     myjitdriver = JitDriver(greens = [], reds = 'auto')
+    #     def f(omega, n, h, w):
+    #         G = [0.0] * (w*h)
+    #         p = 0
+    #         y = 1
+    #         x = 1
+    #         while p < n:
+    #             myjitdriver.jit_merge_point()
+    #             if y < h - 1:
+    #                 if x < w - 1:
+    #                     c = y * w + x
+    #                     l = y * w + x-1
+    #                     r = y * w + x+1
+    #                     u = (y+1) * w + x
+    #                     d = (y-1) * w + x
+    #                     G[c] = (omega * 0.25 * (G[d] + G[u] + G[l]
+    #                                                + G[r])
+    #                                + (1.0 - omega) * G[c])
+    #                     x += 1
+    #                 else:
+    #                     x = 1
+    #                     y += 1
+    #             else:
+    #                 y = 1
+    #                 p += 1
+
+    #     time1 = time.time()
+    #     res = self.meta_interp(f, [1.25, 50000, 256, 256])
+    #     time2 = time.time()
+    #     print("runtime: "+str(time2-time1))
+    #     exit(1)
+
+    # def test_monte_carlo_float(self):
+    #     from rpython.jit.backend.llvm.llvm_api import LLVMAPI
+    #     llvm = LLVMAPI()
+    #     import time
+    #     myjitdriver = JitDriver(greens = [], reds = 'auto')
+    #     def f(n, r, f):
+    #         seed = 113
+    #         a = 69
+    #         c = 420
+    #         mod = 1337
+    #         under_curve = 0
+    #         count = 0
+    #         while count < n:
+    #             myjitdriver.jit_merge_point()
+    #             x = f*(int(a * seed + c) % mod)
+    #             y = f*(int(a * x + c) % mod)
+    #             if x * x + y * y <= r:
+    #                 under_curve += 1
+    #             seed = y
+    #             count += 1
+    #         return float(under_curve) / n * 4.0
+
+    #     time1 = time.time()
+    #     res = self.meta_interp(f, [100000, 1, 1.5345324])
+    #     time2 = time.time()
+    #     print("runtime: "+str(time2-time1))
+    #     exit(1)
+
     def test_monte_carlo(self):
-        from rpython.jit.backend.llvm.llvm_api import LLVMAPI
-        llvm = LLVMAPI()
+        import time
+        myjitdriver = JitDriver(greens = [], reds = 'auto')
+        def f(n, r):
+            seed = 113
+            a = 69
+            c = 420
+            mod = 1337
+            under_curve = 0
+            count = 0
+            x = 0
+            while count < n:
+                myjitdriver.jit_merge_point()
+                # x = c % a
+                # c = x
+                # count += 1
+                x = (a * seed + c) % mod
+                y = (a * x + c) % mod
+                if x * x + y * y <= r:
+                    under_curve += 1
+                seed = y
+                count += 1
+            return x
+            #return float(under_curve) / n * 4.0
+
+        time1 = time.time()
+        res = self.meta_interp(f, [500000, 1])
+        time2 = time.time()
+        print("runtime: "+str(time2-time1))
+        exit(1)
+
+    def test_vectorize(self):
         import time
         myjitdriver = JitDriver(greens = [], reds = 'auto')
         def f(n):
-            seed = 113
-            llvm.seed(seed)
-            under_curve = 0
-            count = 0
-            while count < n:
+            a = [i for i in range(n)]
+            b = [i for i in range(n)]
+            c = [i for i in range(n)]
+            i = 0
+            while i < n:
                 myjitdriver.jit_merge_point()
-                x = llvm.next_double(None)
-                y = llvm.next_double(None)
-                if x * x + y * y <= 1.0:
-                    under_curve += 1
-                count += 1
-            return float(under_curve) / n * 4.0
+                c[i] = a[i] * b[i]
+                i += 1
+            return c
 
         time1 = time.time()
-        res = self.meta_interp(f, [1000000])
+        res = self.meta_interp(f, [10000])
         time2 = time.time()
         print("runtime: "+str(time2-time1))
         exit(1)

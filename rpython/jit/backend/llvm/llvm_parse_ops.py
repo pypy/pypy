@@ -11,7 +11,7 @@ import sys
 
 class LLVMOpDispatcher:
     def __init__(self, cpu, builder, module, entry, func, jitframe_type,
-                 jitframe_subtypes):
+                 jitframe_subtypes, is_new=False):
         self.cpu = cpu
         self.builder = builder
         self.module = module
@@ -20,6 +20,7 @@ class LLVMOpDispatcher:
         self.llvm = self.cpu.llvm
         self.jitframe_type = jitframe_type
         self.jitframe_subtypes = jitframe_subtypes
+        self.is_new = is_new
         self.args_size = 0
         self.local_vars_size = 0
         self.jitframe_depth = 0
@@ -70,10 +71,11 @@ class LLVMOpDispatcher:
         )
         self.set_pred_enums()
         self.defined_int_extend_funcs = {}
-        self.malloc = self.define_function([self.cpu.llvm_int_type],
-                                           self.cpu.llvm_void_ptr,
-                                           "malloc_wrapper")
-        self.define_malloc_wrapper()
+        if self.is_new:
+            self.malloc = self.define_function([self.cpu.llvm_int_type],
+                                               self.cpu.llvm_void_ptr,
+                                               "malloc_wrapper")
+            self.define_malloc_wrapper()
         attributes = ["hot", "willreturn", "nounwind", "norecurse",
                       "nofree"]
         param_attributes = [("noalias", 1), ("nocapture", 1)]
@@ -586,17 +588,69 @@ class LLVMOpDispatcher:
             self.args_size += self.cpu.WORD
         lltype.free(indecies, flavor='raw')
 
+
+    def replace_mod(self, ops):
+        #TODO: can optimise this by adding up the opnums together and
+        #comparing the total if you can be sure this pattern won't ever
+        #appear in a different order
+
+        ops = list(ops)
+        pattern1 = (rop.INT_RSHIFT, rop.INT_XOR, rop.UINT_MUL_HIGH,
+                    rop.UINT_RSHIFT, rop.INT_XOR, rop.INT_MUL, rop.INT_SUB)
+        pattern2 = (rop.UINT_MUL_HIGH, rop.UINT_RSHIFT, rop.INT_MUL,
+                    rop.INT_SUB)
+        num_high_muls = 0
+        for op in ops:
+            if op.opnum == rop.UINT_MUL_HIGH:
+                num_high_muls += 1
+
+        for i in range(num_high_muls):
+            length = len(ops)
+            for c, op in enumerate(ops):
+                if op.opnum == rop.UINT_MUL_HIGH:
+                    pos = c
+                    break
+            if pos >= 2 and length >= 7:
+                pattern = (ops[pos-2].opnum, ops[pos-1].opnum,
+                            ops[pos].opnum, ops[pos+1].opnum, ops[pos+2].opnum,
+                            ops[pos+3].opnum, ops[pos+4].opnum)
+                if pattern == pattern1:
+                    x = ops[pos-2].getarglist()[0]
+                    mod = ops[pos+3].getarglist()[1]
+                    ops[pos-2:pos+5] = [ModulusOp(x, mod, ops[pos+4])]
+                elif pattern[2:6] == pattern2:
+                    x = ops[pos].getarglist()[0]
+                    mod = ops[pos+2].getarglist()[1]
+                    ops[pos:pos+4] = [ModulusOp(x, mod, ops[pos+3])]
+            elif length >= 5:
+                pattern =  (ops[pos].opnum, ops[pos+1].opnum, ops[pos+2].opnum,
+                            ops[pos+3].opnum)
+                if pattern == pattern2:
+                    x = ops[pos].getarglist()[0]
+                    mod = ops[pos+2].getarglist()[1]
+                    ops[pos:pos+4] = [ModulusOp(x, mod, ops[pos+3])]
+
+        return ops
+
+
+
     def dispatch_ops(self, inputargs, ops, faildescr=None):
         if faildescr is None:
             self.init_inputargs(inputargs)
         else: #is bridge
             self.guard_handler.patch_guard(faildescr, inputargs)
 
+        ops = self.replace_mod(ops)
+
         self.operations = ops
 
 
+
         for c, op in enumerate(self.operations):
-            if op.opnum == 1:
+            if op.opnum == -1:
+                self.parse_mod(op)
+
+            elif op.opnum == 1:
                 self.parse_jump(op)
 
             elif op.opnum == 2:
@@ -829,6 +883,9 @@ class LLVMOpDispatcher:
             elif op.opnum == 122:
                 self.parse_arraylen_gc(op)
 
+            elif op.opnum == 127:
+                self.parse_getarrayitem_gc(op)
+
             elif op.opnum == 140:
                 self.parse_getarrayitem_gc(op) #r
 
@@ -986,6 +1043,15 @@ class LLVMOpDispatcher:
         if self.cpu.debug:
            self.llvm.DumpModule(self.module)
 
+    def parse_mod(self, op):
+        args = [arg for arg, _ in self.parse_args(op.getarglist())]
+        x = args[0]
+        mod = args[1]
+
+        cstring = CString("modulus_res")
+        self.ssa_vars[op.old_op] = self.llvm.BuildSRem(self.builder, x, mod,
+                                                       cstring.ptr)
+
     def parse_jump(self, op):
         current_block = self.llvm.GetInsertBlock(self.builder)
         descr = op.getdescr()
@@ -1087,9 +1153,10 @@ class LLVMOpDispatcher:
         struct = args[0]
         vtable = args[1]
 
+        void_ptr_ptr = self.llvm.PointerType(self.cpu.llvm_void_ptr, 0)
         cstring = CString("struct_cast")
         struct_cast = self.llvm.BuildPointerCast(self.builder, struct,
-                                                 self.cpu.llvm_void_ptr,
+                                                 void_ptr_ptr,
                                                  cstring.ptr)
         cstring = CString("vtable")
         struct_vtable = self.llvm.BuildLoad(self.builder,
@@ -2203,7 +2270,6 @@ class LLVMOpDispatcher:
 
         llvm_array.set_elem(value, lendescr_offset+1, index, field_index)
 
-
     def parse_setfield_gc(self, op):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
         struct = args[0]
@@ -2502,9 +2568,10 @@ class LLVMOpDispatcher:
     def parse_call_assembler(self, op, ret):
         params = [arg for arg, _ in self.parse_args(op.getarglist())]
         looptoken = op.getdescr()
-        func_int_ptr = looptoken._ll_function_addr
-        func_int_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type,
-                                          func_int_ptr, 0)
+        trace_func = looptoken.func
+        # func_int_ptr = looptoken._ll_function_addr
+        # func_int_ptr = self.llvm.ConstInt(self.cpu.llvm_int_type,
+        #                                   func_int_ptr, 0)
         call_descr = looptoken.outermost_jitdriver_sd.portal_calldescr
         if ret == 'r': ret_type = self.cpu.llvm_void_ptr
         elif ret == 'f': ret_type = self.cpu.llvm_float_type
@@ -2513,15 +2580,23 @@ class LLVMOpDispatcher:
                                                       self.cpu.WORD*call_descr.
                                                       result_size)
         arg_types = self.get_arg_types(call_descr, params)
+        arg_types_array = self.rpython_array(arg_types, self.llvm.TypeRef)
+        arg_array = self.rpython_array(params, self.llvm.ValueRef)
 
         if ret != 'n':
-            res = self.call_function(func_int_ptr, ret_type,
-                                                   arg_types, params,
-                                                   "call_res")
+            cstring = CString("asm_call_res")
+            res = self.llvm.BuildCall(self.builder, trace_func, arg_array,
+                                      len(params), cstring.ptr)
+            # res = self.call_function(func_int_ptr, ret_type,
+            #                                        arg_types, params,
+            #                                        "call_res")
             self.ssa_vars[op] = res
         else:
-            res = self.call_function(func_int_ptr, ret_type,
-                               arg_types, params, "")
+            cstring = CString("")
+            self.llvm.BuildCall(self.builder, trace_func, arg_array,
+                                len(params), cstring.ptr)
+            # self.call_function(func_int_ptr, ret_type,
+            #                    arg_types, params, "")
 
     def parse_call_release_gil(self, op, ret):
         args = [arg for arg, _ in self.parse_args(op.getarglist())]
@@ -2767,3 +2842,14 @@ class LLVMStruct:
 
     def __del__(self):
         lltype.free(self.indecies_array, flavor='raw')
+
+
+#TODO: add this as an actual operation
+class ModulusOp:
+    def __init__(self, x, modulus, op):
+        self.args = [x, modulus]
+        self.opnum = -1
+        self.old_op = op
+
+    def getarglist(self):
+        return self.args

@@ -9,7 +9,7 @@ import os
 
 class LLVM_CPU(AbstractLLCPU):
     def __init__(self, rtyper, stats, opts=None,
-                 translate_support_code=False, gcdescr=None, debug=False):
+                 translate_support_code=False, gcdescr=None, debug=True):
         AbstractLLCPU.__init__(self, rtyper, stats, opts,
                                translate_support_code, gcdescr)
         self.is_llvm = True
@@ -21,6 +21,8 @@ class LLVM_CPU(AbstractLLCPU):
         self.assembler = LLVMAssembler(self)
         self.thread_safe_context = self.llvm.CreateThreadSafeContext(None)
         self.context = self.llvm.GetContext(self.thread_safe_context)
+        cstring = CString('hot_code')
+        self.module = self.llvm.CreateModule(cstring.ptr, self.context)
         self.dispatchers = {} #map loop tokens to their dispatcher instance
         self.descr_tokens = {} #map descrs to token values that llvm uses
         self.force_tokens = {}
@@ -105,8 +107,9 @@ class LLVM_CPU(AbstractLLCPU):
 
     def compile_loop(self, inputargs, operations, looptoken, jd_id=0,
                      unique_id=0, log=True, name='trace', logger=None):
-        cstring = CString('hot_code')
-        module = self.llvm.CreateModule(cstring.ptr, self.context)
+        # cstring = CString('hot_code')
+        # module = self.llvm.CreateModule(cstring.ptr, self.context)
+        module = self.module
         self.llvm.SetModuleDataLayout(module, self.assembler.data_layout)
         self.llvm.SetTarget(module, self.assembler.triple)
         builder = self.llvm.CreateBuilder(self.context)
@@ -118,14 +121,18 @@ class LLVM_CPU(AbstractLLCPU):
         arg_types[1] = self.llvm_void_ptr
         signature = self.llvm.FunctionType(jitframe_ptr, arg_types, 2, 0)
         lltype.free(arg_types, flavor='raw')
+        name += str(self.tracker.total_compiled_loops)
         cstring = CString(name)
         trace = self.llvm.AddFunction(module, cstring.ptr, signature)
         cstring = CString("entry")
         entry = self.llvm.AppendBasicBlock(self.context, trace,
                                            cstring.ptr)
+        is_new = False
+        if self.tracker.total_compiled_loops == 0:
+            is_new = True
         dispatcher = LLVMOpDispatcher(self, builder, module,
                                       entry, trace, jitframe_type,
-                                      jitframe_subtypes)
+                                      jitframe_subtypes, is_new=is_new)
         dispatcher.jitframe_depth = len(inputargs)
         self.dispatchers[looptoken] = dispatcher
         dispatcher.dispatch_ops(inputargs, operations)
@@ -138,6 +145,10 @@ class LLVM_CPU(AbstractLLCPU):
         compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
         compile.ResumeGuardCopiedDescr.rd_locs = fail_descr_rd_locs
         looptoken.name = name
+        looptoken.func = dispatcher.func
+        print("loop: ")
+        for op in operations:
+            print(op)
         self.assembler.jit_compile(module, looptoken, inputargs, dispatcher,
                                    dispatcher.jitframe_depth, name)
 
@@ -154,6 +165,9 @@ class LLVM_CPU(AbstractLLCPU):
         compile.ResumeGuardDescr.rd_locs = fail_descr_rd_locs
         compile.ResumeGuardCopiedDescr.rd_locs = fail_descr_rd_locs
         name = looptoken.name
+        print("bridge: "+str(self.tracker.total_compiled_bridges))
+        for op in operations:
+            print(op)
         self.assembler.jit_compile(dispatcher.module, looptoken,
                                    inputargs, dispatcher,
                                    dispatcher.jitframe_depth,
@@ -175,6 +189,7 @@ class LLVM_CPU(AbstractLLCPU):
         return types
 
     def execute_token(self, looptoken, *ARGS):
+        import time
         arg_types = self.parse_arg_types(*ARGS)
         func = self.make_execute_token(*arg_types)
         deadframe = func(looptoken, *ARGS)

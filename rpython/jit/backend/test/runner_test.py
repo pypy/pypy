@@ -3834,6 +3834,7 @@ class LLtypeBackendTest(BaseBackendTest):
         othertoken = JitCellToken()
         self.cpu.compile_loop(loop.inputargs, loop.operations, othertoken)
         args = [i+1 for i in range(10)]
+        exit(1)
         deadframe = self.cpu.execute_token(othertoken, *args)
         assert self.cpu.get_int_value(deadframe, 0) == 13
         assert called == [97, finish_descr]

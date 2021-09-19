@@ -17,8 +17,8 @@ class LLVMAssembler(BaseAssembler):
         self.initialise_jit()
         self.pass_manager1 = self.llvm.CreatePassManager(None)
         self.pass_manager = self.llvm.CreatePassManager(None)
-        self.add_O3_passes()
-        #self.add_opt_passes()
+        #self.add_O3_passes()
+        self.add_opt_passes()
 
     def initialise_jit(self):
         jit_builder = self.llvm.CreateLLJITBuilder(None)

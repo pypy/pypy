@@ -1048,6 +1048,11 @@ class LLVMAPI:
                                    [lltype.Float],
                                    lltype.Float,
                                    compilation_info=info)
+        self.BuildSRem = rffi.llexternal("LLVMBuildSRem",
+                                         [self.BuilderRef, self.ValueRef,
+                                          self.ValueRef, self.Str],
+                                         self.ValueRef,
+                                         compilation_info=info)
 
 class CString:
     """
