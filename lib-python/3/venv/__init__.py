@@ -237,7 +237,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3', 'pypy3'):
+            for suffix in ('python', 'python3', 'pypy3', 'pypy'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -265,6 +265,8 @@ class EnvBuilder:
                     os.mkdir(libdst)
                 for f in os.listdir(libsrc):
                     src = os.path.join(libsrc, f)
+                    if os.path.isdir(src):
+                        continue
                     dst = os.path.join(libdst, f)
                     copier(src, dst)
             #

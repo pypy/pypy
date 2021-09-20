@@ -49,9 +49,9 @@ build_time_vars = {
     'SIZEOF_VOID_P': struct.calcsize("P"),
 }
 if sys.platform == 'win32':
-    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include')
+    build_time_vars['INCLUDEPY'] = os.path.join(mybase, '..', 'include')
 else:
-    build_time_vars['INCLUDEPY'] = os.path.join(mybase, 'include', 'pypy' + pydot)
+    build_time_vars['INCLUDEPY'] = os.path.join(mybase, '..', 'include', 'pypy' + pydot)
 
 if find_executable("gcc"):
     build_time_vars.update({
