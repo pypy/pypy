@@ -3,7 +3,7 @@ from rpython.rlib import rgc
 from rpython.rlib.rarithmetic import widen
 from rpython.rlib.debug import make_sure_not_resized
 from rpython.rlib.objectmodel import specialize
-from pypy.objspace.std.typeobject import W_TypeObject
+from pypy.objspace.std.typeobject import W_TypeObject, find_best_base
 from pypy.objspace.std.objectobject import W_ObjectObject
 from pypy.interpreter.error import oefmt
 from pypy.module._hpy_universal.apiset import API, DEBUG
@@ -35,12 +35,14 @@ class W_HPyTypeObject(W_TypeObject):
     basicsize = 0
     tp_destroy = lltype.nullptr(llapi.cts.gettype('HPyFunc_destroyfunc').TO)
 
-    def __init__(self, space, name, bases_w, dict_w, basicsize=0):
+    def __init__(self, space, name, bases_w, dict_w, basicsize=0,
+                 is_legacy=False):
         # XXX: there is a discussion going on to make it possible to create
         # non-heap types with HPyType_FromSpec. Remember to fix this place
         # when it's the case.
         W_TypeObject.__init__(self, space, name, bases_w, dict_w, is_heaptype=True)
         self.basicsize = basicsize
+        self.is_legacy = is_legacy
 
 
 @API.func("void *HPy_AsStruct(HPyContext *ctx, HPy h)")
@@ -115,6 +117,15 @@ def check_legacy_consistent(space, spec):
                     "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
                     " set .legacy=true instead")
 
+def check_inheritance_constraints(space, w_type):
+    assert isinstance(w_type, W_HPyTypeObject)
+    w_base = find_best_base(w_type.bases_w)
+    if (isinstance(w_base, W_HPyTypeObject) and not w_base.is_legacy and
+            w_type.is_legacy):
+        raise oefmt(space.w_TypeError,
+            "A legacy type should not inherit its memory layout from a"
+            " pure type")
+
 
 @API.func("HPy HPyType_FromSpec(HPyContext *ctx, HPyType_Spec *spec, HPyType_SpecParam *params)")
 def HPyType_FromSpec(space, handles, ctx, spec, params):
@@ -145,8 +156,9 @@ def _hpytype_fromspec(handles, spec, params):
     bases_w = get_bases_from_params(handles, params)
     basicsize = rffi.cast(lltype.Signed, spec.c_basicsize)
 
+    is_legacy = bool(widen(spec.c_legacy))
     w_result = _create_new_type(
-        space, space.w_type, name, bases_w, dict_w, basicsize)
+        space, space.w_type, name, bases_w, dict_w, basicsize, is_legacy=is_legacy)
     if spec.c_doc:
         w_doc = space.newtext(rffi.constcharp2str(spec.c_doc))
         w_result.setdictvalue(space, '__doc__', w_doc)
@@ -154,6 +166,7 @@ def _hpytype_fromspec(handles, spec, params):
         attach_legacy_slots_to_type(space, w_result, spec.c_legacy_slots)
     if spec.c_defines:
         add_slot_defs(handles, w_result, spec.c_defines)
+    check_inheritance_constraints(space, w_result)
     return handles.new(w_result)
 
 @specialize.arg(0)
@@ -198,13 +211,14 @@ def add_slot_defs(handles, w_result, c_defines):
         if w_buffer_wrapper and isinstance(w_buffer_wrapper, getbuffer_cls):
             w_buffer_wrapper.rbp = rbp
 
-def _create_new_type(space, w_typetype, name, bases_w, dict_w, basicsize):
+def _create_new_type(
+        space, w_typetype, name, bases_w, dict_w, basicsize, is_legacy):
     pos = surrogate_in_utf8(name)
     if pos >= 0:
         raise oefmt(space.w_ValueError, "can't encode character in position "
                     "%d, surrogates not allowed", pos)
     w_type = W_HPyTypeObject(
-        space, name, bases_w or [space.w_object], dict_w, basicsize)
+        space, name, bases_w or [space.w_object], dict_w, basicsize, is_legacy)
     w_type.ready()
     return w_type
 
