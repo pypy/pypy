@@ -468,6 +468,8 @@ class FakeObjSpace(ObjSpace):
         #t.viewcg()
         t.buildrtyper().specialize()
         t.checkgraphs()
+        from rpython.translator.backendopt.all import backend_optimizations
+        backend_optimizations(t, replace_we_are_jitted=True)
         if c_compile:
             cbuilder = CStandaloneBuilder(t, entry_point, t.config)
             cbuilder.generate_source(defines=cbuilder.DEBUG_DEFINES)
