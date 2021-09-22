@@ -200,6 +200,15 @@ class AppTestBytesObject:
         raises(TypeError, "b'xxx' % bytearray()")
         raises(TypeError, "b'xxx' % 53")
 
+    def test_format_percent_subclass_tuple_ignores_iter(self):
+        class t(tuple):
+            def __iter__(self):
+                yield b"1"
+                yield b"2"
+                yield b"3"
+        assert b"%s %s %s" % t((b"4", b"5", b"6")) == b"4 5 6"
+
+
     def test_split(self):
         assert b"".split() == []
         assert b"".split(b'x') == [b'']
