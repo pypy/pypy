@@ -1203,7 +1203,6 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
-    @jit.dont_look_inside
     def call_valuestack(self, w_func, nargs, frame, methodcall=False):
         # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
@@ -1213,7 +1212,7 @@ class ObjSpace(object):
             args = frame.make_arguments(nargs, w_function=w_func)
             return self.call_args_and_c_profile(frame, w_func, args)
 
-        if not self.config.objspace.disable_call_speedhacks:
+        if 0: #not self.config.objspace.disable_call_speedhacks:
             # start of hack for performance
             if isinstance(w_func, Method):
                 # reuse callable stack place for w_inst
