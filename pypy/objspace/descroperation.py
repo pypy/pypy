@@ -76,6 +76,7 @@ def _same_class_w(space, w_obj1, w_obj2, w_typ1, w_typ2):
 
 
 class Object(object):
+    @jit.dont_look_inside
     def descr__getattribute__(space, w_obj, w_name):
         name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
@@ -102,6 +103,7 @@ class Object(object):
             return space.get(w_descr, w_obj)
         raiseattrerror(space, w_obj, w_name)
 
+    @jit.dont_look_inside
     def descr__setattr__(space, w_obj, w_name, w_value):
         name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
@@ -113,6 +115,7 @@ class Object(object):
             return
         raiseattrerror(space, w_obj, w_name, w_descr)
 
+    @jit.dont_look_inside
     def descr__delattr__(space, w_obj, w_name):
         name = get_attribute_name(space, w_obj, w_name)
         w_descr = space.lookup(w_obj, name)
@@ -124,6 +127,7 @@ class Object(object):
             return
         raiseattrerror(space, w_obj, w_name, w_descr)
 
+    @jit.dont_look_inside
     def descr__init__(space, w_obj, __args__):
         pass
 
@@ -139,10 +143,12 @@ contains_jitdriver = jit.JitDriver(name='contains',
 class DescrOperation(object):
     # This is meant to be a *mixin*.
 
+    @jit.dont_look_inside
     def is_data_descr(space, w_obj):
         return (space.lookup(w_obj, '__set__') is not None or
                 space.lookup(w_obj, '__delete__') is not None)
 
+    @jit.dont_look_inside
     def get_and_call_args(space, w_descr, w_obj, args):
         # a special case for performance and to avoid infinite recursion
         if isinstance(w_descr, Function):
@@ -151,6 +157,7 @@ class DescrOperation(object):
             w_impl = space.get(w_descr, w_obj)
             return space.call_args(w_impl, args)
 
+    @jit.dont_look_inside
     def get_and_call_function(space, w_descr, w_obj, *args_w):
         typ = type(w_descr)
         # a special case for performance and to avoid infinite recursion
@@ -171,6 +178,7 @@ class DescrOperation(object):
             w_impl = space.get(w_descr, w_obj)
             return space.call_args(w_impl, args)
 
+    @jit.dont_look_inside
     def call_args(space, w_obj, args):
         # two special cases for performance
         if isinstance(w_obj, Function):
@@ -183,6 +191,7 @@ class DescrOperation(object):
                         "'%T' object is not callable", w_obj)
         return space.get_and_call_args(w_descr, w_obj, args)
 
+    @jit.dont_look_inside
     def get(space, w_descr, w_obj, w_type=None):
         w_get = space.lookup(w_descr, '__get__')
         if w_get is None:
@@ -193,6 +202,7 @@ class DescrOperation(object):
         # see test_issue3255 in apptest_descriptor.py
         return space.call_function(w_get, w_descr, w_obj, w_type)
 
+    @jit.dont_look_inside
     def set(space, w_descr, w_obj, w_val):
         w_set = space.lookup(w_descr, '__set__')
         if w_set is None:
@@ -200,6 +210,7 @@ class DescrOperation(object):
                         "'%T' object is not a descriptor with set", w_descr)
         return space.get_and_call_function(w_set, w_descr, w_obj, w_val)
 
+    @jit.dont_look_inside
     def delete(space, w_descr, w_obj):
         w_delete = space.lookup(w_descr, '__delete__')
         if w_delete is None:
@@ -207,11 +218,13 @@ class DescrOperation(object):
                         "'%T' object is not a descriptor with delete", w_descr)
         return space.get_and_call_function(w_delete, w_descr, w_obj)
 
+    @jit.dont_look_inside
     def getattr(space, w_obj, w_name):
         # may be overridden in StdObjSpace
         w_descr = space.lookup(w_obj, '__getattribute__')
         return space._handle_getattribute(w_descr, w_obj, w_name)
 
+    @jit.dont_look_inside
     def _handle_getattribute(space, w_descr, w_obj, w_name):
         try:
             if w_descr is None:   # obscure case
@@ -225,6 +238,7 @@ class DescrOperation(object):
                 raise
             return space.get_and_call_function(w_descr, w_obj, w_name)
 
+    @jit.dont_look_inside
     def setattr(space, w_obj, w_name, w_val):
         w_descr = space.lookup(w_obj, '__setattr__')
         if w_descr is None:
@@ -232,6 +246,7 @@ class DescrOperation(object):
                         "'%T' object is readonly", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_name, w_val)
 
+    @jit.dont_look_inside
     def delattr(space, w_obj, w_name):
         w_descr = space.lookup(w_obj, '__delattr__')
         if w_descr is None:
@@ -240,6 +255,7 @@ class DescrOperation(object):
                         w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_name)
 
+    @jit.dont_look_inside
     def is_true(space, w_obj):
         w_descr = space.lookup(w_obj, "__bool__")
         if w_descr is None:
@@ -262,12 +278,14 @@ class DescrOperation(object):
         raise oefmt(space.w_TypeError,
                     "__bool__ should return bool, returned %T", w_obj)
 
+    @jit.dont_look_inside
     def nonzero(space, w_obj):
         if space.is_true(w_obj):
             return space.w_True
         else:
             return space.w_False
 
+    @jit.dont_look_inside
     def len(space, w_obj):
         w_descr = space.lookup(w_obj, '__len__')
         if w_descr is None:
@@ -275,6 +293,7 @@ class DescrOperation(object):
         w_res = space.get_and_call_function(w_descr, w_obj)
         return space.newint(space._check_len_result(w_res))
 
+    @jit.dont_look_inside
     def _check_len_result(space, w_obj):
         # Will complain if result is too big.
         w_result = space.index(w_obj)
@@ -285,6 +304,7 @@ class DescrOperation(object):
         assert result >= 0
         return result
 
+    @jit.dont_look_inside
     def is_iterable(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -294,6 +314,7 @@ class DescrOperation(object):
                 return False
         return True
 
+    @jit.dont_look_inside
     def iter(space, w_obj):
         w_descr = space.lookup(w_obj, '__iter__')
         if w_descr is None:
@@ -309,6 +330,7 @@ class DescrOperation(object):
             raise oefmt(space.w_TypeError, "iter() returned non-iterator")
         return w_iter
 
+    @jit.dont_look_inside
     def next(space, w_obj):
         w_descr = space.lookup(w_obj, '__next__')
         if w_descr is None:
@@ -316,6 +338,7 @@ class DescrOperation(object):
                         "'%T' object is not an iterator", w_obj)
         return space.get_and_call_function(w_descr, w_obj)
 
+    @jit.dont_look_inside
     def getitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__getitem__')
         if w_descr is None and space.isinstance_w(w_obj, space.w_type):
@@ -326,6 +349,7 @@ class DescrOperation(object):
                         w_obj, w_key)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @jit.dont_look_inside
     def setitem(space, w_obj, w_key, w_val):
         w_descr = space.lookup(w_obj, '__setitem__')
         if w_descr is None:
@@ -333,6 +357,7 @@ class DescrOperation(object):
                         "'%T' object does not support item assignment", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key, w_val)
 
+    @jit.dont_look_inside
     def delitem(space, w_obj, w_key):
         w_descr = space.lookup(w_obj, '__delitem__')
         if w_descr is None:
@@ -340,6 +365,7 @@ class DescrOperation(object):
                         "'%T' object does not support item deletion", w_obj)
         return space.get_and_call_function(w_descr, w_obj, w_key)
 
+    @jit.dont_look_inside
     def format(space, w_obj, w_format_spec):
         w_descr = space.lookup(w_obj, '__format__')
         if w_descr is None:
@@ -352,6 +378,7 @@ class DescrOperation(object):
                         w_obj, w_res)
         return w_res
 
+    @jit.dont_look_inside
     def pow(space, w_obj1, w_obj2, w_obj3):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -386,6 +413,7 @@ class DescrOperation(object):
 
         raise oefmt(space.w_TypeError, "operands do not support **")
 
+    @jit.dont_look_inside
     def inplace_pow(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, '__ipow__')
         if w_impl is not None:
@@ -394,6 +422,7 @@ class DescrOperation(object):
                 return w_res
         return space.pow(w_lhs, w_rhs, space.w_None)
 
+    @jit.dont_look_inside
     def contains(space, w_container, w_item):
         w_descr = space.lookup(w_container, '__contains__')
         if w_descr is not None:
@@ -401,6 +430,7 @@ class DescrOperation(object):
             return space.nonzero(w_result)
         return space.sequence_contains(w_container, w_item)
 
+    @jit.dont_look_inside
     def sequence_contains(space, w_container, w_item):
         w_iter = space.iter(w_container)
         itergreenkey = space.iterator_greenkey(w_iter)
@@ -416,6 +446,7 @@ class DescrOperation(object):
             if space.eq_w(w_item, w_next):
                 return space.w_True
 
+    @jit.dont_look_inside
     def sequence_count(space, w_container, w_item):
         w_iter = space.iter(w_container)
         count = 0
@@ -429,6 +460,7 @@ class DescrOperation(object):
             if space.eq_w(w_next, w_item):
                 count += 1
 
+    @jit.dont_look_inside
     def sequence_index(space, w_container, w_item):
         w_iter = space.iter(w_container)
         index = 0
@@ -444,6 +476,7 @@ class DescrOperation(object):
                 return space.newint(index)
             index += 1
 
+    @jit.dont_look_inside
     def hash(space, w_obj):
         w_hash = space.lookup(w_obj, '__hash__')
         if w_hash is None:
@@ -472,20 +505,25 @@ class DescrOperation(object):
         result -= (result == -1)
         return space.newint(result)
 
+    @jit.dont_look_inside
     def issubtype_w(space, w_sub, w_type):
         return space._type_issubtype(w_sub, w_type)
 
+    @jit.dont_look_inside
     def issubtype(space, w_sub, w_type):
         return space.newbool(space._type_issubtype(w_sub, w_type))
 
     @specialize.arg_or_var(2)
+    @jit.dont_look_inside
     def isinstance_w(space, w_inst, w_type):
         return space._type_isinstance(w_inst, w_type)
 
     @specialize.arg_or_var(2)
+    @jit.dont_look_inside
     def isinstance(space, w_inst, w_type):
         return space.newbool(space.isinstance_w(w_inst, w_type))
 
+    @jit.dont_look_inside
     def index(space, w_obj):
         if space.isinstance_w(w_obj, space.w_int):
             return w_obj
@@ -541,6 +579,7 @@ def _make_binop_impl(symbol, specialnames):
     if symbol == "-":
         printerrormsg = errormsg + '. Did you mean "print(<-number>)"?'
 
+    @jit.dont_look_inside
     def binop_impl(space, w_obj1, w_obj2):
         w_typ1 = space.type(w_obj1)
         w_typ2 = space.type(w_obj2)
@@ -608,6 +647,7 @@ def _invoke_comparison(space, w_descr, w_obj1, w_obj2):
 def _make_comparison_impl(symbol, specialnames):
     left, right = specialnames
     op = getattr(operator, left)
+    @jit.dont_look_inside
     def comparison_impl(space, w_obj1, w_obj2):
         w_orig_obj1 = w_obj1
         w_orig_obj2 = w_obj2
@@ -663,6 +703,7 @@ def _make_inplace_impl(symbol, specialnames):
     seq_bug_compat = (symbol == '+=' or symbol == '*=')
     rhs_method = '__r' + specialname[3:]
 
+    @jit.dont_look_inside
     def inplace_impl(space, w_lhs, w_rhs):
         w_impl = space.lookup(w_lhs, specialname)
         if w_impl is not None:
@@ -691,6 +732,7 @@ def _make_inplace_impl(symbol, specialnames):
 def _make_unaryop_impl(symbol, specialnames):
     specialname, = specialnames
     errormsg = "unsupported operand type for unary %s: '%%T'" % symbol
+    @jit.dont_look_inside
     def unaryop_impl(space, w_obj):
         w_impl = space.lookup(w_obj, specialname)
         if w_impl is None:
@@ -711,6 +753,7 @@ for targetname, specialname, checkerspec in [
     msg = "unsupported operand type for %(targetname)s(): '%%T'"
     msg = msg % locals()
     source = """if 1:
+        @jit.dont_look_inside
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:
@@ -735,6 +778,7 @@ for targetname, specialname in [
     ('repr', '__repr__')]:
 
     source = """if 1:
+        @jit.dont_look_inside
         def %(targetname)s(space, w_obj):
             w_impl = space.lookup(w_obj, %(specialname)r)
             if w_impl is None:

@@ -1056,6 +1056,7 @@ class ObjSpace(object):
                         "__length_hint__() should return >= 0")
         return hint
 
+    @jit.dont_look_inside
     def fixedview(self, w_iterable, expected_length=-1):
         """ A fixed list view of w_iterable. Don't modify the result
         """
@@ -1064,11 +1065,13 @@ class ObjSpace(object):
 
     fixedview_unroll = fixedview
 
+    @jit.dont_look_inside
     def listview(self, w_iterable, expected_length=-1):
         """ A non-fixed view of w_iterable. Don't modify the result
         """
         return self.unpackiterable(w_iterable, expected_length)
 
+    @jit.dont_look_inside
     def listview_no_unpack(self, w_iterable):
         """ Same as listview() if cheap.  If 'w_iterable' is something like
         a generator, for example, then return None instead.
@@ -1076,6 +1079,7 @@ class ObjSpace(object):
         """
         return None
 
+    @jit.dont_look_inside
     def listview_bytes(self, w_list):
         """ Return a list of unwrapped strings out of a list of strings. If the
         argument is not a list or does not contain only strings, return None.
@@ -1083,6 +1087,7 @@ class ObjSpace(object):
         """
         return None
 
+    @jit.dont_look_inside
     def listview_ascii(self, w_list):
         """ Return a list of unwrapped **ASCII** strings out of a list of
         unicode. If the argument is not a list, does not contain only unicode,
@@ -1091,6 +1096,7 @@ class ObjSpace(object):
         """
         return None
 
+    @jit.dont_look_inside
     def listview_int(self, w_list):
         """ Return a list of unwrapped int out of a list of int. If the
         argument is not a list or does not contain only int, return None.
@@ -1098,6 +1104,7 @@ class ObjSpace(object):
         """
         return None
 
+    @jit.dont_look_inside
     def listview_float(self, w_list):
         """ Return a list of unwrapped float out of a list of float. If the
         argument is not a list or does not contain only float, return None.
@@ -1105,15 +1112,18 @@ class ObjSpace(object):
         """
         return None
 
+    @jit.dont_look_inside
     def view_as_kwargs(self, w_dict):
         """ if w_dict is a kwargs-dict, return two lists, one of unwrapped
         strings and one of wrapped values. otherwise return (None, None)
         """
         return (None, None)
 
+    @jit.dont_look_inside
     def newlist_bytes(self, list_s):
         return self.newlist([self.newbytes(s) for s in list_s])
 
+    @jit.dont_look_inside
     def newlist_utf8(self, list_u, is_ascii):
         l_w = [None] * len(list_u)
         for i, item in enumerate(list_u):
@@ -1124,17 +1134,20 @@ class ObjSpace(object):
             l_w[i] = self.newutf8(item, length)
         return self.newlist(l_w)
 
+    @jit.dont_look_inside
     def newlist_int(self, list_i):
         return self.newlist([self.newint(i) for i in list_i])
 
+    @jit.dont_look_inside
     def newlist_float(self, list_f):
         return self.newlist([self.newfloat(f) for f in list_f])
 
+    @jit.dont_look_inside
     def newlist_hint(self, sizehint):
         from pypy.objspace.std.listobject import make_empty_list_with_size
         return make_empty_list_with_size(self, sizehint)
 
-    @jit.unroll_safe
+    @jit.dont_look_inside
     def exception_match(self, w_exc_type, w_check_class):
         """Checks if the given exception type matches 'w_check_class'."""
         if self.is_w(w_exc_type, w_check_class):
@@ -1147,6 +1160,7 @@ class ObjSpace(object):
                 return False
         return self.exception_issubclass_w(w_exc_type, w_check_class)
 
+    @jit.dont_look_inside
     def call_obj_args(self, w_callable, w_obj, args):
         if not self.config.objspace.disable_call_speedhacks:
             # start of hack for performance
@@ -1156,10 +1170,12 @@ class ObjSpace(object):
             # end of hack for performance
         return self.call_args(w_callable, args.prepend(w_obj))
 
+    @jit.dont_look_inside
     def call(self, w_callable, w_args, w_kwds=None):
         args = Arguments.frompacked(self, w_args, w_kwds)
         return self.call_args(w_callable, args)
 
+    @jit.dont_look_inside
     def _try_fetch_pycode(self, w_func):
         from pypy.interpreter.function import Function, Method
         if isinstance(w_func, Method):
@@ -1168,6 +1184,7 @@ class ObjSpace(object):
             return w_func.code
         return None
 
+    @jit.dont_look_inside
     def call_function(self, w_func, *args_w):
         nargs = len(args_w) # used for pruning funccall versions
         if not self.config.objspace.disable_call_speedhacks and nargs < 5:
@@ -1186,6 +1203,7 @@ class ObjSpace(object):
         args = Arguments(self, list(args_w))
         return self.call_args(w_func, args)
 
+    @jit.dont_look_inside
     def call_valuestack(self, w_func, nargs, frame, methodcall=False):
         # methodcall is only used for better error messages in argument.py
         from pypy.interpreter.function import Function, Method, is_builtin_code
@@ -1212,6 +1230,7 @@ class ObjSpace(object):
         args = frame.make_arguments(nargs, w_function=w_func)
         return self.call_args(w_func, args)
 
+    @jit.dont_look_inside
     def call_args_and_c_profile(self, frame, w_func, args):
         ec = self.getexecutioncontext()
         ec.c_call_trace(frame, w_func, args)
@@ -1223,14 +1242,17 @@ class ObjSpace(object):
         ec.c_return_trace(frame, w_func, args)
         return w_res
 
+    @jit.dont_look_inside
     def call_method(self, w_obj, methname, *arg_w):
         w_meth = self.getattr(w_obj, self.newtext(methname))
         return self.call_function(w_meth, *arg_w)
 
+    @jit.dont_look_inside
     def raise_key_error(self, w_key):
         e = self.call_function(self.w_KeyError, w_key)
         raise OperationError(self.w_KeyError, e)
 
+    @jit.dont_look_inside
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         w_mro = self.getattr(w_type, self.newtext("__mro__"))
@@ -1240,16 +1262,20 @@ class ObjSpace(object):
                 return w_value
         return None
 
+    @jit.dont_look_inside
     def is_generator(self, w_obj):
         from pypy.interpreter.generator import GeneratorIterator
         return isinstance(w_obj, GeneratorIterator)
 
+    @jit.dont_look_inside
     def callable_w(self, w_obj):
         return self.lookup(w_obj, "__call__") is not None
 
+    @jit.dont_look_inside
     def callable(self, w_obj):
         return self.newbool(self.callable_w(w_obj))
 
+    @jit.dont_look_inside
     def issequence_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
@@ -1259,6 +1285,7 @@ class ObjSpace(object):
         else:
             return (self.lookup(w_obj, '__getitem__') is not None)
 
+    @jit.dont_look_inside
     def ismapping_w(self, w_obj):
         flag = self.type(w_obj).flag_map_or_seq
         if flag == 'M':
@@ -1273,22 +1300,27 @@ class ObjSpace(object):
     # These methods are patched with the full logic by the builtins
     # module when it is loaded
 
+    @jit.dont_look_inside
     def abstract_issubclass_w(self, w_cls1, w_cls2, allow_override=False):
         # Equivalent to 'issubclass(cls1, cls2)'.
         return self.issubtype_w(w_cls1, w_cls2)
 
+    @jit.dont_look_inside
     def abstract_isinstance_w(self, w_obj, w_cls, allow_override=False):
         # Equivalent to 'isinstance(obj, cls)'.
         return self.isinstance_w(w_obj, w_cls)
 
+    @jit.dont_look_inside
     def abstract_isclass_w(self, w_obj):
         # Equivalent to 'isinstance(obj, type)'.
         return self.isinstance_w(w_obj, self.w_type)
 
+    @jit.dont_look_inside
     def abstract_getclass(self, w_obj):
         # Equivalent to 'obj.__class__'.
         return self.type(w_obj)
 
+    @jit.dont_look_inside
     def isabstractmethod_w(self, w_obj):
         try:
             w_result = self.getattr(w_obj, self.newtext("__isabstractmethod__"))
@@ -1302,17 +1334,21 @@ class ObjSpace(object):
     # This is slightly less general than the case above, so we prefix
     # it with exception_
 
+    @jit.dont_look_inside
     def exception_is_valid_obj_as_class_w(self, w_obj):
         if not self.isinstance_w(w_obj, self.w_type):
             return False
         return self.issubtype_w(w_obj, self.w_BaseException)
 
+    @jit.dont_look_inside
     def exception_is_valid_class_w(self, w_cls):
         return self.issubtype_w(w_cls, self.w_BaseException)
 
+    @jit.dont_look_inside
     def exception_getclass(self, w_obj):
         return self.type(w_obj)
 
+    @jit.dont_look_inside
     def exception_issubclass_w(self, w_cls1, w_cls2):
         return self.issubtype_w(w_cls1, w_cls2)
 
@@ -1415,6 +1451,7 @@ class ObjSpace(object):
                 if op == 'ge': return self.ge(w_x1, w_x2)
                 assert False, "bad value for op"
 
+    @jit.dont_look_inside
     def decode_index(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations
              -> (index, 0, 0) or
@@ -1434,6 +1471,7 @@ class ObjSpace(object):
             step = 0
         return start, stop, step
 
+    @jit.dont_look_inside
     def decode_index4(self, w_index_or_slice, seqlength):
         """Helper for custom sequence implementations
              -> (index, 0, 0, 1) or
@@ -1455,6 +1493,7 @@ class ObjSpace(object):
             length = 1
         return start, stop, step, length
 
+    @jit.dont_look_inside
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         """Return w_obj.__index__() as an RPython int.
         If w_exception is None, silently clamp in case of overflow;
@@ -1489,18 +1528,22 @@ class ObjSpace(object):
         else:
             return index
 
+    @jit.dont_look_inside
     def getslice(space, w_obj, w_start, w_stop):
         w_slice = space.newslice(w_start, w_stop, space.w_None)
         return space.getitem(w_obj, w_slice)
 
+    @jit.dont_look_inside
     def setslice(space, w_obj, w_start, w_stop, w_sequence):
         w_slice = space.newslice(w_start, w_stop, space.w_None)
         return space.setitem(w_obj, w_slice, w_sequence)
 
+    @jit.dont_look_inside
     def delslice(space, w_obj, w_start, w_stop):
         w_slice = space.newslice(w_start, w_stop, space.w_None)
         return space.delitem(w_obj, w_slice)
 
+    @jit.dont_look_inside
     def r_longlong_w(self, w_obj, allow_conversion=True):
         bigint = self.bigint_w(w_obj, allow_conversion)
         try:
@@ -1508,6 +1551,7 @@ class ObjSpace(object):
         except OverflowError:
             raise oefmt(self.w_OverflowError, "integer too large")
 
+    @jit.dont_look_inside
     def r_ulonglong_w(self, w_obj, allow_conversion=True):
         bigint = self.bigint_w(w_obj, allow_conversion)
         try:
@@ -1534,10 +1578,12 @@ class ObjSpace(object):
     BUF_FULL_RO = BUF_INDIRECT | BUF_FORMAT
     BUF_FULL    = BUF_INDIRECT | BUF_FORMAT | BUF_WRITABLE
 
+    @jit.dont_look_inside
     def check_buf_flags(self, flags, readonly):
         if readonly and flags & self.BUF_WRITABLE == self.BUF_WRITABLE:
             raise oefmt(self.w_BufferError, "Object is not writable.")
 
+    @jit.dont_look_inside
     def _try_buffer_w(self, w_obj, flags):
         if not we_are_translated():
             if w_obj.buffer_w.im_func != W_Root.buffer_w.im_func:
@@ -1547,6 +1593,7 @@ class ObjSpace(object):
                 assert type(w_obj).typedef.buffer is not None
         return w_obj.buffer_w(self, flags)
 
+    @jit.dont_look_inside
     def buffer_w(self, w_obj, flags):
         # New buffer interface, returns a buffer based on flags (PyObject_GetBuffer)
         try:
@@ -1555,6 +1602,7 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError,
                         "'%T' does not support the buffer interface", w_obj)
 
+    @jit.dont_look_inside
     def readbuf_w(self, w_obj):
         # Old buffer interface, returns a readonly buffer (PyObject_AsReadBuffer)
         try:
@@ -1562,6 +1610,7 @@ class ObjSpace(object):
         except BufferInterfaceNotFound:
             self._getarg_error("bytes-like object", w_obj)
 
+    @jit.dont_look_inside
     def writebuf_w(self, w_obj):
         # Old buffer interface, returns a writeable buffer (PyObject_AsWriteBuffer)
         try:
@@ -1569,6 +1618,7 @@ class ObjSpace(object):
         except (BufferInterfaceNotFound, OperationError):
             self._getarg_error("read-write bytes-like object", w_obj)
 
+    @jit.dont_look_inside
     def charbuf_w(self, w_obj):
         # Old buffer interface, returns a character buffer (PyObject_AsCharBuffer)
         if self.isinstance_w(w_obj, self.w_bytes):  # XXX: is this shortcut useful?
@@ -1576,6 +1626,7 @@ class ObjSpace(object):
         else:
             return self.readbuf_w(w_obj).as_str()
 
+    @jit.dont_look_inside
     def _getarg_error(self, expected, w_obj):
         if self.is_none(w_obj):
             e = oefmt(self.w_TypeError, "a %s is required, not None", expected)
@@ -1584,6 +1635,7 @@ class ObjSpace(object):
         raise e
 
     @specialize.arg(1)
+    @jit.dont_look_inside
     def getarg_w(self, code, w_obj):
         if code == 'z*':
             if self.is_none(w_obj):
@@ -1625,10 +1677,13 @@ class ObjSpace(object):
 
         if self.isinstance_w(w_obj, self.w_unicode):
             return w_obj.charbuf_w(self)
+
+    @jit.dont_look_inside
     def text_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.text_w(w_obj)
 
     @specialize.argtype(1)
+    @jit.dont_look_inside
     def bytes_w(self, w_obj):
         """ Takes an application level :py:class:`bytes`
             (on PyPy2 this equals `str`) and returns a rpython byte string.
@@ -1637,6 +1692,7 @@ class ObjSpace(object):
         return w_obj.bytes_w(self)
 
     @specialize.argtype(1)
+    @jit.dont_look_inside
     def text_w(self, w_obj):
         """ PyPy2 takes either a :py:class:`str` and returns a
             rpython byte string, or it takes an :py:class:`unicode`
@@ -1652,6 +1708,7 @@ class ObjSpace(object):
         return w_obj.text_w(self)
 
     @not_rpython    # tests only; should be replaced with bytes_w or text_w
+    @jit.dont_look_inside
     def str_w(self, w_obj):
         """
         if w_obj is unicode, call utf8_w() (i.e., return the UTF-8-nosg
@@ -1667,6 +1724,7 @@ class ObjSpace(object):
         else:
             return w_obj.bytes_w(self)
 
+    @jit.dont_look_inside
     def bytes0_w(self, w_obj):
         "Like bytes_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
@@ -1675,6 +1733,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
+    @jit.dont_look_inside
     def text0_w(self, w_obj):
         "Like text_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
@@ -1683,9 +1742,11 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "embedded null character")
         return rstring.assert_str0(result)
 
+    @jit.dont_look_inside
     def fsencode_or_none_w(self, w_obj):
         return None if self.is_none(w_obj) else self.fsencode_w(w_obj)
 
+    @jit.dont_look_inside
     def byte_w(self, w_obj):
         """
         Convert an index-like object to an interp-level char
@@ -1698,6 +1759,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "byte must be in range(0, 256)")
         return chr(value)
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def int_w(self, w_obj, allow_conversion=True):
         """
@@ -1714,17 +1776,20 @@ class ObjSpace(object):
         assert w_obj is not None
         return w_obj.int_w(self, allow_conversion)
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def int(self, w_obj):
         assert w_obj is not None
         return w_obj.int(self)
     long = int
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def uint_w(self, w_obj):
         assert w_obj is not None
         return w_obj.uint_w(self)
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def bigint_w(self, w_obj, allow_conversion=True):
         """
@@ -1734,6 +1799,7 @@ class ObjSpace(object):
         assert w_obj is not None
         return w_obj.bigint_w(self, allow_conversion)
 
+    @jit.dont_look_inside
     @specialize.argtype(1)
     def float_w(self, w_obj, allow_conversion=True):
         """
@@ -1743,17 +1809,21 @@ class ObjSpace(object):
         assert w_obj is not None
         return w_obj.float_w(self, allow_conversion)
 
+    @jit.dont_look_inside
     def utf8_w(self, w_obj):
         return w_obj.utf8_w(self)
 
+    @jit.dont_look_inside
     def convert_to_w_unicode(self, w_obj):
         return w_obj.convert_to_w_unicode(self)
 
+    @jit.dont_look_inside
     def realunicode_w(self, w_obj):
         from pypy.interpreter.unicodehelper import decode_utf8sp
         utf8 = self.utf8_w(w_obj)
         return decode_utf8sp(self, utf8)[0].decode('utf8')
 
+    @jit.dont_look_inside
     def utf8_0_w(self, w_obj):
         "Like utf8_w, but rejects strings with NUL bytes."
         from rpython.rlib import rstring
@@ -1766,14 +1836,17 @@ class ObjSpace(object):
 
     realtext_w = text_w         # Python 2 compatibility
 
+    @jit.dont_look_inside
     def fsencode(space, w_obj):
         from pypy.interpreter.unicodehelper import fsencode
         return fsencode(space, w_obj)
 
+    @jit.dont_look_inside
     def fsdecode(space, w_obj):
         from pypy.interpreter.unicodehelper import fsdecode
         return fsdecode(space, w_obj)
 
+    @jit.dont_look_inside
     def fsencode_w(self, w_obj, allowed_types="string, bytes, or os.PathLike"):
         try:
             self._try_buffer_w(w_obj, self.BUF_FULL_RO)
@@ -1789,16 +1862,19 @@ class ObjSpace(object):
                 w_obj = self.fsencode(w_obj)
         return self.bytesbuf0_w(w_obj)
 
+    @jit.dont_look_inside
     def convert_arg_to_w_unicode(self, w_obj, strict=None):
         # XXX why convert_to_w_unicode does something slightly different?
         from pypy.objspace.std.unicodeobject import W_UnicodeObject
         assert not hasattr(self, 'is_fake_objspace')
         return W_UnicodeObject.convert_arg_to_w_unicode(self, w_obj, strict)
 
+    @jit.dont_look_inside
     def utf8_len_w(self, w_obj):
         w_obj = self.convert_arg_to_w_unicode(w_obj)
         return w_obj._utf8, w_obj._len()
 
+    @jit.dont_look_inside
     def realutf8_w(self, w_obj):
         # Like utf8_w(), but only works if w_obj is really of type
         # 'unicode'.  On Python 3 this is the same as utf8_w().
@@ -1809,6 +1885,7 @@ class ObjSpace(object):
             raise oefmt(self.w_TypeError, "argument must be a unicode")
         return self.utf8_w(w_obj)
 
+    @jit.dont_look_inside
     def bytesbuf0_w(self, w_obj):
         # Like bytes0_w(), but also accept a read-only buffer.
         from rpython.rlib import rstring
@@ -1822,6 +1899,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "embedded null byte")
         return rstring.assert_str0(result)
 
+    @jit.dont_look_inside
     def fsdecode_w(self, w_obj):
         try:
             self._try_buffer_w(w_obj, self.BUF_FULL_RO)
@@ -1832,6 +1910,7 @@ class ObjSpace(object):
             w_obj = self.fsdecode(w_obj)
         return self.utf8_w(w_obj)
 
+    @jit.dont_look_inside
     def bool_w(self, w_obj):
         # Unwraps a bool, also accepting an int for compatibility.
         # For cases where you need to accept bools and ints and nothing
@@ -1840,6 +1919,7 @@ class ObjSpace(object):
         return bool(self.int_w(w_obj))
 
     @specialize.argtype(1)
+    @jit.dont_look_inside
     def ord(self, w_obj):
         assert w_obj is not None
         return w_obj.ord(self)
@@ -1850,12 +1930,14 @@ class ObjSpace(object):
     gateway_r_longlong_w = r_longlong_w
     gateway_r_ulonglong_w = r_ulonglong_w
 
+    @jit.dont_look_inside
     def gateway_r_uint_w(self, w_obj):
         if self.isinstance_w(w_obj, self.w_float):
             raise oefmt(self.w_TypeError,
                         "integer argument expected, got float")
         return self.uint_w(self.int(w_obj))
 
+    @jit.dont_look_inside
     def gateway_nonnegint_w(self, w_obj):
         # Like space.gateway_int_w(), but raises an app-level ValueError if
         # the integer is negative.  Here for gateway.py.
@@ -1864,6 +1946,7 @@ class ObjSpace(object):
             raise oefmt(self.w_ValueError, "expected a non-negative integer")
         return value
 
+    @jit.dont_look_inside
     def c_int_w(self, w_obj):
         # Like space.gateway_int_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
@@ -1872,6 +1955,7 @@ class ObjSpace(object):
             raise oefmt(self.w_OverflowError, "expected a 32-bit integer")
         return value
 
+    @jit.dont_look_inside
     def c_uint_w(self, w_obj):
         # Like space.gateway_uint_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
@@ -1881,6 +1965,7 @@ class ObjSpace(object):
                         "expected an unsigned 32-bit integer")
         return value
 
+    @jit.dont_look_inside
     def c_nonnegint_w(self, w_obj):
         # Like space.gateway_int_w(), but raises an app-level ValueError if
         # the integer is negative or does not fit in 32 bits.  Here
@@ -1892,6 +1977,7 @@ class ObjSpace(object):
             raise oefmt(self.w_OverflowError, "expected a 32-bit integer")
         return value
 
+    @jit.dont_look_inside
     def c_short_w(self, w_obj):
         value = self.int_w(w_obj)
         if value < SHRT_MIN:
@@ -1902,6 +1988,7 @@ class ObjSpace(object):
                 "signed short integer is greater than maximum")
         return value
 
+    @jit.dont_look_inside
     def c_ushort_w(self, w_obj):
         value = self.int_w(w_obj)
         if value < 0:
@@ -1912,6 +1999,7 @@ class ObjSpace(object):
                 "Python int too large for C unsigned short")
         return value
 
+    @jit.dont_look_inside
     def c_uid_t_w(self, w_obj):
         # xxx assumes that uid_t and gid_t are a C unsigned int.
         # Equivalent to space.c_uint_w(), with the exception that
@@ -1929,6 +2017,7 @@ class ObjSpace(object):
                             "user/group id smaller than minimum (-1)")
             raise
 
+    @jit.dont_look_inside
     def truncatedint_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_int_w(), but return the integer truncated
         # instead of raising OverflowError.  For obscure cases only.
@@ -1940,6 +2029,7 @@ class ObjSpace(object):
             from rpython.rlib.rarithmetic import intmask
             return intmask(self.bigint_w(w_obj).uintmask())
 
+    @jit.dont_look_inside
     def truncatedlonglong_w(self, w_obj, allow_conversion=True):
         # Like space.gateway_r_longlong_w(), but return the integer truncated
         # instead of raising OverflowError.
@@ -1951,6 +2041,7 @@ class ObjSpace(object):
             from rpython.rlib.rarithmetic import longlongmask
             return longlongmask(self.bigint_w(w_obj).ulonglongmask())
 
+    @jit.dont_look_inside
     def c_filedescriptor_w(self, w_fd):
         # This is only used sometimes in CPython, e.g. for os.fsync() but
         # not os.close().  It's likely designed for 'select'.  It's irregular
@@ -1975,6 +2066,7 @@ class ObjSpace(object):
                 "file descriptor cannot be a negative integer (%d)", fd)
         return fd
 
+    @jit.dont_look_inside
     def warn(self, w_msg, w_warningcls, stacklevel=2):
         from pypy.module._warnings.interp_warnings import do_warn
 
@@ -1983,6 +2075,7 @@ class ObjSpace(object):
             assert self.issubtype_w(w_warningcls, self.w_Warning)
         do_warn(self, w_msg, w_warningcls, stacklevel - 1)
 
+    @jit.dont_look_inside
     def iterator_greenkey(self, w_iterable):
         """ Return something that can be used as a green key in jit drivers
         that iterate over self. by default, it's just the type of self, but

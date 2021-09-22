@@ -130,7 +130,7 @@ def CALL_METHOD_KW(f, n_arguments, *ignored):
         w_result = f.space.call_args(w_callable, args)
     f.pushvalue(w_result)
 
-
+@jit.dont_look_inside
 def call_method_opt(space, w_obj, methname, *arg_w):
     """An optimized version of space.call_method()
     based on the same principle as above.

@@ -78,6 +78,7 @@ def build_frame(space):
     """Consider the objspace config and return a patched frame object."""
     class StdObjSpaceFrame(BaseFrame):
         pass
+    return StdObjSpaceFrame
     if space.config.objspace.std.intshortcut:
         StdObjSpaceFrame.BINARY_ADD = int_BINARY_ADD
         StdObjSpaceFrame.INPLACE_ADD = int_INPLACE_ADD

@@ -122,6 +122,7 @@ class StdObjSpace(ObjSpace):
     def get_builtin_types(self):
         return self.builtin_types
 
+    @jit.dont_look_inside
     def createexecutioncontext(self):
         # add space specific fields to execution context
         # note that this method must not call space methods that might need an
@@ -130,6 +131,7 @@ class StdObjSpace(ObjSpace):
         ec._py_repr = None
         return ec
 
+    @jit.dont_look_inside
     def get_objects_in_repr(self):
         from pypy.module.__pypy__.interp_identitydict import W_IdentityDict
         ec = self.getexecutioncontext()
@@ -138,9 +140,11 @@ class StdObjSpace(ObjSpace):
             w_currently_in_repr = ec._py_repr = W_IdentityDict(self)
         return w_currently_in_repr
 
+    @jit.dont_look_inside
     def gettypefor(self, cls):
         return self.gettypeobject(cls.typedef)
 
+    @jit.dont_look_inside
     def gettypeobject(self, typedef):
         # typeobject.TypeCache maps a TypeDef instance to its
         # unique-for-this-space W_TypeObject instance
@@ -278,6 +282,7 @@ class StdObjSpace(ObjSpace):
         raise TypeError("cannot unwrap: %r" % w_obj)
 
     @specialize.argtype(1)
+    @jit.dont_look_inside
     def newint(self, intval):
         if self.config.objspace.std.withsmalllong and isinstance(intval, base_int):
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
@@ -291,16 +296,20 @@ class StdObjSpace(ObjSpace):
             return W_LongObject.fromrarith_int(intval)
         return wrapint(self, intval)
 
+    @jit.dont_look_inside
     def newfloat(self, floatval):
         return W_FloatObject(floatval)
 
+    @jit.dont_look_inside
     def newcomplex(self, realval, imagval):
         return W_ComplexObject(realval, imagval)
 
+    @jit.dont_look_inside
     def unpackcomplex(self, w_complex):
         from pypy.objspace.std.complexobject import unpackcomplex
         return unpackcomplex(self, w_complex)
 
+    @jit.dont_look_inside
     def newlong(self, val): # val is an int
         if self.config.objspace.std.withsmalllong:
             from pypy.objspace.std.smalllongobject import W_SmallLongObject
@@ -308,84 +317,104 @@ class StdObjSpace(ObjSpace):
         return W_LongObject.fromint(self, val)
 
     @specialize.argtype(1)
+    @jit.dont_look_inside
     def newlong_from_rarith_int(self, val): # val is an rarithmetic type
         return W_LongObject.fromrarith_int(val)
 
+    @jit.dont_look_inside
     def newlong_from_rbigint(self, val):
         try:
             return self.newint(val.toint())
         except OverflowError:
             return newlong(self, val)
 
+    @jit.dont_look_inside
     def newtuple(self, list_w):
         from pypy.objspace.std.tupleobject import wraptuple
         assert isinstance(list_w, list)
         make_sure_not_resized(list_w)
         return wraptuple(self, list_w)
 
+    @jit.dont_look_inside
     def newlist(self, list_w, sizehint=-1):
         assert not list_w or sizehint == -1
         return W_ListObject(self, list_w, sizehint)
 
+    @jit.dont_look_inside
     def newlist_bytes(self, list_s):
         return W_ListObject.newlist_bytes(self, list_s)
 
+    @jit.dont_look_inside
     def newlist_text(self, list_t):
         return self.newlist_utf8([decode_utf8sp(self, s)[0] for s in list_t], False)
 
+    @jit.dont_look_inside
     def newlist_utf8(self, list_u, is_ascii):
         if is_ascii:
             return W_ListObject.newlist_ascii(self, list_u)
         return ObjSpace.newlist_utf8(self, list_u, False)
 
 
+    @jit.dont_look_inside
     def newlist_int(self, list_i):
         return W_ListObject.newlist_int(self, list_i)
 
+    @jit.dont_look_inside
     def newlist_float(self, list_f):
         return W_ListObject.newlist_float(self, list_f)
 
+    @jit.dont_look_inside
     def newdict(self, module=False, instance=False, kwargs=False,
                 strdict=False):
         return W_DictMultiObject.allocate_and_init_instance(
                 self, module=module, instance=instance,
                 strdict=strdict, kwargs=kwargs)
 
+    @jit.dont_look_inside
     def newdictproxy(self, w_dict):
         # e.g. for module/_sre/
         from pypy.objspace.std.dictproxyobject import W_DictProxyObject
         return W_DictProxyObject(w_dict)
 
+    @jit.dont_look_inside
     def newset(self, iterable_w=None):
         if iterable_w is None:
             return W_SetObject(self, None)
         return W_SetObject(self, self.newtuple(iterable_w))
 
+    @jit.dont_look_inside
     def newfrozenset(self, iterable_w=None):
         if iterable_w is None:
             return W_FrozensetObject(self, None)
         return W_FrozensetObject(self, self.newtuple(iterable_w))
 
+    @jit.dont_look_inside
     def newslice(self, w_start, w_end, w_step):
         return W_SliceObject(w_start, w_end, w_step)
 
+    @jit.dont_look_inside
     def newseqiter(self, w_obj):
         return W_SeqIterObject(w_obj)
 
+    @jit.dont_look_inside
     def newmemoryview(self, w_obj):
         return W_MemoryView(w_obj)
 
+    @jit.dont_look_inside
     def newmemoryview(self, view):
         return W_MemoryView(view)
 
+    @jit.dont_look_inside
     def newbytes(self, s):
         assert isinstance(s, bytes)
         return W_BytesObject(s)
 
+    @jit.dont_look_inside
     def newbytearray(self, l):
         return W_BytearrayObject(l)
 
     @specialize.arg_or_var(1, 2)
+    @jit.dont_look_inside
     def newtext(self, s, lgt=-1, unused=-1):
         # the unused argument can be from something like
         # newtext(*decode_utf8sp(space, code))
@@ -396,12 +425,14 @@ class StdObjSpace(ObjSpace):
             lgt = rutf8.codepoints_in_utf8(s)
         return W_UnicodeObject(s, lgt)
 
+    @jit.dont_look_inside
     def newtext_or_none(self, s, lgt=-1):
         if s is None:
             return self.w_None
         return self.newtext(s, lgt)
 
     @specialize.memo()
+    @jit.dont_look_inside
     def _newtext_memo(self, s, lgt):
         if s is None:
             return self.w_None # can happen during annotation
@@ -409,30 +440,37 @@ class StdObjSpace(ObjSpace):
             lgt = rutf8.codepoints_in_utf8(s)
         return W_UnicodeObject(s, lgt)
 
+    @jit.dont_look_inside
     def newutf8(self, utf8s, length):
         assert isinstance(utf8s, str)
         return W_UnicodeObject(utf8s, length)
 
+    @jit.dont_look_inside
     def newfilename(self, s):
         return self.fsdecode(self.newbytes(s))
 
+    @jit.dont_look_inside
     def type(self, w_obj):
         jit.promote(w_obj.__class__)
         return w_obj.getclass(self)
 
+    @jit.dont_look_inside
     def lookup(self, w_obj, name):
         w_type = self.type(w_obj)
         return w_type.lookup(name)
     lookup._annspecialcase_ = 'specialize:lookup'
 
+    @jit.dont_look_inside
     def lookup_in_type(self, w_type, name):
         w_src, w_descr = self.lookup_in_type_where(w_type, name)
         return w_descr
 
+    @jit.dont_look_inside
     def lookup_in_type_where(self, w_type, name):
         return w_type.lookup_where(name)
     lookup_in_type_where._annspecialcase_ = 'specialize:lookup_in_type_where'
 
+    @jit.dont_look_inside
     def lookup_in_type_starting_at(self, w_type, w_starttype, name):
         """ Only supposed to be used to implement super, w_starttype
         and w_type are the same as for super(starttype, type)
@@ -442,6 +480,7 @@ class StdObjSpace(ObjSpace):
         return w_type.lookup_starting_at(w_starttype, name)
 
     @specialize.arg(1)
+    @jit.dont_look_inside
     def allocate_instance(self, cls, w_subtype):
         """Allocate the memory needed for an instance of an internal or
         user-defined type, without actually __init__ializing the instance."""
@@ -471,6 +510,7 @@ class StdObjSpace(ObjSpace):
     # have different return type. First one is a resizable list, second
     # one is not
 
+    @jit.dont_look_inside
     def _wrap_expected_length(self, expected, got):
         if got > expected:
             raise oefmt(self.w_ValueError,
@@ -480,6 +520,7 @@ class StdObjSpace(ObjSpace):
                         "not enough values to unpack (expected %d, got %d)",
                         expected, got)
 
+    @jit.dont_look_inside
     def unpackiterable(self, w_obj, expected_length=-1):
         if isinstance(w_obj, W_AbstractTupleObject) and self._uses_tuple_iter(w_obj):
             t = w_obj.getitems_copy()
@@ -492,6 +533,7 @@ class StdObjSpace(ObjSpace):
         return t
 
     @specialize.arg(3)
+    @jit.dont_look_inside
     def fixedview(self, w_obj, expected_length=-1, unroll=False):
         """ Fast paths
         """
@@ -513,10 +555,12 @@ class StdObjSpace(ObjSpace):
             raise self._wrap_expected_length(expected_length, len(t))
         return make_sure_not_resized(t)
 
+    @jit.dont_look_inside
     def fixedview_unroll(self, w_obj, expected_length):
         assert expected_length >= 0
         return self.fixedview(w_obj, expected_length, unroll=True)
 
+    @jit.dont_look_inside
     def listview_no_unpack(self, w_obj):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems()
@@ -527,6 +571,7 @@ class StdObjSpace(ObjSpace):
         else:
             return None
 
+    @jit.dont_look_inside
     def listview(self, w_obj, expected_length=-1):
         t = self.listview_no_unpack(w_obj)
         if t is None:
@@ -535,6 +580,7 @@ class StdObjSpace(ObjSpace):
             raise self._wrap_expected_length(expected_length, len(t))
         return t
 
+    @jit.dont_look_inside
     def listview_bytes(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
@@ -551,6 +597,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_bytes()
         return None
 
+    @jit.dont_look_inside
     def listview_ascii(self, w_obj):
         # note: uses exact type checking for objects with strategies,
         # and isinstance() for others.  See test_listobject.test_uses_custom...
@@ -566,6 +613,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_ascii()
         return None
 
+    @jit.dont_look_inside
     def listview_int(self, w_obj):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_int()
@@ -580,6 +628,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_int()
         return None
 
+    @jit.dont_look_inside
     def listview_float(self, w_obj):
         if type(w_obj) is W_ListObject:
             return w_obj.getitems_float()
@@ -589,6 +638,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitems_float()
         return None
 
+    @jit.dont_look_inside
     def view_as_kwargs(self, w_dict):
         # Tries to return (keys_list, values_list), or (None, None) if
         # it fails.  It can fail on some dict implementations, so don't
@@ -599,18 +649,22 @@ class StdObjSpace(ObjSpace):
             return w_dict.view_as_kwargs()
         return (None, None)
 
+    @jit.dont_look_inside
     def _uses_list_iter(self, w_obj):
         from pypy.objspace.descroperation import list_iter
         return self.lookup(w_obj, '__iter__') is list_iter(self)
 
+    @jit.dont_look_inside
     def _uses_tuple_iter(self, w_obj):
         from pypy.objspace.descroperation import tuple_iter
         return self.lookup(w_obj, '__iter__') is tuple_iter(self)
 
+    @jit.dont_look_inside
     def _uses_unicode_iter(self, w_obj):
         from pypy.objspace.descroperation import unicode_iter
         return self.lookup(w_obj, '__iter__') is unicode_iter(self)
 
+    @jit.dont_look_inside
     def sliceindices(self, w_slice, w_length):
         if isinstance(w_slice, W_SliceObject):
             a, b, c = w_slice.indices3(self, self.int_w(w_length))
@@ -624,12 +678,14 @@ class StdObjSpace(ObjSpace):
 
     _DescrOperation_is_true = is_true
 
+    @jit.dont_look_inside
     def is_true(self, w_obj):
         # a shortcut for performance
         if type(w_obj) is W_BoolObject:
             return bool(w_obj.intval)
         return self._DescrOperation_is_true(w_obj)
 
+    @jit.dont_look_inside
     def getattr(self, w_obj, w_name):
         # an optional shortcut for performance
 
@@ -685,6 +741,7 @@ class StdObjSpace(ObjSpace):
         else:
             raiseattrerror(self, w_obj, w_name)
 
+    @jit.dont_look_inside
     def finditem_str(self, w_obj, key):
         """ Perform a getitem on w_obj with key (string). Returns found
         element or None on element not found.
@@ -697,6 +754,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitem_str(key)
         return ObjSpace.finditem_str(self, w_obj, key)
 
+    @jit.dont_look_inside
     def finditem(self, w_obj, w_key):
         """ Perform a getitem on w_obj with w_key (any object). Returns found
         element or None on element not found.
@@ -708,6 +766,7 @@ class StdObjSpace(ObjSpace):
             return w_obj.getitem(w_key)
         return ObjSpace.finditem(self, w_obj, w_key)
 
+    @jit.dont_look_inside
     def setitem_str(self, w_obj, key, w_value):
         """ Same as setitem, but takes string instead of any wrapped object
         """
@@ -717,11 +776,13 @@ class StdObjSpace(ObjSpace):
         else:
             self.setitem(w_obj, self.newtext(key), w_value)
 
+    @jit.dont_look_inside
     def getindex_w(self, w_obj, w_exception, objdescr=None):
         if type(w_obj) is W_IntObject:
             return w_obj.intval
         return ObjSpace.getindex_w(self, w_obj, w_exception, objdescr)
 
+    @jit.dont_look_inside
     def unicode_from_object(self, w_obj):
         from pypy.objspace.std.unicodeobject import unicode_from_object
         return unicode_from_object(self, w_obj)
@@ -730,15 +791,18 @@ class StdObjSpace(ObjSpace):
         from pypy.objspace.std.unicodeobject import encode_object
         return encode_object(self, w_unicode, encoding, errors)
 
+    @jit.dont_look_inside
     def call_method(self, w_obj, methname, *arg_w):
         return callmethod.call_method_opt(self, w_obj, methname, *arg_w)
 
+    @jit.dont_look_inside
     def _type_issubtype(self, w_sub, w_type):
         if isinstance(w_sub, W_TypeObject) and isinstance(w_type, W_TypeObject):
             return w_sub.issubtype(w_type)
         raise oefmt(self.w_TypeError, "need type objects")
 
     @specialize.arg_or_var(2)
+    @jit.dont_look_inside
     def _type_isinstance(self, w_inst, w_type):
         if not isinstance(w_type, W_TypeObject):
             raise oefmt(self.w_TypeError, "need type object")
@@ -751,16 +815,19 @@ class StdObjSpace(ObjSpace):
         return self.type(w_inst).issubtype(w_type)
 
     @specialize.memo()
+    @jit.dont_look_inside
     def _get_interplevel_cls(self, w_type):
         if not hasattr(self, "_interplevel_classes"):
             return None # before running initialize
         return self._interplevel_classes.get(w_type, None)
 
     @specialize.arg(2, 3)
+    @jit.dont_look_inside
     def is_overloaded(self, w_obj, tp, method):
         return (self.lookup(w_obj, method) is not
                 self.lookup_in_type(tp, method))
 
+    @jit.dont_look_inside
     def getfulltypename(self, w_obj):
         w_type = self.type(w_obj)
         if w_type.is_heaptype():
