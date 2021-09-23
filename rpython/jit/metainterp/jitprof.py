@@ -158,6 +158,7 @@ class Profiler(BaseProfiler):
         self._print_intline("nvreused", cnt[Counters.NVREUSED])
         self._print_intline("vecopt tried", cnt[Counters.OPT_VECTORIZE_TRY])
         self._print_intline("vecopt success", cnt[Counters.OPT_VECTORIZED])
+        self._print_intline("max promote hits", cnt[Counters.MAX_PROMOTE_HITS])
         cpu = self.cpu
         if cpu is not None:   # for some tests
             self._print_intline("Total # of loops",

@@ -1,7 +1,7 @@
 
 import py
 from rpython.jit.metainterp.warmspot import ll_meta_interp
-from rpython.rlib.jit import JitDriver, dont_look_inside, elidable, Counters
+from rpython.rlib.jit import JitDriver, dont_look_inside, elidable, Counters, promote, set_param
 from rpython.jit.metainterp.test.support import LLJitMixin
 from rpython.jit.metainterp import pyjitpl
 from rpython.jit.metainterp.jitprof import Profiler
@@ -126,3 +126,32 @@ class TestProfile(ProfilerMixin):
         profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
         assert profiler.counters[Counters.HEAPCACHED_OPS] == 3
 
+    def test_max_promotes_hit(self):
+        myjitdriver = JitDriver(greens=[], reds=['y'])
+
+        class Map(object):
+            pass
+
+        class Instance(object):
+            def __init__(self, map_):
+                self.map_ = map_
+
+        @elidable
+        def get_map_id(map_):
+            return 1
+
+        maps = [Map() for i in range(10)]
+        instances = [Instance(map) for i in range(20) for map in maps]
+
+        def f():
+            set_param(myjitdriver, 'max_promotes', 1)
+            y = len(instances) - 1
+            while y >= 0:
+                myjitdriver.jit_merge_point(y=y)
+                instance = instances[y]
+                arg = promote(instance.map_)
+                y -= get_map_id(arg)
+
+        self.meta_interp(f, [])
+        profiler = pyjitpl._warmrunnerdesc.metainterp_sd.profiler
+        assert profiler.counters[Counters.MAX_PROMOTE_HITS] == 2

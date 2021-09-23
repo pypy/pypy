@@ -30,6 +30,7 @@ REGEXES = [
     (('nvreused',), '^nvreused:\s+(\d+)$'),
     (('vecopt_tried',), '^vecopt tried:\s+(\d+)$'),
     (('vecopt_success',), '^vecopt success:\s+(\d+)$'),
+    (('max_promote_hits',), '^max promote hits:\s+(\d+)$'),
     (('total_compiled_loops',),   '^Total # of loops:\s+(\d+)$'),
     (('total_compiled_bridges',), '^Total # of bridges:\s+(\d+)$'),
     (('total_freed_loops',),      '^Freed # of loops:\s+(\d+)$'),
