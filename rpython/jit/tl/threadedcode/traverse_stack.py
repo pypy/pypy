@@ -13,19 +13,18 @@ class TStack:
     def t_pop(self):
         return self.pc, self.next
 
+    @jit.elidable
+    def t_is_empty(self):
+        return self is _T_EMPTY
+
+_T_EMPTY = TStack(-42, None)
 
 memoization = {}
-_T_EMPTY = TStack(-42, None)
 
 
 @jit.elidable
 def t_empty():
     return _T_EMPTY
-
-
-@jit.elidable
-def t_is_empty(tstack):
-    return tstack is _T_EMPTY
 
 
 @jit.elidable

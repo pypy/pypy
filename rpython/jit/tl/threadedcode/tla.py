@@ -1,6 +1,6 @@
 from rpython.rlib import jit
 from rpython.rlib.jit import JitDriver, we_are_jitted
-from rpython.jit.tl.threadedcode.traverse_stack import TStack, t_empty, t_is_empty, t_push
+from rpython.jit.tl.threadedcode.traverse_stack import *
 
 @jit.dont_look_inside
 def emit_jump(pc, t):
@@ -10,7 +10,6 @@ def emit_jump(pc, t):
 @jit.dont_look_inside
 def emit_ret(pc, w_x):
     return pc
-
 
 class W_Object:
 
@@ -32,6 +31,9 @@ class W_IntObject(W_Object):
 
     def __init__(self, intvalue):
         self.intvalue = intvalue
+
+    def __repr__(self):
+        return self.getrepr()
 
     def getrepr(self):
         return str(self.intvalue)
@@ -214,6 +216,10 @@ class Frame(object):
         for _ in range(n):
             self.pop()
 
+    @jit.not_in_trace
+    def print_stack(self):
+        print self.stack
+
     @jit.dont_look_inside
     def is_true(self):
         w_x = self.pop()
@@ -319,8 +325,11 @@ class Frame(object):
         bytecode = self.bytecode
 
         while pc < len(bytecode):
-            jitdriver.jit_merge_point(bytecode=bytecode, entry_state=entry_state,
-                                      tstack=tstack, pc=pc, self=self)
+            jitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
+                                      tstack=tstack, self=self)
+
+            # print get_printable_location(pc, entry_state, bytecode, tstack)
+            # self.print_stack()
             opcode = ord(bytecode[pc])
             pc += 1
 
@@ -369,7 +378,7 @@ class Frame(object):
                 t = ord(bytecode[pc])
                 pc += 1
                 if we_are_jitted():
-                    if t_is_empty(tstack):
+                    if tstack.t_is_empty():
                         pc = t
                     else:
                         pc, tstack = tstack.t_pop()
@@ -383,28 +392,24 @@ class Frame(object):
 
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
+                pc += 1
                 if we_are_jitted():
                     if self.is_true():
-                        pc += 1
                         tstack = t_push(pc, tstack)
                         pc = target
                     else:
                         tstack = t_push(target, tstack)
-                        pc += 1
                 else:
                     if self.is_true():
                         if target < pc:
                             entry_state = target; self.save_state()
                             jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                     pc=target, tstack=tstack, self=self)
-
                         pc = target
-                    else:
-                        pc += 1
 
             elif opcode == EXIT:
                 if we_are_jitted():
-                    if t_is_empty(tstack):
+                    if tstack.t_is_empty():
                         w_x = self.pop()
                         pc = entry_state;  self.restore_state()
                         pc = emit_ret(pc, w_x)
