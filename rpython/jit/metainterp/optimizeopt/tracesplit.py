@@ -1,7 +1,7 @@
 from rpython.rtyper.lltypesystem.llmemory import AddressAsInt
-from rpython.rlib.rstring import find
 from rpython.rlib.rjitlog import rjitlog as jl
-from rpython.rlib.objectmodel import specialize, we_are_translated
+from rpython.rlib.rstring import find
+from rpython.rlib.objectmodel import specialize, we_are_translated, r_dict
 from rpython.jit.metainterp.history import (
     ConstInt, ConstFloat, RefFrontendOp, IntFrontendOp, FloatFrontendOp)
 from rpython.jit.metainterp import compile, jitprof, history
@@ -88,7 +88,13 @@ class TraceSplitOpt(object):
         pseudo_ops = []           # for removing useless guards
         fdescr_stack = []         # for bridges
 
-        for op in self.remove_guards(ops):
+        ops = self.remove_guards(ops)
+        token_map = self.create_token_dic(ops, token)
+
+        current_ops.append(
+            ResOperation(rop.LABEL, inputargs, token))
+
+        for op in ops:
             opnum = op.getopnum()
             if op.is_guard():
                 if self._is_guard_marked(op, ops, mark.IS_TRUE):
@@ -107,12 +113,18 @@ class TraceSplitOpt(object):
                 name = self._get_name_from_arg(arg)
                 if name.find(mark.JUMP) != -1:
                     pseudo_ops.append(op)
-                    target_token = self._create_token(token)
+                    current, target = op.getarg(1), op.getarg(2)
+                    assert isinstance(current, ConstInt)
+                    assert isinstance(target, ConstInt)
+                    target_token = token_map[target.getint()]
+
                     jump_op = ResOperation(rop.JUMP, inputargs, target_token)
-                    label_op = ResOperation(rop.LABEL, inputargs, target_token)
+                    label_op, current_ops = current_ops[0], current_ops[1:]
                     info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
+
+                    next_token = token_map[current.getint()]
                     t_lst.append((info, current_ops + [jump_op]))
-                    current_ops = []
+                    current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
                 elif name.find(mark.RET) != -1:
@@ -141,11 +153,16 @@ class TraceSplitOpt(object):
                         ResOperation(rop.FINISH, exits, finishtoken)
                     ]
 
+                    current = op.getarg(1)
+                    assert isinstance(current, ConstInt)
                     target_token = self._create_token(token)
-                    label_op = ResOperation(rop.LABEL, inputargs, target_token)
+
+                    label_op, current_ops = current_ops[0], current_ops[1:]
                     info = TraceSplitInfo(target_token, label_op, inputargs, self.resumekey)
                     t_lst.append((info, current_ops + ret_ops))
-                    current_ops = []
+
+                    next_token = token_map[current.getint()]
+                    current_ops = [ResOperation(rop.LABEL, inputargs, next_token)]
                     if len(fdescr_stack) > 0:
                         self.resumekey = fdescr_stack.pop()
                 elif name.find(mark.IS_TRUE) != -1:
@@ -154,7 +171,6 @@ class TraceSplitOpt(object):
                 else:
                     current_ops.append(op)
             elif op.getopnum() == rop.FINISH:
-                # fdescr, target_token = self._take_fdescr_and_gen_token(token)
                 target_token = self._create_token(token)
 
                 label = ResOperation(rop.LABEL, inputargs, target_token)
@@ -164,7 +180,6 @@ class TraceSplitOpt(object):
                 current_ops = []
                 break
             elif op.getopnum() == rop.JUMP:
-                # fdescr, target_token = self._take_fdescr_and_gen_token(token)
                 target_token = self._create_token(token)
                 label = ResOperation(rop.LABEL, inputargs, target_token)
                 info = TraceSplitInfo(target_token, label, inputargs, faildescr=self.resumekey)
@@ -176,6 +191,35 @@ class TraceSplitOpt(object):
                 current_ops.append(op)
 
         return t_lst
+
+    def create_token_dic(self, ops, orig_token):
+        def myeq(x, y):
+            return x == y
+
+        def myhash(n):
+            if n < 0:
+                raise Exception
+            else:
+                return -n
+
+        token_map = r_dict(myeq, myhash)
+
+        for op in ops:
+            opnum = op.getopnum()
+            if rop.is_call(opnum):
+                arg = op.getarg(0)
+                name = self._get_name_from_arg(arg)
+                if name.find(mark.JUMP) != -1:
+                    current, target = op.getarg(1), op.getarg(2)
+                    assert isinstance(current, ConstInt)
+                    assert isinstance(target, ConstInt)
+                    current, target = current.getint(), target.getint()
+                    if target not in token_map:
+                        token_map[target] = self._create_token(orig_token)
+                    if current not in token_map:
+                        token_map[current] = self._create_token(orig_token)
+
+        return token_map
 
     def _create_token(self, token):
         if self.first_cut:
