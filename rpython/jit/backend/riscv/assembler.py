@@ -121,9 +121,14 @@ class AssemblerRISCV(OpAssembler):
             self.mc.mark_op(op)
             opnum = op.getopnum()
 
-            arglocs = regalloc_operations[opnum](regalloc, op)
-            if arglocs is not None:
-                asm_operations[opnum](self, op, arglocs)
+            if rop.has_no_side_effect(opnum) and op not in regalloc.longevity:
+                # If this op does not have side effects and its result is
+                # unused, it is safe to ignore this op.
+                pass
+            else:
+                arglocs = regalloc_operations[opnum](regalloc, op)
+                if arglocs is not None:
+                    asm_operations[opnum](self, op, arglocs)
 
             # Free argument vars of the op (if no longer used).
             regalloc.possibly_free_vars_for_op(op)
