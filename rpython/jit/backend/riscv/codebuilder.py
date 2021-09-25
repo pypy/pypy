@@ -28,6 +28,10 @@ class AbstractRISCVBuilder(object):
     def MV(self, rd, rs1):
         self.ADDI(rd, rs1, 0)
 
+    # Move fp register (double)
+    def FMV_D(self, rd, rs1):
+        self.FSGNJ_D(rd, rs1, rs1)
+
     # Jump to a pc-relative offset (+/-1MB)
     def J(self, imm):
         self.JAL(r.zero.value, imm)
