@@ -230,6 +230,22 @@ class OpAssembler(BaseAssembler):
         l0, res = arglocs
         self.mc.FCVT_D_L(res.value, l0.value, DYN.value)
 
+    def _emit_op_same_as(self, op, arglocs):
+        l0, res = arglocs
+        if l0 is not res:
+            self.regalloc_mov(l0, res)
+
+    emit_op_same_as_i = _emit_op_same_as
+    emit_op_same_as_r = _emit_op_same_as
+    emit_op_same_as_f = _emit_op_same_as
+    emit_op_cast_ptr_to_int = _emit_op_same_as
+    emit_op_cast_int_to_ptr = _emit_op_same_as
+
+    def emit_op_load_from_gc_table(self, op, arglocs):
+        res = arglocs[0]
+        index = op.getarg(0).getint()
+        self.load_from_gc_table(res.value, index)
+
     def emit_op_finish(self, op, arglocs):
         base_ofs = self.cpu.get_baseofs_of_frame_field()
         if len(arglocs) > 0:

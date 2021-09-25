@@ -467,6 +467,28 @@ class Regalloc(BaseRegalloc):
     prepare_op_cast_float_to_int = _prepare_op_unary_op
     prepare_op_cast_int_to_float = _prepare_op_unary_op
 
+    def _prepare_op_same_as(self, op):
+        boxes = op.getarglist()
+        a0 = boxes[0]
+        if check_imm_box(a0):
+            l0 = self.convert_to_imm(a0)
+        else:
+            l0 = self.make_sure_var_in_reg(a0)
+        self.possibly_free_vars_for_op(op)
+        self.free_temp_vars()
+        res = self.force_allocate_reg(op)
+        return [l0, res]
+
+    prepare_op_same_as_i = _prepare_op_same_as
+    prepare_op_same_as_r = _prepare_op_same_as
+    prepare_op_same_as_f = _prepare_op_same_as
+    prepare_op_cast_ptr_to_int = _prepare_op_same_as
+    prepare_op_cast_int_to_ptr = _prepare_op_same_as
+
+    def prepare_op_load_from_gc_table(self, op):
+        res = self.force_allocate_reg(op)
+        return [res]
+
     def prepare_op_finish(self, op):
         if op.numargs() == 1:
             loc = self.make_sure_var_in_reg(op.getarg(0))

@@ -330,6 +330,10 @@ class AssemblerRISCV(OpAssembler):
             return self._mov_imm_to_loc(prev_loc, loc)
         elif prev_loc.is_stack():
             self._mov_stack_to_loc(prev_loc, loc)
+        elif prev_loc.is_core_reg():
+            self._mov_reg_to_loc(prev_loc, loc)
+        elif prev_loc.is_fp_reg():
+            self._mov_fp_reg_to_loc(prev_loc, loc)
         else:
             assert 0, 'unsupported case'
     mov_loc_loc = regalloc_mov
@@ -346,5 +350,17 @@ class AssemblerRISCV(OpAssembler):
             self.mc.load_int(loc.value, r.jfp.value, offset)
         elif loc.is_fp_reg():
             self.mc.load_float(loc.value, r.jfp.value, offset)
+        else:
+            assert 0, 'unsupported case'
+
+    def _mov_reg_to_loc(self, prev_loc, loc):
+        if loc.is_core_reg():
+            self.mc.MV(loc.value, prev_loc.value)
+        else:
+            assert 0, 'unsupported case'
+
+    def _mov_fp_reg_to_loc(self, prev_loc, loc):
+        if loc.is_fp_reg():
+            self.mc.FMV_D(loc.value, prev_loc.value)
         else:
             assert 0, 'unsupported case'
