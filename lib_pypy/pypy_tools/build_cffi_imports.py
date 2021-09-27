@@ -25,6 +25,7 @@ class MissingDependenciesError(Exception):
 cffi_build_scripts = collections.OrderedDict({
     ("_ctypes._ctypes_cffi",
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
+    ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
     ("_ssl", "_ssl_build.py"),
     ("sqlite3", "_sqlite3_build.py"),
     ("audioop", "_audioop_build.py"),
@@ -34,7 +35,6 @@ cffi_build_scripts = collections.OrderedDict({
     ("gdbm", "_gdbm_build.py"  if sys.platform != "win32" else None),
     ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
     ("resource", "_resource_build.py" if sys.platform != "win32" else None),
-    ("_pypy_util_cffi_inner", "_pypy_util_build.py"),
     # ("_decimal", "_decimal_build.py"),  # issue 3024
     ("xx", None),    # for testing: 'None' should be completely ignored
     })
