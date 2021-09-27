@@ -30,6 +30,7 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
+from _pypy_util_cffi import StackNew
 from select import select
 import socket
 from enum import IntEnum as _IntEnum
@@ -535,7 +536,6 @@ class _SSLSocket(object):
                 return _decode_certificate(peer_cert)
 
     def write(self, bytestring):
-        deadline = 0
         b = _str_to_ffi_buffer(bytestring)
         sock = self.get_socket_or_connection_gone()
         ssl = self.ssl
@@ -594,26 +594,70 @@ class _SSLSocket(object):
             raise pyssl_error(self, length)
 
     def read(self, length, buffer_into=None):
-        ssl = self.ssl
-
         if length < 0 and buffer_into is None:
             raise ValueError("size should not be negative")
 
+        if buffer_into is None:
+            return self._read_no_buf(length)
+        return self._read_buf(length, buffer_into)
+
+    def _read_no_buf(self, length):
+        ssl = self.ssl
         sock = self.get_socket_or_connection_gone()
 
-        if buffer_into is None:
-            dest = ffi.new("char[]", length)
-            if length == 0:
-                return b""
+        if length == 0:
+            return b""
+        with StackNew("char[]", length) as dest:
             mem = dest
-        else:
-            mem = ffi.from_buffer(buffer_into)
-            if length <= 0 or length > len(buffer_into):
-                length = len(buffer_into)
-                if length > _MAX_INT:
-                    raise OverflowError("maximum length can't fit in a C 'int'")
-                if len(buffer_into) == 0:
-                    return 0
+
+            if sock:
+                timeout = _socket_timeout(sock)
+                nonblocking = timeout >= 0
+                lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
+                lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
+
+            timeout = _socket_timeout(sock)
+            shutdown = False
+            while True:
+                count = lib.SSL_read(self.ssl, mem, length);
+                err = lib.SSL_get_error(self.ssl, count);
+
+                check_signals()
+
+                if err == SSL_ERROR_WANT_READ:
+                    sockstate = _ssl_select(sock, 0, timeout)
+                elif err == SSL_ERROR_WANT_WRITE:
+                    sockstate = _ssl_select(sock, 1, timeout)
+                elif err == SSL_ERROR_ZERO_RETURN and \
+                     lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
+                    shutdown = True
+                    break;
+                else:
+                    sockstate = SOCKET_OPERATION_OK
+
+                if sockstate == SOCKET_HAS_TIMED_OUT:
+                    raise socket.timeout("The read operation timed out")
+                elif sockstate == SOCKET_IS_NONBLOCKING:
+                    break
+                if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+                    break
+
+            if count <= 0 and not shutdown:
+                raise pyssl_error(self, count)
+
+            return _bytes_with_len(dest, count)
+
+    def _read_buf(self, length, buffer_into):
+        ssl = self.ssl
+        sock = self.get_socket_or_connection_gone()
+
+        mem = ffi.from_buffer(buffer_into)
+        if length <= 0 or length > len(buffer_into):
+            length = len(buffer_into)
+            if length > _MAX_INT:
+                raise OverflowError("maximum length can't fit in a C 'int'")
+            if len(buffer_into) == 0:
+                return 0
 
         if sock:
             timeout = _socket_timeout(sock)
@@ -621,7 +665,6 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
-        deadline = 0
         timeout = _socket_timeout(sock)
         has_timeout = timeout > 0
         if has_timeout:
@@ -658,9 +701,6 @@ class _SSLSocket(object):
 
         if count <= 0 and not shutdown:
             raise pyssl_error(self, count)
-
-        if not buffer_into:
-            return _bytes_with_len(dest, count)
 
         return count
 
