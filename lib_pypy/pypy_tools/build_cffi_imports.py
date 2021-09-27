@@ -25,6 +25,7 @@ class MissingDependenciesError(Exception):
 cffi_build_scripts = collections.OrderedDict({
     ("_ctypes._ctypes_cffi",
      "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
+    ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
     ("_ssl", "_ssl_build.py"),
     ("sqlite3", "_sqlite3_build.py"),
     ("audioop", "_audioop_build.py"),
