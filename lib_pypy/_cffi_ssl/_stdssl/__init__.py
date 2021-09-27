@@ -30,7 +30,7 @@ from _cffi_ssl._stdssl.error import (SSL_ERROR_NONE,
         SSL_ERROR_EOF, SSL_ERROR_NO_SOCKET, SSL_ERROR_INVALID_ERROR_CODE,
         pyerr_write_unraisable)
 from _cffi_ssl._stdssl import error
-from _pypy_util import StackNew
+from _pypy_util_cffi import StackNew
 from select import select
 import socket
 

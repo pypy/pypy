@@ -1,5 +1,5 @@
 
-from _pypy_util_cffi import ffi, lib
+from _pypy_util_cffi_inner import ffi, lib
 
 class StackNew(object):
     def __init__(self, tp, size=None):
