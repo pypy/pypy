@@ -147,9 +147,9 @@ def _checkfile(path, fname):
 def compute_stdlib_path_packaged(state, prefix):
     """
     Compute the paths for the stdlib rooted at ``prefix``. ``prefix``
-    must at least contain a directory called ``lib/pypyX.Y`` and
-    another one called ``lib_pypy``. If they cannot be found, it raises
-    OSError. This version is called first, for packaged PyPy.
+    must at least contain a directory called ``lib/pypyX.Y``.
+    If it cannot be found, it raises OSError. This version is called first, for
+    packaged PyPy.
     """
     from pypy.module.sys.version import CPYTHON_VERSION
     lib_pyzip = os.path.join(prefix, 'python%d%d.zip' % CPYTHON_VERSION[:2])
@@ -166,7 +166,7 @@ def compute_stdlib_path_packaged(state, prefix):
         # In a source checkout, the directory will exist but site.py will not
         # yet exist in it
         _checkfile(python_std_lib, 'site.py')
-    return compute_lib_pypy_path(state, python_std_lib, prefix)
+    return compute_lib_pypy_path(state, python_std_lib, prefix, use_lib_pypy=False)
 
 def compute_stdlib_path_sourcetree(state, prefix):
     """
@@ -186,18 +186,13 @@ def compute_stdlib_path_sourcetree(state, prefix):
         _checkdir(python_std_lib)
     return compute_lib_pypy_path(state, python_std_lib, prefix)
 
-def compute_lib_pypy_path(state, python_std_lib, prefix):
-    lib_pypy = os.path.join(prefix, 'lib_pypy')
-    _checkdir(lib_pypy)
-
+def compute_lib_pypy_path(state, python_std_lib, prefix, use_lib_pypy=True):
     importlist = []
 
-    if state is not None:    # 'None' for testing only
-        lib_extensions = os.path.join(lib_pypy, '__extensions__')
-        state.w_lib_extensions = state.space.newfilename(lib_extensions)
-        importlist.append(lib_extensions)
-
-    importlist.append(lib_pypy)
+    if use_lib_pypy:
+        lib_pypy = os.path.join(prefix, 'lib_pypy')
+        _checkdir(lib_pypy)
+        importlist.append(lib_pypy)
     importlist.append(python_std_lib)
 
     # List here the extra platform-specific paths.
