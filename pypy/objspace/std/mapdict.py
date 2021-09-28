@@ -505,16 +505,16 @@ class UnboxedPlainAttribute(PlainAttribute):
         space = self.space
         assert type(w_value) is self.typ
         if type(w_value) is space.IntObjectCls:
-            return longlong2float(space.int_w(w_value))
+            return space.int_w(w_value)
         else:
-            return space.float_w(w_value)
+            return float2longlong(space.float_w(w_value))
 
     def _box(self, val):
         space = self.space
         if self.typ is space.IntObjectCls:
-            return space.newint(float2longlong(val))
+            return space.newint(val)
         else:
-            return space.newfloat(val)
+            return space.newfloat(longlong2float(val))
 
     def _convert_to_boxed(self, obj):
         new_obj = obj._get_mapdict_map().copy(obj)
