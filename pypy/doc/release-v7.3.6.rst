@@ -33,7 +33,7 @@ releases. Highlights of the release, since the release of 7.3.5 in May 2021,
 include:
 
   - We have merged a backend for HPy_, the better C-API interface. The backend
-    implements version 0.0.2.
+    implements version 0.0.3.
   - Translation of PyPy into a binary, known to be slow, is now about 40%
     faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
   - PyPy Windows 64 is now available on conda-forge_, along with over 600
@@ -162,6 +162,8 @@ Speedups and enhancements shared across versions
 - Switch to "powersort" merging strategy by Munro and Wild instead the timsort
   algorithm (`bpo 34561`_)
 - Check env keys for ``'='`` when calling ``os.execve``
+- Provide a PyPy-only scoped way to malloc buffers in cffi and use it in
+  ``ssl.read``
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

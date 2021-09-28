@@ -3,7 +3,7 @@ import pytest
 
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
-
+from hypothesis import given, strategies
 
 skip_if_no_int_unboxing = pytest.mark.skipif(not ALLOW_UNBOXING_INTS, reason="int unboxing disabled on 32bit")
 
@@ -575,33 +575,37 @@ def test_unboxed_storage_needed():
     assert aa.storage_needed() == 2
 
 @skip_if_no_int_unboxing
-def test_unboxed_write_int():
+@given(strategies.integers(-sys.maxint-1, sys.maxint),
+       strategies.integers(-sys.maxint-1, sys.maxint))
+def test_unboxed_write_int(val1, val2):
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
-    w_obj.setdictvalue(space, "a", 15)
-    w_obj.getdictvalue(space, "a") == 15
+    w_obj.setdictvalue(space, "a", val1)
+    w_obj.getdictvalue(space, "a") == val1
     assert isinstance(w_obj.map, UnboxedPlainAttribute)
 
-    w_obj.setdictvalue(space, "b", 20)
-    w_obj.getdictvalue(space, "b") == 20
-    w_obj.getdictvalue(space, "a") == 15
+    w_obj.setdictvalue(space, "b", val2)
+    w_obj.getdictvalue(space, "b") == val2
+    w_obj.getdictvalue(space, "a") == val1
     assert isinstance(w_obj.map, UnboxedPlainAttribute)
     assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
-    assert unerase_unboxed(w_obj.storage[0]) == [longlong2float(15), longlong2float(20)]
+    assert unerase_unboxed(w_obj.storage[0]) == [val1, val2]
 
-def test_unboxed_write_float():
+@given(strategies.floats(), strategies.floats())
+def test_unboxed_write_float(val1, val2):
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
-    w_obj.setdictvalue(space, "a", 15.0)
-    w_obj.getdictvalue(space, "a") == 15.0
+    w_obj.setdictvalue(space, "a", val1)
+    w_obj.getdictvalue(space, "a") == val1
     assert isinstance(w_obj.map, UnboxedPlainAttribute)
 
-    w_obj.setdictvalue(space, "b", 20.0)
-    w_obj.getdictvalue(space, "b") == 20.0
-    w_obj.getdictvalue(space, "a") == 15.0
+    w_obj.setdictvalue(space, "b", val2)
+    w_obj.getdictvalue(space, "b") == val2
+    w_obj.getdictvalue(space, "a") == val1
     assert isinstance(w_obj.map, UnboxedPlainAttribute)
     assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
-    assert unerase_unboxed(w_obj.storage[0]) == [15.0, 20.0]
+    assert unerase_unboxed(w_obj.storage[0]) == [
+            float2longlong(val1), float2longlong(val2)]
 
 @skip_if_no_int_unboxing
 def test_unboxed_write_mixed():
@@ -687,7 +691,7 @@ def test_unboxed_attr_immutability(monkeypatch):
 
     def _pure_unboxed_read(obj):
         indices.append(0)
-        return 10.12
+        return float2longlong(10.12)
 
     obj.map.back._pure_unboxed_read = _pure_unboxed_read
     monkeypatch.setattr(jit, "isconstant", lambda c: True)
