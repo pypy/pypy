@@ -112,7 +112,7 @@ def check_legacy_consistent(space, spec):
     if spec.c_legacy_slots and not widen(spec.c_legacy):
         raise oefmt(space.w_TypeError,
                     "cannot specify .legacy_slots without setting .legacy=true")
-    if spec.c_flags & llapi.HPy_TPFLAGS_INTERNAL_PURE:
+    if widen(spec.c_flags) & llapi.HPy_TPFLAGS_INTERNAL_PURE:
         raise oefmt(space.w_TypeError,
                     "HPy_TPFLAGS_INTERNAL_PURE should not be used directly,"
                     " set .legacy=true instead")
