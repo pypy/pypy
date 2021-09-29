@@ -1,7 +1,6 @@
 import pytest
 from pypy.objspace.std.test.test_dictmultiobject import FakeSpace, W_DictObject
 from pypy.objspace.std.mapdict import *
-from hypothesis import given, strategies
 
 skip_if_no_int_unboxing = pytest.mark.skipif(not ALLOW_UNBOXING_INTS, reason="int unboxing disabled on 32bit")
 
@@ -571,10 +570,7 @@ def test_unboxed_storage_needed():
          int)
     assert aa.storage_needed() == 2
 
-@skip_if_no_int_unboxing
-@given(strategies.integers(-sys.maxint-1, sys.maxint),
-       strategies.integers(-sys.maxint-1, sys.maxint))
-def test_unboxed_write_int(val1, val2):
+def unboxed_write_int(val1, val2):
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "a", val1)
@@ -588,8 +584,7 @@ def test_unboxed_write_int(val1, val2):
     assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
     assert unerase_unboxed(w_obj.storage[0]) == [val1, val2]
 
-@given(strategies.floats(), strategies.floats())
-def test_unboxed_write_float(val1, val2):
+def unboxed_write_float(val1, val2):
     cls = Class(allow_unboxing=True)
     w_obj = cls.instantiate(space)
     w_obj.setdictvalue(space, "a", val1)
@@ -603,6 +598,26 @@ def test_unboxed_write_float(val1, val2):
     assert isinstance(w_obj.map.back, UnboxedPlainAttribute)
     assert unerase_unboxed(w_obj.storage[0]) == [
             float2longlong(val1), float2longlong(val2)]
+
+try:
+    from hypothesis import given, strategies
+except ImportError:
+    @skip_if_no_int_unboxing
+    def test_unboxed_write_int():
+        unboxed_write_int(15, 20)
+    def test_unboxed_write_float():
+        unboxed_write_float(12.434, -1e17)
+else:
+    @skip_if_no_int_unboxing
+    @given(strategies.integers(-sys.maxint-1, sys.maxint),
+           strategies.integers(-sys.maxint-1, sys.maxint))
+    def test_unboxed_write_int(val1, val2):
+        unboxed_write_int(val1, val2)
+
+    @given(strategies.floats(), strategies.floats())
+    def test_unboxed_write_float(val1, val2):
+        unboxed_write_float(val1, val2)
+
 
 @skip_if_no_int_unboxing
 def test_unboxed_write_mixed():
