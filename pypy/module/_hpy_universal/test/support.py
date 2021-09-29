@@ -1,5 +1,6 @@
 import py
 import pytest
+import sys
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -17,6 +18,8 @@ class HPyAppTest(object):
     Base class for HPy app tests. This is used as a mixin, and individual
     subclasses are created by conftest.make_hpy_apptest
     """
+
+    extra_link_args = []
     spaceconfig = {
         'usemodules': ['_hpy_universal'],
         'objspace.hpy_cpyext_API': False,
@@ -61,6 +64,7 @@ class HPyAppTest(object):
         hpy_devel = HPyDevel(str(BASE_DIR))
         compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
                                               compiler_verbose=COMPILER_VERBOSE,
+                                              extra_link_args=self.extra_link_args,
                                               extra_include_dirs=cpyext_include_dirs)
         ExtensionTemplate = self.ExtensionTemplate
 
@@ -122,10 +126,23 @@ class HPyDebugAppTest(HPyAppTest):
     #w_make_leak_module = _support.HPyDebugTest.make_leak_module
 
 
+if sys.platform == 'win32':
+    # since we include Python.h, we must disable linking with the regular
+    # import lib
+    from pypy.module.sys import version
+    ver = version.CPYTHON_VERSION[:2]
+    untranslated_link_args = ["/NODEFAULTLIB:Python%d%d.lib" % ver]
+    untranslated_link_args.append(str(udir / "module_cache" / "pypyapi.lib"))
+else:
+    untranslated_link_args = []
+
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     """
     Base class for hpy tests which also need cpyext
     """
+
+    extra_link_args = untranslated_link_args
+
     # mmap is needed because it is imported by LeakCheckingTest.setup_class
     spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 

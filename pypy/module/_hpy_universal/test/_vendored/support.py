@@ -134,7 +134,7 @@ class Spec(object):
 class ExtensionCompiler:
     def __init__(self, tmpdir, hpy_devel, hpy_abi, compiler_verbose=False,
                  ExtensionTemplate=DefaultExtensionTemplate,
-                 extra_include_dirs=None):
+                 extra_include_dirs=None, extra_link_args=[]):
         """
         hpy_devel is an instance of HPyDevel which specifies where to find
         include/, runtime/src, etc. Usually it will point to hpy/devel/, but
@@ -145,6 +145,8 @@ class ExtensionCompiler:
         others. By default it is empty, but it is used e.g. by PyPy to make
         sure that #include <Python.h> picks its own version, instead of the
         system-wide one.
+
+        extra_link_args is appended to the link arguments
         """
         self.tmpdir = tmpdir
         self.hpy_devel = hpy_devel
@@ -152,6 +154,7 @@ class ExtensionCompiler:
         self.compiler_verbose = compiler_verbose
         self.ExtensionTemplate=ExtensionTemplate
         self.extra_include_dirs = extra_include_dirs
+        self.extra_link_args = extra_link_args
 
     def _expand(self, ExtensionTemplate, name, template):
         source = ExtensionTemplate(template, name).expand()
@@ -206,7 +209,7 @@ class ExtensionCompiler:
             sources=sources,
             include_dirs=self.extra_include_dirs,
             extra_compile_args=compile_args,
-            extra_link_args=link_args)
+            extra_link_args=link_args + self.extra_link_args)
 
         hpy_abi = self.hpy_abi
         if hpy_abi == 'debug':
