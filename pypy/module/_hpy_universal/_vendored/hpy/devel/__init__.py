@@ -292,12 +292,16 @@ class build_hpy_ext_mixin:
 
     def get_export_symbols(self, ext):
         """ Override .get_export_symbols to replace "PyInit_<module_name>"
-            with "HPyInit_<module_name>.
+            with "HPyInit_<module_name>. For PyPy tests, also replace
+            "init<module_name>" with HPyInit_<module_name>
 
             Only relevant on Windows, where the .pyd file (DLL) must export the
             module "HPyInit_" function.
         """
         exports = self._base_build_ext.get_export_symbols(self, ext)
+        if sys.version_info[0] == 2:
+            # PyPy tests
+            exports = [re.sub(r"^init", "PyInit_", name) for name in exports]
         if hasattr(ext, "hpy_abi") and ext.hpy_abi == 'universal':
             exports = [re.sub(r"^PyInit_", "HPyInit_", name) for name in exports]
         return exports
