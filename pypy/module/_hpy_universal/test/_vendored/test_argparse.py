@@ -75,7 +75,7 @@ class TestParseItem(HPyTest):
             "function a str is required"
         )
 
-    def test_B(self):
+    def test_bigB(self):
         mod = self.make_parse_item("B", "char", "char_to_hpybytes")
         assert mod.f(0) == b"\x00"
         assert mod.f(1) == b"\x01"
@@ -211,7 +211,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**ULONG_BITS) == 0
         assert mod.f(-2**ULONG_BITS) == 0
 
-    def test_L(self):
+    def test_bigL(self):
         import pytest
         mod = self.make_parse_item("L", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
@@ -224,7 +224,7 @@ class TestParseItem(HPyTest):
         with pytest.raises(OverflowError):
             mod.f(-2**63 - 1)
 
-    def test_K_signed(self):
+    def test_bigK_signed(self):
         mod = self.make_parse_item("K", "long long", "HPyLong_FromLongLong")
         assert mod.f(0) == 0
         assert mod.f(1) == 1
@@ -236,7 +236,7 @@ class TestParseItem(HPyTest):
         assert mod.f(2**64) == 0
         assert mod.f(-2**64) == 0
 
-    def test_K_unsigned(self):
+    def test_bigK_unsigned(self):
         mod = self.make_parse_item(
             "K", "unsigned long long", "HPyLong_FromUnsignedLongLong"
         )
