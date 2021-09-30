@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: hpy
-Version: 0.0.2
+Version: 0.0.3
 Summary: A better C API for Python
 Home-page: https://hpyproject.org
 Author: The HPy team
@@ -15,10 +15,10 @@ Requires-Dist: pytest-xdist ; extra == 'dev'
 HPy: a better API for Python
 ==================================
 
-[![Build Status](https://dev.azure.com/pyhandle/hpy/_apis/build/status/pyhandle.hpy?branchName=master)](https://dev.azure.com/pyhandle/hpy/_build/latest?definitionId=1&branchName=master)
+[![Build](https://github.com/hpyproject/hpy/actions/workflows/ci.yml/badge.svg)](https://github.com/hpyproject/hpy/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/hpy/badge/)](https://hpy.readthedocs.io/)
 
-**IRC channel** : #hpy on freenode.net
+**IRC channel** : #hpy on [libera.chat](https://libera.chat)
 
 **Mailing list**: [hpy-dev@python.org](https://mail.python.org/mailman3/lists/hpy-dev.python.org/)
 
@@ -79,7 +79,7 @@ More concrete goals
 
   - PyPy will implement this natively: extensions using this API will be
     orders of magnitude faster than the ones using the existing old API (see
-    [this blog post](https://morepypy.blogspot.com/2018/09/inside-cpyext-why-emulating-cpython-c.html)
+    [this blog post](https://www.pypy.org/posts/2018/09/inside-cpyext-why-emulating-cpython-c-8083064623681286567.html)
     for details)
 
   - Cython will adopt this from day one: existing Cython programs will benefit
@@ -107,7 +107,7 @@ Why should I care about this stuff?
     CPython C API
 
 See also [Python Performance: Past, Present,
-Future](https://github.com/vstinner/talks/raw/master/2019-EuroPython/python_performance.pdf)
+Future](https://github.com/vstinner/talks/raw/main/2019-EuroPython/python_performance.pdf)
 by Victor Stinner.
 
 

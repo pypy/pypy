@@ -15,11 +15,19 @@ import traceback
 import py
 
 ROOT = py.path.local(__file__).join('..', '..')
+TEST_DIRS = [ROOT / 'test', ROOT / 'test' / 'debug']
+
+# PyPy does NOT import these files using py2
+PY3_ONLY = ['test_support.py', 'test_handles.py']
 
 def try_import(name):
     try:
-        print('Trying to import %s... ' % name, end='')
-        __import__(name)
+        if isinstance(name, py.path.local):
+            print('Trying to import %s... ' % ROOT.bestrelpath(name), end='')
+            name.pyimport()
+        else:
+            print('Trying to import %s... ' % name, end='')
+            __import__(name)
     except:
         print('ERROR!')
         print()
@@ -48,14 +56,16 @@ def try_import_hpy_devel():
         init_py.remove()
     return failed
 
-def try_import_tests():
+def try_import_tests(dirs):
     failed = 0
-    for t in ROOT.join('test').listdir('test_*.py'):
-        if t.purebasename == 'test_support':
-            continue
-        if not try_import('test.%s' % t.purebasename):
-            failed += 1
+    for d in dirs:
+        for t in d.listdir('test_*.py'):
+            if t.basename in PY3_ONLY:
+                continue
+            if not try_import(t):
+                failed += 1
     return failed
+
 
 def main():
     if sys.version_info[:2] != (2, 7):
@@ -65,7 +75,7 @@ def main():
     sys.path.insert(0, str(ROOT))
     failed = 0
     failed += try_import_hpy_devel()
-    failed += try_import_tests()
+    failed += try_import_tests(TEST_DIRS)
     print()
     if failed == 0:
         print('Everything ok!')

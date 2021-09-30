@@ -24,12 +24,3 @@ diff --git a/extra_tests/hpy_tests/_vendored/conftest.py b/extra_tests/hpy_tests
  
 diff --git a/extra_tests/hpy_tests/_vendored/debug/__init__.py b/extra_tests/hpy_tests/_vendored/debug/__init__.py
 new file mode 100644
-diff --git a/extra_tests/hpy_tests/_vendored/debug/test_handles.py b/extra_tests/hpy_tests/_vendored/debug/test_handles.py
---- a/extra_tests/hpy_tests/_vendored/debug/test_handles.py
-+++ b/extra_tests/hpy_tests/_vendored/debug/test_handles.py
-@@ -1,4 +1,4 @@
--from test.support import HPyDebugTest
-+from ..support import HPyDebugTest
- 
- class TestHandles(HPyDebugTest):
- 

@@ -35,7 +35,7 @@ class TestExtra(HPyTest):
         with pytest.raises(RuntimeError):
             self.make_module("""
                 HPy_MODINIT(test)
-                static HPy init_test_impl(HPyContext ctx)
+                static HPy init_test_impl(HPyContext *ctx)
                 {
                     HPyErr_SetString(ctx, ctx->h_RuntimeError, "foo");
                     return HPyLong_FromLong(ctx, 42);
@@ -47,7 +47,7 @@ class TestExtra(HPyTest):
         with pytest.raises(SystemError):
             self.make_module("""
                 HPy_MODINIT(test)
-                static HPy init_test_impl(HPyContext ctx)
+                static HPy init_test_impl(HPyContext *ctx)
                 {
                     return HPy_NULL;
                 }
@@ -56,7 +56,7 @@ class TestExtra(HPyTest):
     def test_HPyModule_Create(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
-            static HPy f_impl(HPyContext ctx, HPy self)
+            static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 HPyModuleDef def = {
                     .m_name = "foo",
@@ -80,4 +80,4 @@ class TestExtra(HPyTest):
 
 class TestExtraCPythonCompatibility(HPyTest):
     # these tests are run with cpyext support, see conftest.py
-    pass
+    USE_CPYEXT = True

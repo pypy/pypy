@@ -9,7 +9,7 @@
 
 
 _HPy_HIDDEN HPyTupleBuilder
-ctx_TupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
+ctx_TupleBuilder_New(HPyContext *ctx, HPy_ssize_t initial_size)
 {
     PyObject *tup = PyTuple_New(initial_size);
     if (tup == NULL) {
@@ -25,7 +25,7 @@ ctx_TupleBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
 }
 
 _HPy_HIDDEN void
-ctx_TupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder,
+ctx_TupleBuilder_Set(HPyContext *ctx, HPyTupleBuilder builder,
                      HPy_ssize_t index, HPy h_item)
 {
     PyObject *tup = (PyObject *)builder._tup;
@@ -39,7 +39,7 @@ ctx_TupleBuilder_Set(HPyContext ctx, HPyTupleBuilder builder,
 }
 
 _HPy_HIDDEN HPy
-ctx_TupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder)
+ctx_TupleBuilder_Build(HPyContext *ctx, HPyTupleBuilder builder)
 {
     PyObject *tup = (PyObject *)builder._tup;
     if (tup == NULL) {
@@ -51,7 +51,7 @@ ctx_TupleBuilder_Build(HPyContext ctx, HPyTupleBuilder builder)
 }
 
 _HPy_HIDDEN void
-ctx_TupleBuilder_Cancel(HPyContext ctx, HPyTupleBuilder builder)
+ctx_TupleBuilder_Cancel(HPyContext *ctx, HPyTupleBuilder builder)
 {
     PyObject *tup = (PyObject *)builder._tup;
     if (tup == NULL) {
