@@ -66,7 +66,6 @@ static const int EVP_R_DIFFERENT_KEY_TYPES;
 static const int EVP_R_INITIALIZATION_ERROR;
 static const int EVP_R_INPUT_NOT_INITIALIZED;
 static const int EVP_R_INVALID_KEY_LENGTH;
-static const int EVP_R_KEYGEN_FAILURE;
 static const int EVP_R_MISSING_PARAMETERS;
 static const int EVP_R_NO_CIPHER_SET;
 static const int EVP_R_NO_DIGEST_SET;
@@ -158,7 +157,6 @@ void ERR_clear_error(void);
 void ERR_put_error(int, int, int, const char *, int);
 
 int ERR_GET_LIB(unsigned long);
-int ERR_GET_FUNC(unsigned long);
 int ERR_GET_REASON(unsigned long);
 
 """
