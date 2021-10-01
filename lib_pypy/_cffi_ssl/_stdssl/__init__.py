@@ -616,13 +616,22 @@ class _SSLSocket(object):
                 lib.BIO_set_nbio(lib.SSL_get_rbio(ssl), nonblocking)
                 lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
+            deadline = 0
             timeout = _socket_timeout(sock)
+
+            has_timeout = timeout > 0
+            if has_timeout:
+                deadline = _monotonic_clock() + timeout
+
             shutdown = False
             while True:
                 count = lib.SSL_read(self.ssl, mem, length);
                 err = lib.SSL_get_error(self.ssl, count);
 
                 check_signals()
+
+                if has_timeout:
+                    timeout = deadline - _monotonic_clock()
 
                 if err == SSL_ERROR_WANT_READ:
                     sockstate = _ssl_select(sock, 0, timeout)
@@ -666,6 +675,7 @@ class _SSLSocket(object):
             lib.BIO_set_nbio(lib.SSL_get_wbio(ssl), nonblocking)
 
         timeout = _socket_timeout(sock)
+        deadline = 0
         has_timeout = timeout > 0
         if has_timeout:
             deadline = _monotonic_clock() + timeout
