@@ -4,7 +4,7 @@ from rpython.rlib.objectmodel import specialize
 
 from pypy.interpreter.gateway import unwrap_spec
 from pypy.interpreter.error import raise_import_error
-from pypy.interpreter.error import OperationError, oefmt
+from pypy.interpreter.error import oefmt
 
 from pypy.module._hpy_universal import llapi
 from pypy.module._hpy_universal.state import State
@@ -29,6 +29,7 @@ from pypy.module._hpy_universal import (
     interp_cpy_compat,
     interp_type,
     interp_tracker,
+    interp_import,
     )
 
 # ~~~ Some info on the debug mode ~~~
@@ -144,10 +145,10 @@ def descr_get_version(space):
     w_git_rev = space.newtext(HPY_GIT_REV)
     return space.newtuple([w_ver, w_git_rev])
 
-@API.func("HPy HPy_Dup(HPyContext ctx, HPy h)")
+@API.func("HPy HPy_Dup(HPyContext *ctx, HPy h)")
 def HPy_Dup(space, handles, ctx, h):
     return handles.dup(h)
 
-@API.func("void HPy_Close(HPyContext ctx, HPy h)")
+@API.func("void HPy_Close(HPyContext *ctx, HPy h)")
 def HPy_Close(space, handles, ctx, h):
     handles.close(h)

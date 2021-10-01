@@ -96,13 +96,6 @@ myrsync() {
 apply_patches() {
     # see also patches/README for more info
 
-    cat > test/_vendored/conftest.py <<EOF
-# AUTOMATICALLY DELETED BY pypy/module/_hpy_universal/update_vendored.sh
-EOF
-    cat > test/_vendored/debug/__init__.py <<EOF
-# AUTOMATICALLY CREATED BY pypy/module/_hpy_universal/update_vendored.sh
-EOF
-
     fixmes=`ls patches/*FIXME*.patch | wc -l`
     if [ $fixmes -gt 0 ]
     then
@@ -133,7 +126,6 @@ check_version_status
 
 myrsync -a --delete ${HPY}/hpy/devel/ _vendored/hpy/devel/
 myrsync -a --delete ${HPY}/hpy/debug/src/ _vendored/hpy/debug/src/
-myrsync -a --delete ${HPY}/test/* test/_vendored/
 myrsync -a --delete ${HPY}/test/* ${BASEDIR}/extra_tests/hpy_tests/_vendored/
 rsync -a --delete ${HPY}/hpy/debug/*.py ${BASEDIR}/lib_pypy/hpy/debug/
 myrsync -a --delete ${HPY}/hpy/devel/ ${BASEDIR}/lib_pypy/hpy/devel/

@@ -7,7 +7,7 @@ class TestUnicode(HPyTest):
     def test_Check(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 if (HPyUnicode_Check(ctx, arg))
                     return HPy_Dup(ctx, ctx->h_True);
@@ -26,7 +26,7 @@ class TestUnicode(HPyTest):
     def test_FromString(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_NOARGS)
-            static HPy f_impl(HPyContext ctx, HPy self)
+            static HPy f_impl(HPyContext *ctx, HPy self)
             {
                 return HPyUnicode_FromString(ctx, "foobar");
             }
@@ -38,7 +38,7 @@ class TestUnicode(HPyTest):
     def test_FromWideChar(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 const wchar_t buf[] = { 'h', 'e', 'l', 'l', 0xf2, ' ',
                                         'w', 'o', 'r', 'l', 'd', 0 };
@@ -56,7 +56,7 @@ class TestUnicode(HPyTest):
     def test_AsUTF8String(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 return HPyUnicode_AsUTF8String(ctx, arg);
             }
@@ -67,3 +67,38 @@ class TestUnicode(HPyTest):
         b = mod.f(s)
         assert type(b) is bytes
         assert b == s.encode('utf-8')
+
+
+    def test_AsUTF8AndSize(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                HPy_ssize_t n;
+                const char* buf = HPyUnicode_AsUTF8AndSize(ctx, arg, &n);
+                long res = 0;
+                for(int i=0; i<n; i++)
+                    res = (res * 10) + buf[i];
+                return HPyLong_FromLong(ctx, res);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f('ABC') == 100*ord('A') + 10*ord('B') + ord('C')
+        assert mod.f(b'A\0C'.decode('utf-8')) == 100*ord('A') + ord('C')
+
+
+    def test_DecodeFSDefault(self):
+        mod = self.make_module("""
+            HPyDef_METH(f, "f", f_impl, HPyFunc_O)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
+            {
+                HPy_ssize_t n;
+                const char* buf = HPyUnicode_AsUTF8AndSize(ctx, arg, &n);
+                return HPyUnicode_DecodeFSDefault(ctx, buf);
+                return HPy_Dup(ctx, ctx->h_None);
+            }
+            @EXPORT(f)
+            @INIT
+        """)
+        assert mod.f('ABC') == "ABC"

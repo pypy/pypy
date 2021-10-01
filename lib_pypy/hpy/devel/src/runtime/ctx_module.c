@@ -1,6 +1,6 @@
 #include <Python.h>
 #include "hpy.h"
-#include "common/runtime/ctx_type.h"
+#include "hpy/runtime/ctx_type.h"
 
 #ifdef HPY_UNIVERSAL_ABI
    // for _h2py and _py2h
@@ -12,7 +12,7 @@ static PyModuleDef empty_moduledef = {
 };
 
 _HPy_HIDDEN HPy
-ctx_Module_Create(HPyContext ctx, HPyModuleDef *hpydef)
+ctx_Module_Create(HPyContext *ctx, HPyModuleDef *hpydef)
 {
     // create a new PyModuleDef
 

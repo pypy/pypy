@@ -47,10 +47,6 @@ def test_checkmodule():
         lltype.free(p, flavor='raw')
         W_TypeObject(space, 'foo', [], {}).hasmro = False
         W_UnicodeObject("abc", 3) # unfortunately needed
-        #
-        # I honestly don't know why the following is needed. Without it,
-        # ztranslation fails with that it looks like an rpython bug
-        space.hash_w(space.newint(42))
 
     rpython_opts = {'translation.gc': 'boehm'}
     # it isn't possible to ztranslate cpyext easily, so we check _hpy_universal

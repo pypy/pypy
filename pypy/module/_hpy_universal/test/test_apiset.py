@@ -11,7 +11,7 @@ class TestAPISet(object):
         return APISet(llapi.cts, is_debug=False)
 
     def test_parse_signature(self, api):
-        sig = 'HPy HPyNumber_Add(HPyContext ctx, HPy x, HPy y)'
+        sig = 'HPy HPyNumber_Add(HPyContext *ctx, HPy x, HPy y)'
         name, FUNC, ll_errval = api.parse_signature(sig, error_value=None)
         assert name == 'HPyNumber_Add'
         assert FUNC.TO.ARGS == (llapi.HPyContext, llapi.HPy, llapi.HPy)
