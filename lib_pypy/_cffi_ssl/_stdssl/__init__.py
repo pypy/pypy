@@ -625,19 +625,20 @@ class _SSLSocket(object):
 
             shutdown = False
             while True:
-                count = lib.SSL_read(self.ssl, mem, length);
-                err = lib.SSL_get_error(self.ssl, count);
+                count = lib.SSL_read(self.ssl, mem, length)
+                err = _PySSL_errno(count<=0, self.ssl, count)
+                self.err = err
 
                 check_signals()
 
                 if has_timeout:
                     timeout = deadline - _monotonic_clock()
 
-                if err == SSL_ERROR_WANT_READ:
+                if err.ssl == SSL_ERROR_WANT_READ:
                     sockstate = _ssl_select(sock, 0, timeout)
-                elif err == SSL_ERROR_WANT_WRITE:
+                elif err.ssl == SSL_ERROR_WANT_WRITE:
                     sockstate = _ssl_select(sock, 1, timeout)
-                elif err == SSL_ERROR_ZERO_RETURN and \
+                elif err.ssl == SSL_ERROR_ZERO_RETURN and \
                      lib.SSL_get_shutdown(self.ssl) == lib.SSL_RECEIVED_SHUTDOWN:
                     shutdown = True
                     break;
@@ -648,7 +649,7 @@ class _SSLSocket(object):
                     raise socket.timeout("The read operation timed out")
                 elif sockstate == SOCKET_IS_NONBLOCKING:
                     break
-                if not (err == SSL_ERROR_WANT_READ or err == SSL_ERROR_WANT_WRITE):
+                if not (err.ssl == SSL_ERROR_WANT_READ or err.ssl == SSL_ERROR_WANT_WRITE):
                     break
 
             if count <= 0 and not shutdown:
