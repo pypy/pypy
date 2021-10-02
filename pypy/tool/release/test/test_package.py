@@ -27,23 +27,26 @@ class TestPackaging:
             _fake=True)
         assert retval == 0
         prefix = builddir.join(test)
+        assert prefix.join(self.exe_name_in_archive).check()
         cpyver = 'pypy%d.%d' % CPYTHON_VERSION[:2]
         if sys.platform == 'win32':
-            assert prefix.join('lib', 'test').check()
+            stdlib = prefix.join('lib',)
+            stdpath = 'lib'
         else:
-            assert prefix.join('lib', cpyver, 'test').check()
-        assert prefix.join(self.exe_name_in_archive).check()
-        assert prefix.join('lib_pypy', 'syslog.py').check()
-        assert not prefix.join('lib_pypy', 'py').check()
-        assert not prefix.join('lib_pypy', 'ctypes_configure').check()
+            stdlib = prefix.join('lib', cpyver)
+            stdpath = 'lib/%s' % cpyver
+        assert stdlib.join('test').check()
+        assert stdlib.join('syslog.py').check()
+        assert not stdlib.join('py').check()
+        assert not stdlib.join('ctypes_configure').check()
         assert prefix.join('LICENSE').check()
         assert prefix.join('README.rst').check()
         if package.USE_ZIPFILE_MODULE:
             zh = zipfile.ZipFile(str(builddir.join('%s.zip' % test)))
-            assert zh.open('%s/lib_pypy/syslog.py' % test)
+            assert zh.open('%s/%s/syslog.py' % (test, stdpath))
         else:
             th = tarfile.open(str(builddir.join('%s.tar.bz2' % test)))
-            syslog = th.getmember('%s/lib_pypy/syslog.py' % test)
+            syslog = th.getmember('%s/%s/syslog.py' % (test, stdpath))
             exe = th.getmember('%s/%s' % (test, self.exe_name_in_archive))
             assert syslog.mode == 0644
             assert exe.mode == 0755
