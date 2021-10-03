@@ -265,8 +265,8 @@ if WIN32:
         fd = _open_osfhandle(handle, flags)
         with SuppressIPH():
             return fd
-    
-    wcsncpy_s = rffi.llexternal('wcsncpy_s', 
+
+    wcsncpy_s = rffi.llexternal('wcsncpy_s',
                     [rffi.CWCHARP, rffi.SIZE_T, rffi.CWCHARP, rffi.SIZE_T], rffi.INT)
 
     def build_winerror_to_errno():
@@ -583,27 +583,27 @@ if WIN32:
                 os.close(fd2)
                 raise
         return res
-    
+
     GetConsoleMode = winexternal(
         'GetConsoleMode', [HANDLE, LPDWORD], BOOL)
-        
+
     GetNumberOfConsoleInputEvents = winexternal(
         'GetNumberOfConsoleInputEvents', [HANDLE, LPDWORD], BOOL)
 
     ERROR_INSUFFICIENT_BUFFER = 122
     ERROR_OPERATION_ABORTED   = 995
-    CP_UTF8 = 65001 
-    
+    CP_UTF8 = 65001
+
     ReadConsoleW = winexternal(
         'ReadConsoleW', [HANDLE, LPWSTR, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
-        
+
     WriteConsoleW = winexternal(
         'WriteConsoleW', [HANDLE, LPVOID, DWORD, LPDWORD, LPVOID], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     GetStringTypeW = winexternal(
-        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL, 
+        'GetStringTypeW', [DWORD, rffi.CWCHARP, rffi.INT, LPWORD], BOOL,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
     _SetEnvironmentVariableW = winexternal(
@@ -613,4 +613,13 @@ if WIN32:
     def SetEnvironmentVariableW(name, value):
         with rffi.scoped_unicode2wcharp(name) as nameWbuf:
             with rffi.scoped_unicode2wcharp(value) as valueWbuf:
-                return _SetEnvironmentVariableW(nameWbuf, valueWbuf) 
+                return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
+
+    _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
+
+    def AddDllDirectory(path, length):
+        with rffi.scoped_utf82wcharp(path, length) as pathW:
+            return _AddDllDirectory(pathW)
+
+    RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL)
