@@ -8,7 +8,7 @@
 
 
 _HPy_HIDDEN void
-ctx_Dump(HPyContext ctx, HPy h)
+ctx_Dump(HPyContext *ctx, HPy h)
 {
     // just use _PyObject_Dump for now, but we might want to add more info
     // about the handle itself in the future.
@@ -29,7 +29,7 @@ ctx_Dump(HPyContext ctx, HPy h)
    do the check only in debug mode.
 */
 _HPy_HIDDEN int
-ctx_TypeCheck(HPyContext ctx, HPy h_obj, HPy h_type)
+ctx_TypeCheck(HPyContext *ctx, HPy h_obj, HPy h_type)
 {
     PyObject *type= _h2py(h_type);
     assert(type != NULL);
@@ -37,4 +37,50 @@ ctx_TypeCheck(HPyContext ctx, HPy h_obj, HPy h_type)
         Py_FatalError("HPy_TypeCheck arg 2 must be a type");
     }
     return PyObject_TypeCheck(_h2py(h_obj), (PyTypeObject*)type);
+}
+
+_HPy_HIDDEN int
+ctx_Is(HPyContext *ctx, HPy h_obj, HPy h_other)
+{
+    return _h2py(h_obj) == _h2py(h_other);
+}
+
+_HPy_HIDDEN HPy
+ctx_GetItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t idx) {
+    PyObject* key = PyLong_FromSsize_t(idx);
+    if (key == NULL)
+        return HPy_NULL;
+    HPy result = _py2h(PyObject_GetItem(_h2py(obj), key));
+    Py_DECREF(key);
+    return result;
+}
+
+_HPy_HIDDEN HPy
+ctx_GetItem_s(HPyContext *ctx, HPy obj, const char *key) {
+    PyObject* key_o = PyUnicode_FromString(key);
+    if (key_o == NULL)
+        return HPy_NULL;
+    HPy result = _py2h(PyObject_GetItem(_h2py(obj), key_o));
+    Py_DECREF(key_o);
+    return result;
+}
+
+_HPy_HIDDEN int
+ctx_SetItem_i(HPyContext *ctx, HPy obj, HPy_ssize_t idx, HPy value) {
+    PyObject* key = PyLong_FromSsize_t(idx);
+    if (key == NULL)
+        return -1;
+    int result = PyObject_SetItem(_h2py(obj), key, _h2py(value));
+    Py_DECREF(key);
+    return result;
+}
+
+_HPy_HIDDEN int
+ctx_SetItem_s(HPyContext *ctx, HPy obj, const char *key, HPy value) {
+    PyObject* key_o = PyUnicode_FromString(key);
+    if (key_o == NULL)
+        return -1;
+    int result = PyObject_SetItem(_h2py(obj), key_o, _h2py(value));
+    Py_DECREF(key_o);
+    return result;
 }

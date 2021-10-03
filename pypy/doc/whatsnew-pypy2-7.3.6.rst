@@ -53,3 +53,12 @@ returning from a call
 .. branch: no-make-portable
 
 Add an option to package pypy non-portably
+
+.. branch: win64-stat
+
+Add ``st_file_attributes`` and ``st_reparse_tag`` attributes to ``os.stat``
+on windows. Also follow the reparse logic of Python3.8.
+
+.. branch: scoped-cffi-malloc
+
+Adds a scoped way to malloc buffers to cffi and use it in ``ssl.read``

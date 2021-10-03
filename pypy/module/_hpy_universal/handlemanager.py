@@ -240,6 +240,12 @@ class HandleManager(AbstractHandleManager):
         else:
             self.release_callbacks[index].append(cb)
 
+    def str2ownedptr(self, s, owner):
+        llbuf, llstring, flag = rffi.get_nonmovingbuffer_ll_final_null(s)
+        cb = FreeNonMovingBuffer(llbuf, llstring, flag)
+        self.attach_release_callback(owner, cb)
+        return llbuf
+
 
 class DebugHandleManager(AbstractHandleManager):
     cls_suffix = '_d'
@@ -276,16 +282,16 @@ class DebugHandleManager(AbstractHandleManager):
         return llapi.hpy_debug_open_handle(self.ctx, uh)
 
     def close(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
         self.u_handles.close(uh)
 
     def deref(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         return self.u_handles.deref(uh)
 
     def consume(self, dh):
-        uh = llapi.hpy_debug_unwrap_handle(dh)
+        uh = llapi.hpy_debug_unwrap_handle(self.ctx, dh)
         llapi.hpy_debug_close_handle(self.ctx, dh)
         return self.u_handles.consume(uh)
 

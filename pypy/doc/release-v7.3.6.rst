@@ -19,7 +19,7 @@ three different interpreters:
     backported security updates)
 
   - PyPy3.7,  which is an interpreter supporting the syntax and the features of
-    Python 3.7, including the stdlib for CPython 3.7.10.
+    Python 3.7, including the stdlib for CPython 3.7.12.
 
   - PyPy3.8, which is an interpreter supporting the syntax and the features of
     Python 3.8, including the stdlib for CPython 3.8.12. Since this is our
@@ -33,24 +33,18 @@ releases. Highlights of the release, since the release of 7.3.5 in May 2021,
 include:
 
   - We have merged a backend for HPy_, the better C-API interface. The backend
-    implements version 0.0.2.
+    implements version 0.0.3.
   - Translation of PyPy into a binary, known to be slow, is now about 40%
     faster. On a modern machine, PyPy3.8 can translate in about 20 minutes.
-  - PyPy Windows 64 is now available on conda-forge_, along with over 580
+  - PyPy Windows 64 is now available on conda-forge_, along with over 600
     commonly used binary packages. This new offering joins the more than 1000
     conda packages for PyPy on Linux and macOS. Many thanks to the conda-forge
     maintainers for pushing this forward over the past 18 months.
   - Speed improvements were made to ``io``, ``sum``, ``_ssl`` and more. These
     were done in response to user feedback.
   - The 3.8 version of the release contains a beta-quality improvement to the
-    JIT. We now better handle situations where a lot of Python code from the
-    same function is turned into machine code, without any inlining. This can
-    happen when Python code gets automatically generated, for
-    example by a string templating engine. Previously, this would either fail
-    to compile or compile very slowly. Performance by the JIT could thus be
-    worse than even the non-JITted interpreter (issue 3402_).
-    In the released 3.8 version we solve this problem by breaking the
-    function into smaller chunks and compiling them step by step.
+    JIT to better support `compiling huge Python functions`_ by breaking them
+    up into smaller pieces.
   - The release of Python3.8 required a concerted effort. We were greatly
     helped by @isidentical (Batuhan Taskaya) and other new contributors.
   - The 3.8 package now uses the same layout as CPython, and many of the
@@ -61,6 +55,8 @@ include:
     on ``posix`` they are in ``<base>/include/pypy3.8``. Note we still use the
     ``pypy`` prefix to prevent mixing the files with CPython (which uses
     ``python``.
+
+.. _`compiling huge Python functions`: https://www.pypy.org/posts/2021/09/jit-auto-generated-code.html
 
 
 We recommend updating. You can find links to download the v7.3.6 releases here:
@@ -165,6 +161,9 @@ Speedups and enhancements shared across versions
   3538_)
 - Switch to "powersort" merging strategy by Munro and Wild instead the timsort
   algorithm (`bpo 34561`_)
+- Check env keys for ``'='`` when calling ``os.execve``
+- Provide a PyPy-only scoped way to malloc buffers in cffi and use it in
+  ``ssl.read``
 
 C-API (cpyext) and C-extensions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -176,7 +175,7 @@ Python 3.7+ bugfixes
 --------------------
 - Fix MemoryError on zip.read in shutil._unpack_zipfile for large files `bpo
   43650`_ 
-- Fix some issues around the ``obj`` field of ``memoryview``s, and add missing
+- Fix some issues around the ``obj`` field of ``memoryview``, and add missing
   ``toreadonly``.
 - Fix ``re.sub()`` with no match and with unusual types of arguments (issue
   3515_)
@@ -205,16 +204,16 @@ Python 3.7+ speedups and enhancements
 - Support HPy 0.0.2
 - Use CPython list of consts in ``os.{confstr,pathconf,sysconf}_names`` (issue
   3502_)
-- Check env keys for ``'='`` when calling ``os.execve``
 - Add ``_winapi.GetFileType`` and ``FILE_TYPE_*`` values (issue 3531_)
 - Allow ``ctypes.POINTER()`` to cast `ctypes.array`` (issue 3546_)
+- Update the stdlib to v3.7.12
 
 Python 3.7 C-API
 ~~~~~~~~~~~~~~~~
 - Add PEP 495 c-api ``TimeAndFold`` datetime constructors (issue 2987_)
 - Allow ``NULL`` in ``PyErr_WriteUnraisable`` (issue 3353_)
 - Support ``*TimeZone*`` functions in datetime
-- Add slot functions so ``int(x)`` and ``float(x)` work properly where
+- Add slot functions so ``int(x)`` and ``float(x)`` work properly where
   ``x`` is a c-extension class
 - When creating a ``PyUnicodeObject``, use the compact form to store the data
   directly on the object and not via an additional buffer. This is used in

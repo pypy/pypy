@@ -54,6 +54,29 @@
  * ``d (float) [double]``
  *     Convert a Python floating point number to a C double.
  *
+ * Strings and buffers
+ * ~~~~~~~~~~~~~~~~~~~~~~~~
+ *
+ * These formats allow accessing an object as a contiguous chunk of memory.
+ * You don't have to provide raw storage for the returned unicode or bytes
+ * area.
+ *
+ * In general, when a format sets a pointer to a buffer, the pointer is valid
+ * only until the corresponding HPy handle is closed.
+ *
+ * ``s (unicode) [const char*]``
+ *
+ * Convert a Unicode object to a C pointer to a character string.
+ * A pointer to an existing string is stored in the character pointer
+ * variable whose address you pass.  The C string is NUL-terminated.
+ * The Python string must not contain embedded null code points; if it does,
+ * a `ValueError` exception is raised. Unicode objects are converted
+ * to C strings using 'utf-8' encoding. If this conversion fails,
+ * a `UnicodeError` is raised.
+ *
+ * Note: This format does not accept bytes-like objects and is therefore
+ * not suitable for filesystem paths.
+ *
  * Handles (Python Objects)
  * ~~~~~~~~~~~~~~~~~~~~~~~~
  *
@@ -103,8 +126,8 @@
  *     used as the error message instead of the default error message. : and ;
  *     are mutually exclusive and whichever occurs first takes precedence.
  *
- * API
- * ---
+ * Argument Parsing API
+ * --------------------
  *
  */
 
@@ -132,7 +155,7 @@ parse_err_fmt(const char *fmt, const char **err_fmt)
 
 
 static void
-set_error(HPyContext ctx, HPy exc, const char *err_fmt, const char *msg) {
+set_error(HPyContext *ctx, HPy exc, const char *err_fmt, const char *msg) {
     char err_buf[_ERR_STRING_MAX_LENGTH];
     if (err_fmt == NULL) {
         snprintf(err_buf, _ERR_STRING_MAX_LENGTH, "function %.256s", msg);
@@ -148,7 +171,7 @@ set_error(HPyContext ctx, HPy exc, const char *err_fmt, const char *msg) {
 
 
 static int
-parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp, const char **fmt, va_list *vl, const char *err_fmt)
+parse_item(HPyContext *ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp, const char **fmt, va_list *vl, const char *err_fmt)
 {
     switch (*(*fmt)++) {
 
@@ -337,10 +360,40 @@ parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp,
         break;
     }
 
-    default:
+    case 's': {
+        const char **output = va_arg(*vl, const char **);
+        if (!HPyUnicode_Check(ctx, current_arg)) {
+            set_error(ctx, ctx->h_TypeError, err_fmt, "a str is required");
+            return 0;
+        }
+        HPy_ssize_t size;
+        const char *data = HPyUnicode_AsUTF8AndSize(ctx, current_arg, &size);
+        if (data == NULL) {
+            set_error(ctx, ctx->h_SystemError, err_fmt, "unicode conversion error");
+            return 0;
+        }
+        // loop bounded by size is more robust/paranoid than strlen
+        HPy_ssize_t i;
+        for (i = 0; i < size; ++i) {
+            if (data[i] == '\0') {
+                set_error(ctx, ctx->h_ValueError, err_fmt, "embedded null character");
+                return 0;
+            }
+        }
+        if (data[i] != '\0') {
+            set_error(ctx, ctx->h_SystemError, err_fmt, "missing terminating null character");
+            return 0;
+        }
+        *output = data;
+        break;
+    }
+
+    default: {
         set_error(ctx, ctx->h_SystemError, err_fmt, "unknown arg format code");
         return 0;
     }
+
+    } // switch
 
     return 1;
 }
@@ -405,8 +458,8 @@ parse_item(HPyContext ctx, HPyTracker *ht, HPy current_arg, int current_arg_tmp,
  *    The option exists only to support releasing temporary storage used by
  *    future format string codes (e.g. for character strings).
  */
-HPyAPI_RUNTIME_FUNC(int)
-HPyArg_Parse(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
+HPyAPI_HELPER int
+HPyArg_Parse(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const char *fmt, ...)
 {
     const char *fmt1 = fmt;
     const char *err_fmt = NULL;
@@ -534,8 +587,8 @@ HPyArg_Parse(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, const
  *     when the `O` format is used. In future other new format string codes
  *     (e.g. for character strings) may also require it.
  */
-HPyAPI_RUNTIME_FUNC(int)
-HPyArg_ParseKeywords(HPyContext ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
+HPyAPI_HELPER int
+HPyArg_ParseKeywords(HPyContext *ctx, HPyTracker *ht, HPy *args, HPy_ssize_t nargs, HPy kw,
                      const char *fmt, const char *keywords[], ...)
 {
     const char *fmt1 = fmt;

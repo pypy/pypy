@@ -4,8 +4,8 @@ Check that our bundled version of hpy is correctly detected by setuptools.
 
 def test_get_distribution():
     import pkg_resources
-    dist = pkg_resources.get_distribution('hpy.devel')
-    assert dist.egg_name().startswith('hpy.devel')
+    dist = pkg_resources.get_distribution('hpy')
+    assert dist.egg_name().startswith('hpy')
 
 def test_entry_point():
     import pkg_resources

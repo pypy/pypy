@@ -133,7 +133,7 @@ class EnvBuilder:
             binname = 'bin'
             incpath = 'include'
             libpath = os.path.join(env_dir, 'lib',
-                                   'python%d.%d' % sys.version_info[:2],
+                                   'pypy%d.%d' % sys.version_info[:2],
                                    'site-packages')
         context.inc_path = path = os.path.join(env_dir, incpath)
         create_if_needed(path)
@@ -270,16 +270,6 @@ class EnvBuilder:
                     copier(src_library, dest_library)
                     if not os.path.islink(dest_library):
                         os.chmod(dest_library, 0o755)
-            libsrc = os.path.join(context.python_dir, '..', 'lib')
-            if os.path.exists(libsrc):
-                # PyPy: also copy lib/*.so* for portable builds
-                libdst = os.path.join(context.env_dir, 'lib')
-                if not os.path.exists(libdst):
-                    os.mkdir(libdst)
-                for f in os.listdir(libsrc):
-                    src = os.path.join(libsrc, f)
-                    dst = os.path.join(libdst, f)
-                    copier(src, dst)
             #
         else:
             if self.symlinks:

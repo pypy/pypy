@@ -520,7 +520,7 @@ completely deleted.)
 
 
 What is needed for better Windows 64 support of PyPy?
------------------------------------------------
+-----------------------------------------------------
 
 As of PyPy 7.3.5, PyPy supports Windows 64-bits. Since only on that platform
 ``sizeof(long) != sizeof(void *)``, and the underlying data type for RPython is
