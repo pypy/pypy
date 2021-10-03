@@ -615,7 +615,6 @@ if WIN32:
             with rffi.scoped_unicode2wcharp(value) as valueWbuf:
                 return _SetEnvironmentVariableW(nameWbuf, valueWbuf)
 
-
     _AddDllDirectory = winexternal('AddDllDirectory', [LPWSTR], rffi.VOIDP,
         save_err=rffi.RFFI_SAVE_LASTERROR)
 
@@ -624,4 +623,3 @@ if WIN32:
             return _AddDllDirectory(pathW)
 
     RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL)
-
