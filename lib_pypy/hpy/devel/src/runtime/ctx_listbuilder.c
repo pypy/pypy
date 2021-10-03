@@ -9,7 +9,7 @@
 
 
 _HPy_HIDDEN HPyListBuilder
-ctx_ListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
+ctx_ListBuilder_New(HPyContext *ctx, HPy_ssize_t initial_size)
 {
     PyObject *lst = PyList_New(initial_size);
     if (lst == NULL)
@@ -18,7 +18,7 @@ ctx_ListBuilder_New(HPyContext ctx, HPy_ssize_t initial_size)
 }
 
 _HPy_HIDDEN void
-ctx_ListBuilder_Set(HPyContext ctx, HPyListBuilder builder,
+ctx_ListBuilder_Set(HPyContext *ctx, HPyListBuilder builder,
                     HPy_ssize_t index, HPy h_item)
 {
     PyObject *lst = (PyObject *)builder._lst;
@@ -32,7 +32,7 @@ ctx_ListBuilder_Set(HPyContext ctx, HPyListBuilder builder,
 }
 
 _HPy_HIDDEN HPy
-ctx_ListBuilder_Build(HPyContext ctx, HPyListBuilder builder)
+ctx_ListBuilder_Build(HPyContext *ctx, HPyListBuilder builder)
 {
     PyObject *lst = (PyObject *)builder._lst;
     if (lst == NULL) {
@@ -44,7 +44,7 @@ ctx_ListBuilder_Build(HPyContext ctx, HPyListBuilder builder)
 }
 
 _HPy_HIDDEN void
-ctx_ListBuilder_Cancel(HPyContext ctx, HPyListBuilder builder)
+ctx_ListBuilder_Cancel(HPyContext *ctx, HPyListBuilder builder)
 {
     PyObject *lst = (PyObject *)builder._lst;
     if (lst == NULL) {

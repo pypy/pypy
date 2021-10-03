@@ -1,6 +1,7 @@
 import sys
 import os.path
 import functools
+import re
 from pathlib import Path
 from distutils import log
 from distutils.command.build import build
@@ -39,6 +40,7 @@ class HPyDevel:
         """
         return list(map(str, [
             self.src_dir.joinpath('argparse.c'),
+            self.src_dir.joinpath('helpers.c'),
         ]))
 
     def get_ctx_sources(self):
@@ -56,6 +58,17 @@ class HPyDevel:
         base_build = dist.cmdclass.get("build", build)
         base_build_ext = dist.cmdclass.get("build_ext", build_ext)
         orig_bdist_egg_write_stub = bdist_egg_mod.write_stub
+
+        if isinstance(base_build_ext, type):
+            assert ('setuptools.command.build_ext', 'build_ext') in [
+                (c.__module__, c.__name__) for c in base_build_ext.__mro__
+            ], (
+                "dist.cmdclass['build_ext'] does not inherit from"
+                " setuptools.command.build_ext.build_ext. The HPy build"
+                " system does not currently support any other build_ext"
+                " classes. If you are using distutils.commands.build_ext,"
+                " please use setuptools.commands.build_ext instead."
+            )
 
         class build_hpy_ext(build_hpy_ext_mixin, base_build_ext, object):
             _base_build_ext = base_build_ext
@@ -115,8 +128,10 @@ def __bootstrap__():
     m = load({module_name!r}, ext_filepath)
     m.__file__ = ext_filepath
     m.__loader__ = __loader__
+    m.__name__ = __name__
     m.__package__ = __package__
     m.__spec__ = __spec__
+    m.__spec__.origin = ext_filepath
     sys.modules[__name__] = m
 
 __bootstrap__()
@@ -274,3 +289,19 @@ class build_hpy_ext_mixin:
                 f.write(_HPY_UNIVERSAL_MODULE_STUB_TEMPLATE.format(
                     ext_file=ext_file, module_name=module_name)
                 )
+
+    def get_export_symbols(self, ext):
+        """ Override .get_export_symbols to replace "PyInit_<module_name>"
+            with "HPyInit_<module_name>. For PyPy tests, also replace
+            "init<module_name>" with HPyInit_<module_name>
+
+            Only relevant on Windows, where the .pyd file (DLL) must export the
+            module "HPyInit_" function.
+        """
+        exports = self._base_build_ext.get_export_symbols(self, ext)
+        if sys.version_info[0] == 2:
+            # PyPy tests
+            exports = [re.sub(r"^init", "PyInit_", name) for name in exports]
+        if hasattr(ext, "hpy_abi") and ext.hpy_abi == 'universal':
+            exports = [re.sub(r"^PyInit_", "HPyInit_", name) for name in exports]
+        return exports

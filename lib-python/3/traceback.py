@@ -580,6 +580,11 @@ class TracebackException:
             self.text = exc_value.text
             self.offset = exc_value.offset
             self.msg = exc_value.msg
+        elif exc_type and issubclass(exc_type, (NameError, AttributeError)) and \
+                getattr(exc_value, "name", None) is not None:
+            suggestion = _compute_suggestion_error(exc_value, exc_traceback)
+            if suggestion:
+                self._str += ". Did you mean: %s?" % (suggestion, )
         if lookup_lines:
             self._load_lines()
 

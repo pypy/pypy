@@ -24,22 +24,33 @@
   have per-subinterpreter uctxs.
 */
 
-HPyContext hpy_debug_get_ctx(HPyContext uctx);
-int hpy_debug_ctx_init(HPyContext dctx, HPyContext uctx);
-void hpy_debug_set_ctx(HPyContext dctx);
+HPyContext * hpy_debug_get_ctx(HPyContext *uctx);
+int hpy_debug_ctx_init(HPyContext *dctx, HPyContext *uctx);
+void hpy_debug_set_ctx(HPyContext *dctx);
 
 // convert between debug and universal handles. These are basically
 // the same as DHPy_open and DHPy_unwrap but with a different name
 // because this is the public-facing API and DHPy/UHPy are only internal
 // implementation details.
-HPy hpy_debug_open_handle(HPyContext dctx, HPy uh);
-HPy hpy_debug_unwrap_handle(HPy dh);
-void hpy_debug_close_handle(HPyContext dctx, HPy dh);
+HPy hpy_debug_open_handle(HPyContext *dctx, HPy uh);
+HPy hpy_debug_unwrap_handle(HPyContext *dctx, HPy dh);
+void hpy_debug_close_handle(HPyContext *dctx, HPy dh);
 
 // this is the HPy init function created by HPy_MODINIT. In CPython's version
 // of hpy.universal the code is embedded inside the extension, so we can call
 // this function directly instead of dlopen it. This is similar to what
-// CPython does for its own built-in modules
-HPy HPyInit__debug(HPyContext uctx);
+// CPython does for its own built-in modules. But we must use the same
+// signature as HPy_MODINIT
+
+// Copied from Python's exports.h
+#ifndef Py_EXPORTED_SYMBOL
+    #if defined(_WIN32) || defined(__CYGWIN__)
+        #define Py_EXPORTED_SYMBOL __declspec(dllexport)
+    #else
+        #define Py_EXPORTED_SYMBOL __attribute__ ((visibility ("default")))
+    #endif
+#endif
+Py_EXPORTED_SYMBOL
+HPy HPyInit__debug(HPyContext *uctx);
 
 #endif /* HPY_DEBUG_H */

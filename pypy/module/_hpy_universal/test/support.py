@@ -1,5 +1,6 @@
 import py
 import pytest
+import sys
 from rpython.tool.udir import udir
 from pypy.interpreter.gateway import interp2app, unwrap_spec, W_Root
 from pypy.module.cpyext.test.test_cpyext import AppTestCpythonExtensionBase
@@ -17,6 +18,8 @@ class HPyAppTest(object):
     Base class for HPy app tests. This is used as a mixin, and individual
     subclasses are created by conftest.make_hpy_apptest
     """
+
+    extra_link_args = []
     spaceconfig = {
         'usemodules': ['_hpy_universal'],
         'objspace.hpy_cpyext_API': False,
@@ -61,11 +64,12 @@ class HPyAppTest(object):
         hpy_devel = HPyDevel(str(BASE_DIR))
         compiler = _support.ExtensionCompiler(tmpdir, hpy_devel, 'universal',
                                               compiler_verbose=COMPILER_VERBOSE,
+                                              extra_link_args=self.extra_link_args,
                                               extra_include_dirs=cpyext_include_dirs)
         ExtensionTemplate = self.ExtensionTemplate
 
-        @unwrap_spec(source_template='text', name='text', w_extra_sources=W_Root)
-        def descr_make_module(space, source_template, name='mytest',
+        @unwrap_spec(main_src='text', name='text', w_extra_sources=W_Root)
+        def descr_make_module(space, main_src, name='mytest',
                               w_extra_sources=None):
             if w_extra_sources is None:
                 extra_sources = ()
@@ -73,7 +77,7 @@ class HPyAppTest(object):
                 items_w = space.unpackiterable(w_extra_sources)
                 extra_sources = [space.text_w(item) for item in items_w]
             py_filename = compiler.compile_module(ExtensionTemplate,
-                                                  source_template, name, extra_sources)
+                                                  main_src, name, extra_sources)
             so_filename = py_filename.replace(".py", ".hpy.so")
             debug = hpy_abi == 'debug'
             w_mod = space.appexec([space.newtext(so_filename),
@@ -119,13 +123,26 @@ class HPyDebugAppTest(HPyAppTest):
     # make self.make_leak_module() available to the tests. Note that this is
     # code which will be run at applevel, and will call self.make_module,
     # which is finally executed at interp-level (see descr_make_module above)
-    w_make_leak_module = _support.HPyDebugTest.make_leak_module
+    #w_make_leak_module = _support.HPyDebugTest.make_leak_module
 
+
+if sys.platform == 'win32':
+    # since we include Python.h, we must disable linking with the regular
+    # import lib
+    from pypy.module.sys import version
+    ver = version.CPYTHON_VERSION[:2]
+    untranslated_link_args = ["/NODEFAULTLIB:Python%d%d.lib" % ver]
+    untranslated_link_args.append(str(udir / "module_cache" / "pypyapi.lib"))
+else:
+    untranslated_link_args = []
 
 class HPyCPyextAppTest(AppTestCpythonExtensionBase, HPyAppTest):
     """
     Base class for hpy tests which also need cpyext
     """
+
+    extra_link_args = untranslated_link_args
+
     # mmap is needed because it is imported by LeakCheckingTest.setup_class
     spaceconfig = {'usemodules': ['_hpy_universal', 'cpyext', 'mmap']}
 

@@ -626,8 +626,12 @@ def _bytearray_from_bytes(space, result):
     return space.newbytearray([c for c in result])
 
 def mod_format(space, w_format, w_values, fmt_type=FORMAT_STR):
+    from pypy.objspace.std.tupleobject import W_AbstractTupleObject
     if space.isinstance_w(w_values, space.w_tuple):
-        values_w = space.fixedview(w_values)
+        assert isinstance(w_values, W_AbstractTupleObject)
+        # bug-to-bug cpython compatibility: intentionally not using the space
+        # methods, to not pick up __iter__ of tuple subclasses, issue #3555
+        values_w = w_values.tolist()
         return format(space, w_format, values_w, None, fmt_type)
     else:
         # we check directly for dict to avoid obscure checking

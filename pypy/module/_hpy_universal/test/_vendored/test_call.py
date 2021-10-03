@@ -22,7 +22,7 @@ class TestCall(HPyTest):
         import pytest
         mod = self.make_module("""
             HPyDef_METH(call, "call", call_impl, HPyFunc_KEYWORDS)
-            static HPy call_impl(HPyContext ctx, HPy self,
+            static HPy call_impl(HPyContext *ctx, HPy self,
                                  HPy *args, HPy_ssize_t nargs, HPy kw)
             {
 
@@ -91,7 +91,7 @@ class TestCall(HPyTest):
     def test_hpycallable_check(self):
         mod = self.make_module("""
             HPyDef_METH(f, "f", f_impl, HPyFunc_O)
-            static HPy f_impl(HPyContext ctx, HPy self, HPy arg)
+            static HPy f_impl(HPyContext *ctx, HPy self, HPy arg)
             {
                 if (HPyCallable_Check(ctx, arg))
                     return HPy_Dup(ctx, ctx->h_True);

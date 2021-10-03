@@ -88,7 +88,7 @@ if sys.platform == "win32":
 
     # not ported yet
     if IS_64_BITS:
-        for name in ["_cppyy", "micronumpy", "_hpy_universal"]:
+        for name in ["_cppyy", "micronumpy"]:
             if name in working_modules:
                 working_modules.remove(name)
 

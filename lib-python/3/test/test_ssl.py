@@ -4159,7 +4159,7 @@ class ThreadedTests(unittest.TestCase):
                                    sni_name=hostname)
         self.assertIs(stats['client_npn_protocol'], None)
 
-    @unittest.skipUnless(ssl.HAS_NPN, "NPN support needed for this test")
+    @unittest.skipIf(ssl.HAS_NPN, "NPN support partially removed for SSL 1.1.1")
     def test_npn_protocols(self):
         server_protocols = ['http/1.1', 'spdy/2']
         protocol_tests = [

@@ -1,4 +1,4 @@
-#include "universal/hpy.h"
+#include "hpy.h"
 
 // work around rffi's lack of support for unions
 typedef struct {

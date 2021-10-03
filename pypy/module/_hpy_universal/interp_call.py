@@ -1,7 +1,7 @@
 from pypy.interpreter.error import oefmt
 from .apiset import API
 
-@API.func("HPy HPy_CallTupleDict(HPyContext ctx, HPy callable, HPy args, HPy kw)")
+@API.func("HPy HPy_CallTupleDict(HPyContext *ctx, HPy callable, HPy args, HPy kw)")
 def HPy_CallTupleDict(space, handles, ctx, h_callable, h_args, h_kw):
     w_callable = handles.deref(h_callable)
     w_args = handles.deref(h_args) if h_args else None

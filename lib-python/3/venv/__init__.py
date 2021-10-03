@@ -118,7 +118,7 @@ class EnvBuilder:
             binname = 'bin'
             incpath = 'include'
             libpath = os.path.join(env_dir, 'lib',
-                                   'python%d.%d' % sys.version_info[:2],
+                                   'pypy%d.%d' % sys.version_info[:2],
                                    'site-packages')
         context.inc_path = path = os.path.join(env_dir, incpath)
         create_if_needed(path)
@@ -237,7 +237,7 @@ class EnvBuilder:
             copier(context.executable, path)
             if not os.path.islink(path):
                 os.chmod(path, 0o755)
-            for suffix in ('python', 'python3', 'pypy3'):
+            for suffix in ('python', 'python3', 'pypy3', 'pypy'):
                 path = os.path.join(binpath, suffix)
                 if not os.path.exists(path):
                     # Issue 18807: make copies if
@@ -257,16 +257,6 @@ class EnvBuilder:
                     copier(src_library, dest_library)
                     if not os.path.islink(dest_library):
                         os.chmod(dest_library, 0o755)
-            libsrc = os.path.join(context.python_dir, '..', 'lib')
-            if os.path.exists(libsrc):
-                # PyPy: also copy lib/*.so* for portable builds
-                libdst = os.path.join(context.env_dir, 'lib')
-                if not os.path.exists(libdst):
-                    os.mkdir(libdst)
-                for f in os.listdir(libsrc):
-                    src = os.path.join(libsrc, f)
-                    dst = os.path.join(libdst, f)
-                    copier(src, dst)
             #
         else:
             if self.symlinks:

@@ -68,25 +68,16 @@ typedef struct {
 } _HPyTracker_s;
 
 
-#ifdef HPY_UNIVERSAL_ABI
 static inline _HPyTracker_s *_ht2hp(HPyTracker ht) {
     return (_HPyTracker_s *) (ht)._i;
 }
 static inline HPyTracker _hp2ht(_HPyTracker_s *hp) {
     return (HPyTracker) {(HPy_ssize_t) (hp)};
 }
-#else
-static inline _HPyTracker_s *_ht2hp(HPyTracker ht) {
-    return (_HPyTracker_s *) (ht)._o;
-}
-static inline HPyTracker _hp2ht(_HPyTracker_s *hp) {
-    return (HPyTracker) {(void *) (hp)};
-}
-#endif
 
 
 _HPy_HIDDEN HPyTracker
-ctx_Tracker_New(HPyContext ctx, HPy_ssize_t capacity)
+ctx_Tracker_New(HPyContext *ctx, HPy_ssize_t capacity)
 {
     _HPyTracker_s *hp;
     if (capacity == 0) {
@@ -116,7 +107,7 @@ ctx_Tracker_New(HPyContext ctx, HPy_ssize_t capacity)
 }
 
 static int
-tracker_resize(HPyContext ctx, _HPyTracker_s *hp, HPy_ssize_t capacity)
+tracker_resize(HPyContext *ctx, _HPyTracker_s *hp, HPy_ssize_t capacity)
 {
     HPy *new_handles;
     capacity++;
@@ -138,7 +129,7 @@ tracker_resize(HPyContext ctx, _HPyTracker_s *hp, HPy_ssize_t capacity)
 }
 
 _HPy_HIDDEN int
-ctx_Tracker_Add(HPyContext ctx, HPyTracker ht, HPy h)
+ctx_Tracker_Add(HPyContext *ctx, HPyTracker ht, HPy h)
 {
     _HPyTracker_s *hp =  _ht2hp(ht);
     hp->handles[hp->length++] = h;
@@ -150,14 +141,14 @@ ctx_Tracker_Add(HPyContext ctx, HPyTracker ht, HPy h)
 }
 
 _HPy_HIDDEN void
-ctx_Tracker_ForgetAll(HPyContext ctx, HPyTracker ht)
+ctx_Tracker_ForgetAll(HPyContext *ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
     hp->length = 0;
 }
 
 _HPy_HIDDEN void
-ctx_Tracker_Close(HPyContext ctx, HPyTracker ht)
+ctx_Tracker_Close(HPyContext *ctx, HPyTracker ht)
 {
     _HPyTracker_s *hp = _ht2hp(ht);
     HPy_ssize_t i;

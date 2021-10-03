@@ -1,12 +1,12 @@
 #! /bin/bash
 
 # Edit these appropriately before running this script
-pmaj=3  # python main version: 2 or 3
+pmaj=2  # python main version: 2 or 3
 pmin=7  # python minor version
 maj=7
 min=3
-rev=5
-# rc=rc3  # comment this line for actual release
+rev=6
+rc=rc1  # comment this line for actual release
 
 function maybe_exit {
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -71,7 +71,12 @@ function repackage_builds {
         rm pypy-c-jit-latest-$plat.tar.bz2
 
         # Check that this is the correct version
-        actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
+        if [ "$pmin" == "7" ] # python2.7, 3.7
+        then
+            actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/patchlevel.h |cut -f3 -d' ')
+        else
+            actual_ver=$(grep PYPY_VERSION pypy-c-jit-*-$plat/include/pypy$pmaj.$pmin/patchlevel.h |cut -f3 -d' ')
+        fi
         if [ $actual_ver != "\"$maj.$min.$rev\"" ]
         then
             echo xxxxxxxxxxxxxxxxxxxxxx
@@ -93,7 +98,7 @@ function repackage_builds {
         rm -rf $rel-$plat_final
       done
     # end of "for" loop
-    for plat in win64 win32
+    for plat in win64 # win32
       do
         if wget -q --show-progress http://buildbot.pypy.org/nightly/$branchname/pypy-c-jit-latest-$plat.zip
         then
