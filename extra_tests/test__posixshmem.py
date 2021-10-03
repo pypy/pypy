@@ -1,5 +1,6 @@
 import pytest
-import _posixshmem
+
+_posixshmem = pytest.importorskip('_posixshmem')
 
 import os
 import mmap
