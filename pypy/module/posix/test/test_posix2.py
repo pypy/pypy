@@ -1735,6 +1735,14 @@ class AppTestNt(object):
         ret = nt._path_splitroot(u'//server/abc/xyz/def.txt')
         assert ret == (u'//server/abc/', u'xyz/def.txt') 
 
+    def test_dll_directory(self):
+        nt = self.posix
+        ret = nt._add_dll_directory(b'c:\\')
+        assert nt._remove_dll_directory(ret)
+        ret = nt._add_dll_directory(u'c:\\')
+        assert nt._remove_dll_directory(ret)
+
+
 class AppTestEnvironment(object):
     def setup_class(cls):
         cls.w_path = space.wrap(str(path))

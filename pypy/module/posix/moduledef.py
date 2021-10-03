@@ -189,6 +189,8 @@ corresponding Unix manual entries for more information on calls."""
                 'get_handle_inheritable': 'interp_posix.get_handle_inheritable',
                 'set_handle_inheritable': 'interp_posix.set_handle_inheritable',
                 '_path_splitroot': 'interp_posix._path_splitroot',
+                '_add_dll_directory': 'interp_posix._add_dll_directory',
+                '_remove_dll_directory': 'interp_posix._remove_dll_directory',
         })
     if hasattr(os, 'chroot'):
         interpleveldefs['chroot'] = 'interp_posix.chroot'
