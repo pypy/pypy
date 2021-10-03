@@ -233,7 +233,10 @@ else:  # _WIN32
         return res
 
     def dlopenex(name):
+        # Don't display a message box when Python can't load a DLL */
+        old_mode = rwin32.SetErrorMode(rwin32.SEM_FAILCRITICALERRORS)
         res = rwin32.LoadLibraryExA(name)
+        rwin32.SetErrorMode(old_mode)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)

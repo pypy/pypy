@@ -117,6 +117,8 @@ class CConfig:
                        STD_ERROR_HANDLE HANDLE_FLAG_INHERIT FILE_TYPE_CHAR
                        LOAD_WITH_ALTERED_SEARCH_PATH CT_CTYPE3 C3_HIGHSURROGATE
                        CP_ACP CP_UTF8 CP_UTF7 CP_OEMCP MB_ERR_INVALID_CHARS
+                       LOAD_LIBRARY_SEARCH_DEFAULT_DIRS SEM_FAILCRITICALERRORS
+                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR
                     """
         from rpython.translator.platform import host_factory
         static_platform = host_factory()
@@ -213,7 +215,8 @@ if WIN32:
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     def wrap_loadlibraryex(func):
-        def loadlibrary(name, flags=LOAD_WITH_ALTERED_SEARCH_PATH):
+        def loadlibrary(name, flags=LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                                    LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR):
             # Requires a full path name with '/' -> '\\'
             return func(name, NULL_HANDLE, flags)
         return loadlibrary
@@ -623,3 +626,5 @@ if WIN32:
             return _AddDllDirectory(pathW)
 
     RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL)
+
+    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT)

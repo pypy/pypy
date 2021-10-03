@@ -1748,6 +1748,7 @@ def create_extension_module(space, w_spec):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
+        # XXX does this need a fsdecoder for utf8 paths?
         ll_libname = rffi.str2charp(path)
         try:
             if WIN32:
