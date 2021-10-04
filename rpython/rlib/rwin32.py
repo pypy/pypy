@@ -624,6 +624,8 @@ if WIN32:
         with rffi.scoped_utf82wcharp(path, length) as pathW:
             return _AddDllDirectory(pathW)
 
-    RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL)
+    RemoveDllDirectory = winexternal('RemoveDllDirectory', [rffi.VOIDP], BOOL,
+        save_err=rffi.RFFI_SAVE_LASTERROR)
 
-    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT)
+    # Don't save the err since this is called before checking err in rdynload
+    SetErrorMode = winexternal('SetErrorMode', [rffi.UINT], rffi.UINT) 
