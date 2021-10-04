@@ -196,6 +196,8 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['INCLUDE'] = externals_path + r'\include;' + env.get('INCLUDE', '')
             env['LIB'] = externals_path + r'\lib;' + env.get('LIB', '')
             env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
+            # python3.8+
+            os.add_dll_directory(externals_path + r'\bin')
     else:
         # normally, this would be correctly added by setuptools/distutils, but
         # we moved this, and the ensurepip setuptools has not caught up yet
@@ -257,8 +259,13 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             failures.append((key, module))
         else:
             # Make sure it worked
+            test_script = "print('testing {0}'); import {0}".format(key)
+            if sys.platform == 'win32': 
+                externals_path = os.path.abspath(os.path.join(basedir, 'externals'))
+                test_script = ("import os; os.add_dll_directory(r'" +
+                               externals_path + r'\bin'  + "');" + test_script)
             status, stdout, stderr = run_subprocess(str(pypy_c),
-                         ['-c', "print('testing {0}'); import {0}".format(key)],
+                         ['-c', test_script],
                          env=env)
             if status != 0:
                 failures.append((key, module))
