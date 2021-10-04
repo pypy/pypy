@@ -136,16 +136,17 @@ class TestInteractiveConsole(unittest.TestCase):
                                     EOFError('Finished')]
         self.console.interact()
         output = ''.join(''.join(call[1]) for call in self.stderr.method_calls)
+        # pypy addition: expect suggestions
         expected = dedent("""
         Traceback (most recent call last):
           File "<console>", line 1, in <module>
-        NameError: name 'ham' is not defined
+        NameError: name 'ham' is not defined. Did you mean: hash?
 
         During handling of the above exception, another exception occurred:
 
         Traceback (most recent call last):
           File "<console>", line 2, in <module>
-        NameError: name 'eggs' is not defined
+        NameError: name 'eggs' is not defined. Did you mean: abs?
         """)
         self.assertIn(expected, output)
 
