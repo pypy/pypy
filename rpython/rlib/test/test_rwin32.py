@@ -112,7 +112,7 @@ def test_loadlibraryA():
 
     assert os.path.exists(test1)
 
-    hdll = rwin32.LoadLibraryExA(test1)
+    hdll = rwin32.LoadLibraryExA(test1, rwin32.LOAD_WITH_ALTERED_SEARCH_PATH)
     assert hdll
     faddr = rwin32.GetProcAddress(hdll, 'sum')
     assert faddr
@@ -131,7 +131,7 @@ def test_loadlibraryW():
 
     assert os.path.exists(unicode(test1))
 
-    hdll = rwin32.LoadLibraryExW(unicode(test1))
+    hdll = rwin32.LoadLibraryExW(unicode(test1), rwin32.LOAD_WITH_ALTERED_SEARCH_PATH)
     assert hdll
     faddr = rwin32.GetProcAddress(hdll, 'sum')
     assert faddr

@@ -232,8 +232,11 @@ else:  # _WIN32
             raise DLOpenError(ustr)
         return res
 
-    def dlopenex(name):
-        res = rwin32.LoadLibraryExA(name)
+    def dlopenex(name, flags=rwin32.LOAD_WITH_ALTERED_SEARCH_PATH):
+        # Don't display a message box when Python can't load a DLL */
+        old_mode = rwin32.SetErrorMode(rwin32.SEM_FAILCRITICALERRORS)
+        res = rwin32.LoadLibraryExA(name, flags)
+        rwin32.SetErrorMode(old_mode)
         if not res:
             err = rwin32.GetLastError_saved()
             ustr, lgt = rwin32.FormatErrorW(err)
