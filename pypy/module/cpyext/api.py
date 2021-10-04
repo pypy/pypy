@@ -1748,11 +1748,16 @@ def create_extension_module(space, w_spec):
     if os.sep not in path:
         path = os.curdir + os.sep + path      # force a '/' in the path
     try:
+        # XXX does this need a fsdecoder for utf8 paths?
         ll_libname = rffi.str2charp(path)
         try:
             if WIN32:
-                # Allow other DLLs in the same directory with "path"
-                dll = rdynload.dlopenex(ll_libname)
+                from rpython.rlib import rwin32
+                # Allow other DLLs in the same directory
+                # use os.add_dll_directory for more locations
+                flags = (rwin32.LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                        rwin32.LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR)
+                dll = rdynload.dlopenex(ll_libname, flags)
             else:
                 dll = rdynload.dlopen(ll_libname, space.sys.dlopenflags)
         finally:

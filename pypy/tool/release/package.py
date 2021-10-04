@@ -230,8 +230,9 @@ def create_package(basedir, options, _fake=False):
     pypydir.ensure('include', dir=True)
 
     if ARCH == 'win32':
+        # Needed for py.path.local.sysfind, not for loading
         os.environ['PATH'] = str(basedir.join('externals').join('bin')) + ';' + \
-                            os.environ.get('PATH', '')
+                                 os.environ.get('PATH', '')
         src, tgt, _ = binaries[0]
         pypyw = src.new(purebasename=src.purebasename + 'w')
         if pypyw.exists():

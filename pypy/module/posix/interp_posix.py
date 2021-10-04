@@ -24,6 +24,7 @@ from pypy.interpreter.error import (
     OperationError, oefmt, wrap_oserror, wrap_oserror2, strerror as _strerror,
     exception_from_saved_errno)
 from pypy.interpreter.executioncontext import ExecutionContext
+from pypy.interpreter.baseobjspace import W_Root
 
 
 _WIN32 = sys.platform == 'win32'
@@ -3062,7 +3063,7 @@ def splitdrive(p):
             return p[:3], p[3:]
         elif normp[1:2] == colon:
             return p[:2], p[2:]
-    return p[:0], p    
+    return p[:0], p
 
 def _path_splitroot(space, w_path):
     """Removes everything after the root on Win32."""
@@ -3074,4 +3075,46 @@ def _path_splitroot(space, w_path):
     ret0, ret1 = splitdrive(p)
     #XXX what do we do when w_p is bytes?
     return space.newtuple([space.newtext(ret0), space.newtext(ret1)])
+
+class W_DLLCapsule(W_Root):
+
+    def __init__(self, cookie):
+        self.cookie = cookie
+
+def _add_dll_directory(space, w_path):
+    """os._add_dll_directory
+
+        path: path_t
+
+    Add a path to the DLL search path.
+
+    This search path is used when resolving dependencies for imported
+    extension modules (the module itself is resolved through sys.path),
+    and also by ctypes.
+
+    Returns an opaque value that may be passed to os.remove_dll_directory
+    to remove this directory from the search path.
+    """
+    space.audit("os.add_dll_directory", [w_path])
+    cookie = rwin32.AddDllDirectory(space.utf8_w(w_path), space.len_w(w_path))
+    return W_DLLCapsule(cookie)
+
+def _remove_dll_directory(space, w_cookie):
+    """os._remove_dll_directory
+
+        cookie: object
+
+    Removes a path from the DLL search path.
+
+    The parameter is an opaque value that was returned from
+    os.add_dll_directory. You can only remove directories that you added
+    yourself.
+    """
+
+    if not isinstance(w_cookie, W_DLLCapsule):
+        raise oefmt(space.w_TypeError, "Provided cookie was not returned "
+                    "from os.add_dll_directory")
+    cookie = w_cookie.cookie
+    # CPython does not emit an audit event here
+    return space.newbool(bool(rwin32.RemoveDllDirectory(cookie)))
 
