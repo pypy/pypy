@@ -215,8 +215,7 @@ if WIN32:
     LoadLibrary = winexternal('LoadLibraryA', [rffi.CCHARP], HMODULE,
                               save_err=rffi.RFFI_SAVE_LASTERROR)
     def wrap_loadlibraryex(func):
-        def loadlibrary(name, flags=LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
-                                    LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR):
+        def loadlibrary(name, flags):
             # Requires a full path name with '/' -> '\\'
             return func(name, NULL_HANDLE, flags)
         return loadlibrary
