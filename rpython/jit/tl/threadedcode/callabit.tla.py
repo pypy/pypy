@@ -18,6 +18,6 @@ code = [
     tla.CONST_INT, 1,
     tla.LT,
     tla.JUMP_IF, 27,
-    tla.CALL, 16,
+    tla.JUMP, 16,
     tla.RET, 1
 ]
