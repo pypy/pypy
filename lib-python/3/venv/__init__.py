@@ -259,21 +259,10 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
-            #
-            # PyPy extension: also copy needed dlls, not just the
-            # small executable
-            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib', 'libffi-7.dll']:
-                dest_library = os.path.join(binpath, libname)
-                src_library = os.path.join(os.path.dirname(context.executable),
-                                           libname)
-                if (not os.path.exists(dest_library) and
-                        os.path.exists(src_library)):
-                    copier(src_library, dest_library)
-                    if not os.path.islink(dest_library):
-                        os.chmod(dest_library, 0o755)
+            # PyPy: also copy lib/*.so*, lib/tk, lib/tkl for portable builds
+            # if symlinks are not available
             libsrc = os.path.join(context.python_dir, '..', 'lib')
             if os.path.exists(libsrc) and not self.symlinks:
-                # PyPy: also copy lib/*.so* for portable builds
                 libdst = os.path.join(context.env_dir, 'lib')
                 if not os.path.exists(libdst):
                     os.mkdir(libdst)
