@@ -14,6 +14,7 @@ import types
 
 logger = logging.getLogger(__name__)
 
+IS_PYPY = sys.implementation.name == 'pypy'
 
 class EnvBuilder:
     """
@@ -195,8 +196,8 @@ class EnvBuilder:
                 except Exception:   # may need to use a more specific exception
                     logger.warning('Unable to symlink %r to %r', src, dst)
 
-            # On Windows, we rewrite symlinks to our base python.exe into
-            # copies of venvlauncher.exe
+            # On Windows in CPython, we rewrite symlinks to our base python.exe
+            # into copies of venvlauncher.exe
             basename, ext = os.path.splitext(os.path.basename(src))
             srcfn = os.path.join(os.path.dirname(__file__),
                                  "scripts",
@@ -208,9 +209,9 @@ class EnvBuilder:
                 if basename.endswith('_d'):
                     ext = '_d' + ext
                     basename = basename[:-2]
-                if basename == 'python':
+                if not IS_PYPY and basename == 'python':
                     basename = 'venvlauncher'
-                elif basename == 'pythonw':
+                elif not IS_PYPY and basename == 'pythonw':
                     basename = 'venvwlauncher'
                 src = os.path.join(os.path.dirname(src), basename + ext)
             else:
@@ -245,18 +246,17 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
-            #
-            # PyPy extension: also copy needed dlls, not just the
-            # small executable
-            for libname in ['libpypy3-c.so', 'libpypy3-c.dylib', 'libffi-7.dll']:
-                dest_library = os.path.join(binpath, libname)
-                src_library = os.path.join(os.path.dirname(context.executable),
-                                           libname)
-                if (not os.path.exists(dest_library) and
-                        os.path.exists(src_library)):
-                    copier(src_library, dest_library)
-                    if not os.path.islink(dest_library):
-                        os.chmod(dest_library, 0o755)
+            # PyPy: also copy lib/*.so*, lib/tk, lib/tkl for portable builds
+            # if symlinks are not available
+            libsrc = os.path.join(context.python_dir, '..', 'lib')
+            if os.path.exists(libsrc) and not self.symlinks:
+                libdst = os.path.join(context.env_dir, 'lib')
+                if not os.path.exists(libdst):
+                    os.mkdir(libdst)
+                for f in os.listdir(libsrc):
+                    src = os.path.join(libsrc, f)
+                    dst = os.path.join(libdst, f)
+                    copier(src, dst)
             #
         else:
             if self.symlinks:
