@@ -165,7 +165,7 @@ class TestFrame:
     def test_call_3(self):
         code = [
             tla.DUP,
-            tla.CALL_JIT, 16,
+            tla.CALL, 16,
             tla.POP,
             tla.CONST_INT, 1,
             tla.SUB,
@@ -181,7 +181,7 @@ class TestFrame:
             tla.CONST_INT, 1,
             tla.LT,
             tla.JUMP_IF, 27,
-            tla.CALL_JIT, 16,
+            tla.JUMP, 16,
             tla.RET, 1
         ]
         res = interp(code, W_IntObject(42))
@@ -211,7 +211,7 @@ class TestLLType(LLJitMixin):
             return w_result.intvalue
         res = self.meta_interp(interp_w, [42])
 
-    def test_jit_call_2(self):
+    def test_jit_call_recursive(self):
         code = [
             tla.DUP,
             tla.CALL, 16,
@@ -239,7 +239,41 @@ class TestLLType(LLJitMixin):
             return w_result.intvalue
         res = self.meta_interp(interp_w, [42])
 
-    def test_jit_call_3(self):
+    def test_jit_call_only_on_threaded_code(self):
+        """Interpretes the code on only threaded code interpreter
+        CALL is a threaded code CALL."""
+
+        code = [
+            tla.DUP,
+            tla.CALL, 16,
+            tla.POP,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 15,
+            tla.JUMP, 0,
+            tla.EXIT,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 27,
+            tla.JUMP, 16,
+            tla.RET, 1
+        ]
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+        res = self.meta_interp(interp_w, [42])
+
+    def test_jit_call_conjunction_with_tracing(self):
+        """Interpreters on both threaded code and tracing
+        JIT interpreters"""
+
         code = [
             tla.DUP,
             tla.CALL_JIT, 16,
@@ -258,7 +292,7 @@ class TestLLType(LLJitMixin):
             tla.CONST_INT, 1,
             tla.LT,
             tla.JUMP_IF, 27,
-            tla.CALL_JIT, 16,
+            tla.JUMP, 16,
             tla.RET, 1
         ]
         def interp_w(intvalue):
@@ -266,6 +300,7 @@ class TestLLType(LLJitMixin):
             assert isinstance(w_result, W_IntObject)
             return w_result.intvalue
         res = self.meta_interp(interp_w, [42])
+
 
     def test_jit_loop(self):
         code = [
