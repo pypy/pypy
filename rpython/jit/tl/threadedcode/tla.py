@@ -156,6 +156,7 @@ define_op("JUMP_IF", True)
 
 define_op("CALL", True)
 define_op("CALL_JIT", True)
+define_op("CALL_NORMAL", True)
 define_op("RET", True)
 define_op("NEWSTR", True)
 
@@ -222,6 +223,14 @@ class Frame(object):
 
     @jit.dont_look_inside
     def pop(self):
+        stackpos = self.stackpos - 1
+        assert stackpos >= 0
+        self.stackpos = stackpos
+        res = self.stack[stackpos]
+        self.stack[stackpos] = None
+        return res
+
+    def _pop(self):
         stackpos = self.stackpos - 1
         assert stackpos >= 0
         self.stackpos = stackpos
@@ -333,7 +342,13 @@ class Frame(object):
 
     @jit.dont_look_inside
     def CALL(self, t):
-        res = self.intterp_normal(t)
+        res = self.interp(t)
+        if res is not None:
+            self.push(res)
+
+    @jit.dont_look_inside
+    def CALL_NORMAL(self, t):
+        res = self.interp_normal(t)
         if res is not None:
             self.push(res)
 
@@ -348,12 +363,106 @@ class Frame(object):
         self.drop(n-1)
         return self.pop()
 
+    def _is_true(self):
+        w_x = self.pop()
+        res = w_x.is_true()
+        return res
+
+    def _CONST_INT(self, pc):
+        if isinstance(pc, int):
+            x = ord(self.bytecode[pc])
+            self.push(W_IntObject(x))
+        else:
+            raise OperationError
+
+    def _ADD(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.add(w_y)
+        self.push(w_z)
+
+    def _SUB(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.sub(w_y)
+        self.push(w_z)
+
+    def _MUL(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.mul(w_y)
+        self.push(w_z)
+
+    def _DIV(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.div(w_y)
+        self.push(w_z)
+
+    def _MOD(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.mod(w_y)
+        self.push(w_z)
+
+    def _DUP(self):
+        w_x = self.pop()
+        self.push(w_x)
+        self.push(w_x)
+
+    def _LT(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.lt(w_y)
+        self.push(w_z)
+
+    def _GT(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        w_z = w_x.gt(w_y)
+        self.push(w_z)
+
+    def _EQ(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        self.push(w_x.eq(w_y))
+
+    def _NE(self):
+        w_y = self.pop()
+        w_x = self.pop()
+        if w_x.eq(w_y).intvalue:
+            self.push(W_IntObject(1))
+        else:
+            self.push(W_IntObject(0))
+
+    def _RETURN(self):
+        return self.pop()
+
+    def _CALL(self, t):
+        res = self.interp(t)
+        if res is not None:
+            self.push(res)
+
+    def _CALL_NORMAL(self, t):
+        res = self.interp_normal(t)
+        if res is not None:
+            self.push(res)
+
+    def _CALL_JIT(self, t):
+        res = self.interp_jit(t)
+        if res is not None:
+            self.push(res)
+
+    def _RET(self, n):
+        self.drop(n-1)
+        return self.pop()
+
     def interp_jit(self, pc=0):
         bytecode = self.bytecode
         while pc < len(bytecode):
             jitdriver.jit_merge_point(pc=pc, bytecode=bytecode, self=self)
 
-            # print get_printable_location(pc, entry_state, bytecode, tstack)
+            # print get_printable_location(pc, bytecode)
             # self.print_stack()
             opcode = ord(bytecode[pc])
             pc += 1
@@ -363,46 +472,51 @@ class Frame(object):
                 pc += 1
 
             elif opcode == POP:
-                self.pop()
+                self._pop()
 
             elif opcode == DUP:
-                self.DUP()
+                self._DUP()
 
             elif opcode == LT:
-                self.LT()
+                self._LT()
 
             elif opcode == EQ:
-                self.EQ()
+                self._EQ()
 
             elif opcode == ADD:
-                self.ADD()
+                self._ADD()
 
             elif opcode == SUB:
-                self.SUB()
+                self._SUB()
 
             elif opcode == DIV:
-                self.DIV()
+                self._DIV()
 
             elif opcode == MUL:
-                self.MUL()
+                self._MUL()
 
             elif opcode == MOD:
-                self.MOD()
+                self._MOD()
 
-            # elif opcode == CALL:
-            #     t = ord(bytecode[pc])
-            #     pc += 1
-            #     self.CALL(t)
+            elif opcode == CALL:
+                t = ord(bytecode[pc])
+                pc += 1
+                self._CALL(t)
+
+            elif opcode == CALL_NORMAL:
+                t = ord(bytecode[pc])
+                pc += 1
+                self._CALL_NORMAL(t)
 
             elif opcode == CALL_JIT:
                 t = ord(bytecode[pc])
                 pc += 1
-                self.CALL_JIT(t)
+                self._CALL_JIT(t)
 
             elif opcode == RET:
                 argnum = ord(bytecode[pc])
                 pc += 1
-                return self.RET(argnum)
+                return self._RET(argnum)
 
             elif opcode == JUMP:
                 target = ord(bytecode[pc])
@@ -419,15 +533,15 @@ class Frame(object):
                     pc = target
 
             elif opcode == EXIT:
-                return self.pop()
+                return self._pop()
 
             else:
                 assert False, 'Unknown opcode: %d' % opcode
 
-    def intterp_normal(self, pc=0):
+    def interp_normal(self, pc=0):
         bytecode = self.bytecode
         while pc < len(bytecode):
-            # print get_printable_location(pc, entry_state, bytecode, tstack)
+            # print get_printable_location_tc(pc, entry_state, bytecode, tstack)
             # self.print_stack()
             opcode = ord(bytecode[pc])
             pc += 1
@@ -466,7 +580,7 @@ class Frame(object):
             elif opcode == CALL:
                 t = ord(bytecode[pc])
                 pc += 1
-                self.CALL(t)
+                self.CALL_NORMAL(t)
 
             elif opcode == RET:
                 argnum = ord(bytecode[pc])
@@ -497,7 +611,6 @@ class Frame(object):
         while pc < len(bytecode):
             tcjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
                                         tstack=tstack, self=self)
-
             # print get_printable_location_tc(pc, entry_state, bytecode, tstack)
             # self.print_stack()
             opcode = ord(bytecode[pc])
@@ -538,6 +651,11 @@ class Frame(object):
                 t = ord(bytecode[pc])
                 pc += 1
                 self.CALL(t)
+
+            elif opcode == CALL_NORMAL:
+                t = ord(bytecode[pc])
+                pc += 1
+                self.CALL_NORMAL(t)
 
             elif opcode == CALL_JIT:
                 t = ord(bytecode[pc])
