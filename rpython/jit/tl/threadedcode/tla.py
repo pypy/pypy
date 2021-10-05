@@ -170,19 +170,24 @@ def get_printable_location(pc, entry_state, bytecode, tstack):
         arg = ''
     return "%s: %s %s" % (pc, name, arg)
 
+tcjitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
+                        reds=['self'],
+                        get_printable_location=get_printable_location,
+                        threaded_code_gen=True)
+
 jitdriver = JitDriver(greens=['pc', 'entry_state', 'bytecode', 'tstack'],
                       reds=['self'],
                       get_printable_location=get_printable_location,
-                      threaded_code_gen=True)
+                      threaded_code_gen=False)
 
 class Frame(object):
 
     def __init__(self, bytecode):
         self.bytecode = bytecode
-        self.stack = [None] * 8
+        self.stack = [None] * 20
         self.stackpos = 0
 
-        self.saved_stack = [None] * 8
+        self.saved_stack = [None] * 20
         self.saved_stackpos = 0
 
     @jit.not_in_trace
@@ -210,6 +215,11 @@ class Frame(object):
         res = self.stack[stackpos]
         self.stack[stackpos] = None
         return res
+
+    @jit.dont_look_inside
+    def take(self,n):
+        assert len(self.stack) is not 0
+        return self.stack[self.stackpos - n - 1]
 
     @jit.dont_look_inside
     def drop(self, n):
@@ -310,7 +320,7 @@ class Frame(object):
 
     @jit.dont_look_inside
     def CALL(self, t):
-        res = self.interp(t)
+        res = self.intterp_normal(t)
         if res is not None:
             self.push(res)
 
@@ -319,14 +329,83 @@ class Frame(object):
         self.drop(n-1)
         return self.pop()
 
+    def intterp_normal(self, pc=0):
+        bytecode = self.bytecode
+        while pc < len(bytecode):
+            # tcjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
+            #                             tstack=tstack, self=self)
+
+            # print get_printable_location(pc, entry_state, bytecode, tstack)
+            # self.print_stack()
+            opcode = ord(bytecode[pc])
+            pc += 1
+
+            if opcode == CONST_INT:
+                self.CONST_INT(pc)
+                pc += 1
+
+            elif opcode == POP:
+                self.pop()
+
+            elif opcode == DUP:
+                self.DUP()
+
+            elif opcode == LT:
+                self.LT()
+
+            elif opcode == EQ:
+                self.EQ()
+
+            elif opcode == ADD:
+                self.ADD()
+
+            elif opcode == SUB:
+                self.SUB()
+
+            elif opcode == DIV:
+                self.DIV()
+
+            elif opcode == MUL:
+                self.MUL()
+
+            elif opcode == MOD:
+                self.MOD()
+
+            elif opcode == CALL:
+                t = ord(bytecode[pc])
+                pc += 1
+                self.CALL(t)
+
+            elif opcode == RET:
+                argnum = ord(bytecode[pc])
+                pc += 1
+                return self.RET(argnum)
+
+            elif opcode == JUMP:
+                t = ord(bytecode[pc])
+                pc += 1
+                pc = t
+
+            elif opcode == JUMP_IF:
+                target = ord(bytecode[pc])
+                pc += 1
+                if self.is_true():
+                    pc = target
+
+            elif opcode == EXIT:
+                return self.pop()
+
+            else:
+                assert False, 'Unknown opcode: %d' % opcode
+
     def interp(self, pc=0):
         tstack = t_empty()
         entry_state = 0
         bytecode = self.bytecode
 
         while pc < len(bytecode):
-            jitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
-                                      tstack=tstack, self=self)
+            tcjitdriver.jit_merge_point(pc=pc, entry_state=entry_state, bytecode=bytecode,
+                                        tstack=tstack, self=self)
 
             # print get_printable_location(pc, entry_state, bytecode, tstack)
             # self.print_stack()
@@ -386,7 +465,7 @@ class Frame(object):
                 else:
                     if t < pc:
                         entry_state = t; self.save_state()
-                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                        tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                 pc=t, tstack=tstack, self=self)
                     pc = t
 
@@ -403,7 +482,7 @@ class Frame(object):
                     if self.is_true():
                         if target < pc:
                             entry_state = target; self.save_state()
-                            jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                            tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
                                                     pc=target, tstack=tstack, self=self)
                         pc = target
 
@@ -413,8 +492,8 @@ class Frame(object):
                         w_x = self.pop()
                         pc = entry_state;  self.restore_state()
                         pc = emit_ret(pc, w_x)
-                        jitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
-                                                pc=pc, tstack=tstack, self=self)
+                        tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                  pc=pc, tstack=tstack, self=self)
                     else:
                         pc, tstack = tstack.t_pop()
                         w_x = self.pop()
