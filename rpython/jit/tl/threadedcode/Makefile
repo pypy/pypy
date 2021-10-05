@@ -1,10 +1,19 @@
-SOURCE = loop.tla.py loopabit.tla.py call.tla.py call_jitfun.tla.py callabit.tla.py callabit_jitfun.tla.py
+SOURCE = loop.tla.py loopabit.tla.py call.tla.py call_jitfun.tla.py callabit.tla.py callabit_baseline_tracing.tla.py callabit_baseline_only.tla.py
 
+.PHONY: compile
+compile: targettla-c target-bench-c
+
+.PHONY: targettla-c
 targettla-c: targettla.py tla.py
-	rpython -Ojit --make-jobs=7 $<
 
-targettla-bench-c: targettla_bench.py tla.py
-	rpython -Ojit --make-jobs=7 $<
+.PHONY: targettla_bench-c
+targettla_bench-c: targettla_bench.py tla.py
 
-assemble: $(SOURCE)
-	for src in $(SOURCE); do ./tla_assembler.py $$src; done
+%-c: %.py
+	rpython -Ojit --make-jobs=12 $<
+
+%.tla: %.tla.py
+	./tla_assembler.py $<
+
+.PHONY: assemble
+assemble: $(SOURCE) tla.py
