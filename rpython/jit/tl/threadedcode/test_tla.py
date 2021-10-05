@@ -136,7 +136,7 @@ class TestFrame:
         res = interp(code, W_IntObject(10))
         assert res.intvalue == 0
 
-    def test_call_2(self):
+    def test_call_and_jump(self):
         code = [
             tla.DUP,
             tla.CALL, 16,
@@ -156,35 +156,11 @@ class TestFrame:
             tla.CONST_INT, 1,
             tla.LT,
             tla.JUMP_IF, 27,
-            tla.CALL, 16,
+            tla.JUMP, 16,
             tla.RET, 1
         ]
         res =  interp(code, W_IntObject(42))
         assert res.intvalue == 0
-
-    def test_call_3(self):
-        code = [
-            tla.DUP,
-            tla.CALL, 16,
-            tla.POP,
-            tla.CONST_INT, 1,
-            tla.SUB,
-            tla.DUP,
-            tla.CONST_INT, 1,
-            tla.LT,
-            tla.JUMP_IF, 15,
-            tla.JUMP, 0,
-            tla.EXIT,
-            tla.CONST_INT, 1,
-            tla.SUB,
-            tla.DUP,
-            tla.CONST_INT, 1,
-            tla.LT,
-            tla.JUMP_IF, 27,
-            tla.JUMP, 16,
-            tla.RET, 1
-        ]
-        res = interp(code, W_IntObject(42))
 
 
 from rpython.jit.metainterp.test.support import LLJitMixin
@@ -231,6 +207,34 @@ class TestLLType(LLJitMixin):
             tla.LT,
             tla.JUMP_IF, 27,
             tla.CALL, 16,
+            tla.RET, 1
+        ]
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+        res = self.meta_interp(interp_w, [42])
+
+    def test_jit_call_and_jump(self):
+        code = [
+            tla.DUP,
+            tla.CALL, 16,
+            tla.POP,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 15,
+            tla.JUMP, 0,
+            tla.EXIT,
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 27,
+            tla.JUMP, 16,
             tla.RET, 1
         ]
         def interp_w(intvalue):
