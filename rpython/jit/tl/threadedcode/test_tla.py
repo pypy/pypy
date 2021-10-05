@@ -119,10 +119,47 @@ class TestFrame:
         res = interp(code, W_IntObject(3))
         assert res.intvalue == 0
 
+    def test_call(self):
+        code = [
+            tla.CALL, 11,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 10,
+            tla.JUMP, 0,
+            tla.EXIT,
+            # function sub_1(x)
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.RET, 1
+        ]
+        res = interp(code, W_IntObject(10))
+        assert res.intvalue == 0
+
 
 from rpython.jit.metainterp.test.support import LLJitMixin
 
 class TestLLType(LLJitMixin):
+
+    def test_jit_call(self):
+        code = [
+            tla.CALL, 11,
+            tla.DUP,
+            tla.CONST_INT, 1,
+            tla.LT,
+            tla.JUMP_IF, 10,
+            tla.JUMP, 0,
+            tla.EXIT,
+            # function sub_1(x)
+            tla.CONST_INT, 1,
+            tla.SUB,
+            tla.RET, 1
+        ]
+        def interp_w(intvalue):
+            w_result = interp(code, W_IntObject(intvalue))
+            assert isinstance(w_result, W_IntObject)
+            return w_result.intvalue
+        res = self.meta_interp(interp_w, [42])
 
     def test_jit_loop(self):
         code = [
