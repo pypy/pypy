@@ -3,8 +3,13 @@ py.path.local(__file__)
 from rpython.jit.tl.threadedcode import tla
 from rpython.rlib import jit
 
-
 def entry_point(args):
+    usage = "Usage: %s filename x" % (args[0],)
+
+    if len(args) < 3:
+        print usage
+        return 2
+
     for i in range(len(args)):
         if args[i] == "--jit":
             if len(args) == i + 1:
@@ -15,9 +20,6 @@ def entry_point(args):
             jit.set_user_param(None, jitarg)
             break
 
-    if len(args) < 3:
-        print "Usage: %s filename x" % (args[0],)
-        return 2
     filename = args[1]
     x = int(args[2])
     w_x = tla.W_IntObject(x)

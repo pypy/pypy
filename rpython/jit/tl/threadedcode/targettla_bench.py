@@ -5,10 +5,12 @@ from rpython.rlib import jit
 from time import time
 
 def entry_point(args):
-    usage = "Usage: %s filename x [-n <iter>] [-w <warmup iter>] [--jit <jitargs>]" % (args[0],)
+    usage = "Usage: %s filename x [-n <iter>] [-w <warmup iter>] [--jit <jitargs>] [--init (baseline|tracing)]" % (args[0],)
 
     iteration = 100
     warmup = 0
+    init = "baseline"
+    interp = tla.run
 
     for i in range(len(args)):
         if args[i] == "--jit":
@@ -38,6 +40,15 @@ def entry_point(args):
             del args[i:i+2]
             break
 
+    for i in range(len(args)):
+        if args[i] == "--init":
+            if len(args) == i + 1:
+                print "missing argument after --init"
+                return 2
+            init = args[i + 1]
+            del args[i:i+2]
+            break
+
     if len(args) < 3:
         print usage
         return 2
@@ -49,12 +60,17 @@ def entry_point(args):
     bytecode = load_bytecode(filename)
     times = []
 
+    if init == "baseline":
+        interp = tla.run
+    elif init == "tracing":
+        interp = tla.run_tr
+
     for i in range(warmup):
-        w_res = tla.run(bytecode, w_x)
+        w_res = interp(bytecode, w_x)
 
     for i in range(iteration):
         s = time()
-        w_res = tla.run(bytecode, w_x)
+        w_res = interp(bytecode, w_x)
         e = time()
         times.append(e - s)
 
