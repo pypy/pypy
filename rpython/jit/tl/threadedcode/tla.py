@@ -230,6 +230,10 @@ class Frame(object):
         self.stack[stackpos] = None
         return res
 
+    def _push(self, w_x):
+        self.stack[self.stackpos] = w_x
+        self.stackpos += 1
+
     def _pop(self):
         stackpos = self.stackpos - 1
         assert stackpos >= 0
@@ -371,91 +375,91 @@ class Frame(object):
     def _CONST_INT(self, pc):
         if isinstance(pc, int):
             x = ord(self.bytecode[pc])
-            self.push(W_IntObject(x))
+            self._push(W_IntObject(x))
         else:
             raise OperationError
 
     def _ADD(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.add(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _SUB(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.sub(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _MUL(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.mul(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _DIV(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.div(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _MOD(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.mod(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _DUP(self):
-        w_x = self.pop()
-        self.push(w_x)
-        self.push(w_x)
+        w_x = self._pop()
+        self._push(w_x)
+        self._push(w_x)
 
     def _LT(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.lt(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _GT(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         w_z = w_x.gt(w_y)
-        self.push(w_z)
+        self._push(w_z)
 
     def _EQ(self):
-        w_y = self.pop()
-        w_x = self.pop()
-        self.push(w_x.eq(w_y))
+        w_y = self._pop()
+        w_x = self._pop()
+        self._push(w_x.eq(w_y))
 
     def _NE(self):
-        w_y = self.pop()
-        w_x = self.pop()
+        w_y = self._pop()
+        w_x = self._pop()
         if w_x.eq(w_y).intvalue:
             self.push(W_IntObject(1))
         else:
             self.push(W_IntObject(0))
 
     def _RETURN(self):
-        return self.pop()
+        return self._pop()
 
     def _CALL(self, t):
         res = self.interp(t)
         if res is not None:
-            self.push(res)
+            self._push(res)
 
     def _CALL_NORMAL(self, t):
         res = self.interp_normal(t)
         if res is not None:
-            self.push(res)
+            self._push(res)
 
     def _CALL_JIT(self, t):
         res = self.interp_jit(t)
         if res is not None:
-            self.push(res)
+            self._push(res)
 
     def _RET(self, n):
         self.drop(n-1)
-        return self.pop()
+        return self._pop()
 
     def interp_jit(self, pc=0):
         bytecode = self.bytecode
@@ -527,7 +531,7 @@ class Frame(object):
             elif opcode == JUMP_IF:
                 target = ord(bytecode[pc])
                 pc += 1
-                if self.is_true():
+                if self._is_true():
                     if target < pc:
                         jitdriver.can_enter_jit(pc=target,bytecode=bytecode,self=self)
                     pc = target
@@ -605,7 +609,7 @@ class Frame(object):
 
     def interp(self, pc=0):
         tstack = t_empty()
-        entry_state = 0
+        entry_state = pc
         bytecode = self.bytecode
 
         while pc < len(bytecode):
@@ -663,9 +667,19 @@ class Frame(object):
                 self.CALL_JIT(t)
 
             elif opcode == RET:
-                argnum = ord(bytecode[pc])
-                pc += 1
-                return self.RET(argnum)
+                if we_are_jitted():
+                    if tstack.t_is_empty():
+                        w_x = self.pop()
+                        pc = entry_state;  self.restore_state()
+                        pc = emit_ret(pc, w_x)
+                        tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
+                                                  pc=pc, tstack=tstack, self=self)
+                    else:
+                        pc, tstack = tstack.t_pop()
+                        w_x = self.pop()
+                        pc = emit_ret(pc, w_x)
+                else:
+                    return self.pop()
 
             elif opcode == JUMP:
                 t = ord(bytecode[pc])
@@ -680,7 +694,7 @@ class Frame(object):
                     if t < pc:
                         entry_state = t; self.save_state()
                         tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
-                                                pc=t, tstack=tstack, self=self)
+                                                  pc=t, tstack=tstack, self=self)
                     pc = t
 
             elif opcode == JUMP_IF:
@@ -697,7 +711,7 @@ class Frame(object):
                         if target < pc:
                             entry_state = target; self.save_state()
                             tcjitdriver.can_enter_jit(bytecode=bytecode, entry_state=entry_state,
-                                                    pc=target, tstack=tstack, self=self)
+                                                      pc=target, tstack=tstack, self=self)
                         pc = target
 
             elif opcode == EXIT:
