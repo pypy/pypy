@@ -1,4 +1,5 @@
-SOURCE = loop.tla.py loopabit.tla.py call.tla.py call_jitfun.tla.py callabit.tla.py callabit_baseline_tracing.tla.py callabit_baseline_only.tla.py
+SOURCE = loop.tla.py loopabit.tla.py call.tla.py callabit.tla.py \
+	callabit_baseline_tracing.tla.py callabit_baseline_only.tla.py callabit_baseline_interp.tla.py
 
 .PHONY: compile
 compile: targettla-c targettla_bench-c
