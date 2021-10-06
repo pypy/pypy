@@ -5,6 +5,11 @@ from rpython.rlib import jit
 from time import time
 
 def entry_point(args):
+    usage = "Usage: %s filename x [-n <iter>] [-w <warmup iter>] [--jit <jitargs>]" % (args[0],)
+
+    iteration = 100
+    warmup = 0
+
     for i in range(len(args)):
         if args[i] == "--jit":
             if len(args) == i + 1:
@@ -15,25 +20,44 @@ def entry_point(args):
             jit.set_user_param(None, jitarg)
             break
 
+    for i in range(len(args)):
+        if args[i] == "-n":
+            if len(args) == i + 1:
+                print "missing argument after -n"
+                return 2
+            iteration = int(args[i + 1])
+            del args[i:i+2]
+            break
+
+    for i in range(len(args)):
+        if args[i] == "-w":
+            if len(args) == i + 1:
+                print "missing argument after -w"
+                return 2
+            warmup = int(args[i + 1])
+            del args[i:i+2]
+            break
+
     if len(args) < 3:
-        print "Usage: %s filename x [iter (optional)]" % (args[0],)
+        print usage
         return 2
+
     filename = args[1]
     x = int(args[2])
-    try:
-        N = int(args[3])
-    except IndexError:
-        N = 100
+
     w_x = tla.W_IntObject(x)
     bytecode = load_bytecode(filename)
     times = []
 
-    for i in range(N):
+    for i in range(warmup):
+        w_res = tla.run(bytecode, w_x)
+
+    for i in range(iteration):
         s = time()
         w_res = tla.run(bytecode, w_x)
         e = time()
         times.append(e - s)
-    # print w_res.getrepr()
+
     for t in times:
         print t
     return 0
