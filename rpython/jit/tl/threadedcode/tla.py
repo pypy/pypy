@@ -739,3 +739,10 @@ def run(bytecode, w_arg):
     frame.push(w_arg)
     w_result = frame.interp()
     return w_result
+
+def run_tr(bytecode, w_arg):
+    frame = Frame(bytecode)
+    frame.push(w_arg)
+    frame.push(w_arg)
+    w_result = frame.interp_jit()
+    return w_result
