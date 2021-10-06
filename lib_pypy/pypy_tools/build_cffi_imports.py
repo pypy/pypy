@@ -209,8 +209,9 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             env['PATH'] = externals_path + r'\bin;' + env.get('PATH', '')
     else:
         # normally, this would be correctly added by setuptools/distutils, but
-        # we moved this, and the ensurepip setuptools has not caught up yet
-        status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'from _sysconfigdata import build_time_vars as v; print(v["INCLUDEPY"])'])
+        # we moved this for python3.8, and the ensurepip setuptools has not
+        # caught up yet. It needs to be at least setuptools-58.2
+        status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'from sysconfig import get_config_var as gcv; print(gcv("INCLUDEPY"))'])
         if status != 0:
             print("stdout:")
             print(stdout.decode('utf-8'))
