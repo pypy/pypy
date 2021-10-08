@@ -92,6 +92,13 @@ class BasePosix(Platform):
                 raise ValueError(msg)
         return result
 
+    def get_multiarch(self):
+        try:
+            ret = self.execute(self.cc, args=['--print-multiarch'])
+        except CompilationError:
+            return ''
+        return ret.out.strip()
+
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross-compilation i.e. ARM
         return self.rpath_flags + ['-Wl,-rpath-link=\'%s\'' % ldir
