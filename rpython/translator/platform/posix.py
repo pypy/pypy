@@ -2,7 +2,8 @@
 
 import py, os, sys
 
-from rpython.translator.platform import Platform, log, _run_subprocess
+from rpython.translator.platform import (
+    Platform, log, _run_subprocess, CompilationError)
 from rpython.config.support import detect_pax
 
 import rpython
