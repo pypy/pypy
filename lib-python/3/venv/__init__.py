@@ -271,7 +271,6 @@ class EnvBuilder:
                         src = os.path.join(libsrc, f)
                         dst = os.path.join(libdst, f)
                         if f == pypylib or os.path.exists(dst):
-                            # just in case this is used with the cpython layout
                             # be sure not to copy the stdlib
                             # also skip directories when upgrading
                             continue
