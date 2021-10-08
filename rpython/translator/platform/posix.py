@@ -93,6 +93,12 @@ class BasePosix(Platform):
         return result
 
     def get_multiarch(self):
+        if 'DEB_HOST_MULTIARCH' in os.environ:
+            return os.environ['DEB_HOST_MULTIARCH']
+        if 'PYPY_MULTIARCH' in os.environ:
+            return os.environ['PYPY_MULTIARCH']
+        if sys.platform == 'cygwin':
+            return ''
         try:
             ret = self.execute(self.cc, args=['--print-multiarch'])
         except CompilationError:
