@@ -246,9 +246,11 @@ class EnvBuilder:
                     copier(context.env_exe, path, relative_symlinks_ok=True)
                     if not os.path.islink(path):
                         os.chmod(path, 0o755)
-            # PyPy: also copy dlls, lib/*.so if symlinks are not used
             if not self.symlinks:
-                for libname in ['libpypy3-c.so', 'libpypy3-c.dylib', 'libffi-7.dll']:
+                #
+                # PyPy extension: also copy the main library, not just the
+                # small executable
+                for libname in ['libpypy3-c.so', 'libpypy3-c.dylib']:
                     dest_library = os.path.join(binpath, libname)
                     src_library = os.path.join(os.path.dirname(context.executable),
                                                libname)
@@ -259,13 +261,21 @@ class EnvBuilder:
                             os.chmod(dest_library, 0o755)
                 libsrc = os.path.join(context.python_dir, '..', 'lib')
                 if os.path.exists(libsrc):
+                    # PyPy: also copy lib/*.so*, lib/tk, lib/tcl for portable
+                    # builds
                     libdst = os.path.join(context.env_dir, 'lib')
+                    pypylib = 'pypy%d.%d' % sys.version_info[:2]
                     if not os.path.exists(libdst):
                         os.mkdir(libdst)
                     for f in os.listdir(libsrc):
                         src = os.path.join(libsrc, f)
-                    dst = os.path.join(libdst, f)
-                    copier(src, dst)
+                        dst = os.path.join(libdst, f)
+                        if f == pypylib or os.path.exists(dst):
+                            # just in case this is used with the cpython layout
+                            # be sure not to copy the stdlib
+                            # also skip directories when upgrading
+                            continue
+                        copier(src, dst)
             #
         else:
             if self.symlinks:

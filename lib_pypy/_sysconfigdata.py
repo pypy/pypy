@@ -22,6 +22,7 @@ build_time_vars = {
     # for CPython
     "SOABI": '-'.join(so_ext.split('.')[1].split('-')[:2]),
     "SO": so_ext,  # deprecated in Python 3, for backward compatibility
+    'MULTIARCH': sys.implementation._multiarch,
     'CC': "cc -pthread",
     'CXX': "c++ -pthread",
     'OPT': "-DNDEBUG -O2",
