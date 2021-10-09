@@ -94,8 +94,6 @@ class BasePosix(Platform):
         return result
 
     def get_multiarch(self):
-        if 'DEB_HOST_MULTIARCH' in os.environ:
-            return os.environ['DEB_HOST_MULTIARCH']
         if 'PYPY_MULTIARCH' in os.environ:
             return os.environ['PYPY_MULTIARCH']
         if sys.platform == 'cygwin':
@@ -103,7 +101,15 @@ class BasePosix(Platform):
         try:
             ret = self.execute(self.cc, args=['--print-multiarch'])
         except CompilationError:
-            return ''
+            ret = ''
+        if not ret:
+            # some gcc, like on redhat, return ''
+            # the following may fail on non-JIT builds
+            from rpython.jit.backend import detect_cpu
+            model = detect_cpu.autodetect()
+            ret = model.replace('-', '_') + '-linux-gnu'
+        if not ret:
+            raise ValueError("cannot detect multiarch value on this platform")
         return ret.out.strip()
 
     def get_rpath_flags(self, rel_libdirs):
