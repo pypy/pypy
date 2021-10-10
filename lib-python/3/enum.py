@@ -67,7 +67,7 @@ class _EnumDict(dict):
     """
     def __init__(self):
         super().__init__()
-        self._member_names = []
+        self._member_names = set()
         self._last_values = []
         self._ignore = []
         self._auto_called = False
@@ -98,7 +98,7 @@ class _EnumDict(dict):
                 else:
                     value = list(value)
                 self._ignore = value
-                already = set(value) & set(self._member_names)
+                already = set(value) & self._member_names
                 if already:
                     raise ValueError(
                             '_ignore_ cannot specify already set names: %r'
@@ -126,7 +126,7 @@ class _EnumDict(dict):
                             )
                     self._auto_called = True
                 value = value.value
-            self._member_names.append(key)
+            self._member_names.add(key)
             self._last_values.append(value)
         super().__setitem__(key, value)
 
@@ -252,11 +252,17 @@ class EnumMeta(type):
             enum_member.__init__(*args)
             # If another member with the same value was already defined, the
             # new member becomes an alias to the existing one.
-            for name, canonical_member in enum_class._member_map_.items():
-                if canonical_member._value_ == enum_member._value_:
-                    enum_member = canonical_member
-                    break
-            else:
+            try:
+                try:
+                    enum_member = enum_class._value2member_map_[value]
+                except TypeError:
+                    for name, canonical_member in enum_class._member_map_.items():
+                        if canonical_member._value_ == value:
+                            enum_member = canonical_member
+                            break
+                    else:
+                        raise KeyError
+            except KeyError:
                 # Aliases don't appear in member names (only in __members__).
                 enum_class._member_names_.append(member_name)
             # performance boost for any member that would not shadow
