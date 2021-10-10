@@ -170,8 +170,8 @@ class BasicTest(BaseTest):
             ('bin',),
             ('include',),
             ('lib',),
-            ('lib', 'python%d.%d' % sys.version_info[:2]),
-            ('lib', 'python%d.%d' % sys.version_info[:2], 'site-packages'),
+            ('lib', 'pypy%d.%d' % sys.version_info[:2]),
+            ('lib', 'pypy%d.%d' % sys.version_info[:2], 'site-packages'),
         )
 
     def create_contents(self, paths, filename):
