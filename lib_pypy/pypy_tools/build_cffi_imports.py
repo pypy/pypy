@@ -210,15 +210,16 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
     else:
         # normally, this would be correctly added by setuptools/distutils, but
         # we moved this for python3.8, and the ensurepip setuptools has not
-        # caught up yet. It needs to be at least setuptools-58.2
+        # caught up yet. It needs at least setuptools-58.2 in ensurepip
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'from sysconfig import get_config_var as gcv; print(gcv("INCLUDEPY"))'])
+        sdtout = stdout.decode('utf-8')
         if status != 0:
             print("stdout:")
-            print(stdout.decode('utf-8'))
+            print(stdout)
             print("stderr:")
             print(stderr.decode('utf-8'))
             return list(cffi_build_scripts.items())
-        include_path = stdout
+        include_path = stdout.strip()
         env['CFLAGS'] = ' '.join(('-fPIC', '-I' + include_path, env.get('CFLAGS', '')))
     status, stdout, stderr = run_subprocess(pypy3, ['-c', 'import setuptools'])
     if status  != 0:
