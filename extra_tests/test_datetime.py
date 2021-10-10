@@ -2,6 +2,7 @@
 import pytest
 
 import datetime
+import sys
 
 
 class date_safe(datetime.date):
@@ -349,6 +350,7 @@ def test_subclass_datetime():
     assert type(d2) is MyDatetime
     assert d2 == datetime.datetime(2016, 4, 5, 7, 2, 3)
 
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
 def test_normalize_pair():
     normalize = datetime._normalize_pair
 
@@ -356,6 +358,7 @@ def test_normalize_pair():
     assert normalize(1, 60, 60) == (2, 0)
     assert normalize(1, 95, 60) == (2, 35)
 
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
 def test_normalize_date():
     normalize = datetime._normalize_date
 
@@ -372,6 +375,7 @@ def test_normalize_date():
     assert normalize(2001, 1, 61) == (2001, 3, 2)
     assert normalize(2000, 1, 61) == (2000, 3, 1)
 
+@pytest.mark.skipif('__pypy__' not in sys.builtin_module_names, reason='pypy only')
 def test_normalize_datetime():
     normalize = datetime._normalize_datetime
     abnormal = (2002, 13, 35, 30, 95, 75, 1000001)
