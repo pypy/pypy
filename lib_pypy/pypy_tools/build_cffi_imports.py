@@ -212,7 +212,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
         # we moved this for python3.8, and the ensurepip setuptools has not
         # caught up yet. It needs at least setuptools-58.2 in ensurepip
         status, stdout, stderr = run_subprocess(str(pypy_c), ['-c', 'from sysconfig import get_config_var as gcv; print(gcv("INCLUDEPY"))'])
-        sdtout = stdout.decode('utf-8')
+        stdout = stdout.decode('utf-8')
         if status != 0:
             print("stdout:")
             print(stdout)
@@ -220,6 +220,7 @@ def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
             print(stderr.decode('utf-8'))
             return list(cffi_build_scripts.items())
         include_path = stdout.strip()
+        import pdb;pdb.set_trace()
         env['CFLAGS'] = ' '.join(('-fPIC', '-I' + include_path, env.get('CFLAGS', '')))
     status, stdout, stderr = run_subprocess(pypy3, ['-c', 'import setuptools'])
     if status  != 0:
