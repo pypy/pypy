@@ -102,6 +102,8 @@ class BasePosix(Platform):
             ret = self.execute(self.cc, args=['--print-multiarch'])
         except CompilationError:
             ret = ''
+        else:
+            ret = ret.out.strip()
         if not ret:
             # some gcc, like on redhat, return ''
             # the following may fail on non-JIT builds
@@ -110,7 +112,7 @@ class BasePosix(Platform):
             ret = model.replace('-', '_') + '-linux-gnu'
         if not ret:
             raise ValueError("cannot detect multiarch value on this platform")
-        return ret.out.strip()
+        return ret
 
     def get_rpath_flags(self, rel_libdirs):
         # needed for cross-compilation i.e. ARM
