@@ -267,23 +267,16 @@ of very high quality requirements for compilers and partly because there is
 simply no other way to get around such complex project, that will keep you sane.
 There are probably people out there who are smart enough not to need it, we're
 not one of those. You may consider familiarizing yourself with `pytest`_,
-since this is a tool we use for tests.
-This leads to the next issue:
+since this is a tool we use for tests. We ship our own tweaked version of
+pytest in the top of the tree, so ``python -m pytest`` will pick up our version,
+which means our tests need to run with that version of pytest.
+
+We also have post-translation tests in the ``extra_tests`` directory that are
+run in a virtual environment from a separate directory, so they use a more
+up-to-date version of pytest. As much as possible, these are meant to be
+pass with CPython as well.
 
 .. _pytest: https://pytest.org/
-
-py.test and the py lib
-----------------------
-
-The `py.test testing tool`_ drives all our testing needs.
-
-We use the `py library`_ for filesystem path manipulations, terminal
-writing, logging and some other support  functionality.
-
-You don't necessarily need to install these two libraries because
-we also ship them inlined in the PyPy source tree.
-
-.. _py library: https://pylib.readthedocs.org/
 
 Running PyPy's unit tests
 -------------------------

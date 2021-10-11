@@ -141,10 +141,21 @@ def generate_sysconfigdata(pypy_c, stdlib):
     """
     if ARCH == 'win32':
         return
-    # this creates a _sysconfigdata_*.py file in some directory, the name
+    # run ./config.guess to add the HOST_GNU_TYPE (copied from CPython, 
+    # apparently useful for the crossenv package)
+    config_guess = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'config.guess')
+    try:
+        host_gnu_type = subprocess.check_output([config_guess]).strip()
+    except Exception:
+        host_gnu_type = "unkown"
+
+     # this creates a _sysconfigdata_*.py file in some directory, the name
     # of the directory is written into pybuilddir.txt
     subprocess.check_call([str(pypy_c), '-m' 'sysconfig',
-                           '--generate-posix-vars'])
+                           '--generate-posix-vars',
+                           # Use PyPy-specific extension to get HOST_GNU_TYPE
+                           'HOST_GNU_TYPE', host_gnu_type])
     with open('pybuilddir.txt') as fid:
         dirname = fid.read().strip()
     assert os.path.exists(dirname)
@@ -153,6 +164,9 @@ def generate_sysconfigdata(pypy_c, stdlib):
     assert len(sysconfigdata_names) == 1
     shutil.copy(os.path.join(dirname, sysconfigdata_names[0]), stdlib)
     shutil.rmtree(dirname)
+       
+        
+    
                 
 
 def create_package(basedir, options, _fake=False):

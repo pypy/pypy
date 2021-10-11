@@ -419,6 +419,9 @@ class MakefileTests(unittest.TestCase):
             'var6': '42/lib/python3.5/config-b42dollar$5-x86_64-linux-gnu',
         })
 
+    def test_multiarch_config_var(self):
+        multiarch = get_config_var('MULTIARCH')
+        self.assertIsInstance(multiarch, str)
 
 if __name__ == "__main__":
     unittest.main()

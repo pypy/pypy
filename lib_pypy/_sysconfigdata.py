@@ -22,6 +22,7 @@ build_time_vars = {
     # for CPython
     "SOABI": '-'.join(so_ext.split('.')[1].split('-')[:2]),
     "SO": so_ext,  # deprecated in Python 3, for backward compatibility
+    'MULTIARCH': sys.implementation._multiarch,
     'CC': "cc -pthread",
     'CXX': "c++ -pthread",
     'OPT': "-DNDEBUG -O2",
@@ -68,6 +69,7 @@ if sys.platform[:6] == "darwin":
     build_time_vars['CC'] += ' -arch %s' % (arch,)
     build_time_vars['LDFLAGS'] = ' -shared -undefined dynamic_lookup'
     build_time_vars['LDSHARED'] = build_time_vars['CC'] + build_time_vars['LDFLAGS']
+    build_time_vars['LDLIBRARY'] = 'libpypy3-c.dylib'
     if "CXX" in build_time_vars:
         build_time_vars['CXX'] += ' -arch %s' % (arch,)
     build_time_vars['MACOSX_DEPLOYMENT_TARGET'] = '10.7'

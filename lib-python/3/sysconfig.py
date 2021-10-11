@@ -368,7 +368,7 @@ def _get_sysconfigdata_name():
     ))
 
 
-def _generate_posix_vars():
+def _generate_posix_vars(args):
     """Generate the Python module containing build-time variables."""
     import pprint
     vars = {}
@@ -401,6 +401,10 @@ def _generate_posix_vars():
         if _PYTHON_BUILD:
             vars['BLDSHARED'] = vars['LDSHARED']
 
+    if args:
+        # PyPy extension: they should be key, value pairs
+        for k, v in zip(args[::2], args[1::2]):
+            vars[k] = v 
     # There's a chicken-and-egg situation on OS X with regards to the
     # _sysconfigdata module after the changes introduced by #15298:
     # get_config_vars() is called by get_platform() as part of the
@@ -734,7 +738,7 @@ def _print_dict(title, data):
 def _main():
     """Display all information sysconfig detains."""
     if '--generate-posix-vars' in sys.argv:
-        _generate_posix_vars()
+        _generate_posix_vars(sys.argv[2:])
         return
     print('Platform: "%s"' % get_platform())
     print('Python version: "%s"' % get_python_version())
