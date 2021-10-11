@@ -512,10 +512,14 @@ def is_spec_initializing(space, w_spec):
         return space.is_true(w_initializing)
 
 def get_path(space, w_module):
+    default = space.newtext("unknown location")
     try:
-        return space.getattr(w_module, space.newtext('__file__'))
+        w_ret = space.getattr(w_module, space.newtext('__file__'))
     except OperationError as e:
         if not e.match(space, space.w_AttributeError):
             raise
-        return space.newtext("unknown location")
+        return default
+    if w_ret is space.w_None:
+        return default
+    return w_ret
 
