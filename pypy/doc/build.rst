@@ -162,6 +162,26 @@ way to enable it for building pypy is to set an environment variable::
 After setting this, translation (described next) will find the OpenSSL libs
 as expected.
 
+Set environment variables that will affect translation
+------------------------------------------------------
+
+The following environment variables can be used to tweak the result:
+
++------------------------+-----------------------------------------------------------+
+| value                  | result                                                    |
++------------------------+-----------------------------------------------------------+
+| CC                     | compiler to use                                           |
+| PYPY_MULTIARCH         | pypy 3.7+: ends up in ``sys.platform._multiarch``         |
+| ..                     | on posix                                                  |
+| PYPY_USESSION_DIR      | base directory for temporary files, usually ``$TMP``      |
+| PYPY_USESSION_BASENAME | each call to ``from rpython.tools import udir`` will get  |
+| ..                     | a temporary directory                                     |
+| ..                     | ``$PYPY_USESSION_DIR/usession-$PYPY_USESSION_BASENAME-N`` |
+| ..                     | where ``N`` increments on each call                       |
+| PYPY_USESSION_KEEP     | how many old temporary directories to keep, any older     |
+| ..                     | ones will be deleted. Defaults to 3                       |
++---------------------+--------------------------------------------------------------+
+
 Run the translation
 -------------------
 
