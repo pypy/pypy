@@ -10,6 +10,8 @@ _lock = _thread.allocate_lock()
 try: from __pypy__ import builtinify
 except ImportError: builtinify = lambda f: f
 
+if sys.platform == 'win32':
+    raise ImportError("The crypt module is not supported on Windows")
 
 ffi = cffi.FFI()
 ffi.cdef('char *crypt(char *word, char *salt);')
