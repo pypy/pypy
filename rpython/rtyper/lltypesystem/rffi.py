@@ -1486,6 +1486,7 @@ def get_raw_address_of_string(string):
         TEST_RAW_ADDR_KEEP_ALIVE[string] = result
         return result
 
+
 class _StrFinalizerQueue(rgc.FinalizerQueue):
     Class = None              # to use GCREFs directly
     print_debugging = False   # set to True from test_rffi
