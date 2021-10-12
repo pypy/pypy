@@ -318,4 +318,4 @@ OffsetInBytes.typedef = TypeDef(
 def offset_in_bytes(space, w_bytes, offset):
     if not space.isinstance_w(w_bytes, space.w_bytes):
         raise oefmt(space.w_TypeError, "must be bytes, not %T", w_bytes)
-    return space.wrap(OffsetInBytes(w_bytes, offset))
+    return OffsetInBytes(w_bytes, offset)
