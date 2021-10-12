@@ -44,6 +44,8 @@ class AppTestBuiltinApp:
         assert m.__name__ == "sys"
         raises(ImportError, __import__, 'spamspam')
         raises(TypeError, __import__, 1, 2, 3, 4)
+        print(__import__.__doc__)
+        assert __import__.__doc__.endswith('relative to the current module.')
 
     def test_ascii(self):
         assert ascii('') == '\'\''

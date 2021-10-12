@@ -34,6 +34,9 @@ def time_(space):
 
 @unwrap_spec(seconds=float)
 def sleep(space, seconds):
+    '''sleep(seconds: float) -> None
+
+    pause for a float number of seconds'''
     time.sleep(seconds)
 """
 
@@ -67,3 +70,4 @@ class AppTestExtModules(object):
         import extmod
         assert not hasattr(extmod, '__file__')
         assert type(extmod.time()) is float
+        assert extmod.sleep.__doc__.endswith('float number of seconds')

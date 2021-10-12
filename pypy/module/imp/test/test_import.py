@@ -218,6 +218,13 @@ class AppTestImport(BaseFSEncodeTest):
 
     def test_import_namespace_package(self):
         import packagenamespace
+        try:
+            from packagenamespace import nothing
+        except ImportError as e:
+            assert str(e) == ("cannot import name 'nothing' from "
+                              "'packagenamespace' (unknown location)")
+        else:
+            assert False
 
     def test_import_sys(self):
         import sys
