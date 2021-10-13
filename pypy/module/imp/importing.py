@@ -17,6 +17,7 @@ from rpython.rlib.objectmodel import we_are_translated, specialize
 from rpython.rlib.signature import signature
 from rpython.rlib import rposix_stat, types
 from pypy.module.sys.version import PYPY_VERSION, CPYTHON_VERSION
+from pypy.module.__pypy__.interp_os import _multiarch
 
 _WIN32 = sys.platform == 'win32'
 
@@ -43,17 +44,7 @@ def get_so_extension(space):
 
     platform_name = sys.platform
     if platform_name.startswith('linux'):
-        if re.match('(i[3-6]86|x86_64)$', platform.machine()):
-            if sys.maxsize < 2**32:
-                platform_name = 'i686-linux-gnu'
-                # xxx should detect if we are inside 'x32', but not for now
-                # because it's not supported anyway by PyPy.  (Relying
-                # on platform.machine() does not work, it may return x86_64
-                # anyway)
-            else:
-                platform_name = 'x86_64-linux-gnu'
-        else:
-            platform_name = 'linux-gnu'
+        platform_name = _multiarch
     elif platform_name == 'win32' and sys.maxsize > 2**32:
         platform_name = 'win_amd64'
 
