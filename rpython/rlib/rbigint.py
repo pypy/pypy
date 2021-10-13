@@ -43,11 +43,8 @@ else:
     LONG_TYPE = rffi.LONGLONG
     ULONG_TYPE = rffi.ULONGLONG
 
-    if LONG_BIT >= 64:
-        raise Exception("please review rbigint.py: compiling on 64-bit without"
-                        " a 128-bit integer type may be broken, notably in"
-                        " fromint(), because in this case we need to return"
-                        " rbigints with up to three digits, I think")
+    # TODO if LONG_BIT >= 64, it would be best to use r_uint32, but
+    #      int32 and uint32 ops are unimplemented
 
 MASK = int((1 << SHIFT) - 1)
 FLOAT_MULTIPLIER = float(1 << SHIFT)
@@ -146,6 +143,8 @@ class Entry(extregistry.ExtRegistryEntry):
         hop.exception_cannot_occur()
 
 def intsign(i):
+    if i == 0:
+        return 0
     return -1 if i < 0 else 1
 
 class rbigint(object):
@@ -216,6 +215,12 @@ class rbigint(object):
     def fromint(intval):
         # This function is marked as pure, so you must not call it and
         # then modify the result.
+
+        # for hypothesis testing, we want to be able to set SHIFT to a small
+        # number to hit edge cases more easily. so use a slower path if SHIFT
+        # is a nonstandard value
+        if SHIFT != 63 and SHIFT != 31:
+            return rbigint.fromrarith_int(intval)
         check_regular_int(intval)
 
         if intval < 0:
@@ -229,6 +234,20 @@ class rbigint(object):
         else:
             return NULLRBIGINT
 
+        if SHIFT != LONG_BIT - 1:
+            # Means we don't have INT128 on 64bit.
+            if intval > 0:
+                carry = ival >> SHIFT
+
+            if carry > 0:
+                carry2 = carry >> SHIFT
+            else:
+                carry2 = 0
+
+            if carry2:
+                return rbigint([_store_digit(ival & MASK),
+                                _store_digit(carry & MASK),
+                                _store_digit(carry2)], sign, 3)
 
         if carry:
             return rbigint([_store_digit(ival & MASK),
@@ -875,24 +894,41 @@ class rbigint(object):
             elif digit & (digit - 1) == 0:
                 mod = self.int_and_(digit - 1)
             else:
-                # Perform
-                size = UDIGIT_TYPE(self.numdigits() - 1)
-
-                if size > 0:
-                    wrem = self.widedigit(size)
-                    while size > 0:
-                        size -= 1
-                        wrem = ((wrem << SHIFT) | self.digit(size)) % digit
-                    rem = _store_digit(wrem)
-                else:
-                    rem = _store_digit(self.digit(0) % digit)
-
+                rem = _int_rem_core(self, digit)
                 if rem == 0:
                     return NULLRBIGINT
                 mod = rbigint([rem], -1 if self.sign < 0 else 1, 1)
 
         if mod.sign * intsign(iother) == -1:
             mod = mod.int_add(iother)
+        return mod
+
+    @jit.elidable
+    def int_mod_int_result(self, iother):
+        if iother == 0:
+            raise ZeroDivisionError("long division or modulo by zero")
+        if self.sign == 0:
+            return 0
+
+        elif not int_in_valid_range(iother):
+            # Fallback to long.
+            return self.mod(rbigint.fromint(iother)).toint() # cannot raise
+
+        assert iother != -sys.maxint-1 # covered by int_in_valid_range above
+        digit = abs(iother)
+        if digit == 1:
+            return 0
+        elif digit == 2:
+            modm = self.digit(0) & 1
+            if modm:
+                return -1 if iother < 0 else 1
+            return 0
+        elif digit & (digit - 1) == 0:
+            mod = self.int_and_(digit - 1).toint() # XXX improve
+        else:
+            mod = _int_rem_core(self, digit) * self.sign
+        if intsign(mod) * intsign(iother) == -1:
+            mod = mod + iother
         return mod
 
     @jit.elidable
@@ -913,6 +949,17 @@ class rbigint(object):
         have different signs.  We then subtract one from the 'div'
         part of the outcome to keep the invariant intact.
         """
+        if self.numdigits() > 1.2 * other.numdigits() and \
+                other.numdigits() > HOLDER.DIV_LIMIT * 2: # * 2 to offset setup cost
+            res = divmod_big(self, other)
+            # be paranoid: keep the assert here for a bit
+            div, mod = res
+            assert div.mul(other).add(mod).eq(self)
+            return res
+
+        return self._divmod_small(other)
+
+    def _divmod_small(self, other):
         div, mod = _divrem(self, other)
         if mod.sign * other.sign == -1:
             mod = mod.add(other)
@@ -966,7 +1013,6 @@ class rbigint(object):
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
-            # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
         size_b = UDIGIT_TYPE(other.numdigits())
@@ -975,9 +1021,6 @@ class rbigint(object):
             if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
-            # if modulus < 0:
-            #     negativeOutput = True
-            #     modulus = -modulus
             if modulus.sign < 0:
                 negativeOutput = True
                 modulus = modulus.neg()
@@ -1104,7 +1147,6 @@ class rbigint(object):
                 raise TypeError(
                     "pow() 2nd argument "
                     "cannot be negative when 3rd argument specified")
-            # XXX failed to implement
             raise ValueError("bigint pow() too negative")
 
         assert iother >= 0
@@ -1112,9 +1154,6 @@ class rbigint(object):
             if modulus.sign == 0:
                 raise ValueError("pow() 3rd argument cannot be 0")
 
-            # if modulus < 0:
-            #     negativeOutput = True
-            #     modulus = -modulus
             if modulus.sign < 0:
                 negativeOutput = True
                 modulus = modulus.neg()
@@ -1158,11 +1197,9 @@ class rbigint(object):
 
         z = ONERBIGINT
 
-        # python adaptation: moved macros REDUCE(X) and MULT(X, Y, result)
-        # into helper function result = _help_mult(x, y, modulus)
         # Left-to-right binary exponentiation (HAC Algorithm 14.79)
         # http://www.cacr.math.uwaterloo.ca/hac/about/chap14.pdf
-        j = 1 << (SHIFT-1)
+        j = 1 << (LONG_BIT-2)
 
         while j != 0:
             z = _help_mult(z, z, modulus)
@@ -1277,7 +1314,7 @@ class rbigint(object):
         z._normalize()
         return z
     rshift._always_inline_ = 'try' # It's so fast that it's always benefitial.
-        
+
     @jit.elidable
     def rqshift(self, int_other):
         wordshift = int_other / SHIFT
@@ -1317,6 +1354,11 @@ class rbigint(object):
         if mask > (MASK >> loshift) and wordshift + 1 < numdigits:
             hishift = SHIFT - loshift
             lastdigit |= self.digit(wordshift+1) << hishift
+            if SHIFT != LONG_BIT - 1:
+                # Means we don't have INT128 on 64bit.
+                if mask > (MASK << (SHIFT - loshift)) and wordshift + 2 < numdigits:
+                    hishift = 2*SHIFT - loshift
+                    lastdigit |= self.digit(wordshift+2) << hishift
         return lastdigit & mask
 
     @staticmethod
@@ -1433,14 +1475,7 @@ class rbigint(object):
         if i == 1 and self._digits[0] == NULLDIGIT:
             return 0
         msd = self.digit(i - 1)
-        msd_bits = 0
-        while msd >= 32:
-            msd_bits += 6
-            msd >>= 6
-        msd_bits += [
-            0, 1, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 4, 4, 4, 4,
-            5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-            ][msd]
+        msd_bits = bits_in_digit(msd)
         # yes, this can overflow: a huge number which fits 3 gigabytes of
         # memory has around 24 gigabits!
         bits = ovfcheck((i-1) * SHIFT) + msd_bits
@@ -1467,11 +1502,6 @@ _jmapping = [(5 * SHIFT) % 5,
              (2 * SHIFT) % 5,
              (1 * SHIFT) % 5]
 
-
-# if the bigint has more digits than this, it cannot fit into an int
-# Also, if it has less digits than this, then it must be <=sys.maxint in
-# absolute value and so it must fit an int.
-MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
 
 
 #_________________________________________________________________
@@ -1624,13 +1654,13 @@ def _x_sub(a, b):
         borrow = a.udigit(i) - b.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1 # Keep only one sign bit
+        borrow &= 1 # Keep only one sign bit
         i += 1
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1
+        borrow &= 1
         i += 1
 
     assert borrow == 0
@@ -1660,13 +1690,13 @@ def _x_int_sub(a, b):
     borrow = a.udigit(0) - bdigit
     z.setdigit(0, borrow)
     borrow >>= SHIFT
-    #borrow &= 1 # Keep only one sign bit
+    borrow &= 1 # Keep only one sign bit
 
     while i < size_a:
         borrow = a.udigit(i) - borrow
         z.setdigit(i, borrow)
         borrow >>= SHIFT
-        #borrow &= 1
+        borrow &= 1
         i += 1
 
     assert borrow == 0
@@ -1864,25 +1894,12 @@ def _k_mul(a, b):
     for i in range(t1.numdigits()):
         ret._digits[2*shift + i] = t1._digits[i]
 
-    # Zero-out the digits higher than the ah*bh copy. */
-    ## ignored, assuming that we initialize to zero
-    ##i = ret->ob_size - 2*shift - t1->ob_size;
-    ##if (i)
-    ##    memset(ret->ob_digit + 2*shift + t1->ob_size, 0,
-    ##           i * sizeof(digit));
-
     # 3. t2 <- al*bl, and copy into the low digits.
     t2 = al.mul(bl)
     assert t2.sign >= 0
     assert t2.numdigits() <= 2*shift # no overlap with high digits
     for i in range(t2.numdigits()):
         ret._digits[i] = t2._digits[i]
-
-    # Zero out remaining digits.
-    ## ignored, assuming that we initialize to zero
-    ##i = 2*shift - t2->ob_size;  /* number of uninitialized digits */
-    ##if (i)
-    ##    memset(ret->ob_digit + t2->ob_size, 0, i * sizeof(digit));
 
     # 4 & 5. Subtract ah*bh (t1) and al*bl (t2).  We do al*bl first
     # because it's fresher in cache.
@@ -1937,6 +1954,21 @@ def _divrem1(a, n):
     rem = _inplace_divrem1(z, a, n)
     z._normalize()
     return z, rem
+
+def _int_rem_core(a, digit):
+    # digit must be positive
+    size = UDIGIT_TYPE(a.numdigits() - 1)
+
+    if size > 0:
+        wrem = a.widedigit(size)
+        while size > 0:
+            size -= 1
+            wrem = ((wrem << SHIFT) | a.digit(size)) % digit
+        rem = _store_digit(wrem)
+    else:
+        rem = _store_digit(a.digit(0) % digit)
+
+    return rem
 
 def _v_iadd(x, xofs, m, y, n):
     """
@@ -2169,6 +2201,198 @@ def _divrem(a, b):
     if a.sign < 0 and rem.sign != 0:
         rem.sign = - rem.sign
     return z, rem
+
+
+
+class DivLimitHolder:
+    pass
+
+HOLDER = DivLimitHolder()
+HOLDER.DIV_LIMIT = 21
+
+
+def _extract_digits(a, startindex, numdigits):
+    assert startindex >= 0
+    if startindex >= a.numdigits():
+        return NULLRBIGINT
+    stop = min(startindex + numdigits, a.numdigits())
+    assert stop >= 0
+    digits = a._digits[startindex: stop]
+    if not digits:
+        return NULLRBIGINT
+    r = rbigint(digits, 1)
+    r._normalize()
+    return r
+
+def div2n1n(a_container, a_startindex, b, n_S):
+    """Divide a 2*n_S-digit nonnegative integer a by an n_S-digit positive integer
+    b, using a recursive divide-and-conquer algorithm.
+
+    Inputs:
+      n_S is a positive integer
+      b is a positive rbigint with exactly n_S digits
+      a is a nonnegative integer such that a < 2**(n_S * SHIFT) * b
+
+    Output:
+      (q, r) such that a = b*q+r and 0 <= r < b.
+
+    a is represented as a slice of a bigger number a_container, 2 * n_S digits
+    wide, starting at a_startindex
+    """
+    if n_S <= HOLDER.DIV_LIMIT:
+        a = _extract_digits(a_container, a_startindex, 2 * n_S)
+        if a.sign == 0:
+            return NULLRBIGINT, NULLRBIGINT
+        res = _divrem(a, b)
+        return res
+    assert n_S & 1 == 0
+    half_n_S = n_S >> 1
+    # school division: (diagram from Burnikel & Ziegler, p 3)
+    #
+    #   size half_n_S                                     size n_S
+    #    |                                                     |
+    #    v                                                     v
+    # +----+----+----+----+   +----+----+   +----+----+   +---------+
+    # | a1 | a2 | a3 | a4 | / | b1 | b2 | = | q1 | q2 | = |    q    |
+    # +====+====+====+====+   +----+----+   +----+----+   +---------+
+    # | q1 * b1 |
+    # +----+----+----+               <
+    #      | q1 * b2 | subtracting  <   first call to div3n2n
+    #      +---------+----+          <
+    #      |    r1   | a4 |
+    #      +---------+----+
+    #      | q2 * b1 |
+    #      +----+----+----+              <
+    #           | q2 * b2 | subtracing  <   second call to div3n2n
+    #           +---------+              <
+    #           |    r    |
+    #           +---------+
+
+    b1, b2 = _extract_digits(b, half_n_S, half_n_S), _extract_digits(b, 0, half_n_S)
+    q1, r1 = div3n2n(a_container, a_startindex + n_S, a_container, a_startindex + half_n_S, b, b1, b2, half_n_S)
+    q2, r = div3n2n(r1, 0, a_container, a_startindex, b, b1, b2, half_n_S)
+    return _full_digits_lshift_then_or(q1, half_n_S, q2), r
+
+def div3n2n(a12_container, a12_startindex, a3_container, a3_startindex, b, b1, b2, n_S):
+    """Helper function for div2n1n; not intended to be called directly."""
+    q, r = div2n1n(a12_container, a12_startindex, b1, n_S)
+    # equivalent to r = _full_digits_lshift_then_or(r, n_S, _extract_digits(a_container, a3_startindex, n_S))
+    if r.sign == 0:
+        r = _extract_digits(a3_container, a3_startindex, n_S)
+    else:
+        digits = [NULLDIGIT] * (n_S + r.numdigits())
+        index = 0
+        for i in range(a3_startindex, min(a3_startindex + n_S, a3_container.numdigits())):
+            digits[index] = a3_container._digits[i]
+            index += 1
+        index = n_S
+        for i in range(r.numdigits()):
+            digits[index] = r._digits[i]
+            index += 1
+        r = rbigint(digits, 1)
+        r._normalize()
+    if q.sign == 0:
+        return q, r
+    r = r.sub(q.mul(b2))
+
+    # loop runs at most twice
+    while r.sign < 0:
+        q = q.int_sub(1)
+        r = r.add(b)
+    return q, r
+
+def _full_digits_lshift_then_or(a, n, b):
+    """ equivalent to a.lshift(n * SHIFT).or_(b)
+    the size of b must be smaller than n
+    """
+    if a.sign == 0:
+        return b
+    bdigits = b.numdigits()
+    assert bdigits <= n
+    # b._digits + [NULLDIGIT] * (n - bdigits) + a._digits
+    digits = [NULLDIGIT] * (a.numdigits() + n)
+    for i in range(b.numdigits()):
+        digit = b._digits[i]
+        digits[i] = digit
+    index = n
+    for i in range(a.numdigits()):
+        digits[index] = a._digits[i]
+        index += 1
+
+    return rbigint(digits, 1)
+
+def _divmod_fast_pos(a, b):
+    """Divide a positive integer a by a positive integer b, giving
+    quotient and remainder."""
+    # Use grade-school algorithm in base 2**n, n = nbits(b)
+    n = b.bit_length()
+    m = a.bit_length()
+    if m < n:
+        return NULLRBIGINT, a
+    # make n of the form SHIFT * HOLDER.DIV_LIMIT * 2 ** x
+    new_n = SHIFT * HOLDER.DIV_LIMIT
+    while new_n < n:
+        new_n <<= 1
+    rest_shift = new_n - n
+    if rest_shift:
+        a = a.lshift(rest_shift)
+        b = b.lshift(rest_shift)
+        assert b.bit_length() == new_n
+    n = new_n
+
+    n_S = n // SHIFT
+    r = range(0, a.numdigits(), n_S)
+    a_digits_base_two_pow_n = [None] * len(r)
+    index = 0
+    for i in r:
+        assert i >= 0
+        stop = i + n_S
+        assert stop >= 0
+        a_digits_base_two_pow_n[index] = rbigint(a._digits[i: stop], 1)
+        index += 1
+
+    a_digits_index = len(a_digits_base_two_pow_n) - 1
+    if a_digits_base_two_pow_n[a_digits_index].ge(b):
+        r = NULLRBIGINT
+    else:
+        r = a_digits_base_two_pow_n[a_digits_index]
+        a_digits_index -= 1
+    q_digits = None
+    q_index_start = a_digits_index * n_S
+    while a_digits_index >= 0:
+        arg1 = _full_digits_lshift_then_or(r, n_S, a_digits_base_two_pow_n[a_digits_index])
+        q_digitbase_two_pow_n, r = div2n1n(arg1, 0, b, n_S)
+        if q_digits is None:
+            q_digits = [NULLDIGIT] * (a_digits_index * n_S + q_digitbase_two_pow_n.numdigits())
+        for i in range(q_digitbase_two_pow_n.numdigits()):
+            q_digits[q_index_start + i] = q_digitbase_two_pow_n._digits[i]
+        q_index_start -= n_S
+        a_digits_index -= 1
+    if rest_shift:
+        r = r.rshift(rest_shift)
+    if q_digits is None:
+        q = NULLRBIGINT
+    else:
+        q = rbigint(q_digits, 1)
+    q._normalize()
+    r._normalize()
+    return q, r
+
+def divmod_big(a, b):
+    # code from Mark Dickinson via https://bugs.python.org/file11060/fast_div.py
+    # follows cr.yp.to/bib/1998/burnikel.ps
+    if b.eq(NULLRBIGINT):
+        raise ZeroDivisionError
+    elif b.sign < 0:
+        q, r = divmod_big(a.neg(), b.neg())
+        return q, r.neg()
+    elif a.sign < 0:
+        q, r = divmod_big(a.invert(), b)
+        return q.invert(), b.add(r.invert())
+    elif a.eq(NULLRBIGINT):
+        return NULLRBIGINT, NULLRBIGINT
+    else:
+        return _divmod_fast_pos(a, b)
 
 def _x_int_lt(a, b, eq=False):
     """ Compare bigint a with int b for less than or less than or equal """
@@ -3079,3 +3303,10 @@ def gcd_lehmer(a, b):
 
     a = a.mod(b)
     return rbigint.fromint(gcd_binary(b.toint(), a.toint()))
+
+
+# if the bigint has more digits than this, it cannot fit into an int
+# Also, if it has less digits than this, then it must be <=sys.maxint in
+# absolute value and so it must fit an int.
+MAX_DIGITS_THAT_CAN_FIT_IN_INT = rbigint.fromint(-sys.maxint - 1).numdigits()
+

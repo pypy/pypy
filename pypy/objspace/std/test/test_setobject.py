@@ -433,6 +433,11 @@ class AppTestAppSetTest:
         s1 = set([1, 2.0, "3"])
         s1.update(set(["3", 4, 5.0]))
 
+    def test_update_not_iterable_error(self):
+        with raises(TypeError) as e:
+            set().update(1)
+        assert "'int' object is not iterable" in str(e.value)
+
     def test_recursive_repr(self):
         class A(object):
             def __init__(self, s):

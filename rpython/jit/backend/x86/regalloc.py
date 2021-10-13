@@ -11,7 +11,7 @@ from rpython.jit.backend.llsupport.regalloc import (FrameManager, BaseRegalloc,
      SAVE_ALL_REGS)
 from rpython.jit.backend.x86 import rx86
 from rpython.jit.backend.x86.arch import (WORD, JITFRAME_FIXED_SIZE, IS_X86_32,
-    IS_X86_64, DEFAULT_FRAME_BYTES)
+    IS_X86_64, DEFAULT_FRAME_BYTES, WIN64)
 from rpython.jit.backend.x86.jump import remap_frame_layout_mixed
 from rpython.jit.backend.x86.regloc import (FrameLoc, RegLoc, ConstFloatLoc,
     FloatImmedLoc, ImmedLoc, imm, imm0, imm1, ecx, eax, edx, ebx, esi, edi,
@@ -65,9 +65,14 @@ class X86RegisterManager(RegisterManager):
 class X86_64_RegisterManager(X86RegisterManager):
     # r11 omitted because it's used as scratch
     all_regs = [ecx, eax, edx, ebx, esi, edi, r8, r9, r10, r12, r13, r14, r15]
+    if WIN64:
+        all_regs.remove(r13)
 
     no_lower_byte_regs = []
     save_around_call_regs = [eax, ecx, edx, esi, edi, r8, r9, r10]
+    if WIN64:
+        save_around_call_regs.remove(esi)
+        save_around_call_regs.remove(edi)
 
 class X86XMMRegisterManager(RegisterManager):
     box_types = [FLOAT, INT] # yes INT!
@@ -120,6 +125,10 @@ class X86_64_XMMRegisterManager(X86XMMRegisterManager):
     all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4, xmm5, xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14]
     save_around_call_regs = all_regs
 
+class X86_64_WIN_XMMRegisterManager(X86_64_XMMRegisterManager):
+    # xmm15 reserved for scratch use
+    all_regs = [xmm0, xmm1, xmm2, xmm3, xmm4]
+
 class X86FrameManager(FrameManager):
     def __init__(self, base_ofs):
         FrameManager.__init__(self)
@@ -145,7 +154,10 @@ if WORD == 4:
     xmm_reg_mgr_cls = X86XMMRegisterManager
 elif WORD == 8:
     gpr_reg_mgr_cls = X86_64_RegisterManager
-    xmm_reg_mgr_cls = X86_64_XMMRegisterManager
+    if WIN64:
+        xmm_reg_mgr_cls = X86_64_WIN_XMMRegisterManager
+    else:
+        xmm_reg_mgr_cls = X86_64_XMMRegisterManager
 else:
     raise AssertionError("Word size should be 4 or 8")
 
@@ -1314,7 +1326,11 @@ class RegAlloc(BaseRegalloc, VectorRegallocMixin):
         # Do we have a temp var?
         if IS_X86_64:
             tmpreg = X86_64_SCRATCH_REG
-            xmmtmp = X86_64_XMM_SCRATCH_REG
+            if WIN64:
+                # XXX perhaps use this for all_regs and do xmmtmp = None?
+                xmmtmp = xmm5
+            else:
+                xmmtmp = X86_64_XMM_SCRATCH_REG
         else:
             tmpreg = None
             xmmtmp = None

@@ -244,6 +244,7 @@ class W_RaisesContextManager(baseobjspace.W_Root):
         if not space.exception_match(w_exc_type, self.w_ExpectedException):
             self.report_error(space.text_w(space.repr(w_exc_type)))
         self.w_value = w_exc_value   # for the 'value' app-level attribute
+        self.w_type = w_exc_type
         return space.w_True     # suppress the exception
 
     def report_error(self, got):
@@ -256,7 +257,8 @@ class W_RaisesContextManager(baseobjspace.W_Root):
 W_RaisesContextManager.typedef = typedef.TypeDef("RaisesContextManager",
     __enter__ = gateway.interp2app_temp(W_RaisesContextManager.enter),
     __exit__ = gateway.interp2app_temp(W_RaisesContextManager.exit),
-    value = typedef.interp_attrproperty_w('w_value', cls=W_RaisesContextManager)
+    value=typedef.interp_attrproperty_w('w_value', cls=W_RaisesContextManager),
+    type=typedef.interp_attrproperty_w('w_type', cls=W_RaisesContextManager)
     )
 
 def pypyraises(space, w_ExpectedException, w_expr=None, __args__=None):

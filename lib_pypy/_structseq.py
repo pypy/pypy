@@ -61,6 +61,7 @@ class structseqtype(type):
         dict['__reduce__'] = structseq_reduce
         dict['__setattr__'] = structseq_setattr
         dict['__repr__'] = structseq_repr
+        dict['__str__'] = structseq_repr
         dict['_name'] = dict.get('name', '')
         return type.__new__(metacls, classname, (tuple,), dict)
 
@@ -104,8 +105,11 @@ def structseq_reduce(self):
     return type(self), (tuple(self), self.__dict__)
 
 def structseq_setattr(self, attr, value):
-    raise AttributeError("%r object has no attribute %r" % (
-        self.__class__.__name__, attr))
+    if attr not in type(self).__dict__:
+        raise AttributeError("%r object has no attribute %r" % (
+            self.__class__.__name__, attr))
+    else:
+        raise TypeError("readonly attribute")
 
 def structseq_repr(self):
     fields = {}

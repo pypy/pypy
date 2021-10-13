@@ -1,11 +1,11 @@
 from rpython.jit.metainterp.optimizeopt.intutils import IntBound, IntUpperBound, \
-     IntLowerBound, IntUnbounded, next_pow2_m1
+     IntLowerBound, IntUnbounded, ConstIntBound, next_pow2_m1
 
 from copy import copy
 import sys
 from rpython.rlib.rarithmetic import LONG_BIT, ovfcheck
 
-from hypothesis import given, strategies
+from hypothesis import given, strategies, example
 
 special_values = (
     range(-100, 100) +
@@ -47,13 +47,6 @@ def build_bound_with_contained_number(a, b, c):
     r = bound(a, c)
     assert r.contains(b)
     return r, b
-
-bound_with_contained_number = strategies.builds(
-    build_bound_with_contained_number,
-    ints_or_none,
-    ints_or_none,
-    ints
-)
 
 unbounded = strategies.builds(
     lambda x: (bound(None, None), int(x)),
@@ -378,6 +371,34 @@ def test_next_pow2_m1():
     assert next_pow2_m1((1 << 32) - 5) == (1 << 32) - 1
     assert next_pow2_m1((1 << 64) - 1) == (1 << 64) - 1
 
+def test_invert_bound():
+    for _, _, b1 in some_bounds():
+        b2 = b1.invert_bound()
+        for n1 in nbr:
+            if b1.contains(n1):
+                assert b2.contains(~n1)
+
+def test_neg_bound():
+    for _, _, b1 in some_bounds():
+        b2 = b1.neg_bound()
+        for n1 in nbr:
+            if b1.contains(n1):
+                assert b2.contains(-n1)
+
+@given(bound_with_contained_number, bound_with_contained_number)
+def test_make_random(t1, t2):
+    def d(b):
+        return b.has_lower, b.lower, b.has_upper, b.upper
+    b1, n1 = t1
+    b2, n2 = t2
+
+    for meth in [IntBound.make_le, IntBound.make_lt, IntBound.make_ge, IntBound.make_gt]:
+        b = b1.clone()
+        meth(b, b2)
+        data = d(b)
+        assert not meth(b, b2)
+        assert data == d(b) # idempotent
+
 
 @given(bound_with_contained_number, bound_with_contained_number)
 def test_add_bound_random(t1, t2):
@@ -456,3 +477,21 @@ def test_or_bound_random(t1, t2):
     assert b3.contains(r)
     r = n1 ^ n2
     assert b3.contains(r)
+
+@given(bound_with_contained_number)
+def test_invert_bound_random(t1):
+    b1, n1 = t1
+    b2 = b1.invert_bound()
+    assert b2.contains(~n1)
+
+@given(bound_with_contained_number)
+@example((IntUpperBound(-100), -sys.maxint-1))
+@example((ConstIntBound(-sys.maxint - 1), -sys.maxint-1))
+@example((IntBound(-sys.maxint - 1, -sys.maxint+10), -sys.maxint-1))
+def test_neg_bound_random(t1):
+    b1, n1 = t1
+    b2 = b1.neg_bound()
+    if n1 != -sys.maxint - 1:
+        assert b2.contains(-n1)
+    else:
+        assert not b2.has_upper

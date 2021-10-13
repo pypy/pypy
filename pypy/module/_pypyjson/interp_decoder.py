@@ -238,8 +238,8 @@ class JSONDecoder(W_Root):
     def decode_float(self, i):
         from rpython.rlib import rdtoa
         start = rffi.ptradd(self.ll_chars, i)
-        floatval = rdtoa.dg_strtod(start, self.end_ptr)
-        diff = rffi.cast(rffi.LONG, self.end_ptr[0]) - rffi.cast(rffi.LONG, start)
+        floatval = rdtoa.dg_strtod(rffi.cast(rffi.CONST_CCHARP, start), self.end_ptr)
+        diff = rffi.cast(rffi.SIGNED, self.end_ptr[0]) - rffi.cast(rffi.SIGNED, start)
         self.pos = i + diff
         return self.space.newfloat(floatval)
 
@@ -498,7 +498,10 @@ class JSONDecoder(W_Root):
             # may be a surrogate pair
             return self.decode_escape_sequence_unicode(i, stringbuilder)
         else:
-            self._raise("Invalid \\escape: %s (char %d)", ch, i-1)
+            if ch <= ' ':
+                self._raise("Invalid \\escape: (char %d)", i-2)
+            else:
+                self._raise("Invalid \\escape: %s (char %d)", ch, i-2)
         return i
 
     def _get_int_val_from_hex4(self, i):

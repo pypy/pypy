@@ -72,3 +72,8 @@ to see what constants are used, and where."""
 
     for name, value in constants.iteritems():
         interpleveldefs[name] = "space.wrap(%s)" % (value,)
+
+    import pypy.module.sys.version
+    if pypy.module.sys.version.CPYTHON_VERSION < (3, 6):
+        del interpleveldefs["REG_QWORD"]
+        del interpleveldefs["REG_QWORD_LITTLE_ENDIAN"]

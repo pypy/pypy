@@ -408,6 +408,39 @@ class TestOptimizeBasic(BaseTestBasic):
         """
         self.optimize_loop(ops, expected)
 
+    def test_instance_ptr_eq_is_symmetric(self):
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        i1 = instance_ptr_eq(p1, p0)
+        guard_false(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_eq(p0, p1)
+        guard_false(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
+        ops = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        i1 = instance_ptr_ne(p1, p0)
+        guard_true(i1) []
+        jump(p0, p1)
+        """
+        expected = """
+        [p0, p1]
+        i0 = instance_ptr_ne(p0, p1)
+        guard_true(i0) []
+        jump(p0, p1)
+        """
+        self.optimize_loop(ops, expected)
+
     def test_nonnull_1(self):
         ops = """
         [p0]
@@ -6301,5 +6334,105 @@ class TestOptimizeBasic(BaseTestBasic):
         i51 = arraylen_gc(p0, descr=arraydescr)
         i52 = arraylen_gc(p1, descr=arraydescr)
         i57 = int_or(i51, i52)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_convert_float_bytes_to_longlong(self):
+        ops = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        f1 = convert_longlong_bytes_to_float(i1)
+        escape_f(f1)
+
+        f2 = convert_longlong_bytes_to_float(i0)
+        i2 = convert_float_bytes_to_longlong(f2)
+        escape_i(i2)
+        """
+
+        expected = """
+        [f0, i0]
+        i1 = convert_float_bytes_to_longlong(f0)
+        escape_f(f0)
+
+        f2 = convert_longlong_bytes_to_float(i0)
+        escape_i(i0)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert(self):
+        ops = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        """
+        expected = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_invert(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_invert(self):
+        ops = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_invert(i2)
+        escape_i(i3)
+        """
+        expected = """
+        [i1]
+        i2 = int_invert(i1)
+        escape_i(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_invert_postprocess(self):
+        ops = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        i4 = int_ge(i1, 0)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = int_invert(i1)
+        i3 = int_lt(i2, 0)
+        guard_true(i3) []
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_neg(self):
+        ops = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        """
+        expected = """
+        [p0]
+        i1 = arraylen_gc(p0, descr=arraydescr) # known >= 0
+        i2 = int_neg(i1)
+        """
+        self.optimize_loop(ops, expected)
+
+    def test_int_neg_postprocess(self):
+        ops = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
+        i4 = int_ge(i1, 0)
+        guard_true(i4) []
+        """
+        expected = """
+        [i1]
+        i2 = int_neg(i1)
+        i3 = int_le(i2, 0)
+        guard_true(i3) []
         """
         self.optimize_loop(ops, expected)

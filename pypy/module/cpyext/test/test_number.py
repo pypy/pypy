@@ -211,3 +211,32 @@ class AppTestCNumber(AppTestCpythonExtensionBase):
                 pass
             else:
                 assert False, 'expected TypeError'
+
+    def test_number_to_ssize_t(self):
+        import sys
+        mod = self.import_extension('foo', [
+            ("to_ssize_t", "METH_VARARGS",
+            """
+                PyObject *obj;
+                PyObject *exc = NULL;
+                long long value;
+                if (!PyArg_ParseTuple(args, "O|O:to_ssize_t",
+                                      &obj, &exc)) {
+                    return NULL;
+                }
+                if (exc == NULL) {
+                    printf("got no exc\\n");
+                } else {
+                    printf("got exc\\n");
+                }
+                value = PyNumber_AsSsize_t(obj, exc);
+                if (PyErr_Occurred()) {
+                    return NULL;
+                }
+                return PyLong_FromLongLong(value);
+            """)])
+        assert mod.to_ssize_t(2 ** 68) == sys.maxsize
+        assert mod.to_ssize_t(12) == 12
+        raises(TypeError, mod.to_ssize_t, 2 ** 68, TypeError)
+
+ 

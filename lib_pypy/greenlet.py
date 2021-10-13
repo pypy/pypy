@@ -4,6 +4,13 @@ import _continuation
 __version__ = "0.4.13"
 
 # ____________________________________________________________
+# Constants from greenlet 1.0.0
+
+GREENLET_USE_GC = True
+GREENLET_USE_TRACING = True
+GREENLET_USE_CONTEXT_VARS = False
+
+# ____________________________________________________________
 # Exceptions
 
 class GreenletExit(BaseException):
@@ -62,6 +69,16 @@ class greenlet(_continulet):
         while not (target.__main or _continulet.is_pending(target)):
             # inlined __nonzero__ ^^^ in case it's overridden
             if not target.__started:
+                # check that 'target.parent' runs in the current thread,
+                # at least.  It can be changed arbitrarily afterwards in
+                # pypy greenlets, but too bad
+                parent1 = target.parent
+                while not parent1.__started:
+                    parent1 = parent1.parent
+                if parent1.__thread_id is not _tls.thread_id:
+                    raise error("cannot start greenlet because its 'parent'"
+                                " is running on a different thread")
+
                 if methodname == 'switch':
                     greenlet_func = _greenlet_start
                 else:
@@ -69,6 +86,7 @@ class greenlet(_continulet):
                 _continulet.__init__(target, greenlet_func, *baseargs)
                 methodname = 'switch'
                 baseargs = ()
+                target.__thread_id = _tls.thread_id
                 target.__started = True
                 break
             # already done, go to the parent instead
@@ -85,6 +103,10 @@ class greenlet(_continulet):
                     baseargs = (((e,), {}),)
                 except:
                     baseargs = sys.exc_info()[:2] + baseargs[2:]
+        else:
+            if target.__thread_id is not _tls.thread_id:
+                raise error("cannot switch to greenlet running in a"
+                            " different thread")
         #
         try:
             unbound_method = getattr(_continulet, methodname)
@@ -173,7 +195,9 @@ _tls = _local()
 def _green_create_main():
     # create the main greenlet for this thread
     _tls.current = None
+    _tls.thread_id = object()
     gmain = greenlet.__new__(greenlet)
+    gmain._greenlet__thread_id = _tls.thread_id
     gmain._greenlet__main = True
     gmain._greenlet__started = True
     assert gmain.parent is None

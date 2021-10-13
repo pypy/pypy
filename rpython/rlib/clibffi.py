@@ -38,16 +38,13 @@ _ARM = rffi_platform.getdefined('__arm__', '')
 
 if _WIN32:
     from rpython.rlib import rwin32
-
-if _WIN32:
     separate_module_sources = ['''
-    #include "src/precommondefs.h"
     #include <stdio.h>
     #include <windows.h>
 
     /* Get the module where the "fopen" function resides in */
     RPY_EXTERN
-    HMODULE pypy_get_libc_handle() {
+    HMODULE pypy_get_libc_handle(void) {
         MEMORY_BASIC_INFORMATION  mi;
         char buf[1000];
         memset(&mi, 0, sizeof(mi));
@@ -60,7 +57,7 @@ if _WIN32:
         return (HMODULE)mi.AllocationBase;
     }
     ''']
-    post_include_bits=['RPY_EXTERN HMODULE pypy_get_libc_handle(void);\n',]
+    post_include_bits = ['RPY_EXTERN HMODULE pypy_get_libc_handle(void);\n',]
 else:
     separate_module_sources = []
     post_include_bits = []
@@ -107,22 +104,12 @@ elif _MINGW:
          ])
 else:
     USE_C_LIBFFI_MSVC = True
-    libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
-    if not _WIN64:
-        asm_ifc = 'win32.c'
-    else:
-        asm_ifc = 'win64.asm'
+    # libffidir = py.path.local(cdir).join('src', 'libffi_msvc')
     eci = ExternalCompilationInfo(
         includes = ['ffi.h', 'windows.h'],
-        libraries = ['kernel32'],
-        include_dirs = [libffidir, cdir],
+        libraries = ['kernel32', 'libffi-7'],
         separate_module_sources = separate_module_sources,
         post_include_bits = post_include_bits,
-        separate_module_files = [libffidir.join('ffi.c'),
-                                 libffidir.join('prep_cif.c'),
-                                 libffidir.join(asm_ifc),
-                                 libffidir.join('pypy_ffi.c'),
-                                 ],
         )
 
 FFI_TYPE_P = lltype.Ptr(lltype.ForwardReference())
@@ -265,7 +252,7 @@ def winexternal(name, args, result):
     return rffi.llexternal(name, args, result, compilation_info=eci, calling_conv='win')
 
 
-if not _MSVC:
+if 1 or not _MSVC:
     def check_fficall_result(result, flags):
         pass # No check
 else:
@@ -329,7 +316,7 @@ VOIDPP = rffi.CArrayPtr(rffi.VOIDP)
 
 c_ffi_prep_cif = external('ffi_prep_cif', [FFI_CIFP, FFI_ABI, rffi.UINT,
                                            FFI_TYPE_P, FFI_TYPE_PP], rffi.INT)
-if _MSVC:
+if 0 and _MSVC:
     c_ffi_call_return_type = rffi.INT
 else:
     c_ffi_call_return_type = lltype.Void

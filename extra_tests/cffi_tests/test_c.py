@@ -17,7 +17,7 @@ from _cffi_backend import __version__
 # ____________________________________________________________
 
 import sys
-assert __version__ == "1.14.3", ("This test_c.py file is for testing a version"
+assert __version__ == "1.14.6", ("This test_c.py file is for testing a version"
                                  " of cffi that differs from the one that we"
                                  " get from 'import _cffi_backend'")
 if sys.version_info < (3,):
@@ -1331,7 +1331,9 @@ def test_callback_exception():
     except ImportError:
         import io as cStringIO    # Python 3
     import linecache
-    def matches(istr, ipattern):
+    def matches(istr, ipattern, ipattern38):
+        if sys.version_info >= (3, 8):
+            ipattern = ipattern38
         str, pattern = istr, ipattern
         while '$' in pattern:
             i = pattern.index('$')
@@ -1364,11 +1366,21 @@ def test_callback_exception():
     try:
         linecache.getline = lambda *args: 'LINE'    # hack: speed up PyPy tests
         sys.stderr = cStringIO.StringIO()
+        if hasattr(sys, '__unraisablehook__'):          # work around pytest
+            sys.unraisablehook = sys.__unraisablehook__ # on recent CPythons
         assert f(100) == 300
         assert sys.stderr.getvalue() == ''
         assert f(10000) == -42
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
+Traceback (most recent call last):
+  File "$", line $, in Zcb1
+    $
+  File "$", line $, in check_value
+    $
+ValueError: 42
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>:
 Traceback (most recent call last):
   File "$", line $, in Zcb1
     $
@@ -1382,6 +1394,12 @@ ValueError: 42
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
+OverflowError: integer 60000 does not fit 'short'
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
 OverflowError: integer 60000 does not fit 'short'
 """)
         sys.stderr = cStringIO.StringIO()
@@ -1420,11 +1438,24 @@ OverflowError: integer 60000 does not fit 'short'
 During the call to 'onerror', another exception occurred:
 
 TypeError: $integer$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+TypeError: $integer$
 """)
         #
         sys.stderr = cStringIO.StringIO()
         seen = "not a list"    # this makes the oops() function crash
         assert ff(bigvalue) == -42
+        # the $ after the AttributeError message are for the suggestions that
+        # will be added in Python 3.10
         assert matches(sys.stderr.getvalue(), """\
 From cffi callback <function$Zcb1 at 0x$>:
 Trying to convert the result back to C:
@@ -1435,7 +1466,18 @@ During the call to 'onerror', another exception occurred:
 Traceback (most recent call last):
   File "$", line $, in oops
     $
-AttributeError: 'str' object has no attribute 'append'
+AttributeError: 'str' object has no attribute 'append$
+""", """\
+Exception ignored from cffi callback <function$Zcb1 at 0x$>, trying to convert the result back to C:
+Traceback (most recent call last):
+  File "$", line $, in test_callback_exception
+    $
+OverflowError: integer 60000 does not fit 'short'
+Exception ignored during handling of the above exception by 'onerror':
+Traceback (most recent call last):
+  File "$", line $, in oops
+    $
+AttributeError: 'str' object has no attribute 'append$
 """)
     finally:
         sys.stderr = orig_stderr
@@ -1470,7 +1512,7 @@ def test_a_lot_of_callbacks():
     def make_callback(m):
         def cb(n):
             return n + m
-        return callback(BFunc, cb, 42)    # 'cb' and 'BFunc' go out of scope
+        return callback(BFunc, cb, 42)    # 'cb' goes out of scope
     #
     flist = [make_callback(i) for i in range(BIGNUM)]
     for i, f in enumerate(flist):
@@ -3973,6 +4015,20 @@ def test_from_buffer_types():
     pv = from_buffer(BVarStructP, bytestring)    # make a fresh one
     with pytest.raises(ValueError):
         release(pv[0])
+
+def test_issue483():
+    BInt = new_primitive_type("int")
+    BIntP = new_pointer_type(BInt)
+    BIntA = new_array_type(BIntP, None)
+    lst = list(range(25))
+    bytestring = bytearray(buffer(newp(BIntA, lst))[:] + b'XYZ')
+    p1 = from_buffer(BIntA, bytestring)      # int[]
+    assert len(buffer(p1)) == 25 * size_of_int()
+    assert sizeof(p1) == 25 * size_of_int()
+    #
+    p2 = from_buffer(BIntP, bytestring)
+    assert sizeof(p2) == size_of_ptr()
+    assert len(buffer(p2)) == size_of_int()  # first element only, by default
 
 def test_memmove():
     Short = new_primitive_type("short")

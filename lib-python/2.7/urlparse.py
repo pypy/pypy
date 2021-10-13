@@ -62,6 +62,9 @@ scheme_chars = ('abcdefghijklmnopqrstuvwxyz'
                 '0123456789'
                 '+-.')
 
+# Unsafe bytes to be removed per WHATWG spec
+_UNSAFE_URL_BYTES_TO_REMOVE = ['\t', '\r', '\n']
+
 MAX_CACHE_SIZE = 20
 _parse_cache = {}
 
@@ -198,6 +201,10 @@ def urlsplit(url, scheme='', allow_fragments=True):
     if len(_parse_cache) >= MAX_CACHE_SIZE: # avoid runaway growth
         clear_cache()
     netloc = query = fragment = ''
+
+    for b in _UNSAFE_URL_BYTES_TO_REMOVE:
+        url = url.replace(b, "")
+
     i = url.find(':')
     if i > 0:
         if url[:i] == 'http': # optimize the common case
@@ -383,7 +390,8 @@ def unquote(s):
             append(item)
     return ''.join(res)
 
-def parse_qs(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None):
+def parse_qs(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None,
+             separator='&'):
     """Parse a query given as a string argument.
 
         Arguments:
@@ -403,17 +411,22 @@ def parse_qs(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None):
 
         max_num_fields: int. If set, then throws a ValueError if there
             are more than n fields read by parse_qsl().
+
+        separator: str. The symbol to use for separating the query arguments.
+            Defaults to &.
+
     """
     dict = {}
     for name, value in parse_qsl(qs, keep_blank_values, strict_parsing,
-                                 max_num_fields):
+                                 max_num_fields, separator=separator):
         if name in dict:
             dict[name].append(value)
         else:
             dict[name] = [value]
     return dict
 
-def parse_qsl(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None):
+def parse_qsl(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None,
+              separator='&'):
     """Parse a query given as a string argument.
 
     Arguments:
@@ -433,17 +446,23 @@ def parse_qsl(qs, keep_blank_values=0, strict_parsing=0, max_num_fields=None):
     max_num_fields: int. If set, then throws a ValueError if there
         are more than n fields read by parse_qsl().
 
+        separator: str. The symbol to use for separating the query arguments.
+            Defaults to &.
+
     Returns a list, as G-d intended.
     """
+    if not separator or (not isinstance(separator, (str, bytes))):
+        raise ValueError("Separator must be of type string or bytes.")
+
     # If max_num_fields is defined then check that the number of fields
     # is less than max_num_fields. This prevents a memory exhaustion DOS
     # attack via post bodies with many fields.
     if max_num_fields is not None:
-        num_fields = 1 + qs.count('&') + qs.count(';')
+        num_fields = 1 + qs.count(separator)
         if max_num_fields < num_fields:
             raise ValueError('Max number of fields exceeded')
 
-    pairs = [s2 for s1 in qs.split('&') for s2 in s1.split(';')]
+    pairs = [s1 for s1 in qs.split(separator)]
     r = []
     for name_value in pairs:
         if not name_value and not strict_parsing:

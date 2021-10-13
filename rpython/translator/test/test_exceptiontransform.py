@@ -3,7 +3,11 @@ from rpython.translator.translator import TranslationContext, graphof
 from rpython.translator.simplify import join_blocks
 from rpython.translator import exceptiontransform
 from rpython.flowspace.model import summary
+from rpython.rtyper.llinterp import LLException
+from rpython.rtyper.lltypesystem import lltype
+from rpython.rtyper.annlowlevel import llhelper
 from rpython.rtyper.test.test_llinterp import get_interpreter
+from rpython.rlib.objectmodel import llhelper_error_value, dont_inline
 from rpython.translator.backendopt.all import backend_optimizations
 from rpython.conftest import option
 import sys
@@ -27,9 +31,9 @@ def interpret(func, values):
     return interp.eval_graph(graph, values)
 
 class TestExceptionTransform:
-    def compile(self, fn, inputargs):
+    def compile(self, fn, inputargs, **kwargs):
         from rpython.translator.c.test.test_genc import compile
-        return compile(fn, inputargs)
+        return compile(fn, inputargs, **kwargs)
 
     def transform_func(self, fn, inputtypes, backendopt=False):
         t = TranslationContext()
@@ -267,25 +271,66 @@ class TestExceptionTransform:
         res = f()
         assert res == 42
 
-    def test_llhelper_can_raise(self):
-        from rpython.rtyper.lltypesystem import lltype
-        from rpython.rtyper.annlowlevel import llhelper
+    def test_default_error_value(self):
+        def foo(x):
+            if x == 42:
+                raise ValueError
+            return 123
 
-        def fn(a, b):
+        result = interpret(foo, [1])
+        assert result == 123
+        with py.test.raises(LLException) as exc:
+            interpret(foo, [42])
+        assert exc.value.error_value == -1
+        assert 'ValueError' in str(exc.value)
+
+    def test_llhelper_error_value(self):
+        @llhelper_error_value(-456)
+        def _foo(x):
+            if x == 42:
+                raise ValueError
+            return x
+
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed], lltype.Signed))
+        def bar(x):
+            foo = llhelper(FN, _foo)
+            return foo(x)
+
+        result = interpret(bar, [123])
+        assert result == 123
+        with py.test.raises(LLException) as exc:
+            interpret(bar, [42])
+        assert exc.value.error_value == -456
+        assert 'ValueError' in str(exc.value)
+        #
+        compiled_foo = self.compile(bar, [int], backendopt=False)
+        assert compiled_foo(123) == 123
+        compiled_foo(42, expected_exception_name='ValueError')
+
+    def test_enforce_llhelper_error_value_in_case_of_nested_exception(self):
+        @dont_inline
+        def my_divide(a, b):
             if b == 0:
                 raise ZeroDivisionError
             return a/b
 
-        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
-        def h(a, b):
-            fnptr = llhelper(FN, fn)
-            try:
-                return fnptr(a, b)
-            except ZeroDivisionError:
-                return -a
+        @llhelper_error_value(-456)
+        def _foo(a, b):
+            res = my_divide(a, b)
+            return res
 
-        compiled_h = self.compile(h, [int, int])
-        res = compiled_h(39, 3)
-        assert res == 13
-        res = compiled_h(39, 0)
-        assert res == -39
+        FN = lltype.Ptr(lltype.FuncType([lltype.Signed, lltype.Signed], lltype.Signed))
+        def bar(a, b):
+            foo = llhelper(FN, _foo)
+            return foo(a, b)
+
+        result = interpret(bar, [21, 3])
+        assert result == 7
+        with py.test.raises(LLException) as exc:
+            interpret(bar, [21, 0])
+        assert exc.value.error_value == -456
+        assert 'ZeroDivisionError' in str(exc.value)
+        #
+        compiled_foo = self.compile(bar, [int, int], backendopt=False)
+        assert compiled_foo(21, 3) == 7
+        compiled_foo(21, 0, expected_exception_name='ZeroDivisionError')

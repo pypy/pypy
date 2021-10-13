@@ -722,6 +722,7 @@ class TestErrorHandling(object):
         assert s == "got multiple values for keyword argument 'bla'"
 
 class AppTestArgument:
+    @pytest.mark.pypy_only
     def test_error_message(self):
         exc = raises(TypeError, (lambda a, b=2: 0), b=3)
         assert exc.value.message == "<lambda>() takes at least 1 non-keyword argument (0 given)"

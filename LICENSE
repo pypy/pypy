@@ -31,7 +31,7 @@ directories is licensed as follows:
     DEALINGS IN THE SOFTWARE.
 
 
-PyPy Copyright holders 2003-2020
+PyPy Copyright holders 2003-2021
 --------------------------------
 
 Except when otherwise stated (look for LICENSE files or information at
@@ -57,8 +57,8 @@ copyrighted by one or more of the following people and organizations:
   Christian Tismer
   Hakan Ardo
   Benjamin Peterson
-  Anders Chrigstrom
   Wim Lavrijsen
+  Anders Chrigstrom
   Eric van Riet Paap
   Dan Villiom Podlaski Christiansen
   Remi Meier
@@ -85,18 +85,20 @@ copyrighted by one or more of the following people and organizations:
   Guido Wesdorp
   Lawrence Oluyede
   Bartosz Skowron
-  Daniel Roberts
   Stefano Rivera
+  Daniel Roberts
   Adrien Di Mascio
   Niko Matsakis
   Alexander Hesse
   Ludovic Aubry
+  Batuhan Taskaya
   stian
   Jacob Hallen
   Jason Creighton
   Mark Young
   Andrew Lawrence
   Alex Martelli
+  Ondrej Baranovič
   Spenser Bauman
   Michal Bendowski
   Jan de Mooij
@@ -105,6 +107,8 @@ copyrighted by one or more of the following people and organizations:
   Vincent Legoll
   Michael Foord
   Stephan Diehl
+  muke101
+  Simon Cross
   Jean-Paul Calderone
   Stefan Schwarzer
   Tomek Meka
@@ -113,7 +117,6 @@ copyrighted by one or more of the following people and organizations:
   Devin Jeanpierre
   Bob Ippolito
   Bruno Gola
-  nulano
   David Malcolm
   Yannick Jadoul
   Squeaky
@@ -129,16 +132,16 @@ copyrighted by one or more of the following people and organizations:
   Wenzhu Man
   John Witulski
   Jeremy Thurgood
+  Julian Berman
   Dario Bertini
   Greg Price
   Ivan Sichmann Freitas
-  Simon Cross
   Mark Pearse
-  Julian Berman
-  Andreas Stührk
   Tobias Pape
+  Andreas Stührk
   Jean-Philippe St. Pierre
   Stian Andreassen
+  Yusuke Izawa
   Guido van Rossum
   Pavel Vinogradov
   William Leslie
@@ -154,7 +157,8 @@ copyrighted by one or more of the following people and organizations:
   Joannah Nanjekye
   Georg Brandl
   quejebo
-  Bert Freudenberg
+  Vanessa Freudenberg
+  Michał Górny
   Gerald Klix
   Wanja Saatkamp
   Mike Blume
@@ -162,7 +166,6 @@ copyrighted by one or more of the following people and organizations:
   Rami Chowdhury
   Stefan H. Muller
   Dodan Mihai
-  Michał Górny
   Tim Felgentreff
   Eugene Oden
   Colin Valliant
@@ -197,6 +200,7 @@ copyrighted by one or more of the following people and organizations:
   Lucian Branescu Mihaila
   anatoly techtonik
   Mariano Anaya
+  olliemath
   Olivier Dormond
   Jared Grubb
   Karl Bartel
@@ -223,6 +227,7 @@ copyrighted by one or more of the following people and organizations:
   Berkin Ilbeyi
   Mihnea Saracin
   Matt Jackson
+  Ricky Zhou
   Jonathan David Riehl
   Anders Qvist
   Beatrice During
@@ -242,6 +247,8 @@ copyrighted by one or more of the following people and organizations:
   Reuben Cummings
   Robert Zaremba
   David C Ellis
+  cptpcrd
+  Felix C. Stegerman
   Jens-Uwe Mager
   Dan Stromberg
   Carl Meyer
@@ -258,6 +265,7 @@ copyrighted by one or more of the following people and organizations:
   Anthony Sottile
   Arianna Avanzini
   Matt Billenstein
+  Sebastian Berg
   Jacek Generowicz
   Sylvain Thenault
   Alejandro J. Cura
@@ -274,7 +282,6 @@ copyrighted by one or more of the following people and organizations:
   Thomas Hisch
   Barry Hart
   Tomasz Dziopa
-  cptpcrd
   Lutz Paelike
   Ignas Mikalajunas
   Martin Blais
@@ -303,8 +310,9 @@ copyrighted by one or more of the following people and organizations:
   Miro Hrončok
   Antoine Dupre
   Bernd Schoeller
-  olliemath
   Catalin Fierut
+  nimaje
+  Pierre-Yves DAVID
   Gustavo Niemeyer
   Andrew Thompson
   Joshua Gilbert
@@ -344,6 +352,7 @@ copyrighted by one or more of the following people and organizations:
   afteryu
   Andrew Stepanov
   Radu Ciorba
+  Ian Clester
   Carl Bordum Hansen
   Paul Ganssle
   Michal Kuffa
@@ -359,6 +368,10 @@ copyrighted by one or more of the following people and organizations:
   Bolutife Ogunsola
   ashwinahuja
   cjmcdonald@google.com
+  Alex Orange
+  alexprengere
+  Dennis Sweeney
+  Kevin Lee
   Anna Ravencroft
   Dinu Gherman
   Michael Chermside
@@ -460,6 +473,9 @@ copyrighted by one or more of the following people and organizations:
   Henri Tuhola
   shaolo1
   Chris AtLee
+  Christoph Reiter
+  Chris Burr
+  Brad Kish
 
   Heinrich-Heine University, Germany
   Open End AB (formerly AB Strakt), Sweden

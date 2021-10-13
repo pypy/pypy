@@ -5,6 +5,13 @@ Software Transactional Memory
 
 .. contents::
 
+**Warning:** The below is relatively out of date, the ``pypy-stm``-variant is
+no longer actively being developed. For a description of the technical details
+as well as the pros and cons of the approach, you can read the 2019 `paper`__
+by Remi Meier and also his `PhD thesis`__.
+
+.. __: https://dl.acm.org/doi/abs/10.1145/3359619.3359747
+.. __: https://www.research-collection.ethz.ch/handle/20.500.11850/371019
 
 This page is about ``pypy-stm``, a special in-development version of
 PyPy which can run multiple independent CPU-hungry threads in the same

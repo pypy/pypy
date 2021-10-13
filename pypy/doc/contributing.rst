@@ -40,14 +40,20 @@ details of which can be found in our :ref:`contact <contact>` section. The folks
 there are very friendly, and can point you in the right direction.
 
 We give out commit rights usually fairly liberally, so if you want to do something
-with PyPy, you can become a committer. We also run frequent coding sprints which
-are separately announced and often happen around Python conferences such as
-EuroPython or PyCon. Upcoming events are usually announced on `the blog`_.
+with PyPy, you can become a "developer" by logging into https://foss.heptapod.net
+and clicking the "Request Access" link on the `PyPy group page`. We also run
+coding sprints which are separately announced and are usually announced on `the
+blog`_.
+
+Like any Open Source project, issues should be filed on the `issue tracker`_,
+and `merge requests`_ to fix issues are welcome.
 
 Further Reading: :ref:`Contact <contact>`
 
 .. _the blog: https://morepypy.blogspot.com
 .. _pypy-dev mailing list: https://mail.python.org/mailman/listinfo/pypy-dev
+.. _`PyPy group page`: https://foss.heptapod.net/pypy
+.. _`merge requests`: https://foss.heptapod.net/heptapod/foss.heptapod.net/-/merge_requests
 
 
 Your first contribution
@@ -96,31 +102,19 @@ Thanks to `Octobus <https://octobus.net/>`_ and `Clever Cloud
      </a>
    </h1>
 
-If you are new with Mercurial and Heptapod, you can read this `short tutorial`_
-
-.. _`short tutorial`: https://heptapod.net/pages/quick-start-guide.html
-
-However, we recommend at this time you **not** use topic branches. We prefer
-the usual mercurial named branch model, as pointed out in the :ref:`FAQ
-<github>` about why we didn't move to git.
-
 Get Access
 ----------
 
-The important take-away from that tutorial for experienced developers is that
-since the free hosting on foss.heptapod.net does not allow personal forks, you
+As stated above, you need to request access to the repo.
+Since the free hosting on foss.heptapod.net does not allow personal forks, you
 need permissions to push your changes directly to our repo. Once you sign in to
 https://foss.heptapod.net using either a new login or your GitHub or Atlassian
 logins, you can get developer status for pushing directly to
 the project (just ask by clicking the link at foss.heptapod.net/pypy just under
 the logo, and you'll get it, basically).  Once you have it you can rewrite your
 file ``.hg/hgrc`` to contain ``default = ssh://hg@foss.heptapod.net/pypy/pypy``.
-Your changes will then be pushed directly to the official repo, but (if you
-follow these rules) they are still on a branch, and we can still review the
-branches you want to merge.  With developer status, you can push topic
-branches. If you wish to push long-lived branches, you will need to ask for
-higher permissions.
-
+Your changes will then be pushed directly to a branch on the official repo, and
+we will review the branches you want to merge.
 
 Clone
 -----
@@ -138,8 +132,7 @@ Clone
   then edit ``.hg/hgrc`` as above and do ``hg pull && hg up``.
 
 * Now you have a complete copy of the PyPy repo.  Make a long-lived branch
-  with a command like ``hg branch name_of_your_branch``, or make a short-
-  lived branch for a simple fix with a command like ``hg topic issueXXXX``.
+  with a command like ``hg branch name_of_your_branch``.
 
 Edit
 ----
@@ -274,43 +267,30 @@ of very high quality requirements for compilers and partly because there is
 simply no other way to get around such complex project, that will keep you sane.
 There are probably people out there who are smart enough not to need it, we're
 not one of those. You may consider familiarizing yourself with `pytest`_,
-since this is a tool we use for tests.
-This leads to the next issue:
+since this is a tool we use for tests. We ship our own tweaked version of
+pytest in the top of the tree, so ``python -m pytest`` will pick up our version,
+which means our tests need to run with that version of pytest.
+
+We also have post-translation tests in the ``extra_tests`` directory that are
+run in a virtual environment from a separate directory, so they use a more
+up-to-date version of pytest. As much as possible, these are meant to be
+pass with CPython as well.
 
 .. _pytest: https://pytest.org/
-
-py.test and the py lib
-----------------------
-
-The `py.test testing tool`_ drives all our testing needs.
-
-We use the `py library`_ for filesystem path manipulations, terminal
-writing, logging and some other support  functionality.
-
-You don't necessarily need to install these two libraries because
-we also ship them inlined in the PyPy source tree.
-
-.. _py library: https://pylib.readthedocs.org/
 
 Running PyPy's unit tests
 -------------------------
 
 PyPy development always was and is still thoroughly test-driven.
-We use the flexible `py.test testing tool`_ which you can `install independently
-<https://pytest.org/latest/getting-started.html#getstarted>`_ and use for other projects.
+There are two modes of tests: those that run on top of RPython before
+translation (untranslated tests) and those that run on top of a translated
+``pypy`` (app tests). Since RPython is a dialect of Python2, the untranslated
+tests run with a python2 host. 
 
 The PyPy source tree comes with an inlined version of ``py.test``
 which you can invoke by typing::
 
-    python pytest.py -h
-
-This is usually equivalent to using an installed version::
-
-    py.test -h
-
-If you encounter problems with the installed version
-make sure you have the correct version installed which
-you can find out with the ``--version`` switch.
+    python2 pytest.py -h
 
 You will need the `build requirements`_ to run tests successfully, since many of
 them compile little pieces of PyPy and then run the tests inside that minimal
@@ -320,13 +300,10 @@ cases with `hypothesis`.
 Now on to running some tests.  PyPy has many different test directories
 and you can use shell completion to point at directories or files::
 
-    py.test pypy/interpreter/test/test_pyframe.py
+    python2 pytest.py pypy/interpreter/test/test_pyframe.py
 
     # or for running tests of a whole subdirectory
-    py.test pypy/interpreter/
-
-See `py.test usage and invocations`_ for some more generic info
-on how you can run tests.
+    python2 pytest.py pypy/interpreter/
 
 Beware trying to run "all" pypy tests by pointing to the root
 directory or even the top level subdirectory ``pypy``.  It takes
@@ -340,24 +317,23 @@ a hack that doesn't work in all cases and it is usually extremely slow:
 extract a minimal failing test of at most a few lines, and put it into one of
 our own tests in ``pypy/*/test/``.
 
-.. _py.test testing tool: https://pytest.org
-.. _py.test usage and invocations: https://pytest.org/latest/usage.html#usage
 .. _`build requirements`: build.html#install-build-time-dependencies
 
-Testing After Translation
-^^^^^^^^^^^^^^^^^^^^^^^^^
+App level testing
+^^^^^^^^^^^^^^^^^
 
-While the usual invocation of `pytest` runs app-level tests on an untranslated
-PyPy that runs on top of CPython, we have a test extension to run tests
+While the usual invocation of `python2 pytest.py` runs app-level tests on an
+untranslated PyPy that runs on top of CPython, we have a test extension to run tests
 directly on the host python. This is very convenient for modules such as
 `cpyext`, to compare and contrast test results between CPython and PyPy.
 
-App-level tests run directly on the host interpreter when passing `-D` or
+App-level tests (ones whose file name start with ``apptest_`` not ``test_``)
+run directly on the host interpreter when passing `-D` or
 `--direct-apptest` to `pytest`::
 
     pypy3 -m pytest -D pypy/interpreter/test/apptest_pyframe.py
 
-Mixed-level tests are invoked by using the `-A` or `--runappdirect` option to
+Mixed-level tests (the usual ones that start with ``test_``) are invoked by using the `-A` or `--runappdirect` option to
 `pytest`::
 
     python2 pytest.py -A pypy/module/cpyext/test
@@ -366,12 +342,22 @@ where `python2` can be either `python2` or `pypy2`. On the `py3` branch, the
 collection phase must be run with `python2` so untranslated tests are run
 with::
 
-    cpython2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+    python2 pytest.py -A pypy/module/cpyext/test --python=path/to/pypy3
+
+
+Testing After Translation
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you run translation, you will end up with a binary named ``pypy-c`` (or
+``pypy3-c`` for the Python3 branches) in the directory where you ran the
+translation.
 
 To run a test from the standard CPython regression test suite, use the regular
-Python way, i.e. (replace "pypy" with the exact binary name, if needed)::
+Python way, i.e. (use the exact binary name)::
 
-    pypy -m test.test_datetime
+    ./pypy3-c -m test.test_datetime
+    # or
+    ./pypy3-c lib-python/3/test/test_audit.py
 
 
 Tooling & Utilities

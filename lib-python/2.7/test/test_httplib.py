@@ -675,6 +675,19 @@ class BasicTest(TestCase):
         resp = httplib.HTTPResponse(FakeSocket(body))
         self.assertRaises(httplib.LineTooLong, resp.begin)
 
+    def test_overflowing_header_limit_after_100(self):
+        body = (
+            'HTTP/1.1 100 OK\r\n'
+            'r\n' * 32768
+        )
+        resp = httplib.HTTPResponse(FakeSocket(body))
+        with self.assertRaises(httplib.HTTPException) as cm:
+            resp.begin()
+        # We must assert more because other reasonable errors that we
+        # do not want can also be HTTPException derived.
+        self.assertIn('got more than ', str(cm.exception))
+        self.assertIn('headers', str(cm.exception))
+
     def test_overflowing_chunked_line(self):
         body = (
             'HTTP/1.1 200 OK\r\n'

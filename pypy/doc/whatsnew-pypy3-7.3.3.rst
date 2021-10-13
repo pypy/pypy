@@ -14,3 +14,7 @@ Add ``os.prlimit`` if supported by glibc
 
 Rework exception handling in 'resource' module to match CPython
 
+.. branch: hpy
+
+Provide a backend for HPy
+

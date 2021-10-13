@@ -20,7 +20,6 @@ from rpython.rtyper import rclass
 from rpython.tool.ansi_print import AnsiLogger
 from rpython.tool import twothree
 
-
 # by default this logger's output is disabled.
 # e.g. tests can then switch on logging to get more help
 # for failing tests
@@ -29,9 +28,18 @@ log.output_disabled = True
 
 
 class LLException(Exception):
-    def __init__(self, *args):
+
+    # .error_value is used only by tests: in particular,
+    # test_exceptiontransform uses it to check what is the return value of the
+    # function in case of exception
+    UNDEFINED_ERROR_VALUE = object() # sentinel for self.error_value
+
+    def __init__(self, *args, **kwargs):
         "NOT_RPYTHON"
         Exception.__init__(self, *args)
+        self.error_value = kwargs.pop('error_value', self.UNDEFINED_ERROR_VALUE)
+        if kwargs:
+            raise TypeError('unexpected keyword arguments: %s' % kwargs.keys())
 
     def __str__(self):
         etype = self.args[0]
@@ -352,13 +360,7 @@ class LLFrame(object):
                         tracer.dump('raise')
                     exc_data.exc_type = lltype.typeOf(etype)._defl()
                     exc_data.exc_value = lltype.typeOf(evalue)._defl()
-                    from rpython.translator import exceptiontransform
-                    T = resultvar.concretetype
-                    errvalue = exceptiontransform.error_value(T)
-                    # check that the exc-transformed graph returns the error
-                    # value when it returns with an exception set
-                    assert result == errvalue
-                    raise LLException(etype, evalue)
+                    raise LLException(etype, evalue, error_value=result)
             if tracer:
                 tracer.dump('return')
             return None, result
@@ -442,9 +444,15 @@ class LLFrame(object):
                     evalue = e.args[1]
                     exc_data.exc_type = etype
                     exc_data.exc_value = evalue
-                    from rpython.translator import exceptiontransform
-                    retval = exceptiontransform.error_value(
-                        operation.result.concretetype)
+                    retval = e.error_value
+                    if retval is LLException.UNDEFINED_ERROR_VALUE:
+                        from rpython.translator import exceptiontransform
+                        # if we are here it means that the exception was
+                        # caused by a builtin op such as int_add_ovf (i.e.,
+                        # NOT a call): in this case, we just use the default
+                        # error_value
+                        T = operation.result.concretetype
+                        retval = exceptiontransform.default_error_value(T)
                 else:
                     raise
         self.setvar(operation.result, retval)

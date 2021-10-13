@@ -83,6 +83,7 @@ constant_names = ['RUSAGE_SELF', 'EINTR',
                   'CLOCK_THREAD_CPUTIME_ID',
                   'CLOCK_HIGHRES',
                   'CLOCK_PROF',
+                  'CLOCK_UPTIME',
 ]
 for const in constant_names:
     setattr(CConfig, const, rffi_platform.DefinedConstantInteger(const))

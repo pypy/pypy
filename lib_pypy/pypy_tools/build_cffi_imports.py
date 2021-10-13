@@ -1,5 +1,5 @@
 from __future__ import print_function
-import sys, shutil, os, tempfile, hashlib
+import sys, shutil, os, tempfile, hashlib, collections
 import sysconfig
 from os.path import join
 
@@ -22,18 +22,22 @@ class MissingDependenciesError(Exception):
     pass
 
 
-cffi_build_scripts = {
-    "_ssl": "_ssl_build.py",
-    "sqlite3": "_sqlite3_build.py",
-    "audioop": "_audioop_build.py",
-    "_tkinter": "_tkinter/tklib_build.py",
-    "curses": "_curses_build.py" if sys.platform != "win32" else None,
-    "syslog": "_syslog_build.py" if sys.platform != "win32" else None,
-    "gdbm": "_gdbm_build.py"  if sys.platform != "win32" else None,
-    "grp": "_pwdgrp_build.py" if sys.platform != "win32" else None,
-    "resource": "_resource_build.py" if sys.platform != "win32" else None,
-    "xx": None,    # for testing: 'None' should be completely ignored
-    }
+cffi_build_scripts = collections.OrderedDict({
+    ("_ctypes._ctypes_cffi",
+     "_ctypes/_ctypes_build.py" if sys.platform == 'darwin' else None),
+    ("_pypy_util_cffi_inner", "_pypy_util_build.py"), # this needs to come before ssl
+    ("_ssl", "_ssl_build.py"),
+    ("sqlite3", "_sqlite3_build.py"),
+    ("audioop", "_audioop_build.py"),
+    ("_tkinter", "_tkinter/tklib_build.py"),
+    ("curses", "_curses_build.py" if sys.platform != "win32" else None),
+    ("syslog", "_syslog_build.py" if sys.platform != "win32" else None),
+    ("gdbm", "_gdbm_build.py"  if sys.platform != "win32" else None),
+    ("grp", "_pwdgrp_build.py" if sys.platform != "win32" else None),
+    ("resource", "_resource_build.py" if sys.platform != "win32" else None),
+    # ("_decimal", "_decimal_build.py"),  # issue 3024
+    ("xx", None),    # for testing: 'None' should be completely ignored
+    })
 
 # for distribution, we may want to fetch dependencies not provided by
 # the OS, such as a recent openssl/libressl.
@@ -55,21 +59,22 @@ cffi_dependencies = {
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
-    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1f.tar.gz',
-             '186c6bfe6ecfba7a5b48c47f8a1673d0f3b0e5ba2e25602dd23b629975da3f35',
+    '_ssl': ('http://distfiles.macports.org/openssl/openssl-1.1.1k.tar.gz',
+             '892a0875b9872acd04a9fde79b1f943075d5ea162415de3047c327df33fbaee5',
              [['./config', '--prefix=/usr', 'no-shared'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
              ]),
+}
+if sys.platform == 'darwin':
     # this does not compile on the buildbot, linker is missing '_history_list'
-    'gdbm': ('http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
+    cffi_dependencies['gdbm'] = (
+              'http://distfiles.macports.org/gdbm/gdbm-1.18.1.tar.gz',
               '86e613527e5dba544e73208f42b78b7c022d4fa5a6d5498bf18c8d6f745b91dc',
               [configure_args + ['--without-readline'],
               ['make', '-s', '-j', str(multiprocessing.cpu_count())],
               ['make', 'install', 'DESTDIR={}/'.format(deps_destdir)],
-             ]),
-}
-
+             ])
 
 def _unpack_tarfile(filename, extract_dir):
     """Unpack tar/tar.gz/tar.bz2/tar.xz `filename` to `extract_dir`
@@ -165,6 +170,7 @@ def _build_dependency(name, patches=[]):
 def create_cffi_import_libraries(pypy_c, options, basedir, only=None,
                                  embed_dependencies=False, rebuild=False):
     from rpython.tool.runsubprocess import run_subprocess
+    print('calling create_cffi_import_libraries with "embed_dependencies"', embed_dependencies)
 
     shutil.rmtree(str(join(basedir,'lib_pypy','__pycache__')),
                   ignore_errors=True)

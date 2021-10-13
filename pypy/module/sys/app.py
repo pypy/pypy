@@ -75,11 +75,11 @@ def callstats():
     return None
 
 copyright_str = """
-Copyright 2003-2016 PyPy development team.
+Copyright 2003-2021 PyPy development team.
 All Rights Reserved.
 For further information, see <http://pypy.org>
 
-Portions Copyright (c) 2001-2016 Python Software Foundation.
+Portions Copyright (c) 2001-2021 Python Software Foundation.
 All Rights Reserved.
 
 Portions Copyright (c) 2000 BeOpen.com.
@@ -92,6 +92,8 @@ Portions Copyright (c) 1991-1995 Stichting Mathematisch Centrum, Amsterdam.
 All Rights Reserved.
 """
 
+# Keep synchronized with pypy.interpreter.app_main.sys_flags and
+# pypy.module.cpyext._flags
 
 # This is tested in test_app_main.py
 class sysflags:

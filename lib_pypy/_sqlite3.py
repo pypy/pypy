@@ -1032,7 +1032,7 @@ class Statement(object):
             raise ValueError("the query contains a null character")
 
         
-        if sql:
+        if sql.strip():
             first_word = sql.lstrip().split()[0].upper()
             if first_word == '':
                 self._type = _STMT_TYPE_INVALID
@@ -1053,6 +1053,9 @@ class Statement(object):
 
         if isinstance(sql, unicode):
             sql = sql.encode('utf-8')
+
+        self._valid = True
+
         statement_star = _ffi.new('sqlite3_stmt **')
         next_char = _ffi.new('char **')
         c_sql = _ffi.new("char[]", sql)
@@ -1063,10 +1066,11 @@ class Statement(object):
         if ret == _lib.SQLITE_OK and not self._statement:
             # an empty statement, work around that, as it's the least trouble
             self._type = _STMT_TYPE_SELECT
-            c_sql = _ffi.new("char[]", b"select 42")
+            c_sql = _ffi.new("char[]", b"select 42 where 42 = 23")
             ret = _lib.sqlite3_prepare_v2(self.__con._db, c_sql, -1,
                                           statement_star, next_char)
             self._statement = statement_star[0]
+            self._valid = False
 
         if ret != _lib.SQLITE_OK:
             raise self.__con._get_exception(ret)
@@ -1188,7 +1192,7 @@ class Statement(object):
             _STMT_TYPE_UPDATE,
             _STMT_TYPE_DELETE,
             _STMT_TYPE_REPLACE
-        ):
+        ) or not self._valid:
             return None
         desc = []
         for i in xrange(_lib.sqlite3_column_count(self._statement)):

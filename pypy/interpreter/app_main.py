@@ -34,6 +34,7 @@ PyPy options and arguments:
 -X track-resources : track the creation of files and sockets and display
                      a warning if they are not closed explicitly
 -X faulthandler    : attempt to display tracebacks when PyPy crashes
+-X jit-off         : turn the JIT off, equivalent to --jit off
 """
 # Missing vs CPython: PYTHONHOME, PYTHONCASEOK
 USAGE2 = """
@@ -278,9 +279,11 @@ def set_runtime_options(options, Xparam, *args):
         sys.pypy_set_track_resources(True)
     elif Xparam == 'faulthandler':
         run_faulthandler()
+    elif Xparam == 'jit-off':
+        set_jit_option(options, 'off')
     else:
         print >> sys.stderr, 'usage: %s -X [options]' % (get_sys_executable(),)
-        print >> sys.stderr, '[options] can be: track-resources, faulthandler'
+        print >> sys.stderr, '[options] can be: track-resources, faulthandler, jit-off'
         raise SystemExit
 
 class CommandLineError(Exception):
@@ -381,6 +384,8 @@ def set_io_encoding(io_encoding, io_encoding_output, errors, overridden):
             set_file_encoding(f, encoding, errors)
 
 # Order is significant!
+# Keep synchronized with pypy.module.sys.app.sysflags and
+# pypy.module.cpyext._flags
 sys_flags = (
     "debug",
     "py3k_warning",
@@ -903,7 +908,21 @@ if __name__ == '__main__':
 
     # add an emulator for these pypy-only or 2.7-only functions
     # (for test_pyc_commandline_argument)
-    import imp, runpy
+    try:
+        import imp, runpy
+    except ImportError:
+        if '-S' in sys.argv:
+            # testing inside a virtualenv and using -S. Add the path of the argv
+            # file, since the test pre-emptively copied runpy there
+            from os.path import dirname, exists
+            tmpdir = dirname(sys.argv[-1])
+            if not exists(tmpdir + '/runpy.py'):
+                tmpdir = dirname(tmpdir)
+            sys.path.insert(0, tmpdir)
+            import imp
+            import runpy
+        else:
+            raise
     def _run_compiled_module(modulename, filename, file, module):
         import os
         assert modulename == '__main__'

@@ -74,6 +74,8 @@ pypysig_ignore = external('pypysig_ignore', [rffi.INT], lltype.Void)
 pypysig_default = external('pypysig_default', [rffi.INT], lltype.Void)
 pypysig_setflag = external('pypysig_setflag', [rffi.INT], lltype.Void)
 pypysig_reinstall = external('pypysig_reinstall', [rffi.INT], lltype.Void)
+PYPYSIG_WITH_NUL_BYTE = 0x01   # flags for the 2nd argument to set_wakeup_fd()
+PYPYSIG_NO_WARN_FULL  = 0x04
 pypysig_set_wakeup_fd = external('pypysig_set_wakeup_fd',
                                  [rffi.INT, rffi.INT], rffi.INT)
 pypysig_poll = external('pypysig_poll', [], rffi.INT, releasegil=False)
@@ -97,6 +99,7 @@ c_alarm = external('alarm', [rffi.INT], rffi.INT)
 c_pause = external('pause', [], rffi.INT, releasegil=True)
 c_siginterrupt = external('siginterrupt', [rffi.INT, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
+c_raise = external('raise', [rffi.INT], rffi.INT)
 
 if sys.platform != 'win32':
     itimervalP = rffi.CArrayPtr(itimerval)
@@ -107,6 +110,32 @@ if sys.platform != 'win32':
 
 c_pthread_kill = external('pthread_kill', [lltype.Signed, rffi.INT], rffi.INT,
                           save_err=rffi.RFFI_SAVE_ERRNO)
+
+HAVE_STRSIGNAL = rffi_platform.Has("strsignal")
+if HAVE_STRSIGNAL:
+    c_strsignal = external('strsignal', [rffi.INT], rffi.CCHARP)
+    def strsignal(signum):
+        res = c_strsignal(signum)
+        if not res:
+            return None
+        return rffi.charp2str(res)
+else:
+    def strsignal(signum):
+        # CPython does this too!
+        if signum == SIGINT:
+            return "Interrupt";
+        elif signum == SIGILL:
+            return "Illegal instruction";
+        elif signum == SIGABRT:
+            return "Aborted";
+        elif signum == SIGFPE:
+            return "Floating point exception";
+        elif signum == SIGSEGV:
+            return "Segmentation fault";
+        elif signum == SIGTERM:
+            return "Terminated";
+        return None
+
 
 if sys.platform != 'win32':
     c_sigset_t = rffi.COpaquePtr('sigset_t', compilation_info=eci)

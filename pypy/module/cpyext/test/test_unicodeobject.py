@@ -182,6 +182,45 @@ class AppTestUnicodeObject(AppTestCpythonExtensionBase):
         tz1 = time.tzname[1]
         assert module.lower(tz1) == tz1.lower()
 
+    def test_contains(self):
+        import sys
+        module = self.import_extension('foo', [
+            ("contains", "METH_VARARGS",
+            """
+                PyObject *arg1 = PyTuple_GetItem(args, 0);
+                PyObject *arg2 = PyTuple_GetItem(args, 1);
+                int ret = PyUnicode_Contains(arg1, arg2);
+                if (ret < 0) {
+                    return NULL;
+                }
+                return PyLong_FromLong(ret);
+            """)])
+        s = u"abcabcabc"
+        assert module.contains(s, u"a") == 1
+        assert module.contains(s, u"e") == 0
+        try:
+            module.contains(s, 1)
+        except TypeError:
+            pass
+        else:
+            assert False
+        try:
+            module.contains(1, u"a")
+        except TypeError:
+            pass
+        else:
+            assert False
+        if sys.version_info < (3, 0):
+            assert module.contains(b'abcdef', b'e') == 1
+        else:
+            try:
+                module.contains(b'abcdef', b'e')
+            except TypeError:
+                pass
+            else:
+                assert False
+
+
 
 class TestUnicode(BaseApiTest):
     def test_unicodeobject(self, space):
@@ -229,9 +268,10 @@ class TestUnicode(BaseApiTest):
         encoded_obj = PyUnicode_AsEncodedObject(space, space.wrap(u'sp�m'),
                                                 utf_8, None)
         assert space.eq_w(encoded, encoded_obj)
+        one = space.newint(1)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(
-                space, space.newtuple([1, 2, 3]), None, None)
+                space, space.newtuple([one, one, one]), None, None)
         with raises_w(space, TypeError):
             PyUnicode_AsEncodedString(space, space.wrap(''), None, None)
         ascii = rffi.str2charp('ascii')

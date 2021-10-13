@@ -6,6 +6,61 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_windowserror
 from rpython.rtyper.lltypesystem import rffi, lltype
 from rpython.rlib import rwinreg, rwin32
 from rpython.rlib.rarithmetic import r_uint, intmask
+from rpython.translator.tool.cbuild import ExternalCompilationInfo
+
+
+# wrappers needed to call the reflection functions loaded at runtime
+# using WINAPI convention
+eci = ExternalCompilationInfo(
+    includes=['windows.h'],
+    post_include_bits=[
+        "RPY_EXTERN LONG\n"
+        "pypy_RegChangeReflectionKey(FARPROC address, HKEY key);\n"
+        "RPY_EXTERN LONG\n"
+        "pypy_RegQueryReflectionKey(FARPROC address, HKEY key, LPBOOL isDisabled);\n"
+        "RPY_EXTERN LONG\n"
+        "pypy_RegDeleteKeyExA(FARPROC address, HKEY key, LPCSTR subkey,\n"
+        "                    REGSAM sam, DWORD reserved);\n"
+    ],
+    separate_module_sources=['''
+        LONG
+        pypy_RegChangeReflectionKey(FARPROC address, HKEY key) {
+            LONG (WINAPI *func)(HKEY);
+            *(FARPROC*)&func = address;
+            return func(key);
+        }
+
+        LONG
+        pypy_RegQueryReflectionKey(FARPROC address, HKEY key, LPBOOL isDisabled) {
+            LONG (WINAPI *func)(HKEY, LPBOOL);
+            *(FARPROC*)&func = address;
+            return func(key, isDisabled);
+        }
+
+        LONG
+        pypy_RegDeleteKeyExA(FARPROC address, HKEY key, LPCSTR subkey,
+                            REGSAM sam, DWORD reserved) {
+            LONG (WINAPI *func)(HKEY, LPCSTR, REGSAM, DWORD);
+            *(FARPROC*)&func = address;
+            return func(key, subkey, sam, reserved);
+        }
+    '''],
+)
+pypy_RegChangeReflectionKey = rffi.llexternal(
+    'pypy_RegChangeReflectionKey',
+    [rffi.VOIDP, rwinreg.HKEY],
+    rffi.LONG, compilation_info=eci)
+
+pypy_RegQueryReflectionKey = rffi.llexternal(
+    'pypy_RegQueryReflectionKey',
+    [rffi.VOIDP, rwinreg.HKEY, rwin32.LPBOOL],
+    rffi.LONG, compilation_info=eci)
+
+pypy_RegDeleteKeyExA = rffi.llexternal(
+    'pypy_RegDeleteKeyExA',
+    [rffi.VOIDP, rwinreg.HKEY, rffi.CCHARP, rwinreg.REGSAM, rwin32.DWORD],
+    rffi.LONG, compilation_info=eci)
+
 
 def raiseWindowsError(space, errcode, context):
     message = rwin32.FormatError(errcode)
@@ -57,8 +112,7 @@ handle is already detached, this will return zero.
 After calling this function, the handle is effectively invalidated,
 but the handle is not closed.  You would call this function when you
 need the underlying win32 handle to exist beyond the lifetime of the
-handle object.
-On 64 bit windows, the result of this function is a long integer"""
+handle object."""
         key = self.as_int()
         self.hkey = rwin32.NULL_HANDLE
         return space.newint(key)
@@ -253,13 +307,15 @@ But the underlying API call doesn't return the type, Lame Lame Lame, DONT USE TH
                 if ret == rwinreg.ERROR_MORE_DATA:
                     # Resize and retry
                     bufSize *= 2
-                    bufsize_p[0] = bufSize
+                    bufsize_p[0] = rffi.cast(rwin32.LONG, bufSize)
                     continue
 
                 if ret != 0:
                     raiseWindowsError(space, ret, 'RegQueryValue')
-                length = intmask(bufsize_p[0] - 1)
-                return space.newtext(rffi.charp2strn(buf, length))
+                length = intmask(bufsize_p[0])
+                if length == 0:
+                    return space.w_None
+                return space.newtext(rffi.charp2strn(buf, length - 1))
 
 def convert_to_regdata(space, w_value, typ):
     buf = None
@@ -274,7 +330,7 @@ def convert_to_regdata(space, w_value, typ):
                 value = space.c_uint_w(w_value)
             buflen = rffi.sizeof(rwin32.DWORD)
             buf1 = lltype.malloc(rffi.CArray(rwin32.DWORD), 1, flavor='raw')
-            buf1[0] = value
+            buf1[0] = rffi.cast(rffi.UINT, value)
             buf = rffi.cast(rffi.CCHARP, buf1)
 
     elif typ == rwinreg.REG_SZ or typ == rwinreg.REG_EXPAND_SZ:
@@ -329,8 +385,7 @@ def convert_to_regdata(space, w_value, typ):
     else: # REG_BINARY and ALL unknown data types.
         if space.is_w(w_value, space.w_None):
             buflen = 0
-            buf = lltype.malloc(rffi.CCHARP.TO, 1, flavor='raw')
-            buf[0] = '\0'
+            buf = lltype.nullptr(rffi.CCHARP.TO)
         else:
             try:
                 value = w_value.readbuf_w(space)
@@ -386,7 +441,10 @@ def convert_from_regdata(space, buf, buflen, typ):
         return space.newlist(l)
 
     else: # REG_BINARY and all other types
-        return space.newbytes(rffi.charpsize2str(buf, buflen))
+        if buflen == 0:
+            return space.w_None
+        else:
+            return space.newbytes(rffi.charpsize2str(buf, buflen))
 
 @unwrap_spec(value_name="text", typ=int)
 def SetValueEx(space, w_hkey, value_name, w_reserved, typ, w_value):
@@ -425,7 +483,8 @@ the configuration registry.  This helps the registry perform efficiently."""
     try:
         ret = rwinreg.RegSetValueExA(hkey, value_name, 0, typ, buf, buflen)
     finally:
-        lltype.free(buf, flavor='raw')
+        if buf != lltype.nullptr(rffi.CCHARP.TO):
+            lltype.free(buf, flavor='raw')
     if ret != 0:
         raiseWindowsError(space, ret, 'RegSetValueEx')
 
@@ -463,10 +522,11 @@ value_name is a string indicating the value to query"""
                     if ret != 0:
                         raiseWindowsError(space, ret, 'RegQueryValueEx')
                     length = intmask(retDataSize[0])
+                    ret_type = intmask(retType[0])
                     return space.newtuple([
                         convert_from_regdata(space, databuf,
-                                             length, retType[0]),
-                        space.newint(intmask(retType[0])),
+                                             length, ret_type),
+                        space.newint(intmask(ret_type)),
                         ])
 
 @unwrap_spec(subkey="text")
@@ -489,7 +549,7 @@ If the function fails, an exception is raised."""
             raiseWindowsError(space, ret, 'CreateKey')
         return W_HKEY(space, rethkey[0])
 
-@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=r_uint)
 def CreateKeyEx(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_WRITE):
     """key = CreateKey(key, sub_key) - Creates or opens the specified key.
 
@@ -539,7 +599,7 @@ value is a string that identifies the value to remove."""
     if ret != 0:
         raiseWindowsError(space, ret, 'RegDeleteValue')
 
-@unwrap_spec(subkey="text", res=int, sam=rffi.r_uint)
+@unwrap_spec(subkey="text", res=int, sam=r_uint)
 def OpenKey(space, w_hkey, subkey, res=0, sam=rwinreg.KEY_READ):
     """key = OpenKey(key, sub_key, res = 0, sam = KEY_READ) - Opens the specified key.
 
@@ -586,10 +646,10 @@ data_type is an integer that identifies the type of the value data."""
             if ret != 0:
                 raiseWindowsError(space, ret, 'RegQueryInfoKey')
             # include null terminators
-            retValueSize[0] += 1
-            retDataSize[0] += 1
-            bufDataSize = intmask(retDataSize[0])
-            bufValueSize = intmask(retValueSize[0])
+            bufDataSize = intmask(retDataSize[0]) + 1
+            bufValueSize = intmask(retValueSize[0]) + 1
+            retValueSize[0] = rffi.cast(rwin32.DWORD, bufValueSize)
+            retDataSize[0] = rffi.cast(rwin32.DWORD, bufDataSize)
 
             with lltype.scoped_alloc(rffi.CCHARP.TO,
                                      intmask(retValueSize[0])) as valuebuf:
@@ -614,11 +674,12 @@ data_type is an integer that identifies the type of the value data."""
                                 raiseWindowsError(space, ret, 'RegEnumValue')
 
                             length = intmask(retDataSize[0])
+                            ret_type = intmask(retType[0])
                             return space.newtuple([
                                 space.newtext(rffi.charp2str(valuebuf)),
                                 convert_from_regdata(space, databuf,
-                                                     length, retType[0]),
-                                space.newint(intmask(retType[0])),
+                                                     length, ret_type),
+                                space.newint(ret_type),
                                 ])
 
 @unwrap_spec(index=int)
@@ -642,7 +703,7 @@ raised, indicating no more values are available."""
     # retrieve such a key name.
     with lltype.scoped_alloc(rffi.CCHARP.TO, 257) as buf:
         with lltype.scoped_alloc(rwin32.LPDWORD.TO, 1) as retValueSize:
-            retValueSize[0] = r_uint(257) # includes NULL terminator
+            retValueSize[0] = rffi.r_uint(257) # includes NULL terminator
             ret = rwinreg.RegEnumKeyExA(hkey, index, buf, retValueSize,
                                        null_dword, None, null_dword,
                                        lltype.nullptr(rwin32.PFILETIME.TO))
@@ -706,30 +767,84 @@ def ExpandEnvironmentStrings(space, w_source):
     except WindowsError as e:
         raise wrap_windowserror(space, e)
 
+
+class ReflectionFunction(object):
+    def __init__(self, name, stdcall_wrapper):
+        self.name = name
+        self.handle = lltype.nullptr(rffi.VOIDP.TO)
+        self.wrapper = stdcall_wrapper
+
+    def check(self):
+        if self.handle != lltype.nullptr(rffi.VOIDP.TO):
+            return True
+        from rpython.rlib.rdynload import GetModuleHandle, dlsym
+        lib = GetModuleHandle("advapi32.dll")
+        try:
+            handle = dlsym(lib, self.name)
+        except KeyError:
+            return False
+        self.handle = handle
+        return True
+
+    def call(self, *args):
+        assert self.handle != lltype.nullptr(rffi.VOIDP.TO)
+        return self.wrapper(self.handle, *args)
+
+
+_RegDisableReflectionKey = ReflectionFunction(
+    "RegDisableReflectionKey", pypy_RegChangeReflectionKey)
+_RegEnableReflectionKey = ReflectionFunction(
+    "RegEnableReflectionKey", pypy_RegChangeReflectionKey)
+_RegQueryReflectionKey = ReflectionFunction(
+    "RegQueryReflectionKey", pypy_RegQueryReflectionKey)
+_RegDeleteKeyExA = ReflectionFunction("RegDeleteKeyExA", pypy_RegDeleteKeyExA)
+
+
 def DisableReflectionKey(space, w_key):
     """Disables registry reflection for 32-bit processes running on a 64-bit
     Operating System.  Will generally raise NotImplemented if executed on
     a 32-bit Operating System.
     If the key is not on the reflection list, the function succeeds but has no effect.
     Disabling reflection for a key does not affect reflection of any subkeys."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not _RegDisableReflectionKey.check():
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        ret = _RegDisableReflectionKey.call(hkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDisableReflectionKey')
 
 def EnableReflectionKey(space, w_key):
     """Restores registry reflection for the specified disabled key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System.
     Restoring reflection for a key does not affect reflection of any subkeys."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not _RegEnableReflectionKey.check():
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        ret = _RegEnableReflectionKey.call(hkey)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegEnableReflectionKey')
 
 def QueryReflectionKey(space, w_key):
     """bool = QueryReflectionKey(hkey) - Determines the reflection state for the specified key.
     Will generally raise NotImplemented if executed on a 32-bit Operating System."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not _RegQueryReflectionKey.check():
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        with lltype.scoped_alloc(rwin32.LPBOOL.TO, 1) as isDisabled:
+            ret = _RegQueryReflectionKey.call(hkey, isDisabled)
+            if ret != 0:
+                raiseWindowsError(space, ret, 'RegQueryReflectionKey')
+            return space.newbool(intmask(isDisabled[0]) != 0)
 
-@unwrap_spec(subkey="text")
-def DeleteKeyEx(space, w_key, subkey):
+
+@unwrap_spec(sub_key="text", access=r_uint, reserved=int)
+def DeleteKeyEx(space, w_key, sub_key, access=rwinreg.KEY_WOW64_64KEY, reserved=0):
     """DeleteKeyEx(key, sub_key, sam, res) - Deletes the specified key.
 
     key is an already open key, or any one of the predefined HKEY_* constants.
@@ -743,5 +858,11 @@ def DeleteKeyEx(space, w_key, subkey):
     If the method succeeds, the entire key, including all of its values,
     is removed.  If the method fails, a WindowsError exception is raised.
     On unsupported Windows versions, NotImplementedError is raised."""
-    raise oefmt(space.w_NotImplementedError,
-                "not implemented on this platform")
+    if not _RegDeleteKeyExA.check():
+        raise oefmt(space.w_NotImplementedError,
+                    "not implemented on this platform")
+    else:
+        hkey = hkey_w(w_key, space)
+        ret = _RegDeleteKeyExA.call(hkey, sub_key, access, reserved)
+        if ret != 0:
+            raiseWindowsError(space, ret, 'RegDeleteKeyEx')

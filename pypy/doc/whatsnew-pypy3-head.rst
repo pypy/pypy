@@ -1,11 +1,8 @@
-==========================
-What's new in PyPy3 7.3.3+
-==========================
+============================
+What's new in PyPy3.7 7.3.4+
+============================
 
-.. this is the revision after release-pypy3.6-v7.3.3
-.. startrev: de512cf13506
+.. this is a revision shortly after release-pypy-7.3.4
+.. startrev: 9c11d242d78c
 
-.. branch: hpy
-
-Provide a backend for HPy
 

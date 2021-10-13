@@ -75,6 +75,7 @@ def setup_module(mod):
     int strlen(const char *);
     struct with_union { union { int a; char b; }; };
     union with_struct { struct { int a; char b; }; };
+    struct with_struct_with_union { struct { union { int x; }; } cp; };
     struct NVGcolor { union { float rgba[4]; struct { float r,g,b,a; }; }; };
     typedef struct selfref { struct selfref *next; } *selfref_ptr_t;
     """)
@@ -248,6 +249,10 @@ def test_anonymous_union_inside_struct():
     assert ffi.offsetof("union with_struct", "a") == 0
     assert ffi.offsetof("union with_struct", "b") == INT
     assert ffi.sizeof("union with_struct") >= INT + 1
+    #
+    assert ffi.sizeof("struct with_struct_with_union") == INT
+    p = ffi.new("struct with_struct_with_union *")
+    assert p.cp.x == 0
     #
     FLOAT = ffi.sizeof("float")
     assert ffi.sizeof("struct NVGcolor") == FLOAT * 4

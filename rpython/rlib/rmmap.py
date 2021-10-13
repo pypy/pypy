@@ -78,6 +78,36 @@ if _POSIX:
     CConfig.MADV_FREE = (
         rffi_platform.DefinedConstantInteger('MADV_FREE'))
 
+    madv_constant_names = [
+        "MADV_NORMAL",
+        "MADV_RANDOM",
+        "MADV_SEQUENTIAL",
+        "MADV_WILLNEED",
+
+        #Linux-specific
+        "MADV_REMOVE",
+        "MADV_DONTFORK",
+        "MADV_DOFORK",
+        "MADV_HWPOISON",
+        "MADV_MERGEABLE",
+        "MADV_UNMERGEABLE",
+        "MADV_SOFT_OFFLINE",
+        "MADV_HUGEPAGE",
+        "MADV_NOHUGEPAGE",
+        "MADV_DONTDUMP",
+        "MADV_DODUMP",
+
+        # FreeBSD-specific
+        "MADV_NOSYNC",
+        "MADV_AUTOSYNC",
+        "MADV_NOCORE",
+        "MADV_CORE",
+        "MADV_PROTECT",
+    ]
+    for name in madv_constant_names:
+        setattr(CConfig, name, rffi_platform.DefinedConstantInteger(name))
+
+
 elif _MS_WINDOWS:
     constant_names = ['PAGE_READONLY', 'PAGE_READWRITE', 'PAGE_WRITECOPY',
                       'FILE_MAP_READ', 'FILE_MAP_WRITE', 'FILE_MAP_COPY',
@@ -286,6 +316,7 @@ elif _MS_WINDOWS:
             lltype.free(high_ref, flavor='raw')
 
     INVALID_HANDLE = INVALID_HANDLE_VALUE
+    has_madvise = False
 
 PAGESIZE = _get_page_size()
 ALLOCATIONGRANULARITY = _get_allocation_granularity()
@@ -623,6 +654,16 @@ class MMap(object):
         if index < 0:
             index += self.size
         self.data[index] = value[0]
+
+    if has_madvise:
+        def madvise(self, flags, start, end):
+            res = c_madvise_safe(rffi.cast(PTR, rffi.ptradd(self.data, + start)),
+                                 rffi.cast(size_t, end),
+                                 rffi.cast(rffi.INT, flags))
+            if rffi.cast(lltype.Signed, res) == 0:
+                return
+            errno = rposix.get_saved_errno()
+            raise OSError(errno, os.strerror(errno))
 
 def _check_map_size(size):
     if size < 0:

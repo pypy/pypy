@@ -182,7 +182,10 @@ class TestStandalone(StandaloneTests):
         f.close()
 
         import struct
-        counters = struct.unpack("LLL", counters_data)
+        fmt = "LLL"
+        if sys.platform == 'win32' and sys.maxint > 2**31:
+            fmt = "QQQ"
+        counters = struct.unpack(fmt, counters_data)
 
         assert counters == (0,3,2)
 
@@ -1169,9 +1172,33 @@ class TestStandalone(StandaloneTests):
             return 0
 
         t, cbuilder = self.compile(entry_point)
-        out1 = cbuilder.cmdexec(args=['i', '>', '64'])
-        out2 = cbuilder.cmdexec(args=['f', '>', '64'])
+        arg2 = '>'
+        if sys.platform == 'win32':
+            # windows interprets > as redirection, escape with ^
+            arg2 = '^>'
+        out1 = cbuilder.cmdexec(args=['i', arg2, '64'])
+        out2 = cbuilder.cmdexec(args=['f', arg2, '64'])
         assert out1 != out2
+
+    def test_gcc_precompiled_header(self):
+        if sys.platform == 'win32':
+            py.test.skip("no win")
+        def entry_point(argv):
+            os.write(1, "hello world\n")
+            argv = argv[1:]
+            os.write(1, "argument count: " + str(len(argv)) + "\n")
+            for s in argv:
+                os.write(1, "   '" + str(s) + "'\n")
+            return 0
+
+        t, cbuilder = self.compile(entry_point)
+        if "gcc" not in t.platform.cc:
+            py.test.skip("gcc only")
+        data = cbuilder.cmdexec('hi there')
+        assert data.startswith('''hello world\nargument count: 2\n   'hi'\n   'there'\n''')
+
+        # check that the precompiled header was generated
+        assert cbuilder.targetdir.join("singleheader.h.gch").check()
 
 
 class TestThread(object):

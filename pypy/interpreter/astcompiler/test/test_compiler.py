@@ -770,6 +770,18 @@ class TestCompiler(BaseTestCompiler):
         """
         py.test.raises(SyntaxError, self.simple_test, source, None, None)
 
+    def test_bare_except_not_last(self):
+        source = """if 1:
+        try:
+           pass
+        except:
+            pass
+        except ValueError:
+            pass
+        """
+        with py.test.raises(SyntaxError):
+            self.simple_test(source, None, None)
+
     def test_unpack_singletuple(self):
         source = """if 1:
         l = []

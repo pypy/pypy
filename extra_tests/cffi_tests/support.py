@@ -34,9 +34,14 @@ class StdErrCapture(object):
             from io import StringIO
         self.old_stderr = sys.stderr
         sys.stderr = f = StringIO()
+        if hasattr(sys, '__unraisablehook__'):           # work around pytest
+            self.old_unraisablebook = sys.unraisablehook # on recent CPythons
+            sys.unraisablehook = sys.__unraisablehook__
         return f
     def __exit__(self, *args):
         sys.stderr = self.old_stderr
+        if hasattr(self, 'old_unraisablebook'):
+            sys.unraisablehook = self.old_unraisablebook
 
 
 class FdWriteCapture(object):

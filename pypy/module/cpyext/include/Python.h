@@ -6,8 +6,6 @@
 #define _GNU_SOURCE 1
 #endif
 #ifndef _WIN32
-# include <inttypes.h>
-# include <stdint.h>
 # include <stddef.h>
 # include <limits.h>
 # include <math.h>

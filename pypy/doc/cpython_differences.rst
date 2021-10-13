@@ -23,11 +23,14 @@ the on-disk file appear empty or truncated.  Moreover, you might reach your
 OS's limit on the number of concurrently opened files.
 
 If you are debugging a case where a file in your program is not closed
-properly, you can use the ``-X track-resources`` command line option. If it is
-given, a ``ResourceWarning`` is produced for every file and socket that the
-garbage collector closes. The warning will contain the stack trace of the
-position where the file or socket was created, to make it easier to see which
-parts of the program don't close files explicitly.
+properly on PyPy2, you can use the ``-X track-resources`` command line
+option. On Python3 (both CPython and PyPy), use the ``-Walways`` command line
+option. In both cases, you may need to add a call to ``gc.collect()`` at the
+end of the program. Then a ``ResourceWarning`` is produced for every file and
+socket that the garbage collector closes. On PyPy, the warning will always
+contain the stack trace of the position where the file or socket was created,
+to make it easier to see which parts of the program don't close files
+explicitly.
 
 Fixing this difference to CPython is essentially impossible without forcing a
 reference-counting approach to garbage collection.  The effect that you
@@ -365,14 +368,17 @@ Miscellaneous
   implementation detail that shows up because of internal C-level slots
   that PyPy does not have.
 
-* on CPython, ``[].__add__`` is a ``method-wrapper``, and
-  ``list.__add__`` is a ``slot wrapper``.  On PyPy these are normal
-  bound or unbound method objects.  This can occasionally confuse some
+* on CPython, ``[].__add__`` is a ``method-wrapper``,  ``list.__add__``
+  is a ``slot wrapper`` and ``list.extend``  is a (built-in) ``method``
+  object.  On PyPy these are all normal method or function objects (or
+  unbound method objects on PyPy2).  This can occasionally confuse some
   tools that inspect built-in types.  For example, the standard
   library ``inspect`` module has a function ``ismethod()`` that returns
   True on unbound method objects but False on method-wrappers or slot
-  wrappers.  On PyPy we can't tell the difference, so
-  ``ismethod([].__add__) == ismethod(list.__add__) == True``.
+  wrappers.  On PyPy we can't tell the difference.  So on PyPy2 we
+  have ``ismethod([].__add__) == ismethod(list.extend) == True``;
+  on PyPy3 we have ``isfunction(list.extend) == True``.  On CPython
+  all of these are False.
 
 * in CPython, the built-in types have attributes that can be
   implemented in various ways.  Depending on the way, if you try to
@@ -422,7 +428,8 @@ Miscellaneous
   probably be ignored by an implementation of ``sys.getsizeof()``, but
   their overhead is important in some cases if they are many instances
   with unique maps.  Conversely, equal strings may share their internal
-  string data even if they are different objects---or empty containers
+  string data even if they are different objects---even a unicode string
+  and its utf8-encoded ``bytes`` version are shared---or empty containers
   may share parts of their internals as long as they are empty.  Even
   stranger, some lists create objects as you read them; if you try to
   estimate the size in memory of ``range(10**6)`` as the sum of all

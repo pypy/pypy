@@ -204,7 +204,8 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
             "mismatched frame blocks"
 
     def error(self, msg, node):
-        raise SyntaxError(msg, node.lineno, node.col_offset,
+        # NB: SyntaxError's offset is 1-based!
+        raise SyntaxError(msg, node.lineno, node.col_offset + 1,
                           filename=self.compile_info.filename)
 
     def name_op(self, identifier, ctx):
@@ -547,7 +548,7 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         self.pop_frame_block(F_BLOCK_EXCEPT, body)
         self.emit_jump(ops.JUMP_FORWARD, otherwise)
         self.use_next_block(exc)
-        for handler in te.handlers:
+        for i, handler in enumerate(te.handlers):
             assert isinstance(handler, ast.ExceptHandler)
             self.update_position(handler.lineno, True)
             next_except = self.new_block()
@@ -556,6 +557,10 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
                 handler.type.walkabout(self)
                 self.emit_op_arg(ops.COMPARE_OP, 10)
                 self.emit_jump(ops.POP_JUMP_IF_FALSE, next_except, True)
+            else:
+                if i != len(te.handlers) - 1:
+                    self.error(
+                        "bare 'except:' must be the last except block", handler)
             self.emit_op(ops.POP_TOP)
             if handler.name:
                 handler.name.walkabout(self)

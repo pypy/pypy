@@ -1,6 +1,11 @@
 #pragma once
 
-typedef long Py_ssize_t;  /* CPython defines it in pyport.h */
+/* CPython defines Py_ssize_t in pyport.h as intptr_t */
+#ifdef _WIN64
+typedef long long Py_ssize_t;
+#else
+typedef long Py_ssize_t;
+#endif
 
 #define PyObject_HEAD  \
     Py_ssize_t ob_refcnt;        \
@@ -187,18 +192,6 @@ typedef struct {
 	getbufferproc bf_getbuffer;
 	releasebufferproc bf_releasebuffer;
 } PyBufferProcs;
-
-/* from descrobject.h */
-typedef PyObject *(*getter)(PyObject *, void *);
-typedef int (*setter)(PyObject *, PyObject *, void *);
-
-typedef struct PyGetSetDef {
-	char *name;
-	getter get;
-	setter set;
-	char *doc;
-	void *closure;
-} PyGetSetDef;
 
 /* from methodobject.h */
 typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);

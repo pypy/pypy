@@ -1,5 +1,5 @@
 import py, os, sys
-from .support import setup_make
+from .support import setup_make, soext
 
 from pypy.interpreter.gateway import interp2app, unwrap_spec
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
@@ -10,12 +10,12 @@ from rpython.tool.udir import udir
 from pypy.module.cpyext import api
 from pypy.module.cpyext.state import State
 
-
 currpath = py.path.local(__file__).dirpath()
-test_dct = str(currpath.join("crossingDict.so"))
+test_dct = str(currpath.join("crossingDict"))+soext
 
 def setup_module(mod):
-    setup_make("crossingDict.so")
+    setup_make("crossing")
+
 
 # from pypy/module/cpyext/test/test_cpyext.py; modified to accept more external
 # symbols and called directly instead of import_module

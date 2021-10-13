@@ -226,13 +226,22 @@ def not_rpython(func):
     func._not_rpython_ = True
     return func
 
-def llhelper_can_raise(func):
+def llhelper_error_value(error_value):
     """
-    Instruct ll2ctypes that this llhelper can raise RPython exceptions, which
-    should be propagated.
+    This decorator has two effects:
+
+      1. declare that this llhelper can raise RPython exceptions, which should
+         be correctly propagated
+
+      2. specify the error_value to return in case of exception.
     """
-    func._llhelper_can_raise_ = True
-    return func
+    # relevant tests:
+    #     - test_ll2ctypes.test_llhelper_error_value
+    #     - test_exceptiontransform.test_custom_error_value
+    def decorate(func):
+        func._llhelper_error_value_ = error_value
+        return func
+    return decorate
 
 # ____________________________________________________________
 
@@ -479,6 +488,37 @@ class Entry(ExtRegistryEntry):
         v_list, v_sizehint = hop.inputargs(*hop.args_r)
         hop.exception_is_here()
         hop.gendirectcall(r_list.LIST._ll_resize_hint, v_list, v_sizehint)
+
+def list_get_physical_size(l):
+    """ try to get the physical size of an overallocated RPython list. will
+    return the regular length untranslated. """
+    return len(l)
+
+def ll_physical_size(l):
+    return len(l.items)
+
+class Entry(ExtRegistryEntry):
+    _about_ = list_get_physical_size
+
+    def compute_result_annotation(self, s_l):
+        from rpython.annotator import model as annmodel
+        if annmodel.s_None.contains(s_l):
+            pass # first argument is only None so far, but we
+                 # expect a generalization later
+        elif not isinstance(s_l, annmodel.SomeList):
+            raise annmodel.AnnotatorError("First argument must be a list")
+        return annmodel.SomeInteger(nonneg=True)
+
+    def specialize_call(self, hop):
+        from rpython.rtyper.lltypesystem.rlist import FixedSizeListRepr, ListRepr
+        v_list, = hop.inputargs(*hop.args_r)
+        if isinstance(hop.args_r[0], ListRepr):
+            ll_func = ll_physical_size
+        else:
+            ll_func = v_list.concretetype.TO.ll_length
+        hop.exception_cannot_occur()
+        return hop.gendirectcall(ll_func, v_list)
+
 
 # ____________________________________________________________
 #
@@ -1058,3 +1098,13 @@ def import_from_mixin(M, special_methods=['__init__', '__del__']):
         target[key] = value
     if immutable_fields:
         target['_immutable_fields_'] = target.get('_immutable_fields_', []) + immutable_fields
+
+def never_allocate(cls):
+    """
+    Class decorator to ensure that a class is NEVER instantiated at runtime.
+
+    Useful e.g for context manager which are expected to be constant-folded
+    away.
+    """
+    cls._rpython_never_allocate_ = True
+    return cls

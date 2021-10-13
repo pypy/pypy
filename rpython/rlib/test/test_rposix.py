@@ -149,7 +149,8 @@ class TestPosixFunction:
         arg = '%s -c "print 1+1" > %s' % (sys.executable, filename)
         data = rposix.system(arg)
         assert data == 0
-        assert file(filename).read().strip() == '2'
+        with file(filename) as f:
+            assert f.read().strip() == '2'
         os.unlink(filename)
 
 
@@ -298,6 +299,14 @@ class TestPosixFunction:
         assert rposix.major(dev) == 24
         assert rposix.minor(dev) == 7
 
+    @py.test.mark.skipif("not hasattr(rposix, 'memfd_create')")
+    def test_memfd_create(self):
+        fd = rposix.memfd_create("abc", rposix.MFD_CLOEXEC)
+        try:
+            s = "defghi?"
+            os.write(fd, s)
+        finally:
+            os.close(fd)
 
 @py.test.mark.skipif("not hasattr(os, 'ttyname')")
 class TestOsExpect(ExpectTest):

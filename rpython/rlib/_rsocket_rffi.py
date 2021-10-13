@@ -65,7 +65,13 @@ if _WIN32:
         header_lines.extend([
             '#include <Mstcpip.h>',
             # these types do not exist on microsoft compilers
+            '#ifdef _WIN64',
+            'typedef long long ssize_t;',
+            'typedef unsigned long long size_t;',
+            '#else',
             'typedef int ssize_t;',
+            'typedef unsigned int size_t;',
+            '#endif',
             'typedef unsigned __int16 uint16_t;',
             'typedef unsigned __int32 uint32_t;',
             ])
@@ -208,7 +214,7 @@ SIO_RCVALL SIO_KEEPALIVE_VALS
 
 SIOCGIFNAME SIOCGIFINDEX
 
-SO_DOMAIN SO_PROTOCOL SO_PEERSEC SO_PASSSEC TCP_USER_TIMEOUT TCP_CONGESTION
+SO_DOMAIN SO_PROTOCOL SO_PEERSEC SO_PASSSEC TCP_USER_TIMEOUT TCP_CONGESTION TCP_NOTSENT_LOWAT
 '''.split()
 
 for name in constant_names:
@@ -257,7 +263,7 @@ for name, default in constants_w_defaults:
 
 # types
 if _MSVC:
-    socketfd_type = rffi.UINT
+    socketfd_type = lltype.Unsigned
 else:
     socketfd_type = rffi.INT
 
@@ -924,7 +930,7 @@ if HAVE_SENDMSG:
             These functions free memory that was allocated in C (sendmsg or recvmsg) was used in rsocket and now needs cleanup
         */
         RPY_EXTERN
-        int free_pointer_to_signedp(int** ptrtofree){
+        int free_pointer_to_signedp(long** ptrtofree){
             free(*ptrtofree);
             return 0;
         }
@@ -958,7 +964,7 @@ if HAVE_SENDMSG:
                          "RPY_EXTERN "
                          "int memcpy_from_CCHARP_at_offset_and_size(char* stringfrom, char** stringto, int offset, int size);\n"
                          "RPY_EXTERN "
-                         "int free_pointer_to_signedp(int** ptrtofree);\n"
+                         "int free_pointer_to_signedp(long** ptrtofree);\n"
                          "RPY_EXTERN "
                          "int free_ptr_to_charp(char** ptrtofree);\n"
                          ]
@@ -1242,8 +1248,12 @@ socketgetsockopt = external('getsockopt', [socketfd_type, rffi.INT,
 socketsetsockopt = external('setsockopt', [socketfd_type, rffi.INT,
                                    rffi.INT, rffi.VOIDP, socklen_t], rffi.INT,
                             save_err=SAVE_ERR)
-socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
-                               rffi.INT], ssize_t, save_err=SAVE_ERR)
+if WIN32:
+    socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
+                                   rffi.INT], rffi.INT, save_err=SAVE_ERR)
+else:
+    socketrecv = external('recv', [socketfd_type, rffi.VOIDP, rffi.INT,
+                                   rffi.INT], ssize_t, save_err=SAVE_ERR)
 recvfrom = external('recvfrom', [socketfd_type, rffi.VOIDP, size_t,
                            rffi.INT, sockaddr_ptr, socklen_t_ptr], rffi.INT,
                     save_err=SAVE_ERR)
