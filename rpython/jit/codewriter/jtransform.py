@@ -1614,7 +1614,7 @@ class Transformer(object):
             if isinstance(v, Variable) and v.concretetype is not lltype.Void:
                 kind = getkind(v.concretetype)
                 ops.append(SpaceOperation('-live-', [], None))
-                ops.append(SpaceOperation('%s_guard_value' % kind,
+                ops.append(SpaceOperation('always_%s_guard_value' % kind,
                                           [v], None))
         return ops
 

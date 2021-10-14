@@ -1284,6 +1284,10 @@ class MIFrame(object):
     def _opimpl_guard_value(self, box, orgpc):
         self.implement_guard_value(box, orgpc)
 
+    @arguments("box", "orgpc")
+    def _opimpl_always_guard_value(self, box, orgpc):
+        self.implement_guard_value(box, orgpc, force=True)
+
     @arguments("box", "box", "descr", "orgpc")
     def opimpl_str_guard_value(self, box, funcbox, descr, orgpc):
         if isinstance(box, Const):
@@ -1303,6 +1307,10 @@ class MIFrame(object):
     opimpl_int_guard_value = _opimpl_guard_value
     opimpl_ref_guard_value = _opimpl_guard_value
     opimpl_float_guard_value = _opimpl_guard_value
+
+    opimpl_always_int_guard_value = _opimpl_always_guard_value
+    opimpl_always_float_guard_value = _opimpl_always_guard_value
+    opimpl_always_ref_guard_value = _opimpl_always_guard_value
 
     @arguments("box", "orgpc")
     def opimpl_guard_class(self, box, orgpc):
@@ -1627,7 +1635,7 @@ class MIFrame(object):
         except ChangeFrame:
             pass
 
-    def implement_guard_value(self, box, orgpc):
+    def implement_guard_value(self, box, orgpc, force=False):
         """Promote the given Box into a Const.  Note: be careful, it's a
         bit unclear what occurs if a single opcode needs to generate
         several ones and/or ones not near the beginning."""
@@ -1639,8 +1647,10 @@ class MIFrame(object):
         # that is already too deep, we will stop promoting the
         # ignore_promote_of constant.
         ignore_promote_of = self.metainterp.ignore_promote_of
+
         if (
-            ignore_promote_of is not None
+            not force
+            and ignore_promote_of is not None
             and promoted_box.same_constant(ignore_promote_of)
         ):
             return box

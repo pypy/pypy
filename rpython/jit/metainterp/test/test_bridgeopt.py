@@ -496,8 +496,8 @@ class TestOptBridge(LLJitMixin):
             jit.set_param(myjitdriver, 'max_promotes', 1)
             return portal(2)
 
+        # Does not crash
         self.meta_interp(f, [], inline=True)
-        self.check_history(call_assembler_n=1)
 
 
 def test_guard_depth_increase():

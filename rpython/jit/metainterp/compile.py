@@ -959,7 +959,7 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
             resumedescr = ResumeGuardCopiedDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardDescr()
-            if opnum == rop.GUARD_VALUE:
+            if hasattr(optimizer, 'resumestorage') and opnum == rop.GUARD_VALUE:
                 resumedescr.inc_depth(optimizer.resumestorage)
     return resumedescr
 
