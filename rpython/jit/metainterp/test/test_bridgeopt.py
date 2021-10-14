@@ -460,15 +460,10 @@ class TestOptBridge(LLJitMixin):
         self.check_resops(call_i=2)
         self.check_trace_count(7)
 
-
     def test_too_many_bridges_recursive(self):
-        # max_promotes causes a segfault in the SSL module
-        # this test doesn't yet reproduce the actual failure,
-        # still work-in-progress
-        myjitdriver = jit.JitDriver(greens=['pc'], reds=['y'])
-
         class Map(object):
-            pass
+            def __init__(self, i):
+                self.idx = i
 
         class Instance(object):
             def __init__(self, map_):
@@ -476,30 +471,34 @@ class TestOptBridge(LLJitMixin):
 
         @jit.elidable
         def get_map_id(map_):
-            return 1
+            return map_.idx
 
-        maps = [Map() for i in range(10)]
+        maps = [Map(i + 3) for i in range(10)]
         instances = [Instance(map) for i in range(20) for map in maps]
 
-        def f(pc):
-            y = len(instances) - 1
-            while y >= 0:
-                if pc == 1:
-                    break
+        myjitdriver = jit.JitDriver(greens = ['codeno'], reds = ['i'])
 
-                myjitdriver.jit_merge_point(pc=pc, y=y)
-                instance = instances[y]
-                arg = jit.promote(instance.map_)
-                y -= get_map_id(arg)
+        def portal(codeno):
+            i = 0
+            while i < len(instances) - 1:
+                myjitdriver.can_enter_jit(codeno = codeno, i = i)
+                myjitdriver.jit_merge_point(codeno = codeno, i = i)
 
-                if pc == 0:
-                    f(get_map_id(arg))
+                if codeno == 2:
+                    instance = instances[i]
+                    arg = jit.promote(instance.map_)
 
-        def g():
+                    portal(get_map_id(arg))
+
+                i += 1
+
+        def f():
             jit.set_param(myjitdriver, 'max_promotes', 1)
-            f(0)
+            return portal(2)
 
-        self.meta_interp(g, [])
+        self.meta_interp(f, [], inline=True)
+        self.check_history(call_assembler_n=1)
+
 
 def test_guard_depth_increase():
     parent = ResumeGuardDescr()
