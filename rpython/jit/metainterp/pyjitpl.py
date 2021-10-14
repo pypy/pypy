@@ -2571,9 +2571,12 @@ class MetaInterp(object):
         # promoted value, stop promoting it.
         if resumedescr.is_too_deep(self.jitdriver_sd.warmstate):
             debug_start('jit-tracing-deep-bridge')
-            self.staticdata.profiler.count(Counters.MAX_PROMOTE_HITS)
             self.ignore_promote_of = resumedescr.get_guard_value_constant(self.staticdata, deadframe)
-            debug_print('disabiling promotion of: ', self.ignore_promote_of.repr_rpython())
+            if self.ignore_promote_of is not None:
+                self.staticdata.profiler.count(Counters.MAX_PROMOTE_HITS)
+                debug_print('disabiling promotion of: ', self.ignore_promote_of.repr_rpython())
+            else:
+                debug_print('couldn\'t determine the type of guarded value: ', resumedescr.status)
             debug_stop('jit-tracing-deep-bridge')
 
         # store the resumekey.wref_original_loop_token() on 'self' to make

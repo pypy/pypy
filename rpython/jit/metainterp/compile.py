@@ -786,7 +786,7 @@ class AbstractResumeGuardDescr(ResumeDescr):
                                                           index)
             return ConstFloat(longlong.getfloatstorage(floatval))
         else:
-            assert 0, typetag
+            return None
 
     def start_compiling(self):
         # start tracing and compiling from this guard.
@@ -959,7 +959,10 @@ def invent_fail_descr_for_op(opnum, optimizer, copied_from_descr=None):
             resumedescr = ResumeGuardCopiedDescr(copied_from_descr)
         else:
             resumedescr = ResumeGuardDescr()
-            if hasattr(optimizer, 'resumestorage') and opnum == rop.GUARD_VALUE:
+            if (
+                we_are_translated()
+                or hasattr(optimizer, 'resumestorage')
+            ) and opnum == rop.GUARD_VALUE:
                 resumedescr.inc_depth(optimizer.resumestorage)
     return resumedescr
 
