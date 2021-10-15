@@ -183,3 +183,12 @@ def test_once_is_not_broken():
         assert len(w) == 1
         f()
         assert len(w) == 1
+
+def test_filename_from_code():
+    f = eval("lambda: warnings.warn('foo')")
+    with warnings.catch_warnings(record=True) as w:
+        assert len(w) == 0
+        f()
+        print(w[0].__dict__)
+        assert len(w) == 1
+        assert w[0].filename == "<string>"
