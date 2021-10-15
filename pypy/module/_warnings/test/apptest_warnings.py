@@ -169,3 +169,17 @@ def test_issue31285():
         'eggs', UserWarning, 'bar', 1,
         module_globals={'__loader__': get_bad_loader(42),
                         '__name__': 'foobar'})
+
+def test_once_is_not_broken():
+    def f():
+        warnings.warn("deprecated", DeprecationWarning, 2)
+
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("once")
+        assert len(w) == 0
+        f()
+        assert len(w) == 1
+        f()
+        assert len(w) == 1
+        f()
+        assert len(w) == 1
