@@ -2,15 +2,6 @@
 PyPy v7.3.6: release of python 2.7, 3.7, and 3.8-beta
 =====================================================
 
-..
-  Changelog up to commit fae737d37616
-
-.. note::
-  This is a pre-release announcement. When the release actually happens, it
-  will be announced on the `PyPy blog`_
-
-.. _`PyPy blog`: https://pypy.org/blog
-
 The PyPy team is proud to release version 7.3.6 of PyPy, which includes
 three different interpreters:
 
