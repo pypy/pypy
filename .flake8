@@ -19,6 +19,7 @@ ignore =
     E741, E742, E743  # ambiguous names
     E721  # use isinstance to compare types
     E722  # bare except
+    F822  # Undefined name in __all__ (usually because globals() is hacked)
     F841  # unused variable
     E201, E202, E211  # whitespace near brackets - TODO: maybe fix?
     F403, F405  # * imports
