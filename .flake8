@@ -48,3 +48,7 @@ ignore =
 
 exclude =
     __pycache__  # There's no value in checking cache directories
+    .hg  # No need to look in mercurial dir
+    pypy/objspace/std/test/apptest_stringformat.py  # lots of bad string formatting syntax tested here
+    pypy/tool/release/check_versions.py  # python3-only syntax
+    lib-python  # lib-python would need its own config, since it's mostly not written by us
