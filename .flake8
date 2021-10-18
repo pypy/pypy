@@ -39,6 +39,7 @@ ignore =
     # The following need fixing for Py3
     W601  # has_key - TODO: replace with ' in '
     W602  # raise Exc, Exc() - TODO: remove this
+    W603  # use of <> instead of !=
     W604  # backticks - TODO: replace with repr()
     W606  # async/await
     # The following are probably accidental redefns and should be removed
