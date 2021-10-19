@@ -306,8 +306,8 @@ def release(space, w_cdata):
     w_cdata.enter_exit(True)
 
 class OffsetInBytes(W_Root):
-    def __init__(self, w_bytes, offset):
-        self.w_bytes = w_bytes
+    def __init__(self, bytes_w, offset):
+        self.w_bytes = bytes_w
         self.offset = offset
 
 OffsetInBytes.typedef = TypeDef(
@@ -318,4 +318,4 @@ OffsetInBytes.typedef = TypeDef(
 def offset_in_bytes(space, w_bytes, offset):
     if not space.isinstance_w(w_bytes, space.w_bytes):
         raise oefmt(space.w_TypeError, "must be bytes, not %T", w_bytes)
-    return OffsetInBytes(w_bytes, offset)
+    return OffsetInBytes(space.bytes_w(w_bytes), offset)

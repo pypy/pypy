@@ -535,3 +535,4 @@ def test_unpack():
 def test_negative_array_size():
     ffi = _cffi1_backend.FFI()
     py.test.raises(ffi.error, ffi.cast, "int[-5]", 0)
+

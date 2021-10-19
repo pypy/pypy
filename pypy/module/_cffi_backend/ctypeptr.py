@@ -5,10 +5,11 @@ Pointers.
 import os
 
 from rpython.rlib import rposix
+from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr
 from rpython.rtyper.lltypesystem import lltype, rffi
-from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw
+from rpython.rtyper.lltypesystem.rstr import copy_string_to_raw, STR
 
 from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.module._cffi_backend import cdataobj, misc, ctypeprim, ctypevoid
@@ -356,6 +357,11 @@ class W_CTypePointer(W_CTypePtrBase):
         # the byte just before cdata[0], and returns True if something
         # must be done later to free.
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
+        from pypy.module._cffi_backend.func import OffsetInBytes
+        from rpython.rtyper.lltypesystem import llmemory
+        from rpython.rtyper.lltypesystem.rffi import offsetof, VOIDP, VOIDPP
+        from rpython.rtyper.lltypesystem.rstr import STR
+
         if isinstance(w_ob, cdataobj.W_CData):
             result = 0
         else:
@@ -367,6 +373,16 @@ class W_CTypePointer(W_CTypePtrBase):
                     self._must_be_string_of_zero_or_one(value)
                 keepalives[i] = misc.write_string_as_charp(cdata, value)
                 return True
+            if self.accept_str and isinstance(w_ob, OffsetInBytes):
+                lldata = llstr(w_ob.w_bytes)
+                addr = (llmemory.cast_ptr_to_adr(lldata) +
+                      offsetof(STR, 'chars') +
+                      llmemory.itemoffsetof(STR.chars, w_ob.offset))
+                rffi.cast(VOIDPP, cdata)[0] = rffi.cast(VOIDP, addr)
+                if not we_are_translated():
+                    keepalives[i] = lldata
+                    return 1
+                return 0
             result = self._prepare_pointer_call_argument(w_ob, cdata)
 
         if result == 0:
