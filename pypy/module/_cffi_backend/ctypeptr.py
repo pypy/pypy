@@ -4,7 +4,7 @@ Pointers.
 
 import os
 
-from rpython.rlib import rposix
+from rpython.rlib import rposix, jit
 from rpython.rlib.objectmodel import we_are_translated
 from rpython.rlib.rarithmetic import ovfcheck
 from rpython.rtyper.annlowlevel import llstr
@@ -358,9 +358,6 @@ class W_CTypePointer(W_CTypePtrBase):
         # must be done later to free.
         from pypy.module._cffi_backend.ctypefunc import set_mustfree_flag
         from pypy.module._cffi_backend.func import OffsetInBytes
-        from rpython.rtyper.lltypesystem import llmemory
-        from rpython.rtyper.lltypesystem.rffi import offsetof, VOIDP, VOIDPP
-        from rpython.rtyper.lltypesystem.rstr import STR
 
         if isinstance(w_ob, cdataobj.W_CData):
             result = 0
@@ -374,21 +371,28 @@ class W_CTypePointer(W_CTypePtrBase):
                 keepalives[i] = misc.write_string_as_charp(cdata, value)
                 return True
             if self.accept_str and isinstance(w_ob, OffsetInBytes):
-                lldata = llstr(w_ob.w_bytes)
-                addr = (llmemory.cast_ptr_to_adr(lldata) +
-                      offsetof(STR, 'chars') +
-                      llmemory.itemoffsetof(STR.chars, 0) + llmemory.sizeof(lltype.Char) * w_ob.offset)
-                rffi.cast(VOIDPP, cdata)[0] = rffi.cast(VOIDP, addr)
-                if not we_are_translated():
-                    keepalives[i] = lldata
-                    return 1
-                return 0
+                return self.accept_str_from_offset_in_bytes(cdata, w_ob, keepalives, i)
             result = self._prepare_pointer_call_argument(w_ob, cdata)
 
         if result == 0:
             self.convert_from_object(cdata, w_ob)
         set_mustfree_flag(cdata, result)
         return result == 1      # 0 or 2 => False, nothing to do later
+
+    @jit.dont_look_inside
+    def accept_str_from_offset_in_bytes(self, cdata, w_ob, keepalives, i):
+        from rpython.rtyper.lltypesystem import llmemory
+        from rpython.rtyper.lltypesystem.rffi import offsetof, VOIDP, VOIDPP
+
+        lldata = llstr(w_ob.w_bytes)
+        addr = (llmemory.cast_ptr_to_adr(lldata) +
+              offsetof(STR, 'chars') +
+              llmemory.itemoffsetof(STR.chars, 0) + llmemory.sizeof(lltype.Char) * w_ob.offset)
+        rffi.cast(VOIDPP, cdata)[0] = rffi.cast(VOIDP, addr)
+        if not we_are_translated():
+            keepalives[i] = lldata
+            return 1
+        return 0
 
     def getcfield(self, attr):
         from pypy.module._cffi_backend.ctypestruct import W_CTypeStructOrUnion
