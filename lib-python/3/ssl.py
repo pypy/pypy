@@ -1045,7 +1045,7 @@ class SSLSocket(socket):
             #with memoryview(data) as view, view.cast("B") as byte_view:
             amount = len(data)
             while count < amount:
-                v = self.send(_offset_in_bytes(data, count), amount - count)
+                v = self._send(_offset_in_bytes(data, count), amount - count)
                 count += v
         else:
             return super().sendall(data, flags)
