@@ -377,7 +377,7 @@ class W_CTypePointer(W_CTypePtrBase):
                 lldata = llstr(w_ob.w_bytes)
                 addr = (llmemory.cast_ptr_to_adr(lldata) +
                       offsetof(STR, 'chars') +
-                      llmemory.itemoffsetof(STR.chars, w_ob.offset))
+                      llmemory.itemoffsetof(STR.chars, 0) + llmemory.sizeof(lltype.Char) * w_ob.offset)
                 rffi.cast(VOIDPP, cdata)[0] = rffi.cast(VOIDP, addr)
                 if not we_are_translated():
                     keepalives[i] = lldata
