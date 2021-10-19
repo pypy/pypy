@@ -84,7 +84,7 @@ class GILTests(test_rthread.AbstractGCTestClass):
                 debug_print(len(state.data))
                 if not still_waiting:
                     llop.debug_print(lltype.Void, "timeout. progress: "
-                                     "%d of 2*N (= %f%%)" % \
+                                     "%d of %d (= %f%%)" % \
                                      (len(state.data), 2*N, 100*len(state.data)/(2.0*N)))
                     raise ValueError("time out")
                 still_waiting -= 1
