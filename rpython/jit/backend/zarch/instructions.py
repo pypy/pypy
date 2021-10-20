@@ -101,12 +101,6 @@ logic_mnemonic_codes = {
     'OI':         ('si',       ['\x96']),
     'OIY':        ('siy',      ['\xEB','\x56']),
 
-    # OR immediate
-    'OIHH':       ('ri_u',     ['\xA5', '\x08']),
-    'OIHL':       ('ri_u',     ['\xA5', '\x09']),
-    'OILH':       ('ri_u',     ['\xA5', '\x0A']),
-    'OILL':       ('ri_u',     ['\xA5', '\x0B']),
-
     # XOR operations
     'XGR':        ('rre',      ['\xB9','\x82']),
     'XG':         ('rxy',      ['\xE3','\x82']),
@@ -244,7 +238,7 @@ floatingpoint_mnemonic_codes = {
     'DDBR':    ('rre',   ['\xB3','\x1D']),
     'DEB':     ('rxe',   ['\xED','\x0D'], 'r,bidl,-'),
     'DDB':     ('rxe',   ['\xED','\x1D'], 'r,bidl,-'),
-    
+
     # DIVIDE (+mod)
     'DIEBR':     ('rrf_b',   ['\xB3','\x53'], 'r,r,r,m'),
     'DIDBR':     ('rrf_b',   ['\xB3','\x5B'], 'r,r,r,m'),
