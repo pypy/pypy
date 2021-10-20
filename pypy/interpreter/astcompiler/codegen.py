@@ -706,8 +706,6 @@ class PythonCodeGenerator(assemble.PythonCodeMaker):
         fr.iter.walkabout(self)
         self.emit_op(ops.GET_ITER)
         self.use_next_block(start)
-        # This adds another line, so each for iteration can be traced.
-        self.lineno_set = False
         self.emit_jump(ops.FOR_ITER, cleanup)
         fr.target.walkabout(self)
         self.visit_sequence(fr.body)
