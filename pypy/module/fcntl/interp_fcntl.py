@@ -4,6 +4,9 @@ from pypy.interpreter.error import OperationError, oefmt, wrap_oserror
 from pypy.interpreter.gateway import unwrap_spec, WrappedDefault
 from rpython.rlib import rposix
 from rpython.translator.tool.cbuild import ExternalCompilationInfo
+from rpython.rlib.rbigint import rbigint
+from rpython.rlib.rarithmetic import UINT_MAX
+
 import sys
 
 class CConfig:
@@ -191,14 +194,39 @@ def lockf(space, w_fd, op, length=0, start=0, whence=0):
     finally:
         lltype.free(l, flavor='raw')
 
-@unwrap_spec(op=int, mutate_flag=int, w_arg=WrappedDefault(0))
-def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
-    """ioctl(fd, opt[, arg[, mutate_flag]])
+@unwrap_spec(mutate_flag=int, w_arg=WrappedDefault(0))
+def ioctl(space, w_fd, w_request, w_arg, mutate_flag=-1):
+    """ioctl(fd, op[, arg[, mutate_flag]])
 
-    Perform the requested operation on file descriptor fd.  The operation is
-    defined by opt and is operating system dependent.  Typically these codes
-    are retrieved from the fcntl or termios library modules.
-    """
+    Perform the operation op on file descriptor fd.  The values used for op
+    are operating system dependent, and are available as constants in the
+    fcntl or termios library modules, using the same names as used in the
+    relevant C header files.
+
+    The argument arg is optional, and defaults to 0; it may be an int or a
+    buffer containing character data (most likely a string or an array).
+
+    If the argument is a mutable buffer (such as an array) and if the
+    mutate_flag argument (which is only allowed in this case) is true then the
+    buffer is (in effect) passed to the operating system and changes made by
+    the OS will be reflected in the contents of the buffer after the call has
+    returned.  The return value is the integer returned by the ioctl system
+    call.
+
+    If the argument is a mutable buffer and the mutable_flag argument is not
+    passed or is false, the behavior is as if a string had been passed.  This
+    behavior will change in future releases of Python.
+
+    If the argument is an immutable buffer (most likely a string) then a copy
+    of the buffer is passed to the operating system and the return value is a
+    string of the same length containing whatever the operating system put in
+    the buffer.  The length of the arg buffer in this case is not allowed to
+    exceed 1024 bytes.
+
+    If the arg given is an integer or if none is specified, the result value is
+    an integer corresponding to the return value of the ioctl call in the C
+    code."""
+
     # removed the largish docstring because it is not in sync with the
     # documentation any more (even in CPython's docstring is out of date)
 
@@ -207,8 +235,8 @@ def ioctl(space, w_fd, op, w_arg, mutate_flag=-1):
     IOCTL_BUFSZ = 1024 # like cpython
 
     fd = space.c_filedescriptor_w(w_fd)
-    op = rffi.cast(rffi.INT, op)        # C long => C int
-
+    op = space.bigint_w(w_request).uintmask() # CPython uses PyLong_AsUnsignedLongMask
+    op = rffi.cast(rffi.UINT, op)
     try:
         rwbuffer = space.writebuf_w(w_arg)
     except OperationError as e:

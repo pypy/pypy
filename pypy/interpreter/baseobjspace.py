@@ -1885,7 +1885,7 @@ class ObjSpace(object):
         return value
 
     def c_uint_w(self, w_obj):
-        # Like space.gateway_uint_w(), but raises an app-level OverflowError if
+        # Like space.gateway_r_uint_w(), but raises an app-level OverflowError if
         # the integer does not fit in 32 bits.  Here for gateway.py.
         value = self.uint_w(w_obj)
         if value > UINT_MAX:
