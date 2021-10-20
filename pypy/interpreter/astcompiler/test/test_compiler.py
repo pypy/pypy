@@ -1940,23 +1940,6 @@ x = [lineno for addr, lineno in linestarts]
         self.error_test("if 0:\n if 0:\n  [x async for x in b]", SyntaxError)
         self.error_test("[(i, j) for i in range(5) for j in range(5) if True or (i:=10)]", SyntaxError)
 
-    def test_bug_lnotab(self):
-        func = """
-def buggy_lnotab():
-    for i in x:
-
-
-
-
-
-
-
-        1
-x = [c for c in buggy_lnotab.__code__.co_lnotab]
-"""
-        self.st(func, "x", [0, 1, 8, 8])
-
-
 class TestDeadCodeGetsRemoved(TestCompiler):
     # check that there is no code emitted when putting all kinds of code into an "if 0:" block
     def simple_test(self, source, evalexpr, expected):
