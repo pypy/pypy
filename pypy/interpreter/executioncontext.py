@@ -178,12 +178,8 @@ class ExecutionContext(object):
     def run_trace_func(self, frame):
         code = frame.pycode
         d = frame.getorcreatedebug()
-        if d.instr_lb <= frame.last_instr < d.instr_ub:
-            if frame.last_instr < d.instr_prev_plus_one:
-                # We jumped backwards in the same line.
-                if d.f_trace_lines:
-                    self._trace(frame, 'line', self.space.w_None)
-        else:
+        line = d.f_lineno
+        if not (d.instr_lb <= frame.last_instr < d.instr_ub):
             size = len(code.co_lnotab) / 2
             addr = 0
             line = code.co_firstlineno
@@ -216,10 +212,12 @@ class ExecutionContext(object):
             else:
                 d.instr_ub = sys.maxint
 
-            if d.instr_lb == frame.last_instr: # At start of line!
-                d.f_lineno = line
-                if d.f_trace_lines:
-                    self._trace(frame, 'line', self.space.w_None)
+        # when we are at a start of a line, or executing a backwards jump,
+        # produce a line event
+        if d.instr_lb == frame.last_instr or frame.last_instr < d.instr_prev_plus_one:
+            d.f_lineno = line
+            if d.f_trace_lines:
+                self._trace(frame, 'line', self.space.w_None)
         if d.f_trace_opcodes:
             self._trace(frame, 'opcode', self.space.w_None)
 
