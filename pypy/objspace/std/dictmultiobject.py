@@ -305,6 +305,11 @@ class W_DictMultiObject(W_Root):
             strategy.switch_to_object_strategy(self)
         return object_strategy
 
+    def descr_or(self, space, w_other):
+        copyself = self.copy()
+        update1(space, copyself, w_other)
+        return copyself
+
 
 class W_DictObject(W_DictMultiObject):
     """ a regular dict object """
@@ -428,6 +433,8 @@ dict(**kwargs) -> new dictionary initialized with the name=value pairs
     __getitem__ = interp2app(W_DictMultiObject.descr_getitem),
     __setitem__ = interp2app(W_DictMultiObject.descr_setitem),
     __delitem__ = interp2app(W_DictMultiObject.descr_delitem),
+
+    __or__ = interp2app(W_DictMultiObject.descr_or),
 
     copy = interp2app(W_DictMultiObject.descr_copy),
     items = interp2app(W_DictMultiObject.descr_items),
