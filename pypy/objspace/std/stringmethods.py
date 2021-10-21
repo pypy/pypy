@@ -820,6 +820,19 @@ class StringMethods(object):
     def descr_getnewargs(self, space):
         return space.newtuple([self._new(self._val(space))])
 
+    def descr_removeprefix(self, space, w_prefix):
+        prefix = self._op_val(space, w_prefix)
+        selfval = self._val(space)
+        if startswith(selfval, prefix):
+            return self._new(selfval[len(prefix):])
+        return self._new(selfval)
+
+    def descr_removesuffix(self, space, w_suffix):
+        suffix = self._op_val(space, w_suffix)
+        selfval = self._val(space)
+        if endswith(selfval, suffix):
+            return self._new(selfval[:len(suffix) - 1])
+        return self._new(selfval)
 
 # ____________________________________________________________
 # helpers for slow paths, moved out because they contain loops

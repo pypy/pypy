@@ -1102,3 +1102,11 @@ class AppTestBytesObject:
         if hasattr(bytes.upper, 'im_func'):
             e = raises(TypeError, bytes.upper.im_func, 42)
             assert "'bytes'" in str(e.value)
+
+    def test_removeprefix(self):
+        assert b'abc'.removeprefix(b'x') == b'abc'
+        assert b'abc'.removeprefix(b'ab') == b'c'
+
+    def test_removesuffix(self):
+        assert b'abc'.removesuffix(b'x') == b'abc'
+        assert b'abc'.removesuffix(b'bc') == b'a'
