@@ -615,14 +615,7 @@ class ASTBuilder(object):
                     for i in range(decorators_node.num_children())]
 
     def handle_decorator(self, decorator_node):
-        dec_name = self.handle_dotted_name(decorator_node.get_child(1))
-        if decorator_node.num_children() == 3:
-            dec = dec_name
-        elif decorator_node.num_children() == 5:
-            dec = build(ast.Call, dec_name, None, None, decorator_node)
-        else:
-            dec = self.handle_call(decorator_node.get_child(3), dec_name)
-        return dec
+        return self.handle_expr(decorator_node.get_child(1))
 
     def handle_dotted_name(self, dotted_name_node):
         base_value = self.new_identifier(dotted_name_node.get_child(0).get_value())

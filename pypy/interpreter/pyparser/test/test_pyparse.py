@@ -388,6 +388,9 @@ if 1:
         tree = self.parse("45 * a", "eval").get_child(0)
         assert tree.get_end_column() == 6
 
+    def test_relaxed_decorators(self):
+        self.parse("@(1 + 2)\ndef f(x): pass") # does not crash
+
 
 
 class TestPythonParserWithSpace:
