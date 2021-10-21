@@ -1127,6 +1127,20 @@ class BytearrayDocstrings:
         for each byte in the instance B.
         """
 
+    def removeprefix():
+        """Return a bytearray with the given prefix string removed if present.
+
+        If the bytearray starts with the prefix string, return
+        bytearray[len(prefix):].  Otherwise, return a copy of the original
+        bytearray."""
+
+    def removesuffix():
+        """Return a bytearray with the given suffix string removed if present.
+
+        If the bytearray ends with the suffix string and that suffix is not
+        empty, return bytearray[:-len(suffix)].  Otherwise, return a copy of
+        the original bytearray."""
+
 
 W_BytearrayObject.typedef = TypeDef(
     "bytearray", None, None, "read-write",
@@ -1286,6 +1300,12 @@ W_BytearrayObject.typedef = TypeDef(
                            doc=BytearrayDocstrings.hex.__doc__),
     __alloc__ = interp2app(W_BytearrayObject.descr_alloc,
                            doc=BytearrayDocstrings.__alloc__.__doc__),
+
+    removeprefix = interp2app(W_BytearrayObject.descr_removeprefix,
+                              doc=BytearrayDocstrings.removeprefix.__doc__),
+
+    removesuffix = interp2app(W_BytearrayObject.descr_removesuffix,
+                              doc=BytearrayDocstrings.removesuffix.__doc__),
 )
 W_BytearrayObject.typedef.flag_sequence_bug_compat = True
 

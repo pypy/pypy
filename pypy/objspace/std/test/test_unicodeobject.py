@@ -1354,3 +1354,11 @@ class AppTestUnicodeString:
     def test_replace_no_occurrence(self):
         x = u"xyz"
         assert x.replace(u"a", u"b") is x
+
+    def test_removeprefix(self):
+        assert u'abc'.removeprefix(u'x') == u'abc'
+        assert u'abc'.removeprefix(u'ab') == u'c'
+
+    def test_removesuffix(self):
+        assert u'abc'.removesuffix(u'x') == u'abc'
+        assert u'abc'.removesuffix(u'bc') == u'a'

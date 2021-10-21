@@ -1422,6 +1422,26 @@ class W_UnicodeObject(W_Root):
         assert isinstance(self, W_UnicodeObject)
         return self._getitem_result(space, index)
 
+    def descr_removeprefix(self, space, w_prefix):
+        w_prefix = self.convert_arg_to_w_unicode(space, w_prefix)
+        prefix = w_prefix._utf8
+        selfval = self._utf8
+        if startswith(selfval, prefix):
+            return W_UnicodeObject(selfval[len(prefix):], self._length - w_prefix._length)
+        if type(self) is W_UnicodeObject:
+            return self
+        return W_UnicodeObject(selfval, self._length)
+
+    def descr_removesuffix(self, space, w_suffix):
+        w_suffix = self.convert_arg_to_w_unicode(space, w_suffix)
+        suffix = w_suffix._utf8
+        selfval = self._utf8
+        if endswith(selfval, suffix):
+            return W_UnicodeObject(selfval[:len(suffix) - 1], self._length - w_suffix._length)
+        if type(self) is W_UnicodeObject:
+            return self
+        return W_UnicodeObject(selfval, self._length)
+
 
 def _isidentifier(u):
     if not u:
@@ -2139,6 +2159,9 @@ W_UnicodeObject.typedef = TypeDef(
     maketrans = interp2app(W_UnicodeObject.descr_maketrans,
                            as_classmethod=True,
                            doc=UnicodeDocstrings.maketrans.__doc__),
+
+    removeprefix = interp2app(W_UnicodeObject.descr_removeprefix),
+    removesuffix = interp2app(W_UnicodeObject.descr_removesuffix),
 )
 W_UnicodeObject.typedef.flag_sequence_bug_compat = True
 

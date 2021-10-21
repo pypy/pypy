@@ -780,3 +780,11 @@ class AppTestBytesArray:
         class subclass(bytearray):
             pass
         assert repr(subclass(b'test')) == "subclass(b'test')"
+
+    def test_removeprefix(self):
+        assert bytearray(b'abc').removeprefix(b'x') == bytearray(b'abc')
+        assert bytearray(b'abc').removeprefix(b'ab') == bytearray(b'c')
+
+    def test_removesuffix(self):
+        assert bytearray(b'abc').removesuffix(b'x') == bytearray(b'abc')
+        assert bytearray(b'abc').removesuffix(b'bc') == bytearray(b'a')
